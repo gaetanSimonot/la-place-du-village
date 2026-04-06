@@ -61,6 +61,21 @@ export async function POST(req: NextRequest) {
 
     const extracted = await extractWithClaude(text || null, image, imageMimeType)
 
+    // Déduplication : même titre (insensible casse) + même date → doublon
+    if (extracted.titre && extracted.date_debut) {
+      const { data: existing } = await supabase
+        .from('evenements')
+        .select('id')
+        .ilike('titre', extracted.titre)
+        .eq('date_debut', extracted.date_debut)
+        .limit(1)
+        .maybeSingle()
+
+      if (existing) {
+        return NextResponse.json({ success: false, duplicate: true, id: existing.id })
+      }
+    }
+
     let lieuId: string | null = null
     let geo = { place_id_google: null as string | null, lat: null as number | null, lng: null as number | null, adresse: null as string | null, approx: false }
 

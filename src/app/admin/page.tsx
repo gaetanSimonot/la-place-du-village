@@ -13,6 +13,8 @@ export default function AdminPage() {
   const [evenements, setEvenements] = useState<Evenement[]>([])
   const [loading, setLoading] = useState(true)
   const [actionId, setActionId] = useState<string | null>(null)
+  const [selection, setSelection] = useState<Set<string>>(new Set())
+  const [bulkLoading, setBulkLoading] = useState(false)
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
@@ -25,6 +27,9 @@ export default function AdminPage() {
   }, [])
 
   useEffect(() => { fetchAll() }, [fetchAll])
+
+  // Vider la sélection quand on change d'onglet
+  useEffect(() => { setSelection(new Set()) }, [onglet])
 
   const setStatut = async (id: string, statut: string) => {
     setActionId(id)
@@ -43,6 +48,25 @@ export default function AdminPage() {
     await fetch(`/api/admin/evenements/${id}`, { method: 'DELETE' })
     await fetchAll()
     setActionId(null)
+  }
+
+  const supprimerSelection = async () => {
+    if (!confirm(`Supprimer ${selection.size} événement(s) ?`)) return
+    setBulkLoading(true)
+    await Promise.all([...selection].map(id =>
+      fetch(`/api/admin/evenements/${id}`, { method: 'DELETE' })
+    ))
+    setSelection(new Set())
+    await fetchAll()
+    setBulkLoading(false)
+  }
+
+  const toggleSelect = (id: string) => {
+    setSelection(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
   }
 
   // Filtrage par onglet
@@ -66,8 +90,18 @@ export default function AdminPage() {
     rejete: evenements.filter(e => e.statut === 'rejete').length,
   }
 
+  const allSelected = sorted.length > 0 && sorted.every(e => selection.has(e.id))
+
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelection(new Set())
+    } else {
+      setSelection(new Set(sorted.map(e => e.id)))
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-[#FBF7F0]">
+    <div className="min-h-screen bg-[#FBF7F0] pb-24">
       {/* Header */}
       <div className="bg-[#2C1810] text-white px-4 py-4 flex items-center gap-3">
         <Link href="/" className="text-[#C4622D] text-xl font-bold">←</Link>
@@ -99,6 +133,26 @@ export default function AdminPage() {
         ))}
       </div>
 
+      {/* Barre "Tout sélectionner" */}
+      {!loading && sorted.length > 0 && (
+        <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-[#E8E0D5]">
+          <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600 select-none">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={toggleAll}
+              className="w-4 h-4 accent-[#C4622D] cursor-pointer"
+            />
+            {allSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
+          </label>
+          {selection.size > 0 && (
+            <span className="text-xs text-[#C4622D] font-semibold">
+              {selection.size} sélectionné{selection.size > 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Liste */}
       <div className="p-3 space-y-3">
         {loading ? (
@@ -111,12 +165,13 @@ export default function AdminPage() {
           const cat = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
           const approx = isApproxLocation(evt.lieux)
           const isLoading = actionId === evt.id
+          const isSelected = selection.has(evt.id)
 
           return (
             <div
               key={evt.id}
-              className={`bg-white rounded-2xl p-4 border-2 ${
-                approx ? 'border-orange-200' : 'border-transparent'
+              className={`bg-white rounded-2xl p-4 border-2 transition-colors ${
+                isSelected ? 'border-[#C4622D]' : approx ? 'border-orange-200' : 'border-transparent'
               } shadow-sm`}
             >
               {approx && (
@@ -125,8 +180,14 @@ export default function AdminPage() {
                 </div>
               )}
 
-              {/* Titre + badge */}
+              {/* Titre + badge + checkbox */}
               <div className="flex items-start gap-2 mb-1">
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => toggleSelect(evt.id)}
+                  className="w-4 h-4 accent-[#C4622D] cursor-pointer mt-1 shrink-0"
+                />
                 <span
                   className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full text-white mt-0.5"
                   style={{ backgroundColor: cat.color }}
@@ -191,6 +252,28 @@ export default function AdminPage() {
           )
         })}
       </div>
+
+      {/* Barre d'action flottante */}
+      {selection.size > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 bg-[#2C1810] px-4 py-3 flex items-center gap-3 shadow-2xl">
+          <span className="text-white text-sm font-semibold flex-1">
+            {selection.size} événement{selection.size > 1 ? 's' : ''} sélectionné{selection.size > 1 ? 's' : ''}
+          </span>
+          <button
+            onClick={() => setSelection(new Set())}
+            className="text-gray-400 text-sm px-3 py-2 rounded-lg"
+          >
+            Annuler
+          </button>
+          <button
+            onClick={supprimerSelection}
+            disabled={bulkLoading}
+            className="bg-red-500 text-white text-sm font-bold px-4 py-2 rounded-lg disabled:opacity-50"
+          >
+            {bulkLoading ? '...' : `Supprimer (${selection.size})`}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
