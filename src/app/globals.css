@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --fond: #FBF7F0;
+  --primaire: #C4622D;
+  --texte: #2C1810;
+  --bord: #E8E0D5;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+body {
+  background-color: var(--fond);
+  color: var(--texte);
+}
