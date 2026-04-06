@@ -1,21 +1,23 @@
 # La Place du Village — CONTEXT.md
 
-## Ce qui a été construit
+Dernière mise à jour : 7 avril 2026
 
 Application web PWA locale recensant les événements dans un rayon de 30km
 autour de Ganges (Hérault, 34). Premier module d'une plateforme plus large.
 Tout est public et gratuit — authentification prévue mais non activée.
+
+**Statut : déployé en production** → https://la-place-du-village.vercel.app
 
 ---
 
 ## Stack technique
 
 - **Next.js 14** (App Router, TypeScript, Tailwind CSS)
-- **Supabase** (PostgreSQL) — hébergement base de données
+- **Supabase** (PostgreSQL) — base de données
 - **Google Maps JavaScript API** — carte publique (clé navigateur avec restriction referrer)
-- **Google Places API** — géocodage serveur (clé sans restriction, appels server-side uniquement)
-- **API Claude** (claude-sonnet-4-20250514) — extraction IA des événements
-- **Vercel** — déploiement (https://la-place-du-village.vercel.app)
+- **Google Places API** (`textsearch`)— géocodage serveur (clé sans restriction)
+- **API Claude** (claude-sonnet-4-20250514) — extraction structurée des événements
+- **Vercel** — déploiement continu depuis GitHub (branche `main`)
 
 ---
 
@@ -23,34 +25,39 @@ Tout est public et gratuit — authentification prévue mais non activée.
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=          # URL du projet Supabase
-NEXT_PUBLIC_SUPABASE_ANON_KEY=     # Clé publique Supabase
-NEXT_PUBLIC_GOOGLE_MAPS_KEY=       # Clé Maps JS (restriction HTTP referrer : localhost + vercel)
-GOOGLE_PLACES_KEY=                 # Clé Places API (sans restriction — server-side uniquement)
-ANTHROPIC_API_KEY=                 # Clé API Claude
+NEXT_PUBLIC_SUPABASE_ANON_KEY=     # Clé publique Supabase (sb_publishable_...)
+NEXT_PUBLIC_GOOGLE_MAPS_KEY=       # Clé Maps JS — restriction HTTP referrer localhost + vercel
+GOOGLE_PLACES_KEY=                 # Clé Places API — SANS restriction referrer (server-side)
+ANTHROPIC_API_KEY=                 # Clé API Claude (sk-ant-api03-...)
 ```
 
-> ⚠️ Deux clés Google distinctes obligatoires : la clé navigateur ne fonctionne pas
-> pour les appels serveur (REQUEST_DENIED). La clé Places doit être sans restriction
-> de referrer.
+> ⚠️ Deux clés Google OBLIGATOIREMENT distinctes.
+> La clé navigateur renvoie REQUEST_DENIED sur les appels serveur.
+> `GOOGLE_PLACES_KEY` ne doit jamais être exposée côté client.
 
 ---
 
 ## Base de données (Supabase)
 
+Projet : `pboaaykucqbmxryyxslz.supabase.co`
+Script de création : `supabase/schema.sql`
+
 ### Table `lieux`
 | Colonne | Type | Notes |
 |---|---|---|
-| id | UUID | PK |
+| id | UUID | PK, gen_random_uuid() |
 | nom | TEXT | Nom du lieu |
-| adresse | TEXT | Adresse formatée Google |
+| adresse | TEXT | Adresse formatée retournée par Google Places |
 | lat / lng | DOUBLE PRECISION | Coordonnées GPS |
-| place_id_google | TEXT | NULL si localisation approximative |
+| place_id_google | TEXT | NULL = localisation approximative |
 | commune | TEXT | |
 | code_postal | TEXT | |
 | created_at | TIMESTAMPTZ | |
 
 **Convention localisation approximative :**
-`place_id_google IS NULL AND lat IS NOT NULL` → coords approx (centre commune + offset ±0.002°)
+`place_id_google IS NULL AND lat IS NOT NULL`
+→ coords approx = centre commune géocodé + offset aléatoire ±0.002°
+→ détectée via `isApproxLocation(lieu)` dans `src/lib/types.ts`
 
 ### Table `evenements`
 | Colonne | Type | Notes |
@@ -61,114 +68,228 @@ ANTHROPIC_API_KEY=                 # Clé API Claude
 | date_debut / date_fin | DATE | |
 | heure | TIME | |
 | categorie | TEXT | concert/theatre/sport/marche/atelier/fete/autre |
-| statut | TEXT | publie/en_attente/rejete |
-| lieu_id | UUID | FK → lieux |
+| statut | TEXT | publie / en_attente / rejete |
+| lieu_id | UUID | FK → lieux (ON DELETE SET NULL) |
 | prix / contact / organisateurs | TEXT | |
 | image_url | TEXT | |
-| source | TEXT | whatsapp/formulaire/admin |
-| score_confiance | NUMERIC | Colonne existante, non utilisée (remplacée par logique binaire) |
+| source | TEXT | whatsapp / formulaire / admin |
+| score_confiance | NUMERIC | Colonne conservée mais non utilisée — remplacée par logique binaire |
 | created_at | TIMESTAMPTZ | |
 
 ---
 
-## Structure des fichiers importants
+## Structure complète des fichiers
 
 ```
-src/
-├── lib/
-│   ├── supabase.ts          # Client Supabase
-│   ├── types.ts             # Types TypeScript + isApproxLocation()
-│   ├── categories.ts        # Couleurs et emojis par catégorie
-│   ├── filters.ts           # Calcul plages de dates + formatDate()
-│   └── extract.ts           # Pipeline IA : extractWithClaude(), geocodeWithGoogle(), calcStatut()
+la-place-du-village/
+├── BRIEF.md                          # Cahier des charges initial
+├── CONTEXT.md                        # Ce fichier
+├── vercel.json                       # Config déploiement Vercel (framework: nextjs)
+├── package.json                      # name: la-place-du-village, next@14.2.35
+├── killport.bat                      # Script Windows : tue tous les node.exe
+├── supabase/
+│   └── schema.sql                    # Création tables lieux + evenements + index
 │
-├── app/
-│   ├── page.tsx             # Page principale (carte + liste + filtres)
-│   ├── ajouter/page.tsx     # Formulaire soumission public (2 étapes : saisie → preview)
-│   ├── evenement/[id]/      # Fiche détail événement
-│   ├── admin/
-│   │   ├── page.tsx         # Back-office liste (onglets : à traiter / publiés / rejetés)
-│   │   └── evenement/[id]/  # Éditeur admin (IA, autocomplete lieu, aperçu avant publication)
-│   └── api/
-│       ├── extract/         # POST — pipeline complet (Claude + Places + insert DB)
-│       ├── extract/preview/ # POST — extraction seule sans insert (pour formulaire)
-│       ├── evenements/      # POST — insert événement depuis formulaire public
-│       └── admin/
-│           ├── evenements/[id]/  # PATCH + DELETE
-│           ├── geocode/          # GET — géocodage Places (utilisé par éditeur admin)
-│           └── autocomplete/     # GET — suggestions Places (champ lieu admin)
-│
-└── components/
-    ├── MapView.tsx          # Google Maps + marqueurs colorés par catégorie + clustering
-    ├── ListView.tsx         # Liste scrollable avec scroll auto vers sélection
-    ├── EventCard.tsx        # Fiche compacte (badge catégorie, date, lieu, prix, badge approx)
-    └── FilterBar.tsx        # Filtres "Que faire" + "Quand" avec modales
+└── src/
+    ├── lib/
+    │   ├── supabase.ts               # createClient() exporté
+    │   ├── types.ts                  # Evenement, Lieu, Categorie, FiltreQuand, Filtres
+    │   │                             # + isApproxLocation(lieu) helper
+    │   ├── categories.ts             # CATEGORIES: label, emoji, color par catégorie
+    │   ├── filters.ts                # getDateRange(quand), formatDate(date, style)
+    │   └── extract.ts                # Tout le pipeline IA :
+    │                                 #   extractWithClaude(text, image?)
+    │                                 #   geocodeWithGoogle(lieuNom, commune)
+    │                                 #   calcStatut(params) → publie/en_attente/rejete
+    │                                 #   types ExtractedData, GeoResult, Statut
+    │
+    ├── app/
+    │   ├── layout.tsx                # PWA meta, Inter font, viewport, manifest
+    │   ├── globals.css               # Variables CSS couleurs + reset minimal
+    │   ├── page.tsx                  # Page principale (client)
+    │   │                             # State: activeTab, selectedId, filtres, evenements
+    │   │                             # MapView (dynamic, ssr:false) + ListView + FilterBar
+    │   │                             # FAB "+" → /ajouter
+    │   │
+    │   ├── ajouter/
+    │   │   └── page.tsx              # Formulaire public 3 étapes :
+    │   │                             #   'input' → textarea + photo
+    │   │                             #   'preview' → form éditable pré-rempli par IA
+    │   │                             #   'success' → confirmation
+    │   │
+    │   ├── evenement/[id]/
+    │   │   └── page.tsx              # Fiche détail (server component)
+    │   │                             # Badge catégorie, date, heure, lieu, prix,
+    │   │                             # description, contact, bouton "Y aller" Maps
+    │   │                             # Badge "localisation approximative" si approx
+    │   │
+    │   ├── admin/
+    │   │   ├── page.tsx              # Back-office (client)
+    │   │   │                         # 3 onglets : À traiter / Publiés / Rejetés
+    │   │   │                         # Tri : approx en premier dans "À traiter"
+    │   │   │                         # Actions inline : Publier / Dépublier / Rejeter / Éditer / Supprimer
+    │   │   └── evenement/[id]/
+    │   │       └── page.tsx          # Éditeur admin (client)
+    │   │                             # - Bloc IA : complétion par texte libre
+    │   │                             #   (combine contexte existant + nouveau texte)
+    │   │                             # - Autocomplete lieu (LieuAutocomplete component)
+    │   │                             # - Recherche Google Places + coords auto
+    │   │                             # - Sélecteur statut
+    │   │                             # - Bouton "Aperçu →" → overlay fiche complète
+    │   │                             # - "Confirmer et publier" force statut: publie
+    │   │
+    │   └── api/
+    │       ├── extract/
+    │       │   └── route.ts          # POST {text, image?, source}
+    │       │                         # Pipeline complet → insert DB → retourne {evenement, statut}
+    │       ├── extract/preview/
+    │       │   └── route.ts          # POST {text, image?}
+    │       │                         # Extraction + géocodage SANS insert → retourne {extracted, geo}
+    │       ├── evenements/
+    │       │   └── route.ts          # POST formulaire public → insert DB
+    │       │                         # Géocode lieu/commune, calcStatut, insert lieux + evenements
+    │       └── admin/
+    │           ├── evenements/[id]/
+    │           │   └── route.ts      # PATCH (update event + lieu)
+    │           │                     # DELETE (supprime event + lieu si plus utilisé)
+    │           ├── geocode/
+    │           │   └── route.ts      # GET ?q=query → Places textsearch → {lat, lng, adresse, nom}
+    │           └── autocomplete/
+    │               └── route.ts      # GET ?q=input → Places autocomplete
+    │                                 # Biaisé : location=Ganges, radius=40km, country=fr
+    │
+    ├── components/
+    │   ├── MapView.tsx               # Google Maps (APIProvider + Map + Markers)
+    │   │                             # Marqueurs SVG colorés par catégorie
+    │   │                             # Marqueur approx : cercle en tirets, symbole ~
+    │   │                             # Clustering via @googlemaps/markerclusterer
+    │   │                             # Chargé via dynamic import (ssr: false)
+    │   ├── ListView.tsx              # Liste scrollable, scroll auto vers selectedId
+    │   ├── EventCard.tsx             # Fiche compacte : badge catégorie, date, lieu,
+    │   │                             # prix, badge "approx." orange
+    │   └── FilterBar.tsx             # 2 boutons fixes en haut
+    │                                 # "Que faire" → grille catégories
+    │                                 # "Quand" → aujourd'hui/week-end/semaine/mois/toujours
+    │
+    └── public/
+        └── manifest.json             # PWA : standalone, theme #C4622D, fond #FBF7F0
 ```
 
 ---
 
-## Décisions techniques
+## Palette couleurs (esprit village du sud)
 
-### Pipeline d'extraction
-- Claude reçoit la date du jour dans son prompt → résout les dates relatives ("ce samedi", "le 15")
-- Contexte géographique dans le prompt → privilégie l'Hérault (34) pour les communes ambiguës
-- Google Places `textsearch` (pas `findplacefromtext`) — plus robuste pour les lieux locaux
-- Si lieu précis trouvé → `approx: false`, coords exactes, `place_id_google` renseigné
-- Si lieu non trouvé → essai sur la commune seule → `approx: true`, offset ±0.002° aléatoire
-- Si ni lieu ni commune → pas de coords → statut `en_attente`
+```css
+--fond:     #FBF7F0   /* crème chaud */
+--primaire: #C4622D   /* terracotta */
+--texte:    #2C1810   /* brun foncé */
+--bord:     #E8E0D5   /* beige rosé */
+```
 
-### Logique de statut (remplace le score de confiance)
-Publié automatiquement si **tous** ces champs sont présents :
-- `categorie` identifiée
-- `date_debut` précise
-- Coordonnées GPS vérifiées par Google (exactes OU approximatives)
-- `description` ≥ 10 caractères
+Catégories :
+| Catégorie | Emoji | Couleur |
+|---|---|---|
+| concert | 🎵 | #E74C3C |
+| theatre | 🎭 | #9B59B6 |
+| sport | ⚽ | #27AE60 |
+| marche | 🛒 | #F39C12 |
+| atelier | 🎨 | #3498DB |
+| fete | 🎉 | #E91E63 |
+| autre | 📌 | #95A5A6 |
 
-Rejeté si pas de date ET pas de lieu. Sinon : en attente.
+---
+
+## Décisions techniques importantes
+
+### Pipeline d'extraction IA
+- **Modèle** : `claude-sonnet-4-20250514`
+- **Date du jour** injectée dans le prompt → résout "ce samedi", "le 15", "demain"
+- **Contexte géographique** dans le prompt → "Hérault (34), région de Ganges"
+  → évite Cazilhac (Aude) vs Cazilhac (Hérault), etc.
+- **Nettoyage JSON** : Claude renvoie parfois du markdown (` ```json ``` `)
+  → `.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()` avant JSON.parse
+
+### Géocodage (geocodeWithGoogle)
+1. Essai `textsearch` avec `{lieuNom}, {commune}, France`
+   → si trouvé : `approx: false`, `place_id_google` renseigné
+2. Si non trouvé, essai `textsearch` avec `{commune}, France` seul
+   → si trouvé : `approx: true`, offset ±0.002° aléatoire, `place_id_google: null`
+3. Si toujours rien : `lat: null, lng: null` → statut `en_attente`
+
+Geocoding appelé même sans `lieu_nom` si `commune` est présente.
+
+**Pourquoi `textsearch` et pas `findplacefromtext` ?**
+`findplacefromtext` renvoyait systématiquement des candidats vides pour les petits lieux locaux (Halles de Ganges, salles des fêtes). `textsearch` fonctionne comme une vraie recherche Google Maps.
+
+### Logique de statut (remplace score_confiance)
+```
+Publié   : categorie + date_debut + coords GPS + description ≥ 10 chars
+Rejeté   : pas de date ET pas de lieu
+En attente : tout le reste
+```
+Le score numérique (0-1) existe encore en base mais n'est plus calculé.
 
 ### Localisation approximative
 Convention : `place_id_google IS NULL AND lat IS NOT NULL`
-- Marqueur carte : cercle en tirets, couleur catégorie, symbole `~`
-- Badge "approx." orange sur la fiche et la page détail
-- Admin : onglet "À traiter" met ces événements en priorité
+- Détection : `isApproxLocation(lieu)` dans `types.ts`
+- Carte : marqueur SVG en tirets, symbole `~`, opacité 0.75
+- Fiche : badge orange "localisation approximative"
+- Admin : onglet "À traiter" → ces événements apparaissent en premier
 
-### Back-office
-- Route `/admin` non protégée (auth prévue plus tard)
-- Éditeur avec : complétion IA sur texte libre, autocomplete Google Places biaisé Hérault, aperçu fiche complète avant confirmation
-- "Confirmer et publier" force `statut: publie` (évite les erreurs)
+### Back-office admin
+- `/admin` non protégé (auth à faire)
+- Complétion IA : combine le contexte existant + nouveau texte → ne met à jour que les champs où Claude trouve quelque chose de nouveau
+- Autocomplete lieu : proxy `Places Autocomplete API`, biaisé 40km autour de Ganges
+- Flow validation : Éditer → Aperçu (fiche complète) → "Confirmer et publier"
+  Le bouton Confirmer passe `statutOverride: 'publie'` directement à `sauvegarder()`
+  pour éviter le bug React de state asynchrone
 
-### Clés API Google
-- `NEXT_PUBLIC_GOOGLE_MAPS_KEY` : clé navigateur avec restriction HTTP referrer
-- `GOOGLE_PLACES_KEY` : clé serveur sans restriction, jamais exposée au client
+### Deux clés Google
+- `NEXT_PUBLIC_GOOGLE_MAPS_KEY` : clé avec restriction HTTP referrer (localhost + vercel.app)
+  → Maps JS API dans le navigateur uniquement
+- `GOOGLE_PLACES_KEY` : clé sans restriction
+  → Tous les appels serveur (textsearch, autocomplete, geocode)
+  → **Ne jamais utiliser côté client**
+
+### Déploiement
+- `vercel.json` créé pour forcer `framework: nextjs` (sans ça → 404)
+- `package.json` : `name` corrigé de `nextjs-temp` à `la-place-du-village`
+- Variables d'env configurées sur Vercel dashboard
+- Déploiement automatique à chaque push sur `main`
 
 ---
 
 ## Ce qui reste à faire
 
-### Priorité 1 — Scrapper WhatsApp
-- Recevoir des messages/images depuis WhatsApp (via Twilio ou WhatsApp Business API)
-- Les router vers `POST /api/extract` avec `source: 'whatsapp'`
-- Gérer les images en base64
+### Priorité 1 — Intégration WhatsApp
+- Recevoir messages/images via **Twilio** ou **WhatsApp Business API**
+- Webhook → `POST /api/extract` avec `source: 'whatsapp'`
+- Gérer les images en base64 (Claude vision)
+- Gérer les messages sans texte (image seule)
 
-### Priorité 2 — Design & UX
-- Icônes PWA (icon-192.png et icon-512.png manquantes)
-- Design soigné des fiches événements (typographie, photos)
-- Animations de transition carte ↔ liste
-- Page 404 personnalisée
-
-### Priorité 3 — Authentification utilisateurs
-- Table `users` déjà prévue dans le BRIEF (id, email, role, plan)
-- Rôles : guest / member / pro / admin
-- Protéger la route `/admin`
+### Priorité 2 — Authentification
+- Table `users` prévue dans le BRIEF : `id, email, role (guest/member/pro/admin), plan`
+- Implémenter avec **Supabase Auth**
+- Protéger `/admin` (middleware Next.js)
 - Permettre aux members de soumettre des événements en leur nom
+- Dashboard member : mes événements soumis
+
+### Priorité 3 — Améliorations UX/Design
+- **Icônes PWA manquantes** : `public/icon-192.png` et `public/icon-512.png`
+  (sans elles le "Ajouter à l'écran d'accueil" n'affiche pas d'icône)
+- Upload photo depuis le formulaire public (vers Supabase Storage)
+- Page 404 personnalisée
+- Animation transition carte ↔ liste
+- Skeleton loading sur les fiches
 
 ### Priorité 4 — Améliorations pipeline
-- Déduplication des événements (même titre + même date → avertissement)
-- Gestion des événements récurrents
-- Upload photo depuis le formulaire public
-- Correction manuelle des coords depuis l'admin (carte cliquable)
+- **Déduplication** : détecter même titre + même date avant insertion
+- **Carte cliquable dans l'admin** pour corriger manuellement les coords
+- Événements récurrents (chaque dimanche, chaque premier vendredi...)
+- Notification email admin à chaque nouvel événement `en_attente`
 
-### Priorité 5 — Déploiement
-- Ajouter les variables d'environnement sur Vercel
-- Configurer les domaines autorisés sur la clé Google Maps navigateur
-- Tester le build de production (`npm run build`)
+### Priorité 5 — Qualité & monitoring
+- Supprimer `score_confiance` de la table (colonne inutilisée)
+- Logs d'erreur pipeline (actuellement silencieux si Claude plante)
+- Tests E2E sur le pipeline d'extraction
+- Rate limiting sur `/api/extract` (protection abus)
