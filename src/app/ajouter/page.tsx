@@ -3,6 +3,7 @@ import { useState, useRef } from 'react'
 import Link from 'next/link'
 import { CATEGORIES } from '@/lib/categories'
 import { Categorie } from '@/lib/types'
+import MicButton from '@/components/MicButton'
 
 interface FormData {
   titre: string
@@ -230,9 +231,10 @@ export default function AjouterPage() {
 
       <div className="p-4 space-y-4 pb-32">
         <div className="bg-white rounded-2xl p-4 space-y-3">
-          <p className="text-sm font-semibold text-[#2C1810]">
-            Décris ton événement ✍️
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-[#2C1810]">Décris ton événement ✍️</p>
+            <MicButton onTranscript={t => setTexte(prev => prev ? prev + ' ' + t : t)} />
+          </div>
           <p className="text-xs text-gray-500">
             Copie-colle un message WhatsApp, une annonce, un texte... L&apos;IA extrait automatiquement les infos.
           </p>

@@ -3,6 +3,7 @@ import { useState, useRef } from 'react'
 import Link from 'next/link'
 import { CATEGORIES } from '@/lib/categories'
 import { Categorie } from '@/lib/types'
+import MicButton from '@/components/MicButton'
 
 interface FormData {
   titre: string
@@ -290,9 +291,12 @@ export default function CapturerPage() {
 
         {/* Texte optionnel */}
         <div className="bg-white rounded-2xl p-4">
-          <p className="text-sm font-semibold text-[#2C1810] mb-2">
-            Infos complémentaires <span className="text-gray-400 font-normal">(optionnel)</span>
-          </p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-semibold text-[#2C1810]">
+              Infos complémentaires <span className="text-gray-400 font-normal">(optionnel)</span>
+            </p>
+            <MicButton onTranscript={t => setTexte(prev => prev ? prev + ' ' + t : t)} />
+          </div>
           <textarea
             value={texte}
             onChange={e => setTexte(e.target.value)}
