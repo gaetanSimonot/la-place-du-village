@@ -53,7 +53,7 @@ export default function AdminPage() {
   const supprimerSelection = async () => {
     if (!confirm(`Supprimer ${selection.size} événement(s) ?`)) return
     setBulkLoading(true)
-    await Promise.all([...selection].map(id =>
+    await Promise.all(Array.from(selection).map(id =>
       fetch(`/api/admin/evenements/${id}`, { method: 'DELETE' })
     ))
     setSelection(new Set())
