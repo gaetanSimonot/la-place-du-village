@@ -1,7 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { geocodeWithGoogle, calcStatut } from '@/lib/extract'
 import { Categorie } from '@/lib/types'
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_KEY!
+)
+
+async function uploadImage(base64: string, mimeType: string): Promise<string | null> {
+  try {
+    const buffer = Buffer.from(base64, 'base64')
+    const ext = mimeType.split('/')[1]?.split(';')[0] || 'jpg'
+    const filename = `formulaire/${Date.now()}_${Math.random().toString(36).slice(2, 9)}.${ext}`
+    const { error } = await supabaseAdmin.storage
+      .from('event-images')
+      .upload(filename, buffer, { contentType: mimeType, upsert: false })
+    if (error) { console.error('Upload error:', error.message); return null }
+    const { data: { publicUrl } } = supabaseAdmin.storage.from('event-images').getPublicUrl(filename)
+    return publicUrl
+  } catch (e) { console.error('Upload exception:', e); return null }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,12 +29,14 @@ export async function POST(req: NextRequest) {
     const {
       titre, description, date_debut, date_fin, heure,
       categorie, lieu_nom, lieu_adresse, commune, code_postal,
-      prix, contact, organisateurs,
+      prix, contact, organisateurs, image, imageMimeType,
     } = body
 
     if (!titre?.trim()) {
       return NextResponse.json({ error: 'Le titre est requis' }, { status: 400 })
     }
+
+    const imageUrl = image ? await uploadImage(image, imageMimeType || 'image/jpeg') : null
 
     let lieuId: string | null = null
     let geo = { place_id_google: null as string | null, lat: null as number | null, lng: null as number | null, adresse: null as string | null, approx: false }
@@ -63,6 +85,7 @@ export async function POST(req: NextRequest) {
         prix: prix || null,
         contact: contact || null,
         organisateurs: organisateurs || null,
+        image_url: imageUrl,
         source: 'formulaire',
       })
       .select()

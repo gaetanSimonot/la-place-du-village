@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Evenement, Filtres } from '@/lib/types'
 import { getDateRange } from '@/lib/filters'
@@ -18,6 +19,8 @@ export default function HomePage() {
   const [filtres, setFiltres] = useState<Filtres>(defaultFiltres)
   const [evenements, setEvenements] = useState<Evenement[]>([])
   const [loading, setLoading] = useState(true)
+  const [fabOpen, setFabOpen] = useState(false)
+  const router = useRouter()
 
   const fetchEvenements = useCallback(async () => {
     setLoading(true)
@@ -74,14 +77,37 @@ export default function HomePage() {
           />
         )}
 
+        {/* Backdrop fermeture menu */}
+        {fabOpen && (
+          <div className="absolute inset-0 z-10" onClick={() => setFabOpen(false)} />
+        )}
+
+        {/* Mini-menu FAB */}
+        {fabOpen && (
+          <div className="absolute bottom-20 right-4 z-20 flex flex-col gap-2 items-end">
+            <button
+              onClick={() => { setFabOpen(false); router.push('/capturer') }}
+              className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3 shadow-lg border border-[#E8E0D5] text-[#2C1810] font-semibold text-sm whitespace-nowrap"
+            >
+              📷 Photo / Affiche
+            </button>
+            <button
+              onClick={() => { setFabOpen(false); router.push('/ajouter') }}
+              className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3 shadow-lg border border-[#E8E0D5] text-[#2C1810] font-semibold text-sm whitespace-nowrap"
+            >
+              ✍️ Décrire en texte
+            </button>
+          </div>
+        )}
+
         {/* FAB */}
-        <Link
-          href="/ajouter"
-          className="absolute bottom-4 right-4 w-14 h-14 bg-[#C4622D] rounded-full flex items-center justify-center shadow-lg text-white text-3xl font-light hover:bg-[#A8521E] transition-colors z-10"
+        <button
+          onClick={() => setFabOpen(o => !o)}
+          className={`absolute bottom-4 right-4 w-14 h-14 bg-[#C4622D] rounded-full flex items-center justify-center shadow-lg text-white text-3xl font-light transition-all z-20 ${fabOpen ? 'rotate-45' : ''}`}
           aria-label="Ajouter un événement"
         >
           +
-        </Link>
+        </button>
       </main>
 
       {/* Onglets bas */}

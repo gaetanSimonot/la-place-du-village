@@ -4,13 +4,13 @@ import { extractWithClaude, geocodeWithGoogle } from '@/lib/extract'
 // Extrait les données sans insérer en base — utilisé par le formulaire pour la preview
 export async function POST(req: NextRequest) {
   try {
-    const { text, image } = await req.json()
+    const { text, image, imageMimeType } = await req.json()
 
-    if (!text?.trim()) {
-      return NextResponse.json({ error: 'Le champ text est requis' }, { status: 400 })
+    if (!text?.trim() && !image) {
+      return NextResponse.json({ error: 'Texte ou image requis' }, { status: 400 })
     }
 
-    const extracted = await extractWithClaude(text, image)
+    const extracted = await extractWithClaude(text || null, image, imageMimeType)
 
     let geo = { place_id_google: null as string | null, lat: null as number | null, lng: null as number | null, adresse: null as string | null }
     if (extracted.lieu_nom) {
