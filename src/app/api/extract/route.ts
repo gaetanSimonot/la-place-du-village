@@ -1,17 +1,65 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { extractWithClaude, geocodeWithGoogle, calcStatut } from '@/lib/extract'
+
+// Client service role pour l'upload Storage (contourne les RLS)
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_KEY!
+)
+
+async function uploadImageToStorage(base64: string, mimeType: string): Promise<string | null> {
+  try {
+    const buffer = Buffer.from(base64, 'base64')
+    const ext = mimeType.split('/')[1]?.split(';')[0] || 'jpg'
+    const filename = `whatsapp/${Date.now()}_${Math.random().toString(36).slice(2, 9)}.${ext}`
+
+    const { error } = await supabaseAdmin.storage
+      .from('event-images')
+      .upload(filename, buffer, { contentType: mimeType, upsert: false })
+
+    if (error) {
+      console.error('Upload image error:', error.message)
+      return null
+    }
+
+    const { data: { publicUrl } } = supabaseAdmin.storage
+      .from('event-images')
+      .getPublicUrl(filename)
+
+    return publicUrl
+  } catch (e) {
+    console.error('Upload image exception:', e)
+    return null
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { text, image, source = 'formulaire' } = body
+    const { text, image, imageMimeType, source = 'formulaire' } = body
 
-    if (!text?.trim()) {
-      return NextResponse.json({ error: 'Le champ text est requis' }, { status: 400 })
+    // Auth : source whatsapp requiert la clé x-wa-key
+    if (source === 'whatsapp') {
+      const waKey = req.headers.get('x-wa-key')
+      if (!waKey || waKey !== process.env.WHATSAPP_API_KEY) {
+        return NextResponse.json({ error: 'Clé API invalide' }, { status: 401 })
+      }
     }
 
-    const extracted = await extractWithClaude(text, image)
+    // Au moins texte ou image requis
+    if (!text?.trim() && !image) {
+      return NextResponse.json({ error: 'Texte ou image requis' }, { status: 400 })
+    }
+
+    // Upload image vers Supabase Storage
+    let imageUrl: string | null = null
+    if (image) {
+      imageUrl = await uploadImageToStorage(image, imageMimeType || 'image/jpeg')
+    }
+
+    const extracted = await extractWithClaude(text || null, image, imageMimeType)
 
     let lieuId: string | null = null
     let geo = { place_id_google: null as string | null, lat: null as number | null, lng: null as number | null, adresse: null as string | null, approx: false }
@@ -22,7 +70,7 @@ export async function POST(req: NextRequest) {
       const { data: lieu, error: lieuErr } = await supabase
         .from('lieux')
         .insert({
-          nom: extracted.lieu_nom,
+          nom: extracted.lieu_nom ?? extracted.commune,
           adresse: geo.adresse ?? extracted.lieu_adresse,
           lat: geo.lat,
           lng: geo.lng,
@@ -60,6 +108,7 @@ export async function POST(req: NextRequest) {
         prix: extracted.prix,
         contact: extracted.contact,
         organisateurs: extracted.organisateurs,
+        image_url: imageUrl,
         source,
       })
       .select()

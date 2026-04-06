@@ -26,7 +26,7 @@ export interface GeoResult {
   approx: boolean
 }
 
-export async function extractWithClaude(text: string, imageBase64?: string): Promise<ExtractedData> {
+export async function extractWithClaude(text: string | null, imageBase64?: string, imageMimeType?: string): Promise<ExtractedData> {
   const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
   const systemPrompt = `Tu es un assistant qui extrait des informations d'événements locaux.
@@ -50,12 +50,18 @@ Structure attendue :
   "organisateurs": "string ou null"
 }`
 
+  const userText = text
+    ? `Extrais les informations de cet événement :\n\n${text}`
+    : "Extrais les informations de cet événement depuis cette affiche :"
+
+  const mimeType = (imageMimeType || 'image/jpeg') as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
+
   const content: Anthropic.MessageParam['content'] = imageBase64
     ? [
-        { type: 'text', text: `Extrais les informations de cet événement :\n\n${text}` },
-        { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imageBase64 } },
+        { type: 'text', text: userText },
+        { type: 'image', source: { type: 'base64', media_type: mimeType, data: imageBase64 } },
       ]
-    : `Extrais les informations de cet événement :\n\n${text}`
+    : userText
 
   const response = await anthropic.messages.create({
     model: 'claude-sonnet-4-20250514',
