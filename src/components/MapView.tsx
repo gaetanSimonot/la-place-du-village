@@ -5,10 +5,11 @@ import { MarkerClusterer } from '@googlemaps/markerclusterer'
 import { Evenement, isApproxLocation } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
+import { useTheme } from '@/components/ThemeProvider'
 
 const GANGES = { lat: 43.9333, lng: 3.7 }
 
-// Style Mapbox "Warm" adapté pour Google Maps
+// Style Mapbox "Warm" adapté pour Google Maps (fallback)
 const WARM_STYLE: google.maps.MapTypeStyle[] = [
   { elementType: 'geometry',              stylers: [{ color: '#ede8df' }] },
   { elementType: 'labels.text.stroke',    stylers: [{ color: '#f5f1eb' }] },
@@ -165,6 +166,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
   const selectedCat   = selectedEvent
     ? (CATEGORIES[selectedEvent.categorie] ?? CATEGORIES.autre)
     : null
+  const { mapStyle } = useTheme()
 
   return (
     <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY!}>
@@ -178,7 +180,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
         fullscreenControl={false}
         zoomControl={true}
         clickableIcons={false}
-        styles={WARM_STYLE}
+        styles={mapStyle.styles.length > 0 ? mapStyle.styles : WARM_STYLE}
       >
         <Markers
           evenements={evenements}
@@ -222,7 +224,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
                   {selectedEvent.titre}
                 </p>
                 {selectedEvent.date_debut && (
-                  <p style={{ fontSize: 11, color: '#E8622A', fontWeight: 600 }}>
+                  <p style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 600 }}>
                     {formatDate(selectedEvent.date_debut)}
                     {selectedEvent.heure && ` · ${selectedEvent.heure.slice(0, 5)}`}
                   </p>

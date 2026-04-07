@@ -1,4 +1,5 @@
 'use client'
+import React from 'react'
 import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -15,10 +16,34 @@ const NAV_H = 62
 
 type NavTab = 'carte' | 'liste' | 'profil'
 
-const NAV_TABS: { id: NavTab; label: string; icon: string }[] = [
-  { id: 'carte',  label: 'Carte',  icon: '🗺️' },
-  { id: 'liste',  label: 'Liste',  icon: '📋' },
-  { id: 'profil', label: 'Profil', icon: '👤' },
+const IconCarte = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
+    <line x1="9" y1="3" x2="9" y2="18"/>
+    <line x1="15" y1="6" x2="15" y2="21"/>
+  </svg>
+)
+const IconListe = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+    <line x1="9" y1="6" x2="20" y2="6"/>
+    <line x1="9" y1="12" x2="20" y2="12"/>
+    <line x1="9" y1="18" x2="20" y2="18"/>
+    <circle cx="4.5" cy="6" r="1.5" fill="currentColor" stroke="none"/>
+    <circle cx="4.5" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+    <circle cx="4.5" cy="18" r="1.5" fill="currentColor" stroke="none"/>
+  </svg>
+)
+const IconProfil = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="8" r="4"/>
+    <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+  </svg>
+)
+
+const NAV_TABS: { id: NavTab; label: string; Icon: () => React.JSX.Element }[] = [
+  { id: 'carte',  label: 'Carte',  Icon: IconCarte  },
+  { id: 'liste',  label: 'Liste',  Icon: IconListe  },
+  { id: 'profil', label: 'Profil', Icon: IconProfil },
 ]
 
 export default function HomePage() {
@@ -69,6 +94,8 @@ export default function HomePage() {
 
       {/* Carte plein écran */}
       <div className="absolute inset-0" style={{ bottom: NAV_H }}>
+        {/* Bande invisible en haut — laisse passer le geste "tirer pour rafraîchir" */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 40, zIndex: 5, pointerEvents: 'auto' }} />
         <MapView
           evenements={evenements}
           selectedId={selectedId}
@@ -127,10 +154,10 @@ export default function HomePage() {
                 onClick={() => setFabOpen(o => !o)}
                 style={{
                   width: 50, height: 50, borderRadius: '50%',
-                  backgroundColor: '#E8622A', color: '#fff',
+                  backgroundColor: 'var(--primary)', color: '#fff',
                   fontSize: 28, fontWeight: 300,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: '0 3px 16px rgba(232,98,42,0.42)',
+                  boxShadow: '0 3px 16px rgba(0,0,0,0.28)',
                   border: 'none', cursor: 'pointer',
                 }}
               >+</motion.button>
@@ -166,12 +193,13 @@ export default function HomePage() {
               flex: 1, display: 'flex', flexDirection: 'column',
               alignItems: 'center', justifyContent: 'center', gap: 3,
               border: 'none', backgroundColor: 'transparent', cursor: 'pointer',
-              borderTop: active ? '2.5px solid #E8622A' : '2.5px solid transparent',
+              borderTop: active ? '2.5px solid var(--primary)' : '2.5px solid transparent',
               transition: 'border-color 0.15s',
               paddingBottom: 4,
+              color: active ? 'var(--primary)' : '#8A8A8A',
             }}>
-              <span style={{ fontSize: 21 }}>{tab.icon}</span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: active ? '#E8622A' : '#8A8A8A', fontFamily: 'Inter, sans-serif' }}>
+              <tab.Icon />
+              <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>
                 {tab.label}
               </span>
             </button>

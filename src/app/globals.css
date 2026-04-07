@@ -8,6 +8,8 @@
 @tailwind utilities;
 
 :root {
+  --primary:       #E8622A;
+  --primary-light: #FFF4F0;
   --orange:  #E8622A;
   --vert:    #5B8C5A;
   --creme:   #FAF7F2;

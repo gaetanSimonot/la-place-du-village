@@ -101,11 +101,11 @@ export default function BottomSheet({
   const handleQuoiBtn = () => {
     if (!quoiOpen) {
       setQuoiOpen(true)
-      setQuoiCursor(0)
       if (mode === 'peek') snapTo('half')
-      return
     }
-    setQuoiCursor(prev => (prev + 1) % CATS.length)
+    const next = (quoiCursor + 1) % CATS.length
+    setQuoiCursor(next)
+    onFiltresChange({ ...filtres, categories: [CATS[next]] })
   }
 
   // ── "Quand donc" button : cycle single-select ──
@@ -126,13 +126,6 @@ export default function BottomSheet({
   useEffect(() => {
     quandPillRefs.current[quandCursor]?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
   }, [quandCursor])
-
-  const toggleCategorie = (cat: Categorie) => {
-    const cats = filtres.categories.includes(cat)
-      ? filtres.categories.filter(c => c !== cat)
-      : [...filtres.categories, cat]
-    onFiltresChange({ ...filtres, categories: cats })
-  }
 
   const resetQuoi = () => {
     setQuoiOpen(false)
@@ -200,7 +193,7 @@ export default function BottomSheet({
         <div style={{ display: 'flex', gap: 10, padding: '0 16px 10px' }}>
         <button onClick={handleQuoiBtn} style={{
           flex: 1, height: 50, borderRadius: 14, border: 'none',
-          backgroundColor: hasQuoi ? '#E8622A' : '#FAF7F2',
+          backgroundColor: hasQuoi ? 'var(--primary)' : '#FAF7F2',
           color: hasQuoi ? '#fff' : '#2C2C2C',
           fontSize: 14, fontWeight: 700, fontFamily: 'Syne, sans-serif',
           cursor: 'pointer', overflow: 'hidden', position: 'relative',
@@ -216,7 +209,7 @@ export default function BottomSheet({
 
         <button onClick={handleQuandBtn} style={{
           flex: 1, height: 50, borderRadius: 14, border: 'none',
-          backgroundColor: hasQuand ? '#E8622A' : '#FAF7F2',
+          backgroundColor: hasQuand ? 'var(--primary)' : '#FAF7F2',
           color: hasQuand ? '#fff' : '#2C2C2C',
           fontSize: 14, fontWeight: 700, fontFamily: 'Syne, sans-serif',
           cursor: 'pointer', overflow: 'hidden', position: 'relative',
@@ -245,7 +238,7 @@ export default function BottomSheet({
               {/* Pill "Tout" */}
               <button onClick={resetQuoi} style={{
                 flexShrink: 0, padding: '6px 14px', borderRadius: 999, border: '1.5px solid #EDE8E0',
-                backgroundColor: !hasQuoi ? '#E8622A' : '#FAF7F2',
+                backgroundColor: !hasQuoi ? 'var(--primary)' : '#FAF7F2',
                 color: !hasQuoi ? '#fff' : '#8A8A8A',
                 fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
                 minHeight: 34,
@@ -259,7 +252,7 @@ export default function BottomSheet({
                   <button
                     key={cat}
                     ref={el => { quoiPillRefs.current[i] = el }}
-                    onClick={() => { setQuoiCursor(i); toggleCategorie(cat) }}
+                    onClick={() => { setQuoiCursor(i); onFiltresChange({ ...filtres, categories: [cat] }) }}
                     style={{
                       flexShrink: 0,
                       display: 'flex', alignItems: 'center', gap: 5,
@@ -303,12 +296,12 @@ export default function BottomSheet({
                     style={{
                       flexShrink: 0,
                       padding: '6px 14px', borderRadius: 999,
-                      border: `2px solid ${isCursor ? '#E8622A' : '#EDE8E0'}`,
-                      backgroundColor: isCursor ? '#E8622A' : '#FAF7F2',
+                      border: `2px solid ${isCursor ? 'var(--primary)' : '#EDE8E0'}`,
+                      backgroundColor: isCursor ? 'var(--primary)' : '#FAF7F2',
                       color: isCursor ? '#fff' : '#6B6B6B',
                       fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
                       minHeight: 34,
-                      boxShadow: isCursor ? '0 0 0 3px rgba(232,98,42,0.2)' : 'none',
+                      boxShadow: isCursor ? '0 0 0 3px rgba(0,0,0,0.1)' : 'none',
                       transition: 'all 0.12s',
                     }}
                   >{opt.short}</button>
@@ -360,7 +353,7 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap }: {
     <Link href={`/evenement/${evt.id}`} onClick={onSelect} style={{
       display: 'block', position: 'relative', height: 128,
       borderRadius: 16, overflow: 'hidden', textDecoration: 'none', flexShrink: 0,
-      boxShadow: isSelected ? `0 0 0 2.5px #E8622A, 0 4px 16px rgba(232,98,42,0.18)` : '0 2px 10px rgba(44,44,44,0.1)',
+      boxShadow: isSelected ? `0 0 0 2.5px var(--primary), 0 4px 16px rgba(0,0,0,0.15)` : '0 2px 10px rgba(44,44,44,0.1)',
     }}>
       {evt.image_url
         ? <img src={evt.image_url} alt={evt.titre} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -368,16 +361,36 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap }: {
       }
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.2) 55%, transparent 100%)' }} />
 
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '8px 12px 10px' }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, backgroundColor: cat.color, color: '#fff', borderRadius: 999, padding: '2px 8px', marginBottom: 4 }}>
+      {/* Badge catégorie + commune — lecture immédiate en haut à gauche */}
+      <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          fontSize: 11, fontWeight: 800,
+          backgroundColor: cat.color, color: '#fff',
+          borderRadius: 999, padding: '3px 9px',
+          boxShadow: '0 1px 6px rgba(0,0,0,0.25)',
+          letterSpacing: '0.01em',
+        }}>
           {cat.emoji} {cat.label}
         </span>
-        <h3 style={{ fontSize: 14, fontWeight: 700, color: '#fff', fontFamily: 'Syne, sans-serif', lineHeight: 1.25, margin: '0 0 2px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+        {lieu?.commune && (
+          <span style={{
+            fontSize: 11, fontWeight: 700, color: '#fff',
+            backgroundColor: 'rgba(0,0,0,0.45)',
+            borderRadius: 999, padding: '3px 9px',
+          }}>
+            {lieu.commune}
+          </span>
+        )}
+      </div>
+
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '8px 12px 10px' }}>
+        <h3 style={{ fontSize: 14, fontWeight: 700, color: '#fff', fontFamily: 'Syne, sans-serif', lineHeight: 1.25, margin: '0 0 3px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
           {evt.titre}
         </h3>
         {evt.date_debut && (
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.82)', margin: 0, fontFamily: 'Inter, sans-serif' }}>
-            {formatDate(evt.date_debut)}{evt.heure ? ` · ${evt.heure.slice(0,5)}` : ''}{lieu?.commune ? ` · ${lieu.commune}` : ''}
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.78)', margin: 0, fontFamily: 'Inter, sans-serif' }}>
+            {formatDate(evt.date_debut)}{evt.heure ? ` · ${evt.heure.slice(0,5)}` : ''}
           </p>
         )}
       </div>
@@ -389,7 +402,7 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap }: {
         </button>
       )}
 
-      {isSelected && <div style={{ position: 'absolute', top: 8, left: 8, width: 8, height: 8, borderRadius: '50%', backgroundColor: '#E8622A', boxShadow: '0 0 0 2px #fff' }} />}
+      {isSelected && <div style={{ position: 'absolute', top: 8, right: 44, width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--primary)', boxShadow: '0 0 0 2px #fff' }} />}
     </Link>
   )
 }
