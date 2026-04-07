@@ -168,15 +168,18 @@ export async function scrapeSource(sourceId: string): Promise<ScrapeResult> {
   let erreur: string | undefined
 
   try {
-    // 2. Récupérer la page
-    const res = await fetch(source.url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PDV-Scraper/1.0)' },
+    // 2. Récupérer la page via Jina Reader (gère le JS-rendering)
+    const jinaUrl = `https://r.jina.ai/${source.url}`
+    const res = await fetch(jinaUrl, {
+      headers: {
+        'Accept': 'text/plain',
+        'X-No-Cache': 'true',
+      },
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const html = await res.text()
+    if (!res.ok) throw new Error(`Jina HTTP ${res.status}`)
+    const pageText = (await res.text()).slice(0, 40000)
 
-    // 3. Nettoyer et extraire via Claude
-    const pageText = cleanHtml(html)
+    // 3. Extraire via Claude (texte déjà propre, pas besoin de cleanHtml)
     const events   = await extractEventsFromPage(pageText, source.url)
     trouves = events.length
 
