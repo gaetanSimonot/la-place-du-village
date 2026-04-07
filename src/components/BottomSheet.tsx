@@ -399,8 +399,11 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap }: {
 
       {lieu?.lat && lieu?.lng && (
         <button onClick={e => { e.preventDefault(); e.stopPropagation(); onViewOnMap() }}
-          style={{ position: 'absolute', top: 8, right: 8, width: 32, height: 32, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.9)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>
-          🗺️
+          style={{ position: 'absolute', top: 8, right: 8, width: 32, height: 32, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.88)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+            <circle cx="12" cy="9" r="2.5" fill="currentColor" stroke="none"/>
+          </svg>
         </button>
       )}
 
