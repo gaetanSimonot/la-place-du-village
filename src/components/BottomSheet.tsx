@@ -359,10 +359,11 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap }: {
         ? <img src={evt.image_url} alt={evt.titre} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
         : <div style={{ position: 'absolute', inset: 0, backgroundColor: cat.color, opacity: 0.8 }} />
       }
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.2) 55%, transparent 100%)' }} />
+      {/* Gradient gauche→droite : assombrit le côté texte, révèle l'image à droite */}
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.45) 38%, rgba(0,0,0,0.1) 62%, transparent 85%)' }} />
 
-      {/* Badge catégorie + commune — lecture immédiate en haut à gauche */}
-      <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
+      {/* Badge catégorie + commune empilés en haut à gauche */}
+      <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
         <span style={{
           display: 'inline-flex', alignItems: 'center', gap: 4,
           fontSize: 11, fontWeight: 800,
@@ -375,9 +376,10 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap }: {
         </span>
         {lieu?.commune && (
           <span style={{
-            fontSize: 11, fontWeight: 700, color: '#fff',
-            backgroundColor: 'rgba(0,0,0,0.45)',
-            borderRadius: 999, padding: '3px 9px',
+            fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.9)',
+            letterSpacing: '0.02em',
+            textShadow: '0 1px 3px rgba(0,0,0,0.5)',
+            paddingLeft: 2,
           }}>
             {lieu.commune}
           </span>
