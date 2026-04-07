@@ -87,14 +87,14 @@ function jaccardSimilarity(a: string, b: string): number {
 async function isDuplicate(event: ScrapedEvent): Promise<boolean> {
   if (!event.titre) return false
 
-  // Chercher les événements avec la même date (ou sans date) dans la même commune
-  const query = supabaseAdmin
+  // Chercher les événements avec la même date dans la base
+  let query = supabaseAdmin
     .from('evenements')
     .select('titre')
     .not('titre', 'is', null)
 
   if (event.date_debut) {
-    query.eq('date_debut', event.date_debut)
+    query = query.eq('date_debut', event.date_debut)
   }
 
   const { data: candidates } = await query.limit(200)
