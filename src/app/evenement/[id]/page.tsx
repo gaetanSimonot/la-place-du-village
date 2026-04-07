@@ -5,6 +5,7 @@ import { CATEGORIES } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
 import Link from 'next/link'
 import ImageLightbox from '@/components/ImageLightbox'
+import FeedbackButton from '@/components/FeedbackButton'
 
 export default async function EvenementPage({ params }: { params: { id: string } }) {
   const { data } = await supabase
@@ -126,6 +127,9 @@ export default async function EvenementPage({ params }: { params: { id: string }
             🗺️ Y aller
           </a>
         )}
+
+        {/* Bouton correction */}
+        <FeedbackButton evenementId={evt.id} evenementTitre={evt.titre} />
       </div>
     </div>
   )
