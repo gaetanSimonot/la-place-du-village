@@ -87,7 +87,7 @@ export default function HomePage() {
         sheetBeforeMapRef.current = null
         setSheetMode('half')
       }
-    }, 500)
+    }, 200)
   }, [])
   const [fabPressed, setFabPressed] = useState(false)
   const [fabActive, setFabActive]   = useState<string | null>(null)
@@ -199,6 +199,21 @@ export default function HomePage() {
   useEffect(() => {
     if (sheetMode !== 'full') setNavTab('carte')
   }, [sheetMode])
+
+  // Sélection d'un marqueur → peek ; déselection → half
+  useEffect(() => {
+    if (selectedId) {
+      setSheetMode(prev => {
+        if (prev === 'half') { sheetBeforeMapRef.current = 'half'; return 'peek' }
+        return prev
+      })
+    } else {
+      if (sheetBeforeMapRef.current === 'half') {
+        sheetBeforeMapRef.current = null
+        setSheetMode('half')
+      }
+    }
+  }, [selectedId])
 
   // Filtre zone appliqué sur la liste complète — recalculé à chaque changement de zone
   const evenements = useMemo(() => {
