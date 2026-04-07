@@ -1,19 +1,40 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 
-// ← change le code ici
 const ADMIN_PIN = '2606'
-const MAX_ATTEMPTS = 3
+const SESSION_KEY = 'pdv-admin-session'
+const SESSION_DURATION = 30 * 60 * 1000 // 30 minutes
+
+function isSessionValid(): boolean {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY)
+    if (!raw) return false
+    const { ts } = JSON.parse(raw)
+    return Date.now() - ts < SESSION_DURATION
+  } catch {
+    return false
+  }
+}
+
+function saveSession() {
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ ts: Date.now() }))
+}
 
 export default function AdminAccess() {
   const router = useRouter()
-  const [open, setOpen]         = useState(false)
-  const [digits, setDigits]     = useState('')
-  const [attempts, setAttempts] = useState(0)
-  const [shake, setShake]       = useState(false)
-  const [hint, setHint]         = useState('')
+  const [open, setOpen]     = useState(false)
+  const [digits, setDigits] = useState('')
+  const [shake, setShake]   = useState(false)
+  const [hint, setHint]     = useState('')
+
+  // Si session encore valide → accès direct
+  useEffect(() => {
+    if (isSessionValid()) {
+      router.push('/admin')
+    }
+  }, [router])
 
   const close = () => { setOpen(false); setDigits(''); setHint('') }
 
@@ -28,30 +49,21 @@ export default function AdminAccess() {
 
   const validate = (code: string) => {
     if (code === ADMIN_PIN) {
+      saveSession()
       close()
       router.push('/admin')
       return
     }
-    const newAttempts = attempts + 1
-    setAttempts(newAttempts)
     setShake(true)
     setTimeout(() => setShake(false), 500)
-
-    if (newAttempts >= MAX_ATTEMPTS) {
-      // 3 échecs → accès quand même
-      setHint('Bon OK… 🙃')
-      setTimeout(() => { close(); router.push('/admin') }, 800)
-    } else {
-      setHint(`Code incorrect — ${MAX_ATTEMPTS - newAttempts} essai${MAX_ATTEMPTS - newAttempts > 1 ? 's' : ''} restant`)
-      setTimeout(() => setDigits(''), 400)
-    }
+    setHint('Code incorrect')
+    setTimeout(() => setDigits(''), 400)
   }
 
   const PAD = ['1','2','3','4','5','6','7','8','9','','0','⌫']
 
   return (
     <>
-      {/* Bouton discret */}
       <button
         onClick={() => setOpen(true)}
         style={{
@@ -96,7 +108,6 @@ export default function AdminAccess() {
                 {hint || 'Code à 4 chiffres'}
               </p>
 
-              {/* Points */}
               <motion.div
                 animate={shake ? { x: [0, -8, 8, -8, 8, 0] } : {}}
                 transition={{ duration: 0.4 }}
@@ -111,7 +122,6 @@ export default function AdminAccess() {
                 ))}
               </motion.div>
 
-              {/* Pavé numérique */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, maxWidth: 280, margin: '0 auto' }}>
                 {PAD.map((key, i) => (
                   <button

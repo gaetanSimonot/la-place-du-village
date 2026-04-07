@@ -1,35 +1,79 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Evenement, isApproxLocation } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
+import NotesAdmin from '@/components/NotesAdmin'
 
-type Onglet = 'a_traiter' | 'publie' | 'rejete' | 'scrap'
+type Onglet   = 'a_traiter' | 'publie' | 'rejete' | 'scrap' | 'notes'
+type SortKey  = 'created_desc' | 'created_asc' | 'date_asc' | 'date_desc'
+
+interface Feedback {
+  id: string
+  evenement_id: string
+  evenement_titre: string
+  message: string
+  contact: string | null
+  created_at: string
+}
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: 'created_desc', label: 'Plus récents d\'abord' },
+  { value: 'created_asc',  label: 'Plus anciens d\'abord' },
+  { value: 'date_asc',     label: 'Date événement ↑' },
+  { value: 'date_desc',    label: 'Date événement ↓' },
+]
 
 export default function AdminPage() {
-  const [onglet, setOnglet]       = useState<Onglet>('a_traiter')
-  const [evenements, setEvenements] = useState<Evenement[]>([])
-  const [loading, setLoading]     = useState(true)
-  const [actionId, setActionId]   = useState<string | null>(null)
-  const [selection, setSelection] = useState<Set<string>>(new Set())
-  const [bulkLoading, setBulkLoading] = useState(false)
-  const [masquerPasses, setMasquerPasses] = useState(false)
+  const [onglet, setOnglet]             = useState<Onglet>('a_traiter')
+  const [evenements, setEvenements]     = useState<Evenement[]>([])
+  const [feedbacks, setFeedbacks]       = useState<Feedback[]>([])
+  const [loading, setLoading]           = useState(true)
+  const [actionId, setActionId]         = useState<string | null>(null)
+  const [selection, setSelection]       = useState<Set<string>>(new Set())
+  const [bulkLoading, setBulkLoading]   = useState(false)
+  const [masquerPasses, setMasquerPasses]   = useState(false)
   const [togglingConfig, setTogglingConfig] = useState(false)
+  const [search, setSearch]             = useState('')
+  const [sort, setSort]                 = useState<SortKey>('created_desc')
+  const [onlyFeedbacks, setOnlyFeedbacks] = useState(false)
+  const [expandedFeedback, setExpandedFeedback] = useState<Set<string>>(new Set())
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
-    const [{ data }, { data: cfg }] = await Promise.all([
+    const [{ data }, { data: cfg }, fbRes] = await Promise.all([
       supabase.from('evenements').select('*, lieux(*)').order('created_at', { ascending: false }),
       supabase.from('config').select('value').eq('key', 'masquer_passes').single(),
+      fetch('/api/admin/feedbacks'),
     ])
     setEvenements((data as Evenement[]) ?? [])
     setMasquerPasses(cfg?.value === 'true')
+    const fbData = fbRes.ok ? await fbRes.json() : []
+    setFeedbacks(Array.isArray(fbData) ? fbData : [])
     setLoading(false)
   }, [])
 
+  // Cleanup silencieux au chargement
+  useEffect(() => {
+    fetch('/api/admin/cleanup', { method: 'POST' }).catch(() => {})
+  }, [])
+
   useEffect(() => { fetchAll() }, [fetchAll])
+  useEffect(() => { setSelection(new Set()) }, [onglet])
+
+  // Index feedbacks par evenement_id
+  const feedbacksByEvent = useMemo(() => {
+    const map = new Map<string, Feedback[]>()
+    for (const fb of feedbacks) {
+      if (!map.has(fb.evenement_id)) map.set(fb.evenement_id, [])
+      map.get(fb.evenement_id)!.push(fb)
+    }
+    return map
+  }, [feedbacks])
+
+  const totalFeedbacks = feedbacks.length
 
   const toggleMasquerPasses = async () => {
     const next = !masquerPasses
@@ -42,7 +86,6 @@ export default function AdminPage() {
     })
     setTogglingConfig(false)
   }
-  useEffect(() => { setSelection(new Set()) }, [onglet])
 
   const setStatut = async (id: string, statut: string) => {
     setActionId(id)
@@ -61,6 +104,11 @@ export default function AdminPage() {
     await fetch(`/api/admin/evenements/${id}`, { method: 'DELETE' })
     await fetchAll()
     setActionId(null)
+  }
+
+  const marquerFeedbackTraite = async (fbId: string) => {
+    await fetch(`/api/admin/feedbacks/${fbId}`, { method: 'DELETE' })
+    setFeedbacks(prev => prev.filter(f => f.id !== fbId))
   }
 
   const supprimerSelection = async () => {
@@ -97,16 +145,53 @@ export default function AdminPage() {
     })
   }
 
+  const toggleExpandFeedback = (id: string) => {
+    setExpandedFeedback(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) { next.delete(id) } else { next.add(id) }
+      return next
+    })
+  }
+
   // Filtrage par onglet
-  const filtered = evenements.filter(e => {
+  const byOnglet = useMemo(() => evenements.filter(e => {
     if (onglet === 'scrap')     return e.source === 'scrape' && e.statut === 'en_attente'
     if (onglet === 'a_traiter') return e.source !== 'scrape' && (e.statut === 'en_attente' || (e.statut === 'publie' && isApproxLocation(e.lieux)))
     return e.statut === onglet
-  })
+  }), [evenements, onglet])
 
-  const sorted = onglet === 'a_traiter'
-    ? [...filtered].sort((a, b) => (isApproxLocation(a.lieux) ? 0 : 1) - (isApproxLocation(b.lieux) ? 0 : 1))
-    : filtered
+  // Filtre signalements
+  const afterFbFilter = useMemo(() =>
+    onlyFeedbacks ? byOnglet.filter(e => feedbacksByEvent.has(e.id)) : byOnglet
+  , [byOnglet, onlyFeedbacks, feedbacksByEvent])
+
+  // Recherche dynamique
+  const q = search.trim().toLowerCase()
+  const afterSearch = useMemo(() => {
+    if (!q) return afterFbFilter
+    return afterFbFilter.filter(e => {
+      const titre   = (e.titre ?? '').toLowerCase()
+      const lieu    = (e.lieux?.nom ?? '').toLowerCase()
+      const commune = (e.lieux?.commune ?? '').toLowerCase()
+      const desc    = (e.description ?? '').toLowerCase()
+      return titre.includes(q) || lieu.includes(q) || commune.includes(q) || desc.includes(q)
+    })
+  }, [afterFbFilter, q])
+
+  // Tri
+  const sorted = useMemo(() => {
+    const arr = [...afterSearch]
+    if (onglet === 'a_traiter' && !q && !onlyFeedbacks) {
+      arr.sort((a, b) => {
+        const approxDiff = (isApproxLocation(a.lieux) ? 0 : 1) - (isApproxLocation(b.lieux) ? 0 : 1)
+        if (approxDiff !== 0) return approxDiff
+        return applySortKey(sort, a, b)
+      })
+      return arr
+    }
+    arr.sort((a, b) => applySortKey(sort, a, b))
+    return arr
+  }, [afterSearch, sort, onglet, q, onlyFeedbacks])
 
   const counts = {
     a_traiter: evenements.filter(e => e.source !== 'scrape' && (e.statut === 'en_attente' || (e.statut === 'publie' && isApproxLocation(e.lieux)))).length,
@@ -136,17 +221,14 @@ export default function AdminPage() {
       {/* Réglage : masquer les événements passés */}
       <div className="bg-[#3D2318] px-4 py-2.5 flex items-center gap-3">
         <label className="flex items-center gap-2.5 cursor-pointer select-none flex-1" onClick={toggleMasquerPasses}>
-          {/* Toggle pill */}
           <div className={`relative w-10 h-6 rounded-full transition-colors duration-200 ${masquerPasses ? 'bg-orange-500' : 'bg-gray-600'}`}>
             <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all duration-200 ${masquerPasses ? 'left-5' : 'left-1'}`} />
           </div>
-          <span className="text-sm text-gray-300 font-medium">
-            Masquer les événements passés
-          </span>
+          <span className="text-sm text-gray-300 font-medium">Masquer les événements passés</span>
           {togglingConfig && <span className="text-xs text-gray-500">…</span>}
         </label>
         <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${masquerPasses ? 'bg-orange-900 text-orange-300' : 'bg-gray-700 text-gray-400'}`}>
-          {masquerPasses ? 'Actif — site filtré' : 'Inactif — tout visible'}
+          {masquerPasses ? 'Actif' : 'Inactif'}
         </span>
       </div>
 
@@ -157,6 +239,7 @@ export default function AdminPage() {
           { key: 'scrap',     label: 'Scrap',     color: 'bg-blue-500'   },
           { key: 'publie',    label: 'Publiés',   color: 'bg-green-500'  },
           { key: 'rejete',    label: 'Rejetés',   color: 'bg-gray-400'   },
+          { key: 'notes',     label: '📝 Notes',  color: 'bg-purple-500' },
         ] as { key: Onglet; label: string; color: string }[]).map(tab => (
           <button
             key={tab.key}
@@ -166,14 +249,17 @@ export default function AdminPage() {
             }`}
           >
             {tab.label}
-            {counts[tab.key] > 0 && (
+            {tab.key !== 'notes' && counts[tab.key as keyof typeof counts] > 0 && (
               <span className={`${tab.color} text-white text-xs rounded-full w-5 h-5 flex items-center justify-center`}>
-                {counts[tab.key]}
+                {counts[tab.key as keyof typeof counts]}
               </span>
             )}
           </button>
         ))}
       </div>
+
+      {/* Onglet Notes */}
+      {onglet === 'notes' && <NotesAdmin />}
 
       {/* Bandeau info Scrap */}
       {onglet === 'scrap' && (
@@ -185,44 +271,132 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* Barre recherche + tri + filtre signalements */}
+      {onglet !== 'notes' && (
+        <div className="bg-white border-b border-[#E8E0D5] px-3 py-2 space-y-2">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+              <input
+                type="text"
+                placeholder="Rechercher titre, lieu, commune…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="w-full pl-8 pr-8 py-2 text-sm bg-[#FBF7F0] rounded-xl border border-[#E8E0D5] focus:outline-none focus:border-[#C4622D] text-[#2C1810] placeholder-gray-400"
+              />
+              {search && (
+                <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">✕</button>
+              )}
+            </div>
+            <select
+              value={sort}
+              onChange={e => setSort(e.target.value as SortKey)}
+              className="text-xs bg-[#FBF7F0] border border-[#E8E0D5] rounded-xl px-2 py-2 text-[#2C1810] focus:outline-none focus:border-[#C4622D] cursor-pointer"
+            >
+              {SORT_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Filtre signalements */}
+          {totalFeedbacks > 0 && (
+            <button
+              onClick={() => setOnlyFeedbacks(p => !p)}
+              className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+                onlyFeedbacks
+                  ? 'bg-amber-500 text-white border-amber-500'
+                  : 'bg-amber-50 text-amber-700 border-amber-300'
+              }`}
+            >
+              ⚠️ {totalFeedbacks} signalement{totalFeedbacks > 1 ? 's' : ''} en attente
+              {onlyFeedbacks ? ' — afficher tout' : ' — voir uniquement'}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Barre sélection */}
-      {!loading && sorted.length > 0 && (
+      {onglet !== 'notes' && !loading && sorted.length > 0 && (
         <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-[#E8E0D5]">
           <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600 select-none">
             <input type="checkbox" checked={allSelected} onChange={toggleAll} className="w-4 h-4 accent-[#C4622D] cursor-pointer" />
             {allSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
           </label>
-          {selection.size > 0 && (
-            <span className="text-xs text-[#C4622D] font-semibold">
-              {selection.size} sélectionné{selection.size > 1 ? 's' : ''}
-            </span>
-          )}
+          <span className="text-xs text-gray-400">
+            {sorted.length} résultat{sorted.length > 1 ? 's' : ''}
+            {selection.size > 0 && (
+              <span className="ml-2 text-[#C4622D] font-semibold">
+                · {selection.size} sélectionné{selection.size > 1 ? 's' : ''}
+              </span>
+            )}
+          </span>
         </div>
       )}
 
       {/* Liste */}
-      <div className="p-3 space-y-3">
+      {onglet !== 'notes' && <div className="p-3 space-y-3">
         {loading ? (
           <div className="flex justify-center py-12">
             <div className="w-8 h-8 border-4 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
           </div>
         ) : sorted.length === 0 ? (
           <p className="text-center text-gray-400 py-12">
-            {onglet === 'scrap' ? 'Aucun événement à valider' : 'Aucun événement'}
+            {search ? 'Aucun résultat pour cette recherche' : onlyFeedbacks ? 'Aucun signalement dans cet onglet' : onglet === 'scrap' ? 'Aucun événement à valider' : 'Aucun événement'}
           </p>
         ) : sorted.map(evt => {
-          const cat       = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
-          const approx    = isApproxLocation(evt.lieux)
-          const isLoading = actionId === evt.id
-          const isSelected = selection.has(evt.id)
+          const cat            = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
+          const approx         = isApproxLocation(evt.lieux)
+          const isLoading      = actionId === evt.id
+          const isSelected     = selection.has(evt.id)
+          const evtFeedbacks   = feedbacksByEvent.get(evt.id) ?? []
+          const hasFeedback    = evtFeedbacks.length > 0
+          const fbExpanded     = expandedFeedback.has(evt.id)
 
           return (
             <div
               key={evt.id}
               className={`bg-white rounded-2xl p-4 border-2 transition-colors ${
-                isSelected ? 'border-[#C4622D]' : approx ? 'border-orange-200' : 'border-transparent'
+                isSelected ? 'border-[#C4622D]' : hasFeedback ? 'border-amber-400' : approx ? 'border-orange-200' : 'border-transparent'
               } shadow-sm`}
             >
+              {/* Badge signalement */}
+              {hasFeedback && (
+                <button
+                  onClick={() => toggleExpandFeedback(evt.id)}
+                  className="flex items-center gap-1.5 text-xs text-amber-700 font-semibold mb-2 bg-amber-50 rounded-lg px-2 py-1.5 w-full text-left border border-amber-200 hover:bg-amber-100 transition-colors"
+                >
+                  <span>⚠️</span>
+                  <span>{evtFeedbacks.length} signalement{evtFeedbacks.length > 1 ? 's' : ''} utilisateur</span>
+                  <span className="ml-auto text-amber-400">{fbExpanded ? '▲' : '▼'}</span>
+                </button>
+              )}
+
+              {/* Messages feedback dépliés */}
+              {hasFeedback && fbExpanded && (
+                <div className="mb-3 space-y-2">
+                  {evtFeedbacks.map(fb => (
+                    <div key={fb.id} className="bg-amber-50 rounded-xl p-3 border border-amber-100">
+                      <p className="text-xs text-[#2C1810] leading-relaxed">{fb.message}</p>
+                      {fb.contact && (
+                        <p className="text-xs text-gray-400 mt-1">Contact : {fb.contact}</p>
+                      )}
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-xs text-gray-400">
+                          {new Date(fb.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        <button
+                          onClick={() => marquerFeedbackTraite(fb.id)}
+                          className="text-xs text-green-600 font-semibold bg-green-50 border border-green-200 px-2 py-0.5 rounded-lg hover:bg-green-100 transition-colors"
+                        >
+                          ✓ Traité
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {approx && (
                 <div className="flex items-center gap-1.5 text-xs text-orange-500 font-semibold mb-2 bg-orange-50 rounded-lg px-2 py-1">
                   📍 Localisation approximative — à corriger
@@ -298,7 +472,7 @@ export default function AdminPage() {
             </div>
           )
         })}
-      </div>
+      </div>}
 
       {/* Barre flottante sélection */}
       {selection.size > 0 && (
@@ -309,7 +483,7 @@ export default function AdminPage() {
           <button onClick={() => setSelection(new Set())} className="text-gray-400 text-sm px-3 py-2 rounded-lg">
             Annuler
           </button>
-          {onglet === 'scrap' && (
+          {(onglet === 'scrap' || onglet === 'a_traiter') && (
             <button
               onClick={publierSelection}
               disabled={bulkLoading}
@@ -329,6 +503,14 @@ export default function AdminPage() {
       )}
     </div>
   )
+}
+
+function applySortKey(sort: SortKey, a: Evenement, b: Evenement): number {
+  if (sort === 'created_desc') return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
+  if (sort === 'created_asc')  return new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime()
+  if (sort === 'date_asc')     return (a.date_debut ?? '').localeCompare(b.date_debut ?? '')
+  if (sort === 'date_desc')    return (b.date_debut ?? '').localeCompare(a.date_debut ?? '')
+  return 0
 }
 
 function StatutBadge({ statut }: { statut: string }) {
