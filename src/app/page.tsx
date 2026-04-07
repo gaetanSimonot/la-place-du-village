@@ -101,7 +101,7 @@ export default function HomePage() {
     setFabActive(best)
   }
 
-  const onFabUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+  const onFabUp = (_e: React.PointerEvent<HTMLButtonElement>) => {
     setFabPressed(false)
     if (fabActive) {
       const opt = FAB_OPTS.find(o => o.key === fabActive)
@@ -146,7 +146,7 @@ export default function HomePage() {
     }
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
-  }, [])
+  }, [fetchZoneConfig]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchEvenements = useCallback(async () => {
     if (masquerPasses === null || !zoneLoaded) return // attendre les configs
