@@ -85,6 +85,18 @@ function _buildMarkerSvg(categorie: string, selected: boolean, approx = false): 
   return `data:image/svg+xml,${encodeURIComponent(svg)}`
 }
 
+function MapDragListener({ onDragStart, onDragEnd }: { onDragStart?: () => void; onDragEnd?: () => void }) {
+  const map = useMap()
+  useEffect(() => {
+    if (!map) return
+    const listeners: google.maps.MapsEventListener[] = []
+    if (onDragStart) listeners.push(map.addListener('dragstart', onDragStart))
+    if (onDragEnd)   listeners.push(map.addListener('dragend',   onDragEnd))
+    return () => listeners.forEach(l => l.remove())
+  }, [map, onDragStart, onDragEnd])
+  return null
+}
+
 interface MarkersProps {
   evenements: EvenementCard[]
   selectedId: string | null
@@ -204,9 +216,8 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
         zoomControl={false}
         clickableIcons={false}
         styles={mapStyle.styles.length > 0 ? mapStyle.styles : WARM_STYLE}
-        onDragstart={onMapDragStart}
-        onDragend={onMapDragEnd}
       >
+        <MapDragListener onDragStart={onMapDragStart} onDragEnd={onMapDragEnd} />
         <Markers
           evenements={evenements}
           selectedId={selectedId}
