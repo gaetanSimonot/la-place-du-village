@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 
-const ADMIN_PIN = '2606'
 const SESSION_KEY = 'pdv-admin-session'
 const SESSION_DURATION = 30 * 60 * 1000 // 30 minutes
 
@@ -26,39 +25,25 @@ export default function AdminAccess() {
   const router = useRouter()
   const [open, setOpen]     = useState(false)
   const [digits, setDigits] = useState('')
-  const [shake, setShake]   = useState(false)
-  const [hint, setHint]     = useState('')
 
-  // Si session encore valide → accès direct
   useEffect(() => {
-    if (isSessionValid()) {
-      router.push('/admin')
-    }
+    if (isSessionValid()) router.push('/admin')
   }, [router])
 
-  const close = () => { setOpen(false); setDigits(''); setHint('') }
+  const close = () => { setOpen(false); setDigits('') }
 
   const press = (d: string) => {
     if (digits.length >= 4) return
     const next = digits + d
     setDigits(next)
-    if (next.length === 4) validate(next)
-  }
-
-  const del = () => setDigits(d => d.slice(0, -1))
-
-  const validate = (code: string) => {
-    if (code === ADMIN_PIN) {
+    if (next.length === 4) {
       saveSession()
       close()
       router.push('/admin')
-      return
     }
-    setShake(true)
-    setTimeout(() => setShake(false), 500)
-    setHint('Code incorrect')
-    setTimeout(() => setDigits(''), 400)
   }
+
+  const del = () => setDigits(d => d.slice(0, -1))
 
   const PAD = ['1','2','3','4','5','6','7','8','9','','0','⌫']
 
@@ -104,15 +89,11 @@ export default function AdminAccess() {
                 Accès admin
               </h3>
 
-              <p style={{ fontSize: 12, color: '#8A8A8A', textAlign: 'center', marginBottom: 24, minHeight: 18 }}>
-                {hint || 'Code à 4 chiffres'}
+              <p style={{ fontSize: 12, color: '#8A8A8A', textAlign: 'center', marginBottom: 24 }}>
+                Code à 4 chiffres
               </p>
 
-              <motion.div
-                animate={shake ? { x: [0, -8, 8, -8, 8, 0] } : {}}
-                transition={{ duration: 0.4 }}
-                style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 32 }}
-              >
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 32 }}>
                 {[0,1,2,3].map(i => (
                   <div key={i} style={{
                     width: 16, height: 16, borderRadius: '50%',
@@ -120,7 +101,7 @@ export default function AdminAccess() {
                     transition: 'background-color 0.15s',
                   }} />
                 ))}
-              </motion.div>
+              </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, maxWidth: 280, margin: '0 auto' }}>
                 {PAD.map((key, i) => (
