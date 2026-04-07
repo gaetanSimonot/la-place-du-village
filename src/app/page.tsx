@@ -69,6 +69,15 @@ export default function HomePage() {
     const range = getDateRange(filtres.quand)
     if (range) query = query.gte('date_debut', range.from).lte('date_debut', range.to)
 
+    // Réglage admin : masquer les événements passés
+    const { data: cfg } = await supabase
+      .from('config').select('value').eq('key', 'masquer_passes').single()
+    if (cfg?.value === 'true') {
+      const today = new Date().toISOString().split('T')[0]
+      // Visible si date_fin >= aujourd'hui, ou (pas de date_fin ET date_debut >= aujourd'hui)
+      query = query.or(`date_fin.gte.${today},and(date_fin.is.null,date_debut.gte.${today})`)
+    }
+
     const { data } = await query
     setEvenements((data as Evenement[]) ?? [])
     setLoading(false)

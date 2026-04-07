@@ -15,18 +15,29 @@ export default function AdminPage() {
   const [actionId, setActionId]   = useState<string | null>(null)
   const [selection, setSelection] = useState<Set<string>>(new Set())
   const [bulkLoading, setBulkLoading] = useState(false)
+  const [masquerPasses, setMasquerPasses] = useState(false)
+  const [togglingConfig, setTogglingConfig] = useState(false)
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
-    const { data } = await supabase
-      .from('evenements')
-      .select('*, lieux(*)')
-      .order('created_at', { ascending: false })
+    const [{ data }, { data: cfg }] = await Promise.all([
+      supabase.from('evenements').select('*, lieux(*)').order('created_at', { ascending: false }),
+      supabase.from('config').select('value').eq('key', 'masquer_passes').single(),
+    ])
     setEvenements((data as Evenement[]) ?? [])
+    setMasquerPasses(cfg?.value === 'true')
     setLoading(false)
   }, [])
 
   useEffect(() => { fetchAll() }, [fetchAll])
+
+  const toggleMasquerPasses = async () => {
+    const next = !masquerPasses
+    setTogglingConfig(true)
+    setMasquerPasses(next)
+    await supabase.from('config').update({ value: String(next) }).eq('key', 'masquer_passes')
+    setTogglingConfig(false)
+  }
   useEffect(() => { setSelection(new Set()) }, [onglet])
 
   const setStatut = async (id: string, statut: string) => {
@@ -116,6 +127,23 @@ export default function AdminPage() {
           Sources
         </Link>
         <button onClick={fetchAll} className="text-xs text-gray-400 underline">Actualiser</button>
+      </div>
+
+      {/* Réglage : masquer les événements passés */}
+      <div className="bg-[#3D2318] px-4 py-2.5 flex items-center gap-3">
+        <label className="flex items-center gap-2.5 cursor-pointer select-none flex-1" onClick={toggleMasquerPasses}>
+          {/* Toggle pill */}
+          <div className={`relative w-10 h-6 rounded-full transition-colors duration-200 ${masquerPasses ? 'bg-orange-500' : 'bg-gray-600'}`}>
+            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all duration-200 ${masquerPasses ? 'left-5' : 'left-1'}`} />
+          </div>
+          <span className="text-sm text-gray-300 font-medium">
+            Masquer les événements passés
+          </span>
+          {togglingConfig && <span className="text-xs text-gray-500">…</span>}
+        </label>
+        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${masquerPasses ? 'bg-orange-900 text-orange-300' : 'bg-gray-700 text-gray-400'}`}>
+          {masquerPasses ? 'Actif — site filtré' : 'Inactif — tout visible'}
+        </span>
       </div>
 
       {/* Onglets */}
