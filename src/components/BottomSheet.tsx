@@ -7,7 +7,6 @@ import { formatDate } from '@/lib/filters'
 import Link from 'next/link'
 
 const FULL_TOP = 60   // espace laissé en haut quand sheet pleine
-const PEEK_H   = 116  // handle + count + 2 boutons filtres
 
 const CATS = Object.keys(CATEGORIES) as Categorie[]
 
@@ -42,7 +41,9 @@ export default function BottomSheet({
 }: Props) {
   const { sheetBg } = useTheme()
   const [screenH, setScreenH]     = useState(812)
+  const [peekH, setPeekH]         = useState(130) // hauteur mesurée du header
   const [visibleCount, setVisibleCount] = useState(BATCH)
+  const headerRef = useRef<HTMLDivElement>(null)
   const obsRef = useRef<IntersectionObserver | null>(null)
   const loaderRef = useCallback((el: HTMLDivElement | null) => {
     if (obsRef.current) { obsRef.current.disconnect(); obsRef.current = null }
@@ -65,10 +66,20 @@ export default function BottomSheet({
   const quoiPillRefs  = useRef<(HTMLButtonElement | null)[]>([])
   const quandPillRefs = useRef<(HTMLButtonElement | null)[]>([])
 
-  const getSnaps = useCallback((h: number, navH: number) => {
+  // ResizeObserver sur le header pour mesurer sa hauteur réelle
+  useEffect(() => {
+    const el = headerRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setPeekH(el.offsetHeight))
+    ro.observe(el)
+    setPeekH(el.offsetHeight) // mesure initiale
+    return () => ro.disconnect()
+  }, [])
+
+  const getSnaps = useCallback((h: number, navH: number, ph: number) => {
     const sh = h - FULL_TOP - navH
     return {
-      peek: sh - PEEK_H,
+      peek: sh - ph,
       half: Math.round(sh * 0.5),
       full: 0,
     }
@@ -79,27 +90,27 @@ export default function BottomSheet({
   useEffect(() => {
     const h = window.innerHeight
     setScreenH(h)
-    y.set(getSnaps(h, navHeight).half) // départ à la moitié
-  }, [getSnaps, navHeight, y])
+    y.set(getSnaps(h, navHeight, peekH).half) // départ à la moitié
+  }, [getSnaps, navHeight, y]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const isMounted = useRef(false)
   useEffect(() => {
     if (!isMounted.current) { isMounted.current = true; return }
-    const snaps = getSnaps(screenH, navHeight)
+    const snaps = getSnaps(screenH, navHeight, peekH)
     animate(y, snaps[mode], { type: 'spring', stiffness: 340, damping: 36 })
-  }, [mode, screenH, navHeight, getSnaps, y])
+  }, [mode, screenH, navHeight, peekH, getSnaps, y])
 
-  const snaps = getSnaps(screenH, navHeight)
+  const snaps = getSnaps(screenH, navHeight, peekH)
 
   const snapTo = useCallback((target: 'peek' | 'half' | 'full') => {
     onModeChange(target)
-    animate(y, getSnaps(screenH, navHeight)[target], { type: 'spring', stiffness: 340, damping: 36 })
-  }, [onModeChange, y, getSnaps, screenH, navHeight])
+    animate(y, getSnaps(screenH, navHeight, peekH)[target], { type: 'spring', stiffness: 340, damping: 36 })
+  }, [onModeChange, y, getSnaps, screenH, navHeight, peekH])
 
   const handleDragEnd = (_: unknown, info: { velocity: { y: number } }) => {
     const current = y.get()
     const vy = info.velocity.y
-    const s  = getSnaps(screenH, navHeight)
+    const s  = getSnaps(screenH, navHeight, peekH)
     let target: 'peek' | 'half' | 'full'
     if (vy > 400) {
       target = current > s.half ? 'peek' : 'half'
@@ -197,6 +208,8 @@ export default function BottomSheet({
         transition: 'background-color 0.2s',
       }}
     >
+      {/* ── Header mesuré (peek height source) ── */}
+      <div ref={headerRef} style={{ flexShrink: 0 }}>
       {/* ── Zone de drag : handle + compteur + boutons filtres ── */}
       <div
         onPointerDown={e => dragControls.start(e)}
@@ -338,7 +351,8 @@ export default function BottomSheet({
       </AnimatePresence>
 
       {/* ── Séparateur ── */}
-      <div style={{ height: 1, backgroundColor: sheetBg.border, flexShrink: 0 }} />
+      <div style={{ height: 1, backgroundColor: sheetBg.border }} />
+      </div>{/* fin header mesuré */}
 
       {/* ── Liste ── */}
       <div
