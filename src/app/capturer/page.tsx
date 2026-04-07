@@ -3,6 +3,7 @@ import { useState, useRef } from 'react'
 import Link from 'next/link'
 import { CATEGORIES } from '@/lib/categories'
 import { Categorie } from '@/lib/types'
+import type { ExtractedData } from '@/lib/extract'
 import MicButton from '@/components/MicButton'
 
 interface FormData {
@@ -25,7 +26,13 @@ const emptyForm: FormData = {
   prix: '', contact: '', organisateurs: '',
 }
 
-type Step = 'input' | 'preview' | 'success'
+type Step = 'input' | 'selection' | 'preview' | 'success'
+
+interface SubmitResult {
+  titre: string
+  ok: boolean
+  statut?: string
+}
 
 // Compresse une image base64 à max 1200px / qualité 0.82
 async function compressImage(base64: string, mimeType: string): Promise<{ data: string; mime: string }> {
@@ -46,25 +53,51 @@ async function compressImage(base64: string, mimeType: string): Promise<{ data: 
   })
 }
 
+function extractToForm(e: ExtractedData): FormData {
+  return {
+    titre:         e.titre        ?? '',
+    description:   e.description  ?? '',
+    date_debut:    e.date_debut   ?? '',
+    date_fin:      e.date_fin     ?? '',
+    heure:         e.heure        ?? '',
+    categorie:     (e.categorie   ?? 'autre') as Categorie,
+    lieu_nom:      e.lieu_nom     ?? '',
+    commune:       e.commune      ?? '',
+    prix:          e.prix         ?? '',
+    contact:       e.contact      ?? '',
+    organisateurs: e.organisateurs ?? '',
+  }
+}
+
 export default function CapturerPage() {
-  const [step, setStep] = useState<Step>('input')
-  const [texte, setTexte] = useState('')
+  const [step, setStep]               = useState<Step>('input')
+  const [texte, setTexte]             = useState('')
   const [imageBase64, setImageBase64] = useState<string | null>(null)
-  const [imageMime, setImageMime] = useState('image/jpeg')
+  const [imageMime, setImageMime]     = useState('image/jpeg')
   const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const [form, setForm] = useState<FormData>(emptyForm)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [eventId, setEventId] = useState<string | null>(null)
-  const cameraRef = useRef<HTMLInputElement>(null)
+
+  // Multi-events
+  const [events, setEvents]           = useState<ExtractedData[]>([])
+  const [selected, setSelected]       = useState<Set<number>>(new Set())
+
+  // Single preview/edit
+  const [form, setForm]               = useState<FormData>(emptyForm)
+  const [loading, setLoading]         = useState(false)
+  const [error, setError]             = useState<string | null>(null)
+
+  // Batch submit state
+  const [submitProgress, setSubmitProgress] = useState(0)
+  const [submitResults, setSubmitResults]   = useState<SubmitResult[]>([])
+
+  const cameraRef  = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
 
   const handleFile = async (file: File) => {
     const reader = new FileReader()
     reader.onload = async () => {
-      const result = reader.result as string
+      const result   = reader.result as string
       const rawBase64 = result.split(',')[1]
-      const mimeType = file.type || 'image/jpeg'
+      const mimeType  = file.type || 'image/jpeg'
       const compressed = await compressImage(rawBase64, mimeType)
       setImageBase64(compressed.data)
       setImageMime(compressed.mime)
@@ -78,7 +111,7 @@ export default function CapturerPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/extract/preview', {
+      const res  = await fetch('/api/extract/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: texte || null, image: imageBase64, imageMimeType: imageMime }),
@@ -86,21 +119,18 @@ export default function CapturerPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
 
-      const e = data.extracted
-      setForm({
-        titre:        e.titre        ?? '',
-        description:  e.description  ?? '',
-        date_debut:   e.date_debut   ?? '',
-        date_fin:     e.date_fin     ?? '',
-        heure:        e.heure        ?? '',
-        categorie:    e.categorie    ?? 'autre',
-        lieu_nom:     e.lieu_nom     ?? '',
-        commune:      e.commune      ?? '',
-        prix:         e.prix         ?? '',
-        contact:      e.contact      ?? '',
-        organisateurs: e.organisateurs ?? '',
-      })
-      setStep('preview')
+      const evts: ExtractedData[] = data.events ?? []
+      setEvents(evts)
+
+      if (evts.length === 1) {
+        // Un seul événement → passer directement au formulaire de preview
+        setForm(extractToForm(evts[0]))
+        setStep('preview')
+      } else {
+        // Plusieurs → étape sélection, tout sélectionné par défaut
+        setSelected(new Set(evts.map((_, i) => i)))
+        setStep('selection')
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erreur inconnue')
     } finally {
@@ -108,25 +138,66 @@ export default function CapturerPage() {
     }
   }
 
-  const handleSubmit = async () => {
+  // Soumission d'un seul événement (depuis preview)
+  const handleSubmitSingle = async () => {
     if (!form.titre.trim()) { setError('Le titre est requis'); return }
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/evenements', {
+      const res  = await fetch('/api/evenements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...form, image: imageBase64, imageMimeType: imageMime }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      setEventId(data.evenement.id)
+      setSubmitResults([{ titre: form.titre, ok: true, statut: data.statut }])
       setStep('success')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erreur inconnue')
     } finally {
       setLoading(false)
     }
+  }
+
+  // Soumission groupée (depuis selection)
+  const handleSubmitBatch = async () => {
+    const toSubmit = Array.from(selected).map(i => events[i])
+    if (toSubmit.length === 0) return
+    setLoading(true)
+    setError(null)
+    setSubmitProgress(0)
+    const results: SubmitResult[] = []
+    for (let i = 0; i < toSubmit.length; i++) {
+      const evt = toSubmit[i]
+      try {
+        const res  = await fetch('/api/evenements', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...extractToForm(evt), image: i === 0 ? imageBase64 : null, imageMimeType: imageMime }),
+        })
+        const data = await res.json()
+        results.push({ titre: evt.titre ?? '(sans titre)', ok: res.ok && !data.error, statut: data.statut })
+      } catch {
+        results.push({ titre: evt.titre ?? '(sans titre)', ok: false })
+      }
+      setSubmitProgress(i + 1)
+    }
+    setSubmitResults(results)
+    setLoading(false)
+    setStep('success')
+  }
+
+  const toggleSelect = (i: number) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(i)) next.delete(i); else next.add(i)
+      return next
+    })
+  }
+
+  const toggleAll = () => {
+    setSelected(prev => prev.size === events.length ? new Set() : new Set(events.map((_, i) => i)))
   }
 
   const field = (label: string, key: keyof FormData, type = 'text', placeholder = '') => (
@@ -144,24 +215,42 @@ export default function CapturerPage() {
 
   // ── Succès ───────────────────────────────────────────────────────────────────
   if (step === 'success') {
+    const ok  = submitResults.filter(r => r.ok).length
+    const ko  = submitResults.filter(r => !r.ok).length
     return (
       <div className="min-h-screen bg-[#FBF7F0] flex flex-col items-center justify-center p-8 text-center">
         <p className="text-6xl mb-4">🎉</p>
-        <h2 className="text-2xl font-bold text-[#2C1810] mb-2">Merci !</h2>
-        <p className="text-gray-600 text-sm mb-8">
-          Ton événement a été soumis et sera vérifié avant publication.
+        <h2 className="text-2xl font-bold text-[#2C1810] mb-1">Merci !</h2>
+        <p className="text-gray-600 text-sm mb-6">
+          {ok} événement{ok > 1 ? 's' : ''} soumis
+          {ko > 0 ? `, ${ko} erreur${ko > 1 ? 's' : ''}` : ''}
         </p>
+
+        {/* Détail des résultats */}
+        {submitResults.length > 1 && (
+          <div className="w-full max-w-xs bg-white rounded-2xl p-4 mb-6 text-left space-y-2">
+            {submitResults.map((r, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="text-base">{r.ok ? '✅' : '❌'}</span>
+                <span className="text-sm text-[#2C1810] leading-snug flex-1">{r.titre}</span>
+                {r.statut && (
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                    r.statut === 'publie' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                  }`}>
+                    {r.statut === 'publie' ? 'Publié' : 'À valider'}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="flex flex-col gap-3 w-full max-w-xs">
-          {eventId && (
-            <Link href={`/evenement/${eventId}`} className="block bg-[#C4622D] text-white text-center py-3 rounded-2xl font-bold">
-              Voir l&apos;événement
-            </Link>
-          )}
           <button
-            onClick={() => { setStep('input'); setTexte(''); setForm(emptyForm); setImageBase64(null); setImagePreview(null) }}
+            onClick={() => { setStep('input'); setTexte(''); setForm(emptyForm); setImageBase64(null); setImagePreview(null); setEvents([]); setSelected(new Set()); setSubmitResults([]) }}
             className="py-3 rounded-2xl font-medium text-[#C4622D] border-2 border-[#C4622D]"
           >
-            Ajouter un autre événement
+            Ajouter d&apos;autres événements
           </button>
           <Link href="/" className="text-sm text-gray-400 underline text-center">
             Retour à l&apos;accueil
@@ -171,7 +260,97 @@ export default function CapturerPage() {
     )
   }
 
-  // ── Preview ──────────────────────────────────────────────────────────────────
+  // ── Sélection (multi-events) ──────────────────────────────────────────────────
+  if (step === 'selection') {
+    const cats = CATEGORIES as Record<string, { label: string; emoji: string; color: string }>
+    return (
+      <div className="min-h-screen bg-[#FBF7F0]">
+        <div className="sticky top-0 z-10 bg-white border-b border-[#E8E0D5] px-4 py-3 flex items-center gap-3">
+          <button onClick={() => setStep('input')} className="text-[#C4622D] font-bold text-2xl leading-none">←</button>
+          <div className="flex-1">
+            <h1 className="font-bold text-[#2C1810] leading-tight">{events.length} événements détectés</h1>
+            <p className="text-xs text-gray-400">Sélectionne ceux à soumettre</p>
+          </div>
+          <button onClick={toggleAll} className="text-xs text-[#C4622D] font-semibold underline">
+            {selected.size === events.length ? 'Tout désélectionner' : 'Tout sélectionner'}
+          </button>
+        </div>
+
+        <div className="p-3 space-y-2 pb-32">
+          {imagePreview && (
+            <div className="rounded-2xl overflow-hidden mb-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={imagePreview} alt="Aperçu" className="w-full max-h-40 object-cover" />
+            </div>
+          )}
+
+          {events.map((evt, i) => {
+            const cat   = cats[evt.categorie ?? 'autre'] ?? cats['autre']
+            const isOn  = selected.has(i)
+            return (
+              <div
+                key={i}
+                onClick={() => toggleSelect(i)}
+                className={`bg-white rounded-2xl p-3 border-2 cursor-pointer transition-colors ${isOn ? 'border-[#C4622D]' : 'border-transparent'} shadow-sm`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${isOn ? 'bg-[#C4622D] border-[#C4622D]' : 'border-[#E8E0D5]'}`}>
+                    {isOn && <span className="text-white text-xs font-bold">✓</span>}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: cat.color }}>
+                        {cat.emoji} {cat.label}
+                      </span>
+                    </div>
+                    <p className="font-semibold text-sm text-[#2C1810] leading-snug">{evt.titre || '(sans titre)'}</p>
+                    <div className="flex flex-wrap gap-x-3 mt-1">
+                      {evt.date_debut && (
+                        <span className="text-xs text-[#C4622D] font-medium">
+                          {new Date(evt.date_debut + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                          {evt.heure ? ` · ${evt.heure.slice(0, 5)}` : ''}
+                        </span>
+                      )}
+                      {(evt.lieu_nom || evt.commune) && (
+                        <span className="text-xs text-gray-400">📍 {evt.lieu_nom ?? evt.commune}</span>
+                      )}
+                    </div>
+                    {evt.description && (
+                      <p className="text-xs text-gray-400 mt-1 line-clamp-1">{evt.description}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-[#E8E0D5]">
+          {loading ? (
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-full bg-[#E8E0D5] rounded-full h-2">
+                <div
+                  className="bg-[#C4622D] h-2 rounded-full transition-all"
+                  style={{ width: `${selected.size ? (submitProgress / selected.size) * 100 : 0}%` }}
+                />
+              </div>
+              <p className="text-sm text-gray-500">{submitProgress} / {selected.size} envoyés…</p>
+            </div>
+          ) : (
+            <button
+              onClick={handleSubmitBatch}
+              disabled={selected.size === 0}
+              className="w-full bg-[#C4622D] text-white py-4 rounded-2xl font-bold text-base disabled:opacity-40 transition-opacity"
+            >
+              Soumettre {selected.size} événement{selected.size > 1 ? 's' : ''} →
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // ── Preview (1 event) ─────────────────────────────────────────────────────────
   if (step === 'preview') {
     return (
       <div className="min-h-screen bg-[#FBF7F0]">
@@ -183,7 +362,6 @@ export default function CapturerPage() {
         <div className="p-4 space-y-3 pb-32">
           <p className="text-sm text-gray-500">L&apos;IA a rempli les champs — vérifie et corrige si besoin.</p>
 
-          {/* Miniature image */}
           {imagePreview && (
             <div className="rounded-2xl overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -233,7 +411,7 @@ export default function CapturerPage() {
 
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-[#E8E0D5]">
           <button
-            onClick={handleSubmit}
+            onClick={handleSubmitSingle}
             disabled={loading}
             className="w-full bg-[#C4622D] text-white py-4 rounded-2xl font-bold text-base disabled:opacity-50 transition-opacity"
           >

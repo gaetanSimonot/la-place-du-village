@@ -75,6 +75,57 @@ Structure attendue :
   return JSON.parse(clean)
 }
 
+export async function extractMultipleWithClaude(text: string | null, imageBase64?: string, imageMimeType?: string): Promise<ExtractedData[]> {
+  const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+
+  const systemPrompt = `Tu es un assistant qui extrait des informations d'événements locaux.
+Aujourd'hui nous sommes le ${today}. Utilise cette date pour résoudre toute référence relative.
+Contexte géographique : tous les événements ont lieu dans l'Hérault (département 34), région de Ganges, sauf mention contraire explicite.
+IMPORTANT : Extrais TOUS les événements présents (il peut y en avoir plusieurs sur une même affiche ou programme).
+Réponds UNIQUEMENT avec un tableau JSON valide, sans markdown ni explication. Si un seul événement, retourne quand même un tableau à 1 élément.
+Structure de chaque objet :
+{
+  "titre": "string",
+  "description": "string ou null",
+  "date_debut": "YYYY-MM-DD ou null",
+  "date_fin": "YYYY-MM-DD ou null",
+  "heure": "HH:MM ou null",
+  "categorie": "concert|theatre|sport|marche|atelier|fete|autre",
+  "lieu_nom": "string ou null",
+  "lieu_adresse": "string ou null",
+  "commune": "string ou null",
+  "code_postal": "string ou null",
+  "prix": "string ou null",
+  "contact": "string ou null",
+  "organisateurs": "string ou null"
+}`
+
+  const userText = text
+    ? `Extrais TOUS les événements de ce contenu :\n\n${text}`
+    : "Extrais TOUS les événements présents sur cette affiche ou programme :"
+
+  const mimeType = (imageMimeType || 'image/jpeg') as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
+
+  const content: Anthropic.MessageParam['content'] = imageBase64
+    ? [
+        { type: 'text', text: userText },
+        { type: 'image', source: { type: 'base64', media_type: mimeType, data: imageBase64 } },
+      ]
+    : userText
+
+  const response = await anthropic.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 4096,
+    system: systemPrompt,
+    messages: [{ role: 'user', content }],
+  })
+
+  const raw = response.content[0].type === 'text' ? response.content[0].text : '[]'
+  const clean = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
+  const parsed = JSON.parse(clean)
+  return Array.isArray(parsed) ? parsed : [parsed]
+}
+
 const randOffset = () => Math.random() * 0.004 - 0.002
 
 async function textsearch(query: string): Promise<Omit<GeoResult, 'approx'> | null> {
