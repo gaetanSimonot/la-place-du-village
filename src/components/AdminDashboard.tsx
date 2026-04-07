@@ -160,7 +160,7 @@ export default function AdminDashboard() {
 
   // Filtrage par onglet
   const byOnglet = useMemo(() => evenements.filter(e => {
-    if (onglet === 'scrap')     return e.source === 'scrape' && e.statut === 'en_attente'
+    if (onglet === 'scrap')     return e.source === 'scrape' && (e.statut === 'en_attente' || e.statut === 'a_verifier')
     if (onglet === 'a_traiter') return e.source !== 'scrape' && (e.statut === 'en_attente' || e.statut === 'a_verifier' || (e.statut === 'publie' && isApproxLocation(e.lieux)))
     return e.statut === onglet
   }), [evenements, onglet])
@@ -202,7 +202,7 @@ export default function AdminDashboard() {
     a_traiter: evenements.filter(e => e.source !== 'scrape' && (e.statut === 'en_attente' || e.statut === 'a_verifier' || (e.statut === 'publie' && isApproxLocation(e.lieux)))).length,
     publie:    evenements.filter(e => e.statut === 'publie').length,
     rejete:    evenements.filter(e => e.statut === 'rejete').length,
-    scrap:     evenements.filter(e => e.source === 'scrape' && e.statut === 'en_attente').length,
+    scrap:     evenements.filter(e => e.source === 'scrape' && (e.statut === 'en_attente' || e.statut === 'a_verifier')).length,
   }
 
   const totalPages  = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))

@@ -13,11 +13,18 @@ interface Source {
   scrape_logs: { id: string; created_at: string; trouves: number; doublons: number; inseres: number; erreur: string | null }[]
 }
 
+interface ScrapeEventItem {
+  titre: string
+  statut: string
+  doublon: boolean
+}
+
 interface ScrapeResult {
   trouves: number
   doublons: number
   inseres: number
   erreur?: string
+  evenements?: ScrapeEventItem[]
 }
 
 export default function SourcesPage() {
@@ -25,6 +32,7 @@ export default function SourcesPage() {
   const [loading, setLoading] = useState(true)
   const [scraping, setScraping] = useState<string | null>(null)
   const [scrapeResult, setScrapeResult] = useState<Record<string, ScrapeResult>>({})
+  const [rapport, setRapport] = useState<ScrapeResult & { sourceName: string } | null>(null)
   const [form, setForm] = useState({ nom: '', url: '', frequence: '24h' })
   const [adding, setAdding] = useState(false)
   const [showForm, setShowForm] = useState(false)
@@ -68,18 +76,63 @@ export default function SourcesPage() {
     await fetchSources()
   }
 
-  const scrapeNow = async (id: string) => {
+  const scrapeNow = async (id: string, nom: string) => {
     setScraping(id)
     setScrapeResult(r => ({ ...r, [id]: undefined as unknown as ScrapeResult }))
     const res = await fetch(`/api/scrape-source?id=${id}`)
     const data = await res.json()
     setScrapeResult(r => ({ ...r, [id]: data }))
+    if (!data.erreur) setRapport({ ...data, sourceName: nom })
     await fetchSources()
     setScraping(null)
   }
 
+  const statutLabel = (s: string) => {
+    if (s === 'publie')     return { label: 'Publié', color: 'bg-green-100 text-green-700' }
+    if (s === 'en_attente') return { label: 'À valider', color: 'bg-blue-100 text-blue-700' }
+    if (s === 'a_verifier') return { label: 'À vérifier', color: 'bg-orange-100 text-orange-700' }
+    if (s === 'archive')    return { label: 'Doublon', color: 'bg-gray-100 text-gray-500' }
+    return { label: s, color: 'bg-gray-100 text-gray-500' }
+  }
+
   return (
     <div className="min-h-screen bg-[#FBF7F0]">
+
+      {/* Modal rapport */}
+      {rapport && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => setRapport(null)}>
+          <div className="bg-white rounded-t-2xl w-full max-w-lg max-h-[80dvh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 px-4 py-4 border-b border-[#E8E0D5]">
+              <div>
+                <p className="font-bold text-[#2C1810]">Rapport — {rapport.sourceName}</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {rapport.trouves} trouvés · {rapport.doublons} doublons · {rapport.inseres} insérés
+                </p>
+              </div>
+              <button onClick={() => setRapport(null)} className="ml-auto text-gray-400 text-xl leading-none">✕</button>
+            </div>
+            <div className="overflow-y-auto px-4 py-3 space-y-2">
+              {(rapport.evenements ?? []).map((e, i) => {
+                const { label, color } = statutLabel(e.statut)
+                return (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${color}`}>{label}</span>
+                    <span className="text-sm text-[#2C1810] leading-snug">{e.titre}</span>
+                  </div>
+                )
+              })}
+              {(rapport.evenements ?? []).length === 0 && (
+                <p className="text-sm text-gray-400 py-4 text-center">Aucun événement inséré</p>
+              )}
+            </div>
+            <div className="px-4 py-3 border-t border-[#E8E0D5]">
+              <a href="/admin" className="block w-full text-center bg-[#C4622D] text-white text-sm font-bold py-2.5 rounded-xl">
+                Voir dans l&apos;admin →
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="bg-[#2C1810] text-white px-4 py-4 flex items-center gap-3">
         <Link href="/admin" className="text-[#C4622D] text-xl font-bold">←</Link>
@@ -182,7 +235,7 @@ export default function SourcesPage() {
               {/* Actions */}
               <div className="flex gap-2">
                 <button
-                  onClick={() => scrapeNow(src.id)}
+                  onClick={() => scrapeNow(src.id, src.nom)}
                   disabled={!!scraping}
                   className="flex-1 py-2 bg-[#C4622D] text-white text-xs font-bold rounded-xl disabled:opacity-50 flex items-center justify-center gap-1.5"
                 >

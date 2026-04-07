@@ -13,13 +13,20 @@ const supabaseAdmin = createClient(
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+export interface ScrapeEventItem {
+  titre:  string
+  statut: string
+  doublon: boolean
+}
+
 export interface ScrapeResult {
-  sourceId:  string
+  sourceId:   string
   sourceName: string
-  trouves:   number
-  doublons:  number
-  inseres:   number
-  erreur?:   string
+  trouves:    number
+  doublons:   number
+  inseres:    number
+  erreur?:    string
+  evenements: ScrapeEventItem[]
 }
 
 interface ScrapedEvent {
@@ -121,13 +128,14 @@ export async function scrapeSource(sourceId: string): Promise<ScrapeResult> {
     .single()
 
   if (srcErr || !source) {
-    return { sourceId, sourceName: '?', trouves: 0, doublons: 0, inseres: 0, erreur: 'Source introuvable' }
+    return { sourceId, sourceName: '?', trouves: 0, doublons: 0, inseres: 0, erreur: 'Source introuvable', evenements: [] }
   }
 
   let trouves  = 0
   let doublons = 0
   let inseres  = 0
   let erreur: string | undefined
+  const evenements: ScrapeEventItem[] = []
 
   try {
     // 2. Récupérer la page via Jina Reader (gère le JS-rendering)
@@ -160,7 +168,7 @@ export async function scrapeSource(sourceId: string): Promise<ScrapeResult> {
 
       if (check.doublon) {
         doublons++
-        // Archiver silencieusement (log sans exposition publique)
+        evenements.push({ titre: evt.titre, statut: 'archive', doublon: true })
         await supabaseAdmin.from('evenements').insert({
           titre:            evt.titre,
           description:      evt.description,
@@ -233,7 +241,10 @@ export async function scrapeSource(sourceId: string): Promise<ScrapeResult> {
           scrape_source_id: sourceId,
         })
 
-      if (!evtErr) inseres++
+      if (!evtErr) {
+        inseres++
+        evenements.push({ titre: evt.titre, statut: finalStatut, doublon: false })
+      }
     }
 
     // 5. Mettre à jour dernier_scrape
@@ -251,5 +262,5 @@ export async function scrapeSource(sourceId: string): Promise<ScrapeResult> {
     .from('scrape_logs')
     .insert({ source_id: sourceId, trouves, doublons, inseres, erreur })
 
-  return { sourceId, sourceName: source.nom, trouves, doublons, inseres, erreur }
+  return { sourceId, sourceName: source.nom, trouves, doublons, inseres, erreur, evenements }
 }
