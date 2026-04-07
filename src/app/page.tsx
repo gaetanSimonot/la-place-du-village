@@ -103,8 +103,8 @@ export default function HomePage() {
   return (
     <div style={{ height: '100dvh', position: 'relative', overflow: 'hidden', backgroundColor: '#e8dece' }}>
 
-      {/* Carte plein écran */}
-      <div className="absolute inset-0" style={{ bottom: NAV_H }}>
+      {/* Carte plein écran — zIndex:1 crée un stacking context, contient les z-index internes de Google Maps */}
+      <div className="absolute inset-0" style={{ bottom: NAV_H, zIndex: 1 }}>
         {/* Bande invisible en haut — laisse passer le geste "tirer pour rafraîchir" */}
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 40, zIndex: 5, pointerEvents: 'auto' }} />
         <MapView
@@ -116,41 +116,35 @@ export default function HomePage() {
         />
       </div>
 
-      {/* Bouton Carte fixe — haut gauche, visible sur carte seulement */}
-      <AnimatePresence>
-        {navTab === 'carte' && (
-          <motion.button
-            key="carte-fixe"
-            initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }}
-            transition={{ duration: 0.18 }}
-            onClick={() => setFixedMap(!fixedMap)}
-            style={{
-              position: 'absolute', top: 14, left: 14, zIndex: 40,
-              width: 44, height: 44, borderRadius: 12,
-              backgroundColor: fixedMap ? 'var(--primary)' : 'rgba(255,255,255,0.92)',
-              border: fixedMap ? 'none' : '1px solid #E0D8CE',
-              boxShadow: fixedMap
-                ? '0 3px 16px rgba(0,0,0,0.28)'
-                : '0 2px 10px rgba(0,0,0,0.14)',
-              cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: fixedMap ? '#fff' : '#6B6B6B',
-            }}
-          >
-            {fixedMap ? (
-              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="11" width="18" height="11" rx="2"/>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-              </svg>
-            ) : (
-              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="11" width="18" height="11" rx="2"/>
-                <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
-              </svg>
-            )}
-          </motion.button>
+      {/* Bouton Carte fixe — haut gauche */}
+      <button
+        onClick={() => setFixedMap(!fixedMap)}
+        style={{
+          position: 'absolute', top: 14, left: 14, zIndex: 200,
+          width: 44, height: 44, borderRadius: 12,
+          backgroundColor: fixedMap ? 'var(--primary)' : 'rgba(255,255,255,0.92)',
+          border: fixedMap ? 'none' : '1px solid #E0D8CE',
+          boxShadow: fixedMap ? '0 3px 16px rgba(0,0,0,0.28)' : '0 2px 10px rgba(0,0,0,0.14)',
+          cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: fixedMap ? '#fff' : '#6B6B6B',
+          opacity: navTab === 'carte' ? 1 : 0,
+          pointerEvents: navTab === 'carte' ? 'auto' : 'none',
+          transition: 'opacity 0.18s, background-color 0.18s',
+        }}
+      >
+        {fixedMap ? (
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        ) : (
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2"/>
+            <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+          </svg>
         )}
-      </AnimatePresence>
+      </button>
 
       {/* FAB "+" — haut droite, visible seulement sur carte non-full */}
       <AnimatePresence>
@@ -158,7 +152,7 @@ export default function HomePage() {
           <motion.div key="fab"
             initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }}
             transition={{ duration: 0.18 }}
-            style={{ position: 'absolute', top: 14, right: 14, zIndex: 40 }}
+            style={{ position: 'absolute', top: 14, right: 14, zIndex: 200 }}
           >
             <AnimatePresence>
               {fabOpen && (
