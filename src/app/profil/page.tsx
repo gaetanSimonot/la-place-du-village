@@ -3,6 +3,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useTheme } from '@/components/ThemeProvider'
 import { COLOR_THEMES, MAP_STYLES } from '@/lib/themes'
+import AdminAccess from '@/components/AdminAccess'
 
 type Tab = 'profil' | 'theme'
 
@@ -166,6 +167,7 @@ export default function ProfilPage() {
           </div>
         )}
       </div>
+      <AdminAccess />
     </div>
   )
 }
