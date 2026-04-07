@@ -70,6 +70,25 @@ export default function HomePage() {
   const [sheetMode, setSheetMode]   = useState<'peek'|'half'|'full'>('half')
   const [navTab, setNavTab]         = useState<NavTab>('carte')
   const [fabOpen, setFabOpen]       = useState(false)
+  const mapDragTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const sheetBeforeMapRef = useRef<'peek'|'half'|'full' | null>(null)
+
+  const onMapDragStart = useCallback(() => {
+    if (mapDragTimerRef.current) clearTimeout(mapDragTimerRef.current)
+    setSheetMode(prev => {
+      if (prev === 'half') { sheetBeforeMapRef.current = 'half'; return 'peek' }
+      return prev
+    })
+  }, [])
+
+  const onMapDragEnd = useCallback(() => {
+    mapDragTimerRef.current = setTimeout(() => {
+      if (sheetBeforeMapRef.current === 'half') {
+        sheetBeforeMapRef.current = null
+        setSheetMode('half')
+      }
+    }, 500)
+  }, [])
   const [fabPressed, setFabPressed] = useState(false)
   const [fabActive, setFabActive]   = useState<string | null>(null)
   const fabCenterRef = useRef({ x: 0, y: 0 })
@@ -234,6 +253,8 @@ export default function HomePage() {
           onDeselect={() => setSelectedId(null)}
           onOpenEvent={id => router.push(`/evenement/${id}`)}
           centerOn={mapCenterOn}
+          onMapDragStart={onMapDragStart}
+          onMapDragEnd={onMapDragEnd}
         />
       </div>
 

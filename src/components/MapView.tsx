@@ -180,9 +180,11 @@ interface Props {
   onDeselect: () => void
   onOpenEvent: (id: string) => void
   centerOn?: { lat: number; lng: number } | null
+  onMapDragStart?: () => void
+  onMapDragEnd?: () => void
 }
 
-export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn }: Props) {
+export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn, onMapDragStart, onMapDragEnd }: Props) {
   const selectedEvent = selectedId ? evenements.find(e => e.id === selectedId) : null
   const selectedCat   = selectedEvent
     ? (CATEGORIES[selectedEvent.categorie] ?? CATEGORIES.autre)
@@ -202,6 +204,8 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
         zoomControl={false}
         clickableIcons={false}
         styles={mapStyle.styles.length > 0 ? mapStyle.styles : WARM_STYLE}
+        onDragstart={onMapDragStart}
+        onDragend={onMapDragEnd}
       >
         <Markers
           evenements={evenements}
