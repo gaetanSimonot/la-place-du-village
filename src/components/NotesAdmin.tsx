@@ -67,16 +67,22 @@ export default function NotesAdmin() {
     const text = input.trim()
     if (!text) return
     setSending(true)
-    const res  = await fetch('/api/admin/notes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contenu: text }),
-    })
-    const note = await res.json()
-    setNotes(prev => [...prev, note])
-    setInput('')
-    setSending(false)
-    if (inputRef.current) inputRef.current.style.height = 'auto'
+    try {
+      const res  = await fetch('/api/admin/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contenu: text }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Erreur serveur')
+      setNotes(prev => [...prev, data])
+      setInput('')
+      if (inputRef.current) inputRef.current.style.height = 'auto'
+    } catch (e) {
+      alert('Erreur : ' + (e instanceof Error ? e.message : 'impossible d\'envoyer la note'))
+    } finally {
+      setSending(false)
+    }
   }
 
   const deleteNote = async (id: string) => {
