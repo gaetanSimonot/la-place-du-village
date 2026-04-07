@@ -5,7 +5,10 @@ export function getDateRange(quand: FiltreQuand): { from: string; to: string } |
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  const fmt = (d: Date) => d.toISOString().split('T')[0]
+  // toISOString() donne l'heure UTC — en France (UTC+2) minuit local = 22h UTC
+  // la veille, ce qui décale toutes les dates. On utilise les composantes locales.
+  const fmt = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
   if (quand === 'aujourd_hui') {
     return { from: fmt(today), to: fmt(today) }
