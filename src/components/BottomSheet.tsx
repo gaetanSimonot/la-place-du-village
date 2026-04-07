@@ -43,6 +43,7 @@ export default function BottomSheet({
   const [peekH, setPeekH]         = useState(130) // hauteur mesurée du header
   const [visibleCount, setVisibleCount] = useState(BATCH)
   const headerRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
   const obsRef = useRef<IntersectionObserver | null>(null)
   const loaderRef = useCallback((el: HTMLDivElement | null) => {
     if (obsRef.current) { obsRef.current.disconnect(); obsRef.current = null }
@@ -180,6 +181,11 @@ export default function BottomSheet({
 
   // Reset visibleCount quand la liste change (nouveau filtre)
   useEffect(() => { setVisibleCount(BATCH) }, [evenements])
+
+  // Scroll en haut quand on descend en peek
+  useEffect(() => {
+    if (mode === 'peek') listRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [mode])
 
   const sortedEvents = selectedId
     ? [...evenements.filter(e => e.id === selectedId), ...evenements.filter(e => e.id !== selectedId)]
@@ -367,6 +373,7 @@ export default function BottomSheet({
 
       {/* ── Liste ── */}
       <div
+        ref={listRef}
         style={{ flex: 1, overflowY: 'auto', padding: '10px 16px 24px', display: 'flex', flexDirection: 'column', gap: 10 }}
         onPointerDown={e => e.stopPropagation()}
       >

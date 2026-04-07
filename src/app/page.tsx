@@ -101,6 +101,7 @@ export default function HomePage() {
     setFabActive(best)
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const onFabUp = (_e: React.PointerEvent<HTMLButtonElement>) => {
     setFabPressed(false)
     if (fabActive) {
@@ -174,6 +175,11 @@ export default function HomePage() {
   }, [filtres, masquerPasses, zoneLoaded])
 
   useEffect(() => { fetchEvenements() }, [fetchEvenements])
+
+  // Quand la liste redescend (half/peek), réactiver le mode carte pour les boutons
+  useEffect(() => {
+    if (sheetMode !== 'full') setNavTab('carte')
+  }, [sheetMode])
 
   // Filtre zone appliqué sur la liste complète — recalculé à chaque changement de zone
   const evenements = useMemo(() => {
