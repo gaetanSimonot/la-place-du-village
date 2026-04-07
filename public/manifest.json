@@ -1,24 +1,31 @@
 {
   "name": "La Place du Village",
   "short_name": "La Place",
-  "description": "Événements locaux autour de Ganges",
+  "description": "Événements locaux autour de Ganges (Hérault)",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#FBF7F0",
-  "theme_color": "#C4622D",
+  "background_color": "#FAF7F2",
+  "theme_color": "#E8622A",
   "orientation": "portrait",
+  "categories": ["lifestyle", "social"],
   "icons": [
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

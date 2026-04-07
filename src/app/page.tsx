@@ -98,38 +98,6 @@ export default function HomePage() {
       <div className="absolute inset-0" style={{ bottom: NAV_H }}>
         {/* Bande invisible en haut — laisse passer le geste "tirer pour rafraîchir" */}
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 40, zIndex: 5, pointerEvents: 'auto' }} />
-
-        {/* Bouton Carte fixe — coin bas-droit de la carte */}
-        <button
-          onClick={() => setFixedMap(!fixedMap)}
-          title={fixedMap ? 'Carte fixe (cliquer pour libérer)' : 'Carte libre (cliquer pour fixer)'}
-          style={{
-            position: 'absolute', bottom: 14, right: 14, zIndex: 10,
-            width: 40, height: 40, borderRadius: 10,
-            backgroundColor: fixedMap ? 'var(--primary)' : 'rgba(255,255,255,0.92)',
-            border: fixedMap ? 'none' : '1px solid #E0D8CE',
-            boxShadow: '0 2px 10px rgba(0,0,0,0.14)',
-            cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: fixedMap ? '#fff' : '#8A8A8A',
-            transition: 'all 0.18s',
-          }}
-        >
-          {fixedMap ? (
-            /* cadenas fermé */
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="11" width="18" height="11" rx="2"/>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-            </svg>
-          ) : (
-            /* cadenas ouvert */
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="11" width="18" height="11" rx="2"/>
-              <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
-            </svg>
-          )}
-        </button>
-
         <MapView
           evenements={evenements}
           selectedId={selectedId}
@@ -138,6 +106,42 @@ export default function HomePage() {
           onOpenEvent={id => router.push(`/evenement/${id}`)}
         />
       </div>
+
+      {/* Bouton Carte fixe — haut gauche, visible sur carte seulement */}
+      <AnimatePresence>
+        {navTab === 'carte' && (
+          <motion.button
+            key="carte-fixe"
+            initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }}
+            transition={{ duration: 0.18 }}
+            onClick={() => setFixedMap(!fixedMap)}
+            style={{
+              position: 'absolute', top: 14, left: 14, zIndex: 40,
+              width: 44, height: 44, borderRadius: 12,
+              backgroundColor: fixedMap ? 'var(--primary)' : 'rgba(255,255,255,0.92)',
+              border: fixedMap ? 'none' : '1px solid #E0D8CE',
+              boxShadow: fixedMap
+                ? '0 3px 16px rgba(0,0,0,0.28)'
+                : '0 2px 10px rgba(0,0,0,0.14)',
+              cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: fixedMap ? '#fff' : '#6B6B6B',
+            }}
+          >
+            {fixedMap ? (
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+            ) : (
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2"/>
+                <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+              </svg>
+            )}
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       {/* FAB "+" — haut droite, visible seulement sur carte non-full */}
       <AnimatePresence>
