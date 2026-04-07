@@ -6,17 +6,17 @@ import { CATEGORIES } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
 import Link from 'next/link'
 
-const FULL_TOP = 48
-const PEEK_H   = 152  // handle + count + filters + pills space
+const FULL_TOP = 60   // espace laissé en haut quand sheet pleine
+const PEEK_H   = 116  // handle + count + 2 boutons filtres
 
 const CATS = Object.keys(CATEGORIES) as Categorie[]
 
-const QUAND_OPTIONS: { value: FiltreQuand; label: string }[] = [
-  { value: 'toujours',       label: 'Toujours'      },
-  { value: 'aujourd_hui',    label: "Aujourd'hui"   },
-  { value: 'ce_week_end',    label: 'Ce week-end'   },
-  { value: 'cette_semaine',  label: 'Cette semaine' },
-  { value: 'ce_mois',        label: 'Ce mois'       },
+const QUAND_OPTIONS: { value: FiltreQuand; label: string; short: string }[] = [
+  { value: 'toujours',       label: 'Toujours',      short: 'Toujours'   },
+  { value: 'aujourd_hui',    label: "Aujourd'hui",   short: "Auj."       },
+  { value: 'ce_week_end',    label: 'Ce week-end',   short: 'Ce WE'      },
+  { value: 'cette_semaine',  label: 'Cette semaine', short: 'Semaine'    },
+  { value: 'ce_mois',        label: 'Ce mois',       short: 'Ce mois'    },
 ]
 
 interface Props {
@@ -27,101 +27,146 @@ interface Props {
   onViewOnMap: (id: string) => void
   filtres: Filtres
   onFiltresChange: (f: Filtres) => void
-  mode: 'peek' | 'full'
+  mode: 'peek' | 'half' | 'full'
+  onModeChange: (m: 'peek' | 'half' | 'full') => void
   navHeight: number
 }
 
 export default function BottomSheet({
   evenements, loading, selectedId, onSelectEvent, onViewOnMap,
-  filtres, onFiltresChange, mode, navHeight,
+  filtres, onFiltresChange, mode, onModeChange, navHeight,
 }: Props) {
-  const [screenH, setScreenH]   = useState(812)
-  const dragControls            = useDragControls()
-  const screenHRef              = useRef(812)
+  const [screenH, setScreenH]     = useState(812)
+  const dragControls              = useDragControls()
 
-  // Cycling state pour les filtres
-  const [quoiIdx, setQuoiIdx]   = useState(-1) // index courant dans CATS
-  const [quandIdx, setQuandIdx] = useState(0)  // index courant dans QUAND_OPTIONS
+  // Filtre "Que faire" — cursor dans CATS, -1 = row fermée
+  const [quoiOpen,   setQuoiOpen]   = useState(false)
+  const [quoiCursor, setQuoiCursor] = useState(-1)
+  // Filtre "Quand donc" — cursor dans QUAND_OPTIONS
+  const [quandOpen,   setQuandOpen]   = useState(false)
+  const [quandCursor, setQuandCursor] = useState(0)
 
-  const getSnaps = useCallback((h: number, navH: number) => ({
-    peek: h - FULL_TOP - navH - PEEK_H,
-    full: 0,
-  }), [])
+  // Refs pour auto-scroll des rows
+  const quoiPillRefs  = useRef<(HTMLButtonElement | null)[]>([])
+  const quandPillRefs = useRef<(HTMLButtonElement | null)[]>([])
+
+  const getSnaps = useCallback((h: number, navH: number) => {
+    const sh = h - FULL_TOP - navH
+    return {
+      peek: sh - PEEK_H,
+      half: Math.round(sh * 0.5),
+      full: 0,
+    }
+  }, [])
 
   const y = useMotionValue(9999)
 
   useEffect(() => {
     const h = window.innerHeight
-    screenHRef.current = h
     setScreenH(h)
-    y.set(getSnaps(h, navHeight).peek)
+    y.set(getSnaps(h, navHeight).half) // départ à la moitié
   }, [getSnaps, navHeight, y])
 
-  // Sync mode externe
   const isMounted = useRef(false)
   useEffect(() => {
     if (!isMounted.current) { isMounted.current = true; return }
     const snaps = getSnaps(screenH, navHeight)
-    animate(y, snaps[mode], { type: 'spring', stiffness: 360, damping: 36 })
+    animate(y, snaps[mode], { type: 'spring', stiffness: 340, damping: 36 })
   }, [mode, screenH, navHeight, getSnaps, y])
 
   const snaps = getSnaps(screenH, navHeight)
 
+  const snapTo = useCallback((target: 'peek' | 'half' | 'full') => {
+    onModeChange(target)
+    animate(y, getSnaps(screenH, navHeight)[target], { type: 'spring', stiffness: 340, damping: 36 })
+  }, [onModeChange, y, getSnaps, screenH, navHeight])
+
   const handleDragEnd = (_: unknown, info: { velocity: { y: number } }) => {
     const current = y.get()
-    const vy      = info.velocity.y
-    const target  = (vy > 300 || current > snaps.peek / 2) ? 'peek' : 'full'
-    animate(y, snaps[target], { type: 'spring', stiffness: 360, damping: 36 })
+    const vy = info.velocity.y
+    const s  = getSnaps(screenH, navHeight)
+    let target: 'peek' | 'half' | 'full'
+    if (vy > 400) {
+      target = current > s.half ? 'peek' : 'half'
+    } else if (vy < -400) {
+      target = current < s.half ? 'full' : 'half'
+    } else {
+      const opts: ['peek'|'half'|'full', number][] = [['peek', s.peek], ['half', s.half], ['full', s.full]]
+      target = opts.sort((a, b) => Math.abs(a[1]-current) - Math.abs(b[1]-current))[0][0]
+    }
+    snapTo(target)
   }
 
-  // ——— Logique filtres ———
-
-  // "Que faire" : cycle + ajoute la catégorie
-  const handleQuoiFaire = () => {
-    const nextIdx = (quoiIdx + 1) % CATS.length
-    setQuoiIdx(nextIdx)
-    const cat = CATS[nextIdx]
+  // ── "Que faire" button : cycle + sélectionne ──
+  const handleQuoiBtn = () => {
+    if (!quoiOpen) {
+      setQuoiOpen(true)
+      setQuoiCursor(0)
+      const cat = CATS[0]
+      if (!filtres.categories.includes(cat)) {
+        onFiltresChange({ ...filtres, categories: [...filtres.categories, cat] })
+      }
+      if (mode === 'peek') snapTo('half')
+      return
+    }
+    const next = (quoiCursor + 1) % CATS.length
+    setQuoiCursor(next)
+    const cat = CATS[next]
     if (!filtres.categories.includes(cat)) {
       onFiltresChange({ ...filtres, categories: [...filtres.categories, cat] })
     }
   }
 
-  const removeCategorie = (cat: Categorie) => {
-    onFiltresChange({ ...filtres, categories: filtres.categories.filter(c => c !== cat) })
+  // ── "Quand donc" button : cycle single-select ──
+  const handleQuandBtn = () => {
+    if (!quandOpen) {
+      setQuandOpen(true)
+      if (mode === 'peek') snapTo('half')
+    }
+    const next = (quandCursor + 1) % QUAND_OPTIONS.length
+    setQuandCursor(next)
+    onFiltresChange({ ...filtres, quand: QUAND_OPTIONS[next].value })
   }
 
-  // "Quand donc" : cycle single-select
-  const handleQuand = () => {
-    const nextIdx = (quandIdx + 1) % QUAND_OPTIONS.length
-    setQuandIdx(nextIdx)
-    onFiltresChange({ ...filtres, quand: QUAND_OPTIONS[nextIdx].value })
+  // Auto-scroll vers le pill actif
+  useEffect(() => {
+    quoiPillRefs.current[quoiCursor]?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+  }, [quoiCursor])
+  useEffect(() => {
+    quandPillRefs.current[quandCursor]?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+  }, [quandCursor])
+
+  const toggleCategorie = (cat: Categorie) => {
+    const cats = filtres.categories.includes(cat)
+      ? filtres.categories.filter(c => c !== cat)
+      : [...filtres.categories, cat]
+    onFiltresChange({ ...filtres, categories: cats })
+  }
+
+  const resetQuoi = () => {
+    setQuoiOpen(false)
+    setQuoiCursor(-1)
+    onFiltresChange({ ...filtres, categories: [] })
   }
 
   const resetQuand = () => {
-    setQuandIdx(0)
+    setQuandOpen(false)
+    setQuandCursor(0)
     onFiltresChange({ ...filtres, quand: 'toujours' })
   }
 
   const hasQuoi  = filtres.categories.length > 0
   const hasQuand = filtres.quand !== 'toujours'
 
-  const quandLabel = QUAND_OPTIONS[quandIdx]?.label ?? 'Quand donc ?'
+  const quoiLabel  = quoiCursor < 0 ? 'Que faire ?' : `${CATEGORIES[CATS[quoiCursor]].emoji} ${CATEGORIES[CATS[quoiCursor]].label}`
+  const quandLabel = QUAND_OPTIONS[quandCursor]?.label ?? 'Quand donc ?'
+  const quandBtnLabel = !quandOpen && !hasQuand ? 'Quand donc ?' : quandLabel
 
-  // Label animé du bouton "Que faire"
-  const quoiLabel = quoiIdx === -1
-    ? 'Que faire ?'
-    : `${CATEGORIES[CATS[quoiIdx]].emoji} ${CATEGORIES[CATS[quoiIdx]].label}`
-
-  // Événement sélectionné remonté en tête
   const sortedEvents = selectedId
-    ? [
-        ...evenements.filter(e => e.id === selectedId),
-        ...evenements.filter(e => e.id !== selectedId),
-      ]
+    ? [...evenements.filter(e => e.id === selectedId), ...evenements.filter(e => e.id !== selectedId)]
     : evenements
 
-  const SHEET_H   = screenH - FULL_TOP - navHeight
-  const isScrollable = mode === 'full'
+  const SHEET_H = screenH - FULL_TOP - navHeight
 
   return (
     <motion.div
@@ -129,7 +174,7 @@ export default function BottomSheet({
       dragControls={dragControls}
       dragListener={false}
       dragConstraints={{ top: 0, bottom: snaps.peek }}
-      dragElastic={0.06}
+      dragElastic={0.05}
       onDragEnd={handleDragEnd}
       style={{
         y,
@@ -152,138 +197,144 @@ export default function BottomSheet({
       </div>
 
       {/* ── Compteur ── */}
-      <div
-        onPointerDown={e => dragControls.start(e)}
-        style={{ padding: '0 16px 8px', flexShrink: 0, cursor: 'grab', touchAction: 'none' }}
-      >
-        <p style={{ fontSize: 12, fontWeight: 600, color: '#8A8A8A', fontFamily: 'Inter, sans-serif', letterSpacing: '0.03em', textTransform: 'uppercase' }}>
+      <div onPointerDown={e => dragControls.start(e)} style={{ padding: '0 16px 7px', flexShrink: 0, cursor: 'grab', touchAction: 'none' }}>
+        <p style={{ fontSize: 11, fontWeight: 700, color: '#8A8A8A', fontFamily: 'Inter, sans-serif', letterSpacing: '0.04em', textTransform: 'uppercase', margin: 0 }}>
           {loading ? '—' : `${evenements.length} événement${evenements.length !== 1 ? 's' : ''}`}
         </p>
       </div>
 
       {/* ── Deux gros boutons filtres ── */}
-      <div
-        style={{ display: 'flex', gap: 10, padding: '0 16px 10px', flexShrink: 0 }}
-        onPointerDown={e => e.stopPropagation()}
-      >
-        {/* Que faire */}
-        <button
-          onClick={handleQuoiFaire}
-          style={{
-            flex: 1, height: 52, borderRadius: 14, border: 'none',
-            backgroundColor: hasQuoi ? '#E8622A' : '#FAF7F2',
-            color: hasQuoi ? '#fff' : '#2C2C2C',
-            fontSize: 14, fontWeight: 700, fontFamily: 'Syne, sans-serif',
-            cursor: 'pointer', overflow: 'hidden', position: 'relative',
-          }}
-        >
+      <div style={{ display: 'flex', gap: 10, padding: '0 16px 10px', flexShrink: 0 }} onPointerDown={e => e.stopPropagation()}>
+        <button onClick={handleQuoiBtn} style={{
+          flex: 1, height: 50, borderRadius: 14, border: 'none',
+          backgroundColor: hasQuoi ? '#E8622A' : '#FAF7F2',
+          color: hasQuoi ? '#fff' : '#2C2C2C',
+          fontSize: 14, fontWeight: 700, fontFamily: 'Syne, sans-serif',
+          cursor: 'pointer', overflow: 'hidden', position: 'relative',
+        }}>
           <AnimatePresence mode="wait">
-            <motion.span
-              key={quoiLabel}
-              initial={{ y: 8, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -8, opacity: 0 }}
-              transition={{ duration: 0.14 }}
+            <motion.span key={quoiLabel}
+              initial={{ y: 8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -8, opacity: 0 }}
+              transition={{ duration: 0.13 }}
               style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-              {quoiLabel}
-            </motion.span>
+            >{quoiLabel}</motion.span>
           </AnimatePresence>
         </button>
 
-        {/* Quand donc */}
-        <button
-          onClick={handleQuand}
-          style={{
-            flex: 1, height: 52, borderRadius: 14, border: 'none',
-            backgroundColor: hasQuand ? '#E8622A' : '#FAF7F2',
-            color: hasQuand ? '#fff' : '#2C2C2C',
-            fontSize: 14, fontWeight: 700, fontFamily: 'Syne, sans-serif',
-            cursor: 'pointer', overflow: 'hidden', position: 'relative',
-          }}
-        >
+        <button onClick={handleQuandBtn} style={{
+          flex: 1, height: 50, borderRadius: 14, border: 'none',
+          backgroundColor: hasQuand ? '#E8622A' : '#FAF7F2',
+          color: hasQuand ? '#fff' : '#2C2C2C',
+          fontSize: 14, fontWeight: 700, fontFamily: 'Syne, sans-serif',
+          cursor: 'pointer', overflow: 'hidden', position: 'relative',
+        }}>
           <AnimatePresence mode="wait">
-            <motion.span
-              key={quandLabel}
-              initial={{ y: 8, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -8, opacity: 0 }}
-              transition={{ duration: 0.14 }}
+            <motion.span key={quandBtnLabel}
+              initial={{ y: 8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -8, opacity: 0 }}
+              transition={{ duration: 0.13 }}
               style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-              {quandLabel}
-            </motion.span>
+            >{quandBtnLabel}</motion.span>
           </AnimatePresence>
         </button>
       </div>
 
-      {/* ── Pills actifs ── */}
+      {/* ── Row "Que faire" ── */}
       <AnimatePresence>
-        {(hasQuoi || hasQuand) && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
+        {quoiOpen && (
+          <motion.div key="quoi-row"
+            initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.18 }}
             style={{ overflow: 'hidden', flexShrink: 0 }}
           >
-            <div
-              style={{
-                display: 'flex', gap: 6, padding: '0 16px 10px',
-                overflowX: 'auto',
-                msOverflowStyle: 'none', scrollbarWidth: 'none',
-              }}
-              onPointerDown={e => e.stopPropagation()}
-            >
-              {filtres.categories.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => removeCategorie(cat)}
-                  style={{
-                    flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5,
-                    backgroundColor: CATEGORIES[cat].color + '22',
-                    color: CATEGORIES[cat].color,
-                    border: `1.5px solid ${CATEGORIES[cat].color}55`,
-                    borderRadius: 999, padding: '4px 10px',
-                    fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                    fontFamily: 'Inter, sans-serif',
-                  }}
-                >
-                  {CATEGORIES[cat].emoji} {CATEGORIES[cat].label} ×
-                </button>
-              ))}
-              {hasQuand && (
-                <button
-                  onClick={resetQuand}
-                  style={{
-                    flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5,
-                    backgroundColor: '#E8622A22', color: '#E8622A',
-                    border: '1.5px solid #E8622A55',
-                    borderRadius: 999, padding: '4px 10px',
-                    fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                    fontFamily: 'Inter, sans-serif',
-                  }}
-                >
-                  📅 {quandLabel} ×
-                </button>
-              )}
+            <div style={{ display: 'flex', gap: 7, padding: '0 16px 10px', overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              onPointerDown={e => e.stopPropagation()}>
+              {/* Pill "Tout" */}
+              <button onClick={resetQuoi} style={{
+                flexShrink: 0, padding: '6px 14px', borderRadius: 999, border: '1.5px solid #EDE8E0',
+                backgroundColor: !hasQuoi ? '#E8622A' : '#FAF7F2',
+                color: !hasQuoi ? '#fff' : '#8A8A8A',
+                fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+                minHeight: 34,
+              }}>Tout</button>
+
+              {CATS.map((cat, i) => {
+                const info     = CATEGORIES[cat]
+                const isCursor = quoiCursor === i
+                const isActive = filtres.categories.includes(cat)
+                return (
+                  <button
+                    key={cat}
+                    ref={el => { quoiPillRefs.current[i] = el }}
+                    onClick={() => { setQuoiCursor(i); toggleCategorie(cat) }}
+                    style={{
+                      flexShrink: 0,
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      padding: '6px 13px', borderRadius: 999,
+                      border: `2px solid ${isCursor ? info.color : isActive ? info.color + '88' : '#EDE8E0'}`,
+                      backgroundColor: isActive ? info.color : isCursor ? info.color + '18' : '#FAF7F2',
+                      color: isActive ? '#fff' : isCursor ? info.color : '#6B6B6B',
+                      fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+                      minHeight: 34,
+                      boxShadow: isCursor ? `0 0 0 3px ${info.color}30` : 'none',
+                      transition: 'all 0.12s',
+                    }}
+                  >
+                    <span style={{ fontSize: 14 }}>{info.emoji}</span>
+                    <span>{info.label}</span>
+                  </button>
+                )
+              })}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
+      {/* ── Row "Quand donc" ── */}
+      <AnimatePresence>
+        {quandOpen && (
+          <motion.div key="quand-row"
+            initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            style={{ overflow: 'hidden', flexShrink: 0 }}
+          >
+            <div style={{ display: 'flex', gap: 7, padding: '0 16px 10px', overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              onPointerDown={e => e.stopPropagation()}>
+              {QUAND_OPTIONS.map((opt, i) => {
+                const isCursor = quandCursor === i
+                return (
+                  <button
+                    key={opt.value}
+                    ref={el => { quandPillRefs.current[i] = el }}
+                    onClick={() => { setQuandCursor(i); onFiltresChange({ ...filtres, quand: opt.value }); if (opt.value === 'toujours') resetQuand() }}
+                    style={{
+                      flexShrink: 0,
+                      padding: '6px 14px', borderRadius: 999,
+                      border: `2px solid ${isCursor ? '#E8622A' : '#EDE8E0'}`,
+                      backgroundColor: isCursor ? '#E8622A' : '#FAF7F2',
+                      color: isCursor ? '#fff' : '#6B6B6B',
+                      fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+                      minHeight: 34,
+                      boxShadow: isCursor ? '0 0 0 3px rgba(232,98,42,0.2)' : 'none',
+                      transition: 'all 0.12s',
+                    }}
+                  >{opt.short}</button>
+                )
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Séparateur ── */}
+      <div style={{ height: 1, backgroundColor: '#F0EBE3', flexShrink: 0 }} />
+
       {/* ── Liste ── */}
       <div
-        style={{
-          flex: 1,
-          overflowY: isScrollable ? 'auto' : 'hidden',
-          padding: '8px 16px 24px',
-          display: 'flex', flexDirection: 'column', gap: 10,
-        }}
+        style={{ flex: 1, overflowY: 'auto', padding: '10px 16px 24px', display: 'flex', flexDirection: 'column', gap: 10 }}
         onPointerDown={e => e.stopPropagation()}
       >
         {loading ? (
-          [1, 2, 3].map(i => <SkeletonCard key={i} />)
+          [1,2,3].map(i => <SkeletonCard key={i} />)
         ) : sortedEvents.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 0', color: '#8A8A8A' }}>
             <p style={{ fontSize: 48, marginBottom: 10 }}>🏡</p>
@@ -292,9 +343,7 @@ export default function BottomSheet({
           </div>
         ) : (
           sortedEvents.map(evt => (
-            <EventListCard
-              key={evt.id}
-              evt={evt}
+            <EventListCard key={evt.id} evt={evt}
               isSelected={evt.id === selectedId}
               onSelect={() => onSelectEvent(evt.id)}
               onViewOnMap={() => onViewOnMap(evt.id)}
@@ -306,118 +355,51 @@ export default function BottomSheet({
   )
 }
 
-/* ──────────────────────────────────────────────
-   Card événement — image en fond, titre par-dessus
-────────────────────────────────────────────── */
-function EventListCard({
-  evt, isSelected, onSelect, onViewOnMap,
-}: {
-  evt: Evenement
-  isSelected: boolean
-  onSelect: () => void
-  onViewOnMap: () => void
+/* ── Card événement ── */
+function EventListCard({ evt, isSelected, onSelect, onViewOnMap }: {
+  evt: Evenement; isSelected: boolean; onSelect: () => void; onViewOnMap: () => void
 }) {
   const cat  = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
   const lieu = evt.lieux
 
   return (
-    <Link
-      href={`/evenement/${evt.id}`}
-      onClick={onSelect}
-      style={{
-        display: 'block', position: 'relative',
-        height: 130, borderRadius: 16, overflow: 'hidden',
-        textDecoration: 'none',
-        boxShadow: isSelected
-          ? `0 0 0 2px #E8622A, 0 4px 16px rgba(232,98,42,0.2)`
-          : '0 2px 10px rgba(44,44,44,0.1)',
-        transition: 'box-shadow 0.2s',
-        flexShrink: 0,
-      }}
-    >
-      {/* Fond : image ou couleur catégorie */}
-      {evt.image_url ? (
-        <img
-          src={evt.image_url} alt={evt.titre}
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-        />
-      ) : (
-        <div style={{ position: 'absolute', inset: 0, backgroundColor: cat.color, opacity: 0.85 }} />
-      )}
+    <Link href={`/evenement/${evt.id}`} onClick={onSelect} style={{
+      display: 'block', position: 'relative', height: 128,
+      borderRadius: 16, overflow: 'hidden', textDecoration: 'none', flexShrink: 0,
+      boxShadow: isSelected ? `0 0 0 2.5px #E8622A, 0 4px 16px rgba(232,98,42,0.18)` : '0 2px 10px rgba(44,44,44,0.1)',
+    }}>
+      {evt.image_url
+        ? <img src={evt.image_url} alt={evt.titre} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+        : <div style={{ position: 'absolute', inset: 0, backgroundColor: cat.color, opacity: 0.8 }} />
+      }
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.2) 55%, transparent 100%)' }} />
 
-      {/* Dégradé */}
-      <div style={{
-        position: 'absolute', inset: 0,
-        background: 'linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.25) 55%, rgba(0,0,0,0.05) 100%)',
-      }} />
-
-      {/* Contenu */}
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '8px 12px 10px' }}>
-        <span style={{
-          display: 'inline-flex', alignItems: 'center', gap: 4,
-          fontSize: 10, fontWeight: 700,
-          backgroundColor: cat.color, color: '#fff',
-          borderRadius: 999, padding: '2px 8px', marginBottom: 4,
-          fontFamily: 'Inter, sans-serif',
-        }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, backgroundColor: cat.color, color: '#fff', borderRadius: 999, padding: '2px 8px', marginBottom: 4 }}>
           {cat.emoji} {cat.label}
         </span>
-
-        <h3 style={{
-          fontSize: 14, fontWeight: 700, color: '#fff',
-          fontFamily: 'Syne, sans-serif', lineHeight: 1.25,
-          margin: 0, marginBottom: 2,
-          display: '-webkit-box', WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical', overflow: 'hidden',
-        }}>
+        <h3 style={{ fontSize: 14, fontWeight: 700, color: '#fff', fontFamily: 'Syne, sans-serif', lineHeight: 1.25, margin: '0 0 2px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
           {evt.titre}
         </h3>
-
         {evt.date_debut && (
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', margin: 0, fontFamily: 'Inter, sans-serif' }}>
-            {formatDate(evt.date_debut)}{evt.heure ? ` · ${evt.heure.slice(0, 5)}` : ''}
-            {lieu?.commune ? ` · ${lieu.commune}` : ''}
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.82)', margin: 0, fontFamily: 'Inter, sans-serif' }}>
+            {formatDate(evt.date_debut)}{evt.heure ? ` · ${evt.heure.slice(0,5)}` : ''}{lieu?.commune ? ` · ${lieu.commune}` : ''}
           </p>
         )}
       </div>
 
-      {/* Bouton voir sur la carte */}
       {lieu?.lat && lieu?.lng && (
-        <button
-          onClick={e => { e.preventDefault(); e.stopPropagation(); onViewOnMap() }}
-          title="Voir sur la carte"
-          style={{
-            position: 'absolute', top: 8, right: 8,
-            width: 34, height: 34, borderRadius: 10,
-            backgroundColor: 'rgba(255,255,255,0.92)',
-            border: 'none', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 16,
-          }}
-        >
+        <button onClick={e => { e.preventDefault(); e.stopPropagation(); onViewOnMap() }}
+          style={{ position: 'absolute', top: 8, right: 8, width: 32, height: 32, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.9)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>
           🗺️
         </button>
       )}
 
-      {/* Indicateur sélectionné */}
-      {isSelected && (
-        <div style={{
-          position: 'absolute', top: 8, left: 8,
-          width: 8, height: 8, borderRadius: '50%',
-          backgroundColor: '#E8622A',
-          boxShadow: '0 0 0 2px #fff',
-        }} />
-      )}
+      {isSelected && <div style={{ position: 'absolute', top: 8, left: 8, width: 8, height: 8, borderRadius: '50%', backgroundColor: '#E8622A', boxShadow: '0 0 0 2px #fff' }} />}
     </Link>
   )
 }
 
-/* ── Skeleton ── */
 function SkeletonCard() {
-  return (
-    <div style={{
-      height: 130, borderRadius: 16, overflow: 'hidden',
-      backgroundColor: '#EDE8E0', flexShrink: 0,
-    }} className="animate-pulse" />
-  )
+  return <div style={{ height: 128, borderRadius: 16, backgroundColor: '#EDE8E0', flexShrink: 0 }} className="animate-pulse" />
 }

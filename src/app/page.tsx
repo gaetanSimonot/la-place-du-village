@@ -2,37 +2,41 @@
 import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { AnimatePresence, motion } from 'framer-motion'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Evenement, Filtres } from '@/lib/types'
 import { getDateRange } from '@/lib/filters'
-import { useRouter } from 'next/navigation'
 
 const MapView     = dynamic(() => import('@/components/MapView'),     { ssr: false })
 const BottomSheet = dynamic(() => import('@/components/BottomSheet'), { ssr: false })
 
 const defaultFiltres: Filtres = { categories: [], quand: 'toujours' }
-const NAV_H = 60
+const NAV_H = 62
+
+type NavTab = 'carte' | 'liste' | 'profil'
+
+const NAV_TABS: { id: NavTab; label: string; icon: string }[] = [
+  { id: 'carte',  label: 'Carte',  icon: '🗺️' },
+  { id: 'liste',  label: 'Liste',  icon: '📋' },
+  { id: 'profil', label: 'Profil', icon: '👤' },
+]
 
 export default function HomePage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [filtres, setFiltres]       = useState<Filtres>(defaultFiltres)
   const [evenements, setEvenements] = useState<Evenement[]>([])
   const [loading, setLoading]       = useState(true)
-  const [navMode, setNavMode]       = useState<'carte' | 'liste'>('carte')
+  const [sheetMode, setSheetMode]   = useState<'peek'|'half'|'full'>('half')
+  const [navTab, setNavTab]         = useState<NavTab>('carte')
   const [fabOpen, setFabOpen]       = useState(false)
   const router = useRouter()
-
-  // Sync sheet mode with nav mode
-  const sheetMode = navMode === 'carte' ? 'peek' : 'full'
 
   const fetchEvenements = useCallback(async () => {
     setLoading(true)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let query: any = supabase
-      .from('evenements')
-      .select('*, lieux(*)')
-      .eq('statut', 'publie')
-      .order('date_debut', { ascending: true })
+      .from('evenements').select('*, lieux(*)')
+      .eq('statut', 'publie').order('date_debut', { ascending: true })
 
     if (filtres.categories.length > 0) query = query.in('categorie', filtres.categories)
     const range = getDateRange(filtres.quand)
@@ -45,13 +49,23 @@ export default function HomePage() {
 
   useEffect(() => { fetchEvenements() }, [fetchEvenements])
 
-  const handleViewOnMap = (id: string) => {
-    setSelectedId(id)
-    setNavMode('carte')
+  const handleNavTab = (tab: NavTab) => {
+    if (tab === 'profil') { router.push('/profil'); return }
+    setNavTab(tab)
+    if (tab === 'liste') setSheetMode('full')
+    if (tab === 'carte') setSheetMode('half')
   }
 
+  const handleViewOnMap = (id: string) => {
+    setSelectedId(id)
+    setNavTab('carte')
+    setSheetMode('half')
+  }
+
+  const showFab = navTab === 'carte' && sheetMode !== 'full'
+
   return (
-    <div style={{ height: '100dvh', position: 'relative', overflow: 'hidden', backgroundColor: '#D6E4D8' }}>
+    <div style={{ height: '100dvh', position: 'relative', overflow: 'hidden', backgroundColor: '#e8dece' }}>
 
       {/* Carte plein écran */}
       <div className="absolute inset-0" style={{ bottom: NAV_H }}>
@@ -64,50 +78,43 @@ export default function HomePage() {
         />
       </div>
 
-      {/* FAB "+" — haut droite, caché en mode liste */}
+      {/* FAB "+" — haut droite, visible seulement sur carte non-full */}
       <AnimatePresence>
-        {navMode === 'carte' && (
-          <motion.div
-            key="fab-zone"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
+        {showFab && (
+          <motion.div key="fab"
+            initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }}
             transition={{ duration: 0.18 }}
-            style={{ position: 'absolute', top: 16, right: 16, zIndex: 40 }}
+            style={{ position: 'absolute', top: 14, right: 14, zIndex: 40 }}
           >
-            {/* Backdrop */}
             <AnimatePresence>
               {fabOpen && (
-                <motion.div
-                  key="fab-bg"
+                <motion.div key="fab-bg"
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                   onClick={() => setFabOpen(false)}
-                  style={{ position: 'fixed', inset: 0, zIndex: -1, backgroundColor: 'rgba(0,0,0,0.2)' }}
+                  style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.18)', zIndex: -1 }}
                 />
               )}
             </AnimatePresence>
 
             <div style={{ position: 'relative' }}>
-              {/* Options */}
               <AnimatePresence>
                 {fabOpen && [
                   { label: 'Photo / Affiche', icon: '📷', path: '/capturer' },
                   { label: 'Décrire en texte', icon: '✍️', path: '/ajouter' },
                 ].map((opt, i) => (
-                  <motion.button
-                    key={opt.path}
-                    initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}
-                    transition={{ delay: i * 0.05, duration: 0.16 }}
+                  <motion.button key={opt.path}
+                    initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 8 }}
+                    transition={{ delay: i * 0.04 }}
                     onClick={() => { setFabOpen(false); router.push(opt.path) }}
                     style={{
-                      position: 'absolute', right: 64, top: i === 0 ? 0 : 56,
-                      whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 8,
+                      position: 'absolute', right: 60, top: i === 0 ? 2 : 52,
+                      display: 'flex', alignItems: 'center', gap: 8,
                       backgroundColor: '#fff', border: '1px solid #EDE8E0',
                       borderRadius: 14, padding: '10px 16px',
                       fontSize: 13, fontWeight: 600, color: '#2C2C2C',
-                      fontFamily: 'Inter, sans-serif',
                       boxShadow: '0 4px 16px rgba(0,0,0,0.14)',
-                      cursor: 'pointer',
+                      whiteSpace: 'nowrap', cursor: 'pointer',
+                      fontFamily: 'Inter, sans-serif',
                     }}
                   >
                     <span style={{ fontSize: 18 }}>{opt.icon}</span> {opt.label}
@@ -115,18 +122,15 @@ export default function HomePage() {
                 ))}
               </AnimatePresence>
 
-              {/* Bouton principal */}
               <motion.button
                 animate={{ rotate: fabOpen ? 45 : 0 }}
-                transition={{ duration: 0.18 }}
                 onClick={() => setFabOpen(o => !o)}
-                aria-label="Ajouter un événement"
                 style={{
-                  width: 52, height: 52, borderRadius: '50%',
+                  width: 50, height: 50, borderRadius: '50%',
                   backgroundColor: '#E8622A', color: '#fff',
-                  fontSize: 28, fontWeight: 300, lineHeight: 1,
+                  fontSize: 28, fontWeight: 300,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: '0 4px 18px rgba(232,98,42,0.45)',
+                  boxShadow: '0 3px 16px rgba(232,98,42,0.42)',
                   border: 'none', cursor: 'pointer',
                 }}
               >+</motion.button>
@@ -145,39 +149,31 @@ export default function HomePage() {
         filtres={filtres}
         onFiltresChange={setFiltres}
         mode={sheetMode}
+        onModeChange={setSheetMode}
         navHeight={NAV_H}
       />
 
-      {/* Bottom navigation */}
+      {/* Bottom Nav — 3 onglets */}
       <nav style={{
-        position: 'absolute', bottom: 0, left: 0, right: 0,
-        height: NAV_H, backgroundColor: '#fff',
-        borderTop: '1px solid #EDE8E0',
+        position: 'absolute', bottom: 0, left: 0, right: 0, height: NAV_H,
+        backgroundColor: '#fff', borderTop: '1px solid #EDE8E0',
         display: 'flex', zIndex: 30,
       }}>
-        {([
-          { id: 'carte', label: 'Carte', icon: '🗺️' },
-          { id: 'liste', label: 'Liste', icon: '📋' },
-        ] as const).map(tab => {
-          const active = navMode === tab.id
+        {NAV_TABS.map(tab => {
+          const active = navTab === tab.id
           return (
-            <button
-              key={tab.id}
-              onClick={() => setNavMode(tab.id)}
-              style={{
-                flex: 1, display: 'flex', flexDirection: 'column',
-                alignItems: 'center', justifyContent: 'center', gap: 3,
-                border: 'none', backgroundColor: 'transparent', cursor: 'pointer',
-                borderTop: active ? '2px solid #E8622A' : '2px solid transparent',
-                transition: 'border-color 0.15s',
-              }}
-            >
-              <span style={{ fontSize: 20 }}>{tab.icon}</span>
-              <span style={{
-                fontSize: 11, fontWeight: 700,
-                color: active ? '#E8622A' : '#8A8A8A',
-                fontFamily: 'Inter, sans-serif',
-              }}>{tab.label}</span>
+            <button key={tab.id} onClick={() => handleNavTab(tab.id)} style={{
+              flex: 1, display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', gap: 3,
+              border: 'none', backgroundColor: 'transparent', cursor: 'pointer',
+              borderTop: active ? '2.5px solid #E8622A' : '2.5px solid transparent',
+              transition: 'border-color 0.15s',
+              paddingBottom: 4,
+            }}>
+              <span style={{ fontSize: 21 }}>{tab.icon}</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: active ? '#E8622A' : '#8A8A8A', fontFamily: 'Inter, sans-serif' }}>
+                {tab.label}
+              </span>
             </button>
           )
         })}

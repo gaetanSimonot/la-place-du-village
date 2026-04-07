@@ -8,6 +8,30 @@ import { formatDate } from '@/lib/filters'
 
 const GANGES = { lat: 43.9333, lng: 3.7 }
 
+// Style Mapbox "Warm" adapté pour Google Maps
+const WARM_STYLE: google.maps.MapTypeStyle[] = [
+  { elementType: 'geometry',              stylers: [{ color: '#ede8df' }] },
+  { elementType: 'labels.text.stroke',    stylers: [{ color: '#f5f1eb' }] },
+  { elementType: 'labels.text.fill',      stylers: [{ color: '#7a6a5a' }] },
+  { featureType: 'water', elementType: 'geometry',           stylers: [{ color: '#aac4d8' }] },
+  { featureType: 'water', elementType: 'labels.text.fill',   stylers: [{ color: '#7a9ab0' }] },
+  { featureType: 'landscape',             elementType: 'geometry', stylers: [{ color: '#e4ddd2' }] },
+  { featureType: 'landscape.natural',     elementType: 'geometry', stylers: [{ color: '#d8cfc2' }] },
+  { featureType: 'road',                  elementType: 'geometry', stylers: [{ color: '#f8f3ec' }] },
+  { featureType: 'road',                  elementType: 'geometry.stroke', stylers: [{ color: '#ddd4c4' }] },
+  { featureType: 'road.highway',          elementType: 'geometry', stylers: [{ color: '#f4d97a' }] },
+  { featureType: 'road.highway',          elementType: 'geometry.stroke', stylers: [{ color: '#e8c860' }] },
+  { featureType: 'road.highway.controlled_access', elementType: 'geometry', stylers: [{ color: '#e8a055' }] },
+  { featureType: 'poi',                   elementType: 'geometry', stylers: [{ color: '#d4cbba' }] },
+  { featureType: 'poi.park',              elementType: 'geometry.fill', stylers: [{ color: '#b8c89a' }] },
+  { featureType: 'poi.park',              elementType: 'labels.text.fill', stylers: [{ color: '#607a40' }] },
+  { featureType: 'poi',                   elementType: 'labels', stylers: [{ visibility: 'off' }] },
+  { featureType: 'poi.business',          stylers: [{ visibility: 'off' }] },
+  { featureType: 'transit',               elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
+  { featureType: 'administrative',        elementType: 'geometry.stroke', stylers: [{ color: '#c5b9a8' }] },
+  { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#8c6e5a' }] },
+]
+
 // Icônes SVG évocateurs par catégorie
 const CATEGORY_SHAPES: Record<string, string> = {
   concert:   '♪',
@@ -154,12 +178,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
         fullscreenControl={false}
         zoomControl={true}
         clickableIcons={false}
-        styles={[
-          /* Neutral map — atténue les labels POI */
-          { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-          { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
-          { featureType: 'transit', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
-        ]}
+        styles={WARM_STYLE}
       >
         <Markers
           evenements={evenements}
