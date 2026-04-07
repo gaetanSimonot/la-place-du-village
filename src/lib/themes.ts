@@ -174,3 +174,26 @@ export const MAP_STYLES: MapStyleDef[] = [
 
 export const DEFAULT_COLOR_THEME = 'terrecuite'
 export const DEFAULT_MAP_STYLE   = 'warm'
+
+// ─── Fond de la liste (BottomSheet) ──────────────────────────────
+export interface SheetBg {
+  id: string
+  name: string
+  bg: string    // --sheet-bg
+  text: string  // --sheet-text
+  sub: string   // textes secondaires / compteur
+  border: string
+  pill: string  // fond des pills filtres
+  pillText: string
+}
+
+export const SHEET_BG_OPTIONS: SheetBg[] = [
+  { id: 'blanc',      name: 'Blanc',      bg: '#ffffff',  text: '#2C1810', sub: '#8A8A8A', border: '#F0EBE3', pill: '#FAF7F2', pillText: '#2C2C2C' },
+  { id: 'creme',      name: 'Crème',      bg: '#FBF7F0',  text: '#2C1810', sub: '#8A8A8A', border: '#EDE6D8', pill: '#F2EDE4', pillText: '#2C2C2C' },
+  { id: 'ardoise',    name: 'Ardoise',    bg: '#2C3347',  text: '#E8E0D5', sub: '#8A96B0', border: '#3A4260', pill: '#353D55', pillText: '#E8E0D5' },
+  { id: 'nuit',       name: 'Nuit',       bg: '#1a1f2e',  text: '#C8D0E0', sub: '#6B7A9A', border: '#252D45', pill: '#202638', pillText: '#C8D0E0' },
+  { id: 'anthracite', name: 'Anthracite', bg: '#1C1C1E',  text: '#E5E5EA', sub: '#6E6E73', border: '#2C2C2E', pill: '#252527', pillText: '#E5E5EA' },
+  { id: 'bois',       name: 'Bois',       bg: '#2C1810',  text: '#F5F1EB', sub: '#9A8070', border: '#3D2418', pill: '#361E12', pillText: '#F5F1EB' },
+]
+
+export const DEFAULT_SHEET_BG = 'blanc'

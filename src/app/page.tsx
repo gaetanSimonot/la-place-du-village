@@ -65,6 +65,7 @@ export default function HomePage() {
   const [userVille, setUserVille]       = useState('')
   const [userCentre, setUserCentre]     = useState<{ lat: number; lng: number; nom: string } | null>(null)
   const [userZoneActive, setUserZoneActive] = useState(false)
+  const [mapCenterOn, setMapCenterOn]   = useState<{ lat: number; lng: number } | null>(null)
   const [geocoding, setGeocoding]       = useState(false)
   const [sheetMode, setSheetMode]   = useState<'peek'|'half'|'full'>('half')
   const [navTab, setNavTab]         = useState<NavTab>('carte')
@@ -87,12 +88,7 @@ export default function HomePage() {
     supabase.from('config').select('value').eq('key', 'masquer_passes').single()
       .then(({ data }) => setMasquerPasses(data?.value === 'true'))
     fetchZoneConfig()
-    // Recharger la zone si l'admin la modifie (même onglet/session)
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === 'pdv-zone-updated') fetchZoneConfig()
-    }
-    window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
+
     // Charger zone user depuis localStorage
     try {
       const saved = localStorage.getItem('pdv-zone-user')
@@ -104,6 +100,13 @@ export default function HomePage() {
         setUserZoneActive(true)
       }
     } catch {}
+
+    // Recharger la zone si l'admin la modifie (même onglet/session)
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'pdv-zone-updated') fetchZoneConfig()
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
   }, [])
 
   const fetchEvenements = useCallback(async () => {
@@ -185,6 +188,7 @@ export default function HomePage() {
           onSelectEvent={setSelectedId}
           onDeselect={() => setSelectedId(null)}
           onOpenEvent={id => router.push(`/evenement/${id}`)}
+          centerOn={mapCenterOn}
         />
       </div>
 
@@ -318,6 +322,7 @@ export default function HomePage() {
                 const z = { rayon: userRayon, nom: userCentre.nom, lat: userCentre.lat, lng: userCentre.lng }
                 localStorage.setItem('pdv-zone-user', JSON.stringify(z))
                 setUserZoneActive(true)
+                setMapCenterOn({ lat: userCentre.lat, lng: userCentre.lng })
                 setZonePopup(false)
               }}
               disabled={!userCentre}

@@ -90,9 +90,10 @@ interface MarkersProps {
   selectedId: string | null
   onSelectEvent: (id: string) => void
   fixedMap: boolean
+  centerOn?: { lat: number; lng: number } | null
 }
 
-function Markers({ evenements, selectedId, onSelectEvent, fixedMap }: MarkersProps) {
+function Markers({ evenements, selectedId, onSelectEvent, fixedMap, centerOn }: MarkersProps) {
   const map = useMap()
   const clustererRef = useRef<MarkerClusterer | null>(null)
   const markersRef   = useRef<google.maps.Marker[]>([])
@@ -102,6 +103,13 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap }: MarkersPro
     markersRef.current.forEach(m => m.setMap(null))
     markersRef.current = []
   }, [])
+
+  // Pan vers le centre de zone user
+  useEffect(() => {
+    if (!map || !centerOn) return
+    map.panTo({ lat: centerOn.lat, lng: centerOn.lng })
+    map.setZoom(11)
+  }, [map, centerOn])
 
   // Pan vers l'événement sélectionné (désactivé en mode carte fixe)
   useEffect(() => {
@@ -171,14 +179,15 @@ interface Props {
   onSelectEvent: (id: string) => void
   onDeselect: () => void
   onOpenEvent: (id: string) => void
+  centerOn?: { lat: number; lng: number } | null
 }
 
-export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent }: Props) {
+export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn }: Props) {
   const selectedEvent = selectedId ? evenements.find(e => e.id === selectedId) : null
   const selectedCat   = selectedEvent
     ? (CATEGORIES[selectedEvent.categorie] ?? CATEGORIES.autre)
     : null
-  const { mapStyle, fixedMap } = useTheme()
+  const { mapStyle, fixedMap, sheetBg } = useTheme()
 
   return (
     <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY!}>
@@ -199,6 +208,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
           selectedId={selectedId}
           onSelectEvent={onSelectEvent}
           fixedMap={fixedMap}
+          centerOn={centerOn}
         />
 
         {/* Popup InfoWindow sur l'événement sélectionné */}
@@ -215,6 +225,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
                 width: 220, borderRadius: 12,
                 overflow: 'hidden', fontSize: 13,
                 cursor: 'pointer',
+                backgroundColor: sheetBg.bg,
               }}
             >
               {selectedEvent.image_url && (
@@ -225,7 +236,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
                   style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block' }}
                 />
               )}
-              <div style={{ padding: '8px 10px 10px' }}>
+              <div style={{ padding: '8px 10px 10px', backgroundColor: sheetBg.bg }}>
                 <span style={{
                   display: 'inline-flex', alignItems: 'center', gap: 4,
                   fontSize: 10, fontWeight: 700,
@@ -234,7 +245,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
                 }}>
                   {selectedCat!.emoji} {selectedCat!.label}
                 </span>
-                <p style={{ fontWeight: 700, fontSize: 13, color: '#2C2C2C', lineHeight: 1.3, marginBottom: 4 }}>
+                <p style={{ fontWeight: 700, fontSize: 13, color: sheetBg.text, lineHeight: 1.3, marginBottom: 4 }}>
                   {selectedEvent.titre}
                 </p>
                 {selectedEvent.date_debut && (
@@ -244,7 +255,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
                   </p>
                 )}
                 {selectedEvent.lieux && (
-                  <p style={{ fontSize: 11, color: '#8A8A8A', marginTop: 2 }}>
+                  <p style={{ fontSize: 11, color: sheetBg.sub, marginTop: 2 }}>
                     📍 {selectedEvent.lieux.nom}
                     {selectedEvent.lieux.commune ? `, ${selectedEvent.lieux.commune}` : ''}
                   </p>

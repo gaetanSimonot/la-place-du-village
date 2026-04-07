@@ -2,14 +2,14 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useTheme } from '@/components/ThemeProvider'
-import { COLOR_THEMES, MAP_STYLES } from '@/lib/themes'
+import { COLOR_THEMES, MAP_STYLES, SHEET_BG_OPTIONS } from '@/lib/themes'
 import AdminAccess from '@/components/AdminAccess'
 
 type Tab = 'profil' | 'theme'
 
 export default function ProfilPage() {
   const [tab, setTab] = useState<Tab>('theme')
-  const { colorTheme, mapStyle, setColorThemeId, setMapStyleId } = useTheme()
+  const { colorTheme, mapStyle, sheetBg, setColorThemeId, setMapStyleId, setSheetBgId } = useTheme()
 
   return (
     <div style={{ minHeight: '100dvh', backgroundColor: 'var(--creme)', fontFamily: 'Inter, sans-serif' }}>
@@ -101,6 +101,45 @@ export default function ProfilPage() {
                         fontSize: 10, fontWeight: 700, color: isActive ? theme.primary : '#8A8A8A',
                         fontFamily: 'Inter, sans-serif', textAlign: 'center', lineHeight: 1.2,
                       }}>{theme.name}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
+
+            {/* ── Fond de liste ── */}
+            <section>
+              <h2 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 15, color: '#2C1810', marginBottom: 4 }}>
+                Fond de liste
+              </h2>
+              <p style={{ fontSize: 12, color: '#8A8A8A', marginBottom: 12 }}>Couleur du panneau d&apos;événements</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                {SHEET_BG_OPTIONS.map(opt => {
+                  const isActive = sheetBg.id === opt.id
+                  return (
+                    <button key={opt.id} onClick={() => setSheetBgId(opt.id)} style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                      padding: '10px 8px', borderRadius: 14, border: 'none', cursor: 'pointer',
+                      backgroundColor: isActive ? 'var(--primary-light)' : 'transparent',
+                      outline: isActive ? '2px solid var(--primary)' : '2px solid #EDE8E0',
+                      transition: 'all 0.15s',
+                    }}>
+                      {/* Pastille preview */}
+                      <div style={{
+                        width: 44, height: 28, borderRadius: 8,
+                        backgroundColor: opt.bg,
+                        border: `1px solid ${opt.border}`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        gap: 3,
+                      }}>
+                        <div style={{ width: 20, height: 4, borderRadius: 2, backgroundColor: opt.text, opacity: 0.7 }} />
+                        <div style={{ width: 10, height: 4, borderRadius: 2, backgroundColor: opt.sub, opacity: 0.5 }} />
+                      </div>
+                      <span style={{
+                        fontSize: 10, fontWeight: 700,
+                        color: isActive ? 'var(--primary)' : '#8A8A8A',
+                        fontFamily: 'Inter, sans-serif',
+                      }}>{opt.name}</span>
                     </button>
                   )
                 })}

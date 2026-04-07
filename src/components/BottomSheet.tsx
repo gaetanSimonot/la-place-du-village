@@ -19,6 +19,8 @@ const QUAND_OPTIONS: { value: FiltreQuand; label: string; short: string }[] = [
   { value: 'ce_mois',        label: 'Ce mois',       short: 'Ce mois'    },
 ]
 
+import { useTheme } from '@/components/ThemeProvider'
+
 const BATCH = 20
 
 interface Props {
@@ -38,9 +40,18 @@ export default function BottomSheet({
   evenements, loading, selectedId, onSelectEvent, onViewOnMap,
   filtres, onFiltresChange, mode, onModeChange, navHeight,
 }: Props) {
+  const { sheetBg } = useTheme()
   const [screenH, setScreenH]     = useState(812)
   const [visibleCount, setVisibleCount] = useState(BATCH)
-  const loaderRef = useRef<HTMLDivElement>(null)
+  const obsRef = useRef<IntersectionObserver | null>(null)
+  const loaderRef = useCallback((el: HTMLDivElement | null) => {
+    if (obsRef.current) { obsRef.current.disconnect(); obsRef.current = null }
+    if (!el) return
+    obsRef.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) setVisibleCount(n => n + BATCH)
+    }, { threshold: 0.1 })
+    obsRef.current.observe(el)
+  }, [])
   const dragControls              = useDragControls()
 
   // Filtre "Que faire" — cursor dans CATS, -1 = row fermée
@@ -157,17 +168,6 @@ export default function BottomSheet({
   // Reset visibleCount quand la liste change (nouveau filtre)
   useEffect(() => { setVisibleCount(BATCH) }, [evenements])
 
-  // IntersectionObserver pour le scroll infini
-  useEffect(() => {
-    const el = loaderRef.current
-    if (!el) return
-    const obs = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting) setVisibleCount(n => n + BATCH)
-    }, { threshold: 0.1 })
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [])
-
   const sortedEvents = selectedId
     ? [...evenements.filter(e => e.id === selectedId), ...evenements.filter(e => e.id !== selectedId)]
     : evenements
@@ -189,11 +189,12 @@ export default function BottomSheet({
         position: 'absolute',
         left: 0, right: 0, top: FULL_TOP,
         height: SHEET_H,
-        backgroundColor: '#fff',
+        backgroundColor: sheetBg.bg,
         borderRadius: '20px 20px 0 0',
         boxShadow: '0 -4px 28px rgba(0,0,0,0.12)',
         display: 'flex', flexDirection: 'column',
         zIndex: 20, overflow: 'hidden',
+        transition: 'background-color 0.2s',
       }}
     >
       {/* ── Zone de drag : handle + compteur + boutons filtres ── */}
@@ -203,12 +204,12 @@ export default function BottomSheet({
       >
         {/* Poignée visuelle */}
         <div style={{ padding: '10px 0 4px' }}>
-          <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '0 auto' }} />
+          <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: sheetBg.border, margin: '0 auto' }} />
         </div>
 
         {/* Compteur */}
         <div style={{ padding: '0 16px 7px' }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: '#8A8A8A', fontFamily: 'Inter, sans-serif', letterSpacing: '0.04em', textTransform: 'uppercase', margin: 0 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: sheetBg.sub, fontFamily: 'Inter, sans-serif', letterSpacing: '0.04em', textTransform: 'uppercase', margin: 0 }}>
             {loading ? '—' : `${evenements.length} événement${evenements.length !== 1 ? 's' : ''}`}
           </p>
         </div>
@@ -217,8 +218,8 @@ export default function BottomSheet({
         <div style={{ display: 'flex', gap: 10, padding: '0 16px 10px' }}>
         <button onClick={handleQuoiBtn} style={{
           flex: 1, height: 50, borderRadius: 14, border: 'none',
-          backgroundColor: hasQuoi ? 'var(--primary)' : '#FAF7F2',
-          color: hasQuoi ? '#fff' : '#2C2C2C',
+          backgroundColor: hasQuoi ? 'var(--primary)' : sheetBg.pill,
+          color: hasQuoi ? '#fff' : sheetBg.pillText,
           fontSize: 14, fontWeight: 700, fontFamily: 'Syne, sans-serif',
           cursor: 'pointer', overflow: 'hidden', position: 'relative',
         }}>
@@ -233,8 +234,8 @@ export default function BottomSheet({
 
         <button onClick={handleQuandBtn} style={{
           flex: 1, height: 50, borderRadius: 14, border: 'none',
-          backgroundColor: hasQuand ? 'var(--primary)' : '#FAF7F2',
-          color: hasQuand ? '#fff' : '#2C2C2C',
+          backgroundColor: hasQuand ? 'var(--primary)' : sheetBg.pill,
+          color: hasQuand ? '#fff' : sheetBg.pillText,
           fontSize: 14, fontWeight: 700, fontFamily: 'Syne, sans-serif',
           cursor: 'pointer', overflow: 'hidden', position: 'relative',
         }}>
@@ -261,9 +262,9 @@ export default function BottomSheet({
               onPointerDown={e => e.stopPropagation()}>
               {/* Pill "Tout" */}
               <button onClick={resetQuoi} style={{
-                flexShrink: 0, padding: '6px 14px', borderRadius: 999, border: '1.5px solid #EDE8E0',
-                backgroundColor: !hasQuoi ? 'var(--primary)' : '#FAF7F2',
-                color: !hasQuoi ? '#fff' : '#8A8A8A',
+                flexShrink: 0, padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${sheetBg.border}`,
+                backgroundColor: !hasQuoi ? 'var(--primary)' : sheetBg.pill,
+                color: !hasQuoi ? '#fff' : sheetBg.sub,
                 fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
                 minHeight: 34,
               }}>Tout</button>
@@ -281,9 +282,9 @@ export default function BottomSheet({
                       flexShrink: 0,
                       display: 'flex', alignItems: 'center', gap: 5,
                       padding: '6px 13px', borderRadius: 999,
-                      border: `2px solid ${isCursor ? info.color : isActive ? info.color + '88' : '#EDE8E0'}`,
-                      backgroundColor: isActive ? info.color : isCursor ? info.color + '18' : '#FAF7F2',
-                      color: isActive ? '#fff' : isCursor ? info.color : '#6B6B6B',
+                      border: `2px solid ${isCursor ? info.color : isActive ? info.color + '88' : sheetBg.border}`,
+                      backgroundColor: isActive ? info.color : isCursor ? info.color + '18' : sheetBg.pill,
+                      color: isActive ? '#fff' : isCursor ? info.color : sheetBg.sub,
                       fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
                       minHeight: 34,
                       boxShadow: isCursor ? `0 0 0 3px ${info.color}30` : 'none',
@@ -320,9 +321,9 @@ export default function BottomSheet({
                     style={{
                       flexShrink: 0,
                       padding: '6px 14px', borderRadius: 999,
-                      border: `2px solid ${isCursor ? 'var(--primary)' : '#EDE8E0'}`,
-                      backgroundColor: isCursor ? 'var(--primary)' : '#FAF7F2',
-                      color: isCursor ? '#fff' : '#6B6B6B',
+                      border: `2px solid ${isCursor ? 'var(--primary)' : sheetBg.border}`,
+                      backgroundColor: isCursor ? 'var(--primary)' : sheetBg.pill,
+                      color: isCursor ? '#fff' : sheetBg.sub,
                       fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
                       minHeight: 34,
                       boxShadow: isCursor ? '0 0 0 3px rgba(0,0,0,0.1)' : 'none',
@@ -337,7 +338,7 @@ export default function BottomSheet({
       </AnimatePresence>
 
       {/* ── Séparateur ── */}
-      <div style={{ height: 1, backgroundColor: '#F0EBE3', flexShrink: 0 }} />
+      <div style={{ height: 1, backgroundColor: sheetBg.border, flexShrink: 0 }} />
 
       {/* ── Liste ── */}
       <div
@@ -347,9 +348,9 @@ export default function BottomSheet({
         {loading ? (
           [1,2,3].map(i => <SkeletonCard key={i} />)
         ) : sortedEvents.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px 0', color: '#8A8A8A' }}>
+          <div style={{ textAlign: 'center', padding: '40px 0', color: sheetBg.sub }}>
             <p style={{ fontSize: 48, marginBottom: 10 }}>🏡</p>
-            <p style={{ fontWeight: 700, fontSize: 16, fontFamily: 'Syne, sans-serif', color: '#2C2C2C' }}>Aucun événement</p>
+            <p style={{ fontWeight: 700, fontSize: 16, fontFamily: 'Syne, sans-serif', color: sheetBg.text }}>Aucun événement</p>
             <p style={{ fontSize: 13, marginTop: 6 }}>Modifie les filtres ou ajoute quelque chose !</p>
           </div>
         ) : (
