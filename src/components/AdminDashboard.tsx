@@ -5,10 +5,9 @@ import { supabase } from '@/lib/supabase'
 import { Evenement, isApproxLocation } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
-import NotesAdmin from '@/components/NotesAdmin'
 import DoublonsAdmin from '@/components/DoublonsAdmin'
 
-type Onglet   = 'a_traiter' | 'publie' | 'rejete' | 'scrap' | 'notes' | 'doublons'
+type Onglet   = 'a_traiter' | 'publie' | 'rejete' | 'scrap' | 'doublons'
 type SortKey  = 'created_desc' | 'created_asc' | 'date_asc' | 'date_desc'
 const PAGE_SIZE = 20
 
@@ -248,7 +247,6 @@ export default function AdminDashboard() {
           { key: 'scrap',     label: 'Scrap',     color: 'bg-blue-500'   },
           { key: 'publie',    label: 'Publiés',   color: 'bg-green-500'  },
           { key: 'rejete',    label: 'Rejetés',   color: 'bg-gray-400'   },
-          { key: 'notes',     label: '📝 Notes',   color: 'bg-purple-500' },
           { key: 'doublons',  label: '🔀 Doublons', color: 'bg-amber-500'  },
         ] as { key: Onglet; label: string; color: string }[]).map(tab => (
           <button
@@ -259,7 +257,7 @@ export default function AdminDashboard() {
             }`}
           >
             {tab.label}
-            {tab.key !== 'notes' && counts[tab.key as keyof typeof counts] > 0 && (
+            {counts[tab.key as keyof typeof counts] > 0 && (
               <span className={`${tab.color} text-white text-xs rounded-full w-5 h-5 flex items-center justify-center`}>
                 {counts[tab.key as keyof typeof counts]}
               </span>
@@ -267,9 +265,6 @@ export default function AdminDashboard() {
           </button>
         ))}
       </div>
-
-      {/* Onglet Notes */}
-      {onglet === 'notes' && <NotesAdmin />}
 
       {/* Onglet Doublons */}
       {onglet === 'doublons' && <DoublonsAdmin />}
@@ -285,7 +280,7 @@ export default function AdminDashboard() {
       )}
 
       {/* Barre recherche + tri + filtre signalements */}
-      {onglet !== 'notes' && onglet !== 'doublons' && (
+      {onglet !== 'doublons' && (
         <div className="bg-white border-b border-[#E8E0D5] px-3 py-2 space-y-2">
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -330,7 +325,7 @@ export default function AdminDashboard() {
       )}
 
       {/* Barre sélection */}
-      {onglet !== 'notes' && onglet !== 'doublons' && !loading && sorted.length > 0 && (
+      {onglet !== 'doublons' && !loading && sorted.length > 0 && (
         <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-[#E8E0D5]">
           <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600 select-none">
             <input type="checkbox" checked={allSelected} onChange={toggleAll} className="w-4 h-4 accent-[#C4622D] cursor-pointer" />
@@ -348,7 +343,7 @@ export default function AdminDashboard() {
       )}
 
       {/* Liste */}
-      {onglet !== 'notes' && onglet !== 'doublons' && <div className="p-3 space-y-3 pb-6">
+      {onglet !== 'doublons' && <div className="p-3 space-y-3 pb-6">
         {loading ? (
           <div className="flex justify-center py-12">
             <div className="w-8 h-8 border-4 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
