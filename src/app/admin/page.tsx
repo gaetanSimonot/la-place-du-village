@@ -6,8 +6,9 @@ import { Evenement, isApproxLocation } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
 import NotesAdmin from '@/components/NotesAdmin'
+import DoublonsAdmin from '@/components/DoublonsAdmin'
 
-type Onglet   = 'a_traiter' | 'publie' | 'rejete' | 'scrap' | 'notes'
+type Onglet   = 'a_traiter' | 'publie' | 'rejete' | 'scrap' | 'notes' | 'doublons'
 type SortKey  = 'created_desc' | 'created_asc' | 'date_asc' | 'date_desc'
 
 interface Feedback {
@@ -156,7 +157,7 @@ export default function AdminPage() {
   // Filtrage par onglet
   const byOnglet = useMemo(() => evenements.filter(e => {
     if (onglet === 'scrap')     return e.source === 'scrape' && e.statut === 'en_attente'
-    if (onglet === 'a_traiter') return e.source !== 'scrape' && (e.statut === 'en_attente' || (e.statut === 'publie' && isApproxLocation(e.lieux)))
+    if (onglet === 'a_traiter') return e.source !== 'scrape' && (e.statut === 'en_attente' || e.statut === 'a_verifier' || (e.statut === 'publie' && isApproxLocation(e.lieux)))
     return e.statut === onglet
   }), [evenements, onglet])
 
@@ -194,7 +195,7 @@ export default function AdminPage() {
   }, [afterSearch, sort, onglet, q, onlyFeedbacks])
 
   const counts = {
-    a_traiter: evenements.filter(e => e.source !== 'scrape' && (e.statut === 'en_attente' || (e.statut === 'publie' && isApproxLocation(e.lieux)))).length,
+    a_traiter: evenements.filter(e => e.source !== 'scrape' && (e.statut === 'en_attente' || e.statut === 'a_verifier' || (e.statut === 'publie' && isApproxLocation(e.lieux)))).length,
     publie:    evenements.filter(e => e.statut === 'publie').length,
     rejete:    evenements.filter(e => e.statut === 'rejete').length,
     scrap:     evenements.filter(e => e.source === 'scrape' && e.statut === 'en_attente').length,
@@ -239,7 +240,8 @@ export default function AdminPage() {
           { key: 'scrap',     label: 'Scrap',     color: 'bg-blue-500'   },
           { key: 'publie',    label: 'Publiés',   color: 'bg-green-500'  },
           { key: 'rejete',    label: 'Rejetés',   color: 'bg-gray-400'   },
-          { key: 'notes',     label: '📝 Notes',  color: 'bg-purple-500' },
+          { key: 'notes',     label: '📝 Notes',   color: 'bg-purple-500' },
+          { key: 'doublons',  label: '🔀 Doublons', color: 'bg-amber-500'  },
         ] as { key: Onglet; label: string; color: string }[]).map(tab => (
           <button
             key={tab.key}
@@ -261,6 +263,9 @@ export default function AdminPage() {
       {/* Onglet Notes */}
       {onglet === 'notes' && <NotesAdmin />}
 
+      {/* Onglet Doublons */}
+      {onglet === 'doublons' && <DoublonsAdmin />}
+
       {/* Bandeau info Scrap */}
       {onglet === 'scrap' && (
         <div className="bg-blue-50 border-b border-blue-100 px-4 py-2 flex items-center justify-between">
@@ -272,7 +277,7 @@ export default function AdminPage() {
       )}
 
       {/* Barre recherche + tri + filtre signalements */}
-      {onglet !== 'notes' && (
+      {onglet !== 'notes' && onglet !== 'doublons' && (
         <div className="bg-white border-b border-[#E8E0D5] px-3 py-2 space-y-2">
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -317,7 +322,7 @@ export default function AdminPage() {
       )}
 
       {/* Barre sélection */}
-      {onglet !== 'notes' && !loading && sorted.length > 0 && (
+      {onglet !== 'notes' && onglet !== 'doublons' && !loading && sorted.length > 0 && (
         <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-[#E8E0D5]">
           <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600 select-none">
             <input type="checkbox" checked={allSelected} onChange={toggleAll} className="w-4 h-4 accent-[#C4622D] cursor-pointer" />
@@ -335,7 +340,7 @@ export default function AdminPage() {
       )}
 
       {/* Liste */}
-      {onglet !== 'notes' && <div className="p-3 space-y-3">
+      {onglet !== 'notes' && onglet !== 'doublons' && <div className="p-3 space-y-3">
         {loading ? (
           <div className="flex justify-center py-12">
             <div className="w-8 h-8 border-4 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
@@ -515,10 +520,18 @@ function applySortKey(sort: SortKey, a: Evenement, b: Evenement): number {
 
 function StatutBadge({ statut }: { statut: string }) {
   const styles: Record<string, string> = {
-    publie: 'bg-green-100 text-green-700', en_attente: 'bg-orange-100 text-orange-600', rejete: 'bg-gray-100 text-gray-500',
+    publie:      'bg-green-100 text-green-700',
+    en_attente:  'bg-orange-100 text-orange-600',
+    rejete:      'bg-gray-100 text-gray-500',
+    archive:     'bg-gray-100 text-gray-400',
+    a_verifier:  'bg-amber-100 text-amber-700',
   }
   const labels: Record<string, string> = {
-    publie: 'Publié', en_attente: 'En attente', rejete: 'Rejeté',
+    publie:     'Publié',
+    en_attente: 'En attente',
+    rejete:     'Rejeté',
+    archive:    'Archivé',
+    a_verifier: 'À vérifier',
   }
   return (
     <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${styles[statut] ?? ''}`}>

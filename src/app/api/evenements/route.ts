@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { geocodeWithGoogle, calcStatut } from '@/lib/extract'
 import { Categorie } from '@/lib/types'
+import { checkDoublon } from '@/lib/checkDoublon'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
       lieuId = lieu.id
     }
 
-    const statut = calcStatut({
+    const baseStatut = calcStatut({
       categorie,
       date_debut: date_debut || null,
       description: description || null,
@@ -70,6 +71,17 @@ export async function POST(req: NextRequest) {
       commune: commune || null,
       adresse: geo.adresse ?? lieu_adresse ?? null,
     })
+
+    // Vérification doublon via Claude
+    const check = await checkDoublon({
+      titre,
+      date_debut: date_debut || null,
+      commune:    commune || null,
+      lieu_nom:   lieu_nom || null,
+      description: description || null,
+    })
+
+    const statut = check.doublon ? 'archive' : check.publier ? baseStatut : 'a_verifier'
 
     const { data: evenement, error: evtErr } = await supabase
       .from('evenements')

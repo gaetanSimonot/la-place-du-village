@@ -18,7 +18,8 @@ export interface Evenement {
   date_fin: string | null
   heure: string | null
   categorie: Categorie
-  statut: 'publie' | 'en_attente' | 'rejete'
+  statut: 'publie' | 'en_attente' | 'rejete' | 'archive' | 'a_verifier'
+  doublon_verifie: boolean
   lieu_id: string | null
   prix: string | null
   contact: string | null

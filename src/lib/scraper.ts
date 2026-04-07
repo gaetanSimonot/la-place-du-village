@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { geocodeWithGoogle, calcStatut } from './extract'
+import { checkDoublon } from './checkDoublon'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -63,46 +64,6 @@ function cleanHtml(html: string): string {
     .slice(0, 40000)
 }
 
-// ── Similarité Jaccard sur les mots (dédoublonnage) ──────────────────────────
-
-function normalize(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // accents
-    .replace(/[^a-z0-9 ]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-function jaccardSimilarity(a: string, b: string): number {
-  const wordsA = new Set(normalize(a).split(' ').filter(w => w.length > 2))
-  const wordsB = new Set(normalize(b).split(' ').filter(w => w.length > 2))
-  if (wordsA.size === 0 && wordsB.size === 0) return 1
-  const intersection = Array.from(wordsA).filter(w => wordsB.has(w)).length
-  const union = new Set([...Array.from(wordsA), ...Array.from(wordsB)]).size
-  return union === 0 ? 0 : intersection / union
-}
-
-// ── Vérification doublon en base ──────────────────────────────────────────────
-
-async function isDuplicate(event: ScrapedEvent): Promise<boolean> {
-  if (!event.titre) return false
-
-  // Chercher les événements avec la même date dans la base
-  let query = supabaseAdmin
-    .from('evenements')
-    .select('titre')
-    .not('titre', 'is', null)
-
-  if (event.date_debut) {
-    query = query.eq('date_debut', event.date_debut)
-  }
-
-  const { data: candidates } = await query.limit(200)
-  if (!candidates?.length) return false
-
-  return candidates.some(c => jaccardSimilarity(c.titre, event.titre) >= 0.75)
-}
 
 // ── Extraction des événements par Claude ──────────────────────────────────────
 
@@ -188,9 +149,32 @@ export async function scrapeSource(sourceId: string): Promise<ScrapeResult> {
     for (const evt of events) {
       if (!evt.titre?.trim()) continue
 
-      // Vérifier doublon
-      const dup = await isDuplicate(evt)
-      if (dup) { doublons++; continue }
+      // Vérifier doublon via Claude
+      const check = await checkDoublon({
+        titre:       evt.titre,
+        date_debut:  evt.date_debut,
+        commune:     evt.commune,
+        lieu_nom:    evt.lieu_nom,
+        description: evt.description,
+      })
+
+      if (check.doublon) {
+        doublons++
+        // Archiver silencieusement (log sans exposition publique)
+        await supabaseAdmin.from('evenements').insert({
+          titre:            evt.titre,
+          description:      evt.description,
+          date_debut:       evt.date_debut,
+          date_fin:         evt.date_fin,
+          heure:            evt.heure,
+          categorie:        evt.categorie ?? 'autre',
+          statut:           'archive',
+          lieu_id:          null,
+          source:           'scrape',
+          scrape_source_id: sourceId,
+        })
+        continue
+      }
 
       // Géocoder
       let lieuId: string | null = null
@@ -225,6 +209,11 @@ export async function scrapeSource(sourceId: string): Promise<ScrapeResult> {
         adresse:     null,
       })
 
+      // Statut final
+      const finalStatut = check.publier
+        ? (statut === 'rejete' ? 'en_attente' : statut)
+        : 'a_verifier'
+
       // Insérer l'événement
       const { error: evtErr } = await supabaseAdmin
         .from('evenements')
@@ -235,7 +224,7 @@ export async function scrapeSource(sourceId: string): Promise<ScrapeResult> {
           date_fin:         evt.date_fin,
           heure:            evt.heure,
           categorie:        evt.categorie ?? 'autre',
-          statut:           statut === 'rejete' ? 'en_attente' : statut, // jamais rejeté auto
+          statut:           finalStatut,
           lieu_id:          lieuId,
           prix:             evt.prix,
           contact:          evt.contact,
