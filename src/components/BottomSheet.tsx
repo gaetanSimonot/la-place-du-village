@@ -179,23 +179,25 @@ export default function BottomSheet({
         zIndex: 20, overflow: 'hidden',
       }}
     >
-      {/* ── Poignée ── */}
+      {/* ── Zone de drag : handle + compteur + boutons filtres ── */}
       <div
         onPointerDown={e => dragControls.start(e)}
-        style={{ padding: '10px 0 4px', flexShrink: 0, cursor: 'grab', touchAction: 'none' }}
+        style={{ flexShrink: 0, cursor: 'grab', touchAction: 'none', userSelect: 'none' }}
       >
-        <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '0 auto' }} />
-      </div>
+        {/* Poignée visuelle */}
+        <div style={{ padding: '10px 0 4px' }}>
+          <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '0 auto' }} />
+        </div>
 
-      {/* ── Compteur ── */}
-      <div onPointerDown={e => dragControls.start(e)} style={{ padding: '0 16px 7px', flexShrink: 0, cursor: 'grab', touchAction: 'none' }}>
-        <p style={{ fontSize: 11, fontWeight: 700, color: '#8A8A8A', fontFamily: 'Inter, sans-serif', letterSpacing: '0.04em', textTransform: 'uppercase', margin: 0 }}>
-          {loading ? '—' : `${evenements.length} événement${evenements.length !== 1 ? 's' : ''}`}
-        </p>
-      </div>
+        {/* Compteur */}
+        <div style={{ padding: '0 16px 7px' }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: '#8A8A8A', fontFamily: 'Inter, sans-serif', letterSpacing: '0.04em', textTransform: 'uppercase', margin: 0 }}>
+            {loading ? '—' : `${evenements.length} événement${evenements.length !== 1 ? 's' : ''}`}
+          </p>
+        </div>
 
-      {/* ── Deux gros boutons filtres ── */}
-      <div style={{ display: 'flex', gap: 10, padding: '0 16px 10px', flexShrink: 0 }} onPointerDown={e => e.stopPropagation()}>
+        {/* Deux gros boutons filtres */}
+        <div style={{ display: 'flex', gap: 10, padding: '0 16px 10px' }}>
         <button onClick={handleQuoiBtn} style={{
           flex: 1, height: 50, borderRadius: 14, border: 'none',
           backgroundColor: hasQuoi ? '#E8622A' : '#FAF7F2',
@@ -227,7 +229,8 @@ export default function BottomSheet({
             >{quandBtnLabel}</motion.span>
           </AnimatePresence>
         </button>
-      </div>
+        </div>{/* fin boutons */}
+      </div>{/* fin zone drag */}
 
       {/* ── Row "Que faire" ── */}
       <AnimatePresence>
