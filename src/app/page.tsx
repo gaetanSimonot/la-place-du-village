@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { EvenementCard, Filtres } from '@/lib/types'
 import { getDateRange } from '@/lib/filters'
 import { useTheme } from '@/components/ThemeProvider'
+import { haversineKm, GANGES } from '@/lib/distance'
 
 const MapView     = dynamic(() => import('@/components/MapView'),     { ssr: false })
 const BottomSheet = dynamic(() => import('@/components/BottomSheet'), { ssr: false })
@@ -54,15 +55,24 @@ export default function HomePage() {
   const [evenements, setEvenements] = useState<EvenementCard[]>([])
   const [loading, setLoading]       = useState(true)
   const [masquerPasses, setMasquerPasses] = useState<boolean | null>(null)
+  const [zoneCentres, setZoneCentres]   = useState<{ lat: number; lng: number; nom: string }[]>([])
+  const [rayonAffichage, setRayonAffichage] = useState<number | null>(null)
   const [sheetMode, setSheetMode]   = useState<'peek'|'half'|'full'>('half')
   const [navTab, setNavTab]         = useState<NavTab>('carte')
   const [fabOpen, setFabOpen]       = useState(false)
   const router = useRouter()
 
-  // Config masquer_passes : chargée une seule fois au mount
+  // Config chargée une seule fois au mount
   useEffect(() => {
     supabase.from('config').select('value').eq('key', 'masquer_passes').single()
       .then(({ data }) => setMasquerPasses(data?.value === 'true'))
+    fetch('/api/zone')
+      .then(r => r.json())
+      .then(data => {
+        setZoneCentres(data.centres ?? [])
+        setRayonAffichage(data.rayon_affichage ?? null)
+      })
+      .catch(() => {})
   }, [])
 
   const fetchEvenements = useCallback(async () => {
@@ -86,9 +96,24 @@ export default function HomePage() {
     }
 
     const { data } = await query
-    setEvenements((data as EvenementCard[]) ?? [])
+    let evts = (data as EvenementCard[]) ?? []
+
+    // Filtre d'affichage par zone (si configuré)
+    if (rayonAffichage != null && rayonAffichage > 0) {
+      const centres = zoneCentres.length > 0
+        ? zoneCentres
+        : [{ lat: GANGES.lat, lng: GANGES.lng, nom: 'Ganges' }]
+      evts = evts.filter(e => {
+        const lat = e.lieux?.lat
+        const lng = e.lieux?.lng
+        if (lat == null || lng == null) return true // pas de coords → affiché quand même
+        return centres.some(c => haversineKm(lat, lng, c.lat, c.lng) <= rayonAffichage)
+      })
+    }
+
+    setEvenements(evts)
     setLoading(false)
-  }, [filtres, masquerPasses])
+  }, [filtres, masquerPasses, zoneCentres, rayonAffichage])
 
   useEffect(() => { fetchEvenements() }, [fetchEvenements])
 

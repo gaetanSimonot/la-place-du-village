@@ -14,43 +14,36 @@ interface ZoneCentre {
 }
 
 export interface ZoneCheckResult {
-  within: boolean      // true = dans la zone → accepter
-  distanceMin: number  // distance au centre le plus proche (km)
+  within: boolean
+  distanceMin: number
   centreLePlusProche: string
   rayon: number
 }
 
-/** Vérifie si des coordonnées sont dans la zone configurée.
- *  Si aucun centre défini → Ganges par défaut.
+/** Vérifie si des coordonnées sont dans la zone d'INSERTION.
  *  Si pas de coords → within:true (on ne peut pas rejeter sans coords).
  */
 export async function checkZone(lat: number | null, lng: number | null): Promise<ZoneCheckResult> {
-  // Récupérer rayon + centres en parallèle
   const [rayonRes, centresRes] = await Promise.all([
-    supabaseAdmin.from('config').select('value').eq('key', 'rayon_km').single(),
+    supabaseAdmin.from('config').select('value').eq('key', 'rayon_insertion_km').single(),
     supabaseAdmin.from('zone_centres').select('id, nom, lat, lng'),
   ])
 
-  const rayon   = parseInt(rayonRes.data?.value ?? '30', 10)
+  const rayon   = parseInt(rayonRes.data?.value ?? '100', 10)
   const centres: ZoneCentre[] = centresRes.data?.length
     ? centresRes.data
     : [{ id: 'default', nom: 'Ganges', lat: GANGES.lat, lng: GANGES.lng }]
 
-  // Pas de coords → on laisse passer (a_verifier)
   if (lat == null || lng == null) {
     return { within: true, distanceMin: 0, centreLePlusProche: centres[0].nom, rayon }
   }
 
-  // Distance au centre le plus proche
-  let distanceMin  = Infinity
+  let distanceMin = Infinity
   let centreLePlusProche = centres[0].nom
 
   for (const c of centres) {
     const d = haversineKm(lat, lng, c.lat, c.lng)
-    if (d < distanceMin) {
-      distanceMin         = d
-      centreLePlusProche  = c.nom
-    }
+    if (d < distanceMin) { distanceMin = d; centreLePlusProche = c.nom }
   }
 
   return {

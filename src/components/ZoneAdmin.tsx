@@ -9,31 +9,37 @@ interface Centre {
 }
 
 export default function ZoneAdmin() {
-  const [centres, setCentres]   = useState<Centre[]>([])
-  const [rayon, setRayon]       = useState(30)
-  const [saving, setSaving]     = useState(false)
-  const [newNom, setNewNom]     = useState('')
-  const [adding, setAdding]     = useState(false)
-  const [error, setError]       = useState<string | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [centres, setCentres]         = useState<Centre[]>([])
+  const [rayonInsertion, setRayonInsertion] = useState(100)
+  const [rayonAffichage, setRayonAffichage] = useState(50)
+  const [newNom, setNewNom]           = useState('')
+  const [adding, setAdding]           = useState(false)
+  const [saving, setSaving]           = useState(false)
+  const [saved, setSaved]             = useState(false)
+  const [error, setError]             = useState<string | null>(null)
+  const [deletingId, setDeletingId]   = useState<string | null>(null)
 
   const fetchZone = useCallback(async () => {
     const res  = await fetch('/api/admin/zone')
     const data = await res.json()
     setCentres(data.centres ?? [])
-    setRayon(data.rayon ?? 30)
+    setRayonInsertion(data.rayon_insertion ?? 100)
+    setRayonAffichage(data.rayon_affichage ?? 50)
   }, [])
 
   useEffect(() => { fetchZone() }, [fetchZone])
 
-  const saveRayon = async (val: number) => {
+  const validerZone = async () => {
     setSaving(true)
+    setSaved(false)
     await fetch('/api/admin/zone', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rayon: val }),
+      body: JSON.stringify({ rayon_insertion: rayonInsertion, rayon_affichage: rayonAffichage }),
     })
     setSaving(false)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
   }
 
   const addCentre = async () => {
@@ -65,35 +71,10 @@ export default function ZoneAdmin() {
   return (
     <div className="p-4 space-y-5">
 
-      {/* Rayon */}
-      <div className="bg-white rounded-2xl p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="font-bold text-[#2C1810] text-sm">Rayon de la zone</p>
-          <span className="text-[#C4622D] font-bold text-lg">{rayon} km</span>
-        </div>
-        <input
-          type="range"
-          min={5} max={200} step={5}
-          value={rayon}
-          onChange={e => setRayon(Number(e.target.value))}
-          onMouseUp={() => saveRayon(rayon)}
-          onTouchEnd={() => saveRayon(rayon)}
-          className="w-full accent-[#C4622D]"
-        />
-        <div className="flex justify-between text-xs text-gray-400">
-          <span>5 km</span>
-          <span>200 km</span>
-        </div>
-        {saving && <p className="text-xs text-gray-400 text-center">Sauvegarde…</p>}
-        <p className="text-xs text-gray-400">
-          Tout événement géolocalisé à plus de {rayon} km de chaque centre sera rejeté automatiquement.
-        </p>
-      </div>
-
       {/* Centres */}
       <div className="bg-white rounded-2xl p-4 space-y-3">
-        <p className="font-bold text-[#2C1810] text-sm">Centres de la zone ({centres.length})</p>
-        <p className="text-xs text-gray-400">Un événement est accepté s&apos;il est à moins de {rayon} km d&apos;au moins un centre.</p>
+        <p className="font-bold text-[#2C1810] text-sm">Centres de la zone</p>
+        <p className="text-xs text-gray-400">Un événement est dans la zone s&apos;il est à portée d&apos;au moins un centre.</p>
 
         <div className="flex gap-2">
           <input
@@ -136,6 +117,53 @@ export default function ZoneAdmin() {
           )}
         </div>
       </div>
+
+      {/* Rayon affichage */}
+      <div className="bg-white rounded-2xl p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-bold text-[#2C1810] text-sm">Rayon d&apos;affichage</p>
+            <p className="text-xs text-gray-400 mt-0.5">Masque les events trop loin sur la carte et la liste</p>
+          </div>
+          <span className="text-[#C4622D] font-bold text-lg">{rayonAffichage} km</span>
+        </div>
+        <input
+          type="range" min={5} max={200} step={5}
+          value={rayonAffichage}
+          onChange={e => setRayonAffichage(Number(e.target.value))}
+          className="w-full accent-[#C4622D]"
+        />
+        <div className="flex justify-between text-xs text-gray-400"><span>5 km</span><span>200 km</span></div>
+      </div>
+
+      {/* Rayon insertion */}
+      <div className="bg-white rounded-2xl p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-bold text-[#2C1810] text-sm">Rayon d&apos;insertion</p>
+            <p className="text-xs text-gray-400 mt-0.5">Rejette les events trop loin lors de la soumission</p>
+          </div>
+          <span className="text-[#C4622D] font-bold text-lg">{rayonInsertion} km</span>
+        </div>
+        <input
+          type="range" min={5} max={200} step={5}
+          value={rayonInsertion}
+          onChange={e => setRayonInsertion(Number(e.target.value))}
+          className="w-full accent-[#C4622D]"
+        />
+        <div className="flex justify-between text-xs text-gray-400"><span>5 km</span><span>200 km</span></div>
+      </div>
+
+      {/* Bouton valider */}
+      <button
+        onClick={validerZone}
+        disabled={saving}
+        className={`w-full py-4 rounded-2xl font-bold text-base transition-colors ${
+          saved ? 'bg-green-500 text-white' : 'bg-[#C4622D] text-white disabled:opacity-50'
+        }`}
+      >
+        {saving ? 'Sauvegarde…' : saved ? '✓ Zone validée — carte et liste mises à jour' : 'Valider la zone'}
+      </button>
     </div>
   )
 }
