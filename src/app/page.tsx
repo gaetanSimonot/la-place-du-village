@@ -57,6 +57,7 @@ export default function HomePage() {
   const [masquerPasses, setMasquerPasses] = useState<boolean | null>(null)
   const [zoneCentres, setZoneCentres]   = useState<{ lat: number; lng: number; nom: string }[]>([])
   const [rayonAffichage, setRayonAffichage] = useState<number | null>(null)
+  const [zoneLoaded, setZoneLoaded]     = useState(false)
   const [sheetMode, setSheetMode]   = useState<'peek'|'half'|'full'>('half')
   const [navTab, setNavTab]         = useState<NavTab>('carte')
   const [fabOpen, setFabOpen]       = useState(false)
@@ -70,13 +71,14 @@ export default function HomePage() {
       .then(r => r.json())
       .then(data => {
         setZoneCentres(data.centres ?? [])
-        setRayonAffichage(data.rayon_affichage ?? null)
+        setRayonAffichage(data.rayon_affichage ?? 0)
       })
       .catch(() => {})
+      .finally(() => setZoneLoaded(true))
   }, [])
 
   const fetchEvenements = useCallback(async () => {
-    if (masquerPasses === null) return // attendre la config
+    if (masquerPasses === null || !zoneLoaded) return // attendre les configs
     setLoading(true)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let query: any = supabase
@@ -113,7 +115,7 @@ export default function HomePage() {
 
     setEvenements(evts)
     setLoading(false)
-  }, [filtres, masquerPasses, zoneCentres, rayonAffichage])
+  }, [filtres, masquerPasses, zoneCentres, rayonAffichage, zoneLoaded])
 
   useEffect(() => { fetchEvenements() }, [fetchEvenements])
 

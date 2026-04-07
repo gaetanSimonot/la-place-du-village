@@ -79,6 +79,7 @@ export default function CapturerPage() {
   // Multi-events
   const [events, setEvents]           = useState<ExtractedData[]>([])
   const [selected, setSelected]       = useState<Set<number>>(new Set())
+  const [expanded, setExpanded]       = useState<Set<number>>(new Set())
 
   // Single preview/edit
   const [form, setForm]               = useState<FormData>(emptyForm)
@@ -119,15 +120,20 @@ export default function CapturerPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
 
-      const evts: ExtractedData[] = data.events ?? []
+      const raw: ExtractedData[] = data.events ?? []
+      // Ne garder que les events avec titre + date + lieu minimum
+      const evts = raw.filter(e =>
+        e.titre?.trim() && e.date_debut && (e.lieu_nom?.trim() || e.commune?.trim())
+      )
       setEvents(evts)
+      setExpanded(new Set())
 
       if (evts.length === 1) {
-        // Un seul événement → passer directement au formulaire de preview
         setForm(extractToForm(evts[0]))
         setStep('preview')
+      } else if (evts.length === 0) {
+        setError("Aucun événement complet détecté (titre + date + lieu requis)")
       } else {
-        // Plusieurs → étape sélection, tout sélectionné par défaut
         setSelected(new Set(evts.map((_, i) => i)))
         setStep('selection')
       }
@@ -200,6 +206,15 @@ export default function CapturerPage() {
     setSelected(prev => prev.size === events.length ? new Set() : new Set(events.map((_, i) => i)))
   }
 
+  const toggleExpand = (i: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setExpanded(prev => {
+      const next = new Set(prev)
+      if (next.has(i)) next.delete(i); else next.add(i)
+      return next
+    })
+  }
+
   const field = (label: string, key: keyof FormData, type = 'text', placeholder = '') => (
     <div>
       <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{label}</label>
@@ -268,7 +283,7 @@ export default function CapturerPage() {
         <div className="sticky top-0 z-10 bg-white border-b border-[#E8E0D5] px-4 py-3 flex items-center gap-3">
           <button onClick={() => setStep('input')} className="text-[#C4622D] font-bold text-2xl leading-none">←</button>
           <div className="flex-1">
-            <h1 className="font-bold text-[#2C1810] leading-tight">{events.length} événements détectés</h1>
+            <h1 className="font-bold text-[#2C1810] leading-tight">{events.length} événement{events.length > 1 ? 's' : ''} détecté{events.length > 1 ? 's' : ''}</h1>
             <p className="text-xs text-gray-400">Sélectionne ceux à soumettre</p>
           </div>
           <button onClick={toggleAll} className="text-xs text-[#C4622D] font-semibold underline">
@@ -285,15 +300,19 @@ export default function CapturerPage() {
           )}
 
           {events.map((evt, i) => {
-            const cat   = cats[evt.categorie ?? 'autre'] ?? cats['autre']
-            const isOn  = selected.has(i)
+            const cat    = cats[evt.categorie ?? 'autre'] ?? cats['autre']
+            const isOn   = selected.has(i)
+            const isOpen = expanded.has(i)
             return (
               <div
                 key={i}
-                onClick={() => toggleSelect(i)}
-                className={`bg-white rounded-2xl p-3 border-2 cursor-pointer transition-colors ${isOn ? 'border-[#C4622D]' : 'border-transparent'} shadow-sm`}
+                className={`bg-white rounded-2xl border-2 transition-colors shadow-sm ${isOn ? 'border-[#C4622D]' : 'border-transparent'}`}
               >
-                <div className="flex items-start gap-3">
+                {/* Ligne principale — clic = sélectionner */}
+                <div
+                  onClick={() => toggleSelect(i)}
+                  className="flex items-start gap-3 p-3 cursor-pointer"
+                >
                   <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${isOn ? 'bg-[#C4622D] border-[#C4622D]' : 'border-[#E8E0D5]'}`}>
                     {isOn && <span className="text-white text-xs font-bold">✓</span>}
                   </div>
@@ -303,23 +322,36 @@ export default function CapturerPage() {
                         {cat.emoji} {cat.label}
                       </span>
                     </div>
-                    <p className="font-semibold text-sm text-[#2C1810] leading-snug">{evt.titre || '(sans titre)'}</p>
+                    <p className="font-semibold text-sm text-[#2C1810] leading-snug">{evt.titre}</p>
                     <div className="flex flex-wrap gap-x-3 mt-1">
-                      {evt.date_debut && (
-                        <span className="text-xs text-[#C4622D] font-medium">
-                          {new Date(evt.date_debut + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                          {evt.heure ? ` · ${evt.heure.slice(0, 5)}` : ''}
-                        </span>
-                      )}
-                      {(evt.lieu_nom || evt.commune) && (
-                        <span className="text-xs text-gray-400">📍 {evt.lieu_nom ?? evt.commune}</span>
-                      )}
+                      <span className="text-xs text-[#C4622D] font-medium">
+                        {new Date(evt.date_debut! + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                        {evt.heure ? ` · ${evt.heure.slice(0, 5)}` : ''}
+                      </span>
+                      <span className="text-xs text-gray-400">📍 {evt.lieu_nom ?? evt.commune}</span>
                     </div>
-                    {evt.description && (
-                      <p className="text-xs text-gray-400 mt-1 line-clamp-1">{evt.description}</p>
-                    )}
                   </div>
+                  {/* Bouton déplier */}
+                  <button
+                    onClick={(e) => toggleExpand(i, e)}
+                    className="text-gray-300 hover:text-gray-500 text-lg leading-none shrink-0 mt-0.5 transition-colors px-1"
+                  >
+                    {isOpen ? '▲' : '▼'}
+                  </button>
                 </div>
+
+                {/* Détails dépliés */}
+                {isOpen && (
+                  <div className="px-4 pb-3 pt-0 border-t border-[#F5F1EC] space-y-1.5 text-xs text-gray-600">
+                    {evt.date_fin && <p><span className="font-semibold text-gray-400">Fin :</span> {evt.date_fin}</p>}
+                    {evt.description && <p className="leading-relaxed"><span className="font-semibold text-gray-400">Description :</span> {evt.description}</p>}
+                    {evt.lieu_adresse && <p><span className="font-semibold text-gray-400">Adresse :</span> {evt.lieu_adresse}</p>}
+                    {evt.commune && evt.lieu_nom && <p><span className="font-semibold text-gray-400">Commune :</span> {evt.commune}</p>}
+                    {evt.prix && <p><span className="font-semibold text-gray-400">Prix :</span> {evt.prix}</p>}
+                    {evt.contact && <p><span className="font-semibold text-gray-400">Contact :</span> {evt.contact}</p>}
+                    {evt.organisateurs && <p><span className="font-semibold text-gray-400">Organisateurs :</span> {evt.organisateurs}</p>}
+                  </div>
+                )}
               </div>
             )
           })}
