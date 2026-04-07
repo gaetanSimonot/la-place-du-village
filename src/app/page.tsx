@@ -87,16 +87,32 @@ export default function HomePage() {
         sheetBeforeMapRef.current = null
         setSheetMode('half')
       }
-    }, 200)
+    }, 350)
   }, [])
   const [fabPressed, setFabPressed] = useState(false)
   const [fabActive, setFabActive]   = useState<string | null>(null)
   const fabCenterRef = useRef({ x: 0, y: 0 })
   const router = useRouter()
 
-  const FAB_OPTS = [
-    { key: 'photo', label: 'Photo', icon: '📷', path: '/capturer', dx: -108, dy: 4  },
-    { key: 'texte', label: 'Texte', icon: '✍️', path: '/ajouter',  dx: -80,  dy: 92 },
+  const FAB_OPTS: { key: string; label: string; icon: React.ReactNode; path: string; dx: number; dy: number }[] = [
+    {
+      key: 'photo', label: 'Photo', path: '/capturer', dx: -108, dy: 4,
+      icon: (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+      ),
+    },
+    {
+      key: 'texte', label: 'Texte', path: '/ajouter', dx: -80, dy: 92,
+      icon: (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 20h9"/>
+          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+        </svg>
+      ),
+    },
   ]
 
   const onFabDown = (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -477,8 +493,9 @@ export default function HomePage() {
                       ? '0 6px 24px rgba(0,0,0,0.30)'
                       : '0 3px 14px rgba(0,0,0,0.18)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 22, transition: 'background-color 0.12s, box-shadow 0.12s',
+                    transition: 'background-color 0.12s, box-shadow 0.12s',
                     cursor: 'pointer',
+                    color: fabActive === opt.key ? '#fff' : 'var(--primary)',
                   }}>
                     {opt.icon}
                   </div>
