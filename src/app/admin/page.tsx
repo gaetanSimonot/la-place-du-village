@@ -35,7 +35,11 @@ export default function AdminPage() {
     const next = !masquerPasses
     setTogglingConfig(true)
     setMasquerPasses(next)
-    await supabase.from('config').update({ value: String(next) }).eq('key', 'masquer_passes')
+    await fetch('/api/admin/config', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'masquer_passes', value: next }),
+    })
     setTogglingConfig(false)
   }
   useEffect(() => { setSelection(new Set()) }, [onglet])
