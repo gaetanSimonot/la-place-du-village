@@ -102,19 +102,10 @@ export default function BottomSheet({
     if (!quoiOpen) {
       setQuoiOpen(true)
       setQuoiCursor(0)
-      const cat = CATS[0]
-      if (!filtres.categories.includes(cat)) {
-        onFiltresChange({ ...filtres, categories: [...filtres.categories, cat] })
-      }
       if (mode === 'peek') snapTo('half')
       return
     }
-    const next = (quoiCursor + 1) % CATS.length
-    setQuoiCursor(next)
-    const cat = CATS[next]
-    if (!filtres.categories.includes(cat)) {
-      onFiltresChange({ ...filtres, categories: [...filtres.categories, cat] })
-    }
+    setQuoiCursor(prev => (prev + 1) % CATS.length)
   }
 
   // ── "Quand donc" button : cycle single-select ──
