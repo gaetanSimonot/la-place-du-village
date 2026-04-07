@@ -38,6 +38,7 @@ interface ScrapedEvent {
 
 // ── Nettoyage HTML → texte ────────────────────────────────────────────────────
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function cleanHtml(html: string): string {
   return html
     // Supprimer scripts, styles, nav, header, footer, aside
