@@ -225,7 +225,8 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
                 width: 220, borderRadius: 12,
                 overflow: 'hidden', fontSize: 13,
                 cursor: 'pointer',
-                backgroundColor: sheetBg.bg,
+                backgroundColor: '#fff',
+                border: `2.5px solid ${sheetBg.bg}`,
               }}
             >
               {selectedEvent.image_url && (
@@ -236,7 +237,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
                   style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block' }}
                 />
               )}
-              <div style={{ padding: '8px 10px 10px', backgroundColor: sheetBg.bg }}>
+              <div style={{ padding: '8px 10px 10px', backgroundColor: '#fff' }}>
                 <span style={{
                   display: 'inline-flex', alignItems: 'center', gap: 4,
                   fontSize: 10, fontWeight: 700,
@@ -245,7 +246,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
                 }}>
                   {selectedCat!.emoji} {selectedCat!.label}
                 </span>
-                <p style={{ fontWeight: 700, fontSize: 13, color: sheetBg.text, lineHeight: 1.3, marginBottom: 4 }}>
+                <p style={{ fontWeight: 700, fontSize: 13, color: '#2C2C2C', lineHeight: 1.3, marginBottom: 4 }}>
                   {selectedEvent.titre}
                 </p>
                 {selectedEvent.date_debut && (
@@ -255,7 +256,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
                   </p>
                 )}
                 {selectedEvent.lieux && (
-                  <p style={{ fontSize: 11, color: sheetBg.sub, marginTop: 2 }}>
+                  <p style={{ fontSize: 11, color: '#8A8A8A', marginTop: 2 }}>
                     📍 {selectedEvent.lieux.nom}
                     {selectedEvent.lieux.commune ? `, ${selectedEvent.lieux.commune}` : ''}
                   </p>

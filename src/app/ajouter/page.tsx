@@ -61,14 +61,17 @@ export default function AjouterPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
 
-      const e = data.extracted
+      // L'API retourne { events: [...] } — on prend le premier event valide
+      const events: Array<Record<string, string>> = data.events ?? []
+      const e = events.find(ev => ev?.titre) ?? events[0]
+      if (!e) throw new Error('Aucun événement détecté')
       setForm({
         titre: e.titre ?? '',
         description: e.description ?? '',
         date_debut: e.date_debut ?? '',
         date_fin: e.date_fin ?? '',
         heure: e.heure ?? '',
-        categorie: e.categorie ?? 'autre',
+        categorie: (e.categorie ?? 'autre') as Categorie,
         lieu_nom: e.lieu_nom ?? '',
         commune: e.commune ?? '',
         prix: e.prix ?? '',

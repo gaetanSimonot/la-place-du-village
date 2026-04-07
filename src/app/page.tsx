@@ -1,6 +1,6 @@
 'use client'
 import React from 'react'
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
@@ -70,7 +70,46 @@ export default function HomePage() {
   const [sheetMode, setSheetMode]   = useState<'peek'|'half'|'full'>('half')
   const [navTab, setNavTab]         = useState<NavTab>('carte')
   const [fabOpen, setFabOpen]       = useState(false)
+  const [fabPressed, setFabPressed] = useState(false)
+  const [fabActive, setFabActive]   = useState<string | null>(null)
+  const fabCenterRef = useRef({ x: 0, y: 0 })
   const router = useRouter()
+
+  const FAB_OPTS = [
+    { key: 'photo', label: 'Photo', icon: '📷', path: '/capturer', dx: -108, dy: 4  },
+    { key: 'texte', label: 'Texte', icon: '✍️', path: '/ajouter',  dx: -80,  dy: 92 },
+  ]
+
+  const onFabDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId)
+    const rect = e.currentTarget.getBoundingClientRect()
+    fabCenterRef.current = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+    setFabPressed(true)
+    setFabOpen(true)
+    setFabActive(null)
+  }
+
+  const onFabMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!fabOpen) return
+    const { x: cx, y: cy } = fabCenterRef.current
+    let best: string | null = null
+    let bestDist = 58
+    for (const opt of FAB_OPTS) {
+      const d = Math.hypot(e.clientX - (cx + opt.dx), e.clientY - (cy + opt.dy))
+      if (d < bestDist) { bestDist = d; best = opt.key }
+    }
+    setFabActive(best)
+  }
+
+  const onFabUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    setFabPressed(false)
+    if (fabActive) {
+      const opt = FAB_OPTS.find(o => o.key === fabActive)
+      if (opt) { setFabOpen(false); setFabActive(null); router.push(opt.path); return }
+    }
+    setFabActive(null)
+    // tap sans slide → garde le menu ouvert pour clic manuel
+  }
 
   const fetchZoneConfig = useCallback(() => {
     fetch('/api/zone')
@@ -348,62 +387,91 @@ export default function HomePage() {
         </>
       )}
 
-      {/* FAB "+" — haut droite, visible seulement sur carte non-full */}
+      {/* FAB radial — haut droite, visible seulement sur carte non-full */}
       <AnimatePresence>
         {showFab && (
           <motion.div key="fab"
-            initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }}
-            transition={{ duration: 0.18 }}
+            initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.6 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
             style={{ position: 'absolute', top: 14, right: 14, zIndex: 200 }}
           >
+            {/* Backdrop */}
             <AnimatePresence>
               {fabOpen && (
                 <motion.div key="fab-bg"
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  onClick={() => setFabOpen(false)}
-                  style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.18)', zIndex: -1 }}
+                  onClick={() => { setFabOpen(false); setFabActive(null) }}
+                  style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.22)', zIndex: -1 }}
                 />
               )}
             </AnimatePresence>
 
-            <div style={{ position: 'relative' }}>
-              <AnimatePresence>
-                {fabOpen && [
-                  { label: 'Photo / Affiche', icon: '📷', path: '/capturer' },
-                  { label: 'Décrire en texte', icon: '✍️', path: '/ajouter' },
-                ].map((opt, i) => (
-                  <motion.button key={opt.path}
-                    initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 8 }}
-                    transition={{ delay: i * 0.04 }}
-                    onClick={() => { setFabOpen(false); router.push(opt.path) }}
-                    style={{
-                      position: 'absolute', right: 60, top: i === 0 ? 2 : 52,
-                      display: 'flex', alignItems: 'center', gap: 8,
-                      backgroundColor: '#fff', border: '1px solid #EDE8E0',
-                      borderRadius: 14, padding: '10px 16px',
-                      fontSize: 13, fontWeight: 600, color: '#2C2C2C',
-                      boxShadow: '0 4px 16px rgba(0,0,0,0.14)',
-                      whiteSpace: 'nowrap', cursor: 'pointer',
-                      fontFamily: 'Inter, sans-serif',
-                    }}
-                  >
-                    <span style={{ fontSize: 18 }}>{opt.icon}</span> {opt.label}
-                  </motion.button>
-                ))}
-              </AnimatePresence>
+            {/* Options radiales */}
+            <div style={{ position: 'relative', width: 52, height: 52 }}>
+              {FAB_OPTS.map((opt) => (
+                <motion.div
+                  key={opt.key}
+                  initial={false}
+                  animate={{
+                    x: fabOpen ? opt.dx : 0,
+                    y: fabOpen ? opt.dy : 0,
+                    scale: fabOpen ? (fabActive === opt.key ? 1.18 : 1) : 0,
+                    opacity: fabOpen ? 1 : 0,
+                  }}
+                  transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+                  style={{
+                    position: 'absolute', top: 0, left: 0,
+                    width: 52, height: 52,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    pointerEvents: fabOpen ? 'auto' : 'none',
+                    gap: 5,
+                  }}
+                  onClick={() => { setFabOpen(false); setFabActive(null); router.push(opt.path) }}
+                >
+                  <div style={{
+                    width: 52, height: 52, borderRadius: '50%',
+                    backgroundColor: fabActive === opt.key ? 'var(--primary)' : '#fff',
+                    boxShadow: fabActive === opt.key
+                      ? '0 6px 24px rgba(0,0,0,0.30)'
+                      : '0 3px 14px rgba(0,0,0,0.18)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 22, transition: 'background-color 0.12s, box-shadow 0.12s',
+                    cursor: 'pointer',
+                  }}>
+                    {opt.icon}
+                  </div>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700,
+                    color: '#fff', whiteSpace: 'nowrap',
+                    textShadow: '0 1px 4px rgba(0,0,0,0.6)',
+                    fontFamily: 'Inter, sans-serif',
+                    position: 'absolute', top: 56,
+                  }}>{opt.label}</span>
+                </motion.div>
+              ))}
 
+              {/* FAB button */}
               <motion.button
-                animate={{ rotate: fabOpen ? 45 : 0 }}
-                onClick={() => setFabOpen(o => !o)}
+                animate={{ scale: fabPressed ? 1.12 : 1, rotate: fabOpen ? 45 : 0 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                onPointerDown={onFabDown}
+                onPointerMove={onFabMove}
+                onPointerUp={onFabUp}
+                onPointerCancel={onFabUp}
                 style={{
-                  width: 50, height: 50, borderRadius: '50%',
+                  position: 'relative', zIndex: 1,
+                  width: 52, height: 52, borderRadius: '50%',
                   backgroundColor: 'var(--primary)', color: '#fff',
-                  fontSize: 28, fontWeight: 300,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: '0 3px 16px rgba(0,0,0,0.28)',
-                  border: 'none', cursor: 'pointer',
+                  boxShadow: '0 4px 18px rgba(0,0,0,0.30)',
+                  border: 'none', cursor: 'pointer', touchAction: 'none',
                 }}
-              >+</motion.button>
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <line x1="10" y1="2" x2="10" y2="18" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
+                  <line x1="2" y1="10" x2="18" y2="10" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
+                </svg>
+              </motion.button>
             </div>
           </motion.div>
         )}

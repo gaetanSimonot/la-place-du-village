@@ -11,11 +11,10 @@ const FULL_TOP = 60   // espace laissé en haut quand sheet pleine
 const CATS = Object.keys(CATEGORIES) as Categorie[]
 
 const QUAND_OPTIONS: { value: FiltreQuand; label: string; short: string }[] = [
-  { value: 'toujours',       label: 'Toujours',      short: 'Toujours'   },
-  { value: 'aujourd_hui',    label: "Aujourd'hui",   short: "Auj."       },
-  { value: 'cette_semaine',  label: 'Cette semaine', short: 'Semaine'    },
-  { value: 'ce_week_end',    label: 'Ce week-end',   short: 'Ce WE'      },
-  { value: 'ce_mois',        label: 'Ce mois',       short: 'Ce mois'    },
+  { value: 'aujourd_hui',    label: "Aujourd'hui",   short: "Auj."    },
+  { value: 'cette_semaine',  label: 'Cette semaine', short: 'Semaine' },
+  { value: 'ce_week_end',    label: 'Ce week-end',   short: 'Ce WE'   },
+  { value: 'ce_mois',        label: 'Ce mois',       short: 'Ce mois' },
 ]
 
 import { useTheme } from '@/components/ThemeProvider'
@@ -58,9 +57,9 @@ export default function BottomSheet({
   // Filtre "Que faire" — cursor dans CATS, -1 = row fermée
   const [quoiOpen,   setQuoiOpen]   = useState(false)
   const [quoiCursor, setQuoiCursor] = useState(-1)
-  // Filtre "Quand donc" — cursor dans QUAND_OPTIONS
+  // Filtre "Quand donc" — cursor dans QUAND_OPTIONS, -1 = reset
   const [quandOpen,   setQuandOpen]   = useState(false)
-  const [quandCursor, setQuandCursor] = useState(0)
+  const [quandCursor, setQuandCursor] = useState(-1)
 
   // Refs pour auto-scroll des rows
   const quoiPillRefs  = useRef<(HTMLButtonElement | null)[]>([])
@@ -138,15 +137,19 @@ export default function BottomSheet({
     }
   }
 
-  // ── "Quand donc" button : cycle single-select ──
+  // ── "Quand donc" button : cycle + reset comme "Que faire" ──
   const handleQuandBtn = () => {
     if (!quandOpen) {
       setQuandOpen(true)
       if (mode === 'peek') snapTo('half')
     }
-    const next = (quandCursor + 1) % QUAND_OPTIONS.length
-    setQuandCursor(next)
-    onFiltresChange({ ...filtres, quand: QUAND_OPTIONS[next].value })
+    const next = quandCursor + 1 < QUAND_OPTIONS.length ? quandCursor + 1 : -1
+    if (next === -1) {
+      resetQuand()
+    } else {
+      setQuandCursor(next)
+      onFiltresChange({ ...filtres, quand: QUAND_OPTIONS[next].value })
+    }
   }
 
   // Auto-scroll vers le pill actif
@@ -165,16 +168,15 @@ export default function BottomSheet({
 
   const resetQuand = () => {
     setQuandOpen(false)
-    setQuandCursor(0)
+    setQuandCursor(-1)
     onFiltresChange({ ...filtres, quand: 'toujours' })
   }
 
   const hasQuoi  = filtres.categories.length > 0
   const hasQuand = filtres.quand !== 'toujours'
 
-  const quoiLabel  = quoiCursor < 0 ? 'Que faire ?' : `${CATEGORIES[CATS[quoiCursor]].emoji} ${CATEGORIES[CATS[quoiCursor]].label}`
-  const quandLabel = QUAND_OPTIONS[quandCursor]?.label ?? 'Quand donc ?'
-  const quandBtnLabel = !quandOpen && !hasQuand ? 'Quand donc ?' : quandLabel
+  const quoiLabel     = quoiCursor < 0 ? 'Que faire ?' : `${CATEGORIES[CATS[quoiCursor]].emoji} ${CATEGORIES[CATS[quoiCursor]].label}`
+  const quandBtnLabel = quandCursor < 0 ? 'Quand donc ?' : QUAND_OPTIONS[quandCursor].short
 
   // Reset visibleCount quand la liste change (nouveau filtre)
   useEffect(() => { setVisibleCount(BATCH) }, [evenements])
@@ -324,13 +326,22 @@ export default function BottomSheet({
           >
             <div style={{ display: 'flex', gap: 7, padding: '0 16px 10px', overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               onPointerDown={e => e.stopPropagation()}>
+              {/* Pill "Tout" */}
+              <button onClick={resetQuand} style={{
+                flexShrink: 0, padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${sheetBg.border}`,
+                backgroundColor: quandCursor < 0 ? 'var(--primary)' : sheetBg.pill,
+                color: quandCursor < 0 ? '#fff' : sheetBg.sub,
+                fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+                minHeight: 34,
+              }}>Tout</button>
+
               {QUAND_OPTIONS.map((opt, i) => {
                 const isCursor = quandCursor === i
                 return (
                   <button
                     key={opt.value}
                     ref={el => { quandPillRefs.current[i] = el }}
-                    onClick={() => { setQuandCursor(i); onFiltresChange({ ...filtres, quand: opt.value }); if (opt.value === 'toujours') resetQuand() }}
+                    onClick={() => { setQuandCursor(i); onFiltresChange({ ...filtres, quand: opt.value }) }}
                     style={{
                       flexShrink: 0,
                       padding: '6px 14px', borderRadius: 999,
