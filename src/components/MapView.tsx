@@ -78,9 +78,10 @@ interface MarkersProps {
   evenements: Evenement[]
   selectedId: string | null
   onSelectEvent: (id: string) => void
+  fixedMap: boolean
 }
 
-function Markers({ evenements, selectedId, onSelectEvent }: MarkersProps) {
+function Markers({ evenements, selectedId, onSelectEvent, fixedMap }: MarkersProps) {
   const map = useMap()
   const clustererRef = useRef<MarkerClusterer | null>(null)
   const markersRef   = useRef<google.maps.Marker[]>([])
@@ -91,18 +92,18 @@ function Markers({ evenements, selectedId, onSelectEvent }: MarkersProps) {
     markersRef.current = []
   }, [])
 
-  // Pan vers l'événement sélectionné
+  // Pan vers l'événement sélectionné (désactivé en mode carte fixe)
   useEffect(() => {
-    if (!map || !selectedId) return
+    if (!map || !selectedId || fixedMap) return
     const evt = evenements.find(e => e.id === selectedId)
     if (evt?.lieux?.lat && evt?.lieux?.lng) {
       map.panTo({ lat: evt.lieux.lat, lng: evt.lieux.lng })
     }
-  }, [map, selectedId, evenements])
+  }, [map, selectedId, evenements, fixedMap])
 
-  // Auto-fit bounds selon les événements visibles
+  // Auto-fit bounds selon les événements visibles (désactivé en mode carte fixe)
   useEffect(() => {
-    if (!map) return
+    if (!map || fixedMap) return
     const withLoc = evenements.filter(e => e.lieux?.lat && e.lieux?.lng)
     if (withLoc.length === 0) return
 
@@ -115,7 +116,7 @@ function Markers({ evenements, selectedId, onSelectEvent }: MarkersProps) {
     const bounds = new google.maps.LatLngBounds()
     withLoc.forEach(e => bounds.extend({ lat: e.lieux!.lat!, lng: e.lieux!.lng! }))
     map.fitBounds(bounds, { top: 60, right: 20, bottom: 180, left: 20 })
-  }, [map, evenements])
+  }, [map, evenements, fixedMap])
 
   useEffect(() => {
     if (!map) return
@@ -166,7 +167,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
   const selectedCat   = selectedEvent
     ? (CATEGORIES[selectedEvent.categorie] ?? CATEGORIES.autre)
     : null
-  const { mapStyle } = useTheme()
+  const { mapStyle, fixedMap } = useTheme()
 
   return (
     <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY!}>
@@ -178,7 +179,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
         mapTypeControl={false}
         streetViewControl={false}
         fullscreenControl={false}
-        zoomControl={true}
+        zoomControl={false}
         clickableIcons={false}
         styles={mapStyle.styles.length > 0 ? mapStyle.styles : WARM_STYLE}
       >
@@ -186,6 +187,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
           evenements={evenements}
           selectedId={selectedId}
           onSelectEvent={onSelectEvent}
+          fixedMap={fixedMap}
         />
 
         {/* Popup InfoWindow sur l'événement sélectionné */}
