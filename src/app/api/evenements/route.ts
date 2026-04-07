@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { geocodeWithGoogle, calcStatut } from '@/lib/extract'
 import { Categorie } from '@/lib/types'
 import { checkDoublon } from '@/lib/checkDoublon'
+import { checkZone } from '@/lib/checkZone'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -61,6 +62,15 @@ export async function POST(req: NextRequest) {
 
       if (lieuErr) throw new Error(`Erreur insertion lieu : ${lieuErr.message}`)
       lieuId = lieu.id
+    }
+
+    // Vérification zone géographique
+    const zone = await checkZone(geo.lat, geo.lng)
+    if (!zone.within) {
+      return NextResponse.json({
+        error: `Événement hors zone (${zone.distanceMin} km de ${zone.centreLePlusProche}, rayon configuré : ${zone.rayon} km)`,
+        hors_zone: true,
+      }, { status: 422 })
     }
 
     const baseStatut = calcStatut({

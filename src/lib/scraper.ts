@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { geocodeWithGoogle, calcStatut } from './extract'
 import { checkDoublon } from './checkDoublon'
+import { checkZone } from './checkZone'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -188,6 +189,13 @@ export async function scrapeSource(sourceId: string): Promise<ScrapeResult> {
       let lieuId: string | null = null
       if (evt.lieu_nom || evt.commune) {
         const geo = await geocodeWithGoogle(evt.lieu_nom, evt.commune)
+
+        // Vérification zone géographique
+        const zone = await checkZone(geo.lat, geo.lng)
+        if (!zone.within) {
+          evenements.push({ titre: evt.titre, statut: 'hors_zone', doublon: false })
+          continue
+        }
 
         if (evt.lieu_nom || evt.commune) {
           const { data: lieu } = await supabaseAdmin
