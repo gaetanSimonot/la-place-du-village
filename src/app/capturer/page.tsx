@@ -121,9 +121,9 @@ export default function CapturerPage() {
       if (!res.ok) throw new Error(data.error)
 
       const raw: ExtractedData[] = data.events ?? []
-      // Ne garder que les events avec titre + date + lieu minimum
+      // Ne garder que les events valides avec titre + date + lieu minimum
       const evts = raw.filter(e =>
-        e.titre?.trim() && e.date_debut && (e.lieu_nom?.trim() || e.commune?.trim())
+        e != null && e.titre?.trim() && e.date_debut && (e.lieu_nom?.trim() || e.commune?.trim())
       )
       setEvents(evts)
       setExpanded(new Set())

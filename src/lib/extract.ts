@@ -123,7 +123,9 @@ Structure de chaque objet :
   const raw = response.content[0].type === 'text' ? response.content[0].text : '[]'
   const clean = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
   const parsed = JSON.parse(clean)
-  return Array.isArray(parsed) ? parsed : [parsed]
+  const arr = Array.isArray(parsed) ? parsed : [parsed]
+  // Filtre les entrées nulles/undefined que Claude peut retourner
+  return arr.filter((e): e is ExtractedData => e != null && typeof e === 'object')
 }
 
 const randOffset = () => Math.random() * 0.004 - 0.002
