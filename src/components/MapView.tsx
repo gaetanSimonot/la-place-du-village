@@ -2,7 +2,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { APIProvider, Map, InfoWindow, useMap } from '@vis.gl/react-google-maps'
 import { MarkerClusterer } from '@googlemaps/markerclusterer'
-import { Evenement, isApproxLocation } from '@/lib/types'
+import { EvenementCard, isApproxLocation } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
 import { useTheme } from '@/components/ThemeProvider'
@@ -44,7 +44,18 @@ const CATEGORY_SHAPES: Record<string, string> = {
   autre:     '●',
 }
 
+// Cache SVG par clé "categorie|selected|approx" — évite de recalculer à chaque render
+const svgCache: Record<string, string> = {}
+
 function markerSvg(categorie: string, selected: boolean, approx = false): string {
+  const key = `${categorie}|${selected}|${approx}`
+  if (svgCache[key]) return svgCache[key]
+  const url = _buildMarkerSvg(categorie, selected, approx)
+  svgCache[key] = url
+  return url
+}
+
+function _buildMarkerSvg(categorie: string, selected: boolean, approx = false): string {
   const cat = CATEGORIES[categorie as keyof typeof CATEGORIES] ?? CATEGORIES.autre
   const symbol = CATEGORY_SHAPES[categorie] ?? '●'
 
@@ -75,7 +86,7 @@ function markerSvg(categorie: string, selected: boolean, approx = false): string
 }
 
 interface MarkersProps {
-  evenements: Evenement[]
+  evenements: EvenementCard[]
   selectedId: string | null
   onSelectEvent: (id: string) => void
   fixedMap: boolean
@@ -155,7 +166,7 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap }: MarkersPro
 }
 
 interface Props {
-  evenements: Evenement[]
+  evenements: EvenementCard[]
   selectedId: string | null
   onSelectEvent: (id: string) => void
   onDeselect: () => void
@@ -210,6 +221,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
                 <img
                   src={selectedEvent.image_url}
                   alt={selectedEvent.titre}
+                  loading="lazy"
                   style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block' }}
                 />
               )}

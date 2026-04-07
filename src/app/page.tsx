@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { Evenement, Filtres } from '@/lib/types'
+import { EvenementCard, Filtres } from '@/lib/types'
 import { getDateRange } from '@/lib/filters'
 import { useTheme } from '@/components/ThemeProvider'
 
@@ -51,37 +51,44 @@ export default function HomePage() {
   const { fixedMap, setFixedMap } = useTheme()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [filtres, setFiltres]       = useState<Filtres>(defaultFiltres)
-  const [evenements, setEvenements] = useState<Evenement[]>([])
+  const [evenements, setEvenements] = useState<EvenementCard[]>([])
   const [loading, setLoading]       = useState(true)
+  const [masquerPasses, setMasquerPasses] = useState<boolean | null>(null)
   const [sheetMode, setSheetMode]   = useState<'peek'|'half'|'full'>('half')
   const [navTab, setNavTab]         = useState<NavTab>('carte')
   const [fabOpen, setFabOpen]       = useState(false)
   const router = useRouter()
 
+  // Config masquer_passes : chargée une seule fois au mount
+  useEffect(() => {
+    supabase.from('config').select('value').eq('key', 'masquer_passes').single()
+      .then(({ data }) => setMasquerPasses(data?.value === 'true'))
+  }, [])
+
   const fetchEvenements = useCallback(async () => {
+    if (masquerPasses === null) return // attendre la config
     setLoading(true)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let query: any = supabase
-      .from('evenements').select('*, lieux(*)')
-      .eq('statut', 'publie').order('date_debut', { ascending: true })
+      .from('evenements')
+      .select('id, titre, categorie, date_debut, heure, image_url, lieux(id, nom, commune, lat, lng, place_id_google)')
+      .eq('statut', 'publie')
+      .order('date_debut', { ascending: true })
 
     if (filtres.categories.length > 0) query = query.in('categorie', filtres.categories)
     const range = getDateRange(filtres.quand)
     if (range) query = query.gte('date_debut', range.from).lte('date_debut', range.to)
 
-    // Réglage admin : masquer les événements passés
-    const { data: cfg } = await supabase
-      .from('config').select('value').eq('key', 'masquer_passes').single()
-    if (cfg?.value === 'true') {
-      const today = new Date().toISOString().split('T')[0]
-      // Visible si date_fin >= aujourd'hui, ou (pas de date_fin ET date_debut >= aujourd'hui)
+    if (masquerPasses) {
+      const d = new Date()
+      const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
       query = query.or(`date_fin.gte.${today},and(date_fin.is.null,date_debut.gte.${today})`)
     }
 
     const { data } = await query
-    setEvenements((data as Evenement[]) ?? [])
+    setEvenements((data as EvenementCard[]) ?? [])
     setLoading(false)
-  }, [filtres])
+  }, [filtres, masquerPasses])
 
   useEffect(() => { fetchEvenements() }, [fetchEvenements])
 

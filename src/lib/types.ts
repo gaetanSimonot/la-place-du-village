@@ -31,7 +31,28 @@ export interface Evenement {
   lieux: Lieu | null
 }
 
-export function isApproxLocation(lieu: Lieu | null): boolean {
+// Type allégé pour l'affichage public (carte + liste)
+// Ne charge pas description, prix, contact, etc.
+export interface LieuCard {
+  id: string
+  nom: string
+  commune: string | null
+  lat: number | null
+  lng: number | null
+  place_id_google: string | null
+}
+
+export interface EvenementCard {
+  id: string
+  titre: string
+  categorie: Categorie
+  date_debut: string | null
+  heure: string | null
+  image_url: string | null
+  lieux: LieuCard | null
+}
+
+export function isApproxLocation(lieu: Lieu | LieuCard | null): boolean {
   return !!lieu && lieu.lat !== null && lieu.place_id_google === null
 }
 

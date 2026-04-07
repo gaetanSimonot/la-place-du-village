@@ -10,6 +10,7 @@ import DoublonsAdmin from '@/components/DoublonsAdmin'
 
 type Onglet   = 'a_traiter' | 'publie' | 'rejete' | 'scrap' | 'notes' | 'doublons'
 type SortKey  = 'created_desc' | 'created_asc' | 'date_asc' | 'date_desc'
+const PAGE_SIZE = 20
 
 interface Feedback {
   id: string
@@ -39,17 +40,20 @@ export default function AdminPage() {
   const [togglingConfig, setTogglingConfig] = useState(false)
   const [search, setSearch]             = useState('')
   const [sort, setSort]                 = useState<SortKey>('created_desc')
+  const [page, setPage]                 = useState(1)
   const [onlyFeedbacks, setOnlyFeedbacks] = useState(false)
   const [expandedFeedback, setExpandedFeedback] = useState<Set<string>>(new Set())
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
     const [{ data }, { data: cfg }, fbRes] = await Promise.all([
-      supabase.from('evenements').select('*, lieux(*)').order('created_at', { ascending: false }),
+      supabase.from('evenements')
+        .select('id, titre, categorie, date_debut, statut, source, created_at, lieu_id, doublon_verifie, lieux(id, nom, commune, lat, lng, place_id_google)')
+        .order('created_at', { ascending: false }),
       supabase.from('config').select('value').eq('key', 'masquer_passes').single(),
       fetch('/api/admin/feedbacks'),
     ])
-    setEvenements((data as Evenement[]) ?? [])
+    setEvenements((data as unknown as Evenement[]) ?? [])
     setMasquerPasses(cfg?.value === 'true')
     const fbData = fbRes.ok ? await fbRes.json() : []
     setFeedbacks(Array.isArray(fbData) ? fbData : [])
@@ -62,7 +66,8 @@ export default function AdminPage() {
   }, [])
 
   useEffect(() => { fetchAll() }, [fetchAll])
-  useEffect(() => { setSelection(new Set()) }, [onglet])
+  useEffect(() => { setSelection(new Set()); setPage(1) }, [onglet])
+  useEffect(() => { setPage(1) }, [search, sort, onlyFeedbacks])
 
   // Index feedbacks par evenement_id
   const feedbacksByEvent = useMemo(() => {
@@ -201,10 +206,13 @@ export default function AdminPage() {
     scrap:     evenements.filter(e => e.source === 'scrape' && e.statut === 'en_attente').length,
   }
 
-  const allSelected = sorted.length > 0 && sorted.every(e => selection.has(e.id))
+  const totalPages  = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
+  const paginated   = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  const allSelected = paginated.length > 0 && paginated.every(e => selection.has(e.id))
   const toggleAll   = () => {
     if (allSelected) setSelection(new Set())
-    else setSelection(new Set(sorted.map(e => e.id)))
+    else setSelection(new Set(paginated.map(e => e.id)))
   }
 
   return (
@@ -340,7 +348,7 @@ export default function AdminPage() {
       )}
 
       {/* Liste */}
-      {onglet !== 'notes' && onglet !== 'doublons' && <div className="p-3 space-y-3">
+      {onglet !== 'notes' && onglet !== 'doublons' && <div className="p-3 space-y-3 pb-6">
         {loading ? (
           <div className="flex justify-center py-12">
             <div className="w-8 h-8 border-4 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
@@ -349,7 +357,7 @@ export default function AdminPage() {
           <p className="text-center text-gray-400 py-12">
             {search ? 'Aucun résultat pour cette recherche' : onlyFeedbacks ? 'Aucun signalement dans cet onglet' : onglet === 'scrap' ? 'Aucun événement à valider' : 'Aucun événement'}
           </p>
-        ) : sorted.map(evt => {
+        ) : paginated.map(evt => {
           const cat            = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
           const approx         = isApproxLocation(evt.lieux)
           const isLoading      = actionId === evt.id
@@ -477,6 +485,25 @@ export default function AdminPage() {
             </div>
           )
         })}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-3 py-4">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-[#E8E0D5] text-[#2C1810] disabled:opacity-30"
+            >← Préc.</button>
+            <span className="text-xs text-gray-500 font-medium">
+              Page {page} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-[#E8E0D5] text-[#2C1810] disabled:opacity-30"
+            >Suiv. →</button>
+          </div>
+        )}
       </div>}
 
       {/* Barre flottante sélection */}

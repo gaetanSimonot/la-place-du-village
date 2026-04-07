@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, useMotionValue, animate, useDragControls, AnimatePresence } from 'framer-motion'
-import { Evenement, Filtres, Categorie, FiltreQuand } from '@/lib/types'
+import { EvenementCard, Filtres, Categorie, FiltreQuand } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
 import Link from 'next/link'
@@ -14,13 +14,15 @@ const CATS = Object.keys(CATEGORIES) as Categorie[]
 const QUAND_OPTIONS: { value: FiltreQuand; label: string; short: string }[] = [
   { value: 'toujours',       label: 'Toujours',      short: 'Toujours'   },
   { value: 'aujourd_hui',    label: "Aujourd'hui",   short: "Auj."       },
-  { value: 'ce_week_end',    label: 'Ce week-end',   short: 'Ce WE'      },
   { value: 'cette_semaine',  label: 'Cette semaine', short: 'Semaine'    },
+  { value: 'ce_week_end',    label: 'Ce week-end',   short: 'Ce WE'      },
   { value: 'ce_mois',        label: 'Ce mois',       short: 'Ce mois'    },
 ]
 
+const BATCH = 20
+
 interface Props {
-  evenements: Evenement[]
+  evenements: EvenementCard[]
   loading: boolean
   selectedId: string | null
   onSelectEvent: (id: string) => void
@@ -37,6 +39,8 @@ export default function BottomSheet({
   filtres, onFiltresChange, mode, onModeChange, navHeight,
 }: Props) {
   const [screenH, setScreenH]     = useState(812)
+  const [visibleCount, setVisibleCount] = useState(BATCH)
+  const loaderRef = useRef<HTMLDivElement>(null)
   const dragControls              = useDragControls()
 
   // Filtre "Que faire" — cursor dans CATS, -1 = row fermée
@@ -146,9 +150,25 @@ export default function BottomSheet({
   const quandLabel = QUAND_OPTIONS[quandCursor]?.label ?? 'Quand donc ?'
   const quandBtnLabel = !quandOpen && !hasQuand ? 'Quand donc ?' : quandLabel
 
+  // Reset visibleCount quand la liste change (nouveau filtre)
+  useEffect(() => { setVisibleCount(BATCH) }, [evenements])
+
+  // IntersectionObserver pour le scroll infini
+  useEffect(() => {
+    const el = loaderRef.current
+    if (!el) return
+    const obs = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) setVisibleCount(n => n + BATCH)
+    }, { threshold: 0.1 })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+
   const sortedEvents = selectedId
     ? [...evenements.filter(e => e.id === selectedId), ...evenements.filter(e => e.id !== selectedId)]
     : evenements
+
+  const visibleEvents = sortedEvents.slice(0, visibleCount)
 
   const SHEET_H = screenH - FULL_TOP - navHeight
 
@@ -329,13 +349,21 @@ export default function BottomSheet({
             <p style={{ fontSize: 13, marginTop: 6 }}>Modifie les filtres ou ajoute quelque chose !</p>
           </div>
         ) : (
-          sortedEvents.map(evt => (
-            <EventListCard key={evt.id} evt={evt}
-              isSelected={evt.id === selectedId}
-              onSelect={() => onSelectEvent(evt.id)}
-              onViewOnMap={() => onViewOnMap(evt.id)}
-            />
-          ))
+          <>
+            {visibleEvents.map(evt => (
+              <EventListCard key={evt.id} evt={evt}
+                isSelected={evt.id === selectedId}
+                onSelect={() => onSelectEvent(evt.id)}
+                onViewOnMap={() => onViewOnMap(evt.id)}
+              />
+            ))}
+            {/* Sentinelle scroll infini */}
+            {visibleCount < sortedEvents.length && (
+              <div ref={loaderRef} style={{ height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid #E0D8CE', borderTopColor: 'var(--primary)', animation: 'spin 0.7s linear infinite' }} />
+              </div>
+            )}
+          </>
         )}
       </div>
     </motion.div>
@@ -344,7 +372,7 @@ export default function BottomSheet({
 
 /* ── Card événement ── */
 function EventListCard({ evt, isSelected, onSelect, onViewOnMap }: {
-  evt: Evenement; isSelected: boolean; onSelect: () => void; onViewOnMap: () => void
+  evt: EvenementCard; isSelected: boolean; onSelect: () => void; onViewOnMap: () => void
 }) {
   const cat  = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
   const lieu = evt.lieux
@@ -356,7 +384,7 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap }: {
       boxShadow: isSelected ? `0 0 0 2.5px var(--primary), 0 4px 16px rgba(0,0,0,0.15)` : '0 2px 10px rgba(44,44,44,0.1)',
     }}>
       {evt.image_url
-        ? <img src={evt.image_url} alt={evt.titre} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+        ? <img src={evt.image_url} alt={evt.titre} loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
         : <div style={{ position: 'absolute', inset: 0, backgroundColor: cat.color, opacity: 0.8 }} />
       }
       {/* Gradient gauche→droite : assombrit le côté texte, révèle l'image à droite */}
