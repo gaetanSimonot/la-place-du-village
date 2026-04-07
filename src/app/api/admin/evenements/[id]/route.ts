@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
+
+// Convertit les chaînes vides en null pour les champs date/heure
+function nullIfEmpty(v: unknown) {
+  return v === '' ? null : v
+}
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -15,7 +20,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       if (body.commune !== undefined) lieuUpdate.commune = body.commune
       if (body.place_id_google !== undefined) lieuUpdate.place_id_google = body.place_id_google
 
-      const { error: lieuErr } = await supabase
+      const { error: lieuErr } = await supabaseAdmin
         .from('lieux')
         .update(lieuUpdate)
         .eq('id', body.lieu_id)
@@ -25,10 +30,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     // Mise à jour de l'événement
     const eventUpdate: Record<string, unknown> = {}
-    const fields = ['titre', 'description', 'date_debut', 'date_fin', 'heure', 'categorie', 'statut', 'prix', 'contact', 'organisateurs', 'image_url']
-    fields.forEach(f => { if (body[f] !== undefined) eventUpdate[f] = body[f] })
+    const textFields = ['titre', 'description', 'categorie', 'statut', 'prix', 'contact', 'organisateurs', 'image_url']
+    const dateFields = ['date_debut', 'date_fin', 'heure']
+    textFields.forEach(f => { if (body[f] !== undefined) eventUpdate[f] = body[f] })
+    dateFields.forEach(f => { if (body[f] !== undefined) eventUpdate[f] = nullIfEmpty(body[f]) })
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('evenements')
       .update(eventUpdate)
       .eq('id', params.id)
@@ -46,24 +53,24 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
     // Récupère le lieu_id avant suppression
-    const { data: evt } = await supabase
+    const { data: evt } = await supabaseAdmin
       .from('evenements')
       .select('lieu_id')
       .eq('id', params.id)
       .single()
 
-    const { error } = await supabase.from('evenements').delete().eq('id', params.id)
+    const { error } = await supabaseAdmin.from('evenements').delete().eq('id', params.id)
     if (error) throw new Error(error.message)
 
     // Supprime le lieu s'il n'est plus utilisé
     if (evt?.lieu_id) {
-      const { count } = await supabase
+      const { count } = await supabaseAdmin
         .from('evenements')
         .select('id', { count: 'exact', head: true })
         .eq('lieu_id', evt.lieu_id)
 
       if (count === 0) {
-        await supabase.from('lieux').delete().eq('id', evt.lieu_id)
+        await supabaseAdmin.from('lieux').delete().eq('id', evt.lieu_id)
       }
     }
 

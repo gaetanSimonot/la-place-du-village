@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Evenement, isApproxLocation } from '@/lib/types'
@@ -47,6 +47,12 @@ export default function EvenementPage() {
   const [form, setForm]       = useState<EditForm | null>(null)
   const [error, setError]     = useState<string | null>(null)
 
+  // Voice edit
+  const [recording, setRecording] = useState(false)
+  const [voiceStatus, setVoiceStatus] = useState<'idle' | 'recording' | 'processing' | 'done' | 'error'>('idle')
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+
   useEffect(() => {
     setIsAdmin(isAdminSession())
     supabase.from('evenements').select('*, lieux(*)').eq('id', id).single()
@@ -55,6 +61,57 @@ export default function EvenementPage() {
         setLoading(false)
       })
   }, [id])
+
+  const startVoice = async () => {
+    if (recording) {
+      // Arrêter l'enregistrement
+      mediaRecorderRef.current?.stop()
+      return
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mr = new MediaRecorder(stream)
+      chunksRef.current = []
+      mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data) }
+      mr.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop())
+        setRecording(false)
+        setVoiceStatus('processing')
+        try {
+          const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+          const fd = new FormData()
+          fd.append('audio', blob, 'recording.webm')
+          const tr = await fetch('/api/transcribe', { method: 'POST', body: fd })
+          const { text, error: tErr } = await tr.json()
+          if (tErr || !text) throw new Error(tErr ?? 'Transcription vide')
+
+          const ve = await fetch('/api/admin/voice-edit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ transcript: text, currentForm: form }),
+          })
+          const { updates, error: vErr } = await ve.json()
+          if (vErr) throw new Error(vErr)
+          if (updates && Object.keys(updates).length > 0) {
+            setForm(p => ({ ...p!, ...updates }))
+          }
+          setVoiceStatus('done')
+          setTimeout(() => setVoiceStatus('idle'), 2500)
+        } catch (e: unknown) {
+          console.error(e)
+          setVoiceStatus('error')
+          setTimeout(() => setVoiceStatus('idle'), 3000)
+        }
+      }
+      mediaRecorderRef.current = mr
+      mr.start()
+      setRecording(true)
+      setVoiceStatus('recording')
+    } catch {
+      setVoiceStatus('error')
+      setTimeout(() => setVoiceStatus('idle'), 3000)
+    }
+  }
 
   const startEdit = () => {
     if (!evt) return
@@ -145,8 +202,36 @@ export default function EvenementPage() {
         <div className="sticky top-0 z-10 bg-white border-b border-[#E8E0D5] px-4 py-3 flex items-center gap-3">
           <button onClick={cancelEdit} className="text-[#C4622D] font-bold text-2xl leading-none">←</button>
           <h1 className="font-bold text-[#2C1810] flex-1 text-base">Modifier l&apos;événement</h1>
+          <button
+            onClick={startVoice}
+            title="Corriger à l'oral"
+            style={{
+              width: 36, height: 36, borderRadius: '50%', border: 'none', cursor: 'pointer',
+              backgroundColor: voiceStatus === 'recording' ? '#ef4444' : voiceStatus === 'done' ? '#22c55e' : voiceStatus === 'error' ? '#f97316' : '#C4622D',
+              color: '#fff', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'background-color 0.2s',
+              animation: voiceStatus === 'recording' ? 'pulse 1s infinite' : undefined,
+            }}
+          >
+            {voiceStatus === 'processing' ? '⏳' : voiceStatus === 'done' ? '✓' : voiceStatus === 'error' ? '✗' : '🎙️'}
+          </button>
           <span className="text-xs bg-orange-100 text-orange-600 font-bold px-2 py-1 rounded-full">Admin</span>
         </div>
+        {voiceStatus === 'recording' && (
+          <div style={{ backgroundColor: '#fef2f2', borderBottom: '1px solid #fecaca', padding: '6px 16px', fontSize: 12, color: '#ef4444', fontWeight: 600, textAlign: 'center' }}>
+            Enregistrement… Appuyez à nouveau pour terminer
+          </div>
+        )}
+        {voiceStatus === 'processing' && (
+          <div style={{ backgroundColor: '#fffbeb', borderBottom: '1px solid #fde68a', padding: '6px 16px', fontSize: 12, color: '#92400e', fontWeight: 600, textAlign: 'center' }}>
+            Analyse vocale en cours…
+          </div>
+        )}
+        {voiceStatus === 'done' && (
+          <div style={{ backgroundColor: '#f0fdf4', borderBottom: '1px solid #bbf7d0', padding: '6px 16px', fontSize: 12, color: '#166534', fontWeight: 600, textAlign: 'center' }}>
+            ✓ Formulaire mis à jour par la voix
+          </div>
+        )}
 
         <div className="p-4 space-y-3 pb-32" style={{ fontFamily: 'Inter, sans-serif' }}>
 
