@@ -1,6 +1,6 @@
 'use client'
 import React from 'react'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
@@ -52,21 +52,26 @@ export default function HomePage() {
   const { fixedMap, setFixedMap } = useTheme()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [filtres, setFiltres]       = useState<Filtres>(defaultFiltres)
-  const [evenements, setEvenements] = useState<EvenementCard[]>([])
+  const [allEvenements, setAllEvenements] = useState<EvenementCard[]>([])
   const [loading, setLoading]       = useState(true)
   const [masquerPasses, setMasquerPasses] = useState<boolean | null>(null)
   const [zoneCentres, setZoneCentres]   = useState<{ lat: number; lng: number; nom: string }[]>([])
   const [rayonAffichage, setRayonAffichage] = useState<number | null>(null)
   const [zoneLoaded, setZoneLoaded]     = useState(false)
+
+  // Zone user (localStorage)
+  const [zonePopup, setZonePopup]       = useState(false)
+  const [userRayon, setUserRayon]       = useState<number>(30)
+  const [userVille, setUserVille]       = useState('')
+  const [userCentre, setUserCentre]     = useState<{ lat: number; lng: number; nom: string } | null>(null)
+  const [userZoneActive, setUserZoneActive] = useState(false)
+  const [geocoding, setGeocoding]       = useState(false)
   const [sheetMode, setSheetMode]   = useState<'peek'|'half'|'full'>('half')
   const [navTab, setNavTab]         = useState<NavTab>('carte')
   const [fabOpen, setFabOpen]       = useState(false)
   const router = useRouter()
 
-  // Config chargée une seule fois au mount
-  useEffect(() => {
-    supabase.from('config').select('value').eq('key', 'masquer_passes').single()
-      .then(({ data }) => setMasquerPasses(data?.value === 'true'))
+  const fetchZoneConfig = useCallback(() => {
     fetch('/api/zone')
       .then(r => r.json())
       .then(data => {
@@ -75,6 +80,30 @@ export default function HomePage() {
       })
       .catch(() => {})
       .finally(() => setZoneLoaded(true))
+  }, [])
+
+  // Config chargée une seule fois au mount + écoute changements admin
+  useEffect(() => {
+    supabase.from('config').select('value').eq('key', 'masquer_passes').single()
+      .then(({ data }) => setMasquerPasses(data?.value === 'true'))
+    fetchZoneConfig()
+    // Recharger la zone si l'admin la modifie (même onglet/session)
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'pdv-zone-updated') fetchZoneConfig()
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+    // Charger zone user depuis localStorage
+    try {
+      const saved = localStorage.getItem('pdv-zone-user')
+      if (saved) {
+        const z = JSON.parse(saved as string)
+        setUserRayon(z.rayon ?? 30)
+        setUserVille(z.nom ?? '')
+        setUserCentre({ lat: z.lat, lng: z.lng, nom: z.nom ?? '' })
+        setUserZoneActive(true)
+      }
+    } catch {}
   }, [])
 
   const fetchEvenements = useCallback(async () => {
@@ -98,26 +127,26 @@ export default function HomePage() {
     }
 
     const { data } = await query
-    let evts = (data as EvenementCard[]) ?? []
-
-    // Filtre d'affichage par zone (si configuré)
-    if (rayonAffichage != null && rayonAffichage > 0) {
-      const centres = zoneCentres.length > 0
-        ? zoneCentres
-        : [{ lat: GANGES.lat, lng: GANGES.lng, nom: 'Ganges' }]
-      evts = evts.filter(e => {
-        const lat = e.lieux?.lat
-        const lng = e.lieux?.lng
-        if (lat == null || lng == null) return true // pas de coords → affiché quand même
-        return centres.some(c => haversineKm(lat, lng, c.lat, c.lng) <= rayonAffichage)
-      })
-    }
-
-    setEvenements(evts)
+    setAllEvenements((data as EvenementCard[]) ?? [])
     setLoading(false)
-  }, [filtres, masquerPasses, zoneCentres, rayonAffichage, zoneLoaded])
+  }, [filtres, masquerPasses, zoneLoaded])
 
   useEffect(() => { fetchEvenements() }, [fetchEvenements])
+
+  // Filtre zone appliqué sur la liste complète — recalculé à chaque changement de zone
+  const evenements = useMemo(() => {
+    const rayon   = userZoneActive ? userRayon : (rayonAffichage ?? 0)
+    const centres = userZoneActive && userCentre
+      ? [userCentre]
+      : zoneCentres.length > 0 ? zoneCentres : [{ lat: GANGES.lat, lng: GANGES.lng, nom: 'Ganges' }]
+    if (rayon <= 0) return allEvenements
+    return allEvenements.filter(e => {
+      const lat = e.lieux?.lat
+      const lng = e.lieux?.lng
+      if (lat == null || lng == null) return true
+      return centres.some(c => haversineKm(lat, lng, c.lat, c.lng) <= rayon)
+    })
+  }, [allEvenements, rayonAffichage, zoneCentres, userZoneActive, userRayon, userCentre])
 
   const handleNavTab = (tab: NavTab) => {
     if (tab === 'profil') { router.push('/profil'); return }
@@ -188,6 +217,131 @@ export default function HomePage() {
           </svg>
         )}
       </button>
+
+      {/* Bouton zone user — sous carte fixe */}
+      <button
+        onClick={() => setZonePopup(true)}
+        style={{
+          position: 'absolute', top: 66, left: 14, zIndex: 200,
+          width: 44, height: 44, borderRadius: 12,
+          backgroundColor: userZoneActive ? 'var(--primary)' : 'rgba(255,255,255,0.92)',
+          border: userZoneActive ? 'none' : '1px solid #E0D8CE',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.14)',
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: userZoneActive ? '#fff' : '#6B6B6B',
+          opacity: navTab === 'carte' ? 1 : 0,
+          pointerEvents: navTab === 'carte' ? 'auto' : 'none',
+          transition: 'opacity 0.18s, background-color 0.18s',
+          fontSize: 18,
+        }}
+        title="Filtrer par zone"
+      >
+        📍
+      </button>
+
+      {/* Popup zone user */}
+      {zonePopup && (
+        <>
+          <div
+            onClick={() => setZonePopup(false)}
+            style={{ position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.4)' }}
+          />
+          <div style={{
+            position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 301,
+            backgroundColor: '#fff', borderRadius: '20px 20px 0 0',
+            padding: '20px 20px 40px', fontFamily: 'Inter, sans-serif',
+          }}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '0 auto 20px' }} />
+            <p style={{ fontWeight: 700, fontSize: 16, color: '#2C1810', marginBottom: 4 }}>Ma zone d&apos;affichage</p>
+            <p style={{ fontSize: 12, color: '#8A8A8A', marginBottom: 20 }}>Affiche uniquement les événements proches de chez toi.</p>
+
+            {/* Ville */}
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: '#8A8A8A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Village / Commune</p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  value={userVille}
+                  onChange={e => setUserVille(e.target.value)}
+                  onKeyDown={async e => {
+                    if (e.key === 'Enter' && userVille.trim()) {
+                      setGeocoding(true)
+                      const r = await fetch(`/api/admin/geocode?q=${encodeURIComponent(userVille + ', Hérault, France')}`)
+                      const d = await r.json()
+                      if (d.lat) setUserCentre({ lat: d.lat, lng: d.lng, nom: userVille.trim() })
+                      setGeocoding(false)
+                    }
+                  }}
+                  placeholder="Ex: Ganges, Le Vigan..."
+                  style={{ flex: 1, border: '1px solid #E0D8CE', borderRadius: 12, padding: '10px 14px', fontSize: 14, outline: 'none', backgroundColor: '#FBF7F0' }}
+                />
+                <button
+                  onClick={async () => {
+                    if (!userVille.trim()) return
+                    setGeocoding(true)
+                    const r = await fetch(`/api/admin/geocode?q=${encodeURIComponent(userVille + ', Hérault, France')}`)
+                    const d = await r.json()
+                    if (d.lat) setUserCentre({ lat: d.lat, lng: d.lng, nom: userVille.trim() })
+                    setGeocoding(false)
+                  }}
+                  disabled={geocoding || !userVille.trim()}
+                  style={{ padding: '10px 14px', borderRadius: 12, backgroundColor: '#C4622D', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: geocoding ? 0.5 : 1 }}
+                >
+                  {geocoding ? '…' : 'OK'}
+                </button>
+              </div>
+              {userCentre && (
+                <p style={{ fontSize: 11, color: '#C4622D', marginTop: 6 }}>📍 {userCentre.nom} localisé</p>
+              )}
+            </div>
+
+            {/* Rayon */}
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: '#8A8A8A', textTransform: 'uppercase', letterSpacing: 1 }}>Rayon</p>
+                <span style={{ fontSize: 16, fontWeight: 700, color: '#C4622D' }}>{userRayon} km</span>
+              </div>
+              <input
+                type="range" min={5} max={200} step={5}
+                value={userRayon}
+                onChange={e => setUserRayon(Number(e.target.value))}
+                style={{ width: '100%', accentColor: '#C4622D' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#C0B9B0', marginTop: 2 }}>
+                <span>5 km</span><span>200 km</span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <button
+              onClick={() => {
+                if (!userCentre) return
+                const z = { rayon: userRayon, nom: userCentre.nom, lat: userCentre.lat, lng: userCentre.lng }
+                localStorage.setItem('pdv-zone-user', JSON.stringify(z))
+                setUserZoneActive(true)
+                setZonePopup(false)
+              }}
+              disabled={!userCentre}
+              style={{ width: '100%', padding: '14px', borderRadius: 16, backgroundColor: '#C4622D', color: '#fff', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer', marginBottom: 10, opacity: userCentre ? 1 : 0.4 }}
+            >
+              Appliquer ma zone
+            </button>
+            {userZoneActive && (
+              <button
+                onClick={() => {
+                  localStorage.removeItem('pdv-zone-user')
+                  setUserZoneActive(false)
+                  setUserCentre(null)
+                  setUserVille('')
+                  setZonePopup(false)
+                }}
+                style={{ width: '100%', padding: '12px', borderRadius: 16, backgroundColor: 'transparent', color: '#8A8A8A', fontWeight: 600, fontSize: 14, border: '1px solid #E0D8CE', cursor: 'pointer' }}
+              >
+                Réinitialiser (utiliser zone par défaut)
+              </button>
+            )}
+          </div>
+        </>
+      )}
 
       {/* FAB "+" — haut droite, visible seulement sur carte non-full */}
       <AnimatePresence>

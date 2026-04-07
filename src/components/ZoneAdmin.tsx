@@ -39,6 +39,8 @@ export default function ZoneAdmin() {
     })
     setSaving(false)
     setSaved(true)
+    // Signal à page.tsx de recharger la config zone
+    localStorage.setItem('pdv-zone-updated', String(Date.now()))
     setTimeout(() => setSaved(false), 2000)
   }
 

@@ -107,9 +107,13 @@ export default function BottomSheet({
       setQuoiOpen(true)
       if (mode === 'peek') snapTo('half')
     }
-    const next = (quoiCursor + 1) % CATS.length
-    setQuoiCursor(next)
-    onFiltresChange({ ...filtres, categories: [CATS[next]] })
+    const next = quoiCursor + 1 < CATS.length ? quoiCursor + 1 : -1
+    if (next === -1) {
+      resetQuoi()
+    } else {
+      setQuoiCursor(next)
+      onFiltresChange({ ...filtres, categories: [CATS[next]] })
+    }
   }
 
   // ── "Quand donc" button : cycle single-select ──
