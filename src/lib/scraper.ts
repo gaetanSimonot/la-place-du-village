@@ -77,8 +77,8 @@ function jaccardSimilarity(a: string, b: string): number {
   const wordsA = new Set(normalize(a).split(' ').filter(w => w.length > 2))
   const wordsB = new Set(normalize(b).split(' ').filter(w => w.length > 2))
   if (wordsA.size === 0 && wordsB.size === 0) return 1
-  const intersection = [...wordsA].filter(w => wordsB.has(w)).length
-  const union = new Set([...wordsA, ...wordsB]).size
+  const intersection = Array.from(wordsA).filter(w => wordsB.has(w)).length
+  const union = new Set([...Array.from(wordsA), ...Array.from(wordsB)]).size
   return union === 0 ? 0 : intersection / union
 }
 
