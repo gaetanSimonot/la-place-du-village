@@ -4,6 +4,7 @@ import { Evenement, isApproxLocation } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
 import Link from 'next/link'
+import ImageLightbox from '@/components/ImageLightbox'
 
 export default async function EvenementPage({ params }: { params: { id: string } }) {
   const { data } = await supabase
@@ -33,7 +34,7 @@ export default async function EvenementPage({ params }: { params: { id: string }
       </div>
 
       {evt.image_url && (
-        <img src={evt.image_url} alt={evt.titre} className="w-full h-52 object-cover" />
+        <ImageLightbox src={evt.image_url} alt={evt.titre} />
       )}
 
       <div className="p-4 space-y-3 pb-8">

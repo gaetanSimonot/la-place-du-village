@@ -17,48 +17,56 @@ export default function EventCard({ evenement, isSelected, onClick }: Props) {
     <Link
       href={`/evenement/${evenement.id}`}
       onClick={onClick}
-      className={`block bg-white rounded-2xl shadow-sm overflow-hidden border-2 transition-all active:scale-[0.98] ${
-        isSelected ? 'border-[#C4622D] shadow-md' : 'border-transparent'
-      }`}
+      className="block bg-white rounded-[16px] overflow-hidden transition-all active:scale-[0.98]"
+      style={{
+        boxShadow: isSelected
+          ? `0 0 0 2px var(--orange), 0 4px 16px rgba(232,98,42,0.15)`
+          : '0 2px 12px rgba(44,44,44,0.08)',
+      }}
     >
       {evenement.image_url && (
         <img
           src={evenement.image_url}
           alt={evenement.titre}
-          className="w-full h-32 object-cover"
+          className="w-full h-36 object-cover"
         />
       )}
       <div className="p-3">
         <span
-          className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full text-white mb-2"
+          className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full text-white mb-2"
           style={{ backgroundColor: cat.color }}
         >
           {cat.emoji} {cat.label}
         </span>
 
-        <h3 className="font-bold text-[#2C1810] text-base leading-tight mb-1">
+        <h3
+          className="font-title text-[var(--texte)] text-base leading-tight mb-1"
+        >
           {evenement.titre}
         </h3>
 
         {evenement.date_debut && (
-          <p className="text-sm text-[#C4622D] font-medium">
+          <p className="text-sm font-semibold" style={{ color: 'var(--orange)' }}>
             {formatDate(evenement.date_debut)}
             {evenement.heure && ` · ${evenement.heure.slice(0, 5)}`}
           </p>
         )}
 
         {lieu && (
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs mt-0.5" style={{ color: 'var(--gris)' }}>
             {isApproxLocation(lieu) ? '📍~' : '📍'}{' '}
             {lieu.nom}{lieu.commune ? `, ${lieu.commune}` : ''}
             {isApproxLocation(lieu) && (
-              <span className="ml-1 text-orange-400 font-medium">approx.</span>
+              <span className="ml-1 font-medium" style={{ color: 'var(--orange)' }}>approx.</span>
             )}
           </p>
         )}
 
         {evenement.prix && (
-          <span className="inline-block mt-1.5 text-xs bg-[#FBF7F0] text-[#6B7C3A] font-semibold px-2 py-0.5 rounded-full">
+          <span
+            className="inline-block mt-2 text-xs font-semibold px-2.5 py-1 rounded-full"
+            style={{ backgroundColor: '#EDF3EC', color: 'var(--vert)' }}
+          >
             {evenement.prix}
           </span>
         )}
