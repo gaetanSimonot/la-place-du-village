@@ -78,8 +78,17 @@ export default function HomePage() {
 
   const handleNavTab = (tab: NavTab) => {
     if (tab === 'profil') { router.push('/profil'); return }
+    if (tab === 'liste') {
+      setNavTab('liste')
+      if (navTab !== 'liste') {
+        setSheetMode('full')
+      } else {
+        // cycle : full → half → peek → full
+        setSheetMode(m => m === 'full' ? 'half' : m === 'half' ? 'peek' : 'full')
+      }
+      return
+    }
     setNavTab(tab)
-    if (tab === 'liste') setSheetMode('full')
     if (tab === 'carte') setSheetMode('half')
   }
 
