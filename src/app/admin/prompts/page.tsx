@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 
 interface PromptIA {
@@ -10,13 +10,24 @@ interface PromptIA {
   updated_at: string
 }
 
+const VARS: Record<string, string[]> = {
+  extract_single:   ['{{today}}'],
+  extract_multiple: ['{{today}}'],
+  scrape:           ['{{today}}'],
+  doublon_check:    [],
+  doublon_batch:    [],
+  doublon_fusion:   [],
+  voice_edit:       ['{{today}}', '{{currentForm}}', '{{transcript}}'],
+}
+
 export default function PromptsIAPage() {
-  const [prompts, setPrompts]       = useState<PromptIA[]>([])
-  const [selected, setSelected]     = useState<PromptIA | null>(null)
-  const [editText, setEditText]     = useState('')
-  const [saving, setSaving]         = useState(false)
-  const [saved, setSaved]           = useState(false)
-  const [loading, setLoading]       = useState(true)
+  const [prompts, setPrompts]   = useState<PromptIA[]>([])
+  const [editing, setEditing]   = useState<PromptIA | null>(null)
+  const [editText, setEditText] = useState('')
+  const [saving, setSaving]     = useState(false)
+  const [saved, setSaved]       = useState(false)
+  const [loading, setLoading]   = useState(true)
+  const textareaRef             = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     fetch('/api/admin/prompts')
@@ -24,146 +35,167 @@ export default function PromptsIAPage() {
       .then(data => { setPrompts(data); setLoading(false) })
   }, [])
 
-  const select = (p: PromptIA) => {
-    setSelected(p)
+  const open = (p: PromptIA) => {
+    setEditing(p)
     setEditText(p.systeme)
+    setSaved(false)
+    setTimeout(() => textareaRef.current?.focus(), 100)
+  }
+
+  const close = () => {
+    if (editText !== editing?.systeme && !confirm('Fermer sans sauvegarder ?')) return
+    setEditing(null)
     setSaved(false)
   }
 
   const save = async () => {
-    if (!selected) return
+    if (!editing) return
     setSaving(true)
     const res = await fetch('/api/admin/prompts', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: selected.id, systeme: editText }),
+      body: JSON.stringify({ id: editing.id, systeme: editText }),
     })
     if (res.ok) {
-      setPrompts(prev => prev.map(p => p.id === selected.id ? { ...p, systeme: editText } : p))
-      setSelected(prev => prev ? { ...prev, systeme: editText } : null)
+      setPrompts(prev => prev.map(p => p.id === editing.id ? { ...p, systeme: editText } : p))
+      setEditing(prev => prev ? { ...prev, systeme: editText } : null)
       setSaved(true)
     }
     setSaving(false)
   }
 
-  const reset = () => {
-    if (!selected) return
-    const original = prompts.find(p => p.id === selected.id)
-    if (original) setEditText(original.systeme)
-    setSaved(false)
-  }
+  const dirty = editText !== editing?.systeme
 
+  // ── Vue éditeur (plein écran) ─────────────────────────────────────────────
+  if (editing) return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', backgroundColor: '#FBF7F0', fontFamily: 'system-ui, sans-serif' }}>
+
+      {/* Header éditeur */}
+      <div style={{ backgroundColor: '#2C1810', color: 'white', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+        <button
+          onClick={close}
+          style={{ color: '#C4622D', fontSize: '20px', fontWeight: 'bold', background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1 }}
+        >
+          ←
+        </button>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: '700', fontSize: '15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {editing.nom}
+          </div>
+          {editing.description && (
+            <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '1px' }}>{editing.description}</div>
+          )}
+        </div>
+        {dirty && (
+          <span style={{ fontSize: '11px', color: '#F59E0B', fontWeight: '600', flexShrink: 0 }}>modifié</span>
+        )}
+      </div>
+
+      {/* Variables disponibles */}
+      {VARS[editing.id]?.length > 0 && (
+        <div style={{ backgroundColor: '#3D2318', padding: '8px 16px', display: 'flex', gap: '6px', flexWrap: 'wrap', flexShrink: 0 }}>
+          <span style={{ fontSize: '11px', color: '#9CA3AF' }}>Variables :</span>
+          {VARS[editing.id].map(v => (
+            <code key={v} style={{ fontSize: '11px', backgroundColor: '#2C1810', color: '#C4622D', padding: '1px 6px', borderRadius: '4px' }}>{v}</code>
+          ))}
+        </div>
+      )}
+
+      {/* Textarea principale */}
+      <textarea
+        ref={textareaRef}
+        value={editText}
+        onChange={e => { setEditText(e.target.value); setSaved(false) }}
+        spellCheck={false}
+        style={{
+          flex: 1, resize: 'none', border: 'none', outline: 'none',
+          padding: '16px', fontSize: '13px', lineHeight: '1.7',
+          fontFamily: 'monospace', backgroundColor: '#FFFDF9', color: '#2C1810',
+          overflowY: 'auto',
+        }}
+      />
+
+      {/* Barre actions */}
+      <div style={{
+        padding: '12px 16px', borderTop: '1px solid #E8E0D5', backgroundColor: 'white',
+        display: 'flex', gap: '10px', alignItems: 'center', flexShrink: 0,
+      }}>
+        <button
+          onClick={save}
+          disabled={saving || !dirty}
+          style={{
+            flex: 1, padding: '12px',
+            backgroundColor: saving || !dirty ? '#E8E0D5' : '#C4622D',
+            color: saving || !dirty ? '#9CA3AF' : 'white',
+            border: 'none', borderRadius: '10px',
+            fontWeight: '700', fontSize: '15px',
+            cursor: saving || !dirty ? 'default' : 'pointer',
+          }}
+        >
+          {saving ? 'Sauvegarde…' : 'Sauvegarder'}
+        </button>
+        {saved && (
+          <span style={{ fontSize: '12px', color: '#22C55E', fontWeight: '600', flexShrink: 0 }}>
+            ✓ Actif
+          </span>
+        )}
+        {dirty && !saving && (
+          <button
+            onClick={() => { setEditText(editing.systeme); setSaved(false) }}
+            style={{
+              padding: '12px 14px', backgroundColor: 'transparent',
+              color: '#9CA3AF', border: '1px solid #E8E0D5',
+              borderRadius: '10px', fontSize: '13px', cursor: 'pointer', flexShrink: 0,
+            }}
+          >
+            Annuler
+          </button>
+        )}
+      </div>
+    </div>
+  )
+
+  // ── Vue liste ─────────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight: '100dvh', backgroundColor: '#FBF7F0', fontFamily: 'system-ui, sans-serif' }}>
 
-      {/* Header */}
       <div style={{ backgroundColor: '#2C1810', color: 'white', padding: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
         <Link href="/admin" style={{ color: '#C4622D', fontSize: '20px', fontWeight: 'bold', textDecoration: 'none' }}>←</Link>
         <h1 style={{ fontWeight: 'bold', fontSize: '18px', flex: 1 }}>Prompts IA</h1>
-        <span style={{ fontSize: '12px', color: '#9CA3AF' }}>Modèle : claude-haiku</span>
+        <span style={{ fontSize: '11px', color: '#6B7280' }}>claude-haiku</span>
       </div>
 
-      <div style={{ display: 'flex', height: 'calc(100dvh - 56px)' }}>
+      <div style={{ padding: '12px' }}>
+        {loading && (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#9CA3AF' }}>Chargement…</div>
+        )}
 
-        {/* Liste gauche */}
-        <div style={{ width: '280px', borderRight: '1px solid #E8E0D5', backgroundColor: 'white', overflowY: 'auto', flexShrink: 0 }}>
-          {loading && (
-            <div style={{ padding: '24px', color: '#9CA3AF', textAlign: 'center' }}>Chargement…</div>
-          )}
-          {prompts.map(p => (
-            <button
-              key={p.id}
-              onClick={() => select(p)}
-              style={{
-                display: 'block', width: '100%', textAlign: 'left',
-                padding: '14px 16px', borderBottom: '1px solid #F3EDE5',
-                backgroundColor: selected?.id === p.id ? '#FEF3EC' : 'transparent',
-                borderLeft: selected?.id === p.id ? '3px solid #C4622D' : '3px solid transparent',
-                cursor: 'pointer',
-              }}
-            >
-              <div style={{ fontWeight: '600', fontSize: '13px', color: '#2C1810', marginBottom: '2px' }}>{p.nom}</div>
+        {prompts.map(p => (
+          <button
+            key={p.id}
+            onClick={() => open(p)}
+            style={{
+              display: 'flex', alignItems: 'center', width: '100%', textAlign: 'left',
+              padding: '16px', marginBottom: '8px',
+              backgroundColor: 'white', borderRadius: '12px',
+              border: '1px solid #E8E0D5', cursor: 'pointer',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: '700', fontSize: '14px', color: '#2C1810', marginBottom: '3px' }}>
+                {p.nom}
+              </div>
               {p.description && (
-                <div style={{ fontSize: '11px', color: '#9CA3AF', lineHeight: 1.3 }}>{p.description}</div>
+                <div style={{ fontSize: '12px', color: '#9CA3AF', lineHeight: 1.4 }}>{p.description}</div>
               )}
-              <div style={{ fontSize: '10px', color: '#C4B5A5', marginTop: '4px' }}>
-                id: {p.id}
+              <div style={{ fontSize: '11px', color: '#D4C5B5', marginTop: '6px', fontFamily: 'monospace' }}>
+                {p.id}
               </div>
-            </button>
-          ))}
-        </div>
-
-        {/* Éditeur droite */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          {!selected ? (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#C4B5A5' }}>
-              Sélectionne un prompt à gauche
             </div>
-          ) : (
-            <>
-              {/* Entête éditeur */}
-              <div style={{ padding: '16px 20px', borderBottom: '1px solid #E8E0D5', backgroundColor: 'white' }}>
-                <div style={{ fontWeight: '700', fontSize: '15px', color: '#2C1810' }}>{selected.nom}</div>
-                {selected.description && (
-                  <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>{selected.description}</div>
-                )}
-                <div style={{ fontSize: '11px', color: '#C4B5A5', marginTop: '6px' }}>
-                  Variables disponibles : <code style={{ backgroundColor: '#F3EDE5', padding: '1px 4px', borderRadius: '3px' }}>{'{{today}}'}</code>
-                  {selected.id === 'voice_edit' && (
-                    <>
-                      {' '}<code style={{ backgroundColor: '#F3EDE5', padding: '1px 4px', borderRadius: '3px' }}>{'{{currentForm}}'}</code>
-                      {' '}<code style={{ backgroundColor: '#F3EDE5', padding: '1px 4px', borderRadius: '3px' }}>{'{{transcript}}'}</code>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Textarea */}
-              <textarea
-                value={editText}
-                onChange={e => { setEditText(e.target.value); setSaved(false) }}
-                style={{
-                  flex: 1, resize: 'none', border: 'none', outline: 'none',
-                  padding: '16px 20px', fontSize: '13px', lineHeight: '1.6',
-                  fontFamily: 'monospace', backgroundColor: '#FFFDF9',
-                  color: '#2C1810',
-                }}
-              />
-
-              {/* Barre d'actions */}
-              <div style={{ padding: '12px 20px', borderTop: '1px solid #E8E0D5', backgroundColor: 'white', display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <button
-                  onClick={save}
-                  disabled={saving || editText === selected.systeme}
-                  style={{
-                    backgroundColor: saving || editText === selected.systeme ? '#E8E0D5' : '#C4622D',
-                    color: saving || editText === selected.systeme ? '#9CA3AF' : 'white',
-                    border: 'none', borderRadius: '8px', padding: '8px 20px',
-                    fontWeight: '600', fontSize: '14px', cursor: saving || editText === selected.systeme ? 'default' : 'pointer',
-                  }}
-                >
-                  {saving ? 'Sauvegarde…' : 'Sauvegarder'}
-                </button>
-                <button
-                  onClick={reset}
-                  disabled={editText === selected.systeme}
-                  style={{
-                    backgroundColor: 'transparent', color: '#9CA3AF',
-                    border: '1px solid #E8E0D5', borderRadius: '8px', padding: '8px 16px',
-                    fontSize: '13px', cursor: 'pointer',
-                  }}
-                >
-                  Annuler
-                </button>
-                {saved && (
-                  <span style={{ fontSize: '13px', color: '#22C55E', fontWeight: '600' }}>
-                    ✓ Sauvegardé — actif dans &lt;60 s
-                  </span>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+            <div style={{ color: '#C4622D', fontSize: '18px', marginLeft: '12px', flexShrink: 0 }}>›</div>
+          </button>
+        ))}
       </div>
     </div>
   )
