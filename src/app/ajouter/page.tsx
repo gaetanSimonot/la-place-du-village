@@ -93,7 +93,7 @@ const emptyForm: FormData = {
   prix: '', contact: '', organisateurs: '',
 }
 
-type Step = 'input' | 'preview' | 'success'
+type Step = 'input' | 'crop' | 'preview' | 'success'
 
 export default function AjouterPage() {
   const [step, setStep] = useState<Step>('input')
@@ -102,7 +102,6 @@ export default function AjouterPage() {
   const [imageMimeType, setImageMimeType] = useState('image/jpeg')
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
   const [imagePosition, setImagePosition] = useState('50% 50%')
-  const [showCropModal, setShowCropModal] = useState(false)
   const [form, setForm] = useState<FormData>(emptyForm)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -119,7 +118,7 @@ export default function AjouterPage() {
       const result = reader.result as string
       setImagePreviewUrl(result)
       setImage(result.split(',')[1]) // base64 only for API
-      setShowCropModal(true)
+      setStep('crop')
     }
     reader.readAsDataURL(file)
   }
@@ -187,7 +186,6 @@ export default function AjouterPage() {
     setImage(null)
     setImagePreviewUrl(null)
     setImagePosition('50% 50%')
-    setShowCropModal(false)
     if (fileRef.current) fileRef.current.value = ''
   }
 
@@ -205,6 +203,18 @@ export default function AjouterPage() {
       />
     </div>
   )
+
+  // ── Cadrage photo ─────────────────────────────────────────────────────────────
+  if (step === 'crop' && imagePreviewUrl) {
+    return (
+      <CropModal
+        previewUrl={imagePreviewUrl}
+        position={imagePosition}
+        onChange={setImagePosition}
+        onConfirm={() => setStep('input')}
+      />
+    )
+  }
 
   // ── Succès ───────────────────────────────────────────────────────────────────
   if (step === 'success') {
@@ -260,21 +270,13 @@ export default function AjouterPage() {
                   style={{ objectPosition: imagePosition }}
                 />
                 <button
-                  onClick={() => setShowCropModal(true)}
+                  onClick={() => setStep('crop')}
                   className="absolute top-2 right-2 text-white text-xs font-semibold bg-black/50 px-3 py-1.5 rounded-full"
                 >
                   Modifier le cadrage
                 </button>
               </div>
             </div>
-          )}
-          {showCropModal && imagePreviewUrl && (
-            <CropModal
-              previewUrl={imagePreviewUrl}
-              position={imagePosition}
-              onChange={setImagePosition}
-              onConfirm={() => setShowCropModal(false)}
-            />
           )}
 
           <div className="bg-white rounded-2xl p-4 space-y-3">
@@ -337,15 +339,6 @@ export default function AjouterPage() {
 
   // ── Saisie ───────────────────────────────────────────────────────────────────
   return (
-    <>
-    {showCropModal && imagePreviewUrl && (
-      <CropModal
-        previewUrl={imagePreviewUrl}
-        position={imagePosition}
-        onChange={setImagePosition}
-        onConfirm={() => setShowCropModal(false)}
-      />
-    )}
     <div className="min-h-screen bg-[#FBF7F0]">
       <div className="sticky top-0 z-10 bg-white border-b border-[#E8E0D5] px-4 py-3 flex items-center gap-3">
         <Link href="/" className="text-[#C4622D] font-bold text-2xl leading-none">←</Link>
@@ -411,7 +404,7 @@ export default function AjouterPage() {
                 style={{ objectPosition: imagePosition }}
               />
               <button
-                onClick={() => setShowCropModal(true)}
+                onClick={() => setStep('crop')}
                 className="absolute inset-0 w-full h-full flex items-center justify-center"
                 style={{ background: 'rgba(0,0,0,0.35)' }}
               >
@@ -443,6 +436,5 @@ export default function AjouterPage() {
         </button>
       </div>
     </div>
-    </>
   )
 }
