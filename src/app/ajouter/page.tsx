@@ -5,10 +5,11 @@ import { CATEGORIES } from '@/lib/categories'
 import { Categorie } from '@/lib/types'
 import MicButton from '@/components/MicButton'
 
-function FocalPointPicker({ previewUrl, position, onChange }: {
+function CropModal({ previewUrl, position, onChange, onConfirm }: {
   previewUrl: string
   position: string
   onChange: (pos: string) => void
+  onConfirm: () => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [px, py] = position.split(' ').map(v => parseFloat(v))
@@ -21,14 +22,22 @@ function FocalPointPicker({ previewUrl, position, onChange }: {
   }
 
   return (
-    <div className="mt-3">
-      <p className="text-xs text-gray-500 mb-1.5">
-        Appuie sur la partie importante de la photo pour cadrer
-      </p>
+    <div className="fixed inset-0 z-50 bg-[#1a1a1a] flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-4 flex-shrink-0">
+        <p className="text-white font-bold text-lg">Cadrer la photo</p>
+        <button
+          onClick={onConfirm}
+          className="bg-[#C4622D] text-white px-5 py-2 rounded-xl font-bold text-sm"
+        >
+          OK
+        </button>
+      </div>
+
+      {/* Image interactive — plein écran */}
       <div
         ref={containerRef}
-        className="relative w-full rounded-xl overflow-hidden cursor-crosshair touch-none select-none"
-        style={{ height: 144 }}
+        className="flex-1 relative touch-none select-none cursor-crosshair"
         onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); handlePointer(e) }}
         onPointerMove={e => { if (e.buttons > 0) handlePointer(e) }}
       >
@@ -39,27 +48,26 @@ function FocalPointPicker({ previewUrl, position, onChange }: {
           className="absolute inset-0 w-full h-full object-cover pointer-events-none"
           style={{ objectPosition: position }}
         />
-        {/* Overlay semi-transparent avec trou au focal point */}
-        <div className="absolute inset-0 pointer-events-none" style={{ background: 'rgba(0,0,0,0.25)' }} />
-        {/* Indicateur focal */}
-        <div
-          className="absolute pointer-events-none"
-          style={{
-            left: `${px}%`,
-            top: `${py}%`,
-            transform: 'translate(-50%, -50%)',
-          }}
-        >
-          <div className="w-7 h-7 rounded-full border-2 border-white shadow-lg flex items-center justify-center"
-            style={{ backgroundColor: 'rgba(196,98,45,0.7)' }}>
-            <div className="w-1.5 h-1.5 rounded-full bg-white" />
-          </div>
-        </div>
-        {/* Lignes de tiers (guide composition) */}
+        {/* Lignes de tiers */}
         <div className="absolute inset-0 pointer-events-none" style={{
-          backgroundImage: 'linear-gradient(rgba(255,255,255,0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.15) 1px, transparent 1px)',
+          backgroundImage: 'linear-gradient(rgba(255,255,255,0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.2) 1px, transparent 1px)',
           backgroundSize: '33.33% 33.33%',
         }} />
+        {/* Point focal */}
+        <div
+          className="absolute pointer-events-none"
+          style={{ left: `${px}%`, top: `${py}%`, transform: 'translate(-50%, -50%)' }}
+        >
+          <div className="w-10 h-10 rounded-full border-[3px] border-white shadow-xl flex items-center justify-center"
+            style={{ backgroundColor: 'rgba(196,98,45,0.65)' }}>
+            <div className="w-2 h-2 rounded-full bg-white" />
+          </div>
+        </div>
+      </div>
+
+      {/* Instruction bas */}
+      <div className="px-4 py-4 flex-shrink-0 text-center">
+        <p className="text-white/60 text-sm">Appuie sur la partie importante de la photo</p>
       </div>
     </div>
   )
@@ -94,6 +102,7 @@ export default function AjouterPage() {
   const [imageMimeType, setImageMimeType] = useState('image/jpeg')
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
   const [imagePosition, setImagePosition] = useState('50% 50%')
+  const [showCropModal, setShowCropModal] = useState(false)
   const [form, setForm] = useState<FormData>(emptyForm)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -110,6 +119,7 @@ export default function AjouterPage() {
       const result = reader.result as string
       setImagePreviewUrl(result)
       setImage(result.split(',')[1]) // base64 only for API
+      setShowCropModal(true)
     }
     reader.readAsDataURL(file)
   }
@@ -177,6 +187,7 @@ export default function AjouterPage() {
     setImage(null)
     setImagePreviewUrl(null)
     setImagePosition('50% 50%')
+    setShowCropModal(false)
     if (fileRef.current) fileRef.current.value = ''
   }
 
@@ -240,14 +251,30 @@ export default function AjouterPage() {
           <p className="text-sm text-gray-500">L&apos;IA a rempli les champs — vérifie et corrige si besoin.</p>
 
           {imagePreviewUrl && (
-            <div className="bg-white rounded-2xl p-4">
-              <p className="text-sm font-semibold text-[#2C1810] mb-1">Cadrage de la photo 📷</p>
-              <FocalPointPicker
-                previewUrl={imagePreviewUrl}
-                position={imagePosition}
-                onChange={setImagePosition}
-              />
+            <div className="bg-white rounded-2xl overflow-hidden">
+              <div className="relative" style={{ height: 100 }}>
+                <img
+                  src={imagePreviewUrl}
+                  alt="preview"
+                  className="absolute inset-0 w-full h-full object-cover"
+                  style={{ objectPosition: imagePosition }}
+                />
+                <button
+                  onClick={() => setShowCropModal(true)}
+                  className="absolute top-2 right-2 text-white text-xs font-semibold bg-black/50 px-3 py-1.5 rounded-full"
+                >
+                  Modifier le cadrage
+                </button>
+              </div>
             </div>
+          )}
+          {showCropModal && imagePreviewUrl && (
+            <CropModal
+              previewUrl={imagePreviewUrl}
+              position={imagePosition}
+              onChange={setImagePosition}
+              onConfirm={() => setShowCropModal(false)}
+            />
           )}
 
           <div className="bg-white rounded-2xl p-4 space-y-3">
@@ -310,6 +337,15 @@ export default function AjouterPage() {
 
   // ── Saisie ───────────────────────────────────────────────────────────────────
   return (
+    <>
+    {showCropModal && imagePreviewUrl && (
+      <CropModal
+        previewUrl={imagePreviewUrl}
+        position={imagePosition}
+        onChange={setImagePosition}
+        onConfirm={() => setShowCropModal(false)}
+      />
+    )}
     <div className="min-h-screen bg-[#FBF7F0]">
       <div className="sticky top-0 z-10 bg-white border-b border-[#E8E0D5] px-4 py-3 flex items-center gap-3">
         <Link href="/" className="text-[#C4622D] font-bold text-2xl leading-none">←</Link>
@@ -367,11 +403,23 @@ export default function AjouterPage() {
             )}
           </div>
           {imagePreviewUrl && (
-            <FocalPointPicker
-              previewUrl={imagePreviewUrl}
-              position={imagePosition}
-              onChange={setImagePosition}
-            />
+            <div className="mt-3 relative rounded-xl overflow-hidden" style={{ height: 80 }}>
+              <img
+                src={imagePreviewUrl}
+                alt="preview"
+                className="absolute inset-0 w-full h-full object-cover"
+                style={{ objectPosition: imagePosition }}
+              />
+              <button
+                onClick={() => setShowCropModal(true)}
+                className="absolute inset-0 w-full h-full flex items-center justify-center"
+                style={{ background: 'rgba(0,0,0,0.35)' }}
+              >
+                <span className="text-white text-xs font-semibold bg-black/40 px-3 py-1.5 rounded-full">
+                  Modifier le cadrage
+                </span>
+              </button>
+            </div>
           )}
         </div>
 
@@ -395,5 +443,6 @@ export default function AjouterPage() {
         </button>
       </div>
     </div>
+    </>
   )
 }
