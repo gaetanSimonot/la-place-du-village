@@ -9,56 +9,122 @@ function CropStep({ previewUrl, position, onChange, onConfirm }: {
   onConfirm: () => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const [natural, setNatural] = useState<{w: number; h: number} | null>(null)
   const [px, py] = position.split(' ').map(v => parseFloat(v))
 
-  const handlePointer = (e: React.PointerEvent) => {
-    const rect = containerRef.current!.getBoundingClientRect()
-    const x = Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)))
-    const y = Math.max(0, Math.min(100, Math.round(((e.clientY - rect.top) / rect.height) * 100)))
-    onChange(`${x}% ${y}%`)
+  // Calcule les dimensions réelles de l'image rendue (object-fit: contain)
+  // et la fenêtre de cadrage (proportions de la card : pleine largeur × 144px)
+  function computeLayout(cW: number, cH: number, natW: number, natH: number) {
+    const imgRatio = natW / natH
+    const conRatio = cW / cH
+    let rendW: number, rendH: number, offX: number, offY: number
+    if (imgRatio > conRatio) {
+      rendW = cW; rendH = cW / imgRatio; offX = 0; offY = (cH - rendH) / 2
+    } else {
+      rendH = cH; rendW = cH * imgRatio; offX = (cW - rendW) / 2; offY = 0
+    }
+    // La card fait pleine largeur × 144px avec object-fit: cover
+    const phoneW = window.innerWidth
+    const CARD_H = 144
+    const coverScale = Math.max(phoneW / natW, CARD_H / natH)
+    const rendScale = rendW / natW
+    const cropW = Math.min(rendW, (phoneW / coverScale) * rendScale)
+    const cropH = Math.min(rendH, (CARD_H / coverScale) * rendScale)
+    return { rendW, rendH, offX, offY, cropW, cropH }
   }
 
+  // Rectangle de cadrage positionné selon px/py
+  const layout = (() => {
+    const c = containerRef.current
+    if (!c || !natural) return null
+    const { width: cW, height: cH } = c.getBoundingClientRect()
+    const l = computeLayout(cW, cH, natural.w, natural.h)
+    return {
+      ...l,
+      cropLeft: l.offX + (l.rendW - l.cropW) * px / 100,
+      cropTop:  l.offY + (l.rendH - l.cropH) * py / 100,
+    }
+  })()
+
+  const handlePointer = (e: React.PointerEvent) => {
+    const c = containerRef.current
+    if (!c || !natural) return
+    const rect = c.getBoundingClientRect()
+    const l = computeLayout(rect.width, rect.height, natural.w, natural.h)
+    const relX = Math.max(0, Math.min(1, (e.clientX - rect.left  - l.offX) / l.rendW))
+    const relY = Math.max(0, Math.min(1, (e.clientY - rect.top   - l.offY) / l.rendH))
+    onChange(`${Math.round(relX * 100)}% ${Math.round(relY * 100)}%`)
+  }
+
+  const DARK = 'rgba(0,0,0,0.62)'
+
   return (
-    <div className="min-h-screen bg-black flex flex-col">
-      <div className="flex items-center justify-between px-4 py-4 flex-shrink-0">
-        <p className="text-white font-bold text-lg">Cadrer la photo</p>
-        <button
-          onClick={onConfirm}
-          className="bg-[#C4622D] text-white px-5 py-2 rounded-xl font-bold text-sm"
-        >
-          OK
+    <div className="min-h-screen bg-black flex flex-col" style={{ userSelect: 'none' }}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 flex-shrink-0"
+        style={{ paddingTop: 'max(env(safe-area-inset-top,0px),16px)', paddingBottom: 12 }}>
+        <p className="text-white font-bold text-base">Choisir le cadrage</p>
+        <button onClick={onConfirm}
+          className="bg-[#C4622D] text-white px-5 py-2 rounded-xl font-bold text-sm active:opacity-75">
+          Valider →
         </button>
       </div>
 
+      {/* Zone image principale */}
       <div
         ref={containerRef}
-        className="flex-1 relative select-none"
-        style={{ touchAction: 'none' }}
+        className="relative flex-1 overflow-hidden"
+        style={{ touchAction: 'none', cursor: 'crosshair' }}
         onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); handlePointer(e) }}
         onPointerMove={e => { if (e.buttons > 0) handlePointer(e) }}
       >
+        {/* Image entière visible */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={previewUrl}
-          alt="cadrage"
-          draggable={false}
-          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-          style={{ objectPosition: position }}
+        <img src={previewUrl} alt="" draggable={false}
+          className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+          onLoad={e => {
+            const img = e.target as HTMLImageElement
+            setNatural({ w: img.naturalWidth, h: img.naturalHeight })
+          }}
         />
-        <div className="absolute inset-0 pointer-events-none" style={{
-          backgroundImage: 'linear-gradient(rgba(255,255,255,0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.2) 1px, transparent 1px)',
-          backgroundSize: '33.33% 33.33%',
-        }} />
-        <div className="absolute pointer-events-none" style={{ left: `${px}%`, top: `${py}%`, transform: 'translate(-50%,-50%)' }}>
-          <div className="w-10 h-10 rounded-full border-[3px] border-white flex items-center justify-center"
-            style={{ backgroundColor: 'rgba(196,98,45,0.65)', boxShadow: '0 2px 12px rgba(0,0,0,0.5)' }}>
-            <div className="w-2 h-2 rounded-full bg-white" />
-          </div>
-        </div>
+
+        {/* 4 panneaux sombres autour de la fenêtre de cadrage */}
+        {layout && (() => {
+          const { cropLeft: cl, cropTop: ct, cropW: cw, cropH: ch } = layout
+          return (
+            <>
+              <div className="absolute inset-x-0 pointer-events-none" style={{ top: 0, height: ct, background: DARK }} />
+              <div className="absolute inset-x-0 pointer-events-none" style={{ top: ct + ch, bottom: 0, background: DARK }} />
+              <div className="absolute pointer-events-none" style={{ top: ct, height: ch, left: 0, width: cl, background: DARK }} />
+              <div className="absolute pointer-events-none" style={{ top: ct, height: ch, left: cl + cw, right: 0, background: DARK }} />
+
+              {/* Fenêtre de cadrage : bordure + coins + grille des tiers */}
+              <div className="absolute pointer-events-none"
+                style={{ top: ct, left: cl, width: cw, height: ch, outline: '2px solid rgba(255,255,255,0.85)', outlineOffset: '-1px' }}>
+                {/* Coins */}
+                <div className="absolute -top-px -left-px  w-5 h-5 border-t-[3px] border-l-[3px] border-white" />
+                <div className="absolute -top-px -right-px w-5 h-5 border-t-[3px] border-r-[3px] border-white" />
+                <div className="absolute -bottom-px -left-px  w-5 h-5 border-b-[3px] border-l-[3px] border-white" />
+                <div className="absolute -bottom-px -right-px w-5 h-5 border-b-[3px] border-r-[3px] border-white" />
+                {/* Grille des tiers */}
+                <div className="absolute inset-0 pointer-events-none" style={{
+                  backgroundImage: 'linear-gradient(rgba(255,255,255,0.18) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.18) 1px,transparent 1px)',
+                  backgroundSize: '33.33% 33.33%',
+                }} />
+              </div>
+            </>
+          )
+        })()}
       </div>
 
-      <div className="px-4 py-4 text-center flex-shrink-0">
-        <p className="text-white/60 text-sm">Appuie sur la partie importante de la photo</p>
+      {/* Mini-preview card + instruction */}
+      <div className="flex-shrink-0 px-4 pt-3" style={{ paddingBottom: 'max(env(safe-area-inset-bottom,0px),16px)' }}>
+        <p className="text-white/50 text-xs font-semibold uppercase tracking-widest mb-2">Aperçu dans l&apos;app</p>
+        <div className="w-full rounded-xl overflow-hidden shadow-xl" style={{ height: 72 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={previewUrl} alt="" className="w-full h-full object-cover" style={{ objectPosition: position }} />
+        </div>
+        <p className="text-white/35 text-xs text-center mt-2">Appuie sur la photo pour déplacer la zone</p>
       </div>
     </div>
   )
