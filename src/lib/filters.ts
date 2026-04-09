@@ -15,13 +15,18 @@ export function getDateRange(quand: FiltreQuand): { from: string; to: string } |
   }
 
   if (quand === 'ce_week_end') {
-    const day = today.getDay() // 0=dim, 6=sam
-    const diffSam = day === 6 ? 0 : (6 - day)
-    const sam = new Date(today)
-    sam.setDate(today.getDate() + diffSam)
-    const dim = new Date(sam)
-    dim.setDate(sam.getDate() + 1)
-    return { from: fmt(sam), to: fmt(dim) }
+    const day = today.getDay() // 0=dim, 1=lun, ..., 5=ven, 6=sam
+    // Vendredi du week-end courant ou prochain
+    let diffVen: number
+    if (day === 5) diffVen = 0       // vendredi → aujourd'hui
+    else if (day === 6) diffVen = -1  // samedi → vendredi dernier
+    else if (day === 0) diffVen = -2  // dimanche → vendredi il y a 2 jours
+    else diffVen = 5 - day            // lun–jeu → prochain vendredi
+    const ven = new Date(today)
+    ven.setDate(today.getDate() + diffVen)
+    const dim = new Date(ven)
+    dim.setDate(ven.getDate() + 2) // ven → sam → dim
+    return { from: fmt(ven), to: fmt(dim) }
   }
 
   if (quand === 'cette_semaine') {
