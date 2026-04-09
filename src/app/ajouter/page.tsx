@@ -239,6 +239,17 @@ export default function AjouterPage() {
         <div className="p-4 space-y-3 pb-32">
           <p className="text-sm text-gray-500">L&apos;IA a rempli les champs — vérifie et corrige si besoin.</p>
 
+          {imagePreviewUrl && (
+            <div className="bg-white rounded-2xl p-4">
+              <p className="text-sm font-semibold text-[#2C1810] mb-1">Cadrage de la photo 📷</p>
+              <FocalPointPicker
+                previewUrl={imagePreviewUrl}
+                position={imagePosition}
+                onChange={setImagePosition}
+              />
+            </div>
+          )}
+
           <div className="bg-white rounded-2xl p-4 space-y-3">
             {field('Titre *', 'titre', 'text', 'Nom de l\'événement')}
 
