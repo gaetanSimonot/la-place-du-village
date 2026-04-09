@@ -421,7 +421,7 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap }: {
       boxShadow: isSelected ? `0 0 0 2.5px var(--primary), 0 4px 16px rgba(0,0,0,0.15)` : '0 2px 10px rgba(44,44,44,0.1)',
     }}>
       {evt.image_url
-        ? <img src={evt.image_url} alt={evt.titre} loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+        ? <img src={evt.image_url} alt={evt.titre} loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: evt.image_position ?? '50% 50%' }} />
         : <div style={{ position: 'absolute', inset: 0, backgroundColor: cat.color, opacity: 0.8 }} />
       }
       {/* Gradient gauche→droite : assombrit le côté texte, révèle l'image à droite */}

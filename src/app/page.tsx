@@ -190,7 +190,7 @@ export default function HomePage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let query: any = supabase
       .from('evenements')
-      .select('id, titre, categorie, date_debut, heure, image_url, lieux(id, nom, commune, lat, lng, place_id_google)')
+      .select('id, titre, categorie, date_debut, heure, image_url, image_position, lieux(id, nom, commune, lat, lng, place_id_google)')
       .eq('statut', 'publie')
       .order('date_debut', { ascending: true })
 

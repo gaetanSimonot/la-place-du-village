@@ -249,7 +249,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
                   src={selectedEvent.image_url}
                   alt={selectedEvent.titre}
                   loading="lazy"
-                  style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block' }}
+                  style={{ width: '100%', height: 100, objectFit: 'cover', objectPosition: selectedEvent.image_position ?? '50% 50%', display: 'block' }}
                 />
               )}
               <div style={{ padding: '8px 10px 10px', backgroundColor: '#fff' }}>

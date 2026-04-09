@@ -30,6 +30,7 @@ export default function EventCard({ evenement, isSelected, onClick }: Props) {
           alt={evenement.titre}
           loading="lazy"
           className="w-full h-36 object-cover"
+          style={{ objectPosition: evenement.image_position ?? '50% 50%' }}
         />
       )}
       <div className="p-3">

@@ -5,9 +5,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 interface Props {
   src: string
   alt: string
+  objectPosition?: string
 }
 
-export default function ImageLightbox({ src, alt }: Props) {
+export default function ImageLightbox({ src, alt, objectPosition = '50% 50%' }: Props) {
   const [open, setOpen] = useState(false)
   const [scale, setScale]   = useState(1)
   const [offset, setOffset] = useState({ x: 0, y: 0 })
@@ -81,7 +82,7 @@ export default function ImageLightbox({ src, alt }: Props) {
         src={src}
         alt={alt}
         onClick={() => setOpen(true)}
-        style={{ width: '100%', height: 220, objectFit: 'cover', display: 'block', cursor: 'zoom-in' }}
+        style={{ width: '100%', height: 220, objectFit: 'cover', objectPosition, display: 'block', cursor: 'zoom-in' }}
       />
 
       <AnimatePresence>

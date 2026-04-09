@@ -25,6 +25,7 @@ export interface Evenement {
   contact: string | null
   organisateurs: string | null
   image_url: string | null
+  image_position: string | null
   source: string | null
   score_confiance: number | null
   created_at: string
@@ -49,6 +50,7 @@ export interface EvenementCard {
   date_debut: string | null
   heure: string | null
   image_url: string | null
+  image_position: string | null
   lieux: LieuCard | null
 }
 

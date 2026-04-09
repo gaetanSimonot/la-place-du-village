@@ -5,6 +5,66 @@ import { CATEGORIES } from '@/lib/categories'
 import { Categorie } from '@/lib/types'
 import MicButton from '@/components/MicButton'
 
+function FocalPointPicker({ previewUrl, position, onChange }: {
+  previewUrl: string
+  position: string
+  onChange: (pos: string) => void
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [px, py] = position.split(' ').map(v => parseFloat(v))
+
+  const handlePointer = (e: React.PointerEvent) => {
+    const rect = containerRef.current!.getBoundingClientRect()
+    const x = Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)))
+    const y = Math.max(0, Math.min(100, Math.round(((e.clientY - rect.top) / rect.height) * 100)))
+    onChange(`${x}% ${y}%`)
+  }
+
+  return (
+    <div className="mt-3">
+      <p className="text-xs text-gray-500 mb-1.5">
+        Appuie sur la partie importante de la photo pour cadrer
+      </p>
+      <div
+        ref={containerRef}
+        className="relative w-full rounded-xl overflow-hidden cursor-crosshair touch-none select-none"
+        style={{ height: 144 }}
+        onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); handlePointer(e) }}
+        onPointerMove={e => { if (e.buttons > 0) handlePointer(e) }}
+      >
+        <img
+          src={previewUrl}
+          alt="preview"
+          draggable={false}
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+          style={{ objectPosition: position }}
+        />
+        {/* Overlay semi-transparent avec trou au focal point */}
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'rgba(0,0,0,0.25)' }} />
+        {/* Indicateur focal */}
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            left: `${px}%`,
+            top: `${py}%`,
+            transform: 'translate(-50%, -50%)',
+          }}
+        >
+          <div className="w-7 h-7 rounded-full border-2 border-white shadow-lg flex items-center justify-center"
+            style={{ backgroundColor: 'rgba(196,98,45,0.7)' }}>
+            <div className="w-1.5 h-1.5 rounded-full bg-white" />
+          </div>
+        </div>
+        {/* Lignes de tiers (guide composition) */}
+        <div className="absolute inset-0 pointer-events-none" style={{
+          backgroundImage: 'linear-gradient(rgba(255,255,255,0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.15) 1px, transparent 1px)',
+          backgroundSize: '33.33% 33.33%',
+        }} />
+      </div>
+    </div>
+  )
+}
+
 interface FormData {
   titre: string
   description: string
@@ -31,6 +91,9 @@ export default function AjouterPage() {
   const [step, setStep] = useState<Step>('input')
   const [texte, setTexte] = useState('')
   const [image, setImage] = useState<string | null>(null)
+  const [imageMimeType, setImageMimeType] = useState('image/jpeg')
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
+  const [imagePosition, setImagePosition] = useState('50% 50%')
   const [form, setForm] = useState<FormData>(emptyForm)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -40,10 +103,13 @@ export default function AjouterPage() {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    setImageMimeType(file.type || 'image/jpeg')
+    setImagePosition('50% 50%')
     const reader = new FileReader()
     reader.onload = () => {
       const result = reader.result as string
-      setImage(result.split(',')[1]) // base64 only
+      setImagePreviewUrl(result)
+      setImage(result.split(',')[1]) // base64 only for API
     }
     reader.readAsDataURL(file)
   }
@@ -94,7 +160,7 @@ export default function AjouterPage() {
       const res = await fetch('/api/evenements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, image, imageMimeType, image_position: imagePosition }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -105,6 +171,13 @@ export default function AjouterPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const resetImage = () => {
+    setImage(null)
+    setImagePreviewUrl(null)
+    setImagePosition('50% 50%')
+    if (fileRef.current) fileRef.current.value = ''
   }
 
   const field = (label: string, key: keyof FormData, type = 'text', placeholder = '') => (
@@ -141,7 +214,7 @@ export default function AjouterPage() {
             </Link>
           )}
           <button
-            onClick={() => { setStep('input'); setTexte(''); setForm(emptyForm); setImage(null) }}
+            onClick={() => { setStep('input'); setTexte(''); setForm(emptyForm); resetImage() }}
             className="py-3 rounded-2xl font-medium text-[#C4622D] border-2 border-[#C4622D]"
           >
             Ajouter un autre événement
@@ -261,16 +334,34 @@ export default function AjouterPage() {
             onChange={handleImageChange}
             className="hidden"
           />
-          <button
-            onClick={() => fileRef.current?.click()}
-            className={`w-full py-3 rounded-xl border-2 border-dashed text-sm font-medium transition-colors ${
-              image
-                ? 'border-[#C4622D] text-[#C4622D]'
-                : 'border-[#E8E0D5] text-gray-400'
-            }`}
-          >
-            {image ? '✓ Photo sélectionnée' : 'Choisir une photo'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => fileRef.current?.click()}
+              className={`flex-1 py-3 rounded-xl border-2 border-dashed text-sm font-medium transition-colors ${
+                image
+                  ? 'border-[#C4622D] text-[#C4622D]'
+                  : 'border-[#E8E0D5] text-gray-400'
+              }`}
+            >
+              {image ? '✓ Changer la photo' : 'Choisir une photo'}
+            </button>
+            {image && (
+              <button
+                onClick={resetImage}
+                className="px-3 py-3 rounded-xl border-2 border-[#E8E0D5] text-gray-400 text-sm"
+                aria-label="Supprimer la photo"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          {imagePreviewUrl && (
+            <FocalPointPicker
+              previewUrl={imagePreviewUrl}
+              position={imagePosition}
+              onChange={setImagePosition}
+            />
+          )}
         </div>
 
         {error && (

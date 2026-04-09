@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     const {
       titre, description, date_debut, date_fin, heure,
       categorie, lieu_nom, lieu_adresse, commune, code_postal,
-      prix, contact, organisateurs, image, imageMimeType,
+      prix, contact, organisateurs, image, imageMimeType, image_position,
     } = body
 
     if (!titre?.trim()) {
@@ -108,6 +108,7 @@ export async function POST(req: NextRequest) {
         contact: contact || null,
         organisateurs: organisateurs || null,
         image_url: imageUrl,
+        image_position: imageUrl ? (image_position || '50% 50%') : null,
         source: 'formulaire',
       })
       .select()

@@ -318,7 +318,7 @@ export default function EvenementPage() {
         )}
       </div>
 
-      {evt.image_url && <ImageLightbox src={evt.image_url} alt={evt.titre} />}
+      {evt.image_url && <ImageLightbox src={evt.image_url} alt={evt.titre} objectPosition={evt.image_position ?? '50% 50%'} />}
 
       <div className="p-4 space-y-3 pb-8">
         <div>
