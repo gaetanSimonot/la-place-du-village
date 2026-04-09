@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from './supabase-admin'
+import { getPrompt } from './prompts-ia'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -61,12 +62,11 @@ export async function checkDoublon(newEvent: DoublonCheckInput): Promise<Doublon
   // Appel Claude Haiku (rapide + économique)
   let response
   try {
+    const systemPrompt = await getPrompt('doublon_check')
     response = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 256,
-      system: `Tu analyses si un nouvel événement local est un doublon d'événements existants.
-Réponds UNIQUEMENT avec un objet JSON valide, sans markdown ni commentaire :
-{"doublon":true/false,"doublon_id":"uuid ou null","publier":true/false,"raison":"une phrase","infos_manquantes":["liste ou tableau vide"]}`,
+      system: systemPrompt,
       messages: [{
         role: 'user',
         content: `Nouvel événement :

@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { getPrompt } from './prompts-ia'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -28,27 +29,7 @@ export interface GeoResult {
 
 export async function extractWithClaude(text: string | null, imageBase64?: string, imageMimeType?: string): Promise<ExtractedData> {
   const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-
-  const systemPrompt = `Tu es un assistant qui extrait des informations d'événements locaux.
-Aujourd'hui nous sommes le ${today}. Utilise cette date pour résoudre toute référence relative : "ce samedi", "le 15", "ce mois-ci", "la semaine prochaine", "demain", etc.
-Contexte géographique : tous les événements ont lieu dans l'Hérault (département 34), région de Ganges, sauf mention contraire explicite. Si une commune est ambiguë (ex: Cazilhac, Saint-Bauzille, etc.), privilégie toujours la commune de l'Hérault (34). Mets toujours "34" dans code_postal si aucun code n'est précisé.
-Réponds UNIQUEMENT avec un JSON valide, sans markdown ni explication.
-Structure attendue :
-{
-  "titre": "string",
-  "description": "string",
-  "date_debut": "YYYY-MM-DD ou null",
-  "date_fin": "YYYY-MM-DD ou null",
-  "heure": "HH:MM ou null",
-  "categorie": "concert|theatre|sport|marche|atelier|fete|autre",
-  "lieu_nom": "string ou null",
-  "lieu_adresse": "string ou null",
-  "commune": "string ou null",
-  "code_postal": "string ou null",
-  "prix": "string ou null",
-  "contact": "string ou null",
-  "organisateurs": "string ou null"
-}`
+  const systemPrompt = await getPrompt('extract_single', { today })
 
   const userText = text
     ? `Extrais les informations de cet événement :\n\n${text}`
@@ -77,28 +58,7 @@ Structure attendue :
 
 export async function extractMultipleWithClaude(text: string | null, imageBase64?: string, imageMimeType?: string): Promise<ExtractedData[]> {
   const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-
-  const systemPrompt = `Tu es un assistant qui extrait des informations d'événements locaux.
-Aujourd'hui nous sommes le ${today}. Utilise cette date pour résoudre toute référence relative.
-Contexte géographique : tous les événements ont lieu dans l'Hérault (département 34), région de Ganges, sauf mention contraire explicite.
-IMPORTANT : Extrais TOUS les événements présents (il peut y en avoir plusieurs sur une même affiche ou programme).
-Réponds UNIQUEMENT avec un tableau JSON valide, sans markdown ni explication. Si un seul événement, retourne quand même un tableau à 1 élément.
-Structure de chaque objet :
-{
-  "titre": "string",
-  "description": "string ou null",
-  "date_debut": "YYYY-MM-DD ou null",
-  "date_fin": "YYYY-MM-DD ou null",
-  "heure": "HH:MM ou null",
-  "categorie": "concert|theatre|sport|marche|atelier|fete|autre",
-  "lieu_nom": "string ou null",
-  "lieu_adresse": "string ou null",
-  "commune": "string ou null",
-  "code_postal": "string ou null",
-  "prix": "string ou null",
-  "contact": "string ou null",
-  "organisateurs": "string ou null"
-}`
+  const systemPrompt = await getPrompt('extract_multiple', { today })
 
   const userText = text
     ? `Extrais TOUS les événements de ce contenu :\n\n${text}`

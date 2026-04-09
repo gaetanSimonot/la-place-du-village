@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { geocodeWithGoogle, calcStatut } from './extract'
 import { checkDoublon } from './checkDoublon'
 import { checkZone } from './checkZone'
+import { getPrompt } from './prompts-ia'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -79,27 +80,7 @@ async function extractEventsFromPage(pageText: string, sourceUrl: string): Promi
   const today = new Date().toLocaleDateString('fr-FR', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
-
-  const systemPrompt = `Tu analyses le contenu textuel d'une page web d'agenda d'événements locaux dans l'Hérault (34), France.
-Aujourd'hui : ${today}.
-Extrait TOUS les événements présents dans ce texte.
-Réponds UNIQUEMENT avec un tableau JSON valide (sans markdown).
-Si aucun événement, retourne [].
-Structure de chaque objet :
-{
-  "titre": "string",
-  "description": "string ou null",
-  "date_debut": "YYYY-MM-DD ou null",
-  "date_fin": "YYYY-MM-DD ou null",
-  "heure": "HH:MM ou null",
-  "categorie": "concert|theatre|sport|marche|atelier|fete|autre",
-  "lieu_nom": "string ou null",
-  "commune": "string ou null",
-  "code_postal": "34xxx ou null",
-  "prix": "string ou null",
-  "contact": "string ou null",
-  "organisateurs": "string ou null"
-}`
+  const systemPrompt = await getPrompt('scrape', { today })
 
   const response = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',

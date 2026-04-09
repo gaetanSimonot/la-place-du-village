@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import Anthropic from '@anthropic-ai/sdk'
+import { getPrompt } from '@/lib/prompts-ia'
 
 export const maxDuration = 60
 
@@ -52,13 +53,11 @@ export async function POST() {
 
     let response
     try {
+      const systemPrompt = await getPrompt('doublon_batch')
       response = await anthropic.messages.create({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 1024,
-        system: `Tu analyses une liste d'événements locaux et identifies les paires de doublons potentiels.
-Deux événements sont suspects si : même sujet, dates proches (±2 jours), même commune ou lieu.
-Réponds UNIQUEMENT en JSON sans markdown : {"paires":[{"id_a":"uuid","id_b":"uuid","raison":"phrase courte"}]}
-Si aucun doublon : {"paires":[]}`,
+        system: systemPrompt,
         messages: [{
           role: 'user',
           content: JSON.stringify(batch),

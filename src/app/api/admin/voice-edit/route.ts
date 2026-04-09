@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { getPrompt } from '@/lib/prompts-ia'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -11,18 +12,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Transcription manquante' }, { status: 400 })
     }
 
-    const prompt = `Tu es un assistant qui aide à corriger une fiche événement.
-
-Voici le formulaire actuel (JSON) :
-${JSON.stringify(currentForm, null, 2)}
-
-L'utilisateur a dit (à l'oral) :
-"${transcript}"
-
-Analyse ce que l'utilisateur veut modifier et retourne UNIQUEMENT un objet JSON avec les champs à mettre à jour.
-Champs possibles : titre, description, date_debut (format YYYY-MM-DD), date_fin (format YYYY-MM-DD), heure (format HH:MM), categorie, prix, contact, organisateurs, statut.
-Ne retourne QUE les champs mentionnés par l'utilisateur. Si rien n'est clair, retourne {}.
-Réponds uniquement avec le JSON, sans texte autour.`
+    const prompt = await getPrompt('voice_edit', {
+      currentForm: JSON.stringify(currentForm, null, 2),
+      transcript,
+    })
 
     const msg = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import Anthropic from '@anthropic-ai/sdk'
+import { getPrompt } from '@/lib/prompts-ia'
 
 export const maxDuration = 30
 
@@ -40,12 +41,11 @@ export async function POST(req: NextRequest) {
       // Claude fusionne les deux
       let merged: Record<string, unknown> = {}
       try {
+        const systemPrompt = await getPrompt('doublon_fusion')
         const response = await anthropic.messages.create({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 512,
-          system: `Tu fusionnes deux fiches d'événements en gardant le maximum d'informations.
-Réponds UNIQUEMENT en JSON sans markdown avec les champs : titre, description, date_debut, date_fin, heure, prix, contact, organisateurs.
-Garde la valeur la plus complète de chaque champ. Si les deux ont une valeur différente, prends la plus longue/précise.`,
+          system: systemPrompt,
           messages: [{
             role: 'user',
             content: `Événement A : ${JSON.stringify({ titre: evtA.titre, description: evtA.description, date_debut: evtA.date_debut, date_fin: evtA.date_fin, heure: evtA.heure, prix: evtA.prix, contact: evtA.contact, organisateurs: evtA.organisateurs })}
