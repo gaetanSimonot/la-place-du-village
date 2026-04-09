@@ -1,6 +1,68 @@
 'use client'
 import { useState, useRef } from 'react'
 import Link from 'next/link'
+
+function CropStep({ previewUrl, position, onChange, onConfirm }: {
+  previewUrl: string
+  position: string
+  onChange: (pos: string) => void
+  onConfirm: () => void
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [px, py] = position.split(' ').map(v => parseFloat(v))
+
+  const handlePointer = (e: React.PointerEvent) => {
+    const rect = containerRef.current!.getBoundingClientRect()
+    const x = Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)))
+    const y = Math.max(0, Math.min(100, Math.round(((e.clientY - rect.top) / rect.height) * 100)))
+    onChange(`${x}% ${y}%`)
+  }
+
+  return (
+    <div className="min-h-screen bg-black flex flex-col">
+      <div className="flex items-center justify-between px-4 py-4 flex-shrink-0">
+        <p className="text-white font-bold text-lg">Cadrer la photo</p>
+        <button
+          onClick={onConfirm}
+          className="bg-[#C4622D] text-white px-5 py-2 rounded-xl font-bold text-sm"
+        >
+          OK
+        </button>
+      </div>
+
+      <div
+        ref={containerRef}
+        className="flex-1 relative select-none"
+        style={{ touchAction: 'none' }}
+        onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); handlePointer(e) }}
+        onPointerMove={e => { if (e.buttons > 0) handlePointer(e) }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={previewUrl}
+          alt="cadrage"
+          draggable={false}
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+          style={{ objectPosition: position }}
+        />
+        <div className="absolute inset-0 pointer-events-none" style={{
+          backgroundImage: 'linear-gradient(rgba(255,255,255,0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.2) 1px, transparent 1px)',
+          backgroundSize: '33.33% 33.33%',
+        }} />
+        <div className="absolute pointer-events-none" style={{ left: `${px}%`, top: `${py}%`, transform: 'translate(-50%,-50%)' }}>
+          <div className="w-10 h-10 rounded-full border-[3px] border-white flex items-center justify-center"
+            style={{ backgroundColor: 'rgba(196,98,45,0.65)', boxShadow: '0 2px 12px rgba(0,0,0,0.5)' }}>
+            <div className="w-2 h-2 rounded-full bg-white" />
+          </div>
+        </div>
+      </div>
+
+      <div className="px-4 py-4 text-center flex-shrink-0">
+        <p className="text-white/60 text-sm">Appuie sur la partie importante de la photo</p>
+      </div>
+    </div>
+  )
+}
 import { CATEGORIES } from '@/lib/categories'
 import { Categorie } from '@/lib/types'
 import type { ExtractedData } from '@/lib/extract'
@@ -26,7 +88,7 @@ const emptyForm: FormData = {
   prix: '', contact: '', organisateurs: '',
 }
 
-type Step = 'input' | 'selection' | 'preview' | 'success'
+type Step = 'input' | 'crop' | 'selection' | 'preview' | 'success'
 
 interface SubmitResult {
   titre: string
@@ -75,6 +137,7 @@ export default function CapturerPage() {
   const [imageBase64, setImageBase64] = useState<string | null>(null)
   const [imageMime, setImageMime]     = useState('image/jpeg')
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [imagePosition, setImagePosition] = useState('50% 50%')
 
   // Multi-events
   const [events, setEvents]           = useState<ExtractedData[]>([])
@@ -103,6 +166,8 @@ export default function CapturerPage() {
       setImageBase64(compressed.data)
       setImageMime(compressed.mime)
       setImagePreview(`data:${compressed.mime};base64,${compressed.data}`)
+      setImagePosition('50% 50%')
+      setStep('crop')
     }
     reader.readAsDataURL(file)
   }
@@ -153,7 +218,7 @@ export default function CapturerPage() {
       const res  = await fetch('/api/evenements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, image: imageBase64, imageMimeType: imageMime }),
+        body: JSON.stringify({ ...form, image: imageBase64, imageMimeType: imageMime, image_position: imagePosition }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -227,6 +292,18 @@ export default function CapturerPage() {
       />
     </div>
   )
+
+  // ── Cadrage ──────────────────────────────────────────────────────────────────
+  if (step === 'crop' && imagePreview) {
+    return (
+      <CropStep
+        previewUrl={imagePreview}
+        position={imagePosition}
+        onChange={setImagePosition}
+        onConfirm={() => setStep('input')}
+      />
+    )
+  }
 
   // ── Succès ───────────────────────────────────────────────────────────────────
   if (step === 'success') {
@@ -473,12 +550,18 @@ export default function CapturerPage() {
         {imagePreview ? (
           <div className="relative rounded-2xl overflow-hidden bg-black">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imagePreview} alt="Aperçu" className="w-full max-h-72 object-cover" />
+            <img src={imagePreview} alt="Aperçu" className="w-full max-h-72 object-cover" style={{ objectPosition: imagePosition }} />
             <button
               onClick={() => { setImageBase64(null); setImagePreview(null) }}
               className="absolute top-2 right-2 bg-black/60 text-white rounded-full w-8 h-8 flex items-center justify-center text-lg font-bold"
             >
               ×
+            </button>
+            <button
+              onClick={() => setStep('crop')}
+              className="absolute bottom-2 right-2 bg-black/60 text-white text-xs font-semibold px-3 py-1.5 rounded-full"
+            >
+              Recadrer
             </button>
           </div>
         ) : (
