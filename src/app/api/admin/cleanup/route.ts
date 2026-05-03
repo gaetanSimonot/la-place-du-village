@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
-// Supprime les événements dont la date de fin (ou début) dépasse 14 jours
+// Supprime les événements dont la date de fin (ou début) est passée depuis 2 jours
 export async function POST() {
   const now = new Date()
-  const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 14)
+  const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2)
   const cutoffStr = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`
 
   try {

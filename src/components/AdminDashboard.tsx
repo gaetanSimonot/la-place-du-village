@@ -45,22 +45,58 @@ export default function AdminDashboard() {
   const [onlyFeedbacks, setOnlyFeedbacks] = useState(false)
   const [expandedFeedback, setExpandedFeedback] = useState<Set<string>>(new Set())
   const [inboxCount, setInboxCount]             = useState(0)
+  const [tabCounts, setTabCounts]               = useState({ a_traiter: 0, publie: 0, rejete: 0, scrap: 0 })
+
+  const fetchTabCounts = useCallback(async () => {
+    const [r1, r2, r3, r4] = await Promise.all([
+      supabase.from('evenements').select('id', { count: 'exact', head: true }).neq('source', 'scrape').in('statut', ['en_attente', 'a_verifier']),
+      supabase.from('evenements').select('id', { count: 'exact', head: true }).eq('statut', 'publie'),
+      supabase.from('evenements').select('id', { count: 'exact', head: true }).eq('statut', 'rejete'),
+      supabase.from('evenements').select('id', { count: 'exact', head: true }).eq('source', 'scrape').in('statut', ['en_attente', 'a_verifier']),
+    ])
+    setTabCounts({
+      a_traiter: r1.count ?? 0,
+      publie:    r2.count ?? 0,
+      rejete:    r3.count ?? 0,
+      scrap:     r4.count ?? 0,
+    })
+  }, [])
+
+  const fetchTabData = useCallback(async (tab: Onglet) => {
+    if (tab === 'doublons' || tab === 'zone' || tab === 'inbox') return
+    setLoading(true)
+    let query = supabase
+      .from('evenements')
+      .select('id, titre, categorie, date_debut, statut, source, created_at, lieu_id, doublon_verifie, lieux(id, nom, commune, lat, lng, place_id_google)')
+      .order('created_at', { ascending: false })
+      .limit(100)
+
+    if (tab === 'a_traiter') {
+      query = query.neq('source', 'scrape').in('statut', ['en_attente', 'a_verifier', 'publie'])
+    } else if (tab === 'publie') {
+      query = query.eq('statut', 'publie')
+    } else if (tab === 'rejete') {
+      query = query.eq('statut', 'rejete')
+    } else if (tab === 'scrap') {
+      query = query.eq('source', 'scrape').in('statut', ['en_attente', 'a_verifier'])
+    }
+
+    const { data } = await query
+    setEvenements((data as unknown as Evenement[]) ?? [])
+    setLoading(false)
+  }, [])
 
   const fetchAll = useCallback(async () => {
-    setLoading(true)
-    const [{ data }, { data: cfg }, fbRes] = await Promise.all([
-      supabase.from('evenements')
-        .select('id, titre, categorie, date_debut, statut, source, created_at, lieu_id, doublon_verifie, lieux(id, nom, commune, lat, lng, place_id_google)')
-        .order('created_at', { ascending: false }),
+    const [{ data: cfg }, fbRes] = await Promise.all([
       supabase.from('config').select('value').eq('key', 'masquer_passes').single(),
       fetch('/api/admin/feedbacks'),
     ])
-    setEvenements((data as unknown as Evenement[]) ?? [])
     setMasquerPasses(cfg?.value === 'true')
     const fbData = fbRes.ok ? await fbRes.json() : []
     setFeedbacks(Array.isArray(fbData) ? fbData : [])
-    setLoading(false)
-  }, [])
+    await fetchTabData(onglet)
+    fetchTabCounts()
+  }, [onglet, fetchTabData, fetchTabCounts])
 
   // Cleanup silencieux au chargement
   useEffect(() => {
@@ -68,7 +104,7 @@ export default function AdminDashboard() {
   }, [])
 
   useEffect(() => { fetchAll() }, [fetchAll])
-  useEffect(() => { setSelection(new Set()); setPage(1) }, [onglet])
+  useEffect(() => { setSelection(new Set()); setPage(1); fetchTabData(onglet) }, [onglet]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setPage(1) }, [search, sort, onlyFeedbacks])
 
   // Index feedbacks par evenement_id
@@ -102,7 +138,8 @@ export default function AdminDashboard() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ statut }),
     })
-    await fetchAll()
+    await fetchTabData(onglet)
+    fetchTabCounts()
     setActionId(null)
   }
 
@@ -110,7 +147,8 @@ export default function AdminDashboard() {
     if (!confirm('Supprimer cet événement ?')) return
     setActionId(id)
     await fetch(`/api/admin/evenements/${id}`, { method: 'DELETE' })
-    await fetchAll()
+    setEvenements(prev => prev.filter(e => e.id !== id))
+    fetchTabCounts()
     setActionId(null)
   }
 
@@ -122,11 +160,11 @@ export default function AdminDashboard() {
   const supprimerSelection = async () => {
     if (!confirm(`Supprimer ${selection.size} événement(s) ?`)) return
     setBulkLoading(true)
-    await Promise.all(Array.from(selection).map(id =>
-      fetch(`/api/admin/evenements/${id}`, { method: 'DELETE' })
-    ))
+    const ids = Array.from(selection)
+    await Promise.all(ids.map(id => fetch(`/api/admin/evenements/${id}`, { method: 'DELETE' })))
+    setEvenements(prev => prev.filter(e => !ids.includes(e.id)))
     setSelection(new Set())
-    await fetchAll()
+    fetchTabCounts()
     setBulkLoading(false)
   }
 
@@ -141,7 +179,8 @@ export default function AdminDashboard() {
       })
     ))
     setSelection(new Set())
-    await fetchAll()
+    await fetchTabData(onglet)
+    fetchTabCounts()
     setBulkLoading(false)
   }
 
@@ -203,10 +242,10 @@ export default function AdminDashboard() {
 
   const counts = {
     inbox:     inboxCount,
-    a_traiter: evenements.filter(e => e.source !== 'scrape' && (e.statut === 'en_attente' || e.statut === 'a_verifier' || (e.statut === 'publie' && isApproxLocation(e.lieux)))).length,
-    publie:    evenements.filter(e => e.statut === 'publie').length,
-    rejete:    evenements.filter(e => e.statut === 'rejete').length,
-    scrap:     evenements.filter(e => e.source === 'scrape' && (e.statut === 'en_attente' || e.statut === 'a_verifier')).length,
+    a_traiter: tabCounts.a_traiter,
+    publie:    tabCounts.publie,
+    rejete:    tabCounts.rejete,
+    scrap:     tabCounts.scrap,
   }
 
   const totalPages  = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))

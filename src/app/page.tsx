@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import ProfilView from '@/components/ProfilView'
 import { EvenementCard, Filtres } from '@/lib/types'
 import { getDateRange } from '@/lib/filters'
 import { useTheme } from '@/components/ThemeProvider'
@@ -163,6 +164,7 @@ export default function HomePage() {
     supabase.from('config').select('value').eq('key', 'masquer_passes').single()
       .then(({ data }) => setMasquerPasses(data?.value === 'true'))
     fetchZoneConfig()
+    fetch('/api/admin/cleanup', { method: 'POST' }).catch(() => {})
 
     // Charger zone user depuis localStorage
     try {
@@ -214,7 +216,7 @@ export default function HomePage() {
 
   // Quand la liste redescend (half/peek), réactiver le mode carte pour les boutons
   useEffect(() => {
-    if (sheetMode !== 'full') setNavTab('carte')
+    if (sheetMode !== 'full') setNavTab(prev => prev === 'profil' ? 'profil' : 'carte')
   }, [sheetMode])
 
   // Sélection d'un marqueur → peek ; déselection → half
@@ -248,7 +250,7 @@ export default function HomePage() {
   }, [allEvenements, rayonAffichage, zoneCentres, userZoneActive, userRayon, userCentre])
 
   const handleNavTab = (tab: NavTab) => {
-    if (tab === 'profil') { router.push('/profil'); return }
+    if (tab === 'profil') { setNavTab('profil'); return }
     if (tab === 'liste') {
       setNavTab('liste')
       if (navTab !== 'liste') {
@@ -550,6 +552,16 @@ export default function HomePage() {
         onModeChange={setSheetMode}
         navHeight={NAV_H}
       />
+
+      {/* Profil — panneau inline au-dessus de la carte */}
+      {navTab === 'profil' && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H,
+          zIndex: 25, overflowY: 'auto', backgroundColor: 'var(--creme)',
+        }}>
+          <ProfilView />
+        </div>
+      )}
 
       {/* Bottom Nav — 3 onglets */}
       <nav style={{
