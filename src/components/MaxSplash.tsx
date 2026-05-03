@@ -6,29 +6,43 @@ import { CATEGORIES } from '@/lib/categories'
 
 const SESSION_KEY = 'pdv-max-seen'
 
+type Phase = 'loading' | 'event' | 'dismissed'
+
 interface Props {
   events: EvenementCard[]
   onDiscover: (id: string) => void
+  loading?: boolean
 }
 
-export default function MaxSplash({ events, onDiscover }: Props) {
-  const [visible, setVisible] = useState(false)
-  const [idx, setIdx]         = useState(0)
+export default function MaxSplash({ events, onDiscover, loading = false }: Props) {
+  const [phase, setPhase] = useState<Phase>('loading')
+  const [idx, setIdx]     = useState(0)
 
+  // Mount: check if already dismissed this session
   useEffect(() => {
-    if (events.length === 0) return
+    if (sessionStorage.getItem(SESSION_KEY)) setPhase('dismissed')
+  }, [])
+
+  // React to loading state and available events
+  useEffect(() => {
     if (sessionStorage.getItem(SESSION_KEY)) return
-    setVisible(true)
-  }, [events.length])
+    if (loading) return
+    if (events.length === 0) {
+      setPhase('dismissed')
+    } else {
+      setPhase('event')
+    }
+  }, [loading, events.length])
 
   const dismiss = () => {
     sessionStorage.setItem(SESSION_KEY, '1')
-    setVisible(false)
+    setPhase('dismissed')
   }
 
   const discover = () => {
+    sessionStorage.setItem(SESSION_KEY, '1')
+    setPhase('dismissed')
     onDiscover(events[idx].id)
-    dismiss()
   }
 
   const next = () => {
@@ -36,8 +50,35 @@ export default function MaxSplash({ events, onDiscover }: Props) {
     setIdx(i => i + 1)
   }
 
-  if (!visible || events.length === 0) return null
+  if (phase === 'dismissed') return null
 
+  // ── Loading phase ──
+  if (phase === 'loading') {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 500,
+        backgroundColor: '#2C1810',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        fontFamily: 'Syne, sans-serif',
+      }}>
+        <div style={{ fontSize: 26, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', marginBottom: 6 }}>
+          La Place du Village
+        </div>
+        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', marginBottom: 52, fontFamily: 'Inter, sans-serif' }}>
+          Agenda local · Ganges
+        </div>
+        <div style={{
+          width: 28, height: 28, borderRadius: '50%',
+          border: '2.5px solid rgba(255,255,255,0.15)',
+          borderTopColor: '#C4622D',
+          animation: 'spin 0.7s linear infinite',
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      </div>
+    )
+  }
+
+  // ── Event phase ──
   const evt = events[idx]
   const cat = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
   const hasNext = idx + 1 < events.length
@@ -45,19 +86,20 @@ export default function MaxSplash({ events, onDiscover }: Props) {
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 500,
-      backgroundColor: 'rgba(0,0,0,0.85)',
+      backgroundColor: 'rgba(0,0,0,0.88)',
       display: 'flex', flexDirection: 'column',
       fontFamily: 'Inter, sans-serif',
+      animation: 'fadeIn 0.3s ease',
     }}>
+      <style>{`@keyframes fadeIn { from { opacity:0 } to { opacity:1 } } @keyframes spin { to { transform: rotate(360deg) } }`}</style>
+
       {/* Image hero */}
       <div style={{ position: 'relative', flex: '0 0 55%', overflow: 'hidden' }}>
         {evt.image_url
           ? <img src={evt.image_url} alt={evt.titre} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: evt.image_position ?? '50% 50%' }} />
           : <div style={{ width: '100%', height: '100%', backgroundColor: cat.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 80 }}>{cat.emoji}</div>
         }
-        {/* Gradient bottom */}
         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '40%', background: 'linear-gradient(to bottom, transparent, rgba(0,0,0,0.8))' }} />
-        {/* Close */}
         <button onClick={dismiss} style={{
           position: 'absolute', top: 16, right: 16,
           width: 36, height: 36, borderRadius: '50%',
@@ -65,13 +107,11 @@ export default function MaxSplash({ events, onDiscover }: Props) {
           color: '#fff', fontSize: 18, cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>✕</button>
-        {/* Label */}
-        <div style={{ position: 'absolute', top: 16, left: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ position: 'absolute', top: 16, left: 16 }}>
           <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', backgroundColor: '#7C3AED', padding: '3px 10px', borderRadius: 999, letterSpacing: '0.05em' }}>
             ⚡ À NE PAS MANQUER
           </span>
         </div>
-        {/* Dots */}
         {events.length > 1 && (
           <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 6 }}>
             {events.map((_, i) => (
@@ -120,7 +160,7 @@ export default function MaxSplash({ events, onDiscover }: Props) {
           backgroundColor: 'transparent', color: 'rgba(255,255,255,0.7)',
           fontSize: 14, fontWeight: 600, cursor: 'pointer',
         }}>
-          {hasNext ? 'Voir le suivant →' : 'Ignorer'}
+          {hasNext ? 'Voir le suivant →' : "Aller sur l'app"}
         </button>
       </div>
     </div>

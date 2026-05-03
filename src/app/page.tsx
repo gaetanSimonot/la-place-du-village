@@ -12,6 +12,7 @@ import { useTheme } from '@/components/ThemeProvider'
 import { haversineKm, GANGES } from '@/lib/distance'
 
 import MaxSplash from '@/components/MaxSplash'
+import ProBandeau from '@/components/ProBandeau'
 
 const MapView     = dynamic(() => import('@/components/MapView'),     { ssr: false })
 const BottomSheet = dynamic(() => import('@/components/BottomSheet'), { ssr: false })
@@ -71,6 +72,8 @@ export default function HomePage() {
   const [mapCenterOn, setMapCenterOn]   = useState<{ lat: number; lng: number } | null>(null)
   const [geocoding, setGeocoding]       = useState(false)
   const [sheetMode, setSheetMode]   = useState<'peek'|'half'|'full'>('half')
+  const [sheetPeekH, setSheetPeekH] = useState(130)
+  const [screenH, setScreenH]       = useState(812)
   const [navTab, setNavTab]         = useState<NavTab>('carte')
   const [fabOpen, setFabOpen]       = useState(false)
   const mapDragTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -160,6 +163,8 @@ export default function HomePage() {
       .catch(() => {})
       .finally(() => setZoneLoaded(true))
   }, [])
+
+  useEffect(() => { setScreenH(window.innerHeight) }, [])
 
   // Config chargée une seule fois au mount + écoute changements admin
   useEffect(() => {
@@ -556,9 +561,28 @@ export default function HomePage() {
         mode={sheetMode}
         onModeChange={setSheetMode}
         navHeight={NAV_H}
-        proEvents={proEvents}
-        onDiscoverPro={handleViewOnMap}
+        onPeekHeightChange={setSheetPeekH}
       />
+
+      {/* ProBandeau — flotte au-dessus de la sheet */}
+      {proEvents.length > 0 && (() => {
+        const SHEET_H = screenH - 60 - NAV_H
+        const bottom = sheetMode === 'full'
+          ? screenH - 60 - 8 - 96
+          : sheetMode === 'peek'
+            ? NAV_H + sheetPeekH
+            : NAV_H + Math.round(SHEET_H * 0.5)
+        return (
+          <div style={{
+            position: 'absolute', left: 0, right: 0,
+            bottom, zIndex: 21,
+            transition: 'bottom 0.35s cubic-bezier(0.33,1,0.68,1)',
+            pointerEvents: 'auto',
+          }}>
+            <ProBandeau events={proEvents} onDiscover={id => router.push(`/evenement/${id}`)} />
+          </div>
+        )
+      })()}
 
       {/* Profil — panneau inline au-dessus de la carte */}
       {navTab === 'profil' && (
@@ -570,7 +594,7 @@ export default function HomePage() {
         </div>
       )}
 
-      <MaxSplash events={maxEvents} onDiscover={handleViewOnMap} />
+      <MaxSplash events={maxEvents} onDiscover={id => router.push(`/evenement/${id}`)} loading={loading} />
 
       {/* Bottom Nav — 3 onglets */}
       <nav style={{

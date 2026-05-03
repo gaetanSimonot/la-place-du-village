@@ -160,7 +160,9 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, centerOn }: 
     clearAll()
 
     const withLoc = evenements.filter(e => e.lieux?.lat && e.lieux?.lng)
-    const newMarkers = withLoc.map(evt => {
+    const regularMarkers: google.maps.Marker[] = []
+
+    const allNewMarkers = withLoc.map(evt => {
       const isSelected = evt.id === selectedId
       const approx     = isApproxLocation(evt.lieux)
       const promoted   = evt.promotion === 'pro' || evt.promotion === 'max'
@@ -178,15 +180,21 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, centerOn }: 
         zIndex: isSelected ? 999 : promoted ? 10 : 1,
       })
       marker.addListener('click', () => onSelectEvent(evt.id))
+      // Promoted markers bypass the clusterer so they're always individually visible
+      if (promoted) {
+        marker.setMap(map)
+      } else {
+        regularMarkers.push(marker)
+      }
       return marker
     })
 
-    markersRef.current = newMarkers
+    markersRef.current = allNewMarkers
 
     if (!clustererRef.current) {
-      clustererRef.current = new MarkerClusterer({ map, markers: newMarkers })
+      clustererRef.current = new MarkerClusterer({ map, markers: regularMarkers })
     } else {
-      clustererRef.current.addMarkers(newMarkers)
+      clustererRef.current.addMarkers(regularMarkers)
     }
   }, [map, evenements, selectedId, onSelectEvent, clearAll])
 

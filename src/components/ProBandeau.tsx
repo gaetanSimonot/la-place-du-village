@@ -6,6 +6,7 @@ import { CATEGORIES } from '@/lib/categories'
 
 const PROMO_PINK = '#EC407A'
 const INTERVAL_MS = 5000
+const FADE_MS = 180
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr]
@@ -22,11 +23,12 @@ interface Props {
 }
 
 export default function ProBandeau({ events, onDiscover }: Props) {
-  const [dismissed, setDismissed]   = useState(false)
-  const [queue, setQueue]           = useState<EvenementCard[]>([])
-  const [idx, setIdx]               = useState(0)
-  const [animKey, setAnimKey]       = useState(0)
-  const timerRef = useRef<ReturnType<typeof setTimeout>>()
+  const [dismissed, setDismissed] = useState(false)
+  const [queue, setQueue]         = useState<EvenementCard[]>([])
+  const [idx, setIdx]             = useState(0)
+  const [fading, setFading]       = useState(false)
+  const timerRef     = useRef<ReturnType<typeof setTimeout>>()
+  const fadeTimerRef = useRef<ReturnType<typeof setTimeout>>()
 
   useEffect(() => {
     if (events.length === 0) return
@@ -34,16 +36,19 @@ export default function ProBandeau({ events, onDiscover }: Props) {
   }, [events])
 
   const advance = useCallback(() => {
-    setIdx(prev => {
-      const next = prev + 1
-      if (next >= queue.length) {
-        setQueue(shuffle(events))
-        setAnimKey(k => k + 1)
-        return 0
-      }
-      setAnimKey(k => k + 1)
-      return next
-    })
+    clearTimeout(fadeTimerRef.current)
+    setFading(true)
+    fadeTimerRef.current = setTimeout(() => {
+      setIdx(prev => {
+        const next = prev + 1
+        if (next >= queue.length) {
+          setQueue(shuffle(events))
+          return 0
+        }
+        return next
+      })
+      setFading(false)
+    }, FADE_MS)
   }, [queue.length, events])
 
   useEffect(() => {
@@ -52,15 +57,20 @@ export default function ProBandeau({ events, onDiscover }: Props) {
     return () => clearTimeout(timerRef.current)
   }, [idx, dismissed, queue.length, advance])
 
+  useEffect(() => () => {
+    clearTimeout(timerRef.current)
+    clearTimeout(fadeTimerRef.current)
+  }, [])
+
   if (dismissed || queue.length === 0) return null
 
   const evt = queue[idx]
   if (!evt) return null
   const cat = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
+  const fade: React.CSSProperties = { opacity: fading ? 0 : 1, transition: `opacity ${FADE_MS}ms ease` }
 
   return (
     <div style={{
-      flexShrink: 0,
       margin: '4px 12px 8px',
       borderRadius: 14,
       backgroundColor: '#fff',
@@ -71,25 +81,23 @@ export default function ProBandeau({ events, onDiscover }: Props) {
       alignItems: 'stretch',
       height: 84,
       position: 'relative',
-      animation: 'fadeSlideIn 0.3s ease',
+      flexShrink: 0,
     }}>
-      <style>{`@keyframes fadeSlideIn { from { opacity:0; transform:translateY(6px) } to { opacity:1; transform:none } }`}</style>
-
       {/* Image */}
       {evt.image_url
-        ? <img key={`img-${animKey}`} src={evt.image_url} alt="" loading="lazy"
-            style={{ width: 84, height: 84, objectFit: 'cover', objectPosition: evt.image_position ?? '50% 50%', flexShrink: 0 }} />
-        : <div style={{ width: 84, height: 84, backgroundColor: cat.color, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>
+        ? <img key={`img-${idx}`} src={evt.image_url} alt="" loading="lazy"
+            style={{ width: 84, height: 84, objectFit: 'cover', objectPosition: evt.image_position ?? '50% 50%', flexShrink: 0, ...fade }} />
+        : <div style={{ width: 84, height: 84, backgroundColor: cat.color, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, ...fade }}>
             {cat.emoji}
           </div>
       }
 
       {/* Content */}
-      <div style={{ flex: 1, padding: '8px 6px 8px 10px', minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+      <div style={{ flex: 1, padding: '8px 6px 8px 10px', minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', ...fade }}>
+        <div style={{ marginBottom: 2 }}>
           <span style={{ fontSize: 9, fontWeight: 800, color: PROMO_PINK, letterSpacing: '0.04em', textTransform: 'uppercase' }}>★ En vedette</span>
         </div>
-        <p key={`title-${animKey}`} style={{
+        <p style={{
           fontSize: 12, fontWeight: 700, color: '#2C1810', lineHeight: 1.25, margin: 0,
           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
         }}>{evt.titre}</p>
