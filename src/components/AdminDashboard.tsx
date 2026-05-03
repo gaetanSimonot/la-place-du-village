@@ -7,8 +7,9 @@ import { CATEGORIES } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
 import DoublonsAdmin from '@/components/DoublonsAdmin'
 import ZoneAdmin from '@/components/ZoneAdmin'
+import AdminInbox from '@/components/AdminInbox'
 
-type Onglet   = 'a_traiter' | 'publie' | 'rejete' | 'scrap' | 'doublons' | 'zone'
+type Onglet   = 'inbox' | 'a_traiter' | 'publie' | 'rejete' | 'scrap' | 'doublons' | 'zone'
 type SortKey  = 'created_desc' | 'created_asc' | 'date_asc' | 'date_desc'
 const PAGE_SIZE = 20
 
@@ -43,6 +44,7 @@ export default function AdminDashboard() {
   const [page, setPage]                 = useState(1)
   const [onlyFeedbacks, setOnlyFeedbacks] = useState(false)
   const [expandedFeedback, setExpandedFeedback] = useState<Set<string>>(new Set())
+  const [inboxCount, setInboxCount]             = useState(0)
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
@@ -200,6 +202,7 @@ export default function AdminDashboard() {
   }, [afterSearch, sort, onglet, q, onlyFeedbacks])
 
   const counts = {
+    inbox:     inboxCount,
     a_traiter: evenements.filter(e => e.source !== 'scrape' && (e.statut === 'en_attente' || e.statut === 'a_verifier' || (e.statut === 'publie' && isApproxLocation(e.lieux)))).length,
     publie:    evenements.filter(e => e.statut === 'publie').length,
     rejete:    evenements.filter(e => e.statut === 'rejete').length,
@@ -247,12 +250,13 @@ export default function AdminDashboard() {
       {/* Onglets */}
       <div className="flex border-b border-[#E8E0D5] bg-white overflow-x-auto">
         {([
-          { key: 'a_traiter', label: 'À traiter', color: 'bg-orange-500' },
-          { key: 'scrap',     label: 'Scrap',     color: 'bg-blue-500'   },
-          { key: 'publie',    label: 'Publiés',   color: 'bg-green-500'  },
-          { key: 'rejete',    label: 'Rejetés',   color: 'bg-gray-400'   },
-          { key: 'doublons',  label: '🔀 Doublons', color: 'bg-amber-500'  },
-          { key: 'zone',      label: '📍 Zone',     color: 'bg-teal-500'   },
+          { key: 'inbox',     label: '📥 Réception', color: 'bg-red-500'    },
+          { key: 'a_traiter', label: 'À traiter',    color: 'bg-orange-500' },
+          { key: 'scrap',     label: 'Scrap',        color: 'bg-blue-500'   },
+          { key: 'publie',    label: 'Publiés',      color: 'bg-green-500'  },
+          { key: 'rejete',    label: 'Rejetés',      color: 'bg-gray-400'   },
+          { key: 'doublons',  label: '🔀 Doublons',  color: 'bg-amber-500'  },
+          { key: 'zone',      label: '📍 Zone',      color: 'bg-teal-500'   },
         ] as { key: Onglet; label: string; color: string }[]).map(tab => (
           <button
             key={tab.key}
@@ -271,6 +275,9 @@ export default function AdminDashboard() {
         ))}
       </div>
 
+      {/* Onglet Réception */}
+      {onglet === 'inbox' && <AdminInbox onCountChange={setInboxCount} />}
+
       {/* Onglet Doublons */}
       {onglet === 'doublons' && <DoublonsAdmin />}
 
@@ -288,7 +295,7 @@ export default function AdminDashboard() {
       )}
 
       {/* Barre recherche + tri + filtre signalements */}
-      {onglet !== 'doublons' && onglet !== 'zone' && (
+      {onglet !== 'doublons' && onglet !== 'zone' && onglet !== 'inbox' && (
         <div className="bg-white border-b border-[#E8E0D5] px-3 py-2 space-y-2">
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -333,7 +340,7 @@ export default function AdminDashboard() {
       )}
 
       {/* Barre sélection */}
-      {onglet !== 'doublons' && onglet !== 'zone' && !loading && sorted.length > 0 && (
+      {onglet !== 'doublons' && onglet !== 'zone' && onglet !== 'inbox' && !loading && sorted.length > 0 && (
         <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-[#E8E0D5]">
           <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600 select-none">
             <input type="checkbox" checked={allSelected} onChange={toggleAll} className="w-4 h-4 accent-[#C4622D] cursor-pointer" />
@@ -351,7 +358,7 @@ export default function AdminDashboard() {
       )}
 
       {/* Liste */}
-      {onglet !== 'doublons' && onglet !== 'zone' && <div className="p-3 space-y-3 pb-6">
+      {onglet !== 'doublons' && onglet !== 'zone' && onglet !== 'inbox' && <div className="p-3 space-y-3 pb-6">
         {loading ? (
           <div className="flex justify-center py-12">
             <div className="w-8 h-8 border-4 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
@@ -510,7 +517,7 @@ export default function AdminDashboard() {
       </div>}
 
       {/* Barre flottante sélection */}
-      {selection.size > 0 && (
+      {selection.size > 0 && onglet !== 'inbox' && (
         <div className="fixed bottom-0 left-0 right-0 bg-[#2C1810] px-4 py-3 flex items-center gap-2 shadow-2xl">
           <span className="text-white text-sm font-semibold flex-1">
             {selection.size} sélectionné{selection.size > 1 ? 's' : ''}
