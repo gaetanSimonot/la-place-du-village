@@ -30,7 +30,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     // Mise à jour de l'événement
     const eventUpdate: Record<string, unknown> = {}
-    const textFields = ['titre', 'description', 'categorie', 'statut', 'prix', 'contact', 'organisateurs', 'image_url']
+    const textFields = ['titre', 'description', 'categorie', 'statut', 'prix', 'contact', 'organisateurs', 'image_url', 'image_position']
     const dateFields = ['date_debut', 'date_fin', 'heure']
     textFields.forEach(f => { if (body[f] !== undefined) eventUpdate[f] = body[f] })
     dateFields.forEach(f => { if (body[f] !== undefined) eventUpdate[f] = nullIfEmpty(body[f]) })

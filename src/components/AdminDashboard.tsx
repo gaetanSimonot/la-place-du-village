@@ -8,6 +8,7 @@ import { formatDate } from '@/lib/filters'
 import DoublonsAdmin from '@/components/DoublonsAdmin'
 import ZoneAdmin from '@/components/ZoneAdmin'
 import AdminInbox from '@/components/AdminInbox'
+import EventEditDrawer from '@/components/EventEditDrawer'
 
 type Onglet   = 'inbox' | 'a_traiter' | 'publie' | 'rejete' | 'scrap' | 'doublons' | 'zone'
 type SortKey  = 'created_desc' | 'created_asc' | 'date_asc' | 'date_desc'
@@ -46,6 +47,7 @@ export default function AdminDashboard() {
   const [expandedFeedback, setExpandedFeedback] = useState<Set<string>>(new Set())
   const [inboxCount, setInboxCount]             = useState(0)
   const [tabCounts, setTabCounts]               = useState({ a_traiter: 0, publie: 0, rejete: 0, scrap: 0 })
+  const [editId, setEditId]                     = useState<string | null>(null)
 
   const fetchTabCounts = useCallback(async () => {
     const [r1, r2, r3, r4] = await Promise.all([
@@ -67,7 +69,7 @@ export default function AdminDashboard() {
     setLoading(true)
     let query = supabase
       .from('evenements')
-      .select('id, titre, categorie, date_debut, statut, source, created_at, lieu_id, doublon_verifie, lieux(id, nom, commune, lat, lng, place_id_google)')
+      .select('id, titre, categorie, date_debut, statut, source, created_at, lieu_id, doublon_verifie, image_url, image_position, lieux(id, nom, commune, lat, lng, place_id_google)')
       .order('created_at', { ascending: false })
       .limit(100)
 
@@ -465,6 +467,15 @@ export default function AdminDashboard() {
                 </div>
               )}
 
+              {evt.image_url && (
+                <div className="relative w-full rounded-xl overflow-hidden mb-2 cursor-pointer" style={{ height: 120, backgroundColor: '#f0ece6' }}
+                  onClick={() => setEditId(evt.id)}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={evt.image_url} alt="" className="w-full h-full object-cover"
+                    style={{ objectPosition: evt.image_position ?? '50% 50%' }} />
+                </div>
+              )}
+
               <div className="flex items-start gap-2 mb-1">
                 <input
                   type="checkbox"
@@ -517,12 +528,12 @@ export default function AdminDashboard() {
                     ✗ Rejeter
                   </button>
                 )}
-                <Link
-                  href={`/admin/evenement/${evt.id}`}
+                <button
+                  onClick={() => setEditId(evt.id)}
                   className="flex-1 py-1.5 bg-[#FBF7F0] text-[#C4622D] text-xs font-bold rounded-lg text-center border border-[#C4622D]"
                 >
                   ✏️ Éditer
-                </Link>
+                </button>
                 <button
                   onClick={() => supprimer(evt.id)}
                   disabled={isLoading}
@@ -554,6 +565,15 @@ export default function AdminDashboard() {
           </div>
         )}
       </div>}
+
+      {/* Drawer édition */}
+      {editId && (
+        <EventEditDrawer
+          evenementId={editId}
+          onClose={() => setEditId(null)}
+          onSaved={() => { setEditId(null); fetchTabData(onglet); fetchTabCounts() }}
+        />
+      )}
 
       {/* Barre flottante sélection */}
       {selection.size > 0 && onglet !== 'inbox' && (

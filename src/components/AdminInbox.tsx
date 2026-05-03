@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
+import EventEditDrawer from '@/components/EventEditDrawer'
 
 interface MessageEntrant {
   id: string
@@ -65,6 +66,7 @@ export default function AdminInbox({ onCountChange }: Props) {
   const [actionId, setActionId] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [counts, setCounts]     = useState<Record<string, number>>({})
+  const [editId, setEditId]     = useState<string | null>(null)
 
   const fetchMessages = useCallback(async (s: string) => {
     setLoading(true)
@@ -282,12 +284,13 @@ export default function AdminInbox({ onCountChange }: Props) {
                   </button>
                 )}
                 {msg.evenement_id && (
-                  <a
-                    href={`/admin/evenement/${msg.evenement_id}`}
+                  <button
+                    onClick={() => setEditId(msg.evenement_id!)}
+
                     className="flex-1 py-1.5 bg-[#FBF7F0] text-[#C4622D] text-xs font-bold rounded-lg text-center border border-[#C4622D]"
                   >
                     Voir événement
-                  </a>
+                  </button>
                 )}
                 {msg.statut !== 'ignore' && (
                   <button
@@ -316,6 +319,14 @@ export default function AdminInbox({ onCountChange }: Props) {
           </p>
         )}
       </div>
+
+      {editId && (
+        <EventEditDrawer
+          evenementId={editId}
+          onClose={() => setEditId(null)}
+          onSaved={() => { setEditId(null); refresh() }}
+        />
+      )}
     </div>
   )
 }
