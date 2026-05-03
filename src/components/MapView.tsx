@@ -228,6 +228,20 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
     : null
   const { mapStyle, fixedMap, sheetBg } = useTheme()
 
+  // Supprime le chrome natif (header + bouton X) de l'InfoWindow Google Maps
+  useEffect(() => {
+    if (document.querySelector('[data-pdv-iw]')) return
+    const s = document.createElement('style')
+    s.setAttribute('data-pdv-iw', '1')
+    s.textContent = `
+      .gm-style-iw-chr { display: none !important; }
+      .gm-style-iw-c   { padding: 0 !important; border-radius: 14px !important; overflow: visible !important; box-shadow: 0 4px 20px rgba(0,0,0,0.18) !important; }
+      .gm-style-iw-d   { overflow: visible !important; max-height: unset !important; }
+    `
+    document.head.appendChild(s)
+    return () => s.remove()
+  }, [])
+
   return (
     <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY!}>
       <Map
@@ -258,50 +272,69 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
             onCloseClick={onDeselect}
             pixelOffset={[0, -54]}
           >
-            <div
-              onClick={() => onOpenEvent(selectedEvent.id)}
-              style={{
-                fontFamily: 'Inter, sans-serif',
-                width: 220, borderRadius: 12,
-                overflow: 'hidden', fontSize: 13,
-                cursor: 'pointer',
-                backgroundColor: '#fff',
-                border: `2.5px solid ${sheetBg.bg}`,
-              }}
-            >
-              {selectedEvent.image_url && (
-                <img
-                  src={selectedEvent.image_url}
-                  alt={selectedEvent.titre}
-                  loading="lazy"
-                  style={{ width: '100%', height: 100, objectFit: 'cover', objectPosition: selectedEvent.image_position ?? '50% 50%', display: 'block' }}
-                />
-              )}
-              <div style={{ padding: '8px 10px 10px', backgroundColor: '#fff' }}>
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 4,
-                  fontSize: 10, fontWeight: 700,
-                  backgroundColor: selectedCat!.color, color: '#fff',
-                  borderRadius: 999, padding: '2px 8px', marginBottom: 5,
-                }}>
-                  {selectedCat!.emoji} {selectedCat!.label}
-                </span>
-                <p style={{ fontWeight: 700, fontSize: 13, color: '#2C2C2C', lineHeight: 1.3, marginBottom: 4 }}>
-                  {selectedEvent.titre}
-                </p>
-                {selectedEvent.date_debut && (
-                  <p style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 600 }}>
-                    {formatDate(selectedEvent.date_debut)}
-                    {selectedEvent.heure && ` · ${selectedEvent.heure.slice(0, 5)}`}
-                  </p>
+            {/* Wrapper overflow:visible pour que le bouton fermer dépasse de la carte */}
+            <div style={{ position: 'relative', width: 220, overflow: 'visible' }}>
+
+              {/* Bouton fermer rond flottant hors de la carte */}
+              <button
+                onClick={e => { e.stopPropagation(); onDeselect() }}
+                style={{
+                  position: 'absolute', top: -10, right: -10, zIndex: 10,
+                  width: 22, height: 22, borderRadius: '50%',
+                  backgroundColor: '#fff', border: '1.5px solid #ddd',
+                  boxShadow: '0 1px 5px rgba(0,0,0,0.22)',
+                  cursor: 'pointer', color: '#666',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 9, padding: 0, lineHeight: 1,
+                }}
+              >✕</button>
+
+              {/* Carte cliquable */}
+              <div
+                onClick={() => onOpenEvent(selectedEvent.id)}
+                style={{
+                  fontFamily: 'Inter, sans-serif',
+                  borderRadius: 12, overflow: 'hidden',
+                  fontSize: 13, cursor: 'pointer',
+                  backgroundColor: '#fff',
+                  border: `2.5px solid ${sheetBg.bg}`,
+                }}
+              >
+                {selectedEvent.image_url && (
+                  <img
+                    src={selectedEvent.image_url}
+                    alt={selectedEvent.titre}
+                    loading="lazy"
+                    style={{ width: '100%', height: 100, objectFit: 'cover', objectPosition: selectedEvent.image_position ?? '50% 50%', display: 'block' }}
+                  />
                 )}
-                {selectedEvent.lieux && (
-                  <p style={{ fontSize: 11, color: '#8A8A8A', marginTop: 2 }}>
-                    📍 {selectedEvent.lieux.nom}
-                    {selectedEvent.lieux.commune ? `, ${selectedEvent.lieux.commune}` : ''}
+                <div style={{ padding: '8px 10px 10px', backgroundColor: '#fff' }}>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    fontSize: 10, fontWeight: 700,
+                    backgroundColor: selectedCat!.color, color: '#fff',
+                    borderRadius: 999, padding: '2px 8px', marginBottom: 5,
+                  }}>
+                    {selectedCat!.emoji} {selectedCat!.label}
+                  </span>
+                  <p style={{ fontWeight: 700, fontSize: 13, color: '#2C2C2C', lineHeight: 1.3, marginBottom: 4 }}>
+                    {selectedEvent.titre}
                   </p>
-                )}
+                  {selectedEvent.date_debut && (
+                    <p style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 600 }}>
+                      {formatDate(selectedEvent.date_debut)}
+                      {selectedEvent.heure && ` · ${selectedEvent.heure.slice(0, 5)}`}
+                    </p>
+                  )}
+                  {selectedEvent.lieux && (
+                    <p style={{ fontSize: 11, color: '#8A8A8A', marginTop: 2 }}>
+                      📍 {selectedEvent.lieux.nom}
+                      {selectedEvent.lieux.commune ? `, ${selectedEvent.lieux.commune}` : ''}
+                    </p>
+                  )}
+                </div>
               </div>
+
             </div>
           </InfoWindow>
         )}
