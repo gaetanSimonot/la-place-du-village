@@ -5,14 +5,56 @@ import { Categorie, Evenement } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 
 type Mode = 'edit' | 'crop' | 'fullscreen'
+interface Prediction { place_id: string; description: string; main: string; secondary: string }
 
-interface Props {
-  evenementId: string
-  onClose: () => void
-  onSaved?: () => void
+// ── Autocomplete lieu ─────────────────────────────────────────────────────────
+function LieuAutocomplete({ value, onChange, onSelect }: {
+  value: string
+  onChange: (v: string) => void
+  onSelect: (p: Prediction) => void
+}) {
+  const [preds, setPreds]   = useState<Prediction[]>([])
+  const [open, setOpen]     = useState(false)
+  const timer = useRef<ReturnType<typeof setTimeout>>()
+
+  const search = useCallback(async (q: string) => {
+    if (q.length < 2) { setPreds([]); return }
+    const r = await fetch(`/api/admin/autocomplete?q=${encodeURIComponent(q)}`)
+    const d = await r.json()
+    setPreds(d.predictions ?? [])
+    setOpen(true)
+  }, [])
+
+  const handleChange = (v: string) => {
+    onChange(v)
+    clearTimeout(timer.current)
+    timer.current = setTimeout(() => search(v), 300)
+  }
+
+  return (
+    <div className="relative">
+      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Nom du lieu</label>
+      <input type="text" value={value} onChange={e => handleChange(e.target.value)}
+        onFocus={() => preds.length > 0 && setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder="Salle des fêtes, Halles de Ganges…"
+        className="w-full bg-white border border-[#E8E0D5] rounded-xl px-3 py-2.5 text-sm text-[#2C1810] focus:outline-none focus:border-[#C4622D]" />
+      {open && preds.length > 0 && (
+        <div className="absolute z-50 left-0 right-0 bg-white border border-[#E8E0D5] rounded-xl shadow-lg mt-1 overflow-hidden">
+          {preds.map(p => (
+            <button key={p.place_id} onMouseDown={() => { onChange(p.main); setPreds([]); setOpen(false); onSelect(p) }}
+              className="w-full text-left px-3 py-2.5 hover:bg-[#FBF7F0] border-b border-[#F0EAE0] last:border-0">
+              <p className="text-sm font-medium text-[#2C1810]">{p.main}</p>
+              <p className="text-xs text-gray-400">{p.secondary}</p>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
-// ── Crop inline (même logique que capturer/page.tsx) ──────────────────────
+// ── Crop inline ───────────────────────────────────────────────────────────────
 function CropStep({ src, position, onChange, onConfirm, onBack }: {
   src: string; position: string
   onChange: (p: string) => void; onConfirm: () => void; onBack: () => void
@@ -80,7 +122,13 @@ function CropStep({ src, position, onChange, onConfirm, onBack }: {
   )
 }
 
-// ── Composant principal ───────────────────────────────────────────────────
+// ── Composant principal ───────────────────────────────────────────────────────
+interface Props {
+  evenementId: string
+  onClose: () => void
+  onSaved?: () => void
+}
+
 export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props) {
   const [mode, setMode]       = useState<Mode>('edit')
   const [loading, setLoading] = useState(true)
@@ -95,18 +143,22 @@ export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props
   const [categorie, setCategorie]       = useState<Categorie>('autre')
   const [prix, setPrix]                 = useState('')
   const [contact, setContact]           = useState('')
+  const [organisateurs, setOrganisateurs] = useState('')
   const [statut, setStatut]             = useState('en_attente')
+
   const [lieuId, setLieuId]             = useState<string | null>(null)
   const [lieuNom, setLieuNom]           = useState('')
   const [commune, setCommune]           = useState('')
+  const [adresse, setAdresse]           = useState('')
   const [lat, setLat]                   = useState('')
   const [lng, setLng]                   = useState('')
+  const [placeIdGoogle, setPlaceIdGoogle] = useState<string | null>(null)
 
-  const [imageUrl, setImageUrl]         = useState<string | null>(null)
+  const [imageUrl, setImageUrl]           = useState<string | null>(null)
   const [imagePosition, setImagePosition] = useState('50% 50%')
-  const [newBase64, setNewBase64]       = useState<string | null>(null)
-  const [newMime, setNewMime]           = useState('image/jpeg')
-  const [newPreview, setNewPreview]     = useState<string | null>(null)
+  const [newBase64, setNewBase64]         = useState<string | null>(null)
+  const [newMime, setNewMime]             = useState('image/jpeg')
+  const [newPreview, setNewPreview]       = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -123,14 +175,17 @@ export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props
         setStatut(e.statut)
         setPrix(e.prix ?? '')
         setContact(e.contact ?? '')
-        setImageUrl((e as Evenement & { image_url?: string }).image_url ?? null)
-        setImagePosition((e as Evenement & { image_position?: string }).image_position ?? '50% 50%')
+        setOrganisateurs(e.organisateurs ?? '')
+        setImageUrl(e.image_url ?? null)
+        setImagePosition(e.image_position ?? '50% 50%')
         setLieuId(e.lieu_id ?? null)
         if (e.lieux) {
           setLieuNom(e.lieux.nom ?? '')
           setCommune(e.lieux.commune ?? '')
+          setAdresse(e.lieux.adresse ?? '')
           setLat(e.lieux.lat?.toString() ?? '')
           setLng(e.lieux.lng?.toString() ?? '')
+          setPlaceIdGoogle(e.lieux.place_id_google ?? null)
         }
         setLoading(false)
       })
@@ -151,13 +206,31 @@ export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props
     e.target.value = ''
   }
 
-  const geocode = useCallback(async () => {
+  const geocodeManual = useCallback(async () => {
     if (!lieuNom && !commune) return
     const q = [lieuNom, commune, 'France'].filter(Boolean).join(', ')
     const res = await fetch(`/api/admin/geocode?q=${encodeURIComponent(q)}`)
     const d = await res.json()
-    if (d.lat) { setLat(d.lat.toString()); setLng(d.lng.toString()) }
+    if (d.lat) {
+      setLat(d.lat.toString()); setLng(d.lng.toString())
+      if (d.adresse) setAdresse(d.adresse)
+      setPlaceIdGoogle('manual')
+    }
   }, [lieuNom, commune])
+
+  const handleLieuSelect = async (p: Prediction) => {
+    const res = await fetch(`/api/admin/geocode?q=${encodeURIComponent(p.description)}`)
+    const d = await res.json()
+    if (d.lat) {
+      setLat(d.lat.toString()); setLng(d.lng.toString())
+      if (d.adresse) setAdresse(d.adresse)
+      setPlaceIdGoogle(p.place_id)
+    }
+    if (p.secondary && !commune) {
+      const parts = p.secondary.split(',')
+      if (parts[0]) setCommune(parts[0].trim())
+    }
+  }
 
   const save = async (statutOverride?: string) => {
     setSaving(true); setError(null)
@@ -177,15 +250,17 @@ export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props
         titre, description,
         date_debut: dateDebut || null, date_fin: dateFin || null, heure: heure || null,
         categorie, statut: statutOverride ?? statut,
-        prix: prix || null, contact: contact || null,
+        prix: prix || null, contact: contact || null, organisateurs: organisateurs || null,
         image_url: finalUrl, image_position: imagePosition,
       }
       if (lieuId) {
-        body.lieu_id = lieuId; body.lieu_nom = lieuNom
+        body.lieu_id = lieuId
+        body.lieu_nom = lieuNom
+        body.adresse = adresse || null
         body.commune = commune || null
         body.lat = lat ? parseFloat(lat) : null
         body.lng = lng ? parseFloat(lng) : null
-        if (lat && lng) body.place_id_google = 'manual'
+        body.place_id_google = placeIdGoogle
       }
 
       const r = await fetch(`/api/admin/evenements/${evenementId}`, {
@@ -208,6 +283,14 @@ export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props
 
   const activeSrc = newPreview ?? imageUrl
 
+  const inp = (label: string, value: string, set: (v: string) => void, type = 'text', placeholder = '') => (
+    <div>
+      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{label}</label>
+      <input type={type} value={value} onChange={e => set(e.target.value)} placeholder={placeholder}
+        className="w-full bg-white border border-[#E8E0D5] rounded-xl px-3 py-2.5 text-sm text-[#2C1810] focus:outline-none focus:border-[#C4622D]" />
+    </div>
+  )
+
   if (loading) return (
     <div className="fixed inset-0 z-[1000] bg-[#FBF7F0] flex items-center justify-center">
       <div className="w-8 h-8 border-4 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
@@ -228,27 +311,21 @@ export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props
     </div>
   )
 
-  const inp = (label: string, value: string, set: (v: string) => void, type = 'text', placeholder = '') => (
-    <div>
-      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{label}</label>
-      <input type={type} value={value} onChange={e => set(e.target.value)} placeholder={placeholder}
-        className="w-full bg-white border border-[#E8E0D5] rounded-xl px-3 py-2.5 text-sm text-[#2C1810] focus:outline-none focus:border-[#C4622D]" />
-    </div>
-  )
-
   return (
     <div className="fixed inset-0 z-[1000] bg-[#FBF7F0] overflow-y-auto">
-      {/* Header sticky */}
+      {/* Header */}
       <div className="sticky top-0 z-10 bg-[#2C1810] text-white px-4 py-3 flex items-center gap-3">
         <button onClick={onClose} className="text-[#C4622D] font-bold text-xl leading-none">←</button>
-        <span className="font-bold flex-1 truncate">{titre || 'Éditer'}</span>
+        <span className="font-bold flex-1 truncate text-sm">{titre || 'Éditer'}</span>
         <button onClick={() => save()} disabled={saving}
           className="bg-[#C4622D] text-white px-4 py-2 rounded-xl font-bold text-sm disabled:opacity-50">
           {saving ? '…' : 'Sauvegarder'}
         </button>
       </div>
 
-      <div className="p-4 space-y-4 pb-32">
+      <div className="p-4 space-y-4 pb-10">
+        {error && <div className="bg-red-50 text-red-600 text-sm px-3 py-2 rounded-xl">{error}</div>}
+
         {/* Image */}
         <div>
           {activeSrc ? (
@@ -259,25 +336,21 @@ export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props
                 style={{ objectPosition: imagePosition }} />
               <div className="absolute bottom-2 right-2 flex gap-2">
                 <button onClick={() => setMode('crop')}
-                  className="bg-black/60 text-white text-xs font-bold px-3 py-1.5 rounded-lg">
-                  ✂️ Recadrer
-                </button>
+                  className="bg-black/60 text-white text-xs font-bold px-3 py-1.5 rounded-lg">✂️ Recadrer</button>
                 <button onClick={() => fileRef.current?.click()}
-                  className="bg-black/60 text-white text-xs font-bold px-3 py-1.5 rounded-lg">
-                  📷 Changer
-                </button>
+                  className="bg-black/60 text-white text-xs font-bold px-3 py-1.5 rounded-lg">📷 Changer</button>
+                <button onClick={() => { setImageUrl(null); setNewBase64(null); setNewPreview(null) }}
+                  className="bg-black/60 text-white text-xs font-bold px-3 py-1.5 rounded-lg">✕</button>
               </div>
             </div>
           ) : (
             <button onClick={() => fileRef.current?.click()}
-              className="w-full h-24 rounded-2xl border-2 border-dashed border-[#E8E0D5] bg-white text-gray-400 text-sm cursor-pointer">
+              className="w-full h-24 rounded-2xl border-2 border-dashed border-[#E8E0D5] bg-white text-gray-400 text-sm">
               + Ajouter une image
             </button>
           )}
           <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} className="hidden" />
         </div>
-
-        {error && <div className="bg-red-50 text-red-600 text-sm px-3 py-2 rounded-xl">{error}</div>}
 
         {/* Statut rapide */}
         <div className="flex gap-2">
@@ -324,28 +397,49 @@ export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props
             className="w-full bg-white border border-[#E8E0D5] rounded-xl px-3 py-2.5 text-sm text-[#2C1810] focus:outline-none focus:border-[#C4622D] resize-none" />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          {inp('Date début', dateDebut, setDateDebut, 'date')}
-          {inp('Date fin', dateFin, setDateFin, 'date')}
+        {/* Dates & heure */}
+        <div className="space-y-3">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Date &amp; Heure</p>
+          <div className="grid grid-cols-2 gap-3">
+            {inp('Date début', dateDebut, setDateDebut, 'date')}
+            {inp('Date fin', dateFin, setDateFin, 'date')}
+          </div>
+          {inp('Heure', heure, setHeure, 'time')}
         </div>
-        {inp('Heure', heure, setHeure, 'time')}
-        {inp('Prix', prix, setPrix, 'text', 'Ex: 5€, Gratuit')}
-        {inp('Contact', contact, setContact, 'text', 'Email, téléphone...')}
 
         {/* Lieu */}
-        <div className="space-y-2">
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Lieu</label>
-          {inp('Nom du lieu', lieuNom, setLieuNom, 'text', 'Salle des fêtes...')}
-          <div className="flex gap-2">
+        <div className="space-y-3">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Lieu</p>
+          <LieuAutocomplete value={lieuNom} onChange={setLieuNom} onSelect={handleLieuSelect} />
+          <div className="grid grid-cols-2 gap-3">
             {inp('Commune', commune, setCommune, 'text', 'Ganges')}
-            <button onClick={geocode}
-              className="shrink-0 self-end mb-px px-3 py-2.5 bg-[#C4622D] text-white text-xs font-bold rounded-xl">
-              📍
-            </button>
+            {inp('Adresse', adresse, setAdresse, 'text', '')}
           </div>
-          {lat && lng && (
-            <p className="text-xs text-green-600 font-medium">✓ Coordonnées : {parseFloat(lat).toFixed(4)}, {parseFloat(lng).toFixed(4)}</p>
+          {lat && lng ? (
+            <p className="text-xs text-green-600 font-medium">
+              ✓ {parseFloat(lat).toFixed(4)}, {parseFloat(lng).toFixed(4)}
+              {placeIdGoogle && placeIdGoogle !== 'manual' && ' · Google Places'}
+            </p>
+          ) : (
+            <button onClick={geocodeManual}
+              className="w-full py-2 bg-white border border-[#C4622D] text-[#C4622D] text-xs font-bold rounded-xl">
+              🔍 Localiser sur Google Places
+            </button>
           )}
+          {lat && lng && (
+            <button onClick={geocodeManual}
+              className="w-full py-2 bg-white border border-[#E8E0D5] text-gray-400 text-xs font-bold rounded-xl">
+              🔄 Relocaliser
+            </button>
+          )}
+        </div>
+
+        {/* Infos pratiques */}
+        <div className="space-y-3">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Infos pratiques</p>
+          {inp('Prix', prix, setPrix, 'text', 'Gratuit, 5€…')}
+          {inp('Contact', contact, setContact, 'text', 'Email, téléphone…')}
+          {inp('Organisateurs', organisateurs, setOrganisateurs, 'text', 'Association, mairie…')}
         </div>
 
         {/* Supprimer */}

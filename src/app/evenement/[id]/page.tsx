@@ -1,60 +1,24 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Evenement, isApproxLocation } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
-import { Categorie } from '@/lib/types'
 import { formatDate } from '@/lib/filters'
 import Link from 'next/link'
 import ImageLightbox from '@/components/ImageLightbox'
 import FeedbackButton from '@/components/FeedbackButton'
-
-const SESSION_KEY      = 'pdv-admin-session'
-const SESSION_DURATION = 30 * 60 * 1000
-
-function isAdminSession(): boolean {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY)
-    if (!raw) return false
-    const { ts } = JSON.parse(raw)
-    return Date.now() - ts < SESSION_DURATION
-  } catch { return false }
-}
-
-interface EditForm {
-  titre: string
-  description: string
-  date_debut: string
-  date_fin: string
-  heure: string
-  categorie: Categorie
-  prix: string
-  contact: string
-  organisateurs: string
-  statut: string
-}
+import EventEditDrawer from '@/components/EventEditDrawer'
+import { useAdminSession } from '@/hooks/useAdminSession'
 
 export default function EvenementPage() {
-  const router = useRouter()
   const { id } = useParams<{ id: string }>()
-
   const [evt, setEvt]       = useState<Evenement | null>(null)
   const [loading, setLoading] = useState(true)
-  const [isAdmin, setIsAdmin] = useState(false)
   const [editing, setEditing] = useState(false)
-  const [saving, setSaving]   = useState(false)
-  const [form, setForm]       = useState<EditForm | null>(null)
-  const [error, setError]     = useState<string | null>(null)
-
-  // Voice edit
-  const [recording, setRecording] = useState(false)
-  const [voiceStatus, setVoiceStatus] = useState<'idle' | 'recording' | 'processing' | 'done' | 'error'>('idle')
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const chunksRef = useRef<Blob[]>([])
+  const isAdmin = useAdminSession()
 
   useEffect(() => {
-    setIsAdmin(isAdminSession())
     supabase.from('evenements').select('*, lieux(*)').eq('id', id).single()
       .then(({ data }) => {
         if (data) setEvt(data as Evenement)
@@ -62,124 +26,11 @@ export default function EvenementPage() {
       })
   }, [id])
 
-  const startVoice = async () => {
-    if (recording) {
-      // Arrêter l'enregistrement
-      mediaRecorderRef.current?.stop()
-      return
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mr = new MediaRecorder(stream)
-      chunksRef.current = []
-      mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data) }
-      mr.onstop = async () => {
-        stream.getTracks().forEach(t => t.stop())
-        setRecording(false)
-        setVoiceStatus('processing')
-        try {
-          const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
-          const fd = new FormData()
-          fd.append('audio', blob, 'recording.webm')
-          const tr = await fetch('/api/transcribe', { method: 'POST', body: fd })
-          const { text, error: tErr } = await tr.json()
-          if (tErr || !text) throw new Error(tErr ?? 'Transcription vide')
-
-          const ve = await fetch('/api/admin/voice-edit', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ transcript: text, currentForm: form }),
-          })
-          const { updates, error: vErr } = await ve.json()
-          if (vErr) throw new Error(vErr)
-          if (updates && Object.keys(updates).length > 0) {
-            setForm(p => ({ ...p!, ...updates }))
-          }
-          setVoiceStatus('done')
-          setTimeout(() => setVoiceStatus('idle'), 2500)
-        } catch (e: unknown) {
-          console.error(e)
-          setVoiceStatus('error')
-          setTimeout(() => setVoiceStatus('idle'), 3000)
-        }
-      }
-      mediaRecorderRef.current = mr
-      mr.start()
-      setRecording(true)
-      setVoiceStatus('recording')
-    } catch {
-      setVoiceStatus('error')
-      setTimeout(() => setVoiceStatus('idle'), 3000)
-    }
-  }
-
-  const startEdit = () => {
-    if (!evt) return
-    setForm({
-      titre:         evt.titre         ?? '',
-      description:   evt.description   ?? '',
-      date_debut:    evt.date_debut     ?? '',
-      date_fin:      evt.date_fin       ?? '',
-      heure:         evt.heure          ? evt.heure.slice(0, 5) : '',
-      categorie:     (evt.categorie     ?? 'autre') as Categorie,
-      prix:          evt.prix           ?? '',
-      contact:       evt.contact        ?? '',
-      organisateurs: evt.organisateurs  ?? '',
-      statut:        evt.statut         ?? 'en_attente',
-    })
-    setEditing(true)
-    setError(null)
-  }
-
-  const cancelEdit = () => {
-    setEditing(false)
-    setForm(null)
-    router.back()
-  }
-
-  const saveEdit = async () => {
-    if (!form || !evt) return
-    setSaving(true)
-    setError(null)
-    const res = await fetch(`/api/admin/evenements/${evt.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
-    })
-    if (res.ok) {
-      // Mettre à jour l'état local
-      const updated = { ...evt, ...form }
-      setEvt(updated as Evenement)
-      setEditing(false)
-      setForm(null)
-      router.back()
-    } else {
-      const d = await res.json()
-      setError(d.error ?? 'Erreur sauvegarde')
-    }
-    setSaving(false)
-  }
-
-  const f = (label: string, key: keyof EditForm, type = 'text', placeholder = '') => (
-    <div>
-      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#8A8A8A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{label}</label>
-      <input
-        type={type}
-        value={form![key]}
-        onChange={e => setForm(p => ({ ...p!, [key]: e.target.value }))}
-        placeholder={placeholder}
-        style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #E0D8CE', borderRadius: 12, padding: '10px 14px', fontSize: 14, backgroundColor: '#FBF7F0', outline: 'none', fontFamily: 'Inter, sans-serif' }}
-      />
+  if (loading) return (
+    <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FBF7F0' }}>
+      <div style={{ width: 32, height: 32, borderRadius: '50%', border: '4px solid #E0D8CE', borderTopColor: '#C4622D', animation: 'spin 0.7s linear infinite' }} />
     </div>
   )
-
-  if (loading) {
-    return (
-      <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FBF7F0' }}>
-        <div style={{ width: 32, height: 32, borderRadius: '50%', border: '4px solid #E0D8CE', borderTopColor: '#C4622D', animation: 'spin 0.7s linear infinite' }} />
-      </div>
-    )
-  }
 
   if (!evt) return (
     <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FBF7F0' }}>
@@ -195,124 +46,14 @@ export default function EvenementPage() {
     ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(lieu.adresse)}`
     : null
 
-  // ── Mode édition ─────────────────────────────────────────────────────────────
-  if (editing && form) {
-    return (
-      <div className="min-h-screen bg-[#FBF7F0]">
-        <div className="sticky top-0 z-10 bg-white border-b border-[#E8E0D5] px-4 py-3 flex items-center gap-3">
-          <button onClick={cancelEdit} className="text-[#C4622D] font-bold text-2xl leading-none">←</button>
-          <h1 className="font-bold text-[#2C1810] flex-1 text-base">Modifier l&apos;événement</h1>
-          <button
-            onClick={startVoice}
-            title="Corriger à l'oral"
-            style={{
-              width: 36, height: 36, borderRadius: '50%', border: 'none', cursor: 'pointer',
-              backgroundColor: voiceStatus === 'recording' ? '#ef4444' : voiceStatus === 'done' ? '#22c55e' : voiceStatus === 'error' ? '#f97316' : '#C4622D',
-              color: '#fff', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'background-color 0.2s',
-              animation: voiceStatus === 'recording' ? 'pulse 1s infinite' : undefined,
-            }}
-          >
-            {voiceStatus === 'processing' ? '⏳' : voiceStatus === 'done' ? '✓' : voiceStatus === 'error' ? '✗' : '🎙️'}
-          </button>
-          <span className="text-xs bg-orange-100 text-orange-600 font-bold px-2 py-1 rounded-full">Admin</span>
-        </div>
-        {voiceStatus === 'recording' && (
-          <div style={{ backgroundColor: '#fef2f2', borderBottom: '1px solid #fecaca', padding: '6px 16px', fontSize: 12, color: '#ef4444', fontWeight: 600, textAlign: 'center' }}>
-            Enregistrement… Appuyez à nouveau pour terminer
-          </div>
-        )}
-        {voiceStatus === 'processing' && (
-          <div style={{ backgroundColor: '#fffbeb', borderBottom: '1px solid #fde68a', padding: '6px 16px', fontSize: 12, color: '#92400e', fontWeight: 600, textAlign: 'center' }}>
-            Analyse vocale en cours…
-          </div>
-        )}
-        {voiceStatus === 'done' && (
-          <div style={{ backgroundColor: '#f0fdf4', borderBottom: '1px solid #bbf7d0', padding: '6px 16px', fontSize: 12, color: '#166534', fontWeight: 600, textAlign: 'center' }}>
-            ✓ Formulaire mis à jour par la voix
-          </div>
-        )}
-
-        <div className="p-4 space-y-3 pb-32" style={{ fontFamily: 'Inter, sans-serif' }}>
-
-          <div className="bg-white rounded-2xl p-4 space-y-3">
-            {f('Titre', 'titre')}
-            <div>
-              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#8A8A8A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Catégorie</label>
-              <select
-                value={form.categorie}
-                onChange={e => setForm(p => ({ ...p!, categorie: e.target.value as Categorie }))}
-                style={{ width: '100%', border: '1px solid #E0D8CE', borderRadius: 12, padding: '10px 14px', fontSize: 14, backgroundColor: '#FBF7F0', outline: 'none' }}
-              >
-                {(Object.entries(CATEGORIES) as [Categorie, { label: string; emoji: string }][]).map(([k, c]) => (
-                  <option key={k} value={k}>{c.emoji} {c.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#8A8A8A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Statut</label>
-              <select
-                value={form.statut}
-                onChange={e => setForm(p => ({ ...p!, statut: e.target.value }))}
-                style={{ width: '100%', border: '1px solid #E0D8CE', borderRadius: 12, padding: '10px 14px', fontSize: 14, backgroundColor: '#FBF7F0', outline: 'none' }}
-              >
-                <option value="publie">Publié</option>
-                <option value="en_attente">En attente</option>
-                <option value="a_verifier">À vérifier</option>
-                <option value="rejete">Rejeté</option>
-                <option value="archive">Archivé</option>
-              </select>
-            </div>
-            {f('Description', 'description')}
-          </div>
-
-          <div className="bg-white rounded-2xl p-4 space-y-3">
-            <p style={{ fontSize: 11, fontWeight: 700, color: '#8A8A8A', textTransform: 'uppercase', letterSpacing: 1 }}>Date & Heure</p>
-            {f('Date de début', 'date_debut', 'date')}
-            {f('Date de fin', 'date_fin', 'date')}
-            {f('Heure', 'heure', 'time')}
-          </div>
-
-          <div className="bg-white rounded-2xl p-4 space-y-3">
-            <p style={{ fontSize: 11, fontWeight: 700, color: '#8A8A8A', textTransform: 'uppercase', letterSpacing: 1 }}>Infos pratiques</p>
-            {f('Prix', 'prix', 'text', 'Gratuit, 5€...')}
-            {f('Contact', 'contact')}
-            {f('Organisateurs', 'organisateurs')}
-          </div>
-
-          {error && <p style={{ color: '#ef4444', fontSize: 13, backgroundColor: '#fef2f2', borderRadius: 12, padding: '10px 14px' }}>{error}</p>}
-        </div>
-
-        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: 16, backgroundColor: '#fff', borderTop: '1px solid #E8E0D5', display: 'flex', gap: 10 }}>
-          <button
-            onClick={cancelEdit}
-            style={{ flex: 1, padding: 14, borderRadius: 16, border: '1px solid #E0D8CE', backgroundColor: 'transparent', color: '#8A8A8A', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}
-          >
-            Annuler
-          </button>
-          <button
-            onClick={saveEdit}
-            disabled={saving}
-            style={{ flex: 2, padding: 14, borderRadius: 16, border: 'none', backgroundColor: '#C4622D', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', opacity: saving ? 0.6 : 1 }}
-          >
-            {saving ? 'Sauvegarde...' : 'Sauvegarder'}
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  // ── Vue normale ───────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#FBF7F0]">
       <div className="sticky top-0 z-10 bg-white border-b border-[#E8E0D5] px-4 py-3 flex items-center gap-3">
         <Link href="/" className="text-[#C4622D] font-bold text-2xl leading-none">←</Link>
         <h1 className="font-bold text-[#2C1810] flex-1 truncate text-base">{evt.titre}</h1>
         {isAdmin && (
-          <button
-            onClick={startEdit}
-            style={{ fontSize: 11, fontWeight: 700, color: '#C4622D', border: '1px solid #C4622D', borderRadius: 999, padding: '4px 12px', backgroundColor: 'transparent', cursor: 'pointer' }}
-          >
+          <button onClick={() => setEditing(true)}
+            style={{ fontSize: 11, fontWeight: 700, color: '#C4622D', border: '1px solid #C4622D', borderRadius: 999, padding: '4px 12px', backgroundColor: 'transparent', cursor: 'pointer' }}>
             ✏️ Éditer
           </button>
         )}
@@ -322,10 +63,8 @@ export default function EvenementPage() {
 
       <div className="p-4 space-y-3 pb-8">
         <div>
-          <span
-            className="inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-1 rounded-full text-white mb-2"
-            style={{ backgroundColor: cat.color }}
-          >
+          <span className="inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-1 rounded-full text-white mb-2"
+            style={{ backgroundColor: cat.color }}>
             {cat.emoji} {cat.label}
           </span>
           <h2 className="text-2xl font-bold text-[#2C1810] leading-tight">{evt.titre}</h2>
@@ -389,18 +128,26 @@ export default function EvenementPage() {
         )}
 
         {mapsUrl && (
-          <a
-            href={mapsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block w-full bg-[#C4622D] text-white text-center py-4 rounded-2xl font-bold text-base shadow-md active:bg-[#A8521E] transition-colors"
-          >
+          <a href={mapsUrl} target="_blank" rel="noopener noreferrer"
+            className="block w-full bg-[#C4622D] text-white text-center py-4 rounded-2xl font-bold text-base shadow-md active:bg-[#A8521E] transition-colors">
             🗺️ Y aller
           </a>
         )}
 
         <FeedbackButton evenementId={evt.id} evenementTitre={evt.titre} />
       </div>
+
+      {editing && (
+        <EventEditDrawer
+          evenementId={evt.id}
+          onClose={() => setEditing(false)}
+          onSaved={() => {
+            setEditing(false)
+            supabase.from('evenements').select('*, lieux(*)').eq('id', id).single()
+              .then(({ data }) => { if (data) setEvt(data as Evenement) })
+          }}
+        />
+      )}
     </div>
   )
 }
