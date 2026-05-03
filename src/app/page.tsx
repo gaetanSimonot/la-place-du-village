@@ -77,6 +77,9 @@ export default function HomePage() {
   const [sheetPeekH, setSheetPeekH] = useState(130)
   const [screenH, setScreenH]       = useState(812)
   const [navTab, setNavTab]         = useState<NavTab>('carte')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const [fabOpen, setFabOpen]       = useState(false)
   const mapDragTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sheetBeforeMapRef = useRef<'peek'|'half'|'full' | null>(null)
@@ -175,10 +178,14 @@ export default function HomePage() {
       if (!saved) return
       sessionStorage.removeItem('pdv-nav-state')
       const s = JSON.parse(saved)
-      if (s.filtres)   setFiltres(s.filtres)
-      if (s.sheetMode) setSheetMode(s.sheetMode)
-      if (s.selectedId) setSelectedId(s.selectedId)
-      if (s.mapLat != null && s.mapLng != null) setMapCenterOn({ lat: s.mapLat, lng: s.mapLng, zoom: s.mapZoom })
+      if (s.filtres)    setFiltres(s.filtres)
+      if (s.sheetMode)  setSheetMode(s.sheetMode)
+      if (s.selectedId) {
+        setSelectedId(s.selectedId)
+        // Markers will pan to the event when evenements load — no need to restore camera separately
+      } else if (s.mapLat != null && s.mapLng != null) {
+        setMapCenterOn({ lat: s.mapLat, lng: s.mapLng, zoom: s.mapZoom })
+      }
     } catch {}
   }, []) // mount only
 
@@ -260,7 +267,7 @@ export default function HomePage() {
   }, [selectedId])
 
   // Filtre zone appliqué sur la liste complète — recalculé à chaque changement de zone
-  const evenements = useMemo(() => {
+  const evenementsZone = useMemo(() => {
     const rayon   = userZoneActive ? userRayon : (rayonAffichage ?? 0)
     const centres = userZoneActive && userCentre
       ? [userCentre]
@@ -273,6 +280,17 @@ export default function HomePage() {
       return centres.some(c => haversineKm(lat, lng, c.lat, c.lng) <= rayon)
     })
   }, [allEvenements, rayonAffichage, zoneCentres, userZoneActive, userRayon, userCentre])
+
+  // Filtre texte appliqué après tous les autres filtres
+  const evenements = useMemo(() => {
+    if (!searchQuery.trim()) return evenementsZone
+    const q = searchQuery.toLowerCase()
+    return evenementsZone.filter(e =>
+      e.titre.toLowerCase().includes(q) ||
+      e.lieux?.commune?.toLowerCase().includes(q) ||
+      e.lieux?.nom?.toLowerCase().includes(q)
+    )
+  }, [evenementsZone, searchQuery])
 
   // Promoted events bypass user category/date filters — fetched independently
   const proEvents = useMemo(() => promoEventsData.filter(e => e.promotion === 'pro'), [promoEventsData])
@@ -300,21 +318,21 @@ export default function HomePage() {
     setSheetMode('half')
   }
 
-  const saveNavState = useCallback(() => {
+  const saveNavForEvent = useCallback((id: string) => {
     try {
       sessionStorage.setItem('pdv-nav-state', JSON.stringify({
-        filtres, sheetMode, selectedId,
+        filtres, sheetMode: 'peek', selectedId: id,
         mapLat: mapCameraRef.current?.lat,
         mapLng: mapCameraRef.current?.lng,
         mapZoom: mapCameraRef.current?.zoom,
       }))
     } catch {}
-  }, [filtres, sheetMode, selectedId])
+  }, [filtres])
 
   const openEvent = useCallback((id: string) => {
-    saveNavState()
+    saveNavForEvent(id)
     router.push(`/evenement/${id}`)
-  }, [saveNavState, router])
+  }, [saveNavForEvent, router])
 
   const showFab = navTab === 'carte' && sheetMode !== 'full'
 
@@ -388,6 +406,83 @@ export default function HomePage() {
       >
         📍
       </button>
+
+      {/* Bouton loupe — recherche textuelle */}
+      <button
+        onClick={() => { setSearchOpen(true); setTimeout(() => searchInputRef.current?.focus(), 80) }}
+        style={{
+          position: 'absolute', top: 118, left: 14, zIndex: 200,
+          width: 44, height: 44, borderRadius: 12,
+          backgroundColor: searchQuery ? 'var(--primary)' : 'rgba(255,255,255,0.92)',
+          border: searchQuery ? 'none' : '1px solid #E0D8CE',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.14)',
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: searchQuery ? '#fff' : '#6B6B6B',
+          opacity: navTab === 'carte' && !searchOpen ? 1 : 0,
+          pointerEvents: navTab === 'carte' && !searchOpen ? 'auto' : 'none',
+          transition: 'opacity 0.18s, background-color 0.18s',
+        }}
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+      </button>
+
+      {/* Barre de recherche — s'ouvre en overlay haut gauche */}
+      <AnimatePresence>
+        {searchOpen && (
+          <motion.div
+            key="search-bar"
+            initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.15 }}
+            style={{
+              position: 'absolute', top: 14, left: 14, right: 14, zIndex: 210,
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}
+          >
+            <div style={{
+              flex: 1, display: 'flex', alignItems: 'center',
+              backgroundColor: 'rgba(255,255,255,0.97)',
+              borderRadius: 12, boxShadow: '0 2px 12px rgba(0,0,0,0.16)',
+              border: '1px solid #E0D8CE', padding: '0 12px', height: 44,
+            }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8A8A8A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+              </svg>
+              <input
+                ref={searchInputRef}
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery('') } }}
+                placeholder="Rechercher un événement…"
+                style={{
+                  flex: 1, border: 'none', outline: 'none',
+                  fontSize: 14, backgroundColor: 'transparent',
+                  marginLeft: 8, color: '#2C1810',
+                  fontFamily: 'Inter, sans-serif',
+                }}
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} style={{
+                  border: 'none', background: 'none', cursor: 'pointer',
+                  color: '#AAA', fontSize: 15, padding: '0 2px', display: 'flex',
+                }}>✕</button>
+              )}
+            </div>
+            <button
+              onClick={() => { setSearchOpen(false); setSearchQuery('') }}
+              style={{
+                flexShrink: 0, width: 44, height: 44, borderRadius: 12, border: 'none',
+                backgroundColor: 'rgba(255,255,255,0.92)',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.14)',
+                cursor: 'pointer', color: '#6B6B6B',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 13, fontWeight: 700,
+              }}
+            >✕</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Popup zone user */}
       {zonePopup && (
@@ -600,7 +695,7 @@ export default function HomePage() {
         onPeekHeightChange={setSheetPeekH}
         proEvents={proEvents}
         onDiscoverPro={openEvent}
-        onOpenEvent={saveNavState}
+        onOpenEvent={saveNavForEvent}
       />
 
       {/* ProBandeau — flotte au-dessus de la sheet (sauf quand full, géré dans BottomSheet) */}

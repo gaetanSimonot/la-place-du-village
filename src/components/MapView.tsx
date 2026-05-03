@@ -173,7 +173,7 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, centerOn }: 
     const allNewMarkers = withLoc.map(evt => {
       const isSelected = evt.id === selectedId
       const approx     = isApproxLocation(evt.lieux)
-      const promoted   = evt.promotion === 'pro' || evt.promotion === 'max'
+      const promoted   = evt.promotion === 'pro'
       const baseSize   = isSelected ? 52 : 44
       const size       = baseSize + (promoted ? 14 : 0)
       const marker     = new google.maps.Marker({

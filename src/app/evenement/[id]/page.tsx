@@ -1,4 +1,5 @@
 'use client'
+import React from 'react'
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -10,6 +11,30 @@ import ImageLightbox from '@/components/ImageLightbox'
 import FeedbackButton from '@/components/FeedbackButton'
 import EventEditDrawer from '@/components/EventEditDrawer'
 import { useAdminSession } from '@/hooks/useAdminSession'
+
+function linkify(text: string): React.ReactNode {
+  const urlRe = /https?:\/\/[^\s]+/g
+  const nodes: React.ReactNode[] = []
+  let last = 0, m: RegExpExecArray | null
+  while ((m = urlRe.exec(text)) !== null) {
+    if (m.index > last) nodes.push(text.slice(last, m.index))
+    nodes.push(<a key={m.index} href={m[0]} target="_blank" rel="noopener noreferrer" style={{ color: '#C4622D', textDecoration: 'underline', wordBreak: 'break-all' }}>{m[0]}</a>)
+    last = m.index + m[0].length
+  }
+  if (last < text.length) nodes.push(text.slice(last))
+  return nodes.length === 1 && typeof nodes[0] === 'string' ? nodes[0] : <>{nodes}</>
+}
+
+function renderContact(contact: string): React.ReactNode {
+  const s = contact.trim()
+  if (/^https?:\/\//i.test(s))
+    return <a href={s} target="_blank" rel="noopener noreferrer" style={{ color: '#C4622D', textDecoration: 'underline', wordBreak: 'break-all' }}>{s.replace(/^https?:\/\//, '').replace(/\/$/, '')}</a>
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s))
+    return <a href={`mailto:${s}`} style={{ color: '#C4622D', textDecoration: 'underline' }}>{s}</a>
+  if (/^[\d\s+\-().]{6,}$/.test(s))
+    return <a href={`tel:${s.replace(/[\s\-().]/g, '')}`} style={{ color: '#C4622D', textDecoration: 'underline' }}>{s}</a>
+  return <>{linkify(s)}</>
+}
 
 export default function EvenementPage() {
   const { id } = useParams<{ id: string }>()
@@ -115,15 +140,25 @@ export default function EvenementPage() {
         {evt.description && (
           <div className="bg-white rounded-2xl p-4">
             <h3 className="font-bold text-[#2C1810] mb-2">À propos</h3>
-            <p className="text-sm text-gray-600 leading-relaxed">{evt.description}</p>
+            <p className="text-sm text-gray-600 leading-relaxed" style={{ whiteSpace: 'pre-wrap' }}>{linkify(evt.description)}</p>
           </div>
         )}
 
         {(evt.contact || evt.organisateurs) && (
           <div className="bg-white rounded-2xl p-4 space-y-1.5">
             <h3 className="font-bold text-[#2C1810] mb-1">Contact</h3>
-            {evt.organisateurs && <p className="text-sm text-gray-600">🏛️ {evt.organisateurs}</p>}
-            {evt.contact && <p className="text-sm text-gray-600">📞 {evt.contact}</p>}
+            {evt.organisateurs && <p className="text-sm text-gray-600">🏛️ {renderContact(evt.organisateurs)}</p>}
+            {evt.contact && <p className="text-sm text-gray-600">📞 {renderContact(evt.contact)}</p>}
+          </div>
+        )}
+
+        {evt.source && /^https?:\/\//i.test(evt.source) && (
+          <div className="bg-white rounded-2xl p-4">
+            <a href={evt.source} target="_blank" rel="noopener noreferrer"
+              className="text-sm font-medium"
+              style={{ color: '#C4622D', textDecoration: 'underline', wordBreak: 'break-all' }}>
+              🔗 Voir la source
+            </a>
           </div>
         )}
 
