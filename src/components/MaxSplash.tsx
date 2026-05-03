@@ -107,7 +107,7 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
           fontFamily: 'Inter, sans-serif',
           animation: 'fadeIn 0.5s 0.6s ease both',
         }}>
-          Agenda local · Ganges
+          c&apos;est arrivé près de chez vous
         </p>
 
         <button onClick={dismiss} style={{

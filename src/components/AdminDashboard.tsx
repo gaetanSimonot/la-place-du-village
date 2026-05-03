@@ -1,7 +1,9 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/hooks/useAuth'
 import { Evenement, isApproxLocation } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
@@ -10,7 +12,7 @@ import ZoneAdmin from '@/components/ZoneAdmin'
 import AdminInbox from '@/components/AdminInbox'
 import EventEditDrawer from '@/components/EventEditDrawer'
 
-type Onglet   = 'inbox' | 'a_traiter' | 'publie' | 'rejete' | 'scrap' | 'doublons' | 'zone'
+type Onglet   = 'inbox' | 'a_traiter' | 'publie' | 'rejete' | 'scrap' | 'doublons' | 'zone' | 'admins'
 type SortKey  = 'created_desc' | 'created_asc' | 'date_asc' | 'date_desc'
 const PAGE_SIZE = 20
 
@@ -31,6 +33,62 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
 ]
 
 export default function AdminDashboard() {
+  const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
+  const [adminVerified, setAdminVerified] = useState(false)
+
+  // Auth guard — redirige si non connecté ou non admin
+  useEffect(() => {
+    if (authLoading) return
+    if (!user?.email) { router.replace('/'); return }
+    supabase.from('admin_emails').select('email').eq('email', user.email).maybeSingle()
+      .then(({ data }) => {
+        if (!data) router.replace('/')
+        else setAdminVerified(true)
+      })
+  }, [authLoading, user, router])
+
+  // Admins management state
+  const [adminList, setAdminList]     = useState<{ email: string; created_at: string }[]>([])
+  const [adminInput, setAdminInput]   = useState('')
+  const [adminLoading, setAdminLoading] = useState(false)
+  const [adminError, setAdminError]   = useState('')
+
+  const fetchAdmins = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/admins', {
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+    })
+    if (res.ok) setAdminList(await res.json())
+  }, [])
+
+  const addAdmin = async () => {
+    const email = adminInput.trim().toLowerCase()
+    if (!email.includes('@')) return
+    setAdminLoading(true); setAdminError('')
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/admins', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ email }),
+    })
+    const json = await res.json()
+    if (!res.ok) setAdminError(json.error ?? 'Erreur')
+    else { setAdminInput(''); fetchAdmins() }
+    setAdminLoading(false)
+  }
+
+  const removeAdmin = async (email: string) => {
+    if (!confirm(`Retirer ${email} des admins ?`)) return
+    const { data: { session } } = await supabase.auth.getSession()
+    await fetch('/api/admin/admins', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ email }),
+    })
+    fetchAdmins()
+  }
+
   const [onglet, setOnglet]             = useState<Onglet>('a_traiter')
   const [evenements, setEvenements]     = useState<Evenement[]>([])
   const [feedbacks, setFeedbacks]       = useState<Feedback[]>([])
@@ -65,7 +123,7 @@ export default function AdminDashboard() {
   }, [])
 
   const fetchTabData = useCallback(async (tab: Onglet) => {
-    if (tab === 'doublons' || tab === 'zone' || tab === 'inbox') return
+    if (tab === 'doublons' || tab === 'zone' || tab === 'inbox' || tab === 'admins') return
     setLoading(true)
     let query = supabase
       .from('evenements')
@@ -106,7 +164,10 @@ export default function AdminDashboard() {
   }, [])
 
   useEffect(() => { fetchAll() }, [fetchAll])
-  useEffect(() => { setSelection(new Set()); setPage(1); fetchTabData(onglet) }, [onglet]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    setSelection(new Set()); setPage(1); fetchTabData(onglet)
+    if (onglet === 'admins') fetchAdmins()
+  }, [onglet]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setPage(1) }, [search, sort, onlyFeedbacks])
 
   // Index feedbacks par evenement_id
@@ -259,6 +320,12 @@ export default function AdminDashboard() {
     else setSelection(new Set(paginated.map(e => e.id)))
   }
 
+  if (authLoading || !adminVerified) return (
+    <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FBF7F0' }}>
+      <div style={{ width: 32, height: 32, borderRadius: '50%', border: '4px solid #E0D8CE', borderTopColor: '#C4622D', animation: 'spin 0.7s linear infinite' }} />
+    </div>
+  )
+
   return (
     <div className="min-h-screen bg-[#FBF7F0] pb-24">
       {/* Header */}
@@ -298,6 +365,7 @@ export default function AdminDashboard() {
           { key: 'rejete',    label: 'Rejetés',      color: 'bg-gray-400'   },
           { key: 'doublons',  label: '🔀 Doublons',  color: 'bg-amber-500'  },
           { key: 'zone',      label: '📍 Zone',      color: 'bg-teal-500'   },
+          { key: 'admins',    label: '👤 Admins',    color: 'bg-purple-500' },
         ] as { key: Onglet; label: string; color: string }[]).map(tab => (
           <button
             key={tab.key}
@@ -324,6 +392,51 @@ export default function AdminDashboard() {
 
       {/* Onglet Zone */}
       {onglet === 'zone' && <ZoneAdmin />}
+
+      {/* Onglet Admins */}
+      {onglet === 'admins' && (
+        <div className="p-4 max-w-md mx-auto">
+          <h2 className="font-bold text-[#2C1810] text-base mb-4">Administrateurs</h2>
+
+          {/* Liste */}
+          <div className="space-y-2 mb-6">
+            {adminList.map(a => (
+              <div key={a.email} className="flex items-center justify-between bg-white rounded-xl px-4 py-3 shadow-sm">
+                <span className="text-sm font-medium text-[#2C1810]">{a.email}</span>
+                {a.email !== user?.email && (
+                  <button onClick={() => removeAdmin(a.email)}
+                    className="text-xs text-red-400 hover:text-red-600 font-semibold transition-colors">
+                    Retirer
+                  </button>
+                )}
+                {a.email === user?.email && (
+                  <span className="text-xs text-[#C4622D] font-semibold">Vous</span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Ajouter */}
+          <div className="bg-white rounded-xl p-4 shadow-sm">
+            <p className="text-sm font-bold text-[#2C1810] mb-3">Ajouter un admin</p>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={adminInput}
+                onChange={e => setAdminInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addAdmin()}
+                placeholder="email@exemple.com"
+                className="flex-1 border border-[#E0D8CE] rounded-xl px-3 py-2 text-sm outline-none focus:border-[#C4622D] bg-[#FBF7F0]"
+              />
+              <button onClick={addAdmin} disabled={adminLoading || !adminInput.includes('@')}
+                className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-40">
+                {adminLoading ? '…' : 'Ajouter'}
+              </button>
+            </div>
+            {adminError && <p className="text-xs text-red-500 mt-2">{adminError}</p>}
+          </div>
+        </div>
+      )}
 
       {/* Bandeau info Scrap */}
       {onglet === 'scrap' && (

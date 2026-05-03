@@ -1,17 +1,20 @@
 import { useState, useEffect } from 'react'
-
-const SESSION_KEY      = 'pdv-admin-session'
-const SESSION_DURATION = 30 * 60 * 1000
+import { supabase } from '@/lib/supabase'
 
 export function useAdminSession(): boolean {
   const [isAdmin, setIsAdmin] = useState(false)
+
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(SESSION_KEY)
-      if (!raw) return
-      const { ts } = JSON.parse(raw)
-      setIsAdmin(Date.now() - ts < SESSION_DURATION)
-    } catch {}
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user?.email) return
+      const { data } = await supabase
+        .from('admin_emails')
+        .select('email')
+        .eq('email', user.email)
+        .maybeSingle()
+      setIsAdmin(!!data)
+    })
   }, [])
+
   return isAdmin
 }

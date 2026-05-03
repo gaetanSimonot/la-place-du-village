@@ -2,9 +2,10 @@
 import { useState } from 'react'
 import { useTheme } from '@/components/ThemeProvider'
 import { COLOR_THEMES, MAP_STYLES, SHEET_BG_OPTIONS } from '@/lib/themes'
-import AdminAccess from '@/components/AdminAccess'
 import LoginView from '@/components/LoginView'
 import { useAuth } from '@/hooks/useAuth'
+import { useAdminSession } from '@/hooks/useAdminSession'
+import Link from 'next/link'
 
 type Tab = 'profil' | 'theme'
 
@@ -12,6 +13,7 @@ export default function ProfilView() {
   const [tab, setTab] = useState<Tab>('profil')
   const { colorTheme, mapStyle, sheetBg, setColorThemeId, setMapStyleId, setSheetBgId } = useTheme()
   const { user, profile, loading, signOut, updateDisplayName } = useAuth()
+  const isAdmin = useAdminSession()
   const [editingName, setEditingName] = useState(false)
   const [nameInput, setNameInput] = useState('')
 
@@ -121,6 +123,21 @@ export default function ProfilView() {
 
                   <p style={{ fontSize: 13, color: '#8A8A8A', margin: 0 }}>{profile?.email ?? user.email}</p>
                 </div>
+
+                {/* Bouton admin — visible uniquement pour les admins */}
+                {isAdmin && (
+                  <Link href="/admin" style={{ textDecoration: 'none', width: '100%' }}>
+                    <div style={{
+                      width: '100%', padding: '13px', borderRadius: 14, marginBottom: 10,
+                      backgroundColor: 'var(--primary-light)', border: '1.5px solid var(--primary)',
+                      color: 'var(--primary)', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                      fontFamily: 'Inter, sans-serif', boxSizing: 'border-box',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    }}>
+                      ⚙️ Tableau de bord admin
+                    </div>
+                  </Link>
+                )}
 
                 {/* Bouton déconnexion */}
                 <button
@@ -270,7 +287,6 @@ export default function ProfilView() {
           </div>
         )}
       </div>
-      <AdminAccess />
     </div>
   )
 }
