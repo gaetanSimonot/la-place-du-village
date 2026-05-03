@@ -18,20 +18,14 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
   const [phase, setPhase] = useState<Phase>('loading')
   const [idx, setIdx]     = useState(0)
 
-  // Mount: check if already dismissed this session
   useEffect(() => {
     if (sessionStorage.getItem(SESSION_KEY)) setPhase('dismissed')
   }, [])
 
-  // React to loading state and available events
   useEffect(() => {
     if (sessionStorage.getItem(SESSION_KEY)) return
     if (loading) return
-    if (events.length === 0) {
-      setPhase('dismissed')
-    } else {
-      setPhase('event')
-    }
+    setPhase(events.length === 0 ? 'dismissed' : 'event')
   }, [loading, events.length])
 
   const dismiss = () => {
@@ -52,25 +46,25 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
 
   if (phase === 'dismissed') return null
 
-  // ── Loading phase ──
+  /* ── Loading phase ── */
   if (phase === 'loading') {
     return (
       <div style={{
         position: 'fixed', inset: 0, zIndex: 500,
-        backgroundColor: '#2C1810',
+        backgroundColor: '#1a0a06',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         fontFamily: 'Syne, sans-serif',
       }}>
         <div style={{ fontSize: 26, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', marginBottom: 6 }}>
           La Place du Village
         </div>
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', marginBottom: 52, fontFamily: 'Inter, sans-serif' }}>
+        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 52, fontFamily: 'Inter, sans-serif' }}>
           Agenda local · Ganges
         </div>
         <div style={{
           width: 28, height: 28, borderRadius: '50%',
-          border: '2.5px solid rgba(255,255,255,0.15)',
-          borderTopColor: '#C4622D',
+          border: '2.5px solid rgba(255,255,255,0.12)',
+          borderTopColor: '#EC407A',
           animation: 'spin 0.7s linear infinite',
         }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
@@ -78,7 +72,7 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
     )
   }
 
-  // ── Event phase ──
+  /* ── Event phase ── */
   const evt = events[idx]
   const cat = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
   const hasNext = idx + 1 < events.length
@@ -86,81 +80,106 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 500,
-      backgroundColor: 'rgba(0,0,0,0.88)',
-      display: 'flex', flexDirection: 'column',
       fontFamily: 'Inter, sans-serif',
-      animation: 'fadeIn 0.3s ease',
+      animation: 'fadeIn 0.35s ease',
     }}>
       <style>{`@keyframes fadeIn { from { opacity:0 } to { opacity:1 } } @keyframes spin { to { transform: rotate(360deg) } }`}</style>
 
-      {/* Image hero */}
-      <div style={{ position: 'relative', flex: '0 0 55%', overflow: 'hidden' }}>
-        {evt.image_url
-          ? <img src={evt.image_url} alt={evt.titre} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: evt.image_position ?? '50% 50%' }} />
-          : <div style={{ width: '100%', height: '100%', backgroundColor: cat.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 80 }}>{cat.emoji}</div>
-        }
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '40%', background: 'linear-gradient(to bottom, transparent, rgba(0,0,0,0.8))' }} />
-        <button onClick={dismiss} style={{
-          position: 'absolute', top: 16, right: 16,
-          width: 36, height: 36, borderRadius: '50%',
-          backgroundColor: 'rgba(0,0,0,0.4)', border: 'none',
-          color: '#fff', fontSize: 18, cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>✕</button>
-        <div style={{ position: 'absolute', top: 16, left: 16 }}>
-          <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', backgroundColor: '#7C3AED', padding: '3px 10px', borderRadius: 999, letterSpacing: '0.05em' }}>
-            ⚡ À NE PAS MANQUER
-          </span>
-        </div>
-        {events.length > 1 && (
-          <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 6 }}>
-            {events.map((_, i) => (
-              <div key={i} style={{ width: i === idx ? 18 : 7, height: 7, borderRadius: 4, backgroundColor: i === idx ? '#fff' : 'rgba(255,255,255,0.4)', transition: 'width 0.3s' }} />
-            ))}
-          </div>
-        )}
+      {/* Image plein écran */}
+      {evt.image_url
+        ? <img src={evt.image_url} alt={evt.titre} style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            objectFit: 'cover', objectPosition: evt.image_position ?? '50% 50%',
+          }} />
+        : <div style={{ position: 'absolute', inset: 0, backgroundColor: cat.color }} />
+      }
+
+      {/* Dégradé sombre bas → haut */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: 'linear-gradient(to top, rgba(0,0,0,0.94) 0%, rgba(0,0,0,0.75) 38%, rgba(0,0,0,0.2) 62%, transparent 100%)',
+      }} />
+
+      {/* Fermer */}
+      <button onClick={dismiss} style={{
+        position: 'absolute', top: 18, right: 18,
+        width: 32, height: 32, borderRadius: '50%',
+        backgroundColor: 'rgba(255,255,255,0.18)', border: 'none',
+        color: '#fff', fontSize: 15, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>✕</button>
+
+      {/* Badge "ÉVÉNEMENT À LA UNE" */}
+      <div style={{ position: 'absolute', top: 22, left: 18 }}>
+        <span style={{
+          fontSize: 10, fontWeight: 800, color: '#fff',
+          backgroundColor: '#EC407A',
+          padding: '4px 11px', borderRadius: 999,
+          letterSpacing: '0.07em', textTransform: 'uppercase',
+          fontFamily: 'Inter, sans-serif',
+        }}>ÉVÉNEMENT À LA UNE</span>
       </div>
 
-      {/* Info */}
-      <div style={{ flex: 1, padding: '20px 20px 0', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-        <span style={{
-          display: 'inline-flex', alignItems: 'center', gap: 5,
-          fontSize: 11, fontWeight: 700, color: '#fff',
-          backgroundColor: cat.color, padding: '3px 10px', borderRadius: 999,
-          marginBottom: 10, alignSelf: 'flex-start',
+      {/* Dots navigation (plusieurs max events) */}
+      {events.length > 1 && (
+        <div style={{
+          position: 'absolute', bottom: 176, left: '50%', transform: 'translateX(-50%)',
+          display: 'flex', gap: 6,
         }}>
-          {cat.emoji} {cat.label}
-        </span>
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: '#fff', lineHeight: 1.25, margin: '0 0 8px', fontFamily: 'Syne, sans-serif' }}>
+          {events.map((_, i) => (
+            <div key={i} onClick={() => setIdx(i)} style={{
+              width: i === idx ? 20 : 6, height: 6, borderRadius: 3,
+              backgroundColor: i === idx ? '#fff' : 'rgba(255,255,255,0.35)',
+              transition: 'width 0.3s', cursor: 'pointer',
+            }} />
+          ))}
+        </div>
+      )}
+
+      {/* Contenu en bas */}
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        padding: '0 22px 44px',
+      }}>
+        <h2 style={{
+          fontSize: 30, fontWeight: 800, color: '#fff',
+          lineHeight: 1.18, margin: '0 0 8px',
+          fontFamily: 'Syne, sans-serif',
+        }}>
           {evt.titre}
         </h2>
-        {evt.date_debut && (
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', margin: '0 0 4px' }}>
-            📅 {formatDate(evt.date_debut)}{evt.heure ? ` · ${evt.heure.slice(0,5)}` : ''}
-          </p>
-        )}
-        {evt.lieux && (
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', margin: 0 }}>
-            📍 {evt.lieux.nom}{evt.lieux.commune ? `, ${evt.lieux.commune}` : ''}
-          </p>
-        )}
-      </div>
 
-      {/* Buttons */}
-      <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {(evt.date_debut || evt.lieux) && (
+          <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.78)', margin: '0 0 4px', lineHeight: 1.4 }}>
+            {evt.date_debut ? formatDate(evt.date_debut) : ''}
+            {evt.heure ? ` · ${evt.heure.slice(0,5)}` : ''}
+            {evt.lieux?.commune ? ` • ${evt.lieux.commune}` : ''}
+          </p>
+        )}
+
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', margin: '0 0 26px' }}>
+          {cat.emoji} {cat.label}
+        </p>
+
+        {/* CTA principal */}
         <button onClick={discover} style={{
-          width: '100%', padding: '16px', borderRadius: 16, border: 'none',
-          backgroundColor: '#C4622D', color: '#fff',
-          fontSize: 16, fontWeight: 800, cursor: 'pointer', fontFamily: 'Syne, sans-serif',
+          width: '100%', padding: '18px', borderRadius: 999,
+          backgroundColor: '#EC407A', color: '#fff',
+          fontSize: 16, fontWeight: 700, border: 'none',
+          cursor: 'pointer', marginBottom: 14,
+          fontFamily: 'Syne, sans-serif', letterSpacing: '0.01em',
         }}>
-          Découvrir →
+          Découvrir l&apos;événement
         </button>
+
+        {/* Lien secondaire */}
         <button onClick={hasNext ? next : dismiss} style={{
-          width: '100%', padding: '12px', borderRadius: 16, border: '1px solid rgba(255,255,255,0.25)',
-          backgroundColor: 'transparent', color: 'rgba(255,255,255,0.7)',
-          fontSize: 14, fontWeight: 600, cursor: 'pointer',
+          width: '100%', padding: '8px',
+          backgroundColor: 'transparent', border: 'none',
+          color: 'rgba(255,255,255,0.6)', fontSize: 14,
+          cursor: 'pointer', fontFamily: 'Inter, sans-serif',
         }}>
-          {hasNext ? 'Voir le suivant →' : "Aller sur l'app"}
+          {hasNext ? 'Voir le suivant' : 'Voir la carte'}
         </button>
       </div>
     </div>
