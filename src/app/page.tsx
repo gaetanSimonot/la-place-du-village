@@ -57,6 +57,7 @@ export default function HomePage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [filtres, setFiltres]       = useState<Filtres>(defaultFiltres)
   const [allEvenements, setAllEvenements] = useState<EvenementCard[]>([])
+  const [promoEventsData, setPromoEventsData] = useState<EvenementCard[]>([])
   const [loading, setLoading]       = useState(true)
   const [masquerPasses, setMasquerPasses] = useState<boolean | null>(null)
   const [zoneCentres, setZoneCentres]   = useState<{ lat: number; lng: number; nom: string }[]>([])
@@ -69,7 +70,8 @@ export default function HomePage() {
   const [userVille, setUserVille]       = useState('')
   const [userCentre, setUserCentre]     = useState<{ lat: number; lng: number; nom: string } | null>(null)
   const [userZoneActive, setUserZoneActive] = useState(false)
-  const [mapCenterOn, setMapCenterOn]   = useState<{ lat: number; lng: number } | null>(null)
+  const [mapCenterOn, setMapCenterOn]   = useState<{ lat: number; lng: number; zoom?: number } | null>(null)
+  const mapCameraRef = useRef<{ lat: number; lng: number; zoom: number } | null>(null)
   const [geocoding, setGeocoding]       = useState(false)
   const [sheetMode, setSheetMode]   = useState<'peek'|'half'|'full'>('half')
   const [sheetPeekH, setSheetPeekH] = useState(130)
@@ -166,6 +168,20 @@ export default function HomePage() {
 
   useEffect(() => { setScreenH(window.innerHeight) }, [])
 
+  // Restore navigation state on back-navigation from event page
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('pdv-nav-state')
+      if (!saved) return
+      sessionStorage.removeItem('pdv-nav-state')
+      const s = JSON.parse(saved)
+      if (s.filtres)   setFiltres(s.filtres)
+      if (s.sheetMode) setSheetMode(s.sheetMode)
+      if (s.selectedId) setSelectedId(s.selectedId)
+      if (s.mapLat != null && s.mapLng != null) setMapCenterOn({ lat: s.mapLat, lng: s.mapLng, zoom: s.mapZoom })
+    } catch {}
+  }, []) // mount only
+
   // Config chargée une seule fois au mount + écoute changements admin
   useEffect(() => {
     supabase.from('config').select('value').eq('key', 'masquer_passes').single()
@@ -196,26 +212,28 @@ export default function HomePage() {
   const fetchEvenements = useCallback(async () => {
     if (masquerPasses === null || !zoneLoaded) return // attendre les configs
     setLoading(true)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query: any = supabase
-      .from('evenements')
-      .select('id, titre, categorie, date_debut, heure, image_url, image_position, promotion, lieux(id, nom, commune, lat, lng, place_id_google)')
-      .eq('statut', 'publie')
-      .order('date_debut', { ascending: true })
-      .limit(300)
 
+    const SELECT = 'id, titre, categorie, date_debut, heure, image_url, image_position, promotion, lieux(id, nom, commune, lat, lng, place_id_google)'
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query: any = supabase.from('evenements').select(SELECT).eq('statut', 'publie').order('date_debut', { ascending: true }).limit(300)
     if (filtres.categories.length > 0) query = query.in('categorie', filtres.categories)
     const range = getDateRange(filtres.quand)
     if (range) query = query.gte('date_debut', range.from).lte('date_debut', range.to)
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let promoQuery: any = supabase.from('evenements').select(SELECT).eq('statut', 'publie').in('promotion', ['pro', 'max']).order('date_debut', { ascending: true })
 
     if (masquerPasses) {
       const d = new Date()
       const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
       query = query.or(`date_fin.gte.${today},and(date_fin.is.null,date_debut.gte.${today})`)
+      promoQuery = promoQuery.or(`date_fin.gte.${today},and(date_fin.is.null,date_debut.gte.${today})`)
     }
 
-    const { data } = await query
+    const [{ data }, { data: promoData }] = await Promise.all([query, promoQuery])
     setAllEvenements((data as EvenementCard[]) ?? [])
+    setPromoEventsData((promoData as EvenementCard[]) ?? [])
     setLoading(false)
   }, [filtres, masquerPasses, zoneLoaded])
 
@@ -256,8 +274,9 @@ export default function HomePage() {
     })
   }, [allEvenements, rayonAffichage, zoneCentres, userZoneActive, userRayon, userCentre])
 
-  const proEvents = useMemo(() => evenements.filter(e => e.promotion === 'pro'), [evenements])
-  const maxEvents = useMemo(() => evenements.filter(e => e.promotion === 'max'), [evenements])
+  // Promoted events bypass user category/date filters — fetched independently
+  const proEvents = useMemo(() => promoEventsData.filter(e => e.promotion === 'pro'), [promoEventsData])
+  const maxEvents = useMemo(() => promoEventsData.filter(e => e.promotion === 'max'), [promoEventsData])
 
   const handleNavTab = (tab: NavTab) => {
     if (tab === 'profil') { setNavTab('profil'); return }
@@ -281,6 +300,22 @@ export default function HomePage() {
     setSheetMode('half')
   }
 
+  const saveNavState = useCallback(() => {
+    try {
+      sessionStorage.setItem('pdv-nav-state', JSON.stringify({
+        filtres, sheetMode, selectedId,
+        mapLat: mapCameraRef.current?.lat,
+        mapLng: mapCameraRef.current?.lng,
+        mapZoom: mapCameraRef.current?.zoom,
+      }))
+    } catch {}
+  }, [filtres, sheetMode, selectedId])
+
+  const openEvent = useCallback((id: string) => {
+    saveNavState()
+    router.push(`/evenement/${id}`)
+  }, [saveNavState, router])
+
   const showFab = navTab === 'carte' && sheetMode !== 'full'
 
   return (
@@ -295,10 +330,11 @@ export default function HomePage() {
           selectedId={selectedId}
           onSelectEvent={setSelectedId}
           onDeselect={() => setSelectedId(null)}
-          onOpenEvent={id => router.push(`/evenement/${id}`)}
+          onOpenEvent={openEvent}
           centerOn={mapCenterOn}
           onMapDragStart={onMapDragStart}
           onMapDragEnd={onMapDragEnd}
+          onCameraIdle={(lat, lng, zoom) => { mapCameraRef.current = { lat, lng, zoom } }}
         />
       </div>
 
@@ -562,16 +598,17 @@ export default function HomePage() {
         onModeChange={setSheetMode}
         navHeight={NAV_H}
         onPeekHeightChange={setSheetPeekH}
+        proEvents={proEvents}
+        onDiscoverPro={openEvent}
+        onOpenEvent={saveNavState}
       />
 
-      {/* ProBandeau — flotte au-dessus de la sheet */}
-      {proEvents.length > 0 && (() => {
+      {/* ProBandeau — flotte au-dessus de la sheet (sauf quand full, géré dans BottomSheet) */}
+      {proEvents.length > 0 && sheetMode !== 'full' && (() => {
         const SHEET_H = screenH - 60 - NAV_H
-        const bottom = sheetMode === 'full'
-          ? screenH - 60 - 8 - 96
-          : sheetMode === 'peek'
-            ? NAV_H + sheetPeekH
-            : NAV_H + Math.round(SHEET_H * 0.5)
+        const bottom = sheetMode === 'peek'
+          ? NAV_H + sheetPeekH
+          : NAV_H + Math.round(SHEET_H * 0.5)
         return (
           <div style={{
             position: 'absolute', left: 0, right: 0,
@@ -594,7 +631,7 @@ export default function HomePage() {
         </div>
       )}
 
-      <MaxSplash events={maxEvents} onDiscover={id => router.push(`/evenement/${id}`)} loading={loading} />
+      <MaxSplash events={maxEvents} onDiscover={openEvent} loading={loading} />
 
       {/* Bottom Nav — 3 onglets */}
       <nav style={{

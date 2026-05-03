@@ -18,6 +18,7 @@ const QUAND_OPTIONS: { value: FiltreQuand; label: string; short: string }[] = [
 ]
 
 import { useTheme } from '@/components/ThemeProvider'
+import ProBandeau from '@/components/ProBandeau'
 
 const BATCH = 20
 
@@ -33,12 +34,15 @@ interface Props {
   onModeChange: (m: 'peek' | 'half' | 'full') => void
   navHeight: number
   onPeekHeightChange?: (h: number) => void
+  proEvents?: EvenementCard[]
+  onDiscoverPro?: (id: string) => void
+  onOpenEvent?: (id: string) => void
 }
 
 export default function BottomSheet({
   evenements, loading, selectedId, onSelectEvent, onViewOnMap,
   filtres, onFiltresChange, mode, onModeChange, navHeight,
-  onPeekHeightChange,
+  onPeekHeightChange, proEvents = [], onDiscoverPro, onOpenEvent,
 }: Props) {
   const { sheetBg } = useTheme()
   const [screenH, setScreenH]     = useState(812)
@@ -377,6 +381,11 @@ export default function BottomSheet({
       <div style={{ height: 1, backgroundColor: sheetBg.border }} />
       </div>{/* fin header mesuré */}
 
+      {/* ProBandeau — à l'intérieur du sheet en mode full uniquement */}
+      {mode === 'full' && proEvents.length > 0 && (
+        <ProBandeau events={proEvents} onDiscover={onDiscoverPro ?? (() => {})} />
+      )}
+
       {/* ── Liste ── */}
       <div
         ref={listRef}
@@ -398,6 +407,7 @@ export default function BottomSheet({
                 isSelected={evt.id === selectedId}
                 onSelect={() => onSelectEvent(evt.id)}
                 onViewOnMap={() => onViewOnMap(evt.id)}
+                onOpenEvent={onOpenEvent ? () => onOpenEvent(evt.id) : undefined}
               />
             ))}
             {/* Sentinelle scroll infini */}
@@ -414,14 +424,15 @@ export default function BottomSheet({
 }
 
 /* ── Card événement ── */
-function EventListCard({ evt, isSelected, onSelect, onViewOnMap }: {
+function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent }: {
   evt: EvenementCard; isSelected: boolean; onSelect: () => void; onViewOnMap: () => void
+  onOpenEvent?: () => void
 }) {
   const cat  = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
   const lieu = evt.lieux
 
   return (
-    <Link href={`/evenement/${evt.id}`} onClick={onSelect} style={{
+    <Link href={`/evenement/${evt.id}`} onClick={() => { onSelect(); onOpenEvent?.() }} style={{
       display: 'block', position: 'relative', height: 128,
       borderRadius: 16, overflow: 'hidden', textDecoration: 'none', flexShrink: 0,
       boxShadow: isSelected ? `0 0 0 2.5px var(--primary), 0 4px 16px rgba(0,0,0,0.15)` : '0 2px 10px rgba(44,44,44,0.1)',

@@ -91,15 +91,23 @@ function _buildMarkerSvg(categorie: string, selected: boolean, approx = false, p
   return `data:image/svg+xml,${encodeURIComponent(svg)}`
 }
 
-function MapDragListener({ onDragStart, onDragEnd }: { onDragStart?: () => void; onDragEnd?: () => void }) {
+function MapDragListener({ onDragStart, onDragEnd, onCameraIdle }: {
+  onDragStart?: () => void
+  onDragEnd?: () => void
+  onCameraIdle?: (lat: number, lng: number, zoom: number) => void
+}) {
   const map = useMap()
   useEffect(() => {
     if (!map) return
     const listeners: google.maps.MapsEventListener[] = []
-    if (onDragStart) listeners.push(map.addListener('dragstart', onDragStart))
-    if (onDragEnd)   listeners.push(map.addListener('dragend',   onDragEnd))
+    if (onDragStart)   listeners.push(map.addListener('dragstart', onDragStart))
+    if (onDragEnd)     listeners.push(map.addListener('dragend',   onDragEnd))
+    if (onCameraIdle)  listeners.push(map.addListener('idle', () => {
+      const c = map.getCenter(); const z = map.getZoom()
+      if (c && z !== undefined) onCameraIdle(c.lat(), c.lng(), z)
+    }))
     return () => listeners.forEach(l => l.remove())
-  }, [map, onDragStart, onDragEnd])
+  }, [map, onDragStart, onDragEnd, onCameraIdle])
   return null
 }
 
@@ -108,7 +116,7 @@ interface MarkersProps {
   selectedId: string | null
   onSelectEvent: (id: string) => void
   fixedMap: boolean
-  centerOn?: { lat: number; lng: number } | null
+  centerOn?: { lat: number; lng: number; zoom?: number } | null
 }
 
 function Markers({ evenements, selectedId, onSelectEvent, fixedMap, centerOn }: MarkersProps) {
@@ -122,11 +130,11 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, centerOn }: 
     markersRef.current = []
   }, [])
 
-  // Pan vers le centre de zone user
+  // Pan vers le centre de zone user (ou position restaurée)
   useEffect(() => {
     if (!map || !centerOn) return
     map.panTo({ lat: centerOn.lat, lng: centerOn.lng })
-    map.setZoom(11)
+    map.setZoom(centerOn.zoom ?? 11)
   }, [map, centerOn])
 
   // Pan vers l'événement sélectionné (désactivé en mode carte fixe)
@@ -207,12 +215,13 @@ interface Props {
   onSelectEvent: (id: string) => void
   onDeselect: () => void
   onOpenEvent: (id: string) => void
-  centerOn?: { lat: number; lng: number } | null
+  centerOn?: { lat: number; lng: number; zoom?: number } | null
   onMapDragStart?: () => void
   onMapDragEnd?: () => void
+  onCameraIdle?: (lat: number, lng: number, zoom: number) => void
 }
 
-export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn, onMapDragStart, onMapDragEnd }: Props) {
+export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn, onMapDragStart, onMapDragEnd, onCameraIdle }: Props) {
   const selectedEvent = selectedId ? evenements.find(e => e.id === selectedId) : null
   const selectedCat   = selectedEvent
     ? (CATEGORIES[selectedEvent.categorie] ?? CATEGORIES.autre)
@@ -233,7 +242,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
         clickableIcons={false}
         styles={mapStyle.styles.length > 0 ? mapStyle.styles : WARM_STYLE}
       >
-        <MapDragListener onDragStart={onMapDragStart} onDragEnd={onMapDragEnd} />
+        <MapDragListener onDragStart={onMapDragStart} onDragEnd={onMapDragEnd} onCameraIdle={onCameraIdle} />
         <Markers
           evenements={evenements}
           selectedId={selectedId}

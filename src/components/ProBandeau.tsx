@@ -6,7 +6,7 @@ import { CATEGORIES } from '@/lib/categories'
 
 const PROMO_PINK = '#EC407A'
 const INTERVAL_MS = 5000
-const FADE_MS = 180
+const FADE_MS = 350
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr]
@@ -98,11 +98,11 @@ export default function ProBandeau({ events, onDiscover }: Props) {
           <span style={{ fontSize: 9, fontWeight: 800, color: PROMO_PINK, letterSpacing: '0.04em', textTransform: 'uppercase' }}>★ En vedette</span>
         </div>
         <p style={{
-          fontSize: 12, fontWeight: 700, color: '#2C1810', lineHeight: 1.25, margin: 0,
-          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+          fontSize: 12, fontWeight: 700, color: '#2C1810', lineHeight: 1.25, margin: '0 0 2px',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>{evt.titre}</p>
         {evt.date_debut && (
-          <p style={{ fontSize: 10, color: '#8A8A8A', margin: '3px 0 0', fontFamily: 'Inter, sans-serif' }}>
+          <p style={{ fontSize: 10, color: '#8A8A8A', margin: 0, fontFamily: 'Inter, sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {formatDate(evt.date_debut)}{evt.lieux?.commune ? ` · ${evt.lieux.commune}` : ''}
           </p>
         )}
