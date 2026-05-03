@@ -3,6 +3,15 @@ import { CATEGORIES } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
 import Link from 'next/link'
 
+function getThumbUrl(url: string | null | undefined): string | undefined {
+  if (!url) return undefined
+  // Supabase Storage image transform — sert un WebP 600px au lieu de l'original
+  if (url.includes('/storage/v1/object/public/')) {
+    return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/') + '?width=600&quality=75&format=webp'
+  }
+  return url
+}
+
 interface Props {
   evenement: Evenement
   isSelected?: boolean
@@ -25,13 +34,16 @@ export default function EventCard({ evenement, isSelected, onClick }: Props) {
       }}
     >
       {evenement.image_url && (
-        <img
-          src={evenement.image_url}
-          alt={evenement.titre}
-          loading="lazy"
-          className="w-full h-36 object-cover"
-          style={{ objectPosition: evenement.image_position ?? '50% 50%' }}
-        />
+        <div className="w-full h-36 overflow-hidden" style={{ backgroundColor: '#f0ece6' }}>
+          <img
+            src={getThumbUrl(evenement.image_url)}
+            alt={evenement.titre}
+            loading="lazy"
+            decoding="async"
+            className="w-full h-full object-cover"
+            style={{ objectPosition: evenement.image_position ?? '50% 50%' }}
+          />
+        </div>
       )}
       <div className="p-3">
         <span

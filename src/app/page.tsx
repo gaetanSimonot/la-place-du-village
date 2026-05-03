@@ -193,6 +193,7 @@ export default function HomePage() {
       .select('id, titre, categorie, date_debut, heure, image_url, image_position, lieux(id, nom, commune, lat, lng, place_id_google)')
       .eq('statut', 'publie')
       .order('date_debut', { ascending: true })
+      .limit(300)
 
     if (filtres.categories.length > 0) query = query.in('categorie', filtres.categories)
     const range = getDateRange(filtres.quand)
