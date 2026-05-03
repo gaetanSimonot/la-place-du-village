@@ -18,6 +18,7 @@ const QUAND_OPTIONS: { value: FiltreQuand; label: string; short: string }[] = [
 ]
 
 import { useTheme } from '@/components/ThemeProvider'
+import ProBandeau from '@/components/ProBandeau'
 
 const BATCH = 20
 
@@ -32,11 +33,14 @@ interface Props {
   mode: 'peek' | 'half' | 'full'
   onModeChange: (m: 'peek' | 'half' | 'full') => void
   navHeight: number
+  proEvents?: EvenementCard[]
+  onDiscoverPro?: (id: string) => void
 }
 
 export default function BottomSheet({
   evenements, loading, selectedId, onSelectEvent, onViewOnMap,
   filtres, onFiltresChange, mode, onModeChange, navHeight,
+  proEvents = [], onDiscoverPro,
 }: Props) {
   const { sheetBg } = useTheme()
   const [screenH, setScreenH]     = useState(812)
@@ -370,6 +374,8 @@ export default function BottomSheet({
       {/* ── Séparateur ── */}
       <div style={{ height: 1, backgroundColor: sheetBg.border }} />
       </div>{/* fin header mesuré */}
+
+      {proEvents.length > 0 && <ProBandeau events={proEvents} onDiscover={onDiscoverPro ?? (() => {})} />}
 
       {/* ── Liste ── */}
       <div

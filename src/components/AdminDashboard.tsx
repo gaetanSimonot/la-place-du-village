@@ -69,7 +69,7 @@ export default function AdminDashboard() {
     setLoading(true)
     let query = supabase
       .from('evenements')
-      .select('id, titre, categorie, date_debut, statut, source, created_at, lieu_id, doublon_verifie, image_url, image_position, lieux(id, nom, commune, lat, lng, place_id_google)')
+      .select('id, titre, categorie, date_debut, statut, source, created_at, lieu_id, doublon_verifie, image_url, image_position, promotion, lieux(id, nom, commune, lat, lng, place_id_google)')
       .order('created_at', { ascending: false })
       .limit(100)
 
@@ -498,6 +498,11 @@ export default function AdminDashboard() {
                   </p>
                 </div>
                 <StatutBadge statut={evt.statut} />
+                {evt.promotion && evt.promotion !== 'basic' && (
+                  <span className={`shrink-0 text-xs font-bold px-2 py-0.5 rounded-full ${evt.promotion === 'max' ? 'bg-purple-100 text-purple-700' : 'bg-pink-100 text-pink-600'}`}>
+                    {evt.promotion === 'max' ? '⚡ Max' : '★ Pro'}
+                  </span>
+                )}
               </div>
 
               <div className="flex gap-2 mt-3 flex-wrap">

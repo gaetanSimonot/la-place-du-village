@@ -47,22 +47,22 @@ const CATEGORY_SHAPES: Record<string, string> = {
 // Cache SVG par clé "categorie|selected|approx" — évite de recalculer à chaque render
 const svgCache: Record<string, string> = {}
 
-function markerSvg(categorie: string, selected: boolean, approx = false): string {
-  const key = `${categorie}|${selected}|${approx}`
+function markerSvg(categorie: string, selected: boolean, approx = false, promoted = false): string {
+  const key = `${categorie}|${selected}|${approx}|${promoted}`
   if (svgCache[key]) return svgCache[key]
-  const url = _buildMarkerSvg(categorie, selected, approx)
+  const url = _buildMarkerSvg(categorie, selected, approx, promoted)
   svgCache[key] = url
   return url
 }
 
-function _buildMarkerSvg(categorie: string, selected: boolean, approx = false): string {
+function _buildMarkerSvg(categorie: string, selected: boolean, approx = false, promoted = false): string {
   const cat = CATEGORIES[categorie as keyof typeof CATEGORIES] ?? CATEGORIES.autre
   const symbol = CATEGORY_SHAPES[categorie] ?? '●'
 
   const r     = selected ? 22 : 17
-  const size  = r * 2 + 8
+  const size  = (r * 2 + 8) + (promoted ? 14 : 0)
   const cx    = size / 2
-  const cy    = r + 2
+  const cy    = r + 2 + (promoted ? 7 : 0)
   const bg    = approx ? '#fff' : cat.color
   const stroke = cat.color
   const textColor = approx ? cat.color : '#fff'
@@ -76,7 +76,13 @@ function _buildMarkerSvg(categorie: string, selected: boolean, approx = false): 
     ? `<circle cx="${cx}" cy="${cy}" r="${r + 5}" fill="${cat.color}" opacity="0.2"/>`
     : ''
 
+  const promoRing = promoted
+    ? `<circle cx="${cx}" cy="${cy}" r="${r + 7}" fill="#EC407A" opacity="0.15"/>
+       <circle cx="${cx}" cy="${cy}" r="${r + 5}" fill="none" stroke="#EC407A" stroke-width="2.5" opacity="0.9"/>`
+    : ''
+
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size + 10}">
+    ${promoRing}
     ${glow}
     <circle cx="${cx}" cy="${cy}" r="${r}" fill="${bg}" stroke="${stroke}" stroke-width="${strokeW}" ${dashAttr} opacity="${opacity}"/>
     <text x="${cx}" y="${cy + 5}" text-anchor="middle" font-size="${fontSize}" fill="${textColor}" font-family="sans-serif">${symbol}</text>
@@ -157,17 +163,19 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, centerOn }: 
     const newMarkers = withLoc.map(evt => {
       const isSelected = evt.id === selectedId
       const approx     = isApproxLocation(evt.lieux)
-      const size       = isSelected ? 52 : 42
+      const promoted   = evt.promotion === 'pro' || evt.promotion === 'max'
+      const baseSize   = isSelected ? 52 : 44
+      const size       = baseSize + (promoted ? 14 : 0)
       const marker     = new google.maps.Marker({
         position: { lat: evt.lieux!.lat!, lng: evt.lieux!.lng! },
         title: evt.titre,
         optimized: false,
         icon: {
-          url: markerSvg(evt.categorie, isSelected, approx),
+          url: markerSvg(evt.categorie, isSelected, approx, promoted),
           scaledSize: new google.maps.Size(size, size + 10),
           anchor: new google.maps.Point(size / 2, size + 10),
         },
-        zIndex: isSelected ? 999 : 1,
+        zIndex: isSelected ? 999 : promoted ? 10 : 1,
       })
       marker.addListener('click', () => onSelectEvent(evt.id))
       return marker

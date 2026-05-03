@@ -173,6 +173,8 @@ export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props
   const [lng, setLng]                   = useState('')
   const [placeIdGoogle, setPlaceIdGoogle] = useState<string | null>(null)
 
+  const [promotion, setPromotion]         = useState<'basic' | 'pro' | 'max'>('basic')
+
   const [imageUrl, setImageUrl]           = useState<string | null>(null)
   const [imagePosition, setImagePosition] = useState('50% 50%')
   const [newBase64, setNewBase64]         = useState<string | null>(null)
@@ -197,6 +199,7 @@ export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props
         setOrganisateurs(e.organisateurs ?? '')
         setImageUrl(e.image_url ?? null)
         setImagePosition(e.image_position ?? '50% 50%')
+        setPromotion((e.promotion as 'basic' | 'pro' | 'max') ?? 'basic')
         setLieuId(e.lieu_id ?? null)
         if (e.lieux) {
           setLieuNom(e.lieux.nom ?? '')
@@ -269,6 +272,7 @@ export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props
         categorie, statut: statutOverride ?? statut,
         prix: prix || null, contact: contact || null, organisateurs: organisateurs || null,
         image_url: finalUrl, image_position: imagePosition,
+        promotion,
       }
       if (lieuId) {
         body.lieu_id = lieuId
@@ -459,6 +463,27 @@ export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props
           {inp('Prix', prix, setPrix, 'text', 'Gratuit, 5€…')}
           {inp('Contact', contact, setContact, 'text', 'Email, téléphone…')}
           {inp('Organisateurs', organisateurs, setOrganisateurs, 'text', 'Association, mairie…')}
+        </div>
+
+        {/* Promotion */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Promotion</label>
+          <div className="flex gap-2">
+            {([
+              { key: 'basic', label: 'Normal',  bg: '#6B7280', desc: 'Affichage standard' },
+              { key: 'pro',   label: '★ Pro',   bg: '#EC407A', desc: 'Bandeau + carte' },
+              { key: 'max',   label: '⚡ Max',  bg: '#7C3AED', desc: 'Plein écran' },
+            ] as { key: 'basic'|'pro'|'max'; label: string; bg: string; desc: string }[]).map(opt => (
+              <button key={opt.key} onClick={() => setPromotion(opt.key)}
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold border-2 transition-all"
+                style={promotion === opt.key
+                  ? { backgroundColor: opt.bg, color: '#fff', borderColor: opt.bg }
+                  : { backgroundColor: '#fff', color: opt.bg, borderColor: opt.bg + '66' }}>
+                <div>{opt.label}</div>
+                <div style={{ fontSize: 9, fontWeight: 600, opacity: 0.8, marginTop: 2 }}>{opt.desc}</div>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Supprimer */}

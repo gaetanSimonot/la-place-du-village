@@ -11,6 +11,8 @@ import { getDateRange } from '@/lib/filters'
 import { useTheme } from '@/components/ThemeProvider'
 import { haversineKm, GANGES } from '@/lib/distance'
 
+import MaxSplash from '@/components/MaxSplash'
+
 const MapView     = dynamic(() => import('@/components/MapView'),     { ssr: false })
 const BottomSheet = dynamic(() => import('@/components/BottomSheet'), { ssr: false })
 
@@ -192,7 +194,7 @@ export default function HomePage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let query: any = supabase
       .from('evenements')
-      .select('id, titre, categorie, date_debut, heure, image_url, image_position, lieux(id, nom, commune, lat, lng, place_id_google)')
+      .select('id, titre, categorie, date_debut, heure, image_url, image_position, promotion, lieux(id, nom, commune, lat, lng, place_id_google)')
       .eq('statut', 'publie')
       .order('date_debut', { ascending: true })
       .limit(300)
@@ -248,6 +250,9 @@ export default function HomePage() {
       return centres.some(c => haversineKm(lat, lng, c.lat, c.lng) <= rayon)
     })
   }, [allEvenements, rayonAffichage, zoneCentres, userZoneActive, userRayon, userCentre])
+
+  const proEvents = useMemo(() => evenements.filter(e => e.promotion === 'pro'), [evenements])
+  const maxEvents = useMemo(() => evenements.filter(e => e.promotion === 'max'), [evenements])
 
   const handleNavTab = (tab: NavTab) => {
     if (tab === 'profil') { setNavTab('profil'); return }
@@ -551,6 +556,8 @@ export default function HomePage() {
         mode={sheetMode}
         onModeChange={setSheetMode}
         navHeight={NAV_H}
+        proEvents={proEvents}
+        onDiscoverPro={handleViewOnMap}
       />
 
       {/* Profil — panneau inline au-dessus de la carte */}
@@ -562,6 +569,8 @@ export default function HomePage() {
           <ProfilView />
         </div>
       )}
+
+      <MaxSplash events={maxEvents} onDiscover={handleViewOnMap} />
 
       {/* Bottom Nav — 3 onglets */}
       <nav style={{
