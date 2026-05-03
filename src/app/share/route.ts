@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
           .getPublicUrl(filename)
         params.set('share_image', publicUrl)
       }
-    } catch (_) {}
+    } catch { /* upload échoué — on continue sans image */ }
   }
 
   const base = req.nextUrl.origin
