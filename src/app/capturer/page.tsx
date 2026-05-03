@@ -1,5 +1,6 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 function CropStep({ previewUrl, position, onChange, onConfirm }: {
@@ -197,13 +198,42 @@ function extractToForm(e: ExtractedData): FormData {
   }
 }
 
-export default function CapturerPage() {
+function CapturerInner() {
+  const searchParams = useSearchParams()
   const [step, setStep]               = useState<Step>('input')
   const [texte, setTexte]             = useState('')
   const [imageBase64, setImageBase64] = useState<string | null>(null)
   const [imageMime, setImageMime]     = useState('image/jpeg')
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [imagePosition, setImagePosition] = useState('50% 50%')
+
+  // Lecture des params de partage (PWA Share Target)
+  useEffect(() => {
+    const sharedText  = searchParams.get('share_text')
+    const sharedImage = searchParams.get('share_image')
+    if (sharedText)  setTexte(sharedText)
+    if (sharedImage) {
+      fetch(sharedImage)
+        .then(r => r.blob())
+        .then(blob => new Promise<{ data: string; mime: string }>((resolve) => {
+          const reader = new FileReader()
+          reader.onload = async () => {
+            const raw  = (reader.result as string).split(',')[1]
+            const mime = blob.type || 'image/jpeg'
+            resolve(await compressImage(raw, mime))
+          }
+          reader.readAsDataURL(blob)
+        }))
+        .then(compressed => {
+          setImageBase64(compressed.data)
+          setImageMime(compressed.mime)
+          setImagePreview(`data:${compressed.mime};base64,${compressed.data}`)
+          setStep('crop')
+        })
+        .catch(() => {})
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Multi-events
   const [events, setEvents]           = useState<ExtractedData[]>([])
@@ -683,5 +713,13 @@ export default function CapturerPage() {
         </button>
       </div>
     </div>
+  )
+}
+
+export default function CapturerPage() {
+  return (
+    <Suspense>
+      <CapturerInner />
+    </Suspense>
   )
 }
