@@ -8,44 +8,63 @@ type Mode = 'edit' | 'crop' | 'fullscreen'
 interface Prediction { place_id: string; description: string; main: string; secondary: string }
 
 // ── Autocomplete lieu ─────────────────────────────────────────────────────────
-function LieuAutocomplete({ value, onChange, onSelect }: {
-  value: string
-  onChange: (v: string) => void
+function LieuSearch({ onSelect }: {
   onSelect: (p: Prediction) => void
 }) {
+  const [query, setQuery]   = useState('')
   const [preds, setPreds]   = useState<Prediction[]>([])
   const [open, setOpen]     = useState(false)
+  const [searching, setSearching] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout>>()
 
   const search = useCallback(async (q: string) => {
-    if (q.length < 2) { setPreds([]); return }
+    if (q.length < 2) { setPreds([]); setSearching(false); return }
+    setSearching(true)
     const r = await fetch(`/api/admin/autocomplete?q=${encodeURIComponent(q)}`)
     const d = await r.json()
     setPreds(d.predictions ?? [])
     setOpen(true)
+    setSearching(false)
   }, [])
 
   const handleChange = (v: string) => {
-    onChange(v)
+    setQuery(v)
     clearTimeout(timer.current)
     timer.current = setTimeout(() => search(v), 300)
   }
 
+  const handleSelect = (p: Prediction) => {
+    setQuery('')
+    setPreds([])
+    setOpen(false)
+    onSelect(p)
+  }
+
   return (
     <div className="relative">
-      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Nom du lieu</label>
-      <input type="text" value={value} onChange={e => handleChange(e.target.value)}
+      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+        🔍 Rechercher un lieu ou une adresse
+      </label>
+      <input type="text" value={query} onChange={e => handleChange(e.target.value)}
         onFocus={() => preds.length > 0 && setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
-        placeholder="Salle des fêtes, Halles de Ganges…"
-        className="w-full bg-white border border-[#E8E0D5] rounded-xl px-3 py-2.5 text-sm text-[#2C1810] focus:outline-none focus:border-[#C4622D]" />
+        placeholder="Salle des fêtes, 12 rue de la Paix, Ganges…"
+        className="w-full bg-white border border-[#C4622D] rounded-xl px-3 py-2.5 text-sm text-[#2C1810] focus:outline-none focus:border-[#C4622D] placeholder-gray-400" />
+      {searching && (
+        <div className="absolute right-3 top-1/2 mt-3 -translate-y-1/2">
+          <div className="w-4 h-4 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
       {open && preds.length > 0 && (
-        <div className="absolute z-50 left-0 right-0 bg-white border border-[#E8E0D5] rounded-xl shadow-lg mt-1 overflow-hidden">
+        <div className="absolute z-50 left-0 right-0 bg-white border border-[#E8E0D5] rounded-xl shadow-xl mt-1 overflow-hidden">
           {preds.map(p => (
-            <button key={p.place_id} onMouseDown={() => { onChange(p.main); setPreds([]); setOpen(false); onSelect(p) }}
-              className="w-full text-left px-3 py-2.5 hover:bg-[#FBF7F0] border-b border-[#F0EAE0] last:border-0">
-              <p className="text-sm font-medium text-[#2C1810]">{p.main}</p>
-              <p className="text-xs text-gray-400">{p.secondary}</p>
+            <button key={p.place_id} onMouseDown={() => handleSelect(p)}
+              className="w-full text-left px-3 py-3 hover:bg-[#FBF7F0] border-b border-[#F0EAE0] last:border-0 flex items-start gap-2">
+              <span className="text-base shrink-0 mt-0.5">📍</span>
+              <div>
+                <p className="text-sm font-medium text-[#2C1810] leading-tight">{p.main}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{p.secondary}</p>
+              </div>
             </button>
           ))}
         </div>
@@ -219,17 +238,15 @@ export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props
   }, [lieuNom, commune])
 
   const handleLieuSelect = async (p: Prediction) => {
-    const res = await fetch(`/api/admin/geocode?q=${encodeURIComponent(p.description)}`)
+    const res = await fetch(`/api/admin/geocode?place_id=${encodeURIComponent(p.place_id)}`)
     const d = await res.json()
-    if (d.lat) {
-      setLat(d.lat.toString()); setLng(d.lng.toString())
-      if (d.adresse) setAdresse(d.adresse)
-      setPlaceIdGoogle(p.place_id)
-    }
-    if (p.secondary && !commune) {
-      const parts = p.secondary.split(',')
-      if (parts[0]) setCommune(parts[0].trim())
-    }
+    if (!d.lat) return
+    setLat(d.lat.toString())
+    setLng(d.lng.toString())
+    if (d.nom)     setLieuNom(d.nom)
+    if (d.adresse) setAdresse(d.adresse)
+    if (d.commune) setCommune(d.commune)
+    setPlaceIdGoogle(p.place_id)
   }
 
   const save = async (statutOverride?: string) => {
@@ -410,28 +427,30 @@ export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props
         {/* Lieu */}
         <div className="space-y-3">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Lieu</p>
-          <LieuAutocomplete value={lieuNom} onChange={setLieuNom} onSelect={handleLieuSelect} />
-          <div className="grid grid-cols-2 gap-3">
-            {inp('Commune', commune, setCommune, 'text', 'Ganges')}
-            {inp('Adresse', adresse, setAdresse, 'text', '')}
+          <LieuSearch onSelect={handleLieuSelect} />
+
+          {/* Champs remplis après sélection, éditables */}
+          <div className="space-y-2 bg-white rounded-2xl p-3 border border-[#E8E0D5]">
+            {inp('Nom du lieu', lieuNom, setLieuNom, 'text', 'Salle des fêtes…')}
+            <div className="grid grid-cols-2 gap-2">
+              {inp('Commune', commune, setCommune, 'text', 'Ganges')}
+              {inp('Adresse', adresse, setAdresse, 'text', '12 rue…')}
+            </div>
+            {lat && lng ? (
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-green-600 font-medium">
+                  ✓ {parseFloat(lat).toFixed(4)}, {parseFloat(lng).toFixed(4)}
+                  {placeIdGoogle && placeIdGoogle !== 'manual' ? ' · Google Places' : ' · manuel'}
+                </p>
+                <button onClick={geocodeManual} className="text-xs text-gray-400 underline">Relocaliser</button>
+              </div>
+            ) : (
+              <button onClick={geocodeManual}
+                className="w-full py-2 bg-[#FBF7F0] border border-[#C4622D] text-[#C4622D] text-xs font-bold rounded-xl">
+                📍 Localiser depuis les champs ci-dessus
+              </button>
+            )}
           </div>
-          {lat && lng ? (
-            <p className="text-xs text-green-600 font-medium">
-              ✓ {parseFloat(lat).toFixed(4)}, {parseFloat(lng).toFixed(4)}
-              {placeIdGoogle && placeIdGoogle !== 'manual' && ' · Google Places'}
-            </p>
-          ) : (
-            <button onClick={geocodeManual}
-              className="w-full py-2 bg-white border border-[#C4622D] text-[#C4622D] text-xs font-bold rounded-xl">
-              🔍 Localiser sur Google Places
-            </button>
-          )}
-          {lat && lng && (
-            <button onClick={geocodeManual}
-              className="w-full py-2 bg-white border border-[#E8E0D5] text-gray-400 text-xs font-bold rounded-xl">
-              🔄 Relocaliser
-            </button>
-          )}
         </div>
 
         {/* Infos pratiques */}
