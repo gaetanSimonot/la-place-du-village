@@ -1,9 +1,10 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTheme } from '@/components/ThemeProvider'
 import { COLOR_THEMES, MAP_STYLES, SHEET_BG_OPTIONS } from '@/lib/themes'
 import LoginView from '@/components/LoginView'
 import { useAuth } from '@/hooks/useAuth'
+import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
 type Tab = 'profil' | 'theme'
@@ -12,9 +13,22 @@ export default function ProfilView() {
   const [tab, setTab] = useState<Tab>('profil')
   const { colorTheme, mapStyle, sheetBg, setColorThemeId, setMapStyleId, setSheetBgId } = useTheme()
   const { user, profile, loading, signOut, updateDisplayName } = useAuth()
-  const isAdmin = user?.email
-    ? (() => { try { return localStorage.getItem('pdv-admin-ok') === user.email } catch { return false } })()
-    : false
+
+  // Lecture instantanée depuis localStorage, vérification réseau uniquement si pas encore en cache
+  const [isAdmin, setIsAdmin] = useState(() => {
+    try { return !!user?.email && localStorage.getItem('pdv-admin-ok') === user.email } catch { return false }
+  })
+  useEffect(() => {
+    if (!user?.email) return
+    try { if (localStorage.getItem('pdv-admin-ok') === user.email) return } catch {}
+    supabase.from('admin_emails').select('email').eq('email', user.email).maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setIsAdmin(true)
+          try { localStorage.setItem('pdv-admin-ok', user.email!) } catch {}
+        }
+      })
+  }, [user?.email])
   const [editingName, setEditingName] = useState(false)
   const [nameInput, setNameInput] = useState('')
 
