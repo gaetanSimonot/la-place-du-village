@@ -64,11 +64,11 @@ export default function ProfilPageClient({ id }: { id: string }) {
       setLoading(true)
       try {
         const [{ data: p }, { count: fc }, { count: ing }] = await Promise.all([
-          supabase.from('profiles').select('id, display_name, avatar_url, email, bio, ville').eq('id', id).single(),
+          supabase.from('profiles').select('display_name, avatar_url, email, bio, ville').eq('user_id', id).single(),
           supabase.from('follows').select('*', { count: 'exact', head: true }).eq('followed_id', id),
           supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
         ])
-        if (p) setProfile(p as FullProfile)
+        if (p) setProfile({ ...p, id } as FullProfile)
         setFollowerCount(fc ?? 0)
         setFollowingCount(ing ?? 0)
 
@@ -97,9 +97,10 @@ export default function ProfilPageClient({ id }: { id: string }) {
           const ids = rawFollowing.map((f: { followed_id: string }) => f.followed_id)
           const { data: followingProfiles } = await supabase
             .from('profiles')
-            .select('id, display_name, avatar_url')
-            .in('id', ids)
-          setFollowings((followingProfiles ?? []) as MiniProfile[])
+            .select('user_id, display_name, avatar_url')
+            .in('user_id', ids)
+          setFollowings(((followingProfiles ?? []) as { user_id: string; display_name: string | null; avatar_url: string | null }[])
+            .map(p => ({ id: p.user_id, display_name: p.display_name, avatar_url: p.avatar_url })))
         }
       } finally {
         setLoading(false)
@@ -137,7 +138,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
     const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
     if (error) { setUploadError('Erreur upload — vérifie le bucket "avatars" dans Supabase Storage'); return }
     const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path)
-    await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id)
+    await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('user_id', user.id)
     setProfile(p => p ? { ...p, avatar_url: publicUrl } : p)
   }
 
@@ -148,7 +149,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
       display_name: editName.trim() || null,
       bio: editBio.trim() || null,
       ville: editVille.trim() || null,
-    }).eq('id', user.id)
+    }).eq('user_id', user.id)
     if (!error) {
       setProfile(p => p ? { ...p, display_name: editName.trim() || null, bio: editBio.trim() || null, ville: editVille.trim() || null } : p)
       setEditing(false)

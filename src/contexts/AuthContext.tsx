@@ -73,8 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const [profileRes, adminRes] = await Promise.allSettled([
         supabase
           .from('profiles')
-          .select('id, display_name, avatar_url, email, username, banned')
-          .eq('id', userId)
+          .select('display_name, avatar_url, email, username, banned')
+          .eq('user_id', userId)
           .single(),
         email
           ? supabase.from('admin_emails').select('email').eq('email', email).maybeSingle()
@@ -83,7 +83,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!mounted) return
 
-      if (profileRes.status === 'fulfilled') setProfile(profileRes.value.data ?? null)
+      if (profileRes.status === 'fulfilled' && profileRes.value.data)
+        setProfile({ ...profileRes.value.data, id: userId } as Profile)
       if (adminRes.status === 'fulfilled')   setIsAdmin(!!(adminRes.value as { data: unknown }).data)
     }
 
@@ -102,10 +103,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data } = await supabase
       .from('profiles')
       .update({ display_name: name })
-      .eq('id', user.id)
-      .select('id, display_name, avatar_url, email, username, banned')
+      .eq('user_id', user.id)
+      .select('display_name, avatar_url, email, username, banned')
       .single()
-    if (data) setProfile(data)
+    if (data) setProfile({ ...data, id: user.id } as Profile)
   }
 
   return (

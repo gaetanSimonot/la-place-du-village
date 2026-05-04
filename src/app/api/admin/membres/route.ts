@@ -64,7 +64,7 @@ export async function PATCH(req: NextRequest) {
 
     // Check if profile row exists — if not, we need to create it with all required columns
     const { data: existing } = await supabaseAdmin
-      .from('profiles').select('id').eq('id', user_id).maybeSingle()
+      .from('profiles').select('id').eq('user_id', user_id).maybeSingle()
 
     let error
     if (existing) {
@@ -73,12 +73,12 @@ export async function PATCH(req: NextRequest) {
         pro_type: pro_type || null,
         display_name: display_name || null,
         updated_at: new Date().toISOString(),
-      }).eq('id', user_id))
+      }).eq('user_id', user_id))
     } else {
       // No row yet — insert with only the columns we know exist
       const { data: { user: authUser } } = await supabaseAdmin.auth.admin.getUserById(user_id)
       ;({ error } = await supabaseAdmin.from('profiles').insert({
-        id: user_id,
+        user_id,
         display_name: display_name || authUser?.user_metadata?.full_name || authUser?.user_metadata?.name || null,
         plan: plan ?? 'basic',
         pro_type: pro_type || null,
