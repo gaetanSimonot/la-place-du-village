@@ -58,12 +58,15 @@ function ActionBar({ evt, commentCount, onCommentOpen }: { evt: Evenement; comme
   const { isFav, toggle: toggleFav } = useFavorites()
   const { user } = useAuth()
   const { openAuthModal } = useAuthModal()
-  const [voted, setVoted]           = useState(false)
-  const [voteCount, setVoteCount]   = useState(evt.vote_count ?? 0)
-  const [voteLoading, setVoteLoading] = useState(false)
-  const [toast, setToast]           = useState<string | null>(null)
-  const [voters, setVoters]         = useState<string[] | null>(null)
-  const [loadingVoters, setLoadingVoters] = useState(false)
+  const [voted, setVoted]                   = useState(false)
+  const [voteCount, setVoteCount]           = useState(evt.vote_count ?? 0)
+  const [voteLoading, setVoteLoading]       = useState(false)
+  const [interested, setInterested]         = useState(false)
+  const [interestCount, setInterestCount]   = useState(0)
+  const [interestLoading, setInterestLoading] = useState(false)
+  const [toast, setToast]                   = useState<string | null>(null)
+  const [voters, setVoters]                 = useState<string[] | null>(null)
+  const [loadingVoters, setLoadingVoters]   = useState(false)
   const lpTimer   = useRef<ReturnType<typeof setTimeout>>()
   const lpFired   = useRef(false)
   const fav       = isFav(evt.id)
@@ -72,6 +75,14 @@ function ActionBar({ evt, commentCount, onCommentOpen }: { evt: Evenement; comme
     if (!user) return
     supabase.from('votes').select('id').eq('evenement_id', evt.id).eq('user_id', user.id).maybeSingle()
       .then(({ data }) => setVoted(!!data))
+  }, [user, evt.id])
+
+  useEffect(() => {
+    supabase.from('interests').select('id', { count: 'exact' }).eq('evenement_id', evt.id)
+      .then(({ count }) => setInterestCount(count ?? 0))
+    if (!user) return
+    supabase.from('interests').select('id').eq('evenement_id', evt.id).eq('user_id', user.id).maybeSingle()
+      .then(({ data }) => setInterested(!!data))
   }, [user, evt.id])
 
   const showToast = (msg: string) => {
@@ -83,6 +94,24 @@ function ActionBar({ evt, commentCount, onCommentOpen }: { evt: Evenement; comme
   const handleFav = () => {
     toggleFav(evt.id)
     showToast(!fav ? '❤️ Ajouté aux favoris' : 'Retiré des favoris')
+  }
+
+  const handleInterest = async () => {
+    if (!user) { openAuthModal(); return }
+    if (interestLoading) return
+    setInterestLoading(true)
+    if (interested) {
+      await supabase.from('interests').delete().eq('evenement_id', evt.id).eq('user_id', user.id)
+      setInterested(false)
+      setInterestCount(p => Math.max(0, p - 1))
+      showToast('Retiré')
+    } else {
+      await supabase.from('interests').insert({ evenement_id: evt.id, user_id: user.id })
+      setInterested(true)
+      setInterestCount(p => p + 1)
+      showToast('⭐ Marqué comme intéressé')
+    }
+    setInterestLoading(false)
   }
 
   const handleShare = async () => {
@@ -176,6 +205,19 @@ function ActionBar({ evt, commentCount, onCommentOpen }: { evt: Evenement; comme
             <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
           </svg>
           <span style={{ ...LBL, color: '#9CA3AF' }}>Partager</span>
+        </button>
+
+        {/* Intéressé */}
+        <button onClick={handleInterest} disabled={interestLoading} style={BTN}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill={interested ? '#F59E0B' : 'none'} stroke={interested ? '#F59E0B' : '#9CA3AF'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            {interestCount > 0 && (
+              <span style={{ fontSize: 13, fontWeight: 700, color: interested ? '#F59E0B' : '#9CA3AF', lineHeight: 1 }}>{interestCount}</span>
+            )}
+          </div>
+          <span style={{ ...LBL, color: interested ? '#F59E0B' : '#9CA3AF' }}>Intéressé</span>
         </button>
 
         {/* Commenter */}

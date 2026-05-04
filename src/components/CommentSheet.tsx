@@ -39,8 +39,11 @@ function Avatar({ name, url, size = 34 }: { name: string; url?: string | null; s
   )
 }
 
-function CommentBubble({ c, parentAuthor, onReply }: {
+function CommentBubble({ c, parentAuthor, onReply, isOwn, onMenuOpen, isEditing, editText, onEditChange, onSaveEdit, onCancelEdit }: {
   c: CommentData; parentAuthor?: string; onReply: () => void
+  isOwn?: boolean; onMenuOpen?: () => void
+  isEditing?: boolean; editText?: string
+  onEditChange?: (v: string) => void; onSaveEdit?: () => void; onCancelEdit?: () => void
 }) {
   const name = c.profile?.display_name || c.profile?.email?.split('@')[0] || 'Anonyme'
   return (
@@ -48,18 +51,59 @@ function CommentBubble({ c, parentAuthor, onReply }: {
       <Avatar name={name} url={c.profile?.avatar_url} size={34} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ backgroundColor: '#F5F1EC', borderRadius: '0 14px 14px 14px', padding: '8px 12px' }}>
-          <span style={{ fontWeight: 700, fontSize: 13, color: '#2C1810', fontFamily: 'Syne, sans-serif' }}>{name}</span>
-          {parentAuthor && (
-            <span style={{ fontSize: 11, color: '#9CA3AF', marginLeft: 6, fontStyle: 'italic' }}>→ {parentAuthor}</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+            <div>
+              <span style={{ fontWeight: 700, fontSize: 13, color: '#2C1810', fontFamily: 'Syne, sans-serif' }}>{name}</span>
+              {parentAuthor && (
+                <span style={{ fontSize: 11, color: '#9CA3AF', marginLeft: 6, fontStyle: 'italic' }}>→ {parentAuthor}</span>
+              )}
+            </div>
+            {isOwn && (
+              <button
+                onClick={onMenuOpen}
+                style={{ border: 'none', background: 'none', color: '#B0A898', cursor: 'pointer', padding: '0 0 0 10px', fontSize: 17, lineHeight: 1, flexShrink: 0, letterSpacing: 1 }}
+              >•••</button>
+            )}
+          </div>
+          {isEditing ? (
+            <div>
+              <textarea
+                value={editText}
+                onChange={e => onEditChange?.(e.target.value)}
+                autoFocus
+                rows={3}
+                style={{
+                  width: '100%', border: '1.5px solid var(--primary)', borderRadius: 8,
+                  padding: '6px 8px', fontSize: 14, lineHeight: 1.4, resize: 'none',
+                  fontFamily: 'Inter, sans-serif', color: '#2C1810', backgroundColor: '#fff',
+                  outline: 'none', boxSizing: 'border-box',
+                }}
+              />
+              <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                <button onClick={onSaveEdit} style={{
+                  flex: 1, padding: '7px', borderRadius: 8, border: 'none',
+                  backgroundColor: 'var(--primary)', color: '#fff',
+                  fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+                }}>Enregistrer</button>
+                <button onClick={onCancelEdit} style={{
+                  flex: 1, padding: '7px', borderRadius: 8, border: 'none',
+                  backgroundColor: '#E8E4DE', color: '#6B7280',
+                  fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+                }}>Annuler</button>
+              </div>
+            </div>
+          ) : (
+            <p style={{ fontSize: 14, color: '#374151', margin: 0, lineHeight: 1.45, wordBreak: 'break-word' }}>{c.content}</p>
           )}
-          <p style={{ fontSize: 14, color: '#374151', margin: '3px 0 0', lineHeight: 1.45, wordBreak: 'break-word' }}>{c.content}</p>
         </div>
-        <div style={{ display: 'flex', gap: 14, marginTop: 4, paddingLeft: 2 }}>
-          <span style={{ fontSize: 11, color: '#B0A898' }}>{timeAgo(c.created_at)}</span>
-          <button onClick={onReply} style={{ border: 'none', background: 'none', fontSize: 11, fontWeight: 700, color: '#6B7280', cursor: 'pointer', padding: 0 }}>
-            Répondre
-          </button>
-        </div>
+        {!isEditing && (
+          <div style={{ display: 'flex', gap: 14, marginTop: 4, paddingLeft: 2 }}>
+            <span style={{ fontSize: 11, color: '#B0A898' }}>{timeAgo(c.created_at)}</span>
+            <button onClick={onReply} style={{ border: 'none', background: 'none', fontSize: 11, fontWeight: 700, color: '#6B7280', cursor: 'pointer', padding: 0 }}>
+              Répondre
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -68,11 +112,14 @@ function CommentBubble({ c, parentAuthor, onReply }: {
 export default function CommentSheet({ evenementId, open, onClose, onCountChange }: Props) {
   const { user, profile } = useAuth()
   const { openAuthModal } = useAuthModal()
-  const [comments, setComments]   = useState<CommentData[]>([])
-  const [loading, setLoading]     = useState(false)
-  const [text, setText]           = useState('')
-  const [replyTo, setReplyTo]     = useState<CommentData | null>(null)
-  const [sending, setSending]     = useState(false)
+  const [comments, setComments]     = useState<CommentData[]>([])
+  const [loading, setLoading]       = useState(false)
+  const [text, setText]             = useState('')
+  const [replyTo, setReplyTo]       = useState<CommentData | null>(null)
+  const [sending, setSending]       = useState(false)
+  const [menuId, setMenuId]         = useState<string | null>(null)
+  const [editingId, setEditingId]   = useState<string | null>(null)
+  const [editText, setEditText]     = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const listRef  = useRef<HTMLDivElement>(null)
 
@@ -123,10 +170,36 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
     setTimeout(() => listRef.current?.scrollTo({ top: 99999, behavior: 'smooth' }), 80)
   }
 
-  const topLevel = comments.filter(c => !c.parent_id)
-  const repliesOf = (pid: string) => comments.filter(c => c.parent_id === pid)
-  const authorOf  = (c: CommentData) => c.profile?.display_name || c.profile?.email?.split('@')[0] || 'Anonyme'
-  const myName    = profile?.display_name || user?.email?.split('@')[0] || 'Moi'
+  const handleDelete = async (id: string) => {
+    setMenuId(null)
+    await supabase.from('comments').delete().eq('id', id)
+    setComments(prev => {
+      const next = prev.filter(c => c.id !== id && c.parent_id !== id)
+      onCountChange?.(next.length)
+      return next
+    })
+  }
+
+  const startEdit = (c: CommentData) => {
+    setMenuId(null)
+    setEditingId(c.id)
+    setEditText(c.content)
+  }
+
+  const saveEdit = async () => {
+    if (!editingId || !editText.trim()) return
+    const { error } = await supabase.from('comments').update({ content: editText.trim() }).eq('id', editingId)
+    if (!error) {
+      setComments(prev => prev.map(c => c.id === editingId ? { ...c, content: editText.trim() } : c))
+    }
+    setEditingId(null); setEditText('')
+  }
+
+  const topLevel   = comments.filter(c => !c.parent_id)
+  const repliesOf  = (pid: string) => comments.filter(c => c.parent_id === pid)
+  const authorOf   = (c: CommentData) => c.profile?.display_name || c.profile?.email?.split('@')[0] || 'Anonyme'
+  const myName     = profile?.display_name || user?.email?.split('@')[0] || 'Moi'
+  const menuComment = menuId ? comments.find(c => c.id === menuId) ?? null : null
 
   return (
     <AnimatePresence>
@@ -178,10 +251,31 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
               ) : (
                 topLevel.map(c => (
                   <div key={c.id}>
-                    <CommentBubble c={c} onReply={() => { setReplyTo(c); setTimeout(() => inputRef.current?.focus(), 80) }} />
+                    <CommentBubble
+                      c={c}
+                      onReply={() => { setReplyTo(c); setTimeout(() => inputRef.current?.focus(), 80) }}
+                      isOwn={user?.id === c.user_id}
+                      onMenuOpen={() => setMenuId(c.id)}
+                      isEditing={editingId === c.id}
+                      editText={editText}
+                      onEditChange={setEditText}
+                      onSaveEdit={saveEdit}
+                      onCancelEdit={() => { setEditingId(null); setEditText('') }}
+                    />
                     {repliesOf(c.id).map(r => (
                       <div key={r.id} style={{ marginLeft: 42, marginTop: 10 }}>
-                        <CommentBubble c={r} parentAuthor={authorOf(c)} onReply={() => { setReplyTo(c); setTimeout(() => inputRef.current?.focus(), 80) }} />
+                        <CommentBubble
+                          c={r}
+                          parentAuthor={authorOf(c)}
+                          onReply={() => { setReplyTo(c); setTimeout(() => inputRef.current?.focus(), 80) }}
+                          isOwn={user?.id === r.user_id}
+                          onMenuOpen={() => setMenuId(r.id)}
+                          isEditing={editingId === r.id}
+                          editText={editText}
+                          onEditChange={setEditText}
+                          onSaveEdit={saveEdit}
+                          onCancelEdit={() => { setEditingId(null); setEditText('') }}
+                        />
                       </div>
                     ))}
                   </div>
@@ -244,6 +338,57 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
               </div>
             </div>
           </motion.div>
+
+          {/* Menu 3 points — au-dessus du sheet */}
+          {menuComment && (
+            <>
+              <div
+                onClick={() => setMenuId(null)}
+                style={{ position: 'fixed', inset: 0, zIndex: 310, backgroundColor: 'rgba(0,0,0,0.22)' }}
+              />
+              <div style={{
+                position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 311,
+                backgroundColor: '#fff', borderRadius: '20px 20px 0 0',
+                padding: '14px 16px',
+                paddingBottom: 'max(28px, env(safe-area-inset-bottom, 28px))',
+                fontFamily: 'Inter, sans-serif',
+              }}>
+                <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '0 auto 18px' }} />
+                <button
+                  onClick={() => startEdit(menuComment)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 14, width: '100%',
+                    padding: '14px 4px', border: 'none', background: 'none', cursor: 'pointer',
+                    fontSize: 15, fontWeight: 600, color: '#2C1810',
+                    borderBottom: '1px solid #F0EBE3',
+                  }}
+                >
+                  <span style={{ fontSize: 19 }}>✏️</span> Modifier
+                </button>
+                <button
+                  onClick={() => handleDelete(menuComment.id)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 14, width: '100%',
+                    padding: '14px 4px', border: 'none', background: 'none', cursor: 'pointer',
+                    fontSize: 15, fontWeight: 600, color: '#EF4444',
+                    borderBottom: '1px solid #F0EBE3',
+                  }}
+                >
+                  <span style={{ fontSize: 19 }}>🗑️</span> Supprimer
+                </button>
+                <button
+                  onClick={() => setMenuId(null)}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%',
+                    padding: '14px 4px', border: 'none', background: 'none', cursor: 'pointer',
+                    fontSize: 14, fontWeight: 600, color: '#9CA3AF',
+                  }}
+                >
+                  Annuler
+                </button>
+              </div>
+            </>
+          )}
         </>
       )}
     </AnimatePresence>
