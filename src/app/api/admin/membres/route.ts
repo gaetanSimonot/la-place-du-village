@@ -60,7 +60,7 @@ export async function PATCH(req: NextRequest) {
 
   // Update plan + profile info
   if ('user_id' in body) {
-    const { user_id, plan, pro_type, display_name, bio } = body
+    const { user_id, plan, pro_type, display_name } = body
 
     // Check if profile row exists — if not, we need to create it with all required columns
     const { data: existing } = await supabaseAdmin
