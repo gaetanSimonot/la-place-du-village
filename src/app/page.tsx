@@ -15,6 +15,8 @@ import { useAuthModal } from '@/contexts/AuthModalContext'
 
 import MaxSplash from '@/components/MaxSplash'
 import ProBandeau from '@/components/ProBandeau'
+import FavorisView from '@/components/FavorisView'
+import { useFavorites } from '@/hooks/useFavorites'
 
 const MapView     = dynamic(() => import('@/components/MapView'),     { ssr: false })
 const BottomSheet = dynamic(() => import('@/components/BottomSheet'), { ssr: false })
@@ -22,7 +24,7 @@ const BottomSheet = dynamic(() => import('@/components/BottomSheet'), { ssr: fal
 const defaultFiltres: Filtres = { categories: [], quand: 'toujours' }
 const NAV_H = 62
 
-type NavTab = 'carte' | 'liste' | 'profil'
+type NavTab = 'carte' | 'liste' | 'favoris' | 'profil'
 
 const IconCarte = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -47,16 +49,23 @@ const IconProfil = () => (
     <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
   </svg>
 )
+const IconCoeur = ({ filled }: { filled?: boolean }) => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+  </svg>
+)
 
-const NAV_TABS: { id: NavTab; label: string; Icon: () => React.JSX.Element }[] = [
-  { id: 'carte',  label: 'Carte',  Icon: IconCarte  },
-  { id: 'liste',  label: 'Liste',  Icon: IconListe  },
-  { id: 'profil', label: 'Profil', Icon: IconProfil },
+const NAV_TABS: { id: NavTab; label: string; Icon: (p: { active: boolean }) => React.JSX.Element }[] = [
+  { id: 'carte',   label: 'Carte',    Icon: () => <IconCarte /> },
+  { id: 'liste',   label: 'Liste',    Icon: () => <IconListe /> },
+  { id: 'favoris', label: 'Favoris',  Icon: ({ active }) => <IconCoeur filled={active} /> },
+  { id: 'profil',  label: 'Profil',   Icon: () => <IconProfil /> },
 ]
 
 export default function HomePage() {
   const { fixedMap, setFixedMap } = useTheme()
   const { user } = useAuth()
+  const { favIds, toggle: toggleFav } = useFavorites()
   const { openAuthModal } = useAuthModal()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [filtres, setFiltres]       = useState<Filtres>(defaultFiltres)
@@ -302,7 +311,7 @@ export default function HomePage() {
 
   // Quand la liste redescend (half/peek), réactiver le mode carte pour les boutons
   useEffect(() => {
-    if (sheetMode !== 'full') setNavTab(prev => prev === 'profil' ? 'profil' : 'carte')
+    if (sheetMode !== 'full') setNavTab(prev => (prev === 'profil' || prev === 'favoris') ? prev : 'carte')
   }, [sheetMode])
 
   // Sélection d'un marqueur → peek ; déselection → half
@@ -351,7 +360,8 @@ export default function HomePage() {
   const maxEvents = useMemo(() => promoEventsData.filter(e => e.promotion === 'max'), [promoEventsData])
 
   const handleNavTab = (tab: NavTab) => {
-    if (tab === 'profil') { setNavTab('profil'); return }
+    if (tab === 'profil')  { setNavTab('profil');  return }
+    if (tab === 'favoris') { setNavTab('favoris'); return }
     if (tab === 'liste') {
       setNavTab('liste')
       if (navTab !== 'liste') {
@@ -775,6 +785,8 @@ export default function HomePage() {
         proEvents={proEvents}
         onDiscoverPro={openEvent}
         onOpenEvent={saveNavForEvent}
+        favIds={favIds}
+        onToggleFav={toggleFav}
       />
 
       {/* ProBandeau — flotte au-dessus de la sheet (sauf quand full, géré dans BottomSheet) */}
@@ -794,6 +806,19 @@ export default function HomePage() {
           </div>
         )
       })()}
+
+      {/* Favoris — panneau inline au-dessus de la carte */}
+      {navTab === 'favoris' && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H,
+          zIndex: 25, overflowY: 'auto', backgroundColor: 'var(--creme)',
+        }}>
+          <FavorisView
+            events={allEvenements.filter(e => favIds.includes(e.id))}
+            onToggleFav={toggleFav}
+          />
+        </div>
+      )}
 
       {/* Profil — panneau inline au-dessus de la carte */}
       {navTab === 'profil' && (
@@ -825,7 +850,7 @@ export default function HomePage() {
               paddingBottom: 4,
               color: active ? 'var(--primary)' : '#8A8A8A',
             }}>
-              <tab.Icon />
+              <tab.Icon active={active} />
               <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>
                 {tab.label}
               </span>

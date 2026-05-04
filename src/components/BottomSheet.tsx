@@ -38,12 +38,15 @@ interface Props {
   proEvents?: EvenementCard[]
   onDiscoverPro?: (id: string) => void
   onOpenEvent?: (id: string) => void
+  favIds?: string[]
+  onToggleFav?: (id: string) => void
 }
 
 export default function BottomSheet({
   evenements, loading, selectedId, onSelectEvent, onViewOnMap,
   filtres, onFiltresChange, mode, onModeChange, navHeight, screenH,
   onPeekHeightChange, proEvents = [], onDiscoverPro, onOpenEvent,
+  favIds = [], onToggleFav,
 }: Props) {
   const { sheetBg } = useTheme()
   const [peekH, setPeekH]         = useState(130) // hauteur mesurée du header
@@ -406,6 +409,8 @@ export default function BottomSheet({
                 onSelect={() => onSelectEvent(evt.id)}
                 onViewOnMap={() => onViewOnMap(evt.id)}
                 onOpenEvent={onOpenEvent ? () => onOpenEvent(evt.id) : undefined}
+                isFav={favIds.includes(evt.id)}
+                onToggleFav={onToggleFav ? () => onToggleFav(evt.id) : undefined}
               />
             ))}
             {/* Sentinelle scroll infini */}
@@ -422,9 +427,9 @@ export default function BottomSheet({
 }
 
 /* ── Card événement ── */
-function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent }: {
+function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, isFav, onToggleFav }: {
   evt: EvenementCard; isSelected: boolean; onSelect: () => void; onViewOnMap: () => void
-  onOpenEvent?: () => void
+  onOpenEvent?: () => void; isFav?: boolean; onToggleFav?: () => void
 }) {
   const cat  = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
   const lieu = evt.lieux
@@ -479,15 +484,49 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent }: 
 
       {lieu?.lat && lieu?.lng && (
         <button onClick={e => { e.preventDefault(); e.stopPropagation(); onViewOnMap() }}
-          style={{ position: 'absolute', top: 8, right: 8, width: 32, height: 32, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.88)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555' }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          style={{ position: 'absolute', top: 8, right: 8, width: 30, height: 30, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.88)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555' }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
             <circle cx="12" cy="9" r="2.5" fill="currentColor" stroke="none"/>
           </svg>
         </button>
       )}
 
-      {isSelected && <div style={{ position: 'absolute', top: 8, right: 44, width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--primary)', boxShadow: '0 0 0 2px #fff' }} />}
+      {/* Bouton favori */}
+      <button
+        onClick={e => { e.preventDefault(); e.stopPropagation(); onToggleFav?.() }}
+        style={{
+          position: 'absolute', bottom: 8, right: 8,
+          width: 28, height: 28, borderRadius: 8,
+          backgroundColor: 'rgba(0,0,0,0.52)', border: 'none',
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill={isFav ? '#EC407A' : 'none'} stroke={isFav ? '#EC407A' : '#fff'} strokeWidth="2">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+        </svg>
+      </button>
+
+      {/* Bouton partager */}
+      <button
+        onClick={e => {
+          e.preventDefault(); e.stopPropagation()
+          const url = `${window.location.origin}/evenement/${evt.id}`
+          if (navigator.share) { navigator.share({ title: evt.titre, url }).catch(() => {}) }
+          else { navigator.clipboard.writeText(url).catch(() => {}) }
+        }}
+        style={{
+          position: 'absolute', bottom: 8, right: 40,
+          width: 28, height: 28, borderRadius: 8,
+          backgroundColor: 'rgba(0,0,0,0.52)', border: 'none',
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+        </svg>
+      </button>
     </Link>
   )
 }

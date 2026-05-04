@@ -12,6 +12,7 @@ import EventEditDrawer from '@/components/EventEditDrawer'
 import { useAdminSession } from '@/hooks/useAdminSession'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
+import { useFavorites } from '@/hooks/useFavorites'
 
 const LINK_STYLE = { color: '#C4622D', textDecoration: 'underline', wordBreak: 'break-all' } as const
 
@@ -94,6 +95,30 @@ function VoteButton({ evt }: { evt: Evenement }) {
   )
 }
 
+function FavoriteButton({ eventId }: { eventId: string }) {
+  const { isFav, toggle } = useFavorites()
+  const fav = isFav(eventId)
+  return (
+    <button
+      onClick={() => toggle(eventId)}
+      style={{
+        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        padding: '12px 16px', borderRadius: 16,
+        backgroundColor: fav ? '#FFF0F5' : '#fff',
+        border: `1.5px solid ${fav ? '#EC407A' : '#E0D8CE'}`,
+        cursor: 'pointer', transition: 'all 0.15s',
+        fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 600,
+        color: fav ? '#EC407A' : '#8A8A8A',
+      }}
+    >
+      <svg width="17" height="17" viewBox="0 0 24 24" fill={fav ? '#EC407A' : 'none'} stroke={fav ? '#EC407A' : 'currentColor'} strokeWidth="2">
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+      </svg>
+      {fav ? 'Sauvegardé' : 'Sauvegarder'}
+    </button>
+  )
+}
+
 function ShareButton({ evt }: { evt: Evenement }) {
   const [copied, setCopied] = useState(false)
 
@@ -122,8 +147,8 @@ function ShareButton({ evt }: { evt: Evenement }) {
     <button
       onClick={share}
       style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-        width: '100%', padding: '14px',
+        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        padding: '12px 16px',
         backgroundColor: '#fff', border: '1.5px solid #E0D8CE',
         borderRadius: 16, cursor: 'pointer',
         fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 600, color: '#5A5A5A',
@@ -186,6 +211,12 @@ export default function EvenementPageClient({ id }: { id: string }) {
       </div>
 
       {evt.image_url && <ImageLightbox src={evt.image_url} alt={evt.titre} objectPosition={evt.image_position ?? '50% 50%'} />}
+
+      {/* Actions — sous la photo */}
+      <div style={{ display: 'flex', gap: 10, padding: '12px 16px 0' }}>
+        <FavoriteButton eventId={evt.id} />
+        <ShareButton evt={evt} />
+      </div>
 
       <div className="p-4 space-y-3 pb-8">
         <div>
@@ -268,8 +299,6 @@ export default function EvenementPageClient({ id }: { id: string }) {
             </a>
           </div>
         )}
-
-        <ShareButton evt={evt} />
 
         {mapsUrl && (
           <a href={mapsUrl} target="_blank" rel="noopener noreferrer"
