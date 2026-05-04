@@ -49,7 +49,6 @@ function Slide({ evt }: { evt: EvenementCard }) {
 
 export default function MaxSplash({ events, loading = false }: Props) {
   const [phase, setPhase]           = useState<Phase>('logo')
-  const [fadingOut, setFadingOut]   = useState(false)
   const [logoReady, setLogoReady]   = useState(false)
   const [idx, setIdx]               = useState(0)
   const [dragX, setDragX]           = useState(0)
@@ -77,9 +76,7 @@ export default function MaxSplash({ events, loading = false }: Props) {
     if (!logoReady || loading) return
     if (transitioning.current) return
     transitioning.current = true
-    setFadingOut(true)
     const t = setTimeout(() => {
-      setFadingOut(false)
       setPhase(n === 0 ? 'dismissed' : 'event')
     }, 380)
     return () => clearTimeout(t)
@@ -136,35 +133,8 @@ export default function MaxSplash({ events, loading = false }: Props) {
 
   if (phase === 'dismissed') return null
 
-  /* ── Logo ── */
-  if (phase === 'logo') {
-    return (
-      <div style={{
-        position: 'fixed', inset: 0, zIndex: 500, backgroundColor: '#FAF7F2',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        opacity: fadingOut ? 0 : 1, transition: 'opacity 0.38s ease',
-      }}>
-        <style>{STYLES}</style>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.png" alt="La Place du Village" width={120} height={120}
-          style={{ objectFit: 'contain', animation: 'logoIn 0.65s cubic-bezier(0.34,1.56,0.64,1) both' }} />
-        <h1 style={{
-          fontSize: 26, fontWeight: 800, color: '#2C1810', letterSpacing: '-0.02em',
-          margin: '22px 0 5px', fontFamily: 'Syne, sans-serif', textAlign: 'center',
-          animation: 'fadeUp 0.5s 0.38s ease both',
-        }}>La Place du Village</h1>
-        <p style={{
-          fontSize: 13, color: '#A09488', margin: 0, fontFamily: 'Inter, sans-serif',
-          animation: 'fadeIn 0.5s 0.6s ease both',
-        }}>c&apos;est arrivé près de chez vous</p>
-        <button onClick={dismiss} style={{
-          position: 'absolute', bottom: 52, background: 'none', border: 'none',
-          color: '#B0A898', fontSize: 13, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-          animation: 'fadeIn 0.4s 1.1s ease both', opacity: 0,
-        }}>Passer</button>
-      </div>
-    )
-  }
+  /* ── Logo phase : AppSplash gère le splash, on attend silencieusement ── */
+  if (phase === 'logo') return null
 
   /* ── Événement ── */
   const evt = evts[idx]

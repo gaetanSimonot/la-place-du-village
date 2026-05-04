@@ -9,10 +9,10 @@
 @tailwind utilities;
 
 :root {
-  --primary:       #1E3A2E;
-  --primary-light: #E6EFE9;
+  --primary:       #1D5C3B;
+  --primary-light: #DDF0E8;
   --orange:  #C4622D;
-  --vert:    #1E3A2E;
+  --vert:    #1D5C3B;
   --creme:   #FAF7F2;
   --carte:   #4A90D9;
   --texte:   #1C1917;

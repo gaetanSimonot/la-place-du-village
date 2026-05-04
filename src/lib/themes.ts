@@ -13,8 +13,8 @@ export const COLOR_THEMES: ColorTheme[] = [
     id: 'foret',
     name: 'Forêt',
     description: 'Nature Cévennes',
-    primary: '#1E3A2E',
-    primaryLight: '#E6EFE9',
+    primary: '#1D5C3B',
+    primaryLight: '#DDF0E8',
     bg: '#FAF7F2',
   },
   {
