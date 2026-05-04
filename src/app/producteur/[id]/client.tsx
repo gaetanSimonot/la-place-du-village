@@ -59,10 +59,12 @@ export default function ProducteurPageClient({ id }: { id: string }) {
   const [comments, setComments] = useState<Comment[]>([])
   const [commentText, setCommentText] = useState('')
   const [sendingComment, setSendingComment] = useState(false)
-  const [showComments, setShowComments] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
+  const [editCommentText, setEditCommentText] = useState('')
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout>>()
+  const commentsRef = useRef<HTMLDivElement>(null)
 
   const showToast = useCallback((msg: string) => {
     clearTimeout(toastTimer.current); setToast(msg)
@@ -76,7 +78,7 @@ export default function ProducteurPageClient({ id }: { id: string }) {
       .catch(() => setLoading(false))
     fetch(`/api/producers/${id}/comments`)
       .then(r => r.json())
-      .then(d => setCommentCount((d.comments ?? []).length))
+      .then(d => { const c = d.comments ?? []; setComments(c); setCommentCount(c.length) })
   }, [id])
 
   useEffect(() => {
@@ -104,13 +106,32 @@ export default function ProducteurPageClient({ id }: { id: string }) {
     const { following } = await res.json(); setIsFollowing(following)
     showToast(following ? '✓ Vous suivez ce producteur' : 'Abonnement retiré')
   }
-  async function loadComments() {
-    const res = await fetch(`/api/producers/${id}/comments`)
-    const d = await res.json()
-    const loaded: Comment[] = d.comments ?? []
-    setComments(loaded); setCommentCount(loaded.length)
+  function scrollToComments() {
+    commentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
-  async function toggleComments() { if (!showComments) await loadComments(); setShowComments(v => !v) }
+  async function deleteComment(commentId: string) {
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token; if (!token) return
+    const res = await fetch(`/api/producers/${id}/comments/${commentId}`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${token}` }
+    })
+    if (res.ok) { setComments(prev => prev.filter(c => c.id !== commentId)); setCommentCount(n => n - 1) }
+  }
+  async function saveEditComment(commentId: string) {
+    if (!editCommentText.trim()) return
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token; if (!token) return
+    const res = await fetch(`/api/producers/${id}/comments/${commentId}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: editCommentText.trim() }),
+    })
+    if (res.ok) {
+      const d = await res.json()
+      setComments(prev => prev.map(c => c.id === commentId ? { ...c, content: d.content } : c))
+      setEditingCommentId(null)
+    }
+  }
   async function sendComment() {
     if (!user) { openAuthModal(); return }
     if (!commentText.trim() || sendingComment) return
@@ -207,12 +228,12 @@ export default function ProducteurPageClient({ id }: { id: string }) {
             <span style={{ ...LBL, color: isFollowing ? '#2D5A3D' : '#8A7A6A' }}>{isFollowing ? 'Suivi ✓' : 'Suivre'}</span>
           </button>
           )}
-          <button style={BTN} onClick={toggleComments}>
+          <button style={BTN} onClick={scrollToComments}>
             <div style={{ position: 'relative' }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={showComments ? '#2D5A3D' : '#8A7A6A'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8A7A6A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               {commentCount > 0 && <span style={{ position: 'absolute', top: -5, right: -7, backgroundColor: '#2D5A3D', color: '#fff', borderRadius: 999, fontSize: 9, fontWeight: 700, padding: '0 4px', minWidth: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{commentCount}</span>}
             </div>
-            <span style={{ ...LBL, color: showComments ? '#2D5A3D' : '#8A7A6A' }}>Avis</span>
+            <span style={{ ...LBL, color: '#8A7A6A' }}>Avis</span>
           </button>
           <button style={BTN} onClick={share}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8A7A6A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
@@ -312,35 +333,52 @@ export default function ProducteurPageClient({ id }: { id: string }) {
         )}
 
         {/* Commentaires */}
-        {showComments && (
-          <div style={CARD}>
-            <p style={{ fontSize: 11, fontWeight: 800, color: '#8A7A6A', margin: '0 0 14px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Avis {commentCount > 0 && `(${commentCount})`}</p>
-            <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-              <Avatar name={profile?.display_name || user?.email || '?'} url={profile?.avatar_url} size={34} />
-              <div style={{ flex: 1, display: 'flex', gap: 8 }}>
-                <input value={commentText} onChange={e => setCommentText(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendComment()}
-                  placeholder={user ? 'Votre avis…' : 'Connectez-vous pour commenter'}
-                  style={{ flex: 1, padding: '9px 13px', borderRadius: 12, border: '1.5px solid #E8E0D5', fontSize: 13, fontFamily: 'Inter, sans-serif', outline: 'none', color: '#2C1810', backgroundColor: '#FAF7F2' }}
-                  onClick={() => { if (!user) openAuthModal() }} />
-                <button onClick={sendComment} disabled={!commentText.trim() || sendingComment}
-                  style={{ padding: '9px 16px', borderRadius: 12, border: 'none', backgroundColor: commentText.trim() && !sendingComment ? '#2D5A3D' : '#D8D0C8', color: '#fff', fontWeight: 700, fontSize: 13, cursor: commentText.trim() && !sendingComment ? 'pointer' : 'default', transition: 'background-color 0.15s' }}>→</button>
+        <div ref={commentsRef} style={CARD}>
+          <p style={{ fontSize: 11, fontWeight: 800, color: '#8A7A6A', margin: '0 0 14px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Avis {commentCount > 0 && `(${commentCount})`}</p>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+            <Avatar name={profile?.display_name || user?.email || '?'} url={profile?.avatar_url} size={34} />
+            <div style={{ flex: 1, display: 'flex', gap: 8 }}>
+              <input value={commentText} onChange={e => setCommentText(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendComment()}
+                placeholder={user ? 'Votre avis…' : 'Connectez-vous pour commenter'}
+                style={{ flex: 1, padding: '9px 13px', borderRadius: 12, border: '1.5px solid #E8E0D5', fontSize: 13, fontFamily: 'Inter, sans-serif', outline: 'none', color: '#2C1810', backgroundColor: '#FAF7F2' }}
+                onClick={() => { if (!user) openAuthModal() }} />
+              <button onClick={sendComment} disabled={!commentText.trim() || sendingComment}
+                style={{ padding: '9px 16px', borderRadius: 12, border: 'none', backgroundColor: commentText.trim() && !sendingComment ? '#2D5A3D' : '#D8D0C8', color: '#fff', fontWeight: 700, fontSize: 13, cursor: commentText.trim() && !sendingComment ? 'pointer' : 'default', transition: 'background-color 0.15s' }}>→</button>
+            </div>
+          </div>
+          {comments.length === 0 && <p style={{ fontSize: 13, color: '#AAA', textAlign: 'center', margin: 0 }}>Soyez le premier à donner votre avis !</p>}
+          {comments.map(c => (
+            <div key={c.id} style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+              <Avatar name={c.profile?.display_name || '?'} url={c.profile?.avatar_url} size={32} />
+              <div style={{ flex: 1, backgroundColor: '#FAF7F2', borderRadius: 12, padding: '9px 13px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#2C1810' }}>{c.profile?.display_name ?? 'Anonyme'}</span>
+                  <span style={{ fontSize: 11, color: '#AAA' }}>{timeAgo(c.created_at)}</span>
+                  {c.user_id === user?.id && editingCommentId !== c.id && (
+                    <div style={{ marginLeft: 'auto', display: 'flex', gap: 2 }}>
+                      <button onClick={() => { setEditingCommentId(c.id); setEditCommentText(c.content) }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', fontSize: 12, color: '#8A7A6A', borderRadius: 6 }}>✏️</button>
+                      <button onClick={() => deleteComment(c.id)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', fontSize: 12, color: '#E8622A', borderRadius: 6 }}>🗑</button>
+                    </div>
+                  )}
+                </div>
+                {editingCommentId === c.id ? (
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input value={editCommentText} onChange={e => setEditCommentText(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') saveEditComment(c.id); if (e.key === 'Escape') setEditingCommentId(null) }}
+                      autoFocus
+                      style={{ flex: 1, padding: '6px 10px', borderRadius: 8, border: '1.5px solid #2D5A3D', fontSize: 13, fontFamily: 'Inter, sans-serif', outline: 'none', backgroundColor: '#fff' }} />
+                    <button onClick={() => saveEditComment(c.id)} style={{ padding: '6px 12px', borderRadius: 8, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>✓</button>
+                    <button onClick={() => setEditingCommentId(null)} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #DDD', backgroundColor: 'transparent', fontSize: 12, cursor: 'pointer' }}>✕</button>
+                  </div>
+                ) : (
+                  <p style={{ fontSize: 13, color: '#4A3728', margin: 0, lineHeight: 1.55 }}>{c.content}</p>
+                )}
               </div>
             </div>
-            {comments.length === 0 && <p style={{ fontSize: 13, color: '#AAA', textAlign: 'center', margin: 0, fontFamily: 'Inter, sans-serif' }}>Soyez le premier à donner votre avis !</p>}
-            {comments.map(c => (
-              <div key={c.id} style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-                <Avatar name={c.profile?.display_name || '?'} url={c.profile?.avatar_url} size={32} />
-                <div style={{ flex: 1, backgroundColor: '#FAF7F2', borderRadius: 12, padding: '9px 13px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#2C1810' }}>{c.profile?.display_name ?? 'Anonyme'}</span>
-                    <span style={{ fontSize: 11, color: '#AAA' }}>{timeAgo(c.created_at)}</span>
-                  </div>
-                  <p style={{ fontSize: 13, color: '#4A3728', margin: 0, lineHeight: 1.55, fontFamily: 'Inter, sans-serif' }}>{c.content}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+          ))}
+        </div>
 
         {/* Footer */}
         <div style={{ background: 'linear-gradient(135deg, #2D5A3D 0%, #3A7050 100%)', borderRadius: 16, padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 14, boxShadow: '0 3px 12px rgba(45,90,61,0.2)' }}>
