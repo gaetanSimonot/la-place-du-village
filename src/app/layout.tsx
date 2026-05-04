@@ -3,6 +3,7 @@ import './globals.css'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import InstallBanner from '@/components/InstallBanner'
 import { AuthModalProvider } from '@/contexts/AuthModalContext'
+import { AuthProvider } from '@/contexts/AuthContext'
 import AuthModal from '@/components/AuthModal'
 
 export const metadata: Metadata = {
@@ -43,13 +44,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         `}} />
       </head>
       <body className="antialiased">
-        <AuthModalProvider>
-          <ThemeProvider>
-            {children}
-            <InstallBanner />
-            <AuthModal />
-          </ThemeProvider>
-        </AuthModalProvider>
+        <AuthProvider>
+          <AuthModalProvider>
+            <ThemeProvider>
+              {children}
+              <InstallBanner />
+              <AuthModal />
+            </ThemeProvider>
+          </AuthModalProvider>
+        </AuthProvider>
       </body>
     </html>
   )

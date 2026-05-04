@@ -64,7 +64,7 @@ const NAV_TABS: { id: NavTab; label: string; Icon: (p: { active: boolean }) => R
 
 export default function HomePage() {
   const { fixedMap, setFixedMap } = useTheme()
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const { favIds, toggle: toggleFav } = useFavorites()
   const { openAuthModal } = useAuthModal()
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -72,7 +72,7 @@ export default function HomePage() {
   const [allEvenements, setAllEvenements] = useState<EvenementCard[]>([])
   const [promoEventsData, setPromoEventsData] = useState<EvenementCard[]>([])
   const [loading, setLoading]       = useState(true)
-  const [masquerPasses, setMasquerPasses] = useState<boolean | null>(null)
+  const [masquerPasses, setMasquerPasses] = useState(true)
   const [zoneCentres, setZoneCentres]   = useState<{ lat: number; lng: number; nom: string }[]>([])
   const [rayonAffichage, setRayonAffichage] = useState<number | null>(null)
   const [zoneLoaded, setZoneLoaded]     = useState(false)
@@ -162,9 +162,10 @@ export default function HomePage() {
   }
 
   const navigateOrAuth = useCallback((path: string) => {
+    if (authLoading) return
     if (!user) { setFabOpen(false); setFabActive(null); openAuthModal(); return }
     router.push(path)
-  }, [user, openAuthModal, router])
+  }, [user, authLoading, openAuthModal, router])
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const onFabUp = (_e: React.PointerEvent<HTMLButtonElement>) => {
@@ -268,7 +269,7 @@ export default function HomePage() {
   }, [fetchZoneConfig]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchEvenements = useCallback(async (silent = false) => {
-    if (masquerPasses === null || !zoneLoaded) return // attendre les configs
+    if (!zoneLoaded) return // attendre la zone
     if (!silent) setLoading(true)
 
     const SELECT = 'id, titre, categorie, date_debut, heure, image_url, image_position, promotion, promo_ordre, lieux(id, nom, commune, lat, lng, place_id_google)'
