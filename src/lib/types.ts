@@ -75,3 +75,21 @@ export interface Filtres {
   categories: Categorie[]
   quand: FiltreQuand
 }
+
+export type AppMode = 'agenda' | 'annuaire'
+
+export type ProduitCategorie = 'oeufs' | 'legumes' | 'fromage' | 'lait' | 'pain' | 'volaille' | 'miel' | 'panier' | 'fruits' | 'viande' | 'artisanat' | 'autre'
+
+export interface ProducerCard {
+  id: string
+  nom: string
+  description_courte: string | null
+  commune: string | null
+  photo_url: string | null
+  contact_whatsapp: string | null
+  contact_tel: string | null
+  produit_categories: ProduitCategorie[]
+  lat: number | null
+  lng: number | null
+  is_max: boolean
+}

@@ -74,6 +74,7 @@ export default function HomePage() {
   const [promoEventsData, setPromoEventsData] = useState<EvenementCard[]>([])
   const [splashDone, setSplashDone]   = useState(false)
   const [showWelcome, setShowWelcome] = useState(false)
+  const [appMode, setAppMode]         = useState<'agenda' | 'annuaire'>('agenda')
   const [loading, setLoading]       = useState(true)
   const [masquerPasses, setMasquerPasses] = useState(true)
   const [zoneCentres, setZoneCentres]   = useState<{ lat: number; lng: number; nom: string }[]>([])
@@ -417,7 +418,7 @@ export default function HomePage() {
         {/* Bande invisible en haut — laisse passer le geste "tirer pour rafraîchir" */}
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 40, zIndex: 5, pointerEvents: 'auto' }} />
         <MapView
-          evenements={evenements}
+          evenements={appMode === 'annuaire' ? [] : evenements}
           selectedId={selectedId}
           onSelectEvent={setSelectedId}
           onDeselect={() => setSelectedId(null)}
@@ -796,6 +797,8 @@ export default function HomePage() {
         onOpenEvent={saveNavForEvent}
         favIds={favIds}
         onToggleFav={toggleFav}
+        appMode={appMode}
+        onAppModeChange={setAppMode}
       />
 
       {/* Favoris — panneau inline au-dessus de la carte */}
