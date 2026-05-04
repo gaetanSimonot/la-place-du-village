@@ -1,19 +1,26 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { useTheme } from '@/components/ThemeProvider'
 import { COLOR_THEMES, MAP_STYLES, SHEET_BG_OPTIONS } from '@/lib/themes'
 import AdminAccess from '@/components/AdminAccess'
 import MonEspaceProducteur from '@/components/MonEspaceProducteur'
+import { supabase } from '@/lib/supabase'
 
 type Tab = 'profil' | 'theme' | 'producteur'
 
 export default function ProfilPage() {
   const [tab, setTab] = useState<Tab>('theme')
+  const [plan, setPlan] = useState<string | null>(null)
   const { user, profile } = useAuth()
-  const plan = profile?.plan ?? null
   const { colorTheme, mapStyle, sheetBg, setColorThemeId, setMapStyleId, setSheetBgId } = useTheme()
+
+  useEffect(() => {
+    if (!user?.id) return
+    supabase.from('profiles').select('*').eq('user_id', user.id).single()
+      .then(({ data: p }) => { if (p) setPlan(p.plan ?? null) })
+  }, [user?.id])
 
   return (
     <div style={{ minHeight: '100dvh', backgroundColor: 'var(--creme)', fontFamily: 'Inter, sans-serif' }}>
