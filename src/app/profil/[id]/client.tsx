@@ -14,6 +14,7 @@ interface FullProfile {
   email: string | null
   bio: string | null
   ville: string | null
+  plan: string | null
 }
 
 interface EventSnippet {
@@ -223,12 +224,15 @@ export default function ProfilPageClient({ id }: { id: string }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   {profile.ville && <p style={{ fontSize: 13, color: '#6B5E4E', margin: 0 }}>📍 {profile.ville}</p>}
                   {/* Badge abonnement */}
-                  <span style={{
-                    fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
-                    color: '#6B5E4E', backgroundColor: '#EDE8DF',
-                    borderRadius: 999, padding: '2px 9px',
-                    fontFamily: 'Inter, sans-serif',
-                  }}>Basic</span>
+                  {profile.plan && profile.plan !== 'basic' && (
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+                      color: profile.plan === 'max' ? '#E8622A' : '#3A5BC7',
+                      backgroundColor: profile.plan === 'max' ? '#FFF0EB' : '#EEF3FF',
+                      borderRadius: 999, padding: '2px 9px',
+                      fontFamily: 'Inter, sans-serif',
+                    }}>{profile.plan === 'max' ? '✦ MAX' : '★ Pro'}</span>
+                  )}
                 </div>
               </>
             )}
