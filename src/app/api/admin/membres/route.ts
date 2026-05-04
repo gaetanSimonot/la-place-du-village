@@ -62,14 +62,36 @@ export async function PATCH(req: NextRequest) {
   if ('user_id' in body) {
     const { user_id, plan, pro_type, display_name, bio } = body
 
-    const { error } = await supabaseAdmin.from('profiles').upsert({
-      id: user_id,
-      plan: plan ?? 'basic',
-      pro_type: pro_type || null,
-      display_name: display_name || null,
-      bio: bio || null,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'id' })
+    // Check if profile row exists — if not, we need to create it with all required columns
+    const { data: existing } = await supabaseAdmin
+      .from('profiles').select('id').eq('id', user_id).maybeSingle()
+
+    let error
+    if (existing) {
+      // Row exists — only update the plan-related fields
+      ;({ error } = await supabaseAdmin.from('profiles').update({
+        plan: plan ?? 'basic',
+        pro_type: pro_type || null,
+        display_name: display_name || null,
+        bio: bio || null,
+        updated_at: new Date().toISOString(),
+      }).eq('id', user_id))
+    } else {
+      // No row yet — fetch auth user to get email/avatar and insert a complete row
+      const { data: { user: authUser } } = await supabaseAdmin.auth.admin.getUserById(user_id)
+      ;({ error } = await supabaseAdmin.from('profiles').insert({
+        id: user_id,
+        email: authUser?.email ?? null,
+        display_name: display_name || authUser?.user_metadata?.full_name || authUser?.user_metadata?.name || null,
+        avatar_url: authUser?.user_metadata?.avatar_url || null,
+        username: null,
+        banned: false,
+        plan: plan ?? 'basic',
+        pro_type: pro_type || null,
+        bio: bio || null,
+        updated_at: new Date().toISOString(),
+      }))
+    }
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
