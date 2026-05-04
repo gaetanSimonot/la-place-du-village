@@ -13,7 +13,7 @@ import { haversineKm, GANGES } from '@/lib/distance'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 
-import MaxSplash from '@/components/MaxSplash'
+// import MaxSplash from '@/components/MaxSplash'
 import ProBandeau from '@/components/ProBandeau'
 import FavorisView from '@/components/FavorisView'
 import { useFavorites } from '@/hooks/useFavorites'
