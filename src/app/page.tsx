@@ -242,9 +242,9 @@ export default function HomePage() {
     return () => window.removeEventListener('storage', onStorage)
   }, [fetchZoneConfig]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const fetchEvenements = useCallback(async () => {
+  const fetchEvenements = useCallback(async (silent = false) => {
     if (masquerPasses === null || !zoneLoaded) return // attendre les configs
-    setLoading(true)
+    if (!silent) setLoading(true)
 
     const SELECT = 'id, titre, categorie, date_debut, heure, image_url, image_position, promotion, promo_ordre, lieux(id, nom, commune, lat, lng, place_id_google)'
 
@@ -271,7 +271,7 @@ export default function HomePage() {
     } catch {
       // réseau coupé (app en arrière-plan) — on vide pas les données existantes
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [filtres, masquerPasses, zoneLoaded])
 
@@ -279,7 +279,7 @@ export default function HomePage() {
 
   // Relancer le fetch quand l'app revient au premier plan
   useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') fetchEvenements() }
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchEvenements(true) }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [fetchEvenements])
