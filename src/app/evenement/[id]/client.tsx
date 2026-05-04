@@ -126,7 +126,7 @@ function InstallBanner() {
 
       {isIOS ? (
         <p style={{ fontSize: 12, color: '#5A5A5A', margin: 0, lineHeight: 1.5, backgroundColor: '#FAF7F2', borderRadius: 10, padding: '10px 12px' }}>
-          Appuie sur <strong>↑ Partager</strong> en bas de Safari, puis <strong>"Sur l&apos;écran d&apos;accueil"</strong>
+          Appuie sur <strong>↑ Partager</strong> en bas de Safari, puis <strong>&ldquo;Sur l&apos;écran d&apos;accueil&rdquo;</strong>
         </p>
       ) : (
         <button onClick={install} style={{
