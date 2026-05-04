@@ -76,9 +76,19 @@ export default function ProfilPage() {
                   </div>
               }
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 16, color: '#2C1810', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {profile?.display_name || user.email?.split('@')[0] || 'Mon profil'}
-                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                  <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 16, color: '#2C1810', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {profile?.display_name || user.email?.split('@')[0] || 'Mon profil'}
+                  </p>
+                  {userPlan && userPlan !== 'basic' && (
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', flexShrink: 0,
+                      color: userPlan === 'max' ? '#E8622A' : '#3A5BC7',
+                      backgroundColor: userPlan === 'max' ? '#FFF0EB' : '#EEF3FF',
+                      borderRadius: 999, padding: '2px 8px', fontFamily: 'Inter, sans-serif',
+                    }}>{userPlan === 'max' ? '✦ MAX' : '★ Pro'}</span>
+                  )}
+                </div>
                 <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0 }}>Voir et modifier mon profil →</p>
               </div>
             </Link>
