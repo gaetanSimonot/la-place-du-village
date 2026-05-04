@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTheme } from '@/components/ThemeProvider'
 import { COLOR_THEMES, MAP_STYLES, SHEET_BG_OPTIONS } from '@/lib/themes'
 import LoginView from '@/components/LoginView'
@@ -7,17 +7,26 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAdminSession } from '@/hooks/useAdminSession'
 import Link from 'next/link'
 import AbonnementsView from '@/components/AbonnementsView'
+import MonEspaceProducteur from '@/components/MonEspaceProducteur'
+import { supabase } from '@/lib/supabase'
 
-type Tab = 'profil' | 'abonnements' | 'theme'
+type Tab = 'profil' | 'abonnements' | 'theme' | 'producteur'
 
 export default function ProfilView() {
   const [tab, setTab] = useState<Tab>('profil')
+  const [plan, setPlan] = useState<string | null>(null)
   const { colorTheme, mapStyle, sheetBg, setColorThemeId, setMapStyleId, setSheetBgId } = useTheme()
   const { user, profile, loading, signOut, updateDisplayName } = useAuth()
   const isAdmin = useAdminSession()
   const [editingName, setEditingName] = useState(false)
   const [nameInput, setNameInput] = useState('')
   const [showUpgrade, setShowUpgrade] = useState(false)
+
+  useEffect(() => {
+    if (!user?.id) return
+    supabase.from('profiles').select('plan').eq('user_id', user.id).single()
+      .then(({ data: p }) => { if (p) setPlan(p.plan ?? null) })
+  }, [user?.id])
 
   return (
     <div style={{ minHeight: '100%', backgroundColor: 'var(--creme)', fontFamily: 'Inter, sans-serif' }}>
@@ -35,11 +44,12 @@ export default function ProfilView() {
       </div>
 
       {/* Onglets */}
-      <div style={{ display: 'flex', padding: '12px 16px 0', gap: 8 }}>
+      <div style={{ display: 'flex', padding: '12px 16px 0', gap: 8, overflowX: 'auto' }}>
         {([
           { id: 'profil', label: 'Profil' },
           { id: 'abonnements', label: 'Suivis' },
           { id: 'theme', label: 'Thème' },
+          ...(plan === 'max' ? [{ id: 'producteur', label: '🌿 Ma fiche' }] : []),
         ] as { id: Tab; label: string }[]).map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
             padding: '8px 20px', borderRadius: 999, border: 'none', cursor: 'pointer',
@@ -178,6 +188,8 @@ export default function ProfilView() {
             )}
           </>
         )}
+
+        {tab === 'producteur' && <MonEspaceProducteur />}
 
         {tab === 'abonnements' && (
           <div style={{ margin: '0 -16px' }}>
