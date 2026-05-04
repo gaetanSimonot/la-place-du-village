@@ -8,7 +8,8 @@ async function verifyUser(req: NextRequest) {
   return user ?? null
 }
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const user = await verifyUser(req)
   if (!user) return NextResponse.json({ following: false })
 
@@ -16,13 +17,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     .from('producer_followers')
     .select('user_id')
     .eq('user_id', user.id)
-    .eq('producer_id', params.id)
+    .eq('producer_id', id)
     .maybeSingle()
 
   return NextResponse.json({ following: !!data })
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const user = await verifyUser(req)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -30,16 +32,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .from('producer_followers')
     .select('user_id')
     .eq('user_id', user.id)
-    .eq('producer_id', params.id)
+    .eq('producer_id', id)
     .maybeSingle()
 
   if (existing) {
     await supabaseAdmin.from('producer_followers')
-      .delete().eq('user_id', user.id).eq('producer_id', params.id)
+      .delete().eq('user_id', user.id).eq('producer_id', id)
     return NextResponse.json({ following: false })
   }
 
   await supabaseAdmin.from('producer_followers')
-    .insert({ user_id: user.id, producer_id: params.id })
+    .insert({ user_id: user.id, producer_id: id })
   return NextResponse.json({ following: true })
 }

@@ -12,7 +12,7 @@ interface Producer {
   id: string; nom: string; description_courte: string | null; description_longue: string | null
   commune: string | null; adresse: string | null; lat: number | null; lng: number | null
   contact_tel: string | null; contact_whatsapp: string | null; site_web: string | null
-  photos: string[]; is_max: boolean; is_featured: boolean
+  photos: string[]; is_max: boolean; is_featured: boolean; user_id?: string | null
   vente_directe?: boolean | null; retrait_sur_place?: boolean | null
 }
 interface Product { id: string; nom: string; categorie: string; prix_indicatif: string | null; periode_dispo: string | null }
@@ -199,12 +199,14 @@ export default function ProducteurPageClient({ id }: { id: string }) {
             <svg width="22" height="22" viewBox="0 0 24 24" fill={isFav ? '#E8622A' : 'none'} stroke={isFav ? '#E8622A' : '#8A7A6A'} strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
             <span style={{ ...LBL, color: isFav ? '#E8622A' : '#8A7A6A' }}>Favori</span>
           </button>
+          {producer.user_id !== user?.id && (
           <button style={BTN} onClick={toggleFollow}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={isFollowing ? '#2D5A3D' : '#8A7A6A'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               {isFollowing ? <path d="M20 6L9 17l-5-5"/> : <><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></>}
             </svg>
             <span style={{ ...LBL, color: isFollowing ? '#2D5A3D' : '#8A7A6A' }}>{isFollowing ? 'Suivi ✓' : 'Suivre'}</span>
           </button>
+          )}
           <button style={BTN} onClick={toggleComments}>
             <div style={{ position: 'relative' }}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={showComments ? '#2D5A3D' : '#8A7A6A'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
