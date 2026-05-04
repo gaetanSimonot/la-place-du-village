@@ -4,9 +4,8 @@ import { EvenementCard } from '@/lib/types'
 import { formatDate } from '@/lib/filters'
 import { CATEGORIES } from '@/lib/categories'
 
-const PROMO_PINK = '#EC407A'
 const INTERVAL_MS = 5000
-const FADE_MS = 350
+const FADE_MS = 300
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr]
@@ -42,10 +41,7 @@ export default function ProBandeau({ events, onDiscover }: Props) {
     fadeTimerRef.current = setTimeout(() => {
       setIdx(prev => {
         const next = prev + 1
-        if (next >= queue.length) {
-          setQueue(shuffle(events))
-          return 0
-        }
+        if (next >= queue.length) { setQueue(shuffle(events)); return 0 }
         return next
       })
       setFading(false)
@@ -68,78 +64,104 @@ export default function ProBandeau({ events, onDiscover }: Props) {
   const evt = queue[idx]
   if (!evt) return null
   const cat = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
-  const isMax = evt.promotion === 'max'
-  const accentColor = isMax ? '#7C3AED' : PROMO_PINK
-  const label = isMax ? '⚡ À la une' : '★ En vedette'
-  const fade: React.CSSProperties = { opacity: fading ? 0 : 1, transition: `opacity ${FADE_MS}ms ease` }
 
   return (
-    <div style={{
-      margin: '4px 12px 8px',
-      borderRadius: 14,
-      backgroundColor: '#fff',
-      boxShadow: `0 2px 12px ${accentColor}30, 0 1px 4px rgba(0,0,0,0.08)`,
-      border: `1.5px solid ${accentColor}33`,
-      overflow: 'hidden',
-      display: 'flex',
-      alignItems: 'stretch',
-      height: 84,
-      position: 'relative',
-      flexShrink: 0,
-    }}>
-      {evt.image_url
-        ? <img key={`img-${idx}`} src={evt.image_url} alt="" loading="lazy"
-            style={{ width: 84, height: 84, objectFit: 'cover', objectPosition: evt.image_position ?? '50% 50%', flexShrink: 0, ...fade }} />
-        : <div style={{ width: 84, height: 84, backgroundColor: cat.color, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, ...fade }}>
-            {cat.emoji}
-          </div>
-      }
+    <div
+      onClick={() => { clearTimeout(timerRef.current); onDiscover(evt.id) }}
+      style={{
+        margin: '0 12px 8px',
+        borderRadius: 12,
+        backgroundColor: '#FAFAF8',
+        border: '1px solid #E8E2D8',
+        boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
+        overflow: 'hidden',
+        display: 'flex',
+        alignItems: 'stretch',
+        height: 72,
+        position: 'relative',
+        flexShrink: 0,
+        cursor: 'pointer',
+      }}
+    >
+      {/* Barre latérale colorée catégorie */}
+      <div style={{ width: 3, backgroundColor: cat.color, flexShrink: 0 }} />
 
-      <div style={{ flex: 1, padding: '8px 6px 8px 10px', minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', ...fade }}>
-        <div style={{ marginBottom: 2 }}>
-          <span style={{ fontSize: 9, fontWeight: 800, color: accentColor, letterSpacing: '0.04em', textTransform: 'uppercase' }}>{label}</span>
-        </div>
+      {/* Image ou emoji */}
+      <div style={{
+        width: 64, height: 72, flexShrink: 0, overflow: 'hidden', position: 'relative',
+        opacity: fading ? 0 : 1, transition: `opacity ${FADE_MS}ms ease`,
+      }}>
+        {evt.image_url
+          ? <img key={`img-${idx}`} src={evt.image_url} alt="" loading="lazy"
+              style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: evt.image_position ?? '50% 50%' }} />
+          : <div style={{ width: '100%', height: '100%', backgroundColor: cat.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>
+              {cat.emoji}
+            </div>
+        }
+      </div>
+
+      {/* Texte */}
+      <div style={{
+        flex: 1, padding: '10px 8px 10px 10px', minWidth: 0,
+        display: 'flex', flexDirection: 'column', justifyContent: 'center',
+        opacity: fading ? 0 : 1, transition: `opacity ${FADE_MS}ms ease`,
+      }}>
         <p style={{
-          fontSize: 12, fontWeight: 700, color: '#2C1810', lineHeight: 1.25, margin: '0 0 2px',
+          fontSize: 9, fontWeight: 700, color: '#A09488',
+          letterSpacing: '0.08em', textTransform: 'uppercase',
+          margin: '0 0 3px', fontFamily: 'Inter, sans-serif',
+        }}>
+          À la une · {cat.emoji} {cat.label}
+        </p>
+        <p style={{
+          fontSize: 13, fontWeight: 700, color: '#2C1810', lineHeight: 1.25, margin: '0 0 2px',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          fontFamily: 'Syne, sans-serif',
         }}>{evt.titre}</p>
         {evt.date_debut && (
-          <p style={{ fontSize: 10, color: '#8A8A8A', margin: 0, fontFamily: 'Inter, sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <p style={{
+            fontSize: 10, color: '#8A8A8A', margin: 0,
+            fontFamily: 'Inter, sans-serif',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
             {formatDate(evt.date_debut)}{evt.lieux?.commune ? ` · ${evt.lieux.commune}` : ''}
           </p>
         )}
       </div>
 
-      <button onClick={() => { clearTimeout(timerRef.current); onDiscover(evt.id) }}
-        style={{
-          alignSelf: 'center', margin: '0 10px 0 4px', flexShrink: 0,
-          padding: '8px 10px', borderRadius: 10,
-          backgroundColor: accentColor, color: '#fff',
-          fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer', lineHeight: 1.3,
-          whiteSpace: 'nowrap',
-        }}>
-        Découvrir
-      </button>
+      {/* Flèche */}
+      <div style={{
+        display: 'flex', alignItems: 'center', paddingRight: 12, flexShrink: 0,
+        opacity: fading ? 0 : 1, transition: `opacity ${FADE_MS}ms ease`,
+        color: '#C0B8B0', fontSize: 14,
+      }}>→</div>
 
+      {/* Dots */}
       {queue.length > 1 && (
-        <div style={{ position: 'absolute', bottom: 5, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 4 }}>
+        <div style={{
+          position: 'absolute', bottom: 4, left: '50%', transform: 'translateX(-50%)',
+          display: 'flex', gap: 3,
+        }}>
           {queue.map((_, i) => (
-            <div key={i} onClick={() => setIdx(i)} style={{
-              width: i === idx ? 12 : 5, height: 5, borderRadius: 3,
-              backgroundColor: i === idx ? accentColor : '#D0C8C0',
-              transition: 'width 0.3s, background-color 0.3s',
+            <div key={i} onClick={e => { e.stopPropagation(); setIdx(i) }} style={{
+              width: i === idx ? 10 : 4, height: 4, borderRadius: 2,
+              backgroundColor: i === idx ? '#8A8A8A' : '#D0C8C0',
+              transition: 'width 0.3s',
               cursor: 'pointer',
             }} />
           ))}
         </div>
       )}
 
-      <button onClick={() => setDismissed(true)}
+      {/* X discret */}
+      <button
+        onClick={e => { e.stopPropagation(); setDismissed(true) }}
         style={{
-          position: 'absolute', top: 5, right: 5,
-          width: 18, height: 18, borderRadius: '50%',
-          backgroundColor: 'rgba(0,0,0,0.2)', border: 'none', color: '#fff',
-          fontSize: 9, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          position: 'absolute', top: 6, right: 6,
+          width: 16, height: 16, borderRadius: '50%',
+          backgroundColor: 'rgba(0,0,0,0.08)', border: 'none',
+          color: '#8A8A8A', fontSize: 8,
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontWeight: 700,
         }}>✕</button>
     </div>
