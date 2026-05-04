@@ -145,8 +145,9 @@ export async function POST(req: NextRequest) {
     })
 
     const baseEventStatut = check.doublon ? 'archive' : check.publier ? baseStatut : 'a_verifier'
+    // Pour les users : doublon → archive, sinon toujours en_attente (publier ou pas)
     const finalStatut = isUserSubmission
-      ? (check.doublon ? 'archive' : check.publier ? 'en_attente' : 'a_verifier')
+      ? (check.doublon ? 'archive' : 'en_attente')
       : baseEventStatut
 
     const { data: evenement, error: evtErr } = await supabaseAdmin
@@ -168,7 +169,8 @@ export async function POST(req: NextRequest) {
         source: 'formulaire',
         submitted_by: submittedBy,
         submitted_by_name: submittedByName,
-        publish_at: finalStatut === 'en_attente' ? publishAt : null,
+        // Auto-publish seulement si l'IA est confiante (check.publier)
+        publish_at: isUserSubmission && check.publier ? publishAt : null,
       })
       .select()
       .single()
