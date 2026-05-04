@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
+import { useAuth } from '@/hooks/useAuth'
 import { useTheme } from '@/components/ThemeProvider'
 import { COLOR_THEMES, MAP_STYLES, SHEET_BG_OPTIONS } from '@/lib/themes'
 import AdminAccess from '@/components/AdminAccess'
@@ -9,6 +10,7 @@ type Tab = 'profil' | 'theme'
 
 export default function ProfilPage() {
   const [tab, setTab] = useState<Tab>('theme')
+  const { user, profile } = useAuth()
   const { colorTheme, mapStyle, sheetBg, setColorThemeId, setMapStyleId, setSheetBgId } = useTheme()
 
   return (
@@ -51,25 +53,32 @@ export default function ProfilPage() {
       <div style={{ padding: '20px 16px 40px' }}>
 
         {tab === 'profil' && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, paddingTop: 24 }}>
-            <div style={{
-              width: 80, height: 80, borderRadius: '50%',
-              backgroundColor: 'var(--primary-light)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 36,
-            }}>
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="1.8">
-                <circle cx="12" cy="8" r="4"/>
-                <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-              </svg>
+          user ? (
+            <Link href={`/profil/${user.id}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 14, backgroundColor: '#fff', borderRadius: 16, padding: '16px', marginTop: 8 }}>
+              {profile?.avatar_url
+                ? <img src={profile.avatar_url} alt="" style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                : <div style={{ width: 56, height: 56, borderRadius: '50%', backgroundColor: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 22, fontFamily: 'Syne, sans-serif', flexShrink: 0 }}>
+                    {(profile?.display_name || user.email || '?')[0].toUpperCase()}
+                  </div>
+              }
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 16, color: '#2C1810', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {profile?.display_name || user.email?.split('@')[0] || 'Mon profil'}
+                </p>
+                <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0 }}>Voir et modifier mon profil →</p>
+              </div>
+            </Link>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, paddingTop: 24 }}>
+              <div style={{ width: 80, height: 80, borderRadius: '50%', backgroundColor: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="1.8">
+                  <circle cx="12" cy="8" r="4"/>
+                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                </svg>
+              </div>
+              <p style={{ fontSize: 14, color: '#8A8A8A', textAlign: 'center', lineHeight: 1.5, margin: 0 }}>Connecte-toi pour accéder à ton profil.</p>
             </div>
-            <h2 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 20, color: '#2C1810', margin: 0 }}>
-              Mon profil
-            </h2>
-            <p style={{ fontSize: 14, color: '#8A8A8A', textAlign: 'center', lineHeight: 1.5, margin: 0 }}>
-              Les comptes arrivent bientôt.<br/>Tu pourras suivre tes événements favoris.
-            </p>
-          </div>
+          )
         )}
 
         {tab === 'theme' && (
