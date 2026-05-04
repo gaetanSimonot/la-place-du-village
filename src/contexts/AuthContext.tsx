@@ -10,6 +10,7 @@ export interface Profile {
   email: string | null
   username: string | null
   banned: boolean
+  plan: string | null
 }
 
 interface AuthContextType {

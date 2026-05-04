@@ -1,30 +1,18 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { useTheme } from '@/components/ThemeProvider'
 import { COLOR_THEMES, MAP_STYLES, SHEET_BG_OPTIONS } from '@/lib/themes'
 import AdminAccess from '@/components/AdminAccess'
 import MonEspaceProducteur from '@/components/MonEspaceProducteur'
-import { supabase } from '@/lib/supabase'
 
 type Tab = 'profil' | 'theme' | 'producteur'
 
 export default function ProfilPage() {
   const [tab, setTab] = useState<Tab>('theme')
-  const [userPlan, setUserPlan] = useState<string | null>(null)
   const { user, profile } = useAuth()
-
-  useEffect(() => {
-    if (!user) return
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) return
-      fetch('/api/mon-producteur', { headers: { Authorization: `Bearer ${session.access_token}` } })
-        .then(r => r.json())
-        .then(d => setUserPlan(d.plan ?? null))
-        .catch(() => {})
-    })
-  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const plan = profile?.plan ?? null
   const { colorTheme, mapStyle, sheetBg, setColorThemeId, setMapStyleId, setSheetBgId } = useTheme()
 
   return (
@@ -50,7 +38,7 @@ export default function ProfilPage() {
 
       {/* Onglets */}
       <div style={{ display: 'flex', padding: '12px 16px 0', gap: 8, overflowX: 'auto' }}>
-        {(['profil', 'theme', ...(userPlan === 'max' ? ['producteur'] : [])] as Tab[]).map(t => (
+        {(['profil', 'theme', ...(plan === 'max' ? ['producteur'] : [])] as Tab[]).map(t => (
           <button key={t} onClick={() => setTab(t)} style={{
             padding: '8px 20px', borderRadius: 999, border: 'none', cursor: 'pointer',
             fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap',
@@ -80,13 +68,13 @@ export default function ProfilPage() {
                   <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 16, color: '#2C1810', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {profile?.display_name || user.email?.split('@')[0] || 'Mon profil'}
                   </p>
-                  {userPlan && userPlan !== 'basic' && (
+                  {plan && plan !== 'basic' && (
                     <span style={{
                       fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', flexShrink: 0,
-                      color: userPlan === 'max' ? '#E8622A' : '#3A5BC7',
-                      backgroundColor: userPlan === 'max' ? '#FFF0EB' : '#EEF3FF',
+                      color: plan === 'max' ? '#E8622A' : '#3A5BC7',
+                      backgroundColor: plan === 'max' ? '#FFF0EB' : '#EEF3FF',
                       borderRadius: 999, padding: '2px 8px', fontFamily: 'Inter, sans-serif',
-                    }}>{userPlan === 'max' ? '✦ MAX' : '★ Pro'}</span>
+                    }}>{plan === 'max' ? '✦ MAX' : '★ Pro'}</span>
                   )}
                 </div>
                 <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0 }}>Voir et modifier mon profil →</p>
