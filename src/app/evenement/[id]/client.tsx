@@ -11,14 +11,18 @@ import FeedbackButton from '@/components/FeedbackButton'
 import EventEditDrawer from '@/components/EventEditDrawer'
 import { useAdminSession } from '@/hooks/useAdminSession'
 
+const LINK_STYLE = { color: '#C4622D', textDecoration: 'underline', wordBreak: 'break-all' } as const
+
 function linkify(text: string): React.ReactNode {
-  const urlRe = /https?:\/\/[^\s]+/g
+  const urlRe = /(https?:\/\/[^\s]+|www\.[^\s]+\.[^\s]+)/g
   const nodes: React.ReactNode[] = []
   let last = 0, m: RegExpExecArray | null
   while ((m = urlRe.exec(text)) !== null) {
     if (m.index > last) nodes.push(text.slice(last, m.index))
-    nodes.push(<a key={m.index} href={m[0]} target="_blank" rel="noopener noreferrer" style={{ color: '#C4622D', textDecoration: 'underline', wordBreak: 'break-all' }}>{m[0]}</a>)
-    last = m.index + m[0].length
+    const raw = m[0]
+    const href = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
+    nodes.push(<a key={m.index} href={href} target="_blank" rel="noopener noreferrer" style={LINK_STYLE}>{raw}</a>)
+    last = m.index + raw.length
   }
   if (last < text.length) nodes.push(text.slice(last))
   return nodes.length === 1 && typeof nodes[0] === 'string' ? nodes[0] : <>{nodes}</>
@@ -27,11 +31,13 @@ function linkify(text: string): React.ReactNode {
 function renderContact(contact: string): React.ReactNode {
   const s = contact.trim()
   if (/^https?:\/\//i.test(s))
-    return <a href={s} target="_blank" rel="noopener noreferrer" style={{ color: '#C4622D', textDecoration: 'underline', wordBreak: 'break-all' }}>{s.replace(/^https?:\/\//, '').replace(/\/$/, '')}</a>
+    return <a href={s} target="_blank" rel="noopener noreferrer" style={LINK_STYLE}>{s.replace(/^https?:\/\//, '').replace(/\/$/, '')}</a>
+  if (/^www\./i.test(s))
+    return <a href={`https://${s}`} target="_blank" rel="noopener noreferrer" style={LINK_STYLE}>{s}</a>
   if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s))
-    return <a href={`mailto:${s}`} style={{ color: '#C4622D', textDecoration: 'underline' }}>{s}</a>
+    return <a href={`mailto:${s}`} style={LINK_STYLE}>{s}</a>
   if (/^[\d\s+\-().]{6,}$/.test(s))
-    return <a href={`tel:${s.replace(/[\s\-().]/g, '')}`} style={{ color: '#C4622D', textDecoration: 'underline' }}>{s}</a>
+    return <a href={`tel:${s.replace(/[\s\-().]/g, '')}`} style={LINK_STYLE}>{s}</a>
   return <>{linkify(s)}</>
 }
 
