@@ -122,6 +122,16 @@ export default function ProfilView() {
                   }
 
                   <p style={{ fontSize: 13, color: '#8A8A8A', margin: 0 }}>{profile?.email ?? user.email}</p>
+
+                  <Link href={`/profil/${user.id}`} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '8px 18px', borderRadius: 999,
+                    backgroundColor: 'var(--primary-light)', color: 'var(--primary)',
+                    fontSize: 13, fontWeight: 700, textDecoration: 'none',
+                    fontFamily: 'Syne, sans-serif',
+                  }}>
+                    Voir mon profil →
+                  </Link>
                 </div>
 
                 {/* Bouton admin — visible uniquement pour les admins */}

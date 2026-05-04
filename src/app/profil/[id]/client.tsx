@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { CATEGORIES } from '@/lib/categories'
@@ -54,28 +55,31 @@ export default function ProfilPageClient({ id }: { id: string }) {
   useEffect(() => {
     const load = async () => {
       setLoading(true)
-      const [{ data: p }, { count: fc }, { count: ing }] = await Promise.all([
-        supabase.from('profiles').select('id, display_name, avatar_url, email, bio, ville').eq('id', id).single(),
-        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('followed_id', id),
-        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
-      ])
-      if (p) setProfile(p as FullProfile)
-      setFollowerCount(fc ?? 0)
-      setFollowingCount(ing ?? 0)
-      if (user) {
-        const { data: f } = await supabase.from('follows')
-          .select('follower_id').eq('follower_id', user.id).eq('followed_id', id).maybeSingle()
-        setIsFollowing(!!f)
+      try {
+        const [{ data: p }, { count: fc }, { count: ing }] = await Promise.all([
+          supabase.from('profiles').select('id, display_name, avatar_url, email, bio, ville').eq('id', id).single(),
+          supabase.from('follows').select('*', { count: 'exact', head: true }).eq('followed_id', id),
+          supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
+        ])
+        if (p) setProfile(p as FullProfile)
+        setFollowerCount(fc ?? 0)
+        setFollowingCount(ing ?? 0)
+        if (user) {
+          const { data: f } = await supabase.from('follows')
+            .select('follower_id').eq('follower_id', user.id).eq('followed_id', id).maybeSingle()
+          setIsFollowing(!!f)
+        }
+        const { data: interests } = await supabase
+          .from('interests')
+          .select('evenements(id, titre, date_debut, image_url, categorie)')
+          .eq('user_id', id)
+          .order('created_at', { ascending: false })
+          .limit(12)
+        setEvents(((interests ?? []) as unknown as { evenements: EventSnippet | null }[])
+          .map(i => i.evenements).filter((e): e is EventSnippet => e !== null))
+      } finally {
+        setLoading(false)
       }
-      const { data: interests } = await supabase
-        .from('interests')
-        .select('evenements(id, titre, date_debut, image_url, categorie)')
-        .eq('user_id', id)
-        .order('created_at', { ascending: false })
-        .limit(12)
-      setEvents(((interests ?? []) as unknown as { evenements: EventSnippet | null }[])
-        .map(i => i.evenements).filter((e): e is EventSnippet => e !== null))
-      setLoading(false)
     }
     load()
   }, [id, user])
@@ -263,7 +267,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
               {events.map(e => {
                 const cat = CATEGORIES[e.categorie as Categorie] ?? CATEGORIES.autre
                 return (
-                  <a key={e.id} href={`/evenement/${e.id}`} style={{ textDecoration: 'none', display: 'block', borderRadius: 14, overflow: 'hidden', backgroundColor: '#fff', boxShadow: '0 1px 6px rgba(0,0,0,0.07)' }}>
+                  <Link key={e.id} href={`/evenement/${e.id}`} style={{ textDecoration: 'none', display: 'block', borderRadius: 14, overflow: 'hidden', backgroundColor: '#fff', boxShadow: '0 1px 6px rgba(0,0,0,0.07)' }}>
                     <div style={{ width: '100%', aspectRatio: '4/3', position: 'relative', overflow: 'hidden' }}>
                       {e.image_url
                         ? <img src={e.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
@@ -274,7 +278,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
                       <p style={{ fontWeight: 700, fontSize: 12, color: '#2C1810', margin: 0, lineHeight: 1.35, maxHeight: '2.7em', overflow: 'hidden' }}>{e.titre}</p>
                       {e.date_debut && <p style={{ fontSize: 11, color: '#9CA3AF', margin: '3px 0 0' }}>{new Date(e.date_debut + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</p>}
                     </div>
-                  </a>
+                  </Link>
                 )
               })}
             </div>
