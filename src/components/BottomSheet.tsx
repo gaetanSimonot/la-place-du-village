@@ -249,8 +249,8 @@ export default function BottomSheet({
         <div style={{ display: 'flex', gap: 10, padding: '0 16px 10px' }}>
         <button onClick={handleQuoiBtn} style={{
           flex: 1, height: 50, borderRadius: 14, border: 'none',
-          backgroundColor: hasQuoi ? 'var(--primary)' : sheetBg.pill,
-          color: hasQuoi ? '#fff' : sheetBg.pillText,
+          backgroundColor: hasQuoi ? 'var(--primary)' : sheetBg.text,
+          color: hasQuoi ? '#fff' : sheetBg.bg,
           fontSize: 14, fontWeight: 700, fontFamily: 'Syne, sans-serif',
           cursor: 'pointer', overflow: 'hidden', position: 'relative',
         }}>
@@ -265,8 +265,8 @@ export default function BottomSheet({
 
         <button onClick={handleQuandBtn} style={{
           flex: 1, height: 50, borderRadius: 14, border: 'none',
-          backgroundColor: hasQuand ? 'var(--primary)' : sheetBg.pill,
-          color: hasQuand ? '#fff' : sheetBg.pillText,
+          backgroundColor: hasQuand ? 'var(--primary)' : sheetBg.text,
+          color: hasQuand ? '#fff' : sheetBg.bg,
           fontSize: 14, fontWeight: 700, fontFamily: 'Syne, sans-serif',
           cursor: 'pointer', overflow: 'hidden', position: 'relative',
         }}>

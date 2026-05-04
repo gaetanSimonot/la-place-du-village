@@ -41,7 +41,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const m = localStorage.getItem('pdv-theme-map')
     const s = localStorage.getItem('pdv-theme-sheetbg')
     const f = localStorage.getItem('pdv-theme-fixedmap')
-    if (c && COLOR_THEMES.some(t => t.id === c))        setColorId(c)
+    // Migrate old default 'terrecuite' → new default 'foret'
+    const colorToApply = c === 'terrecuite' ? DEFAULT_COLOR_THEME : c
+    if (colorToApply && COLOR_THEMES.some(t => t.id === colorToApply)) setColorId(colorToApply)
     if (m && MAP_STYLES.some(s => s.id === m))          setMapId(m)
     if (s && SHEET_BG_OPTIONS.some(o => o.id === s))    setSheetBgIdState(s)
     if (f !== null) setFixedMapState(f === 'true')

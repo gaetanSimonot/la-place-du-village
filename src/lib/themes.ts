@@ -10,10 +10,18 @@ export interface ColorTheme {
 
 export const COLOR_THEMES: ColorTheme[] = [
   {
+    id: 'foret',
+    name: 'Forêt',
+    description: 'Nature Cévennes',
+    primary: '#1E3A2E',
+    primaryLight: '#E6EFE9',
+    bg: '#FAF7F2',
+  },
+  {
     id: 'terrecuite',
     name: 'Terre cuite',
     description: 'Chaleur du Midi',
-    primary: '#E8622A',
+    primary: '#C4622D',
     primaryLight: '#FFF4F0',
     bg: '#FAF7F2',
   },
@@ -172,7 +180,7 @@ export const MAP_STYLES: MapStyleDef[] = [
   },
 ]
 
-export const DEFAULT_COLOR_THEME = 'terrecuite'
+export const DEFAULT_COLOR_THEME = 'foret'
 export const DEFAULT_MAP_STYLE   = 'warm'
 
 // ─── Fond de la liste (BottomSheet) ──────────────────────────────

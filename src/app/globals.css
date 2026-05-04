@@ -1,4 +1,5 @@
 @import "@fontsource/syne/700.css";
+@import "@fontsource/syne/800.css";
 @import "@fontsource/inter/400.css";
 @import "@fontsource/inter/500.css";
 @import "@fontsource/inter/600.css";
@@ -8,13 +9,13 @@
 @tailwind utilities;
 
 :root {
-  --primary:       #E8622A;
-  --primary-light: #FFF4F0;
-  --orange:  #E8622A;
-  --vert:    #5B8C5A;
+  --primary:       #1E3A2E;
+  --primary-light: #E6EFE9;
+  --orange:  #C4622D;
+  --vert:    #1E3A2E;
   --creme:   #FAF7F2;
   --carte:   #4A90D9;
-  --texte:   #2C2C2C;
+  --texte:   #1C1917;
   --bord:    #EDE8E0;
   --blanc:   #FFFFFF;
   --gris:    #8A8A8A;
@@ -35,7 +36,7 @@ html, body {
 
 h1, h2, h3, .font-title {
   font-family: "Syne", sans-serif;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 /* Scrollbar invisible sur les rails de pills */
