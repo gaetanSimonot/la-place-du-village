@@ -72,14 +72,28 @@ export default function HomePage() {
   const [filtres, setFiltres]       = useState<Filtres>(defaultFiltres)
   const [allEvenements, setAllEvenements] = useState<EvenementCard[]>([])
   const [promoEventsData, setPromoEventsData] = useState<EvenementCard[]>([])
-  const [splashDone, setSplashDone]   = useState(false)
-  const [showWelcome, setShowWelcome] = useState(false)
-  const [appMode, setAppMode]         = useState<'agenda' | 'annuaire'>('agenda')
+  const [splashDone, setSplashDone]           = useState(false)
+  const [showWelcome, setShowWelcome]         = useState(false)
+  const [appMode, setAppMode]                 = useState<'agenda' | 'annuaire'>('agenda')
+  const [producers, setProducers]             = useState<import('@/lib/types').ProducerCard[]>([])
+  const [producerLoading, setProducerLoading] = useState(false)
+  const [selectedProducerId, setSelectedProducerId] = useState<string | null>(null)
   const [loading, setLoading]       = useState(true)
   const [masquerPasses, setMasquerPasses] = useState(true)
   const [zoneCentres, setZoneCentres]   = useState<{ lat: number; lng: number; nom: string }[]>([])
   const [rayonAffichage, setRayonAffichage] = useState<number | null>(null)
   const [zoneLoaded, setZoneLoaded]     = useState(false)
+
+  // Fetch producers when entering annuaire mode
+  useEffect(() => {
+    if (appMode !== 'annuaire') return
+    setProducerLoading(true)
+    fetch('/api/producers')
+      .then(r => r.json())
+      .then(d => setProducers(d.producers ?? []))
+      .catch(() => {})
+      .finally(() => setProducerLoading(false))
+  }, [appMode])
 
   // Zone user (localStorage)
   const [zonePopup, setZonePopup]       = useState(false)
@@ -419,6 +433,9 @@ export default function HomePage() {
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 40, zIndex: 5, pointerEvents: 'auto' }} />
         <MapView
           evenements={appMode === 'annuaire' ? [] : evenements}
+          producers={appMode === 'annuaire' ? producers : []}
+          selectedProducerId={selectedProducerId}
+          onSelectProducer={setSelectedProducerId}
           selectedId={selectedId}
           onSelectEvent={setSelectedId}
           onDeselect={() => setSelectedId(null)}
@@ -799,6 +816,8 @@ export default function HomePage() {
         onToggleFav={toggleFav}
         appMode={appMode}
         onAppModeChange={setAppMode}
+        producers={producers}
+        producerLoading={producerLoading}
       />
 
       {/* Favoris — panneau inline au-dessus de la carte */}

@@ -359,6 +359,9 @@ export default function AdminDashboard() {
         <Link href="/admin/sources" className="text-xs text-[#C4622D] font-semibold border border-[#C4622D] px-2 py-1 rounded-lg mr-1">
           Sources
         </Link>
+        <Link href="/admin/producteurs" className="text-xs text-[#2D5A3D] font-semibold border border-[#2D5A3D] px-2 py-1 rounded-lg mr-1">
+          🌿 Producteurs
+        </Link>
         <button onClick={fetchAll} className="text-xs text-gray-400 underline">Actualiser</button>
       </div>
 

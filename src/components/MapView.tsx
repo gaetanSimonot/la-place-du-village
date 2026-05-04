@@ -2,7 +2,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { APIProvider, Map, InfoWindow, useMap } from '@vis.gl/react-google-maps'
 import { MarkerClusterer } from '@googlemaps/markerclusterer'
-import { EvenementCard, isApproxLocation } from '@/lib/types'
+import { EvenementCard, ProducerCard, isApproxLocation } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
 import { useTheme } from '@/components/ThemeProvider'
@@ -46,6 +46,35 @@ const CATEGORY_SHAPES: Record<string, string> = {
 
 // Cache SVG par clé "categorie|selected|approx" — évite de recalculer à chaque render
 const svgCache: Record<string, string> = {}
+
+function producerMarkerSvg(selected: boolean, isMax: boolean): string {
+  const key = `producer|${selected}|${isMax}`
+  if (svgCache[key]) return svgCache[key]
+  const r    = selected ? 20 : 15
+  const size = r * 2 + 8 + (isMax ? 12 : 0)
+  const cx   = size / 2
+  const cy   = r + 2 + (isMax ? 6 : 0)
+  const hw   = Math.round(r * 0.52)
+  const ht   = Math.round(r * 0.36)
+  const hb   = Math.round(r * 0.28)
+  const dw   = Math.round(hw * 0.38)
+  const dh   = Math.round(hb * 0.7)
+  const fill = isMax ? '#E8622A' : '#2D5A3D'
+  const glow = selected ? `<circle cx="${cx}" cy="${cy}" r="${r+5}" fill="${fill}" opacity="0.2"/>` : ''
+  const maxRing = isMax ? `<circle cx="${cx}" cy="${cy}" r="${r+6}" fill="${fill}" opacity="0.12"/>
+    <circle cx="${cx}" cy="${cy}" r="${r+4}" fill="none" stroke="${fill}" stroke-width="2" opacity="0.8"/>` : ''
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size+8}">
+    ${maxRing}${glow}
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="#fff" stroke-width="${selected?2.5:2}"/>
+    <polyline fill="none" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"
+      points="${cx-hw},${cy-hb/2} ${cx},${cy-ht-hb/2} ${cx+hw},${cy-hb/2} ${cx+hw},${cy+hb/2} ${cx-hw},${cy+hb/2} ${cx-hw},${cy-hb/2}"/>
+    <rect x="${cx-dw/2}" y="${cy+hb/2-dh}" width="${dw}" height="${dh}" fill="#fff" rx="1"/>
+    <polygon points="${cx-5},${cy+r-1} ${cx+5},${cy+r-1} ${cx},${cy+r+8}" fill="${fill}"/>
+  </svg>`
+  const url = `data:image/svg+xml,${encodeURIComponent(svg)}`
+  svgCache[key] = url
+  return url
+}
 
 function markerSvg(categorie: string, selected: boolean, approx = false, promoted = false): string {
   const key = `${categorie}|${selected}|${approx}|${promoted}`
@@ -209,6 +238,46 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, centerOn }: 
   return null
 }
 
+interface ProducerMarkersProps {
+  producers: ProducerCard[]
+  selectedProducerId: string | null
+  onSelectProducer: (id: string | null) => void
+}
+
+function ProducerMarkers({ producers, selectedProducerId, onSelectProducer }: ProducerMarkersProps) {
+  const map = useMap()
+  const markersRef = useRef<google.maps.Marker[]>([])
+
+  useEffect(() => {
+    if (!map) return
+    markersRef.current.forEach(m => m.setMap(null))
+    markersRef.current = []
+
+    const withLoc = producers.filter(p => p.lat && p.lng)
+    markersRef.current = withLoc.map(p => {
+      const sel  = p.id === selectedProducerId
+      const size = sel ? 52 : 42
+      const marker = new google.maps.Marker({
+        position: { lat: p.lat!, lng: p.lng! },
+        title: p.nom,
+        optimized: false,
+        map,
+        icon: {
+          url: producerMarkerSvg(sel, p.is_max),
+          scaledSize: new google.maps.Size(size, size + 8),
+          anchor: new google.maps.Point(size / 2, size + 8),
+        },
+        zIndex: sel ? 999 : p.is_max ? 10 : 1,
+      })
+      marker.addListener('click', () => onSelectProducer(sel ? null : p.id))
+      return marker
+    })
+    return () => { markersRef.current.forEach(m => m.setMap(null)) }
+  }, [map, producers, selectedProducerId, onSelectProducer])
+
+  return null
+}
+
 interface Props {
   evenements: EvenementCard[]
   selectedId: string | null
@@ -219,10 +288,14 @@ interface Props {
   onMapDragStart?: () => void
   onMapDragEnd?: () => void
   onCameraIdle?: (lat: number, lng: number, zoom: number) => void
+  producers?: ProducerCard[]
+  selectedProducerId?: string | null
+  onSelectProducer?: (id: string | null) => void
 }
 
-export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn, onMapDragStart, onMapDragEnd, onCameraIdle }: Props) {
-  const selectedEvent = selectedId ? evenements.find(e => e.id === selectedId) : null
+export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn, onMapDragStart, onMapDragEnd, onCameraIdle, producers = [], selectedProducerId = null, onSelectProducer }: Props) {
+  const selectedEvent    = selectedId ? evenements.find(e => e.id === selectedId) : null
+  const selectedProducer = selectedProducerId ? producers.find(p => p.id === selectedProducerId) : null
   const selectedCat   = selectedEvent
     ? (CATEGORIES[selectedEvent.categorie] ?? CATEGORIES.autre)
     : null
@@ -264,6 +337,40 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
           fixedMap={fixedMap}
           centerOn={centerOn}
         />
+        <ProducerMarkers
+          producers={producers}
+          selectedProducerId={selectedProducerId}
+          onSelectProducer={onSelectProducer ?? (() => {})}
+        />
+
+        {/* InfoWindow producteur sélectionné */}
+        {selectedProducer && selectedProducer.lat && selectedProducer.lng && (
+          <InfoWindow
+            position={{ lat: selectedProducer.lat, lng: selectedProducer.lng }}
+            onCloseClick={() => onSelectProducer?.(null)}
+            pixelOffset={[0, -50]}
+          >
+            <div style={{ position: 'relative', width: 200, overflow: 'visible', fontFamily: 'Inter, sans-serif' }}>
+              <button onClick={() => onSelectProducer?.(null)}
+                style={{ position: 'absolute', top: -10, right: -10, zIndex: 10, width: 22, height: 22, borderRadius: '50%', backgroundColor: '#fff', border: '1.5px solid #ddd', boxShadow: '0 1px 5px rgba(0,0,0,0.22)', cursor: 'pointer', color: '#666', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, padding: 0 }}>✕</button>
+              <div style={{ borderRadius: 12, overflow: 'hidden', backgroundColor: '#fff' }}>
+                {selectedProducer.photo_url && (
+                  <img src={selectedProducer.photo_url} alt="" style={{ width: '100%', height: 90, objectFit: 'cover', display: 'block' }} />
+                )}
+                <div style={{ padding: '8px 10px 10px' }}>
+                  {selectedProducer.is_max && <span style={{ fontSize: 9, backgroundColor: '#E8622A', color: '#fff', borderRadius: 999, padding: '1px 6px', fontWeight: 800, marginBottom: 4, display: 'inline-block' }}>MAX</span>}
+                  <p style={{ fontWeight: 700, fontSize: 13, color: '#1A1209', margin: '0 0 2px', lineHeight: 1.3 }}>{selectedProducer.nom}</p>
+                  {selectedProducer.commune && <p style={{ fontSize: 11, color: '#6B5E4E', margin: '0 0 6px' }}>📍 {selectedProducer.commune}</p>}
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {selectedProducer.produit_categories.slice(0, 3).map(c => (
+                      <span key={c} style={{ fontSize: 10, padding: '2px 6px', borderRadius: 999, backgroundColor: '#E8F2EB', color: '#2D5A3D', fontWeight: 700 }}>{c}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </InfoWindow>
+        )}
 
         {/* Popup InfoWindow sur l'événement sélectionné */}
         {selectedEvent && selectedEvent.lieux?.lat && selectedEvent.lieux?.lng && (
