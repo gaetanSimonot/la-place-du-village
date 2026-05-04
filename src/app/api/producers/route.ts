@@ -43,9 +43,16 @@ export async function GET(req: NextRequest) {
           .map((pr: { categorie: string }) => pr.categorie)
       )
     ),
+    produits_disponibles: (p.products ?? [])
+      .filter((pr: { disponible: boolean }) => pr.disponible)
+      .map((pr: { nom: string; categorie: string; prix_indicatif: string | null; periode_dispo: string | null; dispo_jusqu_au: string | null }) => ({
+        nom: pr.nom, categorie: pr.categorie, prix_indicatif: pr.prix_indicatif,
+        periode_dispo: pr.periode_dispo, dispo_jusqu_au: pr.dispo_jusqu_au,
+      })),
     lat: p.lat ?? null,
     lng: p.lng ?? null,
     is_max: p.is_max ?? false,
+    site_web: p.site_web ?? null,
   }))
 
   return NextResponse.json({ producers })

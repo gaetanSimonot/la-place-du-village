@@ -1,16 +1,30 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { useTheme } from '@/components/ThemeProvider'
 import { COLOR_THEMES, MAP_STYLES, SHEET_BG_OPTIONS } from '@/lib/themes'
 import AdminAccess from '@/components/AdminAccess'
+import MonEspaceProducteur from '@/components/MonEspaceProducteur'
+import { supabase } from '@/lib/supabase'
 
-type Tab = 'profil' | 'theme'
+type Tab = 'profil' | 'theme' | 'producteur'
 
 export default function ProfilPage() {
   const [tab, setTab] = useState<Tab>('theme')
+  const [userPlan, setUserPlan] = useState<string | null>(null)
   const { user, profile } = useAuth()
+
+  useEffect(() => {
+    if (!user) return
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) return
+      fetch('/api/mon-producteur', { headers: { Authorization: `Bearer ${session.access_token}` } })
+        .then(r => r.json())
+        .then(d => setUserPlan(d.plan ?? null))
+        .catch(() => {})
+    })
+  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const { colorTheme, mapStyle, sheetBg, setColorThemeId, setMapStyleId, setSheetBgId } = useTheme()
 
   return (
@@ -35,16 +49,16 @@ export default function ProfilPage() {
       </div>
 
       {/* Onglets */}
-      <div style={{ display: 'flex', padding: '12px 16px 0', gap: 8 }}>
-        {(['profil', 'theme'] as Tab[]).map(t => (
+      <div style={{ display: 'flex', padding: '12px 16px 0', gap: 8, overflowX: 'auto' }}>
+        {(['profil', 'theme', ...(userPlan === 'max' ? ['producteur'] : [])] as Tab[]).map(t => (
           <button key={t} onClick={() => setTab(t)} style={{
             padding: '8px 20px', borderRadius: 999, border: 'none', cursor: 'pointer',
-            fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 13,
+            fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap',
             backgroundColor: tab === t ? 'var(--primary)' : '#EDE8E0',
             color: tab === t ? '#fff' : '#6B6B6B',
             transition: 'all 0.15s',
           }}>
-            {t === 'profil' ? 'Profil' : 'Thème'}
+            {t === 'profil' ? 'Profil' : t === 'theme' ? 'Thème' : '🌿 Ma fiche'}
           </button>
         ))}
       </div>
@@ -80,6 +94,8 @@ export default function ProfilPage() {
             </div>
           )
         )}
+
+        {tab === 'producteur' && <MonEspaceProducteur />}
 
         {tab === 'theme' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
