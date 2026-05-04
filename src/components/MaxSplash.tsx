@@ -21,7 +21,11 @@ const STYLES = `
 `
 
 function sorted(events: EvenementCard[]): EvenementCard[] {
-  return [...events].sort((a, b) => (a.promo_ordre ?? 999) - (b.promo_ordre ?? 999))
+  return [...events].sort((a, b) => {
+    const ao = a.promo_ordre != null ? Number(a.promo_ordre) : 999
+    const bo = b.promo_ordre != null ? Number(b.promo_ordre) : 999
+    return (isNaN(ao) ? 999 : ao) - (isNaN(bo) ? 999 : bo)
+  })
 }
 
 function wrap(i: number, n: number) {
@@ -81,7 +85,6 @@ export default function MaxSplash({ events, loading = false }: Props) {
     return () => clearTimeout(t)
   }, [phase, logoReady, loading, n])
 
-  // Auto-advance
   useEffect(() => {
     if (phase !== 'event' || n <= 1 || animating) return
     autoTimer.current = setTimeout(() => slide('left'), AUTO_ADVANCE_MS)
@@ -95,8 +98,6 @@ export default function MaxSplash({ events, loading = false }: Props) {
     setPhase('dismissed')
   }
 
-  // 'left'  → carte courante part à gauche, slide suivant (idx+1, boucle)
-  // 'right' → carte courante part à droite, slide précédent (idx-1, boucle)
   const slide = (dir: 'left' | 'right') => {
     if (animating) return
     clearTimeout(autoTimer.current)
@@ -135,7 +136,7 @@ export default function MaxSplash({ events, loading = false }: Props) {
 
   if (phase === 'dismissed') return null
 
-  /* ── Logo ─────────────────────────────────────────────────────────────────── */
+  /* ── Logo ── */
   if (phase === 'logo') {
     return (
       <div style={{
@@ -165,11 +166,9 @@ export default function MaxSplash({ events, loading = false }: Props) {
     )
   }
 
-  /* ── Événement ────────────────────────────────────────────────────────────── */
+  /* ── Événement ── */
   const evt = evts[idx]
   const cat = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
-
-  // Carte visible en dessous — précédent si on tire à droite, suivant sinon
   const underIdx = n > 1 ? (dragX > 20 ? wrap(idx - 1, n) : wrap(idx + 1, n)) : null
 
   return (
@@ -181,7 +180,7 @@ export default function MaxSplash({ events, loading = false }: Props) {
     >
       <style>{STYLES}</style>
 
-      {/* Carte du dessous — fixe, révélée quand la carte du dessus glisse */}
+      {/* Carte du dessous */}
       <div style={{ position: 'absolute', inset: 0 }}>
         {underIdx !== null
           ? <Slide evt={evts[underIdx]} />
@@ -189,95 +188,100 @@ export default function MaxSplash({ events, loading = false }: Props) {
         }
       </div>
 
-      {/* Carte du dessus — suit le doigt */}
-      <div
-        style={{
-          position: 'absolute', inset: 0,
-          transform: `translateX(${dragX}px)`,
-          transition: animating ? 'transform 0.15s ease-out' : 'none',
-          willChange: 'transform',
-        }}
-      >
+      {/* Carte du dessus */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        transform: `translateX(${dragX}px)`,
+        transition: animating ? 'transform 0.15s ease-out' : 'none',
+        willChange: 'transform',
+      }}>
         <Slide evt={evt} />
       </div>
 
-      {/* Dégradé fixe */}
+      {/* Dégradé fixe — plus dense en bas pour lisibilité du texte */}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.08) 60%, transparent 100%)',
+        background: 'linear-gradient(to top, rgba(0,0,0,0.94) 0%, rgba(0,0,0,0.65) 28%, rgba(0,0,0,0.1) 55%, transparent 100%)',
       }} />
 
-      {/* UI fixe — ne bouge jamais */}
+      {/* UI fixe */}
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
 
+        {/* Bouton fermer */}
         <button onClick={dismiss} onTouchStart={e => e.stopPropagation()} style={{
           pointerEvents: 'auto',
           position: 'absolute', top: 18, right: 18,
-          width: 30, height: 30, borderRadius: '50%',
-          backgroundColor: 'rgba(0,0,0,0.52)',
-          backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
-          border: 'none', color: '#fff', fontSize: 12, cursor: 'pointer',
+          width: 32, height: 32, borderRadius: '50%',
+          backgroundColor: 'rgba(0,0,0,0.45)',
+          backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+          border: '1px solid rgba(255,255,255,0.15)',
+          color: '#fff', fontSize: 12, cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 1px 8px rgba(0,0,0,0.35)',
         }}>✕</button>
 
+        {/* Badge */}
         <div style={{ position: 'absolute', top: 22, left: 18 }}>
           <span style={{
             fontSize: 10, fontWeight: 800, color: '#fff', backgroundColor: '#EC407A',
             padding: '4px 11px', borderRadius: 999, letterSpacing: '0.07em',
             textTransform: 'uppercase', fontFamily: 'Inter, sans-serif',
-          }}>ÉVÉNEMENT À LA UNE</span>
+          }}>Événement à la une</span>
         </div>
 
-        {n > 1 && (
-          <div style={{
-            position: 'absolute', bottom: 140, left: '50%', transform: 'translateX(-50%)',
-            display: 'flex', gap: 6,
-          }}>
-            {evts.map((_, i) => (
-              <div key={i} style={{
-                width: i === idx ? 20 : 6, height: 6, borderRadius: 3,
-                backgroundColor: i === idx ? '#fff' : 'rgba(255,255,255,0.35)',
-                transition: 'width 0.3s',
-              }} />
-            ))}
-          </div>
-        )}
-
-        {/* Titre & infos — zone slideable (pas de pointerEvents) */}
+        {/* Bloc infos — dots au-dessus du titre, tout en flux naturel */}
         <div style={{
-          position: 'absolute', bottom: 116, left: 0, right: 0, padding: '0 22px',
+          position: 'absolute', bottom: 108, left: 22, right: 22,
         }}>
+          {/* Dots de pagination */}
+          {n > 1 && (
+            <div style={{ display: 'flex', gap: 5, marginBottom: 18 }}>
+              {evts.map((_, i) => (
+                <div key={i} style={{
+                  width: i === idx ? 22 : 6, height: 5, borderRadius: 3,
+                  backgroundColor: i === idx ? '#fff' : 'rgba(255,255,255,0.3)',
+                  transition: 'width 0.3s ease',
+                }} />
+              ))}
+            </div>
+          )}
+
+          {/* Catégorie */}
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', margin: '0 0 6px', fontFamily: 'Inter, sans-serif', fontWeight: 600 }}>
+            {cat.emoji} {cat.label}
+          </p>
+
+          {/* Titre */}
           <h2 style={{
-            fontSize: 30, fontWeight: 800, color: '#fff',
-            lineHeight: 1.18, margin: '0 0 8px', fontFamily: 'Syne, sans-serif',
+            fontSize: 28, fontWeight: 800, color: '#fff',
+            lineHeight: 1.2, margin: '0 0 8px', fontFamily: 'Syne, sans-serif',
+            textShadow: '0 2px 12px rgba(0,0,0,0.4)',
           }}>{evt.titre}</h2>
 
-          {(evt.date_debut || evt.lieux) && (
-            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.78)', margin: '0 0 4px', lineHeight: 1.4 }}>
+          {/* Date + lieu */}
+          {(evt.date_debut || evt.lieux?.commune) && (
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', margin: 0, lineHeight: 1.4, fontFamily: 'Inter, sans-serif' }}>
               {evt.date_debut ? formatDate(evt.date_debut) : ''}
               {evt.heure ? ` · ${evt.heure.slice(0, 5)}` : ''}
               {evt.lieux?.commune ? ` • ${evt.lieux.commune}` : ''}
             </p>
           )}
-
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
-            {cat.emoji} {cat.label}
-          </p>
         </div>
 
-        {/* Bouton fixe seul — stoppe la propagation du swipe */}
+        {/* Bouton CTA */}
         <div style={{
-          position: 'absolute', bottom: 0, left: 0, right: 0, padding: '0 22px 44px',
+          position: 'absolute', bottom: 0, left: 0, right: 0,
+          padding: '0 22px 44px',
           pointerEvents: 'auto',
         }}>
           <button onClick={dismiss} onTouchStart={e => e.stopPropagation()} style={{
-            width: '100%', padding: '18px', borderRadius: 999,
+            width: '100%', padding: '17px', borderRadius: 999,
             backgroundColor: '#EC407A', color: '#fff',
             fontSize: 16, fontWeight: 700, border: 'none', cursor: 'pointer',
             fontFamily: 'Syne, sans-serif', letterSpacing: '0.01em',
+            boxShadow: '0 4px 20px rgba(236,64,122,0.45)',
           }}>Aller sur la carte</button>
         </div>
+
       </div>
     </div>
   )
