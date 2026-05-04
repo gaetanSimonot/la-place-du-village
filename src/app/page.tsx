@@ -362,8 +362,9 @@ export default function HomePage() {
   }, [evenementsZone, searchQuery])
 
   // Promoted events bypass user category/date filters — fetched independently
-  const proEvents = useMemo(() => promoEventsData.filter(e => e.promotion === 'pro'), [promoEventsData])
   const maxEvents = useMemo(() => promoEventsData.filter(e => e.promotion === 'max'), [promoEventsData])
+  // Bandeau shows all promoted events (both pro and max)
+  const proEvents = useMemo(() => promoEventsData.filter(e => e.promotion === 'pro' || e.promotion === 'max'), [promoEventsData])
 
   const handleNavTab = (tab: NavTab) => {
     if (tab === 'profil')  { setNavTab('profil');  return }

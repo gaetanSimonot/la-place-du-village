@@ -76,7 +76,7 @@ export default function ProBandeau({ events, onDiscover }: Props) {
         position: 'relative',
         cursor: 'pointer',
         flexShrink: 0,
-        backgroundColor: cat.color,
+        backgroundColor: '#111',
         boxShadow: '0 6px 24px rgba(0,0,0,0.16)',
       }}
     >
@@ -139,12 +139,12 @@ export default function ProBandeau({ events, onDiscover }: Props) {
         {/* Bas : titre + meta */}
         <div>
           <p style={{
-            fontFamily: '"Playfair Display", serif', fontWeight: 700,
-            fontSize: 17, lineHeight: 1.3, letterSpacing: '0.01em', color: '#fff',
+            fontFamily: 'Syne, sans-serif', fontWeight: 800,
+            fontSize: 16, lineHeight: 1.3, letterSpacing: '0.01em', color: '#fff',
             margin: '0 0 4px',
             overflow: 'hidden', display: '-webkit-box',
             WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-            textShadow: '0 1px 6px rgba(0,0,0,0.4)',
+            textShadow: '0 1px 8px rgba(0,0,0,0.5)',
           }}>{evt.titre}</p>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
