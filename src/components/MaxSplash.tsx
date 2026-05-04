@@ -96,13 +96,6 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
     setPhase('dismissed')
   }
 
-  const discover = () => {
-    clearTimeout(autoTimer.current)
-    sessionStorage.setItem(SESSION_KEY, '1')
-    setPhase('dismissed')
-    onDiscover(evts[idx].id)
-  }
-
   // 'left'  → carte courante part à gauche, slide suivant (idx+1, boucle)
   // 'right' → carte courante part à droite, slide précédent (idx-1, boucle)
   const slide = (dir: 'left' | 'right') => {

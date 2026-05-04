@@ -218,7 +218,7 @@ export default function HomePage() {
   // Config chargée une seule fois au mount + écoute changements admin
   useEffect(() => {
     supabase.from('config').select('value').eq('key', 'masquer_passes').single()
-      .then(({ data }) => setMasquerPasses(data?.value !== 'false'))
+      .then(({ data, error }) => setMasquerPasses(error ? true : data?.value !== 'false'))
     fetchZoneConfig()
     fetch('/api/admin/cleanup', { method: 'POST' }).catch(() => {})
 
