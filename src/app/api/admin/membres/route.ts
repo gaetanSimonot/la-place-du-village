@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   const [{ data: producers }, { data: profilesData }] = await Promise.all([
     supabaseAdmin.from('producers').select('id, user_id, nom, is_max, photos, commune'),
-    supabaseAdmin.from('profiles').select('id, plan, pro_type, display_name'),
+    supabaseAdmin.from('profiles').select('user_id, plan, pro_type, display_name'),
   ])
 
   const producerByUser: Record<string, { id: string; nom: string; is_max: boolean; photo: string | null; commune: string | null }> = {}
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 
   const profileByUser: Record<string, { plan: string; pro_type: string | null; display_name: string | null }> = {}
   for (const p of profilesData ?? []) {
-    profileByUser[p.id] = { plan: p.plan, pro_type: p.pro_type, display_name: p.display_name }
+    profileByUser[p.user_id] = { plan: p.plan, pro_type: p.pro_type, display_name: p.display_name }
   }
 
   const membres = (users ?? []).map(u => {

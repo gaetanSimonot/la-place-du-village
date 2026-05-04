@@ -160,10 +160,11 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
       mentionTimer.current = setTimeout(async () => {
         const { data } = await supabase
           .from('profiles')
-          .select('id, display_name, avatar_url, email')
+          .select('user_id, display_name, avatar_url, email')
           .or(`display_name.ilike.%${query}%,email.ilike.%${query}%`)
           .limit(5)
-        setMentionSuggestions((data ?? []) as Profile[])
+        setMentionSuggestions(((data ?? []) as { user_id: string; display_name: string | null; avatar_url: string | null; email: string | null }[])
+          .map(p => ({ id: p.user_id, display_name: p.display_name, avatar_url: p.avatar_url, email: p.email })))
       }, 200)
     } else {
       clearTimeout(mentionTimer.current)
@@ -196,8 +197,9 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
     let pmap: Record<string, Profile> = {}
     if (ids.length > 0) {
       const { data: profiles } = await supabase
-        .from('profiles').select('id, display_name, avatar_url, email').in('id', ids)
-      pmap = Object.fromEntries((profiles ?? []).map(p => [p.id, p]))
+        .from('profiles').select('user_id, display_name, avatar_url, email').in('user_id', ids)
+      pmap = Object.fromEntries(((profiles ?? []) as { user_id: string; display_name: string | null; avatar_url: string | null; email: string | null }[])
+        .map(p => [p.user_id, { id: p.user_id, display_name: p.display_name, avatar_url: p.avatar_url, email: p.email }]))
     }
     const merged: CommentData[] = list.map(c => ({ ...c, profile: pmap[c.user_id] ?? null }))
     setComments(merged)

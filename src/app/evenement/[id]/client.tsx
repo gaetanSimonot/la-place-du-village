@@ -147,8 +147,9 @@ function ActionBar({ evt, commentCount, onCommentOpen }: { evt: Evenement; comme
     const { data: voteData } = await supabase.from('votes').select('user_id').eq('evenement_id', evt.id)
     const ids = (voteData ?? []).map((v: { user_id: string }) => v.user_id)
     if (ids.length > 0) {
-      const { data: profiles } = await supabase.from('profiles').select('id, display_name, email').in('id', ids)
-      setVoters((profiles ?? []).map(p => ({ id: p.id, name: p.display_name || p.email?.split('@')[0] || 'Quelqu\'un' })))
+      const { data: profiles } = await supabase.from('profiles').select('user_id, display_name, email').in('user_id', ids)
+      setVoters(((profiles ?? []) as { user_id: string; display_name: string | null; email: string | null }[])
+        .map(p => ({ id: p.user_id, name: p.display_name || p.email?.split('@')[0] || 'Quelqu\'un' })))
     }
     setLoadingVoters(false)
   }

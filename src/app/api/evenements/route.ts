@@ -59,8 +59,8 @@ export async function POST(req: NextRequest) {
           // Regular user submission
           const { data: profile } = await supabaseAdmin
             .from('profiles')
-            .select('display_name, banned, daily_post_count, last_post_date')
-            .eq('id', user.id)
+            .select('display_name, banned')
+            .eq('user_id', user.id)
             .maybeSingle()
 
           if (profile?.banned) {
@@ -70,21 +70,6 @@ export async function POST(req: NextRequest) {
           submittedBy = user.id
           submittedByName = profile?.display_name ?? (user.email?.split('@')[0] ?? null)
           isUserSubmission = true
-
-          const today = new Date()
-          const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
-          const sameDay = profile?.last_post_date === todayStr
-          const dailyCount = sameDay ? (profile?.daily_post_count ?? 0) : 0
-
-          if (dailyCount >= 5) {
-            return NextResponse.json({ error: 'Limite journalière atteinte (5 événements par jour)' }, { status: 429 })
-          }
-
-          await supabaseAdmin.from('profiles').update({
-            daily_post_count: dailyCount + 1,
-            last_post_date: todayStr,
-          }).eq('id', user.id)
-
           publishAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
         }
       }

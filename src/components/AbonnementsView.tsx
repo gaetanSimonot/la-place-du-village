@@ -102,11 +102,11 @@ export default function AbonnementsView() {
       const userIds = Array.from(new Set((interestData ?? []).map((i: { user_id: string }) => i.user_id)))
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('id, display_name, avatar_url')
-        .in('id', userIds)
+        .select('user_id, display_name, avatar_url')
+        .in('user_id', userIds)
 
       const profileMap: Record<string, { id: string; display_name: string | null; avatar_url: string | null }> =
-        Object.fromEntries((profileData ?? []).map(p => [p.id, p]))
+        Object.fromEntries((profileData ?? []).map(p => [p.user_id, { id: p.user_id, display_name: p.display_name, avatar_url: p.avatar_url }]))
 
       const eventMap = new Map<string, StarredEvent>()
       for (const i of interestData ?? []) {
