@@ -96,7 +96,7 @@ export async function PATCH(req: NextRequest) {
 
   const body = await req.json()
   const fields = ['nom', 'description_courte', 'description_longue', 'commune', 'adresse',
-    'lat', 'lng', 'contact_tel', 'contact_whatsapp', 'site_web', 'photos']
+    'lat', 'lng', 'contact_tel', 'contact_whatsapp', 'site_web', 'photos', 'vente_directe', 'retrait_sur_place']
 
   const update: Record<string, unknown> = { updated_at: new Date().toISOString() }
   fields.forEach(f => { if (f in body) update[f] = body[f] === '' ? null : body[f] })

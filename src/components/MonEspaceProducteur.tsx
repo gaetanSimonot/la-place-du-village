@@ -6,6 +6,7 @@ interface Producer {
   id: string; nom: string; description_courte: string | null; description_longue: string | null
   commune: string | null; adresse: string | null; lat: number | null; lng: number | null
   contact_tel: string | null; contact_whatsapp: string | null; site_web: string | null; photos: string[]
+  vente_directe: boolean; retrait_sur_place: boolean
 }
 interface Product {
   id: string; nom: string; categorie: string; prix_indicatif: string | null
@@ -329,6 +330,26 @@ export default function MonEspaceProducteur() {
         <div>
           <label style={labelStyle}>Site web</label>
           <input style={inputStyle} value={editData.site_web ?? ''} onChange={e => setEditData(p => ({ ...p, site_web: e.target.value }))} placeholder="https://..." />
+        </div>
+        <div>
+          <span style={labelStyle}>Informations pratiques</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {([
+              { key: 'vente_directe' as const, label: 'Vente directe' },
+              { key: 'retrait_sur_place' as const, label: 'À retirer sur place / marché' },
+            ] as { key: 'vente_directe' | 'retrait_sur_place'; label: string }[]).map(({ key, label }) => {
+              const val = editData[key] !== false
+              return (
+                <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 10, backgroundColor: '#F0EDE8' }}>
+                  <span style={{ fontSize: 13, fontFamily: 'Inter, sans-serif', color: '#2C1810' }}>{label}</span>
+                  <button onClick={() => setEditData(p => ({ ...p, [key]: !val }))}
+                    style={{ width: 42, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer', backgroundColor: val ? 'var(--primary)' : '#CCC', position: 'relative', flexShrink: 0 }}>
+                    <span style={{ position: 'absolute', top: 2, width: 20, height: 20, borderRadius: '50%', backgroundColor: '#fff', transition: 'left 0.15s', left: val ? 20 : 2 }} />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
 
