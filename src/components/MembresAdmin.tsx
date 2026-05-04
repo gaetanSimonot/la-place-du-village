@@ -2,20 +2,49 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 
+type Plan = 'basic' | 'pro' | 'max'
+
+const PLANS: { id: Plan; label: string; icon: string; activeColor: string; activeBg: string; desc: string }[] = [
+  { id: 'basic', label: 'Basic',  icon: '○', activeColor: '#2D5A3D', activeBg: '#E8F2EB', desc: 'Accès standard gratuit.' },
+  { id: 'pro',   label: 'Pro',    icon: '★', activeColor: '#3A5BC7', activeBg: '#EEF3FF', desc: '1 promo/mois dans le bandeau · newsletter · card mise en avant.' },
+  { id: 'max',   label: 'MAX',    icon: '✦', activeColor: '#E8622A', activeBg: '#FFF0EB', desc: 'Splash screen · profil pro dans l\'annuaire · tout Pro inclus.' },
+]
+
+const PRO_TYPES = [
+  { id: 'producteur',  label: '🌿 Producteur local' },
+  { id: 'artisan',     label: '🔨 Artisan' },
+  { id: 'restaurateur',label: '🍽 Restaurateur' },
+  { id: 'commercant',  label: '🛍 Commerçant' },
+  { id: 'association', label: '🤝 Association' },
+  { id: 'prestataire', label: '💼 Prestataire de service' },
+  { id: 'autre',       label: '● Autre' },
+]
+
 interface Producer { id: string; nom: string; is_max: boolean; photo: string | null; commune: string | null }
 interface Membre {
   id: string; email: string; name: string; avatar: string
   created_at: string; last_sign_in: string | null
+  plan: Plan; pro_type: string | null
+  display_name: string | null; bio: string | null
   producer: Producer | null
 }
 
+const inp: React.CSSProperties = { padding: '7px 10px', borderRadius: 8, border: '1.5px solid #E0D8CE', fontSize: 12, outline: 'none', backgroundColor: '#fff', color: '#2C1810', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+const secLabel: React.CSSProperties = { margin: '0 0 8px', fontSize: 10, fontWeight: 700, color: '#9A8A7A', textTransform: 'uppercase', letterSpacing: '0.06em' }
+
 export default function MembresAdmin() {
-  const [membres, setMembres] = useState<Membre[]>([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
+  const [membres, setMembres]   = useState<Membre[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [search, setSearch]     = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [saving, setSaving] = useState<string | null>(null)
-  const [editNom, setEditNom] = useState('')
+  const [saving, setSaving]     = useState<string | null>(null)
+
+  // Edit fields — reset on expand
+  const [editName, setEditName]       = useState('')
+  const [editBio, setEditBio]         = useState('')
+  const [editPlan, setEditPlan]       = useState<Plan>('basic')
+  const [editProType, setEditProType] = useState('')
+  const [editNom, setEditNom]         = useState('')
   const [editCommune, setEditCommune] = useState('')
 
   const token = useCallback(async () => {
@@ -37,18 +66,22 @@ export default function MembresAdmin() {
   const expand = (m: Membre) => {
     if (expandedId === m.id) { setExpandedId(null); return }
     setExpandedId(m.id)
+    setEditName(m.display_name ?? m.name ?? '')
+    setEditBio(m.bio ?? '')
+    setEditPlan(m.plan)
+    setEditProType(m.pro_type ?? '')
     setEditNom(m.producer?.nom ?? '')
     setEditCommune(m.producer?.commune ?? '')
   }
 
-  const toggleMax = async (e: React.MouseEvent, producerId: string, current: boolean) => {
+  const saveMember = async (e: React.MouseEvent, membre: Membre) => {
     e.stopPropagation()
-    setSaving(producerId)
+    setSaving(membre.id)
     const t = await token()
     await fetch('/api/admin/membres', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
-      body: JSON.stringify({ producer_id: producerId, is_max: !current }),
+      body: JSON.stringify({ user_id: membre.id, plan: editPlan, pro_type: editProType || null, display_name: editName || null, bio: editBio || null }),
     })
     await fetchAll()
     setSaving(null)
@@ -57,30 +90,20 @@ export default function MembresAdmin() {
   const createProducer = async (e: React.MouseEvent, membre: Membre) => {
     e.stopPropagation()
     if (!editNom.trim()) return
-    setSaving(membre.id)
+    setSaving(`p-${membre.id}`)
     const t = await token()
     await fetch('/api/admin/producteurs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
-      body: JSON.stringify({ nom: editNom.trim(), commune: editCommune.trim() || null, user_email: membre.email }),
+      body: JSON.stringify({ nom: editNom.trim(), commune: editCommune.trim() || null, user_email: membre.email, is_max: true }),
     })
-    await fetchAll()
-    setSaving(null)
-  }
-
-  const removeProducer = async (e: React.MouseEvent, producerId: string) => {
-    e.stopPropagation()
-    if (!confirm('Retirer le profil producteur de ce membre ?')) return
-    setSaving(producerId)
-    const t = await token()
-    await fetch(`/api/admin/producteurs/${producerId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${t}` } })
     await fetchAll()
     setSaving(null)
   }
 
   const saveProducer = async (e: React.MouseEvent, producerId: string) => {
     e.stopPropagation()
-    setSaving(producerId)
+    setSaving(`p-${producerId}`)
     const t = await token()
     await fetch(`/api/admin/producteurs/${producerId}`, {
       method: 'PATCH',
@@ -91,7 +114,18 @@ export default function MembresAdmin() {
     setSaving(null)
   }
 
+  const removeProducer = async (e: React.MouseEvent, producerId: string) => {
+    e.stopPropagation()
+    if (!confirm('Retirer la fiche de l\'annuaire ?')) return
+    setSaving(`p-${producerId}`)
+    const t = await token()
+    await fetch(`/api/admin/producteurs/${producerId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${t}` } })
+    await fetchAll()
+    setSaving(null)
+  }
+
   const fmt = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: '2-digit' })
+  const planCfg = (p: Plan) => PLANS.find(x => x.id === p)!
 
   const filtered = membres.filter(m =>
     m.email.toLowerCase().includes(search.toLowerCase()) ||
@@ -100,42 +134,48 @@ export default function MembresAdmin() {
   )
 
   if (loading) return (
-    <div style={{ padding: 24, textAlign: 'center', color: '#9A8A7A', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ padding: 32, textAlign: 'center', color: '#9A8A7A', fontFamily: 'Inter, sans-serif' }}>
       Chargement des membres…
     </div>
   )
 
   return (
     <div style={{ fontFamily: 'Inter, sans-serif' }}>
+      {/* Search + stats */}
       <div style={{ padding: '12px 16px', borderBottom: '1px solid #F0EBE0', display: 'flex', gap: 10, alignItems: 'center' }}>
         <input
           value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Rechercher par nom, email, boutique…"
           style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1.5px solid #E0D8CE', fontSize: 13, outline: 'none', backgroundColor: '#FBF7F0', color: '#2C1810' }}
         />
-        <span style={{ fontSize: 12, color: '#9A8A7A', whiteSpace: 'nowrap' }}>
-          {filtered.length}/{membres.length} · {membres.filter(m => m.producer).length} prod · {membres.filter(m => m.producer?.is_max).length} MAX
+        <span style={{ fontSize: 11, color: '#9A8A7A', whiteSpace: 'nowrap' }}>
+          {membres.filter(m => m.plan === 'pro').length} Pro · {membres.filter(m => m.plan === 'max').length} MAX
         </span>
       </div>
 
       <div style={{ paddingBottom: 40 }}>
         {filtered.map(m => {
-          const isExpanded = expandedId === m.id
-          const isSaving = saving === m.id || (m.producer ? saving === m.producer.id : false)
+          const isExpanded   = expandedId === m.id
+          const plan         = planCfg(m.plan)
+          const isSaving     = saving === m.id
+          const isProdSaving = saving === `p-${m.id}` || (m.producer ? saving === `p-${m.producer.id}` : false)
 
           return (
             <div key={m.id} style={{ borderBottom: '1px solid #F5F0E8' }}>
-              {/* Row — clickable */}
+
+              {/* ── Collapsed row ── */}
               <div
                 onClick={() => expand(m)}
                 style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', cursor: 'pointer', backgroundColor: isExpanded ? '#F8F4ED' : 'transparent', transition: 'background 0.15s' }}
               >
+                {/* Avatar */}
                 <div style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0, overflow: 'hidden', backgroundColor: '#E8F2EB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {m.avatar
                     ? <img src={m.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     : <span style={{ fontSize: 15, color: '#2D5A3D', fontWeight: 700 }}>{(m.name || m.email)[0]?.toUpperCase()}</span>}
                 </div>
 
+                {/* Info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 13, fontWeight: 600, color: '#1A1209' }}>
@@ -143,7 +183,7 @@ export default function MembresAdmin() {
                     </span>
                     {m.producer && (
                       <span style={{ fontSize: 10, color: '#2D5A3D', fontWeight: 700, backgroundColor: '#E8F2EB', padding: '1px 6px', borderRadius: 999 }}>
-                        🌿 {m.producer.nom}{m.producer.commune ? `, ${m.producer.commune}` : ''}
+                        {PRO_TYPES.find(t => t.id === m.pro_type)?.label.split(' ')[0] ?? '🌿'} {m.producer.nom}
                       </span>
                     )}
                   </div>
@@ -153,117 +193,160 @@ export default function MembresAdmin() {
                   </p>
                 </div>
 
+                {/* Plan badge */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                  {m.producer && (
-                    <span
-                      onClick={e => toggleMax(e, m.producer!.id, m.producer!.is_max)}
-                      style={{
-                        padding: '4px 10px', borderRadius: 999, cursor: 'pointer', fontSize: 10, fontWeight: 800,
-                        backgroundColor: m.producer.is_max ? '#E8622A' : '#E8F2EB',
-                        color: m.producer.is_max ? '#fff' : '#2D5A3D',
-                        opacity: isSaving ? 0.6 : 1, transition: 'all 0.15s', userSelect: 'none',
-                      }}
-                    >
-                      {m.producer.is_max ? '★ MAX' : '○ Basic'}
-                    </span>
-                  )}
+                  <span style={{ padding: '4px 10px', borderRadius: 999, fontSize: 10, fontWeight: 800, backgroundColor: plan.activeBg, color: plan.activeColor }}>
+                    {plan.icon} {plan.label}
+                  </span>
                   <span style={{ fontSize: 10, color: '#C0B8B0', display: 'inline-block', transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
                 </div>
               </div>
 
-              {/* Expanded panel */}
+              {/* ── Expanded panel ── */}
               {isExpanded && (
-                <div style={{ backgroundColor: '#F8F4ED', borderTop: '1px solid #EDE8DF', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ backgroundColor: '#F8F4ED', borderTop: '1px solid #EDE8DF', padding: '16px', display: 'flex', flexDirection: 'column', gap: 18 }}>
 
-                  {/* Producer section */}
+                  {/* Fiche personnelle */}
                   <div>
-                    <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700, color: '#7A6A5A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Profil producteur</p>
-
-                    {m.producer ? (
-                      <>
-                        <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                          <input
-                            value={editNom} onChange={e => setEditNom(e.target.value)}
-                            placeholder="Nom de la boutique"
-                            onClick={e => e.stopPropagation()}
-                            style={{ flex: 2, padding: '7px 10px', borderRadius: 8, border: '1.5px solid #E0D8CE', fontSize: 12, outline: 'none', backgroundColor: '#fff', color: '#2C1810' }}
-                          />
-                          <input
-                            value={editCommune} onChange={e => setEditCommune(e.target.value)}
-                            placeholder="Commune"
-                            onClick={e => e.stopPropagation()}
-                            style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1.5px solid #E0D8CE', fontSize: 12, outline: 'none', backgroundColor: '#fff', color: '#2C1810' }}
-                          />
+                    <p style={secLabel}>Fiche personnelle</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        {m.avatar && <img src={m.avatar} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ margin: 0, fontSize: 11, color: '#9A8A7A' }}>{m.email}</p>
                         </div>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <button
-                            onClick={e => saveProducer(e, m.producer!.id)}
-                            disabled={!!isSaving}
-                            style={{ flex: 1, padding: '7px', borderRadius: 8, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: isSaving ? 0.6 : 1 }}
-                          >
-                            {isSaving ? '…' : 'Sauvegarder'}
-                          </button>
-                          <button
-                            onClick={e => removeProducer(e, m.producer!.id)}
-                            disabled={!!isSaving}
-                            style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid #E8D0C8', backgroundColor: '#FFF8F5', color: '#C4622D', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                          >
-                            Retirer
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <p style={{ margin: '0 0 8px', fontSize: 12, color: '#9A8A7A' }}>Pas encore de profil producteur.</p>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <input
-                            value={editNom} onChange={e => setEditNom(e.target.value)}
-                            placeholder="Nom de la ferme / boutique"
-                            onClick={e => e.stopPropagation()}
-                            style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1.5px solid #E0D8CE', fontSize: 12, outline: 'none', backgroundColor: '#fff', color: '#2C1810' }}
-                          />
-                          <button
-                            onClick={e => createProducer(e, m)}
-                            disabled={!editNom.trim() || !!isSaving}
-                            style={{ padding: '7px 14px', borderRadius: 8, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: (!editNom.trim() || !!isSaving) ? 0.5 : 1 }}
-                          >
-                            {isSaving ? '…' : '+ Créer'}
-                          </button>
-                        </div>
-                      </>
-                    )}
+                      </div>
+                      <input
+                        value={editName}
+                        onChange={e => setEditName(e.target.value)}
+                        placeholder="Nom affiché"
+                        onClick={e => e.stopPropagation()}
+                        style={inp}
+                      />
+                      <textarea
+                        value={editBio}
+                        onChange={e => setEditBio(e.target.value)}
+                        placeholder="Bio courte (optionnel)"
+                        onClick={e => e.stopPropagation()}
+                        rows={2}
+                        style={{ ...inp, resize: 'none', lineHeight: 1.5 }}
+                      />
+                    </div>
                   </div>
 
-                  {/* Plan — only if producer */}
-                  {m.producer && (
-                    <div>
-                      <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700, color: '#7A6A5A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Plan d&apos;abonnement</p>
-                      <div style={{ display: 'flex', gap: 8 }}>
+                  {/* Abonnement */}
+                  <div>
+                    <p style={secLabel}>Abonnement</p>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                      {PLANS.map(p => (
                         <button
-                          onClick={e => { if (m.producer!.is_max) { toggleMax(e, m.producer!.id, true) } else { e.stopPropagation() } }}
+                          key={p.id}
+                          onClick={e => { e.stopPropagation(); setEditPlan(p.id) }}
                           style={{
-                            flex: 1, padding: '9px', borderRadius: 8, cursor: 'pointer',
-                            border: m.producer.is_max ? '1.5px solid #E0D8CE' : '2px solid #2D5A3D',
-                            backgroundColor: m.producer.is_max ? '#F0EBE0' : '#E8F2EB',
-                            color: m.producer.is_max ? '#9A8A7A' : '#2D5A3D',
-                            fontSize: 12, fontWeight: 700,
+                            flex: 1, padding: '9px 4px', borderRadius: 9, cursor: 'pointer',
+                            border: editPlan === p.id ? `2px solid ${p.activeColor}` : '1.5px solid #E0D8CE',
+                            backgroundColor: editPlan === p.id ? p.activeBg : '#fff',
+                            color: editPlan === p.id ? p.activeColor : '#B0A898',
+                            fontSize: 11, fontWeight: 800, transition: 'all 0.15s',
                           }}
                         >
-                          ○ Basic
+                          {p.icon} {p.label}
                         </button>
-                        <button
-                          onClick={e => { if (!m.producer!.is_max) { toggleMax(e, m.producer!.id, false) } else { e.stopPropagation() } }}
-                          style={{
-                            flex: 1, padding: '9px', borderRadius: 8, cursor: 'pointer',
-                            border: m.producer.is_max ? '2px solid #E8622A' : '1.5px solid #E0D8CE',
-                            backgroundColor: m.producer.is_max ? '#FFF0EB' : '#F0EBE0',
-                            color: m.producer.is_max ? '#E8622A' : '#9A8A7A',
-                            fontSize: 12, fontWeight: 700,
-                          }}
+                      ))}
+                    </div>
+                    <p style={{ margin: '0 0 10px', fontSize: 11, color: '#7A6A5A', lineHeight: 1.5 }}>
+                      {PLANS.find(p => p.id === editPlan)?.desc}
+                    </p>
+
+                    {/* Type pro — pour Pro et Max */}
+                    {(editPlan === 'pro' || editPlan === 'max') && (
+                      <div style={{ marginBottom: 10 }}>
+                        <p style={{ ...secLabel, marginBottom: 6 }}>Type de profil professionnel</p>
+                        <select
+                          value={editProType}
+                          onChange={e => setEditProType(e.target.value)}
+                          onClick={e => e.stopPropagation()}
+                          style={{ ...inp, cursor: 'pointer' }}
                         >
-                          ★ MAX
-                        </button>
+                          <option value="">— Sélectionner —</option>
+                          {PRO_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                        </select>
                       </div>
+                    )}
+
+                    <button
+                      onClick={e => saveMember(e, m)}
+                      disabled={isSaving}
+                      style={{ width: '100%', padding: '10px', borderRadius: 9, border: 'none', backgroundColor: '#2C1810', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: isSaving ? 0.6 : 1 }}
+                    >
+                      {isSaving ? 'Enregistrement…' : 'Sauvegarder les modifications'}
+                    </button>
+                  </div>
+
+                  {/* Fiche annuaire — Max seulement */}
+                  {editPlan === 'max' && (
+                    <div style={{ paddingTop: 14, borderTop: '1px solid #E8E0D5' }}>
+                      <p style={secLabel}>Fiche dans l&apos;annuaire</p>
+
+                      {m.producer ? (
+                        <>
+                          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                            {m.producer.photo && (
+                              <img src={m.producer.photo} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+                            )}
+                            <input
+                              value={editNom} onChange={e => setEditNom(e.target.value)}
+                              placeholder="Nom de la boutique"
+                              onClick={e => e.stopPropagation()}
+                              style={{ ...inp, flex: 2 }}
+                            />
+                            <input
+                              value={editCommune} onChange={e => setEditCommune(e.target.value)}
+                              placeholder="Commune"
+                              onClick={e => e.stopPropagation()}
+                              style={{ ...inp, flex: 1 }}
+                            />
+                          </div>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button
+                              onClick={e => saveProducer(e, m.producer!.id)}
+                              disabled={isProdSaving}
+                              style={{ flex: 1, padding: '8px', borderRadius: 8, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: isProdSaving ? 0.6 : 1 }}
+                            >
+                              {isProdSaving ? '…' : 'Sauvegarder la fiche'}
+                            </button>
+                            <button
+                              onClick={e => removeProducer(e, m.producer!.id)}
+                              disabled={isProdSaving}
+                              style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #E8D0C8', backgroundColor: '#FFF8F5', color: '#C4622D', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                            >
+                              Retirer
+                            </button>
+                          </div>
+                          <p style={{ margin: '8px 0 0', fontSize: 10, color: '#B0A898' }}>
+                            Pour éditer les produits, photos et contacts complets → section Annuaire
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p style={{ margin: '0 0 8px', fontSize: 12, color: '#9A8A7A' }}>Pas encore de fiche dans l&apos;annuaire.</p>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <input
+                              value={editNom} onChange={e => setEditNom(e.target.value)}
+                              placeholder="Nom de la boutique / ferme"
+                              onClick={e => e.stopPropagation()}
+                              style={{ ...inp, flex: 1 }}
+                            />
+                            <button
+                              onClick={e => createProducer(e, m)}
+                              disabled={!editNom.trim() || isProdSaving}
+                              style={{ padding: '8px 14px', borderRadius: 8, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: (!editNom.trim() || isProdSaving) ? 0.5 : 1 }}
+                            >
+                              {isProdSaving ? '…' : '+ Créer'}
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   )}
 
