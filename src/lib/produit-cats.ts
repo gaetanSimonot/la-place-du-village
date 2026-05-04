@@ -34,3 +34,18 @@ const LEGACY: Record<string, ProduitCategorie> = {
 export function normalizeProduitCat(cat: string): ProduitCategorie {
   return LEGACY[cat] ?? (cat as ProduitCategorie)
 }
+
+export const PRODUIT_CAT_ICONS: Record<string, string> = {
+  fruits_legumes:    '/icons/fruits-legumes.png',
+  viandes:           '/icons/viandes.png',
+  fromages_laitages: '/icons/fromages-laitages.png',
+  oeufs:             '/icons/oeufs.png',
+  pain:              '/icons/pain.png',
+  miel:              '/icons/miel.png',
+  panier:            '/icons/panier.png',
+  plantes:           '/icons/plantes.png',
+  huiles:            '/icons/autre.png',
+  boissons:          '/icons/boissons.png',
+  artisanat:         '/icons/artisanat.png',
+  autre:             '/icons/autre.png',
+}
