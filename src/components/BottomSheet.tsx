@@ -3,11 +3,13 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, useMotionValue, animate, useDragControls, AnimatePresence } from 'framer-motion'
 import { EvenementCard, Filtres, Categorie, FiltreQuand, AppMode, ProducerCard, ProduitCategorie } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
+import { PRODUIT_CATS } from '@/lib/produit-cats'
 import { formatDate } from '@/lib/filters'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
 import CaptureProducteur from '@/components/CaptureProducteur'
+import ProducerBandeau from '@/components/ProducerBandeau'
 
 const FULL_TOP = 60   // espace laissé en haut quand sheet pleine
 
@@ -32,23 +34,7 @@ const ANNUAIRE_TABS = [
   { id: 'sante',        label: 'Santé & bien-être',emoji: '💚', active: false },
 ]
 
-const PRODUIT_CATS: { id: ProduitCategorie; label: string; emoji: string }[] = [
-  { id: 'oeufs',     label: 'Œufs',      emoji: '🥚' },
-  { id: 'legumes',   label: 'Légumes',   emoji: '🥬' },
-  { id: 'fruits',    label: 'Fruits',    emoji: '🍎' },
-  { id: 'fromage',   label: 'Fromage',   emoji: '🧀' },
-  { id: 'lait',      label: 'Lait',      emoji: '🥛' },
-  { id: 'pain',      label: 'Pain',      emoji: '🍞' },
-  { id: 'volaille',  label: 'Volaille',  emoji: '🐓' },
-  { id: 'miel',      label: 'Miel',      emoji: '🍯' },
-  { id: 'panier',    label: 'Panier',    emoji: '🧺' },
-  { id: 'viande',    label: 'Viande',    emoji: '🥩' },
-  { id: 'plantes',   label: 'Plantes',   emoji: '🌿' },
-  { id: 'huiles',    label: 'Huiles',    emoji: '🫙' },
-  { id: 'boissons',  label: 'Boissons',  emoji: '🍾' },
-  { id: 'artisanat', label: 'Artisanat', emoji: '🏺' },
-  { id: 'autre',     label: 'Autre',     emoji: '✦'  },
-]
+// PRODUIT_CATS importé depuis @/lib/produit-cats
 
 interface Props {
   evenements: EvenementCard[]
@@ -75,10 +61,14 @@ interface Props {
   selectedProducerId?: string | null
   onSelectProducer?: (id: string | null) => void
   onViewProducerOnMap?: (id: string) => void
-  produitCat?: ProduitCategorie | null
-  onProduitCatChange?: (cat: ProduitCategorie | null) => void
+  selectedCats?: ProduitCategorie[]
+  onSelectedCatsChange?: (cats: ProduitCategorie[]) => void
+  availableProducerCats?: Set<ProduitCategorie>
   producerSearch?: string
   onProducerSearchChange?: (q: string) => void
+  producerFavIds?: string[]
+  onToggleProducerFav?: (id: string) => void
+  featuredProducers?: ProducerCard[]
 }
 
 export default function BottomSheet({
@@ -88,7 +78,10 @@ export default function BottomSheet({
   favIds = [], onToggleFav,
   appMode, onAppModeChange, producers = [], producerLoading = false,
   selectedProducerId = null, onSelectProducer, onViewProducerOnMap,
-  produitCat = null, onProduitCatChange, producerSearch = '', onProducerSearchChange,
+  selectedCats = [], onSelectedCatsChange, availableProducerCats,
+  producerSearch = '', onProducerSearchChange,
+  producerFavIds = [], onToggleProducerFav,
+  featuredProducers = [],
 }: Props) {
   const { sheetBg } = useTheme()
   const { user } = useAuth()
@@ -248,8 +241,8 @@ export default function BottomSheet({
   // Reset state quand on change de mode
   useEffect(() => {
     if (appMode === 'annuaire') { setQuoiOpen(false); setQuandOpen(false) }
-    else { setAnnuaireRowOpen(false); onProduitCatChange?.(null); onProducerSearchChange?.('') }
-  }, [appMode])
+    else { setAnnuaireRowOpen(false); onSelectedCatsChange?.([]); onProducerSearchChange?.('') }
+  }, [appMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAnnuaireBtn = () => {
     if (!annuaireRowOpen) { setAnnuaireRowOpen(true); if (mode === 'peek') snapTo('half'); return }
@@ -493,13 +486,16 @@ export default function BottomSheet({
           {/* Catégories produits */}
           {annuaireTabIdx === 0 && (
             <div style={{ display: 'flex', gap: 7, padding: '0 16px 8px', overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }} onPointerDown={e => e.stopPropagation()}>
-              <button onClick={() => onProduitCatChange?.(null)} style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${sheetBg.border}`, backgroundColor: !produitCat ? 'var(--primary)' : sheetBg.pill, color: !produitCat ? '#fff' : sheetBg.sub, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', minHeight: 34 }}>Tout</button>
-              {PRODUIT_CATS.map(cat => (
-                <button key={cat.id} onClick={() => onProduitCatChange?.(produitCat === cat.id ? null : cat.id)}
-                  style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${sheetBg.border}`, backgroundColor: produitCat === cat.id ? 'var(--primary)' : sheetBg.pill, color: produitCat === cat.id ? '#fff' : sheetBg.sub, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', minHeight: 34, display: 'flex', alignItems: 'center', gap: 4 }}>
-                  {cat.emoji} {cat.label}
-                </button>
-              ))}
+              <button onClick={() => onSelectedCatsChange?.([])} style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${sheetBg.border}`, backgroundColor: selectedCats.length === 0 ? 'var(--primary)' : sheetBg.pill, color: selectedCats.length === 0 ? '#fff' : sheetBg.sub, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', minHeight: 34 }}>Tout</button>
+              {PRODUIT_CATS.filter(cat => !availableProducerCats || availableProducerCats.has(cat.id)).map(cat => {
+                const active = selectedCats.includes(cat.id)
+                return (
+                  <button key={cat.id} onClick={() => onSelectedCatsChange?.(active ? selectedCats.filter(c => c !== cat.id) : [...selectedCats, cat.id])}
+                    style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${active ? 'var(--primary)' : sheetBg.border}`, backgroundColor: active ? 'var(--primary)' : sheetBg.pill, color: active ? '#fff' : sheetBg.sub, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', minHeight: 34, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    {cat.emoji} {cat.label}
+                  </button>
+                )
+              })}
             </div>
           )}
 
@@ -536,15 +532,22 @@ export default function BottomSheet({
               <p style={{ fontSize: 13, marginTop: 6, lineHeight: 1.5, fontFamily: 'Inter, sans-serif' }}>Les fiches arrivent bientôt.</p>
             </div>
           ) : (
-            producers.map(p => (
-              <ProducerListCard
-                key={p.id}
-                producer={p}
-                isSelected={p.id === selectedProducerId}
-                onSelect={() => onSelectProducer?.(p.id)}
-                onViewOnMap={() => onViewProducerOnMap?.(p.id)}
-              />
-            ))
+            <>
+              {featuredProducers.length > 0 && mode !== 'peek' && (
+                <ProducerBandeau producers={featuredProducers} onDiscover={id => { onSelectProducer?.(id) }} />
+              )}
+              {producers.map(p => (
+                <ProducerListCard
+                  key={p.id}
+                  producer={p}
+                  isSelected={p.id === selectedProducerId}
+                  onSelect={() => onSelectProducer?.(p.id)}
+                  onViewOnMap={() => onViewProducerOnMap?.(p.id)}
+                  isFav={producerFavIds.includes(p.id)}
+                  onToggleFav={() => onToggleProducerFav?.(p.id)}
+                />
+              ))}
+            </>
           )
         ) : loading ? (
           [1,2,3].map(i => <SkeletonCard key={i} />)
@@ -676,11 +679,12 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
   )
 }
 
-function ProducerListCard({ producer, isSelected, onSelect, onViewOnMap }: {
+function ProducerListCard({ producer, isSelected, onSelect, onViewOnMap, isFav, onToggleFav }: {
   producer: ProducerCard; isSelected: boolean; onSelect: () => void; onViewOnMap: () => void
+  isFav?: boolean; onToggleFav?: () => void
 }) {
   const cats = producer.produit_categories
-    .slice(0, 3)
+    .slice(0, 2)
     .map(id => PRODUIT_CATS.find(p => p.id === id))
     .filter(Boolean)
 
@@ -704,22 +708,42 @@ function ProducerListCard({ producer, isSelected, onSelect, onViewOnMap }: {
           {producer.commune && <p style={{ fontSize: 11, color: '#6B5E4E', margin: 0, fontFamily: 'Lora, serif' }}>📍 {producer.commune}</p>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'nowrap', overflow: 'hidden', flex: 1, minWidth: 0 }}>
             {cats.map(c => c && (
-              <span key={c.id} style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, backgroundColor: '#E8F2EB', color: '#2D5A3D', fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>
+              <span key={c.id} style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, backgroundColor: '#E8F2EB', color: '#2D5A3D', fontWeight: 700, fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap' }}>
                 {c.emoji} {c.label}
               </span>
             ))}
           </div>
-          {producer.lat && producer.lng && (
-            <button onClick={e => { e.preventDefault(); e.stopPropagation(); onViewOnMap() }}
-              style={{ width: 26, height: 26, borderRadius: 7, backgroundColor: '#EDE8DF', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B5E4E', flexShrink: 0 }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-                <circle cx="12" cy="9" r="2.5" fill="currentColor" stroke="none"/>
+          <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+            {producer.lat && producer.lng && (
+              <button onClick={e => { e.preventDefault(); e.stopPropagation(); onViewOnMap() }}
+                style={{ width: 26, height: 26, borderRadius: 7, backgroundColor: '#EDE8DF', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B5E4E' }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                  <circle cx="12" cy="9" r="2.5" fill="currentColor" stroke="none"/>
+                </svg>
+              </button>
+            )}
+            <button onClick={e => { e.preventDefault(); e.stopPropagation(); onToggleFav?.() }}
+              style={{ width: 26, height: 26, borderRadius: 7, backgroundColor: '#EDE8DF', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill={isFav ? '#EC407A' : 'none'} stroke={isFav ? '#EC407A' : '#6B5E4E'} strokeWidth="2">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
               </svg>
             </button>
-          )}
+            <button onClick={e => {
+              e.preventDefault(); e.stopPropagation()
+              const url = `${window.location.origin}/producteur/${producer.id}`
+              if (navigator.share) { navigator.share({ title: producer.nom, url }).catch(() => {}) }
+              else { navigator.clipboard.writeText(url).catch(() => {}) }
+            }}
+              style={{ width: 26, height: 26, borderRadius: 7, backgroundColor: '#EDE8DF', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6B5E4E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     </Link>

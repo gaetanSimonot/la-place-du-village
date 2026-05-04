@@ -5,8 +5,8 @@ import Anthropic from '@anthropic-ai/sdk'
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 const CATEGORIES = [
-  'oeufs', 'legumes', 'fruits', 'fromage', 'lait', 'pain', 'volaille',
-  'miel', 'panier', 'viande', 'plantes', 'huiles', 'boissons', 'artisanat', 'autre',
+  'fruits_legumes', 'viandes', 'fromages_laitages', 'oeufs',
+  'pain', 'miel', 'panier', 'plantes', 'huiles', 'boissons', 'artisanat', 'autre',
 ]
 
 export async function POST(req: NextRequest) {

@@ -4,28 +4,10 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
-import CommentSheet from '@/components/CommentSheet'
+import { PRODUIT_CATS_MAP } from '@/lib/produit-cats'
 
 const FAV_KEY = 'pdv-producer-favoris'
 const FOLLOW_KEY = 'pdv-producer-follows'
-
-const PRODUIT_CATS: Record<string, { label: string; emoji: string }> = {
-  oeufs:     { label: 'Œufs',             emoji: '🥚' },
-  legumes:   { label: 'Légumes',          emoji: '🥬' },
-  fruits:    { label: 'Fruits',            emoji: '🍎' },
-  fromage:   { label: 'Fromage',          emoji: '🧀' },
-  lait:      { label: 'Lait',              emoji: '🥛' },
-  pain:      { label: 'Pain',              emoji: '🍞' },
-  volaille:  { label: 'Volaille',          emoji: '🐓' },
-  miel:      { label: 'Miel',              emoji: '🍯' },
-  panier:    { label: 'Panier de saison',  emoji: '🧺' },
-  viande:    { label: 'Viande',            emoji: '🥩' },
-  plantes:   { label: 'Plantes',           emoji: '🌿' },
-  huiles:    { label: 'Huiles',            emoji: '🫙' },
-  boissons:  { label: 'Boissons',          emoji: '🍾' },
-  artisanat: { label: 'Artisanat',         emoji: '🏺' },
-  autre:     { label: 'Autre',             emoji: '✦'  },
-}
 
 interface Producer {
   id: string; nom: string; description_courte: string | null; description_longue: string | null
@@ -69,7 +51,6 @@ export default function ProducteurPageClient({ id }: { id: string }) {
   const [photoIdx, setPhotoIdx] = useState(0)
   const [isFav, setIsFav] = useState(false)
   const [isFollowing, setIsFollowing] = useState(false)
-  const [commentsOpen, setCommentsOpen] = useState(false)
   const [commentCount, setCommentCount] = useState(0)
   const [comments, setComments] = useState<Comment[]>([])
   const [commentText, setCommentText] = useState('')
@@ -324,7 +305,7 @@ export default function ProducteurPageClient({ id }: { id: string }) {
           <div style={{ backgroundColor: '#fff', borderRadius: 16, padding: 16 }}>
             <h3 style={{ fontWeight: 700, fontSize: 16, color: '#2C1810', margin: '0 0 14px' }}>Produits disponibles</h3>
             {Object.entries(byCategory).map(([cat, prods]) => {
-              const c = PRODUIT_CATS[cat]
+              const c = PRODUIT_CATS_MAP[cat]
               return (
                 <div key={cat} style={{ marginBottom: 14 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>

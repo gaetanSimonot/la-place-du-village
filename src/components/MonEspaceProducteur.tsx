@@ -14,21 +14,18 @@ interface Product {
 type Suggestion = { place_id: string; description: string; main: string; secondary: string }
 
 const PRODUCT_CATS = [
-  { id: 'oeufs',     label: '🥚 Œufs' },
-  { id: 'legumes',   label: '🥬 Légumes' },
-  { id: 'fruits',    label: '🍎 Fruits' },
-  { id: 'fromage',   label: '🧀 Fromage' },
-  { id: 'lait',      label: '🥛 Lait' },
-  { id: 'pain',      label: '🍞 Pain & Pâtisseries' },
-  { id: 'volaille',  label: '🐓 Volaille' },
-  { id: 'miel',      label: '🍯 Miel & Confitures' },
-  { id: 'panier',    label: '🧺 Panier de saison' },
-  { id: 'viande',    label: '🥩 Viande' },
-  { id: 'plantes',   label: '🌿 Plantes & Fleurs' },
-  { id: 'huiles',    label: '🫙 Huiles & Condiments' },
-  { id: 'boissons',  label: '🍾 Boissons' },
-  { id: 'artisanat', label: '🏺 Artisanat' },
-  { id: 'autre',     label: '✦ Autre' },
+  { id: 'fruits_legumes',    label: '🥬 Fruits & Légumes' },
+  { id: 'viandes',           label: '🥩 Viandes & Charcuteries' },
+  { id: 'fromages_laitages', label: '🧀 Fromages & Laitages' },
+  { id: 'oeufs',             label: '🥚 Œufs' },
+  { id: 'pain',              label: '🍞 Pain & Pâtisseries' },
+  { id: 'miel',              label: '🍯 Miel & Confitures' },
+  { id: 'panier',            label: '🧺 Panier de saison' },
+  { id: 'plantes',           label: '🌿 Plantes & Fleurs' },
+  { id: 'huiles',            label: '🫙 Huiles & Condiments' },
+  { id: 'boissons',          label: '🍾 Boissons' },
+  { id: 'artisanat',         label: '🏺 Artisanat' },
+  { id: 'autre',             label: '✦ Autre' },
 ]
 
 const PRO_TYPES = [
@@ -65,7 +62,7 @@ export default function MonEspaceProducteur() {
   const [addrQuery, setAddrQuery] = useState('')
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [addingProduct, setAddingProduct] = useState(false)
-  const [newProduct, setNewProduct] = useState({ nom: '', categorie: 'oeufs', prix_indicatif: '', disponible: true, periode_dispo: '', dispo_jusqu_au: '' })
+  const [newProduct, setNewProduct] = useState({ nom: '', categorie: 'fruits_legumes', prix_indicatif: '', disponible: true, periode_dispo: '', dispo_jusqu_au: '' })
   const photoInputRef = useRef<HTMLInputElement>(null)
   const addrTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -217,7 +214,7 @@ export default function MonEspaceProducteur() {
     if (res.ok) {
       const d = await res.json()
       setProducts(prev => [d.product, ...prev])
-      setNewProduct({ nom: '', categorie: 'oeufs', prix_indicatif: '', disponible: true, periode_dispo: '', dispo_jusqu_au: '' })
+      setNewProduct({ nom: '', categorie: 'fruits_legumes', prix_indicatif: '', disponible: true, periode_dispo: '', dispo_jusqu_au: '' })
       setAddingProduct(false)
     }
     setSaving(false)
@@ -294,7 +291,12 @@ export default function MonEspaceProducteur() {
           <textarea style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }} value={editData.description_longue ?? ''} onChange={e => setEditData(p => ({ ...p, description_longue: e.target.value }))} placeholder="Décrivez vos produits, votre démarche..." />
         </div>
         <div style={{ position: 'relative' }}>
-          <label style={labelStyle}>Adresse</label>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <label style={{ ...labelStyle, marginBottom: 0 }}>Adresse</label>
+            <span style={{ fontSize: 11, fontWeight: 700, color: editData.lat && editData.lng ? '#2D5A3D' : '#E8622A' }}>
+              {editData.lat && editData.lng ? '✓ Localisé sur la carte' : '⚠ Position non définie'}
+            </span>
+          </div>
           <input style={inputStyle} value={addrQuery} onChange={e => onAddrChange(e.target.value)} placeholder="Commencez à taper l'adresse..." />
           {suggestions.length > 0 && (
             <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#fff', borderRadius: 10, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 20, overflow: 'hidden' }}>

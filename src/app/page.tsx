@@ -18,6 +18,7 @@ import FavorisView from '@/components/FavorisView'
 import AppSplash from '@/components/AppSplash'
 import WelcomePopup from '@/components/WelcomePopup'
 import { useFavorites } from '@/hooks/useFavorites'
+import { useProducerFavorites } from '@/hooks/useProducerFavorites'
 
 const MapView     = dynamic(() => import('@/components/MapView'),     { ssr: false })
 const BottomSheet = dynamic(() => import('@/components/BottomSheet'), { ssr: false })
@@ -67,6 +68,7 @@ export default function HomePage() {
   const { fixedMap, setFixedMap } = useTheme()
   const { user, loading: authLoading } = useAuth()
   const { favIds, toggle: toggleFav } = useFavorites()
+  const { favIds: producerFavIds, toggle: toggleProducerFav } = useProducerFavorites()
   const { openAuthModal } = useAuthModal()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [filtres, setFiltres]       = useState<Filtres>(defaultFiltres)
@@ -78,7 +80,7 @@ export default function HomePage() {
   const [producers, setProducers]             = useState<import('@/lib/types').ProducerCard[]>([])
   const [producerLoading, setProducerLoading] = useState(false)
   const [selectedProducerId, setSelectedProducerId] = useState<string | null>(null)
-  const [produitCat, setProduitCat] = useState<ProduitCategorie | null>(null)
+  const [selectedCats, setSelectedCats] = useState<ProduitCategorie[]>([])
   const [producerSearch, setProducerSearch] = useState('')
   const [loading, setLoading]       = useState(true)
   const [masquerPasses, setMasquerPasses] = useState(true)
@@ -408,11 +410,19 @@ export default function HomePage() {
     setSheetMode('half')
   }
 
+  const availableProducerCats = useMemo(() => {
+    const s = new Set<ProduitCategorie>()
+    producers.forEach(p => p.produit_categories.forEach(c => s.add(c)))
+    return s
+  }, [producers])
+
   const filteredProducers = useMemo(() => {
     return producers
-      .filter(p => !produitCat || p.produit_categories.includes(produitCat))
+      .filter(p => selectedCats.length === 0 || selectedCats.some(c => p.produit_categories.includes(c)))
       .filter(p => !producerSearch || p.nom.toLowerCase().includes(producerSearch.toLowerCase()))
-  }, [producers, produitCat, producerSearch])
+  }, [producers, selectedCats, producerSearch])
+
+  const featuredProducers = useMemo(() => producers.filter(p => p.is_featured), [producers])
 
   const handleViewProducerOnMap = (id: string) => {
     const p = producers.find(x => x.id === id)
@@ -837,10 +847,14 @@ export default function HomePage() {
         selectedProducerId={selectedProducerId}
         onSelectProducer={setSelectedProducerId}
         onViewProducerOnMap={handleViewProducerOnMap}
-        produitCat={produitCat}
-        onProduitCatChange={setProduitCat}
+        selectedCats={selectedCats}
+        onSelectedCatsChange={setSelectedCats}
+        availableProducerCats={availableProducerCats}
         producerSearch={producerSearch}
         onProducerSearchChange={setProducerSearch}
+        producerFavIds={producerFavIds}
+        onToggleProducerFav={toggleProducerFav}
+        featuredProducers={featuredProducers}
       />
 
       {/* Favoris — panneau inline au-dessus de la carte */}
