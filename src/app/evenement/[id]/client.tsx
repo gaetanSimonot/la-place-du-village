@@ -318,6 +318,8 @@ export default function EvenementPageClient({ id }: { id: string }) {
         if (data) setEvt(data as Evenement)
         setLoading(false)
       })
+    supabase.from('comments').select('id', { count: 'exact', head: true }).eq('evenement_id', id)
+      .then(({ count }) => setCommentCount(count ?? 0))
   }, [id])
 
   if (loading) return (

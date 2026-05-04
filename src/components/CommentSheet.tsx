@@ -6,6 +6,24 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 
+function renderContent(content: string) {
+  const re = /@\[([^\]]+)\]\(([^)]+)\)/g
+  const parts: React.ReactNode[] = []
+  let last = 0; let m: RegExpExecArray | null
+  while ((m = re.exec(content)) !== null) {
+    if (m.index > last) parts.push(content.slice(last, m.index))
+    parts.push(
+      <Link key={m.index} href={`/profil/${m[2]}`} onClick={e => e.stopPropagation()}
+        style={{ color: 'var(--primary)', fontWeight: 700, textDecoration: 'none' }}>
+        @{m[1]}
+      </Link>
+    )
+    last = m.index + m[0].length
+  }
+  if (last < content.length) parts.push(content.slice(last))
+  return parts.length > 0 ? <>{parts}</> : <>{content}</>
+}
+
 interface Profile { id: string; display_name: string | null; avatar_url: string | null; email: string | null }
 interface CommentData {
   id: string; user_id: string; content: string; parent_id: string | null; created_at: string
@@ -98,7 +116,7 @@ function CommentBubble({ c, parentAuthor, onReply, isOwn, onMenuOpen, isEditing,
               </div>
             </div>
           ) : (
-            <p style={{ fontSize: 14, color: '#374151', margin: 0, lineHeight: 1.45, wordBreak: 'break-word' }}>{c.content}</p>
+            <p style={{ fontSize: 14, color: '#374151', margin: 0, lineHeight: 1.45, wordBreak: 'break-word' }}>{renderContent(c.content)}</p>
           )}
         </div>
         {!isEditing && (
@@ -125,8 +143,46 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
   const [menuId, setMenuId]         = useState<string | null>(null)
   const [editingId, setEditingId]   = useState<string | null>(null)
   const [editText, setEditText]     = useState('')
-  const inputRef = useRef<HTMLTextAreaElement>(null)
-  const listRef  = useRef<HTMLDivElement>(null)
+  const [mentionSuggestions, setMentionSuggestions] = useState<Profile[]>([])
+  const inputRef       = useRef<HTMLTextAreaElement>(null)
+  const listRef        = useRef<HTMLDivElement>(null)
+  const mentionTimer   = useRef<ReturnType<typeof setTimeout>>()
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value
+    setText(val)
+    const pos = e.target.selectionStart ?? val.length
+    const before = val.slice(0, pos)
+    const atMatch = before.match(/@([^\s@]*)$/)
+    if (atMatch && atMatch[1].length >= 1) {
+      const query = atMatch[1]
+      clearTimeout(mentionTimer.current)
+      mentionTimer.current = setTimeout(async () => {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, display_name, avatar_url, email')
+          .or(`display_name.ilike.%${query}%,email.ilike.%${query}%`)
+          .limit(5)
+        setMentionSuggestions((data ?? []) as Profile[])
+      }, 200)
+    } else {
+      clearTimeout(mentionTimer.current)
+      setMentionSuggestions([])
+    }
+  }
+
+  const insertMention = (p: Profile) => {
+    const el = inputRef.current
+    if (!el) return
+    const pos = el.selectionStart ?? text.length
+    const before = text.slice(0, pos)
+    const after = text.slice(pos)
+    const name = p.display_name || p.email?.split('@')[0] || 'Utilisateur'
+    const newBefore = before.replace(/@([^\s@]*)$/, `@[${name}](${p.id}) `)
+    setText(newBefore + after)
+    setMentionSuggestions([])
+    setTimeout(() => { el.focus(); el.setSelectionRange(newBefore.length, newBefore.length) }, 0)
+  }
 
   const loadComments = useCallback(async () => {
     setLoading(true)
@@ -307,11 +363,34 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
               )}
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
                 <Avatar name={myName} url={profile?.avatar_url} size={32} />
-                <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', backgroundColor: '#F5F1EC', borderRadius: 20, padding: '8px 10px 8px 14px', gap: 6 }}>
+                <div style={{ flex: 1, position: 'relative' }}>
+                {/* Dropdown mention */}
+                {mentionSuggestions.length > 0 && (
+                  <div style={{
+                    position: 'absolute', bottom: '100%', left: 0, right: 0, marginBottom: 4,
+                    backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.14)',
+                    overflow: 'hidden', zIndex: 10,
+                  }}>
+                    {mentionSuggestions.map(p => {
+                      const name = p.display_name || p.email?.split('@')[0] || 'Utilisateur'
+                      return (
+                        <button key={p.id} onMouseDown={e => { e.preventDefault(); insertMention(p) }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                          {p.avatar_url
+                            ? <img src={p.avatar_url} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} />
+                            : <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11, fontFamily: 'Syne, sans-serif' }}>{name[0].toUpperCase()}</div>
+                          }
+                          <span style={{ fontSize: 14, fontWeight: 600, color: '#2C1810', fontFamily: 'Inter, sans-serif' }}>{name}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              <div style={{ display: 'flex', alignItems: 'flex-end', backgroundColor: '#F5F1EC', borderRadius: 20, padding: '8px 10px 8px 14px', gap: 6 }}>
                   <textarea
                     ref={inputRef}
                     value={text}
-                    onChange={e => setText(e.target.value)}
+                    onChange={handleTextChange}
                     onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
                     placeholder={user ? (replyTo ? `Répondre à ${authorOf(replyTo)}…` : 'Écris un commentaire…') : 'Connecte-toi pour commenter'}
                     rows={1}
@@ -341,6 +420,7 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
                   </AnimatePresence>
                 </div>
               </div>
+            </div>
             </div>
           </motion.div>
 
