@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { Categorie } from '@/lib/types'
 import MicButton from '@/components/MicButton'
@@ -98,7 +98,7 @@ const emptyForm: FormData = {
 type Step = 'input' | 'crop' | 'preview' | 'success'
 
 export default function AjouterPage() {
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const { openAuthModal } = useAuthModal()
   const [step, setStep] = useState<Step>('input')
   const [texte, setTexte] = useState('')
@@ -112,6 +112,11 @@ export default function AjouterPage() {
   const [eventId, setEventId] = useState<string | null>(null)
   const [submitMessage, setSubmitMessage] = useState<string | undefined>()
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // Bloquer l'accès si non connecté (après chargement auth)
+  useEffect(() => {
+    if (!authLoading && !user) openAuthModal()
+  }, [authLoading, user, openAuthModal])
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]

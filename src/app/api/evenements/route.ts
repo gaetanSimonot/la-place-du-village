@@ -45,6 +45,9 @@ export async function POST(req: NextRequest) {
     let publishAt: string | null = null
 
     const token = req.headers.get('authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: 'Connexion requise pour soumettre un événement' }, { status: 401 })
+    }
     if (token) {
       const { data: { user } } = await supabaseAdmin.auth.getUser(token)
       if (user) {
