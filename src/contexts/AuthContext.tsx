@@ -36,63 +36,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
 
+  // Effect 1 — résolution de session : synchrone, pas d'async dans le callback.
+  // onAuthStateChange est mis en place AVANT getSession pour ne rater aucun event.
+  // TOKEN_REFRESHED garde le même user.id → Effect 2 ne se re-déclenche pas.
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  // Effect 2 — fetch profil et admin, déclenché uniquement quand l'identité change.
+  // user?.id : TOKEN_REFRESHED ne change pas l'id → aucun refetch inutile au resume.
+  // finally garantit que loading passe à false même en cas d'erreur réseau.
   useEffect(() => {
     let mounted = true
 
-    async function fetchProfile(userId: string) {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, display_name, avatar_url, email, username, banned')
-        .eq('id', userId)
-        .single()
-      if (mounted) setProfile(data ?? null)
+    if (user === null) {
+      setProfile(null)
+      setIsAdmin(false)
+      setLoading(false)
+      return
     }
 
-    async function checkAdmin(email: string) {
-      const { data } = await supabase
-        .from('admin_emails')
-        .select('email')
-        .eq('email', email)
-        .maybeSingle()
-      if (mounted) setIsAdmin(!!data)
-    }
+    setLoading(true)
 
-    async function init() {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!mounted) return
-        setUser(session?.user ?? null)
-        if (session?.user) {
-          await Promise.all([
-            fetchProfile(session.user.id),
-            session.user.email ? checkAdmin(session.user.email) : Promise.resolve(),
-          ])
-        }
-      } catch {
-        // network or auth error — stay logged out
-      } finally {
-        if (mounted) setLoading(false)
-      }
-    }
-    init()
+    async function fetchUserData() {
+      const userId = user!.id
+      const email  = user!.email ?? null
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const [profileRes, adminRes] = await Promise.allSettled([
+        supabase
+          .from('profiles')
+          .select('id, display_name, avatar_url, email, username, banned')
+          .eq('id', userId)
+          .single(),
+        email
+          ? supabase.from('admin_emails').select('email').eq('email', email).maybeSingle()
+          : Promise.resolve({ data: null }),
+      ])
+
       if (!mounted) return
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        await Promise.all([
-          fetchProfile(session.user.id),
-          session.user.email ? checkAdmin(session.user.email) : Promise.resolve(),
-        ])
-      } else {
-        setProfile(null)
-        setIsAdmin(false)
-      }
-      if (mounted) setLoading(false)
-    })
 
-    return () => { mounted = false; subscription.unsubscribe() }
-  }, [])
+      if (profileRes.status === 'fulfilled') setProfile(profileRes.value.data ?? null)
+      if (adminRes.status === 'fulfilled')   setIsAdmin(!!(adminRes.value as { data: unknown }).data)
+    }
+
+    fetchUserData().finally(() => { if (mounted) setLoading(false) })
+
+    return () => { mounted = false }
+  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const signOut = async () => {
     try { localStorage.removeItem('pdv-admin-ok') } catch {}
