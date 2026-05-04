@@ -43,6 +43,8 @@ export default function ProfilPage() {
         </h1>
       </div>
 
+      <p style={{ margin: '8px 16px', fontSize: 12, color: '#999' }}>DEBUG plan: {plan ?? 'null'}</p>
+
       {/* Onglets */}
       <div style={{ display: 'flex', padding: '12px 16px 0', gap: 8, overflowX: 'auto' }}>
         {(['profil', 'theme', ...(plan === 'max' ? ['producteur'] : [])] as Tab[]).map(t => (
