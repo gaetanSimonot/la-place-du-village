@@ -16,7 +16,6 @@ import { useAuthModal } from '@/contexts/AuthModalContext'
 import MaxSplash from '@/components/MaxSplash'
 import ProBandeau from '@/components/ProBandeau'
 import FavorisView from '@/components/FavorisView'
-import AbonnementsView from '@/components/AbonnementsView'
 import { useFavorites } from '@/hooks/useFavorites'
 
 const MapView     = dynamic(() => import('@/components/MapView'),     { ssr: false })
@@ -25,7 +24,7 @@ const BottomSheet = dynamic(() => import('@/components/BottomSheet'), { ssr: fal
 const defaultFiltres: Filtres = { categories: [], quand: 'toujours' }
 const NAV_H = 62
 
-type NavTab = 'carte' | 'liste' | 'favoris' | 'abonnements' | 'profil'
+type NavTab = 'carte' | 'liste' | 'favoris' | 'profil'
 
 const IconCarte = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -50,14 +49,6 @@ const IconProfil = () => (
     <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
   </svg>
 )
-const IconSuivis = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-    <circle cx="9" cy="7" r="4"/>
-    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-  </svg>
-)
 const IconCoeur = ({ filled }: { filled?: boolean }) => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
@@ -65,11 +56,10 @@ const IconCoeur = ({ filled }: { filled?: boolean }) => (
 )
 
 const NAV_TABS: { id: NavTab; label: string; Icon: (p: { active: boolean }) => React.JSX.Element }[] = [
-  { id: 'carte',   label: 'Carte',    Icon: () => <IconCarte /> },
-  { id: 'liste',   label: 'Liste',    Icon: () => <IconListe /> },
-  { id: 'favoris',      label: 'Favoris',  Icon: ({ active }) => <IconCoeur filled={active} /> },
-  { id: 'abonnements', label: 'Suivis',   Icon: () => <IconSuivis /> },
-  { id: 'profil',      label: 'Profil',   Icon: () => <IconProfil /> },
+  { id: 'carte',   label: 'Carte',   Icon: () => <IconCarte /> },
+  { id: 'liste',   label: 'Liste',   Icon: () => <IconListe /> },
+  { id: 'favoris', label: 'Favoris', Icon: ({ active }) => <IconCoeur filled={active} /> },
+  { id: 'profil',  label: 'Profil',  Icon: () => <IconProfil /> },
 ]
 
 export default function HomePage() {
@@ -371,9 +361,8 @@ export default function HomePage() {
   const maxEvents = useMemo(() => promoEventsData.filter(e => e.promotion === 'max'), [promoEventsData])
 
   const handleNavTab = (tab: NavTab) => {
-    if (tab === 'profil')       { setNavTab('profil');       return }
-    if (tab === 'favoris')      { setNavTab('favoris');      return }
-    if (tab === 'abonnements')  { setNavTab('abonnements');  return }
+    if (tab === 'profil')  { setNavTab('profil');  return }
+    if (tab === 'favoris') { setNavTab('favoris'); return }
     if (tab === 'liste') {
       setNavTab('liste')
       if (navTab !== 'liste') {
@@ -829,13 +818,6 @@ export default function HomePage() {
             events={allEvenements.filter(e => favIds.includes(e.id))}
             onToggleFav={toggleFav}
           />
-        </div>
-      )}
-
-      {/* Abonnements — panneau inline */}
-      {navTab === 'abonnements' && (
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 25, overflowY: 'auto', backgroundColor: 'var(--creme)' }}>
-          <AbonnementsView />
         </div>
       )}
 

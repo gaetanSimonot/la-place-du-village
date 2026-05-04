@@ -65,7 +65,7 @@ function ActionBar({ evt, commentCount, onCommentOpen }: { evt: Evenement; comme
   const [interestCount, setInterestCount]   = useState(0)
   const [interestLoading, setInterestLoading] = useState(false)
   const [toast, setToast]                   = useState<string | null>(null)
-  const [voters, setVoters]                 = useState<string[] | null>(null)
+  const [voters, setVoters]                 = useState<{ id: string; name: string }[] | null>(null)
   const [loadingVoters, setLoadingVoters]   = useState(false)
   const lpTimer   = useRef<ReturnType<typeof setTimeout>>()
   const lpFired   = useRef(false)
@@ -147,8 +147,8 @@ function ActionBar({ evt, commentCount, onCommentOpen }: { evt: Evenement; comme
     const { data: voteData } = await supabase.from('votes').select('user_id').eq('evenement_id', evt.id)
     const ids = (voteData ?? []).map((v: { user_id: string }) => v.user_id)
     if (ids.length > 0) {
-      const { data: profiles } = await supabase.from('profiles').select('display_name, email').in('id', ids)
-      setVoters((profiles ?? []).map(p => p.display_name || p.email?.split('@')[0] || 'Quelqu\'un'))
+      const { data: profiles } = await supabase.from('profiles').select('id, display_name, email').in('id', ids)
+      setVoters((profiles ?? []).map(p => ({ id: p.id, name: p.display_name || p.email?.split('@')[0] || 'Quelqu\'un' })))
     }
     setLoadingVoters(false)
   }
@@ -278,16 +278,17 @@ function ActionBar({ evt, commentCount, onCommentOpen }: { evt: Evenement; comme
               <p style={{ fontSize: 13, color: '#9A8E82' }}>Personne pour l&apos;instant.</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {voters.map((name, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {voters.map((p, i) => (
+                  <Link key={i} href={`/profil/${p.id}`} onClick={() => setVoters(null)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
                     <div style={{
                       width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
                       backgroundColor: 'var(--primary-light)', color: 'var(--primary)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontWeight: 800, fontSize: 14, fontFamily: 'Syne, sans-serif',
-                    }}>{name[0].toUpperCase()}</div>
-                    <span style={{ fontSize: 14, color: '#2C1810', fontWeight: 500 }}>{name}</span>
-                  </div>
+                    }}>{p.name[0].toUpperCase()}</div>
+                    <span style={{ fontSize: 14, color: '#2C1810', fontWeight: 500 }}>{p.name}</span>
+                  </Link>
                 ))}
               </div>
             )}

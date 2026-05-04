@@ -28,3 +28,5 @@ public/fallback-*.js.map
 .DS_Store
 *.log
 .vercel
+
+.vercel

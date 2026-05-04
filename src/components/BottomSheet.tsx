@@ -94,7 +94,7 @@ export default function BottomSheet({
     return {
       peek: sh - ph,
       half: Math.round(sh * 0.5),
-      full: 0,
+      full: -FULL_TOP,
     }
   }, [])
 
@@ -211,7 +211,7 @@ export default function BottomSheet({
       drag="y"
       dragControls={dragControls}
       dragListener={false}
-      dragConstraints={{ top: 0, bottom: snaps.peek }}
+      dragConstraints={{ top: -FULL_TOP, bottom: snaps.peek }}
       dragElastic={0.05}
       onDragEnd={handleDragEnd}
       style={{
@@ -426,7 +426,7 @@ export default function BottomSheet({
   )
 }
 
-/* ── Card événement ── */
+/* ── Card événement — layout horizontal : image gauche, texte droite ── */
 function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, isFav, onToggleFav }: {
   evt: EvenementCard; isSelected: boolean; onSelect: () => void; onViewOnMap: () => void
   onOpenEvent?: () => void; isFav?: boolean; onToggleFav?: () => void
@@ -436,101 +436,100 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
 
   return (
     <Link href={`/evenement/${evt.id}`} onClick={() => { onSelect(); onOpenEvent?.() }} style={{
-      display: 'block', position: 'relative', height: 128,
-      borderRadius: 16, overflow: 'hidden', textDecoration: 'none', flexShrink: 0,
-      boxShadow: isSelected ? `0 0 0 2.5px var(--primary), 0 4px 16px rgba(0,0,0,0.15)` : '0 2px 10px rgba(44,44,44,0.1)',
+      display: 'flex', height: 86, flexShrink: 0,
+      borderRadius: 14, overflow: 'hidden', textDecoration: 'none',
+      backgroundColor: '#fff',
+      boxShadow: isSelected
+        ? `0 0 0 2.5px var(--primary), 0 4px 18px rgba(0,0,0,0.14)`
+        : '0 1px 6px rgba(44,44,44,0.09)',
     }}>
-      {evt.image_url
-        ? <img src={evt.image_url} alt={evt.titre} loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: evt.image_position ?? '50% 50%' }} />
-        : <div style={{ position: 'absolute', inset: 0, backgroundColor: cat.color, opacity: 0.8 }} />
-      }
-      {/* Gradient gauche→droite : assombrit le côté texte, révèle l'image à droite */}
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.45) 38%, rgba(0,0,0,0.1) 62%, transparent 85%)' }} />
+      {/* Image gauche */}
+      <div style={{ width: 86, flexShrink: 0, position: 'relative', overflow: 'hidden', backgroundColor: cat.color + '22' }}>
+        {evt.image_url
+          ? <img src={evt.image_url} alt="" loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: evt.image_position ?? '50% 50%' }} />
+          : <div style={{ position: 'absolute', inset: 0, backgroundColor: cat.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>{cat.emoji}</div>
+        }
+      </div>
 
-      {/* Badge catégorie + commune empilés en haut à gauche */}
-      <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-        <span style={{
-          display: 'inline-flex', alignItems: 'center', gap: 4,
-          fontSize: 11, fontWeight: 800,
-          backgroundColor: cat.color, color: '#fff',
-          borderRadius: 999, padding: '3px 9px',
-          boxShadow: '0 1px 6px rgba(0,0,0,0.25)',
-          letterSpacing: '0.01em',
-        }}>
-          {cat.emoji} {cat.label}
-        </span>
-        {lieu?.commune && (
-          <span style={{
-            fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.9)',
-            letterSpacing: '0.02em',
-            textShadow: '0 1px 3px rgba(0,0,0,0.5)',
-            paddingLeft: 2,
+      {/* Contenu droite */}
+      <div style={{ flex: 1, padding: '8px 10px 8px 12px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minWidth: 0 }}>
+        {/* Haut : badge + titre */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3, flexWrap: 'nowrap', overflow: 'hidden' }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 3, flexShrink: 0,
+              fontSize: 9, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase',
+              color: '#fff', backgroundColor: cat.color,
+              borderRadius: 999, padding: '2px 7px',
+            }}>{cat.emoji} {cat.label}</span>
+            {lieu?.commune && (
+              <span style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {lieu.commune}
+              </span>
+            )}
+          </div>
+          <h3 style={{
+            fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 14,
+            color: '#1C1917', margin: 0, lineHeight: 1.25,
+            overflow: 'hidden', display: '-webkit-box',
+            WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
           }}>
-            {lieu.commune}
-          </span>
-        )}
+            {evt.titre}
+          </h3>
+        </div>
+
+        {/* Bas : date + actions */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          {evt.date_debut ? (
+            <p style={{ fontSize: 11, color: '#78716C', margin: 0, fontFamily: 'Inter, sans-serif' }}>
+              {formatDate(evt.date_debut)}{evt.heure ? ` · ${evt.heure.slice(0,5)}` : ''}
+            </p>
+          ) : <div />}
+
+          <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+            {lieu?.lat && lieu?.lng && (
+              <button onClick={e => { e.preventDefault(); e.stopPropagation(); onViewOnMap() }}
+                style={{ width: 26, height: 26, borderRadius: 7, backgroundColor: '#F3F0EB', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#78716C' }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                  <circle cx="12" cy="9" r="2.5" fill="currentColor" stroke="none"/>
+                </svg>
+              </button>
+            )}
+            <button onClick={e => { e.preventDefault(); e.stopPropagation(); onToggleFav?.() }}
+              style={{ width: 26, height: 26, borderRadius: 7, backgroundColor: '#F3F0EB', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill={isFav ? '#EC407A' : 'none'} stroke={isFav ? '#EC407A' : '#78716C'} strokeWidth="2">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+              </svg>
+            </button>
+            <button onClick={e => {
+              e.preventDefault(); e.stopPropagation()
+              const url = `${window.location.origin}/evenement/${evt.id}`
+              if (navigator.share) { navigator.share({ title: evt.titre, url }).catch(() => {}) }
+              else { navigator.clipboard.writeText(url).catch(() => {}) }
+            }}
+              style={{ width: 26, height: 26, borderRadius: 7, backgroundColor: '#F3F0EB', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#78716C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+              </svg>
+            </button>
+          </div>
+        </div>
       </div>
-
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '8px 12px 10px' }}>
-        <h3 style={{ fontSize: 14, fontWeight: 700, color: '#fff', fontFamily: 'Syne, sans-serif', lineHeight: 1.25, margin: '0 0 3px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-          {evt.titre}
-        </h3>
-        {evt.date_debut && (
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.78)', margin: 0, fontFamily: 'Inter, sans-serif' }}>
-            {formatDate(evt.date_debut)}{evt.heure ? ` · ${evt.heure.slice(0,5)}` : ''}
-          </p>
-        )}
-      </div>
-
-      {lieu?.lat && lieu?.lng && (
-        <button onClick={e => { e.preventDefault(); e.stopPropagation(); onViewOnMap() }}
-          style={{ position: 'absolute', top: 8, right: 8, width: 30, height: 30, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.88)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555' }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-            <circle cx="12" cy="9" r="2.5" fill="currentColor" stroke="none"/>
-          </svg>
-        </button>
-      )}
-
-      {/* Bouton favori */}
-      <button
-        onClick={e => { e.preventDefault(); e.stopPropagation(); onToggleFav?.() }}
-        style={{
-          position: 'absolute', bottom: 8, right: 8,
-          width: 28, height: 28, borderRadius: 8,
-          backgroundColor: 'rgba(0,0,0,0.52)', border: 'none',
-          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill={isFav ? '#EC407A' : 'none'} stroke={isFav ? '#EC407A' : '#fff'} strokeWidth="2">
-          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-        </svg>
-      </button>
-
-      {/* Bouton partager */}
-      <button
-        onClick={e => {
-          e.preventDefault(); e.stopPropagation()
-          const url = `${window.location.origin}/evenement/${evt.id}`
-          if (navigator.share) { navigator.share({ title: evt.titre, url }).catch(() => {}) }
-          else { navigator.clipboard.writeText(url).catch(() => {}) }
-        }}
-        style={{
-          position: 'absolute', bottom: 8, right: 40,
-          width: 28, height: 28, borderRadius: 8,
-          backgroundColor: 'rgba(0,0,0,0.52)', border: 'none',
-          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}
-      >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-        </svg>
-      </button>
     </Link>
   )
 }
 
 function SkeletonCard() {
-  return <div style={{ height: 128, borderRadius: 16, backgroundColor: '#EDE8E0', flexShrink: 0 }} className="animate-pulse" />
+  return (
+    <div style={{ height: 86, borderRadius: 14, flexShrink: 0, display: 'flex', overflow: 'hidden', backgroundColor: '#fff', boxShadow: '0 1px 6px rgba(44,44,44,0.06)' }} className="animate-pulse">
+      <div style={{ width: 86, backgroundColor: '#EDE8E0' }} />
+      <div style={{ flex: 1, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+        <div style={{ height: 10, borderRadius: 6, backgroundColor: '#EDE8E0', width: '38%' }} />
+        <div style={{ height: 13, borderRadius: 6, backgroundColor: '#EDE8E0', width: '88%' }} />
+        <div style={{ height: 10, borderRadius: 6, backgroundColor: '#EDE8E0', width: '52%' }} />
+      </div>
+    </div>
+  )
 }

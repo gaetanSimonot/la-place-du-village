@@ -6,8 +6,9 @@ import LoginView from '@/components/LoginView'
 import { useAuth } from '@/hooks/useAuth'
 import { useAdminSession } from '@/hooks/useAdminSession'
 import Link from 'next/link'
+import AbonnementsView from '@/components/AbonnementsView'
 
-type Tab = 'profil' | 'theme'
+type Tab = 'profil' | 'abonnements' | 'theme'
 
 export default function ProfilView() {
   const [tab, setTab] = useState<Tab>('profil')
@@ -34,15 +35,19 @@ export default function ProfilView() {
 
       {/* Onglets */}
       <div style={{ display: 'flex', padding: '12px 16px 0', gap: 8 }}>
-        {(['profil', 'theme'] as Tab[]).map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{
+        {([
+          { id: 'profil', label: 'Profil' },
+          { id: 'abonnements', label: 'Suivis' },
+          { id: 'theme', label: 'Thème' },
+        ] as { id: Tab; label: string }[]).map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)} style={{
             padding: '8px 20px', borderRadius: 999, border: 'none', cursor: 'pointer',
             fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 13,
-            backgroundColor: tab === t ? 'var(--primary)' : '#EDE8E0',
-            color: tab === t ? '#fff' : '#6B6B6B',
+            backgroundColor: tab === t.id ? 'var(--primary)' : '#EDE8E0',
+            color: tab === t.id ? '#fff' : '#6B6B6B',
             transition: 'all 0.15s',
           }}>
-            {t === 'profil' ? 'Profil' : 'Thème'}
+            {t.label}
           </button>
         ))}
       </div>
@@ -170,6 +175,12 @@ export default function ProfilView() {
               </div>
             )}
           </>
+        )}
+
+        {tab === 'abonnements' && (
+          <div style={{ margin: '0 -16px' }}>
+            <AbonnementsView />
+          </div>
         )}
 
         {tab === 'theme' && (
