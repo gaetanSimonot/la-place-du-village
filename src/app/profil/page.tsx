@@ -75,14 +75,6 @@ export default function ProfilPage() {
                   <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 16, color: '#2C1810', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {profile?.display_name || user.email?.split('@')[0] || 'Mon profil'}
                   </p>
-                  {plan && plan !== 'basic' && (
-                    <span style={{
-                      fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', flexShrink: 0,
-                      color: plan === 'max' ? '#E8622A' : '#3A5BC7',
-                      backgroundColor: plan === 'max' ? '#FFF0EB' : '#EEF3FF',
-                      borderRadius: 999, padding: '2px 8px', fontFamily: 'Inter, sans-serif',
-                    }}>{plan === 'max' ? '✦ MAX' : '★ Pro'}</span>
-                  )}
                 </div>
                 <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0 }}>Voir et modifier mon profil →</p>
               </div>
