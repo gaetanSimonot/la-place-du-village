@@ -13,7 +13,7 @@ import { haversineKm, GANGES } from '@/lib/distance'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 
-// import MaxSplash from '@/components/MaxSplash'
+import MaxSplash from '@/components/MaxSplash'
 import ProBandeau from '@/components/ProBandeau'
 import FavorisView from '@/components/FavorisView'
 import { useFavorites } from '@/hooks/useFavorites'
@@ -831,8 +831,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* MaxSplash désactivé temporairement pour diagnostic */}
-      {/* <MaxSplash events={maxEvents} loading={loading} /> */}
+      <MaxSplash events={maxEvents} loading={loading} />
 
       {/* Bottom Nav — 3 onglets */}
       <nav style={{
