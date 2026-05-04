@@ -20,11 +20,11 @@ export async function GET(req: NextRequest) {
   // Tous les profils producteurs
   const { data: producers } = await supabaseAdmin
     .from('producers')
-    .select('id, user_id, nom, is_max, photos')
+    .select('id, user_id, nom, is_max, photos, commune')
 
-  const producerByUser: Record<string, { id: string; nom: string; is_max: boolean; photo: string | null }> = {}
+  const producerByUser: Record<string, { id: string; nom: string; is_max: boolean; photo: string | null; commune: string | null }> = {}
   for (const p of producers ?? []) {
-    if (p.user_id) producerByUser[p.user_id] = { id: p.id, nom: p.nom, is_max: p.is_max, photo: (p.photos ?? [])[0] ?? null }
+    if (p.user_id) producerByUser[p.user_id] = { id: p.id, nom: p.nom, is_max: p.is_max, photo: (p.photos ?? [])[0] ?? null, commune: p.commune ?? null }
   }
 
   const membres = (users ?? []).map(u => ({

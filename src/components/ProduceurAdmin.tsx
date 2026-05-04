@@ -31,21 +31,21 @@ const emptyForm = () => ({
   photo_url: '', is_max: false,
 })
 
-export default function ProduceurAdmin() {
+export default function ProduceurAdmin({ embedded }: { embedded?: boolean }) {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
-  const [adminVerified, setAdminVerified] = useState(false)
+  const [adminVerified, setAdminVerified] = useState(embedded ?? false)
 
   useEffect(() => {
-    if (adminVerified || authLoading) return
+    if (adminVerified || embedded || authLoading) return
     if (!user?.email) { router.replace('/'); return }
     supabase.from('admin_emails').select('email').eq('email', user.email).maybeSingle()
       .then(({ data, error }) => {
         if (error) return
-        if (!data) router.replace('/')
+        if (!data) { if (!embedded) router.replace('/') }
         else setAdminVerified(true)
       })
-  }, [adminVerified, authLoading, user, router])
+  }, [adminVerified, embedded, authLoading, user, router])
 
   const [producers, setProducers] = useState<Producteur[]>([])
   const [editId, setEditId]       = useState<string | 'new' | null>(null)
@@ -198,8 +198,8 @@ export default function ProduceurAdmin() {
   }
 
   if (!adminVerified) return (
-    <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FBF7F0' }}>
-      <div style={{ width: 28, height: 28, borderRadius: '50%', border: '3px solid #E0D8CE', borderTopColor: '#C4622D', animation: 'spin 0.7s linear infinite' }} />
+    <div style={{ padding: 24, textAlign: 'center' }}>
+      <div style={{ width: 28, height: 28, borderRadius: '50%', border: '3px solid #E0D8CE', borderTopColor: '#C4622D', animation: 'spin 0.7s linear infinite', margin: '0 auto' }} />
     </div>
   )
 
@@ -215,17 +215,19 @@ export default function ProduceurAdmin() {
   const sectionStyle: React.CSSProperties = { marginBottom: 14 }
 
   return (
-    <div style={{ minHeight: '100dvh', backgroundColor: '#FBF7F0', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ backgroundColor: '#FBF7F0', fontFamily: 'Inter, sans-serif', minHeight: embedded ? undefined : '100dvh' }}>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
 
-      {/* Header */}
-      <div style={{ backgroundColor: '#2C1810', color: '#fff', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 10 }}>
-        <Link href="/admin" style={{ color: '#C4622D', fontWeight: 800, fontSize: 18, textDecoration: 'none' }}>←</Link>
-        <h1 style={{ fontWeight: 700, fontSize: 16, margin: 0, flex: 1 }}>Producteurs locaux</h1>
-        <button onClick={openNew} style={{ backgroundColor: '#C4622D', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-          + Nouveau
-        </button>
-      </div>
+      {/* Header — standalone only */}
+      {!embedded && (
+        <div style={{ backgroundColor: '#2C1810', color: '#fff', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 10 }}>
+          <Link href="/admin" style={{ color: '#C4622D', fontWeight: 800, fontSize: 18, textDecoration: 'none' }}>←</Link>
+          <h1 style={{ fontWeight: 700, fontSize: 16, margin: 0, flex: 1 }}>Producteurs locaux</h1>
+          <button onClick={openNew} style={{ backgroundColor: '#C4622D', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+            + Nouveau
+          </button>
+        </div>
+      )}
 
       <div style={{ maxWidth: 700, margin: '0 auto', padding: '16px' }}>
 
@@ -363,9 +365,16 @@ export default function ProduceurAdmin() {
         )}
 
         {/* Liste des producteurs */}
-        <h2 style={{ fontWeight: 700, fontSize: 14, color: '#7A6A5A', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px' }}>
-          {producers.length} producteur{producers.length !== 1 ? 's' : ''}
-        </h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+          <h2 style={{ fontWeight: 700, fontSize: 14, color: '#7A6A5A', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
+            {producers.length} producteur{producers.length !== 1 ? 's' : ''}
+          </h2>
+          {embedded && (
+            <button onClick={openNew} style={{ backgroundColor: '#C4622D', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+              + Nouveau
+            </button>
+          )}
+        </div>
 
         {producers.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 0', color: '#9A8A7A' }}>

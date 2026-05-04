@@ -11,9 +11,11 @@ import DoublonsAdmin from '@/components/DoublonsAdmin'
 import ZoneAdmin from '@/components/ZoneAdmin'
 import AdminInbox from '@/components/AdminInbox'
 import MembresAdmin from '@/components/MembresAdmin'
+import ProduceurAdmin from '@/components/ProduceurAdmin'
 import EventEditDrawer from '@/components/EventEditDrawer'
 
-type Onglet   = 'inbox' | 'soumissions' | 'a_traiter' | 'publie' | 'rejete' | 'scrap' | 'doublons' | 'zone' | 'membres' | 'admins'
+type Section  = 'agenda' | 'annuaire' | 'membres' | 'parametres'
+type Onglet   = 'inbox' | 'soumissions' | 'a_traiter' | 'publie' | 'rejete' | 'scrap' | 'doublons' | 'zone'
 type SortKey  = 'created_desc' | 'created_asc' | 'date_asc' | 'date_desc'
 const PAGE_SIZE = 20
 
@@ -96,6 +98,7 @@ export default function AdminDashboard() {
     fetchAdmins()
   }
 
+  const [section, setSection]           = useState<Section>('agenda')
   const [onglet, setOnglet]             = useState<Onglet>('a_traiter')
   const [evenements, setEvenements]     = useState<Evenement[]>([])
   const [feedbacks, setFeedbacks]       = useState<Feedback[]>([])
@@ -143,7 +146,7 @@ export default function AdminDashboard() {
   }, [])
 
   const fetchTabData = useCallback(async (tab: Onglet) => {
-    if (tab === 'doublons' || tab === 'zone' || tab === 'inbox' || tab === 'admins' || tab === 'membres' || tab === 'soumissions') return
+    if (tab === 'doublons' || tab === 'zone' || tab === 'inbox' || tab === 'soumissions') return
     setLoading(true)
     let query = supabase
       .from('evenements')
@@ -186,9 +189,11 @@ export default function AdminDashboard() {
   useEffect(() => { fetchAll() }, [fetchAll])
   useEffect(() => {
     setSelection(new Set()); setPage(1); fetchTabData(onglet)
-    if (onglet === 'admins') fetchAdmins()
     if (onglet === 'soumissions') fetchSoumissions()
   }, [onglet]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (section === 'parametres') fetchAdmins()
+  }, [section]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setPage(1) }, [search, sort, onlyFeedbacks])
 
   // Index feedbacks par evenement_id
@@ -354,68 +359,141 @@ export default function AdminDashboard() {
       <div className="bg-[#2C1810] text-white px-4 py-4 flex items-center gap-3">
         <Link href="/" className="text-[#C4622D] text-xl font-bold">←</Link>
         <h1 className="font-bold text-lg flex-1">Back-office</h1>
-        <Link href="/admin/prompts" className="text-xs text-[#C4622D] font-semibold border border-[#C4622D] px-2 py-1 rounded-lg mr-1">
+        <Link href="/admin/prompts" className="text-xs text-[#C4622D] font-semibold border border-[#C4622D] px-2 py-1 rounded-lg">
           IA
         </Link>
-        <Link href="/admin/sources" className="text-xs text-[#C4622D] font-semibold border border-[#C4622D] px-2 py-1 rounded-lg mr-1">
+        <Link href="/admin/sources" className="text-xs text-[#C4622D] font-semibold border border-[#C4622D] px-2 py-1 rounded-lg">
           Sources
         </Link>
-        <Link href="/admin/producteurs" className="text-xs text-[#2D5A3D] font-semibold border border-[#2D5A3D] px-2 py-1 rounded-lg mr-1">
-          🌿 Producteurs
-        </Link>
-        <button onClick={fetchAll} className="text-xs text-gray-400 underline">Actualiser</button>
+        <button onClick={fetchAll} className="text-xs text-gray-400 underline">↺</button>
       </div>
 
-      {/* Réglage : masquer les événements passés */}
-      <div className="bg-[#3D2318] px-4 py-2.5 flex items-center gap-3">
-        <label className="flex items-center gap-2.5 cursor-pointer select-none flex-1" onClick={toggleMasquerPasses}>
-          <div className={`relative w-10 h-6 rounded-full transition-colors duration-200 ${masquerPasses ? 'bg-orange-500' : 'bg-gray-600'}`}>
-            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all duration-200 ${masquerPasses ? 'left-5' : 'left-1'}`} />
-          </div>
-          <span className="text-sm text-gray-300 font-medium">Masquer les événements passés</span>
-          {togglingConfig && <span className="text-xs text-gray-500">…</span>}
-        </label>
-        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${masquerPasses ? 'bg-orange-900 text-orange-300' : 'bg-gray-700 text-gray-400'}`}>
-          {masquerPasses ? 'Actif' : 'Inactif'}
-        </span>
-      </div>
-
-      {/* Onglets */}
-      <div className="flex border-b border-[#E8E0D5] bg-white overflow-x-auto">
+      {/* Section nav */}
+      <div className="flex border-b-2 border-[#E8E0D5] bg-white">
         {([
-          { key: 'inbox',       label: '📥 Réception',   color: 'bg-red-500'    },
-          { key: 'soumissions', label: '👥 Soumissions', color: 'bg-indigo-500' },
-          { key: 'a_traiter',   label: 'À traiter',      color: 'bg-orange-500' },
-          { key: 'scrap',       label: 'Scrap',          color: 'bg-blue-500'   },
-          { key: 'publie',      label: 'Publiés',        color: 'bg-green-500'  },
-          { key: 'rejete',      label: 'Rejetés',        color: 'bg-gray-400'   },
-          { key: 'doublons',    label: '🔀 Doublons',    color: 'bg-amber-500'  },
-          { key: 'zone',        label: '📍 Zone',        color: 'bg-teal-500'   },
-          { key: 'membres',     label: '👥 Membres',     color: 'bg-emerald-500'},
-          { key: 'admins',      label: '👤 Admins',      color: 'bg-purple-500' },
-        ] as { key: Onglet; label: string; color: string }[]).map(tab => (
+          { key: 'agenda',     label: '📅 Agenda',     badge: (tabCounts.a_traiter + inboxCount) || 0 },
+          { key: 'annuaire',   label: '🗺 Annuaire',   badge: 0 },
+          { key: 'membres',    label: '👥 Membres',    badge: 0 },
+          { key: 'parametres', label: '⚙️ Paramètres', badge: 0 },
+        ] as { key: Section; label: string; badge: number }[]).map(s => (
           <button
-            key={tab.key}
-            onClick={() => setOnglet(tab.key)}
-            className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap px-2 ${
-              onglet === tab.key ? 'text-[#C4622D] border-b-2 border-[#C4622D]' : 'text-gray-400'
+            key={s.key}
+            onClick={() => setSection(s.key)}
+            className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap px-1 ${
+              section === s.key ? 'text-[#C4622D] border-b-2 border-[#C4622D]' : 'text-gray-400'
             }`}
           >
-            {tab.label}
-            {counts[tab.key as keyof typeof counts] > 0 && (
-              <span className={`${tab.color} text-white text-xs rounded-full w-5 h-5 flex items-center justify-center`}>
-                {counts[tab.key as keyof typeof counts]}
-              </span>
+            {s.label}
+            {s.badge > 0 && (
+              <span className="bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{s.badge}</span>
             )}
           </button>
         ))}
       </div>
 
+      {/* Agenda — masquer passés toggle + onglets */}
+      {section === 'agenda' && (
+        <div className="bg-[#3D2318] px-4 py-2 flex items-center gap-3">
+          <label className="flex items-center gap-2.5 cursor-pointer select-none flex-1" onClick={toggleMasquerPasses}>
+            <div className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${masquerPasses ? 'bg-orange-500' : 'bg-gray-600'}`}>
+              <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all duration-200 ${masquerPasses ? 'left-4' : 'left-0.5'}`} />
+            </div>
+            <span className="text-xs text-gray-300">Masquer les passés</span>
+            {togglingConfig && <span className="text-xs text-gray-500">…</span>}
+          </label>
+        </div>
+      )}
+
+      {section === 'agenda' && (
+        <div className="flex border-b border-[#E8E0D5] bg-white overflow-x-auto">
+          {([
+            { key: 'inbox',       label: '📥 Réception',   color: 'bg-red-500'    },
+            { key: 'soumissions', label: '👥 Soumissions', color: 'bg-indigo-500' },
+            { key: 'a_traiter',   label: 'À traiter',      color: 'bg-orange-500' },
+            { key: 'scrap',       label: 'Scrap',          color: 'bg-blue-500'   },
+            { key: 'publie',      label: 'Publiés',        color: 'bg-green-500'  },
+            { key: 'rejete',      label: 'Rejetés',        color: 'bg-gray-400'   },
+            { key: 'doublons',    label: '🔀 Doublons',    color: 'bg-amber-500'  },
+            { key: 'zone',        label: '📍 Zone',        color: 'bg-teal-500'   },
+          ] as { key: Onglet; label: string; color: string }[]).map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setOnglet(tab.key)}
+              className={`flex-1 py-2.5 text-xs font-semibold flex items-center justify-center gap-1 transition-colors whitespace-nowrap px-1.5 ${
+                onglet === tab.key ? 'text-[#C4622D] border-b-2 border-[#C4622D]' : 'text-gray-400'
+              }`}
+            >
+              {tab.label}
+              {counts[tab.key as keyof typeof counts] > 0 && (
+                <span className={`${tab.color} text-white text-xs rounded-full w-4 h-4 flex items-center justify-center`}>
+                  {counts[tab.key as keyof typeof counts]}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Annuaire section */}
+      {section === 'annuaire' && <ProduceurAdmin embedded />}
+
+      {/* Membres section */}
+      {section === 'membres' && <MembresAdmin />}
+
+      {/* Paramètres section */}
+      {section === 'parametres' && (
+        <div className="p-4 max-w-md mx-auto space-y-6">
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            <p className="font-bold text-[#2C1810] text-sm mb-3">Affichage agenda</p>
+            <label className="flex items-center gap-3 cursor-pointer select-none" onClick={toggleMasquerPasses}>
+              <div className={`relative w-10 h-6 rounded-full transition-colors duration-200 ${masquerPasses ? 'bg-orange-500' : 'bg-gray-300'}`}>
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all duration-200 ${masquerPasses ? 'left-5' : 'left-1'}`} />
+              </div>
+              <span className="text-sm text-[#2C1810]">Masquer les événements passés</span>
+              {togglingConfig && <span className="text-xs text-gray-400">…</span>}
+            </label>
+          </div>
+
+          <div>
+            <h2 className="font-bold text-[#2C1810] text-base mb-3">Administrateurs</h2>
+            <div className="space-y-2 mb-4">
+              {adminList.map(a => (
+                <div key={a.email} className="flex items-center justify-between bg-white rounded-xl px-4 py-3 shadow-sm">
+                  <span className="text-sm font-medium text-[#2C1810]">{a.email}</span>
+                  {a.email !== user?.email ? (
+                    <button onClick={() => removeAdmin(a.email)} className="text-xs text-red-400 hover:text-red-600 font-semibold transition-colors">Retirer</button>
+                  ) : (
+                    <span className="text-xs text-[#C4622D] font-semibold">Vous</span>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="bg-white rounded-xl p-4 shadow-sm">
+              <p className="text-sm font-bold text-[#2C1810] mb-3">Ajouter un admin</p>
+              <div className="flex gap-2">
+                <input
+                  type="email" value={adminInput}
+                  onChange={e => setAdminInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && addAdmin()}
+                  placeholder="email@exemple.com"
+                  className="flex-1 border border-[#E0D8CE] rounded-xl px-3 py-2 text-sm outline-none focus:border-[#C4622D] bg-[#FBF7F0]"
+                />
+                <button onClick={addAdmin} disabled={adminLoading || !adminInput.includes('@')}
+                  className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-40">
+                  {adminLoading ? '…' : 'Ajouter'}
+                </button>
+              </div>
+              {adminError && <p className="text-xs text-red-500 mt-2">{adminError}</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Onglet Réception */}
-      {onglet === 'inbox' && <AdminInbox onCountChange={setInboxCount} />}
+      {section === 'agenda' && onglet === 'inbox' && <AdminInbox onCountChange={setInboxCount} />}
 
       {/* Onglet Soumissions */}
-      {onglet === 'soumissions' && (
+      {section === 'agenda' && onglet === 'soumissions' && (
         <div className="p-3 space-y-6 pb-10">
           <button onClick={fetchSoumissions} className="text-xs text-gray-400 underline w-full text-right">Actualiser</button>
 
@@ -479,61 +557,13 @@ export default function AdminDashboard() {
       )}
 
       {/* Onglet Doublons */}
-      {onglet === 'doublons' && <DoublonsAdmin />}
+      {section === 'agenda' && onglet === 'doublons' && <DoublonsAdmin />}
 
       {/* Onglet Zone */}
-      {onglet === 'zone' && <ZoneAdmin />}
-
-      {/* Onglet Membres */}
-      {onglet === 'membres' && <MembresAdmin />}
-
-      {/* Onglet Admins */}
-      {onglet === 'admins' && (
-        <div className="p-4 max-w-md mx-auto">
-          <h2 className="font-bold text-[#2C1810] text-base mb-4">Administrateurs</h2>
-
-          {/* Liste */}
-          <div className="space-y-2 mb-6">
-            {adminList.map(a => (
-              <div key={a.email} className="flex items-center justify-between bg-white rounded-xl px-4 py-3 shadow-sm">
-                <span className="text-sm font-medium text-[#2C1810]">{a.email}</span>
-                {a.email !== user?.email && (
-                  <button onClick={() => removeAdmin(a.email)}
-                    className="text-xs text-red-400 hover:text-red-600 font-semibold transition-colors">
-                    Retirer
-                  </button>
-                )}
-                {a.email === user?.email && (
-                  <span className="text-xs text-[#C4622D] font-semibold">Vous</span>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Ajouter */}
-          <div className="bg-white rounded-xl p-4 shadow-sm">
-            <p className="text-sm font-bold text-[#2C1810] mb-3">Ajouter un admin</p>
-            <div className="flex gap-2">
-              <input
-                type="email"
-                value={adminInput}
-                onChange={e => setAdminInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && addAdmin()}
-                placeholder="email@exemple.com"
-                className="flex-1 border border-[#E0D8CE] rounded-xl px-3 py-2 text-sm outline-none focus:border-[#C4622D] bg-[#FBF7F0]"
-              />
-              <button onClick={addAdmin} disabled={adminLoading || !adminInput.includes('@')}
-                className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-40">
-                {adminLoading ? '…' : 'Ajouter'}
-              </button>
-            </div>
-            {adminError && <p className="text-xs text-red-500 mt-2">{adminError}</p>}
-          </div>
-        </div>
-      )}
+      {section === 'agenda' && onglet === 'zone' && <ZoneAdmin />}
 
       {/* Bandeau info Scrap */}
-      {onglet === 'scrap' && (
+      {section === 'agenda' && onglet === 'scrap' && (
         <div className="bg-blue-50 border-b border-blue-100 px-4 py-2 flex items-center justify-between">
           <p className="text-xs text-blue-700 font-medium">
             Événements issus du scraping — à valider avant publication
@@ -543,7 +573,7 @@ export default function AdminDashboard() {
       )}
 
       {/* Barre recherche + tri + filtre signalements */}
-      {onglet !== 'doublons' && onglet !== 'zone' && onglet !== 'inbox' && onglet !== 'soumissions' && onglet !== 'membres' && onglet !== 'admins' && (
+      {section === 'agenda' && onglet !== 'doublons' && onglet !== 'zone' && onglet !== 'inbox' && onglet !== 'soumissions' && (
         <div className="bg-white border-b border-[#E8E0D5] px-3 py-2 space-y-2">
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -588,7 +618,7 @@ export default function AdminDashboard() {
       )}
 
       {/* Barre sélection */}
-      {onglet !== 'doublons' && onglet !== 'zone' && onglet !== 'inbox' && onglet !== 'soumissions' && onglet !== 'membres' && onglet !== 'admins' && !loading && sorted.length > 0 && (
+      {section === 'agenda' && onglet !== 'doublons' && onglet !== 'zone' && onglet !== 'inbox' && onglet !== 'soumissions' && !loading && sorted.length > 0 && (
         <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-[#E8E0D5]">
           <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600 select-none">
             <input type="checkbox" checked={allSelected} onChange={toggleAll} className="w-4 h-4 accent-[#C4622D] cursor-pointer" />
@@ -606,7 +636,7 @@ export default function AdminDashboard() {
       )}
 
       {/* Liste */}
-      {onglet !== 'doublons' && onglet !== 'zone' && onglet !== 'inbox' && onglet !== 'soumissions' && onglet !== 'membres' && onglet !== 'admins' && <div className="p-3 space-y-3 pb-6">
+      {section === 'agenda' && onglet !== 'doublons' && onglet !== 'zone' && onglet !== 'inbox' && onglet !== 'soumissions' && <div className="p-3 space-y-3 pb-6">
         {loading ? (
           <div className="flex justify-center py-12">
             <div className="w-8 h-8 border-4 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
