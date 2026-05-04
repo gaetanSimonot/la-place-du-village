@@ -102,3 +102,19 @@ DROP TRIGGER IF EXISTS tr_vote_change ON votes;
 CREATE TRIGGER tr_vote_change
   AFTER INSERT OR DELETE ON votes
   FOR EACH ROW EXECUTE FUNCTION fn_vote_change();
+
+-- 7. Publication automatique des événements utilisateurs (toutes les 5 min)
+-- Active l'extension pg_cron si pas déjà fait, puis planifie la tâche
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+
+SELECT cron.schedule(
+  'publish-pending-events',
+  '*/5 * * * *',
+  $$
+    UPDATE evenements
+       SET statut = 'publie'
+     WHERE statut = 'en_attente'
+       AND publish_at IS NOT NULL
+       AND publish_at <= NOW();
+  $$
+);
