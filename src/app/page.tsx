@@ -311,9 +311,13 @@ export default function HomePage() {
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [fetchEvenements])
 
-  // Quand la liste redescend (half/peek), réactiver le mode carte pour les boutons
+  // Sheet full → active le mode liste ; sheet réduite → revient en carte
   useEffect(() => {
-    if (sheetMode !== 'full') setNavTab(prev => (prev === 'profil' || prev === 'favoris') ? prev : 'carte')
+    if (sheetMode === 'full') {
+      setNavTab(prev => prev === 'carte' ? 'liste' : prev)
+    } else {
+      setNavTab(prev => (prev === 'profil' || prev === 'favoris') ? prev : 'carte')
+    }
   }, [sheetMode])
 
   // Sélection d'un marqueur → peek ; déselection → half
