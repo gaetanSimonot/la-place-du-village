@@ -420,7 +420,15 @@ export default function HomePage() {
   const filteredProducers = useMemo(() => {
     return producers
       .filter(p => selectedCats.length === 0 || selectedCats.some(c => p.produit_categories.includes(c)))
-      .filter(p => !producerSearch || p.nom.toLowerCase().includes(producerSearch.toLowerCase()))
+      .filter(p => {
+        if (!producerSearch) return true
+        const q = producerSearch.toLowerCase()
+        return (
+          p.nom.toLowerCase().includes(q) ||
+          (p.commune ?? '').toLowerCase().includes(q) ||
+          p.produits_disponibles.some(pr => pr.nom.toLowerCase().includes(q))
+        )
+      })
   }, [producers, selectedCats, producerSearch])
 
   const featuredProducers = useMemo(() => producers.filter(p => p.is_featured), [producers])

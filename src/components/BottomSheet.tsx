@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, useMotionValue, animate, useDragControls, AnimatePresence } from 'framer-motion'
 import { EvenementCard, Filtres, Categorie, FiltreQuand, AppMode, ProducerCard, ProduitCategorie } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
@@ -258,6 +258,19 @@ export default function BottomSheet({
     if (mode === 'peek') listRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
   }, [mode])
 
+  // Suggestions de produits basées sur les producers filtrés par catégorie
+  const suggestions = useMemo(() => {
+    if (!producerSearch || producerSearch.length < 1) return []
+    const q = producerSearch.toLowerCase()
+    const names = new Set<string>()
+    producers.forEach(p => {
+      p.produits_disponibles?.forEach(pr => {
+        if (pr.nom.toLowerCase().includes(q)) names.add(pr.nom)
+      })
+    })
+    return Array.from(names).slice(0, 6)
+  }, [producers, producerSearch])
+
   const sortedEvents = selectedId
     ? [...evenements.filter(e => e.id === selectedId), ...evenements.filter(e => e.id !== selectedId)]
     : evenements
@@ -500,11 +513,30 @@ export default function BottomSheet({
             </div>
           )}
 
-          {/* Barre de recherche */}
-          <div style={{ padding: '0 16px 10px' }} onPointerDown={e => e.stopPropagation()}>
-            <input type="text" value={producerSearch} onChange={e => onProducerSearchChange?.(e.target.value)}
-              placeholder="Rechercher un producteur…"
-              style={{ width: '100%', padding: '10px 14px', borderRadius: 12, border: `1.5px solid ${sheetBg.border}`, fontSize: 13, fontFamily: 'Inter, sans-serif', color: '#2C1810', backgroundColor: sheetBg.bg, outline: 'none', boxSizing: 'border-box' }} />
+          {/* Barre de recherche + suggestions */}
+          <div style={{ padding: '0 16px 10px', position: 'relative' }} onPointerDown={e => e.stopPropagation()}>
+            <div style={{ position: 'relative' }}>
+              <input type="text" value={producerSearch} onChange={e => onProducerSearchChange?.(e.target.value)}
+                placeholder="Producteur, produit, commune…"
+                style={{ width: '100%', padding: '10px 36px 10px 14px', borderRadius: producerSearch && suggestions.length > 0 ? '12px 12px 0 0' : 12, border: `1.5px solid ${sheetBg.border}`, borderBottom: producerSearch && suggestions.length > 0 ? 'none' : `1.5px solid ${sheetBg.border}`, fontSize: 13, fontFamily: 'Inter, sans-serif', color: '#2C1810', backgroundColor: sheetBg.bg, outline: 'none', boxSizing: 'border-box' }} />
+              {producerSearch ? (
+                <button onClick={() => onProducerSearchChange?.('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', cursor: 'pointer', color: '#AAA', fontSize: 15, padding: 2, display: 'flex' }}>✕</button>
+              ) : (
+                <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#AAA', fontSize: 14, pointerEvents: 'none' }}>🔍</span>
+              )}
+            </div>
+            {producerSearch && suggestions.length > 0 && (
+              <div style={{ position: 'absolute', left: 16, right: 16, zIndex: 50, backgroundColor: sheetBg.bg, border: `1.5px solid ${sheetBg.border}`, borderTop: 'none', borderRadius: '0 0 12px 12px', overflow: 'hidden', boxShadow: '0 6px 16px rgba(0,0,0,0.10)' }}>
+                {suggestions.map((s, i) => (
+                  <button key={s} onPointerDown={e => { e.preventDefault(); e.stopPropagation(); onProducerSearchChange?.(s) }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 14px', border: 'none', borderTop: i > 0 ? `1px solid ${sheetBg.border}` : 'none', backgroundColor: 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 13, color: '#2C1810', fontFamily: 'Inter, sans-serif' }}>
+                    <span style={{ color: '#8A8A8A', fontSize: 12 }}>🛒</span>
+                    <span style={{ flex: 1 }}>{s}</span>
+                    <span style={{ fontSize: 10, color: '#AAA', fontWeight: 600 }}>produit</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </>
       )}
