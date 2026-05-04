@@ -64,7 +64,7 @@ export async function PATCH(req: NextRequest) {
 
     // Check if profile row exists — if not, we need to create it with all required columns
     const { data: existing } = await supabaseAdmin
-      .from('profiles').select('id').eq('user_id', user_id).maybeSingle()
+      .from('profiles').select('user_id').eq('user_id', user_id).maybeSingle()
 
     let error
     if (existing) {
