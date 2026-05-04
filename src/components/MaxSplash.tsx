@@ -192,7 +192,7 @@ export default function MaxSplash({ events, loading = false }: Props) {
         {/* Badge */}
         <div style={{ position: 'absolute', top: 22, left: 18 }}>
           <span style={{
-            fontSize: 10, fontWeight: 800, color: '#fff', backgroundColor: '#C84B2F',
+            fontSize: 10, fontWeight: 800, color: '#fff', backgroundColor: '#EC407A',
             padding: '4px 11px', borderRadius: 999, letterSpacing: '0.07em',
             textTransform: 'uppercase', fontFamily: 'Syne, sans-serif',
           }}>✦ Événement à la une</span>
@@ -223,7 +223,7 @@ export default function MaxSplash({ events, loading = false }: Props) {
           {/* Titre */}
           <h2 style={{
             fontSize: 30, fontWeight: 700, color: '#fff',
-            lineHeight: 1.15, margin: '0 0 10px',
+            lineHeight: 1.22, letterSpacing: '0.01em', margin: '0 0 10px',
             fontFamily: '"Playfair Display", serif',
             textShadow: '0 2px 16px rgba(0,0,0,0.5)',
           }}>{evt.titre}</h2>

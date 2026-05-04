@@ -17,6 +17,7 @@ export default function ProfilView() {
   const isAdmin = useAdminSession()
   const [editingName, setEditingName] = useState(false)
   const [nameInput, setNameInput] = useState('')
+  const [showUpgrade, setShowUpgrade] = useState(false)
 
   return (
     <div style={{ minHeight: '100%', backgroundColor: 'var(--creme)', fontFamily: 'Inter, sans-serif' }}>
@@ -127,6 +128,22 @@ export default function ProfilView() {
                   }
 
                   <p style={{ fontSize: 13, color: '#8A8A8A', margin: 0 }}>{profile?.email ?? user.email}</p>
+
+                  {/* Abonnement */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+                      color: '#6B5E4E', backgroundColor: '#EDE8DF',
+                      borderRadius: 999, padding: '3px 10px',
+                      fontFamily: 'Syne, sans-serif',
+                    }}>Basic</span>
+                    <button onClick={() => setShowUpgrade(true)} style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      fontSize: 11, fontWeight: 700, color: 'var(--primary)',
+                      fontFamily: 'Syne, sans-serif', padding: 0,
+                      textDecoration: 'underline',
+                    }}>Upgrader →</button>
+                  </div>
 
                   <Link href={`/profil/${user.id}`} style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -308,6 +325,41 @@ export default function ProfilView() {
           </div>
         )}
       </div>
+
+      {/* Popup upgrade */}
+      {showUpgrade && (
+        <div onClick={() => setShowUpgrade(false)} style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            backgroundColor: '#fff', borderRadius: '24px 24px 0 0',
+            padding: '32px 24px 48px', width: '100%', maxWidth: 480,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+          }}>
+            <p style={{ fontSize: 44, margin: 0 }}>🌟</p>
+            <h2 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 22, color: '#1A1209', margin: 0, textAlign: 'center' }}>
+              Passer à Premium
+            </h2>
+            <p style={{ fontSize: 14, color: '#6B5E4E', fontFamily: 'Lora, serif', lineHeight: 1.6, textAlign: 'center', margin: 0, maxWidth: 300 }}>
+              Les abonnements Premium arrivent bientôt ! Tu seras notifié dès que la fonctionnalité sera disponible.
+            </p>
+            <span style={{
+              fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+              color: '#EC407A', backgroundColor: '#FEF0F5',
+              borderRadius: 999, padding: '4px 14px', fontFamily: 'Syne, sans-serif',
+              marginTop: 4,
+            }}>À venir</span>
+            <button onClick={() => setShowUpgrade(false)} style={{
+              marginTop: 12, width: '100%', padding: '15px', borderRadius: 999,
+              backgroundColor: 'var(--primary)', color: '#fff',
+              fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer',
+              fontFamily: 'Syne, sans-serif',
+            }}>Compris</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

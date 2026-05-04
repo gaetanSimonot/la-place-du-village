@@ -117,7 +117,7 @@ export default function ProBandeau({ events, onDiscover }: Props) {
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 4,
             fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase',
-            color: '#fff', backgroundColor: '#C84B2F',
+            color: '#fff', backgroundColor: '#EC407A',
             borderRadius: 999, padding: '3px 9px',
             fontFamily: 'Syne, sans-serif', whiteSpace: 'nowrap',
             boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
@@ -140,7 +140,7 @@ export default function ProBandeau({ events, onDiscover }: Props) {
         <div>
           <p style={{
             fontFamily: '"Playfair Display", serif', fontWeight: 700,
-            fontSize: 16, lineHeight: 1.2, color: '#fff',
+            fontSize: 17, lineHeight: 1.3, letterSpacing: '0.01em', color: '#fff',
             margin: '0 0 4px',
             overflow: 'hidden', display: '-webkit-box',
             WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
