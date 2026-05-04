@@ -7,7 +7,7 @@ import { CATEGORIES } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
 import Link from 'next/link'
 import ImageLightbox from '@/components/ImageLightbox'
-import FeedbackButton from '@/components/FeedbackButton'
+import CommentSheet from '@/components/CommentSheet'
 import EventEditDrawer from '@/components/EventEditDrawer'
 import { useAdminSession } from '@/hooks/useAdminSession'
 import { useAuth } from '@/hooks/useAuth'
@@ -54,7 +54,7 @@ const LBL: React.CSSProperties = {
   fontSize: 11, fontWeight: 600, fontFamily: 'Inter, sans-serif',
 }
 
-function ActionBar({ evt, onFeedbackOpen }: { evt: Evenement; onFeedbackOpen: () => void }) {
+function ActionBar({ evt, commentCount, onCommentOpen }: { evt: Evenement; commentCount: number; onCommentOpen: () => void }) {
   const { isFav, toggle: toggleFav } = useFavorites()
   const { user } = useAuth()
   const { openAuthModal } = useAuthModal()
@@ -179,10 +179,15 @@ function ActionBar({ evt, onFeedbackOpen }: { evt: Evenement; onFeedbackOpen: ()
         </button>
 
         {/* Commenter */}
-        <button onClick={onFeedbackOpen} style={BTN}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-          </svg>
+        <button onClick={onCommentOpen} style={BTN}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            {commentCount > 0 && (
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#9CA3AF', lineHeight: 1 }}>{commentCount}</span>
+            )}
+          </div>
           <span style={{ ...LBL, color: '#9CA3AF' }}>Commenter</span>
         </button>
 
@@ -260,8 +265,9 @@ function ActionBar({ evt, onFeedbackOpen }: { evt: Evenement; onFeedbackOpen: ()
 export default function EvenementPageClient({ id }: { id: string }) {
   const [evt, setEvt]           = useState<Evenement | null>(null)
   const [loading, setLoading]   = useState(true)
-  const [editing, setEditing]   = useState(false)
-  const [feedbackOpen, setFeedbackOpen] = useState(false)
+  const [editing, setEditing]       = useState(false)
+  const [commentsOpen, setCommentsOpen] = useState(false)
+  const [commentCount, setCommentCount] = useState(0)
   const isAdmin = useAdminSession()
 
   useEffect(() => {
@@ -310,7 +316,7 @@ export default function EvenementPageClient({ id }: { id: string }) {
       {evt.image_url && <ImageLightbox src={evt.image_url} alt={evt.titre} objectPosition={evt.image_position ?? '50% 50%'} />}
 
       {/* Barre d'actions */}
-      <ActionBar evt={evt} onFeedbackOpen={() => setFeedbackOpen(true)} />
+      <ActionBar evt={evt} commentCount={commentCount} onCommentOpen={() => setCommentsOpen(true)} />
 
       {/* Contenu */}
       <div className="p-4 space-y-3 pb-8">
@@ -400,12 +406,12 @@ export default function EvenementPageClient({ id }: { id: string }) {
         )}
       </div>
 
-      {/* Feedback modal — piloté par l'icône Commenter */}
-      <FeedbackButton
+      {/* Commentaires */}
+      <CommentSheet
         evenementId={evt.id}
-        evenementTitre={evt.titre}
-        open={feedbackOpen}
-        onClose={() => setFeedbackOpen(false)}
+        open={commentsOpen}
+        onClose={() => setCommentsOpen(false)}
+        onCountChange={setCommentCount}
       />
 
       {editing && (
