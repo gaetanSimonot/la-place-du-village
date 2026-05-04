@@ -4,8 +4,8 @@ import { EvenementCard } from '@/lib/types'
 import { formatDate } from '@/lib/filters'
 import { CATEGORIES } from '@/lib/categories'
 
-const INTERVAL_MS = 5000
-const FADE_MS = 300
+const INTERVAL_MS = 5500
+const FADE_MS = 280
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr]
@@ -64,7 +64,6 @@ export default function ProBandeau({ events, onDiscover }: Props) {
   const evt = queue[idx]
   if (!evt) return null
   const cat = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
-  const fade: React.CSSProperties = { opacity: fading ? 0 : 1, transition: `opacity ${FADE_MS}ms ease` }
 
   return (
     <div
@@ -72,90 +71,108 @@ export default function ProBandeau({ events, onDiscover }: Props) {
       style={{
         margin: '0 12px 10px',
         borderRadius: 16,
-        backgroundColor: 'var(--primary)',
         overflow: 'hidden',
-        display: 'flex',
-        height: 112,
-        cursor: 'pointer',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.18)',
-        flexShrink: 0,
+        height: 116,
         position: 'relative',
+        cursor: 'pointer',
+        flexShrink: 0,
+        backgroundColor: cat.color,
+        boxShadow: '0 6px 24px rgba(0,0,0,0.16)',
       }}
     >
-      {/* Texte — gauche */}
+      {/* Image de fond */}
       <div style={{
-        flex: 1, padding: '12px 8px 10px 14px',
-        display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-        minWidth: 0, ...fade,
+        position: 'absolute', inset: 0,
+        opacity: fading ? 0 : 1,
+        transition: `opacity ${FADE_MS}ms ease`,
       }}>
-        {/* Badge */}
-        <span style={{
-          display: 'inline-flex', alignItems: 'center', gap: 3, alignSelf: 'flex-start',
-          fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase',
-          color: 'var(--primary)', backgroundColor: '#F5D067',
-          borderRadius: 999, padding: '3px 8px',
-          fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap',
-        }}>✦ À la une</span>
-
-        {/* Titre */}
-        <p style={{
-          fontSize: 15, fontWeight: 700, color: '#fff', lineHeight: 1.3, margin: '0',
-          overflow: 'hidden', display: '-webkit-box',
-          WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-          fontFamily: '"Playfair Display", serif',
-        }}>{evt.titre}</p>
-
-        {/* Date + lieu */}
-        <p style={{
-          fontSize: 11, color: 'rgba(255,255,255,0.65)', margin: 0,
-          fontFamily: 'Inter, sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>
-          {evt.date_debut ? formatDate(evt.date_debut) : ''}
-          {evt.lieux?.commune ? ` · ${evt.lieux.commune}` : ''}
-        </p>
-      </div>
-
-      {/* Image — droite avec fondu vers le vert */}
-      <div style={{ width: 100, flexShrink: 0, position: 'relative', ...fade }}>
         {evt.image_url
-          ? <img key={`img-${idx}`} src={evt.image_url} alt="" loading="lazy"
-              style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: evt.image_position ?? '50% 50%' }} />
-          : <div style={{ width: '100%', height: '100%', backgroundColor: cat.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30 }}>
+          ? <img src={evt.image_url} alt="" loading="lazy" style={{
+              position: 'absolute', inset: 0, width: '100%', height: '100%',
+              objectFit: 'cover', objectPosition: evt.image_position ?? '50% 50%',
+            }} />
+          : <div style={{ position: 'absolute', inset: 0, backgroundColor: cat.color,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40 }}>
               {cat.emoji}
             </div>
         }
-        {/* Fondu lateral */}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, var(--primary) 0%, transparent 45%)' }} />
       </div>
 
-      {/* Dots */}
-      {queue.length > 1 && (
-        <div style={{
-          position: 'absolute', bottom: 8, left: 14,
-          display: 'flex', gap: 4,
-        }}>
-          {queue.map((_, i) => (
-            <div key={i} onClick={e => { e.stopPropagation(); setIdx(i) }} style={{
-              width: i === idx ? 14 : 4, height: 4, borderRadius: 2,
-              backgroundColor: i === idx ? '#F5D067' : 'rgba(255,255,255,0.3)',
-              transition: 'width 0.3s',
-              cursor: 'pointer',
-            }} />
-          ))}
-        </div>
-      )}
+      {/* Gradient overlay — dense en bas pour lisibilité */}
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none',
+        background: 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.38) 55%, rgba(0,0,0,0.08) 100%)',
+      }} />
 
-      {/* Fermer */}
-      <button
-        onClick={e => { e.stopPropagation(); setDismissed(true) }}
-        style={{
-          position: 'absolute', top: 8, right: 8,
-          width: 20, height: 20, borderRadius: '50%',
-          backgroundColor: 'rgba(0,0,0,0.2)', border: 'none',
-          color: 'rgba(255,255,255,0.7)', fontSize: 9,
-          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontWeight: 700,
-        }}>✕</button>
+      {/* Contenu */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        padding: '9px 12px 10px',
+        display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+        opacity: fading ? 0 : 1,
+        transition: `opacity ${FADE_MS}ms ease`,
+      }}>
+        {/* Haut : badge + fermer */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase',
+            color: '#fff', backgroundColor: 'var(--primary)',
+            borderRadius: 999, padding: '3px 9px',
+            fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+          }}>✦ À la une</span>
+
+          <button
+            onClick={e => { e.stopPropagation(); setDismissed(true) }}
+            style={{
+              width: 22, height: 22, borderRadius: '50%',
+              backgroundColor: 'rgba(0,0,0,0.35)',
+              backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
+              border: '1px solid rgba(255,255,255,0.15)',
+              color: 'rgba(255,255,255,0.8)', fontSize: 9,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: 700, flexShrink: 0,
+            }}>✕</button>
+        </div>
+
+        {/* Bas : titre + meta */}
+        <div>
+          <p style={{
+            fontFamily: '"Playfair Display", serif', fontWeight: 700,
+            fontSize: 16, lineHeight: 1.2, color: '#fff',
+            margin: '0 0 4px',
+            overflow: 'hidden', display: '-webkit-box',
+            WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+            textShadow: '0 1px 6px rgba(0,0,0,0.4)',
+          }}>{evt.titre}</p>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <p style={{
+              fontSize: 11, color: 'rgba(255,255,255,0.72)', margin: 0,
+              fontFamily: 'Inter, sans-serif',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {evt.date_debut ? formatDate(evt.date_debut) : ''}
+              {evt.lieux?.commune ? ` · ${evt.lieux.commune}` : ''}
+            </p>
+
+            {/* Dots */}
+            {queue.length > 1 && (
+              <div style={{ display: 'flex', gap: 4, flexShrink: 0, marginLeft: 8 }}>
+                {queue.map((_, i) => (
+                  <div key={i} onClick={e => { e.stopPropagation(); setIdx(i) }} style={{
+                    width: i === idx ? 14 : 4, height: 4, borderRadius: 2,
+                    backgroundColor: i === idx ? '#fff' : 'rgba(255,255,255,0.35)',
+                    transition: 'width 0.3s',
+                    cursor: 'pointer',
+                  }} />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
