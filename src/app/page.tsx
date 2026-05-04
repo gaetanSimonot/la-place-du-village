@@ -484,7 +484,7 @@ export default function HomePage() {
 
       {/* Bouton refresh — sous la loupe */}
       <button
-        onClick={() => window.location.reload()}
+        onClick={() => { fetchZoneConfig(); fetchEvenements() }}
         style={{
           position: 'absolute', top: 170, left: 14, zIndex: 200,
           width: 44, height: 44, borderRadius: 12,

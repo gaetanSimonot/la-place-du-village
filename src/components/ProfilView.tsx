@@ -4,7 +4,6 @@ import { useTheme } from '@/components/ThemeProvider'
 import { COLOR_THEMES, MAP_STYLES, SHEET_BG_OPTIONS } from '@/lib/themes'
 import LoginView from '@/components/LoginView'
 import { useAuth } from '@/hooks/useAuth'
-import { useAdminSession } from '@/hooks/useAdminSession'
 import Link from 'next/link'
 
 type Tab = 'profil' | 'theme'
@@ -13,7 +12,9 @@ export default function ProfilView() {
   const [tab, setTab] = useState<Tab>('profil')
   const { colorTheme, mapStyle, sheetBg, setColorThemeId, setMapStyleId, setSheetBgId } = useTheme()
   const { user, profile, loading, signOut, updateDisplayName } = useAuth()
-  const isAdmin = useAdminSession()
+  const isAdmin = user?.email
+    ? (() => { try { return localStorage.getItem('pdv-admin-ok') === user.email } catch { return false } })()
+    : false
   const [editingName, setEditingName] = useState(false)
   const [nameInput, setNameInput] = useState('')
 
@@ -126,7 +127,7 @@ export default function ProfilView() {
 
                 {/* Bouton admin — visible uniquement pour les admins */}
                 {isAdmin && (
-                  <Link href="/admin" style={{ textDecoration: 'none', width: '100%' }}>
+                  <Link href="/admin" prefetch={false} style={{ textDecoration: 'none', width: '100%' }}>
                     <div style={{
                       width: '100%', padding: '13px', borderRadius: 14, marginBottom: 10,
                       backgroundColor: 'var(--primary-light)', border: '1.5px solid var(--primary)',

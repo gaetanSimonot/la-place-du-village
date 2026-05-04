@@ -56,7 +56,10 @@ export function useAuth() {
     return () => { mounted = false; subscription.unsubscribe() }
   }, [])
 
-  const signOut = () => supabase.auth.signOut()
+  const signOut = () => {
+    try { localStorage.removeItem('pdv-admin-ok') } catch {}
+    return supabase.auth.signOut()
+  }
 
   const updateDisplayName = async (name: string) => {
     if (!user) return

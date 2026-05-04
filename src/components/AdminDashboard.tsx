@@ -47,7 +47,10 @@ export default function AdminDashboard() {
       .then(({ data, error }) => {
         if (error) return // erreur réseau — ne pas rediriger
         if (!data) router.replace('/')
-        else setAdminVerified(true)
+        else {
+          setAdminVerified(true)
+          try { localStorage.setItem('pdv-admin-ok', user.email!) } catch {}
+        }
       })
   }, [adminVerified, authLoading, user, router])
 
