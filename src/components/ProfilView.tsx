@@ -129,21 +129,6 @@ export default function ProfilView() {
 
                   <p style={{ fontSize: 13, color: '#8A8A8A', margin: 0 }}>{profile?.email ?? user.email}</p>
 
-                  {/* Abonnement */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{
-                      fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
-                      color: '#6B5E4E', backgroundColor: '#EDE8DF',
-                      borderRadius: 999, padding: '3px 10px',
-                      fontFamily: 'Inter, sans-serif',
-                    }}>Basic</span>
-                    <button onClick={() => setShowUpgrade(true)} style={{
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      fontSize: 11, fontWeight: 700, color: 'var(--primary)',
-                      fontFamily: 'Inter, sans-serif', padding: 0,
-                      textDecoration: 'underline',
-                    }}>Upgrader →</button>
-                  </div>
 
                   <Link href={`/profil/${user.id}`} style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6,
