@@ -31,7 +31,7 @@ export default function FavorisView({ events, onToggleFav }: Props) {
     if (tab === 'events' || !user || loaded) return
     setLoadingProducers(true)
 
-    async function fetchByTable(table: 'producer_favorites' | 'producer_follows') {
+    async function fetchByTable(table: 'producer_favorites' | 'producer_followers') {
       const { data: rows } = await supabase.from(table).select('producer_id').eq('user_id', user!.id)
       const ids = (rows ?? []).map((r: { producer_id: string }) => r.producer_id)
       if (ids.length === 0) return []
@@ -42,7 +42,7 @@ export default function FavorisView({ events, onToggleFav }: Props) {
       }))
     }
 
-    Promise.all([fetchByTable('producer_favorites'), fetchByTable('producer_follows')])
+    Promise.all([fetchByTable('producer_favorites'), fetchByTable('producer_followers')])
       .then(([favs, follows]) => { setProducerFavs(favs); setProducerFollows(follows); setLoaded(true) })
       .finally(() => setLoadingProducers(false))
   }, [tab, user, loaded])
@@ -130,7 +130,7 @@ export default function FavorisView({ events, onToggleFav }: Props) {
           : producerFollows.length === 0 ? <Empty icon="📭" text="Aucun abonnement pour l'instant" />
           : producerFollows.map(p => (
             <ProducerCard key={p.id} p={p} onRemove={async () => {
-              await supabase.from('producer_follows').delete().eq('producer_id', p.id).eq('user_id', user.id)
+              await supabase.from('producer_followers').delete().eq('producer_id', p.id).eq('user_id', user.id)
               setProducerFollows(prev => prev.filter(x => x.id !== p.id))
             }} />
           ))

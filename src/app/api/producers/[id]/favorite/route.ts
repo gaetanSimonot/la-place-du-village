@@ -1,0 +1,47 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase-admin'
+
+async function verifyUser(req: NextRequest) {
+  const token = req.headers.get('Authorization')?.replace('Bearer ', '')
+  if (!token) return null
+  const { data: { user } } = await supabaseAdmin.auth.getUser(token)
+  return user ?? null
+}
+
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const user = await verifyUser(req)
+  if (!user) return NextResponse.json({ favorited: false })
+
+  const { data } = await supabaseAdmin
+    .from('producer_favorites')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('producer_id', id)
+    .maybeSingle()
+
+  return NextResponse.json({ favorited: !!data })
+}
+
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const user = await verifyUser(req)
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { data: existing } = await supabaseAdmin
+    .from('producer_favorites')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('producer_id', id)
+    .maybeSingle()
+
+  if (existing) {
+    await supabaseAdmin.from('producer_favorites')
+      .delete().eq('user_id', user.id).eq('producer_id', id)
+    return NextResponse.json({ favorited: false })
+  }
+
+  await supabaseAdmin.from('producer_favorites')
+    .insert({ user_id: user.id, producer_id: id })
+  return NextResponse.json({ favorited: true })
+}

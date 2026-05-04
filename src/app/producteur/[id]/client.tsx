@@ -76,35 +76,39 @@ export default function ProducteurPageClient({ id }: { id: string }) {
       .then(({ count }) => setCommentCount(count ?? 0))
   }, [id])
 
-  // Load fav/follow state from DB when user changes
+  // Load fav/follow state via API routes (supabaseAdmin bypasses RLS)
   useEffect(() => {
     if (!user) { setIsFav(false); setIsFollowing(false); return }
-    Promise.all([
-      supabase.from('producer_favorites').select('id').eq('producer_id', id).eq('user_id', user.id).maybeSingle(),
-      supabase.from('producer_follows').select('id').eq('producer_id', id).eq('user_id', user.id).maybeSingle(),
-    ]).then(([{ data: f }, { data: fl }]) => { setIsFav(!!f); setIsFollowing(!!fl) })
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const token = session?.access_token
+      if (!token) return
+      Promise.all([
+        fetch(`/api/producers/${id}/favorite`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+        fetch(`/api/producers/${id}/follow`,   { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+      ]).then(([fav, fol]) => { setIsFav(!!fav.favorited); setIsFollowing(!!fol.following) })
+    })
   }, [user?.id, id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function toggleFav() {
     if (!user) { openAuthModal(); return }
-    if (isFav) {
-      await supabase.from('producer_favorites').delete().eq('producer_id', id).eq('user_id', user.id)
-      setIsFav(false); showToast('Retiré des favoris')
-    } else {
-      await supabase.from('producer_favorites').insert({ producer_id: id, user_id: user.id })
-      setIsFav(true); showToast('❤️ Ajouté aux favoris')
-    }
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+    if (!token) return
+    const res = await fetch(`/api/producers/${id}/favorite`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+    const { favorited } = await res.json()
+    setIsFav(favorited)
+    showToast(favorited ? '❤️ Ajouté aux favoris' : 'Retiré des favoris')
   }
 
   async function toggleFollow() {
     if (!user) { openAuthModal(); return }
-    if (isFollowing) {
-      await supabase.from('producer_follows').delete().eq('producer_id', id).eq('user_id', user.id)
-      setIsFollowing(false); showToast('Abonnement retiré')
-    } else {
-      await supabase.from('producer_follows').insert({ producer_id: id, user_id: user.id })
-      setIsFollowing(true); showToast('✓ Vous suivez ce producteur')
-    }
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+    if (!token) return
+    const res = await fetch(`/api/producers/${id}/follow`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+    const { following } = await res.json()
+    setIsFollowing(following)
+    showToast(following ? '✓ Vous suivez ce producteur' : 'Abonnement retiré')
   }
 
   async function loadComments() {
