@@ -9,15 +9,19 @@ async function verifyUser(req: NextRequest) {
 }
 
 async function verifyOwnership(userId: string, productId: string) {
-  const { data } = await supabaseAdmin
+  const { data: product } = await supabaseAdmin
     .from('products')
-    .select('id, nom, disponible, producer_id, producers!inner(id, nom, user_id)')
+    .select('id, nom, disponible, producer_id')
     .eq('id', productId)
     .maybeSingle()
-  if (!data) return null
-  const prod = (Array.isArray(data.producers) ? data.producers[0] : data.producers) as { id: string; nom: string; user_id: string }
-  if (prod?.user_id !== userId) return null
-  return { ...data, producer: prod }
+  if (!product) return null
+  const { data: producer } = await supabaseAdmin
+    .from('producers')
+    .select('id, nom, user_id')
+    .eq('id', product.producer_id)
+    .maybeSingle()
+  if (!producer || producer.user_id !== userId) return null
+  return { ...product, producer }
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
