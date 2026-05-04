@@ -11,7 +11,7 @@ interface Product {
   id: string; nom: string; categorie: string; prix_indicatif: string | null
   disponible: boolean; periode_dispo: string | null; dispo_jusqu_au: string | null
 }
-type Suggestion = { place_id: string; description: string }
+type Suggestion = { place_id: string; description: string; main: string; secondary: string }
 
 const CATEGORIES = ['Fruits & Légumes', 'Viandes & Charcuterie', 'Fromages & Laitages',
   'Miel & Confitures', 'Pains & Pâtisseries', 'Plantes & Fleurs', 'Huiles & Condiments',
@@ -116,7 +116,7 @@ export default function MonEspaceProducteur() {
     if (addrTimer.current) clearTimeout(addrTimer.current)
     addrTimer.current = setTimeout(async () => {
       if (val.length < 3) { setSuggestions([]); return }
-      const res = await fetch(`/api/admin/autocomplete?input=${encodeURIComponent(val)}`)
+      const res = await fetch(`/api/admin/autocomplete?q=${encodeURIComponent(val)}`)
       const d = await res.json()
       setSuggestions(d.predictions ?? [])
     }, 350)
@@ -285,8 +285,12 @@ export default function MonEspaceProducteur() {
           {suggestions.length > 0 && (
             <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#fff', borderRadius: 10, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 20, overflow: 'hidden' }}>
               {suggestions.map(s => (
-                <button key={s.place_id} onClick={() => selectAddress(s)} style={{ display: 'block', width: '100%', padding: '10px 14px', textAlign: 'left', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontFamily: 'Inter, sans-serif', color: '#2C1810', borderBottom: '1px solid #F0F0F0' }}>
-                  {s.description}
+                <button key={s.place_id} onMouseDown={() => selectAddress(s)} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, width: '100%', padding: '10px 14px', textAlign: 'left', border: 'none', background: 'none', cursor: 'pointer', borderBottom: '1px solid #F0F0F0' }}>
+                  <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>📍</span>
+                  <div>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif', color: '#2C1810' }}>{s.main || s.description}</p>
+                    {s.secondary && <p style={{ margin: 0, fontSize: 11, color: '#8A8A8A', fontFamily: 'Inter, sans-serif' }}>{s.secondary}</p>}
+                  </div>
                 </button>
               ))}
             </div>

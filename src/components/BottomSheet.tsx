@@ -5,6 +5,9 @@ import { EvenementCard, Filtres, Categorie, FiltreQuand, AppMode, ProducerCard, 
 import { CATEGORIES } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
 import Link from 'next/link'
+import { useAuth } from '@/hooks/useAuth'
+import { supabase } from '@/lib/supabase'
+import CaptureProducteur from '@/components/CaptureProducteur'
 
 const FULL_TOP = 60   // espace laissé en haut quand sheet pleine
 
@@ -76,6 +79,9 @@ export default function BottomSheet({
   appMode, onAppModeChange, producers = [], producerLoading = false,
 }: Props) {
   const { sheetBg } = useTheme()
+  const { user } = useAuth()
+  const [userPlan, setUserPlan] = useState<string | null>(null)
+  const [captureOpen, setCaptureOpen] = useState(false)
   const [peekH, setPeekH]         = useState(130) // hauteur mesurée du header
   const [visibleCount, setVisibleCount] = useState(BATCH)
   const headerRef = useRef<HTMLDivElement>(null)
@@ -90,6 +96,12 @@ export default function BottomSheet({
     obsRef.current.observe(el)
   }, [])
   const dragControls              = useDragControls()
+
+  useEffect(() => {
+    if (!user?.id) return
+    supabase.from('profiles').select('plan').eq('user_id', user.id).single()
+      .then(({ data: p }) => { if (p) setUserPlan(p.plan ?? null) })
+  }, [user?.id])
 
   // Filtre "Que faire" — cursor dans CATS, -1 = row fermée
   const [quoiOpen,   setQuoiOpen]   = useState(false)
@@ -249,6 +261,7 @@ export default function BottomSheet({
   const visibleEvents = sortedEvents.slice(0, visibleCount)
 
   return (
+    <>
     <motion.div
       drag="y"
       dragControls={dragControls}
@@ -289,6 +302,15 @@ export default function BottomSheet({
               ? (loading ? '—' : `${evenements.length} événement${evenements.length !== 1 ? 's' : ''}`)
               : 'Annuaire Pro'}
           </p>
+          {/* Bouton + capture produits — MAX uniquement en mode annuaire */}
+          {appMode === 'annuaire' && userPlan === 'max' && (
+            <button onClick={() => setCaptureOpen(true)} title="Ajouter des produits" style={{
+              width: 30, height: 30, borderRadius: '50%', border: 'none',
+              backgroundColor: 'var(--primary)', color: '#fff',
+              fontSize: 18, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
+            }}>+</button>
+          )}
           {/* Toggle Agenda ↔ Annuaire */}
           <div style={{ display: 'flex', borderRadius: 999, border: `1.5px solid ${sheetBg.border}`, overflow: 'hidden', height: 30, flexShrink: 0 }}>
             <button onClick={() => onAppModeChange('agenda')} title="Agenda"
@@ -535,6 +557,9 @@ export default function BottomSheet({
         )}
       </div>
     </motion.div>
+
+    {captureOpen && <CaptureProducteur onClose={() => setCaptureOpen(false)} />}
+  </>
   )
 }
 
