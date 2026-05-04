@@ -117,9 +117,9 @@ export default function ProBandeau({ events, onDiscover }: Props) {
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 4,
             fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase',
-            color: '#fff', backgroundColor: 'var(--primary)',
+            color: '#fff', backgroundColor: '#C84B2F',
             borderRadius: 999, padding: '3px 9px',
-            fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap',
+            fontFamily: 'Syne, sans-serif', whiteSpace: 'nowrap',
             boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
           }}>✦ À la une</span>
 
@@ -150,7 +150,7 @@ export default function ProBandeau({ events, onDiscover }: Props) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <p style={{
               fontSize: 11, color: 'rgba(255,255,255,0.72)', margin: 0,
-              fontFamily: 'Inter, sans-serif',
+              fontFamily: 'Lora, serif',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
               {evt.date_debut ? formatDate(evt.date_debut) : ''}

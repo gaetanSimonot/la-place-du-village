@@ -233,14 +233,14 @@ export default function BottomSheet({
         style={{ flexShrink: 0, cursor: 'grab', touchAction: 'none', userSelect: 'none' }}
       >
         {/* Poignée visuelle */}
-        <div style={{ padding: '10px 0 4px' }}>
-          <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: sheetBg.border, margin: '0 auto' }} />
+        <div style={{ padding: '12px 0 4px' }}>
+          <div style={{ width: 40, height: 5, borderRadius: 3, backgroundColor: '#C8BDB0', margin: '0 auto' }} />
         </div>
 
         {/* Logo + Compteur */}
         <div style={{ padding: '0 16px 7px', display: 'flex', alignItems: 'center', gap: 8 }}>
           <img src="/logo.svg" width={28} height={28} alt="" style={{ flexShrink: 0, borderRadius: 6 }} />
-          <p style={{ fontSize: 11, fontWeight: 700, color: sheetBg.sub, fontFamily: 'Inter, sans-serif', letterSpacing: '0.04em', textTransform: 'uppercase', margin: 0 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: sheetBg.sub, fontFamily: 'Syne, sans-serif', letterSpacing: '0.05em', textTransform: 'uppercase', margin: 0 }}>
             {loading ? '—' : `${evenements.length} événement${evenements.length !== 1 ? 's' : ''}`}
           </p>
         </div>
@@ -249,10 +249,11 @@ export default function BottomSheet({
         <div style={{ display: 'flex', gap: 10, padding: '0 16px 10px' }}>
         <button onClick={handleQuoiBtn} style={{
           flex: 1, height: 50, borderRadius: 14, border: 'none',
-          backgroundColor: hasQuoi ? 'var(--primary)' : '#3A3028',
-          color: '#FAF5EE',
+          backgroundColor: '#2D5A3D',
+          color: '#fff',
           fontSize: 14, fontWeight: 700, fontFamily: 'Syne, sans-serif',
           cursor: 'pointer', overflow: 'hidden', position: 'relative',
+          opacity: hasQuoi ? 1 : 0.72,
         }}>
           <AnimatePresence mode="wait">
             <motion.span key={quoiLabel}
@@ -265,10 +266,11 @@ export default function BottomSheet({
 
         <button onClick={handleQuandBtn} style={{
           flex: 1, height: 50, borderRadius: 14, border: 'none',
-          backgroundColor: hasQuand ? 'var(--primary)' : '#3A3028',
-          color: '#FAF5EE',
+          backgroundColor: '#2D5A3D',
+          color: '#fff',
           fontSize: 14, fontWeight: 700, fontFamily: 'Syne, sans-serif',
           cursor: 'pointer', overflow: 'hidden', position: 'relative',
+          opacity: hasQuand ? 1 : 0.72,
         }}>
           <AnimatePresence mode="wait">
             <motion.span key={quandBtnLabel}
@@ -462,7 +464,7 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
               borderRadius: 999, padding: '2px 7px',
             }}>{cat.emoji} {cat.label}</span>
             {lieu?.commune && (
-              <span style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 10, color: '#6B5E4E', fontWeight: 600, fontFamily: 'Lora, serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {lieu.commune}
               </span>
             )}
@@ -480,7 +482,7 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
         {/* Bas : date + actions */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           {evt.date_debut ? (
-            <p style={{ fontSize: 11, color: '#78716C', margin: 0, fontFamily: 'Inter, sans-serif' }}>
+            <p style={{ fontSize: 11, color: '#6B5E4E', margin: 0, fontFamily: 'Lora, serif' }}>
               {formatDate(evt.date_debut)}{evt.heure ? ` · ${evt.heure.slice(0,5)}` : ''}
             </p>
           ) : <div />}
@@ -488,7 +490,7 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
           <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
             {lieu?.lat && lieu?.lng && (
               <button onClick={e => { e.preventDefault(); e.stopPropagation(); onViewOnMap() }}
-                style={{ width: 26, height: 26, borderRadius: 7, backgroundColor: '#F3F0EB', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#78716C' }}>
+                style={{ width: 26, height: 26, borderRadius: 7, backgroundColor: '#EDE8DF', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B5E4E' }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
                   <circle cx="12" cy="9" r="2.5" fill="currentColor" stroke="none"/>
@@ -496,8 +498,8 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
               </button>
             )}
             <button onClick={e => { e.preventDefault(); e.stopPropagation(); onToggleFav?.() }}
-              style={{ width: 26, height: 26, borderRadius: 7, backgroundColor: '#F3F0EB', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill={isFav ? '#EC407A' : 'none'} stroke={isFav ? '#EC407A' : '#78716C'} strokeWidth="2">
+              style={{ width: 26, height: 26, borderRadius: 7, backgroundColor: '#EDE8DF', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill={isFav ? '#EC407A' : 'none'} stroke={isFav ? '#EC407A' : '#6B5E4E'} strokeWidth="2">
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
               </svg>
             </button>
@@ -507,8 +509,8 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
               if (navigator.share) { navigator.share({ title: evt.titre, url }).catch(() => {}) }
               else { navigator.clipboard.writeText(url).catch(() => {}) }
             }}
-              style={{ width: 26, height: 26, borderRadius: 7, backgroundColor: '#F3F0EB', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#78716C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              style={{ width: 26, height: 26, borderRadius: 7, backgroundColor: '#EDE8DF', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6B5E4E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
                 <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
               </svg>
@@ -522,11 +524,11 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
 
 function SkeletonCard() {
   return (
-    <div style={{ height: 86, borderRadius: 14, flexShrink: 0, display: 'flex', overflow: 'hidden', backgroundColor: '#fff', boxShadow: '0 1px 6px rgba(44,44,44,0.06)' }} className="animate-pulse">
-      <div style={{ width: 86, backgroundColor: '#EDE8E0' }} />
+    <div style={{ height: 86, borderRadius: 14, flexShrink: 0, display: 'flex', overflow: 'hidden', backgroundColor: '#FDFAF5', boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }} className="animate-pulse">
+      <div style={{ width: 86, backgroundColor: '#EDE8DF' }} />
       <div style={{ flex: 1, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 7 }}>
-        <div style={{ height: 10, borderRadius: 6, backgroundColor: '#EDE8E0', width: '38%' }} />
-        <div style={{ height: 13, borderRadius: 6, backgroundColor: '#EDE8E0', width: '88%' }} />
+        <div style={{ height: 10, borderRadius: 6, backgroundColor: '#EDE8DF', width: '38%' }} />
+        <div style={{ height: 13, borderRadius: 6, backgroundColor: '#EDE8DF', width: '88%' }} />
         <div style={{ height: 10, borderRadius: 6, backgroundColor: '#EDE8E0', width: '52%' }} />
       </div>
     </div>

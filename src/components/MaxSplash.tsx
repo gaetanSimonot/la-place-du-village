@@ -192,10 +192,10 @@ export default function MaxSplash({ events, loading = false }: Props) {
         {/* Badge */}
         <div style={{ position: 'absolute', top: 22, left: 18 }}>
           <span style={{
-            fontSize: 10, fontWeight: 800, color: '#fff', backgroundColor: '#EC407A',
+            fontSize: 10, fontWeight: 800, color: '#fff', backgroundColor: '#C84B2F',
             padding: '4px 11px', borderRadius: 999, letterSpacing: '0.07em',
-            textTransform: 'uppercase', fontFamily: 'Inter, sans-serif',
-          }}>Événement à la une</span>
+            textTransform: 'uppercase', fontFamily: 'Syne, sans-serif',
+          }}>✦ Événement à la une</span>
         </div>
 
         {/* Bloc infos — dots au-dessus du titre, tout en flux naturel */}
@@ -216,7 +216,7 @@ export default function MaxSplash({ events, loading = false }: Props) {
           )}
 
           {/* Catégorie */}
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', margin: '0 0 6px', fontFamily: 'Inter, sans-serif', fontWeight: 600 }}>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', margin: '0 0 6px', fontFamily: 'Lora, serif', fontWeight: 600 }}>
             {cat.emoji} {cat.label}
           </p>
 
@@ -230,7 +230,7 @@ export default function MaxSplash({ events, loading = false }: Props) {
 
           {/* Date + lieu */}
           {(evt.date_debut || evt.lieux?.commune) && (
-            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', margin: 0, lineHeight: 1.4, fontFamily: 'Inter, sans-serif' }}>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', margin: 0, lineHeight: 1.4, fontFamily: 'Lora, serif' }}>
               {evt.date_debut ? formatDate(evt.date_debut) : ''}
               {evt.heure ? ` · ${evt.heure.slice(0, 5)}` : ''}
               {evt.lieux?.commune ? ` • ${evt.lieux.commune}` : ''}

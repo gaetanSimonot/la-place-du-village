@@ -1,5 +1,7 @@
 @import "@fontsource/playfair-display/700.css";
 @import "@fontsource/playfair-display/400.css";
+@import "@fontsource/lora/400.css";
+@import "@fontsource/lora/600.css";
 @import "@fontsource/syne/700.css";
 @import "@fontsource/syne/800.css";
 @import "@fontsource/inter/400.css";
@@ -11,16 +13,18 @@
 @tailwind utilities;
 
 :root {
-  --primary:       #1D5C3B;
-  --primary-light: #DDF0E8;
-  --orange:  #C4622D;
-  --vert:    #1D5C3B;
-  --creme:   #FAF7F2;
-  --carte:   #4A90D9;
-  --texte:   #1C1917;
-  --bord:    #EDE8E0;
-  --blanc:   #FFFFFF;
-  --gris:    #8A8A8A;
+  --primary:       #2D5A3D;
+  --primary-light: #E8F2EB;
+  --accent:        #C84B2F;
+  --creme:         #FDFAF5;
+  --texte:         #1A1209;
+  --bord:          #E8E0D4;
+  --gris:          #6B5E4E;
+  --blanc:         #FFFFFF;
+  /* legacy — ne pas supprimer, utilisé dans certains composants */
+  --orange:        #C84B2F;
+  --vert:          #2D5A3D;
+  --carte:         #4A90D9;
 }
 
 * {
@@ -33,7 +37,7 @@ html, body {
   overscroll-behavior: none;
   background-color: var(--creme);
   color: var(--texte);
-  font-family: "Inter", sans-serif;
+  font-family: "Lora", serif;
 }
 
 h1, h2, .font-display {

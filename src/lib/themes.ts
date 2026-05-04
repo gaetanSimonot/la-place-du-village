@@ -13,9 +13,9 @@ export const COLOR_THEMES: ColorTheme[] = [
     id: 'foret',
     name: 'Forêt',
     description: 'Nature Cévennes',
-    primary: '#1D5C3B',
-    primaryLight: '#DDF0E8',
-    bg: '#FAF7F2',
+    primary: '#2D5A3D',
+    primaryLight: '#E8F2EB',
+    bg: '#FDFAF5',
   },
   {
     id: 'terrecuite',
@@ -196,8 +196,8 @@ export interface SheetBg {
 }
 
 export const SHEET_BG_OPTIONS: SheetBg[] = [
-  { id: 'blanc',      name: 'Blanc',      bg: '#ffffff',  text: '#2C1810', sub: '#8A8A8A', border: '#F0EBE3', pill: '#FAF7F2', pillText: '#2C2C2C' },
-  { id: 'creme',      name: 'Crème',      bg: '#FBF7F0',  text: '#2C1810', sub: '#8A8A8A', border: '#EDE6D8', pill: '#F2EDE4', pillText: '#2C2C2C' },
+  { id: 'blanc',      name: 'Blanc',      bg: '#FDFAF5',  text: '#1A1209', sub: '#6B5E4E', border: '#E8E0D4', pill: '#EDE8DF', pillText: '#6B5E4E' },
+  { id: 'creme',      name: 'Crème',      bg: '#F5EFE4',  text: '#1A1209', sub: '#6B5E4E', border: '#E0D8CC', pill: '#E8E0D4', pillText: '#6B5E4E' },
   { id: 'ardoise',    name: 'Ardoise',    bg: '#2C3347',  text: '#E8E0D5', sub: '#8A96B0', border: '#3A4260', pill: '#353D55', pillText: '#E8E0D5' },
   { id: 'nuit',       name: 'Nuit',       bg: '#1a1f2e',  text: '#C8D0E0', sub: '#6B7A9A', border: '#252D45', pill: '#202638', pillText: '#C8D0E0' },
   { id: 'anthracite', name: 'Anthracite', bg: '#1C1C1E',  text: '#E5E5EA', sub: '#6E6E73', border: '#2C2C2E', pill: '#252527', pillText: '#E5E5EA' },
