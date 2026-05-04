@@ -32,6 +32,10 @@ export interface Evenement {
   lieux: Lieu | null
   promotion: 'basic' | 'pro' | 'max' | null
   promo_ordre: number | null
+  submitted_by: string | null
+  submitted_by_name: string | null
+  vote_count: number
+  publish_at: string | null
 }
 
 // Type allégé pour l'affichage public (carte + liste)
@@ -56,6 +60,8 @@ export interface EvenementCard {
   lieux: LieuCard | null
   promotion: 'basic' | 'pro' | 'max' | null
   promo_ordre: number | null
+  vote_count: number
+  submitted_by_name: string | null
 }
 
 export function isApproxLocation(lieu: Lieu | LieuCard | null): boolean {

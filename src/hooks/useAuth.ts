@@ -7,6 +7,8 @@ export interface Profile {
   display_name: string | null
   avatar_url: string | null
   email: string | null
+  username: string | null
+  banned: boolean
 }
 
 export function useAuth() {
@@ -20,7 +22,7 @@ export function useAuth() {
     async function fetchProfile(userId: string) {
       const { data } = await supabase
         .from('profiles')
-        .select('id, display_name, avatar_url, email')
+        .select('id, display_name, avatar_url, email, username, banned')
         .eq('id', userId)
         .single()
       if (mounted) setProfile(data ?? null)
@@ -57,7 +59,7 @@ export function useAuth() {
       .from('profiles')
       .update({ display_name: name })
       .eq('id', user.id)
-      .select('id, display_name, avatar_url, email')
+      .select('id, display_name, avatar_url, email, username, banned')
       .single()
     if (data) setProfile(data)
   }

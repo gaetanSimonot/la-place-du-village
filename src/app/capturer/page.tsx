@@ -135,6 +135,7 @@ import { Categorie } from '@/lib/types'
 import type { ExtractedData } from '@/lib/extract'
 import MicButton from '@/components/MicButton'
 import EventEditDrawer from '@/components/EventEditDrawer'
+import { supabase } from '@/lib/supabase'
 
 interface FormData {
   titre: string
@@ -313,13 +314,16 @@ function CapturerInner() {
     setLoading(true)
     setError(null)
     setSubmitProgress(0)
+    const { data: { session } } = await supabase.auth.getSession()
     const results: SubmitResult[] = []
     for (let i = 0; i < toSubmit.length; i++) {
       const evt = toSubmit[i]
       try {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+        if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
         const res  = await fetch('/api/evenements', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ ...extractToForm(evt), image: i === 0 ? imageBase64 : null, imageMimeType: imageMime }),
         })
         const data = await res.json()

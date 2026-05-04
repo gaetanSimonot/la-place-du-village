@@ -1,9 +1,11 @@
 'use client'
 import { useState, useRef } from 'react'
 import Link from 'next/link'
-import { CATEGORIES } from '@/lib/categories'
 import { Categorie } from '@/lib/types'
 import MicButton from '@/components/MicButton'
+import EventEditDrawer from '@/components/EventEditDrawer'
+import { useAuth } from '@/hooks/useAuth'
+import { useAuthModal } from '@/contexts/AuthModalContext'
 
 function CropModal({ previewUrl, position, onChange, onConfirm }: {
   previewUrl: string
@@ -96,6 +98,8 @@ const emptyForm: FormData = {
 type Step = 'input' | 'crop' | 'preview' | 'success'
 
 export default function AjouterPage() {
+  const { user } = useAuth()
+  const { openAuthModal } = useAuthModal()
   const [step, setStep] = useState<Step>('input')
   const [texte, setTexte] = useState('')
   const [image, setImage] = useState<string | null>(null)
@@ -106,6 +110,7 @@ export default function AjouterPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [eventId, setEventId] = useState<string | null>(null)
+  const [submitMessage, setSubmitMessage] = useState<string | undefined>()
   const fileRef = useRef<HTMLInputElement>(null)
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -125,6 +130,7 @@ export default function AjouterPage() {
 
   const handleAnalyse = async () => {
     if (!texte.trim()) return
+    if (!user) { openAuthModal(); return }
     setLoading(true)
     setError(null)
     try {
@@ -161,48 +167,12 @@ export default function AjouterPage() {
     }
   }
 
-  const handleSubmit = async () => {
-    if (!form.titre.trim()) { setError('Le titre est requis'); return }
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch('/api/evenements', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, image, imageMimeType, image_position: imagePosition }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      setEventId(data.evenement.id)
-      setStep('success')
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Erreur inconnue')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const resetImage = () => {
     setImage(null)
     setImagePreviewUrl(null)
     setImagePosition('50% 50%')
     if (fileRef.current) fileRef.current.value = ''
   }
-
-  const field = (label: string, key: keyof FormData, type = 'text', placeholder = '') => (
-    <div>
-      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-        {label}
-      </label>
-      <input
-        type={type}
-        value={form[key]}
-        onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-        placeholder={placeholder}
-        className="w-full bg-[#FBF7F0] border border-[#E8E0D5] rounded-xl px-3 py-2.5 text-sm text-[#2C1810] focus:outline-none focus:border-[#C4622D]"
-      />
-    </div>
-  )
 
   // ── Cadrage photo ─────────────────────────────────────────────────────────────
   if (step === 'crop' && imagePreviewUrl) {
@@ -218,12 +188,15 @@ export default function AjouterPage() {
 
   // ── Succès ───────────────────────────────────────────────────────────────────
   if (step === 'success') {
+    const isSubmitted = submitMessage === 'submitted'
     return (
       <div className="min-h-screen bg-[#FBF7F0] flex flex-col items-center justify-center p-8 text-center">
-        <p className="text-6xl mb-4">🎉</p>
-        <h2 className="text-2xl font-bold text-[#2C1810] mb-2">Merci !</h2>
+        <p className="text-6xl mb-4">{isSubmitted ? '⏳' : '🎉'}</p>
+        <h2 className="text-2xl font-bold text-[#2C1810] mb-2">{isSubmitted ? 'Événement soumis !' : 'Publié !'}</h2>
         <p className="text-gray-600 text-sm mb-8">
-          Ton événement a été soumis et sera vérifié avant publication.
+          {isSubmitted
+            ? 'Ton événement a été soumis. Après vérification automatique, il sera publié sous 10 minutes.'
+            : 'Ton événement a été publié avec succès.'}
         </p>
         <div className="flex flex-col gap-3 w-full max-w-xs">
           {eventId && (
@@ -235,7 +208,7 @@ export default function AjouterPage() {
             </Link>
           )}
           <button
-            onClick={() => { setStep('input'); setTexte(''); setForm(emptyForm); resetImage() }}
+            onClick={() => { setStep('input'); setTexte(''); setForm(emptyForm); resetImage(); setSubmitMessage(undefined) }}
             className="py-3 rounded-2xl font-medium text-[#C4622D] border-2 border-[#C4622D]"
           >
             Ajouter un autre événement
@@ -251,89 +224,16 @@ export default function AjouterPage() {
   // ── Preview ──────────────────────────────────────────────────────────────────
   if (step === 'preview') {
     return (
-      <div className="min-h-screen bg-[#FBF7F0]">
-        <div className="sticky top-0 z-10 bg-white border-b border-[#E8E0D5] px-4 py-3 flex items-center gap-3">
-          <button onClick={() => setStep('input')} className="text-[#C4622D] font-bold text-2xl leading-none">←</button>
-          <h1 className="font-bold text-[#2C1810] flex-1">Vérifier l&apos;événement</h1>
-        </div>
-
-        <div className="p-4 space-y-3 pb-32">
-          <p className="text-sm text-gray-500">L&apos;IA a rempli les champs — vérifie et corrige si besoin.</p>
-
-          {imagePreviewUrl && (
-            <div className="bg-white rounded-2xl overflow-hidden">
-              <div className="relative" style={{ height: 100 }}>
-                <img
-                  src={imagePreviewUrl}
-                  alt="preview"
-                  className="absolute inset-0 w-full h-full object-cover"
-                  style={{ objectPosition: imagePosition }}
-                />
-                <button
-                  onClick={() => setStep('crop')}
-                  className="absolute top-2 right-2 text-white text-xs font-semibold bg-black/50 px-3 py-1.5 rounded-full"
-                >
-                  Modifier le cadrage
-                </button>
-              </div>
-            </div>
-          )}
-
-          <div className="bg-white rounded-2xl p-4 space-y-3">
-            {field('Titre *', 'titre', 'text', 'Nom de l\'événement')}
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Catégorie</label>
-              <select
-                value={form.categorie}
-                onChange={e => setForm(f => ({ ...f, categorie: e.target.value as Categorie }))}
-                className="w-full bg-[#FBF7F0] border border-[#E8E0D5] rounded-xl px-3 py-2.5 text-sm text-[#2C1810] focus:outline-none focus:border-[#C4622D]"
-              >
-                {(Object.entries(CATEGORIES) as [Categorie, { label: string; emoji: string }][]).map(([key, cat]) => (
-                  <option key={key} value={key}>{cat.emoji} {cat.label}</option>
-                ))}
-              </select>
-            </div>
-
-            {field('Description', 'description')}
-          </div>
-
-          <div className="bg-white rounded-2xl p-4 space-y-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Date & Heure</p>
-            {field('Date de début', 'date_debut', 'date')}
-            {field('Date de fin', 'date_fin', 'date')}
-            {field('Heure', 'heure', 'time')}
-          </div>
-
-          <div className="bg-white rounded-2xl p-4 space-y-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Lieu</p>
-            {field('Nom du lieu', 'lieu_nom', 'text', 'Salle des fêtes, Espace culturel...')}
-            {field('Commune', 'commune', 'text', 'Ganges, Saint-Bauzille...')}
-          </div>
-
-          <div className="bg-white rounded-2xl p-4 space-y-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Infos pratiques</p>
-            {field('Prix', 'prix', 'text', 'Gratuit, 5€, Sur réservation...')}
-            {field('Contact', 'contact', 'text', 'Téléphone ou email')}
-            {field('Organisateur(s)', 'organisateurs')}
-          </div>
-
-          {error && (
-            <p className="text-red-500 text-sm bg-red-50 rounded-xl p-3">{error}</p>
-          )}
-        </div>
-
-        {/* Bouton fixe en bas */}
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-[#E8E0D5]">
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="w-full bg-[#C4622D] text-white py-4 rounded-2xl font-bold text-base disabled:opacity-50 transition-opacity"
-          >
-            {loading ? 'Publication...' : 'Publier l\'événement'}
-          </button>
-        </div>
-      </div>
+      <EventEditDrawer
+        initialData={form}
+        initialImage={image ? { base64: image, mime: imageMimeType, preview: imagePreviewUrl!, position: imagePosition } : null}
+        onClose={() => setStep('input')}
+        onSaved={(result) => {
+          setEventId(result?.id ?? null)
+          setSubmitMessage(result?.message)
+          setStep('success')
+        }}
+      />
     )
   }
 

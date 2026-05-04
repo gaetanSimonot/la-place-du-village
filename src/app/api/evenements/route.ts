@@ -38,6 +38,55 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Le titre est requis' }, { status: 400 })
     }
 
+    // Auth: identify user and check admin status
+    let submittedBy: string | null = null
+    let submittedByName: string | null = null
+    let isUserSubmission = false
+    let publishAt: string | null = null
+
+    const token = req.headers.get('authorization')?.replace('Bearer ', '')
+    if (token) {
+      const { data: { user } } = await supabaseAdmin.auth.getUser(token)
+      if (user) {
+        const { data: adminRow } = await supabaseAdmin
+          .from('admin_emails').select('email').eq('email', user.email ?? '').maybeSingle()
+        if (adminRow) {
+          submittedBy = user.id
+        } else {
+          // Regular user submission
+          const { data: profile } = await supabaseAdmin
+            .from('profiles')
+            .select('display_name, banned, daily_post_count, last_post_date')
+            .eq('id', user.id)
+            .maybeSingle()
+
+          if (profile?.banned) {
+            return NextResponse.json({ error: 'Compte suspendu' }, { status: 403 })
+          }
+
+          submittedBy = user.id
+          submittedByName = profile?.display_name ?? (user.email?.split('@')[0] ?? null)
+          isUserSubmission = true
+
+          const today = new Date()
+          const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
+          const sameDay = profile?.last_post_date === todayStr
+          const dailyCount = sameDay ? (profile?.daily_post_count ?? 0) : 0
+
+          if (dailyCount >= 5) {
+            return NextResponse.json({ error: 'Limite journalière atteinte (5 événements par jour)' }, { status: 429 })
+          }
+
+          await supabaseAdmin.from('profiles').update({
+            daily_post_count: dailyCount + 1,
+            last_post_date: todayStr,
+          }).eq('id', user.id)
+
+          publishAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
+        }
+      }
+    }
+
     const imageUrl = image ? await uploadImage(image, imageMimeType || 'image/jpeg') : null
 
     let lieuId: string | null = null
@@ -95,7 +144,10 @@ export async function POST(req: NextRequest) {
       description: description || null,
     })
 
-    const statut = check.doublon ? 'archive' : check.publier ? baseStatut : 'a_verifier'
+    const baseEventStatut = check.doublon ? 'archive' : check.publier ? baseStatut : 'a_verifier'
+    const finalStatut = isUserSubmission
+      ? (check.doublon ? 'archive' : check.publier ? 'en_attente' : 'a_verifier')
+      : baseEventStatut
 
     const { data: evenement, error: evtErr } = await supabaseAdmin
       .from('evenements')
@@ -106,7 +158,7 @@ export async function POST(req: NextRequest) {
         date_fin: date_fin || null,
         heure: heure || null,
         categorie: (categorie as Categorie) ?? 'autre',
-        statut,
+        statut: finalStatut,
         lieu_id: lieuId,
         prix: prix || null,
         contact: contact || null,
@@ -114,13 +166,17 @@ export async function POST(req: NextRequest) {
         image_url: imageUrl,
         image_position: imageUrl ? (image_position || '50% 50%') : null,
         source: 'formulaire',
+        submitted_by: submittedBy,
+        submitted_by_name: submittedByName,
+        publish_at: finalStatut === 'en_attente' ? publishAt : null,
       })
       .select()
       .single()
 
     if (evtErr) throw new Error(`Erreur insertion événement : ${evtErr.message}`)
 
-    return NextResponse.json({ success: true, evenement })
+    const message = isUserSubmission && finalStatut !== 'archive' ? 'submitted' : undefined
+    return NextResponse.json({ success: true, evenement, message })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erreur inconnue'
     return NextResponse.json({ error: message }, { status: 500 })

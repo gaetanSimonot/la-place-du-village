@@ -1,33 +1,43 @@
 'use client'
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-export default function AuthCallbackPage() {
-  const router = useRouter()
+function CallbackHandler() {
+  const router       = useRouter()
+  const searchParams = useSearchParams()
 
   useEffect(() => {
-    const code = new URLSearchParams(window.location.search).get('code')
+    const code = searchParams.get('code')
+    const next = searchParams.get('next') ?? '/'
     if (code) {
-      supabase.auth.exchangeCodeForSession(code).finally(() => router.replace('/'))
+      supabase.auth.exchangeCodeForSession(code)
+        .then(() => router.replace(next))
+        .catch(() => router.replace('/'))
     } else {
       router.replace('/')
     }
-  }, [router])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div style={{
-      minHeight: '100dvh', display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      backgroundColor: '#FBF7F0', fontFamily: 'Inter, sans-serif',
+      minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      backgroundColor: '#FBF7F0',
     }}>
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       <div style={{
-        width: 36, height: 36, borderRadius: '50%',
+        width: 32, height: 32, borderRadius: '50%',
         border: '4px solid #E0D8CE', borderTopColor: '#C4622D',
-        animation: 'spin 0.7s linear infinite', marginBottom: 16,
+        animation: 'spin 0.7s linear infinite',
       }} />
-      <p style={{ color: '#8A8A8A', fontSize: 14 }}>Connexion en cours…</p>
     </div>
+  )
+}
+
+export default function AuthCallbackPage() {
+  return (
+    <Suspense>
+      <CallbackHandler />
+    </Suspense>
   )
 }

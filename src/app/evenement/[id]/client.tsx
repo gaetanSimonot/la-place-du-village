@@ -10,6 +10,8 @@ import ImageLightbox from '@/components/ImageLightbox'
 import FeedbackButton from '@/components/FeedbackButton'
 import EventEditDrawer from '@/components/EventEditDrawer'
 import { useAdminSession } from '@/hooks/useAdminSession'
+import { useAuth } from '@/hooks/useAuth'
+import { useAuthModal } from '@/contexts/AuthModalContext'
 
 const LINK_STYLE = { color: '#C4622D', textDecoration: 'underline', wordBreak: 'break-all' } as const
 
@@ -39,6 +41,57 @@ function renderContact(contact: string): React.ReactNode {
   if (/^[\d\s+\-().]{6,}$/.test(s))
     return <a href={`tel:${s.replace(/[\s\-().]/g, '')}`} style={LINK_STYLE}>{s}</a>
   return <>{linkify(s)}</>
+}
+
+function VoteButton({ evt }: { evt: Evenement }) {
+  const { user } = useAuth()
+  const { openAuthModal } = useAuthModal()
+  const [voted, setVoted]           = useState(false)
+  const [count, setCount]           = useState(evt.vote_count ?? 0)
+  const [loading, setLoading]       = useState(false)
+  const [checked, setChecked]       = useState(false)
+
+  useEffect(() => {
+    if (!user) { setChecked(true); return }
+    supabase.from('votes').select('id').eq('evenement_id', evt.id).eq('user_id', user.id).maybeSingle()
+      .then(({ data }) => { setVoted(!!data); setChecked(true) })
+  }, [user, evt.id])
+
+  const toggle = async () => {
+    if (!user) { openAuthModal(); return }
+    if (loading) return
+    setLoading(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/votes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ evenement_id: evt.id }),
+    })
+    const d = await res.json()
+    if (res.ok) { setVoted(d.voted); setCount(d.vote_count) }
+    setLoading(false)
+  }
+
+  if (!checked) return null
+
+  return (
+    <button
+      onClick={toggle}
+      disabled={loading}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        padding: '10px 20px', borderRadius: 999,
+        backgroundColor: voted ? '#FFF0E8' : '#F9F5F0',
+        border: `1.5px solid ${voted ? '#C4622D' : '#E0D8CE'}`,
+        cursor: 'pointer', transition: 'all 0.15s',
+        fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 600,
+        color: voted ? '#C4622D' : '#8A8A8A',
+      }}
+    >
+      <span style={{ fontSize: 16 }}>👍</span>
+      <span>{count > 0 ? count : ''} {voted ? 'Voté !' : 'Utile'}</span>
+    </button>
+  )
 }
 
 function ShareButton({ evt }: { evt: Evenement }) {
@@ -136,11 +189,17 @@ export default function EvenementPageClient({ id }: { id: string }) {
 
       <div className="p-4 space-y-3 pb-8">
         <div>
-          <span className="inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-1 rounded-full text-white mb-2"
-            style={{ backgroundColor: cat.color }}>
-            {cat.emoji} {cat.label}
-          </span>
+          <div className="flex items-center gap-2 flex-wrap mb-2">
+            <span className="inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-1 rounded-full text-white"
+              style={{ backgroundColor: cat.color }}>
+              {cat.emoji} {cat.label}
+            </span>
+            <VoteButton evt={evt} />
+          </div>
           <h2 className="text-2xl font-bold text-[#2C1810] leading-tight">{evt.titre}</h2>
+          {evt.submitted_by_name && (
+            <p className="text-xs text-gray-400 mt-1">Proposé par {evt.submitted_by_name}</p>
+          )}
         </div>
 
         <div className="bg-white rounded-2xl p-4 space-y-2.5">

@@ -154,7 +154,7 @@ interface Props {
   initialData?: InitialData
   initialImage?: InitialImage | null
   onClose: () => void
-  onSaved?: (result?: { statut?: string }) => void
+  onSaved?: (result?: { statut?: string; message?: string; id?: string }) => void
 }
 
 export default function EventEditDrawer({ evenementId, initialData, initialImage, onClose, onSaved }: Props) {
@@ -293,8 +293,11 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
     try {
       if (!evenementId) {
         // Mode création : POST à /api/evenements
+        const { data: { session } } = await supabase.auth.getSession()
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+        if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
         const res = await fetch('/api/evenements', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          method: 'POST', headers,
           body: JSON.stringify({
             titre, description,
             date_debut: dateDebut || null, date_fin: dateFin || null, heure: heure || null,
@@ -309,7 +312,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
         })
         const d = await res.json()
         if (!res.ok) throw new Error(d.error)
-        onSaved?.({ statut: d.evenement?.statut }); onClose()
+        onSaved?.({ statut: d.evenement?.statut, message: d.message, id: d.evenement?.id }); onClose()
         return
       }
 
