@@ -29,6 +29,16 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
+      <head>
+        {/* Capture beforeinstallprompt before React mounts */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          window.__pwaPrompt = null;
+          window.addEventListener('beforeinstallprompt', function(e) {
+            e.preventDefault();
+            window.__pwaPrompt = e;
+          });
+        `}} />
+      </head>
       <body className="antialiased">
         <ThemeProvider>
           {children}

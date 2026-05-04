@@ -52,32 +52,33 @@ function InstallBanner() {
   const [installed, setInstalled] = useState(false)
 
   useEffect(() => {
-    // Already installed (standalone mode)
     if (window.matchMedia('(display-mode: standalone)').matches) return
-    // Already dismissed this session
     if (sessionStorage.getItem(INSTALL_DISMISSED_KEY)) return
 
     const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !(window.navigator as { standalone?: boolean }).standalone
     setIsIOS(ios)
 
+    // Récupère le prompt capturé tôt dans le layout (avant montage React)
+    const early = (window as unknown as { __pwaPrompt?: DeferredPrompt }).__pwaPrompt
+    if (early) setDeferredPrompt(early)
+
+    // Écoute aussi au cas où il arrive après le montage
     const handler = (e: Event) => {
       e.preventDefault()
       setDeferredPrompt(e as unknown as DeferredPrompt)
     }
     window.addEventListener('beforeinstallprompt', handler)
 
-    const t = setTimeout(() => {
-      // Show for iOS always (no beforeinstallprompt), or once deferredPrompt captured
-      if (ios) setShow(true)
-    }, 3000)
+    // iOS : pas de beforeinstallprompt, on affiche toujours après 3s
+    const t = ios ? setTimeout(() => setShow(true), 3000) : null
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handler)
-      clearTimeout(t)
+      if (t) clearTimeout(t)
     }
   }, [])
 
-  // Show Chrome banner once deferredPrompt is ready (may fire after mount)
+  // Dès qu'on a le deferredPrompt, planifier l'affichage
   useEffect(() => {
     if (!deferredPrompt) return
     if (sessionStorage.getItem(INSTALL_DISMISSED_KEY)) return
