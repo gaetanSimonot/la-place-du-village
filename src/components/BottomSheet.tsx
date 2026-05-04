@@ -249,8 +249,8 @@ export default function BottomSheet({
         <div style={{ display: 'flex', gap: 10, padding: '0 16px 10px' }}>
         <button onClick={handleQuoiBtn} style={{
           flex: 1, height: 50, borderRadius: 14, border: 'none',
-          backgroundColor: hasQuoi ? 'var(--primary)' : sheetBg.text,
-          color: hasQuoi ? '#fff' : sheetBg.bg,
+          backgroundColor: hasQuoi ? 'var(--primary)' : '#3A3028',
+          color: '#FAF5EE',
           fontSize: 14, fontWeight: 700, fontFamily: 'Syne, sans-serif',
           cursor: 'pointer', overflow: 'hidden', position: 'relative',
         }}>
@@ -265,8 +265,8 @@ export default function BottomSheet({
 
         <button onClick={handleQuandBtn} style={{
           flex: 1, height: 50, borderRadius: 14, border: 'none',
-          backgroundColor: hasQuand ? 'var(--primary)' : sheetBg.text,
-          color: hasQuand ? '#fff' : sheetBg.bg,
+          backgroundColor: hasQuand ? 'var(--primary)' : '#3A3028',
+          color: '#FAF5EE',
           fontSize: 14, fontWeight: 700, fontFamily: 'Syne, sans-serif',
           cursor: 'pointer', overflow: 'hidden', position: 'relative',
         }}>
@@ -468,7 +468,7 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
             )}
           </div>
           <h3 style={{
-            fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: 14,
+            fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 14,
             color: '#1C1917', margin: 0, lineHeight: 1.3,
             overflow: 'hidden', display: '-webkit-box',
             WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
