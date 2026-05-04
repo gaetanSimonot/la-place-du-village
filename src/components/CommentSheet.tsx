@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
@@ -48,12 +49,16 @@ function CommentBubble({ c, parentAuthor, onReply, isOwn, onMenuOpen, isEditing,
   const name = c.profile?.display_name || c.profile?.email?.split('@')[0] || 'Anonyme'
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-      <Avatar name={name} url={c.profile?.avatar_url} size={34} />
+      <Link href={`/profil/${c.user_id}`} style={{ flexShrink: 0, textDecoration: 'none' }}>
+        <Avatar name={name} url={c.profile?.avatar_url} size={34} />
+      </Link>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ backgroundColor: '#F5F1EC', borderRadius: '0 14px 14px 14px', padding: '8px 12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
             <div>
-              <span style={{ fontWeight: 700, fontSize: 13, color: '#2C1810', fontFamily: 'Syne, sans-serif' }}>{name}</span>
+              <Link href={`/profil/${c.user_id}`} style={{ textDecoration: 'none' }}>
+                <span style={{ fontWeight: 700, fontSize: 13, color: '#2C1810', fontFamily: 'Syne, sans-serif' }}>{name}</span>
+              </Link>
               {parentAuthor && (
                 <span style={{ fontSize: 11, color: '#9CA3AF', marginLeft: 6, fontStyle: 'italic' }}>→ {parentAuthor}</span>
               )}
