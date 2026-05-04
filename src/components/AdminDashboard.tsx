@@ -38,15 +38,18 @@ export default function AdminDashboard() {
   const [adminVerified, setAdminVerified] = useState(false)
 
   // Auth guard — redirige si non connecté ou non admin
+  // Ne re-vérifie pas si déjà validé (évite l'éjection sur resume Android)
   useEffect(() => {
+    if (adminVerified) return
     if (authLoading) return
     if (!user?.email) { router.replace('/'); return }
     supabase.from('admin_emails').select('email').eq('email', user.email).maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) return // erreur réseau — ne pas rediriger
         if (!data) router.replace('/')
         else setAdminVerified(true)
       })
-  }, [authLoading, user, router])
+  }, [adminVerified, authLoading, user, router])
 
   // Admins management state
   const [adminList, setAdminList]     = useState<{ email: string; created_at: string }[]>([])
