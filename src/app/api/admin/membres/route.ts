@@ -75,15 +75,11 @@ export async function PATCH(req: NextRequest) {
         updated_at: new Date().toISOString(),
       }).eq('id', user_id))
     } else {
-      // No row yet — fetch auth user to get email/avatar and insert a complete row
+      // No row yet — insert with only the columns we know exist
       const { data: { user: authUser } } = await supabaseAdmin.auth.admin.getUserById(user_id)
       ;({ error } = await supabaseAdmin.from('profiles').insert({
         id: user_id,
-        email: authUser?.email ?? null,
         display_name: display_name || authUser?.user_metadata?.full_name || authUser?.user_metadata?.name || null,
-        avatar_url: authUser?.user_metadata?.avatar_url || null,
-        username: null,
-        banned: false,
         plan: plan ?? 'basic',
         pro_type: pro_type || null,
         updated_at: new Date().toISOString(),
