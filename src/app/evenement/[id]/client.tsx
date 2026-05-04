@@ -32,7 +32,7 @@ function renderContact(contact: string): React.ReactNode {
   const s = contact.trim()
   if (/^https?:\/\//i.test(s))
     return <a href={s} target="_blank" rel="noopener noreferrer" style={LINK_STYLE}>{s.replace(/^https?:\/\//, '').replace(/\/$/, '')}</a>
-  if (/^www\./i.test(s))
+  if (/^www\.[^\s]+$/.test(s))
     return <a href={`https://${s}`} target="_blank" rel="noopener noreferrer" style={LINK_STYLE}>{s}</a>
   if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s))
     return <a href={`mailto:${s}`} style={LINK_STYLE}>{s}</a>
