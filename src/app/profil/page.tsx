@@ -19,7 +19,7 @@ export default function ProfilPage() {
   useEffect(() => {
     if (!user?.id) return
     supabase.from('profiles').select('plan').eq('user_id', user.id).single()
-      .then(({ data: p, error }) => { console.log('plan fetch result:', p, error); if (p) setPlan(p.plan ?? null) })
+      .then(({ data: p }) => { if (p) setPlan(p.plan ?? null) })
   }, [user?.id])
 
   return (
@@ -42,8 +42,6 @@ export default function ProfilPage() {
           Mon espace
         </h1>
       </div>
-
-      <p style={{ margin: '8px 16px', fontSize: 12, color: '#999' }}>DEBUG plan: {plan ?? 'null'}</p>
 
       {/* Onglets */}
       <div style={{ display: 'flex', padding: '12px 16px 0', gap: 8, overflowX: 'auto' }}>
