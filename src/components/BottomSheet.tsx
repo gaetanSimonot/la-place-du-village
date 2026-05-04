@@ -61,6 +61,7 @@ interface Props {
   selectedProducerId?: string | null
   onSelectProducer?: (id: string | null) => void
   onViewProducerOnMap?: (id: string) => void
+  onOpenProducer?: (id: string) => void
   selectedCats?: ProduitCategorie[]
   onSelectedCatsChange?: (cats: ProduitCategorie[]) => void
   availableProducerCats?: Set<ProduitCategorie>
@@ -78,10 +79,10 @@ export default function BottomSheet({
   favIds = [], onToggleFav,
   appMode, onAppModeChange, producers = [], producerLoading = false,
   selectedProducerId = null, onSelectProducer, onViewProducerOnMap,
-  selectedCats = [], onSelectedCatsChange, availableProducerCats,
+  selectedCats = [], onSelectedCatsChange,
   producerSearch = '', onProducerSearchChange,
   producerFavIds = [], onToggleProducerFav,
-  featuredProducers = [],
+  featuredProducers = [], onOpenProducer,
 }: Props) {
   const { sheetBg } = useTheme()
   const { user } = useAuth()
@@ -487,7 +488,7 @@ export default function BottomSheet({
           {annuaireTabIdx === 0 && (
             <div style={{ display: 'flex', gap: 7, padding: '0 16px 8px', overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }} onPointerDown={e => e.stopPropagation()}>
               <button onClick={() => onSelectedCatsChange?.([])} style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${sheetBg.border}`, backgroundColor: selectedCats.length === 0 ? 'var(--primary)' : sheetBg.pill, color: selectedCats.length === 0 ? '#fff' : sheetBg.sub, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', minHeight: 34 }}>Tout</button>
-              {PRODUIT_CATS.filter(cat => !availableProducerCats || availableProducerCats.has(cat.id)).map(cat => {
+              {PRODUIT_CATS.map(cat => {
                 const active = selectedCats.includes(cat.id)
                 return (
                   <button key={cat.id} onClick={() => onSelectedCatsChange?.(active ? selectedCats.filter(c => c !== cat.id) : [...selectedCats, cat.id])}
@@ -543,6 +544,7 @@ export default function BottomSheet({
                   isSelected={p.id === selectedProducerId}
                   onSelect={() => onSelectProducer?.(p.id)}
                   onViewOnMap={() => onViewProducerOnMap?.(p.id)}
+                  onOpenProducer={() => onOpenProducer?.(p.id)}
                   isFav={producerFavIds.includes(p.id)}
                   onToggleFav={() => onToggleProducerFav?.(p.id)}
                 />
@@ -679,9 +681,9 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
   )
 }
 
-function ProducerListCard({ producer, isSelected, onSelect, onViewOnMap, isFav, onToggleFav }: {
+function ProducerListCard({ producer, isSelected, onSelect, onViewOnMap, onOpenProducer, isFav, onToggleFav }: {
   producer: ProducerCard; isSelected: boolean; onSelect: () => void; onViewOnMap: () => void
-  isFav?: boolean; onToggleFav?: () => void
+  onOpenProducer?: () => void; isFav?: boolean; onToggleFav?: () => void
 }) {
   const cats = producer.produit_categories
     .slice(0, 2)
@@ -689,7 +691,7 @@ function ProducerListCard({ producer, isSelected, onSelect, onViewOnMap, isFav, 
     .filter(Boolean)
 
   return (
-    <Link href={`/producteur/${producer.id}`} onClick={onSelect} style={{
+    <Link href={`/producteur/${producer.id}`} onClick={() => { onSelect(); onOpenProducer?.() }} style={{
       display: 'flex', height: 86, flexShrink: 0,
       borderRadius: 14, overflow: 'hidden', textDecoration: 'none',
       backgroundColor: '#fff',

@@ -240,9 +240,10 @@ export default function HomePage() {
       const s = JSON.parse(saved)
       if (s.filtres)    setFiltres(s.filtres)
       if (s.sheetMode)  setSheetMode(s.sheetMode)
+      if (s.appMode) setAppMode(s.appMode as 'agenda' | 'annuaire')
+      if (s.selectedProducerId) setSelectedProducerId(s.selectedProducerId)
       if (s.selectedId) {
         setSelectedId(s.selectedId)
-        // Markers will pan to the event when evenements load — no need to restore camera separately
       } else if (s.mapLat != null && s.mapLng != null) {
         setMapCenterOn({ lat: s.mapLat, lng: s.mapLng, zoom: s.mapZoom })
       }
@@ -442,6 +443,14 @@ export default function HomePage() {
       }))
     } catch {}
   }, [filtres])
+
+  const saveNavForProducer = useCallback((id: string) => {
+    try {
+      sessionStorage.setItem('pdv-nav-state', JSON.stringify({
+        appMode: 'annuaire', selectedProducerId: id, sheetMode: 'peek',
+      }))
+    } catch {}
+  }, [])
 
   const openEvent = useCallback((id: string) => {
     saveNavForEvent(id)
@@ -855,6 +864,7 @@ export default function HomePage() {
         producerFavIds={producerFavIds}
         onToggleProducerFav={toggleProducerFav}
         featuredProducers={featuredProducers}
+        onOpenProducer={saveNavForProducer}
       />
 
       {/* Favoris — panneau inline au-dessus de la carte */}

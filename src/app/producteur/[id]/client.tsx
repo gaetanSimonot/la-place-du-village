@@ -1,22 +1,25 @@
 'use client'
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
+import { useAdminSession } from '@/hooks/useAdminSession'
 import { PRODUIT_CATS_MAP } from '@/lib/produit-cats'
-
-const FAV_KEY = 'pdv-producer-favoris'
-const FOLLOW_KEY = 'pdv-producer-follows'
+import ProducerEditDrawer from '@/components/ProducerEditDrawer'
 
 interface Producer {
   id: string; nom: string; description_courte: string | null; description_longue: string | null
   commune: string | null; adresse: string | null; lat: number | null; lng: number | null
   contact_tel: string | null; contact_whatsapp: string | null; site_web: string | null
-  photos: string[]; is_max: boolean
+  photos: string[]; is_max: boolean; is_featured: boolean
 }
 interface Product {
   id: string; nom: string; categorie: string; prix_indicatif: string | null; periode_dispo: string | null
+}
+interface Comment {
+  id: string; user_id: string; content: string; parent_id: string | null; created_at: string
+  profile: { id: string; display_name: string | null; avatar_url: string | null } | null
 }
 
 function timeAgo(d: string) {
@@ -26,11 +29,6 @@ function timeAgo(d: string) {
   const h = Math.floor(m / 60)
   if (h < 24) return `${h}h`
   return `${Math.floor(h / 24)}j`
-}
-
-interface Comment {
-  id: string; user_id: string; content: string; parent_id: string | null; created_at: string
-  profile: { id: string; display_name: string | null; avatar_url: string | null } | null
 }
 
 function Avatar({ name, url, size = 32 }: { name: string; url?: string | null; size?: number }) {
@@ -43,8 +41,10 @@ function Avatar({ name, url, size = 32 }: { name: string; url?: string | null; s
 }
 
 export default function ProducteurPageClient({ id }: { id: string }) {
+  const router = useRouter()
   const { user, profile } = useAuth()
   const { openAuthModal } = useAuthModal()
+  const isAdmin = useAdminSession()
   const [producer, setProducer] = useState<Producer | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
@@ -56,55 +56,61 @@ export default function ProducteurPageClient({ id }: { id: string }) {
   const [commentText, setCommentText] = useState('')
   const [sendingComment, setSendingComment] = useState(false)
   const [showComments, setShowComments] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout>>()
 
+  const showToast = useCallback((msg: string) => {
+    clearTimeout(toastTimer.current)
+    setToast(msg)
+    toastTimer.current = setTimeout(() => setToast(null), 2000)
+  }, [])
+
+  // Load producer data
   useEffect(() => {
     fetch(`/api/producers/${id}`)
       .then(r => r.json())
-      .then(d => {
-        setProducer(d.producer ?? null)
-        setProducts(d.products ?? [])
-        setLoading(false)
-      })
+      .then(d => { setProducer(d.producer ?? null); setProducts(d.products ?? []); setLoading(false) })
       .catch(() => setLoading(false))
-
-    // Favorites + follows from localStorage
-    try {
-      const favs = JSON.parse(localStorage.getItem(FAV_KEY) ?? '[]') as string[]
-      setIsFav(favs.includes(id))
-      const follows = JSON.parse(localStorage.getItem(FOLLOW_KEY) ?? '[]') as string[]
-      setIsFollowing(follows.includes(id))
-    } catch {}
-
-    // Comments count
     supabase.from('producer_comments').select('id', { count: 'exact', head: true }).eq('producer_id', id)
       .then(({ count }) => setCommentCount(count ?? 0))
   }, [id])
 
-  function toggleFav() {
-    try {
-      const favs = JSON.parse(localStorage.getItem(FAV_KEY) ?? '[]') as string[]
-      const next = favs.includes(id) ? favs.filter(x => x !== id) : [...favs, id]
-      localStorage.setItem(FAV_KEY, JSON.stringify(next))
-      setIsFav(next.includes(id))
-    } catch {}
+  // Load fav/follow state from DB when user changes
+  useEffect(() => {
+    if (!user) { setIsFav(false); setIsFollowing(false); return }
+    Promise.all([
+      supabase.from('producer_favorites').select('id').eq('producer_id', id).eq('user_id', user.id).maybeSingle(),
+      supabase.from('producer_follows').select('id').eq('producer_id', id).eq('user_id', user.id).maybeSingle(),
+    ]).then(([{ data: f }, { data: fl }]) => { setIsFav(!!f); setIsFollowing(!!fl) })
+  }, [user?.id, id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function toggleFav() {
+    if (!user) { openAuthModal(); return }
+    if (isFav) {
+      await supabase.from('producer_favorites').delete().eq('producer_id', id).eq('user_id', user.id)
+      setIsFav(false); showToast('Retiré des favoris')
+    } else {
+      await supabase.from('producer_favorites').insert({ producer_id: id, user_id: user.id })
+      setIsFav(true); showToast('❤️ Ajouté aux favoris')
+    }
   }
 
-  function toggleFollow() {
+  async function toggleFollow() {
     if (!user) { openAuthModal(); return }
-    try {
-      const follows = JSON.parse(localStorage.getItem(FOLLOW_KEY) ?? '[]') as string[]
-      const next = follows.includes(id) ? follows.filter(x => x !== id) : [...follows, id]
-      localStorage.setItem(FOLLOW_KEY, JSON.stringify(next))
-      setIsFollowing(next.includes(id))
-    } catch {}
+    if (isFollowing) {
+      await supabase.from('producer_follows').delete().eq('producer_id', id).eq('user_id', user.id)
+      setIsFollowing(false); showToast('Abonnement retiré')
+    } else {
+      await supabase.from('producer_follows').insert({ producer_id: id, user_id: user.id })
+      setIsFollowing(true); showToast('✓ Vous suivez ce producteur')
+    }
   }
 
   async function loadComments() {
     const { data: raw } = await supabase
-      .from('producer_comments')
-      .select('id, user_id, content, parent_id, created_at')
-      .eq('producer_id', id)
-      .order('created_at', { ascending: true })
+      .from('producer_comments').select('id, user_id, content, parent_id, created_at')
+      .eq('producer_id', id).order('created_at', { ascending: true })
     if (!raw) return
     const uids = Array.from(new Set(raw.map((c: { user_id: string }) => c.user_id)))
     let pmap: Record<string, { id: string; display_name: string | null; avatar_url: string | null }> = {}
@@ -113,12 +119,11 @@ export default function ProducteurPageClient({ id }: { id: string }) {
       pmap = Object.fromEntries(((profiles ?? []) as { user_id: string; display_name: string | null; avatar_url: string | null }[]).map(p => [p.user_id, { id: p.user_id, display_name: p.display_name, avatar_url: p.avatar_url }]))
     }
     const merged: Comment[] = raw.map((c: { id: string; user_id: string; content: string; parent_id: string | null; created_at: string }) => ({ ...c, profile: pmap[c.user_id] ?? null }))
-    setComments(merged)
-    setCommentCount(merged.length)
+    setComments(merged); setCommentCount(merged.length)
   }
 
   async function toggleComments() {
-    if (!showComments) { await loadComments() }
+    if (!showComments) await loadComments()
     setShowComments(v => !v)
   }
 
@@ -131,13 +136,8 @@ export default function ProducteurPageClient({ id }: { id: string }) {
       .insert({ producer_id: id, user_id: user.id, content: commentText.trim(), parent_id: null })
       .select('id, user_id, content, parent_id, created_at').single()
     if (!error && data) {
-      const c: Comment = {
-        ...(data as { id: string; user_id: string; content: string; parent_id: string | null; created_at: string }),
-        profile: { id: user.id, display_name: profile?.display_name ?? null, avatar_url: profile?.avatar_url ?? null },
-      }
-      setComments(prev => [...prev, c])
-      setCommentCount(n => n + 1)
-      setCommentText('')
+      const c: Comment = { ...(data as { id: string; user_id: string; content: string; parent_id: string | null; created_at: string }), profile: { id: user.id, display_name: profile?.display_name ?? null, avatar_url: profile?.avatar_url ?? null } }
+      setComments(prev => [...prev, c]); setCommentCount(n => n + 1); setCommentText('')
     }
     setSendingComment(false)
   }
@@ -145,7 +145,7 @@ export default function ProducteurPageClient({ id }: { id: string }) {
   function share() {
     const url = window.location.href
     if (navigator.share) navigator.share({ title: producer?.nom ?? '', url }).catch(() => {})
-    else navigator.clipboard.writeText(url).catch(() => {})
+    else { navigator.clipboard.writeText(url).catch(() => {}); showToast('Lien copié !') }
   }
 
   if (loading) return (
@@ -153,7 +153,6 @@ export default function ProducteurPageClient({ id }: { id: string }) {
       <div style={{ width: 32, height: 32, borderRadius: '50%', border: '4px solid #E0D8CE', borderTopColor: '#2D5A3D', animation: 'spin 0.7s linear infinite' }} />
     </div>
   )
-
   if (!producer) return (
     <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FBF7F0' }}>
       <p style={{ color: '#8A8A8A', fontFamily: 'Inter, sans-serif' }}>Producteur introuvable</p>
@@ -163,34 +162,34 @@ export default function ProducteurPageClient({ id }: { id: string }) {
   const photos = producer.photos ?? []
   const mapsUrl = producer.lat && producer.lng
     ? `https://www.google.com/maps/dir/?api=1&destination=${producer.lat},${producer.lng}`
-    : producer.adresse
-    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(producer.adresse)}`
-    : null
-
-  // Group products by category
+    : producer.adresse ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(producer.adresse)}` : null
   const byCategory: Record<string, Product[]> = {}
-  products.forEach(p => {
-    if (!byCategory[p.categorie]) byCategory[p.categorie] = []
-    byCategory[p.categorie].push(p)
-  })
+  products.forEach(p => { if (!byCategory[p.categorie]) byCategory[p.categorie] = []; byCategory[p.categorie].push(p) })
 
-  const BTN: React.CSSProperties = {
-    flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-    gap: 4, padding: '10px 4px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer',
-    WebkitTapHighlightColor: 'transparent',
-  }
+  const BTN: React.CSSProperties = { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '10px 4px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }
   const LBL: React.CSSProperties = { fontSize: 11, fontWeight: 600, fontFamily: 'Inter, sans-serif' }
 
   return (
     <div style={{ minHeight: '100dvh', backgroundColor: '#FBF7F0', fontFamily: 'Inter, sans-serif' }}>
-      {/* Header sticky */}
+      {/* Toast */}
+      {toast && (
+        <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 999, backgroundColor: '#2C1810', color: '#fff', borderRadius: 12, padding: '10px 18px', fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif', pointerEvents: 'none', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
+          {toast}
+        </div>
+      )}
+
+      {/* Header */}
       <div style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: '#fff', borderBottom: '1px solid #E8E0D5', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Link href="/" style={{ color: '#2D5A3D', fontWeight: 700, fontSize: 22, textDecoration: 'none', lineHeight: 1 }}>←</Link>
+        <button onClick={() => router.back()} style={{ color: '#2D5A3D', fontWeight: 700, fontSize: 22, background: 'none', border: 'none', cursor: 'pointer', lineHeight: 1, padding: 0 }}>←</button>
         <h1 style={{ fontWeight: 700, fontSize: 16, color: '#2C1810', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>
           {producer.nom}
         </h1>
-        {producer.is_max && (
-          <span style={{ fontSize: 10, backgroundColor: '#E8622A', color: '#fff', borderRadius: 999, padding: '3px 8px', fontWeight: 800 }}>MAX</span>
+        {producer.is_featured && <span style={{ fontSize: 9, backgroundColor: '#2D5A3D', color: '#fff', borderRadius: 999, padding: '3px 8px', fontWeight: 800, flexShrink: 0 }}>★ À la une</span>}
+        {producer.is_max && <span style={{ fontSize: 9, backgroundColor: '#E8622A', color: '#fff', borderRadius: 999, padding: '3px 8px', fontWeight: 800, flexShrink: 0 }}>MAX</span>}
+        {isAdmin && (
+          <button onClick={() => setEditing(true)} style={{ fontSize: 11, fontWeight: 700, color: '#2D5A3D', border: '1px solid #2D5A3D', borderRadius: 999, padding: '4px 12px', backgroundColor: 'transparent', cursor: 'pointer', flexShrink: 0 }}>
+            ✏️ Éditer
+          </button>
         )}
       </div>
 
@@ -200,39 +199,35 @@ export default function ProducteurPageClient({ id }: { id: string }) {
           <img src={photos[photoIdx]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           {photos.length > 1 && (
             <>
-              <button onClick={() => setPhotoIdx(i => (i - 1 + photos.length) % photos.length)}
-                style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 32, height: 32, borderRadius: '50%', backgroundColor: 'rgba(0,0,0,0.45)', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 16 }}>‹</button>
-              <button onClick={() => setPhotoIdx(i => (i + 1) % photos.length)}
-                style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', width: 32, height: 32, borderRadius: '50%', backgroundColor: 'rgba(0,0,0,0.45)', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 16 }}>›</button>
+              <button onClick={() => setPhotoIdx(i => (i - 1 + photos.length) % photos.length)} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 32, height: 32, borderRadius: '50%', backgroundColor: 'rgba(0,0,0,0.45)', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 16 }}>‹</button>
+              <button onClick={() => setPhotoIdx(i => (i + 1) % photos.length)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', width: 32, height: 32, borderRadius: '50%', backgroundColor: 'rgba(0,0,0,0.45)', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 16 }}>›</button>
               <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 5 }}>
-                {photos.map((_, i) => (
-                  <button key={i} onClick={() => setPhotoIdx(i)} style={{ width: i === photoIdx ? 18 : 6, height: 6, borderRadius: 3, backgroundColor: i === photoIdx ? '#fff' : 'rgba(255,255,255,0.5)', border: 'none', cursor: 'pointer', padding: 0, transition: 'width 0.2s' }} />
-                ))}
+                {photos.map((_, i) => <button key={i} onClick={() => setPhotoIdx(i)} style={{ width: i === photoIdx ? 18 : 6, height: 6, borderRadius: 3, backgroundColor: i === photoIdx ? '#fff' : 'rgba(255,255,255,0.5)', border: 'none', cursor: 'pointer', padding: 0, transition: 'width 0.2s' }} />)}
               </div>
             </>
           )}
         </div>
       )}
-      {photos.length === 0 && (
-        <div style={{ height: 160, backgroundColor: '#E8F2EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 64 }}>🌿</div>
-      )}
+      {photos.length === 0 && <div style={{ height: 160, backgroundColor: '#E8F2EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 64 }}>🌿</div>}
 
-      {/* Barre d'actions */}
+      {/* Action bar */}
       <div style={{ backgroundColor: '#fff', borderBottom: '1px solid #F0EDE8', display: 'flex' }}>
-        <button style={BTN} onClick={toggleFav}>
+        <button style={BTN} onClick={() => { toggleFav() }}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill={isFav ? '#E8622A' : 'none'} stroke={isFav ? '#E8622A' : '#6B5E4E'} strokeWidth="2">
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
           </svg>
           <span style={{ ...LBL, color: isFav ? '#E8622A' : '#6B5E4E' }}>Favori</span>
         </button>
-        <button style={BTN} onClick={toggleFollow}>
+        <button style={BTN} onClick={() => { toggleFollow() }}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={isFollowing ? '#2D5A3D' : '#6B5E4E'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 8a6 6 0 0 1-12 0"/>
-            <path d="M12 2v6M12 22v-6M4.93 10.93l4.24 4.24M14.83 14.83l4.24-4.24"/>
+            {isFollowing
+              ? <><path d="M20 6L9 17l-5-5"/></>
+              : <><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></>
+            }
           </svg>
           <span style={{ ...LBL, color: isFollowing ? '#2D5A3D' : '#6B5E4E' }}>{isFollowing ? 'Suivi' : 'Suivre'}</span>
         </button>
-        <button style={BTN} onClick={toggleComments}>
+        <button style={BTN} onClick={() => { toggleComments() }}>
           <div style={{ position: 'relative' }}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B5E4E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -252,24 +247,15 @@ export default function ProducteurPageClient({ id }: { id: string }) {
         </button>
       </div>
 
-      {/* Contenu */}
+      {/* Content */}
       <div style={{ padding: '16px 16px 32px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-        {/* Infos principales */}
         <div style={{ backgroundColor: '#fff', borderRadius: 16, padding: 16 }}>
           <h2 style={{ fontWeight: 700, fontSize: 22, color: '#2C1810', margin: '0 0 4px' }}>{producer.nom}</h2>
-          {producer.commune && (
-            <p style={{ fontSize: 13, color: '#6B5E4E', margin: '0 0 10px' }}>📍 {producer.commune}</p>
-          )}
-          {producer.description_courte && (
-            <p style={{ fontSize: 14, color: '#4A3728', lineHeight: 1.6, margin: '0 0 10px', fontWeight: 500 }}>{producer.description_courte}</p>
-          )}
-          {producer.description_longue && (
-            <p style={{ fontSize: 14, color: '#6B5E4E', lineHeight: 1.7, margin: 0 }}>{producer.description_longue}</p>
-          )}
+          {producer.commune && <p style={{ fontSize: 13, color: '#6B5E4E', margin: '0 0 10px' }}>📍 {producer.commune}</p>}
+          {producer.description_courte && <p style={{ fontSize: 14, color: '#4A3728', lineHeight: 1.6, margin: '0 0 10px', fontWeight: 500 }}>{producer.description_courte}</p>}
+          {producer.description_longue && <p style={{ fontSize: 14, color: '#6B5E4E', lineHeight: 1.7, margin: 0 }}>{producer.description_longue}</p>}
         </div>
 
-        {/* Contacts */}
         {(producer.contact_tel || producer.contact_whatsapp || producer.site_web || mapsUrl) && (
           <div style={{ backgroundColor: '#fff', borderRadius: 16, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
             <h3 style={{ fontWeight: 700, fontSize: 14, color: '#2C1810', margin: '0 0 4px' }}>Contact</h3>
@@ -300,7 +286,6 @@ export default function ProducteurPageClient({ id }: { id: string }) {
           </div>
         )}
 
-        {/* Produits disponibles */}
         {products.length > 0 && (
           <div style={{ backgroundColor: '#fff', borderRadius: 16, padding: 16 }}>
             <h3 style={{ fontWeight: 700, fontSize: 16, color: '#2C1810', margin: '0 0 14px' }}>Produits disponibles</h3>
@@ -335,33 +320,23 @@ export default function ProducteurPageClient({ id }: { id: string }) {
           </div>
         )}
 
-        {/* Commentaires */}
         {showComments && (
           <div style={{ backgroundColor: '#fff', borderRadius: 16, padding: 16 }}>
             <h3 style={{ fontWeight: 700, fontSize: 15, color: '#2C1810', margin: '0 0 14px' }}>
               Commentaires {commentCount > 0 && `(${commentCount})`}
             </h3>
-
-            {/* Saisie */}
             <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
               <Avatar name={profile?.display_name || user?.email || '?'} url={profile?.avatar_url} size={34} />
               <div style={{ flex: 1, display: 'flex', gap: 8 }}>
-                <input
-                  value={commentText}
-                  onChange={e => setCommentText(e.target.value)}
+                <input value={commentText} onChange={e => setCommentText(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendComment()}
                   placeholder={user ? 'Votre commentaire…' : 'Connectez-vous pour commenter'}
                   style={{ flex: 1, padding: '8px 12px', borderRadius: 10, border: '1.5px solid #E8E0D5', fontSize: 13, fontFamily: 'Inter, sans-serif', outline: 'none', color: '#2C1810' }}
-                  onClick={() => { if (!user) openAuthModal() }}
-                />
+                  onClick={() => { if (!user) openAuthModal() }} />
                 <button onClick={sendComment} disabled={!commentText.trim() || sendingComment}
-                  style={{ padding: '8px 14px', borderRadius: 10, border: 'none', backgroundColor: commentText.trim() && !sendingComment ? '#2D5A3D' : '#CCC', color: '#fff', fontWeight: 700, fontSize: 13, cursor: commentText.trim() && !sendingComment ? 'pointer' : 'default' }}>
-                  →
-                </button>
+                  style={{ padding: '8px 14px', borderRadius: 10, border: 'none', backgroundColor: commentText.trim() && !sendingComment ? '#2D5A3D' : '#CCC', color: '#fff', fontWeight: 700, fontSize: 13, cursor: commentText.trim() && !sendingComment ? 'pointer' : 'default' }}>→</button>
               </div>
             </div>
-
-            {/* Liste */}
             {comments.length === 0 && <p style={{ fontSize: 13, color: '#8A8A8A', textAlign: 'center', margin: 0 }}>Soyez le premier à commenter !</p>}
             {comments.map(c => (
               <div key={c.id} style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
@@ -379,9 +354,15 @@ export default function ProducteurPageClient({ id }: { id: string }) {
         )}
       </div>
 
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg) } }
-      `}</style>
+      {editing && producer && (
+        <ProducerEditDrawer
+          producer={producer}
+          onClose={() => setEditing(false)}
+          onSaved={updated => setProducer(updated)}
+        />
+      )}
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 }
