@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState } from 'react'
 import { useTheme } from '@/components/ThemeProvider'
 import { COLOR_THEMES, MAP_STYLES, SHEET_BG_OPTIONS } from '@/lib/themes'
@@ -29,7 +29,7 @@ export default function ProfilView() {
         padding: '12px 16px',
         display: 'flex', alignItems: 'center',
       }}>
-        <h1 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 18, color: '#2C1810', margin: 0 }}>
+        <h1 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 18, color: '#2C1810', margin: 0 }}>
           Mon espace
         </h1>
       </div>
@@ -39,11 +39,11 @@ export default function ProfilView() {
         {([
           { id: 'profil', label: 'Profil' },
           { id: 'abonnements', label: 'Suivis' },
-          { id: 'theme', label: 'Thème' },
+          { id: 'theme', label: 'ThÃ¨me' },
         ] as { id: Tab; label: string }[]).map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
             padding: '8px 20px', borderRadius: 999, border: 'none', cursor: 'pointer',
-            fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 13,
+            fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 13,
             backgroundColor: tab === t.id ? 'var(--primary)' : '#EDE8E0',
             color: tab === t.id ? '#fff' : '#6B6B6B',
             transition: 'all 0.15s',
@@ -65,10 +65,10 @@ export default function ProfilView() {
               </div>
             )}
 
-            {/* Non connecté */}
+            {/* Non connectÃ© */}
             {!loading && !user && <LoginView />}
 
-            {/* Connecté */}
+            {/* ConnectÃ© */}
             {!loading && user && (
               <div style={{ paddingTop: 8 }}>
 
@@ -87,14 +87,14 @@ export default function ProfilView() {
                         width: 72, height: 72, borderRadius: '50%',
                         backgroundColor: 'var(--primary)', color: '#fff',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 28, fontWeight: 800, fontFamily: 'Syne, sans-serif',
+                        fontSize: 28, fontWeight: 800, fontFamily: 'Inter, sans-serif',
                       }}>
                         {(profile?.display_name ?? user.email ?? '?')[0].toUpperCase()}
                       </div>
                     )
                   }
 
-                  {/* Nom — cliquable pour modifier */}
+                  {/* Nom â€” cliquable pour modifier */}
                   {editingName
                     ? (
                       <form onSubmit={async e => {
@@ -107,10 +107,10 @@ export default function ProfilView() {
                           autoFocus
                           value={nameInput}
                           onChange={e => setNameInput(e.target.value)}
-                          style={{ border: '1.5px solid var(--primary)', borderRadius: 10, padding: '6px 12px', fontSize: 15, fontWeight: 700, outline: 'none', fontFamily: 'Syne, sans-serif', color: '#2C1810', width: 160 }}
+                          style={{ border: '1.5px solid var(--primary)', borderRadius: 10, padding: '6px 12px', fontSize: 15, fontWeight: 700, outline: 'none', fontFamily: 'Inter, sans-serif', color: '#2C1810', width: 160 }}
                         />
                         <button type="submit" style={{ background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>OK</button>
-                        <button type="button" onClick={() => setEditingName(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8A8A8A', fontSize: 13 }}>✕</button>
+                        <button type="button" onClick={() => setEditingName(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8A8A8A', fontSize: 13 }}>âœ•</button>
                       </form>
                     )
                     : (
@@ -135,14 +135,14 @@ export default function ProfilView() {
                       fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
                       color: '#6B5E4E', backgroundColor: '#EDE8DF',
                       borderRadius: 999, padding: '3px 10px',
-                      fontFamily: 'Syne, sans-serif',
+                      fontFamily: 'Inter, sans-serif',
                     }}>Basic</span>
                     <button onClick={() => setShowUpgrade(true)} style={{
                       background: 'none', border: 'none', cursor: 'pointer',
                       fontSize: 11, fontWeight: 700, color: 'var(--primary)',
-                      fontFamily: 'Syne, sans-serif', padding: 0,
+                      fontFamily: 'Inter, sans-serif', padding: 0,
                       textDecoration: 'underline',
-                    }}>Upgrader →</button>
+                    }}>Upgrader â†’</button>
                   </div>
 
                   <Link href={`/profil/${user.id}`} style={{
@@ -150,13 +150,13 @@ export default function ProfilView() {
                     padding: '8px 18px', borderRadius: 999,
                     backgroundColor: 'var(--primary-light)', color: 'var(--primary)',
                     fontSize: 13, fontWeight: 700, textDecoration: 'none',
-                    fontFamily: 'Syne, sans-serif',
+                    fontFamily: 'Inter, sans-serif',
                   }}>
-                    Voir mon profil →
+                    Voir mon profil â†’
                   </Link>
                 </div>
 
-                {/* Bouton admin — visible uniquement pour les admins */}
+                {/* Bouton admin â€” visible uniquement pour les admins */}
                 {isAdmin && (
                   <Link href="/admin" prefetch={false} style={{ textDecoration: 'none', width: '100%' }}>
                     <div style={{
@@ -166,12 +166,12 @@ export default function ProfilView() {
                       fontFamily: 'Inter, sans-serif', boxSizing: 'border-box',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                     }}>
-                      ⚙️ Tableau de bord admin
+                      âš™ï¸ Tableau de bord admin
                     </div>
                   </Link>
                 )}
 
-                {/* Bouton déconnexion */}
+                {/* Bouton dÃ©connexion */}
                 <button
                   onClick={signOut}
                   style={{
@@ -187,7 +187,7 @@ export default function ProfilView() {
                     <polyline points="16 17 21 12 16 7"/>
                     <line x1="21" y1="12" x2="9" y2="12"/>
                   </svg>
-                  Se déconnecter
+                  Se dÃ©connecter
                 </button>
               </div>
             )}
@@ -204,7 +204,7 @@ export default function ProfilView() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
 
             <section>
-              <h2 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 15, color: '#2C1810', marginBottom: 12 }}>
+              <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15, color: '#2C1810', marginBottom: 12 }}>
                 Couleur
               </h2>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
@@ -235,10 +235,10 @@ export default function ProfilView() {
             </section>
 
             <section>
-              <h2 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 15, color: '#2C1810', marginBottom: 4 }}>
+              <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15, color: '#2C1810', marginBottom: 4 }}>
                 Fond de liste
               </h2>
-              <p style={{ fontSize: 12, color: '#8A8A8A', marginBottom: 12 }}>Couleur du panneau d&apos;événements</p>
+              <p style={{ fontSize: 12, color: '#8A8A8A', marginBottom: 12 }}>Couleur du panneau d&apos;Ã©vÃ©nements</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                 {SHEET_BG_OPTIONS.map(opt => {
                   const isActive = sheetBg.id === opt.id
@@ -271,7 +271,7 @@ export default function ProfilView() {
             </section>
 
             <section>
-              <h2 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 15, color: '#2C1810', marginBottom: 12 }}>
+              <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15, color: '#2C1810', marginBottom: 12 }}>
                 Style de carte
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -298,7 +298,7 @@ export default function ProfilView() {
                       </div>
                       <div style={{ flex: 1 }}>
                         <p style={{
-                          fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 14,
+                          fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14,
                           color: isActive ? 'var(--primary)' : '#2C2C2C', margin: '0 0 2px',
                         }}>{style.name}</p>
                         <p style={{ fontSize: 12, color: '#8A8A8A', margin: 0, fontFamily: 'Inter, sans-serif' }}>
@@ -338,24 +338,24 @@ export default function ProfilView() {
             padding: '32px 24px 48px', width: '100%', maxWidth: 480,
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
           }}>
-            <p style={{ fontSize: 44, margin: 0 }}>🌟</p>
-            <h2 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 22, color: '#1A1209', margin: 0, textAlign: 'center' }}>
-              Passer à Premium
+            <p style={{ fontSize: 44, margin: 0 }}>ðŸŒŸ</p>
+            <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 22, color: '#1A1209', margin: 0, textAlign: 'center' }}>
+              Passer Ã  Premium
             </h2>
             <p style={{ fontSize: 14, color: '#6B5E4E', fontFamily: 'Lora, serif', lineHeight: 1.6, textAlign: 'center', margin: 0, maxWidth: 300 }}>
-              Les abonnements Premium arrivent bientôt ! Tu seras notifié dès que la fonctionnalité sera disponible.
+              Les abonnements Premium arrivent bientÃ´t ! Tu seras notifiÃ© dÃ¨s que la fonctionnalitÃ© sera disponible.
             </p>
             <span style={{
               fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
               color: '#EC407A', backgroundColor: '#FEF0F5',
-              borderRadius: 999, padding: '4px 14px', fontFamily: 'Syne, sans-serif',
+              borderRadius: 999, padding: '4px 14px', fontFamily: 'Inter, sans-serif',
               marginTop: 4,
-            }}>À venir</span>
+            }}>Ã€ venir</span>
             <button onClick={() => setShowUpgrade(false)} style={{
               marginTop: 12, width: '100%', padding: '15px', borderRadius: 999,
               backgroundColor: 'var(--primary)', color: '#fff',
               fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer',
-              fontFamily: 'Syne, sans-serif',
+              fontFamily: 'Inter, sans-serif',
             }}>Compris</button>
           </div>
         </div>

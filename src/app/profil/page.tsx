@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
@@ -28,8 +28,8 @@ export default function ProfilPage() {
           backgroundColor: 'var(--primary-light)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           textDecoration: 'none', color: 'var(--primary)', fontSize: 18, fontWeight: 700,
-        }}>←</Link>
-        <h1 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 18, color: '#2C1810', margin: 0, flex: 1 }}>
+        }}>â†</Link>
+        <h1 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 18, color: '#2C1810', margin: 0, flex: 1 }}>
           Mon espace
         </h1>
       </div>
@@ -39,12 +39,12 @@ export default function ProfilPage() {
         {(['profil', 'theme'] as Tab[]).map(t => (
           <button key={t} onClick={() => setTab(t)} style={{
             padding: '8px 20px', borderRadius: 999, border: 'none', cursor: 'pointer',
-            fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 13,
+            fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 13,
             backgroundColor: tab === t ? 'var(--primary)' : '#EDE8E0',
             color: tab === t ? '#fff' : '#6B6B6B',
             transition: 'all 0.15s',
           }}>
-            {t === 'profil' ? 'Profil' : 'Thème'}
+            {t === 'profil' ? 'Profil' : 'ThÃ¨me'}
           </button>
         ))}
       </div>
@@ -57,15 +57,15 @@ export default function ProfilPage() {
             <Link href={`/profil/${user.id}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 14, backgroundColor: '#fff', borderRadius: 16, padding: '16px', marginTop: 8 }}>
               {profile?.avatar_url
                 ? <img src={profile.avatar_url} alt="" style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                : <div style={{ width: 56, height: 56, borderRadius: '50%', backgroundColor: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 22, fontFamily: 'Syne, sans-serif', flexShrink: 0 }}>
+                : <div style={{ width: 56, height: 56, borderRadius: '50%', backgroundColor: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 22, fontFamily: 'Inter, sans-serif', flexShrink: 0 }}>
                     {(profile?.display_name || user.email || '?')[0].toUpperCase()}
                   </div>
               }
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 16, color: '#2C1810', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 16, color: '#2C1810', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {profile?.display_name || user.email?.split('@')[0] || 'Mon profil'}
                 </p>
-                <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0 }}>Voir et modifier mon profil →</p>
+                <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0 }}>Voir et modifier mon profil â†’</p>
               </div>
             </Link>
           ) : (
@@ -76,7 +76,7 @@ export default function ProfilPage() {
                   <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
                 </svg>
               </div>
-              <p style={{ fontSize: 14, color: '#8A8A8A', textAlign: 'center', lineHeight: 1.5, margin: 0 }}>Connecte-toi pour accéder à ton profil.</p>
+              <p style={{ fontSize: 14, color: '#8A8A8A', textAlign: 'center', lineHeight: 1.5, margin: 0 }}>Connecte-toi pour accÃ©der Ã  ton profil.</p>
             </div>
           )
         )}
@@ -84,9 +84,9 @@ export default function ProfilPage() {
         {tab === 'theme' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
 
-            {/* ── Couleur ── */}
+            {/* â”€â”€ Couleur â”€â”€ */}
             <section>
-              <h2 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 15, color: '#2C1810', marginBottom: 12 }}>
+              <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15, color: '#2C1810', marginBottom: 12 }}>
                 Couleur
               </h2>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
@@ -116,12 +116,12 @@ export default function ProfilPage() {
               </div>
             </section>
 
-            {/* ── Fond de liste ── */}
+            {/* â”€â”€ Fond de liste â”€â”€ */}
             <section>
-              <h2 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 15, color: '#2C1810', marginBottom: 4 }}>
+              <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15, color: '#2C1810', marginBottom: 4 }}>
                 Fond de liste
               </h2>
-              <p style={{ fontSize: 12, color: '#8A8A8A', marginBottom: 12 }}>Couleur du panneau d&apos;événements</p>
+              <p style={{ fontSize: 12, color: '#8A8A8A', marginBottom: 12 }}>Couleur du panneau d&apos;Ã©vÃ©nements</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                 {SHEET_BG_OPTIONS.map(opt => {
                   const isActive = sheetBg.id === opt.id
@@ -155,9 +155,9 @@ export default function ProfilPage() {
               </div>
             </section>
 
-            {/* ── Style de carte ── */}
+            {/* â”€â”€ Style de carte â”€â”€ */}
             <section>
-              <h2 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 15, color: '#2C1810', marginBottom: 12 }}>
+              <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15, color: '#2C1810', marginBottom: 12 }}>
                 Style de carte
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -172,14 +172,14 @@ export default function ProfilPage() {
                       transition: 'all 0.15s',
                       textAlign: 'left',
                     }}>
-                      {/* Pastille de prévisualisation */}
+                      {/* Pastille de prÃ©visualisation */}
                       <div style={{
                         width: 52, height: 40, borderRadius: 10, flexShrink: 0,
                         backgroundColor: style.previewBg,
                         overflow: 'hidden', position: 'relative',
                         boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
                       }}>
-                        {/* Mini routes dessinées */}
+                        {/* Mini routes dessinÃ©es */}
                         <svg width="52" height="40" viewBox="0 0 52 40" style={{ position: 'absolute', inset: 0 }}>
                           <line x1="0" y1="24" x2="52" y2="22" stroke="rgba(255,255,255,0.45)" strokeWidth="3"/>
                           <line x1="10" y1="0" x2="16" y2="40" stroke="rgba(255,255,255,0.3)" strokeWidth="2"/>
@@ -188,7 +188,7 @@ export default function ProfilPage() {
                       </div>
                       <div style={{ flex: 1 }}>
                         <p style={{
-                          fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 14,
+                          fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14,
                           color: isActive ? 'var(--primary)' : '#2C2C2C', margin: '0 0 2px',
                         }}>{style.name}</p>
                         <p style={{ fontSize: 12, color: '#8A8A8A', margin: 0, fontFamily: 'Inter, sans-serif' }}>

@@ -34,7 +34,7 @@ function Avatar({ name, url, size = 72 }: { name: string; url?: string | null; s
       width: size, height: size, borderRadius: '50%',
       backgroundColor: 'var(--primary-light)', color: 'var(--primary)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontWeight: 800, fontSize: Math.round(size * 0.38), fontFamily: 'Syne, sans-serif',
+      fontWeight: 800, fontSize: Math.round(size * 0.38), fontFamily: 'Inter, sans-serif',
     }}>{(name[0] ?? '?').toUpperCase()}</div>
   )
 }
@@ -180,7 +180,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
         <button onClick={() => router.back()} style={{ background: 'none', border: 'none', fontSize: 22, color: 'var(--primary)', cursor: 'pointer', padding: 0, fontWeight: 700 }}>←</button>
         <h1 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 16, color: '#1A1209', letterSpacing: '-0.01em', margin: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</h1>
         {isOwn && !editing && (
-          <button onClick={startEdit} style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', border: '1px solid var(--primary)', borderRadius: 999, padding: '4px 12px', background: 'none', cursor: 'pointer', fontFamily: 'Syne, sans-serif' }}>
+          <button onClick={startEdit} style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', border: '1px solid var(--primary)', borderRadius: 999, padding: '4px 12px', background: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
             Modifier
           </button>
         )}
@@ -211,7 +211,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
               <>
                 <input value={editName} onChange={e => setEditName(e.target.value)}
                   placeholder="Prénom ou pseudo"
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: 10, border: '1.5px solid #E0D8CE', fontSize: 15, fontWeight: 700, fontFamily: 'Syne, sans-serif', color: '#1A1209', outline: 'none', boxSizing: 'border-box', marginBottom: 8 }} />
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: 10, border: '1.5px solid #E0D8CE', fontSize: 15, fontWeight: 700, fontFamily: 'Inter, sans-serif', color: '#1A1209', outline: 'none', boxSizing: 'border-box', marginBottom: 8 }} />
                 <input value={editVille} onChange={e => setEditVille(e.target.value)}
                   placeholder="Ta ville"
                   style={{ width: '100%', padding: '7px 12px', borderRadius: 10, border: '1.5px solid #E0D8CE', fontSize: 13, fontFamily: 'Inter, sans-serif', color: '#6B5E4E', outline: 'none', boxSizing: 'border-box' }} />
@@ -226,7 +226,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
                     fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
                     color: '#6B5E4E', backgroundColor: '#EDE8DF',
                     borderRadius: 999, padding: '2px 9px',
-                    fontFamily: 'Syne, sans-serif',
+                    fontFamily: 'Inter, sans-serif',
                   }}>Basic</span>
                 </div>
               </>
@@ -248,7 +248,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
         {/* Boutons save/cancel */}
         {editing && (
           <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-            <button onClick={saveEdit} disabled={saving} style={{ flex: 1, padding: '11px', borderRadius: 12, border: 'none', backgroundColor: 'var(--primary)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'Syne, sans-serif' }}>
+            <button onClick={saveEdit} disabled={saving} style={{ flex: 1, padding: '11px', borderRadius: 12, border: 'none', backgroundColor: 'var(--primary)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
               {saving ? 'Enregistrement…' : 'Enregistrer'}
             </button>
             <button onClick={() => setEditing(false)} style={{ flex: 1, padding: '11px', borderRadius: 12, border: 'none', backgroundColor: '#EDE8DF', color: '#6B5E4E', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
@@ -261,11 +261,11 @@ export default function ProfilPageClient({ id }: { id: string }) {
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 20 }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontWeight: 800, fontSize: 17, color: '#1A1209', fontFamily: 'Syne, sans-serif' }}>{followerCount}</div>
+              <div style={{ fontWeight: 800, fontSize: 17, color: '#1A1209', fontFamily: 'Inter, sans-serif' }}>{followerCount}</div>
               <div style={{ fontSize: 11, color: '#6B5E4E', fontFamily: 'Lora, serif' }}>abonnés</div>
             </div>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontWeight: 800, fontSize: 17, color: '#1A1209', fontFamily: 'Syne, sans-serif' }}>{followingCount}</div>
+              <div style={{ fontWeight: 800, fontSize: 17, color: '#1A1209', fontFamily: 'Inter, sans-serif' }}>{followingCount}</div>
               <div style={{ fontSize: 11, color: '#6B5E4E', fontFamily: 'Lora, serif' }}>suivis</div>
             </div>
           </div>
@@ -275,7 +275,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
               border: isFollowing ? '1.5px solid #E8E0D4' : 'none',
               backgroundColor: isFollowing ? '#fff' : 'var(--primary)',
               color: isFollowing ? '#6B5E4E' : '#fff',
-              fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Syne, sans-serif',
+              fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
               transition: 'all 0.15s',
             }}>{isFollowing ? 'Abonné ✓' : 'Suivre'}</button>
           )}
@@ -283,7 +283,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
             <button onClick={() => router.push('/')} style={{
               marginLeft: 'auto', padding: '9px 24px', borderRadius: 999, border: 'none',
               backgroundColor: 'var(--primary)', color: '#fff',
-              fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Syne, sans-serif',
+              fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
             }}>Suivre</button>
           )}
         </div>
@@ -294,7 +294,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
         {/* Personnes suivies */}
         {followings.length > 0 && (
           <section>
-            <h3 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 14, color: '#1A1209', margin: '0 0 12px' }}>
+            <h3 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14, color: '#1A1209', margin: '0 0 12px' }}>
               Personnes suivies
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -303,7 +303,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
                 return (
                   <Link key={p.id} href={`/profil/${p.id}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 14, backgroundColor: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
                     <Avatar name={pname} url={p.avatar_url} size={40} />
-                    <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 14, color: '#1A1209' }}>{pname}</span>
+                    <span style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14, color: '#1A1209' }}>{pname}</span>
                     <svg style={{ marginLeft: 'auto', flexShrink: 0 }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B8AFA4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
                   </Link>
                 )
@@ -315,7 +315,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
         {/* Événements intéressants */}
         {events.length > 0 ? (
           <section>
-            <h3 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 14, color: '#1A1209', margin: '0 0 12px' }}>
+            <h3 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14, color: '#1A1209', margin: '0 0 12px' }}>
               ⭐ Événements intéressants
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -330,7 +330,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
                       }
                     </div>
                     <div style={{ padding: '8px 10px' }}>
-                      <p style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 12, color: '#1A1209', margin: 0, lineHeight: 1.35, maxHeight: '2.7em', overflow: 'hidden' }}>{e.titre}</p>
+                      <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 12, color: '#1A1209', margin: 0, lineHeight: 1.35, maxHeight: '2.7em', overflow: 'hidden' }}>{e.titre}</p>
                       {e.date_debut && <p style={{ fontSize: 11, color: '#6B5E4E', fontFamily: 'Lora, serif', margin: '3px 0 0' }}>{new Date(e.date_debut + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</p>}
                     </div>
                   </Link>

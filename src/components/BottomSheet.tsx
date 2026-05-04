@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, useMotionValue, animate, useDragControls, AnimatePresence } from 'framer-motion'
 import { EvenementCard, Filtres, Categorie, FiltreQuand } from '@/lib/types'
@@ -6,7 +6,7 @@ import { CATEGORIES } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
 import Link from 'next/link'
 
-const FULL_TOP = 60   // espace laissé en haut quand sheet pleine
+const FULL_TOP = 60   // espace laissÃ© en haut quand sheet pleine
 
 const CATS = Object.keys(CATEGORIES) as Categorie[]
 
@@ -49,7 +49,7 @@ export default function BottomSheet({
   favIds = [], onToggleFav,
 }: Props) {
   const { sheetBg } = useTheme()
-  const [peekH, setPeekH]         = useState(130) // hauteur mesurée du header
+  const [peekH, setPeekH]         = useState(130) // hauteur mesurÃ©e du header
   const [visibleCount, setVisibleCount] = useState(BATCH)
   const headerRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -64,10 +64,10 @@ export default function BottomSheet({
   }, [])
   const dragControls              = useDragControls()
 
-  // Filtre "Que faire" — cursor dans CATS, -1 = row fermée
+  // Filtre "Que faire" â€” cursor dans CATS, -1 = row fermÃ©e
   const [quoiOpen,   setQuoiOpen]   = useState(false)
   const [quoiCursor, setQuoiCursor] = useState(-1)
-  // Filtre "Quand donc" — cursor dans QUAND_OPTIONS, -1 = reset
+  // Filtre "Quand donc" â€” cursor dans QUAND_OPTIONS, -1 = reset
   const [quandOpen,   setQuandOpen]   = useState(false)
   const [quandCursor, setQuandCursor] = useState(-1)
 
@@ -75,7 +75,7 @@ export default function BottomSheet({
   const quoiPillRefs  = useRef<(HTMLButtonElement | null)[]>([])
   const quandPillRefs = useRef<(HTMLButtonElement | null)[]>([])
 
-  // ResizeObserver sur le header pour mesurer sa hauteur réelle
+  // ResizeObserver sur le header pour mesurer sa hauteur rÃ©elle
   useEffect(() => {
     const el = headerRef.current
     if (!el) return
@@ -101,7 +101,7 @@ export default function BottomSheet({
   const y = useMotionValue(9999)
 
   useEffect(() => {
-    y.set(getSnaps(screenH, navHeight, peekH).half) // départ à la moitié — screenH vient du parent
+    y.set(getSnaps(screenH, navHeight, peekH).half) // dÃ©part Ã  la moitiÃ© â€” screenH vient du parent
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const isMounted = useRef(false)
@@ -134,7 +134,7 @@ export default function BottomSheet({
     snapTo(target)
   }
 
-  // ── "Que faire" button : cycle + sélectionne ──
+  // â”€â”€ "Que faire" button : cycle + sÃ©lectionne â”€â”€
   const handleQuoiBtn = () => {
     if (!quoiOpen) {
       setQuoiOpen(true)
@@ -149,7 +149,7 @@ export default function BottomSheet({
     }
   }
 
-  // ── "Quand donc" button : cycle + reset comme "Que faire" ──
+  // â”€â”€ "Quand donc" button : cycle + reset comme "Que faire" â”€â”€
   const handleQuandBtn = () => {
     if (!quandOpen) {
       setQuandOpen(true)
@@ -225,14 +225,14 @@ export default function BottomSheet({
         transition: 'background-color 0.2s',
       }}
     >
-      {/* ── Header mesuré (peek height source) ── */}
+      {/* â”€â”€ Header mesurÃ© (peek height source) â”€â”€ */}
       <div ref={headerRef} style={{ flexShrink: 0 }}>
-      {/* ── Zone de drag : handle + compteur + boutons filtres ── */}
+      {/* â”€â”€ Zone de drag : handle + compteur + boutons filtres â”€â”€ */}
       <div
         onPointerDown={e => dragControls.start(e)}
         style={{ flexShrink: 0, cursor: 'grab', touchAction: 'none', userSelect: 'none' }}
       >
-        {/* Poignée visuelle */}
+        {/* PoignÃ©e visuelle */}
         <div style={{ padding: '12px 0 4px' }}>
           <div style={{ width: 40, height: 5, borderRadius: 3, backgroundColor: '#C8BDB0', margin: '0 auto' }} />
         </div>
@@ -240,8 +240,8 @@ export default function BottomSheet({
         {/* Logo + Compteur */}
         <div style={{ padding: '0 16px 7px', display: 'flex', alignItems: 'center', gap: 8 }}>
           <img src="/logo.svg" width={28} height={28} alt="" style={{ flexShrink: 0, borderRadius: 6 }} />
-          <p style={{ fontSize: 11, fontWeight: 700, color: sheetBg.sub, fontFamily: 'Syne, sans-serif', letterSpacing: '0.05em', textTransform: 'uppercase', margin: 0 }}>
-            {loading ? '—' : `${evenements.length} événement${evenements.length !== 1 ? 's' : ''}`}
+          <p style={{ fontSize: 11, fontWeight: 700, color: sheetBg.sub, fontFamily: 'Inter, sans-serif', letterSpacing: '0.05em', textTransform: 'uppercase', margin: 0 }}>
+            {loading ? 'â€”' : `${evenements.length} Ã©vÃ©nement${evenements.length !== 1 ? 's' : ''}`}
           </p>
         </div>
 
@@ -251,7 +251,7 @@ export default function BottomSheet({
           flex: 1, height: 50, borderRadius: 14, border: 'none',
           backgroundColor: '#2D5A3D',
           color: '#fff',
-          fontSize: 14, fontWeight: 700, fontFamily: 'Syne, sans-serif',
+          fontSize: 14, fontWeight: 700, fontFamily: 'Inter, sans-serif',
           cursor: 'pointer', overflow: 'hidden', position: 'relative',
           opacity: hasQuoi ? 1 : 0.72,
         }}>
@@ -268,7 +268,7 @@ export default function BottomSheet({
           flex: 1, height: 50, borderRadius: 14, border: 'none',
           backgroundColor: '#2D5A3D',
           color: '#fff',
-          fontSize: 14, fontWeight: 700, fontFamily: 'Syne, sans-serif',
+          fontSize: 14, fontWeight: 700, fontFamily: 'Inter, sans-serif',
           cursor: 'pointer', overflow: 'hidden', position: 'relative',
           opacity: hasQuand ? 1 : 0.72,
         }}>
@@ -283,7 +283,7 @@ export default function BottomSheet({
         </div>{/* fin boutons */}
       </div>{/* fin zone drag */}
 
-      {/* ── Row "Que faire" ── */}
+      {/* â”€â”€ Row "Que faire" â”€â”€ */}
       <AnimatePresence>
         {quoiOpen && (
           <motion.div key="quoi-row"
@@ -334,7 +334,7 @@ export default function BottomSheet({
         )}
       </AnimatePresence>
 
-      {/* ── Row "Quand donc" ── */}
+      {/* â”€â”€ Row "Quand donc" â”€â”€ */}
       <AnimatePresence>
         {quandOpen && (
           <motion.div key="quand-row"
@@ -379,16 +379,16 @@ export default function BottomSheet({
         )}
       </AnimatePresence>
 
-      {/* ── Séparateur ── */}
+      {/* â”€â”€ SÃ©parateur â”€â”€ */}
       <div style={{ height: 1, backgroundColor: sheetBg.border }} />
-      </div>{/* fin header mesuré */}
+      </div>{/* fin header mesurÃ© */}
 
-      {/* ProBandeau — visible en mode half et full */}
+      {/* ProBandeau â€” visible en mode half et full */}
       {mode !== 'peek' && proEvents.length > 0 && (
         <ProBandeau events={proEvents} onDiscover={onDiscoverPro ?? (() => {})} />
       )}
 
-      {/* ── Liste ── */}
+      {/* â”€â”€ Liste â”€â”€ */}
       <div
         ref={listRef}
         style={{ flex: 1, overflowY: 'auto', padding: '10px 16px 24px', display: 'flex', flexDirection: 'column', gap: 10 }}
@@ -398,8 +398,8 @@ export default function BottomSheet({
           [1,2,3].map(i => <SkeletonCard key={i} />)
         ) : sortedEvents.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 0', color: sheetBg.sub }}>
-            <p style={{ fontSize: 48, marginBottom: 10 }}>🏡</p>
-            <p style={{ fontWeight: 700, fontSize: 16, fontFamily: 'Syne, sans-serif', color: sheetBg.text }}>Aucun événement</p>
+            <p style={{ fontSize: 48, marginBottom: 10 }}>ðŸ¡</p>
+            <p style={{ fontWeight: 700, fontSize: 16, fontFamily: 'Inter, sans-serif', color: sheetBg.text }}>Aucun Ã©vÃ©nement</p>
             <p style={{ fontSize: 13, marginTop: 6 }}>Modifie les filtres ou ajoute quelque chose !</p>
           </div>
         ) : (
@@ -427,7 +427,7 @@ export default function BottomSheet({
   )
 }
 
-/* ── Card événement — layout horizontal : image gauche, texte droite ── */
+/* â”€â”€ Card Ã©vÃ©nement â€” layout horizontal : image gauche, texte droite â”€â”€ */
 function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, isFav, onToggleFav }: {
   evt: EvenementCard; isSelected: boolean; onSelect: () => void; onViewOnMap: () => void
   onOpenEvent?: () => void; isFav?: boolean; onToggleFav?: () => void
@@ -470,7 +470,7 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
             )}
           </div>
           <h3 style={{
-            fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 14,
+            fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14,
             color: '#1C1917', margin: 0, lineHeight: 1.3,
             overflow: 'hidden', display: '-webkit-box',
             WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
@@ -483,7 +483,7 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           {evt.date_debut ? (
             <p style={{ fontSize: 11, color: '#6B5E4E', margin: 0, fontFamily: 'Lora, serif' }}>
-              {formatDate(evt.date_debut)}{evt.heure ? ` · ${evt.heure.slice(0,5)}` : ''}
+              {formatDate(evt.date_debut)}{evt.heure ? ` Â· ${evt.heure.slice(0,5)}` : ''}
             </p>
           ) : <div />}
 

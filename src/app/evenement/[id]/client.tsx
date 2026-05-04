@@ -285,7 +285,7 @@ function ActionBar({ evt, commentCount, onCommentOpen }: { evt: Evenement; comme
                       width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
                       backgroundColor: 'var(--primary-light)', color: 'var(--primary)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontWeight: 800, fontSize: 14, fontFamily: 'Syne, sans-serif',
+                      fontWeight: 800, fontSize: 14, fontFamily: 'Inter, sans-serif',
                     }}>{p.name[0].toUpperCase()}</div>
                     <span style={{ fontSize: 14, color: '#2C1810', fontWeight: 500 }}>{p.name}</span>
                   </Link>

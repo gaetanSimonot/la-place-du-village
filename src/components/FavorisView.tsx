@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import Link from 'next/link'
 import { EvenementCard } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
@@ -17,7 +17,7 @@ export default function FavorisView({ events, onToggleFav }: Props) {
         backgroundColor: '#fff', borderBottom: '1px solid #EDE8E0',
         padding: '12px 16px',
       }}>
-        <h1 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 18, color: '#2C1810', margin: 0 }}>
+        <h1 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 18, color: '#2C1810', margin: 0 }}>
           Mes favoris
         </h1>
       </div>
@@ -25,12 +25,12 @@ export default function FavorisView({ events, onToggleFav }: Props) {
       <div style={{ padding: '16px 16px 40px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         {events.length === 0 ? (
           <div style={{ textAlign: 'center', paddingTop: 60 }}>
-            <p style={{ fontSize: 48, marginBottom: 12 }}>🤍</p>
-            <p style={{ fontWeight: 700, fontSize: 16, fontFamily: 'Syne, sans-serif', color: '#2C1810', marginBottom: 6 }}>
+            <p style={{ fontSize: 48, marginBottom: 12 }}>ðŸ¤</p>
+            <p style={{ fontWeight: 700, fontSize: 16, fontFamily: 'Inter, sans-serif', color: '#2C1810', marginBottom: 6 }}>
               Aucun favori pour l&apos;instant
             </p>
             <p style={{ fontSize: 13, color: '#8A8A8A' }}>
-              Appuie sur le cœur d&apos;un événement pour le retrouver ici.
+              Appuie sur le cÅ“ur d&apos;un Ã©vÃ©nement pour le retrouver ici.
             </p>
           </div>
         ) : (
@@ -70,12 +70,12 @@ function FavCard({ evt, onRemove }: { evt: EvenementCard; onRemove: () => void }
       </div>
 
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '8px 44px 10px 12px' }}>
-        <h3 style={{ fontSize: 14, fontWeight: 700, color: '#fff', fontFamily: 'Syne, sans-serif', lineHeight: 1.25, margin: '0 0 3px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+        <h3 style={{ fontSize: 14, fontWeight: 700, color: '#fff', fontFamily: 'Inter, sans-serif', lineHeight: 1.25, margin: '0 0 3px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
           {evt.titre}
         </h3>
         {evt.date_debut && (
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.78)', margin: 0 }}>
-            {formatDate(evt.date_debut)}{evt.heure ? ` · ${evt.heure.slice(0, 5)}` : ''}{evt.lieux?.commune ? ` • ${evt.lieux.commune}` : ''}
+            {formatDate(evt.date_debut)}{evt.heure ? ` Â· ${evt.heure.slice(0, 5)}` : ''}{evt.lieux?.commune ? ` â€¢ ${evt.lieux.commune}` : ''}
           </p>
         )}
       </div>

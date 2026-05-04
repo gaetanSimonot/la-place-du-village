@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -29,12 +29,12 @@ export default function LoginView() {
 
   if (sent) return (
     <div style={{ padding: '32px 20px', textAlign: 'center' }}>
-      <p style={{ fontSize: 44, marginBottom: 14 }}>📬</p>
+      <p style={{ fontSize: 44, marginBottom: 14 }}>ðŸ“¬</p>
       <h3 style={{ fontWeight: 800, fontSize: 20, color: '#1A1209', marginBottom: 8, fontFamily: 'Inter, sans-serif', letterSpacing: '-0.02em' }}>
-        Vérifie tes emails
+        VÃ©rifie tes emails
       </h3>
       <p style={{ fontSize: 14, color: '#8A8A8A', lineHeight: 1.6, margin: '0 0 20px' }}>
-        Un lien de connexion a été envoyé à<br />
+        Un lien de connexion a Ã©tÃ© envoyÃ© Ã <br />
         <strong style={{ color: '#2C1810' }}>{email}</strong>
       </p>
       <button onClick={() => { setSent(false); setEmail('') }}
@@ -60,7 +60,7 @@ export default function LoginView() {
           Connexion
         </h3>
         <p style={{ fontSize: 13, color: '#8A8A8A', margin: 0, lineHeight: 1.5 }}>
-          Suis tes événements favoris et personnalise ton expérience.
+          Suis tes Ã©vÃ©nements favoris et personnalise ton expÃ©rience.
         </p>
       </div>
 
@@ -105,11 +105,11 @@ export default function LoginView() {
           backgroundColor: 'var(--primary)', color: '#fff',
           fontSize: 15, fontWeight: 700, border: 'none', cursor: 'pointer',
           opacity: loading || !email.trim() ? 0.5 : 1,
-          fontFamily: 'Syne, sans-serif',
+          fontFamily: 'Inter, sans-serif',
           transition: 'opacity 0.15s',
         }}
       >
-        {loading ? 'Envoi…' : 'Recevoir le lien magique'}
+        {loading ? 'Envoiâ€¦' : 'Recevoir le lien magique'}
       </button>
 
       {error && (
