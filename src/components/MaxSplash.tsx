@@ -30,8 +30,11 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
   const [fadingOut, setFadingOut] = useState(false)
   const [idx, setIdx]             = useState(0)
   const [logoReady, setLogoReady] = useState(false)
+  const [dragX, setDragX]         = useState(0)
+  const [snapping, setSnapping]   = useState(false)
   const transitioning             = useRef(false)
   const touchStartX               = useRef<number | null>(null)
+  const liveDragX                 = useRef(0)
   const autoTimer                 = useRef<ReturnType<typeof setTimeout>>()
 
   const sorted = sortedEvents(events)
@@ -90,23 +93,52 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
     goTo(idx + 1)
   }
 
-  // Touch swipe handlers
+  // Swipe organique : suit le doigt en temps réel
   const onTouchStart = (e: React.TouchEvent) => {
+    if (snapping) return
     touchStartX.current = e.touches[0].clientX
+    liveDragX.current = 0
+    setSnapping(false)
   }
 
-  const onTouchEnd = (e: React.TouchEvent) => {
+  const onTouchMove = (e: React.TouchEvent) => {
     if (touchStartX.current === null) return
-    const dx = e.changedTouches[0].clientX - touchStartX.current
+    const dx = e.touches[0].clientX - touchStartX.current
+    // Résistance aux bords : réduit le drag si on ne peut pas aller dans ce sens
+    const canLeft  = idx + 1 < sorted.length
+    const canRight = idx > 0
+    const resistant = dx < 0 ? (canLeft ? dx : dx * 0.2) : (canRight ? dx : dx * 0.2)
+    liveDragX.current = resistant
+    setDragX(resistant)
+  }
+
+  const onTouchEnd = () => {
+    if (touchStartX.current === null) return
+    const dx = liveDragX.current
     touchStartX.current = null
-    if (Math.abs(dx) < 40) return
-    if (dx < 0) {
-      // swipe left → next
-      if (idx + 1 < sorted.length) goTo(idx + 1)
-      else dismiss()
+
+    const threshold = window.innerWidth * 0.28
+
+    if (Math.abs(dx) > threshold) {
+      // Snap vers la destination
+      const targetX = dx < 0 ? -window.innerWidth : window.innerWidth
+      setSnapping(true)
+      setDragX(targetX)
+      setTimeout(() => {
+        if (dx < 0) {
+          if (idx + 1 < sorted.length) goTo(idx + 1)
+          else dismiss()
+        } else {
+          if (idx > 0) goTo(idx - 1)
+        }
+        setDragX(0)
+        setSnapping(false)
+      }, 280)
     } else {
-      // swipe right → prev
-      if (idx > 0) goTo(idx - 1)
+      // Revenir en place
+      setSnapping(true)
+      setDragX(0)
+      setTimeout(() => setSnapping(false), 300)
     }
   }
 
@@ -174,8 +206,12 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
         position: 'fixed', inset: 0, zIndex: 500,
         fontFamily: 'Inter, sans-serif',
         animation: 'fadeIn 0.35s ease both',
+        transform: `translateX(${dragX}px)`,
+        transition: snapping ? 'transform 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none',
+        willChange: 'transform',
       }}
       onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
     >
       <style>{STYLES}</style>
