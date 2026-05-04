@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import { useAdminSession } from '@/hooks/useAdminSession'
-import { PRODUIT_CATS_MAP } from '@/lib/produit-cats'
+import { PRODUIT_CATS_MAP, normalizeProduitCat } from '@/lib/produit-cats'
 import ProducerEditDrawer from '@/components/ProducerEditDrawer'
 
 interface Producer {
@@ -168,7 +168,11 @@ export default function ProducteurPageClient({ id }: { id: string }) {
     ? `https://www.google.com/maps/dir/?api=1&destination=${producer.lat},${producer.lng}`
     : producer.adresse ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(producer.adresse)}` : null
   const byCategory: Record<string, Product[]> = {}
-  products.forEach(p => { if (!byCategory[p.categorie]) byCategory[p.categorie] = []; byCategory[p.categorie].push(p) })
+  products.forEach(p => {
+    const cat = normalizeProduitCat(p.categorie)
+    if (!byCategory[cat]) byCategory[cat] = []
+    byCategory[cat].push(p)
+  })
 
   const BTN: React.CSSProperties = { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '10px 4px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }
   const LBL: React.CSSProperties = { fontSize: 11, fontWeight: 600, fontFamily: 'Inter, sans-serif' }
