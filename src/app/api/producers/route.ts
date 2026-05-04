@@ -28,32 +28,26 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  const producers = list.map(p => ({
-    id: p.id,
-    nom: p.nom,
-    description_courte: p.description_courte ?? null,
-    commune: p.commune ?? null,
-    photo_url: (p.photos ?? [])[0] ?? null,
-    contact_whatsapp: p.contact_whatsapp ?? null,
-    contact_tel: p.contact_tel ?? null,
-    produit_categories: Array.from(
-      new Set(
-        (p.products ?? [])
-          .filter((pr: { disponible: boolean }) => pr.disponible)
-          .map((pr: { categorie: string }) => pr.categorie)
-      )
-    ),
-    produits_disponibles: (p.products ?? [])
-      .filter((pr: { disponible: boolean }) => pr.disponible)
-      .map((pr: { nom: string; categorie: string; prix_indicatif: string | null; periode_dispo: string | null; dispo_jusqu_au: string | null }) => ({
-        nom: pr.nom, categorie: pr.categorie, prix_indicatif: pr.prix_indicatif,
-        periode_dispo: pr.periode_dispo, dispo_jusqu_au: pr.dispo_jusqu_au,
+  const producers = list.map(p => {
+    const disponibles = (p.products ?? []).filter((pr: { disponible: boolean }) => pr.disponible)
+    return {
+      id: p.id,
+      nom: p.nom,
+      description_courte: p.description_courte ?? null,
+      commune: p.commune ?? null,
+      photo_url: (p.photos ?? [])[0] ?? null,
+      contact_whatsapp: p.contact_whatsapp ?? null,
+      contact_tel: p.contact_tel ?? null,
+      site_web: p.site_web ?? null,
+      produit_categories: Array.from(new Set(disponibles.map((pr: { categorie: string }) => pr.categorie))),
+      produits_disponibles: disponibles.map((pr: { nom: string; categorie: string; prix_indicatif: string | null; periode_dispo: string | null }) => ({
+        nom: pr.nom, categorie: pr.categorie, prix_indicatif: pr.prix_indicatif, periode_dispo: pr.periode_dispo,
       })),
-    lat: p.lat ?? null,
-    lng: p.lng ?? null,
-    is_max: p.is_max ?? false,
-    site_web: p.site_web ?? null,
-  }))
+      lat: p.lat ?? null,
+      lng: p.lng ?? null,
+      is_max: p.is_max ?? false,
+    }
+  })
 
   return NextResponse.json({ producers })
 }

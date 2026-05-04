@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import ProfilView from '@/components/ProfilView'
-import { EvenementCard, Filtres } from '@/lib/types'
+import { EvenementCard, Filtres, ProduitCategorie } from '@/lib/types'
 import { getDateRange } from '@/lib/filters'
 import { useTheme } from '@/components/ThemeProvider'
 import { haversineKm, GANGES } from '@/lib/distance'
@@ -78,6 +78,8 @@ export default function HomePage() {
   const [producers, setProducers]             = useState<import('@/lib/types').ProducerCard[]>([])
   const [producerLoading, setProducerLoading] = useState(false)
   const [selectedProducerId, setSelectedProducerId] = useState<string | null>(null)
+  const [produitCat, setProduitCat] = useState<ProduitCategorie | null>(null)
+  const [producerSearch, setProducerSearch] = useState('')
   const [loading, setLoading]       = useState(true)
   const [masquerPasses, setMasquerPasses] = useState(true)
   const [zoneCentres, setZoneCentres]   = useState<{ lat: number; lng: number; nom: string }[]>([])
@@ -406,6 +408,20 @@ export default function HomePage() {
     setSheetMode('half')
   }
 
+  const filteredProducers = useMemo(() => {
+    return producers
+      .filter(p => !produitCat || p.produit_categories.includes(produitCat))
+      .filter(p => !producerSearch || p.nom.toLowerCase().includes(producerSearch.toLowerCase()))
+  }, [producers, produitCat, producerSearch])
+
+  const handleViewProducerOnMap = (id: string) => {
+    const p = producers.find(x => x.id === id)
+    setSelectedProducerId(id)
+    setNavTab('carte')
+    setSheetMode('half')
+    if (p?.lat && p?.lng) setMapCenterOn({ lat: p.lat, lng: p.lng, zoom: 15 })
+  }
+
   const saveNavForEvent = useCallback((id: string) => {
     try {
       sessionStorage.setItem('pdv-nav-state', JSON.stringify({
@@ -433,7 +449,7 @@ export default function HomePage() {
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 40, zIndex: 5, pointerEvents: 'auto' }} />
         <MapView
           evenements={appMode === 'annuaire' ? [] : evenements}
-          producers={appMode === 'annuaire' ? producers : []}
+          producers={appMode === 'annuaire' ? filteredProducers : []}
           selectedProducerId={selectedProducerId}
           onSelectProducer={setSelectedProducerId}
           selectedId={selectedId}
@@ -816,8 +832,15 @@ export default function HomePage() {
         onToggleFav={toggleFav}
         appMode={appMode}
         onAppModeChange={setAppMode}
-        producers={producers}
+        producers={filteredProducers}
         producerLoading={producerLoading}
+        selectedProducerId={selectedProducerId}
+        onSelectProducer={setSelectedProducerId}
+        onViewProducerOnMap={handleViewProducerOnMap}
+        produitCat={produitCat}
+        onProduitCatChange={setProduitCat}
+        producerSearch={producerSearch}
+        onProducerSearchChange={setProducerSearch}
       />
 
       {/* Favoris — panneau inline au-dessus de la carte */}

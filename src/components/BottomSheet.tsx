@@ -35,14 +35,17 @@ const ANNUAIRE_TABS = [
 const PRODUIT_CATS: { id: ProduitCategorie; label: string; emoji: string }[] = [
   { id: 'oeufs',     label: 'Œufs',      emoji: '🥚' },
   { id: 'legumes',   label: 'Légumes',   emoji: '🥬' },
+  { id: 'fruits',    label: 'Fruits',    emoji: '🍎' },
   { id: 'fromage',   label: 'Fromage',   emoji: '🧀' },
   { id: 'lait',      label: 'Lait',      emoji: '🥛' },
   { id: 'pain',      label: 'Pain',      emoji: '🍞' },
   { id: 'volaille',  label: 'Volaille',  emoji: '🐓' },
   { id: 'miel',      label: 'Miel',      emoji: '🍯' },
   { id: 'panier',    label: 'Panier',    emoji: '🧺' },
-  { id: 'fruits',    label: 'Fruits',    emoji: '🍎' },
   { id: 'viande',    label: 'Viande',    emoji: '🥩' },
+  { id: 'plantes',   label: 'Plantes',   emoji: '🌿' },
+  { id: 'huiles',    label: 'Huiles',    emoji: '🫙' },
+  { id: 'boissons',  label: 'Boissons',  emoji: '🍾' },
   { id: 'artisanat', label: 'Artisanat', emoji: '🏺' },
   { id: 'autre',     label: 'Autre',     emoji: '✦'  },
 ]
@@ -69,6 +72,13 @@ interface Props {
   onAppModeChange: (m: AppMode) => void
   producers?: ProducerCard[]
   producerLoading?: boolean
+  selectedProducerId?: string | null
+  onSelectProducer?: (id: string | null) => void
+  onViewProducerOnMap?: (id: string) => void
+  produitCat?: ProduitCategorie | null
+  onProduitCatChange?: (cat: ProduitCategorie | null) => void
+  producerSearch?: string
+  onProducerSearchChange?: (q: string) => void
 }
 
 export default function BottomSheet({
@@ -77,6 +87,8 @@ export default function BottomSheet({
   onPeekHeightChange, proEvents = [], onDiscoverPro, onOpenEvent,
   favIds = [], onToggleFav,
   appMode, onAppModeChange, producers = [], producerLoading = false,
+  selectedProducerId = null, onSelectProducer, onViewProducerOnMap,
+  produitCat = null, onProduitCatChange, producerSearch = '', onProducerSearchChange,
 }: Props) {
   const { sheetBg } = useTheme()
   const { user } = useAuth()
@@ -113,8 +125,6 @@ export default function BottomSheet({
   // Annuaire state
   const [annuaireTabIdx,  setAnnuaireTabIdx]  = useState(0)
   const [annuaireRowOpen, setAnnuaireRowOpen] = useState(false)
-  const [produitCat,      setProduitCat]      = useState<ProduitCategorie | null>(null)
-  const [producerSearch,  setProducerSearch]  = useState('')
 
   // Refs pour auto-scroll des rows
   const quoiPillRefs  = useRef<(HTMLButtonElement | null)[]>([])
@@ -238,7 +248,7 @@ export default function BottomSheet({
   // Reset state quand on change de mode
   useEffect(() => {
     if (appMode === 'annuaire') { setQuoiOpen(false); setQuandOpen(false) }
-    else { setAnnuaireRowOpen(false); setProduitCat(null); setProducerSearch('') }
+    else { setAnnuaireRowOpen(false); onProduitCatChange?.(null); onProducerSearchChange?.('') }
   }, [appMode])
 
   const handleAnnuaireBtn = () => {
@@ -483,9 +493,9 @@ export default function BottomSheet({
           {/* Catégories produits */}
           {annuaireTabIdx === 0 && (
             <div style={{ display: 'flex', gap: 7, padding: '0 16px 8px', overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }} onPointerDown={e => e.stopPropagation()}>
-              <button onClick={() => setProduitCat(null)} style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${sheetBg.border}`, backgroundColor: !produitCat ? 'var(--primary)' : sheetBg.pill, color: !produitCat ? '#fff' : sheetBg.sub, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', minHeight: 34 }}>Tout</button>
+              <button onClick={() => onProduitCatChange?.(null)} style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${sheetBg.border}`, backgroundColor: !produitCat ? 'var(--primary)' : sheetBg.pill, color: !produitCat ? '#fff' : sheetBg.sub, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', minHeight: 34 }}>Tout</button>
               {PRODUIT_CATS.map(cat => (
-                <button key={cat.id} onClick={() => setProduitCat(produitCat === cat.id ? null : cat.id)}
+                <button key={cat.id} onClick={() => onProduitCatChange?.(produitCat === cat.id ? null : cat.id)}
                   style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${sheetBg.border}`, backgroundColor: produitCat === cat.id ? 'var(--primary)' : sheetBg.pill, color: produitCat === cat.id ? '#fff' : sheetBg.sub, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', minHeight: 34, display: 'flex', alignItems: 'center', gap: 4 }}>
                   {cat.emoji} {cat.label}
                 </button>
@@ -495,7 +505,7 @@ export default function BottomSheet({
 
           {/* Barre de recherche */}
           <div style={{ padding: '0 16px 10px' }} onPointerDown={e => e.stopPropagation()}>
-            <input type="text" value={producerSearch} onChange={e => setProducerSearch(e.target.value)}
+            <input type="text" value={producerSearch} onChange={e => onProducerSearchChange?.(e.target.value)}
               placeholder="Rechercher un producteur…"
               style={{ width: '100%', padding: '10px 14px', borderRadius: 12, border: `1.5px solid ${sheetBg.border}`, fontSize: 13, fontFamily: 'Inter, sans-serif', color: '#2C1810', backgroundColor: sheetBg.bg, outline: 'none', boxSizing: 'border-box' }} />
           </div>
@@ -526,7 +536,15 @@ export default function BottomSheet({
               <p style={{ fontSize: 13, marginTop: 6, lineHeight: 1.5, fontFamily: 'Inter, sans-serif' }}>Les fiches arrivent bientôt.</p>
             </div>
           ) : (
-            producers.map(p => <ProducerListCard key={p.id} producer={p} />)
+            producers.map(p => (
+              <ProducerListCard
+                key={p.id}
+                producer={p}
+                isSelected={p.id === selectedProducerId}
+                onSelect={() => onSelectProducer?.(p.id)}
+                onViewOnMap={() => onViewProducerOnMap?.(p.id)}
+              />
+            ))
           )
         ) : loading ? (
           [1,2,3].map(i => <SkeletonCard key={i} />)
@@ -658,33 +676,53 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
   )
 }
 
-function ProducerListCard({ producer }: { producer: ProducerCard }) {
+function ProducerListCard({ producer, isSelected, onSelect, onViewOnMap }: {
+  producer: ProducerCard; isSelected: boolean; onSelect: () => void; onViewOnMap: () => void
+}) {
   const cats = producer.produit_categories
     .slice(0, 3)
     .map(id => PRODUIT_CATS.find(p => p.id === id))
     .filter(Boolean)
 
   return (
-    <div style={{ height: 86, borderRadius: 14, display: 'flex', overflow: 'hidden', backgroundColor: '#fff', boxShadow: '0 1px 6px rgba(44,44,44,0.09)', flexShrink: 0 }}>
+    <Link href={`/producteur/${producer.id}`} onClick={onSelect} style={{
+      display: 'flex', height: 86, flexShrink: 0,
+      borderRadius: 14, overflow: 'hidden', textDecoration: 'none',
+      backgroundColor: '#fff',
+      boxShadow: isSelected
+        ? '0 0 0 2.5px #2D5A3D, 0 4px 18px rgba(0,0,0,0.14)'
+        : '0 1px 6px rgba(44,44,44,0.09)',
+    }}>
       <div style={{ width: 86, flexShrink: 0, backgroundColor: '#E8F2EB', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
         {producer.photo_url
-          ? <img src={producer.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ? <img src={producer.photo_url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : <span style={{ fontSize: 32 }}>🌿</span>}
       </div>
       <div style={{ flex: 1, padding: '8px 10px 8px 12px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minWidth: 0 }}>
         <div>
           <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14, color: '#1C1917', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{producer.nom}</p>
-          {producer.commune && <p style={{ fontSize: 11, color: '#6B5E4E', margin: 0, fontFamily: 'Lora, serif' }}>{producer.commune}</p>}
+          {producer.commune && <p style={{ fontSize: 11, color: '#6B5E4E', margin: 0, fontFamily: 'Lora, serif' }}>📍 {producer.commune}</p>}
         </div>
-        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-          {cats.map(c => c && (
-            <span key={c.id} style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, backgroundColor: '#E8F2EB', color: '#2D5A3D', fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>
-              {c.emoji} {c.label}
-            </span>
-          ))}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
+            {cats.map(c => c && (
+              <span key={c.id} style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, backgroundColor: '#E8F2EB', color: '#2D5A3D', fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>
+                {c.emoji} {c.label}
+              </span>
+            ))}
+          </div>
+          {producer.lat && producer.lng && (
+            <button onClick={e => { e.preventDefault(); e.stopPropagation(); onViewOnMap() }}
+              style={{ width: 26, height: 26, borderRadius: 7, backgroundColor: '#EDE8DF', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B5E4E', flexShrink: 0 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                <circle cx="12" cy="9" r="2.5" fill="currentColor" stroke="none"/>
+              </svg>
+            </button>
+          )}
         </div>
       </div>
-    </div>
+    </Link>
   )
 }
 

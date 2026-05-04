@@ -78,7 +78,7 @@ export interface Filtres {
 
 export type AppMode = 'agenda' | 'annuaire'
 
-export type ProduitCategorie = 'oeufs' | 'legumes' | 'fromage' | 'lait' | 'pain' | 'volaille' | 'miel' | 'panier' | 'fruits' | 'viande' | 'artisanat' | 'autre'
+export type ProduitCategorie = 'oeufs' | 'legumes' | 'fruits' | 'fromage' | 'lait' | 'pain' | 'volaille' | 'miel' | 'panier' | 'viande' | 'plantes' | 'huiles' | 'boissons' | 'artisanat' | 'autre'
 
 export interface ProducerCard {
   id: string
@@ -88,7 +88,9 @@ export interface ProducerCard {
   photo_url: string | null
   contact_whatsapp: string | null
   contact_tel: string | null
+  site_web: string | null
   produit_categories: ProduitCategorie[]
+  produits_disponibles: { nom: string; categorie: string; prix_indicatif: string | null; periode_dispo: string | null }[]
   lat: number | null
   lng: number | null
   is_max: boolean
