@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json()
   const { nom, description_courte, description_longue, commune, adresse, lat, lng,
-          contact_tel, contact_whatsapp, site_web, photos } = body
+          contact_tel, contact_whatsapp, site_web, photos, pro_type } = body
 
   const { data, error } = await supabaseAdmin
     .from('producers')
@@ -78,6 +78,11 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  if (pro_type) {
+    await supabaseAdmin.from('profiles').update({ pro_type }).eq('user_id', user.id)
+  }
+
   return NextResponse.json({ producer: data })
 }
 
@@ -100,5 +105,10 @@ export async function PATCH(req: NextRequest) {
     .from('producers').update(update).eq('id', producer.id).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  if ('pro_type' in body) {
+    await supabaseAdmin.from('profiles').update({ pro_type: body.pro_type || null }).eq('user_id', user.id)
+  }
+
   return NextResponse.json({ producer: data })
 }

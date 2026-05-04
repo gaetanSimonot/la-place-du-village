@@ -17,6 +17,16 @@ const CATEGORIES = ['Fruits & Légumes', 'Viandes & Charcuterie', 'Fromages & La
   'Miel & Confitures', 'Pains & Pâtisseries', 'Plantes & Fleurs', 'Huiles & Condiments',
   'Boissons', 'Artisanat', 'Autre']
 
+const PRO_TYPES = [
+  { id: 'producteur',    label: '🌿 Producteur local' },
+  { id: 'artisan',       label: '🔨 Artisan' },
+  { id: 'restaurateur',  label: '🍽 Restaurateur' },
+  { id: 'commercant',    label: '🛍 Commerçant' },
+  { id: 'association',   label: '🤝 Association' },
+  { id: 'prestataire',   label: '💼 Prestataire' },
+  { id: 'autre',         label: '● Autre' },
+]
+
 const inputStyle: React.CSSProperties = {
   width: '100%', boxSizing: 'border-box', padding: '10px 12px',
   borderRadius: 10, border: '1px solid #DDD', fontFamily: 'Inter, sans-serif',
@@ -29,6 +39,7 @@ const labelStyle: React.CSSProperties = {
 
 export default function MonEspaceProducteur() {
   const [plan, setPlan] = useState<string | null>(null)
+  const [proType, setProType] = useState<string | null>(null)
   const [producer, setProducer] = useState<Producer | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
@@ -58,6 +69,7 @@ export default function MonEspaceProducteur() {
     if (!res.ok) { setLoading(false); return }
     const d = await res.json()
     setPlan(d.plan)
+    setProType(d.pro_type ?? null)
     setProducer(d.producer ?? null)
     setProducts(d.products ?? [])
     setLoading(false)
@@ -71,10 +83,11 @@ export default function MonEspaceProducteur() {
     setEditing(true)
   }
 
-  function startCreate() {
+  function startCreate(preType?: string) {
     setEditData({ nom: '', photos: [] })
     setAddrQuery('')
     setSuggestions([])
+    if (preType) setProType(preType)
     setCreating(true)
   }
 
@@ -86,7 +99,7 @@ export default function MonEspaceProducteur() {
     const res = await fetch('/api/mon-producteur', {
       method,
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(editData),
+      body: JSON.stringify({ ...editData, pro_type: proType }),
     })
     if (res.ok) {
       const d = await res.json()
@@ -216,6 +229,22 @@ export default function MonEspaceProducteur() {
         </h2>
       </div>
 
+      {/* Catégorie */}
+      <div style={{ marginBottom: 20 }}>
+        <span style={labelStyle}>Votre activité *</span>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {PRO_TYPES.map(t => (
+            <button key={t.id} onClick={() => setProType(t.id)} style={{
+              padding: '8px 14px', borderRadius: 999, border: 'none', cursor: 'pointer',
+              fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 600,
+              backgroundColor: proType === t.id ? 'var(--primary)' : '#EDE8E0',
+              color: proType === t.id ? '#fff' : '#555',
+              transition: 'all 0.15s',
+            }}>{t.label}</button>
+          ))}
+        </div>
+      </div>
+
       {/* Photos */}
       <div style={{ marginBottom: 20 }}>
         <span style={labelStyle}>Photos (max 3)</span>
@@ -283,9 +312,9 @@ export default function MonEspaceProducteur() {
         </div>
       </div>
 
-      <button onClick={saveProfile} disabled={saving || !editData.nom?.trim()} style={{
+      <button onClick={saveProfile} disabled={saving || !editData.nom?.trim() || !proType} style={{
         marginTop: 24, width: '100%', padding: '14px', borderRadius: 12, border: 'none',
-        backgroundColor: saving || !editData.nom?.trim() ? '#CCC' : 'var(--primary)',
+        backgroundColor: saving || !editData.nom?.trim() || !proType ? '#CCC' : 'var(--primary)',
         color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15, cursor: saving ? 'default' : 'pointer',
       }}>
         {saving ? 'Enregistrement...' : 'Enregistrer ma fiche'}
@@ -295,12 +324,28 @@ export default function MonEspaceProducteur() {
 
   // No producer yet
   if (!producer) return (
-    <div style={{ padding: '32px 16px', textAlign: 'center' }}>
-      <div style={{ fontSize: 36, marginBottom: 12 }}>🌿</div>
-      <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 18, color: '#2C1810', marginBottom: 8 }}>Créez votre fiche producteur</h2>
-      <p style={{ fontSize: 14, color: '#8A8A8A', lineHeight: 1.6, marginBottom: 20 }}>Votre plan MAX vous permet de créer et gérer votre profil dans l&apos;annuaire de La Place du Village.</p>
-      <button onClick={startCreate} style={{ padding: '13px 28px', borderRadius: 12, border: 'none', backgroundColor: 'var(--primary)', color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
-        Créer ma fiche
+    <div style={{ padding: '24px 0 40px' }}>
+      <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 18, color: '#2C1810', marginBottom: 4 }}>Créez votre fiche</h2>
+      <p style={{ fontSize: 14, color: '#8A8A8A', lineHeight: 1.6, marginBottom: 20, margin: '0 0 20px' }}>Votre plan MAX vous permet d&apos;apparaître dans l&apos;annuaire. Commencez par choisir votre activité.</p>
+      <p style={{ fontSize: 12, fontWeight: 700, color: '#6B6B6B', fontFamily: 'Inter, sans-serif', marginBottom: 10 }}>Je suis…</p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
+        {PRO_TYPES.map(t => (
+          <button key={t.id} onClick={() => setProType(t.id)} style={{
+            padding: '10px 16px', borderRadius: 999, border: 'none', cursor: 'pointer',
+            fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 600,
+            backgroundColor: proType === t.id ? 'var(--primary)' : '#EDE8E0',
+            color: proType === t.id ? '#fff' : '#555',
+            transition: 'all 0.15s',
+          }}>{t.label}</button>
+        ))}
+      </div>
+      <button onClick={() => startCreate()} disabled={!proType} style={{
+        width: '100%', padding: '14px', borderRadius: 12, border: 'none',
+        backgroundColor: proType ? 'var(--primary)' : '#CCC',
+        color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15,
+        cursor: proType ? 'pointer' : 'default',
+      }}>
+        Créer ma fiche →
       </button>
     </div>
   )
