@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const [profileRes, adminRes] = await Promise.allSettled([
         supabase
           .from('profiles')
-          .select('display_name, avatar_url, email, username, banned')
+          .select('*')
           .eq('user_id', userId)
           .single(),
         email
@@ -104,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .from('profiles')
       .update({ display_name: name })
       .eq('user_id', user.id)
-      .select('display_name, avatar_url, email, username, banned')
+      .select('*')
       .single()
     if (data) setProfile({ ...data, id: user.id } as Profile)
   }

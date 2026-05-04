@@ -64,7 +64,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
       setLoading(true)
       try {
         const [{ data: p }, { count: fc }, { count: ing }] = await Promise.all([
-          supabase.from('profiles').select('display_name, avatar_url, email, bio, ville').eq('user_id', id).single(),
+          supabase.from('profiles').select('*').eq('user_id', id).single(),
           supabase.from('follows').select('*', { count: 'exact', head: true }).eq('followed_id', id),
           supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
         ])
