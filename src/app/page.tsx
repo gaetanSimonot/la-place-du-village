@@ -831,7 +831,8 @@ export default function HomePage() {
         </div>
       )}
 
-      <MaxSplash events={maxEvents} loading={loading} />
+      {/* MaxSplash désactivé temporairement pour diagnostic */}
+      {/* <MaxSplash events={maxEvents} loading={loading} /> */}
 
       {/* Bottom Nav — 3 onglets */}
       <nav style={{
