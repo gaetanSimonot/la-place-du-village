@@ -194,7 +194,7 @@ export default function MaxSplash({ events, loading = false }: Props) {
           <span style={{
             fontSize: 10, fontWeight: 800, color: '#fff', backgroundColor: '#EC407A',
             padding: '4px 11px', borderRadius: 999, letterSpacing: '0.07em',
-            textTransform: 'uppercase', fontFamily: 'Syne, sans-serif',
+            textTransform: 'uppercase', fontFamily: 'Inter, sans-serif',
           }}>✦ Événement à la une</span>
         </div>
 

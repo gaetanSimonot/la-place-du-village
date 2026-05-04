@@ -119,7 +119,7 @@ export default function ProBandeau({ events, onDiscover }: Props) {
             fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase',
             color: '#fff', backgroundColor: '#EC407A',
             borderRadius: 999, padding: '3px 9px',
-            fontFamily: 'Syne, sans-serif', whiteSpace: 'nowrap',
+            fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap',
             boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
           }}>✦ À la une</span>
 
