@@ -38,6 +38,7 @@ export default function MembresAdmin() {
   const [search, setSearch]     = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [saving, setSaving]     = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   // Edit fields — reset on expand
   const [editName, setEditName]       = useState('')
@@ -77,12 +78,17 @@ export default function MembresAdmin() {
   const saveMember = async (e: React.MouseEvent, membre: Membre) => {
     e.stopPropagation()
     setSaving(membre.id)
+    setSaveError(null)
     const t = await token()
-    await fetch('/api/admin/membres', {
+    const res = await fetch('/api/admin/membres', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
-      body: JSON.stringify({ user_id: membre.id, plan: editPlan, pro_type: editProType || null, display_name: editName || null, bio: editBio || null }),
+      body: JSON.stringify({ user_id: membre.id, plan: editPlan, pro_type: editProType || null, display_name: editName || null }),
     })
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}))
+      setSaveError(d.error ?? `Erreur ${res.status}`)
+    }
     await fetchAll()
     setSaving(null)
   }
@@ -281,6 +287,9 @@ export default function MembresAdmin() {
                     >
                       {isSaving ? 'Enregistrement…' : 'Sauvegarder les modifications'}
                     </button>
+                    {saveError && (
+                      <p style={{ margin: '6px 0 0', fontSize: 11, color: '#C4622D', textAlign: 'center' }}>⚠ {saveError}</p>
+                    )}
                   </div>
 
                   {/* Fiche annuaire — Max seulement */}

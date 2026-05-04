@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   const [{ data: producers }, { data: profilesData }] = await Promise.all([
     supabaseAdmin.from('producers').select('id, user_id, nom, is_max, photos, commune'),
-    supabaseAdmin.from('profiles').select('id, plan, pro_type, display_name, bio'),
+    supabaseAdmin.from('profiles').select('id, plan, pro_type, display_name'),
   ])
 
   const producerByUser: Record<string, { id: string; nom: string; is_max: boolean; photo: string | null; commune: string | null }> = {}
@@ -26,9 +26,9 @@ export async function GET(req: NextRequest) {
     if (p.user_id) producerByUser[p.user_id] = { id: p.id, nom: p.nom, is_max: p.is_max, photo: (p.photos ?? [])[0] ?? null, commune: p.commune ?? null }
   }
 
-  const profileByUser: Record<string, { plan: string; pro_type: string | null; display_name: string | null; bio: string | null }> = {}
+  const profileByUser: Record<string, { plan: string; pro_type: string | null; display_name: string | null }> = {}
   for (const p of profilesData ?? []) {
-    profileByUser[p.id] = { plan: p.plan, pro_type: p.pro_type, display_name: p.display_name, bio: p.bio }
+    profileByUser[p.id] = { plan: p.plan, pro_type: p.pro_type, display_name: p.display_name }
   }
 
   const membres = (users ?? []).map(u => {
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
       plan,
       pro_type: profile?.pro_type ?? null,
       display_name: profile?.display_name ?? null,
-      bio: profile?.bio ?? null,
+      bio: null,
       producer,
     }
   }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -68,12 +68,10 @@ export async function PATCH(req: NextRequest) {
 
     let error
     if (existing) {
-      // Row exists — only update the plan-related fields
       ;({ error } = await supabaseAdmin.from('profiles').update({
         plan: plan ?? 'basic',
         pro_type: pro_type || null,
         display_name: display_name || null,
-        bio: bio || null,
         updated_at: new Date().toISOString(),
       }).eq('id', user_id))
     } else {
@@ -88,7 +86,6 @@ export async function PATCH(req: NextRequest) {
         banned: false,
         plan: plan ?? 'basic',
         pro_type: pro_type || null,
-        bio: bio || null,
         updated_at: new Date().toISOString(),
       }))
     }
