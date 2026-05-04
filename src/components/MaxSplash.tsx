@@ -4,7 +4,7 @@ import { EvenementCard } from '@/lib/types'
 import { formatDate } from '@/lib/filters'
 import { CATEGORIES } from '@/lib/categories'
 
-const SESSION_KEY = 'pdv-max-seen'
+const SEEN_KEY = 'pdv-max-seen'
 const AUTO_ADVANCE_MS = 6000
 
 type Phase = 'logo' | 'event' | 'dismissed'
@@ -59,7 +59,7 @@ export default function MaxSplash({ events, loading = false }: Props) {
   const n    = evts.length
 
   useEffect(() => {
-    if (sessionStorage.getItem(SESSION_KEY)) setPhase('dismissed')
+    if (localStorage.getItem(SEEN_KEY)) setPhase('dismissed')
   }, [])
 
   useEffect(() => {
@@ -69,7 +69,7 @@ export default function MaxSplash({ events, loading = false }: Props) {
 
   useEffect(() => {
     if (phase !== 'logo') return
-    if (sessionStorage.getItem(SESSION_KEY)) return
+    if (localStorage.getItem(SEEN_KEY)) return
     if (!logoReady || loading) return
     if (transitioning.current) return
     transitioning.current = true
@@ -91,7 +91,7 @@ export default function MaxSplash({ events, loading = false }: Props) {
 
   const dismiss = () => {
     clearTimeout(autoTimer.current)
-    sessionStorage.setItem(SESSION_KEY, '1')
+    localStorage.setItem(SEEN_KEY, '1')
     setPhase('dismissed')
   }
 

@@ -179,7 +179,12 @@ export default function HomePage() {
       .finally(() => setZoneLoaded(true))
   }, [])
 
-  useLayoutEffect(() => { setScreenH(window.innerHeight) }, [])
+  useLayoutEffect(() => {
+    const update = () => setScreenH(window.innerHeight)
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [])
 
   // Persist current tab so OAuth redirect can restore it
   useEffect(() => {
@@ -214,6 +219,20 @@ export default function HomePage() {
       }
     } catch {}
   }, []) // mount only
+
+  // Nettoyage défensif au démarrage — évite les états bloquants sur cold restart
+  useEffect(() => {
+    try {
+      const nav = sessionStorage.getItem('pdv-nav-state')
+      if (nav) {
+        const parsed = JSON.parse(nav)
+        // Si la clé existe mais est invalide/vieille, on la purge
+        if (!parsed || typeof parsed !== 'object') sessionStorage.removeItem('pdv-nav-state')
+      }
+    } catch {
+      sessionStorage.removeItem('pdv-nav-state')
+    }
+  }, [])
 
   // Config chargée une seule fois au mount + écoute changements admin
   useEffect(() => {
@@ -761,7 +780,7 @@ export default function HomePage() {
       />
 
       {/* ProBandeau — flotte au-dessus de la sheet (sauf quand full, géré dans BottomSheet) */}
-      {(proEvents.length > 0 || maxEvents.length > 0) && sheetMode !== 'full' && (() => {
+      {(proEvents.length > 0 || maxEvents.length > 0) && sheetMode !== 'full' && !loading && navTab !== 'profil' && (() => {
         const SHEET_H = screenH - 60 - NAV_H
         const bottom = sheetMode === 'peek'
           ? NAV_H + sheetPeekH
