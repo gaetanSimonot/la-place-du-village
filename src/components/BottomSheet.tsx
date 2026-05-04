@@ -92,9 +92,9 @@ export default function BottomSheet({
   const getSnaps = useCallback((h: number, navH: number, ph: number) => {
     const sh = h - FULL_TOP - navH
     return {
-      peek: sh - ph,
-      half: Math.round(sh * 0.5),
-      full: -FULL_TOP,
+      peek: FULL_TOP + sh - ph,
+      half: FULL_TOP + Math.round(sh * 0.5),
+      full: 0,
     }
   }, [])
 
@@ -204,21 +204,19 @@ export default function BottomSheet({
 
   const visibleEvents = sortedEvents.slice(0, visibleCount)
 
-  const SHEET_H = screenH - FULL_TOP - navHeight
-
   return (
     <motion.div
       drag="y"
       dragControls={dragControls}
       dragListener={false}
-      dragConstraints={{ top: -FULL_TOP, bottom: snaps.peek }}
+      dragConstraints={{ top: 0, bottom: snaps.peek }}
       dragElastic={0.05}
       onDragEnd={handleDragEnd}
       style={{
         y,
         position: 'absolute',
-        left: 0, right: 0, top: FULL_TOP,
-        height: SHEET_H,
+        left: 0, right: 0, top: 0,
+        height: screenH - navHeight,
         backgroundColor: sheetBg.bg,
         borderRadius: '20px 20px 0 0',
         boxShadow: '0 -4px 28px rgba(0,0,0,0.12)',
@@ -239,8 +237,9 @@ export default function BottomSheet({
           <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: sheetBg.border, margin: '0 auto' }} />
         </div>
 
-        {/* Compteur */}
-        <div style={{ padding: '0 16px 7px' }}>
+        {/* Logo + Compteur */}
+        <div style={{ padding: '0 16px 7px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <img src="/logo.svg" width={28} height={28} alt="" style={{ flexShrink: 0, borderRadius: 6 }} />
           <p style={{ fontSize: 11, fontWeight: 700, color: sheetBg.sub, fontFamily: 'Inter, sans-serif', letterSpacing: '0.04em', textTransform: 'uppercase', margin: 0 }}>
             {loading ? '—' : `${evenements.length} événement${evenements.length !== 1 ? 's' : ''}`}
           </p>
@@ -382,8 +381,8 @@ export default function BottomSheet({
       <div style={{ height: 1, backgroundColor: sheetBg.border }} />
       </div>{/* fin header mesuré */}
 
-      {/* ProBandeau — à l'intérieur du sheet en mode full uniquement */}
-      {mode === 'full' && proEvents.length > 0 && (
+      {/* ProBandeau — visible en mode half et full */}
+      {mode !== 'peek' && proEvents.length > 0 && (
         <ProBandeau events={proEvents} onDiscover={onDiscoverPro ?? (() => {})} />
       )}
 

@@ -14,8 +14,8 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 
 import MaxSplash from '@/components/MaxSplash'
-import ProBandeau from '@/components/ProBandeau'
 import FavorisView from '@/components/FavorisView'
+import AppSplash from '@/components/AppSplash'
 import { useFavorites } from '@/hooks/useFavorites'
 
 const MapView     = dynamic(() => import('@/components/MapView'),     { ssr: false })
@@ -71,6 +71,7 @@ export default function HomePage() {
   const [filtres, setFiltres]       = useState<Filtres>(defaultFiltres)
   const [allEvenements, setAllEvenements] = useState<EvenementCard[]>([])
   const [promoEventsData, setPromoEventsData] = useState<EvenementCard[]>([])
+  const [splashDone, setSplashDone] = useState(false)
   const [loading, setLoading]       = useState(true)
   const [masquerPasses, setMasquerPasses] = useState(true)
   const [zoneCentres, setZoneCentres]   = useState<{ lat: number; lng: number; nom: string }[]>([])
@@ -88,7 +89,7 @@ export default function HomePage() {
   const prevUserRef  = useRef<typeof user>(null)
   const [geocoding, setGeocoding]       = useState(false)
   const [sheetMode, setSheetMode]   = useState<'peek'|'half'|'full'>('half')
-  const [sheetPeekH, setSheetPeekH] = useState(130)
+  const [, setSheetPeekH] = useState(130)
   const [screenH, setScreenH]       = useState(812)
   const [navTab, setNavTab]         = useState<NavTab>('carte')
   const [searchOpen, setSearchOpen] = useState(false)
@@ -790,24 +791,6 @@ export default function HomePage() {
         onToggleFav={toggleFav}
       />
 
-      {/* ProBandeau — flotte au-dessus de la sheet (sauf quand full, géré dans BottomSheet) */}
-      {(proEvents.length > 0 || maxEvents.length > 0) && sheetMode !== 'full' && !loading && navTab !== 'profil' && (() => {
-        const SHEET_H = screenH - 60 - NAV_H
-        const bottom = sheetMode === 'peek'
-          ? NAV_H + sheetPeekH
-          : NAV_H + Math.round(SHEET_H * 0.5)
-        return (
-          <div style={{
-            position: 'absolute', left: 0, right: 0,
-            bottom, zIndex: 21,
-            transition: 'bottom 0.35s cubic-bezier(0.33,1,0.68,1)',
-            pointerEvents: 'auto',
-          }}>
-            <ProBandeau events={[...maxEvents, ...proEvents]} onDiscover={id => router.push(`/evenement/${id}`)} />
-          </div>
-        )
-      })()}
-
       {/* Favoris — panneau inline au-dessus de la carte */}
       {navTab === 'favoris' && (
         <div style={{
@@ -833,7 +816,9 @@ export default function HomePage() {
 
       <MaxSplash events={maxEvents} loading={loading} />
 
-      {/* Bottom Nav — 3 onglets */}
+      {!splashDone && <AppSplash onDone={() => setSplashDone(true)} />}
+
+      {/* Bottom Nav */}
       <nav style={{
         position: 'absolute', bottom: 0, left: 0, right: 0, height: NAV_H,
         backgroundColor: '#fff', borderTop: '1px solid #EDE8E0',

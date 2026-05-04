@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1600" height="1600" viewBox="0 0 1600 1600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>Animation opening app — La Place du Village</title>
+  <defs>
+    <clipPath id="pinClip">
+      <path d="M800 112C474 112 250 336 250 616c0 372 550 872 550 872s550-500 550-872C1350 336 1126 112 800 112Z"/>
+    </clipPath>
+    <linearGradient id="sky" x1="800" y1="112" x2="800" y2="940" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#BFDCE1"/>
+      <stop offset="0.55" stop-color="#D8E9E9"/>
+      <stop offset="1" stop-color="#EEF3EF"/>
+    </linearGradient>
+    <linearGradient id="fieldOrange" x1="280" y1="1060" x2="1320" y2="1220" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#C86F31"/>
+      <stop offset="0.5" stop-color="#E79A4A"/>
+      <stop offset="1" stop-color="#C66A2A"/>
+    </linearGradient>
+    <linearGradient id="fieldCream" x1="250" y1="980" x2="1350" y2="1180" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EAD9B5"/>
+      <stop offset="1" stop-color="#F6E8C9"/>
+    </linearGradient>
+    <linearGradient id="wallLight" x1="575" y1="480" x2="880" y2="950" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F6E9C9"/>
+      <stop offset="1" stop-color="#D9BC86"/>
+    </linearGradient>
+    <linearGradient id="wallSide" x1="900" y1="520" x2="1120" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E4C992"/>
+      <stop offset="1" stop-color="#C59A5E"/>
+    </linearGradient>
+    <linearGradient id="roof" x1="540" y1="420" x2="970" y2="590" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1E3D49"/>
+      <stop offset="1" stop-color="#132B34"/>
+    </linearGradient>
+    <filter id="softShadow" x="160" y="80" width="1280" height="1460" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="22" stdDeviation="22" flood-color="#1F2D30" flood-opacity="0.15"/>
+    </filter>
+    <filter id="tinyShadow" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#27383B" flood-opacity="0.14"/>
+    </filter>
+  </defs>
+
+<style>
+  svg {
+    background: transparent;
+  }
+
+  @keyframes pinEnter {
+    0% { transform: translate(0px, 80px) scale(0.72); opacity: 0; }
+    55% { transform: translate(0px, -18px) scale(1.06); opacity: 1; }
+    78% { transform: translate(0px, 6px) scale(0.97); opacity: 1; }
+    100% { transform: translate(0px, 0px) scale(1); opacity: 1; }
+  }
+
+  @keyframes sceneReveal {
+    0% { transform: translateY(110px); opacity: 0; }
+    50% { opacity: 1; }
+    100% { transform: translateY(0px); opacity: 1; }
+  }
+
+  @keyframes villagePop {
+    0%, 36% { transform: translateY(36px) scale(0.94); opacity: 0; }
+    62% { transform: translateY(-10px) scale(1.04); opacity: 1; }
+    82% { transform: translateY(4px) scale(0.99); opacity: 1; }
+    100% { transform: translateY(0px) scale(1); opacity: 1; }
+  }
+
+  @keyframes softPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.018); }
+  }
+
+  @keyframes pathDraw {
+    0%, 55% { stroke-dashoffset: 620; opacity: 0; }
+    56% { opacity: .92; }
+    100% { stroke-dashoffset: 0; opacity: .92; }
+  }
+
+  @keyframes sunGlow {
+    0%, 68% { opacity: 0; transform: scale(.65); }
+    84% { opacity: .28; transform: scale(1.18); }
+    100% { opacity: .16; transform: scale(1); }
+  }
+
+  @keyframes finalBreath {
+    0%, 88% { transform: scale(1); }
+    100% { transform: scale(1.012); }
+  }
+
+  #animatedLogo {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation:
+      pinEnter 1050ms cubic-bezier(.18,.9,.22,1) forwards,
+      softPulse 1800ms ease-in-out 1150ms infinite;
+  }
+
+  #sceneLayer {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: sceneReveal 950ms cubic-bezier(.2,.85,.25,1) 180ms both;
+  }
+
+  #villageLayer {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: villagePop 1200ms cubic-bezier(.18,.9,.22,1) 340ms both;
+  }
+
+  .draw-path {
+    stroke-dasharray: 620;
+    stroke-dashoffset: 620;
+    animation: pathDraw 1050ms cubic-bezier(.2,.7,.2,1) forwards;
+  }
+
+  #glow {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: sunGlow 1250ms ease-out forwards;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #animatedLogo, #sceneLayer, #villageLayer, .draw-path, #glow {
+      animation: none !important;
+      opacity: 1 !important;
+      transform: none !important;
+      stroke-dashoffset: 0 !important;
+    }
+  }
+</style>
+
+  <g id="animatedLogo">
+    <path filter="url(#softShadow)" d="M800 112C474 112 250 336 250 616c0 372 550 872 550 872s550-500 550-872C1350 336 1126 112 800 112Z" fill="#F4F0E7"/>
+
+    <g clip-path="url(#pinClip)">
+      <rect x="0" y="0" width="1600" height="1600" fill="url(#sky)"/>
+
+      <circle id="glow" cx="800" cy="450" r="330" fill="#FFFFFF"/>
+
+      <g id="sceneLayer">
+        <path d="M190 760C330 640 460 630 610 720C760 810 880 730 1020 675C1158 620 1288 650 1420 740V1030H190V760Z" fill="#9AB78C" opacity="0.55"/>
+        <path d="M90 830C270 728 430 760 560 850C700 948 815 868 966 805C1122 738 1308 770 1510 885V1095H90V830Z" fill="#799E75" opacity="0.42"/>
+
+        <path d="M-50 1050C140 945 310 936 478 1015C658 1100 793 1066 948 1000C1125 925 1355 922 1650 1048V1600H-50V1050Z" fill="url(#fieldCream)"/>
+        <path d="M-35 1135C210 1018 430 1022 620 1118C800 1210 963 1162 1132 1090C1308 1016 1456 1015 1650 1108V1600H-35V1135Z" fill="url(#fieldOrange)"/>
+        <path d="M-40 1265C170 1160 375 1160 594 1250C782 1327 968 1300 1170 1218C1365 1138 1515 1160 1650 1234V1600H-40V1265Z" fill="#7F9C65"/>
+        <path d="M270 1600C410 1335 505 1224 685 1100" stroke="#F7E7BF" stroke-width="30" opacity="0.85"/>
+        <path d="M780 1600C812 1390 890 1245 1025 1076" stroke="#F7E7BF" stroke-width="26" opacity="0.75"/>
+        <path d="M1035 1600C1096 1400 1200 1264 1370 1125" stroke="#E8C78B" stroke-width="20" opacity="0.6"/>
+        <path class="draw-path" d="M-10 1210C230 1102 470 1115 650 1200C800 1270 988 1270 1160 1196C1322 1128 1480 1126 1610 1190" stroke="#F3E3C4" stroke-width="10" opacity="0.75"/>
+      </g>
+
+      <ellipse cx="792" cy="932" rx="420" ry="56" fill="#344348" opacity="0.12"/>
+
+      <g id="villageLayer">
+        <g filter="url(#tinyShadow)">
+          <path d="M1058 573C1090 513 1151 505 1193 543C1232 522 1287 536 1312 582C1358 591 1395 630 1390 681C1384 748 1323 778 1270 767C1224 818 1142 812 1107 758C1055 766 1005 733 998 679C994 633 1018 593 1058 573Z" fill="#729868"/>
+          <path d="M1174 710C1159 756 1144 812 1136 890" stroke="#415B42" stroke-width="24" stroke-linecap="round"/>
+        </g>
+
+        <g filter="url(#tinyShadow)">
+          <path d="M417 684H630V909H417V684Z" fill="#EAD5A9"/>
+          <path d="M393 680L519 565L653 680H393Z" fill="#D77631"/>
+          <path d="M461 786C461 750 493 722 527 722C561 722 592 750 592 786V909H461V786Z" fill="#223C43"/>
+          <rect x="433" y="727" width="45" height="60" rx="7" fill="#284851"/>
+          <rect x="595" y="728" width="32" height="61" rx="6" fill="#284851"/>
+        </g>
+
+        <g filter="url(#tinyShadow)">
+          <path d="M600 556H918V930H600V556Z" fill="url(#wallLight)"/>
+          <path d="M572 556L759 392L946 556H572Z" fill="url(#roof)"/>
+          <path d="M600 556L759 392L784 414L648 556H600Z" fill="#315864" opacity="0.7"/>
+          <path d="M704 787C704 742 743 707 784 707C827 707 864 742 864 787V930H704V787Z" fill="#263F46"/>
+          <rect x="645" y="645" width="62" height="82" rx="8" fill="#2C4D56"/>
+          <rect x="852" y="645" width="45" height="82" rx="7" fill="#2C4D56"/>
+        </g>
+
+        <g filter="url(#tinyShadow)">
+          <path d="M883 390H1045V930H883V390Z" fill="url(#wallSide)"/>
+          <path d="M864 390L965 170L1065 390H864Z" fill="#203D48"/>
+          <path d="M931 492C931 454 964 426 998 426C1032 426 1063 454 1063 492V588H931V492Z" fill="#27454E"/>
+          <rect x="962" y="635" width="61" height="72" rx="8" fill="#2D4F58"/>
+          <path d="M964 164V112" stroke="#203D48" stroke-width="18" stroke-linecap="round"/>
+          <path d="M930 132H998" stroke="#203D48" stroke-width="16" stroke-linecap="round"/>
+        </g>
+
+        <g filter="url(#tinyShadow)">
+          <path d="M1045 662H1230V930H1045V662Z" fill="#DBC191"/>
+          <path d="M1022 662L1138 558L1260 662H1022Z" fill="#C77634"/>
+          <rect x="1092" y="736" width="42" height="72" rx="7" fill="#284851"/>
+          <rect x="1160" y="742" width="43" height="65" rx="7" fill="#284851"/>
+        </g>
+      </g>
+
+      <path class="draw-path" d="M395 942C532 890 626 891 730 933C824 970 906 972 1012 930C1120 886 1215 895 1320 940" stroke="#F8F0DF" stroke-width="38" stroke-linecap="round" opacity="0.92"/>
+      <path class="draw-path" d="M410 978C568 940 655 943 748 978C842 1014 936 1010 1032 972C1112 940 1190 942 1288 980" stroke="#D2A76B" stroke-width="10" stroke-linecap="round" opacity="0.32"/>
+
+      <path d="M382 398C496 230 641 160 812 156" stroke="#FFFFFF" stroke-width="26" stroke-linecap="round" opacity="0.13"/>
+    </g>
+
+    <path d="M800 112C474 112 250 336 250 616c0 372 550 872 550 872s550-500 550-872C1350 336 1126 112 800 112Z" stroke="#F4F0E7" stroke-width="28"/>
+  </g>
+</svg>
