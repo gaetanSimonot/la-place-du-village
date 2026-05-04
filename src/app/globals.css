@@ -1,3 +1,5 @@
+@import "@fontsource/playfair-display/700.css";
+@import "@fontsource/playfair-display/400.css";
 @import "@fontsource/syne/700.css";
 @import "@fontsource/syne/800.css";
 @import "@fontsource/inter/400.css";
@@ -34,9 +36,14 @@ html, body {
   font-family: "Inter", sans-serif;
 }
 
-h1, h2, h3, .font-title {
+h1, h2, .font-display {
+  font-family: "Playfair Display", serif;
+  font-weight: 700;
+}
+
+h3, .font-title {
   font-family: "Syne", sans-serif;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 /* Scrollbar invisible sur les rails de pills */

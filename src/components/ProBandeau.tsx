@@ -99,10 +99,10 @@ export default function ProBandeau({ events, onDiscover }: Props) {
 
         {/* Titre */}
         <p style={{
-          fontSize: 15, fontWeight: 800, color: '#fff', lineHeight: 1.25, margin: '0',
+          fontSize: 15, fontWeight: 700, color: '#fff', lineHeight: 1.3, margin: '0',
           overflow: 'hidden', display: '-webkit-box',
           WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-          fontFamily: 'Syne, sans-serif',
+          fontFamily: '"Playfair Display", serif',
         }}>{evt.titre}</p>
 
         {/* Date + lieu */}

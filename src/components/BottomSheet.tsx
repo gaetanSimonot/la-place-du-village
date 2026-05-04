@@ -468,8 +468,8 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
             )}
           </div>
           <h3 style={{
-            fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 14,
-            color: '#1C1917', margin: 0, lineHeight: 1.25,
+            fontFamily: '"Playfair Display", serif', fontWeight: 700, fontSize: 14,
+            color: '#1C1917', margin: 0, lineHeight: 1.3,
             overflow: 'hidden', display: '-webkit-box',
             WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
           }}>

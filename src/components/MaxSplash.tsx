@@ -222,9 +222,10 @@ export default function MaxSplash({ events, loading = false }: Props) {
 
           {/* Titre */}
           <h2 style={{
-            fontSize: 28, fontWeight: 800, color: '#fff',
-            lineHeight: 1.2, margin: '0 0 8px', fontFamily: 'Syne, sans-serif',
-            textShadow: '0 2px 12px rgba(0,0,0,0.4)',
+            fontSize: 30, fontWeight: 700, color: '#fff',
+            lineHeight: 1.15, margin: '0 0 10px',
+            fontFamily: '"Playfair Display", serif',
+            textShadow: '0 2px 16px rgba(0,0,0,0.5)',
           }}>{evt.titre}</h2>
 
           {/* Date + lieu */}
@@ -245,10 +246,10 @@ export default function MaxSplash({ events, loading = false }: Props) {
         }}>
           <button onClick={dismiss} onTouchStart={e => e.stopPropagation()} style={{
             width: '100%', padding: '17px', borderRadius: 999,
-            backgroundColor: '#EC407A', color: '#fff',
+            backgroundColor: 'var(--primary)', color: '#fff',
             fontSize: 16, fontWeight: 700, border: 'none', cursor: 'pointer',
-            fontFamily: 'Syne, sans-serif', letterSpacing: '0.01em',
-            boxShadow: '0 4px 20px rgba(236,64,122,0.45)',
+            fontFamily: 'Syne, sans-serif', letterSpacing: '0.02em',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
           }}>Aller sur la carte</button>
         </div>
 
