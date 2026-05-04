@@ -36,12 +36,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .maybeSingle()
 
   if (existing) {
-    await supabaseAdmin.from('producer_followers')
+    const { error } = await supabaseAdmin.from('producer_followers')
       .delete().eq('user_id', user.id).eq('producer_id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ following: false })
   }
 
-  await supabaseAdmin.from('producer_followers')
+  const { error } = await supabaseAdmin.from('producer_followers')
     .insert({ user_id: user.id, producer_id: id })
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ following: true })
 }

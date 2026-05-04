@@ -62,6 +62,7 @@ export default function ProducteurPageClient({ id }: { id: string }) {
   const [editing, setEditing] = useState(false)
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
   const [editCommentText, setEditCommentText] = useState('')
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout>>()
   const commentsRef = useRef<HTMLDivElement>(null)
@@ -96,15 +97,19 @@ export default function ProducteurPageClient({ id }: { id: string }) {
     if (!user) { openAuthModal(); return }
     const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; if (!token) return
     const res = await fetch(`/api/producers/${id}/favorite`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
-    const { favorited } = await res.json(); setIsFav(favorited)
-    showToast(favorited ? '❤️ Ajouté aux favoris' : 'Retiré des favoris')
+    const d = await res.json()
+    if (!res.ok) { showToast('Erreur : ' + (d.error ?? 'inconnue')); return }
+    setIsFav(d.favorited)
+    showToast(d.favorited ? '❤️ Ajouté aux favoris' : 'Retiré des favoris')
   }
   async function toggleFollow() {
     if (!user) { openAuthModal(); return }
     const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; if (!token) return
     const res = await fetch(`/api/producers/${id}/follow`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
-    const { following } = await res.json(); setIsFollowing(following)
-    showToast(following ? '✓ Vous suivez ce producteur' : 'Abonnement retiré')
+    const d = await res.json()
+    if (!res.ok) { showToast('Erreur : ' + (d.error ?? 'inconnue')); return }
+    setIsFollowing(d.following)
+    showToast(d.following ? '✓ Vous suivez ce producteur' : 'Abonnement retiré')
   }
   function scrollToComments() {
     commentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -355,11 +360,24 @@ export default function ProducteurPageClient({ id }: { id: string }) {
                   <span style={{ fontSize: 13, fontWeight: 700, color: '#2C1810' }}>{c.profile?.display_name ?? 'Anonyme'}</span>
                   <span style={{ fontSize: 11, color: '#AAA' }}>{timeAgo(c.created_at)}</span>
                   {c.user_id === user?.id && editingCommentId !== c.id && (
-                    <div style={{ marginLeft: 'auto', display: 'flex', gap: 2 }}>
-                      <button onClick={() => { setEditingCommentId(c.id); setEditCommentText(c.content) }}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', fontSize: 12, color: '#8A7A6A', borderRadius: 6 }}>✏️</button>
-                      <button onClick={() => deleteComment(c.id)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', fontSize: 12, color: '#E8622A', borderRadius: 6 }}>🗑</button>
+                    <div style={{ marginLeft: 'auto', position: 'relative' }}>
+                      <button onClick={() => setOpenMenuId(openMenuId === c.id ? null : c.id)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8A7A6A', fontSize: 18, lineHeight: 1 }}>⋮</button>
+                      {openMenuId === c.id && (
+                        <div style={{ position: 'absolute', right: 0, top: '110%', backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 4px 24px rgba(0,0,0,0.13)', zIndex: 20, minWidth: 150, overflow: 'hidden' }}>
+                          <button onClick={() => { setEditingCommentId(c.id); setEditCommentText(c.content); setOpenMenuId(null) }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#2C1810', fontFamily: 'Inter, sans-serif' }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            Modifier
+                          </button>
+                          <div style={{ height: 1, backgroundColor: '#F0EDE8', margin: '0 14px' }} />
+                          <button onClick={() => { deleteComment(c.id); setOpenMenuId(null) }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#E8622A', fontFamily: 'Inter, sans-serif' }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                            Supprimer
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
