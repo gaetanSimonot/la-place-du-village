@@ -6,7 +6,7 @@ import { CATEGORIES } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
-import { PRODUIT_CATS_MAP } from '@/lib/produit-cats'
+import { PRODUIT_CATS_MAP, normalizeProduitCat } from '@/lib/produit-cats'
 
 interface ProducerMin {
   id: string; nom: string; commune: string | null; photos: string[]; produit_categories: string[]
@@ -38,7 +38,7 @@ export default function FavorisView({ events, onToggleFav }: Props) {
       const { data } = await supabase.from('producers').select('id, nom, commune, photos, products(categorie, disponible)').in('id', ids)
       return (data ?? []).map((p: { id: string; nom: string; commune: string | null; photos: string[] | null; products: { categorie: string; disponible: boolean }[] | null }) => ({
         id: p.id, nom: p.nom, commune: p.commune, photos: p.photos ?? [],
-        produit_categories: Array.from(new Set((p.products ?? []).filter(pr => pr.disponible).map(pr => pr.categorie))),
+        produit_categories: Array.from(new Set((p.products ?? []).filter(pr => pr.disponible).map(pr => normalizeProduitCat(pr.categorie)))),
       }))
     }
 

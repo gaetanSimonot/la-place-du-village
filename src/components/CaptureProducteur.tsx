@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { PRODUIT_CATS } from '@/lib/produit-cats'
 
 interface ProductDraft {
   nom: string
@@ -10,12 +11,6 @@ interface ProductDraft {
   periode_dispo: string
   selected: boolean
 }
-
-const CATEGORIES = [
-  'Fruits & Légumes', 'Viandes & Charcuterie', 'Fromages & Laitages',
-  'Miel & Confitures', 'Pains & Pâtisseries', 'Plantes & Fleurs',
-  'Huiles & Condiments', 'Boissons', 'Artisanat', 'Autre',
-]
 
 const inp: React.CSSProperties = {
   width: '100%', boxSizing: 'border-box', padding: '8px 12px',
@@ -326,7 +321,7 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                     <select value={p.categorie} onChange={e => setProducts(pp => pp.map((x, j) => j === i ? { ...x, categorie: e.target.value } : x))}
                       style={{ ...inp, padding: '6px 10px' }}>
-                      {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                      {PRODUIT_CATS.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
                     </select>
                     <input value={p.prix_indicatif} onChange={e => setProducts(pp => pp.map((x, j) => j === i ? { ...x, prix_indicatif: e.target.value } : x))}
                       placeholder="Prix (ex: 3€/kg)" style={{ ...inp, padding: '6px 10px' }} />

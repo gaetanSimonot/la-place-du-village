@@ -18,8 +18,9 @@ export const PRODUIT_CATS: { id: ProduitCategorie; label: string; emoji: string 
 export const PRODUIT_CATS_MAP: Record<string, { label: string; emoji: string }> =
   Object.fromEntries(PRODUIT_CATS.map(c => [c.id, { label: c.label, emoji: c.emoji }]))
 
-// Anciens IDs (avant regroupement) → nouveaux IDs groupés
+// Anciens IDs et labels CaptureProducteur → IDs groupés
 const LEGACY: Record<string, ProduitCategorie> = {
+  // anciens IDs courts
   legumes:    'fruits_legumes',
   fruits:     'fruits_legumes',
   tomates:    'fruits_legumes',
@@ -29,6 +30,24 @@ const LEGACY: Record<string, ProduitCategorie> = {
   fromage:    'fromages_laitages',
   lait:       'fromages_laitages',
   laitage:    'fromages_laitages',
+  // labels stockés par CaptureProducteur (avec accents et espaces)
+  'Fruits & Légumes':       'fruits_legumes',
+  'Légumes':                'fruits_legumes',
+  'Fruits':                 'fruits_legumes',
+  'Viandes & Charcuterie':  'viandes',
+  'Viandes & Charcuteries': 'viandes',
+  'Fromages & Laitages':    'fromages_laitages',
+  'Miel & Confitures':      'miel',
+  'Pains & Pâtisseries':    'pain',
+  'Pain & Pâtisseries':     'pain',
+  'Plantes & Fleurs':       'plantes',
+  'Huiles & Condiments':    'huiles',
+  'Boissons':               'boissons',
+  'Artisanat':              'artisanat',
+  'Autre':                  'autre',
+  'Oeufs':                  'oeufs',
+  'Œufs':                   'oeufs',
+  'Panier de saison':       'panier',
 }
 
 export function normalizeProduitCat(cat: string): ProduitCategorie {
