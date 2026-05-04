@@ -21,8 +21,12 @@ const STYLES = `
   @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
 `
 
-function sortedEvents(events: EvenementCard[]): EvenementCard[] {
+function sorted(events: EvenementCard[]): EvenementCard[] {
   return [...events].sort((a, b) => (a.promo_ordre ?? 999) - (b.promo_ordre ?? 999))
+}
+
+function wrap(i: number, n: number) {
+  return ((i % n) + n) % n
 }
 
 function Slide({ evt }: { evt: EvenementCard }) {
@@ -41,18 +45,19 @@ function Slide({ evt }: { evt: EvenementCard }) {
 }
 
 export default function MaxSplash({ events, onDiscover, loading = false }: Props) {
-  const [phase, setPhase]       = useState<Phase>('logo')
-  const [fadingOut, setFadingOut] = useState(false)
-  const [idx, setIdx]           = useState(0)
-  const [logoReady, setLogoReady] = useState(false)
-  const [dragX, setDragX]       = useState(0)
-  const [flying, setFlying]     = useState(false)
-  const transitioning           = useRef(false)
-  const touchStartX             = useRef<number | null>(null)
-  const liveDragX               = useRef(0)
-  const autoTimer               = useRef<ReturnType<typeof setTimeout>>()
+  const [phase, setPhase]           = useState<Phase>('logo')
+  const [fadingOut, setFadingOut]   = useState(false)
+  const [logoReady, setLogoReady]   = useState(false)
+  const [idx, setIdx]               = useState(0)
+  const [dragX, setDragX]           = useState(0)
+  const [animating, setAnimating]   = useState(false)
+  const transitioning               = useRef(false)
+  const touchStartX                 = useRef<number | null>(null)
+  const liveDragX                   = useRef(0)
+  const autoTimer                   = useRef<ReturnType<typeof setTimeout>>()
 
-  const sorted = sortedEvents(events)
+  const evts = sorted(events)
+  const n    = evts.length
 
   useEffect(() => {
     if (sessionStorage.getItem(SESSION_KEY)) setPhase('dismissed')
@@ -72,17 +77,18 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
     setFadingOut(true)
     const t = setTimeout(() => {
       setFadingOut(false)
-      setPhase(sorted.length === 0 ? 'dismissed' : 'event')
+      setPhase(n === 0 ? 'dismissed' : 'event')
     }, 380)
     return () => clearTimeout(t)
-  }, [phase, logoReady, loading, sorted.length])
+  }, [phase, logoReady, loading, n])
 
-  // Auto-advance every 5s
+  // Auto-advance
   useEffect(() => {
-    if (phase !== 'event' || sorted.length <= 1 || flying) return
-    autoTimer.current = setTimeout(() => commitSlide(-1), AUTO_ADVANCE_MS)
+    if (phase !== 'event' || n <= 1 || animating) return
+    autoTimer.current = setTimeout(() => slide('left'), AUTO_ADVANCE_MS)
     return () => clearTimeout(autoTimer.current)
-  }, [phase, idx, sorted.length, flying])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, idx, n, animating])
 
   const dismiss = () => {
     clearTimeout(autoTimer.current)
@@ -94,60 +100,50 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
     clearTimeout(autoTimer.current)
     sessionStorage.setItem(SESSION_KEY, '1')
     setPhase('dismissed')
-    onDiscover(sorted[idx].id)
+    onDiscover(evts[idx].id)
   }
 
-  // direction: -1 = fly left (next), +1 = fly right (prev)
-  const commitSlide = (direction: -1 | 1) => {
-    if (flying) return
+  // 'left'  → carte courante part à gauche, slide suivant (idx+1, boucle)
+  // 'right' → carte courante part à droite, slide précédent (idx-1, boucle)
+  const slide = (dir: 'left' | 'right') => {
+    if (animating) return
     clearTimeout(autoTimer.current)
-    const nextIdx = idx + (direction === -1 ? 1 : -1)
-    setFlying(true)
-    setDragX(direction * -window.innerWidth * 1.3)
+    setAnimating(true)
+    setDragX(dir === 'left' ? -window.innerWidth * 1.3 : window.innerWidth * 1.3)
     setTimeout(() => {
-      if (nextIdx < 0 || nextIdx >= sorted.length) {
-        dismiss()
-      } else {
-        setIdx(nextIdx)
-        setDragX(0)
-        setFlying(false)
-      }
-    }, 160)
+      setIdx(prev => wrap(prev + (dir === 'left' ? 1 : -1), n))
+      setDragX(0)
+      setAnimating(false)
+    }, 150)
   }
 
   const onTouchStart = (e: React.TouchEvent) => {
-    if (flying) return
+    if (animating) return
     clearTimeout(autoTimer.current)
     touchStartX.current = e.touches[0].clientX
-    liveDragX.current = 0
+    liveDragX.current   = 0
   }
 
   const onTouchMove = (e: React.TouchEvent) => {
-    if (touchStartX.current === null || flying) return
-    const raw = e.touches[0].clientX - touchStartX.current
-    // Résistance aux bords
-    const atStart = idx === 0
-    const atEnd   = idx === sorted.length - 1
-    const dx = raw > 0 && atStart ? raw * 0.08
-             : raw < 0 && atEnd   ? raw * 0.08
-             : raw
+    if (touchStartX.current === null || animating) return
+    const dx = e.touches[0].clientX - touchStartX.current
     liveDragX.current = dx
     setDragX(dx)
   }
 
   const onTouchEnd = () => {
     if (touchStartX.current === null) return
-    const dx = liveDragX.current
+    const dx  = liveDragX.current
     touchStartX.current = null
-    const threshold = window.innerWidth * 0.22
-    if (dx < -threshold) commitSlide(-1)       // swipe gauche → suivant
-    else if (dx > threshold) commitSlide(1)    // swipe droit → précédent
-    else { setFlying(true); setDragX(0); setTimeout(() => setFlying(false), 200) }
+    const thr = window.innerWidth * 0.22
+    if      (dx < -thr) slide('left')
+    else if (dx >  thr) slide('right')
+    else { setAnimating(true); setDragX(0); setTimeout(() => setAnimating(false), 150) }
   }
 
   if (phase === 'dismissed') return null
 
-  /* ── Phase logo ── */
+  /* ── Logo ─────────────────────────────────────────────────────────────────── */
   if (phase === 'logo') {
     return (
       <div style={{
@@ -156,6 +152,7 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
         opacity: fadingOut ? 0 : 1, transition: 'opacity 0.38s ease',
       }}>
         <style>{STYLES}</style>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo.png" alt="La Place du Village" width={120} height={120}
           style={{ objectFit: 'contain', animation: 'logoIn 0.65s cubic-bezier(0.34,1.56,0.64,1) both' }} />
         <h1 style={{
@@ -176,31 +173,26 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
     )
   }
 
-  /* ── Phase event ── */
-  const evt     = sorted[idx]
-  const cat     = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
-  const hasNext = idx + 1 < sorted.length
+  /* ── Événement ────────────────────────────────────────────────────────────── */
+  const evt = evts[idx]
+  const cat = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
 
-  // Image qui sera révélée en dessous selon la direction du drag
-  const underIdx = dragX < 0
-    ? (idx + 1 < sorted.length ? idx + 1 : null)
-    : (idx > 0 ? idx - 1 : null)
+  // Carte visible en dessous — précédent si on tire à droite, suivant sinon
+  const underIdx = n > 1 ? (dragX > 20 ? wrap(idx - 1, n) : wrap(idx + 1, n)) : null
 
   return (
-    <div
-      style={{ position: 'fixed', inset: 0, zIndex: 500, overflow: 'hidden', fontFamily: 'Inter, sans-serif' }}
-    >
+    <div style={{ position: 'fixed', inset: 0, zIndex: 500, overflow: 'hidden', fontFamily: 'Inter, sans-serif' }}>
       <style>{STYLES}</style>
 
-      {/* Image du dessous — toujours à 0, révélée quand la carte du dessus glisse */}
+      {/* Carte du dessous — fixe, révélée quand la carte du dessus glisse */}
       <div style={{ position: 'absolute', inset: 0 }}>
         {underIdx !== null
-          ? <Slide evt={sorted[underIdx]} />
+          ? <Slide evt={evts[underIdx]} />
           : <div style={{ position: 'absolute', inset: 0, backgroundColor: '#111' }} />
         }
       </div>
 
-      {/* Image du dessus — suit le doigt */}
+      {/* Carte du dessus — suit le doigt */}
       <div
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
@@ -208,14 +200,14 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
         style={{
           position: 'absolute', inset: 0,
           transform: `translateX(${dragX}px)`,
-          transition: flying ? 'transform 0.16s linear' : 'none',
+          transition: animating ? 'transform 0.15s ease-out' : 'none',
           willChange: 'transform',
         }}
       >
         <Slide evt={evt} />
       </div>
 
-      {/* Dégradé fixe — toujours visible */}
+      {/* Dégradé fixe */}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
         background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.08) 60%, transparent 100%)',
@@ -224,7 +216,6 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
       {/* UI fixe — ne bouge jamais */}
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
 
-        {/* Fermer */}
         <button onClick={dismiss} style={{
           pointerEvents: 'auto',
           position: 'absolute', top: 18, right: 18,
@@ -236,7 +227,6 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
           boxShadow: '0 1px 8px rgba(0,0,0,0.35)',
         }}>✕</button>
 
-        {/* Badge */}
         <div style={{ position: 'absolute', top: 22, left: 18 }}>
           <span style={{
             fontSize: 10, fontWeight: 800, color: '#fff', backgroundColor: '#EC407A',
@@ -245,13 +235,12 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
           }}>ÉVÉNEMENT À LA UNE</span>
         </div>
 
-        {/* Dots */}
-        {sorted.length > 1 && (
+        {n > 1 && (
           <div style={{
             position: 'absolute', bottom: 176, left: '50%', transform: 'translateX(-50%)',
             display: 'flex', gap: 6,
           }}>
-            {sorted.map((_, i) => (
+            {evts.map((_, i) => (
               <div key={i} style={{
                 width: i === idx ? 20 : 6, height: 6, borderRadius: 3,
                 backgroundColor: i === idx ? '#fff' : 'rgba(255,255,255,0.35)',
@@ -261,7 +250,6 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
           </div>
         )}
 
-        {/* Texte + boutons — se met à jour instantanément sur idx */}
         <div style={{
           position: 'absolute', bottom: 0, left: 0, right: 0, padding: '0 22px 44px',
           pointerEvents: 'auto',
@@ -290,11 +278,13 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
             fontFamily: 'Syne, sans-serif', letterSpacing: '0.01em',
           }}>Découvrir l&apos;événement</button>
 
-          <button onClick={hasNext ? () => commitSlide(-1) : dismiss} style={{
-            width: '100%', padding: '8px', backgroundColor: 'transparent', border: 'none',
-            color: 'rgba(255,255,255,0.6)', fontSize: 14,
-            cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-          }}>{hasNext ? 'Voir le suivant' : 'Voir la carte'}</button>
+          {n > 1 && (
+            <button onClick={() => slide('left')} style={{
+              width: '100%', padding: '8px', backgroundColor: 'transparent', border: 'none',
+              color: 'rgba(255,255,255,0.6)', fontSize: 14,
+              cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+            }}>Voir le suivant</button>
+          )}
         </div>
       </div>
     </div>

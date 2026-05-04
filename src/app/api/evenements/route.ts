@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
 import { geocodeWithGoogle, calcStatut } from '@/lib/extract'
 import { Categorie } from '@/lib/types'
 import { checkDoublon } from '@/lib/checkDoublon'
@@ -31,6 +30,7 @@ export async function POST(req: NextRequest) {
     const {
       titre, description, date_debut, date_fin, heure,
       categorie, lieu_nom, lieu_adresse, commune, code_postal,
+      lat: bodyLat, lng: bodyLng, place_id_google: bodyPlaceId, adresse: bodyAdresse,
       prix, contact, organisateurs, image, imageMimeType, image_position,
     } = body
 
@@ -44,9 +44,13 @@ export async function POST(req: NextRequest) {
     let geo = { place_id_google: null as string | null, lat: null as number | null, lng: null as number | null, adresse: null as string | null, approx: false }
 
     if (lieu_nom?.trim() || commune?.trim()) {
-      geo = await geocodeWithGoogle(lieu_nom || null, commune || null)
+      if (bodyLat && bodyLng) {
+        geo = { lat: bodyLat, lng: bodyLng, place_id_google: bodyPlaceId ?? null, adresse: bodyAdresse ?? lieu_adresse ?? null, approx: false }
+      } else {
+        geo = await geocodeWithGoogle(lieu_nom || null, commune || null)
+      }
 
-      const { data: lieu, error: lieuErr } = await supabase
+      const { data: lieu, error: lieuErr } = await supabaseAdmin
         .from('lieux')
         .insert({
           nom: lieu_nom,
@@ -93,7 +97,7 @@ export async function POST(req: NextRequest) {
 
     const statut = check.doublon ? 'archive' : check.publier ? baseStatut : 'a_verifier'
 
-    const { data: evenement, error: evtErr } = await supabase
+    const { data: evenement, error: evtErr } = await supabaseAdmin
       .from('evenements')
       .insert({
         titre,

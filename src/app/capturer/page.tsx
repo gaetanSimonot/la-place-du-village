@@ -134,6 +134,7 @@ import { CATEGORIES } from '@/lib/categories'
 import { Categorie } from '@/lib/types'
 import type { ExtractedData } from '@/lib/extract'
 import MicButton from '@/components/MicButton'
+import EventEditDrawer from '@/components/EventEditDrawer'
 
 interface FormData {
   titre: string
@@ -305,28 +306,6 @@ function CapturerInner() {
     }
   }
 
-  // Soumission d'un seul événement (depuis preview)
-  const handleSubmitSingle = async () => {
-    if (!form.titre.trim()) { setError('Le titre est requis'); return }
-    setLoading(true)
-    setError(null)
-    try {
-      const res  = await fetch('/api/evenements', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, image: imageBase64, imageMimeType: imageMime, image_position: imagePosition }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      setSubmitResults([{ titre: form.titre, ok: true, statut: data.statut }])
-      setStep('success')
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Erreur inconnue')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   // Soumission groupée (depuis selection)
   const handleSubmitBatch = async () => {
     const toSubmit = Array.from(selected).map(i => events[i])
@@ -375,19 +354,6 @@ function CapturerInner() {
       return next
     })
   }
-
-  const field = (label: string, key: keyof FormData, type = 'text', placeholder = '') => (
-    <div>
-      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{label}</label>
-      <input
-        type={type}
-        value={form[key]}
-        onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-        placeholder={placeholder}
-        className="w-full bg-[#FBF7F0] border border-[#E8E0D5] rounded-xl px-3 py-2.5 text-sm text-[#2C1810] focus:outline-none focus:border-[#C4622D]"
-      />
-    </div>
-  )
 
   // ── Cadrage ──────────────────────────────────────────────────────────────────
   if (step === 'crop' && imagePreview) {
@@ -555,75 +521,18 @@ function CapturerInner() {
     )
   }
 
-  // ── Preview (1 event) ─────────────────────────────────────────────────────────
+  // ── Preview (1 event) — éditeur complet ─────────────────────────────────────
   if (step === 'preview') {
     return (
-      <div className="min-h-screen bg-[#FBF7F0]">
-        <div className="sticky top-0 z-10 bg-white border-b border-[#E8E0D5] px-4 py-3 flex items-center gap-3">
-          <button onClick={() => setStep('input')} className="text-[#C4622D] font-bold text-2xl leading-none">←</button>
-          <h1 className="font-bold text-[#2C1810] flex-1">Vérifier l&apos;événement</h1>
-        </div>
-
-        <div className="p-4 space-y-3 pb-32">
-          <p className="text-sm text-gray-500">L&apos;IA a rempli les champs — vérifie et corrige si besoin.</p>
-
-          {imagePreview && (
-            <div className="rounded-2xl overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={imagePreview} alt="Aperçu" className="w-full max-h-48 object-cover" />
-            </div>
-          )}
-
-          <div className="bg-white rounded-2xl p-4 space-y-3">
-            {field('Titre *', 'titre', 'text', "Nom de l'événement")}
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Catégorie</label>
-              <select
-                value={form.categorie}
-                onChange={e => setForm(f => ({ ...f, categorie: e.target.value as Categorie }))}
-                className="w-full bg-[#FBF7F0] border border-[#E8E0D5] rounded-xl px-3 py-2.5 text-sm text-[#2C1810] focus:outline-none focus:border-[#C4622D]"
-              >
-                {(Object.entries(CATEGORIES) as [Categorie, { label: string; emoji: string }][]).map(([key, cat]) => (
-                  <option key={key} value={key}>{cat.emoji} {cat.label}</option>
-                ))}
-              </select>
-            </div>
-            {field('Description', 'description')}
-          </div>
-
-          <div className="bg-white rounded-2xl p-4 space-y-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Date & Heure</p>
-            {field('Date de début', 'date_debut', 'date')}
-            {field('Date de fin', 'date_fin', 'date')}
-            {field('Heure', 'heure', 'time')}
-          </div>
-
-          <div className="bg-white rounded-2xl p-4 space-y-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Lieu</p>
-            {field('Nom du lieu', 'lieu_nom', 'text', 'Salle des fêtes, Espace culturel...')}
-            {field('Commune', 'commune', 'text', 'Ganges, Saint-Bauzille...')}
-          </div>
-
-          <div className="bg-white rounded-2xl p-4 space-y-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Infos pratiques</p>
-            {field('Prix', 'prix', 'text', 'Gratuit, 5€, Sur réservation...')}
-            {field('Contact', 'contact', 'text', 'Téléphone ou email')}
-            {field('Organisateur(s)', 'organisateurs')}
-          </div>
-
-          {error && <p className="text-red-500 text-sm bg-red-50 rounded-xl p-3">{error}</p>}
-        </div>
-
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-[#E8E0D5]">
-          <button
-            onClick={handleSubmitSingle}
-            disabled={loading}
-            className="w-full bg-[#C4622D] text-white py-4 rounded-2xl font-bold text-base disabled:opacity-50 transition-opacity"
-          >
-            {loading ? 'Publication...' : "Publier l'événement"}
-          </button>
-        </div>
-      </div>
+      <EventEditDrawer
+        initialData={form}
+        initialImage={imageBase64 ? { base64: imageBase64, mime: imageMime, preview: imagePreview!, position: imagePosition } : null}
+        onClose={() => setStep('input')}
+        onSaved={(result) => {
+          setSubmitResults([{ titre: form.titre, ok: true, statut: result?.statut }])
+          setStep('success')
+        }}
+      />
     )
   }
 

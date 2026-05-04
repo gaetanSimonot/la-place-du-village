@@ -142,13 +142,22 @@ function CropStep({ src, position, onChange, onConfirm, onBack }: {
 }
 
 // ── Composant principal ───────────────────────────────────────────────────────
+interface InitialData {
+  titre?: string; description?: string; date_debut?: string; date_fin?: string
+  heure?: string; categorie?: Categorie; lieu_nom?: string; commune?: string
+  prix?: string; contact?: string; organisateurs?: string
+}
+interface InitialImage { base64: string; mime: string; preview: string; position: string }
+
 interface Props {
-  evenementId: string
+  evenementId?: string
+  initialData?: InitialData
+  initialImage?: InitialImage | null
   onClose: () => void
-  onSaved?: () => void
+  onSaved?: (result?: { statut?: string }) => void
 }
 
-export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props) {
+export default function EventEditDrawer({ evenementId, initialData, initialImage, onClose, onSaved }: Props) {
   const [mode, setMode]       = useState<Mode>('edit')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving]   = useState(false)
@@ -184,6 +193,30 @@ export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
+    if (!evenementId) {
+      // Mode création : hydrate depuis initialData
+      if (initialData) {
+        setTitre(initialData.titre ?? '')
+        setDescription(initialData.description ?? '')
+        setDateDebut(initialData.date_debut ?? '')
+        setDateFin(initialData.date_fin ?? '')
+        setHeure(initialData.heure?.slice(0, 5) ?? '')
+        setCategorie(initialData.categorie ?? 'autre')
+        setPrix(initialData.prix ?? '')
+        setContact(initialData.contact ?? '')
+        setOrganisateurs(initialData.organisateurs ?? '')
+        setLieuNom(initialData.lieu_nom ?? '')
+        setCommune(initialData.commune ?? '')
+      }
+      if (initialImage) {
+        setNewBase64(initialImage.base64)
+        setNewMime(initialImage.mime)
+        setNewPreview(initialImage.preview)
+        setImagePosition(initialImage.position)
+      }
+      setLoading(false)
+      return
+    }
     supabase.from('evenements').select('*, lieux(*)').eq('id', evenementId).single()
       .then(({ data }) => {
         if (!data) { setLoading(false); return }
@@ -213,6 +246,7 @@ export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props
         }
         setLoading(false)
       })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [evenementId])
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -257,6 +291,29 @@ export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props
   const save = async (statutOverride?: string) => {
     setSaving(true); setError(null)
     try {
+      if (!evenementId) {
+        // Mode création : POST à /api/evenements
+        const res = await fetch('/api/evenements', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            titre, description,
+            date_debut: dateDebut || null, date_fin: dateFin || null, heure: heure || null,
+            categorie,
+            lieu_nom: lieuNom || null, commune: commune || null, adresse: adresse || null,
+            lat: lat ? parseFloat(lat) : undefined,
+            lng: lng ? parseFloat(lng) : undefined,
+            place_id_google: placeIdGoogle || null,
+            prix: prix || null, contact: contact || null, organisateurs: organisateurs || null,
+            image: newBase64, imageMimeType: newMime, image_position: imagePosition,
+          }),
+        })
+        const d = await res.json()
+        if (!res.ok) throw new Error(d.error)
+        onSaved?.({ statut: d.evenement?.statut }); onClose()
+        return
+      }
+
+      // Mode édition : PATCH admin
       let finalUrl = imageUrl
       if (newBase64) {
         const r = await fetch('/api/admin/upload-image', {
@@ -343,7 +400,7 @@ export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props
         <span className="font-bold flex-1 truncate text-sm">{titre || 'Éditer'}</span>
         <button onClick={() => save()} disabled={saving}
           className="bg-[#C4622D] text-white px-4 py-2 rounded-xl font-bold text-sm disabled:opacity-50">
-          {saving ? '…' : 'Sauvegarder'}
+          {saving ? '…' : evenementId ? 'Sauvegarder' : 'Publier →'}
         </button>
       </div>
 
@@ -376,27 +433,29 @@ export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props
           <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} className="hidden" />
         </div>
 
-        {/* Statut rapide */}
-        <div className="flex gap-2">
-          {statut !== 'publie' && (
-            <button onClick={() => save('publie')} disabled={saving}
-              className="flex-1 py-2.5 bg-green-500 text-white font-bold text-sm rounded-xl disabled:opacity-50">
-              ✓ Publier
-            </button>
-          )}
-          {statut === 'publie' && (
-            <button onClick={() => save('en_attente')} disabled={saving}
-              className="flex-1 py-2.5 bg-orange-400 text-white font-bold text-sm rounded-xl disabled:opacity-50">
-              ⏸ Dépublier
-            </button>
-          )}
-          {statut !== 'rejete' && (
-            <button onClick={() => save('rejete')} disabled={saving}
-              className="flex-1 py-2.5 bg-gray-300 text-gray-700 font-bold text-sm rounded-xl disabled:opacity-50">
-              ✗ Rejeter
-            </button>
-          )}
-        </div>
+        {/* Statut rapide — édition uniquement */}
+        {evenementId && (
+          <div className="flex gap-2">
+            {statut !== 'publie' && (
+              <button onClick={() => save('publie')} disabled={saving}
+                className="flex-1 py-2.5 bg-green-500 text-white font-bold text-sm rounded-xl disabled:opacity-50">
+                ✓ Publier
+              </button>
+            )}
+            {statut === 'publie' && (
+              <button onClick={() => save('en_attente')} disabled={saving}
+                className="flex-1 py-2.5 bg-orange-400 text-white font-bold text-sm rounded-xl disabled:opacity-50">
+                ⏸ Dépublier
+              </button>
+            )}
+            {statut !== 'rejete' && (
+              <button onClick={() => save('rejete')} disabled={saving}
+                className="flex-1 py-2.5 bg-gray-300 text-gray-700 font-bold text-sm rounded-xl disabled:opacity-50">
+                ✗ Rejeter
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Catégorie */}
         <div>
@@ -468,29 +527,31 @@ export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props
           {inp('Organisateurs', organisateurs, setOrganisateurs, 'text', 'Association, mairie…')}
         </div>
 
-        {/* Promotion */}
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Promotion</label>
-          <div className="flex gap-2">
-            {([
-              { key: 'basic', label: 'Normal',  bg: '#6B7280', desc: 'Affichage standard' },
-              { key: 'pro',   label: '★ Pro',   bg: '#EC407A', desc: 'Bandeau + carte' },
-              { key: 'max',   label: '⚡ Max',  bg: '#7C3AED', desc: 'Plein écran' },
-            ] as { key: 'basic'|'pro'|'max'; label: string; bg: string; desc: string }[]).map(opt => (
-              <button key={opt.key} onClick={() => setPromotion(opt.key)}
-                className="flex-1 py-2.5 rounded-xl text-xs font-bold border-2 transition-all"
-                style={promotion === opt.key
-                  ? { backgroundColor: opt.bg, color: '#fff', borderColor: opt.bg }
-                  : { backgroundColor: '#fff', color: opt.bg, borderColor: opt.bg + '66' }}>
-                <div>{opt.label}</div>
-                <div style={{ fontSize: 9, fontWeight: 600, opacity: 0.8, marginTop: 2 }}>{opt.desc}</div>
-              </button>
-            ))}
+        {/* Promotion — édition uniquement */}
+        {evenementId && (
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Promotion</label>
+            <div className="flex gap-2">
+              {([
+                { key: 'basic', label: 'Normal',  bg: '#6B7280', desc: 'Affichage standard' },
+                { key: 'pro',   label: '★ Pro',   bg: '#EC407A', desc: 'Bandeau + carte' },
+                { key: 'max',   label: '⚡ Max',  bg: '#7C3AED', desc: 'Plein écran' },
+              ] as { key: 'basic'|'pro'|'max'; label: string; bg: string; desc: string }[]).map(opt => (
+                <button key={opt.key} onClick={() => setPromotion(opt.key)}
+                  className="flex-1 py-2.5 rounded-xl text-xs font-bold border-2 transition-all"
+                  style={promotion === opt.key
+                    ? { backgroundColor: opt.bg, color: '#fff', borderColor: opt.bg }
+                    : { backgroundColor: '#fff', color: opt.bg, borderColor: opt.bg + '66' }}>
+                  <div>{opt.label}</div>
+                  <div style={{ fontSize: 9, fontWeight: 600, opacity: 0.8, marginTop: 2 }}>{opt.desc}</div>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Ordre carrousel splash — uniquement plan max */}
-        {promotion === 'max' && (
+        {/* Ordre carrousel splash — uniquement plan max, édition uniquement */}
+        {evenementId && promotion === 'max' && (
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
               Ordre dans le splash <span style={{ color: '#7C3AED' }}>⚡</span>
@@ -506,11 +567,13 @@ export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props
           </div>
         )}
 
-        {/* Supprimer */}
-        <button onClick={deleteEvent}
-          className="w-full py-3 bg-red-50 text-red-500 font-bold text-sm rounded-xl border border-red-100">
-          🗑️ Supprimer cet événement
-        </button>
+        {/* Supprimer — édition uniquement */}
+        {evenementId && (
+          <button onClick={deleteEvent}
+            className="w-full py-3 bg-red-50 text-red-500 font-bold text-sm rounded-xl border border-red-100">
+            🗑️ Supprimer cet événement
+          </button>
+        )}
       </div>
     </div>
   )
