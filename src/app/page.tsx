@@ -220,7 +220,7 @@ export default function HomePage() {
     if (masquerPasses === null || !zoneLoaded) return // attendre les configs
     setLoading(true)
 
-    const SELECT = 'id, titre, categorie, date_debut, heure, image_url, image_position, promotion, lieux(id, nom, commune, lat, lng, place_id_google)'
+    const SELECT = 'id, titre, categorie, date_debut, heure, image_url, image_position, promotion, promo_ordre, lieux(id, nom, commune, lat, lng, place_id_google)'
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let query: any = supabase.from('evenements').select(SELECT).eq('statut', 'publie').order('date_debut', { ascending: true }).limit(300)
@@ -699,7 +699,7 @@ export default function HomePage() {
       />
 
       {/* ProBandeau — flotte au-dessus de la sheet (sauf quand full, géré dans BottomSheet) */}
-      {proEvents.length > 0 && sheetMode !== 'full' && (() => {
+      {(proEvents.length > 0 || maxEvents.length > 0) && sheetMode !== 'full' && (() => {
         const SHEET_H = screenH - 60 - NAV_H
         const bottom = sheetMode === 'peek'
           ? NAV_H + sheetPeekH
@@ -711,7 +711,7 @@ export default function HomePage() {
             transition: 'bottom 0.35s cubic-bezier(0.33,1,0.68,1)',
             pointerEvents: 'auto',
           }}>
-            <ProBandeau events={proEvents} onDiscover={id => router.push(`/evenement/${id}`)} />
+            <ProBandeau events={[...maxEvents, ...proEvents]} onDiscover={id => router.push(`/evenement/${id}`)} />
           </div>
         )
       })()}

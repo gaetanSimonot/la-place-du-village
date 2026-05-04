@@ -33,6 +33,7 @@ export default function ProBandeau({ events, onDiscover }: Props) {
   useEffect(() => {
     if (events.length === 0) return
     setQueue(shuffle(events))
+    setIdx(0)
   }, [events])
 
   const advance = useCallback(() => {
@@ -67,6 +68,9 @@ export default function ProBandeau({ events, onDiscover }: Props) {
   const evt = queue[idx]
   if (!evt) return null
   const cat = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
+  const isMax = evt.promotion === 'max'
+  const accentColor = isMax ? '#7C3AED' : PROMO_PINK
+  const label = isMax ? '⚡ À la une' : '★ En vedette'
   const fade: React.CSSProperties = { opacity: fading ? 0 : 1, transition: `opacity ${FADE_MS}ms ease` }
 
   return (
@@ -74,8 +78,8 @@ export default function ProBandeau({ events, onDiscover }: Props) {
       margin: '4px 12px 8px',
       borderRadius: 14,
       backgroundColor: '#fff',
-      boxShadow: '0 2px 12px rgba(236,64,122,0.18), 0 1px 4px rgba(0,0,0,0.08)',
-      border: `1.5px solid ${PROMO_PINK}33`,
+      boxShadow: `0 2px 12px ${accentColor}30, 0 1px 4px rgba(0,0,0,0.08)`,
+      border: `1.5px solid ${accentColor}33`,
       overflow: 'hidden',
       display: 'flex',
       alignItems: 'stretch',
@@ -83,7 +87,6 @@ export default function ProBandeau({ events, onDiscover }: Props) {
       position: 'relative',
       flexShrink: 0,
     }}>
-      {/* Image */}
       {evt.image_url
         ? <img key={`img-${idx}`} src={evt.image_url} alt="" loading="lazy"
             style={{ width: 84, height: 84, objectFit: 'cover', objectPosition: evt.image_position ?? '50% 50%', flexShrink: 0, ...fade }} />
@@ -92,10 +95,9 @@ export default function ProBandeau({ events, onDiscover }: Props) {
           </div>
       }
 
-      {/* Content */}
       <div style={{ flex: 1, padding: '8px 6px 8px 10px', minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', ...fade }}>
         <div style={{ marginBottom: 2 }}>
-          <span style={{ fontSize: 9, fontWeight: 800, color: PROMO_PINK, letterSpacing: '0.04em', textTransform: 'uppercase' }}>★ En vedette</span>
+          <span style={{ fontSize: 9, fontWeight: 800, color: accentColor, letterSpacing: '0.04em', textTransform: 'uppercase' }}>{label}</span>
         </div>
         <p style={{
           fontSize: 12, fontWeight: 700, color: '#2C1810', lineHeight: 1.25, margin: '0 0 2px',
@@ -108,32 +110,30 @@ export default function ProBandeau({ events, onDiscover }: Props) {
         )}
       </div>
 
-      {/* Découvrir */}
       <button onClick={() => { clearTimeout(timerRef.current); onDiscover(evt.id) }}
         style={{
           alignSelf: 'center', margin: '0 10px 0 4px', flexShrink: 0,
           padding: '8px 10px', borderRadius: 10,
-          backgroundColor: PROMO_PINK, color: '#fff',
+          backgroundColor: accentColor, color: '#fff',
           fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer', lineHeight: 1.3,
           whiteSpace: 'nowrap',
         }}>
         Découvrir
       </button>
 
-      {/* Dots */}
       {queue.length > 1 && (
         <div style={{ position: 'absolute', bottom: 5, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 4 }}>
           {queue.map((_, i) => (
-            <div key={i} style={{
+            <div key={i} onClick={() => setIdx(i)} style={{
               width: i === idx ? 12 : 5, height: 5, borderRadius: 3,
-              backgroundColor: i === idx ? PROMO_PINK : '#D0C8C0',
+              backgroundColor: i === idx ? accentColor : '#D0C8C0',
               transition: 'width 0.3s, background-color 0.3s',
+              cursor: 'pointer',
             }} />
           ))}
         </div>
       )}
 
-      {/* X dismiss */}
       <button onClick={() => setDismissed(true)}
         style={{
           position: 'absolute', top: 5, right: 5,

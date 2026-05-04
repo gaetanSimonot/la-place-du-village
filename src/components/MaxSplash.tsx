@@ -5,6 +5,7 @@ import { formatDate } from '@/lib/filters'
 import { CATEGORIES } from '@/lib/categories'
 
 const SESSION_KEY = 'pdv-max-seen'
+const AUTO_ADVANCE_MS = 5000
 
 type Phase = 'logo' | 'event' | 'dismissed'
 
@@ -20,26 +21,30 @@ const STYLES = `
   @keyframes fadeIn  { from { opacity:0 } to { opacity:1 } }
 `
 
-export default function MaxSplash({ events, onDiscover, loading = false }: Props) {
-  const [phase, setPhase]       = useState<Phase>('logo')
-  const [fadingOut, setFadingOut] = useState(false)
-  const [idx, setIdx]           = useState(0)
-  // Logo shown long enough (min display time)
-  const [logoReady, setLogoReady] = useState(false)
-  const transitioning = useRef(false)
+function sortedEvents(events: EvenementCard[]): EvenementCard[] {
+  return [...events].sort((a, b) => (a.promo_ordre ?? 999) - (b.promo_ordre ?? 999))
+}
 
-  // Check session on mount
+export default function MaxSplash({ events, onDiscover, loading = false }: Props) {
+  const [phase, setPhase]         = useState<Phase>('logo')
+  const [fadingOut, setFadingOut] = useState(false)
+  const [idx, setIdx]             = useState(0)
+  const [logoReady, setLogoReady] = useState(false)
+  const transitioning             = useRef(false)
+  const touchStartX               = useRef<number | null>(null)
+  const autoTimer                 = useRef<ReturnType<typeof setTimeout>>()
+
+  const sorted = sortedEvents(events)
+
   useEffect(() => {
     if (sessionStorage.getItem(SESSION_KEY)) setPhase('dismissed')
   }, [])
 
-  // Minimum logo display time — 1.8s
   useEffect(() => {
     const t = setTimeout(() => setLogoReady(true), 1800)
     return () => clearTimeout(t)
   }, [])
 
-  // Transition logo → event (or dismiss) once data + min time are both ready
   useEffect(() => {
     if (phase !== 'logo') return
     if (sessionStorage.getItem(SESSION_KEY)) return
@@ -50,10 +55,19 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
     setFadingOut(true)
     const t = setTimeout(() => {
       setFadingOut(false)
-      setPhase(events.length === 0 ? 'dismissed' : 'event')
+      setPhase(sorted.length === 0 ? 'dismissed' : 'event')
     }, 380)
     return () => clearTimeout(t)
-  }, [phase, logoReady, loading, events.length])
+  }, [phase, logoReady, loading, sorted.length])
+
+  // Auto-advance every 5s
+  useEffect(() => {
+    if (phase !== 'event' || sorted.length <= 1) return
+    autoTimer.current = setTimeout(() => {
+      setIdx(i => (i + 1) % sorted.length)
+    }, AUTO_ADVANCE_MS)
+    return () => clearTimeout(autoTimer.current)
+  }, [phase, idx, sorted.length])
 
   const dismiss = () => {
     sessionStorage.setItem(SESSION_KEY, '1')
@@ -63,12 +77,37 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
   const discover = () => {
     sessionStorage.setItem(SESSION_KEY, '1')
     setPhase('dismissed')
-    onDiscover(events[idx].id)
+    onDiscover(sorted[idx].id)
+  }
+
+  const goTo = (i: number) => {
+    clearTimeout(autoTimer.current)
+    setIdx(i)
   }
 
   const next = () => {
-    if (idx + 1 >= events.length) { dismiss(); return }
-    setIdx(i => i + 1)
+    if (idx + 1 >= sorted.length) { dismiss(); return }
+    goTo(idx + 1)
+  }
+
+  // Touch swipe handlers
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+  }
+
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return
+    const dx = e.changedTouches[0].clientX - touchStartX.current
+    touchStartX.current = null
+    if (Math.abs(dx) < 40) return
+    if (dx < 0) {
+      // swipe left → next
+      if (idx + 1 < sorted.length) goTo(idx + 1)
+      else dismiss()
+    } else {
+      // swipe right → prev
+      if (idx > 0) goTo(idx - 1)
+    }
   }
 
   if (phase === 'dismissed') return null
@@ -116,7 +155,7 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
           color: '#B0A898', fontSize: 13,
           cursor: 'pointer', fontFamily: 'Inter, sans-serif',
           animation: 'fadeIn 0.4s 1.1s ease both',
-          opacity: 0, // starts at 0, animation fills to 1
+          opacity: 0,
         }}>
           Passer
         </button>
@@ -125,19 +164,22 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
   }
 
   /* ── Phase event ── */
-  const evt = events[idx]
+  const evt = sorted[idx]
   const cat = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
-  const hasNext = idx + 1 < events.length
+  const hasNext = idx + 1 < sorted.length
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 500,
-      fontFamily: 'Inter, sans-serif',
-      animation: 'fadeIn 0.35s ease both',
-    }}>
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 500,
+        fontFamily: 'Inter, sans-serif',
+        animation: 'fadeIn 0.35s ease both',
+      }}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
       <style>{STYLES}</style>
 
-      {/* Image plein écran */}
       {evt.image_url
         ? <img src={evt.image_url} alt={evt.titre} style={{
             position: 'absolute', inset: 0, width: '100%', height: '100%',
@@ -146,13 +188,11 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
         : <div style={{ position: 'absolute', inset: 0, backgroundColor: cat.color }} />
       }
 
-      {/* Dégradé sombre bas → haut */}
       <div style={{
         position: 'absolute', inset: 0,
         background: 'linear-gradient(to top, rgba(0,0,0,0.94) 0%, rgba(0,0,0,0.75) 38%, rgba(0,0,0,0.18) 62%, transparent 100%)',
       }} />
 
-      {/* Fermer — fond sombre pour lisibilité sur images claires */}
       <button onClick={dismiss} style={{
         position: 'absolute', top: 18, right: 18,
         width: 30, height: 30, borderRadius: '50%',
@@ -165,7 +205,6 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
         boxShadow: '0 1px 8px rgba(0,0,0,0.35)',
       }}>✕</button>
 
-      {/* Badge */}
       <div style={{ position: 'absolute', top: 22, left: 18 }}>
         <span style={{
           fontSize: 10, fontWeight: 800, color: '#fff',
@@ -176,14 +215,13 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
         }}>ÉVÉNEMENT À LA UNE</span>
       </div>
 
-      {/* Dots navigation */}
-      {events.length > 1 && (
+      {sorted.length > 1 && (
         <div style={{
           position: 'absolute', bottom: 176, left: '50%', transform: 'translateX(-50%)',
           display: 'flex', gap: 6,
         }}>
-          {events.map((_, i) => (
-            <div key={i} onClick={() => setIdx(i)} style={{
+          {sorted.map((_, i) => (
+            <div key={i} onClick={() => goTo(i)} style={{
               width: i === idx ? 20 : 6, height: 6, borderRadius: 3,
               backgroundColor: i === idx ? '#fff' : 'rgba(255,255,255,0.35)',
               transition: 'width 0.3s', cursor: 'pointer',
@@ -192,7 +230,6 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
         </div>
       )}
 
-      {/* Contenu bas */}
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '0 22px 44px' }}>
         <h2 style={{
           fontSize: 30, fontWeight: 800, color: '#fff',

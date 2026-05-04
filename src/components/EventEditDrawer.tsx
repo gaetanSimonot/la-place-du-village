@@ -174,6 +174,7 @@ export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props
   const [placeIdGoogle, setPlaceIdGoogle] = useState<string | null>(null)
 
   const [promotion, setPromotion]         = useState<'basic' | 'pro' | 'max'>('basic')
+  const [promoOrdre, setPromoOrdre]       = useState<string>('')
 
   const [imageUrl, setImageUrl]           = useState<string | null>(null)
   const [imagePosition, setImagePosition] = useState('50% 50%')
@@ -200,6 +201,7 @@ export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props
         setImageUrl(e.image_url ?? null)
         setImagePosition(e.image_position ?? '50% 50%')
         setPromotion((e.promotion as 'basic' | 'pro' | 'max') ?? 'basic')
+        setPromoOrdre(e.promo_ordre != null ? String(e.promo_ordre) : '')
         setLieuId(e.lieu_id ?? null)
         if (e.lieux) {
           setLieuNom(e.lieux.nom ?? '')
@@ -273,6 +275,7 @@ export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props
         prix: prix || null, contact: contact || null, organisateurs: organisateurs || null,
         image_url: finalUrl, image_position: imagePosition,
         promotion,
+        promo_ordre: promotion === 'max' && promoOrdre !== '' ? parseInt(promoOrdre) : null,
       }
       if (lieuId) {
         body.lieu_id = lieuId
@@ -485,6 +488,23 @@ export default function EventEditDrawer({ evenementId, onClose, onSaved }: Props
             ))}
           </div>
         </div>
+
+        {/* Ordre carrousel splash — uniquement plan max */}
+        {promotion === 'max' && (
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+              Ordre dans le splash <span style={{ color: '#7C3AED' }}>⚡</span>
+            </label>
+            <p className="text-xs text-gray-400 mb-2">1 = affiché en premier. Laisser vide = dernier.</p>
+            <input
+              type="number" min={1} value={promoOrdre}
+              onChange={e => setPromoOrdre(e.target.value)}
+              placeholder="ex: 1"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm"
+              style={{ outline: 'none' }}
+            />
+          </div>
+        )}
 
         {/* Supprimer */}
         <button onClick={deleteEvent}
