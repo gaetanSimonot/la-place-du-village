@@ -30,7 +30,7 @@ export default function LoginView() {
   if (sent) return (
     <div style={{ padding: '32px 20px', textAlign: 'center' }}>
       <p style={{ fontSize: 44, marginBottom: 14 }}>📬</p>
-      <h3 style={{ fontWeight: 800, fontSize: 18, color: '#2C1810', marginBottom: 8, fontFamily: 'Syne, sans-serif' }}>
+      <h3 style={{ fontWeight: 800, fontSize: 20, color: '#1A1209', marginBottom: 8, fontFamily: 'Inter, sans-serif', letterSpacing: '-0.02em' }}>
         Vérifie tes emails
       </h3>
       <p style={{ fontSize: 14, color: '#8A8A8A', lineHeight: 1.6, margin: '0 0 20px' }}>
@@ -56,7 +56,7 @@ export default function LoginView() {
             <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
           </svg>
         </div>
-        <h3 style={{ fontWeight: 800, fontSize: 20, color: '#2C1810', margin: '0 0 6px', fontFamily: 'Syne, sans-serif' }}>
+        <h3 style={{ fontWeight: 800, fontSize: 22, color: '#1A1209', margin: '0 0 6px', fontFamily: 'Inter, sans-serif', letterSpacing: '-0.02em' }}>
           Connexion
         </h3>
         <p style={{ fontSize: 13, color: '#8A8A8A', margin: 0, lineHeight: 1.5 }}>

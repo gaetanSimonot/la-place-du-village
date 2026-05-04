@@ -78,7 +78,7 @@ export default function InstallBanner() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
         <img src="/logo.png" alt="" width={44} height={44} style={{ borderRadius: 10, flexShrink: 0 }} />
         <div>
-          <p style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 15, color: '#2C1810', margin: '0 0 2px' }}>
+          <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 15, color: '#1A1209', letterSpacing: '-0.01em', margin: '0 0 2px' }}>
             La Place du Village
           </p>
           <p style={{ fontSize: 12, color: '#8A8A8A', margin: 0 }}>

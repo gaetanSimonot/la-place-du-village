@@ -222,9 +222,9 @@ export default function MaxSplash({ events, loading = false }: Props) {
 
           {/* Titre */}
           <h2 style={{
-            fontSize: 32, fontWeight: 700, color: '#fff',
-            lineHeight: 1.28, letterSpacing: '0.02em', margin: '0 0 10px',
-            fontFamily: '"Playfair Display", serif',
+            fontSize: 32, fontWeight: 800, color: '#fff',
+            lineHeight: 1.2, letterSpacing: '-0.01em', margin: '0 0 10px',
+            fontFamily: 'Inter, sans-serif',
             textShadow: '0 2px 20px rgba(0,0,0,0.6)',
           }}>{evt.titre}</h2>
 

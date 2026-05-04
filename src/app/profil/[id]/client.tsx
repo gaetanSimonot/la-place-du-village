@@ -178,7 +178,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
       {/* Header */}
       <div style={{ backgroundColor: '#fff', borderBottom: '1px solid #E8E0D4', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 10 }}>
         <button onClick={() => router.back()} style={{ background: 'none', border: 'none', fontSize: 22, color: 'var(--primary)', cursor: 'pointer', padding: 0, fontWeight: 700 }}>←</button>
-        <h1 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 16, color: '#1A1209', margin: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</h1>
+        <h1 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 16, color: '#1A1209', letterSpacing: '-0.01em', margin: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</h1>
         {isOwn && !editing && (
           <button onClick={startEdit} style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', border: '1px solid var(--primary)', borderRadius: 999, padding: '4px 12px', background: 'none', cursor: 'pointer', fontFamily: 'Syne, sans-serif' }}>
             Modifier
@@ -218,7 +218,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
               </>
             ) : (
               <>
-                <h2 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 20, color: '#1A1209', margin: '0 0 4px' }}>{name}</h2>
+                <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 20, color: '#1A1209', letterSpacing: '-0.02em', margin: '0 0 4px' }}>{name}</h2>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   {profile.ville && <p style={{ fontSize: 13, color: '#6B5E4E', margin: 0 }}>📍 {profile.ville}</p>}
                   {/* Badge abonnement */}

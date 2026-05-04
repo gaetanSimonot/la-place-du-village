@@ -139,8 +139,8 @@ export default function ProBandeau({ events, onDiscover }: Props) {
         {/* Bas : titre + meta */}
         <div>
           <p style={{
-            fontFamily: 'Syne, sans-serif', fontWeight: 800,
-            fontSize: 16, lineHeight: 1.3, letterSpacing: '0.01em', color: '#fff',
+            fontFamily: 'Inter, sans-serif', fontWeight: 700,
+            fontSize: 16, lineHeight: 1.3, letterSpacing: '-0.01em', color: '#fff',
             margin: '0 0 4px',
             overflow: 'hidden', display: '-webkit-box',
             WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',

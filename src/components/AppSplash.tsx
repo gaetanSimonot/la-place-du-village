@@ -32,25 +32,25 @@ export default function AppSplash({ onDone }: { onDone: () => void }) {
         alt="La Place du Village"
         style={{ display: 'block' }}
       />
-      <div style={{ textAlign: 'center', marginTop: 26 }}>
+      <div style={{ textAlign: 'center', marginTop: 24 }}>
         <p style={{
-          fontFamily: '"Playfair Display", serif',
-          fontWeight: 700,
-          fontSize: 26,
-          lineHeight: 1.25,
-          color: '#1C1917',
+          fontFamily: 'Inter, sans-serif',
+          fontWeight: 800,
+          fontSize: 24,
+          lineHeight: 1.2,
+          color: '#1A1209',
           margin: 0,
-          letterSpacing: '0.02em',
+          letterSpacing: '-0.01em',
         }}>
           La Place du Village
         </p>
         <p style={{
-          fontFamily: 'Lora, serif',
-          fontWeight: 400,
+          fontFamily: 'Inter, sans-serif',
+          fontWeight: 500,
           fontSize: 12,
           color: '#A09080',
-          margin: '8px 0 0',
-          letterSpacing: '0.12em',
+          margin: '7px 0 0',
+          letterSpacing: '0.14em',
           textTransform: 'uppercase',
         }}>
           Ganges · Hérault

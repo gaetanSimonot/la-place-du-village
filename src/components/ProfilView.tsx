@@ -116,7 +116,7 @@ export default function ProfilView() {
                     : (
                       <button onClick={() => { setNameInput(profile?.display_name ?? ''); setEditingName(true) }}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 18, color: '#2C1810' }}>
+                        <span style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 18, color: '#1A1209', letterSpacing: '-0.02em' }}>
                           {profile?.display_name ?? user.email?.split('@')[0] ?? 'Mon profil'}
                         </span>
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B0A898" strokeWidth="2" strokeLinecap="round">
