@@ -33,6 +33,7 @@ interface Props {
   mode: 'peek' | 'half' | 'full'
   onModeChange: (m: 'peek' | 'half' | 'full') => void
   navHeight: number
+  screenH: number
   onPeekHeightChange?: (h: number) => void
   proEvents?: EvenementCard[]
   onDiscoverPro?: (id: string) => void
@@ -41,11 +42,10 @@ interface Props {
 
 export default function BottomSheet({
   evenements, loading, selectedId, onSelectEvent, onViewOnMap,
-  filtres, onFiltresChange, mode, onModeChange, navHeight,
+  filtres, onFiltresChange, mode, onModeChange, navHeight, screenH,
   onPeekHeightChange, proEvents = [], onDiscoverPro, onOpenEvent,
 }: Props) {
   const { sheetBg } = useTheme()
-  const [screenH, setScreenH]     = useState(812)
   const [peekH, setPeekH]         = useState(130) // hauteur mesurée du header
   const [visibleCount, setVisibleCount] = useState(BATCH)
   const headerRef = useRef<HTMLDivElement>(null)
@@ -98,10 +98,8 @@ export default function BottomSheet({
   const y = useMotionValue(9999)
 
   useEffect(() => {
-    const h = window.innerHeight
-    setScreenH(h)
-    y.set(getSnaps(h, navHeight, peekH).half) // départ à la moitié
-  }, [getSnaps, navHeight, y]) // eslint-disable-line react-hooks/exhaustive-deps
+    y.set(getSnaps(screenH, navHeight, peekH).half) // départ à la moitié — screenH vient du parent
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const isMounted = useRef(false)
   useEffect(() => {

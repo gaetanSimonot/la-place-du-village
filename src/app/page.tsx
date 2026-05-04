@@ -186,17 +186,14 @@ export default function HomePage() {
     return () => window.removeEventListener('resize', update)
   }, [])
 
-  // Persist current tab so OAuth redirect can restore it
-  useEffect(() => {
-    try { sessionStorage.setItem('pdv-last-tab', navTab) } catch {}
-  }, [navTab])
-
-  // After login (null → user), restore the tab they were on before the OAuth redirect
+  // After login (null → user) — si le flag login-pending est posé, aller sur profil
   useEffect(() => {
     if (user && !prevUserRef.current) {
       try {
-        const lastTab = sessionStorage.getItem('pdv-last-tab') as NavTab | null
-        if (lastTab) setNavTab(lastTab)
+        if (sessionStorage.getItem('pdv-login-pending')) {
+          sessionStorage.removeItem('pdv-login-pending')
+          setNavTab('profil')
+        }
       } catch {}
     }
     prevUserRef.current = user
@@ -773,6 +770,7 @@ export default function HomePage() {
         mode={sheetMode}
         onModeChange={setSheetMode}
         navHeight={NAV_H}
+        screenH={screenH}
         onPeekHeightChange={setSheetPeekH}
         proEvents={proEvents}
         onDiscoverPro={openEvent}

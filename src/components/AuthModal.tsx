@@ -15,6 +15,7 @@ export default function AuthModal() {
   if (!open || user) return null
 
   const handleGoogle = async () => {
+    try { sessionStorage.setItem('pdv-login-pending', '1') } catch {}
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/auth/callback` },
@@ -23,6 +24,7 @@ export default function AuthModal() {
 
   const handleMagicLink = async () => {
     if (!email.trim()) return
+    try { sessionStorage.setItem('pdv-login-pending', '1') } catch {}
     setLoading(true); setError(null)
     const { error: err } = await supabase.auth.signInWithOtp({
       email,
