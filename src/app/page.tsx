@@ -788,7 +788,7 @@ export default function HomePage() {
         </div>
       )}
 
-      <MaxSplash events={maxEvents} onDiscover={openEvent} loading={loading} />
+      <MaxSplash events={maxEvents} loading={loading} />
 
       {/* Bottom Nav — 3 onglets */}
       <nav style={{

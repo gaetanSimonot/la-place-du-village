@@ -11,7 +11,6 @@ type Phase = 'logo' | 'event' | 'dismissed'
 
 interface Props {
   events: EvenementCard[]
-  onDiscover: (id: string) => void
   loading?: boolean
 }
 
@@ -44,7 +43,7 @@ function Slide({ evt }: { evt: EvenementCard }) {
   )
 }
 
-export default function MaxSplash({ events, onDiscover, loading = false }: Props) {
+export default function MaxSplash({ events, loading = false }: Props) {
   const [phase, setPhase]           = useState<Phase>('logo')
   const [fadingOut, setFadingOut]   = useState(false)
   const [logoReady, setLogoReady]   = useState(false)
