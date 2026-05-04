@@ -16,6 +16,7 @@ import { useAuthModal } from '@/contexts/AuthModalContext'
 import MaxSplash from '@/components/MaxSplash'
 import FavorisView from '@/components/FavorisView'
 import AppSplash from '@/components/AppSplash'
+import WelcomePopup from '@/components/WelcomePopup'
 import { useFavorites } from '@/hooks/useFavorites'
 
 const MapView     = dynamic(() => import('@/components/MapView'),     { ssr: false })
@@ -71,7 +72,8 @@ export default function HomePage() {
   const [filtres, setFiltres]       = useState<Filtres>(defaultFiltres)
   const [allEvenements, setAllEvenements] = useState<EvenementCard[]>([])
   const [promoEventsData, setPromoEventsData] = useState<EvenementCard[]>([])
-  const [splashDone, setSplashDone] = useState(false)
+  const [splashDone, setSplashDone]   = useState(false)
+  const [showWelcome, setShowWelcome] = useState(false)
   const [loading, setLoading]       = useState(true)
   const [masquerPasses, setMasquerPasses] = useState(true)
   const [zoneCentres, setZoneCentres]   = useState<{ lat: number; lng: number; nom: string }[]>([])
@@ -821,7 +823,16 @@ export default function HomePage() {
 
       <MaxSplash events={maxEvents} loading={loading} />
 
-      {!splashDone && <AppSplash onDone={() => setSplashDone(true)} />}
+      {!splashDone && <AppSplash onDone={() => {
+        setSplashDone(true)
+        if (typeof window !== 'undefined' && !localStorage.getItem('pdv-welcome-seen')) {
+          setShowWelcome(true)
+        }
+      }} />}
+      {showWelcome && <WelcomePopup onClose={() => {
+        setShowWelcome(false)
+        localStorage.setItem('pdv-welcome-seen', '1')
+      }} />}
 
       {/* Bottom Nav */}
       <nav style={{
