@@ -3,10 +3,11 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export default function LoginView() {
-  const [email, setEmail]     = useState('')
-  const [sent, setSent]       = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState('')
+  const [email, setEmail]           = useState('')
+  const [sent, setSent]             = useState(false)
+  const [loading, setLoading]       = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
+  const [error, setError]           = useState('')
 
   const sendMagicLink = async () => {
     const trimmed = email.trim()
@@ -21,11 +22,13 @@ export default function LoginView() {
     setLoading(false)
   }
 
-  const signInWithGoogle = () =>
+  const signInWithGoogle = () => {
+    setGoogleLoading(true)
     supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/auth/callback` },
     })
+  }
 
   if (sent) return (
     <div style={{ padding: '32px 20px', textAlign: 'center' }}>
@@ -64,16 +67,21 @@ export default function LoginView() {
         </p>
       </div>
 
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+
       {/* Google */}
-      <button onClick={signInWithGoogle} style={{
+      <button onClick={signInWithGoogle} disabled={googleLoading} style={{
         width: '100%', padding: '14px', borderRadius: 14, marginBottom: 14,
         backgroundColor: '#fff', border: '1.5px solid #E0D8CE',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-        fontSize: 15, fontWeight: 700, cursor: 'pointer', color: '#2C1810',
+        fontSize: 15, fontWeight: 700, cursor: googleLoading ? 'default' : 'pointer', color: '#2C1810',
         boxShadow: '0 2px 8px rgba(0,0,0,0.06)', fontFamily: 'Inter, sans-serif',
+        opacity: googleLoading ? 0.7 : 1, transition: 'opacity 0.15s',
       }}>
-        <GoogleIcon />
-        Continuer avec Google
+        {googleLoading
+          ? <><div style={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid #E0D8CE', borderTopColor: '#2C1810', animation: 'spin 0.6s linear infinite' }} /><span>Redirection…</span></>
+          : <><GoogleIcon />Continuer avec Google</>
+        }
       </button>
 
       {/* Divider */}
