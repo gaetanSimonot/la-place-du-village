@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { normalizeProduitCat } from '@/lib/produit-cats'
 
 export async function GET(req: NextRequest) {
   const url  = new URL(req.url)
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
   if (cat) {
     list = list.filter(p =>
       (p.products ?? []).some((pr: { categorie: string; disponible: boolean }) =>
-        pr.categorie === cat && pr.disponible
+        normalizeProduitCat(pr.categorie) === cat && pr.disponible
       )
     )
   }
@@ -39,9 +40,9 @@ export async function GET(req: NextRequest) {
       contact_whatsapp: p.contact_whatsapp ?? null,
       contact_tel: p.contact_tel ?? null,
       site_web: p.site_web ?? null,
-      produit_categories: Array.from(new Set(disponibles.map((pr: { categorie: string }) => pr.categorie))),
+      produit_categories: Array.from(new Set(disponibles.map((pr: { categorie: string }) => normalizeProduitCat(pr.categorie)))),
       produits_disponibles: disponibles.map((pr: { nom: string; categorie: string; prix_indicatif: string | null; periode_dispo: string | null }) => ({
-        nom: pr.nom, categorie: pr.categorie, prix_indicatif: pr.prix_indicatif, periode_dispo: pr.periode_dispo,
+        nom: pr.nom, categorie: normalizeProduitCat(pr.categorie), prix_indicatif: pr.prix_indicatif, periode_dispo: pr.periode_dispo,
       })),
       lat: p.lat ?? null,
       lng: p.lng ?? null,

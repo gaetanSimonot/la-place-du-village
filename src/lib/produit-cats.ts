@@ -17,3 +17,20 @@ export const PRODUIT_CATS: { id: ProduitCategorie; label: string; emoji: string 
 
 export const PRODUIT_CATS_MAP: Record<string, { label: string; emoji: string }> =
   Object.fromEntries(PRODUIT_CATS.map(c => [c.id, { label: c.label, emoji: c.emoji }]))
+
+// Anciens IDs (avant regroupement) → nouveaux IDs groupés
+const LEGACY: Record<string, ProduitCategorie> = {
+  legumes:    'fruits_legumes',
+  fruits:     'fruits_legumes',
+  tomates:    'fruits_legumes',
+  viande:     'viandes',
+  volaille:   'viandes',
+  charcuterie:'viandes',
+  fromage:    'fromages_laitages',
+  lait:       'fromages_laitages',
+  laitage:    'fromages_laitages',
+}
+
+export function normalizeProduitCat(cat: string): ProduitCategorie {
+  return LEGACY[cat] ?? (cat as ProduitCategorie)
+}
