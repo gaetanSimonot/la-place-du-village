@@ -1,6 +1,6 @@
 'use client'
 import React from 'react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Evenement, isApproxLocation } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
@@ -44,24 +44,63 @@ function renderContact(contact: string): React.ReactNode {
   return <>{linkify(s)}</>
 }
 
-function VoteButton({ evt }: { evt: Evenement }) {
+/* ── Barre d'actions Facebook-style ── */
+const BTN: React.CSSProperties = {
+  flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+  gap: 4, padding: '10px 4px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer',
+  WebkitTapHighlightColor: 'transparent', touchAction: 'none',
+}
+const LBL: React.CSSProperties = {
+  fontSize: 11, fontWeight: 600, fontFamily: 'Inter, sans-serif',
+}
+
+function ActionBar({ evt, onFeedbackOpen }: { evt: Evenement; onFeedbackOpen: () => void }) {
+  const { isFav, toggle: toggleFav } = useFavorites()
   const { user } = useAuth()
   const { openAuthModal } = useAuthModal()
   const [voted, setVoted]           = useState(false)
-  const [count, setCount]           = useState(evt.vote_count ?? 0)
-  const [loading, setLoading]       = useState(false)
-  const [checked, setChecked]       = useState(false)
+  const [voteCount, setVoteCount]   = useState(evt.vote_count ?? 0)
+  const [voteLoading, setVoteLoading] = useState(false)
+  const [toast, setToast]           = useState<string | null>(null)
+  const [voters, setVoters]         = useState<string[] | null>(null)
+  const [loadingVoters, setLoadingVoters] = useState(false)
+  const lpTimer   = useRef<ReturnType<typeof setTimeout>>()
+  const lpFired   = useRef(false)
+  const fav       = isFav(evt.id)
 
   useEffect(() => {
-    if (!user) { setChecked(true); return }
+    if (!user) return
     supabase.from('votes').select('id').eq('evenement_id', evt.id).eq('user_id', user.id).maybeSingle()
-      .then(({ data }) => { setVoted(!!data); setChecked(true) })
+      .then(({ data }) => setVoted(!!data))
   }, [user, evt.id])
 
-  const toggle = async () => {
+  const showToast = (msg: string) => {
+    setToast(null)
+    requestAnimationFrame(() => setToast(msg))
+    setTimeout(() => setToast(null), 1800)
+  }
+
+  const handleFav = () => {
+    toggleFav(evt.id)
+    showToast(!fav ? '❤️ Ajouté aux favoris' : 'Retiré des favoris')
+  }
+
+  const handleShare = async () => {
+    const url = `${window.location.origin}/evenement/${evt.id}`
+    const cat = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
+    if (navigator.share) {
+      try { await navigator.share({ title: evt.titre, text: `${cat.emoji} ${evt.titre}`, url }) } catch {}
+    } else {
+      await navigator.clipboard.writeText(url).catch(() => {})
+      showToast('Lien copié !')
+    }
+  }
+
+  const handleVote = async () => {
+    if (lpFired.current) return
     if (!user) { openAuthModal(); return }
-    if (loading) return
-    setLoading(true)
+    if (voteLoading) return
+    setVoteLoading(true)
     const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch('/api/votes', {
       method: 'POST',
@@ -69,104 +108,160 @@ function VoteButton({ evt }: { evt: Evenement }) {
       body: JSON.stringify({ evenement_id: evt.id }),
     })
     const d = await res.json()
-    if (res.ok) { setVoted(d.voted); setCount(d.vote_count) }
-    setLoading(false)
+    if (res.ok) { setVoted(d.voted); setVoteCount(d.vote_count) }
+    setVoteLoading(false)
   }
 
-  if (!checked) return null
-
-  return (
-    <button
-      onClick={toggle}
-      disabled={loading}
-      style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-        padding: '10px 20px', borderRadius: 999,
-        backgroundColor: voted ? '#FFF0E8' : '#F9F5F0',
-        border: `1.5px solid ${voted ? '#C4622D' : '#E0D8CE'}`,
-        cursor: 'pointer', transition: 'all 0.15s',
-        fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 600,
-        color: voted ? '#C4622D' : '#8A8A8A',
-      }}
-    >
-      <span style={{ fontSize: 16 }}>👍</span>
-      <span>{count > 0 ? count : ''} {voted ? 'Voté !' : 'Utile'}</span>
-    </button>
-  )
-}
-
-function FavoriteButton({ eventId }: { eventId: string }) {
-  const { isFav, toggle } = useFavorites()
-  const fav = isFav(eventId)
-  return (
-    <button
-      onClick={() => toggle(eventId)}
-      style={{
-        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-        padding: '12px 16px', borderRadius: 16,
-        backgroundColor: fav ? '#FFF0F5' : '#fff',
-        border: `1.5px solid ${fav ? '#EC407A' : '#E0D8CE'}`,
-        cursor: 'pointer', transition: 'all 0.15s',
-        fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 600,
-        color: fav ? '#EC407A' : '#8A8A8A',
-      }}
-    >
-      <svg width="17" height="17" viewBox="0 0 24 24" fill={fav ? '#EC407A' : 'none'} stroke={fav ? '#EC407A' : 'currentColor'} strokeWidth="2">
-        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-      </svg>
-      {fav ? 'Sauvegardé' : 'Sauvegarder'}
-    </button>
-  )
-}
-
-function ShareButton({ evt }: { evt: Evenement }) {
-  const [copied, setCopied] = useState(false)
-
-  const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/evenement/${evt.id}`
-  const cat = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
-  const dateStr = evt.date_debut ? formatDate(evt.date_debut) : ''
-  const lieu = evt.lieux as { commune?: string } | null
-  const lieuStr = lieu?.commune ? ` · ${lieu.commune}` : ''
-  const text = `${cat.emoji} ${evt.titre}${dateStr ? `\n📅 ${dateStr}` : ''}${lieuStr ? `\n📍${lieuStr}` : ''}`
-
-  const share = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: evt.titre, text, url })
-      } catch {}
-      return
+  const fetchVoters = async () => {
+    setVoters([])
+    setLoadingVoters(true)
+    const { data: voteData } = await supabase.from('votes').select('user_id').eq('evenement_id', evt.id)
+    const ids = (voteData ?? []).map((v: { user_id: string }) => v.user_id)
+    if (ids.length > 0) {
+      const { data: profiles } = await supabase.from('profiles').select('display_name, email').in('id', ids)
+      setVoters((profiles ?? []).map(p => p.display_name || p.email?.split('@')[0] || 'Quelqu\'un'))
     }
-    try {
-      await navigator.clipboard.writeText(url)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {}
+    setLoadingVoters(false)
+  }
+
+  const lpStart = (cb: () => void) => (e: React.PointerEvent) => {
+    e.preventDefault(); lpFired.current = false
+    lpTimer.current = setTimeout(() => { lpFired.current = true; cb() }, 550)
+  }
+  const lpEnd = () => {
+    clearTimeout(lpTimer.current)
+    setTimeout(() => { lpFired.current = false }, 60)
   }
 
   return (
-    <button
-      onClick={share}
-      style={{
-        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-        padding: '12px 16px',
-        backgroundColor: '#fff', border: '1.5px solid #E0D8CE',
-        borderRadius: 16, cursor: 'pointer',
-        fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 600, color: '#5A5A5A',
-        transition: 'background-color 0.15s',
-      }}
-    >
-      {copied
-        ? <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4CAF50" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Lien copié !</>
-        : <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg> Partager l&apos;événement</>
-      }
-    </button>
+    <div style={{ position: 'relative', backgroundColor: '#fff' }}>
+      <style>{`
+        @keyframes toastPop {
+          0%  { opacity:0; transform:translateX(-50%) translateY(6px) scale(.94) }
+          18% { opacity:1; transform:translateX(-50%) translateY(0)   scale(1)   }
+          75% { opacity:1; transform:translateX(-50%) translateY(0)   scale(1)   }
+          100%{ opacity:0; transform:translateX(-50%) translateY(-4px) scale(.96) }
+        }
+      `}</style>
+
+      {/* Toast */}
+      {toast && (
+        <div key={toast + Date.now()} style={{
+          position: 'absolute', top: -34, left: '50%',
+          backgroundColor: 'rgba(18,18,18,0.82)', color: '#fff',
+          fontSize: 12, fontWeight: 600, padding: '6px 16px', borderRadius: 999,
+          whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 10,
+          fontFamily: 'Inter, sans-serif', letterSpacing: '0.01em',
+          animation: 'toastPop 1.8s ease forwards',
+        }}>{toast}</div>
+      )}
+
+      {/* Icônes */}
+      <div style={{
+        display: 'flex',
+        borderTop: '1px solid #EDE8E0', borderBottom: '1px solid #EDE8E0',
+      }}>
+        {/* Favori */}
+        <button onClick={handleFav} style={BTN}>
+          <svg width="21" height="21" viewBox="0 0 24 24" fill={fav ? '#EC407A' : 'none'} stroke={fav ? '#EC407A' : '#9CA3AF'} strokeWidth="2">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
+          <span style={{ ...LBL, color: fav ? '#EC407A' : '#9CA3AF' }}>Favori</span>
+        </button>
+
+        {/* Partager */}
+        <button onClick={handleShare} style={BTN}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+          <span style={{ ...LBL, color: '#9CA3AF' }}>Partager</span>
+        </button>
+
+        {/* Commenter */}
+        <button onClick={onFeedbackOpen} style={BTN}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          <span style={{ ...LBL, color: '#9CA3AF' }}>Commenter</span>
+        </button>
+
+        {/* Utile — long press → voters */}
+        <button
+          onClick={handleVote}
+          onPointerDown={lpStart(fetchVoters)}
+          onPointerUp={lpEnd}
+          onPointerCancel={lpEnd}
+          disabled={voteLoading}
+          style={BTN}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill={voted ? 'var(--primary)' : 'none'} stroke={voted ? 'var(--primary)' : '#9CA3AF'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/>
+              <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+            </svg>
+            {voteCount > 0 && (
+              <span style={{ fontSize: 13, fontWeight: 700, color: voted ? 'var(--primary)' : '#9CA3AF', lineHeight: 1 }}>
+                {voteCount}
+              </span>
+            )}
+          </div>
+          <span style={{ ...LBL, color: voted ? 'var(--primary)' : '#9CA3AF' }}>Utile</span>
+        </button>
+      </div>
+
+      {/* Popup voters (long press 👍) */}
+      {voters !== null && (
+        <>
+          <div onClick={() => setVoters(null)} style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'rgba(0,0,0,0.35)' }} />
+          <div style={{
+            position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 201,
+            backgroundColor: '#fff', borderRadius: '20px 20px 0 0',
+            padding: '16px 20px 44px', fontFamily: 'Inter, sans-serif',
+          }}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '0 auto 16px' }} />
+            <p style={{ fontWeight: 700, fontSize: 15, color: '#2C1810', marginBottom: 14 }}>
+              👍 {voteCount} personne{voteCount !== 1 ? 's' : ''} trouve ça utile
+            </p>
+            {loadingVoters ? (
+              <div style={{ textAlign: 'center', padding: '10px 0' }}>
+                <div style={{ width: 24, height: 24, borderRadius: '50%', border: '3px solid #E0D8CE', borderTopColor: 'var(--primary)', animation: 'spin 0.7s linear infinite', margin: '0 auto' }} />
+              </div>
+            ) : voters.length === 0 ? (
+              <p style={{ fontSize: 13, color: '#9A8E82' }}>Personne pour l&apos;instant.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {voters.map((name, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{
+                      width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+                      backgroundColor: 'var(--primary-light)', color: 'var(--primary)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontWeight: 800, fontSize: 14, fontFamily: 'Syne, sans-serif',
+                    }}>{name[0].toUpperCase()}</div>
+                    <span style={{ fontSize: 14, color: '#2C1810', fontWeight: 500 }}>{name}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button onClick={() => setVoters(null)} style={{
+              width: '100%', marginTop: 18, padding: '12px', borderRadius: 14, border: 'none',
+              backgroundColor: '#F5F1EC', color: '#6B7280', fontWeight: 600, fontSize: 14,
+              cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+            }}>Fermer</button>
+          </div>
+        </>
+      )}
+    </div>
   )
 }
 
+/* ── Page principale ── */
 export default function EvenementPageClient({ id }: { id: string }) {
-  const [evt, setEvt]       = useState<Evenement | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [editing, setEditing] = useState(false)
+  const [evt, setEvt]           = useState<Evenement | null>(null)
+  const [loading, setLoading]   = useState(true)
+  const [editing, setEditing]   = useState(false)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
   const isAdmin = useAdminSession()
 
   useEffect(() => {
@@ -189,8 +284,8 @@ export default function EvenementPageClient({ id }: { id: string }) {
     </div>
   )
 
-  const cat   = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
-  const lieu  = evt.lieux
+  const cat    = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
+  const lieu   = evt.lieux
   const mapsUrl = lieu?.lat && lieu?.lng
     ? `https://www.google.com/maps/dir/?api=1&destination=${lieu.lat},${lieu.lng}`
     : lieu?.adresse
@@ -199,6 +294,7 @@ export default function EvenementPageClient({ id }: { id: string }) {
 
   return (
     <div className="min-h-screen bg-[#FBF7F0]">
+      {/* Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-[#E8E0D5] px-4 py-3 flex items-center gap-3">
         <Link href="/" className="text-[#C4622D] font-bold text-2xl leading-none">←</Link>
         <h1 className="font-bold text-[#2C1810] flex-1 truncate text-base">{evt.titre}</h1>
@@ -210,23 +306,19 @@ export default function EvenementPageClient({ id }: { id: string }) {
         )}
       </div>
 
+      {/* Photo */}
       {evt.image_url && <ImageLightbox src={evt.image_url} alt={evt.titre} objectPosition={evt.image_position ?? '50% 50%'} />}
 
-      {/* Actions — sous la photo */}
-      <div style={{ display: 'flex', gap: 10, padding: '12px 16px 0' }}>
-        <FavoriteButton eventId={evt.id} />
-        <ShareButton evt={evt} />
-      </div>
+      {/* Barre d'actions */}
+      <ActionBar evt={evt} onFeedbackOpen={() => setFeedbackOpen(true)} />
 
+      {/* Contenu */}
       <div className="p-4 space-y-3 pb-8">
         <div>
-          <div className="flex items-center gap-2 flex-wrap mb-2">
-            <span className="inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-1 rounded-full text-white"
-              style={{ backgroundColor: cat.color }}>
-              {cat.emoji} {cat.label}
-            </span>
-            <VoteButton evt={evt} />
-          </div>
+          <span className="inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-1 rounded-full text-white mb-2"
+            style={{ backgroundColor: cat.color }}>
+            {cat.emoji} {cat.label}
+          </span>
           <h2 className="text-2xl font-bold text-[#2C1810] leading-tight">{evt.titre}</h2>
           {evt.submitted_by_name && (
             <p className="text-xs text-gray-400 mt-1">Proposé par {evt.submitted_by_name}</p>
@@ -306,9 +398,15 @@ export default function EvenementPageClient({ id }: { id: string }) {
             🗺️ Y aller
           </a>
         )}
-
-        <FeedbackButton evenementId={evt.id} evenementTitre={evt.titre} />
       </div>
+
+      {/* Feedback modal — piloté par l'icône Commenter */}
+      <FeedbackButton
+        evenementId={evt.id}
+        evenementTitre={evt.titre}
+        open={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+      />
 
       {editing && (
         <EventEditDrawer
