@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
@@ -39,7 +39,7 @@ interface Props {
 
 function timeAgo(d: string) {
   const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000)
-  if (m < 1)  return 'Ã  l\'instant'
+  if (m < 1)  return 'à l\'instant'
   if (m < 60) return `${m} min`
   const h = Math.floor(m / 60)
   if (h < 24) return `${h}h`
@@ -78,14 +78,14 @@ function CommentBubble({ c, parentAuthor, onReply, isOwn, onMenuOpen, isEditing,
                 <span style={{ fontWeight: 700, fontSize: 13, color: '#2C1810', fontFamily: 'Inter, sans-serif' }}>{name}</span>
               </Link>
               {parentAuthor && (
-                <span style={{ fontSize: 11, color: '#9CA3AF', marginLeft: 6, fontStyle: 'italic' }}>â†’ {parentAuthor}</span>
+                <span style={{ fontSize: 11, color: '#9CA3AF', marginLeft: 6, fontStyle: 'italic' }}>→ {parentAuthor}</span>
               )}
             </div>
             {isOwn && (
               <button
                 onClick={onMenuOpen}
                 style={{ border: 'none', background: 'none', color: '#B0A898', cursor: 'pointer', padding: '0 0 0 10px', fontSize: 17, lineHeight: 1, flexShrink: 0, letterSpacing: 1 }}
-              >â€¢â€¢â€¢</button>
+              >•••</button>
             )}
           </div>
           {isEditing ? (
@@ -123,7 +123,7 @@ function CommentBubble({ c, parentAuthor, onReply, isOwn, onMenuOpen, isEditing,
           <div style={{ display: 'flex', gap: 14, marginTop: 4, paddingLeft: 2 }}>
             <span style={{ fontSize: 11, color: '#B0A898' }}>{timeAgo(c.created_at)}</span>
             <button onClick={onReply} style={{ border: 'none', background: 'none', fontSize: 11, fontWeight: 700, color: '#6B7280', cursor: 'pointer', padding: 0 }}>
-              RÃ©pondre
+              Répondre
             </button>
           </div>
         )}
@@ -292,9 +292,9 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
               padding: '4px 16px 10px', flexShrink: 0, borderBottom: '1px solid #EDE8E0',
             }}>
               <h3 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 16, color: '#2C1810', margin: 0 }}>
-                Commentaires{comments.length > 0 ? ` Â· ${comments.length}` : ''}
+                Commentaires{comments.length > 0 ? ` · ${comments.length}` : ''}
               </h3>
-              <button onClick={onClose} style={{ border: 'none', background: 'none', fontSize: 20, color: '#9CA3AF', cursor: 'pointer' }}>âœ•</button>
+              <button onClick={onClose} style={{ border: 'none', background: 'none', fontSize: 20, color: '#9CA3AF', cursor: 'pointer' }}>✕</button>
             </div>
 
             {/* Liste */}
@@ -305,9 +305,9 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
                 </div>
               ) : comments.length === 0 ? (
                 <div style={{ textAlign: 'center', paddingTop: 48 }}>
-                  <p style={{ fontSize: 40, marginBottom: 10 }}>ðŸ’¬</p>
+                  <p style={{ fontSize: 40, marginBottom: 10 }}>💬</p>
                   <p style={{ fontWeight: 700, fontSize: 15, fontFamily: 'Inter, sans-serif', color: '#2C1810', marginBottom: 4 }}>Aucun commentaire</p>
-                  <p style={{ fontSize: 13, color: '#9CA3AF' }}>Sois le premier Ã  rÃ©agir</p>
+                  <p style={{ fontSize: 13, color: '#9CA3AF' }}>Sois le premier à réagir</p>
                 </div>
               ) : (
                 topLevel.map(c => (
@@ -356,9 +356,9 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
                     <path d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 0 1 0 12h-3"/>
                   </svg>
                   <span style={{ fontSize: 12, color: '#6B7280', flex: 1 }}>
-                    RÃ©pondre Ã  <strong style={{ color: '#2C1810' }}>{authorOf(replyTo)}</strong>
+                    Répondre à <strong style={{ color: '#2C1810' }}>{authorOf(replyTo)}</strong>
                   </span>
-                  <button onClick={() => setReplyTo(null)} style={{ border: 'none', background: 'none', color: '#9CA3AF', cursor: 'pointer', padding: 0, fontSize: 15, lineHeight: 1 }}>âœ•</button>
+                  <button onClick={() => setReplyTo(null)} style={{ border: 'none', background: 'none', color: '#9CA3AF', cursor: 'pointer', padding: 0, fontSize: 15, lineHeight: 1 }}>✕</button>
                 </div>
               )}
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
@@ -392,7 +392,7 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
                     value={text}
                     onChange={handleTextChange}
                     onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-                    placeholder={user ? (replyTo ? `RÃ©pondre Ã  ${authorOf(replyTo)}â€¦` : 'Ã‰cris un commentaireâ€¦') : 'Connecte-toi pour commenter'}
+                    placeholder={user ? (replyTo ? `Répondre à ${authorOf(replyTo)}…` : 'Écris un commentaire…') : 'Connecte-toi pour commenter'}
                     rows={1}
                     readOnly={!user}
                     onClick={() => { if (!user) openAuthModal() }}
@@ -424,7 +424,7 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
             </div>
           </motion.div>
 
-          {/* Menu 3 points â€” au-dessus du sheet */}
+          {/* Menu 3 points — au-dessus du sheet */}
           {menuComment && (
             <>
               <div
@@ -448,7 +448,7 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
                     borderBottom: '1px solid #F0EBE3',
                   }}
                 >
-                  <span style={{ fontSize: 19 }}>âœï¸</span> Modifier
+                  <span style={{ fontSize: 19 }}>✏️</span> Modifier
                 </button>
                 <button
                   onClick={() => handleDelete(menuComment.id)}
@@ -459,7 +459,7 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
                     borderBottom: '1px solid #F0EBE3',
                   }}
                 >
-                  <span style={{ fontSize: 19 }}>ðŸ—‘ï¸</span> Supprimer
+                  <span style={{ fontSize: 19 }}>🗑️</span> Supprimer
                 </button>
                 <button
                   onClick={() => setMenuId(null)}

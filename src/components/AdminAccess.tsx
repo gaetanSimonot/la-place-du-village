@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -24,7 +24,7 @@ export default function AdminAccess() {
   const [open, setOpen]     = useState(false)
   const [digits, setDigits] = useState('')
 
-  // Session valide â†’ accÃ¨s direct
+  // Session valide → accès direct
   useEffect(() => {
     if (isSessionValid()) router.push('/admin')
   }, [router])
@@ -44,7 +44,7 @@ export default function AdminAccess() {
 
   const del = () => setDigits(d => d.slice(0, -1))
 
-  const PAD = ['1','2','3','4','5','6','7','8','9','','0','âŒ«']
+  const PAD = ['1','2','3','4','5','6','7','8','9','','0','⌫']
 
   return (
     <>
@@ -58,7 +58,7 @@ export default function AdminAccess() {
           fontFamily: 'Inter, sans-serif', cursor: 'pointer',
         }}
       >
-        âš™ï¸ Admin
+        ⚙️ Admin
       </button>
 
       <AnimatePresence>
@@ -80,10 +80,10 @@ export default function AdminAccess() {
             >
               <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '0 auto 20px' }} />
               <h3 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 18, color: '#2C1810', textAlign: 'center', marginBottom: 6 }}>
-                AccÃ¨s admin
+                Accès admin
               </h3>
               <p style={{ fontSize: 12, color: '#8A8A8A', textAlign: 'center', marginBottom: 24 }}>
-                Code Ã  4 chiffres
+                Code à 4 chiffres
               </p>
               <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 32 }}>
                 {[0,1,2,3].map(i => (
@@ -97,13 +97,13 @@ export default function AdminAccess() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, maxWidth: 280, margin: '0 auto' }}>
                 {PAD.map((key, i) => (
                   <button key={i}
-                    onClick={() => key === 'âŒ«' ? del() : key === '' ? undefined : press(key)}
+                    onClick={() => key === '⌫' ? del() : key === '' ? undefined : press(key)}
                     disabled={key === ''}
                     style={{
                       height: 64, borderRadius: 14, border: 'none',
-                      backgroundColor: key === 'âŒ«' ? '#F5F1EC' : key === '' ? 'transparent' : '#FAF7F2',
-                      color: key === 'âŒ«' ? '#8A8A8A' : '#2C2C2C',
-                      fontSize: key === 'âŒ«' ? 20 : 22, fontWeight: 600,
+                      backgroundColor: key === '⌫' ? '#F5F1EC' : key === '' ? 'transparent' : '#FAF7F2',
+                      color: key === '⌫' ? '#8A8A8A' : '#2C2C2C',
+                      fontSize: key === '⌫' ? 20 : 22, fontWeight: 600,
                       cursor: key === '' ? 'default' : 'pointer',
                       fontFamily: 'Inter, sans-serif',
                     }}

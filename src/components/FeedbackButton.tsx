@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
@@ -37,7 +37,7 @@ export default function FeedbackButton({ evenementId, evenementTitre, open: exte
 
   return (
     <>
-      {/* Modal uniquement â€” dÃ©clenchÃ©e de l'extÃ©rieur */}
+      {/* Modal uniquement — déclenchée de l'extérieur */}
       <AnimatePresence>
         {(state === 'open' || state === 'sending' || state === 'done') && (
           <>
@@ -62,17 +62,17 @@ export default function FeedbackButton({ evenementId, evenementTitre, open: exte
                 fontFamily: 'Inter, sans-serif',
               }}
             >
-              {/* PoignÃ©e */}
+              {/* Poignée */}
               <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '0 auto 18px' }} />
 
               {state === 'done' ? (
                 <div style={{ textAlign: 'center', padding: '16px 0 8px' }}>
-                  <p style={{ fontSize: 36, marginBottom: 10 }}>ðŸ™</p>
+                  <p style={{ fontSize: 36, marginBottom: 10 }}>🙏</p>
                   <h3 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 18, color: '#2C1810', marginBottom: 6 }}>
                     Merci !
                   </h3>
                   <p style={{ fontSize: 13, color: '#8A8A8A', lineHeight: 1.5 }}>
-                    Ta suggestion a bien Ã©tÃ© envoyÃ©e.<br/>On la regarde dÃ¨s que possible.
+                    Ta suggestion a bien été envoyée.<br/>On la regarde dès que possible.
                   </p>
                   <button onClick={close} style={{
                     marginTop: 20, padding: '12px 32px', borderRadius: 14, border: 'none',
@@ -92,7 +92,7 @@ export default function FeedbackButton({ evenementId, evenementTitre, open: exte
                   <textarea
                     value={message}
                     onChange={e => setMessage(e.target.value)}
-                    placeholder="Ex : l'heure est incorrecte, l'adresse a changÃ©, il manque le prixâ€¦"
+                    placeholder="Ex : l'heure est incorrecte, l'adresse a changé, il manque le prix…"
                     rows={4}
                     disabled={state === 'sending'}
                     style={{
@@ -107,7 +107,7 @@ export default function FeedbackButton({ evenementId, evenementTitre, open: exte
                   <input
                     value={contact}
                     onChange={e => setContact(e.target.value)}
-                    placeholder="Ton contact (optionnel) â€” email ou tÃ©lÃ©phone"
+                    placeholder="Ton contact (optionnel) — email ou téléphone"
                     disabled={state === 'sending'}
                     style={{
                       width: '100%', marginTop: 10, padding: '12px 14px', borderRadius: 12,
@@ -129,7 +129,7 @@ export default function FeedbackButton({ evenementId, evenementTitre, open: exte
                       fontFamily: 'Inter, sans-serif', transition: 'all 0.15s',
                     }}
                   >
-                    {state === 'sending' ? 'Envoiâ€¦' : 'Envoyer'}
+                    {state === 'sending' ? 'Envoi…' : 'Envoyer'}
                   </button>
                 </>
               )}

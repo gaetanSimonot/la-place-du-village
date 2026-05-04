@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -28,7 +28,7 @@ function FeedCard({ evt }: { evt: StarredEvent }) {
   const cat = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
   const names = evt.starred_by.map(p => p.display_name || 'Quelqu\'un')
   const label = names.length === 1
-    ? `${names[0]} est intÃ©ressÃ©Â·e`
+    ? `${names[0]} est intéressé·e`
     : names.length === 2
     ? `${names[0]} et ${names[1]}`
     : `${names[0]} et ${names.length - 1} autres`
@@ -52,7 +52,7 @@ function FeedCard({ evt }: { evt: StarredEvent }) {
           </h3>
           {evt.date_debut && (
             <p style={{ fontSize: 12, color: '#8A8A8A', margin: '0 0 8px' }}>
-              {formatDate(evt.date_debut)}{evt.heure ? ` Â· ${evt.heure.slice(0, 5)}` : ''}{evt.lieux?.commune ? ` â€¢ ${evt.lieux.commune}` : ''}
+              {formatDate(evt.date_debut)}{evt.heure ? ` · ${evt.heure.slice(0, 5)}` : ''}{evt.lieux?.commune ? ` • ${evt.lieux.commune}` : ''}
             </p>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -63,7 +63,7 @@ function FeedCard({ evt }: { evt: StarredEvent }) {
                 </div>
               ))}
             </div>
-            <span style={{ fontSize: 12, color: '#6B7280' }}>â­ {label}</span>
+            <span style={{ fontSize: 12, color: '#6B7280' }}>⭐ {label}</span>
           </div>
         </div>
       </div>
@@ -135,15 +135,15 @@ export default function AbonnementsView() {
 
       <div style={{ padding: '16px 16px 40px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         {!user ? (
-          <EmptyState emoji="â­" title="Connecte-toi pour voir le feed" sub="Les Ã©vÃ©nements â­ des gens que tu suis apparaÃ®tront ici." />
+          <EmptyState emoji="⭐" title="Connecte-toi pour voir le feed" sub="Les événements ⭐ des gens que tu suis apparaîtront ici." />
         ) : loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 60 }}>
             <div style={{ width: 28, height: 28, borderRadius: '50%', border: '3px solid #E0D8CE', borderTopColor: 'var(--primary)', animation: 'spin 0.7s linear infinite' }} />
           </div>
         ) : followCount === 0 ? (
-          <EmptyState emoji="ðŸ‘¥" title="Tu ne suis personne encore" sub="Visite les profils des participants pour les suivre." />
+          <EmptyState emoji="👥" title="Tu ne suis personne encore" sub="Visite les profils des participants pour les suivre." />
         ) : events.length === 0 ? (
-          <EmptyState emoji="ðŸ””" title="Rien pour l'instant" sub="Les gens que tu suis n'ont pas encore marquÃ© d'Ã©vÃ©nements." />
+          <EmptyState emoji="🔔" title="Rien pour l'instant" sub="Les gens que tu suis n'ont pas encore marqué d'événements." />
         ) : (
           events.map(evt => <FeedCard key={evt.id} evt={evt} />)
         )}

@@ -32,12 +32,12 @@ export default function LoginView() {
 
   if (sent) return (
     <div style={{ padding: '32px 20px', textAlign: 'center' }}>
-      <p style={{ fontSize: 44, marginBottom: 14 }}>ðŸ“¬</p>
+      <p style={{ fontSize: 44, marginBottom: 14 }}>📬</p>
       <h3 style={{ fontWeight: 800, fontSize: 20, color: '#1A1209', marginBottom: 8, fontFamily: 'Inter, sans-serif', letterSpacing: '-0.02em' }}>
-        VÃ©rifie tes emails
+        Vérifie tes emails
       </h3>
       <p style={{ fontSize: 14, color: '#8A8A8A', lineHeight: 1.6, margin: '0 0 20px' }}>
-        Un lien de connexion a Ã©tÃ© envoyÃ© Ã <br />
+        Un lien de connexion a été envoyé à <br />
         <strong style={{ color: '#2C1810' }}>{email}</strong>
       </p>
       <button onClick={() => { setSent(false); setEmail('') }}
@@ -63,7 +63,7 @@ export default function LoginView() {
           Connexion
         </h3>
         <p style={{ fontSize: 13, color: '#8A8A8A', margin: 0, lineHeight: 1.5 }}>
-          Suis tes Ã©vÃ©nements favoris et personnalise ton expÃ©rience.
+          Suis tes événements favoris et personnalise ton expérience.
         </p>
       </div>
 
@@ -117,7 +117,7 @@ export default function LoginView() {
           transition: 'opacity 0.15s',
         }}
       >
-        {loading ? 'Envoiâ€¦' : 'Recevoir le lien magique'}
+        {loading ? 'Envoi…' : 'Recevoir le lien magique'}
       </button>
 
       {error && (

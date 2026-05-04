@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 import { useState, useEffect } from 'react'
 
 type DeferredPrompt = { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> }
@@ -73,7 +73,7 @@ export default function InstallBanner() {
         position: 'absolute', top: 12, right: 14,
         background: 'none', border: 'none', cursor: 'pointer',
         color: '#B0A898', fontSize: 16, lineHeight: 1, padding: 4,
-      }}>âœ•</button>
+      }}>✕</button>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
         <img src="/logo.png" alt="" width={44} height={44} style={{ borderRadius: 10, flexShrink: 0 }} />
@@ -82,14 +82,14 @@ export default function InstallBanner() {
             La Place du Village
           </p>
           <p style={{ fontSize: 12, color: '#8A8A8A', margin: 0 }}>
-            Installe l&apos;app pour retrouver tous les Ã©vÃ©nements
+            Installe l&apos;app pour retrouver tous les événements
           </p>
         </div>
       </div>
 
       {isIOS ? (
         <p style={{ fontSize: 12, color: '#5A5A5A', margin: 0, lineHeight: 1.5, backgroundColor: '#FAF7F2', borderRadius: 10, padding: '10px 12px' }}>
-          Appuie sur <strong>â†‘ Partager</strong> en bas de Safari, puis <strong>&ldquo;Sur l&apos;Ã©cran d&apos;accueil&rdquo;</strong>
+          Appuie sur <strong>↑ Partager</strong> en bas de Safari, puis <strong>&ldquo;Sur l&apos;écran d&apos;accueil&rdquo;</strong>
         </p>
       ) : (
         <button onClick={install} style={{

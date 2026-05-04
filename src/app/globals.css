@@ -1,4 +1,4 @@
-﻿@import "@fontsource/playfair-display/700.css";
+@import "@fontsource/playfair-display/700.css";
 @import "@fontsource/playfair-display/400.css";
 @import "@fontsource/lora/400.css";
 @import "@fontsource/lora/600.css";
@@ -23,7 +23,7 @@
   --bord:          #E8E0D4;
   --gris:          #6B5E4E;
   --blanc:         #FFFFFF;
-  /* legacy â€” ne pas supprimer, utilisÃ© dans certains composants */
+  /* legacy — ne pas supprimer, utilisé dans certains composants */
   --orange:        #C84B2F;
   --vert:          #2D5A3D;
   --carte:         #4A90D9;

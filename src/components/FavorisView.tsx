@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 import Link from 'next/link'
 import { EvenementCard } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
@@ -25,12 +25,12 @@ export default function FavorisView({ events, onToggleFav }: Props) {
       <div style={{ padding: '16px 16px 40px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         {events.length === 0 ? (
           <div style={{ textAlign: 'center', paddingTop: 60 }}>
-            <p style={{ fontSize: 48, marginBottom: 12 }}>ðŸ¤</p>
+            <p style={{ fontSize: 48, marginBottom: 12 }}>🤍</p>
             <p style={{ fontWeight: 700, fontSize: 16, fontFamily: 'Inter, sans-serif', color: '#2C1810', marginBottom: 6 }}>
               Aucun favori pour l&apos;instant
             </p>
             <p style={{ fontSize: 13, color: '#8A8A8A' }}>
-              Appuie sur le cÅ“ur d&apos;un Ã©vÃ©nement pour le retrouver ici.
+              Appuie sur le cœur d&apos;un événement pour le retrouver ici.
             </p>
           </div>
         ) : (
@@ -75,7 +75,7 @@ function FavCard({ evt, onRemove }: { evt: EvenementCard; onRemove: () => void }
         </h3>
         {evt.date_debut && (
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.78)', margin: 0 }}>
-            {formatDate(evt.date_debut)}{evt.heure ? ` Â· ${evt.heure.slice(0, 5)}` : ''}{evt.lieux?.commune ? ` â€¢ ${evt.lieux.commune}` : ''}
+            {formatDate(evt.date_debut)}{evt.heure ? ` · ${evt.heure.slice(0, 5)}` : ''}{evt.lieux?.commune ? ` • ${evt.lieux.commune}` : ''}
           </p>
         )}
       </div>

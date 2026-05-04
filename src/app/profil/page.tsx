@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
@@ -28,7 +28,7 @@ export default function ProfilPage() {
           backgroundColor: 'var(--primary-light)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           textDecoration: 'none', color: 'var(--primary)', fontSize: 18, fontWeight: 700,
-        }}>â†</Link>
+        }}>←</Link>
         <h1 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 18, color: '#2C1810', margin: 0, flex: 1 }}>
           Mon espace
         </h1>
@@ -44,7 +44,7 @@ export default function ProfilPage() {
             color: tab === t ? '#fff' : '#6B6B6B',
             transition: 'all 0.15s',
           }}>
-            {t === 'profil' ? 'Profil' : 'ThÃ¨me'}
+            {t === 'profil' ? 'Profil' : 'Thème'}
           </button>
         ))}
       </div>
@@ -65,7 +65,7 @@ export default function ProfilPage() {
                 <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 16, color: '#2C1810', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {profile?.display_name || user.email?.split('@')[0] || 'Mon profil'}
                 </p>
-                <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0 }}>Voir et modifier mon profil â†’</p>
+                <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0 }}>Voir et modifier mon profil →</p>
               </div>
             </Link>
           ) : (
@@ -76,7 +76,7 @@ export default function ProfilPage() {
                   <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
                 </svg>
               </div>
-              <p style={{ fontSize: 14, color: '#8A8A8A', textAlign: 'center', lineHeight: 1.5, margin: 0 }}>Connecte-toi pour accÃ©der Ã  ton profil.</p>
+              <p style={{ fontSize: 14, color: '#8A8A8A', textAlign: 'center', lineHeight: 1.5, margin: 0 }}>Connecte-toi pour accéder à ton profil.</p>
             </div>
           )
         )}
@@ -84,7 +84,7 @@ export default function ProfilPage() {
         {tab === 'theme' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
 
-            {/* â”€â”€ Couleur â”€â”€ */}
+            {/* ── Couleur ── */}
             <section>
               <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15, color: '#2C1810', marginBottom: 12 }}>
                 Couleur
@@ -116,12 +116,12 @@ export default function ProfilPage() {
               </div>
             </section>
 
-            {/* â”€â”€ Fond de liste â”€â”€ */}
+            {/* ── Fond de liste ── */}
             <section>
               <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15, color: '#2C1810', marginBottom: 4 }}>
                 Fond de liste
               </h2>
-              <p style={{ fontSize: 12, color: '#8A8A8A', marginBottom: 12 }}>Couleur du panneau d&apos;Ã©vÃ©nements</p>
+              <p style={{ fontSize: 12, color: '#8A8A8A', marginBottom: 12 }}>Couleur du panneau d&apos;événements</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                 {SHEET_BG_OPTIONS.map(opt => {
                   const isActive = sheetBg.id === opt.id
@@ -155,7 +155,7 @@ export default function ProfilPage() {
               </div>
             </section>
 
-            {/* â”€â”€ Style de carte â”€â”€ */}
+            {/* ── Style de carte ── */}
             <section>
               <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15, color: '#2C1810', marginBottom: 12 }}>
                 Style de carte
@@ -172,14 +172,14 @@ export default function ProfilPage() {
                       transition: 'all 0.15s',
                       textAlign: 'left',
                     }}>
-                      {/* Pastille de prÃ©visualisation */}
+                      {/* Pastille de prévisualisation */}
                       <div style={{
                         width: 52, height: 40, borderRadius: 10, flexShrink: 0,
                         backgroundColor: style.previewBg,
                         overflow: 'hidden', position: 'relative',
                         boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
                       }}>
-                        {/* Mini routes dessinÃ©es */}
+                        {/* Mini routes dessinées */}
                         <svg width="52" height="40" viewBox="0 0 52 40" style={{ position: 'absolute', inset: 0 }}>
                           <line x1="0" y1="24" x2="52" y2="22" stroke="rgba(255,255,255,0.45)" strokeWidth="3"/>
                           <line x1="10" y1="0" x2="16" y2="40" stroke="rgba(255,255,255,0.3)" strokeWidth="2"/>

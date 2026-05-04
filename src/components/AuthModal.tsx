@@ -60,14 +60,14 @@ export default function AuthModal() {
           <h2 style={{ fontSize: 20, fontWeight: 800, color: '#2C1810', fontFamily: 'Inter, sans-serif', margin: 0 }}>
             Connexion
           </h2>
-          <button onClick={closeAuthModal} style={{ background: 'none', border: 'none', color: '#9CA3AF', fontSize: 20, cursor: 'pointer' }}>âœ•</button>
+          <button onClick={closeAuthModal} style={{ background: 'none', border: 'none', color: '#9CA3AF', fontSize: 20, cursor: 'pointer' }}>✕</button>
         </div>
 
         {sent ? (
           <div style={{ textAlign: 'center', padding: '16px 0' }}>
-            <p style={{ fontSize: 32, marginBottom: 12 }}>ðŸ“¬</p>
-            <p style={{ fontSize: 15, fontWeight: 700, color: '#2C1810', marginBottom: 6 }}>Lien envoyÃ© !</p>
-            <p style={{ fontSize: 13, color: '#6B7280' }}>VÃ©rifie ta boÃ®te mail et clique sur le lien de connexion.</p>
+            <p style={{ fontSize: 32, marginBottom: 12 }}>📬</p>
+            <p style={{ fontSize: 15, fontWeight: 700, color: '#2C1810', marginBottom: 6 }}>Lien envoyé !</p>
+            <p style={{ fontSize: 13, color: '#6B7280' }}>Vérifie ta boîte mail et clique sur le lien de connexion.</p>
           </div>
         ) : (
           <>
@@ -125,11 +125,11 @@ export default function AuthModal() {
                 opacity: loading || !email.trim() ? 0.5 : 1,
               }}
             >
-              {loading ? 'Envoiâ€¦' : 'Recevoir un lien magique'}
+              {loading ? 'Envoi…' : 'Recevoir un lien magique'}
             </button>
 
             <p style={{ fontSize: 11, color: '#9CA3AF', textAlign: 'center', marginTop: 14, lineHeight: 1.5 }}>
-              Pas de mot de passe. Un lien de connexion sera envoyÃ© Ã  ton email.
+              Pas de mot de passe. Un lien de connexion sera envoyé à ton email.
             </p>
           </>
         )}

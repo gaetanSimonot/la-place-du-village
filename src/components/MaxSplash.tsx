@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 import { useState, useEffect, useRef } from 'react'
 import { EvenementCard } from '@/lib/types'
 import { formatDate } from '@/lib/filters'
@@ -133,10 +133,10 @@ export default function MaxSplash({ events, loading = false }: Props) {
 
   if (phase === 'dismissed') return null
 
-  /* â”€â”€ Logo phase : AppSplash gÃ¨re le splash, on attend silencieusement â”€â”€ */
+  /* ── Logo phase : AppSplash gère le splash, on attend silencieusement ── */
   if (phase === 'logo') return null
 
-  /* â”€â”€ Ã‰vÃ©nement â”€â”€ */
+  /* ── Événement ── */
   const evt = evts[idx]
   const cat = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
   const underIdx = n > 1 ? (dragX > 20 ? wrap(idx - 1, n) : wrap(idx + 1, n)) : null
@@ -168,7 +168,7 @@ export default function MaxSplash({ events, loading = false }: Props) {
         <Slide evt={evt} />
       </div>
 
-      {/* DÃ©gradÃ© fixe â€” plus dense en bas pour lisibilitÃ© du texte */}
+      {/* Dégradé fixe — plus dense en bas pour lisibilité du texte */}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
         background: 'linear-gradient(to top, rgba(0,0,0,0.94) 0%, rgba(0,0,0,0.65) 28%, rgba(0,0,0,0.1) 55%, transparent 100%)',
@@ -187,7 +187,7 @@ export default function MaxSplash({ events, loading = false }: Props) {
           border: '1px solid rgba(255,255,255,0.15)',
           color: '#fff', fontSize: 12, cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>âœ•</button>
+        }}>✕</button>
 
         {/* Badge */}
         <div style={{ position: 'absolute', top: 22, left: 18 }}>
@@ -195,10 +195,10 @@ export default function MaxSplash({ events, loading = false }: Props) {
             fontSize: 10, fontWeight: 800, color: '#fff', backgroundColor: '#EC407A',
             padding: '4px 11px', borderRadius: 999, letterSpacing: '0.07em',
             textTransform: 'uppercase', fontFamily: 'Inter, sans-serif',
-          }}>âœ¦ Ã‰vÃ©nement Ã  la une</span>
+          }}>✦ Événement à la une</span>
         </div>
 
-        {/* Bloc infos â€” dots au-dessus du titre, tout en flux naturel */}
+        {/* Bloc infos — dots au-dessus du titre, tout en flux naturel */}
         <div style={{
           position: 'absolute', bottom: 108, left: 22, right: 22,
         }}>
@@ -215,7 +215,7 @@ export default function MaxSplash({ events, loading = false }: Props) {
             </div>
           )}
 
-          {/* CatÃ©gorie */}
+          {/* Catégorie */}
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', margin: '0 0 6px', fontFamily: 'Lora, serif', fontWeight: 600 }}>
             {cat.emoji} {cat.label}
           </p>
@@ -232,8 +232,8 @@ export default function MaxSplash({ events, loading = false }: Props) {
           {(evt.date_debut || evt.lieux?.commune) && (
             <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', margin: 0, lineHeight: 1.4, fontFamily: 'Lora, serif' }}>
               {evt.date_debut ? formatDate(evt.date_debut) : ''}
-              {evt.heure ? ` Â· ${evt.heure.slice(0, 5)}` : ''}
-              {evt.lieux?.commune ? ` â€¢ ${evt.lieux.commune}` : ''}
+              {evt.heure ? ` · ${evt.heure.slice(0, 5)}` : ''}
+              {evt.lieux?.commune ? ` • ${evt.lieux.commune}` : ''}
             </p>
           )}
         </div>
