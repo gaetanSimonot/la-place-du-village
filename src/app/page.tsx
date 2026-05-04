@@ -264,13 +264,25 @@ export default function HomePage() {
       promoQuery = promoQuery.or(`date_fin.gte.${today},and(date_fin.is.null,date_debut.gte.${today})`)
     }
 
-    const [{ data }, { data: promoData }] = await Promise.all([query, promoQuery])
-    setAllEvenements((data as EvenementCard[]) ?? [])
-    setPromoEventsData((promoData as EvenementCard[]) ?? [])
-    setLoading(false)
+    try {
+      const [{ data }, { data: promoData }] = await Promise.all([query, promoQuery])
+      setAllEvenements((data as EvenementCard[]) ?? [])
+      setPromoEventsData((promoData as EvenementCard[]) ?? [])
+    } catch {
+      // réseau coupé (app en arrière-plan) — on vide pas les données existantes
+    } finally {
+      setLoading(false)
+    }
   }, [filtres, masquerPasses, zoneLoaded])
 
   useEffect(() => { fetchEvenements() }, [fetchEvenements])
+
+  // Relancer le fetch quand l'app revient au premier plan
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchEvenements() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [fetchEvenements])
 
   // Quand la liste redescend (half/peek), réactiver le mode carte pour les boutons
   useEffect(() => {
