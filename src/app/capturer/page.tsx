@@ -163,6 +163,7 @@ interface SubmitResult {
   titre: string
   ok: boolean
   statut?: string
+  message?: string
 }
 
 // Compresse une image base64 à max 1200px / qualité 0.82
@@ -375,6 +376,23 @@ function CapturerInner() {
   if (step === 'success') {
     const ok  = submitResults.filter(r => r.ok).length
     const ko  = submitResults.filter(r => !r.ok).length
+    const isUserSubmission = submitResults.length === 1 && submitResults[0].message === 'submitted'
+
+    if (isUserSubmission) {
+      return (
+        <div className="min-h-screen bg-[#FBF7F0] flex flex-col items-center justify-center p-8 text-center">
+          <p className="text-6xl mb-4">✅</p>
+          <h2 className="text-2xl font-bold text-[#2C1810] mb-3">Événement soumis !</h2>
+          <p className="text-gray-600 text-sm mb-8 leading-relaxed max-w-xs">
+            Votre événement a été soumis. Il sera publié après vérification, dans moins d&apos;une heure.
+          </p>
+          <Link href="/" className="bg-[#C4622D] text-white px-10 py-3 rounded-2xl font-bold text-base">
+            OK
+          </Link>
+        </div>
+      )
+    }
+
     return (
       <div className="min-h-screen bg-[#FBF7F0] flex flex-col items-center justify-center p-8 text-center">
         <p className="text-6xl mb-4">🎉</p>
@@ -533,7 +551,7 @@ function CapturerInner() {
         initialImage={imageBase64 ? { base64: imageBase64, mime: imageMime, preview: imagePreview!, position: imagePosition } : null}
         onClose={() => setStep('input')}
         onSaved={(result) => {
-          setSubmitResults([{ titre: form.titre, ok: true, statut: result?.statut }])
+          setSubmitResults([{ titre: form.titre, ok: true, statut: result?.statut, message: result?.message }])
           setStep('success')
         }}
       />

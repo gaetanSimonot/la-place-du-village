@@ -12,7 +12,7 @@ import ZoneAdmin from '@/components/ZoneAdmin'
 import AdminInbox from '@/components/AdminInbox'
 import EventEditDrawer from '@/components/EventEditDrawer'
 
-type Onglet   = 'inbox' | 'a_traiter' | 'publie' | 'rejete' | 'scrap' | 'doublons' | 'zone' | 'admins'
+type Onglet   = 'inbox' | 'soumissions' | 'a_traiter' | 'publie' | 'rejete' | 'scrap' | 'doublons' | 'zone' | 'admins'
 type SortKey  = 'created_desc' | 'created_asc' | 'date_asc' | 'date_desc'
 const PAGE_SIZE = 20
 
@@ -104,26 +104,39 @@ export default function AdminDashboard() {
   const [onlyFeedbacks, setOnlyFeedbacks] = useState(false)
   const [expandedFeedback, setExpandedFeedback] = useState<Set<string>>(new Set())
   const [inboxCount, setInboxCount]             = useState(0)
-  const [tabCounts, setTabCounts]               = useState({ a_traiter: 0, publie: 0, rejete: 0, scrap: 0 })
+  const [tabCounts, setTabCounts]               = useState({ a_traiter: 0, publie: 0, rejete: 0, scrap: 0, soumissions: 0 })
   const [editId, setEditId]                     = useState<string | null>(null)
+  const [soumissions, setSoumissions]           = useState<Evenement[]>([])
 
   const fetchTabCounts = useCallback(async () => {
-    const [r1, r2, r3, r4] = await Promise.all([
+    const [r1, r2, r3, r4, r5] = await Promise.all([
       supabase.from('evenements').select('id', { count: 'exact', head: true }).neq('source', 'scrape').in('statut', ['en_attente', 'a_verifier']),
       supabase.from('evenements').select('id', { count: 'exact', head: true }).eq('statut', 'publie'),
       supabase.from('evenements').select('id', { count: 'exact', head: true }).eq('statut', 'rejete'),
       supabase.from('evenements').select('id', { count: 'exact', head: true }).eq('source', 'scrape').in('statut', ['en_attente', 'a_verifier']),
+      supabase.from('evenements').select('id', { count: 'exact', head: true }).not('submitted_by', 'is', null).in('statut', ['en_attente', 'a_verifier', 'archive']),
     ])
     setTabCounts({
-      a_traiter: r1.count ?? 0,
-      publie:    r2.count ?? 0,
-      rejete:    r3.count ?? 0,
-      scrap:     r4.count ?? 0,
+      a_traiter:   r1.count ?? 0,
+      publie:      r2.count ?? 0,
+      rejete:      r3.count ?? 0,
+      scrap:       r4.count ?? 0,
+      soumissions: r5.count ?? 0,
     })
   }, [])
 
+  const fetchSoumissions = useCallback(async () => {
+    const { data } = await supabase
+      .from('evenements')
+      .select('id, titre, categorie, date_debut, statut, source, created_at, lieu_id, image_url, image_position, submitted_by, submitted_by_name, publish_at, lieux(id, nom, commune)')
+      .not('submitted_by', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(100)
+    setSoumissions((data as unknown as Evenement[]) ?? [])
+  }, [])
+
   const fetchTabData = useCallback(async (tab: Onglet) => {
-    if (tab === 'doublons' || tab === 'zone' || tab === 'inbox' || tab === 'admins') return
+    if (tab === 'doublons' || tab === 'zone' || tab === 'inbox' || tab === 'admins' || tab === 'soumissions') return
     setLoading(true)
     let query = supabase
       .from('evenements')
@@ -167,6 +180,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     setSelection(new Set()); setPage(1); fetchTabData(onglet)
     if (onglet === 'admins') fetchAdmins()
+    if (onglet === 'soumissions') fetchSoumissions()
   }, [onglet]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setPage(1) }, [search, sort, onlyFeedbacks])
 
@@ -304,11 +318,12 @@ export default function AdminDashboard() {
   }, [afterSearch, sort, onglet, q, onlyFeedbacks])
 
   const counts = {
-    inbox:     inboxCount,
-    a_traiter: tabCounts.a_traiter,
-    publie:    tabCounts.publie,
-    rejete:    tabCounts.rejete,
-    scrap:     tabCounts.scrap,
+    inbox:       inboxCount,
+    soumissions: tabCounts.soumissions,
+    a_traiter:   tabCounts.a_traiter,
+    publie:      tabCounts.publie,
+    rejete:      tabCounts.rejete,
+    scrap:       tabCounts.scrap,
   }
 
   const totalPages  = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
@@ -358,14 +373,15 @@ export default function AdminDashboard() {
       {/* Onglets */}
       <div className="flex border-b border-[#E8E0D5] bg-white overflow-x-auto">
         {([
-          { key: 'inbox',     label: '📥 Réception', color: 'bg-red-500'    },
-          { key: 'a_traiter', label: 'À traiter',    color: 'bg-orange-500' },
-          { key: 'scrap',     label: 'Scrap',        color: 'bg-blue-500'   },
-          { key: 'publie',    label: 'Publiés',      color: 'bg-green-500'  },
-          { key: 'rejete',    label: 'Rejetés',      color: 'bg-gray-400'   },
-          { key: 'doublons',  label: '🔀 Doublons',  color: 'bg-amber-500'  },
-          { key: 'zone',      label: '📍 Zone',      color: 'bg-teal-500'   },
-          { key: 'admins',    label: '👤 Admins',    color: 'bg-purple-500' },
+          { key: 'inbox',       label: '📥 Réception',   color: 'bg-red-500'    },
+          { key: 'soumissions', label: '👥 Soumissions', color: 'bg-indigo-500' },
+          { key: 'a_traiter',   label: 'À traiter',      color: 'bg-orange-500' },
+          { key: 'scrap',       label: 'Scrap',          color: 'bg-blue-500'   },
+          { key: 'publie',      label: 'Publiés',        color: 'bg-green-500'  },
+          { key: 'rejete',      label: 'Rejetés',        color: 'bg-gray-400'   },
+          { key: 'doublons',    label: '🔀 Doublons',    color: 'bg-amber-500'  },
+          { key: 'zone',        label: '📍 Zone',        color: 'bg-teal-500'   },
+          { key: 'admins',      label: '👤 Admins',      color: 'bg-purple-500' },
         ] as { key: Onglet; label: string; color: string }[]).map(tab => (
           <button
             key={tab.key}
@@ -386,6 +402,70 @@ export default function AdminDashboard() {
 
       {/* Onglet Réception */}
       {onglet === 'inbox' && <AdminInbox onCountChange={setInboxCount} />}
+
+      {/* Onglet Soumissions */}
+      {onglet === 'soumissions' && (
+        <div className="p-3 space-y-6 pb-10">
+          <button onClick={fetchSoumissions} className="text-xs text-gray-400 underline w-full text-right">Actualiser</button>
+
+          {/* En attente de publication */}
+          {(() => {
+            const list = soumissions.filter(e => e.statut === 'en_attente' && e.publish_at)
+            return (
+              <section>
+                <h2 className="text-xs font-bold text-indigo-700 uppercase tracking-wide mb-2 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" />
+                  À publier automatiquement ({list.length})
+                </h2>
+                {list.length === 0 ? (
+                  <p className="text-xs text-gray-400 py-2">Aucun événement en file de publication</p>
+                ) : list.map(e => (
+                  <SoumissionCard key={e.id} evt={e} onDelete={() => { supprimer(e.id); fetchSoumissions() }} onEdit={() => setEditId(e.id)} onStatut={(s) => { setStatut(e.id, s).then(fetchSoumissions) }} />
+                ))}
+              </section>
+            )
+          })()}
+
+          {/* À vérifier */}
+          {(() => {
+            const list = soumissions.filter(e => e.statut === 'a_verifier')
+            return (
+              <section>
+                <h2 className="text-xs font-bold text-amber-700 uppercase tracking-wide mb-2 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
+                  À vérifier ({list.length})
+                </h2>
+                {list.length === 0 ? (
+                  <p className="text-xs text-gray-400 py-2">Aucun événement à vérifier</p>
+                ) : list.map(e => (
+                  <SoumissionCard key={e.id} evt={e} onDelete={() => { supprimer(e.id); fetchSoumissions() }} onEdit={() => setEditId(e.id)} onStatut={(s) => { setStatut(e.id, s).then(fetchSoumissions) }} />
+                ))}
+              </section>
+            )
+          })()}
+
+          {/* Doublons */}
+          {(() => {
+            const list = soumissions.filter(e => e.statut === 'archive')
+            return (
+              <section>
+                <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-gray-400 inline-block" />
+                  Doublons / Ignorés ({list.length})
+                </h2>
+                {list.length === 0 ? (
+                  <p className="text-xs text-gray-400 py-2">Aucun doublon</p>
+                ) : list.map(e => (
+                  <SoumissionCard key={e.id} evt={e} onDelete={() => { supprimer(e.id); fetchSoumissions() }} onEdit={() => setEditId(e.id)} onStatut={(s) => { setStatut(e.id, s).then(fetchSoumissions) }} />
+                ))}
+                {list.length > 0 && (
+                  <p className="text-xs text-gray-400 mt-2">Suppression automatique après 7 jours</p>
+                )}
+              </section>
+            )
+          })()}
+        </div>
+      )}
 
       {/* Onglet Doublons */}
       {onglet === 'doublons' && <DoublonsAdmin />}
@@ -449,7 +529,7 @@ export default function AdminDashboard() {
       )}
 
       {/* Barre recherche + tri + filtre signalements */}
-      {onglet !== 'doublons' && onglet !== 'zone' && onglet !== 'inbox' && (
+      {onglet !== 'doublons' && onglet !== 'zone' && onglet !== 'inbox' && onglet !== 'soumissions' && onglet !== 'admins' && (
         <div className="bg-white border-b border-[#E8E0D5] px-3 py-2 space-y-2">
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -494,7 +574,7 @@ export default function AdminDashboard() {
       )}
 
       {/* Barre sélection */}
-      {onglet !== 'doublons' && onglet !== 'zone' && onglet !== 'inbox' && !loading && sorted.length > 0 && (
+      {onglet !== 'doublons' && onglet !== 'zone' && onglet !== 'inbox' && onglet !== 'soumissions' && onglet !== 'admins' && !loading && sorted.length > 0 && (
         <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-[#E8E0D5]">
           <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600 select-none">
             <input type="checkbox" checked={allSelected} onChange={toggleAll} className="w-4 h-4 accent-[#C4622D] cursor-pointer" />
@@ -512,7 +592,7 @@ export default function AdminDashboard() {
       )}
 
       {/* Liste */}
-      {onglet !== 'doublons' && onglet !== 'zone' && onglet !== 'inbox' && <div className="p-3 space-y-3 pb-6">
+      {onglet !== 'doublons' && onglet !== 'zone' && onglet !== 'inbox' && onglet !== 'soumissions' && onglet !== 'admins' && <div className="p-3 space-y-3 pb-6">
         {loading ? (
           <div className="flex justify-center py-12">
             <div className="w-8 h-8 border-4 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
@@ -726,6 +806,70 @@ export default function AdminDashboard() {
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+function SoumissionCard({ evt, onDelete, onEdit, onStatut }: {
+  evt: Evenement
+  onDelete: () => void
+  onEdit: () => void
+  onStatut: (s: string) => void
+}) {
+  const cat = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
+  const publishIn = evt.publish_at ? Math.max(0, Math.round((new Date(evt.publish_at).getTime() - Date.now()) / 60000)) : null
+
+  return (
+    <div className="bg-white rounded-2xl p-3 shadow-sm border border-[#F0EAE0] mb-2">
+      <div className="flex items-start gap-2">
+        <span className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full text-white mt-0.5" style={{ backgroundColor: cat.color }}>
+          {cat.emoji}
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-[#2C1810] text-sm leading-tight truncate">{evt.titre}</p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {evt.date_debut ? formatDate(evt.date_debut) : 'Sans date'}
+            {evt.lieux?.commune ? ` · ${evt.lieux.commune}` : ''}
+          </p>
+          {evt.submitted_by_name && (
+            <p className="text-xs text-indigo-600 mt-0.5 font-medium">👤 {evt.submitted_by_name}</p>
+          )}
+          {publishIn !== null && (
+            <p className="text-xs text-indigo-500 mt-0.5 font-semibold">
+              {publishIn <= 0 ? '⏱ Publication imminente' : `⏱ Publication dans ~${publishIn} min`}
+            </p>
+          )}
+        </div>
+        <StatutBadge statut={evt.statut} />
+      </div>
+      <div className="flex gap-1.5 mt-2.5">
+        {evt.statut !== 'publie' && (
+          <button onClick={() => onStatut('publie')}
+            className="flex-1 py-1.5 bg-green-500 text-white text-xs font-bold rounded-lg">
+            ✓ Publier
+          </button>
+        )}
+        {evt.statut === 'publie' && (
+          <button onClick={() => onStatut('en_attente')}
+            className="flex-1 py-1.5 bg-orange-400 text-white text-xs font-bold rounded-lg">
+            ⏸ Dépublier
+          </button>
+        )}
+        {evt.statut !== 'rejete' && (
+          <button onClick={() => onStatut('rejete')}
+            className="flex-1 py-1.5 bg-gray-200 text-gray-600 text-xs font-bold rounded-lg">
+            ✗ Rejeter
+          </button>
+        )}
+        <button onClick={onEdit}
+          className="flex-1 py-1.5 bg-[#FBF7F0] text-[#C4622D] text-xs font-bold rounded-lg border border-[#C4622D]">
+          ✏️
+        </button>
+        <button onClick={onDelete}
+          className="py-1.5 px-2.5 bg-red-50 text-red-400 text-xs font-bold rounded-lg">
+          🗑️
+        </button>
+      </div>
     </div>
   )
 }

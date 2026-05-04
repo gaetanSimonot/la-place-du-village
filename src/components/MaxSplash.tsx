@@ -181,7 +181,12 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
   const underIdx = n > 1 ? (dragX > 20 ? wrap(idx - 1, n) : wrap(idx + 1, n)) : null
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 500, overflow: 'hidden', fontFamily: 'Inter, sans-serif' }}>
+    <div
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      style={{ position: 'fixed', inset: 0, zIndex: 500, overflow: 'hidden', fontFamily: 'Inter, sans-serif' }}
+    >
       <style>{STYLES}</style>
 
       {/* Carte du dessous — fixe, révélée quand la carte du dessus glisse */}
@@ -194,9 +199,6 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
 
       {/* Carte du dessus — suit le doigt */}
       <div
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
         style={{
           position: 'absolute', inset: 0,
           transform: `translateX(${dragX}px)`,
@@ -216,7 +218,7 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
       {/* UI fixe — ne bouge jamais */}
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
 
-        <button onClick={dismiss} style={{
+        <button onClick={dismiss} onTouchStart={e => e.stopPropagation()} style={{
           pointerEvents: 'auto',
           position: 'absolute', top: 18, right: 18,
           width: 30, height: 30, borderRadius: '50%',
@@ -237,7 +239,7 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
 
         {n > 1 && (
           <div style={{
-            position: 'absolute', bottom: 176, left: '50%', transform: 'translateX(-50%)',
+            position: 'absolute', bottom: 140, left: '50%', transform: 'translateX(-50%)',
             display: 'flex', gap: 6,
           }}>
             {evts.map((_, i) => (
@@ -250,9 +252,9 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
           </div>
         )}
 
+        {/* Titre & infos — zone slideable (pas de pointerEvents) */}
         <div style={{
-          position: 'absolute', bottom: 0, left: 0, right: 0, padding: '0 22px 44px',
-          pointerEvents: 'auto',
+          position: 'absolute', bottom: 116, left: 0, right: 0, padding: '0 22px',
         }}>
           <h2 style={{
             fontSize: 30, fontWeight: 800, color: '#fff',
@@ -267,24 +269,22 @@ export default function MaxSplash({ events, onDiscover, loading = false }: Props
             </p>
           )}
 
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', margin: '0 0 26px' }}>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
             {cat.emoji} {cat.label}
           </p>
+        </div>
 
-          <button onClick={discover} style={{
+        {/* Bouton fixe seul — stoppe la propagation du swipe */}
+        <div style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0, padding: '0 22px 44px',
+          pointerEvents: 'auto',
+        }}>
+          <button onClick={dismiss} onTouchStart={e => e.stopPropagation()} style={{
             width: '100%', padding: '18px', borderRadius: 999,
             backgroundColor: '#EC407A', color: '#fff',
-            fontSize: 16, fontWeight: 700, border: 'none', cursor: 'pointer', marginBottom: 14,
+            fontSize: 16, fontWeight: 700, border: 'none', cursor: 'pointer',
             fontFamily: 'Syne, sans-serif', letterSpacing: '0.01em',
-          }}>Découvrir l&apos;événement</button>
-
-          {n > 1 && (
-            <button onClick={() => slide('left')} style={{
-              width: '100%', padding: '8px', backgroundColor: 'transparent', border: 'none',
-              color: 'rgba(255,255,255,0.6)', fontSize: 14,
-              cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-            }}>Voir le suivant</button>
-          )}
+          }}>Aller sur la carte</button>
         </div>
       </div>
     </div>

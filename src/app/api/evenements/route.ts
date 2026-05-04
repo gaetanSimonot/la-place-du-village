@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
       adresse: geo.adresse ?? lieu_adresse ?? null,
     })
 
-    // Vérification doublon via Claude
+    // Check doublon IA (timeout 7s intégré dans checkDoublon)
     const check = await checkDoublon({
       titre,
       date_debut: date_debut || null,
@@ -147,11 +147,22 @@ export async function POST(req: NextRequest) {
       description: description || null,
     })
 
-    const baseEventStatut = check.doublon ? 'archive' : check.publier ? baseStatut : 'a_verifier'
-    // Pour les users : doublon → archive, sinon toujours en_attente (publier ou pas)
-    const finalStatut = isUserSubmission
-      ? (check.doublon ? 'archive' : 'en_attente')
-      : baseEventStatut
+    let finalStatut: string
+    let eventPublishAt: string | null = null
+
+    if (isUserSubmission) {
+      // doublon → archive, IA approuve → en_attente + auto-publish, sinon → a_verifier (admin review)
+      if (check.doublon) {
+        finalStatut = 'archive'
+      } else if (check.publier) {
+        finalStatut = 'en_attente'
+        eventPublishAt = publishAt
+      } else {
+        finalStatut = 'a_verifier'
+      }
+    } else {
+      finalStatut = check.doublon ? 'archive' : check.publier ? baseStatut : 'a_verifier'
+    }
 
     const { data: evenement, error: evtErr } = await supabaseAdmin
       .from('evenements')
@@ -172,15 +183,14 @@ export async function POST(req: NextRequest) {
         source: 'formulaire',
         submitted_by: submittedBy,
         submitted_by_name: submittedByName,
-        // Auto-publish seulement si l'IA est confiante (check.publier)
-        publish_at: isUserSubmission && check.publier ? publishAt : null,
+        publish_at: eventPublishAt,
       })
       .select()
       .single()
 
     if (evtErr) throw new Error(`Erreur insertion événement : ${evtErr.message}`)
 
-    const message = isUserSubmission && finalStatut !== 'archive' ? 'submitted' : undefined
+    const message = isUserSubmission ? 'submitted' : undefined
     return NextResponse.json({ success: true, evenement, message })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erreur inconnue'

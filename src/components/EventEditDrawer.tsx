@@ -312,7 +312,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
         })
         const d = await res.json()
         if (!res.ok) throw new Error(d.error)
-        onSaved?.({ statut: d.evenement?.statut, message: d.message, id: d.evenement?.id }); onClose()
+        onSaved?.({ statut: d.evenement?.statut, message: d.message, id: d.evenement?.id })
         return
       }
 

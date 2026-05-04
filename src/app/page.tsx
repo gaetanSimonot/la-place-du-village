@@ -1,6 +1,6 @@
 'use client'
 import React from 'react'
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
@@ -10,6 +10,8 @@ import { EvenementCard, Filtres } from '@/lib/types'
 import { getDateRange } from '@/lib/filters'
 import { useTheme } from '@/components/ThemeProvider'
 import { haversineKm, GANGES } from '@/lib/distance'
+import { useAuth } from '@/hooks/useAuth'
+import { useAuthModal } from '@/contexts/AuthModalContext'
 
 import MaxSplash from '@/components/MaxSplash'
 import ProBandeau from '@/components/ProBandeau'
@@ -54,6 +56,8 @@ const NAV_TABS: { id: NavTab; label: string; Icon: () => React.JSX.Element }[] =
 
 export default function HomePage() {
   const { fixedMap, setFixedMap } = useTheme()
+  const { user } = useAuth()
+  const { openAuthModal } = useAuthModal()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [filtres, setFiltres]       = useState<Filtres>(defaultFiltres)
   const [allEvenements, setAllEvenements] = useState<EvenementCard[]>([])
@@ -72,6 +76,7 @@ export default function HomePage() {
   const [userZoneActive, setUserZoneActive] = useState(false)
   const [mapCenterOn, setMapCenterOn]   = useState<{ lat: number; lng: number; zoom?: number } | null>(null)
   const mapCameraRef = useRef<{ lat: number; lng: number; zoom: number } | null>(null)
+  const prevUserRef  = useRef<typeof user>(null)
   const [geocoding, setGeocoding]       = useState(false)
   const [sheetMode, setSheetMode]   = useState<'peek'|'half'|'full'>('half')
   const [sheetPeekH, setSheetPeekH] = useState(130)
@@ -147,12 +152,17 @@ export default function HomePage() {
     setFabActive(best)
   }
 
+  const navigateOrAuth = useCallback((path: string) => {
+    if (!user) { setFabOpen(false); setFabActive(null); openAuthModal(); return }
+    router.push(path)
+  }, [user, openAuthModal, router])
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const onFabUp = (_e: React.PointerEvent<HTMLButtonElement>) => {
     setFabPressed(false)
     if (fabActive) {
       const opt = FAB_OPTS.find(o => o.key === fabActive)
-      if (opt) { setFabOpen(false); setFabActive(null); router.push(opt.path); return }
+      if (opt) { setFabOpen(false); setFabActive(null); navigateOrAuth(opt.path); return }
     }
     setFabActive(null)
     // tap sans slide → garde le menu ouvert pour clic manuel
@@ -169,7 +179,23 @@ export default function HomePage() {
       .finally(() => setZoneLoaded(true))
   }, [])
 
-  useEffect(() => { setScreenH(window.innerHeight) }, [])
+  useLayoutEffect(() => { setScreenH(window.innerHeight) }, [])
+
+  // Persist current tab so OAuth redirect can restore it
+  useEffect(() => {
+    try { sessionStorage.setItem('pdv-last-tab', navTab) } catch {}
+  }, [navTab])
+
+  // After login (null → user), restore the tab they were on before the OAuth redirect
+  useEffect(() => {
+    if (user && !prevUserRef.current) {
+      try {
+        const lastTab = sessionStorage.getItem('pdv-last-tab') as NavTab | null
+        if (lastTab) setNavTab(lastTab)
+      } catch {}
+    }
+    prevUserRef.current = user
+  }, [user])
 
   // Restore navigation state on back-navigation from event page
   useEffect(() => {
@@ -428,6 +454,30 @@ export default function HomePage() {
         </svg>
       </button>
 
+      {/* Bouton refresh — sous la loupe */}
+      <button
+        onClick={() => window.location.reload()}
+        style={{
+          position: 'absolute', top: 170, left: 14, zIndex: 200,
+          width: 44, height: 44, borderRadius: 12,
+          backgroundColor: 'rgba(255,255,255,0.92)',
+          border: '1px solid #E0D8CE',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.14)',
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#6B6B6B',
+          opacity: navTab === 'carte' && !searchOpen ? 1 : 0,
+          pointerEvents: navTab === 'carte' && !searchOpen ? 'auto' : 'none',
+          transition: 'opacity 0.18s',
+        }}
+        title="Rafraîchir"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M23 4v6h-6"/>
+          <path d="M1 20v-6h6"/>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+        </svg>
+      </button>
+
       {/* Barre de recherche — s'ouvre en overlay haut gauche */}
       <AnimatePresence>
         {searchOpen && (
@@ -628,7 +678,7 @@ export default function HomePage() {
                     pointerEvents: fabOpen ? 'auto' : 'none',
                     gap: 5,
                   }}
-                  onClick={() => { setFabOpen(false); setFabActive(null); router.push(opt.path) }}
+                  onClick={() => navigateOrAuth(opt.path)}
                 >
                   <div style={{
                     width: 52, height: 52, borderRadius: '50%',

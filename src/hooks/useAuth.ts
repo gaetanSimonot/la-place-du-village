@@ -29,11 +29,16 @@ export function useAuth() {
     }
 
     async function init() {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!mounted) return
-      setUser(session?.user ?? null)
-      if (session?.user) await fetchProfile(session.user.id)
-      if (mounted) setLoading(false)
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!mounted) return
+        setUser(session?.user ?? null)
+        if (session?.user) await fetchProfile(session.user.id)
+      } catch {
+        // network or auth error — stay logged out
+      } finally {
+        if (mounted) setLoading(false)
+      }
     }
     init()
 

@@ -194,21 +194,31 @@ export default function AjouterPage() {
   // ── Succès ───────────────────────────────────────────────────────────────────
   if (step === 'success') {
     const isSubmitted = submitMessage === 'submitted'
+    if (isSubmitted) {
+      return (
+        <div className="min-h-screen bg-[#FBF7F0] flex flex-col items-center justify-center p-8 text-center">
+          <p className="text-6xl mb-4">✅</p>
+          <h2 className="text-2xl font-bold text-[#2C1810] mb-3">Événement soumis !</h2>
+          <p className="text-gray-600 text-sm mb-8 leading-relaxed max-w-xs">
+            Votre événement a été soumis. Il sera publié après vérification, dans moins d&apos;une heure.
+          </p>
+          <Link
+            href="/"
+            className="bg-[#C4622D] text-white px-10 py-3 rounded-2xl font-bold text-base"
+          >
+            OK
+          </Link>
+        </div>
+      )
+    }
     return (
       <div className="min-h-screen bg-[#FBF7F0] flex flex-col items-center justify-center p-8 text-center">
-        <p className="text-6xl mb-4">{isSubmitted ? '⏳' : '🎉'}</p>
-        <h2 className="text-2xl font-bold text-[#2C1810] mb-2">{isSubmitted ? 'Événement soumis !' : 'Publié !'}</h2>
-        <p className="text-gray-600 text-sm mb-8">
-          {isSubmitted
-            ? 'Ton événement a été soumis. Après vérification automatique, il sera publié sous 10 minutes.'
-            : 'Ton événement a été publié avec succès.'}
-        </p>
+        <p className="text-6xl mb-4">🎉</p>
+        <h2 className="text-2xl font-bold text-[#2C1810] mb-2">Publié !</h2>
+        <p className="text-gray-600 text-sm mb-8">Ton événement a été publié avec succès.</p>
         <div className="flex flex-col gap-3 w-full max-w-xs">
           {eventId && (
-            <Link
-              href={`/evenement/${eventId}`}
-              className="block bg-[#C4622D] text-white text-center py-3 rounded-2xl font-bold"
-            >
+            <Link href={`/evenement/${eventId}`} className="block bg-[#C4622D] text-white text-center py-3 rounded-2xl font-bold">
               Voir l&apos;événement
             </Link>
           )}
@@ -218,9 +228,7 @@ export default function AjouterPage() {
           >
             Ajouter un autre événement
           </button>
-          <Link href="/" className="text-sm text-gray-400 underline text-center">
-            Retour à l&apos;accueil
-          </Link>
+          <Link href="/" className="text-sm text-gray-400 underline text-center">Retour à l&apos;accueil</Link>
         </div>
       </div>
     )
@@ -329,7 +337,7 @@ export default function AjouterPage() {
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-[#E8E0D5]">
         <button
           onClick={handleAnalyse}
-          disabled={loading || !texte.trim()}
+          disabled={loading || (!texte.trim() && !image)}
           className="w-full bg-[#C4622D] text-white py-4 rounded-2xl font-bold text-base disabled:opacity-50 transition-opacity"
         >
           {loading ? (
@@ -337,7 +345,7 @@ export default function AjouterPage() {
               <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               Analyse en cours...
             </span>
-          ) : 'Analyser avec l\'IA →'}
+          ) : 'Extraire les infos →'}
         </button>
       </div>
     </div>

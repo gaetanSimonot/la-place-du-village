@@ -59,11 +59,11 @@ export async function checkDoublon(newEvent: DoublonCheckInput): Promise<Doublon
 
   if (candidates.length === 0) return safe
 
-  // Appel Claude Haiku (rapide + économique)
+  // Appel Claude Haiku avec timeout 7s (Vercel Hobby = 10s max)
   let response
   try {
     const systemPrompt = await getPrompt('doublon_check')
-    response = await anthropic.messages.create({
+    const claudeCall = anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 256,
       system: systemPrompt,
@@ -76,9 +76,13 @@ ${JSON.stringify({ titre: newEvent.titre, date: newEvent.date_debut, commune: ne
 ${JSON.stringify(candidates.map(e => ({ id: e.id, titre: e.titre, date: e.date_debut })))}`,
       }],
     })
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), 7000)
+    )
+    response = await Promise.race([claudeCall, timeout])
   } catch {
-    // En cas d'erreur Claude, on laisse passer sans bloquer
-    return { ...safe, raison: 'Vérification Claude indisponible — accepté par défaut' }
+    // Timeout ou erreur Claude → a_verifier (prudent)
+    return { doublon: false, doublon_id: null, publier: false, raison: 'Vérification indisponible — à vérifier manuellement', infos_manquantes: [] }
   }
 
   try {
