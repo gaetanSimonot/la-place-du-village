@@ -10,9 +10,10 @@ import { formatDate } from '@/lib/filters'
 import DoublonsAdmin from '@/components/DoublonsAdmin'
 import ZoneAdmin from '@/components/ZoneAdmin'
 import AdminInbox from '@/components/AdminInbox'
+import MembresAdmin from '@/components/MembresAdmin'
 import EventEditDrawer from '@/components/EventEditDrawer'
 
-type Onglet   = 'inbox' | 'soumissions' | 'a_traiter' | 'publie' | 'rejete' | 'scrap' | 'doublons' | 'zone' | 'admins'
+type Onglet   = 'inbox' | 'soumissions' | 'a_traiter' | 'publie' | 'rejete' | 'scrap' | 'doublons' | 'zone' | 'membres' | 'admins'
 type SortKey  = 'created_desc' | 'created_asc' | 'date_asc' | 'date_desc'
 const PAGE_SIZE = 20
 
@@ -142,7 +143,7 @@ export default function AdminDashboard() {
   }, [])
 
   const fetchTabData = useCallback(async (tab: Onglet) => {
-    if (tab === 'doublons' || tab === 'zone' || tab === 'inbox' || tab === 'admins' || tab === 'soumissions') return
+    if (tab === 'doublons' || tab === 'zone' || tab === 'inbox' || tab === 'admins' || tab === 'membres' || tab === 'soumissions') return
     setLoading(true)
     let query = supabase
       .from('evenements')
@@ -390,6 +391,7 @@ export default function AdminDashboard() {
           { key: 'rejete',      label: 'Rejetés',        color: 'bg-gray-400'   },
           { key: 'doublons',    label: '🔀 Doublons',    color: 'bg-amber-500'  },
           { key: 'zone',        label: '📍 Zone',        color: 'bg-teal-500'   },
+          { key: 'membres',     label: '👥 Membres',     color: 'bg-emerald-500'},
           { key: 'admins',      label: '👤 Admins',      color: 'bg-purple-500' },
         ] as { key: Onglet; label: string; color: string }[]).map(tab => (
           <button
@@ -482,6 +484,9 @@ export default function AdminDashboard() {
       {/* Onglet Zone */}
       {onglet === 'zone' && <ZoneAdmin />}
 
+      {/* Onglet Membres */}
+      {onglet === 'membres' && <MembresAdmin />}
+
       {/* Onglet Admins */}
       {onglet === 'admins' && (
         <div className="p-4 max-w-md mx-auto">
@@ -538,7 +543,7 @@ export default function AdminDashboard() {
       )}
 
       {/* Barre recherche + tri + filtre signalements */}
-      {onglet !== 'doublons' && onglet !== 'zone' && onglet !== 'inbox' && onglet !== 'soumissions' && onglet !== 'admins' && (
+      {onglet !== 'doublons' && onglet !== 'zone' && onglet !== 'inbox' && onglet !== 'soumissions' && onglet !== 'membres' && onglet !== 'admins' && (
         <div className="bg-white border-b border-[#E8E0D5] px-3 py-2 space-y-2">
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -583,7 +588,7 @@ export default function AdminDashboard() {
       )}
 
       {/* Barre sélection */}
-      {onglet !== 'doublons' && onglet !== 'zone' && onglet !== 'inbox' && onglet !== 'soumissions' && onglet !== 'admins' && !loading && sorted.length > 0 && (
+      {onglet !== 'doublons' && onglet !== 'zone' && onglet !== 'inbox' && onglet !== 'soumissions' && onglet !== 'membres' && onglet !== 'admins' && !loading && sorted.length > 0 && (
         <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-[#E8E0D5]">
           <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600 select-none">
             <input type="checkbox" checked={allSelected} onChange={toggleAll} className="w-4 h-4 accent-[#C4622D] cursor-pointer" />
@@ -601,7 +606,7 @@ export default function AdminDashboard() {
       )}
 
       {/* Liste */}
-      {onglet !== 'doublons' && onglet !== 'zone' && onglet !== 'inbox' && onglet !== 'soumissions' && onglet !== 'admins' && <div className="p-3 space-y-3 pb-6">
+      {onglet !== 'doublons' && onglet !== 'zone' && onglet !== 'inbox' && onglet !== 'soumissions' && onglet !== 'membres' && onglet !== 'admins' && <div className="p-3 space-y-3 pb-6">
         {loading ? (
           <div className="flex justify-center py-12">
             <div className="w-8 h-8 border-4 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
