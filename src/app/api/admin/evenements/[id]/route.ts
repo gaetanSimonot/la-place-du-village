@@ -34,6 +34,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const dateFields = ['date_debut', 'date_fin', 'heure']
     textFields.forEach(f => { if (body[f] !== undefined) eventUpdate[f] = body[f] })
     dateFields.forEach(f => { if (body[f] !== undefined) eventUpdate[f] = nullIfEmpty(body[f]) })
+    if (body.promo_ordre !== undefined) eventUpdate.promo_ordre = body.promo_ordre
 
     const { data, error } = await supabaseAdmin
       .from('evenements')
