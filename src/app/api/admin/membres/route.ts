@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   const [{ data: producers }, { data: profilesData }] = await Promise.all([
     supabaseAdmin.from('producers').select('id, user_id, nom, is_max, photos, commune'),
-    supabaseAdmin.from('profiles').select('user_id, plan, pro_type, display_name, bio'),
+    supabaseAdmin.from('profiles').select('id, plan, pro_type, display_name, bio'),
   ])
 
   const producerByUser: Record<string, { id: string; nom: string; is_max: boolean; photo: string | null; commune: string | null }> = {}
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 
   const profileByUser: Record<string, { plan: string; pro_type: string | null; display_name: string | null; bio: string | null }> = {}
   for (const p of profilesData ?? []) {
-    profileByUser[p.user_id] = { plan: p.plan, pro_type: p.pro_type, display_name: p.display_name, bio: p.bio }
+    profileByUser[p.id] = { plan: p.plan, pro_type: p.pro_type, display_name: p.display_name, bio: p.bio }
   }
 
   const membres = (users ?? []).map(u => {
@@ -63,13 +63,13 @@ export async function PATCH(req: NextRequest) {
     const { user_id, plan, pro_type, display_name, bio } = body
 
     const { error } = await supabaseAdmin.from('profiles').upsert({
-      user_id,
+      id: user_id,
       plan: plan ?? 'basic',
       pro_type: pro_type || null,
       display_name: display_name || null,
       bio: bio || null,
       updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id' })
+    }, { onConflict: 'id' })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

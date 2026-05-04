@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   const { data: profile } = await supabaseAdmin
     .from('profiles')
     .select('plan, pro_type')
-    .eq('user_id', user.id)
+    .eq('id', user.id)
     .maybeSingle()
 
   const plan = profile?.plan ?? 'basic'
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   const { data: producer } = await supabaseAdmin
     .from('producers')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('id', user.id)
     .maybeSingle()
 
   if (!producer) return NextResponse.json({ plan, pro_type, producer: null, products: [] })
