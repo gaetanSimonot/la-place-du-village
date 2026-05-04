@@ -18,7 +18,7 @@ export default function ProfilPage() {
 
   useEffect(() => {
     if (!user?.id) return
-    supabase.from('profiles').select('*').eq('user_id', user.id).single()
+    supabase.from('profiles').select('plan').eq('user_id', user.id).single()
       .then(({ data: p }) => { if (p) setPlan(p.plan ?? null) })
   }, [user?.id])
 
