@@ -14,16 +14,18 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: 'black-translucent',
     title: 'La Place',
-    startupImage: '/apple-touch-icon.png',
   },
   icons: {
     apple: '/apple-touch-icon.png',
-    icon: '/favicon-32.png',
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/favicon-32.png', sizes: '32x32', type: 'image/png' },
+    ],
   },
 }
 
 export const viewport: Viewport = {
-  themeColor: '#1D5C3B',
+  themeColor: '#2D5A3D',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
