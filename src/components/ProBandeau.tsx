@@ -64,63 +64,67 @@ export default function ProBandeau({ events, onDiscover }: Props) {
   const evt = queue[idx]
   if (!evt) return null
   const cat = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
+  const fade: React.CSSProperties = { opacity: fading ? 0 : 1, transition: `opacity ${FADE_MS}ms ease` }
 
   return (
     <div
       onClick={() => { clearTimeout(timerRef.current); onDiscover(evt.id) }}
       style={{
         margin: '0 12px 8px',
-        borderRadius: 12,
-        backgroundColor: '#FAFAF8',
-        border: '1px solid #E8E2D8',
-        boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
+        borderRadius: 14,
+        backgroundColor: '#fff',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.09)',
         overflow: 'hidden',
         display: 'flex',
         alignItems: 'stretch',
-        height: 72,
+        height: 80,
         position: 'relative',
         flexShrink: 0,
         cursor: 'pointer',
       }}
     >
-      {/* Barre latérale colorée catégorie */}
-      <div style={{ width: 3, backgroundColor: cat.color, flexShrink: 0 }} />
-
-      {/* Image ou emoji */}
-      <div style={{
-        width: 64, height: 72, flexShrink: 0, overflow: 'hidden', position: 'relative',
-        opacity: fading ? 0 : 1, transition: `opacity ${FADE_MS}ms ease`,
-      }}>
+      {/* Image pleine hauteur */}
+      <div style={{ width: 88, height: 80, flexShrink: 0, position: 'relative', overflow: 'hidden', ...fade }}>
         {evt.image_url
           ? <img key={`img-${idx}`} src={evt.image_url} alt="" loading="lazy"
               style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: evt.image_position ?? '50% 50%' }} />
-          : <div style={{ width: '100%', height: '100%', backgroundColor: cat.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>
+          : <div style={{ width: '100%', height: '100%', backgroundColor: cat.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>
               {cat.emoji}
             </div>
         }
+        {/* Badge À LA UNE sur l'image */}
+        <div style={{
+          position: 'absolute', top: 6, left: 6,
+          backgroundColor: '#EC407A', color: '#fff',
+          fontSize: 8, fontWeight: 800, letterSpacing: '0.07em',
+          textTransform: 'uppercase', padding: '3px 7px', borderRadius: 999,
+          fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+        }}>
+          À la une
+        </div>
       </div>
 
       {/* Texte */}
       <div style={{
-        flex: 1, padding: '10px 8px 10px 10px', minWidth: 0,
-        display: 'flex', flexDirection: 'column', justifyContent: 'center',
-        opacity: fading ? 0 : 1, transition: `opacity ${FADE_MS}ms ease`,
+        flex: 1, padding: '12px 6px 12px 12px', minWidth: 0,
+        display: 'flex', flexDirection: 'column', justifyContent: 'center', ...fade,
       }}>
         <p style={{
-          fontSize: 9, fontWeight: 700, color: '#A09488',
-          letterSpacing: '0.08em', textTransform: 'uppercase',
+          fontSize: 9, fontWeight: 600, color: cat.color,
+          letterSpacing: '0.04em', textTransform: 'uppercase',
           margin: '0 0 3px', fontFamily: 'Inter, sans-serif',
         }}>
-          À la une · {cat.emoji} {cat.label}
+          {cat.emoji} {cat.label}
         </p>
         <p style={{
-          fontSize: 13, fontWeight: 700, color: '#2C1810', lineHeight: 1.25, margin: '0 0 2px',
+          fontSize: 13, fontWeight: 700, color: '#1A1209', lineHeight: 1.25, margin: '0 0 3px',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           fontFamily: 'Syne, sans-serif',
         }}>{evt.titre}</p>
         {evt.date_debut && (
           <p style={{
-            fontSize: 10, color: '#8A8A8A', margin: 0,
+            fontSize: 10, color: '#9A9080', margin: 0,
             fontFamily: 'Inter, sans-serif',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
@@ -129,23 +133,26 @@ export default function ProBandeau({ events, onDiscover }: Props) {
         )}
       </div>
 
-      {/* Flèche */}
+      {/* Chevron */}
       <div style={{
-        display: 'flex', alignItems: 'center', paddingRight: 12, flexShrink: 0,
-        opacity: fading ? 0 : 1, transition: `opacity ${FADE_MS}ms ease`,
-        color: '#C0B8B0', fontSize: 14,
-      }}>→</div>
+        display: 'flex', alignItems: 'center', paddingRight: 14, flexShrink: 0,
+        color: '#C8C0B8', ...fade,
+      }}>
+        <svg width="7" height="12" viewBox="0 0 7 12" fill="none">
+          <path d="M1 1l5 5-5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
 
       {/* Dots */}
       {queue.length > 1 && (
         <div style={{
-          position: 'absolute', bottom: 4, left: '50%', transform: 'translateX(-50%)',
+          position: 'absolute', bottom: 5, left: '50%', transform: 'translateX(-50%)',
           display: 'flex', gap: 3,
         }}>
           {queue.map((_, i) => (
             <div key={i} onClick={e => { e.stopPropagation(); setIdx(i) }} style={{
               width: i === idx ? 10 : 4, height: 4, borderRadius: 2,
-              backgroundColor: i === idx ? '#8A8A8A' : '#D0C8C0',
+              backgroundColor: i === idx ? '#EC407A' : '#DDD5CC',
               transition: 'width 0.3s',
               cursor: 'pointer',
             }} />
@@ -158,9 +165,9 @@ export default function ProBandeau({ events, onDiscover }: Props) {
         onClick={e => { e.stopPropagation(); setDismissed(true) }}
         style={{
           position: 'absolute', top: 6, right: 6,
-          width: 16, height: 16, borderRadius: '50%',
-          backgroundColor: 'rgba(0,0,0,0.08)', border: 'none',
-          color: '#8A8A8A', fontSize: 8,
+          width: 18, height: 18, borderRadius: '50%',
+          backgroundColor: 'rgba(0,0,0,0.07)', border: 'none',
+          color: '#AAA', fontSize: 8,
           cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontWeight: 700,
         }}>✕</button>
