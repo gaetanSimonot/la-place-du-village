@@ -73,10 +73,14 @@ export default function ProducteurPageClient({ id }: { id: string }) {
   }, [])
 
   const fetchProducts = useCallback(async () => {
+    console.log('[Realtime] fetchProducts déclenché')
     try {
       const d = await fetch(`/api/producers/${id}`).then(r => r.json())
+      console.log('[Realtime] produits reçus:', d.products?.length ?? 0, d.products)
       setProducts(d.products ?? [])
-    } catch {}
+    } catch (e) {
+      console.error('[Realtime] fetchProducts erreur:', e)
+    }
   }, [id])
 
   useEffect(() => {
@@ -90,11 +94,17 @@ export default function ProducteurPageClient({ id }: { id: string }) {
   }, [id])
 
   useEffect(() => {
+    console.log('[Realtime] abonnement channel products-' + id)
     const channel = supabase
       .channel(`products-${id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `producer_id=eq.${id}` },
-        () => fetchProducts())
-      .subscribe()
+        (payload) => {
+          console.log('[Realtime] event reçu:', payload)
+          fetchProducts()
+        })
+      .subscribe((status) => {
+        console.log('[Realtime] status channel:', status)
+      })
     return () => { supabase.removeChannel(channel) }
   }, [id, fetchProducts])
 
