@@ -721,8 +721,8 @@ export default function HomePage() {
       {/* Toggle Agenda ↔ Annuaire — haut droite, toujours visible sur carte/liste */}
       <div style={{
         position: 'absolute', top: 14, right: 14, zIndex: 200,
-        opacity: navTab !== 'profil' && navTab !== 'favoris' ? 1 : 0,
-        pointerEvents: navTab !== 'profil' && navTab !== 'favoris' ? 'auto' : 'none',
+        opacity: navTab !== 'profil' && navTab !== 'favoris' && sheetMode !== 'full' ? 1 : 0,
+        pointerEvents: navTab !== 'profil' && navTab !== 'favoris' && sheetMode !== 'full' ? 'auto' : 'none',
         transition: 'opacity 0.18s',
       }}>
         <div style={{ display: 'flex', borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.14)', border: '1px solid rgba(224,216,206,0.8)' }}>

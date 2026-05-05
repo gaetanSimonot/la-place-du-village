@@ -311,6 +311,39 @@ export default function BottomSheet({
           <div style={{ width: 40, height: 5, borderRadius: 3, backgroundColor: '#C8BDB0', margin: '0 auto' }} />
         </div>
 
+        {/* Bandeau À la une — flottant au-dessus du compteur, dans le header (agenda, non-full) */}
+        {appMode === 'agenda' && proEvents.length > 0 && mode !== 'full' && (
+          <ProBandeau events={proEvents} onDiscover={onDiscoverPro ?? (() => {})} compact={false} />
+        )}
+
+        {/* Compteur d'événements (agenda, non-full) */}
+        {appMode === 'agenda' && mode !== 'full' && (
+          <div onPointerDown={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 16px 10px' }}>
+            <img src="/icons/evenements.png" alt="" style={{ width: 44, height: 44, borderRadius: 12, flexShrink: 0, objectFit: 'cover' }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 16, color: '#1C1917', margin: 0, lineHeight: 1.1 }}>
+                {evenements.length} événement{evenements.length > 1 ? 's' : ''}
+              </p>
+              <p style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: '#6B5E4E', margin: '1px 0 0', lineHeight: 1.2 }}>
+                Autour de toi cette semaine
+              </p>
+              <p style={{ fontFamily: 'Lora, serif', fontSize: 10, color: '#9E9089', margin: '1px 0 0' }}>
+                Marchés · ateliers · concerts…
+              </p>
+            </div>
+            <button
+              onClick={() => snapTo('full')}
+              style={{
+                flexShrink: 0, padding: '7px 13px', borderRadius: 999,
+                border: '1.5px solid #2D5A3D', backgroundColor: 'transparent',
+                color: '#2D5A3D', fontFamily: 'Inter, sans-serif', fontWeight: 700,
+                fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap',
+              }}>
+              Voir la liste →
+            </button>
+          </div>
+        )}
+
         {/* Boutons filtres : agenda → deux boutons, annuaire → bouton unique */}
         {appMode === 'agenda' ? (
           <div style={{ display: 'flex', gap: 10, padding: '0 16px 10px' }}>
@@ -528,15 +561,6 @@ export default function BottomSheet({
       <div style={{ height: 1, backgroundColor: sheetBg.border }} />
       </div>{/* fin header mesuré */}
 
-      {/* ── Bandeau "À la une" — hors liste en peek/half (pleine taille), dans la liste en full (compact) ── */}
-      {appMode === 'agenda' && proEvents.length > 0 && mode !== 'full' && (
-        <ProBandeau
-          events={proEvents}
-          onDiscover={onDiscoverPro ?? (() => {})}
-          compact={false}
-        />
-      )}
-
       {/* ── Liste ── */}
       <div
         ref={listRef}
@@ -587,39 +611,6 @@ export default function BottomSheet({
                 onDiscover={onDiscoverPro ?? (() => {})}
                 compact={true}
               />
-            )}
-
-            {/* Compteur d'événements (masqué en mode full car on est déjà dans la liste) */}
-            {mode !== 'full' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0 2px', flexShrink: 0 }}>
-                <div style={{
-                  width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
-                  backgroundColor: '#2D5A3D',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <span style={{ color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 13, lineHeight: 1 }}>
-                    {sortedEvents.length}
-                  </span>
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14, color: '#1C1917', margin: 0, lineHeight: 1.2 }}>
-                    {sortedEvents.length} idée{sortedEvents.length > 1 ? 's' : ''} autour de toi
-                  </p>
-                  <p style={{ fontFamily: 'Lora, serif', fontSize: 11, color: '#6B5E4E', margin: '2px 0 0' }}>
-                    Ganges et ses environs
-                  </p>
-                </div>
-                <button
-                  onClick={() => snapTo('full')}
-                  style={{
-                    flexShrink: 0, padding: '6px 13px', borderRadius: 999,
-                    border: '1.5px solid #2D5A3D', backgroundColor: 'transparent',
-                    color: '#2D5A3D', fontFamily: 'Inter, sans-serif', fontWeight: 700,
-                    fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap',
-                  }}>
-                  Voir la liste →
-                </button>
-              </div>
             )}
 
             {visibleEvents.map(evt => (
