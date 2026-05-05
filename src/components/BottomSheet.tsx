@@ -236,7 +236,7 @@ export default function BottomSheet({
   const hasQuoi  = filtres.categories.length > 0
   const hasQuand = filtres.quand !== 'toujours'
 
-  const quoiLabel     = quoiCursor < 0 ? 'Que faire ?' : `${CATEGORIES[CATS[quoiCursor]].emoji} ${CATEGORIES[CATS[quoiCursor]].label}`
+  const quoiLabel     = quoiCursor < 0 ? 'Que faire ?' : CATEGORIES[CATS[quoiCursor]].label
   const quandBtnLabel = quandCursor < 0 ? 'Quand donc ?' : QUAND_OPTIONS[quandCursor].short
 
   // Reset state quand on change de mode
@@ -364,11 +364,6 @@ export default function BottomSheet({
         )}
       </div>{/* fin zone drag */}
 
-      {/* ── Bandeau "À la une" — visible même en peek ── */}
-      {appMode === 'agenda' && proEvents.length > 0 && (
-        <ProBandeau events={proEvents} onDiscover={onDiscoverPro ?? (() => {})} />
-      )}
-
       {/* ── Row "Que faire" ── */}
       <AnimatePresence>
         {appMode === 'agenda' && quoiOpen && (
@@ -410,8 +405,7 @@ export default function BottomSheet({
                       transition: 'all 0.12s',
                     }}
                   >
-                    <span style={{ fontSize: 14 }}>{info.emoji}</span>
-                    <span>{info.label}</span>
+                    {info.label}
                   </button>
                 )
               })}
@@ -534,10 +528,19 @@ export default function BottomSheet({
       <div style={{ height: 1, backgroundColor: sheetBg.border }} />
       </div>{/* fin header mesuré */}
 
+      {/* ── Bandeau "À la une" — premier élément de la liste (full=compact, sinon pleine taille) ── */}
+      {appMode === 'agenda' && proEvents.length > 0 && (
+        <ProBandeau
+          events={proEvents}
+          onDiscover={onDiscoverPro ?? (() => {})}
+          compact={mode === 'full'}
+        />
+      )}
+
       {/* ── Liste ── */}
       <div
         ref={listRef}
-        style={{ flex: 1, overflowY: 'auto', padding: '10px 16px 24px', display: 'flex', flexDirection: 'column', gap: 10 }}
+        style={{ flex: 1, overflowY: 'auto', padding: '4px 16px 24px', display: 'flex', flexDirection: 'column', gap: 10 }}
         onPointerDown={e => e.stopPropagation()}
       >
         {appMode === 'annuaire' ? (
@@ -633,11 +636,11 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3, flexWrap: 'nowrap', overflow: 'hidden' }}>
             <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 3, flexShrink: 0,
+              display: 'inline-flex', alignItems: 'center', flexShrink: 0,
               fontSize: 9, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase',
               color: '#fff', backgroundColor: cat.color,
               borderRadius: 999, padding: '2px 7px',
-            }}>{cat.emoji} {cat.label}</span>
+            }}>{cat.label}</span>
             {lieu?.commune && (
               <span style={{ fontSize: 10, color: '#6B5E4E', fontWeight: 600, fontFamily: 'Lora, serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {lieu.commune}

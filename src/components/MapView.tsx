@@ -33,85 +33,97 @@ const WARM_STYLE: google.maps.MapTypeStyle[] = [
   { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#8c6e5a' }] },
 ]
 
-// Icônes SVG évocateurs par catégorie
-const CATEGORY_SHAPES: Record<string, string> = {
-  concert:   '♪',
-  theatre:   '🎭',
-  sport:     '⚡',
-  marche:    '🧺',
-  atelier:   '🎨',
-  fete:      '✦',
-  autre:     '●',
+// Cache SVG par clé — évite de recalculer à chaque render
+const svgCache: Record<string, string> = {}
+
+// Calcule les dimensions d'un marqueur goutte pour une taille donnée
+function getTearParams(selected: boolean, promoted: boolean, isMax: boolean) {
+  const r       = isMax ? 10 : selected ? 9 : (promoted ? 8 : 7)
+  const tailH   = Math.round(r * 1.0)
+  const starH   = isMax ? 11 : 0   // hauteur réservée pour l'étoile au-dessus
+  const pad     = 3
+  const w       = r * 2 + pad * 2
+  const h       = r * 2 + tailH + pad * 2 + starH
+  const cx      = w / 2
+  const cy      = pad + starH + r   // centre du cercle
+  const tipY    = cy + r + tailH    // pointe en bas
+  const holeR   = Math.max(2, Math.round(r * 0.30))
+  return { r, tailH, starH, pad, w, h, cx, cy, tipY, holeR }
 }
 
-// Cache SVG par clé "categorie|selected|approx" — évite de recalculer à chaque render
-const svgCache: Record<string, string> = {}
+function getProducerTearParams(selected: boolean, isMax: boolean) {
+  const r       = selected ? 10 : isMax ? 9 : 7
+  const tailH   = Math.round(r * 1.0)
+  const pad     = 3
+  const w       = r * 2 + pad * 2
+  const h       = r * 2 + tailH + pad * 2
+  const cx      = w / 2
+  const cy      = pad + r
+  const tipY    = cy + r + tailH
+  const holeR   = Math.max(2, Math.round(r * 0.30))
+  return { r, tailH, pad, w, h, cx, cy, tipY, holeR }
+}
+
+// Trace la forme goutte: cercle en haut, pointe en bas
+function tearPath(r: number, cx: number, cy: number, tipY: number): string {
+  const tailH = tipY - cy - r
+  const cpX   = r * 0.32
+  const cpY   = tailH * 0.40
+  return `M${cx},${tipY} C${cx-cpX},${tipY-cpY} ${cx-r},${cy+r*0.5} ${cx-r},${cy} A${r},${r} 0 1 1 ${cx+r},${cy} C${cx+r},${cy+r*0.5} ${cx+cpX},${tipY-cpY} ${cx},${tipY} Z`
+}
 
 function producerMarkerSvg(selected: boolean, isMax: boolean): string {
   const key = `producer|${selected}|${isMax}`
   if (svgCache[key]) return svgCache[key]
-  const r    = selected ? 13 : (isMax ? 11 : 9)
-  const size = r * 2 + 10
-  const cx   = size / 2
-  const cy   = size / 2
+  const p    = getProducerTearParams(selected, isMax)
+  const path = tearPath(p.r, p.cx, p.cy, p.tipY)
   const fill = isMax ? '#E8622A' : '#2D5A3D'
-  const glow = selected ? `<circle cx="${cx}" cy="${cy}" r="${r+4}" fill="${fill}" opacity="0.18"/>` : ''
-  const maxRing = isMax && !selected ? `<circle cx="${cx}" cy="${cy}" r="${r+3}" fill="${fill}" opacity="0.15"/>` : ''
-  const hw   = Math.round(r * 0.48)
-  const ht   = Math.round(r * 0.32)
-  const hb   = Math.round(r * 0.26)
-  const dw   = Math.round(hw * 0.36)
-  const dh   = Math.round(hb * 0.7)
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
-    ${maxRing}${glow}
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="#fff" stroke-width="${selected?2:1.5}"/>
-    <polyline fill="none" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"
-      points="${cx-hw},${cy-hb/2} ${cx},${cy-ht-hb/2} ${cx+hw},${cy-hb/2} ${cx+hw},${cy+hb/2} ${cx-hw},${cy+hb/2} ${cx-hw},${cy-hb/2}"/>
-    <rect x="${cx-dw/2}" y="${cy+hb/2-dh}" width="${dw}" height="${dh}" fill="#fff" rx="1"/>
+  const glow    = selected ? `<ellipse cx="${p.cx}" cy="${p.cy}" rx="${p.r+4}" ry="${p.r+3}" fill="${fill}" opacity="0.16"/>` : ''
+  const maxHalo = isMax && !selected ? `<ellipse cx="${p.cx}" cy="${p.cy}" rx="${p.r+4}" ry="${p.r+3}" fill="${fill}" opacity="0.13"/>` : ''
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${p.w}" height="${p.h}">
+    ${maxHalo}${glow}
+    <path d="${path}" fill="${fill}" fill-opacity="0.88" stroke="rgba(255,255,255,0.88)" stroke-width="${selected?2:1.2}"/>
+    <circle cx="${p.cx}" cy="${p.cy}" r="${p.holeR}" fill="white" opacity="0.55"/>
   </svg>`
   const url = `data:image/svg+xml,${encodeURIComponent(svg)}`
   svgCache[key] = url
   return url
 }
 
-function markerSvg(categorie: string, selected: boolean, approx = false, promoted = false): string {
-  const key = `${categorie}|${selected}|${approx}|${promoted}`
+function markerSvg(categorie: string, selected: boolean, approx = false, promoted = false, isMax = false): string {
+  const key = `${categorie}|${selected}|${approx}|${promoted}|${isMax}`
   if (svgCache[key]) return svgCache[key]
-  const url = _buildMarkerSvg(categorie, selected, approx, promoted)
+  const url = _buildMarkerSvg(categorie, selected, approx, promoted, isMax)
   svgCache[key] = url
   return url
 }
 
-function _buildMarkerSvg(categorie: string, selected: boolean, approx = false, promoted = false): string {
-  const cat = CATEGORIES[categorie as keyof typeof CATEGORIES] ?? CATEGORIES.autre
-  const symbol = CATEGORY_SHAPES[categorie] ?? '●'
+function _buildMarkerSvg(categorie: string, selected: boolean, approx = false, promoted = false, isMax = false): string {
+  const cat  = CATEGORIES[categorie as keyof typeof CATEGORIES] ?? CATEGORIES.autre
+  const p    = getTearParams(selected, promoted, isMax)
+  const path = tearPath(p.r, p.cx, p.cy, p.tipY)
 
-  const r       = selected ? 13 : (promoted ? 11 : 9)
-  const size    = r * 2 + 10
-  const cx      = size / 2
-  const cy      = size / 2
-  const bg      = approx ? '#fff' : cat.color
-  const stroke  = cat.color
-  const textColor = approx ? cat.color : '#fff'
-  const dashAttr  = approx ? `stroke-dasharray="2 1.5"` : ''
-  const fontSize  = selected ? 11 : 9
-  const strokeW   = selected ? 2 : 1.5
-  const opacity   = approx ? 0.72 : 1
+  const fillColor   = approx ? '#BBBBBB' : cat.color
+  const fillOpacity = approx ? 0.52 : selected ? 0.94 : 0.82
+  const strokeColor = 'rgba(255,255,255,0.88)'
+  const strokeW     = selected ? 2 : 1.2
+  const dashAttr    = approx ? `stroke-dasharray="2 1.5"` : ''
 
   const glow = selected
-    ? `<circle cx="${cx}" cy="${cy}" r="${r + 4}" fill="${cat.color}" opacity="0.18"/>`
+    ? `<ellipse cx="${p.cx}" cy="${p.cy}" rx="${p.r+4}" ry="${p.r+3}" fill="${fillColor}" opacity="0.18"/>`
+    : ''
+  const maxHalo = isMax && !selected
+    ? `<ellipse cx="${p.cx}" cy="${p.cy}" rx="${p.r+4}" ry="${p.r+3}" fill="#EC407A" opacity="0.14"/>`
+    : ''
+  const star = isMax && p.starH > 0
+    ? `<text x="${p.cx}" y="${p.starH - 1}" text-anchor="middle" dominant-baseline="auto" font-size="10" fill="#EC407A" opacity="0.92" font-family="sans-serif">✦</text>`
     : ''
 
-  const promoRing = promoted && !selected
-    ? `<circle cx="${cx}" cy="${cy}" r="${r + 3}" fill="#EC407A" opacity="0.14"/>
-       <circle cx="${cx}" cy="${cy}" r="${r + 2}" fill="none" stroke="#EC407A" stroke-width="1.5" opacity="0.7"/>`
-    : ''
-
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
-    ${promoRing}
-    ${glow}
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="${bg}" stroke="${stroke}" stroke-width="${strokeW}" ${dashAttr} opacity="${opacity}"/>
-    <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" font-size="${fontSize}" fill="${textColor}" font-family="sans-serif">${symbol}</text>
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${p.w}" height="${p.h}">
+    ${maxHalo}${glow}
+    <path d="${path}" fill="${fillColor}" fill-opacity="${fillOpacity}" stroke="${strokeColor}" stroke-width="${strokeW}" ${dashAttr}/>
+    <circle cx="${p.cx}" cy="${p.cy}" r="${p.holeR}" fill="white" opacity="0.52"/>
+    ${star}
   </svg>`
   return `data:image/svg+xml,${encodeURIComponent(svg)}`
 }
@@ -198,17 +210,17 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, centerOn }: 
     const allNewMarkers = withLoc.map(evt => {
       const isSelected = evt.id === selectedId
       const approx     = isApproxLocation(evt.lieux)
+      const isMax      = evt.promotion === 'max'
       const promoted   = evt.promotion === 'pro' || evt.promotion === 'max'
-      const r          = isSelected ? 13 : (promoted ? 11 : 9)
-      const size       = r * 2 + 10
+      const p          = getTearParams(isSelected, promoted, isMax)
       const marker     = new google.maps.Marker({
         position: { lat: evt.lieux!.lat!, lng: evt.lieux!.lng! },
         title: evt.titre,
         optimized: false,
         icon: {
-          url: markerSvg(evt.categorie, isSelected, approx, promoted),
-          scaledSize: new google.maps.Size(size, size),
-          anchor: new google.maps.Point(size / 2, size / 2),
+          url: markerSvg(evt.categorie, isSelected, approx, promoted, isMax),
+          scaledSize: new google.maps.Size(p.w, p.h),
+          anchor: new google.maps.Point(p.cx, p.tipY),
         },
         zIndex: isSelected ? 999 : promoted ? 10 : 1,
       })
@@ -252,8 +264,7 @@ function ProducerMarkers({ producers, selectedProducerId, onSelectProducer }: Pr
     const withLoc = producers.filter(p => p.lat && p.lng)
     markersRef.current = withLoc.map(p => {
       const sel  = p.id === selectedProducerId
-      const r    = sel ? 13 : (p.is_max ? 11 : 9)
-      const size = r * 2 + 10
+      const pp   = getProducerTearParams(sel, p.is_max)
       const marker = new google.maps.Marker({
         position: { lat: p.lat!, lng: p.lng! },
         title: p.nom,
@@ -261,8 +272,8 @@ function ProducerMarkers({ producers, selectedProducerId, onSelectProducer }: Pr
         map,
         icon: {
           url: producerMarkerSvg(sel, p.is_max),
-          scaledSize: new google.maps.Size(size, size),
-          anchor: new google.maps.Point(size / 2, size / 2),
+          scaledSize: new google.maps.Size(pp.w, pp.h),
+          anchor: new google.maps.Point(pp.cx, pp.tipY),
         },
         zIndex: sel ? 999 : p.is_max ? 10 : 1,
       })
@@ -345,7 +356,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
           <InfoWindow
             position={{ lat: selectedProducer.lat, lng: selectedProducer.lng }}
             onCloseClick={() => onSelectProducer?.(null)}
-            pixelOffset={[0, -18]}
+            pixelOffset={[0, -38]}
           >
             <div style={{ position: 'relative', width: 200, overflow: 'visible', fontFamily: 'Inter, sans-serif' }}>
               <button onClick={() => onSelectProducer?.(null)}
@@ -377,7 +388,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
           <InfoWindow
             position={{ lat: selectedEvent.lieux.lat, lng: selectedEvent.lieux.lng }}
             onCloseClick={onDeselect}
-            pixelOffset={[0, -18]}
+            pixelOffset={[0, -36]}
           >
             {/* Wrapper overflow:visible pour que le bouton fermer dépasse de la carte */}
             <div style={{ position: 'relative', width: 220, overflow: 'visible' }}>

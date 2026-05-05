@@ -19,9 +19,10 @@ function shuffle<T>(arr: T[]): T[] {
 interface Props {
   events: EvenementCard[]
   onDiscover: (id: string) => void
+  compact?: boolean
 }
 
-export default function ProBandeau({ events, onDiscover }: Props) {
+export default function ProBandeau({ events, onDiscover, compact = false }: Props) {
   const [dismissed, setDismissed] = useState(false)
   const [queue, setQueue]         = useState<EvenementCard[]>([])
   const [idx, setIdx]             = useState(0)
@@ -65,61 +66,67 @@ export default function ProBandeau({ events, onDiscover }: Props) {
   if (!evt) return null
   const cat = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
 
+  const imgSize = compact ? 54 : 80
+  const cardH   = compact ? 58 : 80
+
   return (
     <div
       onClick={() => { clearTimeout(timerRef.current); onDiscover(evt.id) }}
       onPointerDown={e => e.stopPropagation()}
-      style={{ margin: '4px 12px 8px', cursor: 'pointer', flexShrink: 0 }}
+      style={{ margin: compact ? '0 12px 8px' : '4px 12px 8px', cursor: 'pointer', flexShrink: 0 }}
     >
       <div style={{
-        display: 'flex', height: 80, borderRadius: 14, overflow: 'hidden',
+        display: 'flex', height: cardH, borderRadius: compact ? 12 : 14, overflow: 'hidden',
         backgroundColor: '#fff', boxShadow: '0 2px 10px rgba(44,44,44,0.10)',
         opacity: fading ? 0 : 1, transition: `opacity ${FADE_MS}ms ease`,
       }}>
         {/* Image left */}
-        <div style={{ width: 80, flexShrink: 0, position: 'relative', overflow: 'hidden', backgroundColor: cat.color + '22' }}>
+        <div style={{ width: imgSize, flexShrink: 0, position: 'relative', overflow: 'hidden', backgroundColor: cat.color + '22' }}>
           {evt.image_url
             ? <img src={evt.image_url} alt="" loading="lazy"
                 style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: evt.image_position ?? '50% 50%' }} />
-            : <div style={{ position: 'absolute', inset: 0, backgroundColor: cat.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>
+            : <div style={{ position: 'absolute', inset: 0, backgroundColor: cat.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: compact ? 20 : 26 }}>
                 {cat.emoji}
               </div>
           }
           <div style={{ position: 'absolute', bottom: 4, left: 4, backgroundColor: '#EC407A', borderRadius: 999, padding: '1px 5px' }}>
-            <span style={{ fontSize: 8, fontWeight: 800, color: '#fff', fontFamily: 'Inter, sans-serif', letterSpacing: '0.04em' }}>✦ À la une</span>
+            <span style={{ fontSize: 7, fontWeight: 800, color: '#fff', fontFamily: 'Inter, sans-serif', letterSpacing: '0.04em' }}>✦ À la une</span>
           </div>
         </div>
 
         {/* Content right */}
-        <div style={{ flex: 1, padding: '8px 10px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minWidth: 0, position: 'relative' }}>
+        <div style={{ flex: 1, padding: compact ? '6px 10px' : '8px 10px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minWidth: 0, position: 'relative' }}>
           <button
             onClick={e => { e.stopPropagation(); setDismissed(true) }}
             style={{
               position: 'absolute', top: 5, right: 5,
-              width: 18, height: 18, borderRadius: '50%',
+              width: 16, height: 16, borderRadius: '50%',
               backgroundColor: '#F0EBE4', border: 'none', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 8, color: '#8A8A8A', padding: 0, lineHeight: 1,
+              fontSize: 7, color: '#8A8A8A', padding: 0, lineHeight: 1,
             }}>✕</button>
 
           <p style={{
-            fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 13,
-            color: '#1C1917', margin: '0 20px 0 0', lineHeight: 1.3,
+            fontFamily: 'Inter, sans-serif', fontWeight: 700,
+            fontSize: compact ? 12 : 13,
+            color: '#1C1917', margin: '0 18px 0 0', lineHeight: 1.3,
             overflow: 'hidden', display: '-webkit-box',
-            WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+            WebkitLineClamp: compact ? 1 : 2, WebkitBoxOrient: 'vertical',
           }}>{evt.titre}</p>
 
           <div>
-            {evt.date_debut && (
+            {!compact && evt.date_debut && (
               <p style={{ fontSize: 10, color: '#6B5E4E', margin: '0 0 1px', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 🗓 {formatDate(evt.date_debut)}{evt.heure ? ` · ${evt.heure.slice(0,5)}` : ''}
               </p>
             )}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <p style={{ fontSize: 10, color: '#6B5E4E', margin: 0, fontFamily: 'Lora, serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {evt.lieux?.commune ? `📍 ${evt.lieux.commune}` : `${cat.emoji} ${cat.label}`}
+              <p style={{ fontSize: 10, color: '#6B5E4E', margin: 0, fontFamily: compact ? 'Inter, sans-serif' : 'Lora, serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {evt.lieux?.commune
+                  ? (compact ? evt.lieux.commune : `📍 ${evt.lieux.commune}`)
+                  : cat.label}
               </p>
-              {queue.length > 1 && (
+              {!compact && queue.length > 1 && (
                 <div style={{ display: 'flex', gap: 3, flexShrink: 0, marginLeft: 6 }}>
                   {queue.slice(0, 5).map((_, i) => (
                     <div key={i} onClick={e => { e.stopPropagation(); setIdx(i) }} style={{
