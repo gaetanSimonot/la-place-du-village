@@ -23,7 +23,6 @@ const QUAND_OPTIONS: { value: FiltreQuand; label: string; short: string }[] = [
 ]
 
 import { useTheme } from '@/components/ThemeProvider'
-import ProBandeau from '@/components/ProBandeau'
 
 const BATCH = 20
 
@@ -49,8 +48,6 @@ interface Props {
   navHeight: number
   screenH: number
   onPeekHeightChange?: (h: number) => void
-  proEvents?: EvenementCard[]
-  onDiscoverPro?: (id: string) => void
   onOpenEvent?: (id: string) => void
   favIds?: string[]
   onToggleFav?: (id: string) => void
@@ -75,7 +72,7 @@ interface Props {
 export default function BottomSheet({
   evenements, loading, selectedId, onSelectEvent, onViewOnMap,
   filtres, onFiltresChange, mode, onModeChange, navHeight, screenH,
-  onPeekHeightChange, proEvents = [], onDiscoverPro, onOpenEvent,
+  onPeekHeightChange, onOpenEvent,
   favIds = [], onToggleFav,
   appMode, producers = [], producerLoading = false,
   selectedProducerId = null, onSelectProducer, onViewProducerOnMap,

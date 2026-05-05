@@ -842,8 +842,6 @@ export default function HomePage() {
         navHeight={NAV_H}
         screenH={screenH}
         onPeekHeightChange={setSheetPeekH}
-        proEvents={proEvents}
-        onDiscoverPro={openEvent}
         onOpenEvent={saveNavForEvent}
         favIds={favIds}
         onToggleFav={toggleFav}
