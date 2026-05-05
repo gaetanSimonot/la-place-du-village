@@ -24,11 +24,12 @@ async function verifyOwnership(userId: string, productId: string) {
   return { ...product, producer }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const user = await verifyUser(req)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const item = await verifyOwnership(user.id, params.id)
+  const item = await verifyOwnership(user.id, id)
   if (!item) return NextResponse.json({ error: 'Non trouvé' }, { status: 404 })
 
   const body = await req.json()
@@ -69,7 +70,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       periode_dispo: body.periode_dispo ?? null,
       dispo_jusqu_au: (body.dispo_jusqu_au === '' ? null : body.dispo_jusqu_au) ?? null,
     })
-    .eq('id', params.id)
+    .eq('id', id)
     .select()
     .single()
 
@@ -77,14 +78,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return NextResponse.json({ product: data })
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const user = await verifyUser(req)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const item = await verifyOwnership(user.id, params.id)
+  const item = await verifyOwnership(user.id, id)
   if (!item) return NextResponse.json({ error: 'Non trouvé' }, { status: 404 })
 
-  const { error } = await supabaseAdmin.from('products').delete().eq('id', params.id)
+  const { error } = await supabaseAdmin.from('products').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
 }
