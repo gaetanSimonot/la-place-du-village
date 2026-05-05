@@ -116,6 +116,8 @@ export default function HomePage() {
   const mapCameraRef = useRef<{ lat: number; lng: number; zoom: number } | null>(null)
   const prevUserRef  = useRef<typeof user>(null)
   const [geocoding, setGeocoding]       = useState(false)
+  const [adminMapSaved, setAdminMapSaved] = useState(false)
+  const isAdmin = user?.email === 'gaetan.simonot@gmail.com'
   const [sheetMode, setSheetMode]   = useState<'peek'|'half'|'full'>('half')
   const [sheetPeekH, setSheetPeekH] = useState(130)
   const [screenH, setScreenH]       = useState(812)
@@ -725,6 +727,38 @@ export default function HomePage() {
               >
                 Réinitialiser (utiliser zone par défaut)
               </button>
+            )}
+
+            {isAdmin && (
+              <>
+                <div style={{ borderTop: '1px solid #F0EBE3', margin: '16px 0 12px' }} />
+                <button
+                  onClick={async () => {
+                    const cam = mapCameraRef.current
+                    if (!cam) return
+                    const pos = { lat: cam.lat, lng: cam.lng, zoom: cam.zoom }
+                    await fetch('/api/admin/zone', {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ carte_depart_lat: pos.lat, carte_depart_lng: pos.lng, carte_depart_zoom: pos.zoom }),
+                    })
+                    try { localStorage.setItem('pdv-carte-depart', JSON.stringify(pos)) } catch {}
+                    setMapCenterOn(pos)
+                    setAdminMapSaved(true)
+                    setTimeout(() => setAdminMapSaved(false), 2000)
+                  }}
+                  style={{
+                    width: '100%', padding: '12px', borderRadius: 16, border: 'none',
+                    backgroundColor: adminMapSaved ? '#2D5A3D' : '#1C3829',
+                    color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    transition: 'background-color 0.3s',
+                  }}
+                >
+                  <span>{adminMapSaved ? '✓' : '📍'}</span>
+                  {adminMapSaved ? 'Point de départ enregistré !' : 'Fixer le point de départ de la carte ici'}
+                </button>
+              </>
             )}
           </div>
         </>
