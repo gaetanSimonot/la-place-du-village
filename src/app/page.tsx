@@ -178,6 +178,9 @@ export default function HomePage() {
       .then(data => {
         setZoneCentres(data.centres ?? [])
         setRayonAffichage(data.rayon_affichage ?? 0)
+        if (data.carte_depart_lat && data.carte_depart_lng) {
+          setMapCenterOn({ lat: data.carte_depart_lat, lng: data.carte_depart_lng, zoom: data.carte_depart_zoom ?? 11 })
+        }
       })
       .catch(() => {})
       .finally(() => setZoneLoaded(true))

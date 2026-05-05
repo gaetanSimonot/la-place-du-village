@@ -12,6 +12,12 @@ export default function ZoneAdmin() {
   const [centres, setCentres]         = useState<Centre[]>([])
   const [rayonInsertion, setRayonInsertion] = useState(100)
   const [rayonAffichage, setRayonAffichage] = useState(50)
+  const [carteLat,  setCarteLat]      = useState(43.5785)
+  const [carteLng,  setCarteLng]      = useState(3.8940)
+  const [carteZoom, setCarteZoom]     = useState(11)
+  const [carteVille, setCarteVille]   = useState('')
+  const [geocoding, setGeocoding]     = useState(false)
+  const [geoError, setGeoError]       = useState<string | null>(null)
   const [newNom, setNewNom]           = useState('')
   const [adding, setAdding]           = useState(false)
   const [saving, setSaving]           = useState(false)
@@ -25,6 +31,9 @@ export default function ZoneAdmin() {
     setCentres(data.centres ?? [])
     setRayonInsertion(data.rayon_insertion ?? 100)
     setRayonAffichage(data.rayon_affichage ?? 50)
+    setCarteLat(data.carte_depart_lat   ?? 43.5785)
+    setCarteLng(data.carte_depart_lng   ?? 3.8940)
+    setCarteZoom(data.carte_depart_zoom ?? 11)
   }, [])
 
   useEffect(() => { fetchZone() }, [fetchZone])
@@ -35,13 +44,34 @@ export default function ZoneAdmin() {
     await fetch('/api/admin/zone', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rayon_insertion: rayonInsertion, rayon_affichage: rayonAffichage }),
+      body: JSON.stringify({
+        rayon_insertion: rayonInsertion,
+        rayon_affichage: rayonAffichage,
+        carte_depart_lat: carteLat,
+        carte_depart_lng: carteLng,
+        carte_depart_zoom: carteZoom,
+      }),
     })
     setSaving(false)
     setSaved(true)
-    // Signal à page.tsx de recharger la config zone
     localStorage.setItem('pdv-zone-updated', String(Date.now()))
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  const geocarteVille = async () => {
+    if (!carteVille.trim()) return
+    setGeocoding(true)
+    setGeoError(null)
+    const r = await fetch(`/api/admin/geocode?q=${encodeURIComponent(carteVille + ', France')}`)
+    const d = await r.json()
+    if (d.lat) {
+      setCarteLat(d.lat)
+      setCarteLng(d.lng)
+      setGeoError(null)
+    } else {
+      setGeoError(`Ville introuvable : ${carteVille}`)
+    }
+    setGeocoding(false)
   }
 
   const addCentre = async () => {
@@ -154,6 +184,70 @@ export default function ZoneAdmin() {
           className="w-full accent-[#C4622D]"
         />
         <div className="flex justify-between text-xs text-gray-400"><span>5 km</span><span>200 km</span></div>
+      </div>
+
+      {/* Position de départ de la carte */}
+      <div className="bg-white rounded-2xl p-4 space-y-3">
+        <div>
+          <p className="font-bold text-[#2C1810] text-sm">Position de départ de la carte</p>
+          <p className="text-xs text-gray-400 mt-0.5">Vue affichée à l&apos;ouverture de l&apos;app</p>
+        </div>
+
+        {/* Géocoder une ville */}
+        <div className="flex gap-2">
+          <input
+            value={carteVille}
+            onChange={e => { setCarteVille(e.target.value); setGeoError(null) }}
+            onKeyDown={e => e.key === 'Enter' && geocarteVille()}
+            placeholder="Ex: Lattes, Montpellier, Le Vigan…"
+            className="flex-1 bg-[#FBF7F0] border border-[#E8E0D5] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#2D5A3D]"
+          />
+          <button
+            onClick={geocarteVille}
+            disabled={geocoding || !carteVille.trim()}
+            className="bg-[#2D5A3D] text-white text-sm font-bold px-4 py-2 rounded-xl disabled:opacity-50"
+          >
+            {geocoding ? '…' : 'Centrer'}
+          </button>
+        </div>
+
+        {geoError && <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">{geoError}</p>}
+
+        {/* Coordonnées manuelles */}
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <p className="text-xs text-gray-400 mb-1">Latitude</p>
+            <input
+              type="number" step="0.0001" value={carteLat}
+              onChange={e => setCarteLat(parseFloat(e.target.value) || 0)}
+              className="w-full bg-[#FBF7F0] border border-[#E8E0D5] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#2D5A3D]"
+            />
+          </div>
+          <div>
+            <p className="text-xs text-gray-400 mb-1">Longitude</p>
+            <input
+              type="number" step="0.0001" value={carteLng}
+              onChange={e => setCarteLng(parseFloat(e.target.value) || 0)}
+              className="w-full bg-[#FBF7F0] border border-[#E8E0D5] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#2D5A3D]"
+            />
+          </div>
+        </div>
+
+        {/* Zoom */}
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-gray-400">Zoom initial</p>
+            <p className="text-xs text-gray-300 mt-0.5">8 = région · 11 = agglomération · 14 = ville</p>
+          </div>
+          <span className="text-[#2D5A3D] font-bold text-lg ml-4">{carteZoom}</span>
+        </div>
+        <input
+          type="range" min={6} max={16} step={1}
+          value={carteZoom}
+          onChange={e => setCarteZoom(Number(e.target.value))}
+          className="w-full accent-[#2D5A3D]"
+        />
+        <div className="flex justify-between text-xs text-gray-400"><span>6 (région)</span><span>16 (rue)</span></div>
       </div>
 
       {/* Bouton valider */}
