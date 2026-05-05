@@ -18,5 +18,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
     .eq('disponible', true)
     .order('categorie', { ascending: true })
 
-  return NextResponse.json({ producer, products: rawProducts ?? [] })
+  return NextResponse.json({ producer, products: rawProducts ?? [] }, {
+    headers: { 'Cache-Control': 'no-store' },
+  })
 }
