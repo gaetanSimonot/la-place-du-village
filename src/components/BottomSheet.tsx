@@ -528,12 +528,12 @@ export default function BottomSheet({
       <div style={{ height: 1, backgroundColor: sheetBg.border }} />
       </div>{/* fin header mesuré */}
 
-      {/* ── Bandeau "À la une" — premier élément de la liste (full=compact, sinon pleine taille) ── */}
-      {appMode === 'agenda' && proEvents.length > 0 && (
+      {/* ── Bandeau "À la une" — hors liste en peek/half (pleine taille), dans la liste en full (compact) ── */}
+      {appMode === 'agenda' && proEvents.length > 0 && mode !== 'full' && (
         <ProBandeau
           events={proEvents}
           onDiscover={onDiscoverPro ?? (() => {})}
-          compact={mode === 'full'}
+          compact={false}
         />
       )}
 
@@ -580,6 +580,48 @@ export default function BottomSheet({
           </div>
         ) : (
           <>
+            {/* Bandeau compact en tête de liste (mode full uniquement) */}
+            {appMode === 'agenda' && proEvents.length > 0 && mode === 'full' && (
+              <ProBandeau
+                events={proEvents}
+                onDiscover={onDiscoverPro ?? (() => {})}
+                compact={true}
+              />
+            )}
+
+            {/* Compteur d'événements (masqué en mode full car on est déjà dans la liste) */}
+            {mode !== 'full' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0 2px', flexShrink: 0 }}>
+                <div style={{
+                  width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
+                  backgroundColor: '#2D5A3D',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <span style={{ color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 13, lineHeight: 1 }}>
+                    {sortedEvents.length}
+                  </span>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14, color: '#1C1917', margin: 0, lineHeight: 1.2 }}>
+                    {sortedEvents.length} idée{sortedEvents.length > 1 ? 's' : ''} autour de toi
+                  </p>
+                  <p style={{ fontFamily: 'Lora, serif', fontSize: 11, color: '#6B5E4E', margin: '2px 0 0' }}>
+                    Ganges et ses environs
+                  </p>
+                </div>
+                <button
+                  onClick={() => snapTo('full')}
+                  style={{
+                    flexShrink: 0, padding: '6px 13px', borderRadius: 999,
+                    border: '1.5px solid #2D5A3D', backgroundColor: 'transparent',
+                    color: '#2D5A3D', fontFamily: 'Inter, sans-serif', fontWeight: 700,
+                    fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap',
+                  }}>
+                  Voir la liste →
+                </button>
+              </div>
+            )}
+
             {visibleEvents.map(evt => (
               <EventListCard key={evt.id} evt={evt}
                 isSelected={evt.id === selectedId}
