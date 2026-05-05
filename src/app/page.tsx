@@ -13,6 +13,7 @@ import { haversineKm, GANGES } from '@/lib/distance'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 
+import ProBandeau from '@/components/ProBandeau'
 import MaxSplash from '@/components/MaxSplash'
 import FavorisView from '@/components/FavorisView'
 import AppSplash from '@/components/AppSplash'
@@ -110,7 +111,7 @@ export default function HomePage() {
   const prevUserRef  = useRef<typeof user>(null)
   const [geocoding, setGeocoding]       = useState(false)
   const [sheetMode, setSheetMode]   = useState<'peek'|'half'|'full'>('half')
-  const [, setSheetPeekH] = useState(130)
+  const [sheetPeekH, setSheetPeekH] = useState(130)
   const [screenH, setScreenH]       = useState(812)
   const [navTab, setNavTab]         = useState<NavTab>('carte')
   const [searchOpen, setSearchOpen] = useState(false)
@@ -812,6 +813,20 @@ export default function HomePage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ProBandeau flottant sur la carte — se fait avaler par le sheet qui monte (zIndex 19 < sheet 20) */}
+      {proEvents.length > 0 && appMode === 'agenda' && navTab !== 'profil' && navTab !== 'favoris' && (
+        <div style={{
+          position: 'absolute', left: 0, right: 0,
+          bottom: NAV_H + sheetPeekH,
+          zIndex: 19,
+          opacity: sheetMode === 'full' ? 0 : 1,
+          pointerEvents: sheetMode === 'full' ? 'none' : 'auto',
+          transition: 'opacity 0.18s',
+        }}>
+          <ProBandeau events={proEvents} onDiscover={openEvent} compact={false} />
+        </div>
+      )}
 
       {/* Bottom Sheet */}
       <BottomSheet

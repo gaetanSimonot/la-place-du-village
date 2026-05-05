@@ -311,11 +311,6 @@ export default function BottomSheet({
           <div style={{ width: 40, height: 5, borderRadius: 3, backgroundColor: '#C8BDB0', margin: '0 auto' }} />
         </div>
 
-        {/* Bandeau À la une — flottant au-dessus du compteur, dans le header (agenda, non-full) */}
-        {appMode === 'agenda' && proEvents.length > 0 && mode !== 'full' && (
-          <ProBandeau events={proEvents} onDiscover={onDiscoverPro ?? (() => {})} compact={false} />
-        )}
-
         {/* Compteur d'événements (agenda, non-full) */}
         {appMode === 'agenda' && mode !== 'full' && (
           <div onPointerDown={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 16px 10px' }}>
@@ -604,15 +599,6 @@ export default function BottomSheet({
           </div>
         ) : (
           <>
-            {/* Bandeau compact en tête de liste (mode full uniquement) */}
-            {appMode === 'agenda' && proEvents.length > 0 && mode === 'full' && (
-              <ProBandeau
-                events={proEvents}
-                onDiscover={onDiscoverPro ?? (() => {})}
-                compact={true}
-              />
-            )}
-
             {visibleEvents.map(evt => (
               <EventListCard key={evt.id} evt={evt}
                 isSelected={evt.id === selectedId}
