@@ -31,5 +31,15 @@ export default withPWA({
     disableDevLogs: true,
     skipWaiting: true,
     clientsClaim: true,
+    runtimeCaching: [
+      {
+        urlPattern: /\/api\/producers/,
+        handler: 'NetworkOnly',
+      },
+      {
+        urlPattern: /\/api\/mon-producteur/,
+        handler: 'NetworkOnly',
+      },
+    ],
   },
 })(nextConfig)
