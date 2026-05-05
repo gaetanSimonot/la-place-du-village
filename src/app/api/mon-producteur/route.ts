@@ -9,8 +9,9 @@ async function verifyUser(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  const isDebug = req.nextUrl.searchParams.get('debug') === '1'
+
   const user = await verifyUser(req)
-  console.log('[mon-producteur] step1 user:', user ? user.id : 'NULL')
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: profile, error: profileError } = await supabaseAdmin
@@ -18,15 +19,15 @@ export async function GET(req: NextRequest) {
     .select('plan, pro_type')
     .eq('user_id', user.id)
     .maybeSingle()
-  console.log('[mon-producteur] step2 profile:', profile, 'error:', profileError?.message)
 
   const plan = profile?.plan ?? 'basic'
   const pro_type = profile?.pro_type ?? null
-  console.log('[mon-producteur] step3 plan:', plan)
 
   if (plan !== 'max') {
-    console.log('[mon-producteur] SORTIE plan !== max, plan=', plan)
-    return NextResponse.json({ plan, pro_type, producer: null, products: [] })
+    return NextResponse.json({
+      plan, pro_type, producer: null, products: [],
+      ...(isDebug && { _debug: { step: 'SORTIE_plan', user_id: user.id, plan, profileError: profileError?.message ?? null } }),
+    })
   }
 
   const { data: producer, error: producerError } = await supabaseAdmin
@@ -34,11 +35,12 @@ export async function GET(req: NextRequest) {
     .select('*')
     .eq('user_id', user.id)
     .maybeSingle()
-  console.log('[mon-producteur] step4 producer:', producer?.id ?? 'NULL', 'error:', producerError?.message)
 
   if (!producer) {
-    console.log('[mon-producteur] SORTIE producer null pour user_id=', user.id)
-    return NextResponse.json({ plan, pro_type, producer: null, products: [] })
+    return NextResponse.json({
+      plan, pro_type, producer: null, products: [],
+      ...(isDebug && { _debug: { step: 'SORTIE_producer_null', user_id: user.id, plan, producerError: producerError?.message ?? null } }),
+    })
   }
 
   const { data: products, error: productsError } = await supabaseAdmin
@@ -46,9 +48,11 @@ export async function GET(req: NextRequest) {
     .select('*')
     .eq('producer_id', producer.id)
     .order('created_at', { ascending: false })
-  console.log('[mon-producteur] step5 products count:', products?.length ?? 0, 'error:', productsError?.message)
 
-  return NextResponse.json({ plan, pro_type, producer, products: products ?? [] })
+  return NextResponse.json({
+    plan, pro_type, producer, products: products ?? [],
+    ...(isDebug && { _debug: { step: 'OK', user_id: user.id, producer_id: producer.id, products_count: products?.length ?? 0, productsError: productsError?.message ?? null } }),
+  })
 }
 
 export async function POST(req: NextRequest) {
