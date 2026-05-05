@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
+export const dynamic = 'force-dynamic'
+
 // Route publique — lecture seule de la config zone pour le filtrage et la carte
 export async function GET() {
   const [centresRes, affichageRes, latRes, lngRes, zoomRes] = await Promise.all([

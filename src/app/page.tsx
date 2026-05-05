@@ -106,7 +106,13 @@ export default function HomePage() {
   const [userVille, setUserVille]       = useState('')
   const [userCentre, setUserCentre]     = useState<{ lat: number; lng: number; nom: string } | null>(null)
   const [userZoneActive, setUserZoneActive] = useState(false)
-  const [mapCenterOn, setMapCenterOn]   = useState<{ lat: number; lng: number; zoom?: number } | null>(null)
+  const [mapCenterOn, setMapCenterOn]   = useState<{ lat: number; lng: number; zoom?: number } | null>(() => {
+    if (typeof window === 'undefined') return null
+    try {
+      const s = localStorage.getItem('pdv-carte-depart')
+      return s ? JSON.parse(s) : null
+    } catch { return null }
+  })
   const mapCameraRef = useRef<{ lat: number; lng: number; zoom: number } | null>(null)
   const prevUserRef  = useRef<typeof user>(null)
   const [geocoding, setGeocoding]       = useState(false)
@@ -179,7 +185,9 @@ export default function HomePage() {
         setZoneCentres(data.centres ?? [])
         setRayonAffichage(data.rayon_affichage ?? 0)
         if (data.carte_depart_lat && data.carte_depart_lng) {
-          setMapCenterOn({ lat: data.carte_depart_lat, lng: data.carte_depart_lng, zoom: data.carte_depart_zoom ?? 11 })
+          const pos = { lat: data.carte_depart_lat, lng: data.carte_depart_lng, zoom: data.carte_depart_zoom ?? 11 }
+          try { localStorage.setItem('pdv-carte-depart', JSON.stringify(pos)) } catch {}
+          setMapCenterOn(pos)
         }
       })
       .catch(() => {})

@@ -167,10 +167,10 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, centerOn }: 
     markersRef.current = []
   }, [])
 
-  // Pan vers le centre de zone user (ou position restaurée)
+  // Positionnement initial ou restauré — setCenter (fiable sur grande distance, contrairement à panTo)
   useEffect(() => {
     if (!map || !centerOn) return
-    map.panTo({ lat: centerOn.lat, lng: centerOn.lng })
+    map.setCenter({ lat: centerOn.lat, lng: centerOn.lng })
     map.setZoom(centerOn.zoom ?? 11)
   }, [map, centerOn])
 
