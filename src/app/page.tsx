@@ -817,15 +817,15 @@ export default function HomePage() {
         )}
       </AnimatePresence>
 
-      {/* ProBandeau flottant sur la carte — se fait avaler par le sheet qui monte (zIndex 19 < sheet 20) */}
+      {/* ProBandeau flottant sur la carte — 2/3 largeur, se fait avaler par le sheet (zIndex 19 < 20) */}
       {proEvents.length > 0 && appMode === 'agenda' && navTab !== 'profil' && navTab !== 'favoris' && (
         <div style={{
-          position: 'absolute', left: 0, right: 0,
+          position: 'absolute', left: 0, right: '33%',
           bottom: NAV_H + sheetPeekH,
           zIndex: 19,
           opacity: sheetMode === 'full' ? 0 : 1,
           pointerEvents: sheetMode === 'full' ? 'none' : 'auto',
-          transition: 'opacity 0.18s',
+          transition: 'opacity 0.2s',
         }}>
           <ProBandeau events={proEvents} onDiscover={openEvent} compact={false} />
         </div>
@@ -845,6 +845,8 @@ export default function HomePage() {
         navHeight={NAV_H}
         screenH={screenH}
         onPeekHeightChange={setSheetPeekH}
+        proEvents={proEvents}
+        onDiscoverPro={openEvent}
         onOpenEvent={saveNavForEvent}
         favIds={favIds}
         onToggleFav={toggleFav}

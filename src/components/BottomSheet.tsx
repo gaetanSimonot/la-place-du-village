@@ -23,6 +23,7 @@ const QUAND_OPTIONS: { value: FiltreQuand; label: string; short: string }[] = [
 ]
 
 import { useTheme } from '@/components/ThemeProvider'
+import ProBandeau from '@/components/ProBandeau'
 
 const BATCH = 20
 
@@ -48,6 +49,8 @@ interface Props {
   navHeight: number
   screenH: number
   onPeekHeightChange?: (h: number) => void
+  proEvents?: EvenementCard[]
+  onDiscoverPro?: (id: string) => void
   onOpenEvent?: (id: string) => void
   favIds?: string[]
   onToggleFav?: (id: string) => void
@@ -72,7 +75,7 @@ interface Props {
 export default function BottomSheet({
   evenements, loading, selectedId, onSelectEvent, onViewOnMap,
   filtres, onFiltresChange, mode, onModeChange, navHeight, screenH,
-  onPeekHeightChange, onOpenEvent,
+  onPeekHeightChange, proEvents = [], onDiscoverPro, onOpenEvent,
   favIds = [], onToggleFav,
   appMode, producers = [], producerLoading = false,
   selectedProducerId = null, onSelectProducer, onViewProducerOnMap,
@@ -596,6 +599,13 @@ export default function BottomSheet({
           </div>
         ) : (
           <>
+            {/* Bandeau sticky en haut de liste (mode full uniquement) */}
+            {appMode === 'agenda' && proEvents.length > 0 && mode === 'full' && (
+              <div style={{ position: 'sticky', top: 0, zIndex: 5, marginLeft: -16, marginRight: -16, marginTop: -4 }}>
+                <ProBandeau events={proEvents} onDiscover={onDiscoverPro ?? (() => {})} compact={true} />
+              </div>
+            )}
+
             {visibleEvents.map(evt => (
               <EventListCard key={evt.id} evt={evt}
                 isSelected={evt.id === selectedId}
