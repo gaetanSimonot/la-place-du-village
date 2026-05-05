@@ -602,10 +602,10 @@ export default function BottomSheet({
             {/* Bandeau sticky en haut de liste (mode full uniquement) */}
             {appMode === 'agenda' && proEvents.length > 0 && mode === 'full' && (
               <div style={{
-                position: 'sticky', top: 0, zIndex: 5,
+                position: 'sticky', top: -4, zIndex: 5,
                 marginLeft: -16, marginRight: -16, marginTop: -4,
                 backgroundColor: sheetBg.bg,
-                paddingTop: 8, paddingBottom: 8,
+                paddingTop: 4, paddingBottom: 8,
                 boxShadow: '0 4px 12px rgba(0,0,0,0.07)',
               }}>
                 <ProBandeau events={proEvents} onDiscover={onDiscoverPro ?? (() => {})} compact={true} />
