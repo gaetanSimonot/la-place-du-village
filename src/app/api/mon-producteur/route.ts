@@ -10,32 +10,43 @@ async function verifyUser(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   const user = await verifyUser(req)
+  console.log('[mon-producteur] step1 user:', user ? user.id : 'NULL')
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: profile } = await supabaseAdmin
+  const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
     .select('plan, pro_type')
     .eq('user_id', user.id)
     .maybeSingle()
+  console.log('[mon-producteur] step2 profile:', profile, 'error:', profileError?.message)
 
   const plan = profile?.plan ?? 'basic'
   const pro_type = profile?.pro_type ?? null
+  console.log('[mon-producteur] step3 plan:', plan)
 
-  if (plan !== 'max') return NextResponse.json({ plan, pro_type, producer: null, products: [] })
+  if (plan !== 'max') {
+    console.log('[mon-producteur] SORTIE plan !== max, plan=', plan)
+    return NextResponse.json({ plan, pro_type, producer: null, products: [] })
+  }
 
-  const { data: producer } = await supabaseAdmin
+  const { data: producer, error: producerError } = await supabaseAdmin
     .from('producers')
     .select('*')
     .eq('user_id', user.id)
     .maybeSingle()
+  console.log('[mon-producteur] step4 producer:', producer?.id ?? 'NULL', 'error:', producerError?.message)
 
-  if (!producer) return NextResponse.json({ plan, pro_type, producer: null, products: [] })
+  if (!producer) {
+    console.log('[mon-producteur] SORTIE producer null pour user_id=', user.id)
+    return NextResponse.json({ plan, pro_type, producer: null, products: [] })
+  }
 
-  const { data: products } = await supabaseAdmin
+  const { data: products, error: productsError } = await supabaseAdmin
     .from('products')
     .select('*')
     .eq('producer_id', producer.id)
     .order('created_at', { ascending: false })
+  console.log('[mon-producteur] step5 products count:', products?.length ?? 0, 'error:', productsError?.message)
 
   return NextResponse.json({ plan, pro_type, producer, products: products ?? [] })
 }
