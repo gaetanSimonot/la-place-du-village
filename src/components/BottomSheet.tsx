@@ -313,16 +313,16 @@ export default function BottomSheet({
 
         {/* Compteur d'événements (agenda, non-full) */}
         {appMode === 'agenda' && mode !== 'full' && (
-          <div onPointerDown={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 16px 10px' }}>
-            <img src="/icons/evenements.png" alt="" style={{ width: 44, height: 44, borderRadius: 12, flexShrink: 0, objectFit: 'cover' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 16px 10px' }}>
+            <img src="/icons/evenements.png" alt="" style={{ width: 54, height: 54, borderRadius: 14, flexShrink: 0, objectFit: 'cover' }} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 16, color: '#1C1917', margin: 0, lineHeight: 1.1 }}>
+              <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 18, color: '#1C1917', margin: 0, lineHeight: 1.1 }}>
                 {evenements.length} événement{evenements.length > 1 ? 's' : ''}
               </p>
-              <p style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: '#6B5E4E', margin: '1px 0 0', lineHeight: 1.2 }}>
+              <p style={{ fontFamily: 'Inter, sans-serif', fontSize: 13, color: '#6B5E4E', margin: '2px 0 0', lineHeight: 1.2 }}>
                 Autour de toi cette semaine
               </p>
-              <p style={{ fontFamily: 'Lora, serif', fontSize: 10, color: '#9E9089', margin: '1px 0 0' }}>
+              <p style={{ fontFamily: 'Lora, serif', fontSize: 12, color: '#9E9089', margin: '2px 0 0' }}>
                 Marchés · ateliers · concerts…
               </p>
             </div>

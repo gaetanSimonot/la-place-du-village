@@ -60,8 +60,8 @@ export default function ProBandeau({ events, onDiscover, compact = false }: Prop
   if (!evt) return null
   const cat = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
 
-  const imgSize = compact ? 54 : 92
-  const cardH   = compact ? 58 : 92
+  const imgSize = compact ? 54 : 110
+  const cardH   = compact ? 58 : 110
 
   return (
     <div
