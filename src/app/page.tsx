@@ -136,25 +136,22 @@ export default function HomePage() {
       }
     }, 350)
   }, [])
-  const [fabPressed, setFabPressed] = useState(false)
-  const [fabActive, setFabActive]   = useState<string | null>(null)
-  const fabCenterRef = useRef({ x: 0, y: 0 })
   const router = useRouter()
 
-  const FAB_OPTS: { key: string; label: string; icon: React.ReactNode; path: string; dx: number; dy: number }[] = [
+  const FAB_OPTS: { key: string; label: string; icon: React.ReactNode; path: string }[] = [
     {
-      key: 'photo', label: 'Photo', path: '/capturer', dx: -108, dy: 4,
+      key: 'photo', label: 'Photo', path: '/capturer',
       icon: (
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
           <circle cx="12" cy="13" r="4"/>
         </svg>
       ),
     },
     {
-      key: 'texte', label: 'Texte', path: '/ajouter', dx: -80, dy: 92,
+      key: 'texte', label: 'Texte', path: '/ajouter',
       icon: (
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 20h9"/>
           <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
         </svg>
@@ -162,43 +159,17 @@ export default function HomePage() {
     },
   ]
 
-  const onFabDown = (e: React.PointerEvent<HTMLButtonElement>) => {
-    e.currentTarget.setPointerCapture(e.pointerId)
-    const rect = e.currentTarget.getBoundingClientRect()
-    fabCenterRef.current = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
-    setFabPressed(true)
-    setFabOpen(true)
-    setFabActive(null)
-  }
-
-  const onFabMove = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (!fabOpen) return
-    const { x: cx, y: cy } = fabCenterRef.current
-    let best: string | null = null
-    let bestDist = 58
-    for (const opt of FAB_OPTS) {
-      const d = Math.hypot(e.clientX - (cx + opt.dx), e.clientY - (cy + opt.dy))
-      if (d < bestDist) { bestDist = d; best = opt.key }
-    }
-    setFabActive(best)
-  }
-
   const navigateOrAuth = useCallback((path: string) => {
     if (authLoading) return
-    if (!user) { setFabOpen(false); setFabActive(null); openAuthModal(); return }
+    if (!user) { setFabOpen(false); openAuthModal(); return }
     router.push(path)
   }, [user, authLoading, openAuthModal, router])
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const onFabUp = (_e: React.PointerEvent<HTMLButtonElement>) => {
-    setFabPressed(false)
-    if (fabActive) {
-      const opt = FAB_OPTS.find(o => o.key === fabActive)
-      if (opt) { setFabOpen(false); setFabActive(null); navigateOrAuth(opt.path); return }
-    }
-    setFabActive(null)
-    // tap sans slide → garde le menu ouvert pour clic manuel
-  }
+  const handlePublierClick = useCallback(() => {
+    if (authLoading) return
+    if (!user) { openAuthModal(); return }
+    setFabOpen(prev => !prev)
+  }, [user, authLoading, openAuthModal])
 
   const fetchZoneConfig = useCallback(() => {
     fetch('/api/zone')
@@ -747,92 +718,96 @@ export default function HomePage() {
         </>
       )}
 
-      {/* FAB radial — haut droite, visible seulement sur carte non-full */}
+      {/* Toggle Agenda ↔ Annuaire — haut droite, toujours visible sur carte/liste */}
+      <div style={{
+        position: 'absolute', top: 14, right: 14, zIndex: 200,
+        opacity: navTab !== 'profil' && navTab !== 'favoris' ? 1 : 0,
+        pointerEvents: navTab !== 'profil' && navTab !== 'favoris' ? 'auto' : 'none',
+        transition: 'opacity 0.18s',
+      }}>
+        <div style={{ display: 'flex', borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.14)', border: '1px solid rgba(224,216,206,0.8)' }}>
+          <button onClick={() => setAppMode('agenda')} title="Agenda"
+            style={{ width: 44, height: 44, backgroundColor: appMode === 'agenda' ? '#2D5A3D' : 'rgba(255,255,255,0.92)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: appMode === 'agenda' ? '#fff' : '#6B6B6B', transition: 'background-color 0.2s' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+          </button>
+          <div style={{ width: 1, backgroundColor: '#E0D8CE' }} />
+          <button onClick={() => setAppMode('annuaire')} title="Annuaire producteurs"
+            style={{ width: 44, height: 44, backgroundColor: appMode === 'annuaire' ? '#2D5A3D' : 'rgba(255,255,255,0.92)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: appMode === 'annuaire' ? '#fff' : '#6B6B6B', transition: 'background-color 0.2s' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Bouton Publier — haut centre, visible seulement sur carte non-full */}
       <AnimatePresence>
         {showFab && (
           <motion.div key="fab"
-            initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.6 }}
+            initial={{ opacity: 0, scale: 0.85, y: -4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.85, y: -4 }}
             transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-            style={{ position: 'absolute', top: 14, right: 14, zIndex: 200 }}
+            style={{ position: 'absolute', top: 14, left: 0, right: 0, zIndex: 200, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}
           >
-            {/* Backdrop */}
-            <AnimatePresence>
+            <div style={{ position: 'relative', pointerEvents: 'auto' }}>
+              {/* Backdrop */}
               {fabOpen && (
-                <motion.div key="fab-bg"
-                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  onClick={() => { setFabOpen(false); setFabActive(null) }}
-                  style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.22)', zIndex: -1 }}
-                />
+                <div onClick={() => setFabOpen(false)}
+                  style={{ position: 'fixed', inset: 0, zIndex: -1 }} />
               )}
-            </AnimatePresence>
 
-            {/* Options radiales */}
-            <div style={{ position: 'relative', width: 52, height: 52 }}>
-              {FAB_OPTS.map((opt) => (
-                <motion.div
-                  key={opt.key}
-                  initial={false}
-                  animate={{
-                    x: fabOpen ? opt.dx : 0,
-                    y: fabOpen ? opt.dy : 0,
-                    scale: fabOpen ? (fabActive === opt.key ? 1.18 : 1) : 0,
-                    opacity: fabOpen ? 1 : 0,
-                  }}
-                  transition={{ type: 'spring', stiffness: 420, damping: 30 }}
-                  style={{
-                    position: 'absolute', top: 0, left: 0,
-                    width: 52, height: 52,
-                    display: 'flex', flexDirection: 'column', alignItems: 'center',
-                    pointerEvents: fabOpen ? 'auto' : 'none',
-                    gap: 5,
-                  }}
-                  onClick={() => navigateOrAuth(opt.path)}
-                >
-                  <div style={{
-                    width: 52, height: 52, borderRadius: '50%',
-                    backgroundColor: fabActive === opt.key ? 'var(--primary)' : '#fff',
-                    boxShadow: fabActive === opt.key
-                      ? '0 6px 24px rgba(0,0,0,0.30)'
-                      : '0 3px 14px rgba(0,0,0,0.18)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    transition: 'background-color 0.12s, box-shadow 0.12s',
-                    cursor: 'pointer',
-                    color: fabActive === opt.key ? '#fff' : 'var(--primary)',
-                  }}>
-                    {opt.icon}
-                  </div>
-                  <span style={{
-                    fontSize: 10, fontWeight: 700,
-                    color: '#fff', whiteSpace: 'nowrap',
-                    textShadow: '0 1px 4px rgba(0,0,0,0.6)',
-                    fontFamily: 'Inter, sans-serif',
-                    position: 'absolute', top: 56,
-                  }}>{opt.label}</span>
-                </motion.div>
-              ))}
-
-              {/* FAB button */}
-              <motion.button
-                animate={{ scale: fabPressed ? 1.12 : 1, rotate: fabOpen ? 45 : 0 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                onPointerDown={onFabDown}
-                onPointerMove={onFabMove}
-                onPointerUp={onFabUp}
-                onPointerCancel={onFabUp}
+              {/* Publier pill */}
+              <button
+                onClick={handlePublierClick}
                 style={{
-                  position: 'relative', zIndex: 1,
-                  width: 52, height: 52, borderRadius: '50%',
-                  backgroundColor: 'var(--primary)', color: '#fff',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: '0 4px 18px rgba(0,0,0,0.30)',
-                  border: 'none', cursor: 'pointer', touchAction: 'none',
+                  height: 40, borderRadius: 20, border: 'none',
+                  backgroundColor: '#2D5A3D', color: '#fff',
+                  display: 'flex', alignItems: 'center', gap: 7, padding: '0 16px',
+                  boxShadow: '0 4px 18px rgba(0,0,0,0.25)',
+                  cursor: 'pointer', fontFamily: 'Inter, sans-serif',
                 }}
               >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <line x1="10" y1="2" x2="10" y2="18" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
-                  <line x1="2" y1="10" x2="18" y2="10" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+                  <line x1="10" y1="2" x2="10" y2="18" stroke="white" strokeWidth="2.4" strokeLinecap="round"/>
+                  <line x1="2" y1="10" x2="18" y2="10" stroke="white" strokeWidth="2.4" strokeLinecap="round"/>
                 </svg>
-              </motion.button>
+                <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.01em' }}>Publier</span>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d={fabOpen ? 'M18 15l-6-6-6 6' : 'M6 9l6 6 6-6'}/>
+                </svg>
+              </button>
+
+              {/* Dropdown options */}
+              <AnimatePresence>
+                {fabOpen && (
+                  <motion.div key="fab-drop"
+                    initial={{ opacity: 0, scale: 0.9, y: -6 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: -6 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+                    style={{
+                      position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+                      marginTop: 8, backgroundColor: '#fff', borderRadius: 14,
+                      boxShadow: '0 6px 28px rgba(0,0,0,0.18)', overflow: 'hidden', minWidth: 152,
+                    }}
+                  >
+                    {FAB_OPTS.map((opt, i) => (
+                      <button key={opt.key}
+                        onClick={() => { setFabOpen(false); navigateOrAuth(opt.path) }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          width: '100%', padding: '12px 16px',
+                          border: 'none', borderTop: i > 0 ? '1px solid #F2ECE4' : 'none',
+                          backgroundColor: 'transparent', cursor: 'pointer',
+                          fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 600,
+                          color: '#2C1810', textAlign: 'left',
+                        }}>
+                        <div style={{ color: '#2D5A3D' }}>{opt.icon}</div>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </motion.div>
         )}

@@ -55,7 +55,7 @@ interface Props {
   favIds?: string[]
   onToggleFav?: (id: string) => void
   appMode: AppMode
-  onAppModeChange: (m: AppMode) => void
+  onAppModeChange?: (m: AppMode) => void
   producers?: ProducerCard[]
   producerLoading?: boolean
   selectedProducerId?: string | null
@@ -77,7 +77,7 @@ export default function BottomSheet({
   filtres, onFiltresChange, mode, onModeChange, navHeight, screenH,
   onPeekHeightChange, proEvents = [], onDiscoverPro, onOpenEvent,
   favIds = [], onToggleFav,
-  appMode, onAppModeChange, producers = [], producerLoading = false,
+  appMode, producers = [], producerLoading = false,
   selectedProducerId = null, onSelectProducer, onViewProducerOnMap,
   selectedCats = [], onSelectedCatsChange,
   producerSearch = '', onProducerSearchChange,
@@ -307,78 +307,67 @@ export default function BottomSheet({
         style={{ flexShrink: 0, cursor: 'grab', touchAction: 'none', userSelect: 'none' }}
       >
         {/* Poignée visuelle */}
-        <div style={{ padding: '12px 0 4px' }}>
+        <div style={{ padding: '10px 0 6px' }}>
           <div style={{ width: 40, height: 5, borderRadius: 3, backgroundColor: '#C8BDB0', margin: '0 auto' }} />
-        </div>
-
-        {/* Logo + Compteur + Toggle mode */}
-        <div style={{ padding: '0 16px 7px', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <img src="/logo.svg" width={28} height={28} alt="" style={{ flexShrink: 0, borderRadius: 6 }} />
-          <p style={{ flex: 1, fontSize: 11, fontWeight: 700, color: sheetBg.sub, fontFamily: 'Inter, sans-serif', letterSpacing: '0.05em', textTransform: 'uppercase', margin: 0 }}>
-            {appMode === 'agenda'
-              ? (loading ? '—' : `${evenements.length} événement${evenements.length !== 1 ? 's' : ''}`)
-              : 'Annuaire Pro'}
-          </p>
-          {/* Bouton + capture produits — MAX uniquement en mode annuaire */}
-          {appMode === 'annuaire' && userPlan === 'max' && (
-            <button onClick={() => setCaptureOpen(true)} title="Ajouter des produits" style={{
-              width: 30, height: 30, borderRadius: '50%', border: 'none',
-              backgroundColor: 'var(--primary)', color: '#fff',
-              fontSize: 18, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
-            }}>+</button>
-          )}
-          {/* Toggle Agenda ↔ Annuaire */}
-          <div style={{ display: 'flex', borderRadius: 999, border: `1.5px solid ${sheetBg.border}`, overflow: 'hidden', height: 30, flexShrink: 0 }}>
-            <button onClick={() => onAppModeChange('agenda')} title="Agenda"
-              style={{ width: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: appMode === 'agenda' ? '#2D5A3D' : 'transparent', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s' }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={appMode === 'agenda' ? '#fff' : sheetBg.sub} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-              </svg>
-            </button>
-            <div style={{ width: 1, backgroundColor: sheetBg.border }} />
-            <button onClick={() => onAppModeChange('annuaire')} title="Annuaire producteurs"
-              style={{ width: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: appMode === 'annuaire' ? '#2D5A3D' : 'transparent', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s' }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={appMode === 'annuaire' ? '#fff' : sheetBg.sub} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
-              </svg>
-            </button>
-          </div>
         </div>
 
         {/* Boutons filtres : agenda → deux boutons, annuaire → bouton unique */}
         {appMode === 'agenda' ? (
           <div style={{ display: 'flex', gap: 10, padding: '0 16px 10px' }}>
-            <button onClick={handleQuoiBtn} style={{ flex: 1, height: 50, borderRadius: 14, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'Inter, sans-serif', cursor: 'pointer', overflow: 'hidden', position: 'relative', opacity: hasQuoi ? 1 : 0.72 }}>
+            <button onClick={handleQuoiBtn} style={{ flex: 1, height: 52, borderRadius: 14, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontFamily: 'Inter, sans-serif', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '0 12px', gap: 9, opacity: hasQuoi ? 1 : 0.85, overflow: 'hidden' }}>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+                </svg>
+              </div>
               <AnimatePresence mode="wait">
-                <motion.span key={quoiLabel} initial={{ y: 8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -8, opacity: 0 }} transition={{ duration: 0.13 }}
-                  style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {quoiLabel}
-                </motion.span>
+                <motion.div key={quoiLabel} initial={{ y: 5, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -5, opacity: 0 }} transition={{ duration: 0.13 }} style={{ textAlign: 'left', overflow: 'hidden' }}>
+                  <p style={{ fontWeight: 700, fontSize: 13, margin: 0, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{quoiLabel}</p>
+                  {!hasQuoi && <p style={{ fontSize: 10, margin: '1px 0 0', color: 'rgba(255,255,255,0.65)', lineHeight: 1 }}>Explorer par activité</p>}
+                </motion.div>
               </AnimatePresence>
             </button>
-            <button onClick={handleQuandBtn} style={{ flex: 1, height: 50, borderRadius: 14, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'Inter, sans-serif', cursor: 'pointer', overflow: 'hidden', position: 'relative', opacity: hasQuand ? 1 : 0.72 }}>
+            <button onClick={handleQuandBtn} style={{ flex: 1, height: 52, borderRadius: 14, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontFamily: 'Inter, sans-serif', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '0 12px', gap: 9, opacity: hasQuand ? 1 : 0.85, overflow: 'hidden' }}>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+              </div>
               <AnimatePresence mode="wait">
-                <motion.span key={quandBtnLabel} initial={{ y: 8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -8, opacity: 0 }} transition={{ duration: 0.13 }}
-                  style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {quandBtnLabel}
-                </motion.span>
+                <motion.div key={quandBtnLabel} initial={{ y: 5, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -5, opacity: 0 }} transition={{ duration: 0.13 }} style={{ textAlign: 'left', overflow: 'hidden' }}>
+                  <p style={{ fontWeight: 700, fontSize: 13, margin: 0, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{quandBtnLabel}</p>
+                  {!hasQuand && <p style={{ fontSize: 10, margin: '1px 0 0', color: 'rgba(255,255,255,0.65)', lineHeight: 1 }}>Explorer par date</p>}
+                </motion.div>
               </AnimatePresence>
             </button>
           </div>
         ) : (
           <div style={{ padding: '0 16px 10px' }}>
-            <button onClick={handleAnnuaireBtn} style={{ width: '100%', height: 50, borderRadius: 14, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'Inter, sans-serif', cursor: 'pointer', overflow: 'hidden', position: 'relative', opacity: annuaireRowOpen ? 1 : 0.85 }}>
+            {/* Bouton + capture produits — MAX uniquement en mode annuaire */}
+            {userPlan === 'max' && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+                <button onClick={() => setCaptureOpen(true)} title="Ajouter des produits" style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', backgroundColor: 'var(--primary)', color: '#fff', fontSize: 18, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>+</button>
+              </div>
+            )}
+            <button onClick={handleAnnuaireBtn} style={{ width: '100%', height: 52, borderRadius: 14, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontFamily: 'Inter, sans-serif', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '0 14px', gap: 10, opacity: annuaireRowOpen ? 1 : 0.85, overflow: 'hidden' }}>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 15 }}>
+                {ANNUAIRE_TABS[annuaireTabIdx].emoji}
+              </div>
               <AnimatePresence mode="wait">
-                <motion.span key={ANNUAIRE_TABS[annuaireTabIdx].id} initial={{ y: 8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -8, opacity: 0 }} transition={{ duration: 0.13 }}
-                  style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
-                  {ANNUAIRE_TABS[annuaireTabIdx].emoji} {ANNUAIRE_TABS[annuaireTabIdx].label}
-                </motion.span>
+                <motion.div key={ANNUAIRE_TABS[annuaireTabIdx].id} initial={{ y: 5, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -5, opacity: 0 }} transition={{ duration: 0.13 }} style={{ textAlign: 'left' }}>
+                  <p style={{ fontWeight: 700, fontSize: 13, margin: 0, lineHeight: 1.2 }}>{ANNUAIRE_TABS[annuaireTabIdx].label}</p>
+                  <p style={{ fontSize: 10, margin: '1px 0 0', color: 'rgba(255,255,255,0.65)', lineHeight: 1 }}>Filtrer par catégorie</p>
+                </motion.div>
               </AnimatePresence>
             </button>
           </div>
         )}
       </div>{/* fin zone drag */}
+
+      {/* ── Bandeau "À la une" — visible même en peek ── */}
+      {appMode === 'agenda' && proEvents.length > 0 && (
+        <ProBandeau events={proEvents} onDiscover={onDiscoverPro ?? (() => {})} />
+      )}
 
       {/* ── Row "Que faire" ── */}
       <AnimatePresence>
@@ -544,11 +533,6 @@ export default function BottomSheet({
       {/* ── Séparateur ── */}
       <div style={{ height: 1, backgroundColor: sheetBg.border }} />
       </div>{/* fin header mesuré */}
-
-      {/* ProBandeau — agenda only, mode half et full */}
-      {appMode === 'agenda' && mode !== 'peek' && proEvents.length > 0 && (
-        <ProBandeau events={proEvents} onDiscover={onDiscoverPro ?? (() => {})} />
-      )}
 
       {/* ── Liste ── */}
       <div

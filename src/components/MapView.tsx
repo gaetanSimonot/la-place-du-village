@@ -50,26 +50,24 @@ const svgCache: Record<string, string> = {}
 function producerMarkerSvg(selected: boolean, isMax: boolean): string {
   const key = `producer|${selected}|${isMax}`
   if (svgCache[key]) return svgCache[key]
-  const r    = selected ? 20 : 15
-  const size = r * 2 + 8 + (isMax ? 12 : 0)
+  const r    = selected ? 13 : (isMax ? 11 : 9)
+  const size = r * 2 + 10
   const cx   = size / 2
-  const cy   = r + 2 + (isMax ? 6 : 0)
-  const hw   = Math.round(r * 0.52)
-  const ht   = Math.round(r * 0.36)
-  const hb   = Math.round(r * 0.28)
-  const dw   = Math.round(hw * 0.38)
-  const dh   = Math.round(hb * 0.7)
+  const cy   = size / 2
   const fill = isMax ? '#E8622A' : '#2D5A3D'
-  const glow = selected ? `<circle cx="${cx}" cy="${cy}" r="${r+5}" fill="${fill}" opacity="0.2"/>` : ''
-  const maxRing = isMax ? `<circle cx="${cx}" cy="${cy}" r="${r+6}" fill="${fill}" opacity="0.12"/>
-    <circle cx="${cx}" cy="${cy}" r="${r+4}" fill="none" stroke="${fill}" stroke-width="2" opacity="0.8"/>` : ''
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size+8}">
+  const glow = selected ? `<circle cx="${cx}" cy="${cy}" r="${r+4}" fill="${fill}" opacity="0.18"/>` : ''
+  const maxRing = isMax && !selected ? `<circle cx="${cx}" cy="${cy}" r="${r+3}" fill="${fill}" opacity="0.15"/>` : ''
+  const hw   = Math.round(r * 0.48)
+  const ht   = Math.round(r * 0.32)
+  const hb   = Math.round(r * 0.26)
+  const dw   = Math.round(hw * 0.36)
+  const dh   = Math.round(hb * 0.7)
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
     ${maxRing}${glow}
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="#fff" stroke-width="${selected?2.5:2}"/>
-    <polyline fill="none" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="#fff" stroke-width="${selected?2:1.5}"/>
+    <polyline fill="none" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"
       points="${cx-hw},${cy-hb/2} ${cx},${cy-ht-hb/2} ${cx+hw},${cy-hb/2} ${cx+hw},${cy+hb/2} ${cx-hw},${cy+hb/2} ${cx-hw},${cy-hb/2}"/>
     <rect x="${cx-dw/2}" y="${cy+hb/2-dh}" width="${dw}" height="${dh}" fill="#fff" rx="1"/>
-    <polygon points="${cx-5},${cy+r-1} ${cx+5},${cy+r-1} ${cx},${cy+r+8}" fill="${fill}"/>
   </svg>`
   const url = `data:image/svg+xml,${encodeURIComponent(svg)}`
   svgCache[key] = url
@@ -88,34 +86,32 @@ function _buildMarkerSvg(categorie: string, selected: boolean, approx = false, p
   const cat = CATEGORIES[categorie as keyof typeof CATEGORIES] ?? CATEGORIES.autre
   const symbol = CATEGORY_SHAPES[categorie] ?? '●'
 
-  const r     = selected ? 22 : 17
-  const size  = (r * 2 + 8) + (promoted ? 14 : 0)
-  const cx    = size / 2
-  const cy    = r + 2 + (promoted ? 7 : 0)
-  const bg    = approx ? '#fff' : cat.color
-  const stroke = cat.color
+  const r       = selected ? 13 : (promoted ? 11 : 9)
+  const size    = r * 2 + 10
+  const cx      = size / 2
+  const cy      = size / 2
+  const bg      = approx ? '#fff' : cat.color
+  const stroke  = cat.color
   const textColor = approx ? cat.color : '#fff'
-  const dashAttr  = approx ? `stroke-dasharray="3 2"` : ''
-  const fontSize  = selected ? 15 : 12
-  const strokeW   = selected ? 3 : 2.5
-  const opacity   = approx ? 0.8 : 1
+  const dashAttr  = approx ? `stroke-dasharray="2 1.5"` : ''
+  const fontSize  = selected ? 11 : 9
+  const strokeW   = selected ? 2 : 1.5
+  const opacity   = approx ? 0.72 : 1
 
-  // Contour glow sur l'élément sélectionné
   const glow = selected
-    ? `<circle cx="${cx}" cy="${cy}" r="${r + 5}" fill="${cat.color}" opacity="0.2"/>`
+    ? `<circle cx="${cx}" cy="${cy}" r="${r + 4}" fill="${cat.color}" opacity="0.18"/>`
     : ''
 
-  const promoRing = promoted
-    ? `<circle cx="${cx}" cy="${cy}" r="${r + 7}" fill="#EC407A" opacity="0.15"/>
-       <circle cx="${cx}" cy="${cy}" r="${r + 5}" fill="none" stroke="#EC407A" stroke-width="2.5" opacity="0.9"/>`
+  const promoRing = promoted && !selected
+    ? `<circle cx="${cx}" cy="${cy}" r="${r + 3}" fill="#EC407A" opacity="0.14"/>
+       <circle cx="${cx}" cy="${cy}" r="${r + 2}" fill="none" stroke="#EC407A" stroke-width="1.5" opacity="0.7"/>`
     : ''
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size + 10}">
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
     ${promoRing}
     ${glow}
     <circle cx="${cx}" cy="${cy}" r="${r}" fill="${bg}" stroke="${stroke}" stroke-width="${strokeW}" ${dashAttr} opacity="${opacity}"/>
-    <text x="${cx}" y="${cy + 5}" text-anchor="middle" font-size="${fontSize}" fill="${textColor}" font-family="sans-serif">${symbol}</text>
-    <polygon points="${cx - 5},${cy + r - 1} ${cx + 5},${cy + r - 1} ${cx},${cy + r + 10}" fill="${cat.color}" opacity="${opacity}"/>
+    <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" font-size="${fontSize}" fill="${textColor}" font-family="sans-serif">${symbol}</text>
   </svg>`
   return `data:image/svg+xml,${encodeURIComponent(svg)}`
 }
@@ -203,16 +199,16 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, centerOn }: 
       const isSelected = evt.id === selectedId
       const approx     = isApproxLocation(evt.lieux)
       const promoted   = evt.promotion === 'pro' || evt.promotion === 'max'
-      const baseSize   = isSelected ? 52 : 44
-      const size       = baseSize + (promoted ? 14 : 0)
+      const r          = isSelected ? 13 : (promoted ? 11 : 9)
+      const size       = r * 2 + 10
       const marker     = new google.maps.Marker({
         position: { lat: evt.lieux!.lat!, lng: evt.lieux!.lng! },
         title: evt.titre,
         optimized: false,
         icon: {
           url: markerSvg(evt.categorie, isSelected, approx, promoted),
-          scaledSize: new google.maps.Size(size, size + 10),
-          anchor: new google.maps.Point(size / 2, size + 10),
+          scaledSize: new google.maps.Size(size, size),
+          anchor: new google.maps.Point(size / 2, size / 2),
         },
         zIndex: isSelected ? 999 : promoted ? 10 : 1,
       })
@@ -256,7 +252,8 @@ function ProducerMarkers({ producers, selectedProducerId, onSelectProducer }: Pr
     const withLoc = producers.filter(p => p.lat && p.lng)
     markersRef.current = withLoc.map(p => {
       const sel  = p.id === selectedProducerId
-      const size = sel ? 52 : 42
+      const r    = sel ? 13 : (p.is_max ? 11 : 9)
+      const size = r * 2 + 10
       const marker = new google.maps.Marker({
         position: { lat: p.lat!, lng: p.lng! },
         title: p.nom,
@@ -264,8 +261,8 @@ function ProducerMarkers({ producers, selectedProducerId, onSelectProducer }: Pr
         map,
         icon: {
           url: producerMarkerSvg(sel, p.is_max),
-          scaledSize: new google.maps.Size(size, size + 8),
-          anchor: new google.maps.Point(size / 2, size + 8),
+          scaledSize: new google.maps.Size(size, size),
+          anchor: new google.maps.Point(size / 2, size / 2),
         },
         zIndex: sel ? 999 : p.is_max ? 10 : 1,
       })
@@ -348,7 +345,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
           <InfoWindow
             position={{ lat: selectedProducer.lat, lng: selectedProducer.lng }}
             onCloseClick={() => onSelectProducer?.(null)}
-            pixelOffset={[0, -50]}
+            pixelOffset={[0, -18]}
           >
             <div style={{ position: 'relative', width: 200, overflow: 'visible', fontFamily: 'Inter, sans-serif' }}>
               <button onClick={() => onSelectProducer?.(null)}
@@ -380,7 +377,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
           <InfoWindow
             position={{ lat: selectedEvent.lieux.lat, lng: selectedEvent.lieux.lng }}
             onCloseClick={onDeselect}
-            pixelOffset={[0, -54]}
+            pixelOffset={[0, -18]}
           >
             {/* Wrapper overflow:visible pour que le bouton fermer dépasse de la carte */}
             <div style={{ position: 'relative', width: 220, overflow: 'visible' }}>
