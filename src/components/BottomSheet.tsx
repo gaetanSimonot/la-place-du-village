@@ -605,7 +605,8 @@ export default function BottomSheet({
                 position: 'sticky', top: 0, zIndex: 5,
                 marginLeft: -16, marginRight: -16, marginTop: -4,
                 backgroundColor: sheetBg.bg,
-                paddingBottom: 6,
+                paddingTop: 8, paddingBottom: 8,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.07)',
               }}>
                 <ProBandeau events={proEvents} onDiscover={onDiscoverPro ?? (() => {})} compact={true} />
               </div>
