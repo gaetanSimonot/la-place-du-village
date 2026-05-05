@@ -378,6 +378,7 @@ export default function MonEspaceProducteur() {
   )
 
   // View mode + products
+  console.log('[MEP] render products:', products.length, products)
   return (
     <div style={{ paddingBottom: 40 }}>
       {/* Profile card */}
