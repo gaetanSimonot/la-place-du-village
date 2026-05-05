@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { PRODUIT_CATS } from '@/lib/produit-cats'
 
 interface Producer {
   id: string; nom: string; description_courte: string | null; description_longue: string | null
@@ -13,21 +14,6 @@ interface Product {
   disponible: boolean; periode_dispo: string | null; dispo_jusqu_au: string | null
 }
 type Suggestion = { place_id: string; description: string; main: string; secondary: string }
-
-const PRODUCT_CATS = [
-  { id: 'fruits_legumes',    label: '🥬 Fruits & Légumes' },
-  { id: 'viandes',           label: '🥩 Viandes & Charcuteries' },
-  { id: 'fromages_laitages', label: '🧀 Fromages & Laitages' },
-  { id: 'oeufs',             label: '🥚 Œufs' },
-  { id: 'pain',              label: '🍞 Pain & Pâtisseries' },
-  { id: 'miel',              label: '🍯 Miel & Confitures' },
-  { id: 'panier',            label: '🧺 Panier de saison' },
-  { id: 'plantes',           label: '🌿 Plantes & Fleurs' },
-  { id: 'huiles',            label: '🫙 Huiles & Condiments' },
-  { id: 'boissons',          label: '🍾 Boissons' },
-  { id: 'artisanat',         label: '🏺 Artisanat' },
-  { id: 'autre',             label: '✦ Autre' },
-]
 
 const PRO_TYPES = [
   { id: 'producteur',    label: '🌿 Producteur local' },
@@ -427,7 +413,7 @@ export default function MonEspaceProducteur() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
               <input style={inputStyle} placeholder="Nom du produit *" value={newProduct.nom} onChange={e => setNewProduct(p => ({ ...p, nom: e.target.value }))} />
               <select style={inputStyle} value={newProduct.categorie} onChange={e => setNewProduct(p => ({ ...p, categorie: e.target.value }))}>
-                {PRODUCT_CATS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                {PRODUIT_CATS.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
               </select>
               <input style={inputStyle} placeholder="Prix indicatif (ex: 3€/kg)" value={newProduct.prix_indicatif} onChange={e => setNewProduct(p => ({ ...p, prix_indicatif: e.target.value }))} />
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

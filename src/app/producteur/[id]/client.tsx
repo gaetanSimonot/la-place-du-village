@@ -72,6 +72,13 @@ export default function ProducteurPageClient({ id }: { id: string }) {
     toastTimer.current = setTimeout(() => setToast(null), 2000)
   }, [])
 
+  const fetchProducts = useCallback(async () => {
+    try {
+      const d = await fetch(`/api/producers/${id}`).then(r => r.json())
+      setProducts(d.products ?? [])
+    } catch {}
+  }, [id])
+
   useEffect(() => {
     fetch(`/api/producers/${id}`)
       .then(r => r.json())
@@ -81,6 +88,15 @@ export default function ProducteurPageClient({ id }: { id: string }) {
       .then(r => r.json())
       .then(d => { const c = d.comments ?? []; setComments(c); setCommentCount(c.length) })
   }, [id])
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`products-${id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `producer_id=eq.${id}` },
+        () => fetchProducts())
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [id, fetchProducts])
 
   useEffect(() => {
     if (!user) { setIsFav(false); setIsFollowing(false); return }
