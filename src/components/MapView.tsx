@@ -1,12 +1,12 @@
 'use client'
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { APIProvider, Map, InfoWindow, useMap } from '@vis.gl/react-google-maps'
 import { MarkerClusterer } from '@googlemaps/markerclusterer'
 import { EvenementCard, ProducerCard, isApproxLocation, EtablissementCard } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
 import { useTheme } from '@/components/ThemeProvider'
-import { etabMarkerSvg } from '@/lib/etablissement-types'
+import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 
 const GANGES = { lat: 43.9333, lng: 3.7 }
 
@@ -289,10 +289,11 @@ function ProducerMarkers({ producers, selectedProducerId, onSelectProducer }: Pr
 
 interface EtabMarkersProps {
   etablissements: EtablissementCard[]
-  onOpenEtablissement?: (id: string) => void
+  selectedEtabId: string | null
+  onSelectEtab: (id: string | null) => void
 }
 
-function EtablissementMarkers({ etablissements, onOpenEtablissement }: EtabMarkersProps) {
+function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab }: EtabMarkersProps) {
   const map = useMap()
   const clustererRef = useRef<MarkerClusterer | null>(null)
   const markersRef   = useRef<google.maps.Marker[]>([])
@@ -300,7 +301,6 @@ function EtablissementMarkers({ etablissements, onOpenEtablissement }: EtabMarke
   useEffect(() => {
     if (!map) return
 
-    // Nettoyer
     clustererRef.current?.clearMarkers()
     markersRef.current.forEach(m => m.setMap(null))
     markersRef.current = []
@@ -309,17 +309,18 @@ function EtablissementMarkers({ etablissements, onOpenEtablissement }: EtabMarke
     const regularMarkers: google.maps.Marker[] = []
 
     const newMarkers = withLoc.map(e => {
-      const promoted = e.plan === 'pro' || e.plan === 'max' || e.is_featured
-      const iconUrl  = etabMarkerSvg(false, e.type, e.plan, e.is_featured)
-      const h        = promoted ? 47 : 36   // 36 + 11 pour l'étoile
+      const promoted  = e.plan === 'pro' || e.plan === 'max' || e.is_featured
+      const isSelected = e.id === selectedEtabId
+      const iconUrl   = etabMarkerSvg(isSelected, e.type, e.plan, e.is_featured)
+      const h         = promoted ? 47 : 36
       const marker = new google.maps.Marker({
         position: { lat: e.lat!, lng: e.lng! },
         title: e.nom,
         optimized: false,
         icon: { url: iconUrl, scaledSize: new google.maps.Size(28, h), anchor: new google.maps.Point(14, h) },
-        zIndex: promoted ? 10 : 1,
+        zIndex: isSelected ? 999 : promoted ? 10 : 1,
       })
-      marker.addListener('click', () => onOpenEtablissement?.(e.id))
+      marker.addListener('click', () => onSelectEtab(isSelected ? null : e.id))
       if (promoted) {
         marker.setMap(map)
       } else {
@@ -339,7 +340,7 @@ function EtablissementMarkers({ etablissements, onOpenEtablissement }: EtabMarke
       clustererRef.current?.clearMarkers()
       markersRef.current.forEach(m => m.setMap(null))
     }
-  }, [map, etablissements, onOpenEtablissement])
+  }, [map, etablissements, selectedEtabId, onSelectEtab])
 
   return null
 }
@@ -363,8 +364,10 @@ interface Props {
 }
 
 export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn, onMapDragStart, onMapDragEnd, onCameraIdle, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], onOpenEtablissement }: Props) {
+  const [selectedEtabId, setSelectedEtabId] = useState<string | null>(null)
   const selectedEvent    = selectedId ? evenements.find(e => e.id === selectedId) : null
   const selectedProducer = selectedProducerId ? producers.find(p => p.id === selectedProducerId) : null
+  const selectedEtab     = selectedEtabId ? etablissements.find(e => e.id === selectedEtabId) : null
   const selectedCat   = selectedEvent
     ? (CATEGORIES[selectedEvent.categorie] ?? CATEGORIES.autre)
     : null
@@ -413,8 +416,53 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
         />
         <EtablissementMarkers
           etablissements={etablissements}
-          onOpenEtablissement={onOpenEtablissement}
+          selectedEtabId={selectedEtabId}
+          onSelectEtab={setSelectedEtabId}
         />
+
+        {/* Vignette établissement sélectionné */}
+        {selectedEtab && selectedEtab.lat && selectedEtab.lng && (() => {
+          const typeInfo = ETAB_TYPES[selectedEtab.type]
+          const photo    = selectedEtab.photos?.[0]
+          const promoted = selectedEtab.plan === 'pro' || selectedEtab.plan === 'max' || selectedEtab.is_featured
+          return (
+            <InfoWindow
+              position={{ lat: selectedEtab.lat, lng: selectedEtab.lng }}
+              onCloseClick={() => setSelectedEtabId(null)}
+              pixelOffset={[0, promoted ? -47 : -36]}
+            >
+              <div style={{ position: 'relative', width: 210, overflow: 'visible', fontFamily: 'Inter, sans-serif' }}>
+                <button onClick={() => setSelectedEtabId(null)}
+                  style={{ position: 'absolute', top: -10, right: -10, zIndex: 10, width: 22, height: 22, borderRadius: '50%', backgroundColor: '#fff', border: '1.5px solid #ddd', boxShadow: '0 1px 5px rgba(0,0,0,0.22)', cursor: 'pointer', color: '#666', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, padding: 0 }}>✕</button>
+                <div onClick={() => { onOpenEtablissement?.(selectedEtab.id); setSelectedEtabId(null) }}
+                  style={{ borderRadius: 12, overflow: 'hidden', backgroundColor: '#fff', border: `2.5px solid ${sheetBg.bg}`, cursor: 'pointer', boxShadow: '0 4px 20px rgba(0,0,0,0.18)' }}>
+                  {/* Image */}
+                  <div style={{ width: '100%', height: 95, position: 'relative', backgroundColor: typeInfo?.bg ?? '#F5F0E8', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                    {photo
+                      ? <img src={photo} alt="" loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : <span style={{ fontSize: 36 }}>{typeInfo?.emoji ?? '🏪'}</span>
+                    }
+                  </div>
+                  {/* Contenu */}
+                  <div style={{ padding: '8px 10px 10px' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9, fontWeight: 800, color: '#fff', backgroundColor: typeInfo?.color ?? '#555', borderRadius: 999, padding: '2px 7px', marginBottom: 4 }}>
+                      {typeInfo?.emoji} {typeInfo?.label ?? selectedEtab.type}
+                    </span>
+                    {promoted && <span style={{ marginLeft: 4, fontSize: 9, color: '#EC407A', fontWeight: 800 }}>✦</span>}
+                    <p style={{ fontWeight: 700, fontSize: 13, color: '#1A1209', margin: '0 0 2px', lineHeight: 1.3 }}>{selectedEtab.nom}</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                      {selectedEtab.commune && <span style={{ fontSize: 11, color: '#6B5E4E' }}>📍 {selectedEtab.commune}</span>}
+                      {selectedEtab.note_google && <span style={{ fontSize: 11, color: '#92400E', fontWeight: 700 }}>⭐ {selectedEtab.note_google.toFixed(1)}</span>}
+                    </div>
+                    <button style={{ display: 'block', width: '100%', textAlign: 'center', padding: '7px', borderRadius: 8, backgroundColor: '#2D5A3D', color: '#fff', fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
+                      Voir la fiche →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </InfoWindow>
+          )
+        })()}
 
         {/* InfoWindow producteur sélectionné */}
         {selectedProducer && selectedProducer.lat && selectedProducer.lng && (
