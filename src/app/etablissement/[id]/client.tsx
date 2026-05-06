@@ -7,6 +7,7 @@ import { useAuthModal } from '@/contexts/AuthModalContext'
 import { useAdminSession } from '@/hooks/useAdminSession'
 import { ETAB_TYPES } from '@/lib/etablissement-types'
 import EtabEditDrawer from '@/components/EtabEditDrawer'
+import EtabProductsSection from '@/components/EtabProductsSection'
 import type { Etablissement } from '@/lib/types'
 
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
@@ -157,6 +158,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
   const [claimOpen, setClaimOpen]   = useState(false)
   const [editing, setEditing]       = useState(false)
   const [toast, setToast]           = useState<string | null>(null)
+  const [manageLoading, setManageLoading] = useState(false)
   const toastTimer  = useRef<ReturnType<typeof setTimeout>>()
   const commentsRef = useRef<HTMLDivElement>(null)
 
@@ -168,6 +170,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get('subscribed') === '1') {
       showToast('🎉 Abonnement activé ! Vous gérez maintenant cette fiche.')
+      window.history.replaceState({}, '', window.location.pathname)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -257,6 +260,24 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
     const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; if (!token) return
     const res = await fetch(`/api/etablissements/${id}/comments/${commentId}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ content: editCommentText.trim() }) })
     if (res.ok) { const d = await res.json(); setComments(prev => prev.map(c => c.id === commentId ? { ...c, content: d.content } : c)); setEditingCommentId(null) }
+  }
+
+  async function openManage() {
+    setManageLoading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      if (!token) return
+      const res = await fetch('/api/stripe/manage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ etabId: id }),
+      })
+      const data = await res.json()
+      if (data.url) window.location.href = data.url
+      else showToast(data.error ?? 'Erreur portail')
+    } catch { showToast('Erreur de connexion') }
+    setManageLoading(false)
   }
 
   if (loading) return <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5F0E8' }}><div style={{ width: 32, height: 32, borderRadius: '50%', border: '4px solid #E0D8CE', borderTopColor: '#2D5A3D', animation: 'spin 0.7s linear infinite' }} /></div>
@@ -399,7 +420,24 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
         )}
         {isOwner && (
           <div style={{ padding: '14px 16px', borderRadius: 16, backgroundColor: '#E8F2EB' }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: '#2D5A3D', margin: 0 }}>✓ Vous gérez cette fiche</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 700, color: '#2D5A3D', margin: '0 0 4px' }}>✓ Vous gérez cette fiche</p>
+                <span style={{ display: 'inline-block', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 999, padding: '2px 8px',
+                  backgroundColor: etab.plan === 'max' ? '#EC407A' : etab.plan === 'pro' ? '#2D5A3D' : '#D0C8C0',
+                  color: etab.plan === 'basic' ? '#666' : '#fff',
+                }}>{etab.plan}</span>
+              </div>
+              {etab.plan !== 'basic' ? (
+                <button onClick={openManage} disabled={manageLoading} style={{ padding: '9px 14px', borderRadius: 10, border: '1.5px solid #2D5A3D', backgroundColor: 'transparent', color: '#2D5A3D', fontSize: 12, fontWeight: 700, cursor: manageLoading ? 'default' : 'pointer', opacity: manageLoading ? 0.6 : 1, fontFamily: 'Inter, sans-serif' }}>
+                  {manageLoading ? '…' : 'Gérer l\'abonnement'}
+                </button>
+              ) : (
+                <button onClick={() => setClaimOpen(true)} style={{ padding: '9px 14px', borderRadius: 10, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                  Passer à Pro / Max
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -449,6 +487,11 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
             </div>
           ))}
         </div>
+
+        {/* Produits — plan Max uniquement */}
+        {isOwner && etab.plan === 'max' && (
+          <EtabProductsSection etabId={etab.id} />
+        )}
 
       </div>
 
