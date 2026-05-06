@@ -93,6 +93,7 @@ export default function BottomSheet({
   const { sheetBg } = useTheme()
   const [peekH, setPeekH]         = useState(130) // hauteur mesurée du header
   const [visibleCount, setVisibleCount] = useState(BATCH)
+  const [visibleEtabCount, setVisibleEtabCount] = useState(BATCH)
   const headerRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const obsRef = useRef<IntersectionObserver | null>(null)
@@ -103,6 +104,15 @@ export default function BottomSheet({
       if (entries[0].isIntersecting) setVisibleCount(n => n + BATCH)
     }, { threshold: 0.1 })
     obsRef.current.observe(el)
+  }, [])
+  const etabObsRef = useRef<IntersectionObserver | null>(null)
+  const etabLoaderRef = useCallback((el: HTMLDivElement | null) => {
+    if (etabObsRef.current) { etabObsRef.current.disconnect(); etabObsRef.current = null }
+    if (!el) return
+    etabObsRef.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) setVisibleEtabCount(n => n + BATCH)
+    }, { threshold: 0.1 })
+    etabObsRef.current.observe(el)
   }, [])
   const dragControls              = useDragControls()
 
@@ -254,6 +264,7 @@ export default function BottomSheet({
 
   // Reset visibleCount quand la liste change (nouveau filtre)
   useEffect(() => { setVisibleCount(BATCH) }, [evenements])
+  useEffect(() => { setVisibleEtabCount(BATCH) }, [etablissements])
 
   // Scroll en haut quand on descend en peek
   useEffect(() => {
@@ -599,9 +610,16 @@ export default function BottomSheet({
               <p style={{ fontSize: 13, marginTop: 6, lineHeight: 1.5, fontFamily: 'Inter, sans-serif' }}>Les fiches arrivent bientôt.</p>
             </div>
           ) : (
-            etablissements.map(e => (
-              <EtablissementListCard key={e.id} etab={e} onOpen={() => onOpenEtablissement?.(e.id)} />
-            ))
+            <>
+              {etablissements.slice(0, visibleEtabCount).map(e => (
+                <EtablissementListCard key={e.id} etab={e} onOpen={() => onOpenEtablissement?.(e.id)} />
+              ))}
+              {visibleEtabCount < etablissements.length && (
+                <div ref={etabLoaderRef} style={{ height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid #E0D8CE', borderTopColor: 'var(--primary)', animation: 'spin 0.7s linear infinite' }} />
+                </div>
+              )}
+            </>
           )
         ) : appMode === 'annuaire' ? (
           producerLoading ? [1,2,3].map(i => <SkeletonCard key={i} />) :
