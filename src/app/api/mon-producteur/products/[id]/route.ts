@@ -42,22 +42,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       .eq('producer_id', item.producer.id)
 
     if (followers && followers.length > 0) {
-      let periodeLabel = ''
-      if (body.periode_dispo === 'semaine') periodeLabel = ' cette semaine'
-      else if (body.periode_dispo === 'weekend') periodeLabel = ' ce weekend'
-      else if (body.periode_dispo === 'date' && body.dispo_jusqu_au) {
-        const d = new Date(body.dispo_jusqu_au)
-        periodeLabel = ` jusqu'au ${d.getDate()}/${d.getMonth() + 1}`
-      }
-
       await supabaseAdmin.from('notifications').insert(
         followers.map(f => ({
           user_id: f.user_id,
           type: 'disponibilite',
-          producer_id: item.producer.id,
-          producer_nom: item.producer.nom,
-          message: `${item.producer.nom} a ${item.nom} disponible${periodeLabel}`,
-          read: false,
+          actor_id: item.producer.id,
+          actor_name: item.producer.nom,
+          target_id: item.producer.id,
+          target_type: 'producer',
+          lu: false,
         }))
       )
     }

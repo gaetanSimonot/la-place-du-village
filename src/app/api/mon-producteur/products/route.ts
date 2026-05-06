@@ -73,5 +73,26 @@ export async function POST(req: NextRequest) {
     ;(data as Record<string, unknown>).image_url = imageUrl
   }
 
+  // Notify followers of new product
+  const { data: producerFull } = await supabaseAdmin
+    .from('producers').select('id, nom').eq('id', producer.id).maybeSingle()
+  if (producerFull) {
+    const { data: followers } = await supabaseAdmin
+      .from('producer_followers').select('user_id').eq('producer_id', producer.id)
+    if (followers && followers.length > 0) {
+      await supabaseAdmin.from('notifications').insert(
+        followers.map(f => ({
+          user_id: f.user_id,
+          type: 'nouveau_produit',
+          actor_id: producerFull.id,
+          actor_name: producerFull.nom,
+          target_id: producerFull.id,
+          target_type: 'producer',
+          lu: false,
+        }))
+      )
+    }
+  }
+
   return NextResponse.json({ product: data })
 }

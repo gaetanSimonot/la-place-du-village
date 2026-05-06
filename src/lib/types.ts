@@ -83,6 +83,20 @@ export type ProduitCategorie =
   | 'pain' | 'miel' | 'panier' | 'plantes' | 'huiles' | 'boissons'
   | 'artisanat' | 'autre'
 
+export type NotifType = 'disponibilite' | 'nouveau_produit' | 'suivi_producteur' | 'commentaire'
+
+export interface AppNotification {
+  id: string
+  user_id: string
+  type: NotifType
+  actor_id: string | null
+  actor_name: string | null
+  target_id: string | null
+  target_type: 'producer' | 'event' | null
+  lu: boolean
+  created_at: string
+}
+
 export interface ProducerCard {
   id: string
   nom: string

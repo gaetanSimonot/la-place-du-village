@@ -16,10 +16,12 @@ import { useAuthModal } from '@/contexts/AuthModalContext'
 import ProBandeau from '@/components/ProBandeau'
 import MaxSplash from '@/components/MaxSplash'
 import FavorisView from '@/components/FavorisView'
+import NotificationsView from '@/components/NotificationsView'
 import AppSplash from '@/components/AppSplash'
 import WelcomePopup from '@/components/WelcomePopup'
 import { useFavorites } from '@/hooks/useFavorites'
 import { useProducerFavorites } from '@/hooks/useProducerFavorites'
+import { useNotifications } from '@/hooks/useNotifications'
 
 const MapView               = dynamic(() => import('@/components/MapView'),                    { ssr: false })
 const BottomSheet           = dynamic(() => import('@/components/BottomSheet'),                { ssr: false })
@@ -28,7 +30,7 @@ const ProducteurPageClient  = dynamic(() => import('@/app/producteur/[id]/client
 const defaultFiltres: Filtres = { categories: [], quand: 'toujours' }
 const NAV_H = 62
 
-type NavTab = 'carte' | 'liste' | 'favoris' | 'profil'
+type NavTab = 'carte' | 'liste' | 'favoris' | 'notifs' | 'profil'
 
 const IconCarte = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -58,11 +60,27 @@ const IconCoeur = ({ filled }: { filled?: boolean }) => (
     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
   </svg>
 )
+const IconBell = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+  </svg>
+)
 
-const NAV_TABS: { id: NavTab; label: string; Icon: (p: { active: boolean }) => React.JSX.Element }[] = [
+const NAV_TABS: { id: NavTab; label: string; Icon: (p: { active: boolean; badge?: number }) => React.JSX.Element }[] = [
   { id: 'carte',   label: 'Carte',   Icon: () => <IconCarte /> },
   { id: 'liste',   label: 'Liste',   Icon: () => <IconListe /> },
   { id: 'favoris', label: 'Favoris', Icon: ({ active }) => <IconCoeur filled={active} /> },
+  { id: 'notifs',  label: 'Notifs',  Icon: ({ badge }) => (
+    <div style={{ position: 'relative', display: 'inline-flex' }}>
+      <IconBell />
+      {badge && badge > 0 ? (
+        <span style={{ position: 'absolute', top: -4, right: -5, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: '#E53935', color: '#fff', fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', fontFamily: 'Inter, sans-serif', border: '1.5px solid #fff' }}>
+          {badge > 99 ? '99+' : badge}
+        </span>
+      ) : null}
+    </div>
+  )},
   { id: 'profil',  label: 'Profil',  Icon: () => <IconProfil /> },
 ]
 
@@ -71,6 +89,7 @@ export default function HomePage() {
   const { user, loading: authLoading } = useAuth()
   const { favIds, toggle: toggleFav } = useFavorites()
   const { favIds: producerFavIds, toggle: toggleProducerFav } = useProducerFavorites()
+  const { unreadCount: notifCount, notifications, loading: notifLoading, loaded: notifLoaded, fetchAll: fetchNotifs, markRead: markNotifRead, markAllRead: markAllNotifsRead } = useNotifications()
   const { openAuthModal } = useAuthModal()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [filtres, setFiltres]       = useState<Filtres>(defaultFiltres)
@@ -871,7 +890,7 @@ export default function HomePage() {
       </AnimatePresence>
 
       {/* ProBandeau flottant sur la carte — 2/3 largeur, se fait avaler par le sheet (zIndex 19 < 20) */}
-      {proEvents.length > 0 && appMode === 'agenda' && navTab !== 'profil' && navTab !== 'favoris' && (
+      {proEvents.length > 0 && appMode === 'agenda' && navTab !== 'profil' && navTab !== 'favoris' && navTab !== 'notifs' && (
         <div style={{
           position: 'absolute', left: 0, right: '33%',
           bottom: NAV_H + sheetPeekH,
@@ -935,6 +954,24 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* Notifications — panneau inline au-dessus de la carte */}
+      {navTab === 'notifs' && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H,
+          zIndex: 25, overflowY: 'auto', backgroundColor: 'var(--creme)',
+        }}>
+          <NotificationsView
+            notifications={notifications}
+            loading={notifLoading}
+            loaded={notifLoaded}
+            onOpen={fetchNotifs}
+            onMarkRead={markNotifRead}
+            onMarkAllRead={markAllNotifsRead}
+            onOpenProducer={openProducer}
+          />
+        </div>
+      )}
+
       {/* Profil — panneau inline au-dessus de la carte */}
       {navTab === 'profil' && (
         <div style={{
@@ -973,6 +1010,7 @@ export default function HomePage() {
       }}>
         {NAV_TABS.map(tab => {
           const active = navTab === tab.id
+          const badge = tab.id === 'notifs' ? notifCount : undefined
           return (
             <button key={tab.id} onClick={() => handleNavTab(tab.id)} style={{
               flex: 1, display: 'flex', flexDirection: 'column',
@@ -983,7 +1021,7 @@ export default function HomePage() {
               paddingBottom: 4,
               color: active ? 'var(--primary)' : '#8A8A8A',
             }}>
-              <tab.Icon active={active} />
+              <tab.Icon active={active} badge={badge} />
               <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>
                 {tab.label}
               </span>

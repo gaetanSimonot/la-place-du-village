@@ -57,5 +57,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .eq('user_id', user.id)
     .maybeSingle()
 
+  // Notify producer owner of new comment
+  const { data: producer } = await supabaseAdmin
+    .from('producers').select('user_id').eq('id', id).maybeSingle()
+  if (producer?.user_id && producer.user_id !== user.id) {
+    await supabaseAdmin.from('notifications').insert({
+      user_id: producer.user_id,
+      type: 'commentaire',
+      actor_id: user.id,
+      actor_name: profile?.display_name ?? 'Quelqu\'un',
+      target_id: id,
+      target_type: 'producer',
+      lu: false,
+    })
+  }
+
   return NextResponse.json({ comment: { ...data, profile: profile ?? null } })
 }
