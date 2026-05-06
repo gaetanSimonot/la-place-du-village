@@ -306,24 +306,37 @@ function EtablissementMarkers({ etablissements, onOpenEtablissement }: EtabMarke
     markersRef.current = []
 
     const withLoc = etablissements.filter(e => e.lat && e.lng)
+    const regularMarkers: google.maps.Marker[] = []
+
     const newMarkers = withLoc.map(e => {
-      const iconUrl = etabMarkerSvg(false, e.type)
+      const promoted = e.plan === 'pro' || e.plan === 'max' || e.is_featured
+      const isMax    = e.plan === 'max'
+      const iconUrl  = etabMarkerSvg(false, e.type, e.plan)
+      const scale    = isMax ? 1.45 : promoted ? 1.15 : 1
+      const w        = Math.round(28 * scale)
+      const h        = Math.round((isMax ? 44 : 36) * scale)
       const marker = new google.maps.Marker({
         position: { lat: e.lat!, lng: e.lng! },
         title: e.nom,
         optimized: false,
-        icon: { url: iconUrl, scaledSize: new google.maps.Size(28, 36), anchor: new google.maps.Point(14, 36) },
-        zIndex: e.is_featured ? 10 : 1,
+        icon: { url: iconUrl, scaledSize: new google.maps.Size(w, h), anchor: new google.maps.Point(w / 2, h) },
+        zIndex: isMax ? 20 : promoted ? 10 : 1,
       })
       marker.addListener('click', () => onOpenEtablissement?.(e.id))
+      // Promoted markers bypass the clusterer — always individually visible
+      if (promoted) {
+        marker.setMap(map)
+      } else {
+        regularMarkers.push(marker)
+      }
       return marker
     })
     markersRef.current = newMarkers
 
     if (!clustererRef.current) {
-      clustererRef.current = new MarkerClusterer({ map, markers: newMarkers })
+      clustererRef.current = new MarkerClusterer({ map, markers: regularMarkers })
     } else {
-      clustererRef.current.addMarkers(newMarkers)
+      clustererRef.current.addMarkers(regularMarkers)
     }
 
     return () => {
