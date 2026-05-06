@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const description = [dateStr + commune, evt.description?.slice(0, 160)]
     .filter(Boolean).join(' — ')
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://la-place-du-village.vercel.app'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://laplaceduvillage.app'
   const imageUrl = evt.image_url ?? `${appUrl}/logo.png`
 
   return {

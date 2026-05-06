@@ -9,7 +9,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { data } = await supabaseAdmin.from('producers').select('nom, description_courte, photos, commune').eq('id', id).single()
   if (!data) return { title: 'Producteur — La Place du Village' }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://la-place-du-village.vercel.app'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://laplaceduvillage.app'
   const imageUrl = (data.photos ?? [])[0] ?? `${appUrl}/logo.png`
   const commune = data.commune ? ` · ${data.commune}` : ''
 
