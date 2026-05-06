@@ -98,4 +98,5 @@ export interface ProducerCard {
   lng: number | null
   is_max: boolean
   is_featured: boolean
+  user_id?: string | null
 }

@@ -99,7 +99,7 @@ export default function HomePage() {
         type PRow = Record<string, unknown> & { products: { nom: string; categorie: string; prix_indicatif: string | null; periode_dispo: string | null; disponible: boolean }[] }
         const { data } = await supabase
           .from('producers')
-          .select('id, nom, description_courte, commune, photos, contact_whatsapp, contact_tel, site_web, lat, lng, is_max, is_featured, products(id, nom, categorie, prix_indicatif, periode_dispo, disponible)')
+          .select('id, nom, description_courte, commune, photos, contact_whatsapp, contact_tel, site_web, lat, lng, is_max, is_featured, user_id, products(id, nom, categorie, prix_indicatif, periode_dispo, disponible)')
           .order('is_max', { ascending: false })
           .order('created_at', { ascending: false })
         const list = (data ?? []) as PRow[]
@@ -120,8 +120,18 @@ export default function HomePage() {
             lng: (p.lng as number | null) ?? null,
             is_max: (p.is_max as boolean | null) ?? false,
             is_featured: (p.is_featured as boolean | null) ?? false,
+            user_id: (p.user_id as string | null) ?? null,
           }
         }))
+        const myId = user?.id
+        if (myId) {
+          setProducers(prev => {
+            const idx = prev.findIndex(p => p.user_id === myId)
+            if (idx <= 0) return prev
+            const mine = prev[idx]
+            return [mine, ...prev.filter((_, i) => i !== idx)]
+          })
+        }
       } catch { /* ignore */ }
       setProducerLoading(false)
     })()

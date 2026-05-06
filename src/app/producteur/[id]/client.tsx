@@ -7,6 +7,8 @@ import { useAuthModal } from '@/contexts/AuthModalContext'
 import { useAdminSession } from '@/hooks/useAdminSession'
 import { PRODUIT_CATS_MAP, PRODUIT_CAT_ICONS, normalizeProduitCat } from '@/lib/produit-cats'
 import ProducerEditDrawer from '@/components/ProducerEditDrawer'
+import ProductsEditSection from '@/components/ProductsEditSection'
+import CaptureProducteur from '@/components/CaptureProducteur'
 
 interface Producer {
   id: string; nom: string; description_courte: string | null; description_longue: string | null
@@ -60,6 +62,9 @@ export default function ProducteurPageClient({ id }: { id: string }) {
   const [commentText, setCommentText] = useState('')
   const [sendingComment, setSendingComment] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [editMode, setEditMode] = useState(false)
+  const [showIA, setShowIA] = useState(false)
+  const isOwner = !!user && !!producer && producer.user_id === user.id
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
   const [editCommentText, setEditCommentText] = useState('')
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
@@ -257,7 +262,8 @@ export default function ProducteurPageClient({ id }: { id: string }) {
       <div style={{ position: 'sticky', top: 0, zIndex: 20, backgroundColor: 'rgba(242,235,224,0.92)', backdropFilter: 'blur(10px)', padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
         <button onClick={() => router.back()} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.8)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2D5A3D', fontSize: 18, flexShrink: 0, boxShadow: '0 1px 6px rgba(0,0,0,0.1)' }}>←</button>
         <p style={{ flex: 1, fontWeight: 700, fontSize: 15, color: '#2C1810', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{producer.nom}</p>
-        {isAdmin && <button onClick={() => setEditing(true)} style={{ fontSize: 11, fontWeight: 700, color: '#2D5A3D', border: '1.5px solid #2D5A3D', borderRadius: 10, padding: '5px 12px', backgroundColor: 'transparent', cursor: 'pointer', flexShrink: 0 }}>✏️</button>}
+        {isOwner && <button onClick={() => setEditMode(e => !e)} style={{ fontSize: 11, fontWeight: 700, color: editMode ? '#fff' : '#2D5A3D', border: '1.5px solid #2D5A3D', borderRadius: 10, padding: '5px 12px', backgroundColor: editMode ? '#2D5A3D' : 'transparent', cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s' }}>{editMode ? '✓ Vue publique' : 'Gérer'}</button>}
+        {isAdmin && !isOwner && <button onClick={() => setEditing(true)} style={{ fontSize: 11, fontWeight: 700, color: '#2D5A3D', border: '1.5px solid #2D5A3D', borderRadius: 10, padding: '5px 12px', backgroundColor: 'transparent', cursor: 'pointer', flexShrink: 0 }}>✏️</button>}
       </div>
 
       {/* Photo avec texte superposé */}
@@ -371,41 +377,53 @@ export default function ProducteurPageClient({ id }: { id: string }) {
           </div>
         )}
 
-        {/* Produits disponibles */}
-        {products.length > 0 && (
-          <div style={{ backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 1px 8px rgba(44,28,16,0.08)' }}>
-            <div style={{ padding: '16px 18px 12px' }}>
-              <p style={{ fontSize: 11, fontWeight: 800, color: '#8A7A6A', margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Produits disponibles</p>
-              <p style={{ fontSize: 12, color: '#AAA', margin: 0, fontFamily: 'Inter, sans-serif' }}>Mis à jour par le producteur</p>
+        {/* Produits — mode gestion (owner) ou affichage public */}
+        {isOwner && editMode ? (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <p style={{ fontSize: 11, fontWeight: 800, color: '#8A7A6A', margin: 0, textTransform: 'uppercase', letterSpacing: '0.06em', flex: 1 }}>Gestion des produits</p>
+              <button onClick={() => setShowIA(true)} style={{ padding: '6px 14px', borderRadius: 8, border: 'none', backgroundColor: '#5C3D1E', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>✦ IA</button>
             </div>
-            {Object.entries(byCategory).map(([cat, prods]) => {
-              const info = PRODUIT_CATS_MAP[cat]
-              const icon = PRODUIT_CAT_ICONS[cat] ?? '/icons/autre.png'
-              return (
-                <div key={cat} style={{ borderTop: '1px solid #F0E8DC' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px 8px' }}>
-                    <img src={icon} alt="" style={{ width: 34, height: 34, objectFit: 'contain', flexShrink: 0 }} />
-                    <span style={{ fontSize: 14, fontWeight: 800, color: '#2D5A3D' }}>{info?.label ?? cat}</span>
-                  </div>
-                  <div style={{ padding: '0 14px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {prods.map(p => (
-                      <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', backgroundColor: '#FAF7F2', borderRadius: 12 }}>
-                        <span style={{ flex: 1, fontSize: 14, color: '#2C1810', fontWeight: 500 }}>{p.nom}</span>
-                        {p.periode_dispo === 'semaine' && <span style={{ fontSize: 10, color: '#2D5A3D', backgroundColor: '#DFF0E3', borderRadius: 999, padding: '3px 9px', fontWeight: 700, flexShrink: 0 }}>Cette sem.</span>}
-                        {p.periode_dispo === 'weekend' && <span style={{ fontSize: 10, color: '#C4622D', backgroundColor: '#FDE8DC', borderRadius: 999, padding: '3px 9px', fontWeight: 700, flexShrink: 0 }}>Ce weekend</span>}
-                        {p.prix_indicatif && <span style={{ fontSize: 13, fontWeight: 700, color: '#5C3D1E', flexShrink: 0 }}>{p.prix_indicatif}</span>}
-                      </div>
-                    ))}
-                  </div>
+            <ProductsEditSection producerId={producer.id} />
+          </div>
+        ) : (
+          <>
+            {products.length > 0 && (
+              <div style={{ backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 1px 8px rgba(44,28,16,0.08)' }}>
+                <div style={{ padding: '16px 18px 12px' }}>
+                  <p style={{ fontSize: 11, fontWeight: 800, color: '#8A7A6A', margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Produits disponibles</p>
+                  <p style={{ fontSize: 12, color: '#AAA', margin: 0, fontFamily: 'Inter, sans-serif' }}>Mis à jour par le producteur</p>
                 </div>
-              )
-            })}
-          </div>
-        )}
-        {products.length === 0 && (
-          <div style={{ ...CARD, textAlign: 'center', padding: 28 }}>
-            <p style={{ fontSize: 13, color: '#AAA', margin: 0 }}>Aucun produit disponible actuellement</p>
-          </div>
+                {Object.entries(byCategory).map(([cat, prods]) => {
+                  const info = PRODUIT_CATS_MAP[cat]
+                  const icon = PRODUIT_CAT_ICONS[cat] ?? '/icons/autre.png'
+                  return (
+                    <div key={cat} style={{ borderTop: '1px solid #F0E8DC' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px 8px' }}>
+                        <img src={icon} alt="" style={{ width: 34, height: 34, objectFit: 'contain', flexShrink: 0 }} />
+                        <span style={{ fontSize: 14, fontWeight: 800, color: '#2D5A3D' }}>{info?.label ?? cat}</span>
+                      </div>
+                      <div style={{ padding: '0 14px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {prods.map(p => (
+                          <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', backgroundColor: '#FAF7F2', borderRadius: 12 }}>
+                            <span style={{ flex: 1, fontSize: 14, color: '#2C1810', fontWeight: 500 }}>{p.nom}</span>
+                            {p.periode_dispo === 'semaine' && <span style={{ fontSize: 10, color: '#2D5A3D', backgroundColor: '#DFF0E3', borderRadius: 999, padding: '3px 9px', fontWeight: 700, flexShrink: 0 }}>Cette sem.</span>}
+                            {p.periode_dispo === 'weekend' && <span style={{ fontSize: 10, color: '#C4622D', backgroundColor: '#FDE8DC', borderRadius: 999, padding: '3px 9px', fontWeight: 700, flexShrink: 0 }}>Ce weekend</span>}
+                            {p.prix_indicatif && <span style={{ fontSize: 13, fontWeight: 700, color: '#5C3D1E', flexShrink: 0 }}>{p.prix_indicatif}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            {products.length === 0 && (
+              <div style={{ ...CARD, textAlign: 'center', padding: 28 }}>
+                <p style={{ fontSize: 13, color: '#AAA', margin: 0 }}>Aucun produit disponible actuellement</p>
+              </div>
+            )}
+          </>
         )}
 
         {/* Commentaires */}
@@ -481,6 +499,7 @@ export default function ProducteurPageClient({ id }: { id: string }) {
       </div>
 
       {editing && producer && <ProducerEditDrawer producer={producer} onClose={() => setEditing(false)} onSaved={updated => setProducer(updated)} />}
+      {showIA && <CaptureProducteur onClose={() => setShowIA(false)} />}
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
