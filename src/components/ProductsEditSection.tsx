@@ -130,7 +130,11 @@ export default function ProductsEditSection({ producerId }: { producerId: string
     try {
       const token = await getToken()
       const res = await fetch(`/api/mon-producteur/products/${p.id}/image`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
-      if (res.ok) { const d = await res.json(); setProducts(prev => prev.map(x => x.id === p.id ? { ...x, image_url: d.url } : x)) }
+      if (res.ok) {
+        const d = await res.json()
+        if (d.debug) console.warn('[Pexels]', d.debug, '— produit:', p.nom)
+        if (d.url) setProducts(prev => prev.map(x => x.id === p.id ? { ...x, image_url: d.url } : x))
+      }
     } finally { setUploadingId(null) }
   }
 

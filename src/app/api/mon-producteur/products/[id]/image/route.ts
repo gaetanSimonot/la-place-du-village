@@ -27,21 +27,21 @@ const CAT_QUERIES: Record<string, string> = {
   artisanat: 'handmade craft artisan', autre: 'local farm market',
 }
 
-async function fetchPexelsUrl(nom: string, categorie: string): Promise<string | null> {
+async function fetchPexelsUrl(nom: string, categorie: string): Promise<{ url: string | null; reason?: string }> {
   const key = process.env.PEXELS_API_KEY
-  if (!key) return null
+  if (!key) return { url: null, reason: 'no_key' }
   const query = nom || CAT_QUERIES[categorie] || 'local farm'
   try {
     const r = await fetch(
       `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=8&page=${Math.ceil(Math.random() * 3)}&orientation=square`,
       { headers: { Authorization: key } }
     )
-    if (!r.ok) return null
+    if (!r.ok) return { url: null, reason: `pexels_${r.status}` }
     const d = await r.json()
     const photos = d.photos ?? []
-    if (!photos.length) return null
-    return photos[Math.floor(Math.random() * photos.length)].src.medium ?? null
-  } catch { return null }
+    if (!photos.length) return { url: null, reason: 'no_photos' }
+    return { url: photos[Math.floor(Math.random() * photos.length)].src.medium ?? null }
+  } catch (e) { return { url: null, reason: String(e) } }
 }
 
 // POST: upload custom image (base64 → Supabase Storage)
@@ -83,8 +83,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     await supabaseAdmin.storage.from('product-images').remove([`products/${id}.jpg`]).catch(() => {})
   }
 
-  const pexelsUrl = await fetchPexelsUrl(item.nom, item.categorie)
-  await supabaseAdmin.from('products').update({ image_url: pexelsUrl }).eq('id', id)
+  const { url: pexelsUrl, reason } = await fetchPexelsUrl(item.nom, item.categorie)
+  if (pexelsUrl) await supabaseAdmin.from('products').update({ image_url: pexelsUrl }).eq('id', id)
 
-  return NextResponse.json({ url: pexelsUrl })
+  return NextResponse.json({ url: pexelsUrl, debug: reason ?? null })
 }
