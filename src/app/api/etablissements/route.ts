@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   let query = supabaseAdmin
     .from('etablissements')
     .select('id, type, nom, commune, lat, lng, photos, note_google, is_featured, statut, description_courte')
-    .eq('statut', 'publie')
+    .in('statut', ['publie', 'actif'])
     .order('is_featured', { ascending: false })
     .order('nom')
 
