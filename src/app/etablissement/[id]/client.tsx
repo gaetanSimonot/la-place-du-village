@@ -408,7 +408,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
         )}
 
         {/* Claim */}
-        {!isOwner && !isAdmin && !etab.user_id && (
+        {!isOwner && !etab.user_id && (
           <div style={{ padding: '14px 16px', borderRadius: 16, backgroundColor: '#F8F4EE', border: '1.5px dashed #D0C8C0' }}>
             <p style={{ fontSize: 13, fontWeight: 700, color: '#3C2C20', margin: '0 0 4px' }}>Vous gérez cet établissement ?</p>
             <p style={{ fontSize: 12, color: '#8A8A8A', lineHeight: 1.5, margin: '0 0 12px' }}>Revendiquez cette fiche pour la compléter et la gérer.</p>
