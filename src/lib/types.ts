@@ -92,7 +92,7 @@ export interface AppNotification {
   actor_id: string | null
   actor_name: string | null
   target_id: string | null
-  target_type: 'producer' | 'event' | null
+  target_type: 'producer' | 'event' | 'etablissement' | null
   lu: boolean
   created_at: string
 }
