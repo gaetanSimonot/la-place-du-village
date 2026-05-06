@@ -299,9 +299,10 @@ interface Props {
   producers?: ProducerCard[]
   selectedProducerId?: string | null
   onSelectProducer?: (id: string | null) => void
+  onOpenProducer?: (id: string) => void
 }
 
-export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn, onMapDragStart, onMapDragEnd, onCameraIdle, producers = [], selectedProducerId = null, onSelectProducer }: Props) {
+export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn, onMapDragStart, onMapDragEnd, onCameraIdle, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer }: Props) {
   const selectedEvent    = selectedId ? evenements.find(e => e.id === selectedId) : null
   const selectedProducer = selectedProducerId ? producers.find(p => p.id === selectedProducerId) : null
   const selectedCat   = selectedEvent
@@ -374,9 +375,9 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
                       <span key={c} style={{ fontSize: 10, padding: '2px 6px', borderRadius: 999, backgroundColor: '#E8F2EB', color: '#2D5A3D', fontWeight: 700 }}>{c}</span>
                     ))}
                   </div>
-                  <a href={`/producteur/${selectedProducer.id}`} style={{ display: 'block', textAlign: 'center', padding: '7px', borderRadius: 8, backgroundColor: '#2D5A3D', color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
+                  <button onClick={() => onOpenProducer?.(selectedProducer.id)} style={{ display: 'block', width: '100%', textAlign: 'center', padding: '7px', borderRadius: 8, backgroundColor: '#2D5A3D', color: '#fff', fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
                     Voir la fiche →
-                  </a>
+                  </button>
                 </div>
               </div>
             </div>

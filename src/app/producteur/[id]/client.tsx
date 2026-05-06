@@ -59,7 +59,7 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
   const [commentCount, setCommentCount] = useState(0)
   const [comments, setComments] = useState<Comment[]>([])
   const [commentText, setCommentText] = useState('')
-  const [sendingComment, setSendingComment] = useState(false)
+  const [sendingComment] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [productCatFilter, setProductCatFilter] = useState<string | null>(null)
@@ -136,19 +136,21 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
 
   async function toggleFav() {
     if (!user) { openAuthModal(); return }
-    const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; if (!token) return
+    const next = !isFav
+    setIsFav(next)
+    showToast(next ? '❤️ Ajouté aux favoris' : 'Retiré des favoris')
+    const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; if (!token) { setIsFav(!next); return }
     const res = await fetch(`/api/producers/${id}/favorite`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
-    const d = await res.json()
-    if (!res.ok) { showToast('Erreur : ' + (d.error ?? 'inconnue')); return }
-    setIsFav(d.favorited); showToast(d.favorited ? '❤️ Ajouté aux favoris' : 'Retiré des favoris')
+    if (!res.ok) setIsFav(!next)
   }
   async function toggleFollow() {
     if (!user) { openAuthModal(); return }
-    const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; if (!token) return
+    const next = !isFollowing
+    setIsFollowing(next)
+    showToast(next ? '✓ Vous suivez ce producteur' : 'Abonnement retiré')
+    const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; if (!token) { setIsFollowing(!next); return }
     const res = await fetch(`/api/producers/${id}/follow`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
-    const d = await res.json()
-    if (!res.ok) { showToast('Erreur : ' + (d.error ?? 'inconnue')); return }
-    setIsFollowing(d.following); showToast(d.following ? '✓ Vous suivez ce producteur' : 'Abonnement retiré')
+    if (!res.ok) setIsFollowing(!next)
   }
   function scrollToComments() { commentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
   async function deleteComment(commentId: string) {
@@ -165,12 +167,17 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
   async function sendComment() {
     if (!user) { openAuthModal(); return }
     if (!commentText.trim() || sendingComment) return
-    setSendingComment(true)
+    const text = commentText.trim()
+    const tempId = `temp-${Date.now()}`
+    const tempComment = { id: tempId, user_id: user.id, content: text, parent_id: null, created_at: new Date().toISOString(), profile: profile ? { user_id: user.id, display_name: profile.display_name, avatar_url: profile.avatar_url } : null }
+    setComments(prev => [...prev, tempComment])
+    setCommentCount(n => n + 1)
+    setCommentText('')
     const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token
-    if (!token) { setSendingComment(false); return }
-    const res = await fetch(`/api/producers/${id}/comments`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ content: commentText.trim() }) })
-    if (res.ok) { const d = await res.json(); setComments(prev => [...prev, d.comment]); setCommentCount(n => n + 1); setCommentText('') }
-    setSendingComment(false)
+    if (!token) return
+    const res = await fetch(`/api/producers/${id}/comments`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ content: text }) })
+    if (res.ok) { const d = await res.json(); setComments(prev => prev.map(c => c.id === tempId ? d.comment : c)) }
+    else { setComments(prev => prev.filter(c => c.id !== tempId)); setCommentCount(n => n - 1) }
   }
   function share() {
     const url = window.location.href
@@ -389,7 +396,7 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
               <Avatar name={c.profile?.display_name || '?'} url={c.profile?.avatar_url} size={32} />
               <div style={{ flex: 1, backgroundColor: '#FAF7F2', borderRadius: 12, padding: '9px 13px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: '#2C1810' }}>{c.profile?.display_name ?? 'Anonyme'}</span>
+                  <a href={`/profil/${c.user_id}`} style={{ fontSize: 13, fontWeight: 700, color: '#2C1810', textDecoration: 'none' }}>{c.profile?.display_name ?? 'Anonyme'}</a>
                   <span style={{ fontSize: 11, color: '#AAA' }}>{timeAgo(c.created_at)}</span>
                   {c.user_id === user?.id && editingCommentId !== c.id && (
                     <div style={{ marginLeft: 'auto', position: 'relative' }}>

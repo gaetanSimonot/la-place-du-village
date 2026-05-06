@@ -101,13 +101,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateDisplayName = async (name: string) => {
     if (!user) return
-    const { data } = await supabase
-      .from('profiles')
-      .update({ display_name: name })
-      .eq('user_id', user.id)
-      .select('*')
-      .single()
-    if (data) setProfile({ ...data, id: user.id } as Profile)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const res = await fetch('/api/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ display_name: name }),
+    })
+    if (res.ok) {
+      const d = await res.json()
+      setProfile({ ...d.profile, id: user.id } as Profile)
+    }
   }
 
   return (

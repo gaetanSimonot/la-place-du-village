@@ -518,6 +518,7 @@ export default function HomePage() {
           producers={appMode === 'annuaire' ? filteredProducers : []}
           selectedProducerId={selectedProducerId}
           onSelectProducer={setSelectedProducerId}
+          onOpenProducer={openProducer}
           selectedId={selectedId}
           onSelectEvent={setSelectedId}
           onDeselect={() => setSelectedId(null)}
