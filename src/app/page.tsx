@@ -135,7 +135,7 @@ export default function HomePage() {
       } catch { /* ignore */ }
       setProducerLoading(false)
     })()
-  }, [appMode])
+  }, [appMode, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Zone user (localStorage)
   const [zonePopup, setZonePopup]       = useState(false)

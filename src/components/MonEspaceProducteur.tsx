@@ -9,10 +9,6 @@ interface Producer {
   contact_tel: string | null; contact_whatsapp: string | null; site_web: string | null; photos: string[]
   vente_directe: boolean; retrait_sur_place: boolean
 }
-interface Product {
-  id: string; nom: string; categorie: string; prix_indicatif: string | null
-  disponible: boolean; periode_dispo: string | null; dispo_jusqu_au: string | null
-}
 type Suggestion = { place_id: string; description: string; main: string; secondary: string }
 
 const PRO_TYPES = [
