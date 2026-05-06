@@ -72,17 +72,6 @@ export default function ProducteurPageClient({ id }: { id: string }) {
     toastTimer.current = setTimeout(() => setToast(null), 2000)
   }, [])
 
-  const fetchProducts = useCallback(async () => {
-    console.log('[Realtime] fetchProducts déclenché')
-    try {
-      const d = await fetch(`/api/producers/${id}`).then(r => r.json())
-      console.log('[Realtime] produits reçus:', d.products?.length ?? 0, d.products)
-      setProducts(d.products ?? [])
-    } catch (e) {
-      console.error('[Realtime] fetchProducts erreur:', e)
-    }
-  }, [id])
-
   useEffect(() => {
     fetch(`/api/producers/${id}`)
       .then(r => r.json())
@@ -94,19 +83,26 @@ export default function ProducteurPageClient({ id }: { id: string }) {
   }, [id])
 
   useEffect(() => {
-    console.log('[Realtime] abonnement channel products-' + id)
     const channel = supabase
       .channel(`products-${id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `producer_id=eq.${id}` },
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'products', filter: `producer_id=eq.${id}` },
         (payload) => {
-          console.log('[Realtime] event reçu:', payload)
-          fetchProducts()
+          const p = payload.new as Product
+          if (p.disponible) setProducts(prev => [...prev, p])
         })
-      .subscribe((status) => {
-        console.log('[Realtime] status channel:', status)
-      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'products', filter: `producer_id=eq.${id}` },
+        (payload) => {
+          const p = payload.new as Product
+          if (p.disponible) setProducts(prev => prev.map(x => x.id === p.id ? p : x))
+          else setProducts(prev => prev.filter(x => x.id !== p.id))
+        })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'products', filter: `producer_id=eq.${id}` },
+        (payload) => {
+          setProducts(prev => prev.filter(x => x.id !== payload.old.id))
+        })
+      .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [id, fetchProducts])
+  }, [id])
 
   useEffect(() => {
     if (!user) { setIsFav(false); setIsFollowing(false); return }
