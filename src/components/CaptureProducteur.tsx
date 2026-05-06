@@ -36,6 +36,7 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef    = useRef<any>(null)
   const finalCountRef     = useRef(0)
+  const isStartingRef     = useRef(false)
 
   useEffect(() => {
     getToken().then(token => {
@@ -49,17 +50,21 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
 
   function toggleMic() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const w = window as any
-    const SR = w.SpeechRecognition || w.webkitSpeechRecognition
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SR) return
 
-    if (listening) {
+    if (listening || isStartingRef.current) {
       recognitionRef.current?.stop()
+      recognitionRef.current = null
+      isStartingRef.current = false
+      setListening(false)
       setInterimText('')
       return
     }
 
+    isStartingRef.current = true
     finalCountRef.current = 0
+
     const rec = new SR()
     rec.lang = 'fr-FR'
     rec.continuous = true
@@ -69,7 +74,6 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
       let finalStr = '', interimStr = ''
       for (let i = 0; i < e.results.length; i++) {
         if (e.results[i].isFinal) {
-          // Ignorer les résultats déjà traités (Chrome re-fire sur restart interne)
           if (i >= finalCountRef.current) {
             finalStr += e.results[i][0].transcript + ' '
             finalCountRef.current = i + 1
@@ -81,27 +85,27 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
       if (finalStr) setText(prev => prev ? `${prev} ${finalStr.trim()}` : finalStr.trim())
       setInterimText(interimStr)
     }
-    rec.onend = () => { setListening(false); setInterimText('') }
+    rec.onend = () => { isStartingRef.current = false; setListening(false); setInterimText('') }
     recognitionRef.current = rec
     setListening(true)
 
-    // Tenter de supprimer le bip en jouant un son silencieux avant le démarrage
     ;(async () => {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext
-        if (AudioCtxClass) {
-          const ctx = new AudioCtxClass() as AudioContext
+        const Ctx = window.AudioContext || (window as any).webkitAudioContext
+        if (Ctx) {
+          const ctx = new Ctx()
           await ctx.resume()
-          const buf = ctx.createBuffer(1, 1, 22050)
           const src = ctx.createBufferSource()
-          src.buffer = buf
+          src.buffer = ctx.createBuffer(1, 1, 22050)
           src.connect(ctx.destination)
           src.start(0)
           await new Promise(r => setTimeout(r, 80))
           ctx.close()
         }
       } catch { /* ignore */ }
+      if (!isStartingRef.current) { recognitionRef.current = null; return }
+      isStartingRef.current = false
       rec.start()
     })()
   }
