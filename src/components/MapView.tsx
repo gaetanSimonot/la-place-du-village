@@ -294,30 +294,42 @@ interface EtabMarkersProps {
 
 function EtablissementMarkers({ etablissements, onOpenEtablissement }: EtabMarkersProps) {
   const map = useMap()
-  const markersRef = useRef<google.maps.Marker[]>([])
+  const clustererRef = useRef<MarkerClusterer | null>(null)
+  const markersRef   = useRef<google.maps.Marker[]>([])
 
   useEffect(() => {
     if (!map) return
+
+    // Nettoyer
+    clustererRef.current?.clearMarkers()
     markersRef.current.forEach(m => m.setMap(null))
     markersRef.current = []
 
-    markersRef.current = etablissements
-      .filter(e => e.lat && e.lng)
-      .map(e => {
-        const iconUrl = etabMarkerSvg(false, e.type)
-        const marker = new google.maps.Marker({
-          position: { lat: e.lat!, lng: e.lng! },
-          title: e.nom,
-          optimized: false,
-          map,
-          icon: { url: iconUrl, scaledSize: new google.maps.Size(28, 36), anchor: new google.maps.Point(14, 36) },
-          zIndex: e.is_featured ? 10 : 1,
-        })
-        marker.addListener('click', () => onOpenEtablissement?.(e.id))
-        return marker
+    const withLoc = etablissements.filter(e => e.lat && e.lng)
+    const newMarkers = withLoc.map(e => {
+      const iconUrl = etabMarkerSvg(false, e.type)
+      const marker = new google.maps.Marker({
+        position: { lat: e.lat!, lng: e.lng! },
+        title: e.nom,
+        optimized: false,
+        icon: { url: iconUrl, scaledSize: new google.maps.Size(28, 36), anchor: new google.maps.Point(14, 36) },
+        zIndex: e.is_featured ? 10 : 1,
       })
+      marker.addListener('click', () => onOpenEtablissement?.(e.id))
+      return marker
+    })
+    markersRef.current = newMarkers
 
-    return () => { markersRef.current.forEach(m => m.setMap(null)) }
+    if (!clustererRef.current) {
+      clustererRef.current = new MarkerClusterer({ map, markers: newMarkers })
+    } else {
+      clustererRef.current.addMarkers(newMarkers)
+    }
+
+    return () => {
+      clustererRef.current?.clearMarkers()
+      markersRef.current.forEach(m => m.setMap(null))
+    }
   }, [map, etablissements, onOpenEtablissement])
 
   return null

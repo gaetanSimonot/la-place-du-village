@@ -71,6 +71,8 @@ interface Props {
   selectedEtabType?: EtablissementType | null
   onEtabTypeChange?: (t: EtablissementType | null) => void
   onOpenEtablissement?: (id: string) => void
+  annuaireTab?: number
+  onAnnuaireTabChange?: (idx: number) => void
 }
 
 export default function BottomSheet({
@@ -86,6 +88,7 @@ export default function BottomSheet({
   featuredProducers = [], onOpenProducer,
   etablissements = [], etablissementLoading = false,
   selectedEtabType = null, onEtabTypeChange, onOpenEtablissement,
+  annuaireTab: annuaireTabProp, onAnnuaireTabChange,
 }: Props) {
   const { sheetBg } = useTheme()
   const [peekH, setPeekH]         = useState(130) // hauteur mesurée du header
@@ -110,8 +113,13 @@ export default function BottomSheet({
   const [quandOpen,   setQuandOpen]   = useState(false)
   const [quandCursor, setQuandCursor] = useState(-1)
 
-  // Annuaire state
-  const [annuaireTabIdx,  setAnnuaireTabIdx]  = useState(0)
+  // Annuaire state — contrôlé par le parent si onAnnuaireTabChange est fourni
+  const [annuaireTabIdxLocal, setAnnuaireTabIdxLocal] = useState(0)
+  const annuaireTabIdx = annuaireTabProp ?? annuaireTabIdxLocal
+  const setAnnuaireTabIdx = (idx: number) => {
+    setAnnuaireTabIdxLocal(idx)
+    onAnnuaireTabChange?.(idx)
+  }
   const [annuaireRowOpen, setAnnuaireRowOpen] = useState(false)
 
   // Refs pour auto-scroll des rows

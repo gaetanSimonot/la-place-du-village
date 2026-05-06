@@ -120,6 +120,7 @@ export default function HomePage() {
   const [selectedEtabType, setSelectedEtabType]     = useState<EtablissementType | null>(null)
   const [openEtablissementId, setOpenEtablissementId] = useState<string | null>(null)
   const openEtablissementIdRef = useRef<string | null>(null)
+  const [annuaireTab, setAnnuaireTab] = useState(0) // 0 = producteurs, 1 = commerces
   const [selectedCats, setSelectedCats] = useState<ProduitCategorie[]>([])
   const [producerSearch, setProducerSearch] = useState('')
   const [loading, setLoading]       = useState(true)
@@ -558,11 +559,11 @@ export default function HomePage() {
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 40, zIndex: 5, pointerEvents: 'auto' }} />
         <MapView
           evenements={appMode === 'annuaire' ? [] : evenements}
-          producers={appMode === 'annuaire' ? filteredProducers : []}
+          producers={appMode === 'annuaire' && annuaireTab === 0 ? filteredProducers : []}
           selectedProducerId={selectedProducerId}
           onSelectProducer={setSelectedProducerId}
           onOpenProducer={openProducer}
-          etablissements={appMode === 'annuaire' ? etablissements : []}
+          etablissements={appMode === 'annuaire' && annuaireTab === 1 ? etablissements : []}
           onOpenEtablissement={openEtablissement}
           selectedId={selectedId}
           onSelectEvent={setSelectedId}
@@ -898,6 +899,8 @@ export default function HomePage() {
         selectedEtabType={selectedEtabType}
         onEtabTypeChange={setSelectedEtabType}
         onOpenEtablissement={openEtablissement}
+        annuaireTab={annuaireTab}
+        onAnnuaireTabChange={setAnnuaireTab}
       />
 
       {/* Favoris — panneau inline au-dessus de la carte */}
