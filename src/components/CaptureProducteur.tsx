@@ -32,6 +32,7 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
   const [publishing, setPublishing] = useState(false)
   const [publishedCount, setPublishedCount] = useState(0)
   const [noProducer, setNoProducer] = useState(false)
+  const [interimText, setInterimText] = useState('')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null)
 
@@ -53,36 +54,47 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
 
     if (listening) {
       recognitionRef.current?.stop()
+      setInterimText('')
       return
     }
 
     const rec = new SR()
     rec.lang = 'fr-FR'
     rec.continuous = true
-    rec.interimResults = false
+    rec.interimResults = true
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rec.onresult = (e: any) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const transcript = Array.from(e.results).map((r: any) => r[0].transcript).join(' ')
-      setText(prev => prev ? `${prev} ${transcript}` : transcript)
-    }
-    rec.onend = () => setListening(false)
-    // Play a silent sound to suppress the browser's beep on SpeechRecognition start
-    try {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-      if (AudioCtx) {
-        const ctx = new AudioCtx()
-        const buf = ctx.createBuffer(1, 1, 22050)
-        const src = ctx.createBufferSource()
-        src.buffer = buf
-        src.connect(ctx.destination)
-        src.start(0)
-        setTimeout(() => ctx.close(), 100)
+      let finalStr = '', interimStr = ''
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) finalStr += e.results[i][0].transcript + ' '
+        else interimStr += e.results[i][0].transcript
       }
-    } catch { /* ignore */ }
-    rec.start()
+      if (finalStr) setText(prev => prev ? `${prev} ${finalStr.trim()}` : finalStr.trim())
+      setInterimText(interimStr)
+    }
+    rec.onend = () => { setListening(false); setInterimText('') }
     recognitionRef.current = rec
     setListening(true)
+
+    // Tenter de supprimer le bip en jouant un son silencieux avant le démarrage
+    ;(async () => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext
+        if (AudioCtxClass) {
+          const ctx = new AudioCtxClass() as AudioContext
+          await ctx.resume()
+          const buf = ctx.createBuffer(1, 1, 22050)
+          const src = ctx.createBufferSource()
+          src.buffer = buf
+          src.connect(ctx.destination)
+          src.start(0)
+          await new Promise(r => setTimeout(r, 80))
+          ctx.close()
+        }
+      } catch { /* ignore */ }
+      rec.start()
+    })()
   }
 
   async function analyse() {
@@ -181,37 +193,81 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
           {/* Step 1 — Texte / voix */}
           {!noProducer && publishedCount === 0 && step === 'capture' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <p style={{ margin: 0, fontSize: 13, color: '#8A8A8A', fontFamily: 'Inter, sans-serif' }}>
-                Dictez ou tapez vos produits : noms, prix, disponibilité…
-              </p>
-              <div style={{ position: 'relative' }}>
-                <textarea value={text} onChange={e => setText(e.target.value)} rows={6}
-                  placeholder="Ex : j'ai des tomates cerises à 2€ la barquette disponibles cette semaine, des courgettes à 1€/kg, du miel de lavande 8€ le pot…"
-                  style={{ ...inp, resize: 'none', lineHeight: 1.6, paddingRight: 48, minHeight: 140 }} />
-                <button onClick={toggleMic} title={listening ? 'Arrêter' : 'Dicter'} style={{
-                  position: 'absolute', bottom: 8, right: 8,
-                  width: 36, height: 36, borderRadius: '50%', border: 'none', cursor: 'pointer',
-                  backgroundColor: listening ? '#E8622A' : '#EDE8E0',
-                  color: listening ? '#fff' : '#6B6B6B',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
-                }}>
-                  🎤
-                </button>
-              </div>
-              {listening && (
-                <p style={{ margin: 0, fontSize: 12, color: '#E8622A', fontFamily: 'Inter, sans-serif', textAlign: 'center' }}>
-                  🔴 Écoute en cours… Parlez maintenant
-                </p>
+
+              {listening ? (
+                /* ── Mode écoute : visualiseur vocal ── */
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, padding: '12px 0' }}>
+                  {/* Cercles animés */}
+                  <div style={{ position: 'relative', width: 120, height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ position: 'absolute', width: 120, height: 120, borderRadius: '50%', border: '2px solid rgba(232,98,42,0.2)', animation: 'pdv-ring 1.8s ease-out infinite' }} />
+                    <div style={{ position: 'absolute', width: 90, height: 90, borderRadius: '50%', border: '2px solid rgba(232,98,42,0.3)', animation: 'pdv-ring 1.8s ease-out infinite 0.6s' }} />
+                    <div style={{ width: 62, height: 62, borderRadius: '50%', backgroundColor: '#E8622A', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 24px rgba(232,98,42,0.45)', animation: 'pdv-breathe 1.4s ease-in-out infinite alternate' }}>
+                      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" fill="white" stroke="none"/>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                        <line x1="12" y1="19" x2="12" y2="23"/>
+                        <line x1="8" y1="23" x2="16" y2="23"/>
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* Transcription en cours (interim) */}
+                  <div style={{ width: '100%', minHeight: 52, backgroundColor: '#FAF7F2', borderRadius: 14, padding: '11px 14px', fontSize: 14, color: interimText ? '#6B6B6B' : '#C0B9B0', fontFamily: 'Inter, sans-serif', lineHeight: 1.6, fontStyle: 'italic', textAlign: interimText ? 'left' : 'center' }}>
+                    {interimText || 'Parlez maintenant…'}
+                  </div>
+
+                  {/* Texte accumulé */}
+                  {text && (
+                    <div style={{ width: '100%', backgroundColor: '#fff', borderRadius: 14, padding: '11px 14px', fontSize: 13, color: '#2C1810', fontFamily: 'Inter, sans-serif', lineHeight: 1.6, border: '1px solid #EDE8E0' }}>
+                      {text}
+                    </div>
+                  )}
+
+                  <button onClick={toggleMic} style={{ padding: '12px 36px', borderRadius: 999, border: 'none', backgroundColor: '#E8622A', color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 4px 16px rgba(232,98,42,0.3)' }}>
+                    ⬛ Arrêter
+                  </button>
+                </div>
+              ) : (
+                /* ── Mode texte ── */
+                <>
+                  <p style={{ margin: 0, fontSize: 13, color: '#8A8A8A', fontFamily: 'Inter, sans-serif' }}>
+                    Dictez ou tapez vos produits : noms, prix, disponibilité…
+                  </p>
+                  <div style={{ position: 'relative' }}>
+                    <textarea value={text} onChange={e => setText(e.target.value)} rows={6}
+                      placeholder="Ex : j'ai des tomates cerises à 2€ la barquette disponibles cette semaine, des courgettes à 1€/kg, du miel de lavande 8€ le pot…"
+                      style={{ ...inp, resize: 'none', lineHeight: 1.6, paddingRight: 48, minHeight: 140 }} />
+                    <button onClick={toggleMic} title="Dicter" style={{
+                      position: 'absolute', bottom: 8, right: 8,
+                      width: 36, height: 36, borderRadius: '50%', border: 'none', cursor: 'pointer',
+                      backgroundColor: '#EDE8E0', color: '#6B6B6B',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
+                    }}>🎤</button>
+                  </div>
+                </>
               )}
 
-              <button onClick={analyse} disabled={!text.trim() || scanning} style={{
-                padding: '14px', borderRadius: 12, border: 'none',
-                cursor: text.trim() && !scanning ? 'pointer' : 'default',
-                backgroundColor: text.trim() && !scanning ? 'var(--primary)' : '#CCC',
-                color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15,
-              }}>
-                {scanning ? '⏳ Analyse en cours…' : '→ Créer les produits'}
-              </button>
+              {!listening && (
+                <button onClick={analyse} disabled={!text.trim() || scanning} style={{
+                  padding: '14px', borderRadius: 12, border: 'none',
+                  cursor: text.trim() && !scanning ? 'pointer' : 'default',
+                  backgroundColor: text.trim() && !scanning ? 'var(--primary)' : '#CCC',
+                  color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15,
+                }}>
+                  {scanning ? '⏳ Analyse en cours…' : '→ Créer les produits'}
+                </button>
+              )}
+
+              <style>{`
+                @keyframes pdv-ring {
+                  0%  { transform: scale(0.6); opacity: 0.9; }
+                  100%{ transform: scale(1.25); opacity: 0; }
+                }
+                @keyframes pdv-breathe {
+                  from { box-shadow: 0 4px 24px rgba(232,98,42,0.4); transform: scale(1); }
+                  to   { box-shadow: 0 4px 36px rgba(232,98,42,0.7); transform: scale(1.06); }
+                }
+              `}</style>
             </div>
           )}
 

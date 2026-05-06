@@ -294,21 +294,19 @@ export default function ProductsEditSection({ producerId }: { producerId: string
                           {p.prix_indicatif && <p style={{ fontSize: 12, color: '#8A8A8A', margin: '0 0 6px' }}>{p.prix_indicatif}</p>}
 
                           {/* Boutons actions */}
-                          <div style={{ display: 'flex', gap: 6 }}>
+                          <div style={{ display: 'flex', gap: 5 }}>
                             <button onClick={() => { setEditingId(p.id); setEditDraft({ nom: p.nom, categorie: normalizeProduitCat(p.categorie), prix_indicatif: p.prix_indicatif ?? '' }) }}
-                              style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid #DDD', background: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', color: '#2D5A3D', fontFamily: 'Inter, sans-serif' }}>
-                              ✏️ Modifier
+                              title="Modifier" style={{ padding: '3px 9px', borderRadius: 6, border: '1px solid #DDD', background: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer', color: '#2D5A3D', fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', gap: 3 }}>
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                              Éditer
                             </button>
-                            <button onClick={() => deleteProduct(p.id)} disabled={isDeleting}
-                              style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid #FCD5C8', background: '#FEF2EF', fontSize: 12, fontWeight: 600, cursor: isDeleting ? 'default' : 'pointer', color: '#C84B2F', fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <button onClick={() => deleteProduct(p.id)} disabled={isDeleting} title="Supprimer"
+                              style={{ padding: '3px 9px', borderRadius: 6, border: '1px solid #FCD5C8', background: '#FEF2EF', fontSize: 11, cursor: isDeleting ? 'default' : 'pointer', color: '#C84B2F', fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', gap: 3 }}>
                               {isDeleting
-                                ? <><div style={{ width: 12, height: 12, borderRadius: '50%', border: '1.5px solid #FCD5C8', borderTopColor: '#C84B2F', animation: 'spin 0.7s linear infinite' }} /> Suppression…</>
-                                : <>
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                                      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>
-                                    </svg>
-                                    Supprimer
-                                  </>
+                                ? <div style={{ width: 11, height: 11, borderRadius: '50%', border: '1.5px solid #FCD5C8', borderTopColor: '#C84B2F', animation: 'spin 0.7s linear infinite' }} />
+                                : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>
+                                  </svg>
                               }
                             </button>
                           </div>

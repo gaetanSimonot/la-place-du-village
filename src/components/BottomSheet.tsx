@@ -329,7 +329,7 @@ export default function BottomSheet({
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 18, color: '#1C1917', margin: 0, lineHeight: 1.1 }}>
-                {producers.length} {ANNUAIRE_TABS[annuaireTabIdx].label.toLowerCase()}{producers.length > 1 ? 's' : ''}
+                {producers.length} {ANNUAIRE_TABS[annuaireTabIdx].label.toLowerCase().replace(/s$/, '')}{producers.length !== 1 ? 's' : ''}
               </p>
               <p style={{ fontFamily: 'Inter, sans-serif', fontSize: 13, color: '#6B5E4E', margin: '2px 0 0', lineHeight: 1.2 }}>
                 Autour de toi
@@ -741,9 +741,9 @@ function ProducerListCard({ producer, isSelected, onSelect, onViewOnMap, onOpenP
     .filter(Boolean)
 
   return (
-    <Link href={`/producteur/${producer.id}`} onClick={() => { onSelect(); onOpenProducer?.() }} style={{
+    <div onClick={() => { onSelect(); onOpenProducer?.() }} style={{
       display: 'flex', height: 86, flexShrink: 0,
-      borderRadius: 14, overflow: 'hidden', textDecoration: 'none',
+      borderRadius: 14, overflow: 'hidden', cursor: 'pointer',
       backgroundColor: '#fff',
       boxShadow: isSelected
         ? '0 0 0 2.5px #2D5A3D, 0 4px 18px rgba(0,0,0,0.14)'
@@ -798,7 +798,7 @@ function ProducerListCard({ producer, isSelected, onSelect, onViewOnMap, onOpenP
           </div>
         </div>
       </div>
-    </Link>
+    </div>
   )
 }
 

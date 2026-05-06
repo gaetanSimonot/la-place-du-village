@@ -45,7 +45,7 @@ function InfoChip({ label, sub }: { label: string; sub: string }) {
   )
 }
 
-export default function ProducteurPageClient({ id }: { id: string }) {
+export default function ProducteurPageClient({ id, onBack }: { id: string; onBack?: () => void }) {
   const router = useRouter()
   const { user, profile } = useAuth()
   const { openAuthModal } = useAuthModal()
@@ -199,7 +199,7 @@ export default function ProducteurPageClient({ id }: { id: string }) {
 
       {/* Header sticky */}
       <div style={{ position: 'sticky', top: 0, zIndex: 20, backgroundColor: 'rgba(242,235,224,0.92)', backdropFilter: 'blur(10px)', padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={() => router.back()} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.8)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2D5A3D', fontSize: 18, flexShrink: 0, boxShadow: '0 1px 6px rgba(0,0,0,0.1)' }}>←</button>
+        <button onClick={() => onBack ? onBack() : router.back()} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.8)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2D5A3D', fontSize: 18, flexShrink: 0, boxShadow: '0 1px 6px rgba(0,0,0,0.1)' }}>←</button>
         <p style={{ flex: 1, fontWeight: 700, fontSize: 15, color: '#2C1810', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{producer.nom}</p>
         {isAdmin && !isOwner && <button onClick={() => setEditing(true)} style={{ fontSize: 11, fontWeight: 700, color: '#2D5A3D', border: '1.5px solid #2D5A3D', borderRadius: 10, padding: '5px 12px', backgroundColor: 'transparent', cursor: 'pointer', flexShrink: 0 }}>✏️</button>}
       </div>
@@ -336,17 +336,29 @@ export default function ProducteurPageClient({ id }: { id: string }) {
                   {filteredProducts.map(p => {
                     const catInfo = PRODUIT_CATS_MAP[normalizeProduitCat(p.categorie)]
                     return (
-                      <div key={p.id} style={{ backgroundColor: '#FAF7F2', borderRadius: 14, overflow: 'hidden' }}>
-                        <div style={{ height: 110, backgroundColor: '#E8F2EB', overflow: 'hidden' }}>
+                      <div key={p.id} style={{ backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 10px rgba(44,28,16,0.07)' }}>
+                        {/* Photo */}
+                        <div style={{ height: 130, backgroundColor: '#E8F2EB', overflow: 'hidden', position: 'relative' }}>
                           {p.image_url
-                            ? <img src={p.image_url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>{catInfo?.emoji ?? '✦'}</div>}
+                            ? <>
+                                <img src={p.image_url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.15), transparent 55%)' }} />
+                              </>
+                            : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44 }}>{catInfo?.emoji ?? '✦'}</div>}
+                          {/* Badge dispo en overlay */}
+                          {p.periode_dispo === 'semaine' && (
+                            <span style={{ position: 'absolute', top: 8, left: 8, fontSize: 9, fontWeight: 700, color: '#2D5A3D', backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 999, padding: '2px 7px', backdropFilter: 'blur(4px)' }}>Cette sem.</span>
+                          )}
+                          {p.periode_dispo === 'weekend' && (
+                            <span style={{ position: 'absolute', top: 8, left: 8, fontSize: 9, fontWeight: 700, color: '#C4622D', backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 999, padding: '2px 7px', backdropFilter: 'blur(4px)' }}>Ce weekend</span>
+                          )}
                         </div>
-                        <div style={{ padding: '8px 10px 10px' }}>
-                          <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 13, color: '#2C1810', margin: '0 0 5px', lineHeight: 1.3 }}>{p.nom}</p>
-                          {p.periode_dispo === 'semaine' && <span style={{ display: 'inline-block', fontSize: 10, color: '#2D5A3D', backgroundColor: '#DFF0E3', borderRadius: 999, padding: '2px 8px', fontWeight: 700, marginBottom: 4 }}>Cette sem.</span>}
-                          {p.periode_dispo === 'weekend' && <span style={{ display: 'inline-block', fontSize: 10, color: '#C4622D', backgroundColor: '#FDE8DC', borderRadius: 999, padding: '2px 8px', fontWeight: 700, marginBottom: 4 }}>Ce weekend</span>}
-                          {p.prix_indicatif && <p style={{ fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 800, color: '#5C3D1E', margin: 0 }}>{p.prix_indicatif}</p>}
+                        {/* Infos */}
+                        <div style={{ padding: '9px 11px 11px' }}>
+                          <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 13, color: '#2C1810', margin: '0 0 3px', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{p.nom}</p>
+                          {p.prix_indicatif
+                            ? <p style={{ fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 800, color: '#2D5A3D', margin: 0, letterSpacing: '-0.01em' }}>{p.prix_indicatif}</p>
+                            : <p style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: '#C0B9B0', margin: 0 }}>Prix sur demande</p>}
                         </div>
                       </div>
                     )

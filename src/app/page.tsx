@@ -21,8 +21,9 @@ import WelcomePopup from '@/components/WelcomePopup'
 import { useFavorites } from '@/hooks/useFavorites'
 import { useProducerFavorites } from '@/hooks/useProducerFavorites'
 
-const MapView     = dynamic(() => import('@/components/MapView'),     { ssr: false })
-const BottomSheet = dynamic(() => import('@/components/BottomSheet'), { ssr: false })
+const MapView               = dynamic(() => import('@/components/MapView'),                    { ssr: false })
+const BottomSheet           = dynamic(() => import('@/components/BottomSheet'),                { ssr: false })
+const ProducteurPageClient  = dynamic(() => import('@/app/producteur/[id]/client'),            { ssr: false })
 
 const defaultFiltres: Filtres = { categories: [], quand: 'toujours' }
 const NAV_H = 62
@@ -87,6 +88,8 @@ export default function HomePage() {
   const [producers, setProducers]             = useState<import('@/lib/types').ProducerCard[]>([])
   const [producerLoading, setProducerLoading] = useState(false)
   const [selectedProducerId, setSelectedProducerId] = useState<string | null>(null)
+  const [openProducerId, setOpenProducerIdState]    = useState<string | null>(null)
+  const openProducerIdRef = useRef<string | null>(null)
   const [selectedCats, setSelectedCats] = useState<ProduitCategorie[]>([])
   const [producerSearch, setProducerSearch] = useState('')
   const [loading, setLoading]       = useState(true)
@@ -431,6 +434,31 @@ export default function HomePage() {
   }, [producers, selectedCats, producerSearch])
 
   const featuredProducers = useMemo(() => producers.filter(p => p.is_featured), [producers])
+
+  const openProducer = useCallback((id: string) => {
+    openProducerIdRef.current = id
+    setOpenProducerIdState(id)
+    history.pushState({ pdv: 'producer', id }, '', `/producteur/${id}`)
+  }, [])
+
+  const closeProducer = useCallback(() => {
+    if (!openProducerIdRef.current) return
+    openProducerIdRef.current = null
+    setOpenProducerIdState(null)
+    if (window.location.pathname.startsWith('/producteur/')) history.back()
+  }, [])
+
+  // Ferme l'overlay producteur quand l'utilisateur appuie sur "retour"
+  useEffect(() => {
+    const onPop = () => {
+      if (openProducerIdRef.current) {
+        openProducerIdRef.current = null
+        setOpenProducerIdState(null)
+      }
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   const handleViewProducerOnMap = (id: string) => {
     const p = producers.find(x => x.id === id)
@@ -897,7 +925,7 @@ export default function HomePage() {
         producerFavIds={producerFavIds}
         onToggleProducerFav={toggleProducerFav}
         featuredProducers={featuredProducers}
-        onOpenProducer={saveNavForProducer}
+        onOpenProducer={openProducer}
       />
 
       {/* Favoris — panneau inline au-dessus de la carte */}
@@ -920,6 +948,13 @@ export default function HomePage() {
           zIndex: 25, overflowY: 'auto', backgroundColor: 'var(--creme)',
         }}>
           <ProfilView />
+        </div>
+      )}
+
+      {/* Overlay fiche producteur — sans navigation, retour = popstate */}
+      {openProducerId && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 35, overflowY: 'auto', backgroundColor: '#F2EBE0' }}>
+          <ProducteurPageClient id={openProducerId} onBack={closeProducer} />
         </div>
       )}
 
