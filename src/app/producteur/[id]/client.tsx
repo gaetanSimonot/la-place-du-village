@@ -83,19 +83,21 @@ export default function ProducteurPageClient({ id }: { id: string }) {
   }, [id])
 
   useEffect(() => {
-    const refetch = async () => {
-      const { data } = await supabase
-        .from('products')
-        .select('id, nom, categorie, prix_indicatif, periode_dispo, disponible')
-        .eq('producer_id', id)
-        .eq('disponible', true)
-        .order('categorie', { ascending: true })
-      setProducts(data ?? [])
-    }
     const channel = supabase
       .channel(`products-${id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `producer_id=eq.${id}` },
-        () => refetch())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'products', filter: `producer_id=eq.${id}` },
+        ({ new: p }) => {
+          const product = p as Product
+          if (product.disponible) setProducts(prev => [...prev, product])
+        })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'products', filter: `producer_id=eq.${id}` },
+        ({ new: p }) => {
+          const product = p as Product
+          if (product.disponible) setProducts(prev => prev.map(x => x.id === product.id ? product : x))
+          else setProducts(prev => prev.filter(x => x.id !== product.id))
+        })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'products', filter: `producer_id=eq.${id}` },
+        ({ old: p }) => setProducts(prev => prev.filter(x => x.id !== (p as Product).id)))
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [id])
