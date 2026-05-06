@@ -36,6 +36,11 @@ Pour chaque produit trouvé, génère un objet JSON avec ces champs :
 - disponible (boolean) : true par défaut
 - periode_dispo (string|null) : "semaine", "weekend", ou null
 
+Règles importantes :
+- Si le producteur mentionne un "panier" (panier de légumes, panier de saison, panier découverte…), utilise la catégorie "panier". Le nom doit décrire le contenu : ex "Panier de légumes de saison (courgettes, tomates, salade)", "Panier découverte fromages". Liste le contenu entre parenthèses dans le nom si mentionné.
+- Un panier est UN seul produit. Ne le décompose pas en plusieurs produits sauf si le producteur vend aussi les éléments séparément.
+- Période : "cette semaine" → "semaine", "ce weekend" → "weekend".
+
 Réponds UNIQUEMENT avec du JSON valide, sans markdown, sans commentaire :
 {"products":[...]}`
 

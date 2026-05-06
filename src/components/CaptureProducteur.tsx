@@ -67,6 +67,19 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
       setText(prev => prev ? `${prev} ${transcript}` : transcript)
     }
     rec.onend = () => setListening(false)
+    // Play a silent sound to suppress the browser's beep on SpeechRecognition start
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+      if (AudioCtx) {
+        const ctx = new AudioCtx()
+        const buf = ctx.createBuffer(1, 1, 22050)
+        const src = ctx.createBufferSource()
+        src.buffer = buf
+        src.connect(ctx.destination)
+        src.start(0)
+        setTimeout(() => ctx.close(), 100)
+      }
+    } catch { /* ignore */ }
     rec.start()
     recognitionRef.current = rec
     setListening(true)

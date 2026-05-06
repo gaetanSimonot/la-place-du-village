@@ -66,6 +66,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { data, error } = await supabaseAdmin
     .from('products')
     .update({
+      ...(body.nom !== undefined ? { nom: body.nom } : {}),
+      ...(body.categorie !== undefined ? { categorie: body.categorie } : {}),
+      ...(body.prix_indicatif !== undefined ? { prix_indicatif: body.prix_indicatif || null } : {}),
       disponible: body.disponible ?? item.disponible,
       periode_dispo: body.periode_dispo ?? null,
       dispo_jusqu_au: (body.dispo_jusqu_au === '' ? null : body.dispo_jusqu_au) ?? null,

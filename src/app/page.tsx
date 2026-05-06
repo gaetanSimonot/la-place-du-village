@@ -78,6 +78,12 @@ export default function HomePage() {
   const [splashDone, setSplashDone]           = useState(false)
   const [showWelcome, setShowWelcome]         = useState(false)
   const [appMode, setAppMode]                 = useState<'agenda' | 'annuaire'>('agenda')
+  // Restore annuaire mode after returning from a producer page
+  useEffect(() => {
+    const saved = sessionStorage.getItem('appMode')
+    if (saved === 'annuaire') { setAppMode('annuaire'); sessionStorage.removeItem('appMode') }
+  }, [])
+  useEffect(() => { sessionStorage.setItem('appMode', appMode) }, [appMode])
   const [producers, setProducers]             = useState<import('@/lib/types').ProducerCard[]>([])
   const [producerLoading, setProducerLoading] = useState(false)
   const [selectedProducerId, setSelectedProducerId] = useState<string | null>(null)
