@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
@@ -129,7 +129,6 @@ function SubscriptionModal({ etabId, etabNom, onClose }: { etabId: string; etabN
 
 export default function EtablissementPageClient({ id, onBack }: { id: string; onBack?: () => void }) {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const { user, profile } = useAuth()
   const { openAuthModal } = useAuthModal()
   const isAdmin = useAdminSession()
@@ -155,7 +154,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
   }, [])
 
   useEffect(() => {
-    if (searchParams.get('subscribed') === '1') {
+    if (new URLSearchParams(window.location.search).get('subscribed') === '1') {
       showToast('🎉 Abonnement activé ! Vous gérez maintenant cette fiche.')
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps

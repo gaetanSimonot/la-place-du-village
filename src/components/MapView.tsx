@@ -144,7 +144,7 @@ function MapDragListener({ onDragStart, onDragEnd, onCameraIdle }: {
       const c = map.getCenter(); const z = map.getZoom()
       if (c && z !== undefined) onCameraIdle(c.lat(), c.lng(), z)
     }))
-    return () => listeners.forEach(l => l.remove())
+    return () => listeners.forEach(l => l?.remove())
   }, [map, onDragStart, onDragEnd, onCameraIdle])
   return null
 }

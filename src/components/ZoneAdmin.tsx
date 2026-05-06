@@ -23,7 +23,7 @@ function MapCenterTracker({ onIdle }: { onIdle: (lat: number, lng: number, zoom:
       const z = map.getZoom()
       if (c && z != null) cbRef.current(c.lat(), c.lng(), z)
     })
-    return () => (l as google.maps.MapsEventListener).remove()
+    return () => (l as google.maps.MapsEventListener)?.remove()
   }, [map])
 
   return null
