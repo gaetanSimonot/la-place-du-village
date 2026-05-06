@@ -6,6 +6,7 @@ import { CATEGORIES } from '@/lib/categories'
 import { PRODUIT_CATS } from '@/lib/produit-cats'
 import { ETAB_TYPE_LIST } from '@/lib/etablissement-types'
 import { formatDate } from '@/lib/filters'
+import { haversineKm } from '@/lib/distance'
 import Link from 'next/link'
 import ProducerBandeau from '@/components/ProducerBandeau'
 import EtabBandeau from '@/components/EtabBandeau'
@@ -140,9 +141,11 @@ export default function BottomSheet({
   const prodCatPillRefs  = useRef<(HTMLButtonElement | null)[]>([])
   const etabTypePillRefs = useRef<(HTMLButtonElement | null)[]>([])
 
-  // Filtre établissements (note minimum)
+  // Filtre établissements
   const [etabFilterOpen, setEtabFilterOpen] = useState(false)
   const [etabMinNote, setEtabMinNote]       = useState(0)
+  const [etabVille, setEtabVille]           = useState('')
+  const [etabRayon, setEtabRayon]           = useState<number | null>(null)
 
   // ResizeObserver sur le header pour mesurer sa hauteur réelle
   useEffect(() => {
@@ -253,20 +256,23 @@ export default function BottomSheet({
     onFiltresChange({ ...filtres, quand: 'toujours' })
   }
 
-  // ── Annuaire tab buttons — cycling filtres au clic (même logique que quoi/quand) ──
+  // ── Annuaire tab buttons — cycling filtres au clic ──
+  // Cycle : -1(Tout) → 0 → 1 → … → N-1 → -1(Tout) → …  (une seule boucle, pas de double clic)
   const handleProdBtn = () => {
     if (annuaireTabIdx !== 0) { setAnnuaireTabIdx(0); if (mode === 'peek') snapTo('half'); return }
     if (mode === 'peek') snapTo('half')
-    const next = prodCatCursor + 1 < PRODUIT_CATS.length ? prodCatCursor + 1 : -1
-    if (next === -1) { setProdCatCursor(-1); onSelectedCatsChange?.([]) }
-    else { setProdCatCursor(next); onSelectedCatsChange?.([PRODUIT_CATS[next].id]) }
+    const next = (prodCatCursor + 2) % (PRODUIT_CATS.length + 1) - 1  // -1,0,1,…,N-1,-1,…
+    setProdCatCursor(next)
+    if (next < 0) onSelectedCatsChange?.([])
+    else onSelectedCatsChange?.([PRODUIT_CATS[next].id])
   }
   const handleEtabBtn = () => {
     if (annuaireTabIdx !== 1) { setAnnuaireTabIdx(1); if (mode === 'peek') snapTo('half'); return }
     if (mode === 'peek') snapTo('half')
-    const next = etabTypeCursor + 1 < ETAB_TYPE_LIST.length ? etabTypeCursor + 1 : -1
-    if (next === -1) { setEtabTypeCursor(-1); onEtabTypeChange?.(null) }
-    else { setEtabTypeCursor(next); onEtabTypeChange?.(ETAB_TYPE_LIST[next].id) }
+    const next = (etabTypeCursor + 2) % (ETAB_TYPE_LIST.length + 1) - 1
+    setEtabTypeCursor(next)
+    if (next < 0) onEtabTypeChange?.(null)
+    else onEtabTypeChange?.(ETAB_TYPE_LIST[next].id)
   }
 
   // Auto-scroll vers le pill actif (annuaire)
@@ -283,16 +289,42 @@ export default function BottomSheet({
   const quoiLabel     = quoiCursor < 0 ? 'Que faire ?' : CATEGORIES[CATS[quoiCursor]].label
   const quandBtnLabel = quandCursor < 0 ? 'Quand donc ?' : QUAND_OPTIONS[quandCursor].short
 
-  const prodBtnLabel = prodCatCursor < 0 ? 'Producteurs' : PRODUIT_CATS[prodCatCursor]?.label ?? 'Producteurs'
-  const etabBtnLabel = etabTypeCursor < 0 ? 'Commerces'  : ETAB_TYPE_LIST[etabTypeCursor]?.label ?? 'Commerces'
+  // Quand le tab est actif, curseur -1 s'affiche "Tout" pour rendre l'étape visible
+  const prodBtnLabel = (annuaireTabIdx === 0 && prodCatCursor < 0) ? 'Tout' : prodCatCursor < 0 ? 'Producteurs' : PRODUIT_CATS[prodCatCursor]?.label ?? 'Producteurs'
+  const etabBtnLabel = (annuaireTabIdx === 1 && etabTypeCursor < 0) ? 'Tout'  : etabTypeCursor < 0 ? 'Commerces'  : ETAB_TYPE_LIST[etabTypeCursor]?.label ?? 'Commerces'
   const hasProdFilter = prodCatCursor >= 0
   const hasEtabFilter = etabTypeCursor >= 0
 
-  // Filtre note appliqué localement
-  const displayedEtabs = etabMinNote > 0
-    ? etablissements.filter(e => e.note_google !== null && e.note_google >= etabMinNote)
-    : etablissements
-  const etabFilterActive = etabMinNote > 0
+  // Centre de la ville saisie (lat/lng du premier établissement correspondant)
+  const villeCenter = useMemo(() => {
+    const q = etabVille.trim().toLowerCase()
+    if (!q) return null
+    const e = etablissements.find(e2 => e2.commune?.toLowerCase().includes(q) && e2.lat && e2.lng)
+    return e ? { lat: e.lat!, lng: e.lng! } : null
+  }, [etablissements, etabVille])
+
+  // Tous les filtres locaux appliqués à la liste
+  const displayedEtabs = useMemo(() => {
+    const q = etabSearch.trim().toLowerCase()
+    return etablissements.filter(e => {
+      if (etabMinNote > 0 && (!e.note_google || e.note_google < etabMinNote)) return false
+      if (q) {
+        const hit = e.nom.toLowerCase().includes(q)
+          || (e.commune?.toLowerCase().includes(q) ?? false)
+          || (e.description_courte?.toLowerCase().includes(q) ?? false)
+        if (!hit) return false
+      }
+      if (etabVille.trim()) {
+        if (!e.commune?.toLowerCase().includes(etabVille.trim().toLowerCase())) return false
+      }
+      if (etabRayon && villeCenter && e.lat && e.lng) {
+        if (haversineKm(villeCenter.lat, villeCenter.lng, e.lat, e.lng) > etabRayon) return false
+      }
+      return true
+    })
+  }, [etablissements, etabMinNote, etabSearch, etabVille, etabRayon, villeCenter])
+
+  const etabFilterActive = etabMinNote > 0 || !!etabVille.trim() || etabRayon !== null
 
   // Reset state quand on change de mode
   useEffect(() => {
@@ -456,7 +488,7 @@ export default function BottomSheet({
               const active = annuaireTabIdx === 0
               return (
                 <button onClick={handleProdBtn}
-                  style={{ flex: 1, height: 52, borderRadius: 14, border: 'none', backgroundColor: active ? '#2D5A3D' : '#E8F2EB', color: active ? '#fff' : '#2D5A3D', fontFamily: 'Inter, sans-serif', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '0 12px', gap: 9, overflow: 'hidden', opacity: active && hasProdFilter ? 1 : 0.85, transition: 'all 0.15s' }}>
+                  style={{ flex: 1, height: 52, borderRadius: 14, border: 'none', backgroundColor: active ? '#2D5A3D' : '#E8F2EB', color: active ? '#fff' : '#2D5A3D', fontFamily: 'Inter, sans-serif', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '0 12px', gap: 9, overflow: 'hidden', opacity: active ? 1 : 0.85, transition: 'all 0.15s' }}>
                   <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: active ? 'rgba(255,255,255,0.18)' : 'rgba(45,90,61,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={active ? 'white' : '#2D5A3D'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
@@ -478,7 +510,7 @@ export default function BottomSheet({
               const active = annuaireTabIdx === 1
               return (
                 <button onClick={handleEtabBtn}
-                  style={{ flex: 1, height: 52, borderRadius: 14, border: 'none', backgroundColor: active ? '#2D5A3D' : '#E8F2EB', color: active ? '#fff' : '#2D5A3D', fontFamily: 'Inter, sans-serif', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '0 12px', gap: 9, overflow: 'hidden', opacity: active && hasEtabFilter ? 1 : 0.85, transition: 'all 0.15s' }}>
+                  style={{ flex: 1, height: 52, borderRadius: 14, border: 'none', backgroundColor: active ? '#2D5A3D' : '#E8F2EB', color: active ? '#fff' : '#2D5A3D', fontFamily: 'Inter, sans-serif', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '0 12px', gap: 9, overflow: 'hidden', opacity: active ? 1 : 0.85, transition: 'all 0.15s' }}>
                   <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: active ? 'rgba(255,255,255,0.18)' : 'rgba(45,90,61,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={active ? 'white' : '#2D5A3D'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M3 3h18v4H3z"/><path d="M3 7v14h18V7"/><path d="M9 7v14"/><path d="M15 7v14"/>
@@ -687,18 +719,59 @@ export default function BottomSheet({
                 </button>
               </div>
 
-              {/* Popup filtre note */}
+              {/* Popup filtres */}
               {etabFilterOpen && (
-                <div style={{ marginTop: 8, background: sheetBg.bg, border: `1.5px solid ${sheetBg.border}`, borderRadius: 14, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: sheetBg.sub, textTransform: 'uppercase' as const, letterSpacing: '0.05em', fontFamily: 'Inter, sans-serif' }}>Note minimum</p>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    {([0, 3, 4, 4.5] as const).map(note => (
-                      <button key={note} onClick={() => setEtabMinNote(note)}
-                        style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: `1.5px solid ${etabMinNote === note ? 'var(--primary)' : sheetBg.border}`, background: etabMinNote === note ? 'var(--primary)' : sheetBg.pill, color: etabMinNote === note ? '#fff' : sheetBg.sub, fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter, sans-serif', transition: 'all 0.12s' }}>
-                        {note === 0 ? 'Toutes' : `⭐ ${note}+`}
-                      </button>
-                    ))}
+                <div style={{ marginTop: 8, background: sheetBg.bg, border: `1.5px solid ${sheetBg.border}`, borderRadius: 14, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+                  {/* Note minimum — 5 étoiles interactives */}
+                  <div>
+                    <p style={{ margin: '0 0 6px', fontSize: 11, fontWeight: 700, color: sheetBg.sub, textTransform: 'uppercase' as const, letterSpacing: '0.05em', fontFamily: 'Inter, sans-serif' }}>Note minimum</p>
+                    <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                      {[1,2,3,4,5].map(s => (
+                        <button key={s} onClick={() => setEtabMinNote(s === etabMinNote ? 0 : s)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 3px', lineHeight: 0 }}>
+                          <svg width="30" height="30" viewBox="0 0 24 24"
+                            fill={s <= etabMinNote ? '#F59E0B' : 'none'}
+                            stroke={s <= etabMinNote ? '#F59E0B' : '#C8BAA8'}
+                            strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                          </svg>
+                        </button>
+                      ))}
+                      {etabMinNote > 0 && (
+                        <button onClick={() => setEtabMinNote(0)}
+                          style={{ marginLeft: 4, background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: sheetBg.sub, fontFamily: 'Inter, sans-serif', padding: '2px 4px' }}>
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Séparateur */}
+                  <div style={{ height: 1, background: sheetBg.border }} />
+
+                  {/* Ville + Rayon */}
+                  <div>
+                    <p style={{ margin: '0 0 6px', fontSize: 11, fontWeight: 700, color: sheetBg.sub, textTransform: 'uppercase' as const, letterSpacing: '0.05em', fontFamily: 'Inter, sans-serif' }}>Ville & Rayon</p>
+                    <div style={{ position: 'relative', marginBottom: 8 }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#AAA" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+                        style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/>
+                      </svg>
+                      <input type="text" value={etabVille} onChange={e => setEtabVille(e.target.value)}
+                        placeholder="Commune…"
+                        style={{ width: '100%', padding: '9px 10px 9px 30px', borderRadius: 10, border: `1.5px solid ${etabVille ? 'var(--primary)' : sheetBg.border}`, fontSize: 13, fontFamily: 'Inter, sans-serif', color: '#2C1810', background: sheetBg.bg, outline: 'none', boxSizing: 'border-box' as const }} />
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {([null, 5, 10, 20, 50] as const).map(r => (
+                        <button key={String(r)} onClick={() => setEtabRayon(r)}
+                          style={{ flex: 1, padding: '7px 0', borderRadius: 10, border: `1.5px solid ${etabRayon === r ? 'var(--primary)' : sheetBg.border}`, background: etabRayon === r ? 'var(--primary)' : sheetBg.pill, color: etabRayon === r ? '#fff' : sheetBg.sub, fontWeight: 700, fontSize: 11, cursor: 'pointer', fontFamily: 'Inter, sans-serif', transition: 'all 0.12s' }}>
+                          {r === null ? 'Tout' : `${r}km`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                 </div>
               )}
 

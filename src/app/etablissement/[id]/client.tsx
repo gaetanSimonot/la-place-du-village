@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
@@ -27,42 +27,101 @@ function Avatar({ name, url, size = 32 }: { name: string; url?: string | null; s
   return <div style={{ width: size, height: size, borderRadius: '50%', backgroundColor: '#2D5A3D', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: size * 0.38, flexShrink: 0 }}>{(name || '?')[0].toUpperCase()}</div>
 }
 
-function ClaimModal({ etabId, etabNom, onClose, onSuccess }: { etabId: string; etabNom: string; onClose: () => void; onSuccess: () => void }) {
-  const [contact, setContact] = useState(''); const [message, setMessage] = useState('')
-  const [loading, setLoading] = useState(false); const [done, setDone] = useState(false)
-  const SI: React.CSSProperties = { display: 'block', width: '100%', marginTop: 6, padding: '10px 14px', borderRadius: 12, border: '1.5px solid #E0D8CE', fontSize: 14, fontFamily: 'Inter, sans-serif', outline: 'none', boxSizing: 'border-box', color: '#2C1810', backgroundColor: '#FDFAF6' }
+const PRO_FEATURES = [
+  'Édition complète de votre fiche',
+  'Mise à la une (bandeau tournant)',
+  'Visibilité augmentée sur la carte',
+  'Followers — envoyez des notifications',
+  'Accès à l\'application gestionnaire',
+]
+const MAX_FEATURES = [
+  'Tout le plan Pro',
+  'Splash screen régulier',
+  'Bandeau publicitaire en app',
+  'Intégration newsletter & actualités',
+  'News / actu dynamique sur votre fiche',
+  'Création fiche producteur',
+  'Accès marketplace',
+]
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault(); setLoading(true)
-    const res = await fetch(`/api/etablissements/${etabId}/claim`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contact: contact.trim(), message: message.trim() }) })
-    setLoading(false)
-    if (res.ok) { setDone(true); setTimeout(onSuccess, 1500) }
+function SubscriptionModal({ etabId, etabNom, onClose }: { etabId: string; etabNom: string; onClose: () => void }) {
+  const [loading, setLoading] = useState<'pro' | 'max' | null>(null)
+
+  async function selectPlan(plan: 'pro' | 'max') {
+    setLoading(plan)
+    const res = await fetch('/api/stripe/create-checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ etabId, plan }),
+    })
+    const data = await res.json()
+    if (data.url) { window.location.href = data.url; return }
+    setLoading(null)
   }
 
   return (
     <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.42)' }} />
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 401, backgroundColor: '#fff', borderRadius: '20px 20px 0 0', padding: '24px 20px 48px', fontFamily: 'Inter, sans-serif', maxHeight: '85dvh', overflowY: 'auto' }}>
-        <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '0 auto 20px' }} />
-        {done ? (
-          <div style={{ textAlign: 'center', padding: '20px 0' }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
-            <p style={{ fontWeight: 800, fontSize: 17, color: '#2C1810', margin: '0 0 6px' }}>Demande envoyée !</p>
-            <p style={{ fontSize: 13, color: '#6B5E4E', margin: 0 }}>Nous vous contacterons pour vérifier et valider.</p>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.52)' }} />
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 401, backgroundColor: '#FDFAF6', borderRadius: '24px 24px 0 0', padding: '0 0 48px', fontFamily: 'Inter, sans-serif', maxHeight: '92dvh', overflowY: 'auto' }}>
+        <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '16px auto 0' }} />
+
+        <div style={{ padding: '20px 20px 4px' }}>
+          <p style={{ fontWeight: 900, fontSize: 19, color: '#1C1917', margin: '0 0 4px', lineHeight: 1.2 }}>Gérez &laquo;{etabNom}&raquo;</p>
+          <p style={{ fontSize: 13, color: '#8A7A6A', margin: 0, lineHeight: 1.5 }}>Choisissez votre plan pour revendiquer cette fiche et débloquer vos outils.</p>
+        </div>
+
+        <div style={{ display: 'flex', gap: 12, padding: '16px 20px 0' }}>
+
+          {/* Plan Pro */}
+          <div style={{ flex: 1, borderRadius: 20, border: '2px solid #2D5A3D', backgroundColor: '#fff', padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 10, boxShadow: '0 4px 20px rgba(45,90,61,0.10)' }}>
+            <div>
+              <span style={{ fontSize: 10, fontWeight: 800, color: '#2D5A3D', backgroundColor: '#E8F2EB', borderRadius: 999, padding: '3px 10px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Pro</span>
+            </div>
+            <div>
+              <span style={{ fontSize: 28, fontWeight: 900, color: '#1C1917', fontVariantNumeric: 'tabular-nums' }}>9€</span>
+              <span style={{ fontSize: 12, color: '#8A7A6A', marginLeft: 3 }}>/mois</span>
+            </div>
+            <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+              {PRO_FEATURES.map(f => (
+                <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, fontSize: 12, color: '#3C2C20', lineHeight: 1.4 }}>
+                  <span style={{ color: '#2D5A3D', fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✓</span>{f}
+                </li>
+              ))}
+            </ul>
+            <button
+              onClick={() => selectPlan('pro')}
+              disabled={!!loading}
+              style={{ marginTop: 8, padding: '12px 0', borderRadius: 14, border: 'none', backgroundColor: loading === 'pro' ? '#A0B8A8' : '#2D5A3D', color: '#fff', fontWeight: 700, fontSize: 14, cursor: loading ? 'default' : 'pointer', fontFamily: 'Inter, sans-serif', transition: 'background 0.2s' }}
+            >{loading === 'pro' ? '…' : 'Choisir Pro →'}</button>
           </div>
-        ) : (
-          <>
-            <p style={{ fontWeight: 800, fontSize: 17, color: '#2C1810', margin: '0 0 4px' }}>Revendiquer &laquo;{etabNom}&raquo;</p>
-            <p style={{ fontSize: 13, color: '#8A8A8A', margin: '0 0 18px', lineHeight: 1.5 }}>Vous êtes le propriétaire ? Envoyez une demande, nous validerons et vous donnerons accès à la fiche.</p>
-            <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div><label style={{ fontSize: 11, fontWeight: 700, color: '#6B5E4E', textTransform: 'uppercase' as const, letterSpacing: '0.04em' }}>Contact (tél, email…)</label><input value={contact} onChange={e => setContact(e.target.value)} placeholder="06 12 34 56 78" style={SI} /></div>
-              <div><label style={{ fontSize: 11, fontWeight: 700, color: '#6B5E4E', textTransform: 'uppercase' as const, letterSpacing: '0.04em' }}>Message (optionnel)</label><textarea value={message} onChange={e => setMessage(e.target.value)} rows={3} placeholder="Précisez si besoin…" style={{ ...SI, resize: 'vertical' as const }} /></div>
-              <button type="submit" disabled={loading} style={{ padding: 14, borderRadius: 16, border: 'none', backgroundColor: loading ? '#D0C8C0' : '#2D5A3D', color: '#fff', fontWeight: 700, fontSize: 15, cursor: loading ? 'default' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
-                {loading ? 'Envoi…' : 'Envoyer ma demande →'}
-              </button>
-            </form>
-          </>
-        )}
+
+          {/* Plan Max */}
+          <div style={{ flex: 1, borderRadius: 20, border: '2px solid #EC407A', backgroundColor: '#fff', padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 10, boxShadow: '0 4px 20px rgba(236,64,122,0.10)', position: 'relative' }}>
+            <div style={{ position: 'absolute', top: -11, right: 14, backgroundColor: '#EC407A', color: '#fff', fontSize: 9, fontWeight: 800, borderRadius: 999, padding: '3px 10px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>✦ Recommandé</div>
+            <div>
+              <span style={{ fontSize: 10, fontWeight: 800, color: '#EC407A', backgroundColor: '#FDE8EF', borderRadius: 999, padding: '3px 10px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Max</span>
+            </div>
+            <div>
+              <span style={{ fontSize: 28, fontWeight: 900, color: '#1C1917', fontVariantNumeric: 'tabular-nums' }}>29€</span>
+              <span style={{ fontSize: 12, color: '#8A7A6A', marginLeft: 3 }}>/mois</span>
+            </div>
+            <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+              {MAX_FEATURES.map(f => (
+                <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, fontSize: 12, color: '#3C2C20', lineHeight: 1.4 }}>
+                  <span style={{ color: '#EC407A', fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✓</span>{f}
+                </li>
+              ))}
+            </ul>
+            <button
+              onClick={() => selectPlan('max')}
+              disabled={!!loading}
+              style={{ marginTop: 8, padding: '12px 0', borderRadius: 14, border: 'none', backgroundColor: loading === 'max' ? '#E8A0C0' : '#EC407A', color: '#fff', fontWeight: 700, fontSize: 14, cursor: loading ? 'default' : 'pointer', fontFamily: 'Inter, sans-serif', transition: 'background 0.2s' }}
+            >{loading === 'max' ? '…' : 'Choisir Max →'}</button>
+          </div>
+
+        </div>
+
+        <p style={{ fontSize: 11, color: '#AAA', textAlign: 'center', margin: '14px 20px 0', lineHeight: 1.5 }}>Paiement sécurisé par Stripe · Résiliable à tout moment</p>
       </div>
     </>
   )
@@ -70,6 +129,7 @@ function ClaimModal({ etabId, etabNom, onClose, onSuccess }: { etabId: string; e
 
 export default function EtablissementPageClient({ id, onBack }: { id: string; onBack?: () => void }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, profile } = useAuth()
   const { openAuthModal } = useAuthModal()
   const isAdmin = useAdminSession()
@@ -93,6 +153,12 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
     clearTimeout(toastTimer.current); setToast(msg)
     toastTimer.current = setTimeout(() => setToast(null), 2000)
   }, [])
+
+  useEffect(() => {
+    if (searchParams.get('subscribed') === '1') {
+      showToast('🎉 Abonnement activé ! Vous gérez maintenant cette fiche.')
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetch(`/api/etablissements/${id}`).then(r => r.json())
@@ -375,7 +441,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
 
       </div>
 
-      {claimOpen && <ClaimModal etabId={etab.id} etabNom={etab.nom} onClose={() => setClaimOpen(false)} onSuccess={() => setClaimOpen(false)} />}
+      {claimOpen && <SubscriptionModal etabId={etab.id} etabNom={etab.nom} onClose={() => setClaimOpen(false)} />}
       {editing && <EtabEditDrawer etab={etab} isAdmin={isAdmin} onClose={() => setEditing(false)} onSaved={patch => setEtab(prev => prev ? { ...prev, ...patch } : prev)} />}
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
