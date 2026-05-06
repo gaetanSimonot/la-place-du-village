@@ -110,11 +110,13 @@ export default function ProducteurPageClient({ id }: { id: string }) {
     return () => { supabase.removeChannel(channel) }
   }, [id])
 
-  useEffect(() => {
+  const loadProducts = useCallback(() => {
     supabase.from('products').select('id, nom, categorie, prix_indicatif, periode_dispo, disponible, image_url')
       .eq('producer_id', id).eq('disponible', true).order('categorie', { ascending: true })
       .then(({ data }) => setProducts(data ?? []))
   }, [id])
+
+  useEffect(() => { loadProducts() }, [loadProducts])
 
   useEffect(() => {
     if (!user) { setIsFav(false); setIsFollowing(false); return }
@@ -305,7 +307,7 @@ export default function ProducteurPageClient({ id }: { id: string }) {
                 <p style={{ fontSize: 12, color: '#AAA', margin: '2px 0 0' }}>Mis à jour par le producteur</p>
               </div>
               {isOwner && (
-                <button onClick={() => { setEditMode(e => !e); setProductCatFilter(null) }}
+                <button onClick={() => { if (editMode) loadProducts(); setEditMode(e => !e); setProductCatFilter(null) }}
                   style={{ padding: '6px 16px', borderRadius: 10, border: '1.5px solid #2D5A3D', fontSize: 12, fontWeight: 700, color: editMode ? '#fff' : '#2D5A3D', backgroundColor: editMode ? '#2D5A3D' : 'transparent', cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0 }}>
                   {editMode ? '✓ Publier' : '✏️ Gérer'}
                 </button>
