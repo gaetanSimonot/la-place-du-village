@@ -25,11 +25,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Déjà revendiqué par quelqu\'un d\'autre' }, { status: 409 })
   }
 
+  const priceId = PLAN_PRICES[plan as 'pro' | 'max']
+  if (!priceId || priceId.includes('REMPLACER')) {
+    return NextResponse.json({ error: `STRIPE_PRICE_${plan.toUpperCase()} non configuré dans Vercel` }, { status: 500 })
+  }
+
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
-    line_items: [{ price: PLAN_PRICES[plan as 'pro' | 'max'], quantity: 1 }],
+    line_items: [{ price: priceId, quantity: 1 }],
     metadata: { etab_id: etabId, user_id: user.id, plan },
     customer_email: user.email,
     success_url: `${appUrl}/etablissement/${etabId}?subscribed=1`,

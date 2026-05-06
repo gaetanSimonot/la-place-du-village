@@ -391,7 +391,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
           <div style={{ padding: '14px 16px', borderRadius: 16, backgroundColor: '#F8F4EE', border: '1.5px dashed #D0C8C0' }}>
             <p style={{ fontSize: 13, fontWeight: 700, color: '#3C2C20', margin: '0 0 4px' }}>Vous gérez cet établissement ?</p>
             <p style={{ fontSize: 12, color: '#8A8A8A', lineHeight: 1.5, margin: '0 0 12px' }}>Revendiquez cette fiche pour la compléter et la gérer.</p>
-            <button onClick={() => { if (!user) openAuthModal(window.location.href); else setClaimOpen(true) }}
+            <button onClick={() => { if (!user) openAuthModal(`${window.location.origin}/etablissement/${id}`); else setClaimOpen(true) }}
               style={{ padding: '10px 20px', borderRadius: 999, backgroundColor: '#2D5A3D', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
               Revendiquer cette fiche
             </button>
