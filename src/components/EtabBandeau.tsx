@@ -18,9 +18,10 @@ function shuffle<T>(arr: T[]): T[] {
 interface Props {
   etablissements: EtablissementCard[]
   onDiscover: (id: string) => void
+  compact?: boolean
 }
 
-export default function EtabBandeau({ etablissements, onDiscover }: Props) {
+export default function EtabBandeau({ etablissements, onDiscover, compact = false }: Props) {
   const [dismissed, setDismissed] = useState(false)
   const [queue, setQueue]         = useState<EtablissementCard[]>([])
   const [idx, setIdx]             = useState(0)
@@ -64,6 +65,36 @@ export default function EtabBandeau({ etablissements, onDiscover }: Props) {
   if (!e) return null
   const typeInfo = ETAB_TYPES[e.type]
   const photo = e.photos?.[0]
+
+  /* ── Mode compact (sticky en haut de liste, mode full) ── */
+  if (compact) {
+    return (
+      <div
+        onClick={() => { clearTimeout(timerRef.current); onDiscover(e.id) }}
+        style={{ margin: '0 12px 8px', cursor: 'pointer', flexShrink: 0 }}
+      >
+        <div style={{ position: 'relative', height: 64, borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 10px rgba(44,44,44,0.10)' }}>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', backgroundColor: '#fff', opacity: fading ? 0 : 1, transition: `opacity ${FADE_MS}ms ease` }}>
+            <div style={{ width: 64, flexShrink: 0, position: 'relative', overflow: 'hidden', backgroundColor: typeInfo?.bg ?? '#F5F0E8' }}>
+              {photo
+                ? <img src={photo} alt="" loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>{typeInfo?.emoji ?? '🏪'}</div>
+              }
+            </div>
+            <div style={{ flex: 1, padding: '7px 10px', display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0, position: 'relative' }}>
+              <button onClick={ev => { ev.stopPropagation(); setDismissed(true) }}
+                style={{ position: 'absolute', top: 5, right: 6, width: 18, height: 18, borderRadius: '50%', backgroundColor: '#F0EBE4', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#8A8A8A', padding: 0 }}>✕</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+                <span style={{ fontSize: 8, fontWeight: 800, color: '#fff', backgroundColor: typeInfo?.color ?? '#555', borderRadius: 999, padding: '2px 6px', letterSpacing: '0.06em', fontFamily: 'Inter, sans-serif', flexShrink: 0 }}>✦ À LA UNE</span>
+                {e.commune && <span style={{ fontSize: 10, color: '#6B5E4E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'Inter, sans-serif' }}>{e.commune}</span>}
+              </div>
+              <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 12, color: '#1C1917', margin: 0, lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', paddingRight: 18 }}>{e.nom}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div

@@ -641,9 +641,22 @@ export default function BottomSheet({
             </div>
           ) : (
             <>
-              {mode !== 'peek' && (() => {
+              {(() => {
                 const featured = etablissements.filter(e => e.plan === 'pro' || e.plan === 'max' || e.is_featured)
-                return featured.length > 0 ? <EtabBandeau etablissements={featured} onDiscover={id => onOpenEtablissement?.(id)} /> : null
+                if (featured.length === 0) return null
+                if (mode === 'full') return (
+                  <div style={{
+                    position: 'sticky', top: -4, zIndex: 5,
+                    marginLeft: -16, marginRight: -16, marginTop: -4,
+                    backgroundColor: sheetBg.bg,
+                    paddingTop: 4, paddingBottom: 8,
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.07)',
+                  }}>
+                    <EtabBandeau etablissements={featured} onDiscover={id => onOpenEtablissement?.(id)} compact={true} />
+                  </div>
+                )
+                if (mode !== 'peek') return <EtabBandeau etablissements={featured} onDiscover={id => onOpenEtablissement?.(id)} />
+                return null
               })()}
               {etablissements.slice(0, visibleEtabCount).map(e => (
                 <EtablissementListCard key={e.id} etab={e} onOpen={() => onOpenEtablissement?.(e.id)} />
