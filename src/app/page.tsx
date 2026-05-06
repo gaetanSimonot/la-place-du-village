@@ -930,6 +930,7 @@ export default function HomePage() {
           <FavorisView
             events={allEvenements.filter(e => favIds.includes(e.id))}
             onToggleFav={toggleFav}
+            onOpenProducer={openProducer}
           />
         </div>
       )}
