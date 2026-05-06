@@ -10,7 +10,6 @@ import { EvenementCard, Filtres, ProduitCategorie } from '@/lib/types'
 import { getDateRange } from '@/lib/filters'
 import { useTheme } from '@/components/ThemeProvider'
 import { haversineKm, GANGES } from '@/lib/distance'
-import { normalizeProduitCat } from '@/lib/produit-cats'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 
