@@ -95,7 +95,10 @@ export default function HomePage() {
   const [filtres, setFiltres]       = useState<Filtres>(defaultFiltres)
   const [allEvenements, setAllEvenements] = useState<EvenementCard[]>([])
   const [promoEventsData, setPromoEventsData] = useState<EvenementCard[]>([])
-  const [splashDone, setSplashDone]           = useState(false)
+  const [splashDone, setSplashDone]           = useState(() => {
+    if (typeof window === 'undefined') return false
+    return sessionStorage.getItem('pdv-splash-done') === '1'
+  })
   const [showWelcome, setShowWelcome]         = useState(false)
   const [appMode, setAppMode]                 = useState<'agenda' | 'annuaire'>('agenda')
   // Restore annuaire mode after returning from a producer page
@@ -993,6 +996,7 @@ export default function HomePage() {
       <MaxSplash events={maxEvents} loading={loading} />
 
       {!splashDone && <AppSplash onDone={() => {
+        sessionStorage.setItem('pdv-splash-done', '1')
         setSplashDone(true)
         if (typeof window !== 'undefined' && !localStorage.getItem('pdv-welcome-seen')) {
           setShowWelcome(true)
