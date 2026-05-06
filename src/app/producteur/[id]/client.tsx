@@ -75,11 +75,21 @@ export default function ProducteurPageClient({ id }: { id: string }) {
   useEffect(() => {
     fetch(`/api/producers/${id}`)
       .then(r => r.json())
-      .then(d => { setProducer(d.producer ?? null); setProducts(d.products ?? []); setLoading(false) })
+      .then(d => { setProducer(d.producer ?? null); setLoading(false) })
       .catch(() => setLoading(false))
     fetch(`/api/producers/${id}/comments`)
       .then(r => r.json())
       .then(d => { const c = d.comments ?? []; setComments(c); setCommentCount(c.length) })
+  }, [id])
+
+  useEffect(() => {
+    supabase
+      .from('products')
+      .select('id, nom, categorie, prix_indicatif, periode_dispo, disponible')
+      .eq('producer_id', id)
+      .eq('disponible', true)
+      .order('categorie', { ascending: true })
+      .then(({ data }) => setProducts(data ?? []))
   }, [id])
 
   useEffect(() => {
