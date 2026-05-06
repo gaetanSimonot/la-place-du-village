@@ -5,7 +5,7 @@ import { useAuthModal } from '@/contexts/AuthModalContext'
 import { useAuth } from '@/hooks/useAuth'
 
 export default function AuthModal() {
-  const { open, closeAuthModal } = useAuthModal()
+  const { open, returnTo, closeAuthModal } = useAuthModal()
   const { user } = useAuth()
   const [email, setEmail]           = useState('')
   const [sent, setSent]             = useState(false)
@@ -15,12 +15,17 @@ export default function AuthModal() {
 
   if (!open || user) return null
 
+  const callbackUrl = () => {
+    const base = `${window.location.origin}/auth/callback`
+    return returnTo ? `${base}?next=${encodeURIComponent(returnTo)}` : base
+  }
+
   const handleGoogle = async () => {
     setGoogleLoading(true)
     try { sessionStorage.setItem('pdv-login-pending', '1') } catch {}
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: callbackUrl() },
     })
   }
 
@@ -30,7 +35,7 @@ export default function AuthModal() {
     setLoading(true); setError(null)
     const { error: err } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: { emailRedirectTo: callbackUrl() },
     })
     setLoading(false)
     if (err) { setError(err.message); return }

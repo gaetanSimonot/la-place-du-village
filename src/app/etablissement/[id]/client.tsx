@@ -46,16 +46,22 @@ const MAX_FEATURES = [
 
 function SubscriptionModal({ etabId, etabNom, onClose }: { etabId: string; etabNom: string; onClose: () => void }) {
   const [loading, setLoading] = useState<'pro' | 'max' | null>(null)
+  const [error, setError]     = useState<string | null>(null)
 
   async function selectPlan(plan: 'pro' | 'max') {
-    setLoading(plan)
-    const res = await fetch('/api/stripe/create-checkout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ etabId, plan }),
-    })
-    const data = await res.json()
-    if (data.url) { window.location.href = data.url; return }
+    setLoading(plan); setError(null)
+    try {
+      const res  = await fetch('/api/stripe/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ etabId, plan }),
+      })
+      const data = await res.json()
+      if (data.url) { window.location.href = data.url; return }
+      setError(data.error ?? 'Une erreur est survenue, veuillez réessayer.')
+    } catch {
+      setError('Impossible de contacter le serveur.')
+    }
     setLoading(null)
   }
 
@@ -121,6 +127,9 @@ function SubscriptionModal({ etabId, etabNom, onClose }: { etabId: string; etabN
 
         </div>
 
+        {error && (
+          <p style={{ fontSize: 12, color: '#DC2626', textAlign: 'center', margin: '12px 20px 0', padding: '10px 14px', backgroundColor: '#FEF2F2', borderRadius: 12, lineHeight: 1.5 }}>{error}</p>
+        )}
         <p style={{ fontSize: 11, color: '#AAA', textAlign: 'center', margin: '14px 20px 0', lineHeight: 1.5 }}>Paiement sécurisé par Stripe · Résiliable à tout moment</p>
       </div>
     </>
@@ -379,7 +388,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
           <div style={{ padding: '14px 16px', borderRadius: 16, backgroundColor: '#F8F4EE', border: '1.5px dashed #D0C8C0' }}>
             <p style={{ fontSize: 13, fontWeight: 700, color: '#3C2C20', margin: '0 0 4px' }}>Vous gérez cet établissement ?</p>
             <p style={{ fontSize: 12, color: '#8A8A8A', lineHeight: 1.5, margin: '0 0 12px' }}>Revendiquez cette fiche pour la compléter et la gérer.</p>
-            <button onClick={() => { if (!user) openAuthModal(); else setClaimOpen(true) }}
+            <button onClick={() => { if (!user) openAuthModal(window.location.href); else setClaimOpen(true) }}
               style={{ padding: '10px 20px', borderRadius: 999, backgroundColor: '#2D5A3D', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
               Revendiquer cette fiche
             </button>

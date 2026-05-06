@@ -380,7 +380,7 @@ function CapturerInner() {
           Crée un compte gratuit pour proposer des événements à la communauté.
         </p>
         <button
-          onClick={openAuthModal}
+          onClick={() => openAuthModal()}
           style={{ width: '100%', maxWidth: 320, padding: '16px', borderRadius: 999, backgroundColor: 'var(--primary)', color: '#fff', fontWeight: 700, fontSize: 16, border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginBottom: 14 }}
         >
           Se connecter
