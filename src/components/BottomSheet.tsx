@@ -289,9 +289,8 @@ export default function BottomSheet({
   const quoiLabel     = quoiCursor < 0 ? 'Que faire ?' : CATEGORIES[CATS[quoiCursor]].label
   const quandBtnLabel = quandCursor < 0 ? 'Quand donc ?' : QUAND_OPTIONS[quandCursor].short
 
-  // Quand le tab est actif, curseur -1 s'affiche "Tout" pour rendre l'étape visible
-  const prodBtnLabel = (annuaireTabIdx === 0 && prodCatCursor < 0) ? 'Tout' : prodCatCursor < 0 ? 'Producteurs' : PRODUIT_CATS[prodCatCursor]?.label ?? 'Producteurs'
-  const etabBtnLabel = (annuaireTabIdx === 1 && etabTypeCursor < 0) ? 'Tout'  : etabTypeCursor < 0 ? 'Commerces'  : ETAB_TYPE_LIST[etabTypeCursor]?.label ?? 'Commerces'
+  const prodBtnLabel = prodCatCursor < 0 ? 'Producteurs' : PRODUIT_CATS[prodCatCursor]?.label ?? 'Producteurs'
+  const etabBtnLabel = etabTypeCursor < 0 ? 'Commerces'  : ETAB_TYPE_LIST[etabTypeCursor]?.label ?? 'Commerces'
   const hasProdFilter = prodCatCursor >= 0
   const hasEtabFilter = etabTypeCursor >= 0
 
