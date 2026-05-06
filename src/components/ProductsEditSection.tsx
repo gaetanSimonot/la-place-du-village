@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { PRODUIT_CATS, PRODUIT_CATS_MAP, normalizeProduitCat } from '@/lib/produit-cats'
+import CaptureProducteur from '@/components/CaptureProducteur'
 
 interface Product {
   id: string; nom: string; categorie: string; prix_indicatif: string | null
@@ -44,6 +45,7 @@ export default function ProductsEditSection({ producerId }: { producerId: string
   const [newProduct, setNewProduct] = useState({ nom: '', categorie: 'fruits_legumes', prix_indicatif: '', disponible: true, periode_dispo: '', dispo_jusqu_au: '' })
   const [saving, setSaving] = useState(false)
   const [uploadingId, setUploadingId] = useState<string | null>(null)
+  const [captureOpen, setCaptureOpen] = useState(false)
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   useEffect(() => {
@@ -130,10 +132,14 @@ export default function ProductsEditSection({ producerId }: { producerId: string
   })
 
   return (
+    <>
     <div style={{ backgroundColor: '#fff', borderRadius: 16, padding: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
         <h3 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15, color: '#2C1810', margin: 0 }}>Mes produits</h3>
-        <button onClick={() => setAddingProduct(true)} style={{ padding: '7px 14px', borderRadius: 8, border: 'none', backgroundColor: 'var(--primary)', color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>+ Ajouter</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => setCaptureOpen(true)} style={{ padding: '7px 12px', borderRadius: 8, border: '1.5px solid #2D5A3D', backgroundColor: 'transparent', color: '#2D5A3D', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>🎤 Dicter</button>
+          <button onClick={() => setAddingProduct(true)} style={{ padding: '7px 14px', borderRadius: 8, border: 'none', backgroundColor: 'var(--primary)', color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>+ Ajouter</button>
+        </div>
       </div>
 
       {addingProduct && (
@@ -241,5 +247,15 @@ export default function ProductsEditSection({ producerId }: { producerId: string
       })}
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
+
+    {captureOpen && (
+      <CaptureProducteur onClose={() => {
+        setCaptureOpen(false)
+        supabase.from('products').select('*').eq('producer_id', producerId)
+          .order('categorie', { ascending: true })
+          .then(({ data }) => setProducts(data ?? []))
+      }} />
+    )}
+  </>
   )
 }

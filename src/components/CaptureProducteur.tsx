@@ -24,9 +24,7 @@ async function getToken() {
 }
 
 export default function CaptureProducteur({ onClose }: { onClose: () => void }) {
-  const [step, setStep] = useState<'mode' | 'capture' | 'review'>('mode')
-  const [captureMode, setCaptureMode] = useState<'photos' | 'texte'>('photos')
-  const [photos, setPhotos] = useState<{ base64: string; mime: string; preview: string }[]>([])
+  const [step, setStep] = useState<'capture' | 'review'>('capture')
   const [text, setText] = useState('')
   const [listening, setListening] = useState(false)
   const [scanning, setScanning] = useState(false)
@@ -34,7 +32,6 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
   const [publishing, setPublishing] = useState(false)
   const [publishedCount, setPublishedCount] = useState(0)
   const [noProducer, setNoProducer] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null)
 
@@ -47,19 +44,6 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
         .catch(() => {})
     })
   }, [])
-
-  function addPhotos(files: FileList | null) {
-    if (!files) return
-    Array.from(files).slice(0, 5 - photos.length).forEach(file => {
-      const reader = new FileReader()
-      reader.onload = e => {
-        const dataUrl = e.target?.result as string
-        const base64 = dataUrl.split(',')[1]
-        setPhotos(p => [...p, { base64, mime: file.type, preview: dataUrl }])
-      }
-      reader.readAsDataURL(file)
-    })
-  }
 
   function toggleMic() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -89,18 +73,15 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
   }
 
   async function analyse() {
+    if (!text.trim()) return
     setScanning(true)
     const token = await getToken()
     if (!token) { setScanning(false); return }
 
-    const body = captureMode === 'photos'
-      ? { images: photos.map(p => p.base64), mimeTypes: photos.map(p => p.mime), text }
-      : { text }
-
     const res = await fetch('/api/mon-producteur/scan', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ text }),
     })
     const d = await res.json()
     setProducts((d.products ?? []).map((p: Omit<ProductDraft, 'selected'>) => ({ ...p, prix_indicatif: p.prix_indicatif ?? '', periode_dispo: p.periode_dispo ?? '', selected: true })))
@@ -130,11 +111,8 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
     }
     setPublishedCount(count)
     setPublishing(false)
-    setStep('mode') // reset for feedback
-    setTimeout(onClose, 1800)
+    setTimeout(onClose, 1500)
   }
-
-  const canAnalyse = captureMode === 'photos' ? photos.length > 0 : text.trim().length > 0
 
   return (
     <div onClick={onClose} style={{
@@ -156,11 +134,11 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px 12px', borderBottom: '1px solid #EDE8E0' }}>
-          {step !== 'mode' && (
-            <button onClick={() => setStep(step === 'review' ? 'capture' : 'mode')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#8A8A8A', padding: 0, lineHeight: 1 }}>←</button>
+          {step === 'review' && (
+            <button onClick={() => setStep('capture')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#8A8A8A', padding: 0, lineHeight: 1 }}>←</button>
           )}
           <h2 style={{ flex: 1, margin: 0, fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 16, color: '#2C1810' }}>
-            {step === 'mode' ? '+ Ajouter des produits' : step === 'capture' ? (captureMode === 'photos' ? '📷 Photos' : '✍️ Description') : '✅ Vérifier les produits'}
+            {step === 'capture' ? '🎤 Dicter vos produits' : '✅ Vérifier les produits'}
           </h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#8A8A8A', padding: 0, lineHeight: 1 }}>✕</button>
         </div>
@@ -178,7 +156,7 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
           )}
 
           {/* Succès */}
-          {publishedCount > 0 && step === 'mode' && (
+          {publishedCount > 0 && (
             <div style={{ textAlign: 'center', padding: '32px 0' }}>
               <p style={{ fontSize: 40, margin: '0 0 12px' }}>🎉</p>
               <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 16, color: '#2C1810' }}>
@@ -187,85 +165,15 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
             </div>
           )}
 
-          {/* Step 1 — Choix du mode */}
-          {!noProducer && step === 'mode' && publishedCount === 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <p style={{ margin: '0 0 8px', fontFamily: 'Inter, sans-serif', fontSize: 14, color: '#6B6B6B' }}>
-                Comment voulez-vous ajouter vos produits ?
-              </p>
-              {[
-                { id: 'photos', icon: '📷', label: 'Photos', desc: 'Prenez des photos — l\'IA détecte vos produits' },
-                { id: 'texte', icon: '✍️', label: 'Texte / voix', desc: 'Décrivez ou dictez vos produits' },
-              ].map(m => (
-                <button key={m.id} onClick={() => { setCaptureMode(m.id as 'photos' | 'texte'); setStep('capture') }} style={{
-                  display: 'flex', alignItems: 'center', gap: 14, padding: '16px',
-                  borderRadius: 16, border: '1.5px solid #EDE8E0', backgroundColor: '#fff',
-                  cursor: 'pointer', textAlign: 'left',
-                }}>
-                  <span style={{ fontSize: 28, flexShrink: 0 }}>{m.icon}</span>
-                  <div>
-                    <p style={{ margin: 0, fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15, color: '#2C1810' }}>{m.label}</p>
-                    <p style={{ margin: 0, fontSize: 12, color: '#8A8A8A', fontFamily: 'Inter, sans-serif', marginTop: 2 }}>{m.desc}</p>
-                  </div>
-                  <span style={{ marginLeft: 'auto', color: '#CCC', fontSize: 18 }}>›</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Step 2a — Photos */}
-          {!noProducer && step === 'capture' && captureMode === 'photos' && (
+          {/* Step 1 — Texte / voix */}
+          {!noProducer && publishedCount === 0 && step === 'capture' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <p style={{ margin: 0, fontSize: 13, color: '#8A8A8A', fontFamily: 'Inter, sans-serif' }}>
-                Ajoutez jusqu&apos;à 5 photos de vos produits (étalage, aliments, artisanat…)
-              </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {photos.map((p, i) => (
-                  <div key={i} style={{ position: 'relative', width: 80, height: 80 }}>
-                    <img src={p.preview} alt="" style={{ width: 80, height: 80, borderRadius: 10, objectFit: 'cover' }} />
-                    <button onClick={() => setPhotos(pp => pp.filter((_, j) => j !== i))}
-                      style={{ position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: '50%', backgroundColor: '#E8622A', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 13, lineHeight: '22px', textAlign: 'center' }}>×</button>
-                  </div>
-                ))}
-                {photos.length < 5 && (
-                  <button onClick={() => fileRef.current?.click()} style={{
-                    width: 80, height: 80, borderRadius: 10,
-                    border: '2px dashed #CCC', background: 'none', cursor: 'pointer',
-                    fontSize: 28, color: '#999', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>+</button>
-                )}
-              </div>
-              <input ref={fileRef} type="file" accept="image/*" multiple capture="environment" style={{ display: 'none' }}
-                onChange={e => { addPhotos(e.target.files); e.target.value = '' }} />
-
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 700, color: '#6B6B6B', fontFamily: 'Inter, sans-serif', display: 'block', marginBottom: 4 }}>
-                  Contexte optionnel (prix, saison…)
-                </label>
-                <textarea value={text} onChange={e => setText(e.target.value)} rows={2}
-                  placeholder="Ex: tomates cerises 2€/barquette, courgettes de saison…"
-                  style={{ ...inp, resize: 'none', lineHeight: 1.5 }} />
-              </div>
-
-              <button onClick={analyse} disabled={!canAnalyse || scanning} style={{
-                padding: '14px', borderRadius: 12, border: 'none', cursor: canAnalyse && !scanning ? 'pointer' : 'default',
-                backgroundColor: canAnalyse && !scanning ? 'var(--primary)' : '#CCC',
-                color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15,
-              }}>
-                {scanning ? '⏳ Analyse en cours…' : '🔍 Analyser avec l\'IA'}
-              </button>
-            </div>
-          )}
-
-          {/* Step 2b — Texte / voix */}
-          {!noProducer && step === 'capture' && captureMode === 'texte' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <p style={{ margin: 0, fontSize: 13, color: '#8A8A8A', fontFamily: 'Inter, sans-serif' }}>
-                Décrivez vos produits : noms, prix, disponibilité, quantités…
+                Dictez ou tapez vos produits : noms, prix, disponibilité…
               </p>
               <div style={{ position: 'relative' }}>
                 <textarea value={text} onChange={e => setText(e.target.value)} rows={6}
-                  placeholder="Ex: j'ai des tomates cerises à 2€ la barquette disponibles cette semaine, des courgettes à 1€/kg, du miel de lavande 8€ le pot de 250g…"
+                  placeholder="Ex : j'ai des tomates cerises à 2€ la barquette disponibles cette semaine, des courgettes à 1€/kg, du miel de lavande 8€ le pot…"
                   style={{ ...inp, resize: 'none', lineHeight: 1.6, paddingRight: 48, minHeight: 140 }} />
                 <button onClick={toggleMic} title={listening ? 'Arrêter' : 'Dicter'} style={{
                   position: 'absolute', bottom: 8, right: 8,
@@ -283,23 +191,24 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
                 </p>
               )}
 
-              <button onClick={analyse} disabled={!canAnalyse || scanning} style={{
-                padding: '14px', borderRadius: 12, border: 'none', cursor: canAnalyse && !scanning ? 'pointer' : 'default',
-                backgroundColor: canAnalyse && !scanning ? 'var(--primary)' : '#CCC',
+              <button onClick={analyse} disabled={!text.trim() || scanning} style={{
+                padding: '14px', borderRadius: 12, border: 'none',
+                cursor: text.trim() && !scanning ? 'pointer' : 'default',
+                backgroundColor: text.trim() && !scanning ? 'var(--primary)' : '#CCC',
                 color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15,
               }}>
-                {scanning ? '⏳ Analyse en cours…' : '🔍 Analyser avec l\'IA'}
+                {scanning ? '⏳ Analyse en cours…' : '→ Créer les produits'}
               </button>
             </div>
           )}
 
-          {/* Step 3 — Review */}
+          {/* Step 2 — Review */}
           {!noProducer && step === 'review' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {products.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '24px 0' }}>
                   <p style={{ fontSize: 32, margin: '0 0 8px' }}>🤔</p>
-                  <p style={{ fontSize: 14, color: '#8A8A8A', fontFamily: 'Inter, sans-serif' }}>Aucun produit détecté. Essayez avec une photo plus nette ou une description plus précise.</p>
+                  <p style={{ fontSize: 14, color: '#8A8A8A', fontFamily: 'Inter, sans-serif' }}>Aucun produit détecté. Essayez une description plus précise.</p>
                   <button onClick={() => setStep('capture')} style={{ marginTop: 12, padding: '10px 24px', borderRadius: 999, border: 'none', backgroundColor: 'var(--primary)', color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 700, cursor: 'pointer' }}>Réessayer</button>
                 </div>
               )}
