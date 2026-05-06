@@ -479,13 +479,6 @@ export default function HomePage() {
     } catch {}
   }, [filtres])
 
-  const saveNavForProducer = useCallback((id: string) => {
-    try {
-      sessionStorage.setItem('pdv-nav-state', JSON.stringify({
-        appMode: 'annuaire', selectedProducerId: id, sheetMode: 'peek',
-      }))
-    } catch {}
-  }, [])
 
   const openEvent = useCallback((id: string) => {
     saveNavForEvent(id)
