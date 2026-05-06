@@ -8,6 +8,96 @@ import type { Etablissement } from '@/lib/types'
 
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
 const DAY_KEYS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
+const ETAB_TYPE_OPTIONS = ['restaurant_bar', 'hebergement', 'artisan_service', 'sante_bien_etre', 'activite'] as const
+
+const INPUT_S: React.CSSProperties = { display: 'block', width: '100%', marginTop: 6, padding: '10px 14px', borderRadius: 12, border: '1.5px solid #E0D8CE', fontSize: 14, fontFamily: 'Inter, sans-serif', outline: 'none', boxSizing: 'border-box', color: '#2C1810', backgroundColor: '#FDFAF6' }
+const LABEL_S: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: '#6B5E4E', textTransform: 'uppercase', letterSpacing: '0.04em' }
+
+function AdminEditDrawer({ etab, onClose, onSaved }: { etab: Etablissement; onClose: () => void; onSaved: (patch: Partial<Etablissement>) => void }) {
+  const [form, setForm] = useState({
+    nom: etab.nom, type: etab.type, commune: etab.commune ?? '', adresse: etab.adresse ?? '',
+    description_courte: etab.description_courte ?? '', description_longue: etab.description_longue ?? '',
+    contact_tel: etab.contact_tel ?? '', contact_whatsapp: etab.contact_whatsapp ?? '', site_web: etab.site_web ?? '',
+    statut: etab.statut, plan: etab.plan, is_featured: etab.is_featured,
+    note_google: etab.note_google?.toString() ?? '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const set = (k: string, v: unknown) => setForm(f => ({ ...f, [k]: v }))
+
+  async function save() {
+    setSaving(true)
+    const patch = {
+      nom: form.nom, type: form.type,
+      commune: form.commune || null, adresse: form.adresse || null,
+      description_courte: form.description_courte || null, description_longue: form.description_longue || null,
+      contact_tel: form.contact_tel || null, contact_whatsapp: form.contact_whatsapp || null, site_web: form.site_web || null,
+      statut: form.statut, plan: form.plan, is_featured: form.is_featured,
+      note_google: form.note_google ? parseFloat(form.note_google) : null,
+    }
+    const res = await fetch(`/api/etablissements/${etab.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch),
+    })
+    setSaving(false)
+    if (res.ok) { setSaved(true); setTimeout(() => { onSaved(patch as Partial<Etablissement>); onClose() }, 900) }
+  }
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.42)' }} />
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 401, backgroundColor: '#fff', borderRadius: '20px 20px 0 0', padding: '24px 20px 48px', fontFamily: 'Inter, sans-serif', maxHeight: '90dvh', overflowY: 'auto' }}>
+        <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '0 auto 20px' }} />
+        {saved ? (
+          <div style={{ textAlign: 'center', padding: '20px 0' }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
+            <p style={{ fontWeight: 800, fontSize: 17, color: '#2C1810', margin: 0 }}>Sauvegardé !</p>
+          </div>
+        ) : (
+          <>
+            <p style={{ fontWeight: 800, fontSize: 17, color: '#2C1810', margin: '0 0 16px' }}>✏️ Éditer l&apos;établissement</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div><label style={LABEL_S}>Nom</label><input value={form.nom} onChange={e => set('nom', e.target.value)} style={INPUT_S} /></div>
+              <div>
+                <label style={LABEL_S}>Type</label>
+                <select value={form.type} onChange={e => set('type', e.target.value)} style={INPUT_S}>
+                  {ETAB_TYPE_OPTIONS.map(t => <option key={t} value={t}>{ETAB_TYPES[t]?.label ?? t}</option>)}
+                </select>
+              </div>
+              <div><label style={LABEL_S}>Commune</label><input value={form.commune} onChange={e => set('commune', e.target.value)} style={INPUT_S} /></div>
+              <div><label style={LABEL_S}>Adresse</label><input value={form.adresse} onChange={e => set('adresse', e.target.value)} style={INPUT_S} /></div>
+              <div><label style={LABEL_S}>Description courte</label><input value={form.description_courte} onChange={e => set('description_courte', e.target.value)} style={INPUT_S} /></div>
+              <div><label style={LABEL_S}>Description longue</label><textarea value={form.description_longue} onChange={e => set('description_longue', e.target.value)} rows={3} style={{ ...INPUT_S, resize: 'vertical' as const }} /></div>
+              <div><label style={LABEL_S}>Tél</label><input value={form.contact_tel} onChange={e => set('contact_tel', e.target.value)} style={INPUT_S} /></div>
+              <div><label style={LABEL_S}>WhatsApp</label><input value={form.contact_whatsapp} onChange={e => set('contact_whatsapp', e.target.value)} style={INPUT_S} /></div>
+              <div><label style={LABEL_S}>Site web</label><input value={form.site_web} onChange={e => set('site_web', e.target.value)} style={INPUT_S} /></div>
+              <div><label style={LABEL_S}>Note Google</label><input value={form.note_google} onChange={e => set('note_google', e.target.value)} type="number" min="1" max="5" step="0.1" style={INPUT_S} /></div>
+              <div>
+                <label style={LABEL_S}>Statut</label>
+                <select value={form.statut} onChange={e => set('statut', e.target.value)} style={INPUT_S}>
+                  {['actif', 'publie', 'archive', 'en_attente'].map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={LABEL_S}>Plan</label>
+                <select value={form.plan} onChange={e => set('plan', e.target.value)} style={INPUT_S}>
+                  <option value="basic">Basic</option><option value="pro">Pro</option><option value="max">Max</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                <input type="checkbox" checked={form.is_featured} onChange={e => set('is_featured', e.target.checked)} id="etab_feat" style={{ width: 18, height: 18, cursor: 'pointer' }} />
+                <label htmlFor="etab_feat" style={{ fontSize: 14, fontWeight: 600, color: '#2C1810', cursor: 'pointer' }}>Mis en avant</label>
+              </div>
+              <button onClick={save} disabled={saving}
+                style={{ marginTop: 8, padding: 14, borderRadius: 16, border: 'none', backgroundColor: saving ? '#D0C8C0' : '#2D5A3D', color: '#fff', fontWeight: 700, fontSize: 15, cursor: saving ? 'default' : 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                {saving ? 'Sauvegarde…' : 'Sauvegarder'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </>
+  )
+}
 
 function ClaimModal({ etabId, etabNom, onClose, onSuccess }: { etabId: string; etabNom: string; onClose: () => void; onSuccess: () => void }) {
   const [contact, setContact] = useState('')
@@ -74,6 +164,8 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
   const [loading, setLoading] = useState(true)
   const [photoIdx, setPhotoIdx] = useState(0)
   const [claimOpen, setClaimOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const isAdmin = user?.email === 'gaetan.simonot@gmail.com'
 
   useEffect(() => {
     fetch(`/api/etablissements/${id}`)
@@ -127,6 +219,12 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
           style={{ position: 'absolute', top: 16, left: 16, width: 38, height: 38, borderRadius: '50%', backgroundColor: 'rgba(0,0,0,0.38)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
         </button>
+        {isAdmin && (
+          <button onClick={() => setEditOpen(true)}
+            style={{ position: 'absolute', top: 16, right: 16, width: 38, height: 38, borderRadius: '50%', backgroundColor: 'rgba(0,0,0,0.38)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+        )}
       </div>
 
       {/* Contenu principal */}
@@ -223,6 +321,13 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
           etabNom={etab.nom}
           onClose={() => setClaimOpen(false)}
           onSuccess={() => setClaimOpen(false)}
+        />
+      )}
+      {editOpen && (
+        <AdminEditDrawer
+          etab={etab}
+          onClose={() => setEditOpen(false)}
+          onSaved={patch => setEtab(prev => prev ? { ...prev, ...patch } : prev)}
         />
       )}
     </div>

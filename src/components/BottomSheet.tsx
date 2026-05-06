@@ -8,6 +8,7 @@ import { ETAB_TYPE_LIST } from '@/lib/etablissement-types'
 import { formatDate } from '@/lib/filters'
 import Link from 'next/link'
 import ProducerBandeau from '@/components/ProducerBandeau'
+import EtabBandeau from '@/components/EtabBandeau'
 
 const FULL_TOP = 60   // espace laissé en haut quand sheet pleine
 
@@ -63,6 +64,8 @@ interface Props {
   availableProducerCats?: Set<ProduitCategorie>
   producerSearch?: string
   onProducerSearchChange?: (q: string) => void
+  etabSearch?: string
+  onEtabSearchChange?: (q: string) => void
   producerFavIds?: string[]
   onToggleProducerFav?: (id: string) => void
   featuredProducers?: ProducerCard[]
@@ -84,6 +87,7 @@ export default function BottomSheet({
   selectedProducerId = null, onSelectProducer, onViewProducerOnMap,
   selectedCats = [], onSelectedCatsChange,
   producerSearch = '', onProducerSearchChange,
+  etabSearch = '', onEtabSearchChange,
   producerFavIds = [], onToggleProducerFav,
   featuredProducers = [], onOpenProducer,
   etablissements = [], etablissementLoading = false,
@@ -130,7 +134,6 @@ export default function BottomSheet({
     setAnnuaireTabIdxLocal(idx)
     onAnnuaireTabChange?.(idx)
   }
-  const [annuaireRowOpen, setAnnuaireRowOpen] = useState(false)
 
   // Refs pour auto-scroll des rows
   const quoiPillRefs  = useRef<(HTMLButtonElement | null)[]>([])
@@ -254,13 +257,8 @@ export default function BottomSheet({
   // Reset state quand on change de mode
   useEffect(() => {
     if (appMode === 'annuaire') { setQuoiOpen(false); setQuandOpen(false) }
-    else { setAnnuaireRowOpen(false); onSelectedCatsChange?.([]); onProducerSearchChange?.('') }
+    else { onSelectedCatsChange?.([]); onProducerSearchChange?.(''); onEtabSearchChange?.('') }
   }, [appMode]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleAnnuaireBtn = () => {
-    if (!annuaireRowOpen) { setAnnuaireRowOpen(true); if (mode === 'peek') snapTo('half'); return }
-    setAnnuaireRowOpen(false)
-  }
 
   // Reset visibleCount quand la liste change (nouveau filtre)
   useEffect(() => { setVisibleCount(BATCH) }, [evenements])
@@ -283,6 +281,22 @@ export default function BottomSheet({
     })
     return Array.from(names).slice(0, 6)
   }, [producers, producerSearch])
+
+  const etabSuggestions = useMemo(() => {
+    if (!etabSearch || etabSearch.length < 1) return []
+    const q = etabSearch.toLowerCase()
+    const seen = new Set<string>()
+    const results: { label: string; hint: string }[] = []
+    etablissements.forEach(e => {
+      if (e.nom.toLowerCase().includes(q) && !seen.has(e.nom)) {
+        seen.add(e.nom); results.push({ label: e.nom, hint: e.commune ?? '' })
+      }
+      if (e.commune && e.commune.toLowerCase().includes(q) && !seen.has(`commune:${e.commune}`)) {
+        seen.add(`commune:${e.commune}`); results.push({ label: e.commune, hint: 'commune' })
+      }
+    })
+    return results.slice(0, 6)
+  }, [etablissements, etabSearch])
 
   const sortedEvents = selectedId
     ? [...evenements.filter(e => e.id === selectedId), ...evenements.filter(e => e.id !== selectedId)]
@@ -401,18 +415,24 @@ export default function BottomSheet({
             </button>
           </div>
         ) : (
-          <div style={{ padding: '0 16px 10px' }}>
-            <button onClick={handleAnnuaireBtn} style={{ width: '100%', height: 52, borderRadius: 14, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontFamily: 'Inter, sans-serif', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '0 14px', gap: 10, opacity: annuaireRowOpen ? 1 : 0.85, overflow: 'hidden' }}>
-              <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 15 }}>
-                {ANNUAIRE_TABS[annuaireTabIdx].emoji}
-              </div>
-              <AnimatePresence mode="wait">
-                <motion.div key={ANNUAIRE_TABS[annuaireTabIdx].id} initial={{ y: 5, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -5, opacity: 0 }} transition={{ duration: 0.13 }} style={{ textAlign: 'left' }}>
-                  <p style={{ fontWeight: 700, fontSize: 13, margin: 0, lineHeight: 1.2 }}>{ANNUAIRE_TABS[annuaireTabIdx].label}</p>
-                  <p style={{ fontSize: 10, margin: '1px 0 0', color: 'rgba(255,255,255,0.65)', lineHeight: 1 }}>Filtrer par catégorie</p>
-                </motion.div>
-              </AnimatePresence>
-            </button>
+          <div style={{ display: 'flex', gap: 10, padding: '0 16px 10px' }}>
+            {ANNUAIRE_TABS.map((tab, idx) => {
+              const active = annuaireTabIdx === idx
+              return (
+                <button key={tab.id} onClick={() => { setAnnuaireTabIdx(idx); if (mode === 'peek') snapTo('half') }}
+                  style={{ flex: 1, height: 52, borderRadius: 14, border: 'none', backgroundColor: active ? '#2D5A3D' : '#E8F2EB', color: active ? '#fff' : '#2D5A3D', fontFamily: 'Inter, sans-serif', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '0 12px', gap: 9, overflow: 'hidden', transition: 'background-color 0.15s, color 0.15s' }}>
+                  <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: active ? 'rgba(255,255,255,0.18)' : 'rgba(45,90,61,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 15 }}>
+                    {tab.emoji}
+                  </div>
+                  <div style={{ textAlign: 'left', overflow: 'hidden' }}>
+                    <p style={{ fontWeight: 700, fontSize: 13, margin: 0, lineHeight: 1.2 }}>{tab.label}</p>
+                    <p style={{ fontSize: 10, margin: '1px 0 0', color: active ? 'rgba(255,255,255,0.65)' : 'rgba(45,90,61,0.55)', lineHeight: 1 }}>
+                      {idx === 0 ? `${producers.length} producteur${producers.length !== 1 ? 's' : ''}` : `${etablissements.length} commerce${etablissements.length !== 1 ? 's' : ''}`}
+                    </p>
+                  </div>
+                </button>
+              )
+            })}
           </div>
         )}
       </div>{/* fin zone drag */}
@@ -515,23 +535,6 @@ export default function BottomSheet({
       {/* ── Rows annuaire ── */}
       {appMode === 'annuaire' && (
         <>
-          {/* Types (producteurs / restaurateurs / ...) */}
-          <AnimatePresence>
-            {annuaireRowOpen && (
-              <motion.div key="annuaire-tabs" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.18 }} style={{ overflow: 'hidden', flexShrink: 0 }}>
-                <div style={{ display: 'flex', gap: 7, padding: '0 16px 10px', overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }} onPointerDown={e => e.stopPropagation()}>
-                  {ANNUAIRE_TABS.map((tab, idx) => (
-                    <button key={tab.id}
-                      onClick={() => setAnnuaireTabIdx(idx)}
-                      style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${annuaireTabIdx === idx ? 'transparent' : sheetBg.border}`, backgroundColor: annuaireTabIdx === idx ? 'var(--primary)' : sheetBg.pill, color: annuaireTabIdx === idx ? '#fff' : sheetBg.sub, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', minHeight: 34, display: 'flex', alignItems: 'center', gap: 5 }}>
-                      {tab.emoji} {tab.label}
-                    </button>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
           {/* Catégories produits */}
           {annuaireTabIdx === 0 && (
             <div style={{ display: 'flex', gap: 7, padding: '0 16px 8px', overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }} onPointerDown={e => e.stopPropagation()}>
@@ -564,30 +567,57 @@ export default function BottomSheet({
           )}
 
           {/* Barre de recherche + suggestions */}
-          <div style={{ padding: '0 16px 10px', position: 'relative' }} onPointerDown={e => e.stopPropagation()}>
-            <div style={{ position: 'relative' }}>
-              <input type="text" value={producerSearch} onChange={e => onProducerSearchChange?.(e.target.value)}
-                placeholder="Producteur, produit, commune…"
-                style={{ width: '100%', padding: '10px 36px 10px 14px', borderRadius: producerSearch && suggestions.length > 0 ? '12px 12px 0 0' : 12, border: `1.5px solid ${sheetBg.border}`, borderBottom: producerSearch && suggestions.length > 0 ? 'none' : `1.5px solid ${sheetBg.border}`, fontSize: 13, fontFamily: 'Inter, sans-serif', color: '#2C1810', backgroundColor: sheetBg.bg, outline: 'none', boxSizing: 'border-box' }} />
-              {producerSearch ? (
-                <button onClick={() => onProducerSearchChange?.('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', cursor: 'pointer', color: '#AAA', fontSize: 15, padding: 2, display: 'flex' }}>✕</button>
-              ) : (
-                <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#AAA', fontSize: 14, pointerEvents: 'none' }}>🔍</span>
+          {annuaireTabIdx === 0 ? (
+            <div style={{ padding: '0 16px 10px', position: 'relative' }} onPointerDown={e => e.stopPropagation()}>
+              <div style={{ position: 'relative' }}>
+                <input type="text" value={producerSearch} onChange={e => onProducerSearchChange?.(e.target.value)}
+                  placeholder="Producteur, produit, commune…"
+                  style={{ width: '100%', padding: '10px 36px 10px 14px', borderRadius: producerSearch && suggestions.length > 0 ? '12px 12px 0 0' : 12, border: `1.5px solid ${sheetBg.border}`, borderBottom: producerSearch && suggestions.length > 0 ? 'none' : `1.5px solid ${sheetBg.border}`, fontSize: 13, fontFamily: 'Inter, sans-serif', color: '#2C1810', backgroundColor: sheetBg.bg, outline: 'none', boxSizing: 'border-box' }} />
+                {producerSearch ? (
+                  <button onClick={() => onProducerSearchChange?.('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', cursor: 'pointer', color: '#AAA', fontSize: 15, padding: 2, display: 'flex' }}>✕</button>
+                ) : (
+                  <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#AAA', fontSize: 14, pointerEvents: 'none' }}>🔍</span>
+                )}
+              </div>
+              {producerSearch && suggestions.length > 0 && (
+                <div style={{ position: 'absolute', left: 16, right: 16, zIndex: 50, backgroundColor: sheetBg.bg, border: `1.5px solid ${sheetBg.border}`, borderTop: 'none', borderRadius: '0 0 12px 12px', overflow: 'hidden', boxShadow: '0 6px 16px rgba(0,0,0,0.10)' }}>
+                  {suggestions.map((s, i) => (
+                    <button key={s} onPointerDown={e => { e.preventDefault(); e.stopPropagation(); onProducerSearchChange?.(s) }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 14px', border: 'none', borderTop: i > 0 ? `1px solid ${sheetBg.border}` : 'none', backgroundColor: 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 13, color: '#2C1810', fontFamily: 'Inter, sans-serif' }}>
+                      <span style={{ color: '#8A8A8A', fontSize: 12 }}>🛒</span>
+                      <span style={{ flex: 1 }}>{s}</span>
+                      <span style={{ fontSize: 10, color: '#AAA', fontWeight: 600 }}>produit</span>
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
-            {producerSearch && suggestions.length > 0 && (
-              <div style={{ position: 'absolute', left: 16, right: 16, zIndex: 50, backgroundColor: sheetBg.bg, border: `1.5px solid ${sheetBg.border}`, borderTop: 'none', borderRadius: '0 0 12px 12px', overflow: 'hidden', boxShadow: '0 6px 16px rgba(0,0,0,0.10)' }}>
-                {suggestions.map((s, i) => (
-                  <button key={s} onPointerDown={e => { e.preventDefault(); e.stopPropagation(); onProducerSearchChange?.(s) }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 14px', border: 'none', borderTop: i > 0 ? `1px solid ${sheetBg.border}` : 'none', backgroundColor: 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 13, color: '#2C1810', fontFamily: 'Inter, sans-serif' }}>
-                    <span style={{ color: '#8A8A8A', fontSize: 12 }}>🛒</span>
-                    <span style={{ flex: 1 }}>{s}</span>
-                    <span style={{ fontSize: 10, color: '#AAA', fontWeight: 600 }}>produit</span>
-                  </button>
-                ))}
+          ) : (
+            <div style={{ padding: '0 16px 10px', position: 'relative' }} onPointerDown={e => e.stopPropagation()}>
+              <div style={{ position: 'relative' }}>
+                <input type="text" value={etabSearch} onChange={e => onEtabSearchChange?.(e.target.value)}
+                  placeholder="Commerce, commune…"
+                  style={{ width: '100%', padding: '10px 36px 10px 14px', borderRadius: etabSearch && etabSuggestions.length > 0 ? '12px 12px 0 0' : 12, border: `1.5px solid ${sheetBg.border}`, borderBottom: etabSearch && etabSuggestions.length > 0 ? 'none' : `1.5px solid ${sheetBg.border}`, fontSize: 13, fontFamily: 'Inter, sans-serif', color: '#2C1810', backgroundColor: sheetBg.bg, outline: 'none', boxSizing: 'border-box' }} />
+                {etabSearch ? (
+                  <button onClick={() => onEtabSearchChange?.('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', cursor: 'pointer', color: '#AAA', fontSize: 15, padding: 2, display: 'flex' }}>✕</button>
+                ) : (
+                  <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#AAA', fontSize: 14, pointerEvents: 'none' }}>🔍</span>
+                )}
               </div>
-            )}
-          </div>
+              {etabSearch && etabSuggestions.length > 0 && (
+                <div style={{ position: 'absolute', left: 16, right: 16, zIndex: 50, backgroundColor: sheetBg.bg, border: `1.5px solid ${sheetBg.border}`, borderTop: 'none', borderRadius: '0 0 12px 12px', overflow: 'hidden', boxShadow: '0 6px 16px rgba(0,0,0,0.10)' }}>
+                  {etabSuggestions.map((s, i) => (
+                    <button key={s.label} onPointerDown={e => { e.preventDefault(); e.stopPropagation(); onEtabSearchChange?.(s.label) }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 14px', border: 'none', borderTop: i > 0 ? `1px solid ${sheetBg.border}` : 'none', backgroundColor: 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 13, color: '#2C1810', fontFamily: 'Inter, sans-serif' }}>
+                      <span style={{ color: '#8A8A8A', fontSize: 12 }}>🏪</span>
+                      <span style={{ flex: 1 }}>{s.label}</span>
+                      {s.hint && <span style={{ fontSize: 10, color: '#AAA', fontWeight: 600 }}>{s.hint}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
 
@@ -611,6 +641,10 @@ export default function BottomSheet({
             </div>
           ) : (
             <>
+              {mode !== 'peek' && (() => {
+                const featured = etablissements.filter(e => e.plan === 'pro' || e.plan === 'max' || e.is_featured)
+                return featured.length > 0 ? <EtabBandeau etablissements={featured} onDiscover={id => onOpenEtablissement?.(id)} /> : null
+              })()}
               {etablissements.slice(0, visibleEtabCount).map(e => (
                 <EtablissementListCard key={e.id} etab={e} onOpen={() => onOpenEtablissement?.(e.id)} />
               ))}

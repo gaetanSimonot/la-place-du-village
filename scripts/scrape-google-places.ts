@@ -256,7 +256,7 @@ async function main() {
           description_courte: details.editorial_summary?.overview ?? null,
           statut:            'imported',
           is_featured:       false,
-          plan:              'free',
+          plan:              'basic',
         }
 
         const { error } = await db

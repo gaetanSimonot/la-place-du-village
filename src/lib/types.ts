@@ -111,6 +111,7 @@ export interface EtablissementCard {
   is_featured: boolean
   statut: string
   description_courte: string | null
+  plan: string
 }
 
 export interface Etablissement extends EtablissementCard {

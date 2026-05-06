@@ -34,10 +34,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .maybeSingle()
 
   if (!etab) return NextResponse.json({ error: 'Non trouvé' }, { status: 404 })
-  if (etab.user_id !== user.id) return NextResponse.json({ error: 'Interdit' }, { status: 403 })
+  const isAdmin = user.email === 'gaetan.simonot@gmail.com'
+  if (!isAdmin && etab.user_id !== user.id) return NextResponse.json({ error: 'Interdit' }, { status: 403 })
 
   const body = await req.json()
-  const allowed = ['description_courte', 'description_longue', 'contact_tel', 'contact_whatsapp', 'site_web', 'horaires', 'photos']
+  const allowed = isAdmin
+    ? ['nom', 'type', 'commune', 'adresse', 'description_courte', 'description_longue', 'contact_tel', 'contact_whatsapp', 'site_web', 'horaires', 'photos', 'statut', 'plan', 'is_featured', 'note_google', 'lat', 'lng']
+    : ['description_courte', 'description_longue', 'contact_tel', 'contact_whatsapp', 'site_web', 'horaires', 'photos']
   const patch = Object.fromEntries(Object.entries(body).filter(([k]) => allowed.includes(k)))
 
   const { error } = await supabaseAdmin.from('etablissements').update(patch).eq('id', id)

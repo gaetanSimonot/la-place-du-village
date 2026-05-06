@@ -121,6 +121,7 @@ export default function HomePage() {
   const [openEtablissementId, setOpenEtablissementId] = useState<string | null>(null)
   const openEtablissementIdRef = useRef<string | null>(null)
   const [annuaireTab, setAnnuaireTab] = useState(0) // 0 = producteurs, 1 = commerces
+  const [etabSearch, setEtabSearch] = useState('')
   const [selectedCats, setSelectedCats] = useState<ProduitCategorie[]>([])
   const [producerSearch, setProducerSearch] = useState('')
   const [loading, setLoading]       = useState(true)
@@ -481,6 +482,24 @@ export default function HomePage() {
 
   const featuredProducers = useMemo(() => producers.filter(p => p.is_featured), [producers])
 
+  const filteredEtablissements = useMemo(() => {
+    const rayon   = userZoneActive ? userRayon : (rayonAffichage ?? 0)
+    const centres = userZoneActive && userCentre
+      ? [userCentre]
+      : zoneCentres.length > 0 ? zoneCentres : [{ lat: GANGES.lat, lng: GANGES.lng, nom: 'Ganges' }]
+
+    return etablissements
+      .filter(e => {
+        if (rayon <= 0 || e.lat == null || e.lng == null) return true
+        return centres.some(c => haversineKm(e.lat!, e.lng!, c.lat, c.lng) <= rayon)
+      })
+      .filter(e => {
+        if (!etabSearch.trim()) return true
+        const q = etabSearch.toLowerCase()
+        return e.nom.toLowerCase().includes(q) || (e.commune ?? '').toLowerCase().includes(q)
+      })
+  }, [etablissements, etabSearch, userZoneActive, userRayon, userCentre, zoneCentres, rayonAffichage])
+
   const openProducer = useCallback((id: string) => {
     openProducerIdRef.current = id
     setOpenProducerIdState(id)
@@ -563,7 +582,7 @@ export default function HomePage() {
           selectedProducerId={selectedProducerId}
           onSelectProducer={setSelectedProducerId}
           onOpenProducer={openProducer}
-          etablissements={appMode === 'annuaire' && annuaireTab === 1 ? etablissements : []}
+          etablissements={appMode === 'annuaire' && annuaireTab === 1 ? filteredEtablissements : []}
           onOpenEtablissement={openEtablissement}
           selectedId={selectedId}
           onSelectEvent={setSelectedId}
@@ -587,7 +606,7 @@ export default function HomePage() {
             <div style={{ position: 'absolute', top: 14, left: 14, zIndex: 200, display: 'flex', flexDirection: 'column', gap: 8, opacity: showBtns && !searchOpen ? 1 : 0, pointerEvents: showBtns && !searchOpen ? 'auto' : 'none', transition: 'opacity 0.18s' }}>
 
               {/* Paramètres */}
-              <button onClick={() => setParamsOpen(p => !p)} style={{ ...BTN, ...activeColor(paramsOpen || fixedMap || userZoneActive) }}>
+              <button onClick={() => setParamsOpen(p => !p)} style={{ ...BTN, ...activeColor(paramsOpen) }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="3"/>
                   <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
@@ -610,7 +629,7 @@ export default function HomePage() {
 
               {/* Loupe */}
               <button onClick={() => { setSearchOpen(true); setParamsOpen(false); setTimeout(() => searchInputRef.current?.focus(), 80) }}
-                style={{ ...BTN, ...activeColor(!!(appMode === 'annuaire' ? producerSearch : searchQuery)) }}>
+                style={{ ...BTN, ...activeColor(false) }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
                 </svg>
@@ -894,11 +913,13 @@ export default function HomePage() {
         onToggleProducerFav={toggleProducerFav}
         featuredProducers={featuredProducers}
         onOpenProducer={openProducer}
-        etablissements={etablissements}
+        etablissements={filteredEtablissements}
         etablissementLoading={etablissementLoading}
         selectedEtabType={selectedEtabType}
         onEtabTypeChange={setSelectedEtabType}
         onOpenEtablissement={openEtablissement}
+        etabSearch={etabSearch}
+        onEtabSearchChange={setEtabSearch}
         annuaireTab={annuaireTab}
         onAnnuaireTabChange={setAnnuaireTab}
       />
