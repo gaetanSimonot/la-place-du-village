@@ -90,48 +90,54 @@ export default function HomePage() {
   const [rayonAffichage, setRayonAffichage] = useState<number | null>(null)
   const [zoneLoaded, setZoneLoaded]     = useState(false)
 
-  // Fetch producers when entering annuaire mode
+  // Fetch producers when entering annuaire mode — deux requêtes séparées (pas de join PostgREST)
   useEffect(() => {
     if (appMode !== 'annuaire') return
     setProducerLoading(true)
     ;(async () => {
       try {
-        type PRow = Record<string, unknown> & { products: { nom: string; categorie: string; prix_indicatif: string | null; periode_dispo: string | null; disponible: boolean }[] }
-        const { data } = await supabase
-          .from('producers')
-          .select('id, nom, description_courte, commune, photos, contact_whatsapp, contact_tel, site_web, lat, lng, is_max, is_featured, user_id, products(id, nom, categorie, prix_indicatif, periode_dispo, disponible)')
-          .order('is_max', { ascending: false })
-          .order('created_at', { ascending: false })
-        const list = (data ?? []) as PRow[]
-        setProducers(list.map(p => {
-          const disponibles = (p.products ?? []).filter(pr => pr.disponible)
+        const [{ data: pData }, { data: prData }] = await Promise.all([
+          supabase
+            .from('producers')
+            .select('id, nom, description_courte, commune, photos, contact_whatsapp, contact_tel, site_web, lat, lng, is_max, is_featured, user_id')
+            .order('is_max', { ascending: false })
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('products')
+            .select('id, producer_id, nom, categorie, prix_indicatif, periode_dispo, disponible')
+            .eq('disponible', true),
+        ])
+        const prodsByProducer: Record<string, { nom: string; categorie: string; prix_indicatif: string | null; periode_dispo: string | null }[]> = {}
+        for (const pr of prData ?? []) {
+          if (!prodsByProducer[pr.producer_id]) prodsByProducer[pr.producer_id] = []
+          prodsByProducer[pr.producer_id].push(pr)
+        }
+        const list = (pData ?? []).map(p => {
+          const disponibles = prodsByProducer[p.id] ?? []
           return {
-            id: p.id as string,
-            nom: p.nom as string,
-            description_courte: (p.description_courte as string | null) ?? null,
-            commune: (p.commune as string | null) ?? null,
-            photo_url: ((p.photos as string[] | null) ?? [])[0] ?? null,
-            contact_whatsapp: (p.contact_whatsapp as string | null) ?? null,
-            contact_tel: (p.contact_tel as string | null) ?? null,
-            site_web: (p.site_web as string | null) ?? null,
+            id: p.id,
+            nom: p.nom,
+            description_courte: p.description_courte ?? null,
+            commune: p.commune ?? null,
+            photo_url: (p.photos ?? [])[0] ?? null,
+            contact_whatsapp: p.contact_whatsapp ?? null,
+            contact_tel: p.contact_tel ?? null,
+            site_web: p.site_web ?? null,
             produit_categories: Array.from(new Set(disponibles.map(pr => normalizeProduitCat(pr.categorie)))) as import('@/lib/types').ProduitCategorie[],
             produits_disponibles: disponibles.map(pr => ({ nom: pr.nom, categorie: normalizeProduitCat(pr.categorie), prix_indicatif: pr.prix_indicatif, periode_dispo: pr.periode_dispo })),
-            lat: (p.lat as number | null) ?? null,
-            lng: (p.lng as number | null) ?? null,
-            is_max: (p.is_max as boolean | null) ?? false,
-            is_featured: (p.is_featured as boolean | null) ?? false,
-            user_id: (p.user_id as string | null) ?? null,
+            lat: p.lat ?? null,
+            lng: p.lng ?? null,
+            is_max: p.is_max ?? false,
+            is_featured: p.is_featured ?? false,
+            user_id: p.user_id ?? null,
           }
-        }))
+        })
         const myId = user?.id
         if (myId) {
-          setProducers(prev => {
-            const idx = prev.findIndex(p => p.user_id === myId)
-            if (idx <= 0) return prev
-            const mine = prev[idx]
-            return [mine, ...prev.filter((_, i) => i !== idx)]
-          })
+          const idx = list.findIndex(p => p.user_id === myId)
+          if (idx > 0) { const [mine] = list.splice(idx, 1); list.unshift(mine) }
         }
+        setProducers(list)
       } catch { /* ignore */ }
       setProducerLoading(false)
     })()
