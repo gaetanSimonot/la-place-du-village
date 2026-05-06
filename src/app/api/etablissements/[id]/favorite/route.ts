@@ -15,7 +15,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { data } = await supabaseAdmin
     .from('etablissement_favorites')
-    .select('id')
+    .select('user_id')
     .eq('user_id', user.id)
     .eq('etablissement_id', id)
     .maybeSingle()
