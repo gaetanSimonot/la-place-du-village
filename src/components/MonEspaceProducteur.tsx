@@ -183,6 +183,14 @@ export default function MonEspaceProducteur() {
     if (res.ok) setProducts(prev => prev.filter(x => x.id !== id))
   }
 
+  async function deleteProducer() {
+    if (!confirm('Supprimer votre fiche et tous vos produits ?')) return
+    if (!confirm('Cette action est irréversible. Confirmer ?')) return
+    const token = await getToken()
+    const res = await fetch('/api/mon-producteur', { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+    if (res.ok) { setProducer(null); setProducts([]) }
+  }
+
   async function addProduct() {
     if (!newProduct.nom.trim()) return
     setSaving(true)
@@ -399,6 +407,9 @@ export default function MonEspaceProducteur() {
         {producer.site_web && <p style={{ fontSize: 12, color: '#8A8A8A', margin: 0 }}>🔗 {producer.site_web}</p>}
         <button onClick={startEdit} style={{ marginTop: 12, width: '100%', padding: '10px', borderRadius: 10, border: '1px solid var(--primary)', backgroundColor: 'transparent', color: 'var(--primary)', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
           Modifier ma fiche
+        </button>
+        <button onClick={deleteProducer} style={{ marginTop: 8, width: '100%', padding: '10px', borderRadius: 10, border: '1px solid #E8622A', backgroundColor: 'transparent', color: '#E8622A', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+          Supprimer ma fiche
         </button>
       </div>
 

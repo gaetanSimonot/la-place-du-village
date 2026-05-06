@@ -127,3 +127,18 @@ export async function PATCH(req: NextRequest) {
 
   return NextResponse.json({ producer: data })
 }
+
+export async function DELETE(req: NextRequest) {
+  const user = await verifyUser(req)
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { data: producer } = await supabaseAdmin
+    .from('producers').select('id').eq('user_id', user.id).maybeSingle()
+  if (!producer) return NextResponse.json({ error: 'Fiche non trouvée' }, { status: 404 })
+
+  await supabaseAdmin.from('products').delete().eq('producer_id', producer.id)
+  const { error } = await supabaseAdmin.from('producers').delete().eq('id', producer.id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({ success: true })
+}
