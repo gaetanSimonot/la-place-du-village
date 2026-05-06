@@ -32,11 +32,10 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
   const [publishing, setPublishing] = useState(false)
   const [publishedCount, setPublishedCount] = useState(0)
   const [noProducer, setNoProducer] = useState(false)
-  const [interimText, setInterimText] = useState('')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recognitionRef    = useRef<any>(null)
-  const finalCountRef     = useRef(0)
-  const isStartingRef     = useRef(false)
+  const recognitionRef = useRef<any>(null)
+  const listeningRef   = useRef(false)
+  const finalCountRef  = useRef(0)
 
   useEffect(() => {
     getToken().then(token => {
@@ -48,66 +47,53 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
     })
   }, [])
 
+  function stopMic() {
+    listeningRef.current = false
+    setListening(false)
+    if (recognitionRef.current) {
+      recognitionRef.current.onend = null
+      try { recognitionRef.current.stop() } catch { /* ignore */ }
+      recognitionRef.current = null
+    }
+  }
+
   function toggleMic() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SR) return
 
-    if (listening || isStartingRef.current) {
-      recognitionRef.current?.stop()
-      recognitionRef.current = null
-      isStartingRef.current = false
-      setListening(false)
-      setInterimText('')
+    if (listeningRef.current) {
+      stopMic()
       return
     }
 
-    isStartingRef.current = true
     finalCountRef.current = 0
-
     const rec = new SR()
     rec.lang = 'fr-FR'
     rec.continuous = true
-    rec.interimResults = true
+    rec.interimResults = false
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rec.onresult = (e: any) => {
-      let finalStr = '', interimStr = ''
-      for (let i = 0; i < e.results.length; i++) {
+      let added = ''
+      for (let i = finalCountRef.current; i < e.results.length; i++) {
         if (e.results[i].isFinal) {
-          if (i >= finalCountRef.current) {
-            finalStr += e.results[i][0].transcript + ' '
-            finalCountRef.current = i + 1
-          }
-        } else {
-          interimStr += e.results[i][0].transcript
+          added += e.results[i][0].transcript + ' '
+          finalCountRef.current = i + 1
         }
       }
-      if (finalStr) setText(prev => prev ? `${prev} ${finalStr.trim()}` : finalStr.trim())
-      setInterimText(interimStr)
+      if (added) setText(prev => prev ? `${prev} ${added.trim()}` : added.trim())
     }
-    rec.onend = () => { isStartingRef.current = false; setListening(false); setInterimText('') }
-    recognitionRef.current = rec
-    setListening(true)
 
-    ;(async () => {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const Ctx = window.AudioContext || (window as any).webkitAudioContext
-        if (Ctx) {
-          const ctx = new Ctx()
-          await ctx.resume()
-          const src = ctx.createBufferSource()
-          src.buffer = ctx.createBuffer(1, 1, 22050)
-          src.connect(ctx.destination)
-          src.start(0)
-          await new Promise(r => setTimeout(r, 80))
-          ctx.close()
-        }
-      } catch { /* ignore */ }
-      if (!isStartingRef.current) { recognitionRef.current = null; return }
-      isStartingRef.current = false
+    rec.onerror = () => stopMic()
+    rec.onend   = () => stopMic()
+
+    try {
       rec.start()
-    })()
+      recognitionRef.current = rec
+      listeningRef.current = true
+      setListening(true)
+    } catch { /* mic non disponible */ }
   }
 
   async function analyse() {
@@ -122,7 +108,12 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
       body: JSON.stringify({ text }),
     })
     const d = await res.json()
-    setProducts((d.products ?? []).map((p: Omit<ProductDraft, 'selected'>) => ({ ...p, prix_indicatif: p.prix_indicatif ?? '', periode_dispo: p.periode_dispo ?? '', selected: true })))
+    setProducts((d.products ?? []).map((p: Omit<ProductDraft, 'selected'>) => ({
+      ...p,
+      prix_indicatif: p.prix_indicatif ?? '',
+      periode_dispo: p.periode_dispo ?? '',
+      selected: true,
+    })))
     setScanning(false)
     setStep('review')
   }
@@ -213,7 +204,7 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
 
               <div style={{ position: 'relative' }}>
                 <textarea
-                  value={text + (interimText ? (text ? ' ' : '') + interimText : '')}
+                  value={text}
                   onChange={e => { if (!listening) setText(e.target.value) }}
                   rows={6}
                   placeholder="Ex : j'ai des tomates cerises à 2€ la barquette disponibles cette semaine, des courgettes à 1€/kg…"
@@ -242,20 +233,18 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
 
               {listening && (
                 <p style={{ margin: 0, fontSize: 12, color: '#E8622A', fontFamily: 'Inter, sans-serif', textAlign: 'center' }}>
-                  🔴 En écoute — appuyez sur ⬛ pour arrêter
+                  🔴 Écoute en cours — appuyez sur ⬛ pour arrêter
                 </p>
               )}
 
-              {!listening && (
-                <button onClick={analyse} disabled={!text.trim() || scanning} style={{
-                  padding: '14px', borderRadius: 12, border: 'none',
-                  cursor: text.trim() && !scanning ? 'pointer' : 'default',
-                  backgroundColor: text.trim() && !scanning ? 'var(--primary)' : '#CCC',
-                  color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15,
-                }}>
-                  {scanning ? '⏳ Analyse en cours…' : '→ Créer les produits'}
-                </button>
-              )}
+              <button onClick={analyse} disabled={!text.trim() || scanning || listening} style={{
+                padding: '14px', borderRadius: 12, border: 'none',
+                cursor: text.trim() && !scanning && !listening ? 'pointer' : 'default',
+                backgroundColor: text.trim() && !scanning && !listening ? 'var(--primary)' : '#CCC',
+                color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15,
+              }}>
+                {scanning ? '⏳ Analyse en cours…' : '→ Créer les produits'}
+              </button>
 
               <style>{`
                 @keyframes pdv-breathe {
