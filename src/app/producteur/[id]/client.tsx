@@ -15,7 +15,7 @@ interface Producer {
   photos: string[]; is_max: boolean; is_featured: boolean; user_id?: string | null
   vente_directe?: boolean | null; retrait_sur_place?: boolean | null
 }
-interface Product { id: string; nom: string; categorie: string; prix_indicatif: string | null; periode_dispo: string | null }
+interface Product { id: string; nom: string; categorie: string; prix_indicatif: string | null; periode_dispo: string | null; disponible: boolean }
 interface Comment {
   id: string; user_id: string; content: string; parent_id: string | null; created_at: string
   profile: { id: string; display_name: string | null; avatar_url: string | null } | null
