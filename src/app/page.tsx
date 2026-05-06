@@ -934,6 +934,7 @@ export default function HomePage() {
             events={allEvenements.filter(e => favIds.includes(e.id))}
             onToggleFav={toggleFav}
             onOpenProducer={openProducer}
+            onOpenEtablissement={openEtablissement}
           />
         </div>
       )}

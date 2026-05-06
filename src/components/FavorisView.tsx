@@ -7,38 +7,45 @@ import { formatDate } from '@/lib/filters'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { PRODUIT_CATS_MAP, normalizeProduitCat } from '@/lib/produit-cats'
+import { ETAB_TYPES } from '@/lib/etablissement-types'
 
 interface ProducerMin {
   id: string; nom: string; commune: string | null; photos: string[]; produit_categories: string[]
+}
+interface EtabMin {
+  id: string; nom: string; commune: string | null; photos: string[]; type: string
 }
 
 interface Props {
   events: EvenementCard[]
   onToggleFav: (id: string) => void
   onOpenProducer?: (id: string) => void
+  onOpenEtablissement?: (id: string) => void
 }
 
 type Tab = 'events' | 'producers' | 'follows'
 
 const TABS: { id: Tab; emoji: string; label: string }[] = [
   { id: 'events',    emoji: '🗓', label: 'Événements' },
-  { id: 'producers', emoji: '❤️', label: 'Producteurs' },
-  { id: 'follows',   emoji: '🌿', label: 'Suivis' },
+  { id: 'producers', emoji: '❤️', label: 'Favoris' },
+  { id: 'follows',   emoji: '🔔', label: 'Suivis' },
 ]
 
-export default function FavorisView({ events, onToggleFav, onOpenProducer }: Props) {
+export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpenEtablissement }: Props) {
   const { user } = useAuth()
   const [tab, setTab] = useState<Tab>('events')
   const [producerFavs, setProducerFavs] = useState<ProducerMin[]>([])
   const [producerFollows, setProducerFollows] = useState<ProducerMin[]>([])
-  const [loadingProducers, setLoadingProducers] = useState(false)
+  const [etabFavs, setEtabFavs] = useState<EtabMin[]>([])
+  const [etabFollows, setEtabFollows] = useState<EtabMin[]>([])
+  const [loading, setLoading] = useState(false)
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
     if (tab === 'events' || !user || loaded) return
-    setLoadingProducers(true)
+    setLoading(true)
 
-    async function fetchByTable(table: 'producer_favorites' | 'producer_followers') {
+    async function fetchProducers(table: 'producer_favorites' | 'producer_followers') {
       const { data: rows } = await supabase.from(table).select('producer_id').eq('user_id', user!.id)
       const ids = (rows ?? []).map((r: { producer_id: string }) => r.producer_id)
       if (ids.length === 0) return []
@@ -49,9 +56,28 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer }: Pro
       }))
     }
 
-    Promise.all([fetchByTable('producer_favorites'), fetchByTable('producer_followers')])
-      .then(([favs, follows]) => { setProducerFavs(favs); setProducerFollows(follows); setLoaded(true) })
-      .finally(() => setLoadingProducers(false))
+    async function fetchEtabs(table: 'etablissement_favorites' | 'etablissement_followers') {
+      const { data: rows } = await supabase.from(table).select('etablissement_id').eq('user_id', user!.id)
+      const ids = (rows ?? []).map((r: { etablissement_id: string }) => r.etablissement_id)
+      if (ids.length === 0) return []
+      const { data } = await supabase.from('etablissements').select('id, nom, commune, photos, type').in('id', ids)
+      return (data ?? []).map((e: { id: string; nom: string; commune: string | null; photos: string[] | null; type: string }) => ({
+        id: e.id, nom: e.nom, commune: e.commune, photos: e.photos ?? [], type: e.type,
+      }))
+    }
+
+    Promise.all([
+      fetchProducers('producer_favorites'),
+      fetchProducers('producer_followers'),
+      fetchEtabs('etablissement_favorites'),
+      fetchEtabs('etablissement_followers'),
+    ])
+      .then(([pFavs, pFollows, eFavs, eFollows]) => {
+        setProducerFavs(pFavs); setProducerFollows(pFollows)
+        setEtabFavs(eFavs); setEtabFollows(eFollows)
+        setLoaded(true)
+      })
+      .finally(() => setLoading(false))
   }, [tab, user, loaded])
 
   return (
@@ -96,18 +122,26 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer }: Pro
 
         {tab === 'producers' && (
           !user
-            ? <EmptyState icon="🔒" title="Connexion requise" sub="Connecte-toi pour voir tes producteurs favoris" />
-            : loadingProducers
+            ? <EmptyState icon="🔒" title="Connexion requise" sub="Connecte-toi pour voir tes favoris" />
+            : loading
             ? <Spinner />
-            : producerFavs.length === 0
-            ? <EmptyState icon="🌿" title="Aucun producteur favori" sub="Appuie sur ❤️ sur une fiche producteur" />
+            : producerFavs.length === 0 && etabFavs.length === 0
+            ? <EmptyState icon="🌿" title="Aucun favori" sub="Appuie sur ❤️ sur une fiche producteur ou établissement" />
             : <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {producerFavs.map(p => (
                   <ProducerCard key={p.id} p={p} accentColor="#EC407A"
                     onClick={() => onOpenProducer?.(p.id)}
                     onRemove={async () => {
-                      await supabase.from('producer_favorites').delete().eq('producer_id', p.id).eq('user_id', user.id)
+                      await supabase.from('producer_favorites').delete().eq('producer_id', p.id).eq('user_id', user!.id)
                       setProducerFavs(prev => prev.filter(x => x.id !== p.id))
+                    }} />
+                ))}
+                {etabFavs.map(e => (
+                  <EtabCard key={e.id} e={e} accentColor="#EC407A"
+                    onClick={() => onOpenEtablissement?.(e.id)}
+                    onRemove={async () => {
+                      await supabase.from('etablissement_favorites').delete().eq('etablissement_id', e.id).eq('user_id', user!.id)
+                      setEtabFavs(prev => prev.filter(x => x.id !== e.id))
                     }} />
                 ))}
               </div>
@@ -116,17 +150,25 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer }: Pro
         {tab === 'follows' && (
           !user
             ? <EmptyState icon="🔒" title="Connexion requise" sub="Connecte-toi pour voir tes abonnements" />
-            : loadingProducers
+            : loading
             ? <Spinner />
-            : producerFollows.length === 0
-            ? <EmptyState icon="📭" title="Aucun abonnement" sub="Suis des producteurs pour ne rien rater" />
+            : producerFollows.length === 0 && etabFollows.length === 0
+            ? <EmptyState icon="📭" title="Aucun abonnement" sub="Suis des producteurs et établissements pour ne rien rater" />
             : <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {producerFollows.map(p => (
                   <ProducerCard key={p.id} p={p} accentColor="#2D5A3D"
                     onClick={() => onOpenProducer?.(p.id)}
                     onRemove={async () => {
-                      await supabase.from('producer_followers').delete().eq('producer_id', p.id).eq('user_id', user.id)
+                      await supabase.from('producer_followers').delete().eq('producer_id', p.id).eq('user_id', user!.id)
                       setProducerFollows(prev => prev.filter(x => x.id !== p.id))
+                    }} />
+                ))}
+                {etabFollows.map(e => (
+                  <EtabCard key={e.id} e={e} accentColor="#2D5A3D"
+                    onClick={() => onOpenEtablissement?.(e.id)}
+                    onRemove={async () => {
+                      await supabase.from('etablissement_followers').delete().eq('etablissement_id', e.id).eq('user_id', user!.id)
+                      setEtabFollows(prev => prev.filter(x => x.id !== e.id))
                     }} />
                 ))}
               </div>
@@ -185,6 +227,32 @@ function ProducerCard({ p, onClick, onRemove, accentColor }: {
       </div>
       {/* Bouton retirer */}
       <button onClick={e => { e.stopPropagation(); onRemove() }}
+        style={{ position: 'absolute', top: 10, right: 10, width: 30, height: 30, borderRadius: 9, backgroundColor: 'rgba(0,0,0,0.05)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill={accentColor} stroke={accentColor} strokeWidth="1.5">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+        </svg>
+      </button>
+    </div>
+  )
+}
+
+function EtabCard({ e, onClick, onRemove, accentColor }: {
+  e: EtabMin; onClick: () => void; onRemove: () => void; accentColor: string
+}) {
+  const typeInfo = ETAB_TYPES[e.type as keyof typeof ETAB_TYPES]
+  return (
+    <div onClick={onClick} style={{ backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 12px rgba(44,28,16,0.08)', display: 'flex', height: 90, cursor: 'pointer', position: 'relative' }}>
+      <div style={{ width: 90, flexShrink: 0, backgroundColor: typeInfo?.bg ?? '#F5F0E8', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {e.photos[0]
+          ? <img src={e.photos[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+          : <span style={{ fontSize: 30 }}>{typeInfo?.emoji ?? '🏪'}</span>}
+      </div>
+      <div style={{ flex: 1, padding: '13px 46px 13px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4, minWidth: 0 }}>
+        <p style={{ fontWeight: 700, fontSize: 14, color: '#1C1917', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'Inter, sans-serif' }}>{e.nom}</p>
+        {e.commune && <p style={{ fontSize: 11, color: '#6B5E4E', margin: 0, fontFamily: 'Lora, serif' }}>📍 {e.commune}</p>}
+        {typeInfo && <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, backgroundColor: typeInfo.bg, color: typeInfo.color, fontWeight: 700, fontFamily: 'Inter, sans-serif', alignSelf: 'flex-start' }}>{typeInfo.emoji} {typeInfo.label}</span>}
+      </div>
+      <button onClick={ev => { ev.stopPropagation(); onRemove() }}
         style={{ position: 'absolute', top: 10, right: 10, width: 30, height: 30, borderRadius: 9, backgroundColor: 'rgba(0,0,0,0.05)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill={accentColor} stroke={accentColor} strokeWidth="1.5">
           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
