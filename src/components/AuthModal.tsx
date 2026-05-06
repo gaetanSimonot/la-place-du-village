@@ -15,27 +15,29 @@ export default function AuthModal() {
 
   if (!open || user) return null
 
-  const callbackUrl = () => {
-    const base = `${window.location.origin}/auth/callback`
-    return returnTo ? `${base}?next=${encodeURIComponent(returnTo)}` : base
+  const storeReturnTo = () => {
+    try {
+      if (returnTo) sessionStorage.setItem('pdv-return-to', returnTo)
+      sessionStorage.setItem('pdv-login-pending', '1')
+    } catch {}
   }
 
   const handleGoogle = async () => {
     setGoogleLoading(true)
-    try { sessionStorage.setItem('pdv-login-pending', '1') } catch {}
+    storeReturnTo()
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: callbackUrl() },
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
     })
   }
 
   const handleMagicLink = async () => {
     if (!email.trim()) return
-    try { sessionStorage.setItem('pdv-login-pending', '1') } catch {}
+    storeReturnTo()
     setLoading(true); setError(null)
     const { error: err } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: callbackUrl() },
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
     })
     setLoading(false)
     if (err) { setError(err.message); return }

@@ -268,9 +268,17 @@ export default function HomePage() {
   }, [])
 
   // After login (null → user) — si le flag login-pending est posé, aller sur profil
+  // Sauf si pdv-return-to est défini (login depuis une fiche) — dans ce cas on ne touche pas à la nav
   useEffect(() => {
     if (user && !prevUserRef.current) {
       try {
+        const returnTo = sessionStorage.getItem('pdv-return-to')
+        if (returnTo) {
+          sessionStorage.removeItem('pdv-return-to')
+          sessionStorage.removeItem('pdv-login-pending')
+          window.location.href = returnTo
+          return
+        }
         if (sessionStorage.getItem('pdv-login-pending')) {
           sessionStorage.removeItem('pdv-login-pending')
           setNavTab('profil')
