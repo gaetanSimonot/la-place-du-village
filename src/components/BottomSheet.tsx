@@ -6,9 +6,6 @@ import { CATEGORIES } from '@/lib/categories'
 import { PRODUIT_CATS } from '@/lib/produit-cats'
 import { formatDate } from '@/lib/filters'
 import Link from 'next/link'
-import { useAuth } from '@/hooks/useAuth'
-import { supabase } from '@/lib/supabase'
-import CaptureProducteur from '@/components/CaptureProducteur'
 import ProducerBandeau from '@/components/ProducerBandeau'
 
 const FULL_TOP = 60   // espace laissé en haut quand sheet pleine
@@ -77,7 +74,7 @@ export default function BottomSheet({
   filtres, onFiltresChange, mode, onModeChange, navHeight, screenH,
   onPeekHeightChange, proEvents = [], onDiscoverPro, onOpenEvent,
   favIds = [], onToggleFav,
-  appMode, producers = [], producerLoading = false,
+  appMode, onAppModeChange, producers = [], producerLoading = false,
   selectedProducerId = null, onSelectProducer, onViewProducerOnMap,
   selectedCats = [], onSelectedCatsChange,
   producerSearch = '', onProducerSearchChange,
@@ -85,9 +82,6 @@ export default function BottomSheet({
   featuredProducers = [], onOpenProducer,
 }: Props) {
   const { sheetBg } = useTheme()
-  const { user } = useAuth()
-  const [userPlan, setUserPlan] = useState<string | null>(null)
-  const [captureOpen, setCaptureOpen] = useState(false)
   const [peekH, setPeekH]         = useState(130) // hauteur mesurée du header
   const [visibleCount, setVisibleCount] = useState(BATCH)
   const headerRef = useRef<HTMLDivElement>(null)
@@ -102,12 +96,6 @@ export default function BottomSheet({
     obsRef.current.observe(el)
   }, [])
   const dragControls              = useDragControls()
-
-  useEffect(() => {
-    if (!user?.id) return
-    supabase.from('profiles').select('plan').eq('user_id', user.id).single()
-      .then(({ data: p }) => { if (p) setUserPlan(p.plan ?? null) })
-  }, [user?.id])
 
   // Filtre "Que faire" — cursor dans CATS, -1 = row fermée
   const [quoiOpen,   setQuoiOpen]   = useState(false)
@@ -326,16 +314,34 @@ export default function BottomSheet({
                 Marchés · ateliers · concerts…
               </p>
             </div>
-            <button
-              onClick={() => snapTo('full')}
-              style={{
-                flexShrink: 0, padding: '7px 13px', borderRadius: 999,
-                border: '1.5px solid #2D5A3D', backgroundColor: 'transparent',
-                color: '#2D5A3D', fontFamily: 'Inter, sans-serif', fontWeight: 700,
-                fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap',
-              }}>
-              Voir la liste →
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, flexShrink: 0 }}>
+              <button onClick={() => onAppModeChange?.('agenda')} style={{ padding: '5px 10px', borderRadius: 999, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}>📅 Agenda</button>
+              <button onClick={() => onAppModeChange?.('annuaire')} style={{ padding: '5px 10px', borderRadius: 999, border: 'none', backgroundColor: '#E8F2EB', color: '#2D5A3D', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}>🌿 Annuaire</button>
+            </div>
+          </div>
+        )}
+
+        {/* Compteur annuaire (annuaire, non-full) */}
+        {appMode === 'annuaire' && mode !== 'full' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 16px 10px' }}>
+            <div style={{ width: 54, height: 54, borderRadius: 14, backgroundColor: '#E8F2EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>
+              {ANNUAIRE_TABS[annuaireTabIdx].emoji}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 18, color: '#1C1917', margin: 0, lineHeight: 1.1 }}>
+                {producers.length} {ANNUAIRE_TABS[annuaireTabIdx].label.toLowerCase()}{producers.length > 1 ? 's' : ''}
+              </p>
+              <p style={{ fontFamily: 'Inter, sans-serif', fontSize: 13, color: '#6B5E4E', margin: '2px 0 0', lineHeight: 1.2 }}>
+                Autour de toi
+              </p>
+              <p style={{ fontFamily: 'Lora, serif', fontSize: 12, color: '#9E9089', margin: '2px 0 0' }}>
+                Producteurs · artisans · locaux…
+              </p>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, flexShrink: 0 }}>
+              <button onClick={() => onAppModeChange?.('agenda')} style={{ padding: '5px 10px', borderRadius: 999, border: 'none', backgroundColor: '#E8F2EB', color: '#2D5A3D', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}>📅 Agenda</button>
+              <button onClick={() => onAppModeChange?.('annuaire')} style={{ padding: '5px 10px', borderRadius: 999, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}>🌿 Annuaire</button>
+            </div>
           </div>
         )}
 
@@ -371,12 +377,6 @@ export default function BottomSheet({
           </div>
         ) : (
           <div style={{ padding: '0 16px 10px' }}>
-            {/* Bouton + capture produits — MAX uniquement en mode annuaire */}
-            {userPlan === 'max' && (
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
-                <button onClick={() => setCaptureOpen(true)} title="Ajouter des produits" style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', backgroundColor: 'var(--primary)', color: '#fff', fontSize: 18, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>+</button>
-              </div>
-            )}
             <button onClick={handleAnnuaireBtn} style={{ width: '100%', height: 52, borderRadius: 14, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontFamily: 'Inter, sans-serif', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '0 14px', gap: 10, opacity: annuaireRowOpen ? 1 : 0.85, overflow: 'hidden' }}>
               <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 15 }}>
                 {ANNUAIRE_TABS[annuaireTabIdx].emoji}
@@ -632,7 +632,6 @@ export default function BottomSheet({
       </div>
     </motion.div>
 
-    {captureOpen && <CaptureProducteur onClose={() => setCaptureOpen(false)} />}
   </>
   )
 }

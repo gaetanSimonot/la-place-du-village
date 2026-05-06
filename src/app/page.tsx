@@ -772,30 +772,6 @@ export default function HomePage() {
         </>
       )}
 
-      {/* Toggle Agenda ↔ Annuaire — haut droite, toujours visible sur carte/liste */}
-      <div style={{
-        position: 'absolute', top: 14, right: 14, zIndex: 200,
-        opacity: navTab !== 'profil' && navTab !== 'favoris' && sheetMode !== 'full' ? 1 : 0,
-        pointerEvents: navTab !== 'profil' && navTab !== 'favoris' && sheetMode !== 'full' ? 'auto' : 'none',
-        transition: 'opacity 0.18s',
-      }}>
-        <div style={{ display: 'flex', borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.14)', border: '1px solid rgba(224,216,206,0.8)' }}>
-          <button onClick={() => setAppMode('agenda')} title="Agenda"
-            style={{ width: 44, height: 44, backgroundColor: appMode === 'agenda' ? '#2D5A3D' : 'rgba(255,255,255,0.92)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: appMode === 'agenda' ? '#fff' : '#6B6B6B', transition: 'background-color 0.2s' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-            </svg>
-          </button>
-          <div style={{ width: 1, backgroundColor: '#E0D8CE' }} />
-          <button onClick={() => setAppMode('annuaire')} title="Annuaire producteurs"
-            style={{ width: 44, height: 44, backgroundColor: appMode === 'annuaire' ? '#2D5A3D' : 'rgba(255,255,255,0.92)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: appMode === 'annuaire' ? '#fff' : '#6B6B6B', transition: 'background-color 0.2s' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-
       {/* Bouton Publier — haut centre, visible seulement sur carte non-full */}
       <AnimatePresence>
         {showFab && (

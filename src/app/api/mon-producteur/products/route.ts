@@ -8,6 +8,38 @@ async function verifyUser(req: NextRequest) {
   return user ?? null
 }
 
+const CAT_QUERIES: Record<string, string> = {
+  fruits_legumes: 'fresh vegetables fruits',
+  viandes: 'fresh meat butcher',
+  fromages_laitages: 'cheese dairy fresh',
+  oeufs: 'eggs farm fresh',
+  pain: 'artisan bread bakery',
+  miel: 'honey jar organic',
+  panier: 'vegetable basket farm',
+  plantes: 'plants flowers garden',
+  huiles: 'olive oil condiments',
+  boissons: 'wine beverages',
+  artisanat: 'handmade craft artisan',
+  autre: 'local farm market',
+}
+
+async function fetchPexelsUrl(nom: string, categorie: string): Promise<string | null> {
+  const key = process.env.PEXELS_API_KEY
+  if (!key) return null
+  const query = nom || CAT_QUERIES[categorie] || 'local farm'
+  try {
+    const r = await fetch(
+      `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=8&page=1&orientation=square`,
+      { headers: { Authorization: key } }
+    )
+    if (!r.ok) return null
+    const d = await r.json()
+    const photos = d.photos ?? []
+    if (!photos.length) return null
+    return photos[Math.floor(Math.random() * photos.length)].src.medium ?? null
+  } catch { return null }
+}
+
 export async function POST(req: NextRequest) {
   const user = await verifyUser(req)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -32,5 +64,13 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Auto-fetch Pexels image
+  const imageUrl = await fetchPexelsUrl(body.nom, body.categorie)
+  if (imageUrl && data) {
+    await supabaseAdmin.from('products').update({ image_url: imageUrl }).eq('id', data.id)
+    ;(data as Record<string, unknown>).image_url = imageUrl
+  }
+
   return NextResponse.json({ product: data })
 }

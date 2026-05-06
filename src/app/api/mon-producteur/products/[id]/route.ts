@@ -69,6 +69,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       disponible: body.disponible ?? item.disponible,
       periode_dispo: body.periode_dispo ?? null,
       dispo_jusqu_au: (body.dispo_jusqu_au === '' ? null : body.dispo_jusqu_au) ?? null,
+      ...(body.image_url !== undefined ? { image_url: body.image_url ?? null } : {}),
     })
     .eq('id', id)
     .select()
