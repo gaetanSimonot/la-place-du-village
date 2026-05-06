@@ -152,7 +152,20 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
     const res = await fetch(`/api/producers/${id}/follow`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
     if (!res.ok) setIsFollowing(!next)
   }
-  function scrollToComments() { commentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
+  function scrollToComments() {
+    if (!commentsRef.current) return
+    let parent: HTMLElement | null = commentsRef.current.parentElement
+    while (parent) {
+      const ov = window.getComputedStyle(parent).overflowY
+      if (ov === 'auto' || ov === 'scroll') {
+        const top = commentsRef.current.getBoundingClientRect().top - parent.getBoundingClientRect().top + parent.scrollTop - 12
+        parent.scrollTo({ top, behavior: 'smooth' })
+        return
+      }
+      parent = parent.parentElement
+    }
+    commentsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
   async function deleteComment(commentId: string) {
     const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; if (!token) return
     const res = await fetch(`/api/producers/${id}/comments/${commentId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
