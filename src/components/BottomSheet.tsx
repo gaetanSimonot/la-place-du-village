@@ -1,9 +1,10 @@
 'use client'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, useMotionValue, animate, useDragControls, AnimatePresence } from 'framer-motion'
-import { EvenementCard, Filtres, Categorie, FiltreQuand, AppMode, ProducerCard, ProduitCategorie } from '@/lib/types'
+import { EvenementCard, Filtres, Categorie, FiltreQuand, AppMode, ProducerCard, ProduitCategorie, EtablissementCard, EtablissementType } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { PRODUIT_CATS } from '@/lib/produit-cats'
+import { ETAB_TYPE_LIST } from '@/lib/etablissement-types'
 import { formatDate } from '@/lib/filters'
 import Link from 'next/link'
 import ProducerBandeau from '@/components/ProducerBandeau'
@@ -25,10 +26,8 @@ import ProBandeau from '@/components/ProBandeau'
 const BATCH = 20
 
 const ANNUAIRE_TABS = [
-  { id: 'producteurs',  label: 'Producteurs',     emoji: '🌿', active: true  },
-  { id: 'restaurateurs',label: 'Restaurateurs',   emoji: '🍽️', active: false },
-  { id: 'artisans',     label: 'Artisans',        emoji: '🔨', active: false },
-  { id: 'sante',        label: 'Santé & bien-être',emoji: '💚', active: false },
+  { id: 'producteurs',    label: 'Producteurs',    emoji: '🌿', active: true },
+  { id: 'etablissements', label: 'Commerces',      emoji: '🏪', active: true },
 ]
 
 // PRODUIT_CATS importé depuis @/lib/produit-cats
@@ -67,6 +66,11 @@ interface Props {
   producerFavIds?: string[]
   onToggleProducerFav?: (id: string) => void
   featuredProducers?: ProducerCard[]
+  etablissements?: EtablissementCard[]
+  etablissementLoading?: boolean
+  selectedEtabType?: EtablissementType | null
+  onEtabTypeChange?: (t: EtablissementType | null) => void
+  onOpenEtablissement?: (id: string) => void
 }
 
 export default function BottomSheet({
@@ -80,6 +84,8 @@ export default function BottomSheet({
   producerSearch = '', onProducerSearchChange,
   producerFavIds = [], onToggleProducerFav,
   featuredProducers = [], onOpenProducer,
+  etablissements = [], etablissementLoading = false,
+  selectedEtabType = null, onEtabTypeChange, onOpenEtablissement,
 }: Props) {
   const { sheetBg } = useTheme()
   const [peekH, setPeekH]         = useState(130) // hauteur mesurée du header
@@ -324,18 +330,18 @@ export default function BottomSheet({
         {/* Compteur annuaire (annuaire, non-full) */}
         {appMode === 'annuaire' && mode !== 'full' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 16px 10px' }}>
-            <div style={{ width: 54, height: 54, borderRadius: 14, backgroundColor: '#E8F2EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>
+            <div style={{ width: 54, height: 54, borderRadius: 14, backgroundColor: annuaireTabIdx === 0 ? '#E8F2EB' : '#FDE8DF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>
               {ANNUAIRE_TABS[annuaireTabIdx].emoji}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 18, color: '#1C1917', margin: 0, lineHeight: 1.1 }}>
-                {producers.length} {ANNUAIRE_TABS[annuaireTabIdx].label.toLowerCase().replace(/s$/, '')}{producers.length !== 1 ? 's' : ''}
+                {annuaireTabIdx === 0 ? producers.length : etablissements.length} {ANNUAIRE_TABS[annuaireTabIdx].label}
               </p>
               <p style={{ fontFamily: 'Inter, sans-serif', fontSize: 13, color: '#6B5E4E', margin: '2px 0 0', lineHeight: 1.2 }}>
                 Autour de toi
               </p>
               <p style={{ fontFamily: 'Lora, serif', fontSize: 12, color: '#9E9089', margin: '2px 0 0' }}>
-                Producteurs · artisans · locaux…
+                {annuaireTabIdx === 0 ? 'Producteurs · artisans · locaux…' : 'Restos · bars · hébergements…'}
               </p>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5, flexShrink: 0 }}>
@@ -497,10 +503,9 @@ export default function BottomSheet({
                 <div style={{ display: 'flex', gap: 7, padding: '0 16px 10px', overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }} onPointerDown={e => e.stopPropagation()}>
                   {ANNUAIRE_TABS.map((tab, idx) => (
                     <button key={tab.id}
-                      onClick={() => tab.active && setAnnuaireTabIdx(idx)}
-                      style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${sheetBg.border}`, backgroundColor: annuaireTabIdx === idx ? 'var(--primary)' : tab.active ? sheetBg.pill : sheetBg.pill, color: annuaireTabIdx === idx ? '#fff' : tab.active ? sheetBg.sub : '#C0B8A8', fontSize: 12, fontWeight: 700, cursor: tab.active ? 'pointer' : 'default', fontFamily: 'Inter, sans-serif', minHeight: 34, display: 'flex', alignItems: 'center', gap: 5, opacity: tab.active ? 1 : 0.5 }}>
+                      onClick={() => setAnnuaireTabIdx(idx)}
+                      style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${annuaireTabIdx === idx ? 'transparent' : sheetBg.border}`, backgroundColor: annuaireTabIdx === idx ? 'var(--primary)' : sheetBg.pill, color: annuaireTabIdx === idx ? '#fff' : sheetBg.sub, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', minHeight: 34, display: 'flex', alignItems: 'center', gap: 5 }}>
                       {tab.emoji} {tab.label}
-                      {!tab.active && <span style={{ fontSize: 9 }}>bientôt</span>}
                     </button>
                   ))}
                 </div>
@@ -518,6 +523,21 @@ export default function BottomSheet({
                   <button key={cat.id} onClick={() => onSelectedCatsChange?.(active ? selectedCats.filter(c => c !== cat.id) : [...selectedCats, cat.id])}
                     style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${active ? 'var(--primary)' : sheetBg.border}`, backgroundColor: active ? 'var(--primary)' : sheetBg.pill, color: active ? '#fff' : sheetBg.sub, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', minHeight: 34, display: 'flex', alignItems: 'center', gap: 4 }}>
                     {cat.emoji} {cat.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          {/* Filtre types établissements */}
+          {annuaireTabIdx === 1 && (
+            <div style={{ display: 'flex', gap: 7, padding: '0 16px 8px', overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }} onPointerDown={e => e.stopPropagation()}>
+              <button onClick={() => onEtabTypeChange?.(null)} style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${sheetBg.border}`, backgroundColor: !selectedEtabType ? 'var(--primary)' : sheetBg.pill, color: !selectedEtabType ? '#fff' : sheetBg.sub, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', minHeight: 34 }}>Tout</button>
+              {ETAB_TYPE_LIST.map(t => {
+                const active = selectedEtabType === t.id
+                return (
+                  <button key={t.id} onClick={() => onEtabTypeChange?.(active ? null : t.id)}
+                    style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${active ? t.color : sheetBg.border}`, backgroundColor: active ? t.color : sheetBg.pill, color: active ? '#fff' : sheetBg.sub, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', minHeight: 34, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    {t.emoji} {t.label}
                   </button>
                 )
               })}
@@ -562,7 +582,20 @@ export default function BottomSheet({
         style={{ flex: 1, overflowY: 'auto', padding: '4px 16px 24px', display: 'flex', flexDirection: 'column', gap: 10 }}
         onPointerDown={e => e.stopPropagation()}
       >
-        {appMode === 'annuaire' ? (
+        {appMode === 'annuaire' && annuaireTabIdx === 1 ? (
+          etablissementLoading ? [1,2,3].map(i => <SkeletonCard key={i} />) :
+          etablissements.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 0', color: sheetBg.sub }}>
+              <p style={{ fontSize: 48, marginBottom: 10 }}>🏪</p>
+              <p style={{ fontWeight: 700, fontSize: 16, fontFamily: 'Inter, sans-serif', color: sheetBg.text }}>Commerces locaux</p>
+              <p style={{ fontSize: 13, marginTop: 6, lineHeight: 1.5, fontFamily: 'Inter, sans-serif' }}>Les fiches arrivent bientôt.</p>
+            </div>
+          ) : (
+            etablissements.map(e => (
+              <EtablissementListCard key={e.id} etab={e} onOpen={() => onOpenEtablissement?.(e.id)} />
+            ))
+          )
+        ) : appMode === 'annuaire' ? (
           producerLoading ? [1,2,3].map(i => <SkeletonCard key={i} />) :
           producers.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: sheetBg.sub }}>
@@ -796,6 +829,46 @@ function ProducerListCard({ producer, isSelected, onSelect, onViewOnMap, onOpenP
               </svg>
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function EtablissementListCard({ etab, onOpen }: { etab: EtablissementCard; onOpen: () => void }) {
+  const typeInfo = ETAB_TYPE_LIST.find(t => t.id === etab.type)
+  const photo = etab.photos?.[0]
+
+  return (
+    <div onClick={onOpen} style={{
+      display: 'flex', height: 86, flexShrink: 0,
+      borderRadius: 14, overflow: 'hidden', cursor: 'pointer',
+      backgroundColor: '#fff',
+      boxShadow: '0 1px 6px rgba(44,44,44,0.09)',
+    }}>
+      <div style={{ width: 86, flexShrink: 0, backgroundColor: typeInfo?.bg ?? '#F5F0E8', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        {photo
+          ? <img src={photo} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          : <span style={{ fontSize: 30 }}>{typeInfo?.emoji ?? '🏪'}</span>}
+      </div>
+      <div style={{ flex: 1, padding: '8px 10px 8px 12px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minWidth: 0 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
+            <span style={{ fontSize: 9, fontWeight: 800, color: typeInfo?.color ?? '#555', backgroundColor: typeInfo?.bg ?? '#F5F0E8', borderRadius: 999, padding: '2px 7px', letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>
+              {typeInfo?.emoji} {typeInfo?.label}
+            </span>
+            {etab.is_featured && <span style={{ fontSize: 9, color: '#B45309', fontWeight: 700 }}>★</span>}
+          </div>
+          <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14, color: '#1C1917', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{etab.nom}</p>
+          {etab.commune && <p style={{ fontSize: 11, color: '#6B5E4E', margin: 0, fontFamily: 'Lora, serif' }}>📍 {etab.commune}</p>}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          {etab.note_google ? (
+            <span style={{ fontSize: 11, color: '#92400E', fontWeight: 700 }}>⭐ {etab.note_google.toFixed(1)}</span>
+          ) : <div />}
+          {etab.description_courte && (
+            <p style={{ fontSize: 10, color: '#8A8A8A', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, paddingLeft: 6, fontFamily: 'Lora, serif' }}>{etab.description_courte}</p>
+          )}
         </div>
       </div>
     </div>

@@ -2,10 +2,11 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { APIProvider, Map, InfoWindow, useMap } from '@vis.gl/react-google-maps'
 import { MarkerClusterer } from '@googlemaps/markerclusterer'
-import { EvenementCard, ProducerCard, isApproxLocation } from '@/lib/types'
+import { EvenementCard, ProducerCard, isApproxLocation, EtablissementCard } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
 import { useTheme } from '@/components/ThemeProvider'
+import { etabMarkerSvg } from '@/lib/etablissement-types'
 
 const GANGES = { lat: 43.9333, lng: 3.7 }
 
@@ -286,6 +287,42 @@ function ProducerMarkers({ producers, selectedProducerId, onSelectProducer }: Pr
   return null
 }
 
+interface EtabMarkersProps {
+  etablissements: EtablissementCard[]
+  onOpenEtablissement?: (id: string) => void
+}
+
+function EtablissementMarkers({ etablissements, onOpenEtablissement }: EtabMarkersProps) {
+  const map = useMap()
+  const markersRef = useRef<google.maps.Marker[]>([])
+
+  useEffect(() => {
+    if (!map) return
+    markersRef.current.forEach(m => m.setMap(null))
+    markersRef.current = []
+
+    markersRef.current = etablissements
+      .filter(e => e.lat && e.lng)
+      .map(e => {
+        const iconUrl = etabMarkerSvg(false, e.type)
+        const marker = new google.maps.Marker({
+          position: { lat: e.lat!, lng: e.lng! },
+          title: e.nom,
+          optimized: false,
+          map,
+          icon: { url: iconUrl, scaledSize: new google.maps.Size(28, 36), anchor: new google.maps.Point(14, 36) },
+          zIndex: e.is_featured ? 10 : 1,
+        })
+        marker.addListener('click', () => onOpenEtablissement?.(e.id))
+        return marker
+      })
+
+    return () => { markersRef.current.forEach(m => m.setMap(null)) }
+  }, [map, etablissements, onOpenEtablissement])
+
+  return null
+}
+
 interface Props {
   evenements: EvenementCard[]
   selectedId: string | null
@@ -300,9 +337,11 @@ interface Props {
   selectedProducerId?: string | null
   onSelectProducer?: (id: string | null) => void
   onOpenProducer?: (id: string) => void
+  etablissements?: EtablissementCard[]
+  onOpenEtablissement?: (id: string) => void
 }
 
-export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn, onMapDragStart, onMapDragEnd, onCameraIdle, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer }: Props) {
+export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn, onMapDragStart, onMapDragEnd, onCameraIdle, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], onOpenEtablissement }: Props) {
   const selectedEvent    = selectedId ? evenements.find(e => e.id === selectedId) : null
   const selectedProducer = selectedProducerId ? producers.find(p => p.id === selectedProducerId) : null
   const selectedCat   = selectedEvent
@@ -350,6 +389,10 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
           producers={producers}
           selectedProducerId={selectedProducerId}
           onSelectProducer={onSelectProducer ?? (() => {})}
+        />
+        <EtablissementMarkers
+          etablissements={etablissements}
+          onOpenEtablissement={onOpenEtablissement}
         />
 
         {/* InfoWindow producteur sélectionné */}

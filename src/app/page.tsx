@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import ProfilView from '@/components/ProfilView'
-import { EvenementCard, Filtres, ProduitCategorie } from '@/lib/types'
+import { EvenementCard, Filtres, ProduitCategorie, EtablissementCard, EtablissementType } from '@/lib/types'
 import { getDateRange } from '@/lib/filters'
 import { useTheme } from '@/components/ThemeProvider'
 import { haversineKm, GANGES } from '@/lib/distance'
@@ -25,9 +25,10 @@ import { useFavorites } from '@/hooks/useFavorites'
 import { useProducerFavorites } from '@/hooks/useProducerFavorites'
 import { useNotifications } from '@/hooks/useNotifications'
 
-const MapView               = dynamic(() => import('@/components/MapView'),                    { ssr: false })
-const BottomSheet           = dynamic(() => import('@/components/BottomSheet'),                { ssr: false })
-const ProducteurPageClient  = dynamic(() => import('@/app/producteur/[id]/client'),            { ssr: false })
+const MapView                   = dynamic(() => import('@/components/MapView'),                    { ssr: false })
+const BottomSheet               = dynamic(() => import('@/components/BottomSheet'),                { ssr: false })
+const ProducteurPageClient      = dynamic(() => import('@/app/producteur/[id]/client'),            { ssr: false })
+const EtablissementPageClient   = dynamic(() => import('@/app/etablissement/[id]/client'),         { ssr: false })
 
 const defaultFiltres: Filtres = { categories: [], quand: 'toujours' }
 const NAV_H = 62
@@ -114,6 +115,11 @@ export default function HomePage() {
   const [selectedProducerId, setSelectedProducerId] = useState<string | null>(null)
   const [openProducerId, setOpenProducerIdState]    = useState<string | null>(null)
   const openProducerIdRef = useRef<string | null>(null)
+  const [etablissements, setEtablissements]         = useState<EtablissementCard[]>([])
+  const [etablissementLoading, setEtablissementLoading] = useState(false)
+  const [selectedEtabType, setSelectedEtabType]     = useState<EtablissementType | null>(null)
+  const [openEtablissementId, setOpenEtablissementId] = useState<string | null>(null)
+  const openEtablissementIdRef = useRef<string | null>(null)
   const [selectedCats, setSelectedCats] = useState<ProduitCategorie[]>([])
   const [producerSearch, setProducerSearch] = useState('')
   const [loading, setLoading]       = useState(true)
@@ -140,6 +146,18 @@ export default function HomePage() {
       .catch(() => {})
       .finally(() => setProducerLoading(false))
   }, [appMode, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch établissements quand on entre en mode annuaire
+  useEffect(() => {
+    if (appMode !== 'annuaire') return
+    setEtablissementLoading(true)
+    const url = selectedEtabType ? `/api/etablissements?type=${selectedEtabType}` : '/api/etablissements'
+    fetch(url)
+      .then(r => r.json())
+      .then(d => setEtablissements(d.etablissements ?? []))
+      .catch(() => {})
+      .finally(() => setEtablissementLoading(false))
+  }, [appMode, selectedEtabType]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Zone user (localStorage)
   const [zonePopup, setZonePopup]       = useState(false)
@@ -482,9 +500,26 @@ export default function HomePage() {
         openProducerIdRef.current = null
         setOpenProducerIdState(null)
       }
+      if (openEtablissementIdRef.current) {
+        openEtablissementIdRef.current = null
+        setOpenEtablissementId(null)
+      }
     }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
+  }, [])
+
+  const openEtablissement = useCallback((id: string) => {
+    openEtablissementIdRef.current = id
+    setOpenEtablissementId(id)
+    history.pushState({ pdv: 'etablissement', id }, '', `/etablissement/${id}`)
+  }, [])
+
+  const closeEtablissement = useCallback(() => {
+    if (!openEtablissementIdRef.current) return
+    openEtablissementIdRef.current = null
+    setOpenEtablissementId(null)
+    if (window.location.pathname.startsWith('/etablissement/')) history.back()
   }, [])
 
   const handleViewProducerOnMap = (id: string) => {
@@ -512,7 +547,7 @@ export default function HomePage() {
     router.push(`/evenement/${id}`)
   }, [saveNavForEvent, router])
 
-  const showFab = navTab === 'carte' && sheetMode !== 'full' && !openProducerId
+  const showFab = navTab === 'carte' && sheetMode !== 'full' && !openProducerId && !openEtablissementId
 
   return (
     <div style={{ height: '100dvh', position: 'relative', overflow: 'hidden', backgroundColor: '#e8dece' }}>
@@ -527,6 +562,8 @@ export default function HomePage() {
           selectedProducerId={selectedProducerId}
           onSelectProducer={setSelectedProducerId}
           onOpenProducer={openProducer}
+          etablissements={appMode === 'annuaire' ? etablissements : []}
+          onOpenEtablissement={openEtablissement}
           selectedId={selectedId}
           onSelectEvent={setSelectedId}
           onDeselect={() => setSelectedId(null)}
@@ -540,7 +577,7 @@ export default function HomePage() {
 
       {/* ─── Boutons carte — haut gauche + haut droite ─── */}
       {(() => {
-        const showBtns = navTab === 'carte' && sheetMode !== 'full' && !openProducerId
+        const showBtns = navTab === 'carte' && sheetMode !== 'full' && !openProducerId && !openEtablissementId
         const BTN: React.CSSProperties = { width: 44, height: 44, borderRadius: 12, boxShadow: '0 2px 10px rgba(0,0,0,0.14)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E0D8CE', transition: 'background-color 0.15s' }
         const activeColor = (on: boolean): React.CSSProperties => on ? { backgroundColor: 'var(--primary)', border: 'none', color: '#fff' } : { backgroundColor: 'rgba(255,255,255,0.92)', color: '#6B6B6B' }
         return (
@@ -856,6 +893,11 @@ export default function HomePage() {
         onToggleProducerFav={toggleProducerFav}
         featuredProducers={featuredProducers}
         onOpenProducer={openProducer}
+        etablissements={etablissements}
+        etablissementLoading={etablissementLoading}
+        selectedEtabType={selectedEtabType}
+        onEtabTypeChange={setSelectedEtabType}
+        onOpenEtablissement={openEtablissement}
       />
 
       {/* Favoris — panneau inline au-dessus de la carte */}
@@ -904,6 +946,13 @@ export default function HomePage() {
       {openProducerId && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 35, overflowY: 'auto', backgroundColor: '#F2EBE0' }}>
           <ProducteurPageClient id={openProducerId} onBack={closeProducer} />
+        </div>
+      )}
+
+      {/* Overlay fiche établissement */}
+      {openEtablissementId && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 35, overflowY: 'auto', backgroundColor: '#FDFAF6' }}>
+          <EtablissementPageClient id={openEtablissementId} onBack={closeEtablissement} />
         </div>
       )}
 

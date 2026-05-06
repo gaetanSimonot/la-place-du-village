@@ -97,6 +97,36 @@ export interface AppNotification {
   created_at: string
 }
 
+export type EtablissementType = 'restaurant_bar' | 'hebergement' | 'artisan_service' | 'sante_bien_etre' | 'activite'
+
+export interface EtablissementCard {
+  id: string
+  type: EtablissementType
+  nom: string
+  commune: string | null
+  lat: number | null
+  lng: number | null
+  photos: string[]
+  note_google: number | null
+  is_featured: boolean
+  statut: string
+  description_courte: string | null
+}
+
+export interface Etablissement extends EtablissementCard {
+  user_id: string | null
+  description_longue: string | null
+  adresse: string | null
+  contact_tel: string | null
+  contact_whatsapp: string | null
+  site_web: string | null
+  horaires: Record<string, string> | null
+  place_id_google: string | null
+  plan: string
+  created_at: string
+  updated_at: string
+}
+
 export interface ProducerCard {
   id: string
   nom: string
