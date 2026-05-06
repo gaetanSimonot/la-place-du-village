@@ -34,7 +34,8 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
   const [noProducer, setNoProducer] = useState(false)
   const [interimText, setInterimText] = useState('')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recognitionRef = useRef<any>(null)
+  const recognitionRef    = useRef<any>(null)
+  const finalCountRef     = useRef(0)
 
   useEffect(() => {
     getToken().then(token => {
@@ -58,6 +59,7 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
       return
     }
 
+    finalCountRef.current = 0
     const rec = new SR()
     rec.lang = 'fr-FR'
     rec.continuous = true
@@ -65,9 +67,16 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rec.onresult = (e: any) => {
       let finalStr = '', interimStr = ''
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) finalStr += e.results[i][0].transcript + ' '
-        else interimStr += e.results[i][0].transcript
+      for (let i = 0; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          // Ignorer les résultats déjà traités (Chrome re-fire sur restart interne)
+          if (i >= finalCountRef.current) {
+            finalStr += e.results[i][0].transcript + ' '
+            finalCountRef.current = i + 1
+          }
+        } else {
+          interimStr += e.results[i][0].transcript
+        }
       }
       if (finalStr) setText(prev => prev ? `${prev} ${finalStr.trim()}` : finalStr.trim())
       setInterimText(interimStr)

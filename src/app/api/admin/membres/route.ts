@@ -16,9 +16,10 @@ export async function GET(req: NextRequest) {
   const { data: { users }, error: authErr } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
   if (authErr) return NextResponse.json({ error: authErr.message }, { status: 500 })
 
-  const [{ data: producers }, { data: profilesData }] = await Promise.all([
+  const [{ data: producers }, { data: profilesData }, { data: etabsData }] = await Promise.all([
     supabaseAdmin.from('producers').select('id, user_id, nom, is_max, photos, commune'),
     supabaseAdmin.from('profiles').select('user_id, plan, pro_type, display_name'),
+    supabaseAdmin.from('etablissements').select('id, nom, plan, photos, user_id'),
   ])
 
   const producerByUser: Record<string, { id: string; nom: string; is_max: boolean; photo: string | null; commune: string | null }> = {}
@@ -29,6 +30,14 @@ export async function GET(req: NextRequest) {
   const profileByUser: Record<string, { plan: string; pro_type: string | null; display_name: string | null }> = {}
   for (const p of profilesData ?? []) {
     profileByUser[p.user_id] = { plan: p.plan, pro_type: p.pro_type, display_name: p.display_name }
+  }
+
+  const etabsByUser: Record<string, { id: string; nom: string; plan: string; photos: string[] }[]> = {}
+  for (const e of etabsData ?? []) {
+    if (e.user_id) {
+      if (!etabsByUser[e.user_id]) etabsByUser[e.user_id] = []
+      etabsByUser[e.user_id].push({ id: e.id, nom: e.nom, plan: e.plan ?? 'basic', photos: e.photos ?? [] })
+    }
   }
 
   const membres = (users ?? []).map(u => {
@@ -47,6 +56,7 @@ export async function GET(req: NextRequest) {
       display_name: profile?.display_name ?? null,
       bio: null,
       producer,
+      etablissements: etabsByUser[u.id] ?? [],
     }
   }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 

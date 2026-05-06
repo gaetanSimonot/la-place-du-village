@@ -10,7 +10,7 @@ import AbonnementsView from '@/components/AbonnementsView'
 import MonEspaceProducteur from '@/components/MonEspaceProducteur'
 import { supabase } from '@/lib/supabase'
 
-type Tab = 'profil' | 'abonnements' | 'theme' | 'producteur'
+type Tab = 'profil' | 'plan' | 'abonnements' | 'theme' | 'producteur'
 
 export default function ProfilView() {
   const [tab, setTab] = useState<Tab>('profil')
@@ -22,6 +22,30 @@ export default function ProfilView() {
   const [nameInput, setNameInput] = useState('')
   const [showUpgrade, setShowUpgrade] = useState(false)
   const [myEtabs, setMyEtabs] = useState<{ id: string; nom: string; plan: string; photos: string[] }[]>([])
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+
+  const getToken = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    return session?.access_token ?? ''
+  }
+
+  const openManage = async (etabId: string) => {
+    setActionLoading(`manage-${etabId}`)
+    const t = await getToken()
+    const r = await fetch('/api/stripe/manage', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ etabId }) })
+    const d = await r.json()
+    if (d.url) window.location.href = d.url
+    else setActionLoading(null)
+  }
+
+  const openUpgrade = async (etabId: string, targetPlan: 'pro' | 'max') => {
+    setActionLoading(`upgrade-${etabId}-${targetPlan}`)
+    const t = await getToken()
+    const r = await fetch('/api/stripe/create-checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ etabId, plan: targetPlan }) })
+    const d = await r.json()
+    if (d.url) window.location.href = d.url
+    else setActionLoading(null)
+  }
 
   useEffect(() => {
     if (!user?.id) return
@@ -50,6 +74,7 @@ export default function ProfilView() {
       <div style={{ display: 'flex', padding: '12px 16px 0', gap: 8, overflowX: 'auto' }}>
         {([
           { id: 'profil', label: 'Profil' },
+          { id: 'plan', label: 'Mon plan' },
           { id: 'abonnements', label: 'Suivis' },
           { id: 'theme', label: 'Thème' },
           ...(plan === 'max' ? [{ id: 'producteur', label: '🌿 Ma fiche' }] : []),
@@ -214,6 +239,68 @@ export default function ProfilView() {
               </div>
             )}
           </>
+        )}
+
+        {tab === 'plan' && (
+          <div>
+            {!user ? <LoginView /> : (
+              <>
+                {myEtabs.length === 0 ? (
+                  <div style={{ backgroundColor: '#fff', borderRadius: 20, padding: '28px 20px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', textAlign: 'center' }}>
+                    <p style={{ fontSize: 36, margin: '0 0 12px' }}>○</p>
+                    <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 18, color: '#1A1209', margin: '0 0 8px' }}>Plan Basic</p>
+                    <p style={{ fontSize: 13, color: '#7A6A5A', fontFamily: 'Lora, serif', lineHeight: 1.6, margin: '0 0 18px' }}>
+                      Vous utilisez La Place du Village gratuitement.<br />
+                      Pour accéder aux plans Pro et Max, revendiquez d&apos;abord une fiche établissement.
+                    </p>
+                    <Link href="/" style={{ display: 'inline-block', padding: '10px 22px', borderRadius: 999, backgroundColor: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>
+                      Trouver ma fiche →
+                    </Link>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {myEtabs.map(e => (
+                      <div key={e.id} style={{ backgroundColor: '#fff', borderRadius: 16, padding: '16px', boxShadow: '0 1px 6px rgba(0,0,0,0.07)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                          <div style={{ width: 36, height: 36, borderRadius: 8, overflow: 'hidden', flexShrink: 0, backgroundColor: '#E8F2EB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {e.photos?.[0] ? <img src={e.photos[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 16 }}>🏪</span>}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14, color: '#1C1917', margin: '0 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.nom}</p>
+                            <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 999, padding: '2px 8px',
+                              backgroundColor: e.plan === 'max' ? '#EC407A' : e.plan === 'pro' ? '#2D5A3D' : '#D0C8C0',
+                              color: e.plan === 'basic' ? '#666' : '#fff',
+                            }}>{e.plan}</span>
+                          </div>
+                        </div>
+                        {e.plan === 'basic' ? (
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button onClick={() => openUpgrade(e.id, 'pro')} disabled={!!actionLoading} style={{ flex: 1, padding: '9px', borderRadius: 10, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: actionLoading === `upgrade-${e.id}-pro` ? 0.6 : 1 }}>
+                              {actionLoading === `upgrade-${e.id}-pro` ? '…' : '↑ Passer à Pro'}
+                            </button>
+                            <button onClick={() => openUpgrade(e.id, 'max')} disabled={!!actionLoading} style={{ flex: 1, padding: '9px', borderRadius: 10, border: 'none', backgroundColor: '#EC407A', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: actionLoading === `upgrade-${e.id}-max` ? 0.6 : 1 }}>
+                              {actionLoading === `upgrade-${e.id}-max` ? '…' : '✦ Passer à Max'}
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            {e.plan === 'pro' && (
+                              <button onClick={() => openUpgrade(e.id, 'max')} disabled={!!actionLoading} style={{ flex: 1, padding: '9px', borderRadius: 10, border: 'none', backgroundColor: '#EC407A', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: actionLoading === `upgrade-${e.id}-max` ? 0.6 : 1 }}>
+                                {actionLoading === `upgrade-${e.id}-max` ? '…' : '✦ Passer à Max'}
+                              </button>
+                            )}
+                            <button onClick={() => openManage(e.id)} disabled={!!actionLoading} style={{ flex: 1, padding: '9px', borderRadius: 10, border: '1.5px solid #E0D8CE', backgroundColor: '#fff', color: '#2C1810', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: actionLoading === `manage-${e.id}` ? 0.6 : 1 }}>
+                              {actionLoading === `manage-${e.id}` ? '…' : 'Gérer l\'abonnement'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         )}
 
         {tab === 'producteur' && <MonEspaceProducteur />}

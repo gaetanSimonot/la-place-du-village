@@ -21,12 +21,14 @@ const PRO_TYPES = [
 ]
 
 interface Producer { id: string; nom: string; is_max: boolean; photo: string | null; commune: string | null }
+interface Etab { id: string; nom: string; plan: string; photos: string[] }
 interface Membre {
   id: string; email: string; name: string; avatar: string
   created_at: string; last_sign_in: string | null
   plan: Plan; pro_type: string | null
   display_name: string | null; bio: string | null
   producer: Producer | null
+  etablissements: Etab[]
 }
 
 const inp: React.CSSProperties = { padding: '7px 10px', borderRadius: 8, border: '1.5px solid #E0D8CE', fontSize: 12, outline: 'none', backgroundColor: '#fff', color: '#2C1810', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
@@ -136,7 +138,8 @@ export default function MembresAdmin() {
   const filtered = membres.filter(m =>
     m.email.toLowerCase().includes(search.toLowerCase()) ||
     m.name.toLowerCase().includes(search.toLowerCase()) ||
-    (m.producer?.nom ?? '').toLowerCase().includes(search.toLowerCase())
+    (m.producer?.nom ?? '').toLowerCase().includes(search.toLowerCase()) ||
+    m.etablissements.some(e => e.nom.toLowerCase().includes(search.toLowerCase()))
   )
 
   if (loading) return (
@@ -155,7 +158,7 @@ export default function MembresAdmin() {
           style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1.5px solid #E0D8CE', fontSize: 13, outline: 'none', backgroundColor: '#FBF7F0', color: '#2C1810' }}
         />
         <span style={{ fontSize: 11, color: '#9A8A7A', whiteSpace: 'nowrap' }}>
-          {membres.filter(m => m.plan === 'pro').length} Pro · {membres.filter(m => m.plan === 'max').length} MAX
+          {membres.filter(m => m.plan === 'pro').length} Pro · {membres.filter(m => m.plan === 'max').length} MAX · {membres.filter(m => m.etablissements.length > 0).length} fiches
         </span>
       </div>
 
@@ -192,6 +195,12 @@ export default function MembresAdmin() {
                         {PRO_TYPES.find(t => t.id === m.pro_type)?.label.split(' ')[0] ?? '🌿'} {m.producer.nom}
                       </span>
                     )}
+                    {m.etablissements.map(e => (
+                      <span key={e.id} style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 999,
+                        backgroundColor: e.plan === 'max' ? '#FEF0F5' : e.plan === 'pro' ? '#EEF3FF' : '#F0EBE0',
+                        color: e.plan === 'max' ? '#EC407A' : e.plan === 'pro' ? '#3A5BC7' : '#7A6A5A',
+                      }}>🏪 {e.nom}</span>
+                    ))}
                   </div>
                   <p style={{ margin: 0, fontSize: 11, color: '#7A6A5A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.email}</p>
                   <p style={{ margin: 0, fontSize: 10, color: '#B0A898' }}>
@@ -356,6 +365,25 @@ export default function MembresAdmin() {
                           </div>
                         </>
                       )}
+                    </div>
+                  )}
+
+                  {/* Établissements revendiqués */}
+                  {m.etablissements.length > 0 && (
+                    <div style={{ paddingTop: 14, borderTop: '1px solid #E8E0D5' }}>
+                      <p style={secLabel}>Établissements revendiqués</p>
+                      {m.etablissements.map(e => (
+                        <a key={e.id} href={`/etablissement/${e.id}`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8, backgroundColor: '#fff', borderRadius: 9, padding: '7px 10px', marginBottom: 6 }}>
+                          <div style={{ width: 28, height: 28, borderRadius: 6, overflow: 'hidden', flexShrink: 0, backgroundColor: '#E8F2EB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {e.photos?.[0] ? <img src={e.photos[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 14 }}>🏪</span>}
+                          </div>
+                          <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: '#1C1917', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.nom}</span>
+                          <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 999, padding: '2px 7px',
+                            backgroundColor: e.plan === 'max' ? '#FEF0F5' : e.plan === 'pro' ? '#EEF3FF' : '#F0EBE0',
+                            color: e.plan === 'max' ? '#EC407A' : e.plan === 'pro' ? '#3A5BC7' : '#7A6A5A',
+                          }}>{e.plan}</span>
+                        </a>
+                      ))}
                     </div>
                   )}
 
