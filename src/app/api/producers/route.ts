@@ -48,6 +48,7 @@ export async function GET(req: NextRequest) {
       lng: p.lng ?? null,
       is_max: p.is_max ?? false,
       is_featured: p.is_featured ?? false,
+      user_id: p.user_id ?? null,
     }
   })
 
