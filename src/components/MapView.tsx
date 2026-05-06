@@ -310,20 +310,16 @@ function EtablissementMarkers({ etablissements, onOpenEtablissement }: EtabMarke
 
     const newMarkers = withLoc.map(e => {
       const promoted = e.plan === 'pro' || e.plan === 'max' || e.is_featured
-      const isMax    = e.plan === 'max'
-      const iconUrl  = etabMarkerSvg(false, e.type, e.plan)
-      const scale    = isMax ? 1.45 : promoted ? 1.15 : 1
-      const w        = Math.round(28 * scale)
-      const h        = Math.round((isMax ? 44 : 36) * scale)
+      const iconUrl  = etabMarkerSvg(false, e.type, e.plan, e.is_featured)
+      const h        = promoted ? 47 : 36   // 36 + 11 pour l'étoile
       const marker = new google.maps.Marker({
         position: { lat: e.lat!, lng: e.lng! },
         title: e.nom,
         optimized: false,
-        icon: { url: iconUrl, scaledSize: new google.maps.Size(w, h), anchor: new google.maps.Point(w / 2, h) },
-        zIndex: isMax ? 20 : promoted ? 10 : 1,
+        icon: { url: iconUrl, scaledSize: new google.maps.Size(28, h), anchor: new google.maps.Point(14, h) },
+        zIndex: promoted ? 10 : 1,
       })
       marker.addListener('click', () => onOpenEtablissement?.(e.id))
-      // Promoted markers bypass the clusterer — always individually visible
       if (promoted) {
         marker.setMap(map)
       } else {
