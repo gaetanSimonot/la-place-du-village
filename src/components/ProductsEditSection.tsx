@@ -47,12 +47,22 @@ export default function ProductsEditSection({ producerId }: { producerId: string
   const [uploadingId, setUploadingId] = useState<string | null>(null)
   const [captureOpen, setCaptureOpen] = useState(false)
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const autoFetchDone = useRef(false)
 
   useEffect(() => {
     supabase.from('products').select('*').eq('producer_id', producerId)
       .order('categorie', { ascending: true })
       .then(({ data }) => setProducts(data ?? []))
   }, [producerId])
+
+  // Auto-fetch Pexels pour les produits sans image (produits créés avant l'intégration)
+  useEffect(() => {
+    if (autoFetchDone.current || products.length === 0) return
+    const missing = products.filter(p => !p.image_url)
+    if (missing.length === 0) { autoFetchDone.current = true; return }
+    autoFetchDone.current = true
+    ;(async () => { for (const p of missing) await reloadPexels(p) })()
+  }, [products]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function toggleDisponible(p: Product) {
     const token = await getToken()
