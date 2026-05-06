@@ -18,7 +18,7 @@ interface Producer {
 interface Product { id: string; nom: string; categorie: string; prix_indicatif: string | null; periode_dispo: string | null; disponible: boolean }
 interface Comment {
   id: string; user_id: string; content: string; parent_id: string | null; created_at: string
-  profile: { id: string; display_name: string | null; avatar_url: string | null } | null
+  profile: { user_id: string; display_name: string | null; avatar_url: string | null } | null
 }
 
 function timeAgo(d: string) {
@@ -77,9 +77,50 @@ export default function ProducteurPageClient({ id }: { id: string }) {
       .then(r => r.json())
       .then(d => { setProducer(d.producer ?? null); setLoading(false) })
       .catch(() => setLoading(false))
-    fetch(`/api/producers/${id}/comments`)
-      .then(r => r.json())
-      .then(d => { const c = d.comments ?? []; setComments(c); setCommentCount(c.length) })
+  }, [id])
+
+  useEffect(() => {
+    async function loadComments() {
+      const { data: raw } = await supabase
+        .from('producer_comments')
+        .select('id, user_id, content, parent_id, created_at')
+        .eq('producer_id', id)
+        .order('created_at', { ascending: true })
+      if (!raw || raw.length === 0) { setComments([]); setCommentCount(0); return }
+      const uids = Array.from(new Set(raw.map((c: { user_id: string }) => c.user_id)))
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, display_name, avatar_url')
+        .in('user_id', uids)
+      const pmap = Object.fromEntries((profiles ?? []).map((p: { user_id: string; display_name: string | null; avatar_url: string | null }) => [p.user_id, p]))
+      const comments = raw.map((c: { id: string; user_id: string; content: string; parent_id: string | null; created_at: string }) => ({ ...c, profile: pmap[c.user_id] ?? null }))
+      setComments(comments)
+      setCommentCount(comments.length)
+    }
+    loadComments()
+  }, [id])
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`comments-${id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'producer_comments', filter: `producer_id=eq.${id}` },
+        async ({ new: c }) => {
+          const incoming = c as { id: string; user_id: string; content: string; parent_id: string | null; created_at: string }
+          const { data: profile } = await supabase
+            .from('profiles').select('user_id, display_name, avatar_url').eq('user_id', incoming.user_id).maybeSingle()
+          setComments(prev => {
+            if (prev.some(x => x.id === incoming.id)) return prev
+            setCommentCount(n => n + 1)
+            return [...prev, { ...incoming, profile: profile ?? null }]
+          })
+        })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'producer_comments', filter: `producer_id=eq.${id}` },
+        ({ old: c }) => {
+          setComments(prev => prev.filter(x => x.id !== (c as { id: string }).id))
+          setCommentCount(n => n - 1)
+        })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
   }, [id])
 
   useEffect(() => {

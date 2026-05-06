@@ -1,7 +1,8 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import EventEditDrawer from '@/components/EventEditDrawer'
+import { supabase } from '@/lib/supabase'
 
 interface MessageEntrant {
   id: string
@@ -67,6 +68,8 @@ export default function AdminInbox({ onCountChange }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [counts, setCounts]     = useState<Record<string, number>>({})
   const [editId, setEditId]     = useState<string | null>(null)
+  const statutRef = useRef(statut)
+  useEffect(() => { statutRef.current = statut }, [statut])
 
   const fetchMessages = useCallback(async (s: string) => {
     setLoading(true)
@@ -100,6 +103,18 @@ export default function AdminInbox({ onCountChange }: Props) {
   useEffect(() => {
     fetchMessages('tous')
     fetchCounts()
+  }, [fetchMessages, fetchCounts])
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-inbox-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages_entrants' },
+        () => {
+          fetchMessages(statutRef.current)
+          fetchCounts()
+        })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
   }, [fetchMessages, fetchCounts])
 
   const changeStatut = (s: string) => {

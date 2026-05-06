@@ -10,6 +10,7 @@ import { EvenementCard, Filtres, ProduitCategorie } from '@/lib/types'
 import { getDateRange } from '@/lib/filters'
 import { useTheme } from '@/components/ThemeProvider'
 import { haversineKm, GANGES } from '@/lib/distance'
+import { normalizeProduitCat } from '@/lib/produit-cats'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 
@@ -93,11 +94,37 @@ export default function HomePage() {
   useEffect(() => {
     if (appMode !== 'annuaire') return
     setProducerLoading(true)
-    fetch('/api/producers')
-      .then(r => r.json())
-      .then(d => setProducers(d.producers ?? []))
-      .catch(() => {})
-      .finally(() => setProducerLoading(false))
+    ;(async () => {
+      try {
+        type PRow = Record<string, unknown> & { products: { nom: string; categorie: string; prix_indicatif: string | null; periode_dispo: string | null; disponible: boolean }[] }
+        const { data } = await supabase
+          .from('producers')
+          .select('id, nom, description_courte, commune, photos, contact_whatsapp, contact_tel, site_web, lat, lng, is_max, is_featured, products(id, nom, categorie, prix_indicatif, periode_dispo, disponible)')
+          .order('is_max', { ascending: false })
+          .order('created_at', { ascending: false })
+        const list = (data ?? []) as PRow[]
+        setProducers(list.map(p => {
+          const disponibles = (p.products ?? []).filter(pr => pr.disponible)
+          return {
+            id: p.id as string,
+            nom: p.nom as string,
+            description_courte: (p.description_courte as string | null) ?? null,
+            commune: (p.commune as string | null) ?? null,
+            photo_url: ((p.photos as string[] | null) ?? [])[0] ?? null,
+            contact_whatsapp: (p.contact_whatsapp as string | null) ?? null,
+            contact_tel: (p.contact_tel as string | null) ?? null,
+            site_web: (p.site_web as string | null) ?? null,
+            produit_categories: Array.from(new Set(disponibles.map(pr => normalizeProduitCat(pr.categorie)))) as import('@/lib/types').ProduitCategorie[],
+            produits_disponibles: disponibles.map(pr => ({ nom: pr.nom, categorie: normalizeProduitCat(pr.categorie), prix_indicatif: pr.prix_indicatif, periode_dispo: pr.periode_dispo })),
+            lat: (p.lat as number | null) ?? null,
+            lng: (p.lng as number | null) ?? null,
+            is_max: (p.is_max as boolean | null) ?? false,
+            is_featured: (p.is_featured as boolean | null) ?? false,
+          }
+        }))
+      } catch { /* ignore */ }
+      setProducerLoading(false)
+    })()
   }, [appMode])
 
   // Zone user (localStorage)
