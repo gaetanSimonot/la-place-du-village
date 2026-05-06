@@ -18,19 +18,26 @@ async function verifyOwnership(userId: string, productId: string) {
   return { ...product }
 }
 
-const CAT_QUERIES: Record<string, string> = {
-  fruits_legumes: 'fresh vegetables fruits', viandes: 'fresh meat butcher',
-  fromages_laitages: 'cheese dairy fresh', oeufs: 'eggs farm fresh',
-  pain: 'artisan bread bakery', miel: 'honey jar organic',
-  panier: 'vegetable basket farm', plantes: 'plants flowers garden',
-  huiles: 'olive oil condiments', boissons: 'wine beverages',
-  artisanat: 'handmade craft artisan', autre: 'local farm market',
+const CAT_SUFFIX: Record<string, string> = {
+  fruits_legumes: 'fresh market farm',
+  viandes: 'meat farm butcher',
+  fromages_laitages: 'cheese dairy artisan',
+  oeufs: 'eggs farm fresh',
+  pain: 'bread bakery artisan',
+  miel: 'honey jar artisan',
+  panier: 'vegetable basket market',
+  plantes: 'plant garden',
+  huiles: 'oil bottle artisan',
+  boissons: 'drink bottle local',
+  artisanat: 'handmade craft artisan',
+  autre: 'farm local market',
 }
 
 async function fetchPexelsUrl(nom: string, categorie: string): Promise<{ url: string | null; reason?: string }> {
   const key = process.env.PEXELS_API_KEY
   if (!key) return { url: null, reason: 'no_key' }
-  const query = nom || CAT_QUERIES[categorie] || 'local farm'
+  const suffix = CAT_SUFFIX[categorie] ?? 'farm fresh'
+  const query = nom ? `${nom} ${suffix}` : suffix
   try {
     const r = await fetch(
       `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=8&page=${Math.ceil(Math.random() * 3)}&orientation=square`,
