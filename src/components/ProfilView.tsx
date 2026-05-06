@@ -21,11 +21,14 @@ export default function ProfilView() {
   const [editingName, setEditingName] = useState(false)
   const [nameInput, setNameInput] = useState('')
   const [showUpgrade, setShowUpgrade] = useState(false)
+  const [myEtabs, setMyEtabs] = useState<{ id: string; nom: string; plan: string; photos: string[] }[]>([])
 
   useEffect(() => {
     if (!user?.id) return
     supabase.from('profiles').select('plan').eq('user_id', user.id).single()
       .then(({ data: p }) => { if (p) setPlan(p.plan ?? null) })
+    supabase.from('etablissements').select('id, nom, plan, photos').eq('user_id', user.id)
+      .then(({ data }) => { if (data) setMyEtabs(data) })
   }, [user?.id])
 
   return (
@@ -150,6 +153,30 @@ export default function ProfilView() {
                     Voir mon profil →
                   </Link>
                 </div>
+
+                {/* Mes établissements */}
+                {myEtabs.length > 0 && (
+                  <div style={{ marginBottom: 10 }}>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: '#8A7A6A', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 8px', fontFamily: 'Inter, sans-serif' }}>Mes établissements</p>
+                    {myEtabs.map(e => (
+                      <Link key={e.id} href={`/etablissement/${e.id}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderRadius: 14, padding: '11px 14px', marginBottom: 8, boxShadow: '0 1px 6px rgba(0,0,0,0.07)' }}>
+                        <div style={{ width: 40, height: 40, borderRadius: 10, overflow: 'hidden', flexShrink: 0, backgroundColor: '#E8F2EB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {e.photos?.[0]
+                            ? <img src={e.photos[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            : <span style={{ fontSize: 20 }}>🏪</span>}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14, color: '#1C1917', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.nom}</p>
+                        </div>
+                        <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 999, padding: '2px 8px', flexShrink: 0,
+                          backgroundColor: e.plan === 'max' ? '#EC407A' : e.plan === 'pro' ? '#2D5A3D' : '#D0C8C0',
+                          color: e.plan === 'basic' ? '#666' : '#fff',
+                        }}>{e.plan}</span>
+                        <span style={{ color: '#C8B8A8', fontSize: 18, flexShrink: 0 }}>›</span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
 
                 {/* Bouton admin — visible uniquement pour les admins */}
                 {isAdmin && (
