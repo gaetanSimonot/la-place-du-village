@@ -494,10 +494,11 @@ export default function HomePage() {
     setNavTab('carte')
     setSheetMode('half')
   }
-  const enterAnnuaire = () => {
+  const enterAnnuaire = (typeFilter?: EtablissementType) => {
     setShowHub(false)
     setAppMode('annuaire')
     setAnnuaireTab(1)
+    setSelectedEtabType(typeFilter ?? null)
     setNavTab('carte')
     setSheetMode('half')
   }

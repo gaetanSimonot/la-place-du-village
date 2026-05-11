@@ -2,34 +2,47 @@
 import { useAuth } from '@/hooks/useAuth'
 import { useNotifications } from '@/hooks/useNotifications'
 import { toUserContext, PLANS_INFO, type Plan } from '@/lib/capabilities'
+import type { EtablissementType } from '@/lib/types'
 
 /**
- * Écran d'accueil (hub) — tuiles d'accès aux modules.
+ * Écran d'accueil (hub) — inspiré de ref/hub.png.
  *
- * 3 statuts par tuile :
- *   - `live`        : module fonctionnel, on entre dedans
- *   - `coming_soon` : tuile cliquable, ouvre une modale "Bientôt disponible"
- *   - gated         : si requiredPlan défini, on check via can() ;
- *                     si pas d'accès → badge + modale "Abonnement requis"
+ * Structure :
+ *   1. Header — Bonjour + titre + cloche notif
+ *   2. Hero promo (large card avec image/gradient + CTA)
+ *   3. Section "Mes indispensables" — carrousel horizontal scrollable
+ *   4. Encart "Exclusif abonnés" — 2 tuiles gatées Pro/Max
+ *   5. Card large "Découvrir le territoire"
  *
- * Admin override : un admin a accès à tout (via can()).
+ * Tuile = simple objet config dans le tableau. Ajouter une tuile = ajouter
+ * une ligne dans le bon tableau (indispensables / exclusifAbonnes).
  */
 
-type TileStatus = 'live' | 'coming_soon'
-
-interface Tile {
+interface IndispensableTile {
   id: string
   label: string
   sublabel?: string
   emoji: string
-  color: string
-  status: TileStatus
-  requiredPlan?: 'pro' | 'max'   // si défini, gate l'accès au plan ou +
+  bg: string                                  // fond pastel de l'icône
+  onSelect: () => void
+}
+
+interface ExclusiveTile {
+  id: string
+  badge: string                               // ex: "PROMOTIONS LOCALES"
+  title: string
+  subtitle: string
+  cta: string
+  emoji: string
+  color: string                               // accent de la carte
+  bg: string                                  // fond
+  requiredPlan: 'pro' | 'max'
+  comingSoon?: boolean
 }
 
 interface Props {
   onSelectAgenda:        () => void
-  onSelectAnnuaire:      () => void
+  onSelectAnnuaire:      (typeFilter?: EtablissementType) => void
   onSelectProducteurs:   () => void
   onComingSoon:          (label: string) => void
   onUpgradePrompt:       (requiredPlan: 'pro' | 'max', label: string) => void
@@ -42,76 +55,94 @@ export default function HubView({
 }: Props) {
   const { user, profile, isAdmin } = useAuth()
   const { unreadCount } = useNotifications()
-
   const ctx = toUserContext(profile, isAdmin)
 
-  const tiles: Tile[] = [
-    // Modules fonctionnels — gratuits
-    { id: 'agenda',      label: 'Agenda',      sublabel: 'culturel',      emoji: '📅', color: '#E8F2EB', status: 'live' },
-    { id: 'annuaire',    label: 'Annuaire',    sublabel: 'pro',           emoji: '🏪', color: '#FEF0F5', status: 'live' },
-    { id: 'producteurs', label: 'Producteurs', sublabel: 'vente libre',   emoji: '🌿', color: '#FFF0EB', status: 'live' },
-    // Modules à venir — gratuits (pages)
-    { id: 'annonces',    label: 'Annonces',    sublabel: 'locales',       emoji: '📢', color: '#FFF7E5', status: 'coming_soon' },
-    { id: 'hebergements',label: 'Hébergements',sublabel: '',              emoji: '🛏️', color: '#EEF3FF', status: 'coming_soon' },
-    { id: 'mobilite',    label: 'Mobilité',    sublabel: 'transport',     emoji: '🚌', color: '#E5F4FF', status: 'coming_soon' },
-    { id: 'associations',label: 'Assos',       sublabel: '& clubs',       emoji: '🤝', color: '#F0EBFF', status: 'coming_soon' },
-    { id: 'idees',       label: 'Boîte',       sublabel: 'à idées',       emoji: '💡', color: '#FFF9E0', status: 'coming_soon' },
-    // Modules à venir — Pro/Max
-    { id: 'commerces',   label: 'Commerces',   sublabel: 'e-commerce',    emoji: '🛍️', color: '#FFEEF8', status: 'coming_soon', requiredPlan: 'pro' },
-    { id: 'promotions',  label: 'Promotions',  sublabel: 'offres pro',    emoji: '🎯', color: '#FFE8DD', status: 'coming_soon', requiredPlan: 'max' },
+  // ── Tuiles "Mes indispensables" — carrousel horizontal ───────────────────
+  const indispensables: IndispensableTile[] = [
+    { id: 'agenda',       label: 'Agenda',      sublabel: 'culturel',  emoji: '📅', bg: '#E8F2EB', onSelect: onSelectAgenda },
+    { id: 'annuaire',     label: 'Annuaire',    sublabel: 'pro',       emoji: '🏪', bg: '#FEF0F5', onSelect: () => onSelectAnnuaire() },
+    { id: 'producteurs',  label: 'Producteurs', sublabel: 'vente libre', emoji: '🌿', bg: '#FFF0EB', onSelect: onSelectProducteurs },
+    { id: 'restos',       label: 'Restos',      sublabel: '& bars',    emoji: '🍽️', bg: '#FFE5DD', onSelect: () => onSelectAnnuaire('restaurant_bar') },
+    { id: 'hebergements', label: 'Hébergements',                       emoji: '🛏️', bg: '#EEF3FF', onSelect: () => onSelectAnnuaire('hebergement') },
+    { id: 'bien-etre',    label: 'Bien-être',   sublabel: 'santé',     emoji: '💆', bg: '#F0EBFF', onSelect: () => onSelectAnnuaire('sante_bien_etre') },
+    { id: 'activites',    label: 'Activités',   sublabel: 'loisirs',   emoji: '🎨', bg: '#FFF7E5', onSelect: () => onSelectAnnuaire('activite') },
+    { id: 'artisans',     label: 'Artisans',    sublabel: 'services',  emoji: '🔨', bg: '#FFEEF8', onSelect: () => onSelectAnnuaire('artisan_service') },
   ]
 
-  const hasAccess = (tile: Tile): boolean => {
+  // ── Tuiles "Exclusif abonnés" ─────────────────────────────────────────────
+  const exclusiveTiles: ExclusiveTile[] = [
+    {
+      id: 'promotions',
+      badge: 'PROMOTIONS LOCALES',
+      title: 'Des offres rien que pour vous',
+      subtitle: 'Chez vos commerçants partenaires',
+      cta: 'Voir les offres',
+      emoji: '🎁',
+      color: '#C4622D',
+      bg: '#FFF0E5',
+      requiredPlan: 'pro',
+    },
+    {
+      id: 'encheres',
+      badge: 'ENCHÈRES À VENIR',
+      title: 'Faites de bonnes affaires',
+      subtitle: 'Près de chez vous',
+      cta: 'Découvrir',
+      emoji: '📦',
+      color: '#3A5BC7',
+      bg: '#EEF3FF',
+      requiredPlan: 'max',
+      comingSoon: true,
+    },
+  ]
+
+  const hasAccess = (requiredPlan: 'pro' | 'max'): boolean => {
     if (isAdmin) return true
-    if (!tile.requiredPlan) return true
-    // Pro débloque pro+max ; Max ne débloque que max
-    if (tile.requiredPlan === 'pro') return ctx.plan === 'pro' || ctx.plan === 'max'
-    if (tile.requiredPlan === 'max') return ctx.plan === 'max'
-    return false
+    if (requiredPlan === 'pro') return ctx.plan === 'pro' || ctx.plan === 'max'
+    return ctx.plan === 'max'
   }
 
-  const handleClick = (tile: Tile) => {
-    // Gating premier : requiredPlan
-    if (tile.requiredPlan && !hasAccess(tile)) {
-      onUpgradePrompt(tile.requiredPlan, `${tile.label} ${tile.sublabel ?? ''}`.trim())
+  const handleExclusiveClick = (tile: ExclusiveTile) => {
+    if (!hasAccess(tile.requiredPlan)) {
+      onUpgradePrompt(tile.requiredPlan, tile.title)
       return
     }
-    // Routing
-    if (tile.id === 'agenda')      return onSelectAgenda()
-    if (tile.id === 'annuaire')    return onSelectAnnuaire()
-    if (tile.id === 'producteurs') return onSelectProducteurs()
-    // Sinon : coming soon
-    onComingSoon(`${tile.label} ${tile.sublabel ?? ''}`.trim())
+    onComingSoon(tile.title)
   }
+
+  const hasAnyPaidPlan = ctx.plan === 'pro' || ctx.plan === 'max' || isAdmin
 
   return (
     <div style={{
       minHeight: '100%',
       backgroundColor: 'var(--creme)',
       fontFamily: 'Inter, sans-serif',
-      display: 'flex',
-      flexDirection: 'column',
+      paddingBottom: 16,
     }}>
 
-      {/* Header — titre + cloche notif */}
-      <div style={{ padding: '20px 20px 18px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+      <style>{`
+        .pdv-hscroll { scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+        .pdv-hscroll::-webkit-scrollbar { display: none; }
+      `}</style>
+
+      {/* ── 1. Header ──────────────────────────────────────────────────────── */}
+      <div style={{ padding: '18px 20px 14px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
+          {profile?.display_name && (
+            <p style={{ fontSize: 13, color: '#7A6A5A', margin: '0 0 4px', fontWeight: 600 }}>
+              Bonjour <span style={{ color: 'var(--primary)' }}>{profile.display_name}</span> 👋
+            </p>
+          )}
           <h1 style={{
-            fontFamily: 'Inter, sans-serif',
-            fontSize: 24,
-            fontWeight: 800,
-            color: '#1A1209',
-            margin: '0 0 4px',
+            fontSize: 22, fontWeight: 800,
+            color: '#1A1209', margin: '0 0 2px',
             letterSpacing: '-0.02em',
           }}>
             La Place du Village
           </h1>
           <p style={{
-            fontSize: 13,
-            color: '#7A6A5A',
-            margin: 0,
-            fontFamily: 'Lora, serif',
-            fontStyle: 'italic',
+            fontSize: 12, color: '#7A6A5A', margin: 0,
+            fontFamily: 'Lora, serif', fontStyle: 'italic',
           }}>
             Tout le village, à portée de main
           </p>
@@ -121,12 +152,8 @@ export default function HubView({
           <button
             onClick={onOpenNotifs}
             style={{
-              position: 'relative',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: 6,
-              color: '#3C2C20',
+              position: 'relative', background: 'none', border: 'none',
+              cursor: 'pointer', padding: 6, color: '#3C2C20',
             }}
             aria-label="Notifications"
           >
@@ -150,126 +177,247 @@ export default function HubView({
         )}
       </div>
 
-      {/* Grille des tuiles */}
-      <div style={{
-        flex: 1,
-        padding: '0 16px 24px',
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: 10,
-        alignContent: 'flex-start',
-      }}>
-        {tiles.map(tile => {
-          const access = hasAccess(tile)
-          const dimmed = !access // tuile gatée et pas d'accès → grisée
-          const planInfo = tile.requiredPlan ? PLANS_INFO[tile.requiredPlan as Plan] : null
+      {/* ── 2. Hero Promo ──────────────────────────────────────────────────── */}
+      <div style={{ padding: '0 16px 22px' }}>
+        <button
+          onClick={() => hasAnyPaidPlan ? onComingSoon('Promotions locales') : onUpgradePrompt('pro', 'Promotions locales')}
+          style={{
+            width: '100%', border: 'none', cursor: 'pointer',
+            padding: 0, borderRadius: 22, overflow: 'hidden',
+            position: 'relative', minHeight: 150,
+            background: 'linear-gradient(135deg, #1A3A2A 0%, #2D5A3D 60%, #3F7A52 100%)',
+            boxShadow: '0 4px 18px rgba(45,90,61,0.18)',
+            fontFamily: 'Inter, sans-serif',
+            textAlign: 'left',
+          }}
+        >
+          {/* Décorations background */}
+          <div style={{ position: 'absolute', right: -20, top: -20, width: 140, height: 140, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.05)' }} />
+          <div style={{ position: 'absolute', right: 40, bottom: 16, fontSize: 64, opacity: 0.15 }}>🍷</div>
 
-          return (
+          <div style={{ position: 'relative', padding: '18px 18px 16px', color: '#fff' }}>
+            <span style={{
+              display: 'inline-block', fontSize: 9, fontWeight: 800,
+              letterSpacing: '0.08em', textTransform: 'uppercase',
+              backgroundColor: 'rgba(255,255,255,0.18)', padding: '3px 10px',
+              borderRadius: 999, marginBottom: 10, backdropFilter: 'blur(4px)',
+            }}>
+              ✨ Nouveau
+            </span>
+            <p style={{
+              fontSize: 18, fontWeight: 800, margin: '0 0 6px',
+              letterSpacing: '-0.02em', maxWidth: '70%',
+            }}>
+              Vos avantages près de chez vous
+            </p>
+            <p style={{
+              fontSize: 12, color: 'rgba(255,255,255,0.82)',
+              margin: '0 0 14px', maxWidth: '75%', lineHeight: 1.4,
+            }}>
+              Profitez d&apos;offres exclusives chez vos commerçants locaux
+            </p>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              fontSize: 12, fontWeight: 700, color: '#fff',
+              backgroundColor: 'rgba(255,255,255,0.22)',
+              padding: '8px 16px', borderRadius: 999,
+              backdropFilter: 'blur(8px)',
+            }}>
+              Découvrir les promos →
+            </span>
+          </div>
+        </button>
+      </div>
+
+      {/* ── 3. Mes indispensables — Carrousel horizontal ────────────────────── */}
+      <div style={{ marginBottom: 22 }}>
+        <p style={{
+          fontSize: 14, fontWeight: 800, color: '#2C1810',
+          margin: '0 16px 12px', letterSpacing: '-0.01em',
+        }}>
+          Mes indispensables
+        </p>
+        <div
+          className="pdv-hscroll"
+          style={{
+            display: 'flex', gap: 10, overflowX: 'auto',
+            padding: '4px 16px', scrollSnapType: 'x mandatory',
+          }}
+        >
+          {indispensables.map(tile => (
             <button
               key={tile.id}
-              onClick={() => handleClick(tile)}
+              onClick={tile.onSelect}
               style={{
-                backgroundColor: '#fff',
-                border: 'none',
-                borderRadius: 18,
-                padding: '14px 8px 12px',
+                flexShrink: 0, width: 86,
+                backgroundColor: '#fff', border: 'none',
+                borderRadius: 16, padding: '12px 6px 10px',
                 boxShadow: '0 1px 5px rgba(0,0,0,0.06)',
                 cursor: 'pointer',
-                opacity: dimmed ? 0.55 : 1,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 8,
-                transition: 'transform 0.12s, box-shadow 0.12s',
-                minHeight: 110,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
                 fontFamily: 'Inter, sans-serif',
-                position: 'relative',
+                scrollSnapAlign: 'start',
+                transition: 'transform 0.12s',
               }}
               onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.96)')}
               onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
               onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
             >
               <div style={{
-                width: 50,
-                height: 50,
-                borderRadius: 12,
-                backgroundColor: tile.color,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 28,
-                flexShrink: 0,
-                filter: dimmed ? 'grayscale(0.5)' : 'none',
+                width: 46, height: 46, borderRadius: 12,
+                backgroundColor: tile.bg,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 24,
               }}>
                 {tile.emoji}
               </div>
               <div style={{ textAlign: 'center', lineHeight: 1.2 }}>
-                <p style={{ fontSize: 12, fontWeight: 700, color: '#1A1209', margin: 0 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: '#1A1209', margin: 0 }}>
                   {tile.label}
                 </p>
                 {tile.sublabel && (
-                  <p style={{ fontSize: 10, color: '#7A6A5A', margin: '2px 0 0' }}>
+                  <p style={{ fontSize: 9, color: '#7A6A5A', margin: '1px 0 0' }}>
                     {tile.sublabel}
                   </p>
                 )}
               </div>
-
-              {/* Badge plan requis (Pro/Max) */}
-              {tile.requiredPlan && planInfo && (
-                <span style={{
-                  position: 'absolute', top: 6, right: 6,
-                  fontSize: 9, fontWeight: 800,
-                  backgroundColor: planInfo.bgColor, color: planInfo.color,
-                  padding: '2px 6px', borderRadius: 999,
-                  display: 'flex', alignItems: 'center', gap: 2,
-                  textTransform: 'uppercase', letterSpacing: '0.05em',
-                }}>
-                  {planInfo.icon} {planInfo.label}
-                </span>
-              )}
-
-              {/* Badge "Bientôt" pour les modules pas encore live ET non gatés */}
-              {tile.status === 'coming_soon' && !tile.requiredPlan && (
-                <span style={{
-                  position: 'absolute', top: 6, right: 6,
-                  fontSize: 8, fontWeight: 800,
-                  backgroundColor: '#F5EFD6', color: '#8B6914',
-                  padding: '2px 6px', borderRadius: 999,
-                  textTransform: 'uppercase', letterSpacing: '0.05em',
-                }}>
-                  Bientôt
-                </span>
-              )}
             </button>
-          )
-        })}
+          ))}
+        </div>
       </div>
 
-      {/* Footer accroche */}
-      <div style={{
-        margin: '0 16px 16px',
-        padding: '16px 18px',
-        backgroundColor: '#FFFBF2',
-        borderRadius: 18,
-        border: '1px solid #F0E7D5',
-      }}>
-        <p style={{
-          fontSize: 13,
-          fontWeight: 700,
-          color: '#3C2C20',
-          margin: '0 0 4px',
+      {/* ── 4. Exclusif abonnés ────────────────────────────────────────────── */}
+      <div style={{ padding: '0 16px 22px' }}>
+        <div style={{
+          backgroundColor: '#FFFBF2',
+          border: '1px solid #F0E2C0',
+          borderRadius: 20,
+          padding: '16px 14px 14px',
         }}>
-          {profile?.display_name ? `Bonjour ${profile.display_name}` : 'Restez connecté à votre village'}
-        </p>
-        <p style={{
-          fontSize: 11,
-          color: '#7A6A5A',
-          margin: 0,
-          lineHeight: 1.5,
-        }}>
-          Toutes les infos, tous les acteurs, au même endroit.
-        </p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, padding: '0 4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 16 }}>👑</span>
+              <p style={{ fontSize: 13, fontWeight: 800, color: '#8B6914', margin: 0, letterSpacing: '-0.01em' }}>
+                Exclusif abonnés
+              </p>
+            </div>
+            <span style={{
+              fontSize: 9, fontWeight: 800, letterSpacing: '0.06em',
+              color: PLANS_INFO.max.color, backgroundColor: PLANS_INFO.max.bgColor,
+              padding: '3px 8px', borderRadius: 999,
+            }}>
+              {PLANS_INFO.max.icon} {PLANS_INFO.max.label.toUpperCase()}
+            </span>
+          </div>
+
+          <p style={{ fontSize: 11, color: '#7A6A5A', margin: '0 4px 12px', lineHeight: 1.5 }}>
+            Débloquez tout le potentiel de votre village
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            {exclusiveTiles.map(tile => {
+              const access = hasAccess(tile.requiredPlan)
+              const planInfo = PLANS_INFO[tile.requiredPlan as Plan]
+              return (
+                <button
+                  key={tile.id}
+                  onClick={() => handleExclusiveClick(tile)}
+                  style={{
+                    backgroundColor: tile.bg, border: 'none',
+                    borderRadius: 16, padding: '12px 12px 14px',
+                    cursor: 'pointer', textAlign: 'left',
+                    display: 'flex', flexDirection: 'column',
+                    fontFamily: 'Inter, sans-serif',
+                    position: 'relative', minHeight: 150,
+                    opacity: access ? 1 : 0.85,
+                    transition: 'transform 0.12s',
+                  }}
+                  onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.97)')}
+                  onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
+                  onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                >
+                  {/* Lock badge si pas accès */}
+                  {!access && (
+                    <span style={{
+                      position: 'absolute', top: 8, right: 8,
+                      fontSize: 9, fontWeight: 800,
+                      backgroundColor: planInfo.color, color: '#fff',
+                      padding: '3px 7px', borderRadius: 999,
+                      display: 'flex', alignItems: 'center', gap: 3,
+                    }}>
+                      🔒 {planInfo.label}
+                    </span>
+                  )}
+
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>{tile.emoji}</div>
+
+                  <p style={{
+                    fontSize: 8, fontWeight: 800, color: tile.color,
+                    letterSpacing: '0.08em', textTransform: 'uppercase',
+                    margin: '0 0 4px',
+                  }}>
+                    {tile.badge}
+                  </p>
+                  <p style={{
+                    fontSize: 13, fontWeight: 800, color: '#1A1209',
+                    margin: '0 0 4px', lineHeight: 1.25, letterSpacing: '-0.01em',
+                  }}>
+                    {tile.title}
+                  </p>
+                  <p style={{
+                    fontSize: 10, color: '#7A6A5A', margin: '0 0 10px',
+                    lineHeight: 1.4, flex: 1,
+                  }}>
+                    {tile.subtitle}
+                  </p>
+                  <span style={{
+                    display: 'inline-block', fontSize: 10, fontWeight: 800,
+                    color: '#fff', backgroundColor: tile.color,
+                    padding: '5px 11px', borderRadius: 999,
+                    alignSelf: 'flex-start',
+                  }}>
+                    {tile.cta} →
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
       </div>
+
+      {/* ── 5. Découvrir le territoire ──────────────────────────────────────── */}
+      <div style={{ padding: '0 16px 16px' }}>
+        <p style={{
+          fontSize: 14, fontWeight: 800, color: '#2C1810',
+          margin: '0 0 10px', letterSpacing: '-0.01em',
+        }}>
+          Découvrir le territoire
+        </p>
+        <button
+          onClick={() => onComingSoon('Découvrir le territoire')}
+          style={{
+            width: '100%', border: 'none', cursor: 'pointer',
+            padding: '14px 16px', borderRadius: 18, overflow: 'hidden',
+            background: 'linear-gradient(135deg, #E8F2EB 0%, #C7DCC9 100%)',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
+            position: 'relative', minHeight: 90,
+            display: 'flex', alignItems: 'center', gap: 14,
+            fontFamily: 'Inter, sans-serif', textAlign: 'left',
+          }}
+        >
+          <div style={{ fontSize: 40, flexShrink: 0 }}>🏞️</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: 14, fontWeight: 800, color: '#1A3A2A', margin: '0 0 3px', letterSpacing: '-0.01em' }}>
+              Balades, patrimoine, villages…
+            </p>
+            <p style={{ fontSize: 11, color: '#3F7A52', margin: 0, lineHeight: 1.4 }}>
+              Explorez tout ce que notre territoire a à vous offrir
+            </p>
+          </div>
+          <span style={{ color: '#3F7A52', fontSize: 20, flexShrink: 0 }}>›</span>
+        </button>
+      </div>
+
     </div>
   )
 }
