@@ -21,8 +21,9 @@ interface IndispensableTile {
   id: string
   label: string
   sublabel?: string
-  emoji: string
-  bg: string                                  // fond pastel de l'icône
+  icon: string                                // chemin vers PNG (ou emoji fallback)
+  isEmoji?: boolean                           // true si icon est un emoji, false = chemin image
+  bg?: string                                 // fond pastel si emoji (icônes PNG ont déjà leur fond)
   onSelect: () => void
 }
 
@@ -32,7 +33,8 @@ interface ExclusiveTile {
   title: string
   subtitle: string
   cta: string
-  emoji: string
+  icon: string                                // chemin PNG ou emoji
+  isEmoji?: boolean
   color: string                               // accent de la carte
   bg: string                                  // fond
   requiredPlan: 'pro' | 'max'
@@ -59,14 +61,17 @@ export default function HubView({
 
   // ── Tuiles "Mes indispensables" — carrousel horizontal ───────────────────
   const indispensables: IndispensableTile[] = [
-    { id: 'agenda',       label: 'Agenda',      sublabel: 'culturel',  emoji: '📅', bg: '#E8F2EB', onSelect: onSelectAgenda },
-    { id: 'annuaire',     label: 'Annuaire',    sublabel: 'pro',       emoji: '🏪', bg: '#FEF0F5', onSelect: () => onSelectAnnuaire() },
-    { id: 'producteurs',  label: 'Producteurs', sublabel: 'vente libre', emoji: '🌿', bg: '#FFF0EB', onSelect: onSelectProducteurs },
-    { id: 'restos',       label: 'Restos',      sublabel: '& bars',    emoji: '🍽️', bg: '#FFE5DD', onSelect: () => onSelectAnnuaire('restaurant_bar') },
-    { id: 'hebergements', label: 'Hébergements',                       emoji: '🛏️', bg: '#EEF3FF', onSelect: () => onSelectAnnuaire('hebergement') },
-    { id: 'bien-etre',    label: 'Bien-être',   sublabel: 'santé',     emoji: '💆', bg: '#F0EBFF', onSelect: () => onSelectAnnuaire('sante_bien_etre') },
-    { id: 'activites',    label: 'Activités',   sublabel: 'loisirs',   emoji: '🎨', bg: '#FFF7E5', onSelect: () => onSelectAnnuaire('activite') },
-    { id: 'artisans',     label: 'Artisans',    sublabel: 'services',  emoji: '🔨', bg: '#FFEEF8', onSelect: () => onSelectAnnuaire('artisan_service') },
+    { id: 'agenda',       label: 'Agenda',      sublabel: 'culturel',     icon: '/icones/01_agenda_culturel.png',         onSelect: onSelectAgenda },
+    { id: 'annuaire',     label: 'Annuaire',    sublabel: 'pro',          icon: '/icones/02_annuaire_professionnel.png',  onSelect: () => onSelectAnnuaire() },
+    { id: 'producteurs',  label: 'Producteurs', sublabel: 'vente libre',  icon: '/icones/05_producteurs_vente_libre.png', onSelect: onSelectProducteurs },
+    { id: 'restos',       label: 'Restos',      sublabel: '& bars',       icon: '/icones/03_restos_bars.png',             onSelect: () => onSelectAnnuaire('restaurant_bar') },
+    { id: 'hebergements', label: 'Hébergements',                          icon: '/icones/12_hebergements.png',            onSelect: () => onSelectAnnuaire('hebergement') },
+    { id: 'bien-etre',    label: 'Bien-être',   sublabel: 'santé',        icon: '/icones/04_bien_etre.png',               onSelect: () => onSelectAnnuaire('sante_bien_etre') },
+    { id: 'mobilite',     label: 'Mobilité',    sublabel: 'transport',    icon: '/icones/13_mobilite.png',                onSelect: () => onComingSoon('Mobilité & transport') },
+    { id: 'associations', label: 'Assos',       sublabel: '& clubs',      icon: '/icones/10_associations_clubs.png',      onSelect: () => onComingSoon('Associations & clubs') },
+    { id: 'annonces',     label: 'Annonces',    sublabel: 'locales',      icon: '/icones/07_annonces_locales.png',        onSelect: () => onComingSoon('Annonces locales') },
+    { id: 'idees',        label: 'Boîte',       sublabel: 'à idées',      icon: '/icones/09_boite_idees.png',             onSelect: () => onComingSoon('Boîte à idées') },
+    { id: 'commerces',    label: 'Commerces',   sublabel: 'e-commerce',   icon: '/icones/06_commerces_ecommerce.png',     onSelect: () => onComingSoon('Commerces & e-commerce') },
   ]
 
   // ── Tuiles "Exclusif abonnés" ─────────────────────────────────────────────
@@ -77,7 +82,7 @@ export default function HubView({
       title: 'Des offres rien que pour vous',
       subtitle: 'Chez vos commerçants partenaires',
       cta: 'Voir les offres',
-      emoji: '🎁',
+      icon: '/icones/11_promotions_locales.png',
       color: '#C4622D',
       bg: '#FFF0E5',
       requiredPlan: 'pro',
@@ -88,7 +93,7 @@ export default function HubView({
       title: 'Faites de bonnes affaires',
       subtitle: 'Près de chez vous',
       cta: 'Découvrir',
-      emoji: '📦',
+      icon: '/icones/08_encheres_envers.png',
       color: '#3A5BC7',
       bg: '#EEF3FF',
       requiredPlan: 'max',
@@ -251,7 +256,7 @@ export default function HubView({
               style={{
                 flexShrink: 0, width: 86,
                 backgroundColor: '#fff', border: 'none',
-                borderRadius: 16, padding: '12px 6px 10px',
+                borderRadius: 16, padding: '10px 6px 10px',
                 boxShadow: '0 1px 5px rgba(0,0,0,0.06)',
                 cursor: 'pointer',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
@@ -263,14 +268,24 @@ export default function HubView({
               onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
               onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
             >
-              <div style={{
-                width: 46, height: 46, borderRadius: 12,
-                backgroundColor: tile.bg,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 24,
-              }}>
-                {tile.emoji}
-              </div>
+              {tile.isEmoji ? (
+                <div style={{
+                  width: 52, height: 52, borderRadius: 14,
+                  backgroundColor: tile.bg ?? '#F5EFE5',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 26,
+                }}>
+                  {tile.icon}
+                </div>
+              ) : (
+                <img
+                  src={tile.icon}
+                  alt={tile.label}
+                  width={56}
+                  height={56}
+                  style={{ display: 'block', objectFit: 'contain' }}
+                />
+              )}
               <div style={{ textAlign: 'center', lineHeight: 1.2 }}>
                 <p style={{ fontSize: 11, fontWeight: 700, color: '#1A1209', margin: 0 }}>
                   {tile.label}
@@ -349,7 +364,17 @@ export default function HubView({
                     </span>
                   )}
 
-                  <div style={{ fontSize: 32, marginBottom: 8 }}>{tile.emoji}</div>
+                  {tile.isEmoji ? (
+                    <div style={{ fontSize: 32, marginBottom: 8 }}>{tile.icon}</div>
+                  ) : (
+                    <img
+                      src={tile.icon}
+                      alt={tile.title}
+                      width={56}
+                      height={56}
+                      style={{ display: 'block', marginBottom: 8, objectFit: 'contain' }}
+                    />
+                  )}
 
                   <p style={{
                     fontSize: 8, fontWeight: 800, color: tile.color,
