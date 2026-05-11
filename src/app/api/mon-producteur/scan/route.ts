@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase-admin'
 import Anthropic from '@anthropic-ai/sdk'
+import { requireUser } from '@/lib/server-auth'
+import { can } from '@/lib/capabilities'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -10,15 +11,12 @@ const CATEGORIES = [
 ]
 
 export async function POST(req: NextRequest) {
-  const token = req.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const ctx = await requireUser(req)
+  if (ctx instanceof Response) return ctx
 
-  const { data: { user } } = await supabaseAdmin.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { data: profile } = await supabaseAdmin
-    .from('profiles').select('plan').eq('user_id', user.id).maybeSingle()
-  if (profile?.plan !== 'max') return NextResponse.json({ error: 'Plan MAX requis' }, { status: 403 })
+  if (!can(ctx, 'open_shop')) {
+    return NextResponse.json({ error: 'Plan Max requis' }, { status: 403 })
+  }
 
   const body = await req.json()
   const { images, mimeTypes, text } = body as {

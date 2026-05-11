@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { requireUser, notifyAdmins } from '@/lib/server-auth'
+import { can } from '@/lib/capabilities'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
-  )
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
+  const ctx = await requireUser(req)
+  if (ctx instanceof Response) return ctx
+
+  if (!can(ctx, 'claim_etablissement')) {
+    return NextResponse.json(
+      { error: 'Revendiquer une fiche nécessite un abonnement Pro ou Max' },
+      { status: 403 },
+    )
+  }
 
   const body = await req.json()
   const { contact, message } = body
@@ -36,22 +38,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Notification admin
-  const { data: adminProfile } = await supabaseAdmin
-    .from('profiles')
-    .select('user_id')
-    .eq('email', 'gaetan.simonot@gmail.com')
-    .maybeSingle()
-
-  if (adminProfile?.user_id) {
-    await supabaseAdmin.from('notifications').insert({
-      user_id: adminProfile.user_id,
-      type: 'nouveau_produit',
-      actor_name: `Claim: ${etab.nom}`,
-      target_type: 'producer',
-      lu: false,
-    })
-  }
+  await notifyAdmins({
+    type: 'nouveau_produit',
+    actor_name: `Claim: ${etab.nom}`,
+    target_type: 'producer',
+  })
 
   return NextResponse.json({ success: true })
 }

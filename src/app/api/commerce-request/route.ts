@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { notifyAdmins } from '@/lib/server-auth'
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
@@ -12,22 +13,11 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Notification in-app pour l'admin
-  const { data: adminProfile } = await supabaseAdmin
-    .from('profiles')
-    .select('user_id')
-    .eq('email', 'gaetan.simonot@gmail.com')
-    .maybeSingle()
-
-  if (adminProfile?.user_id) {
-    await supabaseAdmin.from('notifications').insert({
-      user_id: adminProfile.user_id,
-      type: 'nouveau_produit',
-      actor_name: nom.trim(),
-      target_type: 'producer',
-      lu: false,
-    })
-  }
+  await notifyAdmins({
+    type: 'nouveau_produit',
+    actor_name: nom.trim(),
+    target_type: 'producer',
+  })
 
   return NextResponse.json({ success: true })
 }

@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-
-async function verifyAdmin(req: NextRequest) {
-  const token = req.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return null
-  const { data: { user } } = await supabaseAdmin.auth.getUser(token)
-  if (!user?.email) return null
-  const { data } = await supabaseAdmin.from('admin_emails').select('email').eq('email', user.email).single()
-  return data ? user.email : null
-}
+import { requireAdmin } from '@/lib/server-auth'
 
 export async function GET(req: NextRequest) {
-  if (!await verifyAdmin(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const ctx = await requireAdmin(req)
+  if (ctx instanceof Response) return ctx
 
   const { data: { users }, error: authErr } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
   if (authErr) return NextResponse.json({ error: authErr.message }, { status: 500 })
@@ -64,7 +57,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  if (!await verifyAdmin(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const ctx = await requireAdmin(req)
+  if (ctx instanceof Response) return ctx
 
   const body = await req.json()
 

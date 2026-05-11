@@ -1,45 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-
-async function verifyUser(req: NextRequest) {
-  const token = req.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return null
-  const { data: { user } } = await supabaseAdmin.auth.getUser(token)
-  return user ?? null
-}
+import { requireUser } from '@/lib/server-auth'
+import { can } from '@/lib/capabilities'
 
 export async function GET(req: NextRequest) {
   const isDebug = req.nextUrl.searchParams.get('debug') === '1'
 
-  const user = await verifyUser(req)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const ctx = await requireUser(req)
+  if (ctx instanceof Response) return ctx
 
-  const { data: profile, error: profileError } = await supabaseAdmin
+  const { data: profile } = await supabaseAdmin
     .from('profiles')
-    .select('plan, pro_type')
-    .eq('user_id', user.id)
+    .select('pro_type')
+    .eq('user_id', ctx.userId)
     .maybeSingle()
 
-  const plan = profile?.plan ?? 'basic'
   const pro_type = profile?.pro_type ?? null
 
-  if (plan !== 'max') {
+  if (!can(ctx, 'open_shop')) {
     return NextResponse.json({
-      plan, pro_type, producer: null, products: [],
-      ...(isDebug && { _debug: { step: 'SORTIE_plan', user_id: user.id, plan, profileError: profileError?.message ?? null } }),
+      plan: ctx.plan, pro_type, producer: null, products: [],
+      ...(isDebug && { _debug: { step: 'SORTIE_no_capability', user_id: ctx.userId, plan: ctx.plan } }),
     })
   }
 
   const { data: producer, error: producerError } = await supabaseAdmin
     .from('producers')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', ctx.userId)
     .maybeSingle()
 
   if (!producer) {
     return NextResponse.json({
-      plan, pro_type, producer: null, products: [],
-      ...(isDebug && { _debug: { step: 'SORTIE_producer_null', user_id: user.id, plan, producerError: producerError?.message ?? null } }),
+      plan: ctx.plan, pro_type, producer: null, products: [],
+      ...(isDebug && { _debug: { step: 'SORTIE_producer_null', user_id: ctx.userId, plan: ctx.plan, producerError: producerError?.message ?? null } }),
     })
   }
 
@@ -50,22 +44,21 @@ export async function GET(req: NextRequest) {
     .order('created_at', { ascending: false })
 
   return NextResponse.json({
-    plan, pro_type, producer, products: products ?? [],
-    ...(isDebug && { _debug: { step: 'OK', user_id: user.id, producer_id: producer.id, products_count: products?.length ?? 0, productsError: productsError?.message ?? null } }),
+    plan: ctx.plan, pro_type, producer, products: products ?? [],
+    ...(isDebug && { _debug: { step: 'OK', user_id: ctx.userId, producer_id: producer.id, products_count: products?.length ?? 0, productsError: productsError?.message ?? null } }),
   })
 }
 
 export async function POST(req: NextRequest) {
-  const user = await verifyUser(req)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const ctx = await requireUser(req)
+  if (ctx instanceof Response) return ctx
 
-  const { data: profile } = await supabaseAdmin
-    .from('profiles').select('plan').eq('user_id', user.id).maybeSingle()
-
-  if (profile?.plan !== 'max') return NextResponse.json({ error: 'Plan MAX requis' }, { status: 403 })
+  if (!can(ctx, 'open_shop')) {
+    return NextResponse.json({ error: 'Plan Max requis' }, { status: 403 })
+  }
 
   const { data: existing } = await supabaseAdmin
-    .from('producers').select('id').eq('user_id', user.id).maybeSingle()
+    .from('producers').select('id').eq('user_id', ctx.userId).maybeSingle()
   if (existing) return NextResponse.json({ error: 'Fiche déjà existante' }, { status: 409 })
 
   const body = await req.json()
@@ -75,7 +68,7 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabaseAdmin
     .from('producers')
     .insert({
-      user_id: user.id,
+      user_id: ctx.userId,
       nom,
       description_courte: description_courte || null,
       description_longue: description_longue || null,
@@ -95,18 +88,18 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   if (pro_type) {
-    await supabaseAdmin.from('profiles').update({ pro_type }).eq('user_id', user.id)
+    await supabaseAdmin.from('profiles').update({ pro_type }).eq('user_id', ctx.userId)
   }
 
   return NextResponse.json({ producer: data })
 }
 
 export async function PATCH(req: NextRequest) {
-  const user = await verifyUser(req)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const ctx = await requireUser(req)
+  if (ctx instanceof Response) return ctx
 
   const { data: producer } = await supabaseAdmin
-    .from('producers').select('id').eq('user_id', user.id).maybeSingle()
+    .from('producers').select('id').eq('user_id', ctx.userId).maybeSingle()
   if (!producer) return NextResponse.json({ error: 'Fiche non trouvée' }, { status: 404 })
 
   const body = await req.json()
@@ -122,18 +115,18 @@ export async function PATCH(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   if ('pro_type' in body) {
-    await supabaseAdmin.from('profiles').update({ pro_type: body.pro_type || null }).eq('user_id', user.id)
+    await supabaseAdmin.from('profiles').update({ pro_type: body.pro_type || null }).eq('user_id', ctx.userId)
   }
 
   return NextResponse.json({ producer: data })
 }
 
 export async function DELETE(req: NextRequest) {
-  const user = await verifyUser(req)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const ctx = await requireUser(req)
+  if (ctx instanceof Response) return ctx
 
   const { data: producer } = await supabaseAdmin
-    .from('producers').select('id').eq('user_id', user.id).maybeSingle()
+    .from('producers').select('id').eq('user_id', ctx.userId).maybeSingle()
   if (!producer) return NextResponse.json({ error: 'Fiche non trouvée' }, { status: 404 })
 
   await supabaseAdmin.from('products').delete().eq('producer_id', producer.id)

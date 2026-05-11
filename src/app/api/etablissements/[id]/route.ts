@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { requireUser } from '@/lib/server-auth'
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -16,10 +17,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const token = req.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-  const { data: { user } } = await supabaseAdmin.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
+  const ctx = await requireUser(req)
+  if (ctx instanceof Response) return ctx
 
   const { data: etab } = await supabaseAdmin
     .from('etablissements')
@@ -28,11 +28,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .maybeSingle()
 
   if (!etab) return NextResponse.json({ error: 'Non trouvé' }, { status: 404 })
-  const isAdmin = user.email === 'gaetan.simonot@gmail.com'
-  if (!isAdmin && etab.user_id !== user.id) return NextResponse.json({ error: 'Interdit' }, { status: 403 })
+  if (!ctx.isAdmin && etab.user_id !== ctx.userId) return NextResponse.json({ error: 'Interdit' }, { status: 403 })
 
   const body = await req.json()
-  const allowed = isAdmin
+  const allowed = ctx.isAdmin
     ? ['nom', 'type', 'commune', 'adresse', 'description_courte', 'description_longue', 'contact_tel', 'contact_whatsapp', 'site_web', 'horaires', 'photos', 'statut', 'plan', 'is_featured', 'note_google', 'lat', 'lng']
     : ['description_courte', 'description_longue', 'contact_tel', 'contact_whatsapp', 'site_web', 'horaires', 'photos']
   const patch = Object.fromEntries(Object.entries(body).filter(([k]) => allowed.includes(k)))

@@ -89,7 +89,7 @@ const NAV_TABS: { id: NavTab; label: string; Icon: (p: { active: boolean; badge?
 
 export default function HomePage() {
   const { fixedMap, setFixedMap } = useTheme()
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading, isAdmin } = useAuth()
   const { favIds, toggle: toggleFav } = useFavorites()
   const { favIds: producerFavIds, toggle: toggleProducerFav } = useProducerFavorites()
   const { unreadCount: notifCount, notifications, loading: notifLoading, loaded: notifLoaded, fetchAll: fetchNotifs, markRead: markNotifRead, markAllRead: markAllNotifsRead } = useNotifications()
@@ -178,7 +178,6 @@ export default function HomePage() {
   const prevUserRef  = useRef<typeof user>(null)
   const [geocoding, setGeocoding]       = useState(false)
   const [adminMapSaved, setAdminMapSaved] = useState(false)
-  const isAdmin = user?.email === 'gaetan.simonot@gmail.com'
   const [sheetMode, setSheetMode]   = useState<'peek'|'half'|'full'>('half')
   const [sheetPeekH, setSheetPeekH] = useState(130)
   const [screenH, setScreenH]       = useState(812)
