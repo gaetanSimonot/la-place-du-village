@@ -21,6 +21,7 @@ import CommerceRequestModal from '@/components/CommerceRequestModal'
 import AppInfoModal from '@/components/AppInfoModal'
 import AppSplash from '@/components/AppSplash'
 import WelcomePopup from '@/components/WelcomePopup'
+import HubView from '@/components/HubView'
 import { useFavorites } from '@/hooks/useFavorites'
 import { useProducerFavorites } from '@/hooks/useProducerFavorites'
 import { useNotifications } from '@/hooks/useNotifications'
@@ -33,8 +34,13 @@ const EtablissementPageClient   = dynamic(() => import('@/app/etablissement/[id]
 const defaultFiltres: Filtres = { categories: [], quand: 'toujours' }
 const NAV_H = 62
 
-type NavTab = 'carte' | 'liste' | 'favoris' | 'notifs' | 'profil'
+type NavTab = 'accueil' | 'carte' | 'liste' | 'favoris' | 'notifs' | 'profil'
 
+const IconHome = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1V9.5z"/>
+  </svg>
+)
 const IconCarte = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
@@ -71,6 +77,7 @@ const IconBell = () => (
 )
 
 const NAV_TABS: { id: NavTab; label: string; Icon: (p: { active: boolean; badge?: number }) => React.JSX.Element }[] = [
+  { id: 'accueil', label: 'Accueil', Icon: () => <IconHome /> },
   { id: 'carte',   label: 'Carte',   Icon: () => <IconCarte /> },
   { id: 'liste',   label: 'Liste',   Icon: () => <IconListe /> },
   { id: 'favoris', label: 'Favoris', Icon: ({ active }) => <IconCoeur filled={active} /> },
@@ -181,7 +188,16 @@ export default function HomePage() {
   const [sheetMode, setSheetMode]   = useState<'peek'|'half'|'full'>('half')
   const [sheetPeekH, setSheetPeekH] = useState(130)
   const [screenH, setScreenH]       = useState(812)
-  const [navTab, setNavTab]         = useState<NavTab>('carte')
+  const [navTab, setNavTab]         = useState<NavTab>('accueil')
+  // Hub : écran d'accueil avec tuiles. Par défaut au lancement.
+  // Restauré false si l'user était dans un module avant un refresh.
+  const [showHub, setShowHub] = useState(() => {
+    if (typeof window === 'undefined') return true
+    return sessionStorage.getItem('pdv-show-hub') !== '0'
+  })
+  useEffect(() => {
+    try { sessionStorage.setItem('pdv-show-hub', showHub ? '1' : '0') } catch {}
+  }, [showHub])
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -445,6 +461,9 @@ export default function HomePage() {
   const proEvents = useMemo(() => promoEventsData.filter(e => e.promotion === 'pro' || e.promotion === 'max'), [promoEventsData])
 
   const handleNavTab = (tab: NavTab) => {
+    if (tab === 'accueil') { setShowHub(true); setNavTab('accueil'); return }
+    // Pour tous les autres onglets, on quitte le hub si on y était
+    if (showHub) setShowHub(false)
     if (tab === 'profil')  { setNavTab('profil');  return }
     if (tab === 'favoris') { setNavTab('favoris'); return }
     if (tab === 'liste') {
@@ -459,6 +478,28 @@ export default function HomePage() {
     }
     setNavTab(tab)
     if (tab === 'carte') setSheetMode('half')
+  }
+
+  // Handlers tuiles du hub
+  const enterAgenda = () => {
+    setShowHub(false)
+    setAppMode('agenda')
+    setNavTab('carte')
+    setSheetMode('half')
+  }
+  const enterAnnuaire = () => {
+    setShowHub(false)
+    setAppMode('annuaire')
+    setAnnuaireTab(1)
+    setNavTab('carte')
+    setSheetMode('half')
+  }
+  const enterProducteurs = () => {
+    setShowHub(false)
+    setAppMode('annuaire')
+    setAnnuaireTab(0)
+    setNavTab('carte')
+    setSheetMode('half')
   }
 
   const handleViewOnMap = (id: string) => {
@@ -578,6 +619,18 @@ export default function HomePage() {
 
   return (
     <div style={{ height: '100dvh', position: 'relative', overflow: 'hidden', backgroundColor: '#e8dece' }}>
+
+      {/* Hub d'accueil — couvre tout sauf la bottom nav */}
+      {showHub && (
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 25, overflowY: 'auto', backgroundColor: 'var(--creme)' }}>
+          <HubView
+            onSelectAgenda={enterAgenda}
+            onSelectAnnuaire={enterAnnuaire}
+            onSelectProducteurs={enterProducteurs}
+            onOpenNotifs={() => handleNavTab('notifs')}
+          />
+        </div>
+      )}
 
       {/* Carte plein écran — zIndex:1 crée un stacking context, contient les z-index internes de Google Maps */}
       <div className="absolute inset-0" style={{ bottom: NAV_H, zIndex: 1 }}>
