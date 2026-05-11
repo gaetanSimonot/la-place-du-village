@@ -107,6 +107,27 @@ export async function requireAdmin(
  *
  * Fail-silent : si aucun admin n'est trouvé ou si l'insert plante, on log et on continue.
  */
+/**
+ * Insère une notification pour un user spécifique.
+ * Fail-silent.
+ */
+export async function notifyUser(
+  userId: string,
+  payload: {
+    type: string
+    actor_name: string
+    target_type?: string
+  },
+): Promise<void> {
+  await supabaseAdmin.from('notifications').insert({
+    user_id:     userId,
+    type:        payload.type,
+    actor_name:  payload.actor_name,
+    target_type: payload.target_type ?? null,
+    lu:          false,
+  })
+}
+
 export async function notifyAdmins(payload: {
   type: string
   actor_name: string

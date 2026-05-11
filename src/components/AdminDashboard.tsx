@@ -12,9 +12,10 @@ import ZoneAdmin from '@/components/ZoneAdmin'
 import AdminInbox from '@/components/AdminInbox'
 import MembresAdmin from '@/components/MembresAdmin'
 import ProduceurAdmin from '@/components/ProduceurAdmin'
+import DemandesAdmin from '@/components/DemandesAdmin'
 import EventEditDrawer from '@/components/EventEditDrawer'
 
-type Section  = 'agenda' | 'annuaire' | 'membres' | 'parametres'
+type Section  = 'agenda' | 'annuaire' | 'membres' | 'demandes' | 'parametres'
 type Onglet   = 'inbox' | 'soumissions' | 'a_traiter' | 'publie' | 'rejete' | 'scrap' | 'doublons' | 'zone'
 type SortKey  = 'created_desc' | 'created_asc' | 'date_asc' | 'date_desc'
 const PAGE_SIZE = 20
@@ -99,6 +100,7 @@ export default function AdminDashboard() {
   }
 
   const [section, setSection]           = useState<Section>('agenda')
+  const [demandesCount, setDemandesCount] = useState(0)
   const [onglet, setOnglet]             = useState<Onglet>('a_traiter')
   const [evenements, setEvenements]     = useState<Evenement[]>([])
   const [feedbacks, setFeedbacks]       = useState<Feedback[]>([])
@@ -194,6 +196,17 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (section === 'parametres') fetchAdmins()
   }, [section]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Badge "Demandes" — count pending, refresh quand on quitte la section demandes
+  useEffect(() => {
+    if (!adminVerified) return
+    supabase
+      .from('commerce_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('traite', false)
+      .then(({ count }) => setDemandesCount(count ?? 0))
+  }, [adminVerified, section])
+
   useEffect(() => { setPage(1) }, [search, sort, onlyFeedbacks])
 
   // Index feedbacks par evenement_id
@@ -374,6 +387,7 @@ export default function AdminDashboard() {
           { key: 'agenda',     label: '📅 Agenda',     badge: (tabCounts.a_traiter + inboxCount) || 0 },
           { key: 'annuaire',   label: '🗺 Annuaire',   badge: 0 },
           { key: 'membres',    label: '👥 Membres',    badge: 0 },
+          { key: 'demandes',   label: '📋 Demandes',   badge: demandesCount },
           { key: 'parametres', label: '⚙️ Paramètres', badge: 0 },
         ] as { key: Section; label: string; badge: number }[]).map(s => (
           <button
@@ -439,6 +453,9 @@ export default function AdminDashboard() {
 
       {/* Membres section */}
       {section === 'membres' && <MembresAdmin />}
+
+      {/* Demandes section */}
+      {section === 'demandes' && <DemandesAdmin />}
 
       {/* Paramètres section */}
       {section === 'parametres' && (

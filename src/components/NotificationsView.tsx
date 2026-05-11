@@ -33,6 +33,21 @@ const NOTIF_CONFIG: Record<NotifType, { emoji: string; color: string; label: (n:
     color: '#6B8F71',
     label: n => `${n.actor_name ?? 'Quelqu\'un'} a commenté votre fiche`,
   },
+  claim_pending: {
+    emoji: '📋',
+    color: '#C4622D',
+    label: n => `Nouvelle demande : ${n.actor_name ?? 'fiche à revendiquer'}`,
+  },
+  claim_approved: {
+    emoji: '✓',
+    color: '#2D5A3D',
+    label: n => `Ta revendication a été approuvée : ${n.actor_name ?? 'fiche'}`,
+  },
+  claim_rejected: {
+    emoji: '✕',
+    color: '#A0654E',
+    label: n => `Ta revendication a été refusée : ${n.actor_name ?? 'fiche'}`,
+  },
 }
 
 function relativeDate(iso: string): string {

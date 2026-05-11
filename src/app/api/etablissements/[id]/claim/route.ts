@@ -34,6 +34,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     contact: contact ?? null,
     message: message ?? null,
     etablissement_id: id,
+    user_id: ctx.userId,
   })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
