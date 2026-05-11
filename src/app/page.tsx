@@ -22,6 +22,7 @@ import AppInfoModal from '@/components/AppInfoModal'
 import AppSplash from '@/components/AppSplash'
 import WelcomePopup from '@/components/WelcomePopup'
 import HubView from '@/components/HubView'
+import { ComingSoonModal, UpgradeModal } from '@/components/HubModals'
 import { useFavorites } from '@/hooks/useFavorites'
 import { useProducerFavorites } from '@/hooks/useProducerFavorites'
 import { useNotifications } from '@/hooks/useNotifications'
@@ -198,6 +199,10 @@ export default function HomePage() {
   useEffect(() => {
     try { sessionStorage.setItem('pdv-show-hub', showHub ? '1' : '0') } catch {}
   }, [showHub])
+
+  // Modales du hub
+  const [comingSoonLabel, setComingSoonLabel] = useState<string | null>(null)
+  const [upgradePrompt, setUpgradePrompt] = useState<{ plan: 'pro' | 'max'; label: string } | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -629,9 +634,30 @@ export default function HomePage() {
             onSelectAgenda={enterAgenda}
             onSelectAnnuaire={enterAnnuaire}
             onSelectProducteurs={enterProducteurs}
+            onComingSoon={setComingSoonLabel}
+            onUpgradePrompt={(plan, label) => setUpgradePrompt({ plan, label })}
             onOpenNotifs={() => handleNavTab('notifs')}
           />
         </div>
+      )}
+
+      {/* Modale "Bientôt disponible" */}
+      {comingSoonLabel && (
+        <ComingSoonModal label={comingSoonLabel} onClose={() => setComingSoonLabel(null)} />
+      )}
+
+      {/* Modale "Abonnement requis" */}
+      {upgradePrompt && (
+        <UpgradeModal
+          requiredPlan={upgradePrompt.plan}
+          label={upgradePrompt.label}
+          onClose={() => setUpgradePrompt(null)}
+          onGoToPlan={() => {
+            setUpgradePrompt(null)
+            setShowHub(false)
+            setNavTab('profil')
+          }}
+        />
       )}
 
       {/* Carte plein écran — zIndex:1 crée un stacking context, contient les z-index internes de Google Maps */}

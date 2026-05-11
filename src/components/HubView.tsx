@@ -1,19 +1,21 @@
 'use client'
 import { useAuth } from '@/hooks/useAuth'
 import { useNotifications } from '@/hooks/useNotifications'
+import { toUserContext, PLANS_INFO, type Plan } from '@/lib/capabilities'
 
 /**
  * Écran d'accueil (hub) — tuiles d'accès aux modules.
  *
- * Première version : 3 modules disponibles (Agenda, Annuaire, Producteurs).
- * Pour ajouter un module futur, ajouter une entrée dans TILES avec :
- *   - id     : identifiant interne
- *   - label  : texte affiché (2 lignes max)
- *   - emoji  : icône (emoji ou path SVG)
- *   - color  : couleur de fond du carré icône (utilise --primary-light ou des accents)
- *   - locked : true si la tuile doit apparaître grisée (ex: feature pas encore dispo)
- *   - onSelect : callback quand l'utilisateur clique
+ * 3 statuts par tuile :
+ *   - `live`        : module fonctionnel, on entre dedans
+ *   - `coming_soon` : tuile cliquable, ouvre une modale "Bientôt disponible"
+ *   - gated         : si requiredPlan défini, on check via can() ;
+ *                     si pas d'accès → badge + modale "Abonnement requis"
+ *
+ * Admin override : un admin a accès à tout (via can()).
  */
+
+type TileStatus = 'live' | 'coming_soon'
 
 interface Tile {
   id: string
@@ -21,47 +23,66 @@ interface Tile {
   sublabel?: string
   emoji: string
   color: string
-  locked?: boolean
-  onSelect: () => void
+  status: TileStatus
+  requiredPlan?: 'pro' | 'max'   // si défini, gate l'accès au plan ou +
 }
 
 interface Props {
-  onSelectAgenda: () => void
-  onSelectAnnuaire: () => void
-  onSelectProducteurs: () => void
-  onOpenNotifs?: () => void
+  onSelectAgenda:        () => void
+  onSelectAnnuaire:      () => void
+  onSelectProducteurs:   () => void
+  onComingSoon:          (label: string) => void
+  onUpgradePrompt:       (requiredPlan: 'pro' | 'max', label: string) => void
+  onOpenNotifs?:         () => void
 }
 
-export default function HubView({ onSelectAgenda, onSelectAnnuaire, onSelectProducteurs, onOpenNotifs }: Props) {
-  const { user, profile } = useAuth()
+export default function HubView({
+  onSelectAgenda, onSelectAnnuaire, onSelectProducteurs,
+  onComingSoon, onUpgradePrompt, onOpenNotifs,
+}: Props) {
+  const { user, profile, isAdmin } = useAuth()
   const { unreadCount } = useNotifications()
 
+  const ctx = toUserContext(profile, isAdmin)
+
   const tiles: Tile[] = [
-    {
-      id: 'agenda',
-      label: 'Agenda',
-      sublabel: 'culturel',
-      emoji: '📅',
-      color: '#E8F2EB',
-      onSelect: onSelectAgenda,
-    },
-    {
-      id: 'annuaire',
-      label: 'Annuaire',
-      sublabel: 'pro',
-      emoji: '🏪',
-      color: '#FEF0F5',
-      onSelect: onSelectAnnuaire,
-    },
-    {
-      id: 'producteurs',
-      label: 'Producteurs',
-      sublabel: 'vente libre',
-      emoji: '🌿',
-      color: '#FFF0EB',
-      onSelect: onSelectProducteurs,
-    },
+    // Modules fonctionnels — gratuits
+    { id: 'agenda',      label: 'Agenda',      sublabel: 'culturel',      emoji: '📅', color: '#E8F2EB', status: 'live' },
+    { id: 'annuaire',    label: 'Annuaire',    sublabel: 'pro',           emoji: '🏪', color: '#FEF0F5', status: 'live' },
+    { id: 'producteurs', label: 'Producteurs', sublabel: 'vente libre',   emoji: '🌿', color: '#FFF0EB', status: 'live' },
+    // Modules à venir — gratuits (pages)
+    { id: 'annonces',    label: 'Annonces',    sublabel: 'locales',       emoji: '📢', color: '#FFF7E5', status: 'coming_soon' },
+    { id: 'hebergements',label: 'Hébergements',sublabel: '',              emoji: '🛏️', color: '#EEF3FF', status: 'coming_soon' },
+    { id: 'mobilite',    label: 'Mobilité',    sublabel: 'transport',     emoji: '🚌', color: '#E5F4FF', status: 'coming_soon' },
+    { id: 'associations',label: 'Assos',       sublabel: '& clubs',       emoji: '🤝', color: '#F0EBFF', status: 'coming_soon' },
+    { id: 'idees',       label: 'Boîte',       sublabel: 'à idées',       emoji: '💡', color: '#FFF9E0', status: 'coming_soon' },
+    // Modules à venir — Pro/Max
+    { id: 'commerces',   label: 'Commerces',   sublabel: 'e-commerce',    emoji: '🛍️', color: '#FFEEF8', status: 'coming_soon', requiredPlan: 'pro' },
+    { id: 'promotions',  label: 'Promotions',  sublabel: 'offres pro',    emoji: '🎯', color: '#FFE8DD', status: 'coming_soon', requiredPlan: 'max' },
   ]
+
+  const hasAccess = (tile: Tile): boolean => {
+    if (isAdmin) return true
+    if (!tile.requiredPlan) return true
+    // Pro débloque pro+max ; Max ne débloque que max
+    if (tile.requiredPlan === 'pro') return ctx.plan === 'pro' || ctx.plan === 'max'
+    if (tile.requiredPlan === 'max') return ctx.plan === 'max'
+    return false
+  }
+
+  const handleClick = (tile: Tile) => {
+    // Gating premier : requiredPlan
+    if (tile.requiredPlan && !hasAccess(tile)) {
+      onUpgradePrompt(tile.requiredPlan, `${tile.label} ${tile.sublabel ?? ''}`.trim())
+      return
+    }
+    // Routing
+    if (tile.id === 'agenda')      return onSelectAgenda()
+    if (tile.id === 'annuaire')    return onSelectAnnuaire()
+    if (tile.id === 'producteurs') return onSelectProducteurs()
+    // Sinon : coming soon
+    onComingSoon(`${tile.label} ${tile.sublabel ?? ''}`.trim())
+  }
 
   return (
     <div style={{
@@ -138,68 +159,90 @@ export default function HubView({ onSelectAgenda, onSelectAnnuaire, onSelectProd
         gap: 10,
         alignContent: 'flex-start',
       }}>
-        {tiles.map(tile => (
-          <button
-            key={tile.id}
-            onClick={tile.locked ? undefined : tile.onSelect}
-            disabled={tile.locked}
-            style={{
-              backgroundColor: '#fff',
-              border: 'none',
-              borderRadius: 18,
-              padding: '14px 8px 12px',
-              boxShadow: '0 1px 5px rgba(0,0,0,0.06)',
-              cursor: tile.locked ? 'not-allowed' : 'pointer',
-              opacity: tile.locked ? 0.45 : 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 8,
-              transition: 'transform 0.12s, box-shadow 0.12s',
-              minHeight: 110,
-              fontFamily: 'Inter, sans-serif',
-              position: 'relative',
-            }}
-            onMouseDown={e => !tile.locked && (e.currentTarget.style.transform = 'scale(0.96)')}
-            onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
-            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-          >
-            <div style={{
-              width: 50,
-              height: 50,
-              borderRadius: 12,
-              backgroundColor: tile.color,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 28,
-              flexShrink: 0,
-            }}>
-              {tile.emoji}
-            </div>
-            <div style={{ textAlign: 'center', lineHeight: 1.2 }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: '#1A1209', margin: 0 }}>
-                {tile.label}
-              </p>
-              {tile.sublabel && (
-                <p style={{ fontSize: 10, color: '#7A6A5A', margin: '2px 0 0' }}>
-                  {tile.sublabel}
-                </p>
-              )}
-            </div>
-            {tile.locked && (
-              <span style={{
-                position: 'absolute', top: 8, right: 8,
-                fontSize: 8, fontWeight: 800,
-                backgroundColor: '#F5EFD6', color: '#8B6914',
-                padding: '2px 6px', borderRadius: 999,
-                textTransform: 'uppercase', letterSpacing: '0.05em',
+        {tiles.map(tile => {
+          const access = hasAccess(tile)
+          const dimmed = !access // tuile gatée et pas d'accès → grisée
+          const planInfo = tile.requiredPlan ? PLANS_INFO[tile.requiredPlan as Plan] : null
+
+          return (
+            <button
+              key={tile.id}
+              onClick={() => handleClick(tile)}
+              style={{
+                backgroundColor: '#fff',
+                border: 'none',
+                borderRadius: 18,
+                padding: '14px 8px 12px',
+                boxShadow: '0 1px 5px rgba(0,0,0,0.06)',
+                cursor: 'pointer',
+                opacity: dimmed ? 0.55 : 1,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 8,
+                transition: 'transform 0.12s, box-shadow 0.12s',
+                minHeight: 110,
+                fontFamily: 'Inter, sans-serif',
+                position: 'relative',
+              }}
+              onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.96)')}
+              onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
+              onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+            >
+              <div style={{
+                width: 50,
+                height: 50,
+                borderRadius: 12,
+                backgroundColor: tile.color,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 28,
+                flexShrink: 0,
+                filter: dimmed ? 'grayscale(0.5)' : 'none',
               }}>
-                Bientôt
-              </span>
-            )}
-          </button>
-        ))}
+                {tile.emoji}
+              </div>
+              <div style={{ textAlign: 'center', lineHeight: 1.2 }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: '#1A1209', margin: 0 }}>
+                  {tile.label}
+                </p>
+                {tile.sublabel && (
+                  <p style={{ fontSize: 10, color: '#7A6A5A', margin: '2px 0 0' }}>
+                    {tile.sublabel}
+                  </p>
+                )}
+              </div>
+
+              {/* Badge plan requis (Pro/Max) */}
+              {tile.requiredPlan && planInfo && (
+                <span style={{
+                  position: 'absolute', top: 6, right: 6,
+                  fontSize: 9, fontWeight: 800,
+                  backgroundColor: planInfo.bgColor, color: planInfo.color,
+                  padding: '2px 6px', borderRadius: 999,
+                  display: 'flex', alignItems: 'center', gap: 2,
+                  textTransform: 'uppercase', letterSpacing: '0.05em',
+                }}>
+                  {planInfo.icon} {planInfo.label}
+                </span>
+              )}
+
+              {/* Badge "Bientôt" pour les modules pas encore live ET non gatés */}
+              {tile.status === 'coming_soon' && !tile.requiredPlan && (
+                <span style={{
+                  position: 'absolute', top: 6, right: 6,
+                  fontSize: 8, fontWeight: 800,
+                  backgroundColor: '#F5EFD6', color: '#8B6914',
+                  padding: '2px 6px', borderRadius: 999,
+                  textTransform: 'uppercase', letterSpacing: '0.05em',
+                }}>
+                  Bientôt
+                </span>
+              )}
+            </button>
+          )
+        })}
       </div>
 
       {/* Footer accroche */}
