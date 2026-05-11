@@ -406,13 +406,15 @@ export default function HomePage() {
   }, [fetchEvenements])
 
   // Sheet full → active le mode liste ; sheet réduite → revient en carte
+  // Exception : sur le hub ou les onglets statiques, on ne touche pas au navTab
   useEffect(() => {
+    if (showHub) return
     if (sheetMode === 'full') {
       setNavTab(prev => prev === 'carte' ? 'liste' : prev)
     } else {
-      setNavTab(prev => (prev === 'profil' || prev === 'favoris') ? prev : 'carte')
+      setNavTab(prev => (prev === 'profil' || prev === 'favoris' || prev === 'notifs' || prev === 'accueil') ? prev : 'carte')
     }
-  }, [sheetMode])
+  }, [sheetMode, showHub])
 
   // Sélection d'un marqueur → peek ; déselection → half
   useEffect(() => {
@@ -615,7 +617,7 @@ export default function HomePage() {
     router.push(`/evenement/${id}`)
   }, [saveNavForEvent, router])
 
-  const showFab = navTab === 'carte' && sheetMode !== 'full' && !openProducerId && !openEtablissementId
+  const showFab = !showHub && navTab === 'carte' && sheetMode !== 'full' && !openProducerId && !openEtablissementId
 
   return (
     <div style={{ height: '100dvh', position: 'relative', overflow: 'hidden', backgroundColor: '#e8dece' }}>
@@ -657,7 +659,7 @@ export default function HomePage() {
 
       {/* ─── Boutons carte — haut gauche + haut droite ─── */}
       {(() => {
-        const showBtns = navTab === 'carte' && sheetMode !== 'full' && !openProducerId && !openEtablissementId
+        const showBtns = !showHub && navTab === 'carte' && sheetMode !== 'full' && !openProducerId && !openEtablissementId
         const BTN: React.CSSProperties = { width: 44, height: 44, borderRadius: 12, boxShadow: '0 2px 10px rgba(0,0,0,0.14)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E0D8CE', transition: 'background-color 0.15s' }
         const activeColor = (on: boolean): React.CSSProperties => on ? { backgroundColor: 'var(--primary)', border: 'none', color: '#fff' } : { backgroundColor: 'rgba(255,255,255,0.92)', color: '#6B6B6B' }
         return (
@@ -925,7 +927,7 @@ export default function HomePage() {
       </AnimatePresence>
 
       {/* ProBandeau flottant sur la carte — 2/3 largeur, se fait avaler par le sheet (zIndex 19 < 20) */}
-      {proEvents.length > 0 && appMode === 'agenda' && navTab !== 'profil' && navTab !== 'favoris' && navTab !== 'notifs' && (
+      {!showHub && proEvents.length > 0 && appMode === 'agenda' && navTab !== 'profil' && navTab !== 'favoris' && navTab !== 'notifs' && (
         <div style={{
           position: 'absolute', left: 0, right: '33%',
           bottom: NAV_H + sheetPeekH,
@@ -938,8 +940,8 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Bottom Sheet */}
-      <BottomSheet
+      {/* Bottom Sheet — masqué sur le hub */}
+      {!showHub && <BottomSheet
         evenements={evenements}
         loading={loading}
         selectedId={selectedId}
@@ -982,7 +984,7 @@ export default function HomePage() {
         onEtabSearchChange={setEtabSearch}
         annuaireTab={annuaireTab}
         onAnnuaireTabChange={setAnnuaireTab}
-      />
+      />}
 
       {/* Favoris — panneau inline au-dessus de la carte */}
       {navTab === 'favoris' && (
