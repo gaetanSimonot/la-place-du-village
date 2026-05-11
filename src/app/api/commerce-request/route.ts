@@ -14,9 +14,9 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   await notifyAdmins({
-    type: 'nouveau_produit',
+    type: 'claim_pending',
     actor_name: nom.trim(),
-    target_type: 'producer',
+    target_type: 'claim',
   })
 
   return NextResponse.json({ success: true })

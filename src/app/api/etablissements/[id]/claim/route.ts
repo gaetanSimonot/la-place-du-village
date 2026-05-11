@@ -40,9 +40,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   await notifyAdmins({
-    type: 'nouveau_produit',
-    actor_name: `Claim: ${etab.nom}`,
-    target_type: 'producer',
+    type: 'claim_pending',
+    actor_name: etab.nom,
+    target_type: 'claim',
   })
 
   return NextResponse.json({ success: true })

@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { Evenement, isApproxLocation } from '@/lib/types'
@@ -38,6 +38,7 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
 
 export default function AdminDashboard() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
   const [adminVerified, setAdminVerified] = useState(false)
 
@@ -99,7 +100,12 @@ export default function AdminDashboard() {
     fetchAdmins()
   }
 
-  const [section, setSection]           = useState<Section>('agenda')
+  const initialSection: Section = (() => {
+    const s = searchParams?.get('section')
+    if (s === 'agenda' || s === 'annuaire' || s === 'membres' || s === 'demandes' || s === 'parametres') return s
+    return 'agenda'
+  })()
+  const [section, setSection]           = useState<Section>(initialSection)
   const [demandesCount, setDemandesCount] = useState(0)
   const [onglet, setOnglet]             = useState<Onglet>('a_traiter')
   const [evenements, setEvenements]     = useState<Evenement[]>([])
@@ -206,6 +212,14 @@ export default function AdminDashboard() {
       .eq('traite', false)
       .then(({ count }) => setDemandesCount(count ?? 0))
   }, [adminVerified, section])
+
+  // Sync section depuis le query param (ex: /admin?section=demandes depuis une notif)
+  useEffect(() => {
+    const s = searchParams?.get('section')
+    if (s === 'agenda' || s === 'annuaire' || s === 'membres' || s === 'demandes' || s === 'parametres') {
+      setSection(s)
+    }
+  }, [searchParams])
 
   useEffect(() => { setPage(1) }, [search, sort, onlyFeedbacks])
 

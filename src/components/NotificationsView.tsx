@@ -1,5 +1,6 @@
 'use client'
 import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import type { AppNotification, NotifType } from '@/lib/types'
 
 interface Props {
@@ -63,12 +64,28 @@ function relativeDate(iso: string): string {
 }
 
 export default function NotificationsView({ notifications, loading, loaded, onOpen, onMarkRead, onMarkAllRead, onOpenProducer }: Props) {
+  const router = useRouter()
+
   useEffect(() => { onOpen() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const unreadCount = notifications.filter(n => !n.lu).length
 
   function handleClick(n: AppNotification) {
     if (!n.lu) onMarkRead(n.id)
+
+    // Claim côté admin : ouvre la section Demandes de /admin
+    if (n.type === 'claim_pending' || n.target_type === 'claim') {
+      router.push('/admin?section=demandes')
+      return
+    }
+
+    // Claim côté requester : ouvre la fiche établissement concernée
+    if ((n.type === 'claim_approved' || n.type === 'claim_rejected') && n.target_id) {
+      router.push(`/etablissement/${n.target_id}`)
+      return
+    }
+
+    // Notifs producteur (legacy)
     if (n.target_type === 'producer' && n.target_id) {
       onOpenProducer?.(n.target_id)
     }
