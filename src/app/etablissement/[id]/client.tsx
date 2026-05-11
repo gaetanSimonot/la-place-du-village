@@ -9,6 +9,7 @@ import { ETAB_TYPES } from '@/lib/etablissement-types'
 import EtabEditDrawer from '@/components/EtabEditDrawer'
 import EtabProductsSection from '@/components/EtabProductsSection'
 import type { Etablissement } from '@/lib/types'
+import { can, toUserContext } from '@/lib/capabilities'
 
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
 const DAY_KEYS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
@@ -166,6 +167,35 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
     clearTimeout(toastTimer.current); setToast(msg)
     toastTimer.current = setTimeout(() => setToast(null), 2000)
   }, [])
+
+  // Routing 3-voies pour "Revendiquer cette fiche" :
+  // - pas connecté → modal auth
+  // - connecté + plan Pro/Max ou admin → claim direct (envoie commerce_request)
+  // - connecté basic → modal d'abonnement Stripe
+  const handleClaimClick = async () => {
+    if (!user) {
+      openAuthModal(`${window.location.origin}/etablissement/${id}`)
+      return
+    }
+    const ctx = toUserContext(profile, isAdmin)
+    if (!can(ctx, 'claim_etablissement')) {
+      setClaimOpen(true)
+      return
+    }
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const res = await fetch(`/api/etablissements/${id}/claim`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({}),
+    })
+    if (res.ok) {
+      showToast('✓ Demande envoyée — un admin la validera bientôt')
+    } else {
+      const d = await res.json().catch(() => ({}))
+      showToast(d.error ?? 'Erreur lors de la demande')
+    }
+  }
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get('subscribed') === '1') {
@@ -412,7 +442,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
           <div style={{ padding: '14px 16px', borderRadius: 16, backgroundColor: '#F8F4EE', border: '1.5px dashed #D0C8C0' }}>
             <p style={{ fontSize: 13, fontWeight: 700, color: '#3C2C20', margin: '0 0 4px' }}>Vous gérez cet établissement ?</p>
             <p style={{ fontSize: 12, color: '#8A8A8A', lineHeight: 1.5, margin: '0 0 12px' }}>Revendiquez cette fiche pour la compléter et la gérer.</p>
-            <button onClick={() => { if (!user) openAuthModal(`${window.location.origin}/etablissement/${id}`); else setClaimOpen(true) }}
+            <button onClick={handleClaimClick}
               style={{ padding: '10px 20px', borderRadius: 999, backgroundColor: '#2D5A3D', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
               Revendiquer cette fiche
             </button>
