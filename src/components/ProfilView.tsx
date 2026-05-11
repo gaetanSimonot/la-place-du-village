@@ -9,6 +9,7 @@ import Link from 'next/link'
 import AbonnementsView from '@/components/AbonnementsView'
 import MonEspaceProducteur from '@/components/MonEspaceProducteur'
 import { supabase } from '@/lib/supabase'
+import { PLANS_INFO, type Plan } from '@/lib/capabilities'
 
 type Tab = 'profil' | 'plan' | 'abonnements' | 'theme' | 'producteur'
 
@@ -29,19 +30,19 @@ export default function ProfilView() {
     return session?.access_token ?? ''
   }
 
-  const openManage = async (etabId: string) => {
-    setActionLoading(`manage-${etabId}`)
+  const openManage = async () => {
+    setActionLoading('manage')
     const t = await getToken()
-    const r = await fetch('/api/stripe/manage', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ etabId }) })
+    const r = await fetch('/api/stripe/manage', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({}) })
     const d = await r.json()
     if (d.url) window.location.href = d.url
     else setActionLoading(null)
   }
 
-  const openUpgrade = async (etabId: string, targetPlan: 'pro' | 'max') => {
-    setActionLoading(`upgrade-${etabId}-${targetPlan}`)
+  const openUpgrade = async (targetPlan: 'pro' | 'max') => {
+    setActionLoading(`upgrade-${targetPlan}`)
     const t = await getToken()
-    const r = await fetch('/api/stripe/create-checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ etabId, plan: targetPlan }) })
+    const r = await fetch('/api/stripe/create-checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ plan: targetPlan }) })
     const d = await r.json()
     if (d.url) window.location.href = d.url
     else setActionLoading(null)
@@ -243,63 +244,82 @@ export default function ProfilView() {
 
         {tab === 'plan' && (
           <div>
-            {!user ? <LoginView /> : (
-              <>
-                {myEtabs.length === 0 ? (
-                  <div style={{ backgroundColor: '#fff', borderRadius: 20, padding: '28px 20px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', textAlign: 'center' }}>
-                    <p style={{ fontSize: 36, margin: '0 0 12px' }}>○</p>
-                    <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 18, color: '#1A1209', margin: '0 0 8px' }}>Plan Basic</p>
-                    <p style={{ fontSize: 13, color: '#7A6A5A', fontFamily: 'Lora, serif', lineHeight: 1.6, margin: '0 0 18px' }}>
-                      Vous utilisez La Place du Village gratuitement.<br />
-                      Pour accéder aux plans Pro et Max, revendiquez d&apos;abord une fiche établissement.
-                    </p>
-                    <Link href="/" style={{ display: 'inline-block', padding: '10px 22px', borderRadius: 999, backgroundColor: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none', fontFamily: 'Inter, sans-serif' }}>
-                      Trouver ma fiche →
-                    </Link>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    {myEtabs.map(e => (
-                      <div key={e.id} style={{ backgroundColor: '#fff', borderRadius: 16, padding: '16px', boxShadow: '0 1px 6px rgba(0,0,0,0.07)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                          <div style={{ width: 36, height: 36, borderRadius: 8, overflow: 'hidden', flexShrink: 0, backgroundColor: '#E8F2EB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {e.photos?.[0] ? <img src={e.photos[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 16 }}>🏪</span>}
-                          </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14, color: '#1C1917', margin: '0 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.nom}</p>
-                            <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 999, padding: '2px 8px',
-                              backgroundColor: e.plan === 'max' ? '#EC407A' : e.plan === 'pro' ? '#2D5A3D' : '#D0C8C0',
-                              color: e.plan === 'basic' ? '#666' : '#fff',
-                            }}>{e.plan}</span>
-                          </div>
+            {!user ? <LoginView /> : (() => {
+              const currentPlan = (plan ?? 'basic') as Plan
+              const info = PLANS_INFO[currentPlan]
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                  {/* Card "Mon abonnement" */}
+                  <div style={{ backgroundColor: '#fff', borderRadius: 20, padding: '24px 20px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+                      <div>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: '#9A8A7A', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 6px' }}>Mon abonnement</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ fontSize: 26, fontWeight: 900, color: info.color, fontFamily: 'Inter, sans-serif' }}>{info.icon} {info.label}</span>
+                          <span style={{ fontSize: 12, color: '#7A6A5A' }}>· {info.priceLabel}</span>
                         </div>
-                        {e.plan === 'basic' ? (
-                          <div style={{ display: 'flex', gap: 8 }}>
-                            <button onClick={() => openUpgrade(e.id, 'pro')} disabled={!!actionLoading} style={{ flex: 1, padding: '9px', borderRadius: 10, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: actionLoading === `upgrade-${e.id}-pro` ? 0.6 : 1 }}>
-                              {actionLoading === `upgrade-${e.id}-pro` ? '…' : '↑ Passer à Pro'}
-                            </button>
-                            <button onClick={() => openUpgrade(e.id, 'max')} disabled={!!actionLoading} style={{ flex: 1, padding: '9px', borderRadius: 10, border: 'none', backgroundColor: '#EC407A', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: actionLoading === `upgrade-${e.id}-max` ? 0.6 : 1 }}>
-                              {actionLoading === `upgrade-${e.id}-max` ? '…' : '✦ Passer à Max'}
-                            </button>
-                          </div>
-                        ) : (
-                          <div style={{ display: 'flex', gap: 8 }}>
-                            {e.plan === 'pro' && (
-                              <button onClick={() => openUpgrade(e.id, 'max')} disabled={!!actionLoading} style={{ flex: 1, padding: '9px', borderRadius: 10, border: 'none', backgroundColor: '#EC407A', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: actionLoading === `upgrade-${e.id}-max` ? 0.6 : 1 }}>
-                                {actionLoading === `upgrade-${e.id}-max` ? '…' : '✦ Passer à Max'}
-                              </button>
-                            )}
-                            <button onClick={() => openManage(e.id)} disabled={!!actionLoading} style={{ flex: 1, padding: '9px', borderRadius: 10, border: '1.5px solid #E0D8CE', backgroundColor: '#fff', color: '#2C1810', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: actionLoading === `manage-${e.id}` ? 0.6 : 1 }}>
-                              {actionLoading === `manage-${e.id}` ? '…' : 'Gérer l\'abonnement'}
-                            </button>
-                          </div>
-                        )}
+                        <p style={{ fontSize: 12, color: '#7A6A5A', margin: '4px 0 0', fontStyle: 'italic' }}>{info.tagline}</p>
                       </div>
-                    ))}
+                    </div>
+
+                    <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {info.features.map(f => (
+                        <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, fontSize: 12, color: '#3C2C20', lineHeight: 1.4 }}>
+                          <span style={{ color: info.color, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✓</span>{f}
+                        </li>
+                      ))}
+                    </ul>
+
+                    {/* Actions selon le plan */}
+                    <div style={{ marginTop: 18, display: 'flex', gap: 8 }}>
+                      {currentPlan === 'basic' && (
+                        <>
+                          <button onClick={() => openUpgrade('pro')} disabled={!!actionLoading} style={{ flex: 1, padding: '11px', borderRadius: 12, border: 'none', backgroundColor: '#3A5BC7', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: actionLoading === 'upgrade-pro' ? 0.6 : 1 }}>
+                            {actionLoading === 'upgrade-pro' ? '…' : '★ Passer Pro'}
+                          </button>
+                          <button onClick={() => openUpgrade('max')} disabled={!!actionLoading} style={{ flex: 1, padding: '11px', borderRadius: 12, border: 'none', backgroundColor: '#E8622A', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: actionLoading === 'upgrade-max' ? 0.6 : 1 }}>
+                            {actionLoading === 'upgrade-max' ? '…' : '✦ Passer Max'}
+                          </button>
+                        </>
+                      )}
+                      {currentPlan === 'pro' && (
+                        <>
+                          <button onClick={() => openUpgrade('max')} disabled={!!actionLoading} style={{ flex: 1, padding: '11px', borderRadius: 12, border: 'none', backgroundColor: '#E8622A', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: actionLoading === 'upgrade-max' ? 0.6 : 1 }}>
+                            {actionLoading === 'upgrade-max' ? '…' : '✦ Passer Max'}
+                          </button>
+                          <button onClick={openManage} disabled={!!actionLoading} style={{ flex: 1, padding: '11px', borderRadius: 12, border: '1.5px solid #E0D8CE', backgroundColor: '#fff', color: '#2C1810', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: actionLoading === 'manage' ? 0.6 : 1 }}>
+                            {actionLoading === 'manage' ? '…' : 'Gérer'}
+                          </button>
+                        </>
+                      )}
+                      {currentPlan === 'max' && (
+                        <button onClick={openManage} disabled={!!actionLoading} style={{ flex: 1, padding: '11px', borderRadius: 12, border: '1.5px solid #E0D8CE', backgroundColor: '#fff', color: '#2C1810', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: actionLoading === 'manage' ? 0.6 : 1 }}>
+                          {actionLoading === 'manage' ? '…' : 'Gérer mon abonnement'}
+                        </button>
+                      )}
+                    </div>
                   </div>
-                )}
-              </>
-            )}
+
+                  {/* Mes établissements — informatif */}
+                  {myEtabs.length > 0 && (
+                    <div style={{ backgroundColor: '#fff', borderRadius: 16, padding: '14px 16px', boxShadow: '0 1px 6px rgba(0,0,0,0.07)' }}>
+                      <p style={{ fontSize: 11, fontWeight: 700, color: '#9A8A7A', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px' }}>Mes établissements</p>
+                      {myEtabs.map(e => (
+                        <Link key={e.id} href={`/etablissement/${e.id}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid #F5F0E8' }}>
+                          <div style={{ width: 32, height: 32, borderRadius: 8, overflow: 'hidden', flexShrink: 0, backgroundColor: '#E8F2EB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {e.photos?.[0] ? <img src={e.photos[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 14 }}>🏪</span>}
+                          </div>
+                          <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#1C1917', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.nom}</span>
+                          <span style={{ color: '#C8B8A8', fontSize: 16 }}>›</span>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+
+                </div>
+              )
+            })()}
           </div>
         )}
 
