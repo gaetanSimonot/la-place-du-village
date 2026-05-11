@@ -118,16 +118,20 @@ export async function notifyAdmins(payload: {
 
   if (!admins?.length) return
 
-  // Récupère les user_id des admins (ceux qui ont un compte profile)
-  const { data: adminProfiles } = await supabaseAdmin
-    .from('profiles')
-    .select('user_id')
-    .in('email', admins.map(a => a.email))
+  const adminEmailsSet = new Set(admins.map(a => a.email.toLowerCase()))
 
-  if (!adminProfiles?.length) return
+  // On passe par auth.users plutôt que profiles : auth.users.email est garanti
+  // d'être rempli, alors que profiles.email peut être NULL pour les users
+  // créés avant le fix du trigger handle_new_user (ou par d'autres flux).
+  const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
+  const adminUserIds = (users ?? [])
+    .filter(u => u.email && adminEmailsSet.has(u.email.toLowerCase()))
+    .map(u => u.id)
 
-  const rows = adminProfiles.map(p => ({
-    user_id:     p.user_id,
+  if (!adminUserIds.length) return
+
+  const rows = adminUserIds.map(uid => ({
+    user_id:     uid,
     type:        payload.type,
     actor_name:  payload.actor_name,
     target_type: payload.target_type ?? null,
