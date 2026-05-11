@@ -974,16 +974,17 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Overlay fiche producteur — sans navigation, retour = popstate */}
+      {/* Overlay fiche producteur — sans navigation, retour = popstate
+          bottom: NAV_H laisse la bottom bar toujours visible et utilisable */}
       {openProducerId && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 35, overflowY: 'auto', backgroundColor: '#F2EBE0' }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 35, overflowY: 'auto', backgroundColor: '#F2EBE0' }}>
           <ProducteurPageClient id={openProducerId} onBack={closeProducer} />
         </div>
       )}
 
-      {/* Overlay fiche établissement */}
+      {/* Overlay fiche établissement — idem, nav toujours accessible */}
       {openEtablissementId && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 35, overflowY: 'auto', backgroundColor: '#FDFAF6' }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 35, overflowY: 'auto', backgroundColor: '#FDFAF6' }}>
           <EtablissementPageClient id={openEtablissementId} onBack={closeEtablissement} />
         </div>
       )}
