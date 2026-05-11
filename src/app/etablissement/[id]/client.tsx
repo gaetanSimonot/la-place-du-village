@@ -448,28 +448,40 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
             </button>
           </div>
         )}
-        {isOwner && (
-          <div style={{ padding: '14px 16px', borderRadius: 16, backgroundColor: '#E8F2EB' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <p style={{ fontSize: 13, fontWeight: 700, color: '#2D5A3D', margin: '0 0 4px' }}>✓ Vous gérez cette fiche</p>
-                <span style={{ display: 'inline-block', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 999, padding: '2px 8px',
-                  backgroundColor: etab.plan === 'max' ? '#EC407A' : etab.plan === 'pro' ? '#2D5A3D' : '#D0C8C0',
-                  color: etab.plan === 'basic' ? '#666' : '#fff',
-                }}>{etab.plan}</span>
+        {isOwner && (() => {
+          // Le plan affiche celui du USER (profile.plan), pas celui de l'etablissement.
+          // Phase D rebranchera le webhook Stripe sur profiles.plan, on n'aura plus besoin
+          // de fallback. En attendant, on lit le plus haut des deux pour eviter d'afficher
+          // "basic" a un user dont l'admin a force le plan a max.
+          const userPlan = (profile?.plan ?? 'basic') as 'basic'|'pro'|'max'
+          const effectivePlan: 'basic'|'pro'|'max' =
+            userPlan === 'max' ? 'max'
+            : userPlan === 'pro' || etab.plan === 'pro' || etab.plan === 'max' ? 'pro'
+            : 'basic'
+          const isPaid = effectivePlan !== 'basic'
+          return (
+            <div style={{ padding: '14px 16px', borderRadius: 16, backgroundColor: '#E8F2EB' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#2D5A3D', margin: '0 0 4px' }}>✓ Vous gérez cette fiche</p>
+                  <span style={{ display: 'inline-block', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 999, padding: '2px 8px',
+                    backgroundColor: effectivePlan === 'max' ? '#EC407A' : effectivePlan === 'pro' ? '#2D5A3D' : '#D0C8C0',
+                    color: effectivePlan === 'basic' ? '#666' : '#fff',
+                  }}>{effectivePlan}</span>
+                </div>
+                {isPaid ? (
+                  <button onClick={openManage} disabled={manageLoading} style={{ padding: '9px 14px', borderRadius: 10, border: '1.5px solid #2D5A3D', backgroundColor: 'transparent', color: '#2D5A3D', fontSize: 12, fontWeight: 700, cursor: manageLoading ? 'default' : 'pointer', opacity: manageLoading ? 0.6 : 1, fontFamily: 'Inter, sans-serif' }}>
+                    {manageLoading ? '…' : 'Gérer l\'abonnement'}
+                  </button>
+                ) : (
+                  <button onClick={() => setClaimOpen(true)} style={{ padding: '9px 14px', borderRadius: 10, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                    Passer à Pro / Max
+                  </button>
+                )}
               </div>
-              {etab.plan !== 'basic' ? (
-                <button onClick={openManage} disabled={manageLoading} style={{ padding: '9px 14px', borderRadius: 10, border: '1.5px solid #2D5A3D', backgroundColor: 'transparent', color: '#2D5A3D', fontSize: 12, fontWeight: 700, cursor: manageLoading ? 'default' : 'pointer', opacity: manageLoading ? 0.6 : 1, fontFamily: 'Inter, sans-serif' }}>
-                  {manageLoading ? '…' : 'Gérer l\'abonnement'}
-                </button>
-              ) : (
-                <button onClick={() => setClaimOpen(true)} style={{ padding: '9px 14px', borderRadius: 10, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
-                  Passer à Pro / Max
-                </button>
-              )}
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         {/* Commentaires */}
         <div ref={commentsRef} style={CARD}>

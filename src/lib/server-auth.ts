@@ -117,6 +117,7 @@ export async function notifyUser(
     type: string
     actor_name: string
     target_type?: string
+    target_id?: string
   },
 ): Promise<void> {
   await supabaseAdmin.from('notifications').insert({
@@ -124,6 +125,7 @@ export async function notifyUser(
     type:        payload.type,
     actor_name:  payload.actor_name,
     target_type: payload.target_type ?? null,
+    target_id:   payload.target_id ?? null,
     lu:          false,
   })
 }

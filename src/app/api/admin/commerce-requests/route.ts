@@ -132,12 +132,14 @@ export async function PATCH(req: NextRequest) {
       type: 'claim_approved',
       actor_name: etab.nom,
       target_type: 'etablissement',
+      target_id: req_row.etablissement_id,
     })
   } else if (action === 'reject' && req_row.user_id) {
     await notifyUser(req_row.user_id, {
       type: 'claim_rejected',
       actor_name: req_row.nom,
       target_type: 'etablissement',
+      target_id: req_row.etablissement_id ?? undefined,
     })
   }
 
