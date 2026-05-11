@@ -21,6 +21,9 @@
 
 export type Plan = 'basic' | 'pro' | 'max'
 
+/** Ordre d'affichage canonique des plans dans l'UI (basic → max) */
+export const PLAN_ORDER: Plan[] = ['basic', 'pro', 'max']
+
 export type Feature =
   | 'claim_etablissement'   // Revendiquer une fiche établissement
   | 'promo_pro'             // Promouvoir un événement en ★ Pro (bandeau + carte)

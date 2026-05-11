@@ -2,6 +2,7 @@
 import { useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { ETAB_TYPES } from '@/lib/etablissement-types'
+import { PLAN_ORDER, PLANS_INFO } from '@/lib/capabilities'
 import type { Etablissement } from '@/lib/types'
 
 const s = {
@@ -155,11 +156,14 @@ export default function EtabEditDrawer({ etab, isAdmin, onClose, onSaved }: Prop
                 {toggle(isFeatured, setIsFeatured, '★ À la une', '#2D5A3D')}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                {(['basic', 'pro', 'max'] as const).map(p => (
-                  <button key={p} onClick={() => setPlan(p)} style={{ flex: 1, padding: '10px 0', borderRadius: 12, border: `2px solid ${plan === p ? '#2C1810' : '#E8E0D5'}`, background: plan === p ? '#2C1810' : '#fff', color: plan === p ? '#fff' : '#999', fontWeight: 700, fontSize: 13, cursor: 'pointer', textTransform: 'uppercase' as const }}>
-                    {p}
-                  </button>
-                ))}
+                {PLAN_ORDER.map(p => {
+                  const info = PLANS_INFO[p]
+                  return (
+                    <button key={p} onClick={() => setPlan(p)} style={{ flex: 1, padding: '10px 0', borderRadius: 12, border: `2px solid ${plan === p ? info.color : '#E8E0D5'}`, background: plan === p ? info.color : '#fff', color: plan === p ? '#fff' : '#999', fontWeight: 700, fontSize: 13, cursor: 'pointer', textTransform: 'uppercase' as const }}>
+                      {info.icon} {info.label}
+                    </button>
+                  )
+                })}
               </div>
               <div>
                 <label style={s.label}>Statut</label>

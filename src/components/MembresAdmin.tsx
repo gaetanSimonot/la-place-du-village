@@ -1,14 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-
-type Plan = 'basic' | 'pro' | 'max'
-
-const PLANS: { id: Plan; label: string; icon: string; activeColor: string; activeBg: string; desc: string }[] = [
-  { id: 'basic', label: 'Basic',  icon: '○', activeColor: '#2D5A3D', activeBg: '#E8F2EB', desc: 'Accès standard gratuit.' },
-  { id: 'pro',   label: 'Pro',    icon: '★', activeColor: '#3A5BC7', activeBg: '#EEF3FF', desc: '1 promo/mois dans le bandeau · newsletter · card mise en avant.' },
-  { id: 'max',   label: 'MAX',    icon: '✦', activeColor: '#E8622A', activeBg: '#FFF0EB', desc: 'Splash screen · profil pro dans l\'annuaire · tout Pro inclus.' },
-]
+import { PLANS_INFO, PLAN_ORDER, type Plan } from '@/lib/capabilities'
 
 const PRO_TYPES = [
   { id: 'producteur',  label: '🌿 Producteur local' },
@@ -133,7 +126,7 @@ export default function MembresAdmin() {
   }
 
   const fmt = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: '2-digit' })
-  const planCfg = (p: Plan) => PLANS.find(x => x.id === p)!
+  const planCfg = (p: Plan) => PLANS_INFO[p] ?? PLANS_INFO.basic
 
   const filtered = membres.filter(m =>
     m.email.toLowerCase().includes(search.toLowerCase()) ||
@@ -210,7 +203,7 @@ export default function MembresAdmin() {
 
                 {/* Plan badge */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                  <span style={{ padding: '4px 10px', borderRadius: 999, fontSize: 10, fontWeight: 800, backgroundColor: plan.activeBg, color: plan.activeColor }}>
+                  <span style={{ padding: '4px 10px', borderRadius: 999, fontSize: 10, fontWeight: 800, backgroundColor: plan.bgColor, color: plan.color }}>
                     {plan.icon} {plan.label}
                   </span>
                   <span style={{ fontSize: 10, color: '#C0B8B0', display: 'inline-block', transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
@@ -253,24 +246,27 @@ export default function MembresAdmin() {
                   <div>
                     <p style={secLabel}>Abonnement</p>
                     <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-                      {PLANS.map(p => (
-                        <button
-                          key={p.id}
-                          onClick={e => { e.stopPropagation(); setEditPlan(p.id) }}
-                          style={{
-                            flex: 1, padding: '9px 4px', borderRadius: 9, cursor: 'pointer',
-                            border: editPlan === p.id ? `2px solid ${p.activeColor}` : '1.5px solid #E0D8CE',
-                            backgroundColor: editPlan === p.id ? p.activeBg : '#fff',
-                            color: editPlan === p.id ? p.activeColor : '#B0A898',
-                            fontSize: 11, fontWeight: 800, transition: 'all 0.15s',
-                          }}
-                        >
-                          {p.icon} {p.label}
-                        </button>
-                      ))}
+                      {PLAN_ORDER.map(id => {
+                        const info = PLANS_INFO[id]
+                        return (
+                          <button
+                            key={id}
+                            onClick={e => { e.stopPropagation(); setEditPlan(id) }}
+                            style={{
+                              flex: 1, padding: '9px 4px', borderRadius: 9, cursor: 'pointer',
+                              border: editPlan === id ? `2px solid ${info.color}` : '1.5px solid #E0D8CE',
+                              backgroundColor: editPlan === id ? info.bgColor : '#fff',
+                              color: editPlan === id ? info.color : '#B0A898',
+                              fontSize: 11, fontWeight: 800, transition: 'all 0.15s',
+                            }}
+                          >
+                            {info.icon} {info.label}
+                          </button>
+                        )
+                      })}
                     </div>
                     <p style={{ margin: '0 0 10px', fontSize: 11, color: '#7A6A5A', lineHeight: 1.5 }}>
-                      {PLANS.find(p => p.id === editPlan)?.desc}
+                      {PLANS_INFO[editPlan].tagline} · {PLANS_INFO[editPlan].features.slice(0, 3).join(' · ')}
                     </p>
 
                     {/* Type pro — pour Pro et Max */}
