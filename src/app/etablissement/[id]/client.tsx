@@ -168,6 +168,23 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
     toastTimer.current = setTimeout(() => setToast(null), 2000)
   }, [])
 
+  const handleRelease = async () => {
+    if (!confirm('Êtes-vous sûr de ne plus vouloir gérer cette fiche ? Vous perdrez l\'accès à son édition.')) return
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const res = await fetch(`/api/etablissements/${id}/release`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+    })
+    if (res.ok) {
+      showToast('✓ Vous ne gérez plus cette fiche')
+      setEtab(prev => prev ? { ...prev, user_id: null, plan: 'basic', is_featured: false } : prev)
+    } else {
+      const d = await res.json().catch(() => ({}))
+      showToast(d.error ?? 'Erreur')
+    }
+  }
+
   // Routing 3-voies pour "Revendiquer cette fiche" :
   // - pas connecté → modal auth
   // - connecté + plan Pro/Max ou admin → claim direct (envoie commerce_request)
@@ -478,6 +495,12 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
                     Passer à Pro / Max
                   </button>
                 )}
+              </div>
+              <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #D0E0D5', textAlign: 'right' }}>
+                <button onClick={handleRelease}
+                  style={{ background: 'none', border: 'none', color: '#A0654E', fontSize: 11, cursor: 'pointer', textDecoration: 'underline', fontFamily: 'Inter, sans-serif', padding: 0 }}>
+                  Ne plus gérer cette fiche
+                </button>
               </div>
             </div>
           )
