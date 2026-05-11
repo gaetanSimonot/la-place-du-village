@@ -638,6 +638,7 @@ export default function HomePage() {
             onComingSoon={setComingSoonLabel}
             onUpgradePrompt={(plan, label) => setUpgradePrompt({ plan, label })}
             onOpenNotifs={() => handleNavTab('notifs')}
+            unreadCount={notifCount}
           />
         </div>
       )}

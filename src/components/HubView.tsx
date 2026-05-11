@@ -1,6 +1,5 @@
 'use client'
 import { useAuth } from '@/hooks/useAuth'
-import { useNotifications } from '@/hooks/useNotifications'
 import { toUserContext, PLANS_INFO, type Plan } from '@/lib/capabilities'
 import type { EtablissementType } from '@/lib/types'
 
@@ -47,14 +46,15 @@ interface Props {
   onComingSoon:          (label: string) => void
   onUpgradePrompt:       (requiredPlan: 'pro' | 'max', label: string) => void
   onOpenNotifs?:         () => void
+  unreadCount?:          number
 }
 
 export default function HubView({
   onSelectAgenda, onSelectAnnuaire, onSelectProducteurs,
   onComingSoon, onUpgradePrompt, onOpenNotifs,
+  unreadCount = 0,
 }: Props) {
   const { user, profile, isAdmin } = useAuth()
-  const { unreadCount } = useNotifications()
   const ctx = toUserContext(profile, isAdmin)
 
   // ── Tuiles "Mes indispensables" — carrousel horizontal ───────────────────
