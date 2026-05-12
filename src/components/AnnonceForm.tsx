@@ -67,7 +67,10 @@ export default function AnnonceForm({ initial, onSuccess }: Props) {
       const ext  = file.name.split('.').pop() ?? 'jpg'
       const path = `${user.id}/${Date.now()}-${i}.${ext}`
       const { error: upErr } = await supabase.storage.from('annonces').upload(path, file, { upsert: false })
-      if (upErr) { setError('Erreur upload — vérifie le bucket "annonces" dans Supabase Storage'); continue }
+      if (upErr) {
+        setError(`Erreur upload : ${upErr.message}`)
+        continue
+      }
       const { data: { publicUrl } } = supabase.storage.from('annonces').getPublicUrl(path)
       newUrls.push(publicUrl)
     }
