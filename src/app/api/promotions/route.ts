@@ -39,12 +39,35 @@ export async function GET(req: NextRequest) {
   const etabIds = Array.from(new Set(data.map(p => p.etablissement_id)))
   const { data: etabs } = await supabaseAdmin
     .from('etablissements')
-    .select('id, nom, commune, photos, type, plan')
+    .select('id, nom, commune, photos, type, plan, user_id')
     .in('id', etabIds)
 
-  const etabsById = Object.fromEntries((etabs ?? []).map(e => [e.id, e]))
+  const etabsById: Record<string, { id: string; nom: string; commune: string | null; photos: string[] | null; type: string | null; plan: string | null; user_id: string | null }> =
+    Object.fromEntries((etabs ?? []).map(e => [e.id, e]))
 
-  const enriched = data.map(p => {
+  // Mode public : on filtre les promos dont la fiche n'est plus gérée
+  // ou dont le proprio actuel n'a plus de plan Pro/Max (sub Stripe annulée etc).
+  // Le commerçant voit ses propres promos en mode `mine=1`, peu importe l'état.
+  let visiblePromos = data
+  if (!mine) {
+    const ownerIds = Array.from(new Set(
+      Object.values(etabsById).map(e => e.user_id).filter(Boolean) as string[]
+    ))
+    const { data: profiles } = ownerIds.length
+      ? await supabaseAdmin.from('profiles').select('user_id, plan').in('user_id', ownerIds)
+      : { data: [] }
+    const profileByUser = Object.fromEntries((profiles ?? []).map(p => [p.user_id, p]))
+
+    visiblePromos = data.filter(p => {
+      const etab = etabsById[p.etablissement_id]
+      if (!etab?.user_id) return false                          // fiche orpheline (release)
+      const proprio = profileByUser[etab.user_id]
+      if (!proprio?.plan) return false                          // proprio n'a plus de profil
+      return proprio.plan === 'pro' || proprio.plan === 'max'   // plan actif requis
+    })
+  }
+
+  const enriched = visiblePromos.map(p => {
     const etab = etabsById[p.etablissement_id] ?? null
     // Fallback image : si pas d'image_url custom, on prend la 1re photo de la fiche
     const display_image_url = p.image_url || (etab?.photos?.[0] ?? null)
