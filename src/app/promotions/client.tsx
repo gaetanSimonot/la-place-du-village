@@ -14,6 +14,7 @@ interface Promotion {
   title: string
   description: string | null
   image_url: string | null
+  display_image_url: string | null
   conditions: string | null
   frequency: 'always' | 'weekly' | 'monthly'
   valid_from: string | null
@@ -276,10 +277,10 @@ function PromoCard({ promo, onUse, disabled, userHasAccess }: {
       boxShadow: '0 2px 12px rgba(0,0,0,0.07)',
       overflow: 'hidden',
     }}>
-      {/* Image hero */}
-      {promo.image_url && (
+      {/* Image hero (custom ou fallback sur la photo de l'établissement) */}
+      {promo.display_image_url && (
         <img
-          src={promo.image_url}
+          src={promo.display_image_url}
           alt={promo.title}
           style={{ width: '100%', height: 130, objectFit: 'cover', display: 'block' }}
         />

@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useAuth } from '@/hooks/useAuth'
 import { toUserContext, PLANS_INFO, type Plan } from '@/lib/capabilities'
 import type { EtablissementType } from '@/lib/types'
@@ -10,6 +11,7 @@ interface HeroPromo {
   title: string
   description: string | null
   image_url: string | null
+  display_image_url: string | null
   etablissement: { nom: string; commune: string | null } | null
 }
 
@@ -77,7 +79,8 @@ export default function HubView({
   useEffect(() => {
     fetch('/api/promotions').then(r => r.ok ? r.json() : null).then(d => {
       if (!d?.promotions) return
-      const list = (d.promotions as HeroPromo[]).filter(p => p.image_url || p.description)
+      // On garde les promos qui ont au moins une image (custom ou fallback etab) OU une description
+      const list = (d.promotions as HeroPromo[]).filter(p => p.display_image_url || p.description)
       // Mélange aléatoire
       for (let i = list.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1))
@@ -89,7 +92,7 @@ export default function HubView({
 
   useEffect(() => {
     if (heroPromos.length < 2) return
-    const t = setInterval(() => setHeroIdx(i => (i + 1) % heroPromos.length), 5000)
+    const t = setInterval(() => setHeroIdx(i => (i + 1) % heroPromos.length), 3000)
     return () => clearInterval(t)
   }, [heroPromos.length])
 
@@ -216,7 +219,7 @@ export default function HubView({
         )}
       </div>
 
-      {/* ── 2. Hero Promo (carrousel auto-rotate) ─────────────────────────── */}
+      {/* ── 2. Hero Promo (carrousel auto-rotate avec fondu) ──────────────── */}
       <div style={{ padding: '0 16px 22px' }}>
         <button
           onClick={() => router.push('/promotions')}
@@ -224,75 +227,89 @@ export default function HubView({
             width: '100%', border: 'none', cursor: 'pointer',
             padding: 0, borderRadius: 22, overflow: 'hidden',
             position: 'relative', minHeight: 150,
-            background: currentHeroPromo?.image_url
-              ? `linear-gradient(180deg, rgba(26,58,42,0.45) 0%, rgba(26,58,42,0.85) 90%), url(${currentHeroPromo.image_url}) center/cover`
-              : 'linear-gradient(135deg, #1A3A2A 0%, #2D5A3D 60%, #3F7A52 100%)',
+            backgroundColor: '#1A3A2A',
             boxShadow: '0 4px 18px rgba(45,90,61,0.18)',
             fontFamily: 'Inter, sans-serif',
             textAlign: 'left',
-            transition: 'background 0.4s ease',
           }}
         >
-          {/* Décorations background si pas d'image */}
-          {!currentHeroPromo?.image_url && (
-            <>
-              <div style={{ position: 'absolute', right: -20, top: -20, width: 140, height: 140, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.05)' }} />
-              <div style={{ position: 'absolute', right: 40, bottom: 16, fontSize: 64, opacity: 0.15 }}>🎁</div>
-            </>
-          )}
+          {/* Layer animé (image + texte) — fond avec AnimatePresence */}
+          <AnimatePresence mode="sync">
+            <motion.div
+              key={currentHeroPromo?.id ?? 'default'}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.7, ease: 'easeInOut' }}
+              style={{
+                position: 'absolute', inset: 0,
+                background: currentHeroPromo?.display_image_url
+                  ? `linear-gradient(180deg, rgba(26,58,42,0.45) 0%, rgba(26,58,42,0.85) 90%), url(${currentHeroPromo.display_image_url}) center/cover`
+                  : 'linear-gradient(135deg, #1A3A2A 0%, #2D5A3D 60%, #3F7A52 100%)',
+              }}
+            >
+              {/* Décorations background si pas d'image */}
+              {!currentHeroPromo?.display_image_url && (
+                <>
+                  <div style={{ position: 'absolute', right: -20, top: -20, width: 140, height: 140, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.05)' }} />
+                  <div style={{ position: 'absolute', right: 40, bottom: 16, fontSize: 64, opacity: 0.15 }}>🎁</div>
+                </>
+              )}
 
-          <div style={{ position: 'relative', padding: '18px 18px 16px', color: '#fff' }}>
-            <span style={{
-              display: 'inline-block', fontSize: 9, fontWeight: 800,
-              letterSpacing: '0.08em', textTransform: 'uppercase',
-              backgroundColor: 'rgba(255,255,255,0.18)', padding: '3px 10px',
-              borderRadius: 999, marginBottom: 10, backdropFilter: 'blur(4px)',
-            }}>
-              {currentHeroPromo ? '🎁 Promo en cours' : '✨ Promotions locales'}
-            </span>
-            <p style={{
-              fontSize: 18, fontWeight: 800, margin: '0 0 6px',
-              letterSpacing: '-0.02em', maxWidth: '78%',
-              textShadow: currentHeroPromo?.image_url ? '0 1px 4px rgba(0,0,0,0.5)' : 'none',
-            }}>
-              {currentHeroPromo?.title ?? 'Vos avantages près de chez vous'}
-            </p>
-            <p style={{
-              fontSize: 12, color: 'rgba(255,255,255,0.88)',
-              margin: '0 0 14px', maxWidth: '80%', lineHeight: 1.4,
-              textShadow: currentHeroPromo?.image_url ? '0 1px 3px rgba(0,0,0,0.4)' : 'none',
-              overflow: 'hidden', textOverflow: 'ellipsis',
-              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-            }}>
-              {currentHeroPromo
-                ? (currentHeroPromo.etablissement?.nom
-                  ? `${currentHeroPromo.etablissement.nom}${currentHeroPromo.etablissement.commune ? ` · ${currentHeroPromo.etablissement.commune}` : ''}`
-                  : currentHeroPromo.description ?? '')
-                : 'Profitez d\'offres exclusives chez vos commerçants locaux'}
-            </p>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              fontSize: 12, fontWeight: 700, color: '#fff',
-              backgroundColor: 'rgba(255,255,255,0.22)',
-              padding: '8px 16px', borderRadius: 999,
-              backdropFilter: 'blur(8px)',
-            }}>
-              Découvrir les promos →
-            </span>
-
-            {/* Dots indicateurs si > 1 promo */}
-            {heroPromos.length > 1 && (
-              <div style={{ display: 'flex', gap: 4, position: 'absolute', bottom: 12, right: 14 }}>
-                {heroPromos.map((_, i) => (
-                  <span key={i} style={{
-                    width: i === heroIdx ? 16 : 4, height: 4, borderRadius: 4,
-                    backgroundColor: i === heroIdx ? '#fff' : 'rgba(255,255,255,0.5)',
-                    transition: 'width 0.3s ease',
-                  }} />
-                ))}
+              <div style={{ position: 'relative', padding: '18px 18px 16px', color: '#fff' }}>
+                <span style={{
+                  display: 'inline-block', fontSize: 9, fontWeight: 800,
+                  letterSpacing: '0.08em', textTransform: 'uppercase',
+                  backgroundColor: 'rgba(255,255,255,0.18)', padding: '3px 10px',
+                  borderRadius: 999, marginBottom: 10, backdropFilter: 'blur(4px)',
+                }}>
+                  {currentHeroPromo ? '🎁 Promo en cours' : '✨ Promotions locales'}
+                </span>
+                <p style={{
+                  fontSize: 18, fontWeight: 800, margin: '0 0 6px',
+                  letterSpacing: '-0.02em', maxWidth: '78%',
+                  textShadow: currentHeroPromo?.display_image_url ? '0 1px 4px rgba(0,0,0,0.5)' : 'none',
+                }}>
+                  {currentHeroPromo?.title ?? 'Vos avantages près de chez vous'}
+                </p>
+                <p style={{
+                  fontSize: 12, color: 'rgba(255,255,255,0.88)',
+                  margin: '0 0 14px', maxWidth: '80%', lineHeight: 1.4,
+                  textShadow: currentHeroPromo?.display_image_url ? '0 1px 3px rgba(0,0,0,0.4)' : 'none',
+                  overflow: 'hidden', textOverflow: 'ellipsis',
+                  display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                }}>
+                  {currentHeroPromo
+                    ? (currentHeroPromo.etablissement?.nom
+                      ? `${currentHeroPromo.etablissement.nom}${currentHeroPromo.etablissement.commune ? ` · ${currentHeroPromo.etablissement.commune}` : ''}`
+                      : currentHeroPromo.description ?? '')
+                    : 'Profitez d\'offres exclusives chez vos commerçants locaux'}
+                </p>
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  fontSize: 12, fontWeight: 700, color: '#fff',
+                  backgroundColor: 'rgba(255,255,255,0.22)',
+                  padding: '8px 16px', borderRadius: 999,
+                  backdropFilter: 'blur(8px)',
+                }}>
+                  Découvrir les promos →
+                </span>
               </div>
-            )}
-          </div>
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Dots indicateurs (hors de l'animation, persistent) */}
+          {heroPromos.length > 1 && (
+            <div style={{ display: 'flex', gap: 4, position: 'absolute', bottom: 12, right: 14, zIndex: 2 }}>
+              {heroPromos.map((_, i) => (
+                <span key={i} style={{
+                  width: i === heroIdx ? 16 : 4, height: 4, borderRadius: 4,
+                  backgroundColor: i === heroIdx ? '#fff' : 'rgba(255,255,255,0.5)',
+                  transition: 'width 0.3s ease',
+                }} />
+              ))}
+            </div>
+          )}
         </button>
       </div>
 

@@ -44,10 +44,16 @@ export async function GET(req: NextRequest) {
 
   const etabsById = Object.fromEntries((etabs ?? []).map(e => [e.id, e]))
 
-  const enriched = data.map(p => ({
-    ...p,
-    etablissement: etabsById[p.etablissement_id] ?? null,
-  }))
+  const enriched = data.map(p => {
+    const etab = etabsById[p.etablissement_id] ?? null
+    // Fallback image : si pas d'image_url custom, on prend la 1re photo de la fiche
+    const display_image_url = p.image_url || (etab?.photos?.[0] ?? null)
+    return {
+      ...p,
+      etablissement: etab,
+      display_image_url,
+    }
+  })
 
   return NextResponse.json({ promotions: enriched })
 }

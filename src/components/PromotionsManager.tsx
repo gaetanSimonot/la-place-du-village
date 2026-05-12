@@ -24,9 +24,11 @@ const FREQ_OPTIONS: { value: 'always' | 'weekly' | 'monthly'; label: string }[] 
 
 interface Props {
   etablissementId: string
+  /** Photos de l'établissement, pour piocher l'image d'une promo sans upload. */
+  etablissementPhotos?: string[]
 }
 
-export default function PromotionsManager({ etablissementId }: Props) {
+export default function PromotionsManager({ etablissementId, etablissementPhotos = [] }: Props) {
   const [promos, setPromos] = useState<Promotion[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<Promotion | null>(null)
@@ -152,6 +154,7 @@ export default function PromotionsManager({ etablissementId }: Props) {
       {(creating || editing) && (
         <PromotionForm
           etablissementId={etablissementId}
+          etablissementPhotos={etablissementPhotos}
           promo={editing}
           onClose={() => { setCreating(false); setEditing(null) }}
           onSaved={() => { setCreating(false); setEditing(null); fetchAll() }}
@@ -161,8 +164,9 @@ export default function PromotionsManager({ etablissementId }: Props) {
   )
 }
 
-function PromotionForm({ etablissementId, promo, onClose, onSaved }: {
+function PromotionForm({ etablissementId, etablissementPhotos, promo, onClose, onSaved }: {
   etablissementId: string
+  etablissementPhotos: string[]
   promo: Promotion | null
   onClose: () => void
   onSaved: () => void
@@ -306,17 +310,17 @@ function PromotionForm({ etablissementId, promo, onClose, onSaved }: {
             />
           </Field>
 
-          <Field label="Image (facultatif)">
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              {imageUrl ? (
-                <>
-                  <img src={imageUrl} alt="" style={{ width: 60, height: 60, borderRadius: 8, objectFit: 'cover' }} />
-                  <button onClick={() => setImageUrl('')} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #FBDADA', backgroundColor: '#FEF2F2', color: '#DC2626', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
-                    Retirer
-                  </button>
-                </>
-              ) : (
-                <>
+          <Field label="Image (facultatif — sinon la 1re photo de votre fiche)">
+            {imageUrl ? (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <img src={imageUrl} alt="" style={{ width: 60, height: 60, borderRadius: 8, objectFit: 'cover' }} />
+                <button onClick={() => setImageUrl('')} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #FBDADA', backgroundColor: '#FEF2F2', color: '#DC2626', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                  Retirer
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div>
                   <input
                     ref={fileRef}
                     type="file"
@@ -325,11 +329,43 @@ function PromotionForm({ etablissementId, promo, onClose, onSaved }: {
                     style={{ display: 'none' }}
                   />
                   <button onClick={() => fileRef.current?.click()} disabled={uploading} style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid #E0D8CE', backgroundColor: '#fff', color: '#3C2C20', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
-                    {uploading ? 'Upload…' : '📷 Choisir une image'}
+                    {uploading ? 'Upload…' : '📷 Uploader une image'}
                   </button>
-                </>
-              )}
-            </div>
+                </div>
+
+                {etablissementPhotos.length > 0 && (
+                  <div>
+                    <p style={{ fontSize: 10, color: '#9A8A7A', margin: '0 0 6px' }}>
+                      Ou choisir parmi les photos de votre fiche :
+                    </p>
+                    <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
+                      {etablissementPhotos.slice(0, 8).map((url, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setImageUrl(url)}
+                          style={{
+                            flexShrink: 0, padding: 0, border: 'none',
+                            background: 'none', cursor: 'pointer',
+                            borderRadius: 8, overflow: 'hidden',
+                          }}
+                          aria-label={`Photo ${i + 1}`}
+                        >
+                          <img
+                            src={url} alt={`photo ${i + 1}`}
+                            style={{ width: 56, height: 56, objectFit: 'cover', display: 'block', borderRadius: 8, border: '2px solid #fff', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <p style={{ fontSize: 10, color: '#B0A898', margin: 0, fontStyle: 'italic' }}>
+                  💡 Sans image, la 1re photo de votre fiche sera utilisée automatiquement.
+                </p>
+              </div>
+            )}
           </Field>
 
           {error && <p style={{ fontSize: 12, color: '#E53935', margin: '4px 0 0' }}>{error}</p>}

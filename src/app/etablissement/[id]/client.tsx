@@ -532,7 +532,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
           if (!canCreatePromo) return null
           return (
             <div style={CARD}>
-              <PromotionsManager etablissementId={etab.id} />
+              <PromotionsManager etablissementId={etab.id} etablissementPhotos={etab.photos ?? []} />
             </div>
           )
         })()}
