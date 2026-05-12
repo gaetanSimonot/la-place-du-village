@@ -83,7 +83,7 @@ export type ProduitCategorie =
   | 'pain' | 'miel' | 'panier' | 'plantes' | 'huiles' | 'boissons'
   | 'artisanat' | 'autre'
 
-export type NotifType = 'disponibilite' | 'nouveau_produit' | 'suivi_producteur' | 'commentaire' | 'claim_approved' | 'claim_rejected' | 'claim_pending'
+export type NotifType = 'disponibilite' | 'nouveau_produit' | 'suivi_producteur' | 'commentaire' | 'claim_approved' | 'claim_rejected' | 'claim_pending' | 'promo_used'
 
 export interface AppNotification {
   id: string
@@ -92,7 +92,7 @@ export interface AppNotification {
   actor_id: string | null
   actor_name: string | null
   target_id: string | null
-  target_type: 'producer' | 'event' | 'etablissement' | 'claim' | null
+  target_type: 'producer' | 'event' | 'etablissement' | 'claim' | 'promotion' | null
   lu: boolean
   created_at: string
 }

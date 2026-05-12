@@ -52,6 +52,11 @@ const NOTIF_CONFIG: Record<NotifType, { emoji: string; color: string; label: (n:
     color: '#A0654E',
     label: n => `Ta revendication a été refusée : ${n.actor_name ?? 'fiche'}`,
   },
+  promo_used: {
+    emoji: '🎁',
+    color: '#C4622D',
+    label: n => `${n.actor_name ?? 'Un client'} a utilisé votre promo`,
+  },
 }
 
 function relativeDate(iso: string): string {

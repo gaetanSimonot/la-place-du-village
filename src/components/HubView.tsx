@@ -1,4 +1,5 @@
 'use client'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { toUserContext, PLANS_INFO, type Plan } from '@/lib/capabilities'
 import type { EtablissementType } from '@/lib/types'
@@ -56,6 +57,7 @@ export default function HubView({
   onComingSoon, onUpgradePrompt, onOpenNotifs,
   unreadCount = 0,
 }: Props) {
+  const router = useRouter()
   const { user, profile, isAdmin } = useAuth()
   const ctx = toUserContext(profile, isAdmin)
 
@@ -114,8 +116,6 @@ export default function HubView({
     }
     onComingSoon(tile.title)
   }
-
-  const hasAnyPaidPlan = ctx.plan === 'pro' || ctx.plan === 'max' || isAdmin
 
   return (
     <div style={{
@@ -185,7 +185,7 @@ export default function HubView({
       {/* ── 2. Hero Promo ──────────────────────────────────────────────────── */}
       <div style={{ padding: '0 16px 22px' }}>
         <button
-          onClick={() => hasAnyPaidPlan ? onComingSoon('Promotions locales') : onUpgradePrompt('pro', 'Promotions locales')}
+          onClick={() => router.push('/promotions')}
           style={{
             width: '100%', border: 'none', cursor: 'pointer',
             padding: 0, borderRadius: 22, overflow: 'hidden',
