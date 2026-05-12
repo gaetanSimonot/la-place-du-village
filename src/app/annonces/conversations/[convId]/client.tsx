@@ -119,7 +119,7 @@ export default function ConversationPageClient({ convId }: Props) {
   }, [messages.length])
 
   async function send() {
-    if (!text.trim() || sending) return
+    if (!text.trim() || sending || !user) return
     const content = text.trim()
     setText('')
     setSending(true)
@@ -135,6 +135,12 @@ export default function ConversationPageClient({ convId }: Props) {
       const d = await res.json().catch(() => ({}))
       setError(d.error ?? 'Erreur envoi')
       setText(content) // restaure le texte si échec
+    } else {
+      // Optimistic : ajoute le message immédiatement (le realtime dédoublonne via id)
+      const d = await res.json()
+      if (d.message) {
+        setMessages(prev => prev.some(x => x.id === d.message.id) ? prev : [...prev, d.message])
+      }
     }
     setSending(false)
   }

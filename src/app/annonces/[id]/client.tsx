@@ -144,11 +144,14 @@ export default function AnnoncePageClient({ id }: Props) {
   }
 
   async function handlePrendreEnchere() {
-    if (!confirm('Confirmer la prise de cette enchère au prix actuel ?')) return
+    if (!user) { openAuthModal(`/annonces/${id}`); return }
     setAction('enchere'); setError(null)
-    const ok = await callApi(`/api/annonces/${id}/prendre-enchere`, 'POST', {})
-    if (ok) { showToast('Enchère prise !'); await reload() }
+    const data = await callApi(`/api/annonces/${id}/prendre-enchere`, 'POST', {})
     setAction(null)
+    // Redirect direct vers le chat avec le vendeur pour finaliser
+    if (data?.conversation_id) {
+      router.push(`/annonces/conversations/${data.conversation_id}`)
+    }
   }
 
   async function handleMarquerVendu() {

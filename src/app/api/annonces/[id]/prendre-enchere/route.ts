@@ -57,7 +57,28 @@ export async function POST(
 
   if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 })
 
-  // Notif au posteur
+  // Ouvre une conversation entre acheteur (preneur) et vendeur pour finaliser
+  // le retrait / paiement. Idempotent via UNIQUE(annonce_id, acheteur_id).
+  const { data: conv } = await supabaseAdmin
+    .from('annonces_conversations')
+    .upsert(
+      { annonce_id: id, acheteur_id: ctx.userId, vendeur_id: annonce.user_id },
+      { onConflict: 'annonce_id,acheteur_id' },
+    )
+    .select()
+    .single()
+
+  // Message-système auto pour annoncer la prise dans le chat
+  if (conv) {
+    await supabaseAdmin.from('annonces_messages').insert({
+      conversation_id: conv.id,
+      sender_id:       ctx.userId,
+      kind:            'text',
+      content:         `J'ai pris votre enchère à ${annonce.prix_actuel} €. Voici nos coordonnées pour finaliser.`,
+    })
+  }
+
+  // Notif au posteur — cible la conv pour qu'un clic ouvre direct le chat
   const { data: profile } = await supabaseAdmin
     .from('profiles')
     .select('display_name')
@@ -67,9 +88,13 @@ export async function POST(
   await notifyUser(annonce.user_id, {
     type:        'annonce_enchere_prise',
     actor_name:  profile?.display_name || 'Un utilisateur',
-    target_type: 'annonce',
-    target_id:   id,
+    target_type: conv ? 'conversation' : 'annonce',
+    target_id:   conv?.id ?? id,
   })
 
-  return NextResponse.json({ success: true, prix_pris: annonce.prix_actuel })
+  return NextResponse.json({
+    success: true,
+    prix_pris: annonce.prix_actuel,
+    conversation_id: conv?.id ?? null,
+  })
 }
