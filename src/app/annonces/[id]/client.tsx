@@ -127,7 +127,7 @@ export default function AnnoncePageClient({ id }: Props) {
           onClick={() => setEditing(false)}
           style={{ background: 'none', border: 'none', fontSize: 14, color: '#2D5A3D', fontWeight: 700, marginBottom: 12, cursor: 'pointer' }}
         >
-          ← Annuler l'édition
+          ← Annuler l&apos;édition
         </button>
         <AnnonceForm initial={annonce} onSuccess={async () => { await reload(); setEditing(false) }} />
       </div>

@@ -278,7 +278,7 @@ export default function AnnonceForm({ initial, onSuccess }: Props) {
               style={inputStyle}
             />
             <p style={{ fontSize: 12, color: '#8A7A6A', margin: '4px 0 0' }}>
-              Si le prix atteint ce seuil sans preneur, l'annonce bascule automatiquement en Don.
+              Si le prix atteint ce seuil sans preneur, l&apos;annonce bascule automatiquement en Don.
             </p>
           </Field>
         </>
