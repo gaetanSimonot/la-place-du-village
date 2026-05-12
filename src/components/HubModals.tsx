@@ -1,4 +1,6 @@
 'use client'
+import { useState } from 'react'
+import { supabase } from '@/lib/supabase'
 import { PLANS_INFO, type Plan } from '@/lib/capabilities'
 
 /**
@@ -64,36 +66,116 @@ export function ComingSoonModal({ label, onClose }: { label: string; onClose: ()
 
 export function QuotaReachedModal({
   onClose,
-  adminEmail = 'gaetan.simonot@gmail.com',
+  defaultSubject = 'Demande exceptionnelle de revendication',
 }: {
   onClose: () => void
-  adminEmail?: string
+  defaultSubject?: string
 }) {
-  const mailto = `mailto:${adminEmail}?subject=${encodeURIComponent('Demande exceptionnelle de revendication')}&body=${encodeURIComponent('Bonjour,\n\nJ\'ai atteint mon quota de revendications ce mois et je souhaiterais en faire une supplémentaire pour la raison suivante :\n\n[décris ton besoin ici]\n\nMerci de me recontacter.')}`
+  const [message, setMessage] = useState('')
+  const [sending, setSending] = useState(false)
+  const [sent, setSent] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const send = async () => {
+    if (!message.trim()) return
+    setSending(true); setError(null)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { setError('Veuillez vous connecter'); setSending(false); return }
+    const res = await fetch('/api/admin-contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ subject: defaultSubject, message }),
+    })
+    setSending(false)
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}))
+      setError(d.error ?? 'Erreur lors de l\'envoi')
+      return
+    }
+    setSent(true)
+  }
+
+  if (sent) {
+    return (
+      <Modal onClose={onClose}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 56, marginBottom: 12 }}>✓</div>
+          <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1A1209', margin: '0 0 8px', letterSpacing: '-0.01em' }}>
+            Message envoyé
+          </h2>
+          <p style={{ fontSize: 13, color: '#7A6A5A', margin: '0 0 22px', lineHeight: 1.6 }}>
+            Un administrateur a été notifié. Vous recevrez une notification quand votre demande sera traitée.
+          </p>
+          <button
+            onClick={onClose}
+            style={{
+              width: '100%', padding: '14px',
+              backgroundColor: 'var(--primary)', color: '#fff',
+              border: 'none', borderRadius: 14,
+              fontSize: 14, fontWeight: 700, cursor: 'pointer',
+              fontFamily: 'Inter, sans-serif',
+            }}
+          >
+            OK
+          </button>
+        </div>
+      </Modal>
+    )
+  }
+
   return (
     <Modal onClose={onClose}>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 56, marginBottom: 12 }}>⏳</div>
-        <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1A1209', margin: '0 0 8px', letterSpacing: '-0.01em' }}>
-          Quota atteint ce mois
-        </h2>
-        <p style={{ fontSize: 14, color: '#7A6A5A', margin: '0 0 8px', lineHeight: 1.6 }}>
-          Vous avez atteint la limite de revendications mensuelles.
-        </p>
-        <p style={{ fontSize: 12, color: '#9A8A7A', margin: '0 0 22px', lineHeight: 1.5 }}>
-          Vous pouvez attendre le mois prochain ou nous contacter pour discuter d&apos;une demande exceptionnelle.
-        </p>
+      <div>
+        <div style={{ textAlign: 'center', marginBottom: 20 }}>
+          <div style={{ fontSize: 56, marginBottom: 12 }}>⏳</div>
+          <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1A1209', margin: '0 0 8px', letterSpacing: '-0.01em' }}>
+            Quota atteint ce mois
+          </h2>
+          <p style={{ fontSize: 13, color: '#7A6A5A', margin: '0 0 4px', lineHeight: 1.5 }}>
+            Vous avez utilisé vos revendications mensuelles.
+          </p>
+          <p style={{ fontSize: 12, color: '#9A8A7A', margin: 0, lineHeight: 1.5 }}>
+            Envoyez un message à l&apos;admin pour discuter d&apos;une demande exceptionnelle.
+          </p>
+        </div>
 
-        <a href={mailto} style={{
-          display: 'block', width: '100%', padding: '14px',
-          backgroundColor: 'var(--primary)', color: '#fff',
-          border: 'none', borderRadius: 14, textAlign: 'center',
-          fontSize: 14, fontWeight: 700, cursor: 'pointer',
-          fontFamily: 'Inter, sans-serif', textDecoration: 'none',
-          marginBottom: 8, boxSizing: 'border-box',
-        }}>
-          📧 Contacter l&apos;admin
-        </a>
+        <textarea
+          value={message}
+          onChange={e => setMessage(e.target.value)}
+          placeholder="Expliquez votre besoin en quelques lignes…"
+          rows={5}
+          maxLength={2000}
+          style={{
+            width: '100%', padding: '12px 14px',
+            borderRadius: 12, border: '1.5px solid #E0D8CE',
+            fontSize: 14, color: '#2C1810', outline: 'none',
+            backgroundColor: '#FBF7F0',
+            boxSizing: 'border-box', fontFamily: 'Inter, sans-serif',
+            resize: 'none', lineHeight: 1.5,
+            marginBottom: 8,
+          }}
+        />
+
+        {error && (
+          <p style={{ fontSize: 12, color: '#E53935', margin: '0 0 10px', textAlign: 'center' }}>{error}</p>
+        )}
+
+        <button
+          onClick={send}
+          disabled={sending || !message.trim()}
+          style={{
+            width: '100%', padding: '14px',
+            backgroundColor: 'var(--primary)', color: '#fff',
+            border: 'none', borderRadius: 14,
+            fontSize: 14, fontWeight: 700,
+            cursor: sending || !message.trim() ? 'default' : 'pointer',
+            opacity: sending || !message.trim() ? 0.5 : 1,
+            fontFamily: 'Inter, sans-serif',
+            marginBottom: 8,
+          }}
+        >
+          {sending ? 'Envoi…' : '📩 Envoyer ma demande'}
+        </button>
 
         <button
           onClick={onClose}
@@ -104,7 +186,7 @@ export function QuotaReachedModal({
             cursor: 'pointer', fontFamily: 'Inter, sans-serif',
           }}
         >
-          Fermer
+          Annuler
         </button>
       </div>
     </Modal>

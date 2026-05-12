@@ -103,9 +103,16 @@ export default function DemandesAdmin() {
       )}
 
       {demandes.map(d => {
-        const isClaim    = d.type_commerce === 'claim' && !!d.etablissement_id
-        const isWorking  = working === d.id
-        const canApprove = isClaim ? (d.etablissement && (!d.etablissement.user_id || d.etablissement.user_id === d.user_id)) : true
+        const isClaim       = d.type_commerce === 'claim' && !!d.etablissement_id
+        const isAdminContact = d.type_commerce === 'admin_contact'
+        const isWorking     = working === d.id
+        const canApprove    = isAdminContact ? true : (isClaim ? (d.etablissement && (!d.etablissement.user_id || d.etablissement.user_id === d.user_id)) : true)
+
+        const badgeConf = isAdminContact
+          ? { label: '📩 Message', bg: '#FFF7E5', color: '#8B6914' }
+          : isClaim
+            ? { label: '🏪 Revendication', bg: '#FEF0F5', color: '#EC407A' }
+            : { label: '➕ Nouveau commerce', bg: '#EEF3FF', color: '#3A5BC7' }
 
         return (
           <div key={d.id} style={{ borderBottom: '1px solid #F0EBE0', padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -113,15 +120,21 @@ export default function DemandesAdmin() {
             {/* Header — Type de demande */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', padding: '3px 10px', borderRadius: 999,
-                backgroundColor: isClaim ? '#FEF0F5' : '#EEF3FF',
-                color:           isClaim ? '#EC407A' : '#3A5BC7',
+                backgroundColor: badgeConf.bg, color: badgeConf.color,
               }}>
-                {isClaim ? '🏪 Revendication' : '➕ Nouveau commerce'}
+                {badgeConf.label}
               </span>
               <span style={{ fontSize: 11, color: '#B0A898', marginLeft: 'auto' }}>
                 {fmtDate(d.created_at)}
               </span>
             </div>
+
+            {/* Pour les messages admin : afficher juste le sujet */}
+            {isAdminContact && (
+              <div>
+                <p style={{ fontWeight: 700, fontSize: 14, color: '#1C1917', margin: 0 }}>{d.nom}</p>
+              </div>
+            )}
 
             {/* Etablissement concerné (si claim) */}
             {isClaim && d.etablissement && (
@@ -142,8 +155,8 @@ export default function DemandesAdmin() {
               </a>
             )}
 
-            {/* Pour les non-claims : afficher juste le nom proposé */}
-            {!isClaim && (
+            {/* Pour les non-claims et non-messages : afficher juste le nom proposé */}
+            {!isClaim && !isAdminContact && (
               <div>
                 <p style={{ fontWeight: 700, fontSize: 14, color: '#1C1917', margin: 0 }}>{d.nom}</p>
                 {(d.type_commerce || d.commune) && (
@@ -189,22 +202,32 @@ export default function DemandesAdmin() {
             )}
 
             {/* Actions */}
-            <div style={{ display: 'flex', gap: 8 }}>
+            {isAdminContact ? (
               <button
                 onClick={() => handleAction(d.id, 'approve')}
-                disabled={isWorking || (isClaim && !canApprove)}
-                style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', backgroundColor: canApprove ? '#2D5A3D' : '#D0C8C0', color: '#fff', fontSize: 13, fontWeight: 700, cursor: isWorking ? 'default' : (canApprove ? 'pointer' : 'not-allowed'), opacity: isWorking ? 0.6 : 1 }}
-              >
-                {isWorking ? '…' : '✓ Valider'}
-              </button>
-              <button
-                onClick={() => handleAction(d.id, 'reject')}
                 disabled={isWorking}
-                style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1.5px solid #E8D0C8', backgroundColor: '#fff', color: '#C4622D', fontSize: 13, fontWeight: 700, cursor: isWorking ? 'default' : 'pointer', opacity: isWorking ? 0.6 : 1 }}
+                style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', backgroundColor: '#8B6914', color: '#fff', fontSize: 13, fontWeight: 700, cursor: isWorking ? 'default' : 'pointer', opacity: isWorking ? 0.6 : 1 }}
               >
-                ✕ Refuser
+                {isWorking ? '…' : '✓ Marquer traité'}
               </button>
-            </div>
+            ) : (
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => handleAction(d.id, 'approve')}
+                  disabled={isWorking || (isClaim && !canApprove)}
+                  style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', backgroundColor: canApprove ? '#2D5A3D' : '#D0C8C0', color: '#fff', fontSize: 13, fontWeight: 700, cursor: isWorking ? 'default' : (canApprove ? 'pointer' : 'not-allowed'), opacity: isWorking ? 0.6 : 1 }}
+                >
+                  {isWorking ? '…' : '✓ Valider'}
+                </button>
+                <button
+                  onClick={() => handleAction(d.id, 'reject')}
+                  disabled={isWorking}
+                  style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1.5px solid #E8D0C8', backgroundColor: '#fff', color: '#C4622D', fontSize: 13, fontWeight: 700, cursor: isWorking ? 'default' : 'pointer', opacity: isWorking ? 0.6 : 1 }}
+                >
+                  ✕ Refuser
+                </button>
+              </div>
+            )}
 
           </div>
         )
