@@ -34,6 +34,16 @@ const TILES: { id: string; label: string; sublabel: string; icon: string; color:
   { id: 'annonces',    label: 'Annonces',    sublabel: 'locales',       icon: '🏷️', color: '#C0392B', bg: '#FBE9E7', click: (_, r) => r.push('/annonces') },
 ]
 
+const CATEGORIE_META: Record<string, { icon: string; label: string }> = {
+  concert:  { icon: '🎵', label: 'Concert' },
+  theatre:  { icon: '🎭', label: 'Théâtre' },
+  sport:    { icon: '⚽', label: 'Sport' },
+  marche:   { icon: '🌾', label: 'Marché' },
+  atelier:  { icon: '🛠️', label: 'Atelier' },
+  fete:     { icon: '🎉', label: 'Fête' },
+  autre:    { icon: '✨', label: 'Événement' },
+}
+
 function dateLabel(iso: string | null): string {
   if (!iso) return ''
   const today = new Date(); today.setHours(0,0,0,0)
@@ -198,17 +208,47 @@ export default function HubView({
       `}</style>
 
       {/* ── 1. Header ─────────────────────────────────────────────────────── */}
-      <div style={{ padding: '18px 18px 8px' }}>
+      <div style={{ padding: '20px 18px 10px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#5A4738' }}>
-            Bonjour <span style={{ color: '#2D5A3D', fontWeight: 800 }}>{profile?.display_name || 'visiteur'}</span> 👋
-          </p>
+          <Link
+            href={profile ? `/profil/${profile.id ?? ''}` : '/?tab=profil'}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              textDecoration: 'none', color: 'inherit',
+              flex: '0 1 auto', minWidth: 0,
+            }}
+          >
+            <div style={{
+              width: 38, height: 38, borderRadius: '50%',
+              backgroundColor: '#2D5A3D', color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 15, fontWeight: 800,
+              backgroundImage: profile?.avatar_url ? `url(${profile.avatar_url})` : undefined,
+              backgroundSize: 'cover', backgroundPosition: 'center',
+              flexShrink: 0,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.10)',
+            }}>
+              {!profile?.avatar_url && ((profile?.display_name?.[0] || '?').toUpperCase())}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: '#8A7A6A', lineHeight: 1.1 }}>
+                Bonjour 👋
+              </p>
+              <p style={{
+                margin: '1px 0 0', fontSize: 14, fontWeight: 800,
+                color: '#1A1209', lineHeight: 1.15,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {profile?.display_name || 'visiteur'}
+              </p>
+            </div>
+          </Link>
           {onOpenNotifs && (
             <button
               onClick={onOpenNotifs}
               aria-label="Notifications"
               style={{
-                position: 'relative', width: 40, height: 40, borderRadius: 12,
+                position: 'relative', width: 42, height: 42, borderRadius: 14,
                 backgroundColor: '#fff', border: '1px solid #E5DDD2',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
@@ -237,9 +277,9 @@ export default function HubView({
         </div>
 
         <h1 style={{
-          fontSize: 28, fontWeight: 900, letterSpacing: '-0.03em',
-          color: '#1A1209', margin: '6px 0 4px',
-          lineHeight: 1.1,
+          fontSize: 30, fontWeight: 900, letterSpacing: '-0.03em',
+          color: '#1A1209', margin: '14px 0 4px',
+          lineHeight: 1.05,
         }}>
           La Place du Village
         </h1>
@@ -420,6 +460,9 @@ export default function HubView({
 }
 
 function HeroEvent({ ev, onClick }: { ev: Evenement; onClick: () => void }) {
+  const isSponsored = ev.promotion === 'max' || ev.promotion === 'pro'
+  const cat = CATEGORIE_META[ev.categorie] ?? CATEGORIE_META.autre
+  const whenLabel = ev.date_debut ? dateLabel(ev.date_debut) : ''
   return (
     <div style={{ padding: '0 16px' }}>
       <button
@@ -427,11 +470,12 @@ function HeroEvent({ ev, onClick }: { ev: Evenement; onClick: () => void }) {
         style={{
           width: '100%', textAlign: 'left',
           padding: 0, border: 'none', cursor: 'pointer',
-          borderRadius: 22, overflow: 'hidden',
-          backgroundColor: '#000',
+          borderRadius: 24, overflow: 'hidden',
+          backgroundColor: '#1A3A2A',
           position: 'relative',
-          height: 220,
-          boxShadow: '0 8px 28px rgba(44,28,16,0.18)',
+          height: 248,
+          boxShadow: '0 10px 32px rgba(44,28,16,0.22)',
+          fontFamily: 'inherit',
         }}
       >
         {ev.image_url ? (
@@ -439,28 +483,56 @@ function HeroEvent({ ev, onClick }: { ev: Evenement; onClick: () => void }) {
         ) : (
           <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #2D5A3D 0%, #1A3A2A 100%)' }} />
         )}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 30%, rgba(0,0,0,0.8) 100%)' }} />
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0) 25%, rgba(0,0,0,0.55) 65%, rgba(0,0,0,0.88) 100%)',
+        }} />
 
         <span style={{
-          position: 'absolute', top: 12, left: 12,
-          backgroundColor: '#2D5A3D', color: '#fff',
+          position: 'absolute', top: 14, left: 14,
+          backgroundColor: isSponsored ? '#E8622A' : 'rgba(255,255,255,0.95)',
+          color: isSponsored ? '#fff' : '#2D5A3D',
           fontSize: 10, fontWeight: 800,
-          padding: '5px 10px', borderRadius: 999,
-          letterSpacing: '0.05em', textTransform: 'uppercase',
-        }}>✦ Événement du jour</span>
+          padding: '6px 11px', borderRadius: 999,
+          letterSpacing: '0.06em', textTransform: 'uppercase',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
+        }}>{isSponsored ? '★ Sponsorisé' : '✦ À la une'}</span>
 
         <div style={{ position: 'absolute', bottom: 16, left: 16, right: 16 }}>
-          <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 900, color: '#fff', lineHeight: 1.15 }}>{ev.titre}</h2>
-          <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.92)', display: 'flex', alignItems: 'center', gap: 6 }}>
-            {ev.heure && <span>🕒 {ev.heure}</span>}
+          <h2 style={{
+            margin: '0 0 6px', fontSize: 22, fontWeight: 900,
+            color: '#fff', lineHeight: 1.1,
+            textShadow: '0 1px 6px rgba(0,0,0,0.4)',
+            overflow: 'hidden', display: '-webkit-box',
+            WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+          }}>{ev.titre}</h2>
+
+          <p style={{
+            margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.92)',
+            display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8,
+            textShadow: '0 1px 4px rgba(0,0,0,0.4)',
+          }}>
+            {whenLabel && <span>🗓️ {whenLabel}{ev.heure ? ` · ${ev.heure}` : ''}</span>}
             {ev.lieux?.nom && <span>📍 {ev.lieux.nom}</span>}
           </p>
-          <span style={{
-            display: 'inline-flex', marginTop: 10,
-            padding: '6px 14px', borderRadius: 999,
-            backgroundColor: 'rgba(255,255,255,0.95)',
-            color: '#1A1209', fontSize: 12, fontWeight: 800,
-          }}>Voir l&apos;événement →</span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '7px 14px', borderRadius: 999,
+              backgroundColor: '#fff', color: '#1A1209',
+              fontSize: 12, fontWeight: 800,
+            }}>Voir l&apos;événement →</span>
+
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '6px 10px', borderRadius: 999,
+              backgroundColor: 'rgba(255,255,255,0.18)',
+              backdropFilter: 'blur(8px)',
+              color: '#fff', fontSize: 11, fontWeight: 700,
+              border: '1px solid rgba(255,255,255,0.25)',
+            }}>{cat.icon} {cat.label}</span>
+          </div>
         </div>
       </button>
     </div>
