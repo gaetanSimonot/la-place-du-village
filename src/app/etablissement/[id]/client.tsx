@@ -10,6 +10,7 @@ import EtabEditDrawer from '@/components/EtabEditDrawer'
 import EtabProductsSection from '@/components/EtabProductsSection'
 import type { Etablissement } from '@/lib/types'
 import { can, toUserContext } from '@/lib/capabilities'
+import { QuotaReachedModal } from '@/components/HubModals'
 
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
 const DAY_KEYS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
@@ -157,6 +158,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
   const [editCommentText, setEditCommentText] = useState('')
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [claimOpen, setClaimOpen]   = useState(false)
+  const [quotaModalOpen, setQuotaModalOpen] = useState(false)
   const [editing, setEditing]       = useState(false)
   const [toast, setToast]           = useState<string | null>(null)
   const [manageLoading, setManageLoading] = useState(false)
@@ -223,7 +225,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
     } else {
       const d = await res.json().catch(() => ({}))
       if (d.quotaReached) {
-        showToast('⚠ Quota de revendications atteint ce mois')
+        setQuotaModalOpen(true)
       } else {
         showToast(d.error ?? 'Erreur lors de la demande')
       }
@@ -577,6 +579,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
       </div>
 
       {claimOpen && <SubscriptionModal etabId={etab.id} etabNom={etab.nom} onClose={() => setClaimOpen(false)} />}
+      {quotaModalOpen && <QuotaReachedModal onClose={() => setQuotaModalOpen(false)} />}
       {editing && <EtabEditDrawer etab={etab} isAdmin={isAdmin} onClose={() => setEditing(false)} onSaved={patch => setEtab(prev => prev ? { ...prev, ...patch } : prev)} />}
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>

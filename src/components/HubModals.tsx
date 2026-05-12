@@ -62,6 +62,55 @@ export function ComingSoonModal({ label, onClose }: { label: string; onClose: ()
   )
 }
 
+export function QuotaReachedModal({
+  onClose,
+  adminEmail = 'gaetan.simonot@gmail.com',
+}: {
+  onClose: () => void
+  adminEmail?: string
+}) {
+  const mailto = `mailto:${adminEmail}?subject=${encodeURIComponent('Demande exceptionnelle de revendication')}&body=${encodeURIComponent('Bonjour,\n\nJ\'ai atteint mon quota de revendications ce mois et je souhaiterais en faire une supplémentaire pour la raison suivante :\n\n[décris ton besoin ici]\n\nMerci de me recontacter.')}`
+  return (
+    <Modal onClose={onClose}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 56, marginBottom: 12 }}>⏳</div>
+        <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1A1209', margin: '0 0 8px', letterSpacing: '-0.01em' }}>
+          Quota atteint ce mois
+        </h2>
+        <p style={{ fontSize: 14, color: '#7A6A5A', margin: '0 0 8px', lineHeight: 1.6 }}>
+          Vous avez atteint la limite de revendications mensuelles.
+        </p>
+        <p style={{ fontSize: 12, color: '#9A8A7A', margin: '0 0 22px', lineHeight: 1.5 }}>
+          Vous pouvez attendre le mois prochain ou nous contacter pour discuter d&apos;une demande exceptionnelle.
+        </p>
+
+        <a href={mailto} style={{
+          display: 'block', width: '100%', padding: '14px',
+          backgroundColor: 'var(--primary)', color: '#fff',
+          border: 'none', borderRadius: 14, textAlign: 'center',
+          fontSize: 14, fontWeight: 700, cursor: 'pointer',
+          fontFamily: 'Inter, sans-serif', textDecoration: 'none',
+          marginBottom: 8, boxSizing: 'border-box',
+        }}>
+          📧 Contacter l&apos;admin
+        </a>
+
+        <button
+          onClick={onClose}
+          style={{
+            width: '100%', padding: '10px',
+            background: 'none', border: 'none',
+            fontSize: 12, color: '#9A8A7A',
+            cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+          }}
+        >
+          Fermer
+        </button>
+      </div>
+    </Modal>
+  )
+}
+
 export function UpgradeModal({
   requiredPlan,
   label,
