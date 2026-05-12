@@ -116,6 +116,9 @@ export default function AdminDashboard() {
   const [bulkLoading, setBulkLoading]   = useState(false)
   const [masquerPasses, setMasquerPasses]   = useState(false)
   const [togglingConfig, setTogglingConfig] = useState(false)
+  const [hubSubtitle, setHubSubtitle]       = useState('')
+  const [hubSubtitleInput, setHubSubtitleInput] = useState('')
+  const [savingSubtitle, setSavingSubtitle] = useState(false)
   const [search, setSearch]             = useState('')
   const [sort, setSort]                 = useState<SortKey>('created_desc')
   const [page, setPage]                 = useState(1)
@@ -178,11 +181,15 @@ export default function AdminDashboard() {
   }, [])
 
   const fetchAll = useCallback(async () => {
-    const [{ data: cfg }, fbRes] = await Promise.all([
-      supabase.from('config').select('value').eq('key', 'masquer_passes').single(),
+    const [{ data: cfg }, { data: subCfg }, fbRes] = await Promise.all([
+      supabase.from('config').select('value').eq('key', 'masquer_passes').maybeSingle(),
+      supabase.from('config').select('value').eq('key', 'hub_subtitle').maybeSingle(),
       fetch('/api/admin/feedbacks'),
     ])
     setMasquerPasses(cfg?.value === 'true')
+    const sub = subCfg?.value ?? 'Tout le village, à portée de main'
+    setHubSubtitle(sub)
+    setHubSubtitleInput(sub)
     const fbData = fbRes.ok ? await fbRes.json() : []
     setFeedbacks(Array.isArray(fbData) ? fbData : [])
     await fetchTabData(onglet)
@@ -245,6 +252,19 @@ export default function AdminDashboard() {
       body: JSON.stringify({ key: 'masquer_passes', value: next }),
     })
     setTogglingConfig(false)
+  }
+
+  const saveHubSubtitle = async () => {
+    const next = hubSubtitleInput.trim()
+    if (!next || next === hubSubtitle) return
+    setSavingSubtitle(true)
+    await fetch('/api/admin/config', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'hub_subtitle', value: next }),
+    })
+    setHubSubtitle(next)
+    setSavingSubtitle(false)
   }
 
   const setStatut = async (id: string, statut: string) => {
@@ -483,6 +503,28 @@ export default function AdminDashboard() {
               <span className="text-sm text-[#2C1810]">Masquer les événements passés</span>
               {togglingConfig && <span className="text-xs text-gray-400">…</span>}
             </label>
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            <p className="font-bold text-[#2C1810] text-sm mb-1">Sous-titre du hub</p>
+            <p className="text-xs text-gray-400 mb-3">Affiché sous &laquo;La Place du Village&raquo; sur l&apos;écran d&apos;accueil.</p>
+            <div className="flex gap-2">
+              <input
+                type="text" value={hubSubtitleInput}
+                onChange={e => setHubSubtitleInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && saveHubSubtitle()}
+                maxLength={80}
+                placeholder="Tout le village, à portée de main"
+                className="flex-1 border border-[#E0D8CE] rounded-xl px-3 py-2 text-sm outline-none focus:border-[#C4622D] bg-[#FBF7F0]"
+              />
+              <button
+                onClick={saveHubSubtitle}
+                disabled={savingSubtitle || hubSubtitleInput.trim() === hubSubtitle || !hubSubtitleInput.trim()}
+                className="bg-[#2D5A3D] text-white px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-40"
+              >
+                {savingSubtitle ? '…' : 'Enregistrer'}
+              </button>
+            </div>
           </div>
 
           <div>

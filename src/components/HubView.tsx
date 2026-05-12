@@ -58,6 +58,13 @@ export default function HubView({
   const [todayEvents, setTodayEvents] = useState<Evenement[]>([])
   const [promos, setPromos] = useState<PromoCard[]>([])
   const [featuredAnnonce, setFeaturedAnnonce] = useState<Annonce | null>(null)
+  const [subtitle, setSubtitle] = useState<string>('Tout le village, à portée de main')
+
+  // Sous-titre éditable par l'admin (config.hub_subtitle)
+  useEffect(() => {
+    supabase.from('config').select('value').eq('key', 'hub_subtitle').maybeSingle()
+      .then(({ data }) => { if (data?.value) setSubtitle(data.value) })
+  }, [])
 
   // Hero event : cascade admin pin > today > week > random publié
   useEffect(() => {
@@ -226,14 +233,17 @@ export default function HubView({
         </div>
 
         <h1 style={{
-          fontSize: 30, fontWeight: 900, letterSpacing: '-0.03em',
+          fontSize: 28, fontWeight: 900, letterSpacing: '-0.03em',
           color: '#1A1209', margin: '6px 0 4px',
           lineHeight: 1.1,
         }}>
-          La vie locale
+          La Place du Village
         </h1>
-        <p style={{ margin: 0, fontSize: 13, color: '#7A6A5A' }}>
-          📍 Saint-Jean-du-Gard et ses alentours
+        <p style={{
+          margin: 0, fontSize: 13, color: '#7A6A5A',
+          fontFamily: 'Lora, serif', fontStyle: 'italic',
+        }}>
+          {subtitle}
         </p>
       </div>
 
