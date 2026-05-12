@@ -13,9 +13,7 @@ interface Props {
   onSelectProducteurs:   () => void
   onComingSoon:          (label: string) => void
   onUpgradePrompt:       (requiredPlan: 'pro' | 'max', label: string) => void
-  /** @deprecated cloche supprimée du hub — notifs accessibles via l'onglet bottom nav */
   onOpenNotifs?:         () => void
-  /** @deprecated idem */
   unreadCount?:          number
 }
 
@@ -51,6 +49,7 @@ function dateLabel(iso: string | null): string {
 export default function HubView({
   onSelectAgenda, onSelectAnnuaire, onSelectProducteurs,
   onComingSoon, onUpgradePrompt,
+  onOpenNotifs, unreadCount = 0,
 }: Props) {
   const router = useRouter()
   const { profile } = useAuth()
@@ -200,9 +199,42 @@ export default function HubView({
 
       {/* ── 1. Header ─────────────────────────────────────────────────────── */}
       <div style={{ padding: '18px 18px 8px' }}>
-        <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#5A4738' }}>
-          Bonjour <span style={{ color: '#2D5A3D', fontWeight: 800 }}>{profile?.display_name || 'visiteur'}</span> 👋
-        </p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#5A4738' }}>
+            Bonjour <span style={{ color: '#2D5A3D', fontWeight: 800 }}>{profile?.display_name || 'visiteur'}</span> 👋
+          </p>
+          {onOpenNotifs && (
+            <button
+              onClick={onOpenNotifs}
+              aria-label="Notifications"
+              style={{
+                position: 'relative', width: 40, height: 40, borderRadius: 12,
+                backgroundColor: '#fff', border: '1px solid #E5DDD2',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                flexShrink: 0,
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2D5A3D" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              {unreadCount > 0 && (
+                <span style={{
+                  position: 'absolute', top: -5, right: -5,
+                  minWidth: 18, height: 18, borderRadius: 9,
+                  backgroundColor: '#E53935', color: '#fff',
+                  fontSize: 10, fontWeight: 800,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '0 4px', fontFamily: 'Inter, sans-serif',
+                  border: '1.5px solid #fff',
+                }}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </button>
+          )}
+        </div>
 
         <h1 style={{
           fontSize: 28, fontWeight: 900, letterSpacing: '-0.03em',

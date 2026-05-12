@@ -66,28 +66,11 @@ const IconPlus = () => (
     <line x1="5" y1="12" x2="19" y2="12"/>
   </svg>
 )
-const IconBell = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-  </svg>
-)
-
 const NAV_TABS: { id: NavTab; label: string; Icon: (p: { active: boolean; badge?: number }) => React.JSX.Element; isFab?: boolean }[] = [
   { id: 'accueil', label: 'Accueil', Icon: () => <IconHome /> },
   { id: 'carte',   label: 'Carte',   Icon: () => <IconCarte /> },
   { id: 'publier', label: 'Publier', Icon: () => <IconPlus />, isFab: true },
   { id: 'favoris', label: 'Favoris', Icon: ({ active }) => <IconCoeur filled={active} /> },
-  { id: 'notifs',  label: 'Notifs',  Icon: ({ badge }) => (
-    <div style={{ position: 'relative', display: 'inline-flex' }}>
-      <IconBell />
-      {badge && badge > 0 ? (
-        <span style={{ position: 'absolute', top: -4, right: -5, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: '#E53935', color: '#fff', fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', fontFamily: 'Inter, sans-serif', border: '1.5px solid #fff' }}>
-          {badge > 99 ? '99+' : badge}
-        </span>
-      ) : null}
-    </div>
-  )},
   { id: 'profil',  label: 'Profil',  Icon: () => <IconProfil /> },
 ]
 
@@ -1099,7 +1082,6 @@ export default function HomePage() {
       }}>
         {NAV_TABS.map(tab => {
           const active = navTab === tab.id
-          const badge = tab.id === 'notifs' ? notifCount : undefined
           if (tab.isFab) {
             return (
               <div key={tab.id} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
@@ -1133,7 +1115,7 @@ export default function HomePage() {
               paddingBottom: 4,
               color: active ? 'var(--primary)' : '#8A8A8A',
             }}>
-              <tab.Icon active={active} badge={badge} />
+              <tab.Icon active={active} />
               <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>
                 {tab.label}
               </span>
