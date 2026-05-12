@@ -345,14 +345,9 @@ export default function AnnoncePageClient({ id }: Props) {
             </div>
 
             {/* Badges annonce */}
-            {(annonce.remise_main_propre || annonce.garantie_jours > 0) && (
-              <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {annonce.remise_main_propre && (
-                  <Badge>🤝 Remise en main propre</Badge>
-                )}
-                {annonce.garantie_jours > 0 && (
-                  <Badge>🛡 Garantie {annonce.garantie_jours}j</Badge>
-                )}
+            {annonce.remise_main_propre && (
+              <div style={{ marginTop: 12 }}>
+                <Badge>🤝 Remise en main propre</Badge>
               </div>
             )}
           </div>

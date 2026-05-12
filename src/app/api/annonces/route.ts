@@ -84,7 +84,6 @@ export async function POST(req: NextRequest) {
     lat:                 body.lat ?? null,
     lng:                 body.lng ?? null,
     remise_main_propre:  !!body.remise_main_propre,
-    garantie_jours:      Math.max(0, body.garantie_jours ?? 0),
   }
 
   const { data, error } = await supabaseAdmin

@@ -1125,17 +1125,46 @@ export default function HomePage() {
       </nav>
 
       {/* Modale Publier */}
-      {publishOpen && <PublishChoiceModal onClose={() => setPublishOpen(false)} />}
+      {publishOpen && (
+        <PublishChoiceModal
+          onClose={() => setPublishOpen(false)}
+          onCommerceRequest={() => { setPublishOpen(false); setCommerceFormOpen(true) }}
+        />
+      )}
     </div>
   )
 }
 
-function PublishChoiceModal({ onClose }: { onClose: () => void }) {
+function PublishChoiceModal({ onClose, onCommerceRequest }: { onClose: () => void; onCommerceRequest: () => void }) {
   const router = useRouter()
+
+  const handleChoice = (action: () => void) => { onClose(); action() }
+
   const choices = [
-    { id: 'event-photo',   icon: '📸', label: 'Photo d\'événement', desc: 'Prendre une photo d\'événement', href: '/capturer' },
-    { id: 'event-saisir',  icon: '✏️',  label: 'Saisir un événement', desc: 'Formulaire texte ou message',  href: '/ajouter' },
-    { id: 'annonce',       icon: '🏷️',  label: 'Une annonce',        desc: 'Vente, troc, don, enchère',     href: '/annonces/nouvelle' },
+    {
+      id: 'annonce',
+      icon: '🏷️',
+      iconBg: '#FBE9E7', iconColor: '#C0392B',
+      label: 'Une annonce',
+      desc: 'Vente, troc, don ou enchère inversée',
+      action: () => router.push('/annonces/nouvelle'),
+    },
+    {
+      id: 'evenement',
+      icon: '🎉',
+      iconBg: '#E8F2EB', iconColor: '#2D5A3D',
+      label: 'Un événement',
+      desc: 'Concert, marché, soirée — photo ou saisie texte',
+      action: () => router.push('/ajouter'),
+    },
+    {
+      id: 'pro',
+      icon: '🏪',
+      iconBg: '#EEF3FF', iconColor: '#3A5BC7',
+      label: 'Un professionnel',
+      desc: 'Soumettre une fiche établissement / commerce',
+      action: onCommerceRequest,
+    },
   ]
 
   return (
@@ -1155,7 +1184,7 @@ function PublishChoiceModal({ onClose }: { onClose: () => void }) {
           {choices.map(c => (
             <button
               key={c.id}
-              onClick={() => { onClose(); router.push(c.href) }}
+              onClick={() => handleChoice(c.action)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 14,
                 padding: '14px 16px', borderRadius: 14,
@@ -1164,7 +1193,7 @@ function PublishChoiceModal({ onClose }: { onClose: () => void }) {
               }}
             >
               <span style={{
-                width: 44, height: 44, borderRadius: 12, backgroundColor: '#E8F2EB',
+                width: 44, height: 44, borderRadius: 12, backgroundColor: c.iconBg, color: c.iconColor,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 22, flexShrink: 0,
               }}>{c.icon}</span>

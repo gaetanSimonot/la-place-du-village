@@ -47,7 +47,6 @@ export default function AnnonceForm({ initial, onSuccess }: Props) {
   const [ville, setVille]                 = useState(initial?.ville ?? '')
   const [photos, setPhotos]               = useState<string[]>(initial?.photos ?? [])
   const [remiseMP, setRemiseMP]           = useState<boolean>(initial?.remise_main_propre ?? true)
-  const [garantieJours, setGarantieJours] = useState<string>(initial?.garantie_jours?.toString() ?? '0')
   const [uploading, setUploading]         = useState(false)
   const [submitting, setSubmitting]       = useState(false)
   const [error, setError]                 = useState<string | null>(null)
@@ -84,8 +83,6 @@ export default function AnnonceForm({ initial, onSuccess }: Props) {
     e.preventDefault()
     setError(null)
 
-    const garantie = parseInt(garantieJours, 10) || 0
-
     const input: AnnonceCreateInput = {
       type,
       titre: titre.trim(),
@@ -99,7 +96,6 @@ export default function AnnonceForm({ initial, onSuccess }: Props) {
       contact_email:   contactEmail.trim() || null,
       ville:           ville.trim() || null,
       remise_main_propre: remiseMP,
-      garantie_jours:     Math.max(0, garantie),
     }
 
     const validationError = validateAnnonceInput(input, plan)
@@ -321,16 +317,6 @@ export default function AnnonceForm({ initial, onSuccess }: Props) {
             <p style={{ margin: '2px 0 0', fontSize: 11, color: '#8A7A6A' }}>Vous remettez l&apos;article directement à l&apos;acheteur.</p>
           </div>
         </label>
-
-        <Field label="Garantie (en jours) — 0 si pas de garantie">
-          <input
-            type="number" min="0" max="365"
-            value={garantieJours}
-            onChange={e => setGarantieJours(e.target.value)}
-            placeholder="0"
-            style={inputStyle}
-          />
-        </Field>
       </Section>
 
       {/* ─────────── Localisation ─────────── */}
