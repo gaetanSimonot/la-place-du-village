@@ -121,9 +121,24 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Établissement déjà revendiqué par un autre user' }, { status: 409 })
     }
 
+    // Récupère le plan du user qui revendique : la fiche prend ce plan
+    // (cohérent avec etablissements.plan = source de vérité par fiche pour
+    // les features de visibilité — bandeau, splash, newsletter)
+    const { data: reqProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('plan')
+      .eq('user_id', req_row.user_id)
+      .maybeSingle()
+
+    const userPlan = (reqProfile?.plan as 'basic'|'pro'|'max') ?? 'basic'
+
     const { error: upErr } = await supabaseAdmin
       .from('etablissements')
-      .update({ user_id: req_row.user_id })
+      .update({
+        user_id: req_row.user_id,
+        plan: userPlan,
+        is_featured: userPlan === 'pro' || userPlan === 'max',
+      })
       .eq('id', req_row.etablissement_id)
 
     if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 })

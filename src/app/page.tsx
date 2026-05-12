@@ -468,6 +468,9 @@ export default function HomePage() {
   const proEvents = useMemo(() => promoEventsData.filter(e => e.promotion === 'pro' || e.promotion === 'max'), [promoEventsData])
 
   const handleNavTab = (tab: NavTab) => {
+    // Ferme tout overlay etab/producer ouvert quand l'user clique sur la bottom nav
+    if (openProducerIdRef.current) { setOpenProducerIdState(null); openProducerIdRef.current = null }
+    if (openEtablissementIdRef.current) { setOpenEtablissementId(null); openEtablissementIdRef.current = null }
     if (tab === 'accueil') { setShowHub(true); setNavTab('accueil'); return }
     // Pour tous les autres onglets, on quitte le hub si on y était
     if (showHub) setShowHub(false)

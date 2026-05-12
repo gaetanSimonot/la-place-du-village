@@ -1,6 +1,9 @@
 'use client'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
+import { useAdminSession } from '@/hooks/useAdminSession'
+import { PLANS_INFO, PLAN_ORDER, type Plan } from '@/lib/capabilities'
 import type { AppNotification, NotifType } from '@/lib/types'
 
 interface Props {
@@ -63,10 +66,51 @@ function relativeDate(iso: string): string {
   return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 }
 
+interface AdminCounts {
+  total: number
+  byPlan: Record<Plan, number>
+  withEtab: number
+  pendingClaims: number
+}
+
 export default function NotificationsView({ notifications, loading, loaded, onOpen, onMarkRead, onMarkAllRead, onOpenProducer }: Props) {
   const router = useRouter()
+  const isAdmin = useAdminSession()
+  const [adminCounts, setAdminCounts] = useState<AdminCounts | null>(null)
 
   useEffect(() => { onOpen() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Mini dashboard pour les admins : count membres par plan + claims pending
+  useEffect(() => {
+    if (!isAdmin) { setAdminCounts(null); return }
+    let cancelled = false
+    ;(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      if (!token) return
+      const [membresRes, claimsRes] = await Promise.all([
+        fetch('/api/admin/membres', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/admin/commerce-requests', { headers: { Authorization: `Bearer ${token}` } }),
+      ])
+      if (cancelled) return
+      const membresJson = membresRes.ok ? await membresRes.json() : { membres: [] }
+      const claimsJson  = claimsRes.ok  ? await claimsRes.json()  : { demandes: [] }
+      const membres = (membresJson.membres ?? []) as { plan: Plan; etablissements: unknown[] }[]
+      const byPlan: Record<Plan, number> = { basic: 0, pro: 0, max: 0 }
+      let withEtab = 0
+      membres.forEach(m => {
+        if (m.plan in byPlan) byPlan[m.plan]++
+        if ((m.etablissements ?? []).length > 0) withEtab++
+      })
+      setAdminCounts({
+        total: membres.length,
+        byPlan,
+        withEtab,
+        pendingClaims: (claimsJson.demandes ?? []).length,
+      })
+    })()
+    return () => { cancelled = true }
+  }, [isAdmin])
 
   const unreadCount = notifications.filter(n => !n.lu).length
 
@@ -114,8 +158,63 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
         </div>
       </div>
 
+      {/* Mini dashboard admin */}
+      {isAdmin && adminCounts && (
+        <div style={{ margin: '-30px 14px 0', position: 'relative', zIndex: 2 }}>
+          <div style={{ backgroundColor: '#fff', borderRadius: 18, boxShadow: '0 6px 28px rgba(0,0,0,0.1)', padding: '14px 16px', marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+              <span style={{ fontSize: 14 }}>📊</span>
+              <p style={{ fontSize: 11, fontWeight: 800, color: '#9A8A7A', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
+                Tableau de bord
+              </p>
+              <span style={{ fontSize: 10, color: '#B0A898', marginLeft: 'auto' }}>{adminCounts.total} membres</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+              {PLAN_ORDER.map(p => {
+                const info = PLANS_INFO[p]
+                return (
+                  <div key={p} style={{
+                    backgroundColor: info.bgColor, borderRadius: 10,
+                    padding: '10px 8px', textAlign: 'center',
+                  }}>
+                    <p style={{ fontSize: 20, fontWeight: 900, color: info.color, margin: '0 0 2px', fontVariantNumeric: 'tabular-nums' }}>
+                      {adminCounts.byPlan[p]}
+                    </p>
+                    <p style={{ fontSize: 10, fontWeight: 700, color: info.color, margin: 0, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                      {info.icon} {info.label}
+                    </p>
+                  </div>
+                )
+              })}
+            </div>
+            <div style={{ display: 'flex', gap: 12, marginTop: 12, padding: '8px 4px 0', borderTop: '1px solid #F0EBE0' }}>
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 14 }}>🏪</span>
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 800, color: '#2C1810', margin: 0, lineHeight: 1 }}>{adminCounts.withEtab}</p>
+                  <p style={{ fontSize: 9, color: '#9A8A7A', margin: 0 }}>avec établissement</p>
+                </div>
+              </div>
+              {adminCounts.pendingClaims > 0 && (
+                <button onClick={() => router.push('/admin?section=demandes')} style={{
+                  flex: 1, display: 'flex', alignItems: 'center', gap: 6,
+                  background: '#FEF0F5', border: 'none', borderRadius: 10,
+                  padding: '6px 10px', cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+                }}>
+                  <span style={{ fontSize: 14 }}>📋</span>
+                  <div style={{ textAlign: 'left' }}>
+                    <p style={{ fontSize: 13, fontWeight: 800, color: '#EC407A', margin: 0, lineHeight: 1 }}>{adminCounts.pendingClaims}</p>
+                    <p style={{ fontSize: 9, color: '#EC407A', margin: 0 }}>demandes en attente</p>
+                  </div>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Content */}
-      <div style={{ margin: '-30px 14px 0', position: 'relative', zIndex: 2, paddingBottom: 56 }}>
+      <div style={{ margin: isAdmin && adminCounts ? '0 14px' : '-30px 14px 0', position: 'relative', zIndex: 2, paddingBottom: 56 }}>
         {loading && !loaded ? (
           <div style={{ backgroundColor: '#fff', borderRadius: 18, boxShadow: '0 6px 28px rgba(0,0,0,0.1)', padding: '52px 20px', display: 'flex', justifyContent: 'center' }}>
             <div style={{ width: 26, height: 26, borderRadius: '50%', border: '3px solid #E0D8CE', borderTopColor: '#2D5A3D', animation: 'spin 0.7s linear infinite' }} />
