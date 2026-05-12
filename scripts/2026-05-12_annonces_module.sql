@@ -261,6 +261,17 @@ SELECT cron.schedule(
 );
 
 -- =====================================================================
+-- 9bis. SÉCURITÉ — retirer EXECUTE aux fonctions cron à anon/authenticated
+-- Sans ça, n'importe qui peut les appeler via PostgREST RPC et déclencher
+-- des baisses de prix / expirations manuellement.
+-- Les jobs pg_cron tournent en tant que postgres → non impactés.
+-- =====================================================================
+REVOKE EXECUTE ON FUNCTION public.annonces_cron_baisse_encheres()    FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.annonces_cron_expirer()            FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.annonces_cron_sponsoring()         FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.annonces_cron_notif_expiration()   FROM PUBLIC, anon, authenticated;
+
+-- =====================================================================
 -- 10. RLS — Lecture publique des annonces visibles, écritures via supabaseAdmin
 -- =====================================================================
 ALTER TABLE public.annonces                 ENABLE ROW LEVEL SECURITY;
