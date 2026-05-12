@@ -77,6 +77,21 @@ const NOTIF_CONFIG: Record<NotifType, { emoji: string; color: string; label: (n:
     color: '#2D5A3D',
     label: () => 'Votre enchère a atteint le seuil — l\'annonce est devenue un don',
   },
+  annonce_message: {
+    emoji: '💬',
+    color: '#3A5BC7',
+    label: n => `${n.actor_name ?? 'Quelqu\'un'} vous a envoyé un message`,
+  },
+  annonce_contact_partage: {
+    emoji: '📞',
+    color: '#2D5A3D',
+    label: () => 'Le vendeur a partagé ses coordonnées',
+  },
+  annonce_vente_close: {
+    emoji: '✅',
+    color: '#2D5A3D',
+    label: n => `${n.actor_name ?? 'L\'autre partie'} a conclu la vente`,
+  },
 }
 
 function relativeDate(iso: string): string {
@@ -180,7 +195,13 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
       return
     }
 
-    // Notifs annonces (intérêt / enchère prise / expiration / bascule don)
+    // Notifs conversation (intérêt, message, contact, vente close) → ouvre le chat
+    if (n.target_type === 'conversation' && n.target_id) {
+      router.push(`/annonces/conversations/${n.target_id}`)
+      return
+    }
+
+    // Notifs annonces (expiration, bascule don) → ouvre la fiche annonce
     if (n.target_type === 'annonce' && n.target_id) {
       router.push(`/annonces/${n.target_id}`)
       return

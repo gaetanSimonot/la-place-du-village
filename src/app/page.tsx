@@ -3,7 +3,7 @@ import React from 'react'
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { AnimatePresence, motion } from 'framer-motion'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import ProfilView from '@/components/ProfilView'
 import { EvenementCard, Filtres, ProduitCategorie, EtablissementCard, EtablissementType } from '@/lib/types'
@@ -237,6 +237,18 @@ export default function HomePage() {
     }, 350)
   }, [])
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Si on arrive sur / avec ?tab=X (depuis BottomNavBar des pages externes),
+  // restaure le bon onglet et quitte le hub.
+  useEffect(() => {
+    const tabParam = searchParams?.get('tab')
+    if (tabParam === 'favoris' || tabParam === 'notifs' || tabParam === 'profil') {
+      setShowHub(false)
+      setNavTab(tabParam)
+      router.replace('/', { scroll: false })
+    }
+  }, [searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const FAB_OPTS: { key: string; label: string; icon: React.ReactNode; path: string }[] = [
     {

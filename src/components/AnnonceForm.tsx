@@ -287,25 +287,35 @@ export default function AnnonceForm({ initial, onSuccess }: Props) {
         </>
       )}
 
-      {/* Contact */}
-      <Field label="Téléphone (optionnel)">
-        <input
-          type="tel"
-          value={contactTel}
-          onChange={e => setContactTel(e.target.value)}
-          placeholder="06 12 34 56 78"
-          style={inputStyle}
-        />
-      </Field>
-      <Field label="Email (optionnel)">
-        <input
-          type="email"
-          value={contactEmail}
-          onChange={e => setContactEmail(e.target.value)}
-          placeholder="moi@exemple.fr"
-          style={inputStyle}
-        />
-      </Field>
+      {/* Contact — au moins l'un des deux est requis */}
+      <div style={{ padding: 12, borderRadius: 12, backgroundColor: '#FEF7E8', border: '1px solid #F5E5C4' }}>
+        <p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 800, color: '#8B6914' }}>
+          📞 Coordonnées (au moins l&apos;une des deux)
+        </p>
+        <p style={{ margin: '0 0 12px', fontSize: 11, color: '#A89B8C', lineHeight: 1.4 }}>
+          Tu pourras les partager dans la discussion avec l&apos;acheteur.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <Field label="Téléphone">
+            <input
+              type="tel"
+              value={contactTel}
+              onChange={e => setContactTel(e.target.value)}
+              placeholder="06 12 34 56 78"
+              style={inputStyle}
+            />
+          </Field>
+          <Field label="Email">
+            <input
+              type="email"
+              value={contactEmail}
+              onChange={e => setContactEmail(e.target.value)}
+              placeholder="moi@exemple.fr"
+              style={inputStyle}
+            />
+          </Field>
+        </div>
+      </div>
 
       {/* Ville */}
       <Field label="Ville (optionnel)">

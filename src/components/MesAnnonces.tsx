@@ -59,22 +59,34 @@ export default function MesAnnonces() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: '#1C1917' }}>Mes annonces</h2>
-        <Link
-          href="/annonces/nouvelle"
-          style={{
-            padding: '8px 14px',
-            borderRadius: 999,
-            backgroundColor: '#2D5A3D',
-            color: '#fff',
-            fontSize: 12,
-            fontWeight: 800,
-            textDecoration: 'none',
-          }}
-        >
-          + Nouvelle
-        </Link>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <Link
+            href="/annonces/messages"
+            style={{
+              padding: '8px 12px',
+              borderRadius: 999,
+              border: '1.5px solid #2D5A3D',
+              color: '#2D5A3D',
+              fontSize: 12,
+              fontWeight: 700,
+              textDecoration: 'none',
+            }}
+          >💬 Messages</Link>
+          <Link
+            href="/annonces/nouvelle"
+            style={{
+              padding: '8px 14px',
+              borderRadius: 999,
+              backgroundColor: '#2D5A3D',
+              color: '#fff',
+              fontSize: 12,
+              fontWeight: 800,
+              textDecoration: 'none',
+            }}
+          >+ Nouvelle</Link>
+        </div>
       </div>
 
       {/* Tabs */}

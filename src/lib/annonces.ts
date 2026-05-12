@@ -63,6 +63,32 @@ export interface AnnonceEncherePrise {
   created_at: string
 }
 
+export type ConversationStatut = 'open' | 'closed'
+
+export interface AnnonceConversation {
+  id: string
+  annonce_id: string
+  acheteur_id: string
+  vendeur_id: string
+  statut: ConversationStatut
+  created_at: string
+  updated_at: string
+  closed_at: string | null
+  closed_by: string | null
+}
+
+export type MessageKind = 'text' | 'system_contact' | 'system_closed'
+
+export interface AnnonceMessage {
+  id: string
+  conversation_id: string
+  sender_id: string | null
+  kind: MessageKind
+  content: string
+  lu_at: string | null
+  created_at: string
+}
+
 // ──────────────────────────────────────────────────────────────────────────
 // Catégories canoniques
 // ──────────────────────────────────────────────────────────────────────────
@@ -246,6 +272,13 @@ export function validateAnnonceInput(
   if (!isAnnonceCategorie(input.categorie)) return 'Catégorie invalide'
   if (!canCreateType(plan, input.type)) {
     return `Le plan ${plan} ne permet pas ce type d'annonce`
+  }
+
+  // Au moins un contact (tel OU email) — c'est ce qui sera partagé via le chat
+  const hasTel   = !!input.contact_tel?.trim()
+  const hasEmail = !!input.contact_email?.trim()
+  if (!hasTel && !hasEmail) {
+    return 'Au moins un contact requis (téléphone ou email)'
   }
 
   if (input.type === 'vente') {
