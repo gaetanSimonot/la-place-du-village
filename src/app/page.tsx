@@ -35,7 +35,7 @@ const EtablissementPageClient   = dynamic(() => import('@/app/etablissement/[id]
 const defaultFiltres: Filtres = { categories: [], quand: 'toujours' }
 const NAV_H = 62
 
-type NavTab = 'accueil' | 'carte' | 'liste' | 'favoris' | 'notifs' | 'profil'
+type NavTab = 'accueil' | 'carte' | 'liste' | 'annonces' | 'favoris' | 'notifs' | 'profil'
 
 const IconHome = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -76,11 +76,18 @@ const IconBell = () => (
     <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
   </svg>
 )
+const IconAnnonces = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+    <line x1="7" y1="7" x2="7.01" y2="7"/>
+  </svg>
+)
 
 const NAV_TABS: { id: NavTab; label: string; Icon: (p: { active: boolean; badge?: number }) => React.JSX.Element }[] = [
   { id: 'accueil', label: 'Accueil', Icon: () => <IconHome /> },
   { id: 'carte',   label: 'Carte',   Icon: () => <IconCarte /> },
   { id: 'liste',   label: 'Liste',   Icon: () => <IconListe /> },
+  { id: 'annonces', label: 'Annonces', Icon: () => <IconAnnonces /> },
   { id: 'favoris', label: 'Favoris', Icon: ({ active }) => <IconCoeur filled={active} /> },
   { id: 'notifs',  label: 'Notifs',  Icon: ({ badge }) => (
     <div style={{ position: 'relative', display: 'inline-flex' }}>
@@ -472,6 +479,7 @@ export default function HomePage() {
     if (openProducerIdRef.current) { setOpenProducerIdState(null); openProducerIdRef.current = null }
     if (openEtablissementIdRef.current) { setOpenEtablissementId(null); openEtablissementIdRef.current = null }
     if (tab === 'accueil') { setShowHub(true); setNavTab('accueil'); return }
+    if (tab === 'annonces') { router.push('/annonces'); return }
     // Pour tous les autres onglets, on quitte le hub si on y était
     if (showHub) setShowHub(false)
     if (tab === 'profil')  { setNavTab('profil');  return }

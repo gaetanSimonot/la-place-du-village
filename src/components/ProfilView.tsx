@@ -8,10 +8,11 @@ import { useAdminSession } from '@/hooks/useAdminSession'
 import Link from 'next/link'
 import AbonnementsView from '@/components/AbonnementsView'
 import MonEspaceProducteur from '@/components/MonEspaceProducteur'
+import MesAnnonces from '@/components/MesAnnonces'
 import { supabase } from '@/lib/supabase'
 import { PLANS_INFO, type Plan } from '@/lib/capabilities'
 
-type Tab = 'profil' | 'plan' | 'abonnements' | 'theme' | 'producteur'
+type Tab = 'profil' | 'plan' | 'abonnements' | 'annonces' | 'theme' | 'producteur'
 
 export default function ProfilView() {
   const [tab, setTab] = useState<Tab>('profil')
@@ -89,6 +90,7 @@ export default function ProfilView() {
           { id: 'profil', label: 'Profil' },
           { id: 'plan', label: 'Mon plan' },
           { id: 'abonnements', label: 'Suivis' },
+          ...(user ? [{ id: 'annonces', label: 'Mes annonces' }] : []),
           { id: 'theme', label: 'Thème' },
           ...(plan === 'max' ? [{ id: 'producteur', label: '🌿 Ma fiche' }] : []),
         ] as { id: Tab; label: string }[]).map(t => (
@@ -358,6 +360,8 @@ export default function ProfilView() {
         )}
 
         {tab === 'producteur' && <MonEspaceProducteur />}
+
+        {tab === 'annonces' && <MesAnnonces />}
 
         {tab === 'abonnements' && (
           <div style={{ margin: '0 -16px' }}>

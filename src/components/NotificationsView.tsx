@@ -57,6 +57,26 @@ const NOTIF_CONFIG: Record<NotifType, { emoji: string; color: string; label: (n:
     color: '#C4622D',
     label: n => `${n.actor_name ?? 'Un client'} a utilisé votre promo`,
   },
+  annonce_interet_recu: {
+    emoji: '⭐',
+    color: '#E8622A',
+    label: n => `${n.actor_name ?? 'Quelqu\'un'} s'intéresse à votre annonce`,
+  },
+  annonce_enchere_prise: {
+    emoji: '🔨',
+    color: '#3A5BC7',
+    label: n => `${n.actor_name ?? 'Quelqu\'un'} a pris votre enchère`,
+  },
+  annonce_expire_bientot: {
+    emoji: '⏳',
+    color: '#8A7A6A',
+    label: () => 'Votre annonce expire dans 2 jours',
+  },
+  annonce_devient_don: {
+    emoji: '🎁',
+    color: '#2D5A3D',
+    label: () => 'Votre enchère a atteint le seuil — l\'annonce est devenue un don',
+  },
 }
 
 function relativeDate(iso: string): string {
@@ -157,6 +177,12 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
     // Claim côté requester : ouvre la fiche établissement concernée
     if ((n.type === 'claim_approved' || n.type === 'claim_rejected') && n.target_id) {
       router.push(`/etablissement/${n.target_id}`)
+      return
+    }
+
+    // Notifs annonces (intérêt / enchère prise / expiration / bascule don)
+    if (n.target_type === 'annonce' && n.target_id) {
+      router.push(`/annonces/${n.target_id}`)
       return
     }
 

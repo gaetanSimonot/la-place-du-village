@@ -108,7 +108,7 @@ export default function HubView({
     { id: 'bien-etre',    label: 'Bien-être',   sublabel: 'santé',        icon: '/icones/04_bien_etre.png',               onSelect: () => onSelectAnnuaire('sante_bien_etre') },
     { id: 'mobilite',     label: 'Mobilité',    sublabel: 'transport',    icon: '/icones/13_mobilite.png',                onSelect: () => onComingSoon('Mobilité & transport') },
     { id: 'associations', label: 'Assos',       sublabel: '& clubs',      icon: '/icones/10_associations_clubs.png',      onSelect: () => onComingSoon('Associations & clubs') },
-    { id: 'annonces',     label: 'Annonces',    sublabel: 'locales',      icon: '/icones/07_annonces_locales.png',        onSelect: () => onComingSoon('Annonces locales') },
+    { id: 'annonces',     label: 'Annonces',    sublabel: 'locales',      icon: '/icones/07_annonces_locales.png',        onSelect: () => router.push('/annonces') },
     { id: 'idees',        label: 'Boîte',       sublabel: 'à idées',      icon: '/icones/09_boite_idees.png',             onSelect: () => onComingSoon('Boîte à idées') },
     { id: 'commerces',    label: 'Commerces',   sublabel: 'e-commerce',   icon: '/icones/06_commerces_ecommerce.png',     onSelect: () => onComingSoon('Commerces & e-commerce') },
   ]
