@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   const ctx = await requireUser(req)
   if (ctx instanceof Response) return ctx
 
-  const { subject, message } = await req.json()
+  const { subject, message, etablissement_id } = await req.json()
   if (!message?.trim()) {
     return NextResponse.json({ error: 'Message requis' }, { status: 400 })
   }
@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
       message: cleanMessage,
       contact: ctx.email,
       user_id: ctx.userId,
+      etablissement_id: etablissement_id || null,
       traite: false,
     })
 

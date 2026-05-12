@@ -592,7 +592,13 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
       </div>
 
       {claimOpen && <SubscriptionModal etabId={etab.id} etabNom={etab.nom} onClose={() => setClaimOpen(false)} />}
-      {quotaModalOpen && <QuotaReachedModal onClose={() => setQuotaModalOpen(false)} />}
+      {quotaModalOpen && (
+        <QuotaReachedModal
+          onClose={() => setQuotaModalOpen(false)}
+          etablissementId={etab.id}
+          etablissementNom={etab.nom}
+        />
+      )}
       {editing && <EtabEditDrawer etab={etab} isAdmin={isAdmin} onClose={() => setEditing(false)} onSaved={patch => setEtab(prev => prev ? { ...prev, ...patch } : prev)} />}
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>

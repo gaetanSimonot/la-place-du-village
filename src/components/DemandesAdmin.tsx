@@ -103,16 +103,23 @@ export default function DemandesAdmin() {
       )}
 
       {demandes.map(d => {
-        const isClaim       = d.type_commerce === 'claim' && !!d.etablissement_id
-        const isAdminContact = d.type_commerce === 'admin_contact'
-        const isWorking     = working === d.id
-        const canApprove    = isAdminContact ? true : (isClaim ? (d.etablissement && (!d.etablissement.user_id || d.etablissement.user_id === d.user_id)) : true)
+        const isClaim         = d.type_commerce === 'claim' && !!d.etablissement_id
+        const isAdminContact  = d.type_commerce === 'admin_contact'
+        // Un admin_contact avec etab_id+user_id = revendication exceptionnelle
+        // après quota atteint -> bouton Accepter = assigne la fiche au user
+        const isExceptional   = isAdminContact && !!d.etablissement_id && !!d.user_id
+        const isWorking       = working === d.id
+        const canApprove      = (isClaim || isExceptional)
+          ? (d.etablissement && (!d.etablissement.user_id || d.etablissement.user_id === d.user_id))
+          : true
 
-        const badgeConf = isAdminContact
-          ? { label: '📩 Message', bg: '#FFF7E5', color: '#8B6914' }
-          : isClaim
-            ? { label: '🏪 Revendication', bg: '#FEF0F5', color: '#EC407A' }
-            : { label: '➕ Nouveau commerce', bg: '#EEF3FF', color: '#3A5BC7' }
+        const badgeConf = isExceptional
+          ? { label: '⭐ Demande exceptionnelle', bg: '#FFF0E5', color: '#C4622D' }
+          : isAdminContact
+            ? { label: '📩 Message', bg: '#FFF7E5', color: '#8B6914' }
+            : isClaim
+              ? { label: '🏪 Revendication', bg: '#FEF0F5', color: '#EC407A' }
+              : { label: '➕ Nouveau commerce', bg: '#EEF3FF', color: '#3A5BC7' }
 
         return (
           <div key={d.id} style={{ borderBottom: '1px solid #F0EBE0', padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -129,15 +136,15 @@ export default function DemandesAdmin() {
               </span>
             </div>
 
-            {/* Pour les messages admin : afficher juste le sujet */}
-            {isAdminContact && (
+            {/* Pour les messages admin (sans etab) : afficher juste le sujet */}
+            {isAdminContact && !isExceptional && (
               <div>
                 <p style={{ fontWeight: 700, fontSize: 14, color: '#1C1917', margin: 0 }}>{d.nom}</p>
               </div>
             )}
 
-            {/* Etablissement concerné (si claim) */}
-            {isClaim && d.etablissement && (
+            {/* Etablissement concerné (si claim ou demande exceptionnelle) */}
+            {(isClaim || isExceptional) && d.etablissement && (
               <a href={`/etablissement/${d.etablissement.id}`} target="_blank" rel="noreferrer"
                  style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, backgroundColor: '#F8F4ED', borderRadius: 10, padding: '8px 12px' }}>
                 <div style={{ width: 36, height: 36, borderRadius: 8, overflow: 'hidden', flexShrink: 0, backgroundColor: '#E8F2EB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -202,7 +209,7 @@ export default function DemandesAdmin() {
             )}
 
             {/* Actions */}
-            {isAdminContact ? (
+            {isAdminContact && !isExceptional ? (
               <button
                 onClick={() => handleAction(d.id, 'approve')}
                 disabled={isWorking}
@@ -214,10 +221,10 @@ export default function DemandesAdmin() {
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
                   onClick={() => handleAction(d.id, 'approve')}
-                  disabled={isWorking || (isClaim && !canApprove)}
+                  disabled={isWorking || !canApprove}
                   style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', backgroundColor: canApprove ? '#2D5A3D' : '#D0C8C0', color: '#fff', fontSize: 13, fontWeight: 700, cursor: isWorking ? 'default' : (canApprove ? 'pointer' : 'not-allowed'), opacity: isWorking ? 0.6 : 1 }}
                 >
-                  {isWorking ? '…' : '✓ Valider'}
+                  {isWorking ? '…' : (isExceptional ? '✓ Accepter la demande' : '✓ Valider')}
                 </button>
                 <button
                   onClick={() => handleAction(d.id, 'reject')}

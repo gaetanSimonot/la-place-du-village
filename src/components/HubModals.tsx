@@ -67,14 +67,24 @@ export function ComingSoonModal({ label, onClose }: { label: string; onClose: ()
 export function QuotaReachedModal({
   onClose,
   defaultSubject = 'Demande exceptionnelle de revendication',
+  etablissementId,
+  etablissementNom,
 }: {
   onClose: () => void
   defaultSubject?: string
+  /** Si la modale est ouverte depuis une fiche établissement, on transmet
+   *  l'id à l'API → l'admin pourra Accepter (= revendication validée). */
+  etablissementId?: string
+  etablissementNom?: string
 }) {
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const subject = etablissementNom
+    ? `Demande exceptionnelle : ${etablissementNom}`
+    : defaultSubject
 
   const send = async () => {
     if (!message.trim()) return
@@ -84,7 +94,7 @@ export function QuotaReachedModal({
     const res = await fetch('/api/admin-contact', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ subject: defaultSubject, message }),
+      body: JSON.stringify({ subject, message, etablissement_id: etablissementId }),
     })
     setSending(false)
     if (!res.ok) {
@@ -134,8 +144,15 @@ export function QuotaReachedModal({
           <p style={{ fontSize: 13, color: '#7A6A5A', margin: '0 0 4px', lineHeight: 1.5 }}>
             Vous avez utilisé vos revendications mensuelles.
           </p>
+          {etablissementNom && (
+            <p style={{ fontSize: 12, color: '#3C2C20', margin: '6px 0 8px', lineHeight: 1.4, backgroundColor: '#FBF7F0', padding: '6px 10px', borderRadius: 8, display: 'inline-block' }}>
+              Pour <strong>{etablissementNom}</strong>
+            </p>
+          )}
           <p style={{ fontSize: 12, color: '#9A8A7A', margin: 0, lineHeight: 1.5 }}>
-            Envoyez un message à l&apos;admin pour discuter d&apos;une demande exceptionnelle.
+            {etablissementNom
+              ? 'Expliquez votre besoin à l\'admin, il pourra valider votre demande.'
+              : 'Envoyez un message à l\'admin pour discuter d\'une demande exceptionnelle.'}
           </p>
         </div>
 
