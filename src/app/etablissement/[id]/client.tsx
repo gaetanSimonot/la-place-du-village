@@ -11,6 +11,7 @@ import EtabProductsSection from '@/components/EtabProductsSection'
 import type { Etablissement } from '@/lib/types'
 import { can, toUserContext } from '@/lib/capabilities'
 import { QuotaReachedModal } from '@/components/HubModals'
+import PromotionsManager from '@/components/PromotionsManager'
 
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
 const DAY_KEYS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
@@ -520,6 +521,18 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
                   Ne plus gérer cette fiche
                 </button>
               </div>
+            </div>
+          )
+        })()}
+
+        {/* Mes promotions — visible uniquement pour le propriétaire avec un plan Pro/Max */}
+        {isOwner && (() => {
+          const userPlan = (profile?.plan ?? 'basic') as 'basic'|'pro'|'max'
+          const canCreatePromo = userPlan === 'pro' || userPlan === 'max' || isAdmin
+          if (!canCreatePromo) return null
+          return (
+            <div style={CARD}>
+              <PromotionsManager etablissementId={etab.id} />
             </div>
           )
         })()}
