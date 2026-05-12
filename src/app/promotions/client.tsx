@@ -1,11 +1,13 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import { toUserContext, can } from '@/lib/capabilities'
 import { UpgradeModal } from '@/components/HubModals'
+import { ETAB_TYPES } from '@/lib/etablissement-types'
+import type { EtablissementType } from '@/lib/types'
 
 interface Promotion {
   id: string
@@ -22,7 +24,9 @@ interface Promotion {
     nom: string
     commune: string | null
     photos: string[] | null
-    type: string | null
+    type: EtablissementType | null
+    lat?: number | null
+    lng?: number | null
   } | null
 }
 
@@ -44,6 +48,8 @@ export default function PromotionsClient() {
   const [using, setUsing] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [showUpgrade, setShowUpgrade] = useState(false)
+  const [typeFilter, setTypeFilter] = useState<EtablissementType | null>(null)
+  const [confirmModal, setConfirmModal] = useState<Promotion | null>(null)
 
   const fetchPromos = useCallback(async () => {
     setLoading(true)
@@ -62,9 +68,15 @@ export default function PromotionsClient() {
     setTimeout(() => setToast(null), 3500)
   }
 
-  const handleUse = async (promo: Promotion) => {
+  // Étape 1 : clic "J'en profite" → ouvre la modale de confirmation position
+  const openUseConfirm = (promo: Promotion) => {
     if (!user) { openAuthModal('/promotions'); return }
     if (!userHasAccess) { setShowUpgrade(true); return }
+    setConfirmModal(promo)
+  }
+
+  // Étape 2 : user confirme qu'il est sur place → POST API
+  const confirmUse = async (promo: Promotion) => {
     setUsing(promo.id)
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { setUsing(null); return }
@@ -73,6 +85,7 @@ export default function PromotionsClient() {
       headers: { Authorization: `Bearer ${session.access_token}` },
     })
     setUsing(null)
+    setConfirmModal(null)
     const d = await res.json().catch(() => ({}))
     if (res.ok) {
       showToastMsg('✓ Promo enregistrée — bon appétit !')
@@ -83,6 +96,19 @@ export default function PromotionsClient() {
       showToastMsg(d.error ?? 'Erreur')
     }
   }
+
+  // Liste filtrée par type
+  const filteredPromos = useMemo(() => {
+    if (!typeFilter) return promos
+    return promos.filter(p => p.etablissement?.type === typeFilter)
+  }, [promos, typeFilter])
+
+  // Types réellement présents dans les promos (pas tous les types possibles)
+  const availableTypes = useMemo(() => {
+    const set = new Set<EtablissementType>()
+    promos.forEach(p => { if (p.etablissement?.type) set.add(p.etablissement.type) })
+    return Array.from(set)
+  }, [promos])
 
   return (
     <div style={{ minHeight: '100dvh', backgroundColor: 'var(--creme)', fontFamily: 'Inter, sans-serif' }}>
@@ -128,27 +154,72 @@ export default function PromotionsClient() {
           </div>
         )}
 
+        {/* Filtres par type d'établissement */}
+        {!loading && availableTypes.length > 1 && (
+          <div style={{
+            display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 14,
+            paddingBottom: 4,
+          }} className="pdv-hscroll">
+            <button
+              onClick={() => setTypeFilter(null)}
+              style={{
+                flexShrink: 0, padding: '7px 14px', borderRadius: 999,
+                border: typeFilter === null ? '2px solid #C4622D' : '1.5px solid #E0D8CE',
+                backgroundColor: typeFilter === null ? '#FFF0E5' : '#fff',
+                color: typeFilter === null ? '#C4622D' : '#7A6A5A',
+                fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                fontFamily: 'Inter, sans-serif',
+              }}
+            >
+              Tout
+            </button>
+            {availableTypes.map(t => {
+              const info = ETAB_TYPES[t]
+              const active = typeFilter === t
+              return (
+                <button
+                  key={t}
+                  onClick={() => setTypeFilter(t)}
+                  style={{
+                    flexShrink: 0, padding: '7px 14px', borderRadius: 999,
+                    border: active ? `2px solid ${info.color}` : '1.5px solid #E0D8CE',
+                    backgroundColor: active ? info.bg : '#fff',
+                    color: active ? info.color : '#7A6A5A',
+                    fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                    fontFamily: 'Inter, sans-serif',
+                  }}
+                >
+                  {info.emoji} {info.label}
+                </button>
+              )
+            })}
+          </div>
+        )}
+        <style>{`.pdv-hscroll { scrollbar-width: none; -webkit-overflow-scrolling: touch; } .pdv-hscroll::-webkit-scrollbar { display: none; }`}</style>
+
         {loading ? (
           <div style={{ padding: 40, textAlign: 'center', color: '#9A8A7A' }}>
             Chargement…
           </div>
-        ) : promos.length === 0 ? (
+        ) : filteredPromos.length === 0 ? (
           <div style={{ padding: 60, textAlign: 'center', color: '#9A8A7A' }}>
             <p style={{ fontSize: 40, margin: '0 0 12px' }}>🎁</p>
             <p style={{ fontSize: 14, fontWeight: 700, color: '#7A6A5A' }}>
-              Aucune promo en cours
+              {typeFilter ? 'Aucune promo dans cette catégorie' : 'Aucune promo en cours'}
             </p>
             <p style={{ fontSize: 12, margin: '6px 0 0' }}>
-              Reviens plus tard, les commerçants en publient régulièrement
+              {typeFilter
+                ? <button onClick={() => setTypeFilter(null)} style={{ background: 'none', border: 'none', color: '#C4622D', textDecoration: 'underline', cursor: 'pointer', fontSize: 12, fontFamily: 'Inter, sans-serif' }}>Voir toutes les catégories</button>
+                : 'Reviens plus tard, les commerçants en publient régulièrement'}
             </p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {promos.map(p => (
+            {filteredPromos.map(p => (
               <PromoCard
                 key={p.id}
                 promo={p}
-                onUse={() => handleUse(p)}
+                onUse={() => openUseConfirm(p)}
                 disabled={using === p.id}
                 userHasAccess={userHasAccess}
               />
@@ -156,6 +227,16 @@ export default function PromotionsClient() {
           </div>
         )}
       </div>
+
+      {/* Modale de confirmation "Êtes-vous sur place ?" */}
+      {confirmModal && (
+        <ConfirmPositionModal
+          promo={confirmModal}
+          onClose={() => setConfirmModal(null)}
+          onConfirm={() => confirmUse(confirmModal)}
+          loading={using === confirmModal.id}
+        />
+      )}
 
       {/* Toast */}
       {toast && (
@@ -285,6 +366,80 @@ function PromoCard({ promo, onUse, disabled, userHasAccess }: {
           }}
         >
           {disabled ? '…' : userHasAccess ? "🎁 J'en profite" : '🔒 Passer Pro pour en profiter'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ConfirmPositionModal({ promo, onClose, onConfirm, loading }: {
+  promo: Promotion
+  onClose: () => void
+  onConfirm: () => void
+  loading: boolean
+}) {
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 3000,
+      backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+      fontFamily: 'Inter, sans-serif',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: '100%', maxWidth: 480, backgroundColor: '#fff',
+        borderRadius: '24px 24px 0 0', padding: '24px 24px 28px',
+        paddingBottom: 'max(28px, env(safe-area-inset-bottom, 28px))',
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: 18 }}>
+          <div style={{ fontSize: 48, marginBottom: 10 }}>📍</div>
+          <h2 style={{ fontSize: 18, fontWeight: 800, color: '#1A1209', margin: '0 0 6px', letterSpacing: '-0.01em' }}>
+            Êtes-vous sur place ?
+          </h2>
+          <p style={{ fontSize: 13, color: '#7A6A5A', margin: '0 0 4px', lineHeight: 1.5 }}>
+            Vous allez profiter de la promo <strong style={{ color: '#1A1209' }}>« {promo.title} »</strong>
+          </p>
+          {promo.etablissement && (
+            <p style={{ fontSize: 12, color: '#9A8A7A', margin: 0 }}>
+              chez <strong>{promo.etablissement.nom}</strong>{promo.etablissement.commune ? ` · ${promo.etablissement.commune}` : ''}
+            </p>
+          )}
+        </div>
+
+        <div style={{
+          backgroundColor: '#FFF7E5', borderRadius: 12,
+          padding: '10px 14px', marginBottom: 16,
+          border: '1px solid #F0D9B8',
+        }}>
+          <p style={{ fontSize: 11, color: '#7A5614', margin: 0, lineHeight: 1.5 }}>
+            <strong>Bon usage :</strong> ne validez la promo que si vous êtes vraiment chez le commerçant. Le commerçant sera notifié de votre passage.
+          </p>
+        </div>
+
+        <button
+          onClick={onConfirm}
+          disabled={loading}
+          style={{
+            width: '100%', padding: '14px',
+            backgroundColor: '#C4622D', color: '#fff',
+            border: 'none', borderRadius: 14,
+            fontSize: 14, fontWeight: 700,
+            cursor: loading ? 'default' : 'pointer',
+            opacity: loading ? 0.6 : 1,
+            fontFamily: 'Inter, sans-serif', marginBottom: 8,
+          }}
+        >
+          {loading ? '…' : '✓ Oui, je confirme ma présence'}
+        </button>
+        <button
+          onClick={onClose}
+          style={{
+            width: '100%', padding: '10px',
+            background: 'none', border: 'none',
+            fontSize: 12, color: '#9A8A7A',
+            cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+          }}
+        >
+          Annuler
         </button>
       </div>
     </div>

@@ -78,10 +78,20 @@ interface AdminCounts {
   pendingClaims: number
 }
 
+interface PromoUseHistory {
+  id: string
+  used_at: string
+  title: string
+  image_url: string | null
+  etablissement: { nom: string; commune: string | null } | null
+}
+
 export default function NotificationsView({ notifications, loading, loaded, onOpen, onMarkRead, onMarkAllRead, onOpenProducer }: Props) {
   const router = useRouter()
   const isAdmin = useAdminSession()
   const [adminCounts, setAdminCounts] = useState<AdminCounts | null>(null)
+  const [promoHistory, setPromoHistory] = useState<PromoUseHistory[]>([])
+  const [showAllHistory, setShowAllHistory] = useState(false)
 
   useEffect(() => { onOpen() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -116,6 +126,22 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
     })()
     return () => { cancelled = true }
   }, [isAdmin])
+
+  // Historique promos utilisées par le user
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const r = await fetch('/api/profile/promotions-used', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!r.ok || cancelled) return
+      const d = await r.json()
+      setPromoHistory(d.uses ?? [])
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   const unreadCount = notifications.filter(n => !n.lu).length
 
@@ -264,6 +290,63 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
           </div>
         )}
       </div>
+
+      {/* Historique promos utilisées */}
+      {promoHistory.length > 0 && (
+        <div style={{ margin: '0 14px 24px', position: 'relative', zIndex: 2 }}>
+          <button
+            onClick={() => setShowAllHistory(s => !s)}
+            style={{
+              width: '100%', padding: '12px 14px',
+              backgroundColor: '#fff', border: 'none',
+              borderRadius: 14, boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 16 }}>🎁</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: '#C4622D', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Mes promos utilisées ({promoHistory.length})
+              </span>
+            </div>
+            <span style={{ fontSize: 14, color: '#9A8A7A', transform: showAllHistory ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▾</span>
+          </button>
+
+          {showAllHistory && (
+            <div style={{ marginTop: 8, backgroundColor: '#fff', borderRadius: 14, padding: '6px 12px', boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
+              {promoHistory.map(h => (
+                <div key={h.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 0', borderBottom: '1px solid #F5F0E8',
+                }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 8,
+                    overflow: 'hidden', flexShrink: 0,
+                    backgroundColor: '#FFF0E5',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {h.image_url
+                      ? <img src={h.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : <span style={{ fontSize: 16 }}>🎁</span>}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 12, fontWeight: 700, color: '#1A1209', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {h.title}
+                    </p>
+                    {h.etablissement && (
+                      <p style={{ fontSize: 10, color: '#9A8A7A', margin: '1px 0 0' }}>
+                        {h.etablissement.nom}{h.etablissement.commune ? ` · ${h.etablissement.commune}` : ''}
+                      </p>
+                    )}
+                  </div>
+                  <span style={{ fontSize: 10, color: '#B0A898' }}>{relativeDate(h.used_at)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
