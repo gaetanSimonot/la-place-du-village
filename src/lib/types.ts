@@ -36,6 +36,7 @@ export interface Evenement {
   submitted_by_name: string | null
   vote_count: number
   publish_at: string | null
+  vedette_hub: boolean
 }
 
 // Type allégé pour l'affichage public (carte + liste)

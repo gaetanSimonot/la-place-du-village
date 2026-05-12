@@ -1,57 +1,11 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { AnimatePresence, motion } from 'framer-motion'
+import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
-import { toUserContext, PLANS_INFO, type Plan } from '@/lib/capabilities'
-import type { EtablissementType } from '@/lib/types'
-
-interface HeroPromo {
-  id: string
-  title: string
-  description: string | null
-  image_url: string | null
-  display_image_url: string | null
-  etablissement: { nom: string; commune: string | null } | null
-}
-
-/**
- * Écran d'accueil (hub) — inspiré de ref/hub.png.
- *
- * Structure :
- *   1. Header — Bonjour + titre + cloche notif
- *   2. Hero promo (large card avec image/gradient + CTA)
- *   3. Section "Mes indispensables" — carrousel horizontal scrollable
- *   4. Encart "Exclusif abonnés" — 2 tuiles gatées Pro/Max
- *   5. Card large "Découvrir le territoire"
- *
- * Tuile = simple objet config dans le tableau. Ajouter une tuile = ajouter
- * une ligne dans le bon tableau (indispensables / exclusifAbonnes).
- */
-
-interface IndispensableTile {
-  id: string
-  label: string
-  sublabel?: string
-  icon: string                                // chemin vers PNG (ou emoji fallback)
-  isEmoji?: boolean                           // true si icon est un emoji, false = chemin image
-  bg?: string                                 // fond pastel si emoji (icônes PNG ont déjà leur fond)
-  onSelect: () => void
-}
-
-interface ExclusiveTile {
-  id: string
-  badge: string                               // ex: "PROMOTIONS LOCALES"
-  title: string
-  subtitle: string
-  cta: string
-  icon: string                                // chemin PNG ou emoji
-  isEmoji?: boolean
-  color: string                               // accent de la carte
-  bg: string                                  // fond
-  requiredPlan: 'pro' | 'max'
-  comingSoon?: boolean
-}
+import { supabase } from '@/lib/supabase'
+import type { EtablissementType, Evenement } from '@/lib/types'
+import { getPrixAffiche, getNextDropDate, formatCountdown, type Annonce } from '@/lib/annonces'
 
 interface Props {
   onSelectAgenda:        () => void
@@ -63,465 +17,464 @@ interface Props {
   unreadCount?:          number
 }
 
+interface PromoCard {
+  id: string
+  title: string
+  description: string | null
+  image_url: string | null
+  display_image_url: string | null
+  etablissement: { nom: string; commune: string | null } | null
+}
+
+const TILES: { id: string; label: string; sublabel: string; icon: string; color: string; bg: string; click: (p: Props, router: ReturnType<typeof useRouter>) => void }[] = [
+  { id: 'agenda',      label: 'Agenda',      sublabel: 'culturel',      icon: '📅', color: '#2D5A3D', bg: '#E8F2EB', click: p => p.onSelectAgenda() },
+  { id: 'annuaire',    label: 'Annuaire',    sublabel: 'pro',           icon: '🏪', color: '#3A5BC7', bg: '#EEF3FF', click: p => p.onSelectAnnuaire() },
+  { id: 'producteurs', label: 'Producteurs', sublabel: 'vente libre',   icon: '🌱', color: '#2D5A3D', bg: '#E8F2EB', click: p => p.onSelectProducteurs() },
+  { id: 'restos',      label: 'Restos',      sublabel: '& bars',        icon: '🍴', color: '#E8622A', bg: '#FFF0EB', click: p => p.onSelectAnnuaire('restaurant_bar') },
+  { id: 'annonces',    label: 'Annonces',    sublabel: 'locales',       icon: '🏷️', color: '#C0392B', bg: '#FBE9E7', click: (_, r) => r.push('/annonces') },
+]
+
+function dateLabel(iso: string | null): string {
+  if (!iso) return ''
+  const today = new Date(); today.setHours(0,0,0,0)
+  const d = new Date(iso); d.setHours(0,0,0,0)
+  const diff = Math.round((d.getTime() - today.getTime()) / 86400000)
+  if (diff === 0)  return 'Aujourd\'hui'
+  if (diff === 1)  return 'Demain'
+  if (diff === -1) return 'Hier'
+  if (diff > 1 && diff < 7) return d.toLocaleDateString('fr-FR', { weekday: 'long' })
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+}
+
 export default function HubView({
   onSelectAgenda, onSelectAnnuaire, onSelectProducteurs,
   onComingSoon, onUpgradePrompt, onOpenNotifs,
   unreadCount = 0,
 }: Props) {
   const router = useRouter()
-  const { user, profile, isAdmin } = useAuth()
-  const ctx = toUserContext(profile, isAdmin)
+  const { user, profile } = useAuth()
 
-  // Hero : fetch promos actives + rotation aléatoire
-  const [heroPromos, setHeroPromos] = useState<HeroPromo[]>([])
-  const [heroIdx, setHeroIdx] = useState(0)
+  const [heroEvent, setHeroEvent] = useState<Evenement | null>(null)
+  const [todayEvents, setTodayEvents] = useState<Evenement[]>([])
+  const [promos, setPromos] = useState<PromoCard[]>([])
+  const [featuredAnnonce, setFeaturedAnnonce] = useState<Annonce | null>(null)
 
+  // Hero event : cascade admin pin > today > week > random publié
   useEffect(() => {
-    fetch('/api/promotions').then(r => r.ok ? r.json() : null).then(d => {
-      if (!d?.promotions) return
-      // On garde les promos qui ont au moins une image (custom ou fallback etab) OU une description
-      const list = (d.promotions as HeroPromo[]).filter(p => p.display_image_url || p.description)
-      // Mélange aléatoire
-      for (let i = list.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1))
-        ;[list[i], list[j]] = [list[j], list[i]]
+    let mounted = true
+    ;(async () => {
+      const todayISO = new Date().toISOString().slice(0, 10)
+      const inAWeek = new Date(); inAWeek.setDate(inAWeek.getDate() + 7)
+      const weekISO = inAWeek.toISOString().slice(0, 10)
+
+      // 1. Admin pin
+      let { data } = await supabase
+        .from('evenements')
+        .select('*, lieux(*)')
+        .eq('statut', 'publie')
+        .eq('vedette_hub', true)
+        .gte('date_debut', todayISO)
+        .order('date_debut', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+
+      // 2. Du jour
+      if (!data) {
+        const r = await supabase
+          .from('evenements')
+          .select('*, lieux(*)')
+          .eq('statut', 'publie')
+          .eq('date_debut', todayISO)
+          .order('promo_ordre', { ascending: false })
+          .limit(1)
+        data = r.data?.[0] ?? null
       }
-      setHeroPromos(list)
-    }).catch(() => {})
+
+      // 3. De la semaine
+      if (!data) {
+        const r = await supabase
+          .from('evenements')
+          .select('*, lieux(*)')
+          .eq('statut', 'publie')
+          .gte('date_debut', todayISO)
+          .lte('date_debut', weekISO)
+          .order('date_debut', { ascending: true })
+          .limit(1)
+        data = r.data?.[0] ?? null
+      }
+
+      if (mounted) setHeroEvent(data as Evenement | null)
+    })()
+    return () => { mounted = false }
   }, [])
 
+  // Events du jour pour "Aujourd'hui dans le village"
   useEffect(() => {
-    if (heroPromos.length < 2) return
-    const t = setInterval(() => setHeroIdx(i => (i + 1) % heroPromos.length), 3000)
-    return () => clearInterval(t)
-  }, [heroPromos.length])
+    let mounted = true
+    ;(async () => {
+      const today = new Date().toISOString().slice(0, 10)
+      const { data } = await supabase
+        .from('evenements')
+        .select('*, lieux(*)')
+        .eq('statut', 'publie')
+        .or(`date_debut.eq.${today},date_debut.gte.${today}`)
+        .order('date_debut', { ascending: true })
+        .limit(5)
+      if (mounted) setTodayEvents((data ?? []) as Evenement[])
+    })()
+    return () => { mounted = false }
+  }, [])
 
-  const currentHeroPromo = heroPromos[heroIdx] ?? null
+  // Promotions actives
+  useEffect(() => {
+    let mounted = true
+    fetch('/api/promotions')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (mounted && d?.promotions) setPromos(d.promotions.slice(0, 6)) })
+      .catch(() => {})
+    return () => { mounted = false }
+  }, [])
 
-  // ── Tuiles "Mes indispensables" — carrousel horizontal ───────────────────
-  const indispensables: IndispensableTile[] = [
-    { id: 'agenda',       label: 'Agenda',      sublabel: 'culturel',     icon: '/icones/01_agenda_culturel.png',         onSelect: onSelectAgenda },
-    { id: 'annuaire',     label: 'Annuaire',    sublabel: 'pro',          icon: '/icones/02_annuaire_professionnel.png',  onSelect: () => onSelectAnnuaire() },
-    { id: 'producteurs',  label: 'Producteurs', sublabel: 'vente libre',  icon: '/icones/05_producteurs_vente_libre.png', onSelect: onSelectProducteurs },
-    { id: 'restos',       label: 'Restos',      sublabel: '& bars',       icon: '/icones/03_restos_bars.png',             onSelect: () => onSelectAnnuaire('restaurant_bar') },
-    { id: 'hebergements', label: 'Hébergements',                          icon: '/icones/12_hebergements.png',            onSelect: () => onSelectAnnuaire('hebergement') },
-    { id: 'bien-etre',    label: 'Bien-être',   sublabel: 'santé',        icon: '/icones/04_bien_etre.png',               onSelect: () => onSelectAnnuaire('sante_bien_etre') },
-    { id: 'mobilite',     label: 'Mobilité',    sublabel: 'transport',    icon: '/icones/13_mobilite.png',                onSelect: () => onComingSoon('Mobilité & transport') },
-    { id: 'associations', label: 'Assos',       sublabel: '& clubs',      icon: '/icones/10_associations_clubs.png',      onSelect: () => onComingSoon('Associations & clubs') },
-    { id: 'annonces',     label: 'Annonces',    sublabel: 'locales',      icon: '/icones/07_annonces_locales.png',        onSelect: () => router.push('/annonces') },
-    { id: 'idees',        label: 'Boîte',       sublabel: 'à idées',      icon: '/icones/09_boite_idees.png',             onSelect: () => onComingSoon('Boîte à idées') },
-    { id: 'commerces',    label: 'Commerces',   sublabel: 'e-commerce',   icon: '/icones/06_commerces_ecommerce.png',     onSelect: () => onComingSoon('Commerces & e-commerce') },
-  ]
+  // Annonce vedette : admin pin, fallback sponsored, fallback récente
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      // 1. Admin pin
+      let { data } = await supabase
+        .from('annonces')
+        .select('*')
+        .eq('statut', 'active')
+        .eq('vedette_hub', true)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
 
-  // ── Tuiles "Exclusif abonnés" ─────────────────────────────────────────────
-  const exclusiveTiles: ExclusiveTile[] = [
-    {
-      id: 'promotions',
-      badge: 'PROMOTIONS LOCALES',
-      title: 'Des offres rien que pour vous',
-      subtitle: 'Chez vos commerçants partenaires',
-      cta: 'Voir les offres',
-      icon: '/icones/11_promotions_locales.png',
-      color: '#C4622D',
-      bg: '#FFF0E5',
-      requiredPlan: 'pro',
-    },
-    {
-      id: 'encheres',
-      badge: 'ENCHÈRES À VENIR',
-      title: 'Faites de bonnes affaires',
-      subtitle: 'Près de chez vous',
-      cta: 'Découvrir',
-      icon: '/icones/08_encheres_envers.png',
-      color: '#3A5BC7',
-      bg: '#EEF3FF',
-      requiredPlan: 'max',
-      comingSoon: true,
-    },
-  ]
+      // 2. Fallback sponsored
+      if (!data) {
+        const r = await supabase
+          .from('annonces')
+          .select('*')
+          .eq('statut', 'active')
+          .eq('sponsored', true)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+        data = r.data?.[0] ?? null
+      }
 
-  const hasAccess = (requiredPlan: 'pro' | 'max'): boolean => {
-    if (isAdmin) return true
-    if (requiredPlan === 'pro') return ctx.plan === 'pro' || ctx.plan === 'max'
-    return ctx.plan === 'max'
-  }
+      // 3. Fallback enchère récente
+      if (!data) {
+        const r = await supabase
+          .from('annonces')
+          .select('*')
+          .eq('statut', 'active')
+          .eq('type', 'enchere_inversee')
+          .order('created_at', { ascending: false })
+          .limit(1)
+        data = r.data?.[0] ?? null
+      }
 
-  const handleExclusiveClick = (tile: ExclusiveTile) => {
-    if (!hasAccess(tile.requiredPlan)) {
-      onUpgradePrompt(tile.requiredPlan, tile.title)
-      return
-    }
-    onComingSoon(tile.title)
-  }
+      if (mounted) setFeaturedAnnonce(data as Annonce | null)
+    })()
+    return () => { mounted = false }
+  }, [])
 
   return (
     <div style={{
       minHeight: '100%',
-      backgroundColor: 'var(--creme)',
+      backgroundColor: '#F2EBE0',
       fontFamily: 'Inter, sans-serif',
-      paddingBottom: 16,
+      paddingBottom: 24,
     }}>
-
       <style>{`
         .pdv-hscroll { scrollbar-width: none; -webkit-overflow-scrolling: touch; }
         .pdv-hscroll::-webkit-scrollbar { display: none; }
       `}</style>
 
-      {/* ── 1. Header ──────────────────────────────────────────────────────── */}
-      <div style={{ padding: '18px 20px 14px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-        <div>
-          {profile?.display_name && (
-            <p style={{ fontSize: 13, color: '#7A6A5A', margin: '0 0 4px', fontWeight: 600 }}>
-              Bonjour <span style={{ color: 'var(--primary)' }}>{profile.display_name}</span> 👋
-            </p>
-          )}
-          <h1 style={{
-            fontSize: 22, fontWeight: 800,
-            color: '#1A1209', margin: '0 0 2px',
-            letterSpacing: '-0.02em',
-          }}>
-            La Place du Village
-          </h1>
-          <p style={{
-            fontSize: 12, color: '#7A6A5A', margin: 0,
-            fontFamily: 'Lora, serif', fontStyle: 'italic',
-          }}>
-            Tout le village, à portée de main
+      {/* ── 1. Header ─────────────────────────────────────────────────────── */}
+      <div style={{ padding: '18px 18px 8px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#5A4738' }}>
+            Bonjour <span style={{ color: '#2D5A3D', fontWeight: 800 }}>{profile?.display_name || 'visiteur'}</span> 👋
           </p>
+          {user && onOpenNotifs && (
+            <button
+              onClick={onOpenNotifs}
+              style={{
+                position: 'relative', background: '#fff', border: 'none',
+                cursor: 'pointer', width: 38, height: 38, borderRadius: 12,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#3C2C20', boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+              }}
+              aria-label="Notifications"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              {unreadCount > 0 && (
+                <span style={{
+                  position: 'absolute', top: -3, right: -3,
+                  minWidth: 18, height: 18, borderRadius: 9,
+                  backgroundColor: '#E53935', color: '#fff',
+                  fontSize: 10, fontWeight: 800,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '0 4px', border: '1.5px solid #F2EBE0',
+                }}>{unreadCount > 99 ? '99+' : unreadCount}</span>
+              )}
+            </button>
+          )}
         </div>
 
-        {user && onOpenNotifs && (
-          <button
-            onClick={onOpenNotifs}
-            style={{
-              position: 'relative', background: 'none', border: 'none',
-              cursor: 'pointer', padding: 6, color: '#3C2C20',
-            }}
-            aria-label="Notifications"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-            </svg>
-            {unreadCount > 0 && (
-              <span style={{
-                position: 'absolute', top: -2, right: -2,
-                minWidth: 17, height: 17, borderRadius: 9,
-                backgroundColor: '#E53935', color: '#fff',
-                fontSize: 9, fontWeight: 800,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: '0 4px', border: '1.5px solid var(--creme)',
-              }}>
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
-          </button>
-        )}
-      </div>
-
-      {/* ── 2. Hero Promo (carrousel auto-rotate avec fondu) ──────────────── */}
-      <div style={{ padding: '0 16px 22px' }}>
-        <button
-          onClick={() => router.push('/promotions')}
-          style={{
-            width: '100%', border: 'none', cursor: 'pointer',
-            padding: 0, borderRadius: 22, overflow: 'hidden',
-            position: 'relative', minHeight: 150,
-            backgroundColor: '#1A3A2A',
-            boxShadow: '0 4px 18px rgba(45,90,61,0.18)',
-            fontFamily: 'Inter, sans-serif',
-            textAlign: 'left',
-          }}
-        >
-          {/* Layer animé (image + texte) — fond avec AnimatePresence */}
-          <AnimatePresence mode="sync">
-            <motion.div
-              key={currentHeroPromo?.id ?? 'default'}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.7, ease: 'easeInOut' }}
-              style={{
-                position: 'absolute', inset: 0,
-                background: currentHeroPromo?.display_image_url
-                  ? `linear-gradient(180deg, rgba(26,58,42,0.45) 0%, rgba(26,58,42,0.85) 90%), url(${currentHeroPromo.display_image_url}) center/cover`
-                  : 'linear-gradient(135deg, #1A3A2A 0%, #2D5A3D 60%, #3F7A52 100%)',
-              }}
-            >
-              {/* Décorations background si pas d'image */}
-              {!currentHeroPromo?.display_image_url && (
-                <>
-                  <div style={{ position: 'absolute', right: -20, top: -20, width: 140, height: 140, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.05)' }} />
-                  <div style={{ position: 'absolute', right: 40, bottom: 16, fontSize: 64, opacity: 0.15 }}>🎁</div>
-                </>
-              )}
-
-              <div style={{ position: 'relative', padding: '18px 18px 16px', color: '#fff' }}>
-                <span style={{
-                  display: 'inline-block', fontSize: 9, fontWeight: 800,
-                  letterSpacing: '0.08em', textTransform: 'uppercase',
-                  backgroundColor: 'rgba(255,255,255,0.18)', padding: '3px 10px',
-                  borderRadius: 999, marginBottom: 10, backdropFilter: 'blur(4px)',
-                }}>
-                  {currentHeroPromo ? '🎁 Promo en cours' : '✨ Promotions locales'}
-                </span>
-                <p style={{
-                  fontSize: 18, fontWeight: 800, margin: '0 0 6px',
-                  letterSpacing: '-0.02em', maxWidth: '78%',
-                  textShadow: currentHeroPromo?.display_image_url ? '0 1px 4px rgba(0,0,0,0.5)' : 'none',
-                }}>
-                  {currentHeroPromo?.title ?? 'Vos avantages près de chez vous'}
-                </p>
-                <p style={{
-                  fontSize: 12, color: 'rgba(255,255,255,0.88)',
-                  margin: '0 0 14px', maxWidth: '80%', lineHeight: 1.4,
-                  textShadow: currentHeroPromo?.display_image_url ? '0 1px 3px rgba(0,0,0,0.4)' : 'none',
-                  overflow: 'hidden', textOverflow: 'ellipsis',
-                  display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-                }}>
-                  {currentHeroPromo
-                    ? (currentHeroPromo.etablissement?.nom
-                      ? `${currentHeroPromo.etablissement.nom}${currentHeroPromo.etablissement.commune ? ` · ${currentHeroPromo.etablissement.commune}` : ''}`
-                      : currentHeroPromo.description ?? '')
-                    : 'Profitez d\'offres exclusives chez vos commerçants locaux'}
-                </p>
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  fontSize: 12, fontWeight: 700, color: '#fff',
-                  backgroundColor: 'rgba(255,255,255,0.22)',
-                  padding: '8px 16px', borderRadius: 999,
-                  backdropFilter: 'blur(8px)',
-                }}>
-                  Découvrir les promos →
-                </span>
-              </div>
-            </motion.div>
-          </AnimatePresence>
-
-          {/* Dots indicateurs (hors de l'animation, persistent) */}
-          {heroPromos.length > 1 && (
-            <div style={{ display: 'flex', gap: 4, position: 'absolute', bottom: 12, right: 14, zIndex: 2 }}>
-              {heroPromos.map((_, i) => (
-                <span key={i} style={{
-                  width: i === heroIdx ? 16 : 4, height: 4, borderRadius: 4,
-                  backgroundColor: i === heroIdx ? '#fff' : 'rgba(255,255,255,0.5)',
-                  transition: 'width 0.3s ease',
-                }} />
-              ))}
-            </div>
-          )}
-        </button>
-      </div>
-
-      {/* ── 3. Mes indispensables — Carrousel horizontal ────────────────────── */}
-      <div style={{ marginBottom: 22 }}>
-        <p style={{
-          fontSize: 14, fontWeight: 800, color: '#2C1810',
-          margin: '0 16px 12px', letterSpacing: '-0.01em',
+        <h1 style={{
+          fontSize: 30, fontWeight: 900, letterSpacing: '-0.03em',
+          color: '#1A1209', margin: '6px 0 4px',
+          lineHeight: 1.1,
         }}>
-          Mes indispensables
+          La vie locale
+        </h1>
+        <p style={{ margin: 0, fontSize: 13, color: '#7A6A5A' }}>
+          📍 Saint-Jean-du-Gard et ses alentours
         </p>
-        <div
-          className="pdv-hscroll"
-          style={{
-            display: 'flex', gap: 10, overflowX: 'auto',
-            padding: '4px 16px', scrollSnapType: 'x mandatory',
-          }}
-        >
-          {indispensables.map(tile => (
+      </div>
+
+      {/* ── 2. Hero événement du jour ─────────────────────────────────────── */}
+      {heroEvent && <HeroEvent ev={heroEvent} onClick={() => router.push(`/evenement/${heroEvent.id}`)} />}
+
+      {/* ── 3. Tuiles accès rapide ────────────────────────────────────────── */}
+      <div style={{ padding: '16px 14px 4px' }}>
+        <div style={{ display: 'flex', gap: 8, overflowX: 'auto' }} className="pdv-hscroll">
+          {TILES.map(t => (
             <button
-              key={tile.id}
-              onClick={tile.onSelect}
+              key={t.id}
+              onClick={() => t.click({ onSelectAgenda, onSelectAnnuaire, onSelectProducteurs, onComingSoon, onUpgradePrompt }, router)}
               style={{
-                flexShrink: 0, width: 86,
-                backgroundColor: '#fff', border: 'none',
-                borderRadius: 16, padding: '10px 6px 10px',
-                boxShadow: '0 1px 5px rgba(0,0,0,0.06)',
-                cursor: 'pointer',
+                flex: '0 0 auto',
+                width: 86,
+                padding: '12px 8px 10px',
+                borderRadius: 16, border: 'none',
+                backgroundColor: '#fff',
+                boxShadow: '0 1px 6px rgba(44,28,16,0.06)',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-                fontFamily: 'Inter, sans-serif',
-                scrollSnapAlign: 'start',
-                transition: 'transform 0.12s',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
               }}
-              onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.96)')}
-              onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
-              onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
             >
-              {tile.isEmoji ? (
-                <div style={{
-                  width: 52, height: 52, borderRadius: 14,
-                  backgroundColor: tile.bg ?? '#F5EFE5',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 26,
-                }}>
-                  {tile.icon}
-                </div>
-              ) : (
-                <img
-                  src={tile.icon}
-                  alt={tile.label}
-                  width={56}
-                  height={56}
-                  style={{ display: 'block', objectFit: 'contain' }}
-                />
-              )}
-              <div style={{ textAlign: 'center', lineHeight: 1.2 }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: '#1A1209', margin: 0 }}>
-                  {tile.label}
-                </p>
-                {tile.sublabel && (
-                  <p style={{ fontSize: 9, color: '#7A6A5A', margin: '1px 0 0' }}>
-                    {tile.sublabel}
-                  </p>
-                )}
+              <div style={{
+                width: 40, height: 40, borderRadius: 12,
+                backgroundColor: t.bg, color: t.color,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 20,
+              }}>{t.icon}</div>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: '#1A1209', lineHeight: 1.15 }}>{t.label}</p>
+                <p style={{ margin: '1px 0 0', fontSize: 10, color: '#8A7A6A', lineHeight: 1.15 }}>{t.sublabel}</p>
               </div>
             </button>
           ))}
         </div>
       </div>
 
-      {/* ── 4. Exclusif abonnés ────────────────────────────────────────────── */}
-      <div style={{ padding: '0 16px 22px' }}>
-        <div style={{
-          backgroundColor: '#FFFBF2',
-          border: '1px solid #F0E2C0',
-          borderRadius: 20,
-          padding: '16px 14px 14px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, padding: '0 4px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 16 }}>👑</span>
-              <p style={{ fontSize: 13, fontWeight: 800, color: '#8B6914', margin: 0, letterSpacing: '-0.01em' }}>
-                Exclusif abonnés
-              </p>
-            </div>
-            <span style={{
-              fontSize: 9, fontWeight: 800, letterSpacing: '0.06em',
-              color: PLANS_INFO.max.color, backgroundColor: PLANS_INFO.max.bgColor,
-              padding: '3px 8px', borderRadius: 999,
-            }}>
-              {PLANS_INFO.max.icon} {PLANS_INFO.max.label.toUpperCase()}
-            </span>
-          </div>
-
-          <p style={{ fontSize: 11, color: '#7A6A5A', margin: '0 4px 12px', lineHeight: 1.5 }}>
-            Débloquez tout le potentiel de votre village
-          </p>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            {exclusiveTiles.map(tile => {
-              const access = hasAccess(tile.requiredPlan)
-              const planInfo = PLANS_INFO[tile.requiredPlan as Plan]
-              return (
-                <button
-                  key={tile.id}
-                  onClick={() => handleExclusiveClick(tile)}
-                  style={{
-                    backgroundColor: tile.bg, border: 'none',
-                    borderRadius: 16, padding: '12px 12px 14px',
-                    cursor: 'pointer', textAlign: 'left',
-                    display: 'flex', flexDirection: 'column',
-                    fontFamily: 'Inter, sans-serif',
-                    position: 'relative', minHeight: 150,
-                    opacity: access ? 1 : 0.85,
-                    transition: 'transform 0.12s',
-                  }}
-                  onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.97)')}
-                  onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
-                  onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-                >
-                  {/* Lock badge si pas accès */}
-                  {!access && (
-                    <span style={{
-                      position: 'absolute', top: 8, right: 8,
-                      fontSize: 9, fontWeight: 800,
-                      backgroundColor: planInfo.color, color: '#fff',
-                      padding: '3px 7px', borderRadius: 999,
-                      display: 'flex', alignItems: 'center', gap: 3,
-                    }}>
-                      🔒 {planInfo.label}
-                    </span>
-                  )}
-
-                  {tile.isEmoji ? (
-                    <div style={{ fontSize: 32, marginBottom: 8 }}>{tile.icon}</div>
-                  ) : (
-                    <img
-                      src={tile.icon}
-                      alt={tile.title}
-                      width={56}
-                      height={56}
-                      style={{ display: 'block', marginBottom: 8, objectFit: 'contain' }}
-                    />
-                  )}
-
-                  <p style={{
-                    fontSize: 8, fontWeight: 800, color: tile.color,
-                    letterSpacing: '0.08em', textTransform: 'uppercase',
-                    margin: '0 0 4px',
-                  }}>
-                    {tile.badge}
-                  </p>
-                  <p style={{
-                    fontSize: 13, fontWeight: 800, color: '#1A1209',
-                    margin: '0 0 4px', lineHeight: 1.25, letterSpacing: '-0.01em',
-                  }}>
-                    {tile.title}
-                  </p>
-                  <p style={{
-                    fontSize: 10, color: '#7A6A5A', margin: '0 0 10px',
-                    lineHeight: 1.4, flex: 1,
-                  }}>
-                    {tile.subtitle}
-                  </p>
-                  <span style={{
-                    display: 'inline-block', fontSize: 10, fontWeight: 800,
-                    color: '#fff', backgroundColor: tile.color,
-                    padding: '5px 11px', borderRadius: 999,
-                    alignSelf: 'flex-start',
-                  }}>
-                    {tile.cta} →
-                  </span>
-                </button>
-              )
-            })}
-          </div>
+      {/* ── 4. Aujourd'hui dans le village ────────────────────────────────── */}
+      {todayEvents.length > 0 && (
+        <SectionHeader title="Aujourd'hui dans le village" cta="Voir tout" onCta={onSelectAgenda} />
+      )}
+      {todayEvents.length > 0 && (
+        <div style={{ padding: '0 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {todayEvents.slice(0, 3).map(e => (
+            <Link
+              key={e.id}
+              href={`/evenement/${e.id}`}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: 10, borderRadius: 14,
+                backgroundColor: '#fff', boxShadow: '0 1px 6px rgba(44,28,16,0.05)',
+                textDecoration: 'none', color: 'inherit',
+              }}
+            >
+              <div style={{
+                width: 52, height: 52, flexShrink: 0,
+                borderRadius: 10, overflow: 'hidden',
+                backgroundColor: '#F0EBE3',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 22,
+              }}>
+                {e.image_url
+                  ? <img src={e.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : '🎉'}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#1A1209', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.titre}</p>
+                {e.lieux?.nom && <p style={{ margin: 0, fontSize: 12, color: '#8A7A6A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📍 {e.lieux.nom}</p>}
+                <p style={{ margin: '2px 0 0', fontSize: 11, color: '#2D5A3D', fontWeight: 700 }}>{dateLabel(e.date_debut)}{e.heure && ` · ${e.heure}`}</p>
+              </div>
+              <span style={{ color: '#C8B8A8', fontSize: 18 }}>›</span>
+            </Link>
+          ))}
         </div>
-      </div>
+      )}
 
-      {/* ── 5. Découvrir le territoire ──────────────────────────────────────── */}
-      <div style={{ padding: '0 16px 16px' }}>
-        <p style={{
-          fontSize: 14, fontWeight: 800, color: '#2C1810',
-          margin: '0 0 10px', letterSpacing: '-0.01em',
-        }}>
-          Découvrir le territoire
-        </p>
-        <button
-          onClick={() => onComingSoon('Découvrir le territoire')}
-          style={{
-            width: '100%', border: 'none', cursor: 'pointer',
-            padding: '14px 16px', borderRadius: 18, overflow: 'hidden',
-            background: 'linear-gradient(135deg, #E8F2EB 0%, #C7DCC9 100%)',
-            boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
-            position: 'relative', minHeight: 90,
-            display: 'flex', alignItems: 'center', gap: 14,
-            fontFamily: 'Inter, sans-serif', textAlign: 'left',
-          }}
-        >
-          <div style={{ fontSize: 40, flexShrink: 0 }}>🏞️</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: 14, fontWeight: 800, color: '#1A3A2A', margin: '0 0 3px', letterSpacing: '-0.01em' }}>
-              Balades, patrimoine, villages…
-            </p>
-            <p style={{ fontSize: 11, color: '#3F7A52', margin: 0, lineHeight: 1.4 }}>
-              Explorez tout ce que notre territoire a à vous offrir
-            </p>
+      {/* ── 5. Bons plans (promotions) ────────────────────────────────────── */}
+      {promos.length > 0 && (
+        <>
+          <SectionHeader title="🎁 Bons plans autour de vous" cta="Voir tout" onCta={() => router.push('/?tab=favoris')} />
+          <div style={{ overflowX: 'auto', padding: '0 14px 4px' }} className="pdv-hscroll">
+            <div style={{ display: 'flex', gap: 10 }}>
+              {promos.map(p => (
+                <Link
+                  key={p.id}
+                  href={p.etablissement ? `/etablissement/${(p as unknown as { etablissement_id: string }).etablissement_id}` : '/'}
+                  style={{
+                    flex: '0 0 156px',
+                    borderRadius: 14, overflow: 'hidden',
+                    backgroundColor: '#fff', boxShadow: '0 1px 6px rgba(44,28,16,0.05)',
+                    textDecoration: 'none', color: 'inherit',
+                  }}
+                >
+                  <div style={{
+                    height: 92, backgroundColor: '#F0EBE3',
+                    backgroundImage: p.display_image_url ? `url(${p.display_image_url})` : undefined,
+                    backgroundSize: 'cover', backgroundPosition: 'center',
+                    position: 'relative',
+                  }}>
+                    <span style={{
+                      position: 'absolute', top: 6, left: 6,
+                      backgroundColor: '#E8622A', color: '#fff',
+                      fontSize: 10, fontWeight: 800,
+                      padding: '3px 8px', borderRadius: 999,
+                    }}>BON PLAN</span>
+                  </div>
+                  <div style={{ padding: 10 }}>
+                    <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: '#1A1209', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</p>
+                    {p.etablissement?.nom && <p style={{ margin: '2px 0 0', fontSize: 11, color: '#8A7A6A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.etablissement.nom}</p>}
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
-          <span style={{ color: '#3F7A52', fontSize: 20, flexShrink: 0 }}>›</span>
-        </button>
-      </div>
+        </>
+      )}
 
+      {/* ── 6. Annonce vedette / Enchère ──────────────────────────────────── */}
+      {featuredAnnonce && (
+        <>
+          <SectionHeader title="📉 Les prix baissent" cta="Voir les annonces" onCta={() => router.push('/annonces')} />
+          <div style={{ padding: '0 14px' }}>
+            <Link
+              href={`/annonces/${featuredAnnonce.id}`}
+              style={{
+                display: 'flex', gap: 12, alignItems: 'center',
+                padding: 12, borderRadius: 16,
+                backgroundColor: '#fff', boxShadow: '0 1px 6px rgba(44,28,16,0.06)',
+                textDecoration: 'none', color: 'inherit',
+              }}
+            >
+              <div style={{
+                width: 84, height: 84, flexShrink: 0,
+                borderRadius: 12, overflow: 'hidden',
+                backgroundColor: '#F0EBE3',
+              }}>
+                {featuredAnnonce.photos[0] ? (
+                  <img src={featuredAnnonce.photos[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>🏷️</div>
+                )}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: '#8A7A6A', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {featuredAnnonce.type === 'enchere_inversee' ? 'Enchère inversée' : 'Annonce'}
+                </p>
+                <p style={{ margin: '2px 0', fontSize: 14, fontWeight: 800, color: '#1A1209', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{featuredAnnonce.titre}</p>
+                <p style={{ margin: 0, fontSize: 18, fontWeight: 900, color: '#C0392B', fontVariantNumeric: 'tabular-nums' }}>{getPrixAffiche(featuredAnnonce)}</p>
+                {featuredAnnonce.type === 'enchere_inversee' && <p style={{ margin: '2px 0 0', fontSize: 10, color: '#8A7A6A' }}>Prix actuel</p>}
+              </div>
+              {featuredAnnonce.type === 'enchere_inversee' && (
+                <div style={{
+                  flexShrink: 0,
+                  textAlign: 'right', padding: '8px 10px',
+                  borderRadius: 10, backgroundColor: '#FBE9E7',
+                }}>
+                  <p style={{ margin: 0, fontSize: 9, fontWeight: 700, color: '#8A7A6A', textTransform: 'uppercase' }}>Prochaine baisse</p>
+                  <CountdownInline />
+                </div>
+              )}
+            </Link>
+          </div>
+        </>
+      )}
     </div>
+  )
+}
+
+function HeroEvent({ ev, onClick }: { ev: Evenement; onClick: () => void }) {
+  return (
+    <div style={{ padding: '0 16px' }}>
+      <button
+        onClick={onClick}
+        style={{
+          width: '100%', textAlign: 'left',
+          padding: 0, border: 'none', cursor: 'pointer',
+          borderRadius: 22, overflow: 'hidden',
+          backgroundColor: '#000',
+          position: 'relative',
+          height: 220,
+          boxShadow: '0 8px 28px rgba(44,28,16,0.18)',
+        }}
+      >
+        {ev.image_url ? (
+          <img src={ev.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : (
+          <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #2D5A3D 0%, #1A3A2A 100%)' }} />
+        )}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 30%, rgba(0,0,0,0.8) 100%)' }} />
+
+        <span style={{
+          position: 'absolute', top: 12, left: 12,
+          backgroundColor: '#2D5A3D', color: '#fff',
+          fontSize: 10, fontWeight: 800,
+          padding: '5px 10px', borderRadius: 999,
+          letterSpacing: '0.05em', textTransform: 'uppercase',
+        }}>✦ Événement du jour</span>
+
+        <div style={{ position: 'absolute', bottom: 16, left: 16, right: 16 }}>
+          <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 900, color: '#fff', lineHeight: 1.15 }}>{ev.titre}</h2>
+          <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.92)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            {ev.heure && <span>🕒 {ev.heure}</span>}
+            {ev.lieux?.nom && <span>📍 {ev.lieux.nom}</span>}
+          </p>
+          <span style={{
+            display: 'inline-flex', marginTop: 10,
+            padding: '6px 14px', borderRadius: 999,
+            backgroundColor: 'rgba(255,255,255,0.95)',
+            color: '#1A1209', fontSize: 12, fontWeight: 800,
+          }}>Voir l&apos;événement →</span>
+        </div>
+      </button>
+    </div>
+  )
+}
+
+function SectionHeader({ title, cta, onCta }: { title: string; cta: string; onCta?: () => void }) {
+  return (
+    <div style={{ padding: '20px 18px 10px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+      <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#1A1209' }}>{title}</h3>
+      {cta && (
+        <button onClick={onCta} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#2D5A3D', padding: 0 }}>
+          {cta} →
+        </button>
+      )}
+    </div>
+  )
+}
+
+function CountdownInline() {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(t)
+  }, [])
+  return (
+    <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#C0392B', fontVariantNumeric: 'tabular-nums' }}>
+      {formatCountdown(getNextDropDate(now).getTime() - now.getTime())}
+    </p>
   )
 }

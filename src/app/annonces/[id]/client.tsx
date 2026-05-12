@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
+import { useAdminSession } from '@/hooks/useAdminSession'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import AnnonceForm from '@/components/AnnonceForm'
 import BottomNavBar from '@/components/BottomNavBar'
@@ -71,6 +72,7 @@ export default function AnnoncePageClient({ id }: Props) {
   const router = useRouter()
   const { user, profile } = useAuth()
   const { openAuthModal } = useAuthModal()
+  const isAdmin = useAdminSession()
   const plan = (profile?.plan as Plan) ?? 'basic'
 
   const [annonce, setAnnonce]     = useState<Annonce | null>(null)
@@ -180,6 +182,22 @@ export default function AnnoncePageClient({ id }: Props) {
     const ok = await callApi(`/api/annonces/${id}`, 'DELETE')
     if (ok) router.push('/annonces')
     else setAction(null)
+  }
+
+  async function toggleVedette() {
+    if (!annonce) return
+    setAction('vedette'); setError(null)
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+    if (!token) { setAction(null); return }
+    const res = await fetch(`/api/annonces/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ vedette_hub: !annonce.vedette_hub }),
+    })
+    if (res.ok) { showToast(annonce.vedette_hub ? 'Retiré du hub' : 'Mis en vedette du hub'); await reload() }
+    else { const d = await res.json().catch(() => ({})); setError(d.error ?? 'Erreur') }
+    setAction(null)
   }
 
   if (loading) {
@@ -401,6 +419,16 @@ export default function AnnoncePageClient({ id }: Props) {
                 {action === 'delete' ? '...' : '🗑 Supprimer'}
               </ActionButton>
             </div>
+          </div>
+        )}
+
+        {/* Actions admin */}
+        {isAdmin && (
+          <div style={{ ...cardStyle, border: '2px dashed #E8A627' }}>
+            <p style={{ ...cardLabel, color: '#B07E1F' }}>Admin</p>
+            <ActionButton onClick={toggleVedette} disabled={action === 'vedette'}>
+              {action === 'vedette' ? '...' : annonce.vedette_hub ? '📌 Retirer du hub' : '📌 Mettre en vedette dans le hub'}
+            </ActionButton>
           </div>
         )}
       </div>

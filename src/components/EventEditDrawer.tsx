@@ -184,6 +184,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
 
   const [promotion, setPromotion]         = useState<'basic' | 'pro' | 'max'>('basic')
   const [promoOrdre, setPromoOrdre]       = useState<string>('')
+  const [vedetteHub, setVedetteHub]       = useState<boolean>(false)
 
   const [imageUrl, setImageUrl]           = useState<string | null>(null)
   const [imagePosition, setImagePosition] = useState('50% 50%')
@@ -235,6 +236,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
         setImagePosition(e.image_position ?? '50% 50%')
         setPromotion((e.promotion as 'basic' | 'pro' | 'max') ?? 'basic')
         setPromoOrdre(e.promo_ordre != null ? String(e.promo_ordre) : '')
+        setVedetteHub(!!e.vedette_hub)
         setLieuId(e.lieu_id ?? null)
         if (e.lieux) {
           setLieuNom(e.lieux.nom ?? '')
@@ -336,6 +338,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
         image_url: finalUrl, image_position: imagePosition,
         promotion,
         promo_ordre: promotion === 'max' && promoOrdre !== '' ? parseInt(promoOrdre) : null,
+        vedette_hub: vedetteHub,
       }
       if (lieuId) {
         body.lieu_id = lieuId
@@ -569,6 +572,27 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
             />
           </div>
         )}
+
+        {/* Vedette du hub — admin pin pour l'événement affiché en hero du hub */}
+        <label style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          padding: '12px 14px', borderRadius: 12,
+          backgroundColor: vedetteHub ? '#E8F2EB' : '#F8F4EE',
+          border: vedetteHub ? '1.5px solid #2D5A3D' : '1.5px solid #E5DDD2',
+          cursor: 'pointer',
+        }}>
+          <input
+            type="checkbox" checked={vedetteHub}
+            onChange={e => setVedetteHub(e.target.checked)}
+            style={{ width: 18, height: 18, accentColor: '#2D5A3D' }}
+          />
+          <div style={{ flex: 1 }}>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#1C1917' }}>📌 Vedette du hub</p>
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: '#8A7A6A' }}>
+              Affiché en hero sur l&apos;écran d&apos;accueil de l&apos;app.
+            </p>
+          </div>
+        </label>
 
         {/* Supprimer — édition uniquement */}
         {evenementId && (

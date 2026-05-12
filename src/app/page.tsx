@@ -35,7 +35,7 @@ const EtablissementPageClient   = dynamic(() => import('@/app/etablissement/[id]
 const defaultFiltres: Filtres = { categories: [], quand: 'toujours' }
 const NAV_H = 62
 
-type NavTab = 'accueil' | 'carte' | 'liste' | 'annonces' | 'favoris' | 'notifs' | 'profil'
+type NavTab = 'accueil' | 'carte' | 'publier' | 'favoris' | 'profil' | 'notifs'
 
 const IconHome = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -49,16 +49,6 @@ const IconCarte = () => (
     <line x1="15" y1="6" x2="15" y2="21"/>
   </svg>
 )
-const IconListe = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-    <line x1="9" y1="6" x2="20" y2="6"/>
-    <line x1="9" y1="12" x2="20" y2="12"/>
-    <line x1="9" y1="18" x2="20" y2="18"/>
-    <circle cx="4.5" cy="6" r="1.5" fill="currentColor" stroke="none"/>
-    <circle cx="4.5" cy="12" r="1.5" fill="currentColor" stroke="none"/>
-    <circle cx="4.5" cy="18" r="1.5" fill="currentColor" stroke="none"/>
-  </svg>
-)
 const IconProfil = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="8" r="4"/>
@@ -70,35 +60,18 @@ const IconCoeur = ({ filled }: { filled?: boolean }) => (
     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
   </svg>
 )
-const IconBell = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-  </svg>
-)
-const IconAnnonces = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
-    <line x1="7" y1="7" x2="7.01" y2="7"/>
+const IconPlus = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="12" y1="5" x2="12" y2="19"/>
+    <line x1="5" y1="12" x2="19" y2="12"/>
   </svg>
 )
 
-const NAV_TABS: { id: NavTab; label: string; Icon: (p: { active: boolean; badge?: number }) => React.JSX.Element }[] = [
+const NAV_TABS: { id: NavTab; label: string; Icon: (p: { active: boolean }) => React.JSX.Element; isFab?: boolean }[] = [
   { id: 'accueil', label: 'Accueil', Icon: () => <IconHome /> },
   { id: 'carte',   label: 'Carte',   Icon: () => <IconCarte /> },
-  { id: 'liste',   label: 'Liste',   Icon: () => <IconListe /> },
-  { id: 'annonces', label: 'Annonces', Icon: () => <IconAnnonces /> },
+  { id: 'publier', label: 'Publier', Icon: () => <IconPlus />, isFab: true },
   { id: 'favoris', label: 'Favoris', Icon: ({ active }) => <IconCoeur filled={active} /> },
-  { id: 'notifs',  label: 'Notifs',  Icon: ({ badge }) => (
-    <div style={{ position: 'relative', display: 'inline-flex' }}>
-      <IconBell />
-      {badge && badge > 0 ? (
-        <span style={{ position: 'absolute', top: -4, right: -5, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: '#E53935', color: '#fff', fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', fontFamily: 'Inter, sans-serif', border: '1.5px solid #fff' }}>
-          {badge > 99 ? '99+' : badge}
-        </span>
-      ) : null}
-    </div>
-  )},
   { id: 'profil',  label: 'Profil',  Icon: () => <IconProfil /> },
 ]
 
@@ -217,6 +190,7 @@ export default function HomePage() {
   const [paramsOpen, setParamsOpen] = useState(false)
   const [commerceFormOpen, setCommerceFormOpen] = useState(false)
   const [infoOpen, setInfoOpen]     = useState(false)
+  const [publishOpen, setPublishOpen] = useState(false)
   const mapDragTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sheetBeforeMapRef = useRef<'peek'|'half'|'full' | null>(null)
 
@@ -433,10 +407,8 @@ export default function HomePage() {
   // Exception : sur le hub ou les onglets statiques, on ne touche pas au navTab
   useEffect(() => {
     if (showHub) return
-    if (sheetMode === 'full') {
-      setNavTab(prev => prev === 'carte' ? 'liste' : prev)
-    } else {
-      setNavTab(prev => (prev === 'profil' || prev === 'favoris' || prev === 'notifs' || prev === 'accueil') ? prev : 'carte')
+    if (sheetMode !== 'full') {
+      setNavTab(prev => (prev === 'profil' || prev === 'favoris' || prev === 'accueil') ? prev : 'carte')
     }
   }, [sheetMode, showHub])
 
@@ -491,21 +463,11 @@ export default function HomePage() {
     if (openProducerIdRef.current) { setOpenProducerIdState(null); openProducerIdRef.current = null }
     if (openEtablissementIdRef.current) { setOpenEtablissementId(null); openEtablissementIdRef.current = null }
     if (tab === 'accueil') { setShowHub(true); setNavTab('accueil'); return }
-    if (tab === 'annonces') { router.push('/annonces'); return }
+    if (tab === 'publier') { setPublishOpen(true); return }
     // Pour tous les autres onglets, on quitte le hub si on y était
     if (showHub) setShowHub(false)
     if (tab === 'profil')  { setNavTab('profil');  return }
     if (tab === 'favoris') { setNavTab('favoris'); return }
-    if (tab === 'liste') {
-      setNavTab('liste')
-      if (navTab !== 'liste') {
-        setSheetMode('full')
-      } else {
-        // cycle : full → half → peek → full
-        setSheetMode(m => m === 'full' ? 'half' : m === 'half' ? 'peek' : 'full')
-      }
-      return
-    }
     setNavTab(tab)
     if (tab === 'carte') setSheetMode('half')
   }
@@ -978,7 +940,7 @@ export default function HomePage() {
       </AnimatePresence>
 
       {/* ProBandeau flottant sur la carte — 2/3 largeur, se fait avaler par le sheet (zIndex 19 < 20) */}
-      {!showHub && proEvents.length > 0 && appMode === 'agenda' && navTab !== 'profil' && navTab !== 'favoris' && navTab !== 'notifs' && (
+      {!showHub && proEvents.length > 0 && appMode === 'agenda' && navTab !== 'profil' && navTab !== 'favoris' && (
         <div style={{
           position: 'absolute', left: 0, right: '33%',
           bottom: NAV_H + sheetPeekH,
@@ -1112,15 +1074,37 @@ export default function HomePage() {
       {commerceFormOpen && <CommerceRequestModal onClose={() => setCommerceFormOpen(false)} />}
       {infoOpen && <AppInfoModal onClose={() => setInfoOpen(false)} />}
 
-      {/* Bottom Nav */}
+      {/* Bottom Nav avec FAB central "Publier" */}
       <nav style={{
         position: 'absolute', bottom: 0, left: 0, right: 0, height: NAV_H,
         backgroundColor: '#fff', borderTop: '1px solid #EDE8E0',
-        display: 'flex', zIndex: 30,
+        display: 'flex', zIndex: 30, alignItems: 'stretch',
       }}>
         {NAV_TABS.map(tab => {
           const active = navTab === tab.id
-          const badge = tab.id === 'notifs' ? notifCount : undefined
+          if (tab.isFab) {
+            return (
+              <div key={tab.id} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                <button
+                  onClick={() => handleNavTab(tab.id)}
+                  style={{
+                    position: 'absolute', top: -22,
+                    width: 60, height: 60, borderRadius: '50%',
+                    border: '4px solid #fff', backgroundColor: 'var(--primary)',
+                    color: '#fff', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 6px 16px rgba(45,90,61,0.35)',
+                  }}
+                  aria-label="Publier"
+                >
+                  <tab.Icon active={active} />
+                </button>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#8A8A8A', fontFamily: 'Inter, sans-serif', marginTop: 30 }}>
+                  {tab.label}
+                </span>
+              </div>
+            )
+          }
           return (
             <button key={tab.id} onClick={() => handleNavTab(tab.id)} style={{
               flex: 1, display: 'flex', flexDirection: 'column',
@@ -1131,7 +1115,7 @@ export default function HomePage() {
               paddingBottom: 4,
               color: active ? 'var(--primary)' : '#8A8A8A',
             }}>
-              <tab.Icon active={active} badge={badge} />
+              <tab.Icon active={active} />
               <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>
                 {tab.label}
               </span>
@@ -1139,6 +1123,60 @@ export default function HomePage() {
           )
         })}
       </nav>
+
+      {/* Modale Publier */}
+      {publishOpen && <PublishChoiceModal onClose={() => setPublishOpen(false)} />}
     </div>
+  )
+}
+
+function PublishChoiceModal({ onClose }: { onClose: () => void }) {
+  const router = useRouter()
+  const choices = [
+    { id: 'event-photo',   icon: '📸', label: 'Photo d\'événement', desc: 'Prendre une photo d\'événement', href: '/capturer' },
+    { id: 'event-saisir',  icon: '✏️',  label: 'Saisir un événement', desc: 'Formulaire texte ou message',  href: '/ajouter' },
+    { id: 'annonce',       icon: '🏷️',  label: 'Une annonce',        desc: 'Vente, troc, don, enchère',     href: '/annonces/nouvelle' },
+  ]
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.5)' }} />
+      <div style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 401,
+        backgroundColor: '#FDFAF6', borderRadius: '24px 24px 0 0',
+        padding: '20px 20px 32px', fontFamily: 'Inter, sans-serif',
+        boxShadow: '0 -8px 30px rgba(0,0,0,0.2)',
+      }}>
+        <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '0 auto 18px' }} />
+        <h3 style={{ margin: '0 0 18px', fontSize: 19, fontWeight: 900, color: '#1A1209', textAlign: 'center' }}>
+          Que veux-tu publier ?
+        </h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {choices.map(c => (
+            <button
+              key={c.id}
+              onClick={() => { onClose(); router.push(c.href) }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 14,
+                padding: '14px 16px', borderRadius: 14,
+                border: '1.5px solid #E5DDD2', backgroundColor: '#fff',
+                cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+              }}
+            >
+              <span style={{
+                width: 44, height: 44, borderRadius: 12, backgroundColor: '#E8F2EB',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 22, flexShrink: 0,
+              }}>{c.icon}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#1A1209' }}>{c.label}</p>
+                <p style={{ margin: '2px 0 0', fontSize: 11, color: '#8A7A6A' }}>{c.desc}</p>
+              </div>
+              <span style={{ color: '#C8B8A8', fontSize: 18 }}>›</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
   )
 }
