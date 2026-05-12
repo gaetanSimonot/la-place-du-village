@@ -49,6 +49,8 @@ export default function ConversationPageClient({ convId }: Props) {
   const [sending, setSending]     = useState(false)
   const [action, setAction]       = useState<string | null>(null)
   const [error, setError]         = useState<string | null>(null)
+  const [hasRated, setHasRated]   = useState(false)
+  const [ratingOpen, setRatingOpen] = useState(false)
 
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -86,8 +88,36 @@ export default function ConversationPageClient({ convId }: Props) {
         .from('profiles').select('user_id, display_name, avatar_url')
         .eq('user_id', otherId).maybeSingle()
       setOther(prof as OtherProfile | null)
+
+      // Si conv closed et user est acheteur → vérifie s'il a déjà noté
+      if (data.conversation.statut === 'closed' && data.conversation.acheteur_id === user.id) {
+        const { data: existing } = await supabase
+          .from('annonces_ratings')
+          .select('id').eq('conversation_id', convId).maybeSingle()
+        setHasRated(!!existing)
+      }
     }
     setLoading(false)
+  }
+
+  async function submitRating(note: number, comment: string) {
+    setAction('rating'); setError(null)
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+    if (!token) { setAction(null); return }
+    const res = await fetch(`/api/annonces/conversations/${convId}/rating`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ note, comment }),
+    })
+    if (res.ok) {
+      setHasRated(true)
+      setRatingOpen(false)
+    } else {
+      const d = await res.json().catch(() => ({}))
+      setError(d.error ?? 'Erreur')
+    }
+    setAction(null)
   }
 
   useEffect(() => {
@@ -358,13 +388,123 @@ export default function ConversationPageClient({ convId }: Props) {
       {isClosed && (
         <div style={{ padding: '14px 16px', textAlign: 'center', backgroundColor: '#E8F2EB', borderTop: '1px solid #C5DCC9' }}>
           <p style={{ margin: 0, fontSize: 13, color: '#2D5A3D', fontWeight: 700 }}>
-            ✓ Vente conclue — conversation fermée
+            ✓ Vente conclue
           </p>
+          {!isVendeur && !hasRated && (
+            <button
+              onClick={() => setRatingOpen(true)}
+              style={{
+                marginTop: 10, padding: '10px 18px', borderRadius: 12,
+                border: 'none', backgroundColor: '#E8A627', color: '#fff',
+                fontSize: 13, fontWeight: 800, fontFamily: 'inherit',
+                cursor: 'pointer',
+              }}
+            >⭐ Noter le vendeur</button>
+          )}
+          {!isVendeur && hasRated && (
+            <p style={{ margin: '6px 0 0', fontSize: 11, color: '#8A7A6A' }}>✓ Vous avez noté ce vendeur</p>
+          )}
         </div>
+      )}
+
+      {ratingOpen && (
+        <RatingModal
+          onCancel={() => setRatingOpen(false)}
+          onSubmit={submitRating}
+          submitting={action === 'rating'}
+        />
       )}
 
       <BottomNavBar />
     </div>
+  )
+}
+
+function RatingModal({
+  onCancel, onSubmit, submitting,
+}: {
+  onCancel: () => void
+  onSubmit: (note: number, comment: string) => void
+  submitting: boolean
+}) {
+  const [note, setNote] = useState(5)
+  const [comment, setComment] = useState('')
+
+  return (
+    <>
+      <div onClick={onCancel} style={{
+        position: 'fixed', inset: 0, zIndex: 100,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+      }} />
+      <div style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 101,
+        backgroundColor: '#FDFAF6', borderRadius: '20px 20px 0 0',
+        padding: '20px 20px 30px',
+        fontFamily: 'Inter, sans-serif',
+        boxShadow: '0 -8px 30px rgba(0,0,0,0.2)',
+      }}>
+        <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '0 auto 16px' }} />
+
+        <h3 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 900, color: '#2C1810', textAlign: 'center' }}>
+          Noter le vendeur
+        </h3>
+        <p style={{ margin: '0 0 18px', fontSize: 12, color: '#8A7A6A', textAlign: 'center' }}>
+          Cette note sera publique sur le profil du vendeur.
+        </p>
+
+        {/* Étoiles */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
+          {[1, 2, 3, 4, 5].map(n => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setNote(n)}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: 36, padding: 4,
+                color: n <= note ? '#E8A627' : '#D8D0C8',
+                transition: 'transform 0.1s',
+              }}
+            >★</button>
+          ))}
+        </div>
+
+        <textarea
+          value={comment}
+          onChange={e => setComment(e.target.value)}
+          rows={3}
+          maxLength={300}
+          placeholder="Commentaire (optionnel)..."
+          style={{
+            width: '100%', padding: '11px 13px', borderRadius: 12,
+            border: '1.5px solid #E5DDD2', fontSize: 13,
+            fontFamily: 'inherit', color: '#1C1917',
+            backgroundColor: '#fff', resize: 'none',
+          }}
+        />
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+          <button
+            onClick={onCancel}
+            style={{
+              flex: 1, padding: '12px 16px', borderRadius: 12,
+              border: '1.5px solid #E5DDD2', backgroundColor: '#fff', color: '#8A7A6A',
+              fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
+            }}
+          >Annuler</button>
+          <button
+            onClick={() => onSubmit(note, comment)}
+            disabled={submitting}
+            style={{
+              flex: 2, padding: '12px 16px', borderRadius: 12,
+              border: 'none', backgroundColor: '#E8A627', color: '#fff',
+              fontSize: 13, fontWeight: 800, fontFamily: 'inherit',
+              cursor: submitting ? 'wait' : 'pointer', opacity: submitting ? 0.6 : 1,
+            }}
+          >{submitting ? '...' : 'Envoyer la note'}</button>
+        </div>
+      </div>
+    </>
   )
 }
 

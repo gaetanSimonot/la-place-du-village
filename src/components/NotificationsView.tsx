@@ -92,6 +92,11 @@ const NOTIF_CONFIG: Record<NotifType, { emoji: string; color: string; label: (n:
     color: '#2D5A3D',
     label: n => `${n.actor_name ?? 'L\'autre partie'} a conclu la vente`,
   },
+  annonce_note_recue: {
+    emoji: '⭐',
+    color: '#E8A627',
+    label: n => `${n.actor_name ?? 'Un acheteur'} vous a noté`,
+  },
 }
 
 function relativeDate(iso: string): string {

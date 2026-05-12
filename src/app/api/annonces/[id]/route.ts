@@ -15,6 +15,8 @@ const EDITABLE_FIELDS = [
   'ville',
   'lat',
   'lng',
+  'remise_main_propre',
+  'garantie_jours',
 ] as const
 
 /**

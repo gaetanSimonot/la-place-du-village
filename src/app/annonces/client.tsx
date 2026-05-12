@@ -47,38 +47,49 @@ export default function AnnoncesPageClient() {
 
   const sponsored = useMemo(() => annonces.filter(a => a.sponsored), [annonces])
   const standard  = useMemo(() => annonces.filter(a => !a.sponsored), [annonces])
+  const hasEnchere = annonces.some(a => a.type === 'enchere_inversee')
 
   return (
     <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', fontFamily: 'Inter, sans-serif', paddingBottom: 80 }}>
       {/* Header sticky */}
       <div style={{ position: 'sticky', top: 0, zIndex: 20, backgroundColor: 'rgba(242,235,224,0.92)', backdropFilter: 'blur(10px)', borderBottom: '1px solid #E5DDD2' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 16px' }}>
-          <button onClick={() => router.push('/')} style={{
-            width: 34, height: 34, borderRadius: 10,
-            backgroundColor: 'rgba(255,255,255,0.8)', border: 'none', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#2D5A3D', fontSize: 18, flexShrink: 0,
-            boxShadow: '0 1px 6px rgba(0,0,0,0.1)',
-          }}>←</button>
-          <h1 style={{ flex: 1, margin: 0, fontSize: 18, fontWeight: 800, color: '#2C1810' }}>Annonces</h1>
-          <Link
-            href="/annonces/messages"
-            style={{
-              padding: '6px 12px', borderRadius: 10,
-              border: '1.5px solid #2D5A3D',
-              color: '#2D5A3D', fontSize: 12, fontWeight: 700,
-              textDecoration: 'none', flexShrink: 0,
-            }}
-          >💬 Mes msg</Link>
+        <div style={{ padding: '14px 16px 6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button onClick={() => router.push('/')} style={{
+              width: 34, height: 34, borderRadius: 10,
+              backgroundColor: 'rgba(255,255,255,0.8)', border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#2D5A3D', fontSize: 18, flexShrink: 0,
+              boxShadow: '0 1px 6px rgba(0,0,0,0.1)',
+            }}>←</button>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: '#2C1810', letterSpacing: '-0.02em' }}>Annonces</h1>
+              <p style={{ margin: 0, fontSize: 12, color: '#8A7A6A' }}>Achetez, vendez, échangez près de chez vous</p>
+            </div>
+            <Link
+              href="/annonces/messages"
+              style={{
+                width: 34, height: 34, borderRadius: 10,
+                backgroundColor: 'rgba(255,255,255,0.8)', border: 'none',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#2D5A3D', fontSize: 16,
+                textDecoration: 'none', flexShrink: 0,
+                boxShadow: '0 1px 6px rgba(0,0,0,0.1)',
+              }}
+              title="Mes messages"
+            >💬</Link>
+          </div>
           <Link
             href="/annonces/nouvelle"
             style={{
-              padding: '8px 14px', borderRadius: 999,
-              backgroundColor: '#2D5A3D',
-              color: '#fff', fontSize: 12, fontWeight: 800,
-              textDecoration: 'none', flexShrink: 0,
+              display: 'block', marginTop: 10,
+              padding: '10px 16px', borderRadius: 12,
+              backgroundColor: '#2D5A3D', color: '#fff',
+              fontSize: 13, fontWeight: 800,
+              textDecoration: 'none', textAlign: 'center',
+              boxShadow: '0 4px 14px rgba(45,90,61,0.25)',
             }}
-          >+ Publier</Link>
+          >+ Publier une annonce</Link>
         </div>
 
         <AnnonceFilters
@@ -91,7 +102,8 @@ export default function AnnoncesPageClient() {
         />
       </div>
 
-      <div style={{ padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* Liste */}
+      <div style={{ padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
             <div style={{ width: 28, height: 28, borderRadius: '50%', border: '4px solid #E0D8CE', borderTopColor: '#2D5A3D', animation: 'spin 0.7s linear infinite' }} />
@@ -103,17 +115,42 @@ export default function AnnoncesPageClient() {
           </div>
         ) : (
           <>
-            {sponsored.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {sponsored.map(a => <AnnonceCard key={a.id} annonce={a} />)}
-              </div>
-            )}
+            {sponsored.map(a => <AnnonceCard key={a.id} annonce={a} />)}
             {standard.map(a => <AnnonceCard key={a.id} annonce={a} />)}
+
+            {/* Card explicative enchères à l'envers */}
+            {hasEnchere && <EnchereExplainCard />}
           </>
         )}
       </div>
 
       <BottomNavBar />
+    </div>
+  )
+}
+
+function EnchereExplainCard() {
+  return (
+    <div style={{
+      marginTop: 6,
+      padding: '14px 16px',
+      borderRadius: 18,
+      background: 'linear-gradient(135deg, #E8F2EB 0%, #F2EBE0 100%)',
+      border: '1.5px solid #C5DCC9',
+      display: 'flex', alignItems: 'center', gap: 14,
+    }}>
+      <div style={{ width: 56, height: 56, borderRadius: 14, backgroundColor: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2D5A3D" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 20l4-6 4 3 7-9"/>
+          <path d="M17 8h4v4"/>
+        </svg>
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#2D5A3D' }}>Enchères à l&apos;envers</p>
+        <p style={{ margin: '2px 0 0', fontSize: 12, color: '#5A6E60', lineHeight: 1.4 }}>
+          Le prix baisse chaque jour. Plus tu attends, moins c&apos;est cher — mais quelqu&apos;un peut t&apos;avoir devancé.
+        </p>
+      </div>
     </div>
   )
 }

@@ -69,20 +69,22 @@ export async function POST(req: NextRequest) {
   if (err) return NextResponse.json({ error: err }, { status: 400 })
 
   const insert = {
-    user_id:         ctx.userId,
-    type:            body.type,
-    titre:           body.titre.trim(),
-    description:     body.description?.trim() || null,
-    categorie:       body.categorie,
-    photos:          Array.isArray(body.photos) ? body.photos : [],
-    prix_initial:    body.prix_initial ?? null,
-    prix_seuil:      body.prix_seuil ?? null,
-    taux_baisse_pct: body.taux_baisse_pct ?? null,
-    contact_tel:     body.contact_tel?.trim() || null,
-    contact_email:   body.contact_email?.trim() || null,
-    ville:           body.ville?.trim() || null,
-    lat:             body.lat ?? null,
-    lng:             body.lng ?? null,
+    user_id:             ctx.userId,
+    type:                body.type,
+    titre:               body.titre.trim(),
+    description:         body.description?.trim() || null,
+    categorie:           body.categorie,
+    photos:              Array.isArray(body.photos) ? body.photos : [],
+    prix_initial:        body.prix_initial ?? null,
+    prix_seuil:          body.prix_seuil ?? null,
+    taux_baisse_pct:     body.taux_baisse_pct ?? null,
+    contact_tel:         body.contact_tel?.trim() || null,
+    contact_email:       body.contact_email?.trim() || null,
+    ville:               body.ville?.trim() || null,
+    lat:                 body.lat ?? null,
+    lng:                 body.lng ?? null,
+    remise_main_propre:  !!body.remise_main_propre,
+    garantie_jours:      Math.max(0, body.garantie_jours ?? 0),
   }
 
   const { data, error } = await supabaseAdmin

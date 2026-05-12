@@ -43,8 +43,27 @@ export interface Annonce {
   vendu_at: string | null
   sponsored: boolean
   sponsored_until: string | null
+  remise_main_propre: boolean
+  garantie_jours: number
   created_at: string
   updated_at: string
+}
+
+export interface AnnonceRating {
+  id: string
+  conversation_id: string
+  annonce_id: string
+  acheteur_id: string
+  vendeur_id: string
+  note: number
+  comment: string | null
+  created_at: string
+}
+
+export interface VendeurStats {
+  user_id: string
+  note_moyenne: number | null
+  notes_count: number
 }
 
 export interface AnnonceInteret {
@@ -209,6 +228,64 @@ export function formatEuros(n: number): string {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// Enchère inversée — countdown jusqu'à la prochaine baisse (minuit)
+// ──────────────────────────────────────────────────────────────────────────
+
+/**
+ * Retourne la date/heure de la prochaine baisse (minuit suivant).
+ * Le cron tourne à 00:00 chaque nuit.
+ */
+export function getNextDropDate(now: Date = new Date()): Date {
+  const tomorrow = new Date(now)
+  tomorrow.setDate(now.getDate() + 1)
+  tomorrow.setHours(0, 0, 0, 0)
+  return tomorrow
+}
+
+/**
+ * Formate un countdown en "Xh Ym Zs" à partir de millisecondes restantes.
+ */
+export function formatCountdown(ms: number): string {
+  if (ms <= 0) return '0s'
+  const s = Math.floor(ms / 1000)
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = s % 60
+  if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m ${String(sec).padStart(2, '0')}s`
+  if (m > 0) return `${m}m ${String(sec).padStart(2, '0')}s`
+  return `${sec}s`
+}
+
+/**
+ * Combien d'euros perdus à la prochaine baisse.
+ */
+export function getProchaineBaisse(a: Annonce): number {
+  if (a.type !== 'enchere_inversee' || a.prix_actuel == null || a.taux_baisse_pct == null) return 0
+  return Math.round(a.prix_actuel * a.taux_baisse_pct) / 100
+}
+
+/**
+ * Timeline des prix pour graphique : [aujourd'hui, J+1, J+2, ...] jusqu'au seuil.
+ * Max 8 points pour pas charger l'UI.
+ */
+export function getPrixTimeline(a: Annonce, maxPoints = 8): { jour: number; prix: number }[] {
+  if (a.type !== 'enchere_inversee' || a.prix_actuel == null || a.taux_baisse_pct == null) return []
+  const factor = 1 - a.taux_baisse_pct / 100
+  const seuil = a.prix_seuil ?? 0
+  const out: { jour: number; prix: number }[] = []
+  let prix = a.prix_actuel
+  for (let j = 0; j < maxPoints; j++) {
+    out.push({ jour: j, prix: Math.round(prix * 100) / 100 })
+    prix = prix * factor
+    if (prix <= seuil) {
+      out.push({ jour: j + 1, prix: Math.round(Math.max(prix, seuil) * 100) / 100 })
+      break
+    }
+  }
+  return out
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // Enchère inversée — préview de la baisse
 // ──────────────────────────────────────────────────────────────────────────
 
@@ -257,6 +334,8 @@ export interface AnnonceCreateInput {
   ville?: string | null
   lat?: number | null
   lng?: number | null
+  remise_main_propre?: boolean
+  garantie_jours?: number | null
 }
 
 /**

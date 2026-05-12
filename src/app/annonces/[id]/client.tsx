@@ -9,7 +9,10 @@ import AnnonceForm from '@/components/AnnonceForm'
 import BottomNavBar from '@/components/BottomNavBar'
 import {
   getPrixAffiche,
-  getJoursAvantSeuil,
+  getNextDropDate,
+  formatCountdown,
+  getProchaineBaisse,
+  getPrixTimeline,
   getQuotaSponsoring,
   CATEGORIES_LABELS,
   CATEGORIES_ICONS,
@@ -19,18 +22,19 @@ import type { Plan } from '@/lib/capabilities'
 
 interface Props { id: string }
 
-const TYPE_LABELS: Record<Annonce['type'], string> = {
-  vente: 'Vente',
-  troc: 'Troc',
-  don: 'Don',
-  enchere_inversee: 'Enchère',
+const TYPE_INFO: Record<Annonce['type'], { label: string; emoji: string; color: string; bg: string }> = {
+  vente:            { label: 'Vente',             emoji: '🏷️', color: '#3A5BC7', bg: '#EEF3FF' },
+  troc:             { label: 'Troc',              emoji: '🔄', color: '#E8622A', bg: '#FFF0EB' },
+  don:              { label: 'Don',               emoji: '🎁', color: '#2D5A3D', bg: '#E8F2EB' },
+  enchere_inversee: { label: 'Enchère inversée',  emoji: '📉', color: '#C0392B', bg: '#FBE9E7' },
 }
 
-const TYPE_COLORS: Record<Annonce['type'], string> = {
-  vente:            '#3A5BC7',
-  troc:             '#E8622A',
-  don:              '#2D5A3D',
-  enchere_inversee: '#C0392B',
+interface VendeurInfo {
+  display_name: string | null
+  avatar_url: string | null
+  ville: string | null
+  note_moyenne: number | null
+  notes_count: number
 }
 
 interface ConvSummary {
@@ -51,7 +55,7 @@ function timeAgo(d: string) {
   return `${Math.floor(h / 24)}j`
 }
 
-function Avatar({ name, url, size = 32 }: { name: string; url?: string | null; size?: number }) {
+function Avatar({ name, url, size = 44 }: { name: string; url?: string | null; size?: number }) {
   if (url) return <img src={url} alt="" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
   return (
     <div style={{
@@ -70,6 +74,7 @@ export default function AnnoncePageClient({ id }: Props) {
   const plan = (profile?.plan as Plan) ?? 'basic'
 
   const [annonce, setAnnonce]     = useState<Annonce | null>(null)
+  const [vendeur, setVendeur]     = useState<VendeurInfo | null>(null)
   const [loading, setLoading]     = useState(true)
   const [photoIdx, setPhotoIdx]   = useState(0)
   const [editing, setEditing]     = useState(false)
@@ -77,16 +82,27 @@ export default function AnnoncePageClient({ id }: Props) {
   const [error, setError]         = useState<string | null>(null)
   const [toast, setToast]         = useState<string | null>(null)
   const [convs, setConvs]         = useState<ConvSummary[]>([])
-  const [convsLoading, setConvsLoading] = useState(false)
 
-  function showToast(msg: string) {
-    setToast(msg)
-    setTimeout(() => setToast(null), 2200)
-  }
+  function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 2200) }
 
   async function reload() {
     const { data } = await supabase.from('annonces').select('*').eq('id', id).maybeSingle()
     setAnnonce(data as Annonce | null)
+    if (data) await loadVendeur(data.user_id)
+  }
+
+  async function loadVendeur(userId: string) {
+    const [{ data: prof }, { data: stats }] = await Promise.all([
+      supabase.from('profiles').select('display_name, avatar_url, ville').eq('user_id', userId).maybeSingle(),
+      supabase.from('vendeur_stats').select('note_moyenne, notes_count').eq('user_id', userId).maybeSingle(),
+    ])
+    setVendeur({
+      display_name: prof?.display_name ?? null,
+      avatar_url:   prof?.avatar_url ?? null,
+      ville:        (prof as { ville?: string | null })?.ville ?? null,
+      note_moyenne: stats?.note_moyenne ? Number(stats.note_moyenne) : null,
+      notes_count:  stats?.notes_count ?? 0,
+    })
   }
 
   useEffect(() => {
@@ -99,21 +115,16 @@ export default function AnnoncePageClient({ id }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
-  // Si on est owner, charger les conversations entrantes
+  // Conversations (owner only)
   useEffect(() => {
-    if (!user || !annonce) return
-    if (annonce.user_id !== user.id) return
-    setConvsLoading(true)
+    if (!user || !annonce || annonce.user_id !== user.id) return
     ;(async () => {
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
-      if (!token) { setConvsLoading(false); return }
-      const res = await fetch(`/api/annonces/${id}/conversations`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      if (!token) return
+      const res = await fetch(`/api/annonces/${id}/conversations`, { headers: { Authorization: `Bearer ${token}` } })
       const data = await res.json()
       setConvs(data.conversations ?? [])
-      setConvsLoading(false)
     })()
   }, [user, annonce, id])
 
@@ -132,13 +143,10 @@ export default function AnnoncePageClient({ id }: Props) {
     return data
   }
 
-  // Contacter le vendeur → crée/récupère conv → redirect chat
   async function handleContacter() {
     if (!user) { openAuthModal(`/annonces/${id}`); return }
     setAction('contact'); setError(null)
-    const initial = prompt('Votre message au vendeur :', 'Bonjour, votre annonce m\'intéresse.')
-    if (initial === null) { setAction(null); return }
-    const data = await callApi(`/api/annonces/${id}/conversations`, 'POST', { message: initial.trim() })
+    const data = await callApi(`/api/annonces/${id}/conversations`, 'POST', { message: 'Bonjour, votre annonce m\'intéresse.' })
     setAction(null)
     if (data?.conversation) router.push(`/annonces/conversations/${data.conversation.id}`)
   }
@@ -148,24 +156,21 @@ export default function AnnoncePageClient({ id }: Props) {
     setAction('enchere'); setError(null)
     const data = await callApi(`/api/annonces/${id}/prendre-enchere`, 'POST', {})
     setAction(null)
-    // Redirect direct vers le chat avec le vendeur pour finaliser
-    if (data?.conversation_id) {
-      router.push(`/annonces/conversations/${data.conversation_id}`)
-    }
+    if (data?.conversation_id) router.push(`/annonces/conversations/${data.conversation_id}`)
   }
 
   async function handleMarquerVendu() {
     if (!confirm('Marquer comme vendu ? Cette action ferme l\'annonce.')) return
     setAction('vendu'); setError(null)
     const ok = await callApi(`/api/annonces/${id}/marquer-vendu`, 'POST', {})
-    if (ok) { showToast('Annonce marquée vendue'); await reload() }
+    if (ok) { showToast('Annonce vendue'); await reload() }
     setAction(null)
   }
 
   async function handleSponsoriser() {
     setAction('sponsor'); setError(null)
     const ok = await callApi(`/api/annonces/${id}/sponsoriser`, 'POST', {})
-    if (ok) { showToast('Annonce en vedette pendant 5 jours !'); await reload() }
+    if (ok) { showToast('En vedette 5 jours !'); await reload() }
     setAction(null)
   }
 
@@ -196,22 +201,22 @@ export default function AnnoncePageClient({ id }: Props) {
   const isOwner   = user?.id === annonce.user_id
   const isActive  = annonce.statut === 'active'
   const isEnchere = annonce.type === 'enchere_inversee'
-  const joursAvantSeuil = getJoursAvantSeuil(annonce)
+  const info = TYPE_INFO[annonce.type]
+  const photos = annonce.photos
   const quota = getQuotaSponsoring(plan)
   const peutSponsoriser = isOwner && isActive && !annonce.sponsored && quota > 0
-  const typeColor = TYPE_COLORS[annonce.type]
-  const photos = annonce.photos
 
-  // Mode édition
   if (editing && isOwner) {
     return (
       <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', fontFamily: 'Inter, sans-serif', paddingBottom: 80 }}>
-        <div style={{ position: 'sticky', top: 0, zIndex: 20, backgroundColor: 'rgba(242,235,224,0.95)', backdropFilter: 'blur(10px)', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={stickyHeaderStyle}>
           <button onClick={() => setEditing(false)} style={backBtnStyle}>←</button>
           <p style={{ flex: 1, fontWeight: 700, fontSize: 15, color: '#2C1810', margin: 0 }}>Modifier l&apos;annonce</p>
         </div>
         <div style={{ padding: 16 }}>
-          <AnnonceForm initial={annonce} onSuccess={async () => { await reload(); setEditing(false) }} />
+          <div style={cardStyle}>
+            <AnnonceForm initial={annonce} onSuccess={async () => { await reload(); setEditing(false) }} />
+          </div>
         </div>
         <BottomNavBar />
       </div>
@@ -219,13 +224,11 @@ export default function AnnoncePageClient({ id }: Props) {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', fontFamily: 'Inter, sans-serif', paddingBottom: 80 }}>
-      {toast && (
-        <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 999, backgroundColor: '#2C1810', color: '#fff', borderRadius: 14, padding: '10px 20px', fontSize: 13, fontWeight: 600, boxShadow: '0 6px 24px rgba(0,0,0,0.28)' }}>{toast}</div>
-      )}
+    <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', fontFamily: 'Inter, sans-serif', paddingBottom: isActive && !isOwner ? 144 : 80 }}>
+      {toast && <Toast msg={toast} />}
 
-      {/* Header sticky */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 20, backgroundColor: 'rgba(242,235,224,0.92)', backdropFilter: 'blur(10px)', padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+      {/* Header */}
+      <div style={stickyHeaderStyle}>
         <button onClick={() => router.back()} style={backBtnStyle}>←</button>
         <p style={{ flex: 1, fontWeight: 700, fontSize: 15, color: '#2C1810', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{annonce.titre}</p>
         {isOwner && isActive && (
@@ -233,186 +236,302 @@ export default function AnnoncePageClient({ id }: Props) {
         )}
       </div>
 
-      {/* Photo / hero */}
+      {/* Photo hero */}
       <div style={{ position: 'relative', height: 280, backgroundColor: '#F0EBE3', overflow: 'hidden' }}>
         {photos.length > 0
           ? <img src={photos[photoIdx]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 80 }}>{CATEGORIES_ICONS[annonce.categorie]}</div>
-        }
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 18%, rgba(0,0,0,0.15) 48%, rgba(0,0,0,0.78) 100%)' }} />
+          : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 80 }}>{CATEGORIES_ICONS[annonce.categorie]}</div>}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 25%, rgba(0,0,0,0.5) 100%)' }} />
 
         <div style={{ position: 'absolute', top: 12, left: 12, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          <span style={{ backgroundColor: typeColor, color: '#fff', borderRadius: 999, padding: '4px 11px', fontSize: 11, fontWeight: 800, letterSpacing: '0.04em' }}>{TYPE_LABELS[annonce.type]}</span>
-          {annonce.sponsored && <span style={{ backgroundColor: '#E8622A', color: '#fff', borderRadius: 999, padding: '4px 10px', fontSize: 11, fontWeight: 800 }}>✦ En vedette</span>}
-          {annonce.statut === 'vendu'     && <span style={{ backgroundColor: '#3A5BC7', color: '#fff', borderRadius: 999, padding: '4px 10px', fontSize: 11, fontWeight: 800 }}>Vendu</span>}
-          {annonce.statut === 'expiree'   && <span style={{ backgroundColor: '#8A7A6A', color: '#fff', borderRadius: 999, padding: '4px 10px', fontSize: 11, fontWeight: 800 }}>Expirée</span>}
-          {annonce.statut === 'don_final' && <span style={{ backgroundColor: '#2D5A3D', color: '#fff', borderRadius: 999, padding: '4px 10px', fontSize: 11, fontWeight: 800 }}>Don final</span>}
+          <span style={{ backgroundColor: info.color, color: '#fff', borderRadius: 999, padding: '4px 11px', fontSize: 10, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{info.emoji} {info.label}</span>
+          {annonce.sponsored && <span style={{ backgroundColor: '#E8622A', color: '#fff', borderRadius: 999, padding: '4px 10px', fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase' }}>✦ En vedette</span>}
+          {annonce.statut === 'vendu'     && <span style={{ backgroundColor: '#3A5BC7', color: '#fff', borderRadius: 999, padding: '4px 10px', fontSize: 10, fontWeight: 800 }}>VENDU</span>}
+          {annonce.statut === 'expiree'   && <span style={{ backgroundColor: '#8A7A6A', color: '#fff', borderRadius: 999, padding: '4px 10px', fontSize: 10, fontWeight: 800 }}>EXPIRÉE</span>}
+          {annonce.statut === 'don_final' && <span style={{ backgroundColor: '#2D5A3D', color: '#fff', borderRadius: 999, padding: '4px 10px', fontSize: 10, fontWeight: 800 }}>DON FINAL</span>}
         </div>
 
-        {photos.length > 1 && <>
-          <button onClick={() => setPhotoIdx(i => (i - 1 + photos.length) % photos.length)} style={{ position: 'absolute', left: 10, top: '45%', transform: 'translateY(-50%)', width: 32, height: 32, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.55)', border: 'none', color: '#2C1810', cursor: 'pointer', fontSize: 18 }}>‹</button>
-          <button onClick={() => setPhotoIdx(i => (i + 1) % photos.length)} style={{ position: 'absolute', right: 10, top: '45%', transform: 'translateY(-50%)', width: 32, height: 32, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.55)', border: 'none', color: '#2C1810', cursor: 'pointer', fontSize: 18 }}>›</button>
-          <div style={{ position: 'absolute', bottom: 70, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 5 }}>
-            {photos.map((_, i) => (
-              <span key={i} style={{ width: i === photoIdx ? 18 : 5, height: 5, borderRadius: 3, backgroundColor: i === photoIdx ? '#fff' : 'rgba(255,255,255,0.5)', transition: 'width 0.2s' }} />
-            ))}
+        {isEnchere && isActive && (
+          <div style={{
+            position: 'absolute', top: 12, right: 12,
+            padding: '8px 12px', borderRadius: 12,
+            backgroundColor: 'rgba(255,255,255,0.9)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2,
+          }}>
+            <span style={{ fontSize: 9, fontWeight: 700, color: '#8A7A6A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Prochaine baisse</span>
+            <CountdownInline />
           </div>
-        </>}
+        )}
 
-        <div style={{ position: 'absolute', bottom: 18, left: 16, right: 16 }}>
-          <h1 style={{ fontSize: 24, fontWeight: 800, color: '#fff', margin: '0 0 4px', lineHeight: 1.2 }}>{annonce.titre}</h1>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', margin: 0 }}>
+        {photos.length > 1 && (
+          <>
+            <button onClick={() => setPhotoIdx(i => (i - 1 + photos.length) % photos.length)} style={photoNavBtn('left')}>‹</button>
+            <button onClick={() => setPhotoIdx(i => (i + 1) % photos.length)} style={photoNavBtn('right')}>›</button>
+            <div style={{ position: 'absolute', bottom: 18, left: 16, display: 'flex', gap: 5 }}>
+              {photos.map((_, i) => (
+                <span key={i} style={{ width: i === photoIdx ? 18 : 5, height: 5, borderRadius: 3, backgroundColor: i === photoIdx ? '#fff' : 'rgba(255,255,255,0.5)', transition: 'width 0.2s' }} />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      <div style={{ padding: '12px 12px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+        {/* Card prix */}
+        <div style={cardStyle}>
+          <h1 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 900, color: '#2C1810', lineHeight: 1.2 }}>{annonce.titre}</h1>
+          <p style={{ margin: '0 0 12px', fontSize: 12, color: '#8A7A6A' }}>
             {CATEGORIES_ICONS[annonce.categorie]} {CATEGORIES_LABELS[annonce.categorie]}
             {annonce.ville && <> · 📍 {annonce.ville}</>}
           </p>
-        </div>
-      </div>
 
-      {/* Card prix flottante */}
-      <div style={{ position: 'relative', zIndex: 2, marginTop: -38, marginLeft: 12, marginRight: 12, borderRadius: 20, backgroundColor: '#fff', boxShadow: '0 2px 14px rgba(44,28,16,0.1)', padding: '16px 20px' }}>
-        <p style={{ margin: 0, fontSize: 28, fontWeight: 900, color: typeColor, fontVariantNumeric: 'tabular-nums' }}>
-          {getPrixAffiche(annonce)}
-        </p>
-        {isEnchere && isActive && joursAvantSeuil !== null && joursAvantSeuil > 0 && (
-          <p style={{ margin: '6px 0 0', fontSize: 12, color: '#8A7A6A' }}>
-            ↓ {annonce.taux_baisse_pct}%/jour
-            {annonce.prix_seuil != null && ` · seuil ${annonce.prix_seuil}€ dans ~${joursAvantSeuil}j`}
-          </p>
-        )}
-      </div>
-
-      <div style={{ padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-        {/* Description */}
-        {annonce.description && (
-          <div style={CARD}>
-            <h3 style={H3}>Description</h3>
-            <p style={{ fontSize: 14, color: '#4A3728', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>{annonce.description}</p>
-          </div>
-        )}
-
-        {/* Erreur inline */}
-        {error && (
-          <p style={{ margin: 0, padding: 10, borderRadius: 8, backgroundColor: '#FFEBE6', color: '#C0392B', fontSize: 13, fontWeight: 600 }}>{error}</p>
-        )}
-
-        {/* Actions acheteur */}
-        {!isOwner && isActive && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {isEnchere ? (
-              <ActionButton primary disabled={action === 'enchere'} onClick={handlePrendreEnchere}>
-                {action === 'enchere' ? '...' : `🔨 Prendre à ${getPrixAffiche(annonce)}`}
-              </ActionButton>
-            ) : (
-              <ActionButton primary disabled={action === 'contact'} onClick={handleContacter}>
-                {action === 'contact' ? '...' : '💬 Contacter le vendeur'}
-              </ActionButton>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+            <p style={{ margin: 0, fontSize: 30, fontWeight: 900, color: info.color, fontVariantNumeric: 'tabular-nums' }}>
+              {getPrixAffiche(annonce)}
+            </p>
+            {isEnchere && annonce.statut === 'active' && (
+              <span style={{ fontSize: 12, color: '#C0392B', fontWeight: 700 }}>
+                ↘ −{getProchaineBaisse(annonce)} € / jour
+              </span>
             )}
           </div>
+          {isEnchere && <p style={{ margin: '2px 0 0', fontSize: 11, color: '#8A7A6A' }}>Prix actuel — baisse chaque jour à minuit</p>}
+        </div>
+
+        {/* Évolution prix (enchère active) */}
+        {isEnchere && annonce.statut === 'active' && annonce.prix_actuel != null && (
+          <div style={cardStyle}>
+            <p style={cardLabel}>Évolution du prix</p>
+            <PrixTimelineFull annonce={annonce} />
+          </div>
         )}
 
-        {/* Conversations entrantes (owner) */}
-        {isOwner && (
-          <div style={CARD}>
-            <h3 style={H3}>Conversations {convs.length > 0 && `(${convs.length})`}</h3>
-            {convsLoading ? (
-              <p style={{ fontSize: 13, color: '#8A7A6A', margin: 0 }}>Chargement…</p>
-            ) : convs.length === 0 ? (
-              <p style={{ fontSize: 13, color: '#8A7A6A', margin: 0 }}>Aucun acheteur ne vous a encore contacté.</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {convs.map(c => (
-                  <Link
-                    key={c.id}
-                    href={`/annonces/conversations/${c.id}`}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      padding: '10px 4px', borderBottom: '1px solid #F0E8DC',
-                      textDecoration: 'none', color: 'inherit',
-                    }}
-                  >
-                    <Avatar name={c.acheteur?.display_name || '?'} url={c.acheteur?.avatar_url} size={36} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#2C1810', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {c.acheteur?.display_name ?? 'Acheteur'}
-                      </p>
-                      <p style={{ margin: 0, fontSize: 12, color: '#8A7A6A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {c.last_message
-                          ? (c.last_message.kind === 'system_contact' ? '📞 coordonnées partagées' :
-                             c.last_message.kind === 'system_closed' ? '✓ vente conclue' :
-                             c.last_message.content)
-                          : 'Pas de message'}
-                      </p>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                      <span style={{ fontSize: 10, color: '#A89B8C' }}>{timeAgo(c.updated_at)}</span>
-                      {c.unread_count > 0 && (
-                        <span style={{ backgroundColor: '#E53935', color: '#fff', borderRadius: 999, fontSize: 9, fontWeight: 800, padding: '1px 6px', minWidth: 16, textAlign: 'center' }}>
-                          {c.unread_count}
-                        </span>
-                      )}
-                    </div>
-                  </Link>
-                ))}
+        {/* Vendeur */}
+        {vendeur && (
+          <div style={cardStyle}>
+            <p style={cardLabel}>Vendeur</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <Avatar name={vendeur.display_name || '?'} url={vendeur.avatar_url} size={48} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#2C1810' }}>{vendeur.display_name ?? 'Vendeur'}</p>
+                {vendeur.notes_count > 0 && vendeur.note_moyenne != null ? (
+                  <p style={{ margin: '2px 0 0', fontSize: 12, color: '#8A7A6A' }}>
+                    ⭐ {vendeur.note_moyenne.toFixed(1)} <span style={{ color: '#A89B8C' }}>({vendeur.notes_count} avis)</span>
+                  </p>
+                ) : (
+                  <p style={{ margin: '2px 0 0', fontSize: 11, color: '#A89B8C' }}>Pas encore d&apos;avis</p>
+                )}
+              </div>
+            </div>
+
+            {/* Badges annonce */}
+            {(annonce.remise_main_propre || annonce.garantie_jours > 0) && (
+              <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {annonce.remise_main_propre && (
+                  <Badge>🤝 Remise en main propre</Badge>
+                )}
+                {annonce.garantie_jours > 0 && (
+                  <Badge>🛡 Garantie {annonce.garantie_jours}j</Badge>
+                )}
               </div>
             )}
           </div>
         )}
 
-        {/* Actions vendeur */}
-        {isOwner && (
-          <div style={CARD}>
-            <h3 style={H3}>Mon annonce</h3>
+        {/* Description */}
+        {annonce.description && (
+          <div style={cardStyle}>
+            <p style={cardLabel}>À propos</p>
+            <p style={{ fontSize: 14, color: '#4A3728', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>{annonce.description}</p>
+          </div>
+        )}
+
+        {error && (
+          <p style={{ margin: 0, padding: 10, borderRadius: 10, backgroundColor: '#FFEBE6', color: '#C0392B', fontSize: 13, fontWeight: 600 }}>{error}</p>
+        )}
+
+        {/* Conversations entrantes (owner) */}
+        {isOwner && convs.length > 0 && (
+          <div style={cardStyle}>
+            <p style={cardLabel}>Conversations ({convs.length})</p>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {convs.map(c => (
+                <Link key={c.id} href={`/annonces/conversations/${c.id}`} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 0', borderBottom: '1px solid #F0E8DC',
+                  textDecoration: 'none', color: 'inherit',
+                }}>
+                  <Avatar name={c.acheteur?.display_name || '?'} url={c.acheteur?.avatar_url} size={36} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#2C1810', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.acheteur?.display_name ?? 'Acheteur'}</p>
+                    <p style={{ margin: 0, fontSize: 12, color: '#8A7A6A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {c.last_message
+                        ? (c.last_message.kind === 'system_contact' ? '📞 coordonnées partagées' :
+                           c.last_message.kind === 'system_closed'  ? '✓ vente conclue' :
+                           c.last_message.content)
+                        : 'Pas de message'}
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                    <span style={{ fontSize: 10, color: '#A89B8C' }}>{timeAgo(c.updated_at)}</span>
+                    {c.unread_count > 0 && <span style={{ backgroundColor: '#E53935', color: '#fff', borderRadius: 999, fontSize: 9, fontWeight: 800, padding: '1px 6px', minWidth: 16, textAlign: 'center' }}>{c.unread_count}</span>}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Actions owner */}
+        {isOwner && isActive && (
+          <div style={cardStyle}>
+            <p style={cardLabel}>Mon annonce</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {isActive && (
-                <>
-                  <ActionButton onClick={handleMarquerVendu} disabled={action === 'vendu'}>
-                    {action === 'vendu' ? '...' : '✓ Marquer comme vendu'}
-                  </ActionButton>
-                  {peutSponsoriser && (
-                    <ActionButton onClick={handleSponsoriser} disabled={action === 'sponsor'}>
-                      {action === 'sponsor' ? '...' : `✦ Mettre en vedette (5 jours)`}
-                    </ActionButton>
-                  )}
-                </>
+              <ActionButton onClick={handleMarquerVendu} disabled={action === 'vendu'}>
+                {action === 'vendu' ? '...' : '✓ Marquer comme vendu'}
+              </ActionButton>
+              {peutSponsoriser && (
+                <ActionButton onClick={handleSponsoriser} disabled={action === 'sponsor'}>
+                  {action === 'sponsor' ? '...' : `✦ Mettre en vedette (5 jours)`}
+                </ActionButton>
               )}
               <ActionButton danger onClick={handleSupprimer} disabled={action === 'delete'}>
-                {action === 'delete' ? '...' : '🗑 Supprimer cette annonce'}
+                {action === 'delete' ? '...' : '🗑 Supprimer'}
               </ActionButton>
             </div>
           </div>
         )}
       </div>
 
+      {/* Bottom bar fixe — acheteur sur annonce active */}
+      {!isOwner && isActive && (
+        <div style={{
+          position: 'fixed',
+          bottom: 64, left: 0, right: 0,
+          padding: '10px 12px',
+          backgroundColor: 'rgba(253,250,246,0.95)',
+          backdropFilter: 'blur(10px)',
+          borderTop: '1px solid #E5DDD2',
+          display: 'flex', gap: 8,
+          zIndex: 40,
+        }}>
+          <button
+            onClick={() => router.push(`/annonces/${id}#contact`)}
+            style={{
+              padding: '12px 16px', borderRadius: 12,
+              border: '1.5px solid #2D5A3D',
+              backgroundColor: '#fff', color: '#2D5A3D',
+              fontSize: 13, fontWeight: 800, fontFamily: 'inherit',
+              cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}
+            onClickCapture={e => { e.preventDefault(); handleContacter() }}
+          >💬 Contacter</button>
+          <button
+            onClick={isEnchere ? handlePrendreEnchere : handleContacter}
+            disabled={action !== null}
+            style={{
+              flex: 1, padding: '12px 16px', borderRadius: 12, border: 'none',
+              backgroundColor: info.color, color: '#fff',
+              fontSize: 14, fontWeight: 800, fontFamily: 'inherit',
+              cursor: action ? 'wait' : 'pointer', opacity: action ? 0.7 : 1,
+              boxShadow: `0 4px 14px ${info.color}40`,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1,
+            }}
+          >
+            <span>
+              {isEnchere ? `🔨 Acheter à ${getPrixAffiche(annonce)}` : `${info.emoji} ${annonce.type === 'don' ? 'Prendre ce don' : annonce.type === 'troc' ? 'Proposer un troc' : `Acheter à ${getPrixAffiche(annonce)}`}`}
+            </span>
+            {isEnchere && <span style={{ fontSize: 10, opacity: 0.85, fontWeight: 600 }}>avant la prochaine baisse</span>}
+          </button>
+        </div>
+      )}
+
       <BottomNavBar />
     </div>
   )
 }
 
-// ─────────── Styles partagés ───────────
-const CARD: React.CSSProperties = {
-  backgroundColor: '#fff',
-  borderRadius: 16,
-  padding: '16px 18px',
-  boxShadow: '0 1px 8px rgba(44,28,16,0.08)',
+// ───────────── Sub-components ─────────────
+
+function CountdownInline() {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(t)
+  }, [])
+  const ms = getNextDropDate(now).getTime() - now.getTime()
+  return (
+    <span style={{ fontSize: 16, fontWeight: 800, color: '#C0392B', fontVariantNumeric: 'tabular-nums' }}>
+      {formatCountdown(ms)}
+    </span>
+  )
 }
 
-const H3: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 800,
-  color: '#8A7A6A',
-  margin: '0 0 12px',
-  textTransform: 'uppercase',
-  letterSpacing: '0.06em',
+function PrixTimelineFull({ annonce }: { annonce: Annonce }) {
+  const points = getPrixTimeline(annonce, 8)
+  if (points.length < 2) return null
+  const aujourdHui = points[0]
+  const dernier = points[points.length - 1]
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 4, padding: '8px 0 4px' }}>
+        {points.map((p, i) => {
+          const isToday = i === 0
+          return (
+            <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+              <span style={{
+                fontSize: 11, fontWeight: isToday ? 900 : 700,
+                color: isToday ? '#2D5A3D' : '#8A7A6A',
+                fontVariantNumeric: 'tabular-nums',
+              }}>
+                {p.prix.toFixed(p.prix % 1 === 0 ? 0 : 2)}€
+              </span>
+              <div style={{
+                width: '100%', height: isToday ? 14 : 8,
+                borderRadius: 4,
+                backgroundColor: isToday ? '#2D5A3D' : `rgba(232, 98, 42, ${0.6 - i * 0.06})`,
+              }} />
+              <span style={{ fontSize: 9, color: isToday ? '#2D5A3D' : '#A89B8C', fontWeight: isToday ? 800 : 600 }}>
+                {i === 0 ? 'Auj.' : `J+${p.jour}`}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+      {annonce.prix_seuil != null && (
+        <p style={{ margin: '8px 0 0', fontSize: 11, color: '#C0392B', textAlign: 'center' }}>
+          Atteindra le seuil de <b>{annonce.prix_seuil} €</b> au prix de <b>{dernier.prix.toFixed(2)} €</b>
+          {aujourdHui.prix > annonce.prix_seuil && ` dans ~${points.length - 1} jour${points.length > 2 ? 's' : ''}`}
+        </p>
+      )}
+    </div>
+  )
 }
 
-const backBtnStyle: React.CSSProperties = {
-  width: 34, height: 34, borderRadius: 10,
-  backgroundColor: 'rgba(255,255,255,0.8)',
-  border: 'none', cursor: 'pointer',
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  color: '#2D5A3D', fontSize: 18, flexShrink: 0,
-  boxShadow: '0 1px 6px rgba(0,0,0,0.1)',
+function Badge({ children }: { children: React.ReactNode }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      padding: '6px 10px', borderRadius: 999,
+      backgroundColor: '#F5F1EB', color: '#3C2C20',
+      fontSize: 11, fontWeight: 700,
+    }}>{children}</span>
+  )
+}
+
+function Toast({ msg }: { msg: string }) {
+  return (
+    <div style={{
+      position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 999,
+      backgroundColor: '#2C1810', color: '#fff', borderRadius: 14,
+      padding: '10px 20px', fontSize: 13, fontWeight: 600,
+      boxShadow: '0 6px 24px rgba(0,0,0,0.28)',
+    }}>{msg}</div>
+  )
 }
 
 function ActionButton({
@@ -428,24 +547,53 @@ function ActionButton({
   const fg = danger ? '#C0392B' : primary ? '#fff' : '#2C1810'
   const border = danger ? '1.5px solid #FCC' : primary ? 'none' : '1.5px solid #E5DDD2'
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      style={{
-        padding: '13px 18px',
-        borderRadius: 12,
-        border,
-        backgroundColor: bg,
-        color: fg,
-        fontSize: 14,
-        fontWeight: 800,
-        fontFamily: 'inherit',
-        cursor: disabled ? 'wait' : 'pointer',
-        opacity: disabled ? 0.6 : 1,
-      }}
-    >
-      {children}
-    </button>
+    <button type="button" onClick={onClick} disabled={disabled} style={{
+      padding: '12px 16px', borderRadius: 12, border,
+      backgroundColor: bg, color: fg,
+      fontSize: 13, fontWeight: 800, fontFamily: 'inherit',
+      cursor: disabled ? 'wait' : 'pointer', opacity: disabled ? 0.6 : 1,
+    }}>{children}</button>
   )
+}
+
+// ───────────── Styles partagés ─────────────
+const stickyHeaderStyle: React.CSSProperties = {
+  position: 'sticky', top: 0, zIndex: 20,
+  backgroundColor: 'rgba(242,235,224,0.92)',
+  backdropFilter: 'blur(10px)',
+  padding: '12px 16px',
+  display: 'flex', alignItems: 'center', gap: 10,
+}
+
+const backBtnStyle: React.CSSProperties = {
+  width: 34, height: 34, borderRadius: 10,
+  backgroundColor: 'rgba(255,255,255,0.8)', border: 'none', cursor: 'pointer',
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  color: '#2D5A3D', fontSize: 18, flexShrink: 0,
+  boxShadow: '0 1px 6px rgba(0,0,0,0.1)',
+}
+
+const cardStyle: React.CSSProperties = {
+  backgroundColor: '#fff',
+  borderRadius: 16,
+  padding: '16px 18px',
+  boxShadow: '0 1px 8px rgba(44,28,16,0.08)',
+}
+
+const cardLabel: React.CSSProperties = {
+  fontSize: 11, fontWeight: 800, color: '#8A7A6A',
+  margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '0.06em',
+}
+
+function photoNavBtn(side: 'left' | 'right'): React.CSSProperties {
+  return {
+    position: 'absolute',
+    [side]: 10,
+    top: '45%', transform: 'translateY(-50%)',
+    width: 34, height: 34, borderRadius: '50%',
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    border: 'none', color: '#2C1810',
+    cursor: 'pointer', fontSize: 20,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  }
 }
