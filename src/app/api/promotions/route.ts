@@ -61,6 +61,7 @@ export async function GET(req: NextRequest) {
     visiblePromos = data.filter(p => {
       const etab = etabsById[p.etablissement_id]
       if (!etab?.user_id) return false                          // fiche orpheline (release)
+      if (p.user_id !== etab.user_id) return false              // promo creee par un ancien gestionnaire
       const proprio = profileByUser[etab.user_id]
       if (!proprio?.plan) return false                          // proprio n'a plus de profil
       return proprio.plan === 'pro' || proprio.plan === 'max'   // plan actif requis

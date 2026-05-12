@@ -48,6 +48,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Promotion expirée' }, { status: 410 })
   }
 
+  // Sécurité : la promo doit appartenir au gestionnaire actuel de la fiche
+  // (sinon = créateur a release la fiche, ou un nouveau l'a revendiquée)
+  const { data: etab } = await supabaseAdmin
+    .from('etablissements')
+    .select('user_id')
+    .eq('id', promo.etablissement_id)
+    .maybeSingle()
+
+  if (!etab?.user_id || etab.user_id !== promo.user_id) {
+    return NextResponse.json({ error: 'Cette promotion n\'est plus disponible' }, { status: 410 })
+  }
+
   // Check fréquence : récupère la dernière utilisation du user pour cette promo
   const { data: lastUse } = await supabaseAdmin
     .from('promotion_uses')
