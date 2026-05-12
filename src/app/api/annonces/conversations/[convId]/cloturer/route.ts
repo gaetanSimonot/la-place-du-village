@@ -3,15 +3,13 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser, notifyUser } from '@/lib/server-auth'
 
 /**
- * POST — clôt la vente depuis le chat.
+ * POST — clôt la vente depuis le chat. Réservé au vendeur (décision finale).
  *
  * Effets :
  *  - annonce.statut = 'vendu', vendu_at = now()
- *  - conv.statut = 'closed', closed_at = now(), closed_by = ctx.userId
+ *  - conv.statut = 'closed', closed_at = now(), closed_by = vendeur_id
  *  - message-système (kind='system_closed') posté dans la conv
- *  - notif à l'autre membre
- *
- * Accessible aux 2 membres (acheteur ou vendeur).
+ *  - notif à l'acheteur
  */
 export async function POST(
   req: NextRequest,
@@ -28,40 +26,34 @@ export async function POST(
     .maybeSingle()
 
   if (!conv) return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
-  if (conv.acheteur_id !== ctx.userId && conv.vendeur_id !== ctx.userId && !ctx.isAdmin) {
-    return NextResponse.json({ error: 'Interdit' }, { status: 403 })
+  if (conv.vendeur_id !== ctx.userId && !ctx.isAdmin) {
+    return NextResponse.json({ error: 'Seul le vendeur peut conclure la vente' }, { status: 403 })
   }
   if (conv.statut === 'closed') return NextResponse.json({ success: true, alreadyClosed: true })
 
   const now = new Date().toISOString()
-  const isVendeur = conv.vendeur_id === ctx.userId
 
-  // 1. Annonce → vendu
   await supabaseAdmin
     .from('annonces')
     .update({ statut: 'vendu', vendu_at: now })
     .eq('id', conv.annonce_id)
     .eq('statut', 'active')
 
-  // 2. Conv → closed
   await supabaseAdmin
     .from('annonces_conversations')
     .update({ statut: 'closed', closed_at: now, closed_by: ctx.userId })
     .eq('id', convId)
 
-  // 3. Message système
   await supabaseAdmin.from('annonces_messages').insert({
     conversation_id: convId,
     sender_id:       ctx.userId,
     kind:            'system_closed',
-    content:         isVendeur ? 'Le vendeur a conclu la vente.' : 'L\'acheteur a confirmé la vente.',
+    content:         'Le vendeur a conclu la vente.',
   })
 
-  // 4. Notif à l'autre
-  const otherId = isVendeur ? conv.acheteur_id : conv.vendeur_id
-  await notifyUser(otherId, {
+  await notifyUser(conv.acheteur_id, {
     type:        'annonce_vente_close',
-    actor_name:  isVendeur ? 'Le vendeur' : 'L\'acheteur',
+    actor_name:  'Le vendeur',
     target_type: 'conversation',
     target_id:   convId,
   })

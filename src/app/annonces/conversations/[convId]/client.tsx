@@ -299,13 +299,15 @@ export default function ConversationPageClient({ convId }: Props) {
                 📞 Partager mes coordonnées
               </button>
             )}
-            <button
-              onClick={() => callAction('cloturer', 'Confirmer que la vente est conclue ? L\'annonce sera marquée comme vendue.')}
-              disabled={action === 'cloturer'}
-              style={{ ...actionButtonStyle, backgroundColor: '#2D5A3D', color: '#fff', borderColor: '#2D5A3D' }}
-            >
-              ✓ Conclure la vente
-            </button>
+            {isVendeur && (
+              <button
+                onClick={() => callAction('cloturer', 'Confirmer que la vente est conclue ? L\'annonce sera marquée comme vendue.')}
+                disabled={action === 'cloturer'}
+                style={{ ...actionButtonStyle, backgroundColor: '#2D5A3D', color: '#fff', borderColor: '#2D5A3D' }}
+              >
+                ✓ Conclure la vente
+              </button>
+            )}
           </div>
 
           {/* Saisie */}
