@@ -222,7 +222,11 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
       }
     } else {
       const d = await res.json().catch(() => ({}))
-      showToast(d.error ?? 'Erreur lors de la demande')
+      if (d.quotaReached) {
+        showToast('⚠ Quota de revendications atteint ce mois')
+      } else {
+        showToast(d.error ?? 'Erreur lors de la demande')
+      }
     }
   }
 

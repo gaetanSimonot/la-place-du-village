@@ -3,17 +3,16 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser, notifyAdmins, notifyUser } from '@/lib/server-auth'
 import { can } from '@/lib/capabilities'
 
+/** Quota max de claims par user par mois (admin override illimité) */
+const MAX_CLAIMS_PER_MONTH = 3
+
 /**
  * Revendique une fiche établissement.
  *
  * Auto-validation : si l'user a déjà `can('claim_etablissement')` (Pro/Max
  * ou admin), la fiche est immédiatement assignée + prend son plan.
- * L'admin reçoit une notif informative et la trace est gardée dans
- * commerce_requests (traite=true).
  *
- * Si l'user est basic, ce endpoint ne devrait pas être appelé (le
- * frontend ouvre la modale Stripe à la place). Si appelé quand même,
- * on retourne 403.
+ * Quota anti-vandalisme : max 3 claims par mois par user (admin illimité).
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -26,6 +25,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       { error: 'Revendiquer une fiche nécessite un abonnement Pro ou Max' },
       { status: 403 },
     )
+  }
+
+  // Quota check (sauf admin)
+  if (!ctx.isAdmin) {
+    const monthStart = new Date()
+    monthStart.setDate(1)
+    monthStart.setHours(0, 0, 0, 0)
+
+    const { count } = await supabaseAdmin
+      .from('commerce_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', ctx.userId)
+      .eq('type_commerce', 'claim')
+      .gte('created_at', monthStart.toISOString())
+
+    if ((count ?? 0) >= MAX_CLAIMS_PER_MONTH) {
+      return NextResponse.json({
+        error: `Vous avez atteint votre quota de revendications ce mois (${MAX_CLAIMS_PER_MONTH} max). Contactez l'admin pour en demander d'autres.`,
+        quotaReached: true,
+      }, { status: 429 })
+    }
   }
 
   const body = await req.json().catch(() => ({}))

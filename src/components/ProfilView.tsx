@@ -23,6 +23,7 @@ export default function ProfilView() {
   const [nameInput, setNameInput] = useState('')
   const [showUpgrade, setShowUpgrade] = useState(false)
   const [myEtabs, setMyEtabs] = useState<{ id: string; nom: string; plan: string; photos: string[] }[]>([])
+  const [abandonedDrafts, setAbandonedDrafts] = useState<{ id: string; etablissement: { id: string; nom: string; commune: string | null; photos: string[] | null }; updated_at: string }[]>([])
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   const getToken = async () => {
@@ -54,6 +55,17 @@ export default function ProfilView() {
       .then(({ data: p }) => { if (p) setPlan(p.plan ?? null) })
     supabase.from('etablissements').select('id, nom, plan, photos').eq('user_id', user.id)
       .then(({ data }) => { if (data) setMyEtabs(data) })
+
+    // Brouillons abandonnés (drafts d'établissements que l'user ne gère plus)
+    ;(async () => {
+      const t = await getToken()
+      if (!t) return
+      const r = await fetch('/api/profile/drafts', { headers: { Authorization: `Bearer ${t}` } })
+      if (!r.ok) return
+      const d = await r.json()
+      const abandoned = (d.drafts ?? []).filter((x: { managed: boolean }) => !x.managed)
+      setAbandonedDrafts(abandoned)
+    })()
   }, [user?.id])
 
   return (
@@ -311,6 +323,28 @@ export default function ProfilView() {
                             {e.photos?.[0] ? <img src={e.photos[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 14 }}>🏪</span>}
                           </div>
                           <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#1C1917', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.nom}</span>
+                          <span style={{ color: '#C8B8A8', fontSize: 16 }}>›</span>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Brouillons abandonnés — fiches qu'on a déjà gérées, drafts en attente */}
+                  {abandonedDrafts.length > 0 && (
+                    <div style={{ backgroundColor: '#FFFBF2', borderRadius: 16, padding: '14px 16px', border: '1px solid #F0E2C0' }}>
+                      <p style={{ fontSize: 11, fontWeight: 700, color: '#8B6914', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 4px' }}>📝 Mes brouillons</p>
+                      <p style={{ fontSize: 11, color: '#7A6A5A', margin: '0 0 10px', lineHeight: 1.4 }}>
+                        Fiches que vous avez déjà gérées. Vos modifs sont sauvegardées mais ne sont plus publiées. Re-revendiquez pour les remettre en ligne.
+                      </p>
+                      {abandonedDrafts.map(d => (
+                        <Link key={d.id} href={`/etablissement/${d.etablissement.id}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid #F0E2C0' }}>
+                          <div style={{ width: 32, height: 32, borderRadius: 8, overflow: 'hidden', flexShrink: 0, backgroundColor: '#E8F2EB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {d.etablissement.photos?.[0] ? <img src={d.etablissement.photos[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 14 }}>🏪</span>}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: '#1C1917', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{d.etablissement.nom}</span>
+                            <span style={{ fontSize: 10, color: '#9A8A7A' }}>Modifié {new Date(d.updated_at).toLocaleDateString('fr-FR')}</span>
+                          </div>
                           <span style={{ color: '#C8B8A8', fontSize: 16 }}>›</span>
                         </Link>
                       ))}
