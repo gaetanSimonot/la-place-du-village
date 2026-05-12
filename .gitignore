@@ -14,6 +14,9 @@ out/
 dist/
 build/
 
+# TypeScript incremental build cache (généré par tsc --incremental)
+tsconfig.tsbuildinfo
+
 # PWA (générés par next-pwa au build)
 public/sw.js
 public/sw.js.map
