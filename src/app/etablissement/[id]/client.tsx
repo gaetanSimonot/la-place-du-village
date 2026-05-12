@@ -185,6 +185,12 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
     }
   }
 
+  const refreshEtab = async () => {
+    const r = await fetch(`/api/etablissements/${id}`)
+    const d = await r.json()
+    if (d.etablissement) setEtab(d.etablissement)
+  }
+
   // Routing 3-voies pour "Revendiquer cette fiche" :
   // - pas connecté → modal auth
   // - connecté + plan Pro/Max ou admin → claim direct (envoie commerce_request)
@@ -207,7 +213,13 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
       body: JSON.stringify({}),
     })
     if (res.ok) {
-      showToast('✓ Demande envoyée — un admin la validera bientôt')
+      const data = await res.json().catch(() => ({}))
+      if (data.autoApproved) {
+        showToast('🎉 Vous gérez maintenant cette fiche !')
+        await refreshEtab()
+      } else {
+        showToast('✓ Demande envoyée — un admin la validera bientôt')
+      }
     } else {
       const d = await res.json().catch(() => ({}))
       showToast(d.error ?? 'Erreur lors de la demande')
