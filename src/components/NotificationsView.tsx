@@ -97,6 +97,11 @@ const NOTIF_CONFIG: Record<NotifType, { emoji: string; color: string; label: (n:
     color: '#E8A627',
     label: n => `${n.actor_name ?? 'Un acheteur'} vous a noté`,
   },
+  event_published: {
+    emoji: '🎉',
+    color: '#2D5A3D',
+    label: n => `Ton événement est publié : ${n.actor_name ?? 'événement'}`,
+  },
 }
 
 function relativeDate(iso: string): string {
@@ -151,7 +156,7 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
       const membresJson = membresRes.ok ? await membresRes.json() : { membres: [] }
       const claimsJson  = claimsRes.ok  ? await claimsRes.json()  : { demandes: [] }
       const membres = (membresJson.membres ?? []) as { plan: Plan; etablissements: unknown[] }[]
-      const byPlan: Record<Plan, number> = { basic: 0, pro: 0, max: 0 }
+      const byPlan: Record<Plan, number> = { basic: 0, habitants: 0, pro: 0 }
       let withEtab = 0
       membres.forEach(m => {
         if (m.plan in byPlan) byPlan[m.plan]++
@@ -209,6 +214,12 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
     // Notifs annonces (expiration, bascule don) → ouvre la fiche annonce
     if (n.target_type === 'annonce' && n.target_id) {
       router.push(`/annonces/${n.target_id}`)
+      return
+    }
+
+    // Notif "ton événement est publié" → ouvre la fiche event
+    if (n.target_type === 'event' && n.target_id) {
+      router.push(`/evenement/${n.target_id}`)
       return
     }
 

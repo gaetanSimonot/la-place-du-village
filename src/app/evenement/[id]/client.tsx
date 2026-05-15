@@ -372,8 +372,16 @@ export default function EvenementPageClient({ id }: { id: string }) {
             {cat.emoji} {cat.label}
           </span>
           <h2 className="text-2xl font-bold text-[#2C1810] leading-tight">{evt.titre}</h2>
-          {evt.submitted_by_name && (
-            <p className="text-xs text-gray-400 mt-1">Proposé par {evt.submitted_by_name}</p>
+          {evt.submitted_by && evt.submitted_by_name && (
+            <p className="text-xs text-gray-400 mt-1">
+              Proposé par{' '}
+              <Link
+                href={`/profil/${evt.submitted_by}`}
+                className="text-[#C4622D] font-medium hover:underline"
+              >
+                {evt.submitted_by_name}
+              </Link>
+            </p>
           )}
         </div>
 

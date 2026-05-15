@@ -813,7 +813,7 @@ export default function BottomSheet({
           ) : (
             <>
               {(() => {
-                const featured = etablissements.filter(e => e.plan === 'pro' || e.plan === 'max' || e.is_featured)
+                const featured = etablissements.filter(e => e.plan === 'pro' || e.is_featured)
                 if (featured.length === 0) return null
                 if (mode === 'full') return (
                   <div style={{

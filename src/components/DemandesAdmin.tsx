@@ -188,9 +188,9 @@ export default function DemandesAdmin() {
                     {d.requester.display_name ?? '—'}
                     {d.requester.plan && d.requester.plan !== 'basic' && (
                       <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', padding: '1px 6px', borderRadius: 999,
-                        backgroundColor: d.requester.plan === 'max' ? '#FFF0EB' : '#EEF3FF',
-                        color: d.requester.plan === 'max' ? '#E8622A' : '#3A5BC7',
-                      }}>{d.requester.plan}</span>
+                        backgroundColor: d.requester.plan === 'pro' ? '#EEF3FF' : '#E3F1E7',
+                        color: d.requester.plan === 'pro' ? '#3A5BC7' : '#4A8B5C',
+                      }}>{d.requester.plan === 'pro' ? 'Partenaire' : 'Habitants'}</span>
                     )}
                   </p>
                   <p style={{ fontSize: 11, color: '#7A6A5A', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

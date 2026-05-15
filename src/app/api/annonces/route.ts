@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { requireUser } from '@/lib/server-auth'
+import { requireUser, getUserContextFromRequest } from '@/lib/server-auth'
 import {
   isAnnonceType,
   isAnnonceCategorie,
   validateAnnonceInput,
+  getQuotaAnnoncesMois,
+  EARLY_BID_DELAY_HOURS,
   type AnnonceCreateInput,
 } from '@/lib/annonces'
+import { can } from '@/lib/capabilities'
 
 /**
  * GET — liste publique des annonces visibles.
@@ -16,6 +19,9 @@ import {
  * Pagination : ?limit (défaut 50, max 100), ?offset
  *
  * Les sponsorisées (sponsored = true ET sponsored_until > now) sont toujours en tête.
+ *
+ * Accès anticipé enchères : les users sans `early_bid_access` (= basic et anonymes)
+ * ne voient pas les enchères inversées créées dans les EARLY_BID_DELAY_HOURS dernières heures.
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -26,6 +32,10 @@ export async function GET(req: NextRequest) {
   const limit     = Math.min(parseInt(searchParams.get('limit') ?? '50', 10) || 50, 100)
   const offset    = Math.max(parseInt(searchParams.get('offset') ?? '0', 10) || 0, 0)
 
+  // Détermine si le user voit les nouvelles enchères immédiatement
+  const ctx = await getUserContextFromRequest(req)
+  const hasEarlyAccess = ctx ? can(ctx, 'early_bid_access') : false
+
   let query = supabaseAdmin
     .from('annonces')
     .select('*')
@@ -34,6 +44,12 @@ export async function GET(req: NextRequest) {
   if (type && isAnnonceType(type))                query = query.eq('type', type)
   if (categorie && isAnnonceCategorie(categorie)) query = query.eq('categorie', categorie)
   if (ville)                                      query = query.ilike('ville', `%${ville}%`)
+
+  // Délai 12h sur les enchères inversées pour les non-Habitants
+  if (!hasEarlyAccess) {
+    const cutoff = new Date(Date.now() - EARLY_BID_DELAY_HOURS * 60 * 60 * 1000).toISOString()
+    query = query.or(`type.neq.enchere_inversee,created_at.lte.${cutoff}`)
+  }
 
   // Sponsorisées d'abord, puis tri demandé
   query = query.order('sponsored', { ascending: false })
@@ -56,8 +72,9 @@ export async function GET(req: NextRequest) {
  * POST — création d'une annonce.
  *
  * Body : AnnonceCreateInput (voir src/lib/annonces.ts)
- * Le type doit être autorisé par le plan du user (cf canCreateType).
- * expires_at est posé automatiquement par le trigger SQL selon le plan.
+ * Quota mensuel calendaire :
+ *  - basic : 3 / mois calendaire
+ *  - habitants / pro / admin : illimité
  */
 export async function POST(req: NextRequest) {
   const ctx = await requireUser(req)
@@ -67,6 +84,27 @@ export async function POST(req: NextRequest) {
 
   const err = validateAnnonceInput(body, ctx.plan)
   if (err) return NextResponse.json({ error: err }, { status: 400 })
+
+  // Quota mensuel
+  const quota = getQuotaAnnoncesMois(ctx.plan)
+  if (!ctx.isAdmin && Number.isFinite(quota)) {
+    const startOfMonth = new Date()
+    startOfMonth.setDate(1)
+    startOfMonth.setHours(0, 0, 0, 0)
+
+    const { count } = await supabaseAdmin
+      .from('annonces')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', ctx.userId)
+      .gte('created_at', startOfMonth.toISOString())
+
+    if ((count ?? 0) >= quota) {
+      return NextResponse.json({
+        error: `Tu as atteint ta limite de ${quota} annonces ce mois-ci. Passe Habitants pour en publier sans limite.`,
+        upgradeRequired: true,
+      }, { status: 429 })
+    }
+  }
 
   const insert = {
     user_id:             ctx.userId,

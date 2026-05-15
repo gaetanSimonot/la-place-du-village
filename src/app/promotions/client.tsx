@@ -4,8 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
-import { toUserContext, can } from '@/lib/capabilities'
-import { UpgradeModal } from '@/components/HubModals'
+import SubscriptionModal from '@/components/SubscriptionModal'
 import { ETAB_TYPES } from '@/lib/etablissement-types'
 import type { EtablissementType } from '@/lib/types'
 
@@ -39,16 +38,14 @@ const FREQ_LABEL: Record<string, string> = {
 
 export default function PromotionsClient() {
   const router = useRouter()
-  const { user, profile, isAdmin } = useAuth()
+  const { user } = useAuth()
   const { openAuthModal } = useAuthModal()
-  const ctx = toUserContext(profile, isAdmin)
-  const userHasAccess = can(ctx, 'promo_pro')
 
   const [promos, setPromos] = useState<Promotion[]>([])
   const [loading, setLoading] = useState(true)
   const [using, setUsing] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
-  const [showUpgrade, setShowUpgrade] = useState(false)
+  const [upgradePromo, setUpgradePromo] = useState<Promotion | null>(null)
   const [typeFilter, setTypeFilter] = useState<EtablissementType | null>(null)
   const [confirmModal, setConfirmModal] = useState<Promotion | null>(null)
 
@@ -69,10 +66,10 @@ export default function PromotionsClient() {
     setTimeout(() => setToast(null), 3500)
   }
 
-  // Étape 1 : clic "J'en profite" → ouvre la modale de confirmation position
+  // Étape 1 : clic "J'en profite" → ouvre la modale de confirmation position.
+  // Le quota basic (1/mois) est vérifié côté API ; on laisse passer ici.
   const openUseConfirm = (promo: Promotion) => {
     if (!user) { openAuthModal('/promotions'); return }
-    if (!userHasAccess) { setShowUpgrade(true); return }
     setConfirmModal(promo)
   }
 
@@ -92,7 +89,7 @@ export default function PromotionsClient() {
       showToastMsg('✓ Promo enregistrée — bon appétit !')
       fetchPromos()
     } else if (d.upgradeRequired) {
-      setShowUpgrade(true)
+      setUpgradePromo(promo)
     } else {
       showToastMsg(d.error ?? 'Erreur')
     }
@@ -141,19 +138,6 @@ export default function PromotionsClient() {
 
       {/* Liste */}
       <div style={{ padding: '18px 16px 80px' }}>
-
-        {!userHasAccess && user && (
-          <div style={{
-            backgroundColor: '#FEF3E5', border: '1px solid #F0D9B8',
-            borderRadius: 14, padding: '12px 14px', marginBottom: 14,
-            display: 'flex', alignItems: 'center', gap: 10,
-          }}>
-            <span style={{ fontSize: 18 }}>ℹ️</span>
-            <p style={{ fontSize: 12, color: '#7A5614', margin: 0, lineHeight: 1.5, flex: 1 }}>
-              Vous voyez les promos disponibles. Pour en profiter, passez en <strong>Pro ou Max</strong>.
-            </p>
-          </div>
-        )}
 
         {/* Filtres par type d'établissement */}
         {!loading && availableTypes.length > 1 && (
@@ -222,7 +206,6 @@ export default function PromotionsClient() {
                 promo={p}
                 onUse={() => openUseConfirm(p)}
                 disabled={using === p.id}
-                userHasAccess={userHasAccess}
               />
             ))}
           </div>
@@ -252,23 +235,20 @@ export default function PromotionsClient() {
         </div>
       )}
 
-      {showUpgrade && (
-        <UpgradeModal
-          requiredPlan="pro"
-          label="Profiter des promotions locales"
-          onClose={() => setShowUpgrade(false)}
-          onGoToPlan={() => router.push('/profil')}
+      {upgradePromo && (
+        <SubscriptionModal
+          context={{ kind: 'promo', promoTitle: upgradePromo.title }}
+          onClose={() => setUpgradePromo(null)}
         />
       )}
     </div>
   )
 }
 
-function PromoCard({ promo, onUse, disabled, userHasAccess }: {
+function PromoCard({ promo, onUse, disabled }: {
   promo: Promotion
   onUse: () => void
   disabled: boolean
-  userHasAccess: boolean
 }) {
   const router = useRouter()
   return (
@@ -359,14 +339,14 @@ function PromoCard({ promo, onUse, disabled, userHasAccess }: {
           disabled={disabled}
           style={{
             width: '100%', padding: '12px',
-            backgroundColor: userHasAccess ? '#C4622D' : '#9A8A7A',
+            backgroundColor: '#C4622D',
             color: '#fff', border: 'none', borderRadius: 12,
             fontSize: 14, fontWeight: 700, cursor: disabled ? 'default' : 'pointer',
             opacity: disabled ? 0.6 : 1,
             fontFamily: 'Inter, sans-serif',
           }}
         >
-          {disabled ? '…' : userHasAccess ? "🎁 J'en profite" : '🔒 Passer Pro pour en profiter'}
+          {disabled ? '…' : "🎁 J'en profite"}
         </button>
       </div>
     </div>

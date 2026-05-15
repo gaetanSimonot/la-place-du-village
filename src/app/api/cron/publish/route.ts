@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { notifyUser } from '@/lib/server-auth'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,8 +19,22 @@ export async function GET(req: NextRequest) {
     .lte('publish_at', now)
     .eq('statut', 'en_attente')
     .not('publish_at', 'is', null)
-    .select('id, titre')
+    .select('id, titre, submitted_by')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ published: data?.length ?? 0, events: data })
+
+  // Notif "ton événement est publié" à chaque submitted_by
+  const published = data ?? []
+  await Promise.all(
+    published
+      .filter(e => !!e.submitted_by)
+      .map(e => notifyUser(e.submitted_by!, {
+        type: 'event_published',
+        actor_name: e.titre,
+        target_type: 'event',
+        target_id: e.id,
+      })),
+  )
+
+  return NextResponse.json({ published: published.length, events: published })
 }

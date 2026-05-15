@@ -19,7 +19,7 @@ export function etabMarkerSvg(selected: boolean, type: EtablissementType, plan?:
     activite:        '#166534',
   }
   const c        = COLORS[type] ?? '#555'
-  const promoted = plan === 'pro' || plan === 'max' || !!isFeatured
+  const promoted = plan === 'pro' || !!isFeatured
   const starH    = promoted ? 11 : 0   // espace réservé pour l'étoile
   const h        = 36 + starH          // hauteur totale SVG
   const pt       = starH               // décalage vertical du pin

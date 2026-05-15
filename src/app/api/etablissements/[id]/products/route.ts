@@ -50,7 +50,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params
   const ownership = await verifyOwner(req, id)
   if (!ownership) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
-  if (ownership.etab.plan !== 'max') return NextResponse.json({ error: 'Plan Max requis' }, { status: 403 })
+  if (ownership.etab.plan !== 'pro') return NextResponse.json({ error: 'Plan Partenaire Local requis' }, { status: 403 })
 
   const body = await req.json()
   const { data, error } = await supabaseAdmin

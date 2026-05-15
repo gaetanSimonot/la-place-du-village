@@ -154,11 +154,11 @@ export default function MonEspaceProducteur() {
 
   if (loading) return <div style={{ padding: 32, textAlign: 'center', color: '#8A8A8A', fontFamily: 'Inter, sans-serif' }}>Chargement...</div>
 
-  if (plan !== 'max') return (
+  if (plan !== 'pro') return (
     <div style={{ padding: '32px 16px', textAlign: 'center' }}>
-      <div style={{ fontSize: 36, marginBottom: 12 }}>✦</div>
-      <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 18, color: '#2C1810', marginBottom: 8 }}>Plan MAX requis</h2>
-      <p style={{ fontSize: 14, color: '#8A8A8A', lineHeight: 1.6, margin: 0 }}>L&apos;espace producteur est réservé aux membres MAX. Contactez l&apos;administrateur pour accéder à cette fonctionnalité.</p>
+      <div style={{ fontSize: 36, marginBottom: 12 }}>★</div>
+      <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 18, color: '#2C1810', marginBottom: 8 }}>Plan Partenaire Local requis</h2>
+      <p style={{ fontSize: 14, color: '#8A8A8A', lineHeight: 1.6, margin: 0 }}>L&apos;espace producteur est réservé aux Partenaires Locaux. Contactez l&apos;administrateur ou passe Partenaire pour accéder à cette fonctionnalité.</p>
     </div>
   )
 

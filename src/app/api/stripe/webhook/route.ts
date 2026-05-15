@@ -9,15 +9,15 @@ import Stripe from 'stripe'
  *
  * Flux :
  *  - checkout.session.completed :
- *      1. profiles.plan = (pro|max)
+ *      1. profiles.plan = ('habitants' | 'pro')
  *      2. si etab_id fourni en metadata → auto-claim de la fiche (update etab.user_id)
  *         + reset commerce_request.traite=true si pending
- *      3. (legacy back-compat) update etablissements.plan tant que Phase E pas faite
+ *      3. update etablissements.plan pour la fiche concernée
  *
  *  - customer.subscription.deleted :
  *      1. profiles.plan = 'basic'
- *      2. (legacy) reset etablissements.plan='basic' pour les fiches du user
- *      3. Le user garde ses fiches (user_id non touché), juste sans bénéfices Pro/Max
+ *      2. reset etablissements.plan='basic' pour la fiche concernée
+ *      3. Le user garde ses fiches (user_id non touché), juste sans bénéfices Partenaire
  */
 export async function POST(req: NextRequest) {
   const body = await req.text()
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
       if (etab && (!etab.user_id || etab.user_id === user_id)) {
         await supabaseAdmin
           .from('etablissements')
-          .update({ user_id, plan, is_featured: plan === 'pro' || plan === 'max' })
+          .update({ user_id, plan, is_featured: plan === 'pro' })
           .eq('id', etab_id)
 
         // Marque comme traitées toutes les commerce_requests pending de ce user

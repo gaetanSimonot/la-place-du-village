@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { extractWithClaude, geocodeWithGoogle, calcStatut } from '@/lib/extract'
+import { requireUser } from '@/lib/server-auth'
+import { rateLimit } from '@/lib/rateLimit'
 
 // Client service role pour l'upload Storage (contourne les RLS)
 const supabaseAdmin = createClient(
@@ -40,12 +42,18 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { text, image, imageMimeType, source = 'formulaire' } = body
 
-    // Auth : source whatsapp requiert la clé x-wa-key
+    // Auth : source whatsapp requiert la clé x-wa-key, sinon user authentifié + rate-limit
     if (source === 'whatsapp') {
       const waKey = req.headers.get('x-wa-key')
       if (!waKey || waKey !== process.env.WHATSAPP_API_KEY) {
         return NextResponse.json({ error: 'Clé API invalide' }, { status: 401 })
       }
+    } else {
+      const ctx = await requireUser(req)
+      if (ctx instanceof Response) return ctx
+
+      const blocked = await rateLimit(ctx.userId, 'ai_extract', ctx.plan, ctx.isAdmin)
+      if (blocked) return blocked
     }
 
     // Au moins texte ou image requis

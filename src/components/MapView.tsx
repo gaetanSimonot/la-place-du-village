@@ -309,7 +309,7 @@ function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab }: 
     const regularMarkers: google.maps.Marker[] = []
 
     const newMarkers = withLoc.map(e => {
-      const promoted  = e.plan === 'pro' || e.plan === 'max' || e.is_featured
+      const promoted  = e.plan === 'pro' || e.is_featured
       const isSelected = e.id === selectedEtabId
       const iconUrl   = etabMarkerSvg(isSelected, e.type, e.plan, e.is_featured)
       const h         = promoted ? 47 : 36
@@ -424,7 +424,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
         {selectedEtab && selectedEtab.lat && selectedEtab.lng && (() => {
           const typeInfo = ETAB_TYPES[selectedEtab.type]
           const photo    = selectedEtab.photos?.[0]
-          const promoted = selectedEtab.plan === 'pro' || selectedEtab.plan === 'max' || selectedEtab.is_featured
+          const promoted = selectedEtab.plan === 'pro' || selectedEtab.is_featured
           return (
             <InfoWindow
               position={{ lat: selectedEtab.lat, lng: selectedEtab.lng }}

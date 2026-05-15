@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser, notifyUser } from '@/lib/server-auth'
-import { can } from '@/lib/capabilities'
 
 /**
  * POST — l'user clique "J'en profite" sur une promo.
  *
  * Vérifications :
- *  - User a un plan Pro ou Max (can('promo_pro'))
  *  - Promo existe et est active
  *  - Promo pas expirée
- *  - Selon frequency : pas déjà utilisée trop récemment
+ *  - Plan basic : max 1 promo utilisée par mois calendaire (toutes promos confondues)
+ *    → 403 upgradeRequired déclenche le SubscriptionModal côté UI
+ *  - Plan pro/max : illimité
+ *  - Selon frequency : pas déjà utilisée trop récemment (per promo)
  *
  * Effets :
  *  - Insert dans promotion_uses
@@ -23,11 +24,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const ctx = await requireUser(req)
   if (ctx instanceof Response) return ctx
 
-  if (!can(ctx, 'promo_pro')) {
-    return NextResponse.json({
-      error: 'Cette feature nécessite un abonnement Pro ou Max',
-      upgradeRequired: true,
-    }, { status: 403 })
+  // Quota basic : max 1 promo utilisée par mois calendaire (toutes promos confondues).
+  // Au-delà → 403 upgradeRequired → l'UI ouvre le SubscriptionModal.
+  if (ctx.plan === 'basic' && !ctx.isAdmin) {
+    const startOfMonth = new Date()
+    startOfMonth.setDate(1)
+    startOfMonth.setHours(0, 0, 0, 0)
+
+    const { count } = await supabaseAdmin
+      .from('promotion_uses')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', ctx.userId)
+      .gte('used_at', startOfMonth.toISOString())
+
+    if ((count ?? 0) >= 1) {
+      return NextResponse.json({
+        error: 'Tu as déjà profité d\'une promo ce mois-ci. Passe Habitants pour en profiter sans limite.',
+        upgradeRequired: true,
+      }, { status: 403 })
+    }
   }
 
   // Charge la promo

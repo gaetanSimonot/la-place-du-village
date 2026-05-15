@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { extractMultipleWithClaude } from '@/lib/extract'
+import { requireUser } from '@/lib/server-auth'
+import { rateLimit } from '@/lib/rateLimit'
 
 // Extrait les données sans insérer en base — utilisé par le formulaire pour la preview
 export async function POST(req: NextRequest) {
   try {
+    const ctx = await requireUser(req)
+    if (ctx instanceof Response) return ctx
+
+    const blocked = await rateLimit(ctx.userId, 'ai_extract', ctx.plan, ctx.isAdmin)
+    if (blocked) return blocked
+
     const { text, image, imageMimeType } = await req.json()
 
     if (!text?.trim() && !image) {

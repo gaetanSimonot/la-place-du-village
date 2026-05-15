@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUser } from '@/lib/server-auth'
+import { rateLimit } from '@/lib/rateLimit'
 
 export async function POST(req: NextRequest) {
   try {
+    const ctx = await requireUser(req)
+    if (ctx instanceof Response) return ctx
+
+    const blocked = await rateLimit(ctx.userId, 'ai_extract', ctx.plan, ctx.isAdmin)
+    if (blocked) return blocked
+
     const formData = await req.formData()
     const audio = formData.get('audio') as File | null
 

@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   if (ctx instanceof Response) return ctx
 
   const { plan, etabId } = await req.json()
-  if (!plan || !['pro', 'max'].includes(plan)) {
+  if (!plan || !['habitants', 'pro'].includes(plan)) {
     return NextResponse.json({ error: 'Plan invalide' }, { status: 400 })
   }
 
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const priceId = PLAN_PRICES[plan as 'pro' | 'max']
+  const priceId = PLAN_PRICES[plan as 'habitants' | 'pro']
   if (!priceId || priceId.includes('REMPLACER')) {
     return NextResponse.json({ error: `STRIPE_PRICE_${plan.toUpperCase()} non configuré dans Vercel` }, { status: 500 })
   }

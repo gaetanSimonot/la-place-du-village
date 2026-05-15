@@ -12,7 +12,7 @@ interface Props {
   onSelectAnnuaire:      (typeFilter?: EtablissementType) => void
   onSelectProducteurs:   () => void
   onComingSoon:          (label: string) => void
-  onUpgradePrompt:       (requiredPlan: 'pro' | 'max', label: string) => void
+  onUpgradePrompt:       (requiredPlan: 'habitants' | 'pro', label: string) => void
   onOpenNotifs?:         () => void
   unreadCount?:          number
 }

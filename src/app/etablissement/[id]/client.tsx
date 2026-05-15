@@ -12,6 +12,7 @@ import type { Etablissement } from '@/lib/types'
 import { can, toUserContext } from '@/lib/capabilities'
 import { QuotaReachedModal } from '@/components/HubModals'
 import PromotionsManager from '@/components/PromotionsManager'
+import SubscriptionModal from '@/components/SubscriptionModal'
 
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
 const DAY_KEYS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
@@ -29,118 +30,6 @@ function timeAgo(d: string) {
 function Avatar({ name, url, size = 32 }: { name: string; url?: string | null; size?: number }) {
   if (url) return <img src={url} alt="" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
   return <div style={{ width: size, height: size, borderRadius: '50%', backgroundColor: '#2D5A3D', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: size * 0.38, flexShrink: 0 }}>{(name || '?')[0].toUpperCase()}</div>
-}
-
-const PRO_FEATURES = [
-  'Édition complète de votre fiche',
-  'Mise à la une (bandeau tournant)',
-  'Visibilité augmentée sur la carte',
-  'Followers — envoyez des notifications',
-  'Accès à l\'application gestionnaire',
-]
-const MAX_FEATURES = [
-  'Tout le plan Pro',
-  'Splash screen régulier',
-  'Bandeau publicitaire en app',
-  'Intégration newsletter & actualités',
-  'News / actu dynamique sur votre fiche',
-  'Création fiche producteur',
-  'Accès marketplace',
-]
-
-function SubscriptionModal({ etabId, etabNom, onClose }: { etabId: string; etabNom: string; onClose: () => void }) {
-  const [loading, setLoading] = useState<'pro' | 'max' | null>(null)
-  const [error, setError]     = useState<string | null>(null)
-
-  async function selectPlan(plan: 'pro' | 'max') {
-    setLoading(plan); setError(null)
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const token = session?.access_token
-      if (!token) { setError('Connectez-vous pour continuer.'); setLoading(null); return }
-      const res  = await fetch('/api/stripe/create-checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ etabId, plan }),
-      })
-      const data = await res.json()
-      if (data.url) { window.location.href = data.url; return }
-      setError(data.error ?? 'Une erreur est survenue, veuillez réessayer.')
-    } catch {
-      setError('Impossible de contacter le serveur.')
-    }
-    setLoading(null)
-  }
-
-  return (
-    <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.52)' }} />
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 401, backgroundColor: '#FDFAF6', borderRadius: '24px 24px 0 0', padding: '0 0 48px', fontFamily: 'Inter, sans-serif', maxHeight: '92dvh', overflowY: 'auto' }}>
-        <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '16px auto 0' }} />
-
-        <div style={{ padding: '20px 20px 4px' }}>
-          <p style={{ fontWeight: 900, fontSize: 19, color: '#1C1917', margin: '0 0 4px', lineHeight: 1.2 }}>Gérez &laquo;{etabNom}&raquo;</p>
-          <p style={{ fontSize: 13, color: '#8A7A6A', margin: 0, lineHeight: 1.5 }}>Choisissez votre plan pour revendiquer cette fiche et débloquer vos outils.</p>
-        </div>
-
-        <div style={{ display: 'flex', gap: 12, padding: '16px 20px 0' }}>
-
-          {/* Plan Pro */}
-          <div style={{ flex: 1, borderRadius: 20, border: '2px solid #2D5A3D', backgroundColor: '#fff', padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 10, boxShadow: '0 4px 20px rgba(45,90,61,0.10)' }}>
-            <div>
-              <span style={{ fontSize: 10, fontWeight: 800, color: '#2D5A3D', backgroundColor: '#E8F2EB', borderRadius: 999, padding: '3px 10px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Pro</span>
-            </div>
-            <div>
-              <span style={{ fontSize: 28, fontWeight: 900, color: '#1C1917', fontVariantNumeric: 'tabular-nums' }}>9€</span>
-              <span style={{ fontSize: 12, color: '#8A7A6A', marginLeft: 3 }}>/mois</span>
-            </div>
-            <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
-              {PRO_FEATURES.map(f => (
-                <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, fontSize: 12, color: '#3C2C20', lineHeight: 1.4 }}>
-                  <span style={{ color: '#2D5A3D', fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✓</span>{f}
-                </li>
-              ))}
-            </ul>
-            <button
-              onClick={() => selectPlan('pro')}
-              disabled={!!loading}
-              style={{ marginTop: 8, padding: '12px 0', borderRadius: 14, border: 'none', backgroundColor: loading === 'pro' ? '#A0B8A8' : '#2D5A3D', color: '#fff', fontWeight: 700, fontSize: 14, cursor: loading ? 'default' : 'pointer', fontFamily: 'Inter, sans-serif', transition: 'background 0.2s' }}
-            >{loading === 'pro' ? '…' : 'Choisir Pro →'}</button>
-          </div>
-
-          {/* Plan Max */}
-          <div style={{ flex: 1, borderRadius: 20, border: '2px solid #EC407A', backgroundColor: '#fff', padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 10, boxShadow: '0 4px 20px rgba(236,64,122,0.10)', position: 'relative' }}>
-            <div style={{ position: 'absolute', top: -11, right: 14, backgroundColor: '#EC407A', color: '#fff', fontSize: 9, fontWeight: 800, borderRadius: 999, padding: '3px 10px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>✦ Recommandé</div>
-            <div>
-              <span style={{ fontSize: 10, fontWeight: 800, color: '#EC407A', backgroundColor: '#FDE8EF', borderRadius: 999, padding: '3px 10px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Max</span>
-            </div>
-            <div>
-              <span style={{ fontSize: 28, fontWeight: 900, color: '#1C1917', fontVariantNumeric: 'tabular-nums' }}>29€</span>
-              <span style={{ fontSize: 12, color: '#8A7A6A', marginLeft: 3 }}>/mois</span>
-            </div>
-            <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
-              {MAX_FEATURES.map(f => (
-                <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, fontSize: 12, color: '#3C2C20', lineHeight: 1.4 }}>
-                  <span style={{ color: '#EC407A', fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✓</span>{f}
-                </li>
-              ))}
-            </ul>
-            <button
-              onClick={() => selectPlan('max')}
-              disabled={!!loading}
-              style={{ marginTop: 8, padding: '12px 0', borderRadius: 14, border: 'none', backgroundColor: loading === 'max' ? '#E8A0C0' : '#EC407A', color: '#fff', fontWeight: 700, fontSize: 14, cursor: loading ? 'default' : 'pointer', fontFamily: 'Inter, sans-serif', transition: 'background 0.2s' }}
-            >{loading === 'max' ? '…' : 'Choisir Max →'}</button>
-          </div>
-
-        </div>
-
-        {error && (
-          <p style={{ fontSize: 12, color: '#DC2626', textAlign: 'center', margin: '12px 20px 0', padding: '10px 14px', backgroundColor: '#FEF2F2', borderRadius: 12, lineHeight: 1.5 }}>{error}</p>
-        )}
-        <p style={{ fontSize: 11, color: '#AAA', textAlign: 'center', margin: '14px 20px 0', lineHeight: 1.5 }}>Paiement sécurisé par Stripe · Résiliable à tout moment</p>
-      </div>
-    </>
-  )
 }
 
 export default function EtablissementPageClient({ id, onBack }: { id: string; onBack?: () => void }) {
@@ -380,7 +269,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 18%, rgba(0,0,0,0.15) 48%, rgba(0,0,0,0.78) 100%)' }} />
         <div style={{ position: 'absolute', top: 12, left: 12, display: 'flex', gap: 6 }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, backgroundColor: typeInfo.color, color: '#fff', borderRadius: 999, padding: '4px 11px', fontSize: 11, fontWeight: 800, letterSpacing: '0.04em' }}>{typeInfo.emoji} {typeInfo.label.toUpperCase()}</span>
-          {(etab.is_featured || etab.plan === 'pro' || etab.plan === 'max') && <span style={{ backgroundColor: '#F5EFD6', color: '#8B6914', borderRadius: 999, padding: '4px 10px', fontSize: 11, fontWeight: 700 }}>★ À la une</span>}
+          {(etab.is_featured || etab.plan === 'pro') && <span style={{ backgroundColor: '#F5EFD6', color: '#8B6914', borderRadius: 999, padding: '4px 10px', fontSize: 11, fontWeight: 700 }}>★ À la une</span>}
         </div>
         {photos.length > 1 && <>
           <button onClick={() => setPhotoIdx(i => (i - 1 + photos.length) % photos.length)} style={{ position: 'absolute', left: 10, top: '45%', transform: 'translateY(-50%)', width: 30, height: 30, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.55)', border: 'none', color: '#2C1810', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
@@ -485,14 +374,12 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
           </div>
         )}
         {isOwner && (() => {
-          // Le plan affiche celui du USER (profile.plan), pas celui de l'etablissement.
-          // Phase D rebranchera le webhook Stripe sur profiles.plan, on n'aura plus besoin
-          // de fallback. En attendant, on lit le plus haut des deux pour eviter d'afficher
-          // "basic" a un user dont l'admin a force le plan a max.
-          const userPlan = (profile?.plan ?? 'basic') as 'basic'|'pro'|'max'
-          const effectivePlan: 'basic'|'pro'|'max' =
-            userPlan === 'max' ? 'max'
-            : userPlan === 'pro' || etab.plan === 'pro' || etab.plan === 'max' ? 'pro'
+          // Le plan affiche est celui du USER (profile.plan) sinon fallback sur etab.plan
+          // pour absorber un éventuel décalage de sync.
+          const userPlan = (profile?.plan ?? 'basic') as 'basic' | 'habitants' | 'pro'
+          const effectivePlan: 'basic' | 'habitants' | 'pro' =
+            userPlan === 'pro' || etab.plan === 'pro' ? 'pro'
+            : userPlan === 'habitants' ? 'habitants'
             : 'basic'
           const isPaid = effectivePlan !== 'basic'
           return (
@@ -501,9 +388,9 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
                 <div>
                   <p style={{ fontSize: 13, fontWeight: 700, color: '#2D5A3D', margin: '0 0 4px' }}>✓ Vous gérez cette fiche</p>
                   <span style={{ display: 'inline-block', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 999, padding: '2px 8px',
-                    backgroundColor: effectivePlan === 'max' ? '#EC407A' : effectivePlan === 'pro' ? '#2D5A3D' : '#D0C8C0',
+                    backgroundColor: effectivePlan === 'pro' ? '#3A5BC7' : effectivePlan === 'habitants' ? '#4A8B5C' : '#D0C8C0',
                     color: effectivePlan === 'basic' ? '#666' : '#fff',
-                  }}>{effectivePlan}</span>
+                  }}>{effectivePlan === 'pro' ? 'Partenaire' : effectivePlan === 'habitants' ? 'Habitants' : 'Basic'}</span>
                 </div>
                 {isPaid ? (
                   <button onClick={openManage} disabled={manageLoading} style={{ padding: '9px 14px', borderRadius: 10, border: '1.5px solid #2D5A3D', backgroundColor: 'transparent', color: '#2D5A3D', fontSize: 12, fontWeight: 700, cursor: manageLoading ? 'default' : 'pointer', opacity: manageLoading ? 0.6 : 1, fontFamily: 'Inter, sans-serif' }}>
@@ -525,10 +412,10 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
           )
         })()}
 
-        {/* Mes promotions — visible uniquement pour le propriétaire avec un plan Pro/Max */}
+        {/* Mes promotions — visible uniquement pour le Partenaire Local propriétaire */}
         {isOwner && (() => {
-          const userPlan = (profile?.plan ?? 'basic') as 'basic'|'pro'|'max'
-          const canCreatePromo = userPlan === 'pro' || userPlan === 'max' || isAdmin
+          const userPlan = (profile?.plan ?? 'basic') as 'basic'|'habitants'|'pro'
+          const canCreatePromo = userPlan === 'pro' || isAdmin
           if (!canCreatePromo) return null
           return (
             <div style={CARD}>
@@ -584,14 +471,19 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
           ))}
         </div>
 
-        {/* Produits — plan Max uniquement */}
-        {isOwner && etab.plan === 'max' && (
+        {/* Produits — Partenaire Local uniquement (anciennement Max) */}
+        {isOwner && etab.plan === 'pro' && (
           <EtabProductsSection etabId={etab.id} />
         )}
 
       </div>
 
-      {claimOpen && <SubscriptionModal etabId={etab.id} etabNom={etab.nom} onClose={() => setClaimOpen(false)} />}
+      {claimOpen && (
+        <SubscriptionModal
+          context={{ kind: 'claim', etabId: etab.id, etabNom: etab.nom }}
+          onClose={() => setClaimOpen(false)}
+        />
+      )}
       {quotaModalOpen && (
         <QuotaReachedModal
           onClose={() => setQuotaModalOpen(false)}

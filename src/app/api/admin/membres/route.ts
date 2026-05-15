@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   const membres = (users ?? []).map(u => {
     const profile = profileByUser[u.id]
     const producer = producerByUser[u.id] ?? null
-    const plan = profile?.plan ?? (producer?.is_max ? 'max' : 'basic')
+    const plan = profile?.plan ?? (producer?.is_max ? 'pro' : 'basic')
     return {
       id: u.id,
       email: u.email ?? '',
@@ -96,8 +96,10 @@ export async function PATCH(req: NextRequest) {
     const { data: prod } = await supabaseAdmin
       .from('producers').select('id').eq('user_id', user_id).maybeSingle()
     if (prod) {
+      // is_max désigne désormais : "ce producteur est lié à un Partenaire Local"
+      // (le plan 'max' a disparu et a été migré en 'pro')
       await supabaseAdmin.from('producers')
-        .update({ is_max: plan === 'max', updated_at: new Date().toISOString() })
+        .update({ is_max: plan === 'pro', updated_at: new Date().toISOString() })
         .eq('id', prod.id)
     }
 

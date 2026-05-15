@@ -22,7 +22,8 @@ import AppInfoModal from '@/components/AppInfoModal'
 import AppSplash from '@/components/AppSplash'
 import WelcomePopup from '@/components/WelcomePopup'
 import HubView from '@/components/HubView'
-import { ComingSoonModal, UpgradeModal } from '@/components/HubModals'
+import { ComingSoonModal } from '@/components/HubModals'
+import SubscriptionModal from '@/components/SubscriptionModal'
 import { useFavorites } from '@/hooks/useFavorites'
 import { useProducerFavorites } from '@/hooks/useProducerFavorites'
 import { useNotifications } from '@/hooks/useNotifications'
@@ -181,7 +182,7 @@ export default function HomePage() {
 
   // Modales du hub
   const [comingSoonLabel, setComingSoonLabel] = useState<string | null>(null)
-  const [upgradePrompt, setUpgradePrompt] = useState<{ plan: 'pro' | 'max'; label: string } | null>(null)
+  const [upgradePrompt, setUpgradePrompt] = useState<{ plan: 'habitants' | 'pro'; label: string } | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -633,17 +634,11 @@ export default function HomePage() {
         <ComingSoonModal label={comingSoonLabel} onClose={() => setComingSoonLabel(null)} />
       )}
 
-      {/* Modale "Abonnement requis" */}
+      {/* Modale "Abonnement requis" — pitch Stripe direct */}
       {upgradePrompt && (
-        <UpgradeModal
-          requiredPlan={upgradePrompt.plan}
-          label={upgradePrompt.label}
+        <SubscriptionModal
+          context={{ kind: 'feature', featureLabel: upgradePrompt.label }}
           onClose={() => setUpgradePrompt(null)}
-          onGoToPlan={() => {
-            setUpgradePrompt(null)
-            setShowHub(false)
-            setNavTab('profil')
-          }}
         />
       )}
 

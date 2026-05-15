@@ -158,12 +158,18 @@ export const CATEGORIES_ICONS: Record<AnnonceCategorie, string> = {
 
 // ──────────────────────────────────────────────────────────────────────────
 // Types autorisés par plan
+//
+// Depuis 2026-05-15 : tous les plans peuvent créer tous les types d'annonces.
+// La différenciation se fait sur le QUOTA MENSUEL (basic 3/mois, autres ∞)
+// et sur l'accès anticipé aux enchères (capability `early_bid_access`).
 // ──────────────────────────────────────────────────────────────────────────
 
+const ALL_TYPES: AnnonceType[] = ['vente', 'troc', 'don', 'enchere_inversee']
+
 const TYPES_BY_PLAN: Record<Plan, AnnonceType[]> = {
-  basic: ['don'],
-  pro:   ['vente', 'troc', 'don', 'enchere_inversee'],
-  max:   ['vente', 'troc', 'don', 'enchere_inversee'],
+  basic:     ALL_TYPES,
+  habitants: ALL_TYPES,
+  pro:       ALL_TYPES,
 }
 
 export function getTypesAutorises(plan: Plan): AnnonceType[] {
@@ -175,6 +181,15 @@ export function canCreateType(plan: Plan, type: AnnonceType): boolean {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// Quota mensuel d'annonces (calendaire — du 1er au dernier du mois)
+// basic 3/mois ; habitants+pro illimité.
+// ──────────────────────────────────────────────────────────────────────────
+
+export function getQuotaAnnoncesMois(plan: Plan): number {
+  return plan === 'basic' ? 3 : Infinity
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // Durée de vie d'une annonce (en jours)
 // ──────────────────────────────────────────────────────────────────────────
 
@@ -183,15 +198,21 @@ export function getDureeAnnonceJours(plan: Plan): number {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// Quota sponsoring
+// Délai d'accès aux nouvelles enchères inversées (anti-spoiler pour basic).
+// Les Villageois ne voient pas les enchères pendant les 12 premières heures
+// après publication. Les Habitants et Partenaires y accèdent immédiatement.
+// ──────────────────────────────────────────────────────────────────────────
+
+export const EARLY_BID_DELAY_HOURS = 12
+
+// ──────────────────────────────────────────────────────────────────────────
+// Quota sponsoring (legacy — sera remplacé par le module pub one-shot)
 // ──────────────────────────────────────────────────────────────────────────
 
 export const SPONSORING_DUREE_JOURS = 5
 
 export function getQuotaSponsoring(plan: Plan): number {
-  if (plan === 'max') return 3
-  if (plan === 'pro') return 1
-  return 0
+  return plan === 'pro' ? 1 : 0
 }
 
 export function canSponsor(plan: Plan): boolean {

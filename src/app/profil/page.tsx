@@ -45,7 +45,7 @@ export default function ProfilPage() {
 
       {/* Onglets */}
       <div style={{ display: 'flex', padding: '12px 16px 0', gap: 8, overflowX: 'auto' }}>
-        {(['profil', 'theme', ...(plan === 'max' ? ['producteur'] : [])] as Tab[]).map(t => (
+        {(['profil', 'theme', ...(plan === 'pro' ? ['producteur'] : [])] as Tab[]).map(t => (
           <button key={t} onClick={() => setTab(t)} style={{
             padding: '8px 20px', borderRadius: 999, border: 'none', cursor: 'pointer',
             fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap',

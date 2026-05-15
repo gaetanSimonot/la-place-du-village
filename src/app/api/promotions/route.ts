@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
       if (p.user_id !== etab.user_id) return false              // promo creee par un ancien gestionnaire
       const proprio = profileByUser[etab.user_id]
       if (!proprio?.plan) return false                          // proprio n'a plus de profil
-      return proprio.plan === 'pro' || proprio.plan === 'max'   // plan actif requis
+      return proprio.plan === 'pro'                              // Partenaire Local actif requis
     })
   }
 
@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * POST — crée une promo (commerçant Pro/Max seulement, et propriétaire de l'étab).
+ * POST — crée une promo (Partenaire Local uniquement, et propriétaire de l'étab).
  *
  * Body : { etablissement_id, title, description?, image_url?, conditions?,
  *          frequency: 'always'|'weekly'|'monthly', valid_from?, valid_until? }
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
   if (ctx instanceof Response) return ctx
 
   if (!can(ctx, 'promo_pro')) {
-    return NextResponse.json({ error: 'Plan Pro ou Max requis pour créer une promotion' }, { status: 403 })
+    return NextResponse.json({ error: 'Plan Partenaire Local requis pour créer une promotion' }, { status: 403 })
   }
 
   const body = await req.json()

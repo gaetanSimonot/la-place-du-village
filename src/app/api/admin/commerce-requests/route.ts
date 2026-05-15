@@ -130,14 +130,14 @@ export async function PATCH(req: NextRequest) {
       .eq('user_id', req_row.user_id)
       .maybeSingle()
 
-    const userPlan = (reqProfile?.plan as 'basic'|'pro'|'max') ?? 'basic'
+    const userPlan = (reqProfile?.plan as 'basic'|'habitants'|'pro') ?? 'basic'
 
     const { error: upErr } = await supabaseAdmin
       .from('etablissements')
       .update({
         user_id: req_row.user_id,
         plan: userPlan,
-        is_featured: userPlan === 'pro' || userPlan === 'max',
+        is_featured: userPlan === 'pro',
       })
       .eq('id', req_row.etablissement_id)
 

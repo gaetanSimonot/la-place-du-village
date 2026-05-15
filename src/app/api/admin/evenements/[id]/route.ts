@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { notifyUser } from '@/lib/server-auth'
 
 // Convertit les chaînes vides en null pour les champs date/heure
 function nullIfEmpty(v: unknown) {
@@ -37,6 +38,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (body.promo_ordre !== undefined) eventUpdate.promo_ordre = body.promo_ordre
     if (body.vedette_hub !== undefined) eventUpdate.vedette_hub = !!body.vedette_hub
 
+    // Charge l'ancien statut pour détecter la transition → 'publie'
+    let previousStatut: string | null = null
+    if (eventUpdate.statut !== undefined) {
+      const { data: before } = await supabaseAdmin
+        .from('evenements')
+        .select('statut')
+        .eq('id', params.id)
+        .maybeSingle()
+      previousStatut = before?.statut ?? null
+    }
+
     const { data, error } = await supabaseAdmin
       .from('evenements')
       .update(eventUpdate)
@@ -45,6 +57,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       .single()
 
     if (error) throw new Error(`Erreur mise à jour : ${error.message}`)
+
+    // Notif "ton événement est publié" si le statut vient de passer à 'publie'
+    if (data.statut === 'publie' && previousStatut !== 'publie' && data.submitted_by) {
+      await notifyUser(data.submitted_by, {
+        type: 'event_published',
+        actor_name: data.titre,
+        target_type: 'event',
+        target_id: data.id,
+      })
+    }
 
     return NextResponse.json({ success: true, evenement: data })
   } catch (err: unknown) {

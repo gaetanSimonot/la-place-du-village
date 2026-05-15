@@ -66,7 +66,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .update({
       user_id: ctx.userId,
       plan: ctx.plan,
-      is_featured: ctx.plan === 'pro' || ctx.plan === 'max',
+      is_featured: ctx.plan === 'pro',
     })
     .eq('id', id)
 

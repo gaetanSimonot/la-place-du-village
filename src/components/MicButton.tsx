@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useCallback } from 'react'
+import { supabase } from '@/lib/supabase'
 
 interface Props {
   onTranscript: (text: string) => void
@@ -30,7 +31,13 @@ export default function MicButton({ onTranscript, className = '' }: Props) {
           const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
           const fd = new FormData()
           fd.append('audio', blob, 'recording.webm')
-          const res  = await fetch('/api/transcribe', { method: 'POST', body: fd })
+          const { data: { session } } = await supabase.auth.getSession()
+          const token = session?.access_token
+          const res  = await fetch('/api/transcribe', {
+            method: 'POST',
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            body: fd,
+          })
           const data = await res.json()
           if (!res.ok) throw new Error(data.error)
           onTranscript(data.text)

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { requireUser } from '@/lib/server-auth'
+import { requireUser, getUserContextFromRequest } from '@/lib/server-auth'
+import { can } from '@/lib/capabilities'
+import { EARLY_BID_DELAY_HOURS } from '@/lib/annonces'
 
 const EDITABLE_FIELDS = [
   'titre',
@@ -43,6 +45,21 @@ export async function GET(
     if (ctx instanceof Response) return ctx
     if (ctx.userId !== data.user_id && !ctx.isAdmin) {
       return NextResponse.json({ error: 'Annonce introuvable' }, { status: 404 })
+    }
+  }
+
+  // Délai 12h sur les enchères inversées pour les users sans early_bid_access.
+  // Le posteur lui-même voit toujours son annonce.
+  if (data.type === 'enchere_inversee' && data.statut === 'active') {
+    const ctx = await getUserContextFromRequest(req)
+    const isOwner = ctx?.userId === data.user_id
+    const hasEarlyAccess = ctx ? can(ctx, 'early_bid_access') : false
+
+    if (!isOwner && !hasEarlyAccess) {
+      const ageMs = Date.now() - new Date(data.created_at).getTime()
+      if (ageMs < EARLY_BID_DELAY_HOURS * 60 * 60 * 1000) {
+        return NextResponse.json({ error: 'Annonce introuvable' }, { status: 404 })
+      }
     }
   }
 

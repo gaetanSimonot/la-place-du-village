@@ -4,6 +4,7 @@ import { geocodeWithGoogle, calcStatut } from '@/lib/extract'
 import { Categorie } from '@/lib/types'
 import { checkDoublon } from '@/lib/checkDoublon'
 import { checkZone } from '@/lib/checkZone'
+import { rateLimit } from '@/lib/rateLimit'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
           // Regular user submission
           const { data: profile } = await supabaseAdmin
             .from('profiles')
-            .select('display_name, banned')
+            .select('display_name, banned, plan')
             .eq('user_id', user.id)
             .maybeSingle()
 
@@ -71,6 +72,11 @@ export async function POST(req: NextRequest) {
           submittedByName = profile?.display_name ?? (user.email?.split('@')[0] ?? null)
           isUserSubmission = true
           publishAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
+
+          // Anti-spam : 20 events/jour pour les non-admins
+          const userPlan = (profile?.plan === 'habitants' || profile?.plan === 'pro') ? profile.plan : 'basic'
+          const blocked = await rateLimit(user.id, 'create_event', userPlan, false)
+          if (blocked) return blocked
         }
       }
     }

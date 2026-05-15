@@ -41,7 +41,7 @@ export default function ProfilView() {
     else setActionLoading(null)
   }
 
-  const openUpgrade = async (targetPlan: 'pro' | 'max') => {
+  const openUpgrade = async (targetPlan: 'habitants' | 'pro') => {
     setActionLoading(`upgrade-${targetPlan}`)
     const t = await getToken()
     const r = await fetch('/api/stripe/create-checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` }, body: JSON.stringify({ plan: targetPlan }) })
@@ -92,7 +92,7 @@ export default function ProfilView() {
           { id: 'abonnements', label: 'Suivis' },
           ...(user ? [{ id: 'annonces', label: 'Mes annonces' }] : []),
           { id: 'theme', label: 'Thème' },
-          ...(plan === 'max' ? [{ id: 'producteur', label: '🌿 Ma fiche' }] : []),
+          ...(plan === 'pro' ? [{ id: 'producteur', label: '🌿 Ma fiche' }] : []),
         ] as { id: Tab; label: string }[]).map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
             padding: '8px 20px', borderRadius: 999, border: 'none', cursor: 'pointer',
@@ -209,9 +209,9 @@ export default function ProfilView() {
                           <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14, color: '#1C1917', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.nom}</p>
                         </div>
                         <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', borderRadius: 999, padding: '2px 8px', flexShrink: 0,
-                          backgroundColor: e.plan === 'max' ? '#EC407A' : e.plan === 'pro' ? '#2D5A3D' : '#D0C8C0',
+                          backgroundColor: e.plan === 'pro' ? '#3A5BC7' : '#D0C8C0',
                           color: e.plan === 'basic' ? '#666' : '#fff',
-                        }}>{e.plan}</span>
+                        }}>{e.plan === 'pro' ? 'Partenaire' : 'Basic'}</span>
                         <span style={{ color: '#C8B8A8', fontSize: 18, flexShrink: 0 }}>›</span>
                       </Link>
                     ))}
@@ -289,25 +289,25 @@ export default function ProfilView() {
                     <div style={{ marginTop: 18, display: 'flex', gap: 8 }}>
                       {currentPlan === 'basic' && (
                         <>
-                          <button onClick={() => openUpgrade('pro')} disabled={!!actionLoading} style={{ flex: 1, padding: '11px', borderRadius: 12, border: 'none', backgroundColor: '#3A5BC7', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: actionLoading === 'upgrade-pro' ? 0.6 : 1 }}>
-                            {actionLoading === 'upgrade-pro' ? '…' : '★ Passer Pro'}
+                          <button onClick={() => openUpgrade('habitants')} disabled={!!actionLoading} style={{ flex: 1, padding: '11px', borderRadius: 12, border: 'none', backgroundColor: '#4A8B5C', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: actionLoading === 'upgrade-habitants' ? 0.6 : 1 }}>
+                            {actionLoading === 'upgrade-habitants' ? '…' : '🌿 Habitants'}
                           </button>
-                          <button onClick={() => openUpgrade('max')} disabled={!!actionLoading} style={{ flex: 1, padding: '11px', borderRadius: 12, border: 'none', backgroundColor: '#E8622A', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: actionLoading === 'upgrade-max' ? 0.6 : 1 }}>
-                            {actionLoading === 'upgrade-max' ? '…' : '✦ Passer Max'}
+                          <button onClick={() => openUpgrade('pro')} disabled={!!actionLoading} style={{ flex: 1, padding: '11px', borderRadius: 12, border: 'none', backgroundColor: '#3A5BC7', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: actionLoading === 'upgrade-pro' ? 0.6 : 1 }}>
+                            {actionLoading === 'upgrade-pro' ? '…' : '★ Partenaire'}
                           </button>
                         </>
                       )}
-                      {currentPlan === 'pro' && (
+                      {currentPlan === 'habitants' && (
                         <>
-                          <button onClick={() => openUpgrade('max')} disabled={!!actionLoading} style={{ flex: 1, padding: '11px', borderRadius: 12, border: 'none', backgroundColor: '#E8622A', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: actionLoading === 'upgrade-max' ? 0.6 : 1 }}>
-                            {actionLoading === 'upgrade-max' ? '…' : '✦ Passer Max'}
+                          <button onClick={() => openUpgrade('pro')} disabled={!!actionLoading} style={{ flex: 1, padding: '11px', borderRadius: 12, border: 'none', backgroundColor: '#3A5BC7', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: actionLoading === 'upgrade-pro' ? 0.6 : 1 }}>
+                            {actionLoading === 'upgrade-pro' ? '…' : '★ Passer Partenaire'}
                           </button>
                           <button onClick={openManage} disabled={!!actionLoading} style={{ flex: 1, padding: '11px', borderRadius: 12, border: '1.5px solid #E0D8CE', backgroundColor: '#fff', color: '#2C1810', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: actionLoading === 'manage' ? 0.6 : 1 }}>
                             {actionLoading === 'manage' ? '…' : 'Gérer'}
                           </button>
                         </>
                       )}
-                      {currentPlan === 'max' && (
+                      {currentPlan === 'pro' && (
                         <button onClick={openManage} disabled={!!actionLoading} style={{ flex: 1, padding: '11px', borderRadius: 12, border: '1.5px solid #E0D8CE', backgroundColor: '#fff', color: '#2C1810', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: actionLoading === 'manage' ? 0.6 : 1 }}>
                           {actionLoading === 'manage' ? '…' : 'Gérer mon abonnement'}
                         </button>
