@@ -58,6 +58,9 @@ export async function POST(req: NextRequest) {
     customer_email: ctx.email ?? undefined,
     success_url: successUrl,
     cancel_url:  cancelUrl,
+    // Permet la saisie d'un code promotionnel à la caisse (codes definis dans Stripe Dashboard).
+    // Utile pour tester gratuitement avec un coupon 100% off.
+    allow_promotion_codes: true,
   })
 
   return NextResponse.json({ url: session.url })
