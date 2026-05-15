@@ -63,6 +63,27 @@ export default function PromotionsClient() {
 
   useEffect(() => { fetchPromos() }, [fetchPromos])
 
+  // Scroll vers la promo ciblée si on arrive depuis le hub avec ?id=...
+  // On lit window.location pour éviter le bailout CSR de useSearchParams.
+  useEffect(() => {
+    if (loading || promos.length === 0) return
+    if (typeof window === 'undefined') return
+    const id = new URLSearchParams(window.location.search).get('id')
+    if (!id) return
+    const el = document.getElementById(`promo-${id}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      // Petit highlight visuel via outline temporaire
+      el.style.outline = '3px solid #E8622A'
+      el.style.outlineOffset = '4px'
+      el.style.borderRadius = '18px'
+      setTimeout(() => {
+        el.style.outline = ''
+        el.style.outlineOffset = ''
+      }, 2000)
+    }
+  }, [loading, promos.length])
+
   const showToastMsg = (msg: string) => {
     setToast(msg)
     setTimeout(() => setToast(null), 3500)
@@ -203,12 +224,13 @@ export default function PromotionsClient() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {filteredPromos.map(p => (
-              <PromoCard
-                key={p.id}
-                promo={p}
-                onUse={() => openUseConfirm(p)}
-                disabled={using === p.id}
-              />
+              <div key={p.id} id={`promo-${p.id}`} style={{ scrollMarginTop: 80 }}>
+                <PromoCard
+                  promo={p}
+                  onUse={() => openUseConfirm(p)}
+                  disabled={using === p.id}
+                />
+              </div>
             ))}
           </div>
         )}

@@ -370,13 +370,13 @@ export default function HubView({
       {/* ── 5. Bons plans (promotions) ────────────────────────────────────── */}
       {promos.length > 0 && (
         <>
-          <SectionHeader title="🎁 Bons plans autour de vous" cta="Voir tout" onCta={() => router.push('/?tab=favoris')} />
+          <SectionHeader title="🎁 Bons plans autour de vous" cta="Voir tout" onCta={() => router.push('/promotions')} />
           <div style={{ overflowX: 'auto', padding: '0 14px 4px' }} className="pdv-hscroll">
             <div style={{ display: 'flex', gap: 10 }}>
               {promos.map(p => (
                 <Link
                   key={p.id}
-                  href={p.etablissement ? `/etablissement/${(p as unknown as { etablissement_id: string }).etablissement_id}` : '/'}
+                  href={`/promotions?id=${p.id}`}
                   style={{
                     flex: '0 0 156px',
                     borderRadius: 14, overflow: 'hidden',

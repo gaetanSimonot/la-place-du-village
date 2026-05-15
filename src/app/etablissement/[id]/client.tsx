@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
@@ -38,6 +39,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
   const { openAuthModal } = useAuthModal()
   const isAdmin = useAdminSession()
   const [etab, setEtab]             = useState<Etablissement | null>(null)
+  const [etabPromos, setEtabPromos] = useState<Array<{ id: string; title: string; description: string | null; image_url: string | null; conditions: string | null; valid_until: string | null }>>([])
   const [loading, setLoading]       = useState(true)
   const [photoIdx, setPhotoIdx]     = useState(0)
   const [isFav, setIsFav]           = useState(false)
@@ -133,6 +135,14 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
     fetch(`/api/etablissements/${id}`).then(r => r.json())
       .then(d => { setEtab(d.etablissement); setLoading(false) })
       .catch(() => setLoading(false))
+  }, [id])
+
+  // Promotions actives de cette fiche (visibles par tous les visiteurs)
+  useEffect(() => {
+    fetch(`/api/promotions?etab=${id}`)
+      .then(r => r.json())
+      .then(d => setEtabPromos(d.promotions ?? []))
+      .catch(() => {})
   }, [id])
 
   useEffect(() => {
@@ -411,6 +421,47 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
             </div>
           )
         })()}
+
+        {/* Bons plans actuels — visibles par tous les visiteurs */}
+        {etabPromos.length > 0 && (
+          <div style={CARD}>
+            <p style={{ fontSize: 11, fontWeight: 800, color: '#E8622A', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              🎁 Bons plans
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {etabPromos.map(p => (
+                <Link
+                  key={p.id}
+                  href={`/promotions?id=${p.id}`}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '10px 12px', borderRadius: 12,
+                    backgroundColor: '#FFF1E8', border: '1px solid #F5C9A8',
+                    textDecoration: 'none', color: 'inherit',
+                  }}
+                >
+                  {p.image_url ? (
+                    <img src={p.image_url} alt="" style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
+                  ) : (
+                    <div style={{ width: 48, height: 48, borderRadius: 10, backgroundColor: '#E8622A', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>🎁</div>
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#1A1209', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</p>
+                    {p.description && (
+                      <p style={{ margin: '2px 0 0', fontSize: 11, color: '#7A5614', lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{p.description}</p>
+                    )}
+                    {p.valid_until && (
+                      <p style={{ margin: '4px 0 0', fontSize: 10, color: '#E8622A', fontWeight: 700 }}>
+                        Jusqu&apos;au {new Date(p.valid_until).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                      </p>
+                    )}
+                  </div>
+                  <span style={{ color: '#E8622A', fontSize: 18, flexShrink: 0 }}>›</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Mes promotions — visible uniquement pour le Partenaire Local propriétaire */}
         {isOwner && (() => {
