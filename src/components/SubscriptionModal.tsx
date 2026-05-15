@@ -132,9 +132,17 @@ export default function SubscriptionModal({ context, onClose, currentPlan = 'bas
   async function selectPlan(plan: PayablePlan) {
     setLoading(plan); setError(null)
     try {
+      // Refresh forcé : si la session a vieilli (ex: après plusieurs heures
+      // sur la page, ou après que l'admin a touché le profile), on récupère
+      // un access_token frais avant de partir vers l'API.
+      await supabase.auth.refreshSession()
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
-      if (!token) { setError('Connecte-toi pour continuer.'); setLoading(null); return }
+      if (!token) {
+        setError('Ta session a expiré. Reconnecte-toi pour continuer.')
+        setLoading(null)
+        return
+      }
 
       const body: { plan: string; etabId?: string } = { plan }
       if (context.kind === 'claim') body.etabId = context.etabId
@@ -146,7 +154,11 @@ export default function SubscriptionModal({ context, onClose, currentPlan = 'bas
       })
       const data = await res.json()
       if (data.url) { window.location.href = data.url; return }
-      setError(data.error ?? 'Une erreur est survenue, réessaie.')
+      if (res.status === 401) {
+        setError('Session expirée. Recharge la page (F5) et réessaie.')
+      } else {
+        setError(data.error ?? 'Une erreur est survenue, réessaie.')
+      }
     } catch {
       setError('Impossible de contacter le serveur.')
     }
