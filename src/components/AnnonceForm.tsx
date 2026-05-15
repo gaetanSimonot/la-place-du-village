@@ -16,6 +16,7 @@ import {
   type AnnonceCreateInput,
 } from '@/lib/annonces'
 import type { Plan } from '@/lib/capabilities'
+import SubscriptionModal from '@/components/SubscriptionModal'
 
 interface Props {
   initial?: Annonce | null
@@ -50,6 +51,7 @@ export default function AnnonceForm({ initial, onSuccess }: Props) {
   const [uploading, setUploading]         = useState(false)
   const [submitting, setSubmitting]       = useState(false)
   const [error, setError]                 = useState<string | null>(null)
+  const [showUpgrade, setShowUpgrade]     = useState(false)
 
   const cameraInputRef  = useRef<HTMLInputElement>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
@@ -117,7 +119,11 @@ export default function AnnonceForm({ initial, onSuccess }: Props) {
     const data = await res.json()
     setSubmitting(false)
 
-    if (!res.ok) { setError(data.error ?? 'Erreur'); return }
+    if (!res.ok) {
+      setError(data.error ?? 'Erreur')
+      if (data.upgradeRequired) setShowUpgrade(true)
+      return
+    }
 
     const id = data.annonce?.id ?? initial?.id
     if (onSuccess && id) onSuccess(id)
@@ -164,9 +170,16 @@ export default function AnnonceForm({ initial, onSuccess }: Props) {
           })}
         </div>
         <p style={{ fontSize: 12, color: '#8A7A6A', margin: '8px 0 0' }}>{info.help}</p>
-        {plan === 'basic' && (
-          <p style={{ fontSize: 12, color: '#C0392B', margin: '6px 0 0' }}>
-            Plan Basic : seul le don est autorisé. <a href="/profil" style={{ color: '#2D5A3D', textDecoration: 'underline' }}>Passer Pro</a> pour le reste.
+        {plan === 'basic' && type !== 'don' && (
+          <p style={{ fontSize: 12, color: '#7A5614', margin: '6px 0 0', lineHeight: 1.5 }}>
+            Plan Villageois : 3 annonces vente/troc/enchère par mois (les dons restent illimités).{' '}
+            <button
+              type="button"
+              onClick={() => setShowUpgrade(true)}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#3A5BC7', textDecoration: 'underline', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}
+            >
+              Passer Habitants
+            </button>{' '}pour publier sans limite.
           </p>
         )}
       </Section>
@@ -375,6 +388,14 @@ export default function AnnonceForm({ initial, onSuccess }: Props) {
       >
         {submitting ? '…' : initial ? 'Mettre à jour' : 'Publier l\'annonce'}
       </button>
+
+      {showUpgrade && (
+        <SubscriptionModal
+          context={{ kind: 'feature', featureLabel: 'Annonces illimitées', minPlan: 'habitants' }}
+          onClose={() => setShowUpgrade(false)}
+          currentPlan={plan}
+        />
+      )}
     </form>
   )
 }

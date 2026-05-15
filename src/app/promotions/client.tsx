@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import SubscriptionModal from '@/components/SubscriptionModal'
+import type { Plan } from '@/lib/capabilities'
 import { ETAB_TYPES } from '@/lib/etablissement-types'
 import type { EtablissementType } from '@/lib/types'
 
@@ -38,8 +39,9 @@ const FREQ_LABEL: Record<string, string> = {
 
 export default function PromotionsClient() {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const { openAuthModal } = useAuthModal()
+  const currentPlan = (profile?.plan as Plan) ?? 'basic'
 
   const [promos, setPromos] = useState<Promotion[]>([])
   const [loading, setLoading] = useState(true)
@@ -239,6 +241,7 @@ export default function PromotionsClient() {
         <SubscriptionModal
           context={{ kind: 'promo', promoTitle: upgradePromo.title }}
           onClose={() => setUpgradePromo(null)}
+          currentPlan={currentPlan}
         />
       )}
     </div>

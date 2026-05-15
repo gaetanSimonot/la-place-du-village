@@ -56,17 +56,17 @@ const RATE_LIMITS_BY_PLAN: Record<RateLimitAction, Record<Plan, RateLimitRule>> 
     basic: {
       limit: 5,
       windowMs: HOUR,
-      message: 'Tu as utilisé tes 5 transcriptions IA gratuites de l\'heure. Passe Habitants pour en avoir 30/h.',
+      message: 'Quota IA atteint (5/h). Passe Habitants pour 30/h.',
     },
     habitants: {
       limit: 30,
       windowMs: HOUR,
-      message: 'Trop de transcriptions IA. Réessaie dans une heure.',
+      message: 'Quota IA atteint (30/h). Réessaie dans 1 heure.',
     },
     pro: {
       limit: 30,
       windowMs: HOUR,
-      message: 'Trop de transcriptions IA. Réessaie dans une heure.',
+      message: 'Quota IA atteint (30/h). Réessaie dans 1 heure.',
     },
   },
   create_event: {

@@ -482,6 +482,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
         <SubscriptionModal
           context={{ kind: 'claim', etabId: etab.id, etabNom: etab.nom }}
           onClose={() => setClaimOpen(false)}
+          currentPlan={(profile?.plan as 'basic' | 'habitants' | 'pro') ?? 'basic'}
         />
       )}
       {quotaModalOpen && (

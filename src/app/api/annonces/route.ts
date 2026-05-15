@@ -73,8 +73,9 @@ export async function GET(req: NextRequest) {
  *
  * Body : AnnonceCreateInput (voir src/lib/annonces.ts)
  * Quota mensuel calendaire :
- *  - basic : 3 / mois calendaire
- *  - habitants / pro / admin : illimité
+ *  - basic : 3 / mois calendaire pour les types non-don (vente/troc/enchère).
+ *            Les dons sont illimités (pour favoriser le partage gratuit).
+ *  - habitants / pro / admin : illimité tous types
  */
 export async function POST(req: NextRequest) {
   const ctx = await requireUser(req)
@@ -85,9 +86,10 @@ export async function POST(req: NextRequest) {
   const err = validateAnnonceInput(body, ctx.plan)
   if (err) return NextResponse.json({ error: err }, { status: 400 })
 
-  // Quota mensuel
+  // Quota mensuel — uniquement sur les types non-don.
+  // Les dons sont toujours illimités pour favoriser le partage gratuit.
   const quota = getQuotaAnnoncesMois(ctx.plan)
-  if (!ctx.isAdmin && Number.isFinite(quota)) {
+  if (!ctx.isAdmin && Number.isFinite(quota) && body.type !== 'don') {
     const startOfMonth = new Date()
     startOfMonth.setDate(1)
     startOfMonth.setHours(0, 0, 0, 0)
@@ -96,11 +98,12 @@ export async function POST(req: NextRequest) {
       .from('annonces')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', ctx.userId)
+      .neq('type', 'don')
       .gte('created_at', startOfMonth.toISOString())
 
     if ((count ?? 0) >= quota) {
       return NextResponse.json({
-        error: `Tu as atteint ta limite de ${quota} annonces ce mois-ci. Passe Habitants pour en publier sans limite.`,
+        error: `Tu as atteint ta limite de ${quota} annonces non-don ce mois-ci. Les dons restent illimités. Passe Habitants pour publier tous types sans limite.`,
         upgradeRequired: true,
       }, { status: 429 })
     }

@@ -6,13 +6,17 @@ import { useTheme } from '@/components/ThemeProvider'
 import { COLOR_THEMES, MAP_STYLES, SHEET_BG_OPTIONS } from '@/lib/themes'
 import AdminAccess from '@/components/AdminAccess'
 import MonEspaceProducteur from '@/components/MonEspaceProducteur'
+import PlanBadge from '@/components/PlanBadge'
+import SubscriptionModal from '@/components/SubscriptionModal'
 import { supabase } from '@/lib/supabase'
+import { PLANS_INFO, type Plan } from '@/lib/capabilities'
 
 type Tab = 'profil' | 'theme' | 'producteur'
 
 export default function ProfilPage() {
-  const [tab, setTab] = useState<Tab>('theme')
+  const [tab, setTab] = useState<Tab>('profil')
   const [plan, setPlan] = useState<string | null>(null)
+  const [showUpgrade, setShowUpgrade] = useState(false)
   const { user, profile } = useAuth()
   const { colorTheme, mapStyle, sheetBg, setColorThemeId, setMapStyleId, setSheetBgId } = useTheme()
 
@@ -62,24 +66,67 @@ export default function ProfilPage() {
       <div style={{ padding: '20px 16px 40px' }}>
 
         {tab === 'profil' && (
-          user ? (
-            <Link href={`/profil/${user.id}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 14, backgroundColor: '#fff', borderRadius: 16, padding: '16px', marginTop: 8 }}>
-              {profile?.avatar_url
-                ? <img src={profile.avatar_url} alt="" style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                : <div style={{ width: 56, height: 56, borderRadius: '50%', backgroundColor: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 22, fontFamily: 'Inter, sans-serif', flexShrink: 0 }}>
-                    {(profile?.display_name || user.email || '?')[0].toUpperCase()}
+          user ? (() => {
+            const currentPlan = (plan ?? 'basic') as Plan
+            const info = PLANS_INFO[currentPlan]
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 8 }}>
+
+                {/* Card profil */}
+                <Link href={`/profil/${user.id}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 14, backgroundColor: '#fff', borderRadius: 16, padding: '16px' }}>
+                  {profile?.avatar_url
+                    ? <img src={profile.avatar_url} alt="" style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                    : <div style={{ width: 56, height: 56, borderRadius: '50%', backgroundColor: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 22, flexShrink: 0 }}>
+                        {(profile?.display_name || user.email || '?')[0].toUpperCase()}
+                      </div>
+                  }
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                      <p style={{ fontWeight: 700, fontSize: 16, color: '#2C1810', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {profile?.display_name || user.email?.split('@')[0] || 'Mon profil'}
+                      </p>
+                      <PlanBadge plan={currentPlan} />
+                    </div>
+                    <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0 }}>Voir et modifier mon profil →</p>
                   </div>
-              }
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                  <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 16, color: '#2C1810', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {profile?.display_name || user.email?.split('@')[0] || 'Mon profil'}
-                  </p>
+                </Link>
+
+                {/* Card "Mon plan" */}
+                <div style={{ backgroundColor: '#fff', borderRadius: 16, padding: '16px', boxShadow: '0 1px 6px rgba(0,0,0,0.04)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: '#9A8A7A', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>Mon abonnement</p>
+                    <span style={{ fontSize: 12, color: '#7A6A5A' }}>{info.priceLabel}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                    <span style={{ fontSize: 22 }}>{info.icon}</span>
+                    <span style={{ fontSize: 18, fontWeight: 900, color: info.color }}>{info.label}</span>
+                  </div>
+                  <p style={{ fontSize: 12, color: '#7A6A5A', margin: '0 0 14px', fontStyle: 'italic' }}>{info.tagline}</p>
+
+                  {currentPlan === 'basic' ? (
+                    <button onClick={() => setShowUpgrade(true)} style={{
+                      width: '100%', padding: '12px', borderRadius: 12, border: 'none',
+                      background: 'linear-gradient(135deg, #4A8B5C 0%, #3A5BC7 100%)',
+                      color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer',
+                      letterSpacing: '0.02em',
+                    }}>
+                      ✦ Découvrir nos offres
+                    </button>
+                  ) : (
+                    <button onClick={() => setShowUpgrade(true)} style={{
+                      width: '100%', padding: '11px', borderRadius: 12,
+                      border: `1.5px solid ${info.color}`,
+                      backgroundColor: 'transparent', color: info.color,
+                      fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                    }}>
+                      Voir les offres / gérer
+                    </button>
+                  )}
                 </div>
-                <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0 }}>Voir et modifier mon profil →</p>
+
               </div>
-            </Link>
-          ) : (
+            )
+          })() : (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, paddingTop: 24 }}>
               <div style={{ width: 80, height: 80, borderRadius: '50%', backgroundColor: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="1.8">
@@ -228,6 +275,15 @@ export default function ProfilPage() {
           </div>
         )}
       </div>
+
+      {showUpgrade && (
+        <SubscriptionModal
+          context={{ kind: 'generic' }}
+          onClose={() => setShowUpgrade(false)}
+          currentPlan={(plan as Plan) ?? 'basic'}
+        />
+      )}
+
       <AdminAccess />
     </div>
   )

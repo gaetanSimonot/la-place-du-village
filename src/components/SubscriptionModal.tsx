@@ -1,19 +1,19 @@
 'use client'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { PLANS_INFO } from '@/lib/capabilities'
 
 /**
  * Modale d'abonnement RÉUTILISABLE — La Place du Village
  *
- * Une seule modale pour tous les cas d'upgrade Stripe :
- *  - context.kind === 'claim'   : revendication d'une fiche étab → met en avant Partenaire Local (success_url = la fiche)
- *  - context.kind === 'promo'   : quota promo basic atteint (1/mois) → met en avant Habitants
- *  - context.kind === 'feature' : feature payante bloquée → choix selon le plan minimum requis
- *  - context.kind === 'generic' : upgrade simple du compte → présente les 2 plans
+ * Un seul composant pour tous les cas d'upgrade Stripe :
+ *  - context.kind === 'claim'   : revendication fiche → met en avant Partenaire (success_url = fiche)
+ *  - context.kind === 'promo'   : quota promo basic atteint → met en avant Habitants
+ *  - context.kind === 'feature' : feature payante bloquée → contextualisé
+ *  - context.kind === 'generic' : upgrade simple → présente les 3 plans
  *
- * 2 plans payants depuis 2026-05-15 : Habitants (4,99€) et Partenaire Local (9€).
- * Le plan minimum requis est mis en avant ("Recommandé") selon le contexte.
+ * Design : 3 cards (Villageois gratuit / Avantages Habitants / Partenaire Local) en
+ * colonne sur mobile, avec hero global + footer 4 piliers. La card du plan actuel
+ * du user est marquée "TU ES ICI" et son CTA est désactivé.
  */
 
 export type SubscriptionModalContext =
@@ -27,9 +27,105 @@ type PayablePlan = 'habitants' | 'pro'
 interface Props {
   context: SubscriptionModalContext
   onClose: () => void
+  /** Plan actuel du user pour marquer "Tu es ici". Si omis, basic par défaut. */
+  currentPlan?: 'basic' | 'habitants' | 'pro'
 }
 
-export default function SubscriptionModal({ context, onClose }: Props) {
+// ────────────────────────────────────────────────────────────────────────────
+// Couleurs et données des plans (locales — alignées sur PLANS_INFO mais avec
+// les couleurs spécifiques du mockup ref/modal.png)
+// ────────────────────────────────────────────────────────────────────────────
+
+const PLAN_DATA = {
+  basic: {
+    id: 'basic' as const,
+    label: 'Villageois',
+    icon: '🏡',
+    price: 'GRATUIT',
+    color: '#4A8B5C',
+    bgSoft: '#EEF7EF',
+    bgVeryLight: '#F5FAF6',
+    border: '#C8E0CE',
+    tagline: 'Tout l\'essentiel pour profiter de la vie locale !',
+    features: [
+      'Consulter toute l\'app',
+      'Voir les événements',
+      'Voir les promos',
+      'Voir les annonces',
+      'Participer à la vie locale',
+      'Utiliser les enchères (après 12h)',
+      'Publier des dons illimités',
+    ],
+    limitsTitle: 'Avec accès limité',
+    limits: [
+      { label: 'Promos', value: '1 / mois' },
+      { label: 'Annonces (vente/troc/enchère)', value: '3 / mois' },
+    ],
+    teaser: 'Déjà utile, déjà indispensable ! Passe à l\'offre Avantages pour profiter sans limites.',
+  },
+  habitants: {
+    id: 'habitants' as const,
+    label: 'Avantages Habitants',
+    icon: '🌿',
+    price: '4,99 €/mois',
+    color: '#E8622A',
+    bgSoft: '#FFF1E8',
+    bgVeryLight: '#FFF8F3',
+    border: '#F5C9A8',
+    tagline: 'Plus de liberté, plus de bons plans, plus d\'opportunités !',
+    features: [
+      'Promos illimitées',
+      'Annonces illimitées',
+      'Enchères illimitées',
+      { strong: 'Accès prioritaire aux bonnes affaires', detail: 'voir les annonces / enchères 12h avant les Villageois' },
+      'Édition vocale IA généreuse (30/h)',
+      'Badge membre exclusif',
+      'Soutenez le développement local ❤️',
+    ],
+    teaserBox: {
+      icon: '⭐',
+      text: 'Rentabilisez votre abonnement très rapidement grâce aux bons plans et aux ventes !',
+    },
+    cta: 'Passer à l\'offre Avantages',
+  },
+  pro: {
+    id: 'pro' as const,
+    label: 'Partenaire Local',
+    icon: '🏪',
+    price: '9 €/mois',
+    color: '#3A5BC7',
+    bgSoft: '#EEF3FF',
+    bgVeryLight: '#F5F8FF',
+    border: '#C7D5F5',
+    tagline: 'Développez votre activité et gagnez en visibilité locale !',
+    features: [
+      'Établissement revendiqué',
+      'Vitrine professionnelle complète',
+      'Fiche producteur (produits + carte)',
+      'Mise en avant « À la une » de ta catégorie',
+      'Crée et gère tes promotions commerce',
+      'Tous les avantages Habitants inclus',
+    ],
+    teaserBox: {
+      icon: '📈',
+      text: 'Attirez plus de clients locaux et faites rayonner votre activité dans tout le village.',
+    },
+    cta: 'Devenir Partenaire Local',
+  },
+} as const
+
+const PILLARS = [
+  { emoji: '📍', title: '100% LOCAL',  text: 'Par et pour notre village' },
+  { emoji: '🛡️', title: 'SÉCURISÉ',    text: 'Annonces vérifiées' },
+  { emoji: '👥', title: 'SOLIDAIRE',   text: 'On soutient nos acteurs' },
+  { emoji: '❤️', title: 'VIVANT',     text: 'Événements, échanges, entraide' },
+]
+
+// ────────────────────────────────────────────────────────────────────────────
+// Composant principal
+// ────────────────────────────────────────────────────────────────────────────
+
+export default function SubscriptionModal({ context, onClose, currentPlan = 'basic' }: Props) {
   const [loading, setLoading] = useState<PayablePlan | null>(null)
   const [error, setError]     = useState<string | null>(null)
 
@@ -57,93 +153,95 @@ export default function SubscriptionModal({ context, onClose }: Props) {
     setLoading(null)
   }
 
-  const { title, subtitle, recommended } = headerCopy(context)
+  const { hero, sub, recommended } = headerCopy(context)
 
   return (
     <>
       <div
         onClick={onClose}
-        style={{ position: 'fixed', inset: 0, zIndex: 2400, backgroundColor: 'rgba(15,10,5,0.6)', backdropFilter: 'blur(4px)' }}
+        style={{ position: 'fixed', inset: 0, zIndex: 2400, backgroundColor: 'rgba(15,10,5,0.65)', backdropFilter: 'blur(4px)' }}
       />
       <div style={{
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 2401,
-        backgroundColor: '#FDFAF6', borderRadius: '24px 24px 0 0',
+        backgroundColor: '#FBFAF7', borderRadius: '24px 24px 0 0',
         maxHeight: '94dvh', overflowY: 'auto',
         fontFamily: 'Inter, sans-serif',
-        paddingBottom: 'max(28px, env(safe-area-inset-bottom, 28px))',
+        paddingBottom: 'max(20px, env(safe-area-inset-bottom, 20px))',
         boxShadow: '0 -8px 40px rgba(0,0,0,0.18)',
       }}>
         {/* Drag handle */}
-        <div style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '14px auto 0' }} />
+        <div style={{ width: 44, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '12px auto 0' }} />
 
-        {/* Header */}
-        <div style={{ padding: '18px 22px 6px', textAlign: 'center' }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: '#8A7A6A', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 6px' }}>
-            Passe à l&apos;abonnement
-          </p>
-          <h2 style={{ fontSize: 22, fontWeight: 900, color: '#1A1209', margin: '0 0 6px', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
-            {title}
+        {/* Hero */}
+        <div style={{ padding: '18px 22px 8px', textAlign: 'center' }}>
+          <h2 style={{
+            fontSize: 18, fontWeight: 900, color: '#2D5A3D',
+            margin: '0 0 8px', letterSpacing: '-0.01em', lineHeight: 1.25,
+          }}>
+            {hero}
           </h2>
           <p style={{ fontSize: 13, color: '#7A6A5A', margin: 0, lineHeight: 1.5 }}>
-            {subtitle}
+            {sub}
           </p>
         </div>
 
-        {/* Bandeau "valeur" : top features visibles dès l'arrivée */}
-        <div style={{
-          display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center',
-          padding: '14px 22px 4px',
-        }}>
-          {TOP_VALUE_CHIPS.map(chip => (
-            <div key={chip} style={{
-              fontSize: 11, fontWeight: 600, color: '#3C2C20',
-              backgroundColor: '#F4EEE3', borderRadius: 999, padding: '5px 10px',
-              border: '1px solid #E8DFD0',
-            }}>
-              {chip}
-            </div>
-          ))}
-        </div>
-
-        {/* 2 cards plan côte à côte */}
-        <div style={{ display: 'flex', gap: 12, padding: '18px 16px 4px' }}>
-          <PlanCard
+        {/* 3 cards en colonne */}
+        <div style={{ padding: '14px 16px 6px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <BasicCard isCurrent={currentPlan === 'basic'} />
+          <PayableCard
             plan="habitants"
+            isCurrent={currentPlan === 'habitants'}
+            recommended={recommended === 'habitants'}
             loading={loading === 'habitants'}
-            disabled={!!loading}
+            disabled={!!loading || currentPlan === 'habitants'}
             onSelect={() => selectPlan('habitants')}
-            highlighted={recommended === 'habitants'}
           />
-          <PlanCard
+          <PayableCard
             plan="pro"
+            isCurrent={currentPlan === 'pro'}
+            recommended={recommended === 'pro'}
             loading={loading === 'pro'}
-            disabled={!!loading}
+            disabled={!!loading || currentPlan === 'pro'}
             onSelect={() => selectPlan('pro')}
-            highlighted={recommended === 'pro'}
           />
         </div>
 
         {error && (
           <p style={{
             fontSize: 12, color: '#DC2626', textAlign: 'center',
-            margin: '12px 22px 0', padding: '10px 14px',
+            margin: '6px 22px 0', padding: '10px 14px',
             backgroundColor: '#FEF2F2', borderRadius: 12, lineHeight: 1.5,
           }}>
             {error}
           </p>
         )}
 
-        <p style={{ fontSize: 11, color: '#9A8A7A', textAlign: 'center', margin: '14px 22px 4px', lineHeight: 1.5 }}>
+        {/* Footer 4 piliers */}
+        <div style={{
+          margin: '12px 16px 6px', padding: '14px 12px',
+          backgroundColor: '#F4EEE3', borderRadius: 16,
+          display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12,
+        }}>
+          {PILLARS.map(p => (
+            <div key={p.title} style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 20, marginBottom: 2 }}>{p.emoji}</div>
+              <div style={{ fontSize: 10, fontWeight: 800, color: '#2D5A3D', letterSpacing: '0.06em' }}>{p.title}</div>
+              <div style={{ fontSize: 10, color: '#7A6A5A', lineHeight: 1.3, marginTop: 2 }}>{p.text}</div>
+            </div>
+          ))}
+        </div>
+
+        <p style={{ fontSize: 10, color: '#9A8A7A', textAlign: 'center', margin: '8px 22px 0', lineHeight: 1.4 }}>
           Paiement sécurisé par Stripe · Résiliable à tout moment
         </p>
 
         <button
           onClick={onClose}
           style={{
-            display: 'block', margin: '8px auto 0',
-            padding: '8px 18px', background: 'none', border: 'none',
-            fontSize: 12, color: '#9A8A7A', cursor: 'pointer',
-            fontFamily: 'Inter, sans-serif',
+            display: 'block', margin: '4px auto 0',
+            padding: '10px 18px', background: 'none', border: 'none',
+            fontSize: 13, color: '#9A8A7A', cursor: 'pointer',
+            fontFamily: 'Inter, sans-serif', fontWeight: 600,
           }}
         >
           Plus tard
@@ -154,101 +252,227 @@ export default function SubscriptionModal({ context, onClose }: Props) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Sous-composant : 1 card plan
+// Card Villageois (gratuit, jamais cliquable comme upgrade)
 // ────────────────────────────────────────────────────────────────────────────
 
-function PlanCard({
+function BasicCard({ isCurrent }: { isCurrent: boolean }) {
+  const p = PLAN_DATA.basic
+  return (
+    <div style={{
+      borderRadius: 18, padding: '18px 16px 16px',
+      border: `2px solid ${p.border}`,
+      backgroundColor: p.bgVeryLight,
+      position: 'relative',
+    }}>
+      {isCurrent && <CurrentBadge color={p.color} />}
+
+      <CardHeader icon={p.icon} label={p.label} price={p.price} color={p.color} priceBg={p.color} priceText="#fff" />
+
+      <p style={{ fontSize: 12.5, color: '#3C2C20', margin: '8px 0 12px', lineHeight: 1.5, textAlign: 'center' }}>
+        {p.tagline}
+      </p>
+
+      <FeatureList features={p.features} color={p.color} />
+
+      <div style={{ height: 1, backgroundColor: p.border, margin: '12px 0' }} />
+
+      <p style={{ fontSize: 10, fontWeight: 800, color: p.color, letterSpacing: '0.08em', textAlign: 'center', margin: '0 0 8px' }}>
+        {p.limitsTitle.toUpperCase()}
+      </p>
+      <div style={{ backgroundColor: '#fff', borderRadius: 10, padding: '8px 12px', border: `1px solid ${p.border}` }}>
+        {p.limits.map((l, i) => (
+          <div key={l.label} style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            fontSize: 12, color: '#3C2C20', padding: '4px 0',
+            borderTop: i > 0 ? '1px solid #F0EBE0' : 'none',
+          }}>
+            <span>🎫 {l.label}</span>
+            <span style={{ fontWeight: 700, color: p.color }}>{l.value}</span>
+          </div>
+        ))}
+      </div>
+
+      <div style={{
+        marginTop: 12, padding: '10px 12px',
+        backgroundColor: p.bgSoft, borderRadius: 12,
+        fontSize: 11.5, color: '#3C2C20', lineHeight: 1.5,
+        textAlign: 'center',
+      }}>
+        ❤️ {p.teaser}
+      </div>
+    </div>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Card Habitants ou Partenaire (payant)
+// ────────────────────────────────────────────────────────────────────────────
+
+function PayableCard({
   plan,
+  isCurrent,
+  recommended,
   loading,
   disabled,
   onSelect,
-  highlighted,
 }: {
-  plan: PayablePlan
+  plan: 'habitants' | 'pro'
+  isCurrent: boolean
+  recommended: boolean
   loading: boolean
   disabled: boolean
   onSelect: () => void
-  highlighted?: boolean
 }) {
-  const info = PLANS_INFO[plan]
-
+  const p = PLAN_DATA[plan]
   return (
     <div style={{
-      flex: 1, borderRadius: 20, padding: '18px 14px 16px',
-      backgroundColor: '#fff',
-      border: `2px solid ${info.color}`,
-      boxShadow: highlighted ? `0 6px 24px ${info.color}33` : '0 2px 10px rgba(0,0,0,0.04)',
-      display: 'flex', flexDirection: 'column', gap: 8,
+      borderRadius: 18, padding: '18px 16px 16px',
+      border: `2px solid ${recommended ? p.color : p.border}`,
+      backgroundColor: p.bgVeryLight,
       position: 'relative',
+      boxShadow: recommended ? `0 8px 28px ${p.color}33` : '0 2px 12px rgba(0,0,0,0.04)',
     }}>
-      {highlighted && (
+      {isCurrent && <CurrentBadge color={p.color} />}
+      {recommended && !isCurrent && (
         <div style={{
-          position: 'absolute', top: -10, right: 12,
-          backgroundColor: info.color, color: '#fff',
+          position: 'absolute', top: -11, right: 18,
+          backgroundColor: p.color, color: '#fff',
           fontSize: 9, fontWeight: 800,
-          borderRadius: 999, padding: '3px 10px',
-          letterSpacing: '0.06em', textTransform: 'uppercase',
+          borderRadius: 999, padding: '4px 11px',
+          letterSpacing: '0.08em', textTransform: 'uppercase',
+          boxShadow: `0 4px 14px ${p.color}55`,
         }}>
-          {info.icon} Recommandé
+          ✦ Recommandé
         </div>
       )}
 
-      <div>
-        <span style={{
-          fontSize: 10, fontWeight: 800, color: info.color,
-          backgroundColor: info.bgColor,
-          borderRadius: 999, padding: '3px 10px',
-          letterSpacing: '0.06em', textTransform: 'uppercase',
-          lineHeight: 1.4,
-        }}>
-          {info.label}
-        </span>
-      </div>
+      <CardHeader icon={p.icon} label={p.label} price={p.price} color={p.color} priceBg={p.color} priceText="#fff" />
 
-      <div>
-        <span style={{ fontSize: 26, fontWeight: 900, color: '#1A1209', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
-          {info.priceLabel.split(' ')[0]}
-        </span>
-        <span style={{ fontSize: 11, color: '#8A7A6A', marginLeft: 3 }}>
-          /mois
-        </span>
-      </div>
-
-      <p style={{ fontSize: 11, color: '#7A6A5A', margin: '-2px 0 4px', fontStyle: 'italic' }}>
-        {info.tagline}
+      <p style={{ fontSize: 12.5, color: '#3C2C20', margin: '8px 0 14px', lineHeight: 1.5, textAlign: 'center' }}>
+        {p.tagline}
       </p>
 
-      <ul style={{
-        margin: 0, padding: 0, listStyle: 'none',
-        display: 'flex', flexDirection: 'column', gap: 5, flex: 1,
-      }}>
-        {info.features.map(f => (
-          <li key={f} style={{
-            display: 'flex', alignItems: 'flex-start', gap: 6,
-            fontSize: 11.5, color: '#3C2C20', lineHeight: 1.4,
-          }}>
-            <span style={{ color: info.color, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>
-              ✓
-            </span>
-            <span>{f}</span>
-          </li>
-        ))}
-      </ul>
+      <FeatureList features={p.features} color={p.color} />
 
+      {/* Encart teaser */}
+      <div style={{
+        marginTop: 14, padding: '10px 12px',
+        backgroundColor: p.bgSoft, borderRadius: 12,
+        display: 'flex', alignItems: 'flex-start', gap: 10,
+      }}>
+        <span style={{ fontSize: 18, flexShrink: 0 }}>{p.teaserBox.icon}</span>
+        <p style={{ fontSize: 11.5, color: '#3C2C20', lineHeight: 1.5, margin: 0 }}>{p.teaserBox.text}</p>
+      </div>
+
+      {/* CTA */}
       <button
         onClick={onSelect}
         disabled={disabled}
         style={{
-          marginTop: 8, padding: '12px 0', borderRadius: 14, border: 'none',
-          backgroundColor: loading ? '#aaa' : info.color, color: '#fff',
-          fontWeight: 800, fontSize: 13,
-          cursor: disabled ? 'default' : 'pointer',
-          fontFamily: 'Inter, sans-serif',
-          letterSpacing: '0.01em',
+          marginTop: 14, width: '100%', padding: '13px',
+          borderRadius: 14, border: 'none',
+          backgroundColor: isCurrent ? '#D1CCC4' : (loading ? '#aaa' : p.color),
+          color: '#fff', fontWeight: 800, fontSize: 13,
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          fontFamily: 'inherit',
+          letterSpacing: '0.02em', textTransform: 'uppercase',
+          opacity: isCurrent ? 0.7 : 1,
         }}
       >
-        {loading ? '…' : `Choisir ${info.label} →`}
+        {isCurrent ? '✓ Ton plan actuel' : loading ? '…' : p.cta}
       </button>
+    </div>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Sous-composants visuels
+// ────────────────────────────────────────────────────────────────────────────
+
+function CardHeader({
+  icon, label, price, color, priceBg, priceText,
+}: {
+  icon: string; label: string; price: string;
+  color: string; priceBg: string; priceText: string;
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+      <div style={{
+        width: 56, height: 56, borderRadius: '50%',
+        backgroundColor: '#fff', border: `2px solid ${color}33`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 30,
+        boxShadow: `0 4px 14px ${color}22`,
+      }}>
+        {icon}
+      </div>
+      <h3 style={{
+        fontSize: 18, fontWeight: 900, color, margin: 0,
+        letterSpacing: '0.02em', textTransform: 'uppercase',
+      }}>
+        {label}
+      </h3>
+      <span style={{
+        fontSize: 12, fontWeight: 800, color: priceText,
+        backgroundColor: priceBg, borderRadius: 999, padding: '4px 14px',
+        letterSpacing: '0.04em',
+      }}>
+        {price}
+      </span>
+    </div>
+  )
+}
+
+function FeatureList({
+  features, color,
+}: {
+  features: readonly (string | { strong: string; detail: string })[]
+  color: string
+}) {
+  return (
+    <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 7 }}>
+      {features.map((f, i) => {
+        const isObj = typeof f === 'object'
+        return (
+          <li key={i} style={{
+            display: 'flex', alignItems: 'flex-start', gap: 8,
+            fontSize: 12.5, color: '#3C2C20', lineHeight: 1.45,
+          }}>
+            <span style={{
+              flexShrink: 0, marginTop: 2,
+              width: 16, height: 16, borderRadius: '50%',
+              backgroundColor: color, color: '#fff',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 10, fontWeight: 900,
+            }}>✓</span>
+            {isObj ? (
+              <span>
+                <strong style={{ color: '#1A1209' }}>{f.strong}</strong>
+                <span style={{ display: 'block', fontSize: 11, color, fontStyle: 'italic', marginTop: 1 }}>
+                  {f.detail}
+                </span>
+              </span>
+            ) : (
+              <span>{f}</span>
+            )}
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+function CurrentBadge({ color }: { color: string }) {
+  return (
+    <div style={{
+      position: 'absolute', top: -11, left: 18,
+      backgroundColor: '#1A1209', color: '#fff',
+      fontSize: 9, fontWeight: 800,
+      borderRadius: 999, padding: '4px 11px',
+      letterSpacing: '0.08em', textTransform: 'uppercase',
+      boxShadow: `0 4px 14px ${color}55`,
+    }}>
+      ✓ Ton plan actuel
     </div>
   )
 }
@@ -258,50 +482,38 @@ function PlanCard({
 // ────────────────────────────────────────────────────────────────────────────
 
 function headerCopy(ctx: SubscriptionModalContext): {
-  title: string
-  subtitle: string
+  hero: string
+  sub: string
   recommended: PayablePlan
 } {
   switch (ctx.kind) {
     case 'claim':
       return {
-        title: `Gère « ${ctx.etabNom} »`,
-        subtitle: 'Revendique cette fiche, édite-la, mets-toi en valeur dans le village.',
+        hero: `Gère « ${ctx.etabNom} » dans ton village 🏪`,
+        sub: 'Revendique cette fiche, mets-toi en valeur, gagne en visibilité locale.',
         recommended: 'pro',
       }
     case 'promo':
       return {
-        title: 'Profite d\'autant de promos que tu veux',
-        subtitle: ctx.promoTitle
+        hero: 'Profite des promos sans limite 🎁',
+        sub: ctx.promoTitle
           ? `Tu as déjà profité d'une promo ce mois-ci. Passe Habitants pour en profiter sans limite, à commencer par « ${ctx.promoTitle} ».`
           : 'Tu as déjà profité d\'une promo ce mois-ci. Passe Habitants pour en profiter sans limite.',
         recommended: 'habitants',
       }
     case 'feature':
       return {
-        title: `${ctx.featureLabel} — débloque cette feature`,
-        subtitle: ctx.minPlan === 'pro'
+        hero: `${ctx.featureLabel}`,
+        sub: ctx.minPlan === 'pro'
           ? 'Cette feature est réservée aux Partenaires Locaux (commerces, producteurs, artisans).'
-          : 'Débloque les avantages Habitants ou passe Partenaire Local.',
+          : 'Débloque tous les avantages Habitants ou passe Partenaire Local.',
         recommended: ctx.minPlan ?? 'habitants',
       }
     case 'generic':
       return {
-        title: ctx.title ?? 'Débloque tout le potentiel de La Place du Village',
-        subtitle: ctx.subtitle ?? 'Choisis ton offre : un peu plus de liberté, ou un statut de commerce reconnu.',
+        hero: ctx.title ?? '3 offres, 1 seul village ❤️',
+        sub: ctx.subtitle ?? 'Plus vivant ensemble — choisis ton niveau d\'engagement local.',
         recommended: 'habitants',
       }
   }
 }
-
-// ────────────────────────────────────────────────────────────────────────────
-// Top features vendeuses, affichées en chips dès l'arrivée
-// ────────────────────────────────────────────────────────────────────────────
-
-const TOP_VALUE_CHIPS = [
-  '📣 Annonces illimitées',
-  '🎁 Promos sans limite',
-  '⏰ Enchères 12h avant',
-  '★ À la une (Partenaire)',
-  '🏪 Vitrine producteur',
-]

@@ -77,7 +77,7 @@ const NAV_TABS: { id: NavTab; label: string; Icon: (p: { active: boolean; badge?
 
 export default function HomePage() {
   const { fixedMap, setFixedMap } = useTheme()
-  const { user, loading: authLoading, isAdmin } = useAuth()
+  const { user, profile, loading: authLoading, isAdmin } = useAuth()
   const { favIds, toggle: toggleFav } = useFavorites()
   const { favIds: producerFavIds, toggle: toggleProducerFav } = useProducerFavorites()
   const { unreadCount: notifCount, notifications, loading: notifLoading, loaded: notifLoaded, fetchAll: fetchNotifs, markRead: markNotifRead, markAllRead: markAllNotifsRead } = useNotifications()
@@ -637,8 +637,9 @@ export default function HomePage() {
       {/* Modale "Abonnement requis" — pitch Stripe direct */}
       {upgradePrompt && (
         <SubscriptionModal
-          context={{ kind: 'feature', featureLabel: upgradePrompt.label }}
+          context={{ kind: 'feature', featureLabel: upgradePrompt.label, minPlan: upgradePrompt.plan }}
           onClose={() => setUpgradePrompt(null)}
+          currentPlan={(profile?.plan as 'basic' | 'habitants' | 'pro') ?? 'basic'}
         />
       )}
 

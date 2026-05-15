@@ -95,7 +95,14 @@ export default function MicButton({ onTranscript, className = '' }: Props) {
           </svg>
         )}
       </button>
-      {error && <span className="text-xs text-red-400 mt-1 whitespace-nowrap">{error}</span>}
+      {error && (
+        <span
+          className="text-xs text-red-500 mt-1 text-center leading-tight"
+          style={{ maxWidth: 200, wordBreak: 'break-word' }}
+        >
+          {error}
+        </span>
+      )}
     </span>
   )
 }
