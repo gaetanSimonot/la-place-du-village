@@ -36,7 +36,7 @@ const EtablissementPageClient   = dynamic(() => import('@/app/etablissement/[id]
 const defaultFiltres: Filtres = { categories: [], quand: 'toujours' }
 const NAV_H = 62
 
-type NavTab = 'accueil' | 'carte' | 'publier' | 'favoris' | 'profil' | 'notifs'
+type NavTab = 'accueil' | 'carte' | 'annonces' | 'favoris' | 'profil' | 'notifs'
 
 const IconHome = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -61,18 +61,19 @@ const IconCoeur = ({ filled }: { filled?: boolean }) => (
     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
   </svg>
 )
-const IconPlus = () => (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="12" y1="5" x2="12" y2="19"/>
-    <line x1="5" y1="12" x2="19" y2="12"/>
+const IconAnnonces = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    {/* tag / megaphone : icone qui evoque les petites annonces */}
+    <path d="M3 11l18-8v18l-18-8z"/>
+    <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>
   </svg>
 )
-const NAV_TABS: { id: NavTab; label: string; Icon: (p: { active: boolean; badge?: number }) => React.JSX.Element; isFab?: boolean }[] = [
-  { id: 'accueil', label: 'Accueil', Icon: () => <IconHome /> },
-  { id: 'carte',   label: 'Carte',   Icon: () => <IconCarte /> },
-  { id: 'publier', label: 'Publier', Icon: () => <IconPlus />, isFab: true },
-  { id: 'favoris', label: 'Favoris', Icon: ({ active }) => <IconCoeur filled={active} /> },
-  { id: 'profil',  label: 'Profil',  Icon: () => <IconProfil /> },
+const NAV_TABS: { id: NavTab; label: string; Icon: (p: { active: boolean; badge?: number }) => React.JSX.Element }[] = [
+  { id: 'accueil',  label: 'Accueil',  Icon: () => <IconHome /> },
+  { id: 'carte',    label: 'Carte',    Icon: () => <IconCarte /> },
+  { id: 'annonces', label: 'Annonces', Icon: () => <IconAnnonces /> },
+  { id: 'favoris',  label: 'Favoris',  Icon: ({ active }) => <IconCoeur filled={active} /> },
+  { id: 'profil',   label: 'Profil',   Icon: () => <IconProfil /> },
 ]
 
 export default function HomePage() {
@@ -190,7 +191,6 @@ export default function HomePage() {
   const [paramsOpen, setParamsOpen] = useState(false)
   const [commerceFormOpen, setCommerceFormOpen] = useState(false)
   const [infoOpen, setInfoOpen]     = useState(false)
-  const [publishOpen, setPublishOpen] = useState(false)
   const mapDragTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sheetBeforeMapRef = useRef<'peek'|'half'|'full' | null>(null)
 
@@ -463,7 +463,7 @@ export default function HomePage() {
     if (openProducerIdRef.current) { setOpenProducerIdState(null); openProducerIdRef.current = null }
     if (openEtablissementIdRef.current) { setOpenEtablissementId(null); openEtablissementIdRef.current = null }
     if (tab === 'accueil') { setShowHub(true); setNavTab('accueil'); return }
-    if (tab === 'publier') { setPublishOpen(true); return }
+    if (tab === 'annonces') { router.push('/annonces'); return }
     // Pour tous les autres onglets, on quitte le hub si on y était
     if (showHub) setShowHub(false)
     if (tab === 'profil')  { setNavTab('profil');  return }
@@ -1078,29 +1078,6 @@ export default function HomePage() {
       }}>
         {NAV_TABS.map(tab => {
           const active = navTab === tab.id
-          if (tab.isFab) {
-            return (
-              <div key={tab.id} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                <button
-                  onClick={() => handleNavTab(tab.id)}
-                  style={{
-                    position: 'absolute', top: -22,
-                    width: 60, height: 60, borderRadius: '50%',
-                    border: '4px solid #fff', backgroundColor: 'var(--primary)',
-                    color: '#fff', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: '0 6px 16px rgba(45,90,61,0.35)',
-                  }}
-                  aria-label="Publier"
-                >
-                  <tab.Icon active={active} />
-                </button>
-                <span style={{ fontSize: 10, fontWeight: 700, color: '#8A8A8A', fontFamily: 'Inter, sans-serif', marginTop: 30 }}>
-                  {tab.label}
-                </span>
-              </div>
-            )
-          }
           return (
             <button key={tab.id} onClick={() => handleNavTab(tab.id)} style={{
               flex: 1, display: 'flex', flexDirection: 'column',
@@ -1120,88 +1097,7 @@ export default function HomePage() {
         })}
       </nav>
 
-      {/* Modale Publier */}
-      {publishOpen && (
-        <PublishChoiceModal
-          onClose={() => setPublishOpen(false)}
-          onCommerceRequest={() => { setPublishOpen(false); setCommerceFormOpen(true) }}
-        />
-      )}
     </div>
   )
 }
 
-function PublishChoiceModal({ onClose, onCommerceRequest }: { onClose: () => void; onCommerceRequest: () => void }) {
-  const router = useRouter()
-
-  const handleChoice = (action: () => void) => { onClose(); action() }
-
-  const choices = [
-    {
-      id: 'annonce',
-      icon: '🏷️',
-      iconBg: '#FBE9E7', iconColor: '#C0392B',
-      label: 'Une annonce',
-      desc: 'Vente, troc, don ou enchère inversée',
-      action: () => router.push('/annonces/nouvelle'),
-    },
-    {
-      id: 'evenement',
-      icon: '🎉',
-      iconBg: '#E8F2EB', iconColor: '#2D5A3D',
-      label: 'Un événement',
-      desc: 'Concert, marché, soirée — photo ou saisie texte',
-      action: () => router.push('/ajouter'),
-    },
-    {
-      id: 'pro',
-      icon: '🏪',
-      iconBg: '#EEF3FF', iconColor: '#3A5BC7',
-      label: 'Un professionnel',
-      desc: 'Soumettre une fiche établissement / commerce',
-      action: onCommerceRequest,
-    },
-  ]
-
-  return (
-    <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.5)' }} />
-      <div style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 401,
-        backgroundColor: '#FDFAF6', borderRadius: '24px 24px 0 0',
-        padding: '20px 20px 32px', fontFamily: 'Inter, sans-serif',
-        boxShadow: '0 -8px 30px rgba(0,0,0,0.2)',
-      }}>
-        <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '0 auto 18px' }} />
-        <h3 style={{ margin: '0 0 18px', fontSize: 19, fontWeight: 900, color: '#1A1209', textAlign: 'center' }}>
-          Que veux-tu publier ?
-        </h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {choices.map(c => (
-            <button
-              key={c.id}
-              onClick={() => handleChoice(c.action)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 14,
-                padding: '14px 16px', borderRadius: 14,
-                border: '1.5px solid #E5DDD2', backgroundColor: '#fff',
-                cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
-              }}
-            >
-              <span style={{
-                width: 44, height: 44, borderRadius: 12, backgroundColor: c.iconBg, color: c.iconColor,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 22, flexShrink: 0,
-              }}>{c.icon}</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#1A1209' }}>{c.label}</p>
-                <p style={{ margin: '2px 0 0', fontSize: 11, color: '#8A7A6A' }}>{c.desc}</p>
-              </div>
-              <span style={{ color: '#C8B8A8', fontSize: 18 }}>›</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    </>
-  )
-}
