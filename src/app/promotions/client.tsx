@@ -33,7 +33,7 @@ interface Promotion {
 }
 
 const FREQ_LABEL: Record<string, string> = {
-  always:  '1 fois maximum',
+  always:  'Toujours',
   weekly:  '1× par semaine',
   monthly: '1× par mois',
 }
@@ -65,7 +65,6 @@ export default function PromotionsClient() {
   useEffect(() => { fetchPromos() }, [fetchPromos])
 
   // Scroll vers la promo ciblée si on arrive depuis le hub avec ?id=...
-  // On lit window.location pour éviter le bailout CSR de useSearchParams.
   useEffect(() => {
     if (loading || promos.length === 0) return
     if (typeof window === 'undefined') return
@@ -74,7 +73,6 @@ export default function PromotionsClient() {
     const el = document.getElementById(`promo-${id}`)
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      // Petit highlight visuel via outline temporaire
       el.style.outline = '3px solid #E8622A'
       el.style.outlineOffset = '4px'
       el.style.borderRadius = '18px'
@@ -91,7 +89,6 @@ export default function PromotionsClient() {
   }
 
   // Étape 1 : clic "J'en profite" → ouvre la modale de confirmation position.
-  // Le quota basic (1/mois) est vérifié côté API ; on laisse passer ici.
   const openUseConfirm = (promo: Promotion) => {
     if (!user) { openAuthModal('/promotions'); return }
     setConfirmModal(promo)
@@ -110,7 +107,7 @@ export default function PromotionsClient() {
     setConfirmModal(null)
     const d = await res.json().catch(() => ({}))
     if (res.ok) {
-      showToastMsg('✓ Promo enregistrée — bon appétit !')
+      showToastMsg('Promo enregistrée — bon appétit !')
       fetchPromos()
     } else if (d.upgradeRequired) {
       setUpgradePromo(promo)
@@ -119,13 +116,11 @@ export default function PromotionsClient() {
     }
   }
 
-  // Liste filtrée par type
   const filteredPromos = useMemo(() => {
     if (!typeFilter) return promos
     return promos.filter(p => p.etablissement?.type === typeFilter)
   }, [promos, typeFilter])
 
-  // Types réellement présents dans les promos (pas tous les types possibles)
   const availableTypes = useMemo(() => {
     const set = new Set<EtablissementType>()
     promos.forEach(p => { if (p.etablissement?.type) set.add(p.etablissement.type) })
@@ -133,101 +128,132 @@ export default function PromotionsClient() {
   }, [promos])
 
   return (
-    <div style={{ minHeight: '100dvh', backgroundColor: 'var(--creme)', fontFamily: 'Inter, sans-serif' }}>
+    <div className="min-h-[100dvh] bg-creme pb-20 font-inter text-texte">
+      <style>{`.pdv-hscroll { scrollbar-width: none; -webkit-overflow-scrolling: touch; } .pdv-hscroll::-webkit-scrollbar { display: none; }`}</style>
 
-      {/* Header */}
-      <div style={{
-        background: 'linear-gradient(135deg, #1A3A2A 0%, #2D5A3D 60%, #3F7A52 100%)',
-        padding: '20px 18px 22px',
-        position: 'relative', overflow: 'hidden',
-        color: '#fff',
-      }}>
-        <button onClick={() => router.push('/')} style={{
-          background: 'rgba(255,255,255,0.15)', color: '#fff', border: 'none',
-          borderRadius: 999, padding: '5px 12px', fontSize: 12, fontWeight: 700,
-          cursor: 'pointer', marginBottom: 10, fontFamily: 'Inter, sans-serif',
-        }}>
-          ← Accueil
+      {/* Top bar V3 */}
+      <div className="flex items-center justify-between gap-2.5 px-4 pt-3.5">
+        <button
+          onClick={() => router.push('/')}
+          aria-label="Retour"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte shadow-[0_1px_2px_rgba(44,28,16,0.04)]"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"/>
+            <polyline points="12 19 5 12 12 5"/>
+          </svg>
         </button>
-        <h1 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 4px', letterSpacing: '-0.02em' }}>
-          Bons plans du village
-        </h1>
-        <p style={{ fontSize: 12.5, opacity: 0.82, margin: 0, maxWidth: 360, lineHeight: 1.45 }}>
-          Offres exclusives chez vos commerçants partenaires.
-        </p>
+        <div className="flex min-w-0 flex-1 flex-col items-center gap-px">
+          <div className="font-serif text-[18px] leading-none text-texte" style={{ letterSpacing: '-0.01em' }}>
+            Bons plans
+          </div>
+          <div className="flex items-center gap-[3px] text-[11px] font-semibold text-texte-doux">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/>
+              <circle cx="12" cy="10" r="2.5"/>
+            </svg>
+            <span>Près de chez vous</span>
+          </div>
+        </div>
+        <div className="h-10 w-10 shrink-0" aria-hidden />
       </div>
 
-      {/* Liste */}
-      <div style={{ padding: '18px 16px 80px' }}>
+      {/* Intro strip */}
+      <div className="flex items-baseline justify-between gap-2.5 px-4 pt-3.5">
+        <p className="m-0 flex-1 text-[13px] text-texte-doux">
+          {loading ? (
+            'Chargement des offres…'
+          ) : (
+            <>
+              <span className="font-bold text-texte">{promos.length} offre{promos.length > 1 ? 's' : ''}</span>{' '}
+              exclusive{promos.length > 1 ? 's' : ''} chez vos commerçants locaux.
+            </>
+          )}
+        </p>
+        <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-[#FFF0E5] px-[9px] py-1 text-[11px] font-bold text-accent">
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+          En direct
+        </span>
+      </div>
 
-        {/* Filtres par type d'établissement */}
-        {!loading && availableTypes.length > 1 && (
-          <div style={{
-            display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 14,
-            paddingBottom: 4,
-          }} className="pdv-hscroll">
-            <button
-              onClick={() => setTypeFilter(null)}
-              style={{
-                flexShrink: 0, padding: '7px 14px', borderRadius: 999,
-                border: typeFilter === null ? '2px solid #C4622D' : '1.5px solid #E0D8CE',
-                backgroundColor: typeFilter === null ? '#FFF0E5' : '#fff',
-                color: typeFilter === null ? '#C4622D' : '#7A6A5A',
-                fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                fontFamily: 'Inter, sans-serif',
-              }}
-            >
-              Tout
-            </button>
-            {availableTypes.map(t => {
-              const info = ETAB_TYPES[t]
-              const active = typeFilter === t
-              return (
-                <button
-                  key={t}
-                  onClick={() => setTypeFilter(t)}
-                  style={{
-                    flexShrink: 0, padding: '7px 14px', borderRadius: 999,
-                    border: active ? `2px solid ${info.color}` : '1.5px solid #E0D8CE',
-                    backgroundColor: active ? info.bg : '#fff',
-                    color: active ? info.color : '#7A6A5A',
-                    fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                    fontFamily: 'Inter, sans-serif',
-                  }}
-                >
-                  {info.emoji} {info.label}
-                </button>
-              )
-            })}
-          </div>
-        )}
-        <style>{`.pdv-hscroll { scrollbar-width: none; -webkit-overflow-scrolling: touch; } .pdv-hscroll::-webkit-scrollbar { display: none; }`}</style>
+      {/* Filtres */}
+      {!loading && availableTypes.length > 1 && (
+        <div
+          className="pdv-hscroll flex gap-1.5 overflow-x-auto px-4 pb-1 pt-3.5"
+          style={{ scrollSnapType: 'x mandatory' }}
+        >
+          <button
+            onClick={() => setTypeFilter(null)}
+            className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-[12px] font-bold transition-colors ${
+              typeFilter === null
+                ? 'border-[1.5px] border-accent bg-[#FFF0E5] text-accent'
+                : 'border border-bord bg-white text-texte-doux'
+            }`}
+            style={{ scrollSnapAlign: 'start' }}
+          >
+            Tout
+          </button>
+          {availableTypes.map(t => {
+            const info = ETAB_TYPES[t]
+            const active = typeFilter === t
+            return (
+              <button
+                key={t}
+                onClick={() => setTypeFilter(t)}
+                className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-[12px] font-bold transition-colors ${
+                  active
+                    ? 'border-[1.5px] border-accent bg-[#FFF0E5] text-accent'
+                    : 'border border-bord bg-white text-texte-doux'
+                }`}
+                style={{ scrollSnapAlign: 'start' }}
+              >
+                {info.label}
+              </button>
+            )
+          })}
+          <div className="w-1 shrink-0" aria-hidden />
+        </div>
+      )}
 
+      {/* Section header */}
+      <div className="flex items-center justify-between gap-2.5 px-4 pb-2.5 pt-[22px]">
+        <div className="flex min-w-0 items-center gap-2">
+          <h3 className="m-0 text-[15px] font-extrabold tracking-tight2 text-texte">
+            Toutes les offres
+          </h3>
+          {!loading && (
+            <span className="rounded-full bg-cremeDeep px-[7px] py-0.5 text-[11px] font-bold text-texte-doux">
+              {filteredPromos.length}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Grid 2 cols */}
+      <div className="px-4">
         {loading ? (
-          <div style={{ padding: 40, textAlign: 'center', color: '#9A8A7A' }}>
-            Chargement…
-          </div>
+          <div className="py-10 text-center text-[13px] text-texte-doux">Chargement…</div>
         ) : filteredPromos.length === 0 ? (
-          <div style={{ padding: 60, textAlign: 'center', color: '#9A8A7A' }}>
-            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#C8B8A8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: '0 auto 12px' }}>
+          <div className="py-14 text-center">
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#C8B8A8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mx-auto mb-3">
               <polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/>
               <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
             </svg>
-            <p style={{ fontSize: 14, fontWeight: 700, color: '#7A6A5A', margin: 0 }}>
+            <p className="m-0 text-[14px] font-bold text-texte-doux">
               {typeFilter ? 'Aucune promo dans cette catégorie' : 'Aucune promo en cours'}
             </p>
-            <p style={{ fontSize: 12, margin: '6px 0 0' }}>
+            <p className="mt-1.5 text-[12px] text-texte-doux">
               {typeFilter
-                ? <button onClick={() => setTypeFilter(null)} style={{ background: 'none', border: 'none', color: '#C4622D', textDecoration: 'underline', cursor: 'pointer', fontSize: 12, fontFamily: 'Inter, sans-serif' }}>Voir toutes les catégories</button>
+                ? <button onClick={() => setTypeFilter(null)} className="cursor-pointer border-none bg-transparent text-[12px] text-accent underline">Voir toutes les catégories</button>
                 : 'Reviens plus tard, les commerçants en publient régulièrement'}
             </p>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="grid grid-cols-2 gap-2.5">
             {filteredPromos.map(p => (
-              <div key={p.id} id={`promo-${p.id}`} style={{ scrollMarginTop: 80, position: 'relative' }}>
+              <div key={p.id} id={`promo-${p.id}`} className="relative" style={{ scrollMarginTop: 80 }}>
                 {isAdmin && (
-                  <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 5 }}>
+                  <div className="absolute right-2 top-2 z-[5]">
                     <FeatureButton contentType="promotion" contentId={p.id} />
                   </div>
                 )}
@@ -242,7 +268,7 @@ export default function PromotionsClient() {
         )}
       </div>
 
-      {/* Modale de confirmation "Êtes-vous sur place ?" */}
+      {/* Modale de confirmation */}
       {confirmModal && (
         <ConfirmPositionModal
           promo={confirmModal}
@@ -254,13 +280,7 @@ export default function PromotionsClient() {
 
       {/* Toast */}
       {toast && (
-        <div style={{
-          position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)',
-          backgroundColor: '#2C1810', color: '#fff',
-          padding: '12px 22px', borderRadius: 999, fontSize: 13, fontWeight: 600,
-          boxShadow: '0 4px 18px rgba(0,0,0,0.25)', zIndex: 50,
-          maxWidth: '90%', textAlign: 'center', fontFamily: 'Inter, sans-serif',
-        }}>
+        <div className="fixed bottom-20 left-1/2 z-50 max-w-[90%] -translate-x-1/2 rounded-full bg-texte px-5 py-3 text-center text-[13px] font-semibold text-white shadow-[0_4px_18px_rgba(0,0,0,0.25)]">
           {toast}
         </div>
       )}
@@ -282,72 +302,65 @@ function PromoCard({ promo, onUse, disabled }: {
   disabled: boolean
 }) {
   return (
-    <div style={{
-      backgroundColor: '#fff', borderRadius: 14,
-      boxShadow: '0 2px 8px rgba(44,28,16,0.06)',
-      overflow: 'hidden',
-      display: 'flex', flexDirection: 'column',
-      height: '100%',
-    }}>
-      {/* Image hero */}
-      <div style={{ position: 'relative', height: 110, backgroundColor: '#F0EBE3', overflow: 'hidden' }}>
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-[14px] border bg-white shadow-[0_1px_6px_0_rgba(44,28,16,0.04)]"
+      style={{ borderColor: '#F0EAE0' }}
+    >
+      {/* Image */}
+      <div className="relative h-[110px] bg-bord/40">
         {promo.display_image_url ? (
-          <img src={promo.display_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          <img src={promo.display_image_url} alt="" className="block h-full w-full object-cover" />
         ) : (
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#C8B8A8' }}>
+          <div className="flex h-full w-full items-center justify-center text-texte-tres-doux">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/>
               <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
             </svg>
           </div>
         )}
-        <span style={{
-          position: 'absolute', top: 6, left: 6,
-          backgroundColor: '#E8622A', color: '#fff',
-          fontSize: 9, fontWeight: 800,
-          padding: '2px 7px', borderRadius: 999,
-          letterSpacing: '0.04em',
-        }}>BON PLAN</span>
+        <span className="absolute left-2 top-2 rounded-[5px] bg-[#E8622A] px-[7px] py-1 text-[9px] font-extrabold tracking-[0.08em] text-white">
+          BON PLAN
+        </span>
+        <button
+          type="button"
+          aria-label="Favori"
+          onClick={ev => { ev.stopPropagation(); ev.preventDefault() }}
+          className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full border-none bg-white/90"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-texte">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
+        </button>
       </div>
 
-      <div style={{ padding: '9px 10px 10px', display: 'flex', flexDirection: 'column', gap: 3, flex: 1 }}>
-        {/* Étab (texte simple, pas un bouton — toute la card est cliquable via le CTA) */}
+      <div className="flex flex-1 flex-col gap-[3px] px-2.5 pb-2.5 pt-2">
         {promo.etablissement && (
-          <p style={{ fontSize: 10.5, fontWeight: 600, color: '#8A7A6A', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+          <p className="m-0 truncate text-[10px] font-semibold uppercase tracking-[0.06em] text-texte-doux">
             {promo.etablissement.nom}
           </p>
         )}
 
-        {/* Titre */}
-        <h3 style={{
-          fontSize: 13, fontWeight: 800, color: '#1A1209',
-          margin: 0, letterSpacing: '-0.01em', lineHeight: 1.2,
-          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
-        }}>
+        <h3
+          className="m-0 line-clamp-2 text-[13px] font-extrabold leading-[1.2] text-texte"
+          style={{ letterSpacing: '-0.01em' }}
+        >
           {promo.title}
         </h3>
 
-        {/* Fréquence + validité (compact) */}
-        <p style={{ fontSize: 10.5, color: '#9A8A7A', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <p className="m-0 flex items-center gap-1 truncate text-[10.5px] text-texte-doux">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+            <circle cx="12" cy="12" r="9"/>
+            <polyline points="12 7 12 12 15 14"/>
+          </svg>
           {FREQ_LABEL[promo.frequency] ?? promo.frequency}
           {promo.valid_until && ` · ${new Date(promo.valid_until).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`}
         </p>
 
-        {/* CTA */}
         <button
           onClick={onUse}
           disabled={disabled}
-          style={{
-            marginTop: 'auto',
-            padding: '8px 10px', borderRadius: 10,
-            backgroundColor: '#C4622D',
-            color: '#fff', border: 'none',
-            fontSize: 12, fontWeight: 700, cursor: disabled ? 'default' : 'pointer',
-            opacity: disabled ? 0.6 : 1,
-            fontFamily: 'Inter, sans-serif',
-            letterSpacing: '-0.01em',
-          }}
+          className="mt-auto rounded-[10px] border-none bg-accent px-2.5 py-2 text-[12px] font-bold text-white disabled:opacity-60"
+          style={{ letterSpacing: '-0.01em' }}
         >
           {disabled ? '…' : "J'en profite"}
         </button>
@@ -363,65 +376,76 @@ function ConfirmPositionModal({ promo, onClose, onConfirm, loading }: {
   loading: boolean
 }) {
   return (
-    <div onClick={onClose} style={{
-      position: 'fixed', inset: 0, zIndex: 3000,
-      backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
-      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-      fontFamily: 'Inter, sans-serif',
-    }}>
-      <div onClick={e => e.stopPropagation()} style={{
-        width: '100%', maxWidth: 480, backgroundColor: '#fff',
-        borderRadius: '24px 24px 0 0', padding: '24px 24px 28px',
-        paddingBottom: 'max(28px, env(safe-area-inset-bottom, 28px))',
-      }}>
-        <div style={{ textAlign: 'center', marginBottom: 18 }}>
-          <div style={{ fontSize: 48, marginBottom: 10 }}>📍</div>
-          <h2 style={{ fontSize: 18, fontWeight: 800, color: '#1A1209', margin: '0 0 6px', letterSpacing: '-0.01em' }}>
-            Êtes-vous sur place ?
-          </h2>
-          <p style={{ fontSize: 13, color: '#7A6A5A', margin: '0 0 4px', lineHeight: 1.5 }}>
-            Vous allez profiter de la promo <strong style={{ color: '#1A1209' }}>« {promo.title} »</strong>
-          </p>
-          {promo.etablissement && (
-            <p style={{ fontSize: 12, color: '#9A8A7A', margin: 0 }}>
-              chez <strong>{promo.etablissement.nom}</strong>{promo.etablissement.commune ? ` · ${promo.etablissement.commune}` : ''}
-            </p>
-          )}
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/55 backdrop-blur-[4px] font-inter"
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        className="w-full max-w-[480px] rounded-t-3xl bg-white px-6 pb-7 pt-[18px]"
+        style={{ paddingBottom: 'max(28px, env(safe-area-inset-bottom, 28px))' }}
+      >
+        {/* Grabber */}
+        <div className="mx-auto mb-[18px] h-[5px] w-11 rounded-[3px] bg-[#E4DED2]" />
+
+        {/* Icone pin */}
+        <div className="mx-auto mb-3.5 flex h-[60px] w-[60px] items-center justify-center rounded-full bg-primary-light text-primary">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 22s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/>
+            <circle cx="12" cy="10" r="2.5"/>
+          </svg>
         </div>
 
-        <div style={{
-          backgroundColor: '#FFF7E5', borderRadius: 12,
-          padding: '10px 14px', marginBottom: 16,
-          border: '1px solid #F0D9B8',
-        }}>
-          <p style={{ fontSize: 11, color: '#7A5614', margin: 0, lineHeight: 1.5 }}>
-            <strong>Bon usage :</strong> ne validez la promo que si vous êtes vraiment chez le commerçant. Le commerçant sera notifié de votre passage.
+        <h2
+          className="m-0 mb-1.5 text-center font-serif text-[22px] font-normal text-texte"
+          style={{ letterSpacing: '-0.01em' }}
+        >
+          Êtes-vous sur place ?
+        </h2>
+        <p className="m-0 mb-1 text-center text-[13px] leading-[1.5] text-texte-doux">
+          Vous allez profiter de la promo<br />
+          <strong className="text-texte">« {promo.title} »</strong>
+        </p>
+        {promo.etablissement && (
+          <p className="m-0 mb-[18px] text-center text-[12px] text-texte-tres-doux">
+            chez <strong className="text-texte-doux">{promo.etablissement.nom}</strong>
+            {promo.etablissement.commune ? ` · ${promo.etablissement.commune}` : ''}
+          </p>
+        )}
+
+        {/* Bon usage notice */}
+        <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-[#F0D9B8] bg-[#FFF7E5] px-3.5 py-2.5">
+          <div className="shrink-0 pt-px text-[#A8770F]">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <p className="m-0 text-[11px] leading-[1.5] text-[#7A5614]">
+            <strong>Bon usage&nbsp;:</strong> ne validez la promo que si vous êtes vraiment chez le commerçant. Le commerçant sera notifié de votre passage.
           </p>
         </div>
 
         <button
           onClick={onConfirm}
           disabled={loading}
-          style={{
-            width: '100%', padding: '14px',
-            backgroundColor: '#C4622D', color: '#fff',
-            border: 'none', borderRadius: 14,
-            fontSize: 14, fontWeight: 700,
-            cursor: loading ? 'default' : 'pointer',
-            opacity: loading ? 0.6 : 1,
-            fontFamily: 'Inter, sans-serif', marginBottom: 8,
-          }}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border-none bg-accent px-4 py-3.5 text-[14px] font-bold text-white disabled:opacity-60"
         >
-          {loading ? '…' : '✓ Oui, je confirme ma présence'}
+          {loading ? (
+            '…'
+          ) : (
+            <>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Oui, je confirme ma présence
+            </>
+          )}
         </button>
         <button
           onClick={onClose}
-          style={{
-            width: '100%', padding: '10px',
-            background: 'none', border: 'none',
-            fontSize: 12, color: '#9A8A7A',
-            cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-          }}
+          className="w-full bg-transparent pt-2.5 text-[13px] font-semibold text-texte-doux"
         >
           Annuler
         </button>
