@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
 import type { EtablissementType, Evenement } from '@/lib/types'
-import { getPrixAffiche, getNextDropDate, formatCountdown, type Annonce } from '@/lib/annonces'
+import { getPrixAffiche, type Annonce } from '@/lib/annonces'
 
 interface Props {
   onSelectAgenda:        () => void
@@ -89,7 +89,7 @@ export default function HubView({
   const [heroItems, setHeroItems] = useState<HeroItem[]>([])
   const [todayEvents, setTodayEvents] = useState<Evenement[]>([])
   const [promos, setPromos] = useState<PromoCard[]>([])
-  const [featuredAnnonce, setFeaturedAnnonce] = useState<Annonce | null>(null)
+  const [featuredAnnonces, setFeaturedAnnonces] = useState<Annonce[]>([])
   const [subtitle, setSubtitle] = useState<string>('Tout le village, à portée de main')
 
   // Sous-titre éditable par l'admin (config.hub_subtitle)
@@ -239,60 +239,79 @@ export default function HubView({
     return () => { mounted = false }
   }, [])
 
-  // Annonce vedette : 1. featured_slots homepage (override) > 2. sponsored > 3. enchère récente
+  // Annonces "Les prix baissent" : featured_slots homepage en tête (override) +
+  // reste de la liste derrière (sponsored, enchères récentes). Pas de remplacement,
+  // juste un re-ordering — comme pour les promos.
   useEffect(() => {
     let mounted = true
     ;(async () => {
       const nowISO = new Date().toISOString()
-      let data: Annonce | null = null
+      const ordered: Annonce[] = []
+      const seen = new Set<string>()
 
-      // 1. Override featured_slots homepage type annonce
+      // 1. Featured admin/pro/boost en tête
       const { data: featuredSlots } = await supabase
         .from('featured_slots')
-        .select('content_id')
+        .select('content_id, priority')
         .eq('slot', 'homepage')
         .eq('content_type', 'annonce')
         .lte('starts_at', nowISO)
         .gt('ends_at', nowISO)
         .order('priority', { ascending: false })
         .order('created_at', { ascending: false })
-        .limit(1)
 
-      if (featuredSlots && featuredSlots.length > 0) {
-        const { data: a } = await supabase
+      const featuredIds = (featuredSlots ?? []).map(s => s.content_id)
+      if (featuredIds.length > 0) {
+        const { data: featuredRows } = await supabase
           .from('annonces')
           .select('*')
-          .eq('id', featuredSlots[0].content_id)
+          .in('id', featuredIds)
           .eq('statut', 'active')
-          .maybeSingle()
-        data = a as Annonce | null
+        const map = Object.fromEntries(((featuredRows ?? []) as Annonce[]).map(a => [a.id, a]))
+        featuredIds.forEach(id => {
+          const a = map[id]
+          if (a && !seen.has(a.id)) { ordered.push(a); seen.add(a.id) }
+        })
       }
 
-      // 2. Fallback sponsored
-      if (!data) {
-        const r = await supabase
-          .from('annonces')
-          .select('*')
-          .eq('statut', 'active')
-          .eq('sponsored', true)
-          .order('updated_at', { ascending: false })
-          .limit(1)
-        data = (r.data?.[0] as Annonce | undefined) ?? null
-      }
+      // 2. Sponsored
+      const { data: sponsoredRows } = await supabase
+        .from('annonces')
+        .select('*')
+        .eq('statut', 'active')
+        .eq('sponsored', true)
+        .order('updated_at', { ascending: false })
+        .limit(8)
+      ;((sponsoredRows ?? []) as Annonce[]).forEach(a => {
+        if (!seen.has(a.id)) { ordered.push(a); seen.add(a.id) }
+      })
 
-      // 3. Fallback enchère récente
-      if (!data) {
-        const r = await supabase
+      // 3. Enchères inversées récentes (le concept "les prix baissent")
+      const { data: encheres } = await supabase
+        .from('annonces')
+        .select('*')
+        .eq('statut', 'active')
+        .eq('type', 'enchere_inversee')
+        .order('created_at', { ascending: false })
+        .limit(8)
+      ;((encheres ?? []) as Annonce[]).forEach(a => {
+        if (!seen.has(a.id)) { ordered.push(a); seen.add(a.id) }
+      })
+
+      // 4. Compléter avec annonces actives récentes (pour avoir au moins ~6 items)
+      if (ordered.length < 6) {
+        const { data: recent } = await supabase
           .from('annonces')
           .select('*')
           .eq('statut', 'active')
-          .eq('type', 'enchere_inversee')
           .order('created_at', { ascending: false })
-          .limit(1)
-        data = (r.data?.[0] as Annonce | undefined) ?? null
+          .limit(10)
+        ;((recent ?? []) as Annonce[]).forEach(a => {
+          if (!seen.has(a.id)) { ordered.push(a); seen.add(a.id) }
+        })
       }
 
-      if (mounted) setFeaturedAnnonce(data)
+      if (mounted) setFeaturedAnnonces(ordered.slice(0, 10))
     })()
     return () => { mounted = false }
   }, [])
@@ -534,50 +553,49 @@ export default function HubView({
         </>
       )}
 
-      {/* ── 6. Annonce vedette / Enchère ──────────────────────────────────── */}
-      {featuredAnnonce && (
+      {/* ── 6. Annonces "Les prix baissent" — carousel horizontal ─────────── */}
+      {featuredAnnonces.length > 0 && (
         <>
           <SectionHeader title="📉 Les prix baissent" cta="Voir les annonces" onCta={() => router.push('/annonces')} />
-          <div style={{ padding: '0 14px' }}>
-            <Link
-              href={`/annonces/${featuredAnnonce.id}`}
-              style={{
-                display: 'flex', gap: 12, alignItems: 'center',
-                padding: 12, borderRadius: 16,
-                backgroundColor: '#fff', boxShadow: '0 1px 6px rgba(44,28,16,0.06)',
-                textDecoration: 'none', color: 'inherit',
-              }}
-            >
-              <div style={{
-                width: 84, height: 84, flexShrink: 0,
-                borderRadius: 12, overflow: 'hidden',
-                backgroundColor: '#F0EBE3',
-              }}>
-                {featuredAnnonce.photos[0] ? (
-                  <img src={featuredAnnonce.photos[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>🏷️</div>
-                )}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: '#8A7A6A', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  {featuredAnnonce.type === 'enchere_inversee' ? 'Enchère inversée' : 'Annonce'}
-                </p>
-                <p style={{ margin: '2px 0', fontSize: 14, fontWeight: 800, color: '#1A1209', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{featuredAnnonce.titre}</p>
-                <p style={{ margin: 0, fontSize: 18, fontWeight: 900, color: '#C0392B', fontVariantNumeric: 'tabular-nums' }}>{getPrixAffiche(featuredAnnonce)}</p>
-                {featuredAnnonce.type === 'enchere_inversee' && <p style={{ margin: '2px 0 0', fontSize: 10, color: '#8A7A6A' }}>Prix actuel</p>}
-              </div>
-              {featuredAnnonce.type === 'enchere_inversee' && (
-                <div style={{
-                  flexShrink: 0,
-                  textAlign: 'right', padding: '8px 10px',
-                  borderRadius: 10, backgroundColor: '#FBE9E7',
-                }}>
-                  <p style={{ margin: 0, fontSize: 9, fontWeight: 700, color: '#8A7A6A', textTransform: 'uppercase' }}>Prochaine baisse</p>
-                  <CountdownInline />
-                </div>
-              )}
-            </Link>
+          <div style={{ overflowX: 'auto', padding: '0 14px 4px' }} className="pdv-hscroll">
+            <div style={{ display: 'flex', gap: 10 }}>
+              {featuredAnnonces.map(a => (
+                <Link
+                  key={a.id}
+                  href={`/annonces/${a.id}`}
+                  style={{
+                    flex: '0 0 184px',
+                    borderRadius: 14, overflow: 'hidden',
+                    backgroundColor: '#fff', boxShadow: '0 1px 6px rgba(44,28,16,0.06)',
+                    textDecoration: 'none', color: 'inherit',
+                    display: 'flex', flexDirection: 'column',
+                  }}
+                >
+                  <div style={{
+                    height: 108, backgroundColor: '#F0EBE3',
+                    backgroundImage: a.photos?.[0] ? `url(${a.photos[0]})` : undefined,
+                    backgroundSize: 'cover', backgroundPosition: 'center',
+                    position: 'relative',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {!a.photos?.[0] && <span style={{ fontSize: 30 }}>🏷️</span>}
+                    {a.type === 'enchere_inversee' && (
+                      <span style={{
+                        position: 'absolute', top: 6, left: 6,
+                        backgroundColor: '#C0392B', color: '#fff',
+                        fontSize: 9, fontWeight: 800,
+                        padding: '3px 7px', borderRadius: 999,
+                        letterSpacing: '0.04em',
+                      }}>📉 Enchère</span>
+                    )}
+                  </div>
+                  <div style={{ padding: 10 }}>
+                    <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: '#1A1209', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.titre}</p>
+                    <p style={{ margin: '4px 0 0', fontSize: 15, fontWeight: 900, color: '#C0392B', fontVariantNumeric: 'tabular-nums' }}>{getPrixAffiche(a)}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
         </>
       )}
@@ -963,15 +981,3 @@ function SectionHeader({ title, cta, onCta }: { title: string; cta: string; onCt
   )
 }
 
-function CountdownInline() {
-  const [now, setNow] = useState(() => new Date())
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1000)
-    return () => clearInterval(t)
-  }, [])
-  return (
-    <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#C0392B', fontVariantNumeric: 'tabular-nums' }}>
-      {formatCountdown(getNextDropDate(now).getTime() - now.getTime())}
-    </p>
-  )
-}
