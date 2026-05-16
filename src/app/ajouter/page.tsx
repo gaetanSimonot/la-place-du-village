@@ -197,44 +197,56 @@ export default function AjouterPage() {
     )
   }
 
-  // ── Succès ───────────────────────────────────────────────────────────────────
+  // ── Succès V3 ───────────────────────────────────────────────────────────────
   if (step === 'success') {
     const isSubmitted = submitMessage === 'submitted'
-    if (isSubmitted) {
-      return (
-        <div className="min-h-screen bg-[#FBF7F0] flex flex-col items-center justify-center p-8 text-center">
-          <p className="text-6xl mb-4">✅</p>
-          <h2 className="text-2xl font-bold text-[#2C1810] mb-3">Événement soumis !</h2>
-          <p className="text-gray-600 text-sm mb-8 leading-relaxed max-w-xs">
-            Votre événement a été soumis. Il sera publié après vérification, dans moins d&apos;une heure.
-          </p>
-          <Link
-            href="/"
-            className="bg-[#C4622D] text-white px-10 py-3 rounded-2xl font-bold text-base"
-          >
-            OK
-          </Link>
-        </div>
-      )
-    }
     return (
-      <div className="min-h-screen bg-[#FBF7F0] flex flex-col items-center justify-center p-8 text-center">
-        <p className="text-6xl mb-4">🎉</p>
-        <h2 className="text-2xl font-bold text-[#2C1810] mb-2">Publié !</h2>
-        <p className="text-gray-600 text-sm mb-8">Ton événement a été publié avec succès.</p>
-        <div className="flex flex-col gap-3 w-full max-w-xs">
-          {eventId && (
-            <Link href={`/evenement/${eventId}`} className="block bg-[#C4622D] text-white text-center py-3 rounded-2xl font-bold">
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-creme px-8 text-center font-inter">
+        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary-light text-primary">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </div>
+        <h2
+          className="m-0 mb-2 font-serif text-[28px] font-normal text-texte"
+          style={{ letterSpacing: '-0.02em' }}
+        >
+          {isSubmitted ? 'Événement soumis !' : 'Publié !'}
+        </h2>
+        <p className="m-0 mb-8 max-w-[300px] text-[13px] leading-[1.5] text-texte-doux">
+          {isSubmitted
+            ? 'Votre événement sera publié après vérification, dans moins d\'une heure.'
+            : 'Ton événement a été publié avec succès.'}
+        </p>
+        <div className="flex w-full max-w-[280px] flex-col gap-3">
+          {eventId && !isSubmitted && (
+            <Link
+              href={`/evenement/${eventId}`}
+              className="block rounded-2xl bg-primary py-3 text-center text-[14px] font-bold text-white no-underline"
+            >
               Voir l&apos;événement
             </Link>
           )}
-          <button
-            onClick={() => { setStep('input'); setTexte(''); setForm(emptyForm); resetImage(); setSubmitMessage(undefined) }}
-            className="py-3 rounded-2xl font-medium text-[#C4622D] border-2 border-[#C4622D]"
-          >
-            Ajouter un autre événement
-          </button>
-          <Link href="/" className="text-sm text-gray-400 underline text-center">Retour à l&apos;accueil</Link>
+          {isSubmitted ? (
+            <Link
+              href="/"
+              className="block rounded-2xl bg-primary py-3 text-center text-[14px] font-bold text-white no-underline"
+            >
+              Retour à l&apos;accueil
+            </Link>
+          ) : (
+            <>
+              <button
+                onClick={() => { setStep('input'); setTexte(''); setForm(emptyForm); resetImage(); setSubmitMessage(undefined) }}
+                className="rounded-2xl border-[1.5px] border-primary bg-transparent py-3 text-[13px] font-bold text-primary"
+              >
+                Ajouter un autre événement
+              </button>
+              <Link href="/" className="text-center text-[12px] text-texte-doux underline">
+                Retour à l&apos;accueil
+              </Link>
+            </>
+          )}
         </div>
       </div>
     )
@@ -256,102 +268,174 @@ export default function AjouterPage() {
     )
   }
 
-  // ── Saisie ───────────────────────────────────────────────────────────────────
+  // ── Saisie V3 ────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#FBF7F0]">
-      <div className="sticky top-0 z-10 bg-white border-b border-[#E8E0D5] px-4 py-3 flex items-center gap-3">
-        <Link href="/" className="text-[#C4622D] font-bold text-2xl leading-none">←</Link>
-        <h1 className="font-bold text-[#2C1810] flex-1">Ajouter un événement</h1>
+    <div className="min-h-[100dvh] bg-creme pb-28 font-inter text-texte">
+      {/* Top bar V3 */}
+      <div className="flex items-center justify-between gap-2.5 px-4 pt-3.5">
+        <Link
+          href="/"
+          aria-label="Retour"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte no-underline shadow-[0_1px_2px_rgba(44,28,16,0.04)]"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"/>
+            <polyline points="12 19 5 12 12 5"/>
+          </svg>
+        </Link>
+        <div className="min-w-0 flex-1 text-center">
+          <div className="font-serif text-[17px] leading-none text-texte" style={{ letterSpacing: '-0.01em' }}>
+            Nouvel événement
+          </div>
+        </div>
+        <Link
+          href="/"
+          className="shrink-0 bg-transparent px-1 py-2 text-[12px] font-bold text-texte-doux no-underline"
+        >
+          Annuler
+        </Link>
       </div>
 
-      <div className="p-4 space-y-4 pb-32">
-        <div className="bg-white rounded-2xl p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-[#2C1810]">Décris ton événement ✍️</p>
+      {/* Hero intro */}
+      <div className="px-4 pt-6">
+        <h1
+          className="m-0 font-serif text-[26px] leading-[1.1] text-texte"
+          style={{ letterSpacing: '-0.02em' }}
+        >
+          Raconte-nous
+        </h1>
+        <p className="mt-1.5 text-[13px] leading-[1.5] text-texte-doux">
+          Colle un message, dicte-le, ou prends une photo de l&apos;affiche. On pré-remplit tout, tu n&apos;as plus qu&apos;à vérifier.
+        </p>
+      </div>
+
+      {/* Big textarea card */}
+      <div className="px-4 pt-5">
+        <div
+          className="rounded-2xl border bg-white p-3.5 shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
+          style={{ borderColor: '#F0EAE0' }}
+        >
+          <div className="mb-2.5 flex items-center justify-between">
+            <div className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Texte</div>
             <MicButton onTranscript={t => setTexte(prev => prev ? prev + ' ' + t : t)} />
           </div>
-          <p className="text-xs text-gray-500">
-            Copie-colle un message WhatsApp, une annonce, un texte... L&apos;IA extrait automatiquement les infos.
-          </p>
           <textarea
             value={texte}
-            onChange={e => setTexte(e.target.value)}
+            onChange={e => setTexte(e.target.value.slice(0, 2000))}
             rows={6}
-            placeholder={"Concert de jazz samedi 12 avril à 20h à la salle des fêtes de Ganges. Entrée 8€. Contact : 06 12 34 56 78"}
-            className="w-full bg-[#FBF7F0] border border-[#E8E0D5] rounded-xl px-3 py-2.5 text-sm text-[#2C1810] resize-none focus:outline-none focus:border-[#C4622D]"
+            placeholder="Concert de jazz samedi 12 avril à 20h à la salle des fêtes de Ganges. Entrée 8€. Contact : 06 12 34 56 78"
+            className="block w-full resize-none border-none bg-transparent text-[14px] leading-[1.5] text-texte outline-none placeholder:text-texte-tres-doux"
+            style={{ minHeight: 110 }}
           />
-        </div>
-
-        {/* Photo optionnelle */}
-        <div className="bg-white rounded-2xl p-4">
-          <p className="text-sm font-semibold text-[#2C1810] mb-2">Photo (optionnelle) 📷</p>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleImageChange}
-            className="hidden"
-          />
-          <div className="flex gap-2">
-            <button
-              onClick={() => fileRef.current?.click()}
-              className={`flex-1 py-3 rounded-xl border-2 border-dashed text-sm font-medium transition-colors ${
-                image
-                  ? 'border-[#C4622D] text-[#C4622D]'
-                  : 'border-[#E8E0D5] text-gray-400'
-              }`}
-            >
-              {image ? '✓ Changer la photo' : 'Choisir une photo'}
-            </button>
-            {image && (
-              <button
-                onClick={resetImage}
-                className="px-3 py-3 rounded-xl border-2 border-[#E8E0D5] text-gray-400 text-sm"
-                aria-label="Supprimer la photo"
-              >
-                ✕
-              </button>
-            )}
+          <div className="mt-2 flex justify-between text-[11px] text-texte-doux">
+            <span>Tu peux coller un SMS ou un message WhatsApp</span>
+            <span>{texte.length}/2000</span>
           </div>
-          {imagePreviewUrl && (
-            <div className="mt-3 relative rounded-xl overflow-hidden" style={{ height: 80 }}>
+        </div>
+      </div>
+
+      {/* OU divider */}
+      <div className="flex items-center gap-2.5 px-4 pt-[18px]">
+        <div className="h-px flex-1" style={{ backgroundColor: '#F0EAE0' }} />
+        <div className="text-[11px] font-bold tracking-[0.1em] text-texte-tres-doux">OU</div>
+        <div className="h-px flex-1" style={{ backgroundColor: '#F0EAE0' }} />
+      </div>
+
+      {/* Photo upload card */}
+      <div className="px-4 pt-[18px]">
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleImageChange}
+          className="hidden"
+        />
+        <button
+          onClick={() => fileRef.current?.click()}
+          className="flex w-full items-center gap-3.5 rounded-2xl border-[1.5px] border-dashed bg-white px-3.5 py-4 text-left"
+          style={{ borderColor: image ? '#2D5A3D' : '#E8E0D4' }}
+        >
+          <div className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-xl bg-primary-light text-primary">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[14px] font-extrabold text-texte">
+              {image ? 'Changer la photo' : 'Photographier une affiche'}
+            </div>
+            <div className="mt-0.5 text-[11px] text-texte-doux">
+              On lit le titre, la date, le lieu, le prix…
+            </div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-texte-tres-doux">
+            <polyline points="9 6 15 12 9 18"/>
+          </svg>
+        </button>
+
+        {imagePreviewUrl && (
+          <div className="mt-3 flex items-stretch gap-2">
+            <div className="relative h-[80px] flex-1 overflow-hidden rounded-xl">
               <img
                 src={imagePreviewUrl}
                 alt="preview"
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0 h-full w-full object-cover"
                 style={{ objectPosition: imagePosition }}
               />
               <button
                 onClick={() => setStep('crop')}
-                className="absolute inset-0 w-full h-full flex items-center justify-center"
-                style={{ background: 'rgba(0,0,0,0.35)' }}
+                className="absolute inset-0 flex items-center justify-center bg-black/35"
               >
-                <span className="text-white text-xs font-semibold bg-black/40 px-3 py-1.5 rounded-full">
+                <span className="rounded-full bg-black/40 px-3 py-1.5 text-[11px] font-bold text-white">
                   Modifier le cadrage
                 </span>
               </button>
             </div>
-          )}
-        </div>
-
-        {error && (
-          <p className="text-red-500 text-sm bg-red-50 rounded-xl p-3">{error}</p>
+            <button
+              onClick={resetImage}
+              aria-label="Supprimer la photo"
+              className="flex w-12 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte-doux"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
         )}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-[#E8E0D5]">
+      {error && (
+        <div className="px-4 pt-3.5">
+          <p className="m-0 rounded-xl border bg-[#FBE9E5] px-3.5 py-3 text-[13px] text-[#B53A22]" style={{ borderColor: '#F5C8A8' }}>
+            {error}
+          </p>
+        </div>
+      )}
+
+      {/* Sticky CTA */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 border-t bg-white p-3.5" style={{ borderColor: '#EDE8E0' }}>
         <button
           onClick={handleAnalyse}
           disabled={loading || (!texte.trim() && !image)}
-          className="w-full bg-[#C4622D] text-white py-4 rounded-2xl font-bold text-base disabled:opacity-50 transition-opacity"
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border-none bg-primary text-[14px] font-bold text-white disabled:opacity-55"
         >
           {loading ? (
-            <span className="flex items-center justify-center gap-2">
-              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Analyse en cours...
-            </span>
-          ) : 'Extraire les infos →'}
+            <>
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              Analyse en cours…
+            </>
+          ) : (
+            <>
+              Continuer
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"/>
+                <polyline points="13 6 19 12 13 18"/>
+              </svg>
+            </>
+          )}
         </button>
       </div>
     </div>

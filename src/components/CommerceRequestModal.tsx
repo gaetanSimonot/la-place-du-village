@@ -75,16 +75,16 @@ export default function CommerceRequestModal({ onClose }: { onClose: () => void 
           opacity: 1;
         }
       `}</style>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.5)' }} />
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'rgba(26,18,9,0.55)', backdropFilter: 'blur(3px)' }} />
       <div
         className="pdv-ref-modal"
         style={{
           position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 401,
-          backgroundColor: '#fff', borderRadius: '20px 20px 0 0',
-          padding: '24px 22px 40px', fontFamily: 'Inter, sans-serif',
+          backgroundColor: '#fff', borderRadius: '24px 24px 0 0',
+          padding: '14px 20px 32px', fontFamily: 'Inter, sans-serif',
           maxHeight: '92dvh', overflowY: 'auto',
         }}>
-        <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '0 auto 18px' }} />
+        <div style={{ width: 44, height: 5, borderRadius: 3, backgroundColor: '#E4DED2', margin: '0 auto 14px' }} />
 
         {result ? (
           <SuccessView result={result} onClose={onClose} />
@@ -105,49 +105,87 @@ export default function CommerceRequestModal({ onClose }: { onClose: () => void 
 function KindPicker({ onPick }: { onPick: (k: Kind) => void }) {
   return (
     <>
-      <h2 style={{ margin: '0 0 6px', fontSize: 20, fontWeight: 900, color: '#1C1917', textAlign: 'center', letterSpacing: '-0.02em' }}>
+      <h2
+        style={{
+          margin: '0 0 4px',
+          fontFamily: '"DM Serif Display", Georgia, serif',
+          fontSize: 22, fontWeight: 400, color: '#1A1209',
+          letterSpacing: '-0.01em',
+        }}
+      >
         Référencer
       </h2>
-      <p style={{ margin: '0 0 22px', fontSize: 12, color: '#6B5E4E', textAlign: 'center', }}>
-        Que voulez-vous ajouter à La Place du Village ?
+      <p style={{ margin: '0 0 18px', fontSize: 13, color: '#7A6A5A' }}>
+        Que voulez-vous ajouter à La Place du Village&nbsp;?
       </p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <button
           onClick={() => onPick('commerce')}
           style={{
             display: 'flex', alignItems: 'center', gap: 14,
-            padding: '18px 16px', borderRadius: 16,
-            backgroundColor: '#FFF7EE', border: '1.5px solid #E8C99B',
+            padding: '12px 14px', borderRadius: 14,
+            backgroundColor: '#FFFFFF', border: '1px solid #F0EAE0',
+            boxShadow: '0 1px 4px rgba(44,28,16,0.04)',
             cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
           }}
         >
-          <span style={{ fontSize: 30 }}>🏪</span>
-          <div style={{ flex: 1 }}>
-            <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#1A1209' }}>Un commerce</p>
-            <p style={{ margin: '2px 0 0', fontSize: 12, color: '#7A6A5A' }}>
+          <div
+            style={{
+              width: 44, height: 44, borderRadius: 12,
+              backgroundColor: '#F0EBE3', color: '#7C5C3B',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 9l1-5h16l1 5"/>
+              <path d="M4 9v11a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9"/>
+              <path d="M9 21V12h6v9"/>
+            </svg>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#1A1209', lineHeight: 1.2 }}>Un commerce</p>
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: '#7A6A5A' }}>
               Restaurant, hébergement, artisan, service…
             </p>
           </div>
-          <span style={{ fontSize: 20, color: '#C4622D' }}>›</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A99B89" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 6 15 12 9 18"/>
+          </svg>
         </button>
 
         <button
           onClick={() => onPick('producteur')}
           style={{
             display: 'flex', alignItems: 'center', gap: 14,
-            padding: '18px 16px', borderRadius: 16,
-            backgroundColor: '#F0F7EE', border: '1.5px solid #B6D8AA',
+            padding: '12px 14px', borderRadius: 14,
+            backgroundColor: '#FFFFFF', border: '1px solid #F0EAE0',
+            boxShadow: '0 1px 4px rgba(44,28,16,0.04)',
             cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
           }}
         >
-          <span style={{ fontSize: 30 }}>🌱</span>
-          <div style={{ flex: 1 }}>
-            <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#1A1209' }}>Un producteur local</p>
-            <p style={{ margin: '2px 0 0', fontSize: 12, color: '#7A6A5A' }}>
+          <div
+            style={{
+              width: 44, height: 44, borderRadius: 12,
+              backgroundColor: '#EAF3E6', color: '#5B8A4A',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19.2 2.96c1.4 9.3-3.6 15.8-8.2 17.04z"/>
+              <path d="M2 21c0-3 1.85-5.36 5.08-6"/>
+            </svg>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#1A1209', lineHeight: 1.2 }}>Un producteur local</p>
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: '#7A6A5A' }}>
               Maraîcher, éleveur, apiculteur, vigneron…
             </p>
           </div>
-          <span style={{ fontSize: 20, color: '#2D5A3D' }}>›</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A99B89" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 6 15 12 9 18"/>
+          </svg>
         </button>
       </div>
     </>
