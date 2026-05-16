@@ -315,6 +315,15 @@ export default function HomePage() {
       if (s.selectedProducerId) setSelectedProducerId(s.selectedProducerId)
       if (s.selectedId) {
         setSelectedId(s.selectedId)
+        // Au retour d'une fiche event : force vue carte (sinon navTab reste à
+        // 'accueil' et les FAB / boutons map disparaissent). Si l'user voulait
+        // le Hub, il a son onglet pour y retourner.
+        setShowHub(false)
+        setNavTab('carte')
+        // Centre aussi la map sur la dernière position si dispo
+        if (s.mapLat != null && s.mapLng != null) {
+          setMapCenterOn({ lat: s.mapLat, lng: s.mapLng, zoom: s.mapZoom })
+        }
       } else if (s.mapLat != null && s.mapLng != null) {
         setMapCenterOn({ lat: s.mapLat, lng: s.mapLng, zoom: s.mapZoom })
       }
