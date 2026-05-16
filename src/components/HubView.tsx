@@ -9,6 +9,7 @@ import type { EtablissementType, Evenement } from '@/lib/types'
 import { getPrixAffiche, type Annonce } from '@/lib/annonces'
 import HubTopBar from '@/components/HubTopBar'
 import HubSearchBar from '@/components/HubSearchBar'
+import HubSearchModal from '@/components/HubSearchModal'
 
 interface Props {
   onSelectAgenda:        () => void
@@ -83,6 +84,7 @@ export default function HubView({
   const [todayEvents, setTodayEvents] = useState<Evenement[]>([])
   const [promos, setPromos] = useState<PromoCard[]>([])
   const [featuredAnnonces, setFeaturedAnnonces] = useState<Annonce[]>([])
+  const [searchOpen, setSearchOpen] = useState(false)
 
   // Hero carousel : 1. featured_slots hub_hero (events + etabs) > 2. today event > 3. week event
   useEffect(() => {
@@ -307,21 +309,18 @@ export default function HubView({
         unreadCount={unreadCount}
       />
 
-      {/* ── 2. Search bar (statique) ──────────────────────────────────── */}
-      <HubSearchBar onClick={onSelectAgenda} />
+      {/* ── 2. Search bar (ouvre la modale recherche globale) ─────────── */}
+      <HubSearchBar onClick={() => setSearchOpen(true)} />
 
       {/* ── 3. Greeting line ──────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-4 pb-1.5 pt-3.5">
+      <div className="px-4 pb-1.5 pt-3.5">
         <p className="m-0 text-[13px] text-texte-doux">
           <span className="font-bold text-texte">Bonjour {firstName}.</span>
           {' '}Voici ce qui se passe.
         </p>
-        {todayEvents.length > 0 && (
-          <span className="rounded-full bg-primary-light px-2 py-1 text-[11px] font-bold text-primary">
-            {todayEvents.length} today
-          </span>
-        )}
       </div>
+
+      <HubSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
 
       {/* ── 4. Hero carousel ──────────────────────────────────────────── */}
       {heroItems.length > 0 && (
