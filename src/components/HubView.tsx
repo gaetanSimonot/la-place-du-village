@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
 import type { EtablissementType, Evenement } from '@/lib/types'
 import { getPrixAffiche, type Annonce } from '@/lib/annonces'
@@ -85,7 +84,6 @@ export default function HubView({
   onOpenNotifs, onOpenInfo, unreadCount = 0,
 }: Props) {
   const router = useRouter()
-  const { profile } = useAuth()
 
   const [heroItems, setHeroItems] = useState<HeroItem[]>([])
   const [todayEvents, setTodayEvents] = useState<Evenement[]>([])
@@ -331,40 +329,8 @@ export default function HubView({
 
       {/* ── 1. Header ─────────────────────────────────────────────────────── */}
       <div style={{ padding: '10px 18px 14px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-          <Link
-            href={profile ? `/profil/${profile.id ?? ''}` : '/?tab=profil'}
-            aria-label="Mon profil"
-            style={{
-              display: 'flex', alignItems: 'center',
-              textDecoration: 'none', color: 'inherit',
-              flexShrink: 0,
-            }}
-          >
-            <div style={{
-              width: 36, height: 36, borderRadius: '50%',
-              backgroundColor: '#2D5A3D', color: '#fff',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 14, fontWeight: 800,
-              backgroundImage: profile?.avatar_url ? `url(${profile.avatar_url})` : undefined,
-              backgroundSize: 'cover', backgroundPosition: 'center',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.10)',
-            }}>
-              {!profile?.avatar_url && ((profile?.display_name?.[0] || '?').toUpperCase())}
-            </div>
-          </Link>
-          <h1 style={{
-            flex: 1, minWidth: 0,
-            fontFamily: '"Playfair Display", Georgia, serif',
-            fontStyle: 'italic',
-            fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em',
-            color: '#2D5A3D', margin: 0,
-            lineHeight: 1.0,
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-            textAlign: 'center',
-          }}>
-            La Place du Village
-          </h1>
+        {/* Row top : boutons à droite seulement */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, minHeight: 38 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             {onOpenInfo && (
               <button
@@ -418,11 +384,21 @@ export default function HubView({
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4 }}>
           <div style={{ flex: '1 1 auto', minWidth: 0 }}>
+            <h1 style={{
+              fontFamily: '"Playfair Display", Georgia, serif',
+              fontStyle: 'italic',
+              fontSize: 26, fontWeight: 700, letterSpacing: '-0.01em',
+              color: '#2D5A3D', margin: 0,
+              lineHeight: 1.0,
+              whiteSpace: 'nowrap',
+            }}>
+              La Place du Village
+            </h1>
             <div style={{
-              width: 38, height: 3, borderRadius: 999,
-              backgroundColor: '#E8622A', margin: '0 0 6px',
+              width: 42, height: 3, borderRadius: 999,
+              backgroundColor: '#E8622A', margin: '7px 0 5px',
             }} />
             <p style={{
               fontFamily: '"Caveat", cursive',
@@ -523,7 +499,7 @@ export default function HubView({
                 }}
               >
                 <div style={{
-                  width: 48, height: 48, flexShrink: 0,
+                  width: 44, height: 60, flexShrink: 0,
                   borderRadius: 9, overflow: 'hidden',
                   backgroundColor: '#F0EBE3',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -556,9 +532,11 @@ export default function HubView({
                   href={`/promotions?id=${p.id}`}
                   style={{
                     flex: '0 0 140px',
+                    height: 138,
                     borderRadius: 12, overflow: 'hidden',
                     backgroundColor: '#fff', boxShadow: '0 1px 6px rgba(44,28,16,0.05)',
                     textDecoration: 'none', color: 'inherit',
+                    display: 'flex', flexDirection: 'column',
                   }}
                 >
                   <div style={{
@@ -598,6 +576,7 @@ export default function HubView({
                   href={`/annonces/${a.id}`}
                   style={{
                     flex: '0 0 140px',
+                    height: 138,
                     borderRadius: 12, overflow: 'hidden',
                     backgroundColor: '#fff', boxShadow: '0 1px 6px rgba(44,28,16,0.06)',
                     textDecoration: 'none', color: 'inherit',

@@ -1,16 +1,58 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 
 interface FaqSection {
   id: string
-  emoji: string
+  icon: React.ReactNode
   title: string
   body: React.ReactNode
 }
+
+const IconAbout = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+    <polyline points="9 22 9 12 15 12 15 22"/>
+  </svg>
+)
+const IconHow = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3"/>
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09A1.65 1.65 0 0 0 19.4 15z"/>
+  </svg>
+)
+const IconPricing = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="6" width="20" height="12" rx="2"/>
+    <circle cx="12" cy="12" r="2"/>
+    <path d="M6 12h.01M18 12h.01"/>
+  </svg>
+)
+const IconLegal = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2v20"/>
+    <path d="M6 7h12"/>
+    <path d="M6 7l-3 6h6z"/>
+    <path d="M18 7l3 6h-6z"/>
+    <path d="M9 21h6"/>
+    <path d="M12 17v4"/>
+  </svg>
+)
+const IconChat = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+  </svg>
+)
+const IconClose = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="18" y1="6" x2="6" y2="18"/>
+    <line x1="6" y1="6" x2="18" y2="18"/>
+  </svg>
+)
 
 export default function AppInfoModal({ onClose }: { onClose: () => void }) {
   const router = useRouter()
@@ -25,7 +67,7 @@ export default function AppInfoModal({ onClose }: { onClose: () => void }) {
   const sections: FaqSection[] = [
     {
       id:    'about',
-      emoji: '🌿',
+      icon:  <IconAbout />,
       title: "C'est quoi La Place du Village ?",
       body: (
         <>
@@ -58,7 +100,7 @@ export default function AppInfoModal({ onClose }: { onClose: () => void }) {
     },
     {
       id:    'how',
-      emoji: '🛠️',
+      icon:  <IconHow />,
       title: 'Comment ça marche ?',
       body: (
         <>
@@ -93,7 +135,7 @@ export default function AppInfoModal({ onClose }: { onClose: () => void }) {
     },
     {
       id:    'pricing',
-      emoji: '💸',
+      icon:  <IconPricing />,
       title: 'Combien ça coûte ?',
       body: (
         <>
@@ -123,7 +165,7 @@ export default function AppInfoModal({ onClose }: { onClose: () => void }) {
     },
     {
       id:    'legal',
-      emoji: '⚖️',
+      icon:  <IconLegal />,
       title: 'Mentions légales',
       body: (
         <>
@@ -180,20 +222,80 @@ export default function AppInfoModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.42)' }} />
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 401, backgroundColor: '#fff', borderRadius: '20px 20px 0 0', padding: '24px 18px 44px', fontFamily: 'Inter, sans-serif', maxHeight: '92dvh', overflowY: 'auto' }}>
-        <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '0 auto 20px' }} />
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 400,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '16px',
+      fontFamily: 'Inter, sans-serif',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: '100%', maxWidth: 480,
+        backgroundColor: '#fff', borderRadius: 22,
+        maxHeight: '92dvh', overflowY: 'auto',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+        position: 'relative',
+      }}>
+        {/* Bouton close en haut à droite */}
+        <button
+          onClick={onClose}
+          aria-label="Fermer"
+          style={{
+            position: 'absolute', top: 12, right: 12, zIndex: 5,
+            width: 32, height: 32, borderRadius: '50%',
+            backgroundColor: 'rgba(255,255,255,0.85)', border: '1px solid #E5DDD2',
+            color: '#6B5E4E', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+          }}
+        ><IconClose /></button>
 
-        {/* En-tête */}
-        <div style={{ textAlign: 'center', marginBottom: 22 }}>
-          <div style={{ fontSize: 40, marginBottom: 8 }}>🌿</div>
-          <h2 style={{ fontWeight: 800, fontSize: 20, color: '#1C1917', margin: '0 0 8px', letterSpacing: '-0.02em' }}>La Place du Village</h2>
-          <span style={{ fontSize: 10, fontWeight: 800, color: '#EC407A', backgroundColor: '#FEF0F5', borderRadius: 999, padding: '3px 12px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Version Bêta</span>
-          <p style={{ fontSize: 13, color: '#6B5E4E', margin: '12px 0 0', lineHeight: 1.6, }}>
-            L&apos;application dont vous êtes le hérault.
+        {/* Hero avec illustration village */}
+        <div style={{
+          background: 'linear-gradient(135deg, #FBF3E6 0%, #F8EDD8 100%)',
+          padding: '22px 22px 18px',
+          borderRadius: '22px 22px 0 0',
+          textAlign: 'center',
+          position: 'relative', overflow: 'hidden',
+        }}>
+          <Image
+            src="/village-illustration.png"
+            alt=""
+            width={420}
+            height={210}
+            priority
+            style={{
+              width: '85%', height: 'auto', display: 'block',
+              margin: '0 auto 14px',
+              mixBlendMode: 'multiply',
+              userSelect: 'none',
+            }}
+          />
+          <h2 style={{
+            fontFamily: '"Playfair Display", Georgia, serif',
+            fontStyle: 'italic',
+            fontWeight: 700, fontSize: 26,
+            color: '#2D5A3D', margin: 0,
+            letterSpacing: '-0.01em', lineHeight: 1.0,
+          }}>La Place du Village</h2>
+          <div style={{ width: 42, height: 3, borderRadius: 999, backgroundColor: '#E8622A', margin: '8px auto 8px' }} />
+          <p style={{
+            fontFamily: '"Caveat", cursive', fontWeight: 500,
+            fontSize: 18, color: '#7A6A5A', margin: 0, lineHeight: 1.05,
+          }}>
+            L&apos;application dont vous êtes le hérault
           </p>
+          <span style={{
+            display: 'inline-block', marginTop: 10,
+            fontSize: 10, fontWeight: 800, color: '#C84B2F',
+            backgroundColor: 'rgba(232,98,42,0.12)',
+            borderRadius: 999, padding: '3px 12px',
+            letterSpacing: '0.08em', textTransform: 'uppercase',
+          }}>Version Bêta</span>
         </div>
+
+        <div style={{ padding: '20px 18px 24px' }}>
 
         {/* FAQ — accordion */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 22 }}>
@@ -210,15 +312,22 @@ export default function AppInfoModal({ onClose }: { onClose: () => void }) {
                     background: 'transparent', fontFamily: 'inherit',
                   }}
                 >
-                  <span style={{ fontSize: 22, flexShrink: 0 }}>{s.emoji}</span>
-                  <span style={{ flex: 1, fontWeight: 800, fontSize: 14, color: '#1C1917' }}>
+                  <span style={{
+                    flexShrink: 0, color: '#2D5A3D',
+                    width: 36, height: 36, borderRadius: 10,
+                    backgroundColor: '#fff',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  }}>{s.icon}</span>
+                  <span style={{ flex: 1, fontWeight: 700, fontSize: 14, color: '#1C1917', letterSpacing: '-0.01em' }}>
                     {s.title}
                   </span>
-                  <span style={{
-                    fontSize: 14, color: '#8A7A6A',
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8A7A6A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{
                     transform: isOpen ? 'rotate(180deg)' : 'none',
                     transition: 'transform 0.2s',
-                  }}>▾</span>
+                    flexShrink: 0,
+                  }}>
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
                 </button>
                 {isOpen && (
                   <div style={{ padding: '0 16px 16px', borderTop: '1px solid #EFE6D8' }}>
@@ -244,9 +353,14 @@ export default function AppInfoModal({ onClose }: { onClose: () => void }) {
                 fontFamily: 'inherit', textAlign: 'left',
               }}
             >
-              <div style={{ fontSize: 22 }}>💬</div>
+              <div style={{
+                width: 36, height: 36, borderRadius: 10,
+                backgroundColor: '#fff', color: '#2D5A3D',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+              }}><IconChat /></div>
               <div style={{ flex: 1 }}>
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#1C1917' }}>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#1C1917', letterSpacing: '-0.01em' }}>
                   Contacter l&apos;équipe
                 </p>
                 <p style={{ margin: '2px 0 0', fontSize: 11, color: '#6B5E4E' }}>
@@ -257,8 +371,9 @@ export default function AppInfoModal({ onClose }: { onClose: () => void }) {
             </button>
           ) : (
             <div style={{ padding: '14px 16px', backgroundColor: '#F8F4EE', borderRadius: 14 }}>
-              <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 700, color: '#1C1917' }}>
-                💬 Contacter l&apos;équipe
+              <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 700, color: '#1C1917', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                <span style={{ color: '#2D5A3D', display: 'inline-flex' }}><IconChat /></span>
+                Contacter l&apos;équipe
               </p>
               <textarea
                 value={message}
@@ -307,14 +422,15 @@ export default function AppInfoModal({ onClose }: { onClose: () => void }) {
 
         <div style={{ borderTop: '1px solid #F0EAE0', paddingTop: 18, textAlign: 'center' }}>
           <p style={{ fontSize: 11, color: '#AAA', margin: '0 0 16px', lineHeight: 1.6 }}>
-            L&apos;app est en développement actif — vos retours sont précieux 🙏
+            L&apos;app est en développement actif — vos retours sont précieux.
           </p>
-          <button onClick={onClose} style={{ width: '100%', padding: '14px', borderRadius: 999, backgroundColor: '#2D5A3D', color: '#fff', border: 'none', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+          <button onClick={onClose} style={{ width: '100%', padding: '14px', borderRadius: 14, backgroundColor: '#2D5A3D', color: '#fff', border: 'none', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'Inter, sans-serif', letterSpacing: '-0.01em' }}>
             C&apos;est compris !
           </button>
         </div>
+        </div>
       </div>
-    </>
+    </div>
   )
 }
 
