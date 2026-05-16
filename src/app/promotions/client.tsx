@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import SubscriptionModal from '@/components/SubscriptionModal'
+import FeatureButton from '@/components/FeatureButton'
 import type { Plan } from '@/lib/capabilities'
 import { ETAB_TYPES } from '@/lib/etablissement-types'
 import type { EtablissementType } from '@/lib/types'
@@ -39,7 +40,7 @@ const FREQ_LABEL: Record<string, string> = {
 
 export default function PromotionsClient() {
   const router = useRouter()
-  const { user, profile } = useAuth()
+  const { user, profile, isAdmin } = useAuth()
   const { openAuthModal } = useAuthModal()
   const currentPlan = (profile?.plan as Plan) ?? 'basic'
 
@@ -224,7 +225,12 @@ export default function PromotionsClient() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {filteredPromos.map(p => (
-              <div key={p.id} id={`promo-${p.id}`} style={{ scrollMarginTop: 80 }}>
+              <div key={p.id} id={`promo-${p.id}`} style={{ scrollMarginTop: 80, position: 'relative' }}>
+                {isAdmin && (
+                  <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 5 }}>
+                    <FeatureButton contentType="promotion" contentId={p.id} />
+                  </div>
+                )}
                 <PromoCard
                   promo={p}
                   onUse={() => openUseConfirm(p)}
