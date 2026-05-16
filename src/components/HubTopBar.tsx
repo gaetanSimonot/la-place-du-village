@@ -13,7 +13,7 @@ export default function HubTopBar({
   zoneLabel = 'Ganges · 30 km', unreadCount = 0,
 }: Props) {
   return (
-    <div className="flex items-center justify-between gap-2.5 px-4 pt-2">
+    <div className="flex items-center justify-between gap-2.5 px-4 pt-3.5">
       {/* Burger gauche */}
       <button
         type="button"
@@ -31,7 +31,7 @@ export default function HubTopBar({
       {/* Wordmark + commune */}
       <div className="flex min-w-0 flex-1 flex-col items-center gap-0.5">
         <div
-          className="font-serif text-[17px] leading-none text-primary"
+          className="font-serif text-[18px] leading-none text-primary"
           style={{ letterSpacing: '-0.01em' }}
         >
           La Place du Village

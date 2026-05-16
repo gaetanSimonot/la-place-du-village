@@ -1,7 +1,6 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
@@ -334,13 +333,19 @@ export default function HubView({
       {/* ── 2. Search bar (ouvre la modale recherche globale) ─────────── */}
       <HubSearchBar onClick={onOpenSearch} />
 
-      {/* ── 3. Greeting line ──────────────────────────────────────────── */}
-      <div className="px-4 pb-1.5 pt-3.5">
-        <p className="m-0 text-[13px] text-texte-doux">
-          <span className="font-bold text-texte">Bonjour {firstName}.</span>
-          {' '}Voici ce qui se passe.
-        </p>
+      {/* ── 3. Greeting V3 ────────────────────────────────────────────── */}
+      <div className="px-4 pt-[18px]">
+        <h1
+          className="m-0 font-serif text-[24px] leading-[1.1] text-texte"
+          style={{ letterSpacing: '-0.01em' }}
+        >
+          Bonjour, {firstName}
+        </h1>
+        <p className="mt-1 text-[13px] text-texte-doux">Voici ce qui se passe près de toi.</p>
       </div>
+
+      {/* spacer avant hero */}
+      <div className="h-[18px]" />
 
       {/* ── 4. Hero carousel ──────────────────────────────────────────── */}
       {heroItems.length > 0 && (
@@ -380,163 +385,199 @@ export default function HubView({
       {/* ── 6. Aujourd'hui ─────────────────────────────────────────────── */}
       {todayEvents.length > 0 && (
         <>
-          <SectionHeader
-            icon={<IconCalendar />}
+          <SectionHeaderV3
             title="Aujourd'hui"
-            count={todayEvents.length}
+            subtitle={`${todayEvents.length} événement${todayEvents.length > 1 ? 's' : ''} près de chez vous`}
             action="Voir tout"
             onAction={onSelectAgenda}
           />
-          <HScroll>
+          <HScrollV3>
             {todayEvents.map(e => (
-              <Link
+              <UniformCard
                 key={e.id}
-                href={`/evenement/${e.id}`}
-                className="flex w-[260px] shrink-0 snap-start items-center gap-2.5 rounded-[14px] border border-bord bg-white p-2.5 no-underline"
-              >
-                <div
-                  className="flex h-[60px] w-[60px] shrink-0 items-center justify-center overflow-hidden rounded-[10px] bg-bord/40"
-                >
-                  {e.image_url ? (
-                    <img src={e.image_url} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <IconCalendar size={22} />
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="line-clamp-1 text-[13px] font-bold leading-[1.25] text-texte">
-                    {e.titre}
-                  </div>
-                  {e.lieux?.nom && (
-                    <div className="mt-[3px] flex items-center gap-[3px] overflow-hidden text-[11px] text-texte-doux">
-                      <IconPin size={11} />
-                      <span className="truncate">{e.lieux.nom}</span>
-                    </div>
-                  )}
-                  <div className="mt-[3px] text-[11px] font-bold text-primary">
-                    {dateLabel(e.date_debut)}{e.heure ? ` · ${e.heure}` : ''}
-                  </div>
-                </div>
-              </Link>
+                onClick={() => router.push(`/evenement/${e.id}`)}
+                photo={e.image_url}
+                badge={{
+                  text: e.heure ? e.heure.slice(0, 5) : dateLabel(e.date_debut),
+                  bg: 'rgba(255,255,255,0.92)',
+                  color: '#1A1209',
+                }}
+                title={e.titre}
+                meta={
+                  <>
+                    <IconPin size={11} />
+                    <span className="truncate">{e.lieux?.nom ?? dateLabel(e.date_debut)}</span>
+                  </>
+                }
+              />
             ))}
-          </HScroll>
+          </HScrollV3>
         </>
       )}
 
       {/* ── 7. Bons plans ──────────────────────────────────────────────── */}
       {promos.length > 0 && (
         <>
-          <SectionHeader
-            icon={<IconGift />}
+          <SectionHeaderV3
             title="Bons plans"
-            count={promos.length}
+            subtitle="Chez vos commerçants partenaires"
             action="Voir tout"
             onAction={() => router.push('/promotions')}
           />
-          <HScroll>
+          <HScrollV3>
             {promos.map(p => (
-              <Link
+              <UniformCard
                 key={p.id}
-                href={`/promotions?id=${p.id}`}
-                className="block w-[170px] shrink-0 snap-start overflow-hidden rounded-[14px] border border-bord bg-white no-underline"
-              >
-                <div className="relative h-[110px] bg-bord/40">
-                  {p.display_image_url && (
-                    <img src={p.display_image_url} alt="" className="h-full w-full object-cover" />
-                  )}
-                  <span className="absolute left-2 top-2 rounded-[5px] bg-[#E8622A] px-[7px] py-1 text-[9px] font-extrabold tracking-[0.1em] text-white">
-                    BON PLAN
-                  </span>
-                  <button
-                    type="button"
-                    aria-label="Favori"
-                    className="absolute right-2 top-2 flex h-[26px] w-[26px] items-center justify-center rounded-full border-none bg-white/90"
-                    onClick={(ev) => { ev.preventDefault() }}
-                  >
-                    <IconHeart size={14} />
-                  </button>
-                </div>
-                <div className="px-2.5 pb-2.5 pt-2">
-                  <div className="line-clamp-1 text-[13px] font-bold leading-[1.2] text-texte">{p.title}</div>
-                  {p.etablissement?.nom && (
-                    <div className="mt-0.5 truncate text-[11px] text-texte-doux">{p.etablissement.nom}</div>
-                  )}
-                </div>
-              </Link>
+                onClick={() => router.push(`/promotions?id=${p.id}`)}
+                photo={p.display_image_url}
+                badge={{ text: 'BON PLAN', bg: '#E8622A', letterSpacing: '0.1em' }}
+                title={p.title}
+                meta={<span className="truncate">{p.etablissement?.nom ?? ''}</span>}
+              />
             ))}
-          </HScroll>
+          </HScrollV3>
         </>
       )}
 
       {/* ── 8. Les prix baissent ───────────────────────────────────────── */}
       {featuredAnnonces.length > 0 && (
         <>
-          <SectionHeader
-            icon={<IconTrendDown />}
+          <SectionHeaderV3
             title="Les prix baissent"
+            subtitle="Annonces en baisse cette semaine"
             action="Annonces"
             onAction={() => router.push('/annonces')}
           />
-          <HScroll>
+          <HScrollV3>
             {featuredAnnonces.map(a => (
-              <DiscountCard key={a.id} annonce={a} />
+              <DiscountUniformCard key={a.id} annonce={a} />
             ))}
-          </HScroll>
+          </HScrollV3>
         </>
       )}
     </div>
   )
 }
 
-/* ─── Sub-components ─────────────────────────────────────────────────── */
+/* ─── Sub-components V3 ─────────────────────────────────────────────── */
 
-function HScroll({ children }: { children: React.ReactNode }) {
+function HScrollV3({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="pdv-hscroll flex gap-2.5 overflow-x-auto px-4 pb-1"
+      className="pdv-hscroll flex gap-2.5 overflow-x-auto pb-1 pl-4 pr-0"
       style={{ scrollSnapType: 'x mandatory' }}
     >
       {children}
+      {/* Spacer fin de carousel pour respiration */}
+      <div className="w-4 shrink-0" aria-hidden />
     </div>
   )
 }
 
-function SectionHeader({
-  icon, title, count, action = 'Voir tout', onAction,
+function SectionHeaderV3({
+  title, subtitle, action, onAction,
 }: {
-  icon?: React.ReactNode
   title: string
-  count?: number
+  subtitle?: string
   action?: string
   onAction?: () => void
 }) {
   return (
-    <div className="flex items-center justify-between gap-2.5 px-4 pb-2 pt-[18px]">
-      <div className="flex min-w-0 items-center gap-2">
-        {icon && <span className="inline-flex shrink-0 text-primary">{icon}</span>}
-        <h3 className="m-0 truncate text-[15px] font-extrabold leading-[1.2] tracking-tight2 text-texte">
+    <div className="px-4 pb-[14px] pt-7">
+      <div className="flex items-baseline justify-between gap-2.5">
+        <h3
+          className="m-0 min-w-0 truncate font-serif text-[22px] font-normal leading-[1.1] text-texte"
+          style={{ letterSpacing: '-0.02em' }}
+        >
           {title}
         </h3>
-        {count != null && (
-          <span className="rounded-full bg-bord/40 px-[7px] py-0.5 text-[11px] font-bold text-texte-doux">
-            {count}
-          </span>
+        {action && (
+          <button
+            type="button"
+            onClick={onAction}
+            className="shrink-0 whitespace-nowrap bg-transparent p-0 text-[12px] font-bold text-primary"
+          >
+            {action} →
+          </button>
         )}
       </div>
-      {action && (
-        <button
-          type="button"
-          onClick={onAction}
-          className="shrink-0 whitespace-nowrap bg-transparent p-0 text-[12px] font-bold text-primary"
-        >
-          {action} →
-        </button>
+      {subtitle && (
+        <p className="mt-1 text-[12px] font-medium text-texte-doux">{subtitle}</p>
       )}
     </div>
   )
 }
 
-function DiscountCard({ annonce }: { annonce: Annonce }) {
+interface BadgeSpec {
+  text: string
+  bg: string
+  color?: string
+  fontSize?: number
+  letterSpacing?: string
+  icon?: React.ReactNode
+}
+
+function UniformCard({
+  onClick, photo, badge, title, meta,
+}: {
+  onClick?:   () => void
+  photo:      string | null | undefined
+  badge?:     BadgeSpec
+  title:      string
+  meta:       React.ReactNode
+}) {
+  return (
+    <div
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.() } }}
+      className="flex w-[150px] shrink-0 cursor-pointer snap-start flex-col overflow-hidden rounded-card border bg-white shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
+      style={{ borderColor: '#F0EAE0' }}
+    >
+      <div className="relative h-[100px] bg-bord/40">
+        {photo && (
+          <img src={photo} alt="" className="h-full w-full object-cover" />
+        )}
+        {badge && (
+          <span
+            className="absolute left-2 top-2 inline-flex items-center gap-[3px] rounded-[5px] px-[7px] py-1 font-extrabold"
+            style={{
+              backgroundColor: badge.bg,
+              color: badge.color ?? '#fff',
+              fontSize: badge.fontSize ?? 10,
+              letterSpacing: badge.letterSpacing ?? '0.06em',
+            }}
+          >
+            {badge.icon}{badge.text}
+          </span>
+        )}
+        <button
+          type="button"
+          aria-label="Favori"
+          className="absolute right-2 top-2 flex h-[26px] w-[26px] items-center justify-center rounded-full border-none bg-white/90"
+          onClick={ev => { ev.stopPropagation(); ev.preventDefault() }}
+        >
+          <IconHeart size={13} />
+        </button>
+      </div>
+      <div className="px-[11px] pb-[11px] pt-[9px]">
+        <div
+          className="line-clamp-2 text-[13px] font-bold leading-[1.25] text-texte"
+          style={{ letterSpacing: '-0.01em', minHeight: 33 }}
+        >
+          {title}
+        </div>
+        <div className="mt-1 flex items-center gap-1 overflow-hidden whitespace-nowrap text-[11px] text-texte-doux">
+          {meta}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DiscountUniformCard({ annonce }: { annonce: Annonce }) {
+  const router = useRouter()
   const photo = annonce.photos?.[0]
   const prix = getPrixAffiche(annonce)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -546,42 +587,28 @@ function DiscountCard({ annonce }: { annonce: Annonce }) {
   const showOld = typeof prixInitial === 'number' && typeof prixVal === 'number' && prixInitial > prixVal
   const pct = showOld ? Math.round(100 - (prixVal! / prixInitial!) * 100) : null
 
+  const badge: BadgeSpec | undefined =
+    pct !== null
+      ? { text: `-${pct}%`, bg: '#E03A3A', fontSize: 11 }
+      : annonce.type === 'enchere_inversee'
+        ? { text: 'ENCHÈRE', bg: '#E03A3A', letterSpacing: '0.04em' }
+        : undefined
+
   return (
-    <Link
-      href={`/annonces/${annonce.id}`}
-      className="block w-[140px] shrink-0 snap-start overflow-hidden rounded-[14px] border border-bord bg-white no-underline"
-    >
-      <div className="relative h-[110px] bg-bord/40">
-        {photo ? (
-          <img src={photo} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-texte-tres-doux">
-            <IconTag size={22} />
-          </div>
-        )}
-        {pct !== null && (
-          <span className="absolute left-2 top-2 rounded-[5px] bg-[#E03A3A] px-[7px] py-[3px] text-[10px] font-extrabold text-white">
-            -{pct}%
-          </span>
-        )}
-        {annonce.type === 'enchere_inversee' && pct === null && (
-          <span className="absolute left-2 top-2 rounded-[5px] bg-[#E03A3A] px-[7px] py-[3px] text-[10px] font-extrabold tracking-[0.04em] text-white">
-            ENCHÈRE
-          </span>
-        )}
-      </div>
-      <div className="px-2.5 pb-2.5 pt-2">
-        <div className="line-clamp-1 text-[13px] font-bold leading-[1.25] text-texte">{annonce.titre}</div>
-        <div className="mt-0.5 flex items-baseline gap-1.5">
-          <span className="text-[13px] font-extrabold text-accent">{prix}</span>
+    <UniformCard
+      onClick={() => router.push(`/annonces/${annonce.id}`)}
+      photo={photo}
+      badge={badge}
+      title={annonce.titre}
+      meta={
+        <>
+          <span className="font-extrabold text-accent">{prix}</span>
           {showOld && (
-            <span className="text-[11px] text-texte-tres-doux line-through">
-              {prixInitial} €
-            </span>
+            <span className="text-texte-tres-doux line-through">{prixInitial} €</span>
           )}
-        </div>
-      </div>
-    </Link>
+        </>
+      }
+    />
   )
 }
 
@@ -819,31 +846,8 @@ function HeroCardShell({
   )
 }
 
-/* ─── Icons (sections + hero) ────────────────────────────────────────── */
+/* ─── Icons (hero + cards) ───────────────────────────────────────────── */
 
-const IconCalendar = ({ size = 17 }: { size?: number } = {}) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-    <line x1="16" y1="2" x2="16" y2="6"/>
-    <line x1="8" y1="2" x2="8" y2="6"/>
-    <line x1="3" y1="10" x2="21" y2="10"/>
-  </svg>
-)
-const IconGift = ({ size = 17 }: { size?: number } = {}) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="20 12 20 22 4 22 4 12"/>
-    <rect x="2" y="7" width="20" height="5"/>
-    <line x1="12" y1="22" x2="12" y2="7"/>
-    <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/>
-    <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
-  </svg>
-)
-const IconTrendDown = ({ size = 17 }: { size?: number } = {}) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/>
-    <polyline points="16 17 22 17 22 11"/>
-  </svg>
-)
 const IconPin = ({ size = 11 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
     <path d="M12 22s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/>
@@ -866,11 +870,5 @@ const IconStar = ({ size = 11 }: { size?: number }) => (
 const IconHeart = ({ size = 14 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-texte">
     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-  </svg>
-)
-const IconTag = ({ size = 22 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
-    <line x1="7" y1="7" x2="7.01" y2="7"/>
   </svg>
 )
