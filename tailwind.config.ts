@@ -13,10 +13,12 @@ const config: Config = {
         "primary-light":"#E8F2EB",
         accent:        "#C84B2F",
         creme:         "#FDFAF5",
+        cremeDeep:     "#F7F1E6",   // V3 — pills count, fonds doux, badges secondaires
         texte:         "#1A1209",
         "texte-doux":  "#7A6A5A",
         "texte-tres-doux":"#A99B89",
         bord:          "#E8E0D4",
+        bordSoft:      "#F0EAE0",   // V3 — border des cards, plus subtil que bord
         gris:          "#6B5E4E",
         carte:         "#4A90D9",
         // legacy — ne pas supprimer, encore utilisé dans certains composants
@@ -26,7 +28,6 @@ const config: Config = {
       fontFamily: {
         inter:   ["var(--font-inter)", "Inter", "system-ui", "-apple-system", "sans-serif"],
         serif:   ["var(--font-dm-serif)", "Georgia", "serif"],
-        caveat:  ["var(--font-caveat)", "cursive"],
         // legacy — gardé pour composants pas encore migrés
         syne:    ["Syne", "sans-serif"],
       },

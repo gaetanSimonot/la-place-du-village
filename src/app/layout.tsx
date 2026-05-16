@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter, DM_Serif_Display, Caveat } from 'next/font/google'
+import { Inter, DM_Serif_Display } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import InstallBanner from '@/components/InstallBanner'
@@ -10,9 +10,6 @@ import AuthModal from '@/components/AuthModal'
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' })
 const dmSerif = DM_Serif_Display({
   weight: '400', subsets: ['latin'], variable: '--font-dm-serif', display: 'swap',
-})
-const caveat = Caveat({
-  weight: ['500','600'], subsets: ['latin'], variable: '--font-caveat', display: 'swap',
 })
 
 export const metadata: Metadata = {
@@ -44,7 +41,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className={`${inter.variable} ${dmSerif.variable} ${caveat.variable}`}>
+    <html lang="fr" className={`${inter.variable} ${dmSerif.variable}`}>
       <head>
         {/* Capture beforeinstallprompt before React mounts */}
         <script dangerouslySetInnerHTML={{ __html: `
