@@ -330,7 +330,7 @@ export default function HubView({
       `}</style>
 
       {/* ── 1. Header ─────────────────────────────────────────────────────── */}
-      <div style={{ padding: '14px 18px 6px' }}>
+      <div style={{ padding: '10px 18px 4px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <Link
             href={profile ? `/profil/${profile.id ?? ''}` : '/?tab=profil'}
@@ -418,26 +418,28 @@ export default function HubView({
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginTop: 8 }}>
-          <div style={{ flex: '1 1 60%', minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, marginTop: 6 }}>
+          <div style={{ flex: '1 1 auto', minWidth: 0 }}>
             <h1 style={{
               fontFamily: '"Playfair Display", Georgia, serif',
               fontStyle: 'italic',
-              fontSize: 30, fontWeight: 700, letterSpacing: '-0.01em',
+              fontSize: 23, fontWeight: 700, letterSpacing: '-0.01em',
               color: '#2D5A3D', margin: 0,
-              lineHeight: 1.05,
+              lineHeight: 1.0,
+              whiteSpace: 'nowrap',
             }}>
               La Place du Village
             </h1>
             <div style={{
-              width: 46, height: 4, borderRadius: 999,
-              backgroundColor: '#E8622A', margin: '6px 0 4px',
+              width: 38, height: 3, borderRadius: 999,
+              backgroundColor: '#E8622A', margin: '4px 0 2px',
             }} />
             <p style={{
               fontFamily: '"Caveat", cursive',
               fontWeight: 500,
-              margin: 0, fontSize: 19, color: '#7A6A5A',
-              lineHeight: 1.1,
+              margin: 0, fontSize: 17, color: '#7A6A5A',
+              lineHeight: 1.0,
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>
               {subtitle}
             </p>
@@ -450,9 +452,10 @@ export default function HubView({
             priority
             style={{
               flexShrink: 0,
-              width: 130, height: 'auto',
-              marginRight: -6,
+              width: 100, height: 'auto',
+              marginRight: -12,
               userSelect: 'none',
+              mixBlendMode: 'multiply',
             }}
           />
         </div>
@@ -512,7 +515,7 @@ export default function HubView({
 
       {/* ── 4. Aujourd'hui dans le village ────────────────────────────────── */}
       {todayEvents.length > 0 && (
-        <SectionHeader title="Aujourd'hui dans le village" cta="Voir tout" onCta={onSelectAgenda} />
+        <SectionHeader icon={<IconCalendar />} title="Aujourd'hui dans le village" cta="Voir tout" onCta={onSelectAgenda} />
       )}
       {todayEvents.length > 0 && (
         <div style={{ overflowX: 'auto', padding: '0 14px 4px' }} className="pdv-hscroll">
@@ -522,30 +525,29 @@ export default function HubView({
                 key={e.id}
                 href={`/evenement/${e.id}`}
                 style={{
-                  flex: '0 0 280px',
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: 10, borderRadius: 14,
+                  flex: '0 0 230px',
+                  display: 'flex', alignItems: 'center', gap: 9,
+                  padding: 8, borderRadius: 12,
                   backgroundColor: '#fff', boxShadow: '0 1px 6px rgba(44,28,16,0.05)',
                   textDecoration: 'none', color: 'inherit',
                 }}
               >
                 <div style={{
-                  width: 60, height: 60, flexShrink: 0,
-                  borderRadius: 10, overflow: 'hidden',
+                  width: 48, height: 48, flexShrink: 0,
+                  borderRadius: 9, overflow: 'hidden',
                   backgroundColor: '#F0EBE3',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 24,
+                  fontSize: 20,
                 }}>
                   {e.image_url
                     ? <img src={e.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     : '🎉'}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#1A1209', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>{e.titre}</p>
-                  {e.lieux?.nom && <p style={{ margin: '2px 0 0', fontSize: 11.5, color: '#8A7A6A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📍 {e.lieux.nom}</p>}
-                  <p style={{ margin: '3px 0 0', fontSize: 11, color: '#2D5A3D', fontWeight: 700 }}>{dateLabel(e.date_debut)}{e.heure && ` · ${e.heure}`}</p>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#1A1209', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>{e.titre}</p>
+                  {e.lieux?.nom && <p style={{ margin: '1px 0 0', fontSize: 11, color: '#8A7A6A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 3, maxWidth: '100%' }}><IconPin size={10} /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.lieux.nom}</span></p>}
+                  <p style={{ margin: '2px 0 0', fontSize: 10.5, color: '#2D5A3D', fontWeight: 700 }}>{dateLabel(e.date_debut)}{e.heure && ` · ${e.heure}`}</p>
                 </div>
-                <span style={{ color: '#C8B8A8', fontSize: 18, flexShrink: 0 }}>›</span>
               </Link>
             ))}
           </div>
@@ -555,7 +557,7 @@ export default function HubView({
       {/* ── 5. Bons plans (promotions) ────────────────────────────────────── */}
       {promos.length > 0 && (
         <>
-          <SectionHeader title="🎁 Bons plans autour de vous" cta="Voir tout" onCta={() => router.push('/promotions')} />
+          <SectionHeader icon={<IconGift />} title="Bons plans autour de vous" cta="Voir tout" onCta={() => router.push('/promotions')} />
           <div style={{ overflowX: 'auto', padding: '0 14px 4px' }} className="pdv-hscroll">
             <div style={{ display: 'flex', gap: 10 }}>
               {promos.map(p => (
@@ -563,28 +565,29 @@ export default function HubView({
                   key={p.id}
                   href={`/promotions?id=${p.id}`}
                   style={{
-                    flex: '0 0 156px',
-                    borderRadius: 14, overflow: 'hidden',
+                    flex: '0 0 140px',
+                    borderRadius: 12, overflow: 'hidden',
                     backgroundColor: '#fff', boxShadow: '0 1px 6px rgba(44,28,16,0.05)',
                     textDecoration: 'none', color: 'inherit',
                   }}
                 >
                   <div style={{
-                    height: 92, backgroundColor: '#F0EBE3',
+                    height: 82, backgroundColor: '#F0EBE3',
                     backgroundImage: p.display_image_url ? `url(${p.display_image_url})` : undefined,
                     backgroundSize: 'cover', backgroundPosition: 'center',
                     position: 'relative',
                   }}>
                     <span style={{
-                      position: 'absolute', top: 6, left: 6,
+                      position: 'absolute', top: 5, left: 5,
                       backgroundColor: '#E8622A', color: '#fff',
-                      fontSize: 10, fontWeight: 800,
-                      padding: '3px 8px', borderRadius: 999,
+                      fontSize: 9, fontWeight: 800,
+                      padding: '2px 7px', borderRadius: 999,
+                      letterSpacing: '0.02em',
                     }}>BON PLAN</span>
                   </div>
-                  <div style={{ padding: 10 }}>
-                    <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: '#1A1209', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</p>
-                    {p.etablissement?.nom && <p style={{ margin: '2px 0 0', fontSize: 11, color: '#8A7A6A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.etablissement.nom}</p>}
+                  <div style={{ padding: '8px 10px 10px' }}>
+                    <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#1A1209', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>{p.title}</p>
+                    {p.etablissement?.nom && <p style={{ margin: '1px 0 0', fontSize: 10.5, color: '#8A7A6A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.etablissement.nom}</p>}
                   </div>
                 </Link>
               ))}
@@ -596,7 +599,7 @@ export default function HubView({
       {/* ── 6. Annonces "Les prix baissent" — carousel horizontal ─────────── */}
       {featuredAnnonces.length > 0 && (
         <>
-          <SectionHeader title="📉 Les prix baissent" cta="Voir les annonces" onCta={() => router.push('/annonces')} />
+          <SectionHeader icon={<IconTrendDown />} title="Les prix baissent" cta="Voir les annonces" onCta={() => router.push('/annonces')} />
           <div style={{ overflowX: 'auto', padding: '0 14px 4px' }} className="pdv-hscroll">
             <div style={{ display: 'flex', gap: 10 }}>
               {featuredAnnonces.map(a => (
@@ -604,34 +607,46 @@ export default function HubView({
                   key={a.id}
                   href={`/annonces/${a.id}`}
                   style={{
-                    flex: '0 0 184px',
-                    borderRadius: 14, overflow: 'hidden',
+                    flex: '0 0 140px',
+                    borderRadius: 12, overflow: 'hidden',
                     backgroundColor: '#fff', boxShadow: '0 1px 6px rgba(44,28,16,0.06)',
                     textDecoration: 'none', color: 'inherit',
                     display: 'flex', flexDirection: 'column',
                   }}
                 >
                   <div style={{
-                    height: 108, backgroundColor: '#F0EBE3',
+                    height: 82, backgroundColor: '#F0EBE3',
                     backgroundImage: a.photos?.[0] ? `url(${a.photos[0]})` : undefined,
                     backgroundSize: 'cover', backgroundPosition: 'center',
                     position: 'relative',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
-                    {!a.photos?.[0] && <span style={{ fontSize: 30 }}>🏷️</span>}
+                    {!a.photos?.[0] && (
+                      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#B0A090" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+                        <line x1="7" y1="7" x2="7.01" y2="7"/>
+                      </svg>
+                    )}
                     {a.type === 'enchere_inversee' && (
                       <span style={{
-                        position: 'absolute', top: 6, left: 6,
+                        position: 'absolute', top: 5, left: 5,
                         backgroundColor: '#C0392B', color: '#fff',
                         fontSize: 9, fontWeight: 800,
-                        padding: '3px 7px', borderRadius: 999,
-                        letterSpacing: '0.04em',
-                      }}>📉 Enchère</span>
+                        padding: '2px 7px', borderRadius: 999,
+                        letterSpacing: '0.02em',
+                        display: 'inline-flex', alignItems: 'center', gap: 3,
+                      }}>
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/>
+                          <polyline points="17 18 23 18 23 12"/>
+                        </svg>
+                        Enchère
+                      </span>
                     )}
                   </div>
-                  <div style={{ padding: 10 }}>
-                    <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: '#1A1209', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.titre}</p>
-                    <p style={{ margin: '4px 0 0', fontSize: 15, fontWeight: 900, color: '#C0392B', fontVariantNumeric: 'tabular-nums' }}>{getPrixAffiche(a)}</p>
+                  <div style={{ padding: '7px 9px 9px' }}>
+                    <p style={{ margin: 0, fontSize: 11.5, fontWeight: 700, color: '#1A1209', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>{a.titre}</p>
+                    <p style={{ margin: '3px 0 0', fontSize: 14, fontWeight: 800, color: '#C0392B', fontVariantNumeric: 'tabular-nums' }}>{getPrixAffiche(a)}</p>
                   </div>
                 </Link>
               ))}
@@ -760,12 +775,15 @@ function HubHeroCarousel({
         ))}
       </div>
 
-      {/* Dots — overlay sur l'image (pas d'espace mort en dessous) */}
+      {/* Dots — petits, en bas à droite */}
       {items.length > 1 && (
         <div style={{
           position: 'absolute',
-          left: 32, right: 32, bottom: 14,
-          display: 'flex', justifyContent: 'center', gap: 6,
+          right: 26, bottom: 12,
+          display: 'flex', gap: 4,
+          padding: '3px 6px', borderRadius: 999,
+          backgroundColor: 'rgba(0,0,0,0.28)',
+          backdropFilter: 'blur(4px)',
           pointerEvents: 'none',
         }}>
           {items.map((_, i) => (
@@ -783,12 +801,11 @@ function HubHeroCarousel({
               }}
               aria-label={`Slide ${i + 1}`}
               style={{
-                width: i === activeIdx ? 20 : 7, height: 7, borderRadius: 999,
+                width: i === activeIdx ? 12 : 5, height: 5, borderRadius: 999,
                 border: 'none', padding: 0,
                 backgroundColor: i === activeIdx ? '#FFFFFF' : 'rgba(255,255,255,0.55)',
                 cursor: 'pointer', transition: 'all 0.25s',
                 pointerEvents: 'auto',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
               }}
             />
           ))}
@@ -832,7 +849,8 @@ function HeroProducteurCard({ prod, onClick }: { prod: HeroProducteur; onClick: 
           padding: '6px 11px', borderRadius: 999,
           letterSpacing: '0.06em', textTransform: 'uppercase',
           boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
-        }}>🌱 Producteur local</span>
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+        }}><IconLeaf size={11} />Producteur local</span>
 
         <div style={{ position: 'absolute', bottom: 16, left: 16, right: 16 }}>
           <h2 style={{
@@ -847,7 +865,8 @@ function HeroProducteurCard({ prod, onClick }: { prod: HeroProducteur; onClick: 
             <p style={{
               margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.92)',
               textShadow: '0 1px 4px rgba(0,0,0,0.4)',
-            }}>📍 {prod.commune}</p>
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+            }}><IconPin size={12} />{prod.commune}</p>
           )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
@@ -898,7 +917,8 @@ function HeroEtabCard({ etab, onClick }: { etab: HeroEtab; onClick: () => void }
           padding: '6px 11px', borderRadius: 999,
           letterSpacing: '0.06em', textTransform: 'uppercase',
           boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
-        }}>★ À découvrir</span>
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+        }}><IconStar size={11} />À découvrir</span>
 
         <div style={{ position: 'absolute', bottom: 16, left: 16, right: 16 }}>
           <h2 style={{
@@ -913,7 +933,8 @@ function HeroEtabCard({ etab, onClick }: { etab: HeroEtab; onClick: () => void }
             <p style={{
               margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.92)',
               textShadow: '0 1px 4px rgba(0,0,0,0.4)',
-            }}>📍 {etab.commune}</p>
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+            }}><IconPin size={12} />{etab.commune}</p>
           )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
@@ -967,7 +988,8 @@ function HeroEvent({ ev, onClick }: { ev: Evenement; onClick: () => void }) {
           padding: '6px 11px', borderRadius: 999,
           letterSpacing: '0.06em', textTransform: 'uppercase',
           boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
-        }}>{isSponsored ? '★ Sponsorisé' : '✦ À la une'}</span>
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+        }}><IconStar size={11} />{isSponsored ? 'Sponsorisé' : 'À la une'}</span>
 
         <div style={{ position: 'absolute', bottom: 16, left: 16, right: 16 }}>
           <h2 style={{
@@ -980,11 +1002,11 @@ function HeroEvent({ ev, onClick }: { ev: Evenement; onClick: () => void }) {
 
           <p style={{
             margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.92)',
-            display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8,
+            display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10,
             textShadow: '0 1px 4px rgba(0,0,0,0.4)',
           }}>
-            {whenLabel && <span>🗓️ {whenLabel}{ev.heure ? ` · ${ev.heure}` : ''}</span>}
-            {ev.lieux?.nom && <span>📍 {ev.lieux.nom}</span>}
+            {whenLabel && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><IconCalendar />{whenLabel}{ev.heure ? ` · ${ev.heure}` : ''}</span>}
+            {ev.lieux?.nom && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><IconPin size={12} />{ev.lieux.nom}</span>}
           </p>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
@@ -1010,10 +1032,13 @@ function HeroEvent({ ev, onClick }: { ev: Evenement; onClick: () => void }) {
   )
 }
 
-function SectionHeader({ title, cta, onCta }: { title: string; cta: string; onCta?: () => void }) {
+function SectionHeader({ icon, title, cta, onCta }: { icon?: React.ReactNode; title: string; cta: string; onCta?: () => void }) {
   return (
-    <div style={{ padding: '18px 18px 10px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
-      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#1A1209', letterSpacing: '-0.015em', lineHeight: 1.2 }}>{title}</h3>
+    <div style={{ padding: '18px 18px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+        {icon && <span style={{ flexShrink: 0, display: 'inline-flex', color: '#2D5A3D' }}>{icon}</span>}
+        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#1A1209', letterSpacing: '-0.015em', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</h3>
+      </div>
       {cta && (
         <button onClick={onCta} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#2D5A3D', padding: 0, whiteSpace: 'nowrap', flexShrink: 0 }}>
           {cta} →
@@ -1022,4 +1047,45 @@ function SectionHeader({ title, cta, onCta }: { title: string; cta: string; onCt
     </div>
   )
 }
+
+const IconCalendar = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+    <line x1="16" y1="2" x2="16" y2="6"/>
+    <line x1="8" y1="2" x2="8" y2="6"/>
+    <line x1="3" y1="10" x2="21" y2="10"/>
+  </svg>
+)
+const IconGift = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 12 20 22 4 22 4 12"/>
+    <rect x="2" y="7" width="20" height="5"/>
+    <line x1="12" y1="22" x2="12" y2="7"/>
+    <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/>
+    <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
+  </svg>
+)
+const IconTrendDown = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/>
+    <polyline points="17 18 23 18 23 12"/>
+  </svg>
+)
+const IconPin = ({ size = 11 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+    <circle cx="12" cy="10" r="3"/>
+  </svg>
+)
+const IconStar =({ size = 11, filled = true }: { size?: number; filled?: boolean }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+  </svg>
+)
+const IconLeaf = ({ size = 11 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+    <path d="M21 6c-6.5 0-12 5.5-12 12 0 1 0 2 .5 3-1.5-1.5-3-4-3-7 0-5 4-9 9-9 1 0 2 0 3 .5C18.5 5 19.5 5 21 6z"/>
+    <path d="M9 18c0-5 4-9 9-9"/>
+  </svg>
+)
 
