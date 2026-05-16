@@ -65,3 +65,26 @@ h3, .font-title {
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+
+/*
+ * Force la couleur du texte des inputs/textareas — sur certains PWA mobiles
+ * (Safari iOS, Chrome Android avec dark theme), le user-agent applique un
+ * thème système qui rend le texte invisible (blanc sur blanc). On force tout.
+ */
+input, textarea, select {
+  color: #2C1810 !important;
+  -webkit-text-fill-color: #2C1810 !important;
+  caret-color: #2C1810 !important;
+}
+input::placeholder, textarea::placeholder {
+  color: #B0A898 !important;
+  -webkit-text-fill-color: #B0A898 !important;
+  opacity: 1;
+}
+/* Autofill background (Chrome/Safari coloraient le fond en jaune/blanc) */
+input:-webkit-autofill,
+textarea:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #FDFAF6 inset !important;
+  -webkit-text-fill-color: #2C1810 !important;
+  caret-color: #2C1810 !important;
+}

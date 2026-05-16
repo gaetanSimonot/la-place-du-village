@@ -78,8 +78,10 @@ export async function POST(req: NextRequest) {
         photos,
         plan: 'basic',
         is_featured: false,
-        statut: 'publie',
         user_id: null,
+        // statut omis volontairement → laisse le DEFAULT de la table
+        // (le CHECK constraint rejette 'publie', et la valeur par défaut
+        // est appliquée — 'imported' ou équivalent selon le schéma)
       })
       .select('id, nom')
       .single()

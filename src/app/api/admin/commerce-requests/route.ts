@@ -148,8 +148,8 @@ export async function PATCH(req: NextRequest) {
         photos:              req_row.photos ?? [],
         plan:                'basic',
         is_featured:         false,
-        statut:              'publie',
         user_id:             null, // fiche non revendiquée
+        // statut omis → DEFAULT (le CHECK rejette 'publie')
       })
       .select('id, nom')
       .single()
