@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '@/lib/supabase'
 
 interface Promotion {
@@ -241,7 +242,9 @@ function PromotionForm({ etablissementId, etablissementPhotos, promo, onClose, o
     }
   }
 
-  return (
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
     <div onClick={onClose} style={{
       position: 'fixed', inset: 0, zIndex: 3000,
       backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
@@ -387,7 +390,8 @@ function PromotionForm({ etablissementId, etablissementPhotos, promo, onClose, o
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
