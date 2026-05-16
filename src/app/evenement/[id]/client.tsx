@@ -305,7 +305,7 @@ function FloatingTopActions({ adminExtra }: { adminExtra?: React.ReactNode }) {
       <button
         onClick={() => window.history.back()}
         aria-label="Retour"
-        className="flex h-[38px] w-[38px] items-center justify-center rounded-full border-none bg-white/92 text-texte shadow-[0_2px_8px_rgba(0,0,0,0.15)] backdrop-blur"
+        className="flex h-[38px] w-[38px] items-center justify-center rounded-full border-none bg-white text-texte shadow-[0_2px_8px_rgba(0,0,0,0.15)]"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <line x1="19" y1="12" x2="5" y2="12"/>
