@@ -111,7 +111,6 @@ export default function EvenementPageClient({ id }: { id: string }) {
         />
         {/* Floating top actions */}
         <FloatingTopActions
-          onShare={handleShare}
           adminExtra={isAdmin ? (
             <div className="flex items-center gap-2">
               <FeatureButton contentType="evenement" contentId={id} ownerUserId={(evt as { user_id?: string | null }).user_id ?? null} />
@@ -300,7 +299,7 @@ export default function EvenementPageClient({ id }: { id: string }) {
 
 /* ─── Floating top actions ────────────────────────────────────────────── */
 
-function FloatingTopActions({ onShare, adminExtra }: { onShare: () => void; adminExtra?: React.ReactNode }) {
+function FloatingTopActions({ adminExtra }: { adminExtra?: React.ReactNode }) {
   return (
     <div className="absolute left-0 right-0 top-12 z-[6] flex items-center justify-between px-3.5">
       <button
@@ -313,20 +312,11 @@ function FloatingTopActions({ onShare, adminExtra }: { onShare: () => void; admi
           <polyline points="12 19 5 12 12 5"/>
         </svg>
       </button>
-      <div className="flex items-center gap-2">
-        {adminExtra}
-        <button
-          onClick={onShare}
-          aria-label="Partager"
-          className="flex h-[38px] w-[38px] items-center justify-center rounded-full border-none bg-white/92 text-texte shadow-[0_2px_8px_rgba(0,0,0,0.15)] backdrop-blur"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
-            <polyline points="16 6 12 2 8 6"/>
-            <line x1="12" y1="2" x2="12" y2="15"/>
-          </svg>
-        </button>
-      </div>
+      {adminExtra && (
+        <div className="flex items-center gap-2">
+          {adminExtra}
+        </div>
+      )}
     </div>
   )
 }

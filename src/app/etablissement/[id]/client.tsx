@@ -364,31 +364,21 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
           )}
         </div>
         {photos.length > 1 && (
-          <>
-            <button
-              onClick={() => {
-                const el = photosScrollerRef.current
-                if (!el) return
-                const target = ((photoIdx - 1 + photos.length) % photos.length) * el.clientWidth
-                el.scrollTo({ left: target, behavior: 'smooth' })
-              }}
-              aria-label="Photo précédente"
-              style={{ position: 'absolute', left: 10, top: '42%', transform: 'translateY(-50%)', width: 32, height: 32, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.72)', border: 'none', color: '#2C1810', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(6px)' }}
-            >‹</button>
-            <button
-              onClick={() => {
-                const el = photosScrollerRef.current
-                if (!el) return
-                const target = ((photoIdx + 1) % photos.length) * el.clientWidth
-                el.scrollTo({ left: target, behavior: 'smooth' })
-              }}
-              aria-label="Photo suivante"
-              style={{ position: 'absolute', right: 10, top: '42%', transform: 'translateY(-50%)', width: 32, height: 32, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.72)', border: 'none', color: '#2C1810', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(6px)' }}
-            >›</button>
-            <div style={{ position: 'absolute', top: 12, right: 12, padding: '4px 10px', borderRadius: 999, backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)', color: '#fff', fontSize: 11, fontWeight: 700, pointerEvents: 'none' }}>
-              {photoIdx + 1} / {photos.length}
-            </div>
-          </>
+          <div
+            style={{
+              position: 'absolute', bottom: 14, left: '50%', transform: 'translateX(-50%)',
+              display: 'flex', alignItems: 'center', gap: 5, zIndex: 3,
+              background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(6px)',
+              padding: '5px 10px', borderRadius: 999,
+              pointerEvents: 'none',
+            }}
+          >
+            {photos.map((_, i) => (
+              i === photoIdx
+                ? <span key={i} style={{ width: 14, height: 4, background: '#fff', borderRadius: 2 }} />
+                : <span key={i} style={{ width: 4, height: 4, background: 'rgba(255,255,255,0.55)', borderRadius: '50%' }} />
+            ))}
+          </div>
         )}
       </div>
 

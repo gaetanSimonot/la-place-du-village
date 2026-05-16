@@ -286,13 +286,6 @@ export default function AppInfoModal({ onClose }: { onClose: () => void }) {
           }}>
             L&apos;application dont vous êtes le hérault
           </p>
-          <span style={{
-            display: 'inline-block', marginTop: 10,
-            fontSize: 10, fontWeight: 800, color: '#C84B2F',
-            backgroundColor: 'rgba(232,98,42,0.12)',
-            borderRadius: 999, padding: '3px 12px',
-            letterSpacing: '0.08em', textTransform: 'uppercase',
-          }}>Version Bêta</span>
         </div>
 
         <div style={{ padding: '20px 18px 24px' }}>

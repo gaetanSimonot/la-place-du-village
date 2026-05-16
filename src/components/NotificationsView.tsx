@@ -14,6 +14,7 @@ interface Props {
   onMarkRead: (id: string) => void
   onMarkAllRead: () => void
   onOpenProducer?: (id: string) => void
+  onBack?: () => void
 }
 
 /* ─── Type → visual config V3 (palette + SVG icon) ────────────────────── */
@@ -125,7 +126,7 @@ interface PromoUseHistory {
 type UserFilter = 'all' | 'annonces' | 'producteurs' | 'promos' | 'events'
 type AdminFilter = 'all' | 'unread' | 'demandes' | 'annonces' | 'events' | 'support' | 'boost'
 
-export default function NotificationsView({ notifications, loading, loaded, onOpen, onMarkRead, onMarkAllRead, onOpenProducer }: Props) {
+export default function NotificationsView({ notifications, loading, loaded, onOpen, onMarkRead, onMarkAllRead, onOpenProducer, onBack }: Props) {
   const router = useRouter()
   const isAdmin = useAdminSession()
   const [adminCounts, setAdminCounts] = useState<AdminCounts | null>(null)
@@ -251,7 +252,7 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
       {/* Top bar V3 */}
       <div className="flex items-center justify-between gap-2.5 px-4 pt-3.5">
         <button
-          onClick={() => router.push('/')}
+          onClick={() => onBack ? onBack() : router.push('/')}
           aria-label="Retour"
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte shadow-[0_1px_2px_rgba(44,28,16,0.04)]"
         >

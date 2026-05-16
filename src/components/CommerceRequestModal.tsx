@@ -355,64 +355,164 @@ function ReferenceForm({
 
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-        <button onClick={onBack} style={{
-          width: 32, height: 32, borderRadius: 10,
-          backgroundColor: '#F8F4EE', border: 'none', cursor: 'pointer',
-          fontSize: 16, color: '#2D5A3D', flexShrink: 0,
-        }}>←</button>
-        <h2 style={{ margin: 0, fontSize: 17, fontWeight: 900, color: '#1C1917' }}>
-          {kind === 'commerce' ? '🏪 Référencer un commerce' : '🌱 Référencer un producteur'}
-        </h2>
+      {/* Top bar V3 — back + serif title + Annuler */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 14 }}>
+        <button
+          onClick={onBack}
+          aria-label="Retour"
+          style={{
+            width: 40, height: 40, borderRadius: 12,
+            backgroundColor: '#fff', border: '1px solid #E8E0D4', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1A1209',
+            boxShadow: '0 1px 2px rgba(44,28,16,0.04)', flexShrink: 0,
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"/>
+            <polyline points="12 19 5 12 12 5"/>
+          </svg>
+        </button>
+        <div style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
+          <div style={{
+            fontFamily: '"DM Serif Display", Georgia, serif',
+            fontSize: 17, color: '#1A1209', letterSpacing: '-0.01em', lineHeight: 1.1,
+          }}>
+            {kind === 'commerce' ? 'Référencer un commerce' : 'Référencer un producteur'}
+          </div>
+        </div>
+        <div style={{ width: 40, height: 40, flexShrink: 0 }} />
+      </div>
+
+      {/* Hero intro V3 */}
+      <div style={{ marginBottom: 18 }}>
+        <h1 style={{
+          margin: 0,
+          fontFamily: '"DM Serif Display", Georgia, serif',
+          fontSize: 26, lineHeight: 1.1, color: '#1A1209',
+          letterSpacing: '-0.02em', fontWeight: 400,
+        }}>
+          {kind === 'commerce' ? 'Quel commerce ?' : 'Quel producteur ?'}
+        </h1>
+        <p style={{
+          marginTop: 6, fontSize: 13, color: '#7A6A5A', lineHeight: 1.5,
+        }}>
+          Tape le nom — on cherche dans Google Maps pour pré-remplir adresse et horaires.
+          Sinon, tu peux saisir manuellement.
+        </p>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {/* === 1. ADRESSE / NOM (Google Places — priorité) === */}
-        <Field label="🔎 Adresse ou nom du lieu *" hint="Google complète tout automatiquement">
-          <div style={{ position: 'relative' }}>
+        {/* === Search input V3 (border 1.5 primary) === */}
+        <div style={{ position: 'relative' }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            backgroundColor: '#fff',
+            border: `1.5px solid ${adresse.trim() ? '#2D5A3D' : '#E8E0D4'}`,
+            borderRadius: 14, padding: '13px 14px',
+            boxShadow: '0 1px 4px rgba(44,28,16,0.04)',
+          }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, color: '#1A1209' }}>
+              <circle cx="11" cy="11" r="7"/>
+              <line x1="16.5" y1="16.5" x2="21" y2="21"/>
+            </svg>
             <input
               value={adresse}
               onChange={e => { setAdresse(e.target.value); if (placeId) resetAddress() }}
-              placeholder="Ex: Boulangerie du Village, Ganges"
-              style={INPUT}
+              placeholder={kind === 'commerce' ? 'Ex: Boulangerie du Village, Ganges' : 'Ex: Ferme du Mas Neuf, Sumène'}
+              style={{
+                flex: 1, border: 'none', outline: 'none', backgroundColor: 'transparent',
+                fontSize: 14, fontWeight: 500, color: '#1A1209',
+                fontFamily: 'inherit', minWidth: 0,
+              }}
               autoComplete="off"
               autoCorrect="off"
               spellCheck={false}
               autoFocus
+              maxLength={60}
             />
-            {predictions.length > 0 && !placeId && (
-              <div style={{
-                position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
-                marginTop: 4, backgroundColor: '#fff',
-                borderRadius: 12, border: '1px solid #E5DDD2',
-                boxShadow: '0 6px 24px rgba(0,0,0,0.12)', overflow: 'hidden',
-              }}>
-                {predictions.map(p => (
-                  <button key={p.place_id} type="button" onClick={() => selectPrediction(p)} style={{
-                    display: 'block', width: '100%', textAlign: 'left',
-                    padding: '10px 14px', border: 'none', borderTop: '1px solid #F0EAE0',
-                    backgroundColor: 'transparent', cursor: 'pointer',
-                    fontFamily: 'inherit',
-                  }}>
-                    <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#1A1209' }}>{p.main_text}</p>
-                    <p style={{ margin: '1px 0 0', fontSize: 11, color: '#7A6A5A' }}>{p.secondary_text}</p>
-                  </button>
-                ))}
-              </div>
+            {adresse && (
+              <span style={{
+                fontSize: 10, fontWeight: 700, color: '#7A6A5A',
+                backgroundColor: '#F7F1E6', padding: '3px 7px', borderRadius: 6,
+                flexShrink: 0,
+              }}>{adresse.length}/60</span>
             )}
-            {placeId && (
-              <p style={{ margin: '6px 0 0', fontSize: 11, color: '#2D5A3D', fontWeight: 700 }}>
-                ✓ Adresse localisée{commune ? ` · ${commune}` : ''}
-              </p>
-            )}
-            {autoFilled.length > 0 && (
-              <p style={{ margin: '4px 0 0', fontSize: 11, color: '#3A5BC7', fontWeight: 700 }}>
-                ✨ Pré-rempli depuis Google : {autoFilled.join(', ')}
-              </p>
-            )}
-            {searching && <p style={{ margin: '6px 0 0', fontSize: 11, color: '#8A7A6A' }}>Recherche…</p>}
           </div>
-        </Field>
+          {placeId && (
+            <p style={{ margin: '6px 0 0', fontSize: 11, color: '#2D5A3D', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Adresse localisée{commune ? ` · ${commune}` : ''}
+            </p>
+          )}
+          {autoFilled.length > 0 && (
+            <p style={{ margin: '4px 0 0', fontSize: 11, color: '#3A5BC7', fontWeight: 700 }}>
+              Pré-rempli depuis Google : {autoFilled.join(', ')}
+            </p>
+          )}
+          {searching && <p style={{ margin: '6px 0 0', fontSize: 11, color: '#7A6A5A' }}>Recherche…</p>}
+        </div>
+
+        {/* Predictions V3 (cards avec IcStore en cremeDeep cercle) */}
+        {predictions.length > 0 && !placeId && (
+          <div>
+            <div style={{
+              fontSize: 11, fontWeight: 800, color: '#7A6A5A',
+              letterSpacing: '0.1em', marginBottom: 8, textTransform: 'uppercase',
+            }}>Suggestions proches</div>
+            <div style={{
+              backgroundColor: '#fff', border: '1px solid #F0EAE0',
+              borderRadius: 14, overflow: 'hidden',
+              boxShadow: '0 1px 4px rgba(44,28,16,0.04)',
+            }}>
+              {predictions.map((p, i) => (
+                <button
+                  key={p.place_id}
+                  type="button"
+                  onClick={() => selectPrediction(p)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '12px 14px',
+                    background: 'transparent', border: 'none', cursor: 'pointer',
+                    borderBottom: i < predictions.length - 1 ? '1px solid #F0EAE0' : 'none',
+                    textAlign: 'left', fontFamily: 'inherit',
+                  }}
+                >
+                  <div style={{
+                    width: 38, height: 38, borderRadius: 10,
+                    backgroundColor: '#F7F1E6', color: '#7A6A5A',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 9l1-5h16l1 5"/>
+                      <path d="M4 9v11a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9"/>
+                      <path d="M9 21V12h6v9"/>
+                    </svg>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#1A1209', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.main_text}</p>
+                    <p style={{ margin: '2px 0 0', fontSize: 11, color: '#7A6A5A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.secondary_text}</p>
+                  </div>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A99B89" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                    <polyline points="9 6 15 12 9 18"/>
+                  </svg>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Notice plan V3 */}
+        <div style={{
+          fontSize: 11, color: '#7A6A5A', lineHeight: 1.5,
+          background: '#F7F1E6', borderRadius: 12, padding: '10px 14px',
+        }}>
+          {kind === 'commerce'
+            ? 'Les commerces sont modérés avant publication. Compte la durée d\'une journée environ.'
+            : 'Les producteurs sont modérés avant publication. Compte la durée d\'une journée environ.'}
+        </div>
 
         {/* === 2. Nom (souvent rempli automatiquement) === */}
         <Field label="Nom *">

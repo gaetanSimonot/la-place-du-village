@@ -40,15 +40,19 @@ export default function HubTopBar({
           type="button"
           onClick={onOpenZone}
           className="flex items-center gap-1 bg-transparent p-0 text-[11px] font-semibold text-texte-doux"
+          aria-label="Ma zone"
         >
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 22s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/>
             <circle cx="12" cy="10" r="2.5"/>
           </svg>
-          <span className="truncate">{zoneLabel}</span>
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
+          <span className="truncate">
+            {(() => {
+              // Affiche "Ganges · ≈ 30 km" (le ≈ indique que le rayon est approximatif)
+              const m = zoneLabel.match(/^(.*?)\s*·\s*(.+)$/)
+              return m ? <>{m[1]} · <span aria-label="environ">≈</span> {m[2]}</> : zoneLabel
+            })()}
+          </span>
         </button>
       </div>
 

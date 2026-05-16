@@ -510,6 +510,13 @@ export default function HomePage() {
     setNavTab('carte')
     setSheetMode('half')
   }
+  const enterAgendaToday = () => {
+    setShowHub(false)
+    setAppMode('agenda')
+    setFiltres(f => ({ ...f, quand: 'aujourd_hui' }))
+    setNavTab('carte')
+    setSheetMode('full') // sheet plein pour voir la liste filtrée
+  }
   const enterAnnuaire = (typeFilter?: EtablissementType) => {
     setShowHub(false)
     setAppMode('annuaire')
@@ -670,6 +677,7 @@ export default function HomePage() {
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 25, overflowY: 'auto', backgroundColor: 'var(--creme)' }}>
           <HubView
             onSelectAgenda={enterAgenda}
+            onSelectAgendaToday={enterAgendaToday}
             onSelectAnnuaire={enterAnnuaire}
             onSelectProducteurs={enterProducteurs}
             onComingSoon={setComingSoonLabel}
@@ -1029,6 +1037,7 @@ export default function HomePage() {
             onMarkRead={markNotifRead}
             onMarkAllRead={markAllNotifsRead}
             onOpenProducer={openProducer}
+            onBack={() => handleNavTab('accueil')}
           />
         </div>
       )}

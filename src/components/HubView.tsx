@@ -8,9 +8,11 @@ import type { EtablissementType, Evenement } from '@/lib/types'
 import { getPrixAffiche, type Annonce } from '@/lib/annonces'
 import HubTopBar from '@/components/HubTopBar'
 import HubSearchBar from '@/components/HubSearchBar'
+import { useFavorites } from '@/hooks/useFavorites'
 
 interface Props {
   onSelectAgenda:        () => void
+  onSelectAgendaToday?:  () => void
   onSelectAnnuaire:      (typeFilter?: EtablissementType) => void
   onSelectProducteurs:   () => void
   onComingSoon:          (label: string) => void
@@ -72,15 +74,17 @@ function dateLabel(iso: string | null): string {
 }
 
 export default function HubView({
-  onSelectAgenda, onSelectAnnuaire, onSelectProducteurs,
+  onSelectAgenda, onSelectAgendaToday, onSelectAnnuaire, onSelectProducteurs,
   onComingSoon, onUpgradePrompt,
   onOpenNotifs, onOpenInfo, onOpenSearch, unreadCount = 0,
 }: Props) {
   const router = useRouter()
   const { profile } = useAuth()
+  const { favIds, toggle: toggleFav } = useFavorites()
 
   const [heroItems, setHeroItems] = useState<HeroItem[]>([])
   const [todayEvents, setTodayEvents] = useState<Evenement[]>([])
+  const [todayTotal, setTodayTotal] = useState<number>(0)
   const [promos, setPromos] = useState<PromoCard[]>([])
   const [featuredAnnonces, setFeaturedAnnonces] = useState<Annonce[]>([])
 
@@ -165,17 +169,18 @@ export default function HubView({
       setHeroItems(items)
   }, [])
 
-  // Events du jour pour "Aujourd'hui dans le village"
+  // Events du jour pour "Aujourd'hui" — strict aujourd'hui + count exact
   const loadToday = useCallback(async () => {
       const today = new Date().toISOString().slice(0, 10)
-      const { data } = await supabase
+      const { data, count } = await supabase
         .from('evenements')
-        .select('*, lieux(*)')
+        .select('*, lieux(*)', { count: 'exact' })
         .eq('statut', 'publie')
-        .or(`date_debut.eq.${today},date_debut.gte.${today}`)
-        .order('date_debut', { ascending: true })
+        .eq('date_debut', today)
+        .order('heure', { ascending: true, nullsFirst: false })
         .limit(8)
       setTodayEvents((data ?? []) as Evenement[])
+      setTodayTotal(count ?? 0)
   }, [])
 
   // Promotions actives : featured_slots homepage type=promotion en tête + reste depuis /api/promotions
@@ -360,12 +365,12 @@ export default function HubView({
       )}
 
       {/* ── 5. Tiles 6 colonnes ────────────────────────────────────────── */}
-      <div className="grid grid-cols-6 gap-1.5 px-3 pb-1 pt-4">
+      <div className="grid grid-cols-6 gap-x-2.5 gap-y-3 px-3 pb-1 pt-6">
         {TILES.map(t => (
           <button
             key={t.id}
             onClick={() => t.click({ onSelectAgenda, onSelectAnnuaire, onSelectProducteurs, onComingSoon, onUpgradePrompt }, router)}
-            className="flex flex-col items-center gap-1.5 bg-transparent p-0"
+            className="flex flex-col items-center gap-2 bg-transparent p-0"
           >
             <div className="flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-full border border-bord bg-white shadow-tile">
               <Image
@@ -377,7 +382,7 @@ export default function HubView({
                 priority
               />
             </div>
-            <span className="text-center text-[11px] font-semibold leading-[1.15] text-texte">{t.label}</span>
+            <span className="text-center text-[11px] font-semibold leading-[1.2] text-texte">{t.label}</span>
           </button>
         ))}
       </div>
@@ -387,9 +392,9 @@ export default function HubView({
         <>
           <SectionHeaderV3
             title="Aujourd'hui"
-            subtitle={`${todayEvents.length} événement${todayEvents.length > 1 ? 's' : ''} près de chez vous`}
+            subtitle={`${todayTotal} événement${todayTotal > 1 ? 's' : ''} dans le village`}
             action="Voir tout"
-            onAction={onSelectAgenda}
+            onAction={onSelectAgendaToday ?? onSelectAgenda}
           />
           <HScrollV3>
             {todayEvents.map(e => (
@@ -409,6 +414,8 @@ export default function HubView({
                     <span className="truncate">{e.lieux?.nom ?? dateLabel(e.date_debut)}</span>
                   </>
                 }
+                favored={favIds.includes(e.id)}
+                onToggleFav={() => toggleFav(e.id)}
               />
             ))}
           </HScrollV3>
@@ -518,13 +525,15 @@ interface BadgeSpec {
 }
 
 function UniformCard({
-  onClick, photo, badge, title, meta,
+  onClick, photo, badge, title, meta, favored, onToggleFav,
 }: {
-  onClick?:   () => void
-  photo:      string | null | undefined
-  badge?:     BadgeSpec
-  title:      string
-  meta:       React.ReactNode
+  onClick?:     () => void
+  photo:        string | null | undefined
+  badge?:       BadgeSpec
+  title:        string
+  meta:         React.ReactNode
+  favored?:     boolean
+  onToggleFav?: () => void
 }) {
   return (
     <div
@@ -552,14 +561,20 @@ function UniformCard({
             {badge.icon}{badge.text}
           </span>
         )}
-        <button
-          type="button"
-          aria-label="Favori"
-          className="absolute right-2 top-2 flex h-[26px] w-[26px] items-center justify-center rounded-full border-none bg-white/90"
-          onClick={ev => { ev.stopPropagation(); ev.preventDefault() }}
-        >
-          <IconHeart size={13} />
-        </button>
+        {onToggleFav && (
+          <button
+            type="button"
+            aria-label={favored ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+            aria-pressed={!!favored}
+            className="absolute right-2 top-2 flex h-[26px] w-[26px] items-center justify-center rounded-full border-none bg-white/90"
+            onClick={ev => { ev.stopPropagation(); ev.preventDefault(); onToggleFav() }}
+            style={{ color: favored ? '#C84B2F' : '#1A1209' }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill={favored ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+          </button>
+        )}
       </div>
       <div className="px-[11px] pb-[11px] pt-[9px]">
         <div
@@ -865,10 +880,5 @@ const IconCal = ({ size = 12 }: { size?: number }) => (
 const IconStar = ({ size = 11 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
     <polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9"/>
-  </svg>
-)
-const IconHeart = ({ size = 14 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-texte">
-    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
   </svg>
 )
