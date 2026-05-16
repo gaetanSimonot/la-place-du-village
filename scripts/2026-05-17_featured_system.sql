@@ -37,9 +37,10 @@ CREATE TABLE IF NOT EXISTS public.featured_slots (
   CONSTRAINT featured_slots_dates CHECK (ends_at > starts_at)
 );
 
-CREATE INDEX IF NOT EXISTS idx_featured_slots_active
-  ON public.featured_slots (slot, starts_at, ends_at)
-  WHERE ends_at > now();
+-- Index pour requêtes de lecture par slot avec filtre dates (pas de WHERE clause
+-- car now() n'est pas IMMUTABLE et donc interdit dans un index partiel).
+CREATE INDEX IF NOT EXISTS idx_featured_slots_lookup
+  ON public.featured_slots (slot, ends_at DESC, starts_at);
 
 CREATE INDEX IF NOT EXISTS idx_featured_slots_content
   ON public.featured_slots (content_type, content_id);

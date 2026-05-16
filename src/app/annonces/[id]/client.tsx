@@ -70,7 +70,7 @@ function Avatar({ name, url, size = 44 }: { name: string; url?: string | null; s
 
 export default function AnnoncePageClient({ id }: Props) {
   const router = useRouter()
-  const { user, profile } = useAuth()
+  const { user, profile, isAdmin } = useAuth()
   const { openAuthModal } = useAuthModal()
   const plan = (profile?.plan as Plan) ?? 'basic'
 
@@ -294,6 +294,7 @@ export default function AnnoncePageClient({ id }: Props) {
       <div style={stickyHeaderStyle}>
         <button onClick={() => router.back()} style={backBtnStyle}>←</button>
         <p style={{ flex: 1, fontWeight: 700, fontSize: 15, color: '#2C1810', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{annonce.titre}</p>
+        {isAdmin && <FeatureButton contentType="annonce" contentId={id} ownerUserId={annonce.user_id ?? null} />}
         {isOwner && isActive && (
           <button onClick={() => setEditing(true)} style={{ fontSize: 11, fontWeight: 700, color: '#2D5A3D', border: '1.5px solid #2D5A3D', borderRadius: 10, padding: '5px 12px', backgroundColor: 'transparent', cursor: 'pointer', flexShrink: 0 }}>✏️</button>
         )}
@@ -508,7 +509,6 @@ export default function AnnoncePageClient({ id }: Props) {
         </div>
       )}
 
-      <FeatureButton contentType="annonce" contentId={id} ownerUserId={annonce.user_id ?? null} />
       <BottomNavBar />
     </div>
   )

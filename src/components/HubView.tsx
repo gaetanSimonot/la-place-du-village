@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
@@ -26,6 +26,18 @@ interface PromoCard {
   display_image_url: string | null
   etablissement: { nom: string; commune: string | null } | null
 }
+
+interface HeroEtab {
+  id: string
+  nom: string
+  commune: string | null
+  photos: string[] | null
+  type: string | null
+}
+
+type HeroItem =
+  | { kind: 'evenement';     data: Evenement }
+  | { kind: 'etablissement'; data: HeroEtab }
 
 const TILES: { id: string; label: string; sublabel: string; icon: string; color: string; bg: string; click: (p: Props, router: ReturnType<typeof useRouter>) => void }[] = [
   { id: 'agenda',      label: 'Agenda',      sublabel: 'culturel',      icon: '📅', color: '#2D5A3D', bg: '#E8F2EB', click: p => p.onSelectAgenda() },
@@ -65,7 +77,7 @@ export default function HubView({
   const router = useRouter()
   const { profile } = useAuth()
 
-  const [heroEvent, setHeroEvent] = useState<Evenement | null>(null)
+  const [heroItems, setHeroItems] = useState<HeroItem[]>([])
   const [todayEvents, setTodayEvents] = useState<Evenement[]>([])
   const [promos, setPromos] = useState<PromoCard[]>([])
   const [featuredAnnonce, setFeaturedAnnonce] = useState<Annonce | null>(null)
@@ -77,7 +89,7 @@ export default function HubView({
       .then(({ data }) => { if (data?.value) setSubtitle(data.value) })
   }, [])
 
-  // Hero event : 1. featured_slots hub_hero (override) > 2. today > 3. week
+  // Hero carousel : 1. featured_slots hub_hero (events + etabs) > 2. today event > 3. week event
   useEffect(() => {
     let mounted = true
     ;(async () => {
@@ -86,31 +98,45 @@ export default function HubView({
       const weekISO = inAWeek.toISOString().slice(0, 10)
       const nowISO  = new Date().toISOString()
 
-      // 1. Override featured_slots
-      let data: Evenement | null = null
+      // 1. Override featured_slots — TOUS les items (events + etabs)
       const { data: featuredSlots } = await supabase
         .from('featured_slots')
-        .select('content_id')
+        .select('content_type, content_id, priority')
         .eq('slot', 'hub_hero')
-        .eq('content_type', 'evenement')
         .lte('starts_at', nowISO)
         .gt('ends_at', nowISO)
         .order('priority', { ascending: false })
         .order('created_at', { ascending: false })
-        .limit(1)
 
+      const items: HeroItem[] = []
       if (featuredSlots && featuredSlots.length > 0) {
-        const { data: ev } = await supabase
-          .from('evenements')
-          .select('*, lieux(*)')
-          .eq('id', featuredSlots[0].content_id)
-          .eq('statut', 'publie')
-          .maybeSingle()
-        data = ev as Evenement | null
+        const evIds   = featuredSlots.filter(s => s.content_type === 'evenement').map(s => s.content_id)
+        const etabIds = featuredSlots.filter(s => s.content_type === 'etablissement').map(s => s.content_id)
+
+        const [evRes, etabRes] = await Promise.all([
+          evIds.length > 0
+            ? supabase.from('evenements').select('*, lieux(*)').in('id', evIds).eq('statut', 'publie')
+            : Promise.resolve({ data: [] }),
+          etabIds.length > 0
+            ? supabase.from('etablissements').select('id, nom, commune, photos, type').in('id', etabIds)
+            : Promise.resolve({ data: [] }),
+        ])
+
+        const evMap   = Object.fromEntries(((evRes.data ?? []) as Evenement[]).map(e => [e.id, e]))
+        const etabMap = Object.fromEntries(((etabRes.data ?? []) as HeroEtab[]).map(e => [e.id, e]))
+
+        // Re-merge dans l'ordre priority des slots
+        featuredSlots.forEach(s => {
+          if (s.content_type === 'evenement' && evMap[s.content_id]) {
+            items.push({ kind: 'evenement', data: evMap[s.content_id] })
+          } else if (s.content_type === 'etablissement' && etabMap[s.content_id]) {
+            items.push({ kind: 'etablissement', data: etabMap[s.content_id] })
+          }
+        })
       }
 
-      // 2. Du jour
-      if (!data) {
+      // 2. Fallback : event du jour
+      if (items.length === 0) {
         const r = await supabase
           .from('evenements')
           .select('*, lieux(*)')
@@ -118,11 +144,12 @@ export default function HubView({
           .eq('date_debut', todayISO)
           .order('promo_ordre', { ascending: false })
           .limit(1)
-        data = (r.data?.[0] as Evenement | undefined) ?? null
+        const ev = (r.data?.[0] as Evenement | undefined) ?? null
+        if (ev) items.push({ kind: 'evenement', data: ev })
       }
 
-      // 3. De la semaine
-      if (!data) {
+      // 3. Fallback : event de la semaine
+      if (items.length === 0) {
         const r = await supabase
           .from('evenements')
           .select('*, lieux(*)')
@@ -131,10 +158,11 @@ export default function HubView({
           .lte('date_debut', weekISO)
           .order('date_debut', { ascending: true })
           .limit(1)
-        data = (r.data?.[0] as Evenement | undefined) ?? null
+        const ev = (r.data?.[0] as Evenement | undefined) ?? null
+        if (ev) items.push({ kind: 'evenement', data: ev })
       }
 
-      if (mounted) setHeroEvent(data)
+      if (mounted) setHeroItems(items)
     })()
     return () => { mounted = false }
   }, [])
@@ -364,8 +392,16 @@ export default function HubView({
         </p>
       </div>
 
-      {/* ── 2. Hero événement du jour ─────────────────────────────────────── */}
-      {heroEvent && <HeroEvent ev={heroEvent} onClick={() => router.push(`/evenement/${heroEvent.id}`)} />}
+      {/* ── 2. Hero carousel (events + établissements featured) ──────────── */}
+      {heroItems.length > 0 && (
+        <HubHeroCarousel
+          items={heroItems}
+          onSelect={item => {
+            if (item.kind === 'evenement') router.push(`/evenement/${item.data.id}`)
+            else                            router.push(`/etablissement/${item.data.id}`)
+          }}
+        />
+      )}
 
       {/* ── 3. Tuiles accès rapide ────────────────────────────────────────── */}
       <div style={{ padding: '16px 14px 4px' }}>
@@ -528,6 +564,172 @@ export default function HubView({
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+function HubHeroCarousel({
+  items, onSelect,
+}: {
+  items: HeroItem[]
+  onSelect: (item: HeroItem) => void
+}) {
+  const scrollerRef = useRef<HTMLDivElement | null>(null)
+  const [activeIdx, setActiveIdx] = useState(0)
+  const pausedUntil = useRef<number>(0)
+
+  // Auto-play 3s — sauf pendant 8s après une interaction manuelle
+  useEffect(() => {
+    if (items.length <= 1) return
+    const t = setInterval(() => {
+      if (Date.now() < pausedUntil.current) return
+      const el = scrollerRef.current
+      if (!el) return
+      const slideW = el.clientWidth
+      const nextIdx = (activeIdx + 1) % items.length
+      el.scrollTo({ left: nextIdx * slideW, behavior: 'smooth' })
+    }, 3000)
+    return () => clearInterval(t)
+  }, [items.length, activeIdx])
+
+  // Met à jour l'index actif quand le user scroll
+  function handleScroll() {
+    const el = scrollerRef.current
+    if (!el) return
+    const idx = Math.round(el.scrollLeft / el.clientWidth)
+    if (idx !== activeIdx) setActiveIdx(idx)
+  }
+
+  function handleInteraction() {
+    // Pause autoplay 8s après touch/wheel pour ne pas combattre l'user
+    pausedUntil.current = Date.now() + 8000
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <div
+        ref={scrollerRef}
+        onScroll={handleScroll}
+        onTouchStart={handleInteraction}
+        onMouseDown={handleInteraction}
+        onWheel={handleInteraction}
+        style={{
+          display: 'flex',
+          overflowX: 'auto',
+          scrollSnapType: 'x mandatory',
+          scrollBehavior: 'smooth',
+          WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'none',
+        }}
+        className="pdv-hscroll"
+      >
+        {items.map((item, idx) => (
+          <div
+            key={`${item.kind}:${item.data.id}:${idx}`}
+            style={{
+              flex: '0 0 100%',
+              scrollSnapAlign: 'start',
+              minWidth: 0,
+            }}
+          >
+            {item.kind === 'evenement'
+              ? <HeroEvent ev={item.data} onClick={() => onSelect(item)} />
+              : <HeroEtabCard etab={item.data} onClick={() => onSelect(item)} />}
+          </div>
+        ))}
+      </div>
+
+      {/* Dots */}
+      {items.length > 1 && (
+        <div style={{
+          display: 'flex', justifyContent: 'center', gap: 6,
+          marginTop: 10,
+        }}>
+          {items.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => {
+                handleInteraction()
+                const el = scrollerRef.current
+                if (el) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' })
+              }}
+              aria-label={`Slide ${i + 1}`}
+              style={{
+                width: i === activeIdx ? 20 : 7, height: 7, borderRadius: 999,
+                border: 'none', padding: 0,
+                backgroundColor: i === activeIdx ? '#1A1209' : 'rgba(26,18,9,0.25)',
+                cursor: 'pointer', transition: 'all 0.25s',
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function HeroEtabCard({ etab, onClick }: { etab: HeroEtab; onClick: () => void }) {
+  const photo = etab.photos?.[0]
+  return (
+    <div style={{ padding: '0 16px' }}>
+      <button
+        onClick={onClick}
+        style={{
+          width: '100%', textAlign: 'left',
+          padding: 0, border: 'none', cursor: 'pointer',
+          borderRadius: 24, overflow: 'hidden',
+          backgroundColor: '#3A5BC7',
+          position: 'relative',
+          height: 248,
+          boxShadow: '0 10px 32px rgba(44,28,16,0.22)',
+          fontFamily: 'inherit',
+        }}
+      >
+        {photo ? (
+          <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : (
+          <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #3A5BC7 0%, #2A4396 100%)' }} />
+        )}
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0) 25%, rgba(0,0,0,0.55) 65%, rgba(0,0,0,0.88) 100%)',
+        }} />
+
+        <span style={{
+          position: 'absolute', top: 14, left: 14,
+          backgroundColor: 'rgba(255,255,255,0.95)', color: '#3A5BC7',
+          fontSize: 10, fontWeight: 800,
+          padding: '6px 11px', borderRadius: 999,
+          letterSpacing: '0.06em', textTransform: 'uppercase',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
+        }}>★ À découvrir</span>
+
+        <div style={{ position: 'absolute', bottom: 16, left: 16, right: 16 }}>
+          <h2 style={{
+            margin: '0 0 6px', fontSize: 22, fontWeight: 900,
+            color: '#fff', lineHeight: 1.1,
+            textShadow: '0 1px 6px rgba(0,0,0,0.4)',
+            overflow: 'hidden', display: '-webkit-box',
+            WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+          }}>{etab.nom}</h2>
+
+          {etab.commune && (
+            <p style={{
+              margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.92)',
+              textShadow: '0 1px 4px rgba(0,0,0,0.4)',
+            }}>📍 {etab.commune}</p>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '7px 14px', borderRadius: 999,
+              backgroundColor: '#fff', color: '#1A1209',
+              fontSize: 12, fontWeight: 800,
+            }}>Découvrir →</span>
+          </div>
+        </div>
+      </button>
     </div>
   )
 }

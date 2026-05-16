@@ -352,10 +352,13 @@ export default function EvenementPageClient({ id }: { id: string }) {
         <Link href="/" className="text-[#C4622D] font-bold text-2xl leading-none">←</Link>
         <h1 className="font-bold text-[#2C1810] flex-1 truncate text-base">{evt.titre}</h1>
         {isAdmin && (
-          <button onClick={() => setEditing(true)}
-            style={{ fontSize: 11, fontWeight: 700, color: '#C4622D', border: '1px solid #C4622D', borderRadius: 999, padding: '4px 12px', backgroundColor: 'transparent', cursor: 'pointer' }}>
-            ✏️ Éditer
-          </button>
+          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+            <FeatureButton contentType="evenement" contentId={id} ownerUserId={(evt as { user_id?: string | null }).user_id ?? null} />
+            <button onClick={() => setEditing(true)}
+              style={{ fontSize: 11, fontWeight: 700, color: '#C4622D', border: '1px solid #C4622D', borderRadius: 999, padding: '4px 12px', backgroundColor: 'transparent', cursor: 'pointer' }}>
+              ✏️ Éditer
+            </button>
+          </div>
         )}
       </div>
 
@@ -481,7 +484,6 @@ export default function EvenementPageClient({ id }: { id: string }) {
         />
       )}
 
-      <FeatureButton contentType="evenement" contentId={id} ownerUserId={(evt as { user_id?: string | null }).user_id ?? null} />
     </div>
   )
 }

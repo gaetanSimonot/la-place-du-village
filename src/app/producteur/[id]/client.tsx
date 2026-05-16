@@ -222,6 +222,7 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
       <div style={{ position: 'sticky', top: 0, zIndex: 20, backgroundColor: 'rgba(242,235,224,0.92)', backdropFilter: 'blur(10px)', padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
         <button onClick={() => onBack ? onBack() : router.back()} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.8)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2D5A3D', fontSize: 18, flexShrink: 0, boxShadow: '0 1px 6px rgba(0,0,0,0.1)' }}>←</button>
         <p style={{ flex: 1, fontWeight: 700, fontSize: 15, color: '#2C1810', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{producer.nom}</p>
+        {isAdmin && <FeatureButton contentType="producteur" contentId={producer.id} ownerUserId={(producer as { user_id?: string | null }).user_id ?? null} />}
         {isAdmin && !isOwner && <button onClick={() => setEditing(true)} style={{ fontSize: 11, fontWeight: 700, color: '#2D5A3D', border: '1.5px solid #2D5A3D', borderRadius: 10, padding: '5px 12px', backgroundColor: 'transparent', cursor: 'pointer', flexShrink: 0 }}>✏️</button>}
       </div>
 
@@ -452,7 +453,6 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
       </div>
 
       {editing && producer && <ProducerEditDrawer producer={producer} onClose={() => setEditing(false)} onSaved={updated => setProducer(updated)} />}
-      {producer && <FeatureButton contentType="producteur" contentId={producer.id} ownerUserId={(producer as { user_id?: string | null }).user_id ?? null} />}
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )

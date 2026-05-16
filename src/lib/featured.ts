@@ -24,10 +24,14 @@ export interface FeaturedSlotRow {
   created_at: string
 }
 
+/**
+ * Slots affichés dans l'UI admin/utilisateur.
+ * `a_la_une` reste valide en DB (CHECK constraint) mais n'est plus managé ici :
+ * chaque catégorie a son propre bandeau "À la une" géré dans ses pages liste.
+ */
 export const FEATURED_SLOTS: { id: FeaturedSlot; label: string; description: string; emoji: string }[] = [
-  { id: 'splash',    label: 'Splash screen',    emoji: '✨', description: 'Écran d\'accueil avant l\'app (priorité absolue)' },
+  { id: 'splash',    label: 'Splash screen',    emoji: '✨', description: 'Écran d\'accueil avant l\'app (visibilité maximale)' },
   { id: 'hub_hero',  label: 'Carousel hub',     emoji: '🌟', description: 'Grosse card en haut de l\'accueil (events + établissements)' },
-  { id: 'a_la_une',  label: 'À la une',          emoji: '⭐', description: 'Carousel "À la une" — pros et commerces' },
   { id: 'homepage',  label: 'Tuiles homepage',  emoji: '📢', description: 'Injection dans les tuiles de l\'accueil (promos & annonces)' },
 ]
 
@@ -35,7 +39,7 @@ export const FEATURED_SLOTS: { id: FeaturedSlot; label: string; description: str
 export const SLOT_ALLOWED_TYPES: Record<FeaturedSlot, FeaturedContentType[]> = {
   splash:    ['evenement', 'promotion', 'annonce', 'etablissement'],
   hub_hero:  ['evenement', 'etablissement'],
-  a_la_une:  ['etablissement', 'producteur'],
+  a_la_une:  [],  // déprécié — géré par les bandeaux de catégorie
   homepage:  ['promotion', 'annonce'],
 }
 

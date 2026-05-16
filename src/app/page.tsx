@@ -87,6 +87,7 @@ export default function HomePage() {
   const [filtres, setFiltres]       = useState<Filtres>(defaultFiltres)
   const [allEvenements, setAllEvenements] = useState<EvenementCard[]>([])
   const [promoEventsData, setPromoEventsData] = useState<EvenementCard[]>([])
+  const [splashFeaturedEvents, setSplashFeaturedEvents] = useState<EvenementCard[]>([])
   const [splashDone, setSplashDone]           = useState(() => {
     if (typeof window === 'undefined') return false
     return sessionStorage.getItem('pdv-splash-done') === '1'
@@ -396,6 +397,41 @@ export default function HomePage() {
 
   useEffect(() => { fetchEvenements() }, [fetchEvenements])
 
+  // Splash featured : charge les events mis en avant dans le slot 'splash'
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      const nowISO = new Date().toISOString()
+      const { data: slots } = await supabase
+        .from('featured_slots')
+        .select('content_id, priority')
+        .eq('slot', 'splash')
+        .eq('content_type', 'evenement')
+        .lte('starts_at', nowISO)
+        .gt('ends_at', nowISO)
+        .order('priority', { ascending: false })
+
+      if (!slots || slots.length === 0) {
+        if (mounted) setSplashFeaturedEvents([])
+        return
+      }
+
+      const ids = slots.map(s => s.content_id)
+      const { data: events } = await supabase
+        .from('evenements')
+        .select('id, titre, categorie, date_debut, heure, image_url, image_position, promotion, promo_ordre, vote_count, submitted_by_name, lieux(id, nom, commune, lat, lng, place_id_google)')
+        .in('id', ids)
+        .eq('statut', 'publie')
+
+      // Re-order selon priority des slots
+      const eventMap = Object.fromEntries(((events ?? []) as unknown[]).map((e) => [(e as { id: string }).id, e]))
+      const ordered = ids.map(id => eventMap[id]).filter(Boolean) as EvenementCard[]
+
+      if (mounted) setSplashFeaturedEvents(ordered)
+    })()
+    return () => { mounted = false }
+  }, [])
+
   // Relancer le fetch quand l'app revient au premier plan
   useEffect(() => {
     const onVisible = () => { if (document.visibilityState === 'visible') fetchEvenements(true) }
@@ -454,9 +490,12 @@ export default function HomePage() {
   }, [evenementsZone, searchQuery])
 
   // Promoted events bypass user category/date filters — fetched independently
-  const maxEvents = useMemo(() => promoEventsData.filter(e => e.promotion === 'max'), [promoEventsData])
+  const maxEventsLegacy = useMemo(() => promoEventsData.filter(e => e.promotion === 'max'), [promoEventsData])
   // Bandeau shows all promoted events (both pro and max)
   const proEvents = useMemo(() => promoEventsData.filter(e => e.promotion === 'pro' || e.promotion === 'max'), [promoEventsData])
+
+  // Splash : featured_slots slot='splash' (override) > fallback legacy promotion='max'
+  const splashEvents = splashFeaturedEvents.length > 0 ? splashFeaturedEvents : maxEventsLegacy
 
   const handleNavTab = (tab: NavTab) => {
     // Ferme tout overlay etab/producer ouvert quand l'user clique sur la bottom nav
@@ -1054,7 +1093,7 @@ export default function HomePage() {
         </div>
       )}
 
-      <MaxSplash events={maxEvents} loading={loading} />
+      <MaxSplash events={splashEvents} loading={loading} />
 
       {!splashDone && <AppSplash onDone={() => {
         sessionStorage.setItem('pdv-splash-done', '1')

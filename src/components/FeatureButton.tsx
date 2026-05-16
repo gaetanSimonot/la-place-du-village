@@ -8,62 +8,52 @@ import { BOOST_OFFERS, priceLabel } from '@/lib/boost'
 interface Props {
   contentType: FeaturedContentType
   contentId:   string
-  /** Si fourni : seuls les users autorisés à featurer ce contenu voient le bouton.
-   *  Sinon, le bouton est visible pour tous (admin / pro / n'importe quel user pour le boost payant). */
+  /** Pour la modal — permet d'identifier owner vs autre. Optionnel. */
   ownerUserId?: string | null
-  /** Position du bouton flottant. Par défaut bottom-right. */
-  position?: { bottom?: number; right?: number; top?: number; left?: number }
 }
 
-export default function FeatureButton({ contentType, contentId, ownerUserId, position }: Props) {
+/**
+ * Bouton admin "⭐ Mettre en avant" — visible uniquement pour les admins,
+ * destiné à être posé inline (par exemple à côté du bouton "Éditer" dans
+ * le header sticky d'une fiche). Le parent contrôle son placement.
+ *
+ * Pour les pros / users : passer par /profil/visibilite (lui aussi monté
+ * sur FeatureModal exporté).
+ */
+export default function FeatureButton({ contentType, contentId, ownerUserId }: Props) {
   const { user, profile, isAdmin } = useAuth()
   const [open, setOpen] = useState(false)
 
-  // Visible pour :
-  //  - admin (peut featurer n'importe quoi gratuitement)
-  //  - propriétaire du contenu (peut consommer crédit ou payer)
-  //  - tout user connecté (peut payer pour booster un contenu qu'il aime)
-  if (!user) return null
+  if (!user || !isAdmin) return null
 
-  const isOwner = ownerUserId === user.id
-
-  const pos: React.CSSProperties = {
-    position: 'fixed',
-    zIndex: 90,
-    ...(position?.bottom != null ? { bottom: position.bottom } : { bottom: 90 }),
-    ...(position?.right  != null ? { right:  position.right  } : { right:  16 }),
-    ...(position?.top    != null ? { top:    position.top    } : {}),
-    ...(position?.left   != null ? { left:   position.left   } : {}),
-  }
+  const isOwner = !!ownerUserId && ownerUserId === user.id
 
   return (
     <>
       <button
         onClick={() => setOpen(true)}
-        aria-label="Mettre en avant"
+        aria-label="Mettre en avant (admin)"
+        title="Mettre en avant (admin)"
         style={{
-          ...pos,
-          padding: '10px 16px',
-          borderRadius: 999,
-          border: 'none',
-          backgroundColor: '#1A1209',
-          color: '#FFF',
+          padding: '5px 11px', borderRadius: 10,
+          border: '1.5px solid #E8A627', backgroundColor: '#FFF8E8',
+          color: '#B07E1F',
           fontFamily: 'Inter, sans-serif',
-          fontSize: 13, fontWeight: 800,
+          fontSize: 11, fontWeight: 800,
           cursor: 'pointer',
-          boxShadow: '0 6px 20px rgba(0,0,0,0.25)',
-          display: 'flex', alignItems: 'center', gap: 8,
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          flexShrink: 0,
+          whiteSpace: 'nowrap',
         }}
       >
-        <span style={{ fontSize: 14 }}>⭐</span>
-        <span>Mettre en avant</span>
+        ⭐ Avant
       </button>
 
       {open && (
         <FeatureModal
           contentType={contentType}
           contentId={contentId}
-          isAdmin={!!isAdmin}
+          isAdmin={true}
           isOwner={isOwner}
           plan={(profile?.plan as 'basic' | 'habitants' | 'pro' | undefined) ?? 'basic'}
           onClose={() => setOpen(false)}
