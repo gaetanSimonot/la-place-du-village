@@ -330,7 +330,7 @@ export default function HubView({
       `}</style>
 
       {/* ── 1. Header ─────────────────────────────────────────────────────── */}
-      <div style={{ padding: '20px 18px 10px' }}>
+      <div style={{ padding: '14px 18px 6px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <Link
             href={profile ? `/profil/${profile.id ?? ''}` : '/?tab=profil'}
@@ -418,23 +418,44 @@ export default function HubView({
           </div>
         </div>
 
-        <h1 style={{
-          fontSize: 32, fontWeight: 800, letterSpacing: '-0.035em',
-          color: '#2D5A3D', margin: '16px 0 0',
-          lineHeight: 1.0,
-        }}>
-          La Place du Village
-        </h1>
-        <div style={{
-          width: 56, height: 3, borderRadius: 2,
-          backgroundColor: '#E8622A', margin: '8px 0 10px',
-        }} />
-        <p style={{
-          margin: 0, fontSize: 13.5, color: '#7A6A5A',
-          fontWeight: 500, letterSpacing: '-0.005em',
-        }}>
-          {subtitle}
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginTop: 8 }}>
+          <div style={{ flex: '1 1 60%', minWidth: 0 }}>
+            <h1 style={{
+              fontFamily: '"Playfair Display", Georgia, serif',
+              fontStyle: 'italic',
+              fontSize: 30, fontWeight: 700, letterSpacing: '-0.01em',
+              color: '#2D5A3D', margin: 0,
+              lineHeight: 1.05,
+            }}>
+              La Place du Village
+            </h1>
+            <div style={{
+              width: 46, height: 4, borderRadius: 999,
+              backgroundColor: '#E8622A', margin: '6px 0 4px',
+            }} />
+            <p style={{
+              fontFamily: '"Caveat", cursive',
+              fontWeight: 500,
+              margin: 0, fontSize: 19, color: '#7A6A5A',
+              lineHeight: 1.1,
+            }}>
+              {subtitle}
+            </p>
+          </div>
+          <Image
+            src="/village-illustration.png"
+            alt=""
+            width={300}
+            height={150}
+            priority
+            style={{
+              flexShrink: 0,
+              width: 130, height: 'auto',
+              marginRight: -6,
+              userSelect: 'none',
+            }}
+          />
+        </div>
       </div>
 
       {/* ── 2. Hero carousel (events + établissements featured) ──────────── */}
@@ -450,21 +471,21 @@ export default function HubView({
       )}
 
       {/* ── 3. Tuiles accès rapide ────────────────────────────────────────── */}
-      <div style={{ padding: '18px 14px 6px' }}>
-        <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }} className="pdv-hscroll">
+      <div style={{ padding: '14px 14px 6px' }}>
+        <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 6 }} className="pdv-hscroll">
           {TILES.map(t => (
             <button
               key={t.id}
               onClick={() => t.click({ onSelectAgenda, onSelectAnnuaire, onSelectProducteurs, onComingSoon, onUpgradePrompt }, router)}
               style={{
                 flex: '0 0 auto',
-                width: 108,
-                minHeight: 128,
-                padding: '14px 8px 12px',
-                borderRadius: 22, border: '1px solid #F0E8DC',
+                width: 112,
+                height: 112,
+                padding: '10px 8px',
+                borderRadius: 22, border: 'none',
                 backgroundColor: '#FFFFFF',
-                boxShadow: '0 2px 10px rgba(44,28,16,0.06)',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                boxShadow: '0 2px 8px rgba(44,28,16,0.05)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
                 cursor: 'pointer',
                 fontFamily: 'inherit',
                 transition: 'transform 0.12s ease, box-shadow 0.12s ease',
@@ -473,14 +494,14 @@ export default function HubView({
               <Image
                 src={t.iconSrc}
                 alt={t.label}
-                width={56}
-                height={56}
-                style={{ width: 56, height: 56, display: 'block', flexShrink: 0 }}
+                width={58}
+                height={58}
+                style={{ width: 58, height: 58, display: 'block', flexShrink: 0 }}
                 priority
               />
               <p style={{
-                margin: 0, fontSize: 13, fontWeight: 700,
-                color: '#1A1209', lineHeight: 1.2,
+                margin: 0, fontSize: 12.5, fontWeight: 600,
+                color: '#1A1209', lineHeight: 1.15,
                 letterSpacing: '-0.01em',
                 textAlign: 'center',
               }}>{t.label}</p>
@@ -494,37 +515,40 @@ export default function HubView({
         <SectionHeader title="Aujourd'hui dans le village" cta="Voir tout" onCta={onSelectAgenda} />
       )}
       {todayEvents.length > 0 && (
-        <div style={{ padding: '0 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {todayEvents.slice(0, 3).map(e => (
-            <Link
-              key={e.id}
-              href={`/evenement/${e.id}`}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                padding: 10, borderRadius: 14,
-                backgroundColor: '#fff', boxShadow: '0 1px 6px rgba(44,28,16,0.05)',
-                textDecoration: 'none', color: 'inherit',
-              }}
-            >
-              <div style={{
-                width: 52, height: 52, flexShrink: 0,
-                borderRadius: 10, overflow: 'hidden',
-                backgroundColor: '#F0EBE3',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 22,
-              }}>
-                {e.image_url
-                  ? <img src={e.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  : '🎉'}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#1A1209', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.titre}</p>
-                {e.lieux?.nom && <p style={{ margin: 0, fontSize: 12, color: '#8A7A6A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📍 {e.lieux.nom}</p>}
-                <p style={{ margin: '2px 0 0', fontSize: 11, color: '#2D5A3D', fontWeight: 700 }}>{dateLabel(e.date_debut)}{e.heure && ` · ${e.heure}`}</p>
-              </div>
-              <span style={{ color: '#C8B8A8', fontSize: 18 }}>›</span>
-            </Link>
-          ))}
+        <div style={{ overflowX: 'auto', padding: '0 14px 4px' }} className="pdv-hscroll">
+          <div style={{ display: 'flex', gap: 10 }}>
+            {todayEvents.slice(0, 8).map(e => (
+              <Link
+                key={e.id}
+                href={`/evenement/${e.id}`}
+                style={{
+                  flex: '0 0 280px',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: 10, borderRadius: 14,
+                  backgroundColor: '#fff', boxShadow: '0 1px 6px rgba(44,28,16,0.05)',
+                  textDecoration: 'none', color: 'inherit',
+                }}
+              >
+                <div style={{
+                  width: 60, height: 60, flexShrink: 0,
+                  borderRadius: 10, overflow: 'hidden',
+                  backgroundColor: '#F0EBE3',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 24,
+                }}>
+                  {e.image_url
+                    ? <img src={e.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : '🎉'}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#1A1209', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>{e.titre}</p>
+                  {e.lieux?.nom && <p style={{ margin: '2px 0 0', fontSize: 11.5, color: '#8A7A6A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📍 {e.lieux.nom}</p>}
+                  <p style={{ margin: '3px 0 0', fontSize: 11, color: '#2D5A3D', fontWeight: 700 }}>{dateLabel(e.date_debut)}{e.heure && ` · ${e.heure}`}</p>
+                </div>
+                <span style={{ color: '#C8B8A8', fontSize: 18, flexShrink: 0 }}>›</span>
+              </Link>
+            ))}
+          </div>
         </div>
       )}
 
@@ -648,7 +672,7 @@ function HubHeroCarousel({
     })
   }, [items.length, loop])
 
-  // Auto-play 3s — sauf pendant 8s après une interaction manuelle
+  // Auto-play 5s — sauf pendant 8s après une interaction manuelle
   useEffect(() => {
     if (items.length <= 1) return
     const t = setInterval(() => {
@@ -661,7 +685,7 @@ function HubHeroCarousel({
       // d'arrondi avec scroll-snap
       const currentIdx = Math.round(el.scrollLeft / slideW)
       el.scrollTo({ left: (currentIdx + 1) * slideW, behavior: 'smooth' })
-    }, 3000)
+    }, 5000)
     return () => clearInterval(t)
   }, [items.length])
 
@@ -736,11 +760,13 @@ function HubHeroCarousel({
         ))}
       </div>
 
-      {/* Dots */}
+      {/* Dots — overlay sur l'image (pas d'espace mort en dessous) */}
       {items.length > 1 && (
         <div style={{
+          position: 'absolute',
+          left: 32, right: 32, bottom: 14,
           display: 'flex', justifyContent: 'center', gap: 6,
-          marginTop: 10,
+          pointerEvents: 'none',
         }}>
           {items.map((_, i) => (
             <button
@@ -750,7 +776,6 @@ function HubHeroCarousel({
                 const el = scrollerRef.current
                 if (!el) return
                 const slideW = el.clientWidth
-                // On vise la copie la plus proche pour éviter un grand scroll
                 const currentPhysical = Math.round(el.scrollLeft / slideW)
                 const currentCopy = Math.floor(currentPhysical / items.length)
                 const target = (currentCopy * items.length + i)
@@ -760,8 +785,10 @@ function HubHeroCarousel({
               style={{
                 width: i === activeIdx ? 20 : 7, height: 7, borderRadius: 999,
                 border: 'none', padding: 0,
-                backgroundColor: i === activeIdx ? '#1A1209' : 'rgba(26,18,9,0.25)',
+                backgroundColor: i === activeIdx ? '#FFFFFF' : 'rgba(255,255,255,0.55)',
                 cursor: 'pointer', transition: 'all 0.25s',
+                pointerEvents: 'auto',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
               }}
             />
           ))}
@@ -783,7 +810,7 @@ function HeroProducteurCard({ prod, onClick }: { prod: HeroProducteur; onClick: 
           borderRadius: 24, overflow: 'hidden',
           backgroundColor: '#2D5A3D',
           position: 'relative',
-          height: 248,
+          height: 200,
           boxShadow: '0 10px 32px rgba(44,28,16,0.22)',
           fontFamily: 'inherit',
         }}
@@ -849,7 +876,7 @@ function HeroEtabCard({ etab, onClick }: { etab: HeroEtab; onClick: () => void }
           borderRadius: 24, overflow: 'hidden',
           backgroundColor: '#3A5BC7',
           position: 'relative',
-          height: 248,
+          height: 200,
           boxShadow: '0 10px 32px rgba(44,28,16,0.22)',
           fontFamily: 'inherit',
         }}
@@ -917,7 +944,7 @@ function HeroEvent({ ev, onClick }: { ev: Evenement; onClick: () => void }) {
           borderRadius: 24, overflow: 'hidden',
           backgroundColor: '#1A3A2A',
           position: 'relative',
-          height: 248,
+          height: 200,
           boxShadow: '0 10px 32px rgba(44,28,16,0.22)',
           fontFamily: 'inherit',
         }}
@@ -985,7 +1012,7 @@ function HeroEvent({ ev, onClick }: { ev: Evenement; onClick: () => void }) {
 
 function SectionHeader({ title, cta, onCta }: { title: string; cta: string; onCta?: () => void }) {
   return (
-    <div style={{ padding: '22px 18px 12px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+    <div style={{ padding: '18px 18px 10px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
       <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#1A1209', letterSpacing: '-0.015em', lineHeight: 1.2 }}>{title}</h3>
       {cta && (
         <button onClick={onCta} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#2D5A3D', padding: 0, whiteSpace: 'nowrap', flexShrink: 0 }}>
