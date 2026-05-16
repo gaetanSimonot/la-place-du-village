@@ -39,7 +39,9 @@ const config: Config = {
         card:    "0 1px 6px 0 rgba(44,28,16,0.06)",
         "card-hover":"0 4px 16px 0 rgba(44,28,16,0.10)",
         tile:    "0 2px 10px 0 rgba(44,28,16,0.08)",
-        hero:    "0 10px 32px 0 rgba(44,28,16,0.22)",
+        // Spec V2 compact : ombre plus douce qu'avant pour eviter le
+        // halo grisatre visible aux coins de la bbox du hero carousel.
+        hero:    "0 6px 24px 0 rgba(44,28,16,0.18)",
         fab:     "0 4px 20px 0 rgba(232,98,42,0.40)",
       },
       letterSpacing: {
