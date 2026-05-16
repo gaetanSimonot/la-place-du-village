@@ -678,7 +678,7 @@ export default function HomePage() {
     router.push(`/evenement/${id}`)
   }, [saveNavForEvent, router])
 
-  const showFab = !showHub && navTab === 'carte' && sheetMode !== 'full' && !openProducerId && !openEtablissementId
+  const showFab = !showHub && navTab === 'carte' && sheetMode !== 'full' && !openProducerId && !openEtablissementId && !searchOpen
 
   return (
     <div style={{ height: '100dvh', position: 'relative', overflow: 'hidden', backgroundColor: '#e8dece' }}>
@@ -739,7 +739,7 @@ export default function HomePage() {
 
       {/* ─── Boutons carte — haut gauche + haut droite ─── */}
       {(() => {
-        const showBtns = !showHub && navTab === 'carte' && sheetMode !== 'full' && !openProducerId && !openEtablissementId
+        const showBtns = !showHub && navTab === 'carte' && sheetMode !== 'full' && !openProducerId && !openEtablissementId && !searchOpen
         const BTN: React.CSSProperties = { width: 44, height: 44, borderRadius: 12, boxShadow: '0 2px 10px rgba(0,0,0,0.14)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E0D8CE', transition: 'background-color 0.15s' }
         const activeColor = (on: boolean): React.CSSProperties => on ? { backgroundColor: 'var(--primary)', border: 'none', color: '#fff' } : { backgroundColor: 'rgba(255,255,255,0.92)', color: '#6B6B6B' }
         return (
