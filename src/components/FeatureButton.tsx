@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { FEATURED_SLOTS, SLOT_ALLOWED_TYPES, type FeaturedSlot, type FeaturedContentType, type FeatureCredits, creditsRemaining } from '@/lib/featured'
@@ -165,7 +166,12 @@ export function FeatureModal({ contentType, contentId, isAdmin, isOwner, plan, o
 
   const offersForType = BOOST_OFFERS.filter(o => SLOT_ALLOWED_TYPES[o.slot].includes(contentType))
 
-  return (
+  // Rendu via Portal sur document.body : sinon un ancêtre avec backdrop-filter
+  // ou transform contraindrait notre position:fixed (cf. fiche annonce dont
+  // le header sticky a backdrop-filter:blur).
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
     <>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 500, backgroundColor: 'rgba(0,0,0,0.5)' }} />
       <div style={{
@@ -269,7 +275,8 @@ export function FeatureModal({ contentType, contentId, isAdmin, isOwner, plan, o
           fontFamily: 'inherit',
         }}>Fermer</button>
       </div>
-    </>
+    </>,
+    document.body,
   )
 }
 

@@ -6,10 +6,13 @@ const VALID_TYPES = ['restaurant_bar', 'hebergement', 'artisan_service', 'sante_
 
 /**
  * POST — Demande de référencement commerce (user authentifié obligatoire).
- * Body : {
- *   nom, type, adresse, lat?, lng?, place_id_google?,
- *   commune?, description?, contact?, site_web?, horaires?, photos?, message?
- * }
+ *
+ * AUTO-VALIDATION : si la demande contient un place_id_google + type + lat + lng,
+ * c'est qu'elle vient de Google Places → on crée directement la fiche en plan
+ * basic non revendiquée (statut publie) au lieu de mettre en pending.
+ *
+ * Sinon, comportement classique : insertion en commerce_requests avec traite=false,
+ * notif admin, l'admin valide manuellement.
  */
 export async function POST(req: NextRequest) {
   const ctx = await requireUser(req)
@@ -20,28 +23,104 @@ export async function POST(req: NextRequest) {
   if (!nom) return NextResponse.json({ error: 'Nom requis' }, { status: 400 })
 
   const type = body?.type && VALID_TYPES.includes(body.type) ? body.type : null
+  const placeId = typeof body?.place_id_google === 'string' ? body.place_id_google : null
+  const lat = typeof body?.lat === 'number' ? body.lat : null
+  const lng = typeof body?.lng === 'number' ? body.lng : null
+  const adresse = typeof body?.adresse === 'string' ? body.adresse.trim() || null : null
+  const commune = typeof body?.commune === 'string' ? body.commune.trim() || null : null
+  const description = typeof body?.description === 'string' ? body.description.trim() || null : null
+  const contact = typeof body?.contact === 'string' ? body.contact.trim() || null : null
+  const siteWeb = typeof body?.site_web === 'string' ? body.site_web.trim() || null : null
+  const horaires = typeof body?.horaires === 'string' ? body.horaires.trim() || null : null
+  const photos = Array.isArray(body?.photos) ? body.photos.filter((p: unknown) => typeof p === 'string') : []
+  const message = typeof body?.message === 'string' ? body.message.trim() || null : null
 
-  const insert = {
-    nom,
-    type,
-    type_commerce:   body?.type_commerce ?? null, // legacy (free text)
-    adresse:         typeof body?.adresse === 'string' ? body.adresse.trim() || null : null,
-    lat:             typeof body?.lat === 'number' ? body.lat : null,
-    lng:             typeof body?.lng === 'number' ? body.lng : null,
-    place_id_google: typeof body?.place_id_google === 'string' ? body.place_id_google : null,
-    commune:         typeof body?.commune === 'string' ? body.commune.trim() || null : null,
-    description:     typeof body?.description === 'string' ? body.description.trim() || null : null,
-    contact:         typeof body?.contact === 'string' ? body.contact.trim() || null : null,
-    site_web:        typeof body?.site_web === 'string' ? body.site_web.trim() || null : null,
-    horaires:        typeof body?.horaires === 'string' ? body.horaires.trim() || null : null,
-    photos:          Array.isArray(body?.photos) ? body.photos.filter((p: unknown) => typeof p === 'string') : [],
-    message:         typeof body?.message === 'string' ? body.message.trim() || null : null,
-    user_id:         ctx.userId,
+  // ─── Chemin AUTO-VALIDATION (Google a tout fourni) ──────────────────────
+  if (placeId && type && lat != null && lng != null) {
+    // Évite les doublons : si la fiche Google existe déjà, on la renvoie
+    const { data: existing } = await supabaseAdmin
+      .from('etablissements')
+      .select('id, nom')
+      .eq('place_id_google', placeId)
+      .maybeSingle()
+
+    if (existing) {
+      // On enregistre quand même la "demande" en traite=true pour traçabilité
+      await supabaseAdmin.from('commerce_requests').insert({
+        nom, type, type_commerce: null, adresse, lat, lng,
+        place_id_google: placeId, commune, description, contact,
+        site_web: siteWeb, horaires, photos, message,
+        user_id: ctx.userId, traite: true,
+        etablissement_id: existing.id,
+      })
+      return NextResponse.json({
+        success: true,
+        already_exists: true,
+        etablissement_id: existing.id,
+        message: 'Cette fiche existe déjà sur la plateforme.',
+      })
+    }
+
+    // Création directe de la fiche
+    const descCourte = description && description.length > 180 ? description.slice(0, 177) + '…' : description
+    const horairesJson = horaires ? { texte: horaires } : null
+
+    const { data: newEtab, error: createErr } = await supabaseAdmin
+      .from('etablissements')
+      .insert({
+        nom, type, adresse, commune, lat, lng,
+        place_id_google: placeId,
+        description_courte: descCourte,
+        description_longue: description,
+        contact_tel: contact,
+        site_web: siteWeb,
+        horaires: horairesJson,
+        photos,
+        plan: 'basic',
+        is_featured: false,
+        statut: 'publie',
+        user_id: null,
+      })
+      .select('id, nom')
+      .single()
+
+    if (createErr || !newEtab) {
+      return NextResponse.json({ error: createErr?.message ?? 'Erreur création fiche' }, { status: 500 })
+    }
+
+    // Trace en commerce_requests (traite=true, link vers la fiche)
+    await supabaseAdmin.from('commerce_requests').insert({
+      nom, type, type_commerce: null, adresse, lat, lng,
+      place_id_google: placeId, commune, description, contact,
+      site_web: siteWeb, horaires, photos, message,
+      user_id: ctx.userId, traite: true,
+      etablissement_id: newEtab.id,
+    })
+
+    // Notif info aux admins (pas d'action requise — déjà publié)
+    await notifyAdmins({
+      type:        'claim_pending',
+      actor_name:  `🏪 ${nom} · auto-publié`,
+      target_type: 'etablissement',
+      target_id:   newEtab.id,
+    })
+
+    return NextResponse.json({
+      success: true,
+      auto_published: true,
+      etablissement_id: newEtab.id,
+    })
   }
 
+  // ─── Chemin CLASSIQUE (pending — admin doit valider) ────────────────────
   const { data, error } = await supabaseAdmin
     .from('commerce_requests')
-    .insert(insert)
+    .insert({
+      nom, type, type_commerce: null, adresse, lat, lng,
+      place_id_google: placeId, commune, description, contact,
+      site_web: siteWeb, horaires, photos, message,
+      user_id: ctx.userId,
+    })
     .select('id')
     .single()
 

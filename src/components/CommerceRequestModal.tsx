@@ -36,11 +36,19 @@ interface Prediction {
   secondary_text: string
 }
 
+interface SubmitResult {
+  auto_published?: boolean
+  already_exists?: boolean
+  etablissement_id?: string
+  producer_id?: string
+  kind: Kind
+}
+
 export default function CommerceRequestModal({ onClose }: { onClose: () => void }) {
   const { user } = useAuth()
   const { openAuthModal } = useAuthModal()
-  const [kind, setKind]     = useState<Kind | null>(null)
-  const [done, setDone]     = useState(false)
+  const [kind, setKind]       = useState<Kind | null>(null)
+  const [result, setResult]   = useState<SubmitResult | null>(null)
 
   // Auth gate : si pas log → on ouvre AuthModal au mount et on ferme cette modale
   useEffect(() => {
@@ -52,24 +60,41 @@ export default function CommerceRequestModal({ onClose }: { onClose: () => void 
 
   return (
     <>
+      <style>{`
+        .pdv-ref-modal input,
+        .pdv-ref-modal textarea {
+          color: #2C1810 !important;
+          -webkit-text-fill-color: #2C1810 !important;
+          background-color: #FDFAF6 !important;
+          caret-color: #2C1810 !important;
+        }
+        .pdv-ref-modal input::placeholder,
+        .pdv-ref-modal textarea::placeholder {
+          color: #B0A898 !important;
+          -webkit-text-fill-color: #B0A898 !important;
+          opacity: 1;
+        }
+      `}</style>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.5)' }} />
-      <div style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 401,
-        backgroundColor: '#fff', borderRadius: '20px 20px 0 0',
-        padding: '24px 22px 40px', fontFamily: 'Inter, sans-serif',
-        maxHeight: '92dvh', overflowY: 'auto',
-      }}>
+      <div
+        className="pdv-ref-modal"
+        style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 401,
+          backgroundColor: '#fff', borderRadius: '20px 20px 0 0',
+          padding: '24px 22px 40px', fontFamily: 'Inter, sans-serif',
+          maxHeight: '92dvh', overflowY: 'auto',
+        }}>
         <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '0 auto 18px' }} />
 
-        {done ? (
-          <SuccessView onClose={onClose} />
+        {result ? (
+          <SuccessView result={result} onClose={onClose} />
         ) : kind === null ? (
           <KindPicker onPick={setKind} />
         ) : (
           <ReferenceForm
             kind={kind}
             onBack={() => setKind(null)}
-            onDone={() => setDone(true)}
+            onDone={(data) => setResult({ ...data, kind })}
           />
         )}
       </div>
@@ -134,7 +159,7 @@ function ReferenceForm({
 }: {
   kind: Kind
   onBack: () => void
-  onDone: () => void
+  onDone: (data: { auto_published?: boolean; already_exists?: boolean; etablissement_id?: string; producer_id?: string }) => void
 }) {
   const [nom, setNom]                 = useState('')
   const [type, setType]               = useState<string>('')
@@ -156,7 +181,7 @@ function ReferenceForm({
   const [uploading, setUploading]     = useState(false)
   const [submitting, setSubmitting]   = useState(false)
   const [error, setError]             = useState<string | null>(null)
-  const [googlePhotos, setGooglePhotos] = useState<string[]>([])
+  const [, setGooglePhotos] = useState<string[]>([])
   const [autoFilled, setAutoFilled]   = useState<string[]>([])
 
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -187,18 +212,26 @@ function ReferenceForm({
     if (d.commune)     setCommune(d.commune)
     if (d.adresse)     setAdresse(d.adresse)
 
-    // Auto-fill — uniquement si le champ est vide (on respecte ce que le user a tapé)
+    // Auto-fill : Google prime puisque l'adresse est cherchée en premier.
+    // Si l'user avait tapé un truc avant, on l'écrase (il pourra rééditer après).
     const filled: string[] = []
-    if (kind === 'commerce' && d.nom && !nom.trim())          { setNom(d.nom);          filled.push('nom') }
-    if (kind === 'commerce' && d.type_guess && !type)         { setType(d.type_guess);  filled.push('catégorie') }
-    if (d.phone && !contact.trim())                            { setContact(d.phone);    filled.push('téléphone') }
-    if (d.website && !siteWeb.trim())                          { setSiteWeb(d.website);  filled.push('site web') }
-    if (d.horaires && !horaires.trim())                        { setHoraires(d.horaires); filled.push('horaires') }
+    if (kind === 'commerce' && d.nom)         { setNom(d.nom);          filled.push('nom') }
+    if (kind === 'commerce' && d.type_guess)  { setType(d.type_guess);  filled.push('catégorie') }
+    if (d.phone)                              { setContact(d.phone);    filled.push('téléphone') }
+    if (d.website)                            { setSiteWeb(d.website);  filled.push('site web') }
+    if (d.horaires)                           { setHoraires(d.horaires); filled.push('horaires') }
     setAutoFilled(filled)
 
-    // Photos Google proposées (preview)
+    // Photos Google : on les ajoute direct dans photos[] (elles peuvent être
+    // retirées via la croix si l'user veut). Si la fiche est créée non
+    // revendiquée, elles restent visibles ; quand le commerce revendique, il
+    // peut les remplacer par les siennes via le bouton ✏️ Éditer.
     if (Array.isArray(d.photo_refs) && d.photo_refs.length > 0) {
-      setGooglePhotos(d.photo_refs.map((ref: string) => `/api/google-place-photo?ref=${encodeURIComponent(ref)}&maxwidth=800`))
+      const urls = d.photo_refs.map((ref: string) => `/api/google-place-photo?ref=${encodeURIComponent(ref)}&maxwidth=800`)
+      setPhotos(prev => Array.from(new Set([...prev, ...urls])))
+      setGooglePhotos([])
+      filled.push(`${urls.length} photo${urls.length > 1 ? 's' : ''}`)
+      setAutoFilled(filled)
     }
 
     setPlaceId(p.place_id)
@@ -210,15 +243,6 @@ function ReferenceForm({
     setAutoFilled([])
   }
 
-  function addAllGooglePhotos() {
-    setPhotos(prev => Array.from(new Set([...prev, ...googlePhotos])))
-    setGooglePhotos([])
-  }
-
-  function addOneGooglePhoto(url: string) {
-    setPhotos(prev => prev.includes(url) ? prev : [...prev, url])
-    setGooglePhotos(prev => prev.filter(p => p !== url))
-  }
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -282,7 +306,13 @@ function ReferenceForm({
       setSubmitting(false)
       return
     }
-    onDone()
+    const d = await r.json()
+    onDone({
+      auto_published:   d.auto_published,
+      already_exists:   d.already_exists,
+      etablissement_id: d.etablissement_id,
+      producer_id:      d.producer_id,
+    })
   }
 
   return (
@@ -299,38 +329,8 @@ function ReferenceForm({
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <Field label="Nom *">
-          <input value={nom} onChange={e => setNom(e.target.value)} placeholder="Ex: Boulangerie du Village" style={INPUT} />
-        </Field>
-
-        {kind === 'commerce' ? (
-          <Field label="Catégorie *">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
-              {COMMERCE_TYPES.map(t => (
-                <button key={t.id} type="button" onClick={() => setType(t.id)} style={catBtnStyle(type === t.id)}>
-                  <span>{t.emoji}</span>{t.label}
-                </button>
-              ))}
-            </div>
-          </Field>
-        ) : (
-          <Field label="Catégories *">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
-              {PRODUCT_CATS.map(c => {
-                const active = producerCats.includes(c.id)
-                return (
-                  <button key={c.id} type="button"
-                    onClick={() => setProducerCats(prev => active ? prev.filter(x => x !== c.id) : [...prev, c.id])}
-                    style={catBtnStyle(active)}>
-                    <span>{c.emoji}</span>{c.label}
-                  </button>
-                )
-              })}
-            </div>
-          </Field>
-        )}
-
-        <Field label="Adresse ou nom du lieu *" hint="Google complète automatiquement les infos">
+        {/* === 1. ADRESSE / NOM (Google Places — priorité) === */}
+        <Field label="🔎 Adresse ou nom du lieu *" hint="Google complète tout automatiquement">
           <div style={{ position: 'relative' }}>
             <input
               value={adresse}
@@ -340,6 +340,7 @@ function ReferenceForm({
               autoComplete="off"
               autoCorrect="off"
               spellCheck={false}
+              autoFocus
             />
             {predictions.length > 0 && !placeId && (
               <div style={{
@@ -375,33 +376,36 @@ function ReferenceForm({
           </div>
         </Field>
 
-        {/* Photos Google proposées */}
-        {googlePhotos.length > 0 && (
-          <Field label={`📷 ${googlePhotos.length} photo${googlePhotos.length > 1 ? 's' : ''} Google disponible${googlePhotos.length > 1 ? 's' : ''}`} hint="Cliquez pour ajouter">
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
-              {googlePhotos.map((url, i) => (
-                <button key={i} type="button" onClick={() => addOneGooglePhoto(url)} style={{
-                  position: 'relative', width: 72, height: 72, padding: 0,
-                  borderRadius: 10, overflow: 'hidden',
-                  border: '1.5px dashed #3A5BC7', cursor: 'pointer',
-                  background: 'none',
-                }}>
-                  <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  <span style={{
-                    position: 'absolute', bottom: 0, left: 0, right: 0,
-                    backgroundColor: 'rgba(58,91,199,0.85)', color: '#fff',
-                    fontSize: 9, fontWeight: 800, padding: '2px 0',
-                    textAlign: 'center',
-                  }}>+ Ajouter</span>
+        {/* === 2. Nom (souvent rempli automatiquement) === */}
+        <Field label="Nom *">
+          <input value={nom} onChange={e => setNom(e.target.value)} placeholder="Ex: Boulangerie du Village" style={INPUT} />
+        </Field>
+
+        {/* === 3. Catégorie === */}
+        {kind === 'commerce' ? (
+          <Field label="Catégorie *">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
+              {COMMERCE_TYPES.map(t => (
+                <button key={t.id} type="button" onClick={() => setType(t.id)} style={catBtnStyle(type === t.id)}>
+                  <span>{t.emoji}</span>{t.label}
                 </button>
               ))}
             </div>
-            <button type="button" onClick={addAllGooglePhotos} style={{
-              padding: '7px 12px', borderRadius: 999,
-              backgroundColor: '#3A5BC7', color: '#fff',
-              border: 'none', fontSize: 11, fontWeight: 800,
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}>Tout ajouter ({googlePhotos.length})</button>
+          </Field>
+        ) : (
+          <Field label="Catégories *">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
+              {PRODUCT_CATS.map(c => {
+                const active = producerCats.includes(c.id)
+                return (
+                  <button key={c.id} type="button"
+                    onClick={() => setProducerCats(prev => active ? prev.filter(x => x !== c.id) : [...prev, c.id])}
+                    style={catBtnStyle(active)}>
+                    <span>{c.emoji}</span>{c.label}
+                  </button>
+                )
+              })}
+            </div>
           </Field>
         )}
 
@@ -485,19 +489,49 @@ function ReferenceForm({
   )
 }
 
-function SuccessView({ onClose }: { onClose: () => void }) {
+function SuccessView({ result, onClose }: { result: SubmitResult; onClose: () => void }) {
+  const ficheUrl = result.kind === 'commerce' && result.etablissement_id
+    ? `/etablissement/${result.etablissement_id}`
+    : result.kind === 'producteur' && result.producer_id
+      ? `/producteur/${result.producer_id}`
+      : null
+
+  const isAutoPublished = !!result.auto_published
+  const isExisting      = !!result.already_exists
+  const isPending       = !isAutoPublished && !isExisting
+
+  const emoji = isAutoPublished ? '🎉' : isExisting ? 'ℹ️' : '✅'
+  const title = isAutoPublished ? 'Fiche publiée !' : isExisting ? 'Cette fiche existe déjà' : 'Demande envoyée !'
+  const sub = isAutoPublished
+    ? 'Les infos Google ont permis une publication immédiate. Vous pouvez consulter la fiche maintenant.'
+    : isExisting
+      ? 'Cette fiche est déjà référencée sur la plateforme. Consultez-la ou revendiquez-la si elle vous appartient.'
+      : 'Notre équipe relit votre demande. Dès qu\'elle est validée, la fiche apparaîtra dans l\'app et vous recevrez une notification.'
+
   return (
     <div style={{ textAlign: 'center', padding: '20px 0' }}>
-      <div style={{ fontSize: 52, marginBottom: 16 }}>✅</div>
-      <p style={{ fontWeight: 900, fontSize: 18, color: '#1C1917', margin: '0 0 8px' }}>Demande envoyée !</p>
+      <div style={{ fontSize: 52, marginBottom: 16 }}>{emoji}</div>
+      <p style={{ fontWeight: 900, fontSize: 18, color: '#1C1917', margin: '0 0 8px' }}>{title}</p>
       <p style={{ fontSize: 13, color: '#6B5E4E', lineHeight: 1.6, margin: '0 0 24px', fontFamily: 'Lora, serif', fontStyle: 'italic' }}>
-        Notre équipe relit votre demande. Dès qu&apos;elle est validée, la fiche apparaîtra dans l&apos;app et vous recevrez une notification.
+        {sub}
       </p>
-      <button onClick={onClose} style={{
-        padding: '13px 28px', borderRadius: 999,
-        backgroundColor: '#2D5A3D', color: '#fff', border: 'none',
-        fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit',
-      }}>Fermer</button>
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+        {ficheUrl && !isPending && (
+          <a href={ficheUrl} style={{
+            padding: '13px 22px', borderRadius: 999,
+            backgroundColor: '#2D5A3D', color: '#fff',
+            fontWeight: 800, fontSize: 14, textDecoration: 'none',
+            fontFamily: 'inherit',
+          }}>Voir la fiche →</a>
+        )}
+        <button onClick={onClose} style={{
+          padding: '13px 22px', borderRadius: 999,
+          backgroundColor: ficheUrl && !isPending ? '#F0EAE0' : '#2D5A3D',
+          color: ficheUrl && !isPending ? '#6B5E4E' : '#fff',
+          border: 'none', fontWeight: 800, fontSize: 14,
+          cursor: 'pointer', fontFamily: 'inherit',
+        }}>Fermer</button>
+      </div>
     </div>
   )
 }
