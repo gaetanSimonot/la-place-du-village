@@ -23,6 +23,7 @@ import AppSplash from '@/components/AppSplash'
 import WelcomePopup from '@/components/WelcomePopup'
 import HubView from '@/components/HubView'
 import HubSearchModal, { type SearchKind } from '@/components/HubSearchModal'
+import PublishMenuModal from '@/components/PublishMenuModal'
 import { ComingSoonModal } from '@/components/HubModals'
 import SubscriptionModal from '@/components/SubscriptionModal'
 import { useFavorites } from '@/hooks/useFavorites'
@@ -225,38 +226,19 @@ export default function HomePage() {
     }
   }, [])
 
-  const FAB_OPTS: { key: string; label: string; icon: React.ReactNode; path: string }[] = [
-    {
-      key: 'photo', label: 'Photo', path: '/capturer',
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-          <circle cx="12" cy="13" r="4"/>
-        </svg>
-      ),
-    },
-    {
-      key: 'texte', label: 'Texte', path: '/ajouter',
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 20h9"/>
-          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-        </svg>
-      ),
-    },
-  ]
-
-  const navigateOrAuth = useCallback((path: string) => {
-    if (authLoading) return
-    if (!user) { setFabOpen(false); openAuthModal(); return }
-    router.push(path)
-  }, [user, authLoading, openAuthModal, router])
-
   const handlePublierClick = useCallback(() => {
     if (authLoading) return
     if (!user) { openAuthModal(); return }
-    setFabOpen(prev => !prev)
+    setFabOpen(true)
   }, [user, authLoading, openAuthModal])
+
+  const handlePublishPick = useCallback((kind: 'event' | 'annonce' | 'capture' | 'commerce' | 'producteur') => {
+    setFabOpen(false)
+    if (kind === 'event')      router.push('/ajouter')
+    else if (kind === 'annonce') router.push('/annonces/nouvelle')
+    else if (kind === 'capture') router.push('/capturer')
+    else                       setCommerceFormOpen(true)
+  }, [router])
 
   const fetchZoneConfig = useCallback(() => {
     fetch('/api/zone')
@@ -945,36 +927,14 @@ export default function HomePage() {
                 <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.01em' }}>Référencer</span>
               </button>
             ) : (
-              <div style={{ position: 'relative', pointerEvents: 'auto' }}>
-                {fabOpen && <div onClick={() => setFabOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: -1 }} />}
-                <button onClick={handlePublierClick}
-                  style={{ height: 40, borderRadius: 20, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', display: 'flex', alignItems: 'center', gap: 7, padding: '0 16px', boxShadow: '0 4px 18px rgba(0,0,0,0.25)', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
-                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
-                    <line x1="10" y1="2" x2="10" y2="18" stroke="white" strokeWidth="2.4" strokeLinecap="round"/>
-                    <line x1="2" y1="10" x2="18" y2="10" stroke="white" strokeWidth="2.4" strokeLinecap="round"/>
-                  </svg>
-                  <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.01em' }}>Publier</span>
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d={fabOpen ? 'M18 15l-6-6-6 6' : 'M6 9l6 6 6-6'}/>
-                  </svg>
-                </button>
-                <AnimatePresence>
-                  {fabOpen && (
-                    <motion.div key="fab-drop"
-                      initial={{ opacity: 0, scale: 0.9, y: -6 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: -6 }}
-                      transition={{ type: 'spring', stiffness: 500, damping: 32 }}
-                      style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: 8, backgroundColor: '#fff', borderRadius: 14, boxShadow: '0 6px 28px rgba(0,0,0,0.18)', overflow: 'hidden', minWidth: 152 }}>
-                      {FAB_OPTS.map((opt, i) => (
-                        <button key={opt.key} onClick={() => { setFabOpen(false); navigateOrAuth(opt.path) }}
-                          style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 16px', border: 'none', borderTop: i > 0 ? '1px solid #F2ECE4' : 'none', backgroundColor: 'transparent', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 600, color: '#2C1810', textAlign: 'left' }}>
-                          <div style={{ color: '#2D5A3D' }}>{opt.icon}</div>
-                          {opt.label}
-                        </button>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+              <button onClick={handlePublierClick}
+                style={{ height: 40, borderRadius: 20, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', display: 'flex', alignItems: 'center', gap: 7, padding: '0 16px', boxShadow: '0 4px 18px rgba(0,0,0,0.25)', cursor: 'pointer', fontFamily: 'Inter, sans-serif', pointerEvents: 'auto' }}>
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+                  <line x1="10" y1="2" x2="10" y2="18" stroke="white" strokeWidth="2.4" strokeLinecap="round"/>
+                  <line x1="2" y1="10" x2="18" y2="10" stroke="white" strokeWidth="2.4" strokeLinecap="round"/>
+                </svg>
+                <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.01em' }}>Publier</span>
+              </button>
             )}
           </motion.div>
         )}
@@ -1120,6 +1080,13 @@ export default function HomePage() {
         open={searchOpen}
         onClose={() => setSearchOpen(false)}
         onViewAll={handleSearchViewAll}
+      />
+
+      {/* Modale "Publier" — 5 options (event, annonce, capture, commerce, producteur) */}
+      <PublishMenuModal
+        open={fabOpen}
+        onClose={() => setFabOpen(false)}
+        onPick={handlePublishPick}
       />
 
       {/* Bottom Nav avec FAB central "Publier" */}
