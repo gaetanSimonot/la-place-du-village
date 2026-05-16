@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAdminSession } from '@/hooks/useAdminSession'
@@ -16,97 +16,64 @@ interface Props {
   onOpenProducer?: (id: string) => void
 }
 
-const NOTIF_CONFIG: Record<NotifType, { emoji: string; color: string; label: (n: AppNotification) => string }> = {
-  disponibilite: {
-    emoji: '🌿',
-    color: '#2D5A3D',
-    label: n => `${n.actor_name ?? 'Un producteur'} a un produit disponible`,
-  },
-  nouveau_produit: {
-    emoji: '🛒',
-    color: '#5B8A4A',
-    label: n => `${n.actor_name ?? 'Un producteur'} a ajouté un nouveau produit`,
-  },
-  suivi_producteur: {
-    emoji: '🌱',
-    color: '#4A7C59',
-    label: n => `${n.actor_name ?? 'Quelqu\'un'} suit votre fiche producteur`,
-  },
-  commentaire: {
-    emoji: '💬',
-    color: '#6B8F71',
-    label: n => `${n.actor_name ?? 'Quelqu\'un'} a commenté votre fiche`,
-  },
-  claim_pending: {
-    emoji: '📋',
-    color: '#C4622D',
-    label: n => `Nouvelle demande : ${n.actor_name ?? 'fiche à revendiquer'}`,
-  },
-  claim_approved: {
-    emoji: '✓',
-    color: '#2D5A3D',
-    label: n => `Ta revendication a été approuvée : ${n.actor_name ?? 'fiche'}`,
-  },
-  claim_rejected: {
-    emoji: '✕',
-    color: '#A0654E',
-    label: n => `Ta revendication a été refusée : ${n.actor_name ?? 'fiche'}`,
-  },
-  promo_used: {
-    emoji: '🎁',
-    color: '#C4622D',
-    label: n => `${n.actor_name ?? 'Un client'} a utilisé votre promo`,
-  },
-  annonce_interet_recu: {
-    emoji: '⭐',
-    color: '#E8622A',
-    label: n => `${n.actor_name ?? 'Quelqu\'un'} s'intéresse à votre annonce`,
-  },
-  annonce_enchere_prise: {
-    emoji: '🔨',
-    color: '#3A5BC7',
-    label: n => `${n.actor_name ?? 'Quelqu\'un'} a pris votre enchère`,
-  },
-  annonce_expire_bientot: {
-    emoji: '⏳',
-    color: '#8A7A6A',
-    label: () => 'Votre annonce expire dans 2 jours',
-  },
-  annonce_devient_don: {
-    emoji: '🎁',
-    color: '#2D5A3D',
-    label: () => 'Votre enchère a atteint le seuil — l\'annonce est devenue un don',
-  },
-  annonce_message: {
-    emoji: '💬',
-    color: '#3A5BC7',
-    label: n => `${n.actor_name ?? 'Quelqu\'un'} vous a envoyé un message`,
-  },
-  annonce_contact_partage: {
-    emoji: '📞',
-    color: '#2D5A3D',
-    label: () => 'Le vendeur a partagé ses coordonnées',
-  },
-  annonce_vente_close: {
-    emoji: '✅',
-    color: '#2D5A3D',
-    label: n => `${n.actor_name ?? 'L\'autre partie'} a conclu la vente`,
-  },
-  annonce_note_recue: {
-    emoji: '⭐',
-    color: '#E8A627',
-    label: n => `${n.actor_name ?? 'Un acheteur'} vous a noté`,
-  },
-  event_published: {
-    emoji: '🎉',
-    color: '#2D5A3D',
-    label: n => `Ton événement est publié : ${n.actor_name ?? 'événement'}`,
-  },
-  support_message: {
-    emoji: '💬',
-    color: '#2D5A3D',
-    label: n => `${n.actor_name ?? 'Quelqu\'un'} — nouveau message support`,
-  },
+/* ─── Type → visual config V3 (palette + SVG icon) ────────────────────── */
+
+type IconRenderer = (size?: number) => React.ReactNode
+
+interface NotifVisual {
+  bg:    string
+  color: string
+  icon:  IconRenderer
+  label: (n: AppNotification) => string
+}
+
+function makeIcon(path: React.ReactNode): IconRenderer {
+  return function IconRender(size = 20) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{path}</svg>
+    )
+  }
+}
+const I = makeIcon
+
+const ICONS = {
+  star:     I(<polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9"/>),
+  chat:     I(<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>),
+  leaf:     I(<><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19.2 2.96c1.4 9.3-3.6 15.8-8.2 17.04z"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/></>),
+  cart:     I(<><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></>),
+  gift:     I(<><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></>),
+  calendar: I(<><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>),
+  hammer:   I(<><path d="M14 2L7 9l3 3 7-7-3-3z"/><path d="M9 11l-7 7v3h3l7-7"/></>),
+  clock:    I(<><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></>),
+  check:    I(<polyline points="20 6 9 17 4 12"/>),
+  cross:    I(<><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>),
+  clipboard:I(<><rect x="5" y="3" width="14" height="18" rx="2"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="13" y2="15"/></>),
+  phone:    I(<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>),
+  bellOff:  I(<><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M18 14.32C18 11 18 8 12 8c-6 0-6 3-6 6.32 0 7 8 5 8 5z"/></>),
+  trash:    I(<><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></>),
+  eye:      I(<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>),
+  bell:     I(<><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></>),
+}
+
+const NOTIF_VISUAL: Record<NotifType, NotifVisual> = {
+  disponibilite:          { bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.leaf,     label: n => `${n.actor_name ?? 'Un producteur'} a un produit disponible` },
+  nouveau_produit:        { bg: '#EAF3E6', color: '#5B8A4A', icon: ICONS.cart,     label: n => `${n.actor_name ?? 'Un producteur'} a ajouté un nouveau produit` },
+  suivi_producteur:       { bg: '#E8F2EB', color: '#4A7C59', icon: ICONS.leaf,     label: n => `${n.actor_name ?? 'Quelqu\'un'} suit votre fiche producteur` },
+  commentaire:            { bg: '#F0EBE3', color: '#7A6A5A', icon: ICONS.chat,     label: n => `${n.actor_name ?? 'Quelqu\'un'} a commenté votre fiche` },
+  claim_pending:          { bg: '#FFF0E5', color: '#C84B2F', icon: ICONS.clipboard,label: n => `Nouvelle demande${n.actor_name ? ` : ${n.actor_name}` : ''}` },
+  claim_approved:         { bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.check,    label: n => `Revendication approuvée${n.actor_name ? ` : ${n.actor_name}` : ''}` },
+  claim_rejected:         { bg: '#F0EBE3', color: '#A0654E', icon: ICONS.cross,    label: n => `Revendication refusée${n.actor_name ? ` : ${n.actor_name}` : ''}` },
+  promo_used:             { bg: '#FFF0E5', color: '#E8622A', icon: ICONS.gift,     label: n => `${n.actor_name ?? 'Un client'} a utilisé votre promo` },
+  annonce_interet_recu:   { bg: '#FFF0E5', color: '#C84B2F', icon: ICONS.star,     label: n => `${n.actor_name ?? 'Quelqu\'un'} s'intéresse à votre annonce` },
+  annonce_enchere_prise:  { bg: '#E8EEF7', color: '#3A5BC7', icon: ICONS.hammer,   label: n => `${n.actor_name ?? 'Quelqu\'un'} a pris votre enchère` },
+  annonce_expire_bientot: { bg: '#F0EBE3', color: '#7A6A5A', icon: ICONS.clock,    label: () => 'Votre annonce expire dans 2 jours' },
+  annonce_devient_don:    { bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.gift,     label: () => 'Votre enchère a atteint le seuil — devenue un don' },
+  annonce_message:        { bg: '#E8EEF7', color: '#3A5BC7', icon: ICONS.chat,     label: n => `${n.actor_name ?? 'Quelqu\'un'} vous a envoyé un message` },
+  annonce_contact_partage:{ bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.phone,    label: () => 'Le vendeur a partagé ses coordonnées' },
+  annonce_vente_close:    { bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.check,    label: n => `${n.actor_name ?? 'L\'autre partie'} a conclu la vente` },
+  annonce_note_recue:     { bg: '#FFF7DC', color: '#A8770F', icon: ICONS.star,     label: n => `${n.actor_name ?? 'Un acheteur'} vous a noté` },
+  event_published:        { bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.calendar, label: n => `Événement publié${n.actor_name ? ` : ${n.actor_name}` : ''}` },
+  support_message:        { bg: '#E8EEF7', color: '#3A5BC7', icon: ICONS.chat,     label: n => `${n.actor_name ?? 'Quelqu\'un'} — message support` },
 }
 
 function relativeDate(iso: string): string {
@@ -117,8 +84,27 @@ function relativeDate(iso: string): string {
   const hours = Math.floor(mins / 60)
   if (hours < 24) return `il y a ${hours}h`
   const days = Math.floor(hours / 24)
+  if (days === 1) return 'hier'
   if (days < 7) return `il y a ${days}j`
   return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+}
+
+function bucketByDay(notifs: AppNotification[]): { label: string; items: AppNotification[] }[] {
+  const start = (d: Date) => { const x = new Date(d); x.setHours(0,0,0,0); return x.getTime() }
+  const today = start(new Date())
+  const yesterday = today - 86400000
+  const buckets: Record<'today' | 'yesterday' | 'earlier', AppNotification[]> = { today: [], yesterday: [], earlier: [] }
+  notifs.forEach(n => {
+    const t = start(new Date(n.created_at))
+    if (t === today)       buckets.today.push(n)
+    else if (t === yesterday) buckets.yesterday.push(n)
+    else                   buckets.earlier.push(n)
+  })
+  const out: { label: string; items: AppNotification[] }[] = []
+  if (buckets.today.length)     out.push({ label: 'AUJOURD\'HUI', items: buckets.today })
+  if (buckets.yesterday.length) out.push({ label: 'HIER',         items: buckets.yesterday })
+  if (buckets.earlier.length)   out.push({ label: 'PLUS TÔT',     items: buckets.earlier })
+  return out
 }
 
 interface AdminCounts {
@@ -136,17 +122,22 @@ interface PromoUseHistory {
   etablissement: { nom: string; commune: string | null } | null
 }
 
+type UserFilter = 'all' | 'annonces' | 'producteurs' | 'promos' | 'events'
+type AdminFilter = 'all' | 'unread' | 'demandes' | 'annonces' | 'events' | 'support' | 'boost'
+
 export default function NotificationsView({ notifications, loading, loaded, onOpen, onMarkRead, onMarkAllRead, onOpenProducer }: Props) {
   const router = useRouter()
   const isAdmin = useAdminSession()
   const [adminCounts, setAdminCounts] = useState<AdminCounts | null>(null)
   const [promoHistory, setPromoHistory] = useState<PromoUseHistory[]>([])
   const [showAllHistory, setShowAllHistory] = useState(false)
-  const [adminFilter, setAdminFilter] = useState<'all' | 'unread' | 'demandes' | 'annonces' | 'events' | 'support' | 'boost'>('all')
+  const [adminFilter, setAdminFilter] = useState<AdminFilter>('all')
+  const [userFilter, setUserFilter] = useState<UserFilter>('all')
+  const [actionModal, setActionModal] = useState<AppNotification | null>(null)
 
   useEffect(() => { onOpen() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Mini dashboard pour les admins : count membres par plan + claims pending
+  // Mini dashboard admin
   useEffect(() => {
     if (!isAdmin) { setAdminCounts(null); return }
     let cancelled = false
@@ -196,268 +187,322 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
 
   const unreadCount = notifications.filter(n => !n.lu).length
 
+  /** Routing par type — identique à V2, logique préservée. */
   function handleClick(n: AppNotification) {
     if (!n.lu) onMarkRead(n.id)
 
-    // Claim côté admin : ouvre la section Demandes de /admin
     if (n.type === 'claim_pending' || n.target_type === 'claim') {
       router.push('/admin?section=demandes')
       return
     }
-
-    // Claim côté requester : ouvre la fiche établissement concernée
     if ((n.type === 'claim_approved' || n.type === 'claim_rejected') && n.target_id) {
       router.push(`/etablissement/${n.target_id}`)
       return
     }
-
-    // Notifs conversation (intérêt, message, contact, vente close) → ouvre le chat
     if (n.target_type === 'conversation' && n.target_id) {
       router.push(`/annonces/conversations/${n.target_id}`)
       return
     }
-
-    // Notifs support → ouvre le ticket (route différente selon admin / user)
     if (n.target_type === 'support_conversation' && n.target_id) {
       router.push(isAdmin ? `/admin/support/${n.target_id}` : `/support/${n.target_id}`)
       return
     }
-
-    // Notifs annonces (expiration, bascule don) → ouvre la fiche annonce
     if (n.target_type === 'annonce' && n.target_id) {
       router.push(`/annonces/${n.target_id}`)
       return
     }
-
-    // Notif "ton événement est publié" → ouvre la fiche event
     if (n.target_type === 'event' && n.target_id) {
       router.push(`/evenement/${n.target_id}`)
       return
     }
-
-    // Notifs producteur (legacy)
     if (n.target_type === 'producer' && n.target_id) {
       onOpenProducer?.(n.target_id)
     }
   }
 
-  return (
-    <div style={{ minHeight: '100%', backgroundColor: '#F5F0E8', fontFamily: 'Inter, sans-serif' }}>
+  // Filtres user (non-admin) par catégorie
+  const filteredUser = useMemo(() => {
+    if (userFilter === 'all') return notifications
+    if (userFilter === 'annonces')    return notifications.filter(n => n.type.startsWith('annonce_'))
+    if (userFilter === 'producteurs') return notifications.filter(n => n.type === 'disponibilite' || n.type === 'nouveau_produit' || n.type === 'suivi_producteur' || n.type === 'commentaire')
+    if (userFilter === 'promos')      return notifications.filter(n => n.type === 'promo_used')
+    if (userFilter === 'events')      return notifications.filter(n => n.type === 'event_published')
+    return notifications
+  }, [notifications, userFilter])
 
-      {/* Header */}
-      <div style={{ background: 'linear-gradient(140deg, #1A3A2A 0%, #2D5A3D 100%)', padding: '22px 18px 62px', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', right: -30, top: -30, width: 200, height: 200, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.05)' }} />
-        <div style={{ position: 'absolute', right: 60, top: 55, width: 100, height: 100, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.07)' }} />
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ fontSize: 30, marginBottom: 8 }}>🔔</div>
-            <h1 style={{ fontWeight: 800, fontSize: 22, color: '#fff', margin: '0 0 5px' }}>Notifications</h1>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', margin: 0 }}>
-              {unreadCount > 0 ? `${unreadCount} non lue${unreadCount > 1 ? 's' : ''}` : 'Tout est à jour'}
-            </p>
+  const filteredAdmin = useMemo(() => {
+    if (adminFilter === 'all')      return notifications
+    if (adminFilter === 'unread')   return notifications.filter(n => !n.lu)
+    if (adminFilter === 'demandes') return notifications.filter(n => n.type === 'claim_pending' || n.type === 'claim_approved' || n.type === 'claim_rejected')
+    if (adminFilter === 'annonces') return notifications.filter(n => n.type.startsWith('annonce_'))
+    if (adminFilter === 'events')   return notifications.filter(n => n.type === 'event_published' || n.type === 'disponibilite' || n.type === 'nouveau_produit' || n.type === 'suivi_producteur' || n.type === 'commentaire')
+    if (adminFilter === 'support')  return notifications.filter(n => n.type === 'support_message')
+    if (adminFilter === 'boost')    return notifications.filter(n => n.type === 'promo_used' || n.actor_name?.includes('Boost') || n.actor_name?.includes('boost'))
+    return notifications
+  }, [notifications, adminFilter])
+
+  const visibleNotifs = isAdmin ? filteredAdmin : filteredUser
+  const buckets = bucketByDay(visibleNotifs)
+
+  return (
+    <div className="min-h-full bg-creme pb-14 font-inter text-texte">
+      <style>{`.pdv-hscroll { scrollbar-width: none; -webkit-overflow-scrolling: touch; } .pdv-hscroll::-webkit-scrollbar { display: none; } @keyframes spin { to { transform: rotate(360deg) } }`}</style>
+
+      {/* Top bar V3 */}
+      <div className="flex items-center justify-between gap-2.5 px-4 pt-3.5">
+        <button
+          onClick={() => router.push('/')}
+          aria-label="Retour"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte shadow-[0_1px_2px_rgba(44,28,16,0.04)]"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"/>
+            <polyline points="12 19 5 12 12 5"/>
+          </svg>
+        </button>
+        <div className="flex min-w-0 flex-1 flex-col items-center gap-px">
+          <div className="font-serif text-[18px] leading-none text-texte" style={{ letterSpacing: '-0.01em' }}>
+            Notifications
           </div>
           {unreadCount > 0 && (
-            <button onClick={onMarkAllRead} style={{ marginTop: 8, fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.85)', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 20, padding: '6px 14px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', backdropFilter: 'blur(4px)' }}>
-              Tout lire
-            </button>
+            <div className="text-[11px] font-semibold text-primary">
+              {unreadCount} non lue{unreadCount > 1 ? 's' : ''}
+            </div>
           )}
         </div>
+        {unreadCount > 0 ? (
+          <button
+            onClick={onMarkAllRead}
+            className="shrink-0 bg-transparent px-1 py-2 text-[12px] font-bold text-primary"
+          >
+            Tout lu
+          </button>
+        ) : (
+          <div className="h-10 w-10 shrink-0" aria-hidden />
+        )}
       </div>
 
       {/* Mini dashboard admin */}
       {isAdmin && adminCounts && (
-        <div style={{ margin: '-30px 14px 0', position: 'relative', zIndex: 2 }}>
-          <div style={{ backgroundColor: '#fff', borderRadius: 18, boxShadow: '0 6px 28px rgba(0,0,0,0.1)', padding: '14px 16px', marginBottom: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-              <span style={{ fontSize: 14 }}>📊</span>
-              <p style={{ fontSize: 11, fontWeight: 800, color: '#9A8A7A', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
-                Tableau de bord
-              </p>
-              <span style={{ fontSize: 10, color: '#B0A898', marginLeft: 'auto' }}>{adminCounts.total} membres</span>
+        <div className="px-4 pt-3.5">
+          <div
+            className="rounded-2xl border bg-white p-4 shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
+            style={{ borderColor: '#F0EAE0' }}
+          >
+            <div className="mb-3 flex items-center justify-between text-[11px]">
+              <span className="font-extrabold uppercase tracking-[0.1em] text-texte-doux">Tableau de bord</span>
+              <span className="text-texte-doux">{adminCounts.total} membres</span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+            <div className="grid grid-cols-3 gap-2">
               {PLAN_ORDER.map(p => {
                 const info = PLANS_INFO[p]
                 return (
-                  <div key={p} style={{
-                    backgroundColor: info.bgColor, borderRadius: 10,
-                    padding: '10px 8px', textAlign: 'center',
-                  }}>
-                    <p style={{ fontSize: 20, fontWeight: 900, color: info.color, margin: '0 0 2px', fontVariantNumeric: 'tabular-nums' }}>
+                  <div
+                    key={p}
+                    className="rounded-[10px] py-2.5 text-center"
+                    style={{ backgroundColor: info.bgColor }}
+                  >
+                    <p className="m-0 mb-0.5 font-mono text-[20px] font-extrabold leading-none" style={{ color: info.color }}>
                       {adminCounts.byPlan[p]}
                     </p>
-                    <p style={{ fontSize: 10, fontWeight: 700, color: info.color, margin: 0, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                      {info.icon} {info.label}
+                    <p className="m-0 text-[10px] font-bold uppercase tracking-[0.04em]" style={{ color: info.color }}>
+                      {info.label}
                     </p>
                   </div>
                 )
               })}
             </div>
-            <div style={{ display: 'flex', gap: 12, marginTop: 12, padding: '8px 4px 0', borderTop: '1px solid #F0EBE0' }}>
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 14 }}>🏪</span>
-                <div>
-                  <p style={{ fontSize: 13, fontWeight: 800, color: '#2C1810', margin: 0, lineHeight: 1 }}>{adminCounts.withEtab}</p>
-                  <p style={{ fontSize: 9, color: '#9A8A7A', margin: 0 }}>avec établissement</p>
-                </div>
-              </div>
-              {adminCounts.pendingClaims > 0 && (
-                <button onClick={() => router.push('/admin?section=demandes')} style={{
-                  flex: 1, display: 'flex', alignItems: 'center', gap: 6,
-                  background: '#FEF0F5', border: 'none', borderRadius: 10,
-                  padding: '6px 10px', cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-                }}>
-                  <span style={{ fontSize: 14 }}>📋</span>
-                  <div style={{ textAlign: 'left' }}>
-                    <p style={{ fontSize: 13, fontWeight: 800, color: '#EC407A', margin: 0, lineHeight: 1 }}>{adminCounts.pendingClaims}</p>
-                    <p style={{ fontSize: 9, color: '#EC407A', margin: 0 }}>demandes en attente</p>
+            {(adminCounts.withEtab > 0 || adminCounts.pendingClaims > 0) && (
+              <div className="mt-3 flex gap-3 border-t border-bord/40 pt-2.5">
+                <div className="flex flex-1 items-center gap-1.5">
+                  <span className="text-primary">{ICONS.bell(14)}</span>
+                  <div>
+                    <p className="m-0 text-[13px] font-extrabold leading-none text-texte">{adminCounts.withEtab}</p>
+                    <p className="m-0 text-[9px] text-texte-doux">avec établissement</p>
                   </div>
-                </button>
-              )}
-            </div>
+                </div>
+                {adminCounts.pendingClaims > 0 && (
+                  <button
+                    onClick={() => router.push('/admin?section=demandes')}
+                    className="flex flex-1 items-center gap-1.5 rounded-[10px] border-none bg-[#FFF0E5] px-2.5 py-1.5"
+                  >
+                    <span className="text-accent">{ICONS.clipboard(14)}</span>
+                    <div className="text-left">
+                      <p className="m-0 text-[13px] font-extrabold leading-none text-accent">{adminCounts.pendingClaims}</p>
+                      <p className="m-0 text-[9px] text-accent">demandes en attente</p>
+                    </div>
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Filtre admin */}
-      {isAdmin && notifications.length > 0 && (
-        <div style={{ margin: adminCounts ? '0 14px 10px' : '-30px 14px 10px 14px', position: 'relative', zIndex: 2, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {([
-            { id: 'all',       label: `Tout (${notifications.length})` },
-            { id: 'unread',    label: `Non lues (${notifications.filter(n => !n.lu).length})` },
-            { id: 'demandes',  label: '📋 Demandes' },
-            { id: 'annonces',  label: '🏷 Annonces' },
-            { id: 'events',    label: '🎉 Events' },
-            { id: 'support',   label: '💬 Support' },
-            { id: 'boost',     label: '🚀 Boost' },
-          ] as const).map(f => {
-            const active = adminFilter === f.id
-            return (
-              <button
-                key={f.id}
-                onClick={() => setAdminFilter(f.id)}
-                style={{
-                  padding: '6px 11px', borderRadius: 999,
-                  border: '1.5px solid #E5DDD2',
-                  backgroundColor: active ? '#1A1209' : '#fff',
-                  color: active ? '#fff' : '#7A6A5A',
-                  fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                  fontFamily: 'inherit', whiteSpace: 'nowrap',
-                }}
-              >{f.label}</button>
-            )
-          })}
-        </div>
+      {/* Filter chips */}
+      {isAdmin ? (
+        notifications.length > 0 && (
+          <div
+            className="pdv-hscroll flex gap-1.5 overflow-x-auto px-4 pt-3.5"
+            style={{ scrollSnapType: 'x mandatory' }}
+          >
+            {([
+              { id: 'all',      label: `Tout (${notifications.length})` },
+              { id: 'unread',   label: `Non lues (${unreadCount})` },
+              { id: 'demandes', label: 'Demandes' },
+              { id: 'annonces', label: 'Annonces' },
+              { id: 'events',   label: 'Events' },
+              { id: 'support',  label: 'Support' },
+              { id: 'boost',    label: 'Boost' },
+            ] as const).map(f => {
+              const active = adminFilter === f.id
+              return (
+                <button
+                  key={f.id}
+                  onClick={() => setAdminFilter(f.id)}
+                  className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-[12px] font-bold ${
+                    active ? 'border-primary bg-primary-light text-primary' : 'border-bord bg-white text-texte-doux'
+                  }`}
+                  style={{ scrollSnapAlign: 'start' }}
+                >
+                  {f.label}
+                </button>
+              )
+            })}
+            <div className="w-1 shrink-0" aria-hidden />
+          </div>
+        )
+      ) : (
+        notifications.length > 0 && (
+          <div
+            className="pdv-hscroll flex gap-1.5 overflow-x-auto px-4 pt-3.5"
+            style={{ scrollSnapType: 'x mandatory' }}
+          >
+            {([
+              { id: 'all',         label: 'Toutes' },
+              { id: 'annonces',    label: 'Annonces' },
+              { id: 'producteurs', label: 'Producteurs' },
+              { id: 'promos',      label: 'Bons plans' },
+              { id: 'events',      label: 'Événements' },
+            ] as const).map(f => {
+              const active = userFilter === f.id
+              return (
+                <button
+                  key={f.id}
+                  onClick={() => setUserFilter(f.id)}
+                  className={`shrink-0 whitespace-nowrap rounded-full border-[1.5px] px-3 py-1.5 text-[12px] font-bold ${
+                    active ? 'border-primary bg-primary-light text-primary' : 'border-bord bg-white text-texte-doux'
+                  }`}
+                  style={{ scrollSnapAlign: 'start' }}
+                >
+                  {f.label}
+                </button>
+              )
+            })}
+            <div className="w-1 shrink-0" aria-hidden />
+          </div>
+        )
       )}
 
       {/* Content */}
-      <div style={{ margin: isAdmin && (adminCounts || notifications.length > 0) ? '0 14px' : '-30px 14px 0', position: 'relative', zIndex: 2, paddingBottom: 56 }}>
-        {(() => {
-          const filtered = !isAdmin || adminFilter === 'all'
-            ? notifications
-            : adminFilter === 'unread'   ? notifications.filter(n => !n.lu)
-            : adminFilter === 'demandes' ? notifications.filter(n => n.type === 'claim_pending' || n.type === 'claim_approved' || n.type === 'claim_rejected')
-            : adminFilter === 'annonces' ? notifications.filter(n => n.type.startsWith('annonce_'))
-            : adminFilter === 'events'   ? notifications.filter(n => n.type === 'event_published' || n.type === 'disponibilite' || n.type === 'nouveau_produit' || n.type === 'suivi_producteur' || n.type === 'commentaire')
-            : adminFilter === 'support'  ? notifications.filter(n => n.type === 'support_message')
-            : adminFilter === 'boost'    ? notifications.filter(n => n.type === 'promo_used' || n.actor_name?.includes('Boost') || n.actor_name?.includes('boost'))
-            : notifications
-          return loading && !loaded ? (
-          <div style={{ backgroundColor: '#fff', borderRadius: 18, boxShadow: '0 6px 28px rgba(0,0,0,0.1)', padding: '52px 20px', display: 'flex', justifyContent: 'center' }}>
-            <div style={{ width: 26, height: 26, borderRadius: '50%', border: '3px solid #E0D8CE', borderTopColor: '#2D5A3D', animation: 'spin 0.7s linear infinite' }} />
+      <div className="mt-2">
+        {loading && !loaded ? (
+          <div className="flex justify-center px-4 py-14">
+            <div className="h-7 w-7 animate-spin rounded-full border-4 border-bord border-t-primary" />
           </div>
-        ) : filtered.length === 0 ? (
-          <div style={{ backgroundColor: '#fff', borderRadius: 18, boxShadow: '0 6px 28px rgba(0,0,0,0.1)', padding: '52px 20px', textAlign: 'center' }}>
-            <div style={{ fontSize: 54, marginBottom: 14 }}>🔕</div>
-            <p style={{ fontWeight: 700, fontSize: 16, color: '#2C1810', margin: '0 0 6px' }}>{notifications.length === 0 ? 'Aucune notification' : 'Aucun résultat'}</p>
-            <p style={{ fontSize: 13, color: '#8A8A8A', margin: 0, lineHeight: 1.55 }}>{notifications.length === 0 ? 'Tu seras notifié quand tes producteurs favoris ont du nouveau' : 'Aucune notification dans cette catégorie.'}</p>
+        ) : visibleNotifs.length === 0 ? (
+          <div className="px-4 py-16 text-center">
+            <div
+              className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-cremeDeep text-texte-doux"
+            >
+              {ICONS.bell(28)}
+            </div>
+            <p className="m-0 text-[14px] font-bold text-texte">
+              {notifications.length === 0 ? 'Aucune notification' : 'Aucun résultat'}
+            </p>
+            <p className="mx-auto mt-1 max-w-[280px] text-[12px] text-texte-doux">
+              {notifications.length === 0
+                ? 'Tu seras notifié quand tes producteurs favoris ont du nouveau.'
+                : 'Aucune notification dans cette catégorie.'}
+            </p>
           </div>
         ) : (
-          <div style={{ backgroundColor: '#fff', borderRadius: 18, boxShadow: '0 6px 28px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-            {filtered.map((n, i) => {
-              const cfg = NOTIF_CONFIG[n.type]
-              return (
-                <div key={n.id} onClick={() => handleClick(n)} style={{
-                  display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
-                  borderBottom: i < filtered.length - 1 ? '1px solid #F0EAE0' : 'none',
-                  backgroundColor: n.lu ? '#fff' : '#F0F7F2',
-                  cursor: 'pointer', transition: 'background 0.15s',
-                }}>
-                  {/* Icon bubble */}
-                  <div style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: cfg.color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
-                    {cfg.emoji}
-                  </div>
-                  {/* Text */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 13, fontWeight: n.lu ? 500 : 700, color: '#1C1917', margin: '0 0 3px', lineHeight: 1.4, fontFamily: 'Inter, sans-serif' }}>
-                      {cfg.label(n)}
-                    </p>
-                    <p style={{ fontSize: 11, color: '#9A8A7A', margin: 0, fontFamily: 'Inter, sans-serif' }}>
-                      {relativeDate(n.created_at)}
-                    </p>
-                  </div>
-                  {/* Unread dot */}
-                  {!n.lu && (
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: cfg.color, flexShrink: 0 }} />
-                  )}
+          <div className="bg-white">
+            {buckets.map(bucket => (
+              <section key={bucket.label}>
+                <div className="px-4 pb-2 pt-[18px] text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">
+                  {bucket.label}
                 </div>
-              )
-            })}
+                {bucket.items.map(n => {
+                  const cfg = NOTIF_VISUAL[n.type]
+                  const isUnread = !n.lu
+                  return (
+                    <NotifRow
+                      key={n.id}
+                      bg={cfg.bg}
+                      color={cfg.color}
+                      icon={cfg.icon}
+                      label={cfg.label(n)}
+                      when={relativeDate(n.created_at)}
+                      unread={isUnread}
+                      onClick={() => handleClick(n)}
+                      onMenu={() => setActionModal(n)}
+                    />
+                  )
+                })}
+              </section>
+            ))}
           </div>
-        )
-        })()}
+        )}
       </div>
 
-      {/* Historique promos utilisées */}
+      {/* Historique promos utilisées — collapsible */}
       {promoHistory.length > 0 && (
-        <div style={{ margin: '0 14px 24px', position: 'relative', zIndex: 2 }}>
+        <div className="px-4 pt-5">
           <button
             onClick={() => setShowAllHistory(s => !s)}
-            style={{
-              width: '100%', padding: '12px 14px',
-              backgroundColor: '#fff', border: 'none',
-              borderRadius: 14, boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-            }}
+            className="flex w-full items-center justify-between rounded-2xl border bg-white px-4 py-3 shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
+            style={{ borderColor: '#F0EAE0' }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 16 }}>🎁</span>
-              <span style={{ fontSize: 12, fontWeight: 800, color: '#C4622D', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <div className="flex items-center gap-2">
+              <span className="text-accent">{ICONS.gift(16)}</span>
+              <span className="text-[12px] font-extrabold uppercase tracking-[0.05em] text-accent">
                 Mes promos utilisées ({promoHistory.length})
               </span>
             </div>
-            <span style={{ fontSize: 14, color: '#9A8A7A', transform: showAllHistory ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▾</span>
+            <svg
+              width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+              className="text-texte-doux"
+              style={{ transform: showAllHistory ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+            >
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
           </button>
-
           {showAllHistory && (
-            <div style={{ marginTop: 8, backgroundColor: '#fff', borderRadius: 14, padding: '6px 12px', boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
-              {promoHistory.map(h => (
-                <div key={h.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '10px 0', borderBottom: '1px solid #F5F0E8',
-                }}>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: 8,
-                    overflow: 'hidden', flexShrink: 0,
-                    backgroundColor: '#FFF0E5',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
+            <div
+              className="mt-2 rounded-2xl border bg-white px-3 py-1"
+              style={{ borderColor: '#F0EAE0' }}
+            >
+              {promoHistory.map((h, i) => (
+                <div
+                  key={h.id}
+                  className={`flex items-center gap-2.5 py-2.5 ${i < promoHistory.length - 1 ? 'border-b' : ''}`}
+                  style={{ borderColor: '#F0EAE0' }}
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#FFF0E5] text-accent">
                     {h.image_url
-                      ? <img src={h.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : <span style={{ fontSize: 16 }}>🎁</span>}
+                      ? <img src={h.image_url} alt="" className="h-full w-full object-cover" />
+                      : ICONS.gift(16)}
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 12, fontWeight: 700, color: '#1A1209', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {h.title}
-                    </p>
+                  <div className="min-w-0 flex-1">
+                    <p className="m-0 truncate text-[12px] font-bold text-texte">{h.title}</p>
                     {h.etablissement && (
-                      <p style={{ fontSize: 10, color: '#9A8A7A', margin: '1px 0 0' }}>
+                      <p className="m-0 mt-px text-[10px] text-texte-doux">
                         {h.etablissement.nom}{h.etablissement.commune ? ` · ${h.etablissement.commune}` : ''}
                       </p>
                     )}
                   </div>
-                  <span style={{ fontSize: 10, color: '#B0A898' }}>{relativeDate(h.used_at)}</span>
+                  <span className="text-[10px] text-texte-tres-doux">{relativeDate(h.used_at)}</span>
                 </div>
               ))}
             </div>
@@ -465,7 +510,174 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
         </div>
       )}
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      {/* Modale actions */}
+      {actionModal && (
+        <NotifActionsModal
+          notif={actionModal}
+          onClose={() => setActionModal(null)}
+          onMarkRead={() => { onMarkRead(actionModal.id); setActionModal(null) }}
+          onDelete={() => {
+            // Suppression non implémentée côté backend pour les notifs — fallback markRead
+            onMarkRead(actionModal.id)
+            setActionModal(null)
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+/* ─── NotifRow V3 ────────────────────────────────────────────────────── */
+
+function NotifRow({
+  bg, color, icon, label, when, unread, onClick, onMenu,
+}: {
+  bg:     string
+  color:  string
+  icon:   IconRenderer
+  label:  string
+  when:   string
+  unread: boolean
+  onClick:() => void
+  onMenu: () => void
+}) {
+  // Long-press handler
+  const lpTimer = (typeof window !== 'undefined' ? { current: null as ReturnType<typeof setTimeout> | null } : { current: null }) as React.MutableRefObject<ReturnType<typeof setTimeout> | null>
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onContextMenu={e => { e.preventDefault(); onMenu() }}
+      onPointerDown={() => { lpTimer.current = setTimeout(onMenu, 500) }}
+      onPointerUp={() => { if (lpTimer.current) clearTimeout(lpTimer.current) }}
+      onPointerCancel={() => { if (lpTimer.current) clearTimeout(lpTimer.current) }}
+      onKeyDown={e => { if (e.key === 'Enter') onClick() }}
+      className="relative flex cursor-pointer items-start gap-3 border-b px-4 py-3.5"
+      style={{
+        borderColor: '#F0EAE0',
+        backgroundColor: unread ? '#FFFCF6' : 'transparent',
+      }}
+    >
+      <div
+        className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl"
+        style={{ backgroundColor: bg, color }}
+      >
+        {icon(20)}
+      </div>
+      <div className="min-w-0 flex-1 pr-4">
+        <div
+          className="text-[13px] leading-[1.4] text-texte"
+          style={{ fontWeight: unread ? 600 : 500 }}
+        >
+          {label}
+        </div>
+        <div className="mt-0.5 text-[11px] text-texte-doux">{when}</div>
+      </div>
+      {unread && (
+        <span
+          className="absolute right-4 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-primary"
+          aria-hidden
+        />
+      )}
+    </div>
+  )
+}
+
+/* ─── Modale actions (long-press / context menu) ─────────────────────── */
+
+function NotifActionsModal({
+  notif, onClose, onMarkRead, onDelete,
+}: {
+  notif:      AppNotification
+  onClose:    () => void
+  onMarkRead: () => void
+  onDelete:   () => void
+}) {
+  const cfg = NOTIF_VISUAL[notif.type]
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/55 backdrop-blur-[3px] font-inter"
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        className="w-full max-w-[480px] rounded-t-3xl bg-white px-4 pb-7 pt-3.5"
+        style={{ paddingBottom: 'max(28px, env(safe-area-inset-bottom, 28px))' }}
+      >
+        <div className="mx-auto mb-3.5 h-[5px] w-11 rounded-[3px] bg-[#E4DED2]" />
+
+        {/* Preview de la notif */}
+        <div className="mb-2 flex items-start gap-3 border-b px-1 pb-4 pt-1" style={{ borderColor: '#F0EAE0' }}>
+          <div
+            className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl"
+            style={{ backgroundColor: cfg.bg, color: cfg.color }}
+          >
+            {cfg.icon(20)}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[13px] font-semibold leading-[1.4] text-texte">{cfg.label(notif)}</div>
+            <div className="mt-0.5 text-[11px] text-texte-doux">{relativeDate(notif.created_at)}</div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        {!notif.lu && (
+          <ActionRow
+            icon={ICONS.eye}
+            label="Marquer comme lue"
+            color="#1A1209"
+            onClick={onMarkRead}
+          />
+        )}
+        <ActionRow
+          icon={ICONS.bellOff}
+          label="Désactiver ce type de notif"
+          color="#1A1209"
+          onClick={onClose /* TODO: route vers réglages quand câblé */}
+        />
+        <ActionRow
+          icon={ICONS.trash}
+          label="Supprimer la notification"
+          color="#B53A22"
+          onClick={onDelete}
+        />
+
+        <button
+          onClick={onClose}
+          className="mt-2 w-full rounded-2xl border-none bg-cremeDeep py-3 text-[14px] font-bold text-texte-doux"
+        >
+          Annuler
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ActionRow({
+  icon, label, color, onClick,
+}: {
+  icon:   IconRenderer
+  label:  string
+  color:  string
+  onClick:() => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-center gap-3.5 bg-transparent px-1 py-3.5 text-[14px] font-semibold"
+      style={{ color }}
+    >
+      <span>{icon(20)}</span>
+      <span>{label}</span>
+    </button>
   )
 }
