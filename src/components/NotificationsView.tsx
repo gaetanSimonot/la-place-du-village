@@ -142,6 +142,7 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
   const [adminCounts, setAdminCounts] = useState<AdminCounts | null>(null)
   const [promoHistory, setPromoHistory] = useState<PromoUseHistory[]>([])
   const [showAllHistory, setShowAllHistory] = useState(false)
+  const [adminFilter, setAdminFilter] = useState<'all' | 'unread' | 'demandes' | 'annonces' | 'events' | 'support' | 'boost'>('all')
 
   useEffect(() => { onOpen() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -318,26 +319,67 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
         </div>
       )}
 
+      {/* Filtre admin */}
+      {isAdmin && notifications.length > 0 && (
+        <div style={{ margin: adminCounts ? '0 14px 10px' : '-30px 14px 10px 14px', position: 'relative', zIndex: 2, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {([
+            { id: 'all',       label: `Tout (${notifications.length})` },
+            { id: 'unread',    label: `Non lues (${notifications.filter(n => !n.lu).length})` },
+            { id: 'demandes',  label: '📋 Demandes' },
+            { id: 'annonces',  label: '🏷 Annonces' },
+            { id: 'events',    label: '🎉 Events' },
+            { id: 'support',   label: '💬 Support' },
+            { id: 'boost',     label: '🚀 Boost' },
+          ] as const).map(f => {
+            const active = adminFilter === f.id
+            return (
+              <button
+                key={f.id}
+                onClick={() => setAdminFilter(f.id)}
+                style={{
+                  padding: '6px 11px', borderRadius: 999,
+                  border: '1.5px solid #E5DDD2',
+                  backgroundColor: active ? '#1A1209' : '#fff',
+                  color: active ? '#fff' : '#7A6A5A',
+                  fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                  fontFamily: 'inherit', whiteSpace: 'nowrap',
+                }}
+              >{f.label}</button>
+            )
+          })}
+        </div>
+      )}
+
       {/* Content */}
-      <div style={{ margin: isAdmin && adminCounts ? '0 14px' : '-30px 14px 0', position: 'relative', zIndex: 2, paddingBottom: 56 }}>
-        {loading && !loaded ? (
+      <div style={{ margin: isAdmin && (adminCounts || notifications.length > 0) ? '0 14px' : '-30px 14px 0', position: 'relative', zIndex: 2, paddingBottom: 56 }}>
+        {(() => {
+          const filtered = !isAdmin || adminFilter === 'all'
+            ? notifications
+            : adminFilter === 'unread'   ? notifications.filter(n => !n.lu)
+            : adminFilter === 'demandes' ? notifications.filter(n => n.type === 'claim_pending' || n.type === 'claim_approved' || n.type === 'claim_rejected')
+            : adminFilter === 'annonces' ? notifications.filter(n => n.type.startsWith('annonce_'))
+            : adminFilter === 'events'   ? notifications.filter(n => n.type === 'event_published' || n.type === 'disponibilite' || n.type === 'nouveau_produit' || n.type === 'suivi_producteur' || n.type === 'commentaire')
+            : adminFilter === 'support'  ? notifications.filter(n => n.type === 'support_message')
+            : adminFilter === 'boost'    ? notifications.filter(n => n.type === 'promo_used' || n.actor_name?.includes('Boost') || n.actor_name?.includes('boost'))
+            : notifications
+          return loading && !loaded ? (
           <div style={{ backgroundColor: '#fff', borderRadius: 18, boxShadow: '0 6px 28px rgba(0,0,0,0.1)', padding: '52px 20px', display: 'flex', justifyContent: 'center' }}>
             <div style={{ width: 26, height: 26, borderRadius: '50%', border: '3px solid #E0D8CE', borderTopColor: '#2D5A3D', animation: 'spin 0.7s linear infinite' }} />
           </div>
-        ) : notifications.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div style={{ backgroundColor: '#fff', borderRadius: 18, boxShadow: '0 6px 28px rgba(0,0,0,0.1)', padding: '52px 20px', textAlign: 'center' }}>
             <div style={{ fontSize: 54, marginBottom: 14 }}>🔕</div>
-            <p style={{ fontWeight: 700, fontSize: 16, color: '#2C1810', margin: '0 0 6px' }}>Aucune notification</p>
-            <p style={{ fontSize: 13, color: '#8A8A8A', margin: 0, lineHeight: 1.55 }}>Tu seras notifié quand tes producteurs favoris ont du nouveau</p>
+            <p style={{ fontWeight: 700, fontSize: 16, color: '#2C1810', margin: '0 0 6px' }}>{notifications.length === 0 ? 'Aucune notification' : 'Aucun résultat'}</p>
+            <p style={{ fontSize: 13, color: '#8A8A8A', margin: 0, lineHeight: 1.55 }}>{notifications.length === 0 ? 'Tu seras notifié quand tes producteurs favoris ont du nouveau' : 'Aucune notification dans cette catégorie.'}</p>
           </div>
         ) : (
           <div style={{ backgroundColor: '#fff', borderRadius: 18, boxShadow: '0 6px 28px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-            {notifications.map((n, i) => {
+            {filtered.map((n, i) => {
               const cfg = NOTIF_CONFIG[n.type]
               return (
                 <div key={n.id} onClick={() => handleClick(n)} style={{
                   display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
-                  borderBottom: i < notifications.length - 1 ? '1px solid #F0EAE0' : 'none',
+                  borderBottom: i < filtered.length - 1 ? '1px solid #F0EAE0' : 'none',
                   backgroundColor: n.lu ? '#fff' : '#F0F7F2',
                   cursor: 'pointer', transition: 'background 0.15s',
                 }}>
@@ -362,7 +404,8 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
               )
             })}
           </div>
-        )}
+        )
+        })()}
       </div>
 
       {/* Historique promos utilisées */}

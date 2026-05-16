@@ -93,7 +93,7 @@ export async function PATCH(req: NextRequest) {
   if (ctx instanceof Response) return ctx
 
   const { id, action } = await req.json()
-  if (!id || !['approve', 'reject'].includes(action)) {
+  if (!id || !['approve', 'reject', 'approve_create'].includes(action)) {
     return NextResponse.json({ error: 'Paramètres invalides' }, { status: 400 })
   }
 
@@ -104,7 +104,66 @@ export async function PATCH(req: NextRequest) {
     .maybeSingle()
 
   if (!demande) return NextResponse.json({ error: 'Demande introuvable' }, { status: 404 })
-  const req_row = demande as CommerceRequest
+  const req_row = demande as CommerceRequest & {
+    type: string | null
+    adresse: string | null
+    lat: number | null
+    lng: number | null
+    place_id_google: string | null
+    description: string | null
+    site_web: string | null
+    horaires: string | null
+    photos: string[] | null
+  }
+
+  // approve_create : crée une nouvelle fiche etablissements depuis les infos de la demande
+  if (action === 'approve_create') {
+    if (!req_row.type || !req_row.adresse || req_row.lat == null || req_row.lng == null) {
+      return NextResponse.json({ error: 'Demande incomplète (type/adresse/coordonnées manquants)' }, { status: 400 })
+    }
+
+    const { data: newEtab, error: createErr } = await supabaseAdmin
+      .from('etablissements')
+      .insert({
+        nom:             req_row.nom,
+        type:            req_row.type,
+        adresse:         req_row.adresse,
+        commune:         req_row.commune ?? null,
+        lat:             req_row.lat,
+        lng:             req_row.lng,
+        place_id_google: req_row.place_id_google ?? null,
+        description:     req_row.description ?? null,
+        contact_tel:     req_row.contact ?? null,
+        site_web:        req_row.site_web ?? null,
+        horaires:        req_row.horaires ?? null,
+        photos:          req_row.photos ?? [],
+        plan:            'basic',
+        is_featured:     false,
+        user_id:         null, // fiche non revendiquée
+      })
+      .select('id, nom')
+      .single()
+
+    if (createErr || !newEtab) {
+      return NextResponse.json({ error: createErr?.message ?? 'Erreur création fiche' }, { status: 500 })
+    }
+
+    await supabaseAdmin
+      .from('commerce_requests')
+      .update({ traite: true, etablissement_id: newEtab.id })
+      .eq('id', id)
+
+    if (req_row.user_id) {
+      await notifyUser(req_row.user_id, {
+        type:        'claim_approved',
+        actor_name:  `🏪 ${newEtab.nom}`,
+        target_type: 'etablissement',
+        target_id:   newEtab.id,
+      })
+    }
+
+    return NextResponse.json({ success: true, action, etablissement_id: newEtab.id })
+  }
 
   if (action === 'approve' && req_row.etablissement_id && req_row.user_id) {
     // Vérifie que l'établissement n'a pas été revendiqué entretemps

@@ -2,13 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser, notifyAdmins } from '@/lib/server-auth'
 
-const VALID_TYPES = ['restaurant_bar', 'hebergement', 'artisan_service', 'sante_bien_etre', 'activite']
+const VALID_CATS = [
+  'fruits_legumes', 'viandes', 'fromages_laitages', 'oeufs',
+  'pain', 'miel', 'panier', 'plantes', 'huiles', 'boissons',
+  'artisanat', 'autre',
+]
 
 /**
- * POST — Demande de référencement commerce (user authentifié obligatoire).
+ * POST — Demande de référencement producteur (user authentifié).
  * Body : {
- *   nom, type, adresse, lat?, lng?, place_id_google?,
- *   commune?, description?, contact?, site_web?, horaires?, photos?, message?
+ *   nom, produit_categories[], adresse?, lat?, lng?, place_id_google?, commune?,
+ *   description?, contact?, site_web?, horaires?, photos?, message?
  * }
  */
 export async function POST(req: NextRequest) {
@@ -19,12 +23,13 @@ export async function POST(req: NextRequest) {
   const nom = String(body?.nom ?? '').trim()
   if (!nom) return NextResponse.json({ error: 'Nom requis' }, { status: 400 })
 
-  const type = body?.type && VALID_TYPES.includes(body.type) ? body.type : null
+  const cats = Array.isArray(body?.produit_categories)
+    ? body.produit_categories.filter((c: unknown) => typeof c === 'string' && VALID_CATS.includes(c))
+    : []
 
   const insert = {
     nom,
-    type,
-    type_commerce:   body?.type_commerce ?? null, // legacy (free text)
+    produit_categories: cats,
     adresse:         typeof body?.adresse === 'string' ? body.adresse.trim() || null : null,
     lat:             typeof body?.lat === 'number' ? body.lat : null,
     lng:             typeof body?.lng === 'number' ? body.lng : null,
@@ -40,7 +45,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { data, error } = await supabaseAdmin
-    .from('commerce_requests')
+    .from('producer_requests')
     .insert(insert)
     .select('id')
     .single()
@@ -49,7 +54,7 @@ export async function POST(req: NextRequest) {
 
   await notifyAdmins({
     type:        'claim_pending',
-    actor_name:  `🏪 ${nom}`,
+    actor_name:  `🌱 ${nom}`,
     target_type: 'claim',
     target_id:   data?.id,
   })
