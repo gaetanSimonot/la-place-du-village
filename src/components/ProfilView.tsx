@@ -362,6 +362,11 @@ export default function ProfilView() {
                   badge={followingCount != null ? `${followingCount} personne${followingCount && followingCount > 1 ? 's' : ''}` : ''}
                   onClick={() => setSubView('abonnements')}
                 />
+                <ActionRow
+                  icon="💬"
+                  label="Mes échanges support"
+                  onClick={() => { window.location.href = '/support' }}
+                />
               </div>
             </Card>
 
