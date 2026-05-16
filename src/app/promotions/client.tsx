@@ -51,6 +51,27 @@ export default function PromotionsClient() {
   const [upgradePromo, setUpgradePromo] = useState<Promotion | null>(null)
   const [typeFilter, setTypeFilter] = useState<EtablissementType | null>(null)
   const [confirmModal, setConfirmModal] = useState<Promotion | null>(null)
+  const [usedThisMonth, setUsedThisMonth] = useState<number>(0)
+  const [showQuotaUpgrade, setShowQuotaUpgrade] = useState(false)
+
+  // Compteur de promos utilisées sur le mois calendaire en cours
+  const refreshUsedThisMonth = useCallback(async () => {
+    if (!user) { setUsedThisMonth(0); return }
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const r = await fetch('/api/profile/promotions-used', {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+    if (!r.ok) return
+    const d = await r.json()
+    const start = new Date()
+    start.setDate(1)
+    start.setHours(0, 0, 0, 0)
+    const count = (d.uses ?? []).filter((u: { used_at: string }) => new Date(u.used_at) >= start).length
+    setUsedThisMonth(count)
+  }, [user])
+
+  useEffect(() => { refreshUsedThisMonth() }, [refreshUsedThisMonth])
 
   const fetchPromos = useCallback(async () => {
     setLoading(true)
@@ -109,6 +130,7 @@ export default function PromotionsClient() {
     if (res.ok) {
       showToastMsg('Promo enregistrée — bon appétit !')
       fetchPromos()
+      refreshUsedThisMonth()
     } else if (d.upgradeRequired) {
       setUpgradePromo(promo)
     } else {
@@ -175,6 +197,16 @@ export default function PromotionsClient() {
           En direct
         </span>
       </div>
+
+      {/* Bandeau quota / rappel plan */}
+      <QuotaBanner
+        user={user}
+        plan={currentPlan}
+        isAdmin={isAdmin}
+        usedThisMonth={usedThisMonth}
+        onLogin={() => openAuthModal('/promotions')}
+        onUpgrade={() => setShowQuotaUpgrade(true)}
+      />
 
       {/* Filtres */}
       {!loading && availableTypes.length > 1 && (
@@ -292,7 +324,99 @@ export default function PromotionsClient() {
           currentPlan={currentPlan}
         />
       )}
+
+      {showQuotaUpgrade && (
+        <SubscriptionModal
+          context={{ kind: 'promo' }}
+          onClose={() => setShowQuotaUpgrade(false)}
+          currentPlan={currentPlan}
+        />
+      )}
     </div>
+  )
+}
+
+function QuotaBanner({
+  user, plan, isAdmin, usedThisMonth, onLogin, onUpgrade,
+}: {
+  user: unknown
+  plan: Plan
+  isAdmin: boolean
+  usedThisMonth: number
+  onLogin: () => void
+  onUpgrade: () => void
+}) {
+  const isUnlimited = isAdmin || plan === 'habitants' || plan === 'pro'
+  const isBasic = !!user && plan === 'basic' && !isAdmin
+  const reached = isBasic && usedThisMonth >= 1
+
+  // Cas 1 — non connecté : invite à se connecter pour profiter
+  if (!user) {
+    return (
+      <button
+        onClick={onLogin}
+        className="mx-4 mt-2.5 flex w-[calc(100%-2rem)] items-center gap-2.5 rounded-xl border border-[#F0E2D2] bg-[#FFF8F0] px-3 py-2 text-left transition-colors active:bg-[#FFF1E2]"
+      >
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#FFF0E5] text-accent">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+          </svg>
+        </span>
+        <span className="min-w-0 flex-1 text-[11.5px] leading-[1.35] text-texte-doux">
+          <strong className="text-texte">Connectez-vous</strong> pour profiter d&apos;1 promo offerte ce mois — ou passez Habitants pour des promos illimitées.
+        </span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-accent">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </button>
+    )
+  }
+
+  // Cas 2 — Habitants / Pro / Admin : rappel positif très discret
+  if (isUnlimited) {
+    return (
+      <div className="mx-4 mt-2.5 flex w-[calc(100%-2rem)] items-center gap-2 rounded-xl border border-[#D6E5DC] bg-[#EEF7EF] px-3 py-1.5">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4A8B5C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        <span className="text-[11px] font-semibold leading-tight text-[#2D5A3D]">
+          Promos illimitées incluses dans votre abonnement.
+        </span>
+      </div>
+    )
+  }
+
+  // Cas 3 — Basic : compteur + nudge upgrade
+  return (
+    <button
+      onClick={onUpgrade}
+      className={`mx-4 mt-2.5 flex w-[calc(100%-2rem)] items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition-colors active:scale-[0.99] ${
+        reached
+          ? 'border-[#F5C9A8] bg-[#FFF1E8]'
+          : 'border-[#F0E2D2] bg-[#FFF8F0]'
+      }`}
+    >
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#FFF0E5] text-accent">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/>
+          <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
+        </svg>
+      </span>
+      <span className="min-w-0 flex-1 text-[11.5px] leading-[1.35] text-texte-doux">
+        {reached ? (
+          <>
+            <strong className="text-texte">Quota mensuel atteint</strong> — passez Habitants pour des promos illimitées.
+          </>
+        ) : (
+          <>
+            <strong className="text-texte">1 promo offerte / mois</strong> avec votre plan Villageois — Habitants pour profiter sans limite.
+          </>
+        )}
+      </span>
+      <span className="shrink-0 rounded-full bg-accent px-2.5 py-1 text-[10.5px] font-bold text-white">
+        Habitants
+      </span>
+    </button>
   )
 }
 
@@ -346,6 +470,25 @@ function PromoCard({ promo, onUse, disabled }: {
         >
           {promo.title}
         </h3>
+
+        {promo.description && (
+          <p className="m-0 line-clamp-2 text-[11px] leading-[1.35] text-texte-doux">
+            {promo.description}
+          </p>
+        )}
+
+        {promo.conditions && (
+          <div className="mt-0.5 flex items-start gap-1 rounded-md bg-[#FFF0E5] px-1.5 py-1">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-px shrink-0 text-accent">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <p className="m-0 line-clamp-2 text-[10px] font-semibold leading-[1.3] text-[#8A4A1F]">
+              {promo.conditions}
+            </p>
+          </div>
+        )}
 
         <p className="m-0 flex items-center gap-1 truncate text-[10.5px] text-texte-doux">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
@@ -411,6 +554,25 @@ function ConfirmPositionModal({ promo, onClose, onConfirm, loading }: {
             chez <strong className="text-texte-doux">{promo.etablissement.nom}</strong>
             {promo.etablissement.commune ? ` · ${promo.etablissement.commune}` : ''}
           </p>
+        )}
+
+        {promo.description && (
+          <p className="m-0 mb-3 text-center text-[12.5px] leading-[1.5] text-texte-doux">
+            {promo.description}
+          </p>
+        )}
+
+        {promo.conditions && (
+          <div className="mb-3 flex items-start gap-2 rounded-xl border border-[#F5C9A8] bg-[#FFF1E8] px-3 py-2.5">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="mt-px shrink-0 text-accent">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <p className="m-0 text-[11.5px] leading-[1.45] text-[#8A4A1F]">
+              <strong>Conditions&nbsp;:</strong> {promo.conditions}
+            </p>
+          </div>
         )}
 
         {/* Bon usage notice */}

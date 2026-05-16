@@ -581,6 +581,11 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
                     {p.description && (
                       <p style={{ margin: '2px 0 0', fontSize: 11, color: '#7A5614', lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{p.description}</p>
                     )}
+                    {p.conditions && (
+                      <p style={{ margin: '3px 0 0', fontSize: 10.5, color: '#8A4A1F', fontWeight: 600, lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                        <span style={{ fontWeight: 800 }}>Conditions&nbsp;:</span> {p.conditions}
+                      </p>
+                    )}
                     {p.valid_until && (
                       <p style={{ margin: '4px 0 0', fontSize: 10, color: '#E8622A', fontWeight: 700 }}>
                         Jusqu&apos;au {new Date(p.valid_until).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
