@@ -24,7 +24,9 @@ const config: Config = {
         vert:          "#2D5A3D",
       },
       fontFamily: {
-        inter:   ["Inter", "system-ui", "-apple-system", "sans-serif"],
+        inter:   ["var(--font-inter)", "Inter", "system-ui", "-apple-system", "sans-serif"],
+        serif:   ["var(--font-dm-serif)", "Georgia", "serif"],
+        caveat:  ["var(--font-caveat)", "cursive"],
         // legacy — gardé pour composants pas encore migrés
         syne:    ["Syne", "sans-serif"],
       },
