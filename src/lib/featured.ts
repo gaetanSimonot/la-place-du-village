@@ -22,6 +22,7 @@ export interface FeaturedSlotRow {
   created_by: string | null
   created_by_admin: boolean
   created_at: string
+  image_position: string | null
 }
 
 /**

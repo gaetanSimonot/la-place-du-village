@@ -47,9 +47,9 @@ interface HeroProducteur {
 }
 
 type HeroItem =
-  | { kind: 'evenement';     data: Evenement }
-  | { kind: 'etablissement'; data: HeroEtab }
-  | { kind: 'producteur';    data: HeroProducteur }
+  | { kind: 'evenement';     data: Evenement;        imagePosition: string | null }
+  | { kind: 'etablissement'; data: HeroEtab;         imagePosition: string | null }
+  | { kind: 'producteur';    data: HeroProducteur;   imagePosition: string | null }
 
 const TILES: { id: string; label: string; iconSrc: string; click: (p: Props, router: ReturnType<typeof useRouter>) => void }[] = [
   { id: 'agenda',      label: 'Agenda',      iconSrc: '/icones-rondes/01_agenda_culturel.png',         click: p => p.onSelectAgenda() },
@@ -98,7 +98,7 @@ export default function HubView({
       // 1. Override featured_slots — TOUS les items (events + etabs)
       const { data: featuredSlots } = await supabase
         .from('featured_slots')
-        .select('content_type, content_id, priority')
+        .select('content_type, content_id, priority, image_position')
         .eq('slot', 'hub_hero')
         .lte('starts_at', nowISO)
         .gt('ends_at', nowISO)
@@ -128,12 +128,13 @@ export default function HubView({
         const prodMap = Object.fromEntries(((prodRes.data ?? []) as HeroProducteur[]).map(p => [p.id, p]))
 
         featuredSlots.forEach(s => {
+          const pos = (s.image_position as string | null) ?? null
           if (s.content_type === 'evenement' && evMap[s.content_id]) {
-            items.push({ kind: 'evenement', data: evMap[s.content_id] })
+            items.push({ kind: 'evenement', data: evMap[s.content_id], imagePosition: pos })
           } else if (s.content_type === 'etablissement' && etabMap[s.content_id]) {
-            items.push({ kind: 'etablissement', data: etabMap[s.content_id] })
+            items.push({ kind: 'etablissement', data: etabMap[s.content_id], imagePosition: pos })
           } else if (s.content_type === 'producteur' && prodMap[s.content_id]) {
-            items.push({ kind: 'producteur', data: prodMap[s.content_id] })
+            items.push({ kind: 'producteur', data: prodMap[s.content_id], imagePosition: pos })
           }
         })
       }
@@ -148,7 +149,7 @@ export default function HubView({
           .order('promo_ordre', { ascending: false })
           .limit(1)
         const ev = (r.data?.[0] as Evenement | undefined) ?? null
-        if (ev) items.push({ kind: 'evenement', data: ev })
+        if (ev) items.push({ kind: 'evenement', data: ev, imagePosition: ev.image_position ?? null })
       }
 
       // 3. Fallback : event de la semaine
@@ -162,7 +163,7 @@ export default function HubView({
           .order('date_debut', { ascending: true })
           .limit(1)
         const ev = (r.data?.[0] as Evenement | undefined) ?? null
-        if (ev) items.push({ kind: 'evenement', data: ev })
+        if (ev) items.push({ kind: 'evenement', data: ev, imagePosition: ev.image_position ?? null })
       }
 
       if (mounted) setHeroItems(items)
@@ -676,6 +677,7 @@ function HubHeroCarousel({
 }
 
 function HeroSlide({ item, onClick }: { item: HeroItem; onClick: () => void }) {
+  const imagePosition = item.imagePosition ?? '50% 50%'
   if (item.kind === 'evenement') {
     const ev = item.data
     const when = ev.date_debut ? dateLabel(ev.date_debut) : ''
@@ -684,6 +686,7 @@ function HeroSlide({ item, onClick }: { item: HeroItem; onClick: () => void }) {
     return (
       <HeroCardShell
         photo={ev.image_url}
+        imagePosition={imagePosition}
         onClick={onClick}
         kicker={`${cat}${venue}`}
         title={ev.titre}
@@ -697,6 +700,7 @@ function HeroSlide({ item, onClick }: { item: HeroItem; onClick: () => void }) {
     return (
       <HeroCardShell
         photo={etab.photos?.[0] ?? null}
+        imagePosition={imagePosition}
         onClick={onClick}
         kicker="ÉTABLISSEMENT"
         title={etab.nom}
@@ -710,6 +714,7 @@ function HeroSlide({ item, onClick }: { item: HeroItem; onClick: () => void }) {
   return (
     <HeroCardShell
       photo={prod.photos?.[0] ?? null}
+      imagePosition={imagePosition}
       onClick={onClick}
       kicker="PRODUCTEUR LOCAL"
       title={prod.nom}
@@ -721,9 +726,10 @@ function HeroSlide({ item, onClick }: { item: HeroItem; onClick: () => void }) {
 }
 
 function HeroCardShell({
-  photo, onClick, kicker, title, metaLeft, metaRight, metaLeftIcon = 'cal',
+  photo, imagePosition, onClick, kicker, title, metaLeft, metaRight, metaLeftIcon = 'cal',
 }: {
   photo: string | null
+  imagePosition: string
   onClick: () => void
   kicker: string
   title: string
@@ -738,7 +744,12 @@ function HeroCardShell({
       className="relative block h-[180px] w-full overflow-hidden rounded-tile border-none bg-primary p-0 text-left shadow-hero"
     >
       {photo ? (
-        <img src={photo} alt="" className="h-full w-full object-cover" />
+        <img
+          src={photo}
+          alt=""
+          className="h-full w-full object-cover"
+          style={{ objectPosition: imagePosition }}
+        />
       ) : (
         <div className="h-full w-full bg-gradient-to-br from-primary to-[#1A3A2A]" />
       )}

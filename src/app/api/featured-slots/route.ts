@@ -101,6 +101,9 @@ export async function PATCH(req: NextRequest) {
   if (typeof body.priority === 'number') patch.priority = body.priority
   if (typeof body.sponsored === 'boolean') patch.sponsored = body.sponsored
   if (typeof body.starts_at === 'string') patch.starts_at = body.starts_at
+  if (body.image_position === null || typeof body.image_position === 'string') {
+    patch.image_position = body.image_position
+  }
 
   const { data, error } = await supabaseAdmin
     .from('featured_slots')

@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -11,6 +11,9 @@ interface EnrichedSlot extends FeaturedSlotRow {
   imageUrl?: string | null
   detailUrl?: string
 }
+
+/** Aspect ratio du hero du hub (180h sur viewport - 32px de gutters). */
+const HUB_HERO_ASPECT = 2.0
 
 function fmtRemaining(endsAt: string): string {
   const ms = new Date(endsAt).getTime() - Date.now()
@@ -28,6 +31,7 @@ export default function AdminHubCarousel() {
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState<string | null>(null)
   const [showExpired, setShowExpired] = useState(false)
+  const [cropping, setCropping] = useState<EnrichedSlot | null>(null)
 
   useEffect(() => {
     if (authLoading) return
@@ -218,6 +222,7 @@ export default function AdminHubCarousel() {
                       onDown={() => bumpPriority(s, -1)}
                       onExtend={h => extendDuration(s, h)}
                       onDelete={() => deleteSlot(s.id)}
+                      onEditCrop={() => setCropping(s)}
                     />
                   ))}
                 </div>
@@ -226,13 +231,26 @@ export default function AdminHubCarousel() {
           )
         })}
       </div>
+
+      {cropping && cropping.imageUrl && (
+        <CropOverlay
+          src={cropping.imageUrl}
+          position={cropping.image_position ?? '50% 50%'}
+          aspect={HUB_HERO_ASPECT}
+          onCancel={() => setCropping(null)}
+          onSave={async pos => {
+            await patchSlot(cropping.id, { image_position: pos })
+            setCropping(null)
+          }}
+        />
+      )}
     </div>
   )
 }
 
 function SlotCard({
   slot, isFirst, isLast,
-  onUp, onDown, onExtend, onDelete,
+  onUp, onDown, onExtend, onDelete, onEditCrop,
 }: {
   slot: EnrichedSlot
   isFirst: boolean
@@ -241,8 +259,11 @@ function SlotCard({
   onDown:   () => void
   onExtend: (hours: number) => void
   onDelete: () => void
+  onEditCrop: () => void
 }) {
   const expired = new Date(slot.ends_at) <= new Date()
+  const hasImg = !!slot.imageUrl
+  const cropped = !!slot.image_position
   return (
     <div style={{
       padding: '10px 12px', borderRadius: 14,
@@ -251,12 +272,39 @@ function SlotCard({
       opacity: expired ? 0.6 : 1,
       display: 'flex', gap: 10, alignItems: 'center',
     }}>
-      <div style={{
-        width: 48, height: 48, borderRadius: 10, flexShrink: 0,
-        backgroundColor: '#F0EBE3',
-        backgroundImage: slot.imageUrl ? `url(${slot.imageUrl})` : undefined,
-        backgroundSize: 'cover', backgroundPosition: 'center',
-      }} />
+      <button
+        type="button"
+        onClick={hasImg ? onEditCrop : undefined}
+        disabled={!hasImg}
+        title={hasImg ? 'Cliquer pour cadrer dans le hub' : 'Pas d\'image'}
+        style={{
+          position: 'relative',
+          width: 48, height: 48, borderRadius: 10, flexShrink: 0,
+          border: 'none', padding: 0,
+          backgroundColor: '#F0EBE3',
+          backgroundImage: slot.imageUrl ? `url(${slot.imageUrl})` : undefined,
+          backgroundSize: 'cover',
+          backgroundPosition: slot.image_position ?? 'center',
+          cursor: hasImg ? 'pointer' : 'default',
+        }}
+      >
+        {hasImg && (
+          <span style={{
+            position: 'absolute', right: -4, bottom: -4,
+            width: 18, height: 18, borderRadius: '50%',
+            backgroundColor: cropped ? '#2D5A3D' : '#fff',
+            border: '1.5px solid #fff',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: cropped ? '#fff' : '#2D5A3D',
+          }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 2v14a2 2 0 0 0 2 2h14"/>
+              <path d="M18 22V8a2 2 0 0 0-2-2H2"/>
+            </svg>
+          </span>
+        )}
+      </button>
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <Link
@@ -302,4 +350,148 @@ function btnStyle(disabled: boolean): React.CSSProperties {
     opacity: disabled ? 0.4 : 1,
     fontFamily: 'Inter, sans-serif',
   }
+}
+
+/**
+ * Modale plein écran : cadrage d'une image (object-position) avec preview
+ * à l'aspect du hero du hub. Le user clique/drag pour repositionner le crop.
+ * Pattern inspiré de EventEditDrawer.CropStep, adapté à un aspect arbitraire.
+ */
+function CropOverlay({
+  src, position, aspect, onCancel, onSave,
+}: {
+  src: string
+  position: string
+  aspect: number
+  onCancel: () => void
+  onSave: (position: string) => void | Promise<void>
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [natural, setNatural] = useState<{ w: number; h: number } | null>(null)
+  const [pos, setPos] = useState(position || '50% 50%')
+  const [saving, setSaving] = useState(false)
+
+  const [px, py] = pos.split(' ').map(v => parseFloat(v) || 0)
+
+  function computeLayout(cW: number, cH: number, nW: number, nH: number) {
+    // Image fittée en object-contain dans le container (rW × rH)
+    const ir = nW / nH, cr = cW / cH
+    let rW: number, rH: number, oX: number, oY: number
+    if (ir > cr) { rW = cW; rH = cW / ir; oX = 0; oY = (cH - rH) / 2 }
+    else         { rH = cH; rW = cH * ir; oX = (cW - rW) / 2; oY = 0 }
+    // Crop window dans l'image : représente la zone visible après object-cover
+    // dans un rectangle d'aspect ratio `aspect`. On limite par la dimension la plus courte.
+    let cropW: number, cropH: number
+    if (rW / rH > aspect) {
+      // Image plus large que target : crop hauteur entière, largeur réduite
+      cropH = rH
+      cropW = rH * aspect
+    } else {
+      cropW = rW
+      cropH = rW / aspect
+    }
+    return { rW, rH, oX, oY, cropW, cropH }
+  }
+
+  const layout = (() => {
+    const c = containerRef.current
+    if (!c || !natural) return null
+    const { width: cW, height: cH } = c.getBoundingClientRect()
+    const l = computeLayout(cW, cH, natural.w, natural.h)
+    return {
+      ...l,
+      cropLeft: l.oX + (l.rW - l.cropW) * px / 100,
+      cropTop:  l.oY + (l.rH - l.cropH) * py / 100,
+    }
+  })()
+
+  const handlePointer = (e: React.PointerEvent) => {
+    const c = containerRef.current
+    if (!c || !natural) return
+    const rect = c.getBoundingClientRect()
+    const l = computeLayout(rect.width, rect.height, natural.w, natural.h)
+    const rX = Math.max(0, Math.min(1, (e.clientX - rect.left - l.oX) / l.rW))
+    const rY = Math.max(0, Math.min(1, (e.clientY - rect.top  - l.oY) / l.rH))
+    setPos(`${Math.round(rX * 100)}% ${Math.round(rY * 100)}%`)
+  }
+
+  const D = 'rgba(0,0,0,0.62)'
+
+  async function handleSave() {
+    if (saving) return
+    setSaving(true)
+    try { await onSave(pos) } finally { setSaving(false) }
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1100,
+      backgroundColor: '#000',
+      display: 'flex', flexDirection: 'column',
+      userSelect: 'none',
+      fontFamily: 'Inter, sans-serif',
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '12px 16px', flexShrink: 0,
+      }}>
+        <button onClick={onCancel} style={{
+          background: 'none', border: 'none', color: '#B0B0B0',
+          fontSize: 13, cursor: 'pointer', padding: '6px 4px',
+        }}>← Annuler</button>
+        <p style={{ margin: 0, color: '#fff', fontWeight: 700, fontSize: 14 }}>Cadrer pour le hub</p>
+        <button onClick={handleSave} disabled={saving} style={{
+          backgroundColor: '#2D5A3D', color: '#fff',
+          padding: '8px 14px', borderRadius: 10,
+          border: 'none', fontSize: 13, fontWeight: 800,
+          cursor: saving ? 'wait' : 'pointer',
+          opacity: saving ? 0.6 : 1,
+        }}>{saving ? '…' : 'Enregistrer'}</button>
+      </div>
+
+      <div
+        ref={containerRef}
+        style={{
+          position: 'relative', flex: 1, overflow: 'hidden',
+          touchAction: 'none', cursor: 'crosshair',
+        }}
+        onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); handlePointer(e) }}
+        onPointerMove={e => { if (e.buttons > 0) handlePointer(e) }}
+      >
+        <img
+          src={src}
+          alt=""
+          style={{ width: '100%', height: '100%', objectFit: 'contain', userSelect: 'none', pointerEvents: 'none' }}
+          onLoad={e => { const i = e.currentTarget; setNatural({ w: i.naturalWidth, h: i.naturalHeight }) }}
+        />
+        {layout && (
+          <div style={{ position: 'absolute', top: layout.oY, left: layout.oX, width: layout.rW, height: layout.rH, pointerEvents: 'none' }}>
+            {/* Masques sombres */}
+            <div style={{ position: 'absolute', top: 0, left: 0, width: layout.cropLeft - layout.oX, height: layout.rH, backgroundColor: D }} />
+            <div style={{ position: 'absolute', top: 0, right: 0, width: layout.rW - (layout.cropLeft - layout.oX) - layout.cropW, height: layout.rH, backgroundColor: D }} />
+            <div style={{ position: 'absolute', top: 0, left: layout.cropLeft - layout.oX, width: layout.cropW, height: layout.cropTop - layout.oY, backgroundColor: D }} />
+            <div style={{ position: 'absolute', bottom: 0, left: layout.cropLeft - layout.oX, width: layout.cropW, height: layout.rH - (layout.cropTop - layout.oY) - layout.cropH, backgroundColor: D }} />
+            {/* Crop window */}
+            <div style={{
+              position: 'absolute',
+              top: layout.cropTop - layout.oY,
+              left: layout.cropLeft - layout.oX,
+              width: layout.cropW,
+              height: layout.cropH,
+              border: '2px solid #fff',
+              borderRadius: 4,
+              boxShadow: '0 0 0 1px rgba(0,0,0,0.4)',
+            }} />
+          </div>
+        )}
+      </div>
+
+      <p style={{
+        margin: 0, padding: '10px 16px 16px',
+        color: '#B0B0B0', fontSize: 12, textAlign: 'center', flexShrink: 0,
+      }}>
+        Touche / clique pour repositionner le cadrage. Aspect : carousel hub (≈2:1).
+      </p>
+    </div>
+  )
 }
