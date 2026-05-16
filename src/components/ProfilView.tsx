@@ -8,11 +8,11 @@ import { useTheme } from '@/components/ThemeProvider'
 import { COLOR_THEMES, MAP_STYLES, SHEET_BG_OPTIONS } from '@/lib/themes'
 import { PLANS_INFO, type Plan } from '@/lib/capabilities'
 import LoginView from '@/components/LoginView'
-import PlanBadge from '@/components/PlanBadge'
 import SubscriptionModal from '@/components/SubscriptionModal'
 import MesAnnonces from '@/components/MesAnnonces'
 import AbonnementsView from '@/components/AbonnementsView'
 import MonEspaceProducteur from '@/components/MonEspaceProducteur'
+import EditProfileModal from '@/components/EditProfileModal'
 
 type Tab = 'profil' | 'reglages'
 type SubView = null | 'annonces' | 'abonnements' | 'mes_events' | 'producteur'
@@ -22,6 +22,40 @@ interface AbandonedDraft {
   id: string
   etablissement: { id: string; nom: string; commune: string | null; photos: string[] | null }
   updated_at: string
+}
+
+/* ─── Icons SVG inline (taille variable) ──────────────────────────────── */
+
+type IconRenderer = (size?: number) => React.ReactNode
+
+function makeIcon(path: React.ReactNode): IconRenderer {
+  return function IconRender(size = 18) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{path}</svg>
+    )
+  }
+}
+
+const ICONS = {
+  back:     makeIcon(<><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></>),
+  settings: makeIcon(<><circle cx="12" cy="12" r="3"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></>),
+  edit:     makeIcon(<><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></>),
+  eye:      makeIcon(<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>),
+  cc:       makeIcon(<><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></>),
+  store:    makeIcon(<><path d="M3 9l1-5h16l1 5"/><path d="M4 9v11a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9"/><path d="M9 21V12h6v9"/></>),
+  megaphone:makeIcon(<><polygon points="3 11 22 2 22 22 3 13"/><line x1="3" y1="11" x2="3" y2="13"/></>),
+  cal:      makeIcon(<><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>),
+  leaf:     makeIcon(<><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19.2 2.96c1.4 9.3-3.6 15.8-8.2 17.04z"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/></>),
+  life:     makeIcon(<><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="4.93" y1="4.93" x2="9.17" y2="9.17"/><line x1="14.83" y1="14.83" x2="19.07" y2="19.07"/><line x1="14.83" y1="9.17" x2="19.07" y2="4.93"/><line x1="4.93" y1="19.07" x2="9.17" y2="14.83"/></>),
+  group:    makeIcon(<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>),
+  rocket:   makeIcon(<><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></>),
+  shield:   makeIcon(<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>),
+  star:     makeIcon(<polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9"/>),
+  chat:     makeIcon(<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>),
+  logout:   makeIcon(<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>),
+  chev:     makeIcon(<polyline points="9 6 15 12 9 18"/>),
+  draft:    makeIcon(<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></>),
+  palette:  makeIcon(<><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c3.31 0 6-2.69 6-6 0-5.52-4.48-10-10-10z"/></>),
 }
 
 export default function ProfilView() {
@@ -39,8 +73,7 @@ export default function ProfilView() {
   const [followingCount, setFollowingCount] = useState<number | null>(null)
   const [abandonedDrafts, setAbandonedDrafts] = useState<AbandonedDraft[]>([])
 
-  const [editingName, setEditingName] = useState(false)
-  const [nameInput, setNameInput] = useState('')
+  const [editOpen, setEditOpen] = useState(false)
   const [showUpgrade, setShowUpgrade] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
   const [supportUnread, setSupportUnread] = useState(0)
@@ -90,15 +123,12 @@ export default function ProfilView() {
     if (!user?.id) return
     let cancelled = false
 
-    // Plan
     supabase.from('profiles').select('plan').eq('user_id', user.id).single()
       .then(({ data }) => { if (!cancelled && data) setPlan(data.plan ?? null) })
 
-    // Établissements gérés
     supabase.from('etablissements').select('id, nom, plan, photos').eq('user_id', user.id)
       .then(({ data }) => { if (!cancelled && data) setMyEtabs(data) })
 
-    // Compteurs (best effort — silencieux si erreur)
     supabase.from('interests').select('id', { count: 'exact', head: true }).eq('user_id', user.id)
       .then(({ count }) => { if (!cancelled) setInterestCount(count ?? 0) })
 
@@ -109,7 +139,6 @@ export default function ProfilView() {
     supabase.from('follows').select('id', { count: 'exact', head: true }).eq('follower_id', user.id)
       .then(({ count }) => { if (!cancelled) setFollowingCount(count ?? 0) })
 
-    // Brouillons abandonnés
     ;(async () => {
       const t = await getToken()
       if (!t) return
@@ -126,20 +155,20 @@ export default function ProfilView() {
   // ── Loading / non connecté ─────────────────────────────────────────────
   if (authLoading) {
     return (
-      <div style={{ minHeight: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--creme)' }}>
-        <div style={{ width: 32, height: 32, borderRadius: '50%', border: '4px solid #E0D8CE', borderTopColor: 'var(--primary)', animation: 'spin 0.7s linear infinite' }} />
+      <div className="flex min-h-full items-center justify-center bg-creme">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-bord border-t-primary" />
       </div>
     )
   }
 
   if (!user) {
     return (
-      <div style={{ minHeight: '100%', backgroundColor: 'var(--creme)', fontFamily: 'Inter, sans-serif' }}>
-        <div style={{ padding: '40px 20px 24px', textAlign: 'center' }}>
-          <h1 style={{ fontSize: 24, fontWeight: 900, color: '#1A1209', margin: '0 0 8px', letterSpacing: '-0.02em' }}>
-            Bienvenue 👋
+      <div className="min-h-full bg-creme font-inter">
+        <div className="px-5 pb-6 pt-10 text-center">
+          <h1 className="m-0 mb-2 font-serif text-[26px] font-normal text-texte" style={{ letterSpacing: '-0.02em' }}>
+            Bienvenue
           </h1>
-          <p style={{ fontSize: 14, color: '#7A6A5A', margin: 0, lineHeight: 1.5 }}>
+          <p className="m-0 text-[14px] leading-[1.5] text-texte-doux">
             Connecte-toi pour accéder à ton espace, profiter des bons plans et participer à la vie du village.
           </p>
         </div>
@@ -148,7 +177,7 @@ export default function ProfilView() {
     )
   }
 
-  // ── Sous-vue plein écran (annonces / abonnements / producteur) ─────────
+  // ── Sous-vues plein écran ──────────────────────────────────────────────
   if (subView === 'annonces') {
     return <SubViewWrap title="Mes annonces" onBack={() => setSubView(null)}><MesAnnonces /></SubViewWrap>
   }
@@ -172,426 +201,396 @@ export default function ProfilView() {
     setSigningOut(false)
   }
 
-  // ── Render principal ───────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: '100%', backgroundColor: 'var(--creme)', fontFamily: 'Inter, sans-serif', paddingBottom: 40 }}>
+    <div className="min-h-full bg-creme pb-10 font-inter text-texte">
+      <style>{`.pdv-hscroll { scrollbar-width: none } .pdv-hscroll::-webkit-scrollbar { display: none } @keyframes spin { to { transform: rotate(360deg) } }`}</style>
 
-      {/* Header avec tabs */}
-      <div style={{
-        position: 'sticky', top: 0, zIndex: 10,
-        backgroundColor: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(8px)',
-        borderBottom: '1px solid #EDE8E0',
-      }}>
-        <div style={{ padding: '14px 16px 4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1 style={{ fontSize: 17, fontWeight: 800, color: '#2C1810', margin: 0, letterSpacing: '-0.01em' }}>
+      {/* Top bar V3 */}
+      <div className="flex items-center justify-between gap-2.5 px-4 pt-3.5">
+        <div className="h-10 w-10 shrink-0" aria-hidden />
+        <div className="flex min-w-0 flex-1 flex-col items-center">
+          <div className="font-serif text-[18px] leading-none text-texte" style={{ letterSpacing: '-0.01em' }}>
             Mon espace
-          </h1>
+          </div>
         </div>
-        {/* Tabs */}
-        <div style={{ display: 'flex', padding: '0 16px', gap: 6 }}>
-          {(['profil', 'reglages'] as Tab[]).map(t => (
+        <button
+          onClick={() => setTab('reglages')}
+          aria-label="Réglages"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte shadow-[0_1px_2px_rgba(44,28,16,0.04)]"
+        >
+          {ICONS.settings(18)}
+        </button>
+      </div>
+
+      {/* User card V3 */}
+      <div className="px-4 pt-[18px]">
+        <div
+          className="flex items-center gap-3.5 rounded-2xl border bg-white p-4 shadow-[0_1px_6px_rgba(44,28,16,0.04)]"
+          style={{ borderColor: '#F0EAE0' }}
+        >
+          {profile?.avatar_url ? (
+            <img
+              src={profile.avatar_url}
+              alt=""
+              className="h-16 w-16 shrink-0 rounded-full object-cover"
+              style={{ border: '3px solid #E8F2EB' }}
+            />
+          ) : (
+            <div
+              className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary text-[24px] font-extrabold text-white"
+              style={{ border: '3px solid #E8F2EB' }}
+            >
+              {displayName[0].toUpperCase()}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <button
+              onClick={() => setEditOpen(true)}
+              className="flex items-center gap-2 bg-transparent p-0 text-left"
+            >
+              <span
+                className="truncate text-[17px] font-extrabold text-texte"
+                style={{ letterSpacing: '-0.01em' }}
+              >
+                {displayName}
+              </span>
+              <span className="shrink-0 rounded-full bg-cremeDeep px-[7px] py-0.5 text-[9px] font-extrabold uppercase tracking-[0.08em] text-texte-doux">
+                {planInfo.label}
+              </span>
+              <span className="shrink-0 text-texte-tres-doux">{ICONS.edit(13)}</span>
+            </button>
+            <p className="mt-1 truncate text-[12px] text-texte-doux">{user.email}</p>
+            <Link
+              href={`/profil/${user.id}`}
+              className="mt-2 inline-flex items-center gap-1 rounded-full bg-primary-light px-2.5 py-1 text-[11px] font-bold text-primary no-underline"
+            >
+              {ICONS.eye(12)} Voir mon profil public
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs V3 */}
+      <div className="flex gap-1.5 px-4 pt-[18px]">
+        {(['profil', 'reglages'] as Tab[]).map(t => {
+          const active = tab === t
+          return (
             <button
               key={t}
               onClick={() => setTab(t)}
+              className={`flex-1 bg-transparent py-2.5 text-[13px] font-extrabold uppercase tracking-[0.04em] ${
+                active ? 'text-primary' : 'text-texte-doux'
+              }`}
               style={{
-                flex: 1, padding: '10px 0', border: 'none',
-                borderBottom: tab === t ? '2.5px solid var(--primary)' : '2.5px solid transparent',
-                backgroundColor: 'transparent',
-                fontSize: 13, fontWeight: 800,
-                color: tab === t ? 'var(--primary)' : '#9A8A7A',
-                cursor: 'pointer', fontFamily: 'inherit',
-                letterSpacing: '0.02em', textTransform: 'uppercase',
-                transition: 'all 0.15s',
+                borderBottom: active ? '2.5px solid #2D5A3D' : '2.5px solid transparent',
               }}
             >
               {t === 'profil' ? 'Profil' : 'Réglages'}
             </button>
-          ))}
-        </div>
+          )
+        })}
       </div>
 
       {/* Contenu */}
-      <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {tab === 'profil' && (
+        <div className="flex flex-col gap-3 pt-2">
 
-        {tab === 'profil' && (
-          <>
-            {/* Card header user */}
-            <div style={{
-              backgroundColor: '#fff', borderRadius: 20,
-              padding: '22px 18px 18px',
-              boxShadow: '0 2px 12px rgba(0,0,0,0.05)',
-              display: 'flex', alignItems: 'center', gap: 14,
-            }}>
-              {profile?.avatar_url
-                ? <img src={profile.avatar_url} alt="" style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary-light)' }} />
-                : (
-                  <div style={{
-                    width: 64, height: 64, borderRadius: '50%',
-                    backgroundColor: 'var(--primary)', color: '#fff',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 26, fontWeight: 800,
-                  }}>
-                    {displayName[0].toUpperCase()}
-                  </div>
-                )
-              }
-              <div style={{ flex: 1, minWidth: 0 }}>
-                {editingName ? (
-                  <form onSubmit={async e => {
-                    e.preventDefault()
-                    if (!nameInput.trim()) return
-                    await updateDisplayName(nameInput.trim())
-                    setEditingName(false)
-                  }} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <input
-                      autoFocus
-                      value={nameInput}
-                      onChange={e => setNameInput(e.target.value)}
-                      style={{ border: '1.5px solid var(--primary)', borderRadius: 8, padding: '5px 10px', fontSize: 14, fontWeight: 700, outline: 'none', flex: 1, minWidth: 0, fontFamily: 'inherit' }}
-                    />
-                    <button type="submit" style={{ background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>OK</button>
-                    <button type="button" onClick={() => setEditingName(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8A8A8A', fontSize: 14 }}>✕</button>
-                  </form>
-                ) : (
-                  <button
-                    onClick={() => { setNameInput(profile?.display_name ?? ''); setEditingName(true) }}
-                    style={{
-                      background: 'none', border: 'none', padding: 0,
-                      display: 'flex', alignItems: 'center', gap: 6,
-                      cursor: 'pointer',
-                      maxWidth: '100%', minWidth: 0, overflow: 'hidden',
-                      textAlign: 'left',
-                    }}
+          {/* Abonnement card V3 */}
+          <div className="px-4">
+            <div
+              className="rounded-2xl border bg-white p-4 shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
+              style={{ borderColor: '#F0EAE0' }}
+            >
+              <div className="mb-2.5 flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">
+                {ICONS.cc(14)} Mon abonnement
+              </div>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div
+                    className="font-serif text-[22px] leading-none text-texte"
+                    style={{ letterSpacing: '-0.01em' }}
                   >
-                    <span style={{
-                      fontSize: 17, fontWeight: 800, color: '#1A1209', letterSpacing: '-0.01em',
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      minWidth: 0, flex: '0 1 auto',
-                    }}>
-                      {displayName}
-                    </span>
-                    <PlanBadge plan={currentPlan} />
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B0A898" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                      <path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
-                    </svg>
-                  </button>
-                )}
-                <p style={{ fontSize: 12, color: '#9A8A7A', margin: '4px 0 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {user.email}
-                </p>
-                <Link
-                  href={`/profil/${user.id}`}
-                  style={{
-                    display: 'inline-block',
-                    fontSize: 11, fontWeight: 700, color: 'var(--primary)',
-                    backgroundColor: 'var(--primary-light)',
-                    padding: '4px 10px', borderRadius: 999,
-                    textDecoration: 'none',
-                  }}
-                >
-                  Voir mon profil public →
-                </Link>
-              </div>
-            </div>
-
-            {/* Card Mon abonnement */}
-            <Card>
-              <CardLabel>💳 Mon abonnement</CardLabel>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 24 }}>{planInfo.icon}</span>
-                  <div>
-                    <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: planInfo.color }}>{planInfo.label}</p>
-                    <p style={{ margin: '2px 0 0', fontSize: 11, color: '#7A6A5A' }}>{planInfo.priceLabel}</p>
+                    Plan {planInfo.label}
                   </div>
+                  <p className="m-0 mt-1 text-[12px] text-texte-doux">{planInfo.priceLabel}</p>
                 </div>
+                <button
+                  onClick={() => setShowUpgrade(true)}
+                  className="shrink-0 whitespace-nowrap rounded-full bg-primary px-3.5 py-2 text-[12px] font-bold text-white"
+                >
+                  {currentPlan === 'basic' ? 'Upgrade' : 'Voir offres'}
+                </button>
               </div>
-              <button
-                onClick={() => setShowUpgrade(true)}
-                style={{
-                  width: '100%', padding: '11px',
-                  background: currentPlan === 'basic'
-                    ? 'linear-gradient(135deg, #4A8B5C 0%, #3A5BC7 100%)'
-                    : 'transparent',
-                  color: currentPlan === 'basic' ? '#fff' : planInfo.color,
-                  border: currentPlan === 'basic' ? 'none' : `1.5px solid ${planInfo.color}`,
-                  borderRadius: 12,
-                  fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
-                }}
-              >
-                {currentPlan === 'basic' ? '✦ Découvrir nos offres' : 'Voir les offres'}
-              </button>
               {currentPlan !== 'basic' && (
                 <button
                   onClick={openStripePortal}
                   disabled={openingPortal}
-                  style={{
-                    width: '100%', padding: '10px', marginTop: 8,
-                    background: '#FDFAF6', color: '#6B5E4E',
-                    border: '1.5px solid #E5DDD2', borderRadius: 12,
-                    fontSize: 12, fontWeight: 700,
-                    cursor: openingPortal ? 'wait' : 'pointer', fontFamily: 'inherit',
-                    opacity: openingPortal ? 0.6 : 1,
-                  }}
+                  className="mt-2.5 w-full rounded-xl border bg-cremeDeep py-2 text-[12px] font-bold text-texte-doux disabled:opacity-60"
+                  style={{ borderColor: '#F0EAE0' }}
                 >
-                  {openingPortal ? 'Ouverture…' : '⚙ Gérer / annuler mon abonnement'}
+                  {openingPortal ? 'Ouverture…' : 'Gérer mon abonnement'}
                 </button>
               )}
-            </Card>
+            </div>
+          </div>
 
-            {/* Card Mes établissements */}
-            {myEtabs.length > 0 && (
-              <Card>
-                <CardLabel>🏪 Mes établissements ({myEtabs.length})</CardLabel>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {myEtabs.map(e => (
-                    <Link key={e.id} href={`/etablissement/${e.id}`} style={ROW_LINK}>
-                      <div style={ROW_IMG}>
-                        {e.photos?.[0] ? <img src={e.photos[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 18 }}>🏪</span>}
-                      </div>
-                      <span style={ROW_NAME}>{e.nom}</span>
-                      <span style={ROW_ARROW}>›</span>
-                    </Link>
-                  ))}
+          {/* Mes établissements */}
+          {myEtabs.length > 0 && (
+            <div className="px-4">
+              <div
+                className="overflow-hidden rounded-2xl border bg-white shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
+                style={{ borderColor: '#F0EAE0' }}
+              >
+                <div className="border-b px-4 pb-1.5 pt-3.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux" style={{ borderColor: '#F0EAE0' }}>
+                  Mes établissements ({myEtabs.length})
                 </div>
-              </Card>
-            )}
-
-            {/* Card Brouillons abandonnés */}
-            {abandonedDrafts.length > 0 && (
-              <div style={{ backgroundColor: '#FFFBF2', borderRadius: 16, padding: '14px 16px', border: '1px solid #F0E2C0' }}>
-                <CardLabel>📝 Mes brouillons abandonnés</CardLabel>
-                <p style={{ fontSize: 11, color: '#7A6A5A', margin: '0 0 10px', lineHeight: 1.4 }}>
-                  Fiches que tu as gérées par le passé. Tes modifs sont gardées si tu re-revendiques.
-                </p>
-                {abandonedDrafts.map(d => (
-                  <Link key={d.id} href={`/etablissement/${d.etablissement.id}`} style={ROW_LINK}>
-                    <div style={ROW_IMG}>
-                      {d.etablissement.photos?.[0] ? <img src={d.etablissement.photos[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 18 }}>🏪</span>}
+                {myEtabs.map((e, i) => (
+                  <Link
+                    key={e.id}
+                    href={`/etablissement/${e.id}`}
+                    className="flex items-center gap-3 px-4 py-3 text-inherit no-underline"
+                    style={{ borderTop: i > 0 ? '1px solid #F0EAE0' : undefined }}
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary-light text-primary">
+                      {e.photos?.[0]
+                        ? <img src={e.photos[0]} alt="" className="h-full w-full object-cover" />
+                        : ICONS.store(18)}
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1209', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.etablissement.nom}</span>
-                      <span style={{ fontSize: 10, color: '#9A8A7A' }}>Modifié {new Date(d.updated_at).toLocaleDateString('fr-FR')}</span>
-                    </div>
-                    <span style={ROW_ARROW}>›</span>
+                    <span className="flex-1 truncate text-[13px] font-bold text-texte">{e.nom}</span>
+                    <span className="text-texte-tres-doux">{ICONS.chev(14)}</span>
                   </Link>
                 ))}
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Card Ma fiche producteur (pro only) */}
-            {currentPlan === 'pro' && (
-              <ActionCard
-                icon="🌿"
-                label="Ma fiche producteur"
-                sub="Gère ta vitrine, tes produits, ta carte"
-                onClick={() => setSubView('producteur')}
+          {/* Brouillons abandonnés */}
+          {abandonedDrafts.length > 0 && (
+            <div className="px-4">
+              <div
+                className="overflow-hidden rounded-2xl border p-4"
+                style={{ borderColor: '#F0D9B8', backgroundColor: '#FFF7E5' }}
+              >
+                <div className="mb-1 flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#A8770F]">
+                  {ICONS.draft(14)} Mes brouillons abandonnés
+                </div>
+                <p className="m-0 mb-2.5 text-[11px] leading-[1.4] text-[#7A5614]">
+                  Fiches que tu as gérées par le passé. Tes modifs sont gardées si tu re-revendiques.
+                </p>
+                {abandonedDrafts.map(d => (
+                  <Link
+                    key={d.id}
+                    href={`/etablissement/${d.etablissement.id}`}
+                    className="flex items-center gap-3 py-2 text-inherit no-underline"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white text-[#A8770F]">
+                      {d.etablissement.photos?.[0]
+                        ? <img src={d.etablissement.photos[0]} alt="" className="h-full w-full object-cover" />
+                        : ICONS.store(16)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="m-0 truncate text-[13px] font-bold text-texte">{d.etablissement.nom}</p>
+                      <p className="m-0 text-[10px] text-texte-doux">Modifié {new Date(d.updated_at).toLocaleDateString('fr-FR')}</p>
+                    </div>
+                    <span className="text-texte-tres-doux">{ICONS.chev(14)}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* MenuList — actions principales */}
+          <div className="px-4">
+            <div
+              className="overflow-hidden rounded-2xl border bg-white shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
+              style={{ borderColor: '#F0EAE0' }}
+            >
+              {currentPlan === 'pro' && (
+                <MenuRow
+                  icon={ICONS.leaf}
+                  label="Ma fiche producteur"
+                  sub="Gère ta vitrine, tes produits, ta carte"
+                  onClick={() => setSubView('producteur')}
+                />
+              )}
+              <MenuRow
+                icon={ICONS.megaphone}
+                label="Mes annonces"
+                sub={activeAnnonceCount != null ? `${activeAnnonceCount} active${activeAnnonceCount > 1 ? 's' : ''}` : undefined}
+                onClick={() => setSubView('annonces')}
               />
-            )}
+              <MenuRow
+                icon={ICONS.cal}
+                label="Événements suivis"
+                sub={interestCount != null ? `${interestCount} événement${interestCount > 1 ? 's' : ''}` : undefined}
+                onClick={() => setSubView('mes_events')}
+              />
+              <MenuRow
+                icon={ICONS.group}
+                label="Mes abonnements"
+                sub={followingCount != null ? `${followingCount} personne${followingCount > 1 ? 's' : ''}` : undefined}
+                onClick={() => setSubView('abonnements')}
+              />
+              <MenuRow
+                icon={ICONS.life}
+                label="Aide & support"
+                sub="Nous contacter"
+                onClick={() => { window.location.href = '/support' }}
+              />
+              <MenuRow
+                icon={ICONS.rocket}
+                label="Visibilité & boost"
+                sub={plan === 'pro' ? 'Inclus dans votre plan' : 'Booster votre annonce'}
+                onClick={() => { window.location.href = '/profil/visibilite' }}
+                isLast={!isAdmin}
+              />
+            </div>
+          </div>
 
-            {/* Activités */}
-            <Card>
-              <CardLabel>📊 Mes activités</CardLabel>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <ActionRow
-                  icon="📣"
-                  label="Mes annonces"
-                  badge={activeAnnonceCount != null ? `${activeAnnonceCount} active${activeAnnonceCount > 1 ? 's' : ''}` : ''}
-                  onClick={() => setSubView('annonces')}
+          {/* Admin links — préservés */}
+          {isAdmin && (
+            <div className="px-4">
+              <div
+                className="overflow-hidden rounded-2xl border bg-white shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
+                style={{ borderColor: '#F0EAE0' }}
+              >
+                <div className="border-b px-4 pb-1.5 pt-3.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux" style={{ borderColor: '#F0EAE0' }}>
+                  Administration
+                </div>
+                <MenuRow
+                  icon={ICONS.shield}
+                  label="Tableau de bord admin"
+                  sub="Membres, demandes, scraping, inbox"
+                  href="/admin"
                 />
-                <ActionRow
-                  icon="⭐"
-                  label="Événements suivis"
-                  badge={interestCount != null ? `${interestCount}` : ''}
-                  onClick={() => setSubView('mes_events')}
+                <MenuRow
+                  icon={ICONS.star}
+                  label="Hub carousel"
+                  sub="Mise en avant éditoriale"
+                  href="/admin/hub-carousel"
                 />
-                <ActionRow
-                  icon="👥"
-                  label="Mes abonnements"
-                  badge={followingCount != null ? `${followingCount} personne${followingCount && followingCount > 1 ? 's' : ''}` : ''}
-                  onClick={() => setSubView('abonnements')}
-                />
-                <ActionRow
-                  icon="💬"
-                  label="Mes échanges support"
-                  onClick={() => { window.location.href = '/support' }}
-                />
-                <ActionRow
-                  icon="🚀"
-                  label="Visibilité & boost"
-                  badge={plan === 'pro' ? 'Inclus' : ''}
-                  onClick={() => { window.location.href = '/profil/visibilite' }}
+                <MenuRow
+                  icon={ICONS.chat}
+                  label="Tickets support"
+                  sub="Messages des utilisateurs"
+                  href="/admin/support"
+                  badge={supportUnread > 0 ? (supportUnread > 99 ? '99+' : String(supportUnread)) : undefined}
+                  isLast
                 />
               </div>
-            </Card>
+            </div>
+          )}
 
-            {/* Admin */}
-            {isAdmin && (
-              <Link
-                href="/admin"
-                style={{
-                  textDecoration: 'none', color: 'inherit',
-                  backgroundColor: '#1A1209', borderRadius: 18, padding: '18px',
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
-                }}
-              >
-                <span style={{ fontSize: 24 }}>🛡️</span>
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#fff' }}>Tableau de bord admin</p>
-                  <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.65)' }}>Membres, demandes, scraping, inbox</p>
-                </div>
-                <span style={{ color: '#fff', fontSize: 18 }}>›</span>
-              </Link>
-            )}
-
-            {/* Admin — Hub carousel manager */}
-            {isAdmin && (
-              <Link
-                href="/admin/hub-carousel"
-                style={{
-                  textDecoration: 'none', color: 'inherit',
-                  backgroundColor: '#fff', borderRadius: 18, padding: '16px',
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  border: '1px solid #E5DDD2',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-                }}
-              >
-                <span style={{ fontSize: 22 }}>⭐</span>
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#1A1209' }}>Hub carousel</p>
-                  <p style={{ margin: '2px 0 0', fontSize: 11, color: '#8A7A6A' }}>Mise en avant éditoriale</p>
-                </div>
-                <span style={{ color: '#8A7A6A', fontSize: 18 }}>›</span>
-              </Link>
-            )}
-
-            {/* Admin — Tickets support */}
-            {isAdmin && (
-              <Link
-                href="/admin/support"
-                style={{
-                  textDecoration: 'none', color: 'inherit',
-                  backgroundColor: '#fff', borderRadius: 18, padding: '16px',
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  border: '1px solid #E5DDD2',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-                }}
-              >
-                <span style={{ fontSize: 22 }}>💬</span>
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#1A1209' }}>Tickets support</p>
-                  <p style={{ margin: '2px 0 0', fontSize: 11, color: '#8A7A6A' }}>Messages des utilisateurs</p>
-                </div>
-                {supportUnread > 0 && (
-                  <span style={{
-                    minWidth: 22, height: 22, borderRadius: 11,
-                    backgroundColor: '#E53935', color: '#fff',
-                    fontSize: 11, fontWeight: 800,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    padding: '0 7px',
-                  }}>{supportUnread > 99 ? '99+' : supportUnread}</span>
-                )}
-                <span style={{ color: '#8A7A6A', fontSize: 18 }}>›</span>
-              </Link>
-            )}
-
-            {/* Compte — déconnexion */}
-            <Card>
-              <CardLabel>👤 Compte</CardLabel>
-              <button
+          {/* Sign out */}
+          <div className="px-4">
+            <div
+              className="overflow-hidden rounded-2xl border bg-white shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
+              style={{ borderColor: '#F0EAE0' }}
+            >
+              <MenuRow
+                icon={ICONS.logout}
+                label={signingOut ? 'Déconnexion…' : 'Se déconnecter'}
+                sub={user.email ?? undefined}
                 onClick={handleSignOut}
-                disabled={signingOut}
-                style={{
-                  width: '100%', padding: '12px',
-                  background: 'transparent', color: '#C0392B',
-                  border: '1.5px solid #F4C9C2', borderRadius: 12,
-                  fontSize: 13, fontWeight: 800, cursor: signingOut ? 'default' : 'pointer',
-                  fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                }}
-              >
-                🚪 {signingOut ? 'Déconnexion…' : 'Se déconnecter'}
-              </button>
-            </Card>
-          </>
-        )}
+                danger
+                isLast
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
-        {tab === 'reglages' && (
-          <>
-            {/* Thème */}
-            <Card>
-              <CardLabel>🎨 Apparence</CardLabel>
+      {tab === 'reglages' && (
+        <div className="flex flex-col gap-3 pt-2">
+          <div className="px-4">
+            <div
+              className="rounded-2xl border bg-white p-4 shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
+              style={{ borderColor: '#F0EAE0' }}
+            >
+              <div className="mb-3 flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">
+                {ICONS.palette(14)} Apparence
+              </div>
 
-              <SectionTitle>Couleur</SectionTitle>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 14 }}>
+              <div className="mb-2 text-[12px] font-bold text-texte">Couleur</div>
+              <div className="mb-3.5 grid grid-cols-5 gap-2">
                 {COLOR_THEMES.map(t => {
                   const active = theme.colorTheme.id === t.id
                   return (
-                    <button key={t.id} onClick={() => theme.setColorThemeId(t.id)} style={{
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-                      padding: '8px 4px', borderRadius: 12, border: 'none', cursor: 'pointer',
-                      backgroundColor: active ? t.primaryLight : 'transparent',
-                      outline: active ? `2px solid ${t.primary}` : '1.5px solid #EDE8E0',
-                    }}>
-                      <div style={{ width: 34, height: 34, borderRadius: '50%', backgroundColor: t.primary }} />
-                      <span style={{ fontSize: 9, fontWeight: 700, color: active ? t.primary : '#8A8A8A', textAlign: 'center' }}>{t.name}</span>
+                    <button
+                      key={t.id}
+                      onClick={() => theme.setColorThemeId(t.id)}
+                      className="flex flex-col items-center gap-1 rounded-xl border-none p-2"
+                      style={{
+                        backgroundColor: active ? t.primaryLight : 'transparent',
+                        outline: active ? `2px solid ${t.primary}` : '1.5px solid #F0EAE0',
+                      }}
+                    >
+                      <div className="h-8 w-8 rounded-full" style={{ backgroundColor: t.primary }} />
+                      <span className="text-center text-[9px] font-bold" style={{ color: active ? t.primary : '#7A6A5A' }}>
+                        {t.name}
+                      </span>
                     </button>
                   )
                 })}
               </div>
 
-              <SectionTitle>Fond de liste</SectionTitle>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 14 }}>
+              <div className="mb-2 text-[12px] font-bold text-texte">Fond de liste</div>
+              <div className="mb-3.5 grid grid-cols-3 gap-2">
                 {SHEET_BG_OPTIONS.map(opt => {
                   const active = theme.sheetBg.id === opt.id
                   return (
-                    <button key={opt.id} onClick={() => theme.setSheetBgId(opt.id)} style={{
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-                      padding: '8px', borderRadius: 12, border: 'none', cursor: 'pointer',
-                      backgroundColor: active ? 'var(--primary-light)' : 'transparent',
-                      outline: active ? '2px solid var(--primary)' : '1.5px solid #EDE8E0',
-                    }}>
-                      <div style={{ width: 38, height: 22, borderRadius: 6, backgroundColor: opt.bg, border: `1px solid ${opt.border}` }} />
-                      <span style={{ fontSize: 10, fontWeight: 700, color: active ? 'var(--primary)' : '#8A8A8A' }}>{opt.name}</span>
+                    <button
+                      key={opt.id}
+                      onClick={() => theme.setSheetBgId(opt.id)}
+                      className="flex flex-col items-center gap-1.5 rounded-xl border-none p-2"
+                      style={{
+                        backgroundColor: active ? 'var(--primary-light)' : 'transparent',
+                        outline: active ? '2px solid var(--primary)' : '1.5px solid #F0EAE0',
+                      }}
+                    >
+                      <div className="h-[22px] w-[38px] rounded-md border" style={{ backgroundColor: opt.bg, borderColor: opt.border }} />
+                      <span className="text-[10px] font-bold" style={{ color: active ? 'var(--primary)' : '#7A6A5A' }}>
+                        {opt.name}
+                      </span>
                     </button>
                   )
                 })}
               </div>
 
-              <SectionTitle>Style de carte</SectionTitle>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div className="mb-2 text-[12px] font-bold text-texte">Style de carte</div>
+              <div className="flex flex-col gap-1.5">
                 {MAP_STYLES.map(s => {
                   const active = theme.mapStyle.id === s.id
                   return (
-                    <button key={s.id} onClick={() => theme.setMapStyleId(s.id)} style={{
-                      display: 'flex', alignItems: 'center', gap: 12,
-                      padding: '10px 12px', borderRadius: 12, border: 'none', cursor: 'pointer',
-                      backgroundColor: active ? 'var(--primary-light)' : '#FBF7F0',
-                      outline: active ? '2px solid var(--primary)' : '1.5px solid transparent',
-                      textAlign: 'left',
-                    }}>
-                      <div style={{ width: 36, height: 28, borderRadius: 6, backgroundColor: s.previewBg, flexShrink: 0 }} />
-                      <div style={{ flex: 1 }}>
-                        <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: active ? 'var(--primary)' : '#2C1810' }}>{s.name}</p>
-                        <p style={{ margin: '1px 0 0', fontSize: 10, color: '#8A8A8A' }}>{s.description}</p>
+                    <button
+                      key={s.id}
+                      onClick={() => theme.setMapStyleId(s.id)}
+                      className="flex items-center gap-3 rounded-xl border-none px-3 py-2.5 text-left"
+                      style={{
+                        backgroundColor: active ? 'var(--primary-light)' : '#FDFAF5',
+                        outline: active ? '2px solid var(--primary)' : '1.5px solid transparent',
+                      }}
+                    >
+                      <div className="h-7 w-9 shrink-0 rounded-md" style={{ backgroundColor: s.previewBg }} />
+                      <div className="flex-1">
+                        <p className="m-0 text-[12px] font-bold" style={{ color: active ? 'var(--primary)' : '#1A1209' }}>{s.name}</p>
+                        <p className="m-0 mt-px text-[10px] text-texte-doux">{s.description}</p>
                       </div>
-                      {active && <span style={{ color: 'var(--primary)', fontSize: 16 }}>✓</span>}
                     </button>
                   )
                 })}
               </div>
-            </Card>
-
-            {/* Footer info */}
-            <div style={{ textAlign: 'center', padding: '12px 16px', fontSize: 10, color: '#9A8A7A', lineHeight: 1.6 }}>
-              La Place du Village<br />
-              Fait avec ❤️ à Ganges
             </div>
-          </>
-        )}
+          </div>
 
-      </div>
+          <div className="px-4 pb-3 pt-2 text-center text-[10px] leading-[1.6] text-texte-doux">
+            La Place du Village<br />
+            Fait avec soin à Ganges
+          </div>
+        </div>
+      )}
 
+      {/* Modals */}
       {showUpgrade && (
         <SubscriptionModal
           context={{ kind: 'generic' }}
@@ -599,133 +598,106 @@ export default function ProfilView() {
           currentPlan={currentPlan}
         />
       )}
+      {editOpen && (
+        <EditProfileModal
+          initialName={profile?.display_name ?? ''}
+          email={user.email ?? ''}
+          avatarUrl={profile?.avatar_url ?? null}
+          onClose={() => setEditOpen(false)}
+          onSave={async (name) => {
+            if (name.trim() && name.trim() !== profile?.display_name) {
+              await updateDisplayName(name.trim())
+            }
+            setEditOpen(false)
+          }}
+        />
+      )}
     </div>
   )
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// Helpers visuels
-// ────────────────────────────────────────────────────────────────────────────
+/* ─── MenuRow V3 ─────────────────────────────────────────────────────── */
 
-function Card({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{
-      backgroundColor: '#fff', borderRadius: 18, padding: '16px 18px',
-      boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
-    }}>
-      {children}
-    </div>
-  )
-}
-
-function CardLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p style={{
-      fontSize: 11, fontWeight: 800, color: '#7A6A5A',
-      letterSpacing: '0.08em', textTransform: 'uppercase',
-      margin: '0 0 12px',
-    }}>{children}</p>
-  )
-}
-
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <p style={{
-      fontSize: 12, fontWeight: 700, color: '#3C2C20',
-      margin: '4px 0 8px',
-    }}>{children}</p>
-  )
-}
-
-function ActionRow({
-  icon, label, badge, onClick,
-}: { icon: string; label: string; badge?: string; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        padding: '12px 4px', border: 'none', background: 'transparent',
-        cursor: 'pointer', borderTop: '1px solid #F5F0E8',
-        fontFamily: 'inherit', textAlign: 'left', width: '100%',
-      }}
-    >
-      <span style={{ fontSize: 22 }}>{icon}</span>
-      <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: '#1A1209' }}>{label}</span>
-      {badge && <span style={{ fontSize: 11, fontWeight: 700, color: '#7A6A5A', backgroundColor: '#F0EBE0', padding: '3px 9px', borderRadius: 999 }}>{badge}</span>}
-      <span style={{ color: '#C8B8A8', fontSize: 18 }}>›</span>
-    </button>
-  )
-}
-
-function ActionCard({
-  icon, label, sub, onClick,
-}: { icon: string; label: string; sub: string; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 14,
-        padding: '16px 18px', backgroundColor: '#fff',
-        border: 'none', borderRadius: 18, cursor: 'pointer',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
-        fontFamily: 'inherit', textAlign: 'left', width: '100%',
-      }}
-    >
-      <span style={{ fontSize: 28 }}>{icon}</span>
-      <div style={{ flex: 1 }}>
-        <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#1A1209' }}>{label}</p>
-        <p style={{ margin: '2px 0 0', fontSize: 11, color: '#7A6A5A' }}>{sub}</p>
+function MenuRow({
+  icon, label, sub, onClick, href, badge, danger, isLast,
+}: {
+  icon:   IconRenderer
+  label:  string
+  sub?:   string
+  onClick?:() => void
+  href?:  string
+  badge?: string
+  danger?:boolean
+  isLast?:boolean
+}) {
+  const body = (
+    <>
+      <div
+        className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[11px]"
+        style={{
+          backgroundColor: danger ? '#FBE9E5' : '#F7F1E6',
+          color: danger ? '#B53A22' : '#2D5A3D',
+        }}
+      >
+        {icon(18)}
       </div>
-      <span style={{ color: '#C8B8A8', fontSize: 20 }}>›</span>
+      <div className="min-w-0 flex-1 text-left">
+        <div
+          className="text-[14px] font-bold"
+          style={{ color: danger ? '#B53A22' : '#1A1209' }}
+        >
+          {label}
+        </div>
+        {sub && <div className="mt-0.5 truncate text-[11px] text-texte-doux">{sub}</div>}
+      </div>
+      {badge && (
+        <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-extrabold text-white">
+          {badge}
+        </span>
+      )}
+      <span className="text-texte-tres-doux">{ICONS.chev(14)}</span>
+    </>
+  )
+
+  const className = `flex w-full items-center gap-3 bg-transparent px-4 py-3.5 text-inherit no-underline ${
+    !isLast ? 'border-b' : ''
+  }`
+  const style = !isLast ? { borderColor: '#F0EAE0' } : undefined
+
+  if (href) {
+    return (
+      <Link href={href} className={className} style={style}>
+        {body}
+      </Link>
+    )
+  }
+  return (
+    <button onClick={onClick} className={className} style={style}>
+      {body}
     </button>
   )
 }
+
+/* ─── SubViewWrap V3 ─────────────────────────────────────────────────── */
 
 function SubViewWrap({
   title, onBack, children,
 }: { title: string; onBack: () => void; children: React.ReactNode }) {
   return (
-    <div style={{ minHeight: '100%', backgroundColor: 'var(--creme)', fontFamily: 'Inter, sans-serif' }}>
-      <div style={{
-        position: 'sticky', top: 0, zIndex: 10,
-        backgroundColor: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(8px)',
-        borderBottom: '1px solid #EDE8E0',
-        padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12,
-      }}>
-        <button onClick={onBack} style={{
-          width: 36, height: 36, borderRadius: 10,
-          backgroundColor: 'var(--primary-light)', color: 'var(--primary)',
-          border: 'none', fontSize: 18, cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>←</button>
-        <h1 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: '#2C1810', flex: 1 }}>{title}</h1>
+    <div className="min-h-full bg-creme font-inter">
+      <div className="flex items-center gap-2.5 px-4 pt-3.5">
+        <button
+          onClick={onBack}
+          aria-label="Retour"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte shadow-[0_1px_2px_rgba(44,28,16,0.04)]"
+        >
+          {ICONS.back(20)}
+        </button>
+        <h1 className="m-0 flex-1 truncate font-serif text-[18px] leading-none text-texte" style={{ letterSpacing: '-0.01em' }}>
+          {title}
+        </h1>
       </div>
-      <div>{children}</div>
+      <div className="pt-3">{children}</div>
     </div>
   )
 }
-
-// ────────────────────────────────────────────────────────────────────────────
-// Styles partagés
-// ────────────────────────────────────────────────────────────────────────────
-
-const ROW_LINK: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 10,
-  padding: '8px 4px', borderRadius: 10,
-  textDecoration: 'none', color: 'inherit',
-}
-
-const ROW_IMG: React.CSSProperties = {
-  width: 36, height: 36, borderRadius: 10,
-  overflow: 'hidden', flexShrink: 0,
-  backgroundColor: '#E8F2EB',
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-}
-
-const ROW_NAME: React.CSSProperties = {
-  flex: 1, fontSize: 13, fontWeight: 700, color: '#1A1209',
-  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-}
-
-const ROW_ARROW: React.CSSProperties = { color: '#C8B8A8', fontSize: 18, flexShrink: 0 }
