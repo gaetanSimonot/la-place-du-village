@@ -50,75 +50,98 @@ export default function AnnoncesPageClient() {
   const hasEnchere = annonces.some(a => a.type === 'enchere_inversee')
 
   return (
-    <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', fontFamily: 'Inter, sans-serif', paddingBottom: 80 }}>
-      {/* Header sticky */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 20, backgroundColor: 'rgba(242,235,224,0.92)', backdropFilter: 'blur(10px)', borderBottom: '1px solid #E5DDD2' }}>
-        <div style={{ padding: '14px 16px 6px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button onClick={() => router.push('/')} style={{
-              width: 34, height: 34, borderRadius: 10,
-              backgroundColor: 'rgba(255,255,255,0.8)', border: 'none', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#2D5A3D', fontSize: 18, flexShrink: 0,
-              boxShadow: '0 1px 6px rgba(0,0,0,0.1)',
-            }}>←</button>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: '#2C1810', letterSpacing: '-0.02em' }}>Annonces</h1>
-              <p style={{ margin: 0, fontSize: 12, color: '#8A7A6A' }}>Achetez, vendez, échangez près de chez vous</p>
-            </div>
-            <Link
-              href="/annonces/messages"
-              style={{
-                width: 34, height: 34, borderRadius: 10,
-                backgroundColor: 'rgba(255,255,255,0.8)', border: 'none',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#2D5A3D', fontSize: 16,
-                textDecoration: 'none', flexShrink: 0,
-                boxShadow: '0 1px 6px rgba(0,0,0,0.1)',
-              }}
-              title="Mes messages"
-            >💬</Link>
+    <div className="min-h-[100dvh] bg-creme pb-20 font-inter text-texte">
+      <style>{`.pdv-hscroll { scrollbar-width: none; -webkit-overflow-scrolling: touch; } .pdv-hscroll::-webkit-scrollbar { display: none; }`}</style>
+
+      {/* Top bar V3 — back + Annonces + bouton messages avec badge */}
+      <div className="flex items-center justify-between gap-2.5 px-4 pt-3.5">
+        <button
+          onClick={() => router.push('/')}
+          aria-label="Retour"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte shadow-[0_1px_2px_rgba(44,28,16,0.04)]"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"/>
+            <polyline points="12 19 5 12 12 5"/>
+          </svg>
+        </button>
+        <div className="flex min-w-0 flex-1 flex-col items-center gap-px">
+          <div className="font-serif text-[18px] leading-none text-texte" style={{ letterSpacing: '-0.01em' }}>
+            Annonces
+          </div>
+          <div className="flex items-center gap-[3px] text-[11px] font-semibold text-texte-doux">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/>
+              <circle cx="12" cy="10" r="2.5"/>
+            </svg>
+            <span>Près de chez vous</span>
+          </div>
+        </div>
+        <Link
+          href="/annonces/messages"
+          aria-label="Mes messages"
+          className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte no-underline shadow-[0_1px_2px_rgba(44,28,16,0.04)]"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+          </svg>
+        </Link>
+      </div>
+
+      {/* Publier intro */}
+      <div className="px-4 pt-[18px]">
+        <div className="flex items-center gap-3 rounded-2xl border border-bord bg-white px-3 py-3 shadow-[0_1px_4px_rgba(44,28,16,0.04)]">
+          <div className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl bg-primary-light text-primary">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[13px] font-bold leading-[1.2] text-texte">Publier une annonce</div>
+            <div className="mt-0.5 text-[11px] text-texte-doux">Vente, don, troc ou enchère inversée</div>
           </div>
           <Link
             href="/annonces/nouvelle"
-            style={{
-              display: 'block', marginTop: 10,
-              padding: '10px 16px', borderRadius: 12,
-              backgroundColor: '#2D5A3D', color: '#fff',
-              fontSize: 13, fontWeight: 800,
-              textDecoration: 'none', textAlign: 'center',
-              boxShadow: '0 4px 14px rgba(45,90,61,0.25)',
-            }}
-          >+ Publier une annonce</Link>
+            className="shrink-0 whitespace-nowrap rounded-full bg-primary px-3.5 py-2 text-[12px] font-bold text-white no-underline"
+          >
+            Créer
+          </Link>
         </div>
-
-        <AnnonceFilters
-          type={type}
-          categorie={categorie}
-          tri={tri}
-          onTypeChange={setType}
-          onCategorieChange={setCategorie}
-          onTriChange={setTri}
-        />
       </div>
 
-      {/* Liste */}
-      <div style={{ padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Filtres V3 (TypePills + filter/sort) */}
+      <AnnonceFilters
+        type={type}
+        categorie={categorie}
+        tri={tri}
+        onTypeChange={setType}
+        onCategorieChange={setCategorie}
+        onTriChange={setTri}
+      />
+
+      {/* Grid 2-col */}
+      <div className="px-4 pt-2">
         {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
-            <div style={{ width: 28, height: 28, borderRadius: '50%', border: '4px solid #E0D8CE', borderTopColor: '#2D5A3D', animation: 'spin 0.7s linear infinite' }} />
+          <div className="flex justify-center py-10">
+            <div className="h-7 w-7 animate-spin rounded-full border-4 border-bord border-t-primary" />
           </div>
         ) : annonces.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-            <p style={{ fontSize: 32, margin: '0 0 8px' }}>📭</p>
-            <p style={{ color: '#8A7A6A', margin: 0 }}>Aucune annonce ne correspond.</p>
+          <div className="py-14 text-center">
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#C8B8A8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mx-auto mb-3">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <line x1="9" y1="9" x2="15" y2="9"/>
+              <line x1="9" y1="13" x2="15" y2="13"/>
+              <line x1="9" y1="17" x2="13" y2="17"/>
+            </svg>
+            <p className="m-0 text-[14px] font-bold text-texte-doux">Aucune annonce ne correspond.</p>
           </div>
         ) : (
           <>
-            {sponsored.map(a => <AnnonceCard key={a.id} annonce={a} />)}
-            {standard.map(a => <AnnonceCard key={a.id} annonce={a} />)}
-
-            {/* Card explicative enchères à l'envers */}
+            <div className="grid grid-cols-2 gap-2.5">
+              {sponsored.map(a => <AnnonceCard key={a.id} annonce={a} />)}
+              {standard.map(a => <AnnonceCard key={a.id} annonce={a} />)}
+            </div>
             {hasEnchere && <EnchereExplainCard />}
           </>
         )}
@@ -131,25 +154,23 @@ export default function AnnoncesPageClient() {
 
 function EnchereExplainCard() {
   return (
-    <div style={{
-      marginTop: 6,
-      padding: '14px 16px',
-      borderRadius: 18,
-      background: 'linear-gradient(135deg, #E8F2EB 0%, #F2EBE0 100%)',
-      border: '1.5px solid #C5DCC9',
-      display: 'flex', alignItems: 'center', gap: 14,
-    }}>
-      <div style={{ width: 56, height: 56, borderRadius: 14, backgroundColor: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2D5A3D" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M3 20l4-6 4 3 7-9"/>
-          <path d="M17 8h4v4"/>
-        </svg>
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#2D5A3D' }}>Enchères à l&apos;envers</p>
-        <p style={{ margin: '2px 0 0', fontSize: 12, color: '#5A6E60', lineHeight: 1.4 }}>
-          Le prix baisse chaque jour. Plus tu attends, moins c&apos;est cher — mais quelqu&apos;un peut t&apos;avoir devancé.
-        </p>
+    <div className="mt-4">
+      <div
+        className="flex items-center gap-3 rounded-[14px] border px-3.5 py-3"
+        style={{ backgroundColor: '#FFF0E5', borderColor: '#F5C8A8' }}
+      >
+        <div className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-white text-accent">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/>
+            <polyline points="16 17 22 17 22 11"/>
+          </svg>
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] font-extrabold leading-[1.2] text-accent">Enchères à l&apos;envers</div>
+          <p className="mt-0.5 text-[11px] leading-[1.4] text-texte-doux">
+            Le prix baisse chaque jour. Plus tu attends, moins c&apos;est cher — mais quelqu&apos;un peut t&apos;avoir devancé.
+          </p>
+        </div>
       </div>
     </div>
   )

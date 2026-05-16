@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import AnnonceForm from '@/components/AnnonceForm'
+import AnnonceContactModal from '@/components/AnnonceContactModal'
 import BottomNavBar from '@/components/BottomNavBar'
 import FeatureButton, { FeatureModal } from '@/components/FeatureButton'
 import {
@@ -85,6 +86,7 @@ export default function AnnoncePageClient({ id }: Props) {
   const [convs, setConvs]         = useState<ConvSummary[]>([])
   const [showBoostBanner, setShowBoostBanner] = useState(false)
   const [boostModalOpen, setBoostModalOpen]   = useState(false)
+  const [contactModalOpen, setContactModalOpen] = useState(false)
 
   // Détection ?just_created=1 (post-création → propose boost)
   useEffect(() => {
@@ -154,11 +156,17 @@ export default function AnnoncePageClient({ id }: Props) {
     return data
   }
 
-  async function handleContacter() {
+  function handleContacter() {
     if (!user) { openAuthModal(`/annonces/${id}`); return }
+    setError(null)
+    setContactModalOpen(true)
+  }
+
+  async function handleSendMessage(message: string) {
     setAction('contact'); setError(null)
-    const data = await callApi(`/api/annonces/${id}/conversations`, 'POST', { message: 'Bonjour, votre annonce m\'intéresse.' })
+    const data = await callApi(`/api/annonces/${id}/conversations`, 'POST', { message })
     setAction(null)
+    setContactModalOpen(false)
     if (data?.conversation) router.push(`/annonces/conversations/${data.conversation.id}`)
   }
 
@@ -510,6 +518,15 @@ export default function AnnoncePageClient({ id }: Props) {
       )}
 
       <BottomNavBar />
+
+      <AnnonceContactModal
+        open={contactModalOpen}
+        vendeurNom={vendeur?.display_name ?? 'le vendeur'}
+        annonceTitre={annonce.titre}
+        loading={action === 'contact'}
+        onClose={() => setContactModalOpen(false)}
+        onSubmit={handleSendMessage}
+      />
     </div>
   )
 }
