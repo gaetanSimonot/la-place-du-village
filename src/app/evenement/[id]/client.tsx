@@ -1,11 +1,10 @@
 'use client'
-import React from 'react'
-import { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Evenement, isApproxLocation } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
-import Link from 'next/link'
 import ImageLightbox from '@/components/ImageLightbox'
 import CommentSheet from '@/components/CommentSheet'
 import EventEditDrawer from '@/components/EventEditDrawer'
@@ -15,7 +14,7 @@ import { useAuthModal } from '@/contexts/AuthModalContext'
 import { useFavorites } from '@/hooks/useFavorites'
 import FeatureButton from '@/components/FeatureButton'
 
-const LINK_STYLE = { color: '#C4622D', textDecoration: 'underline', wordBreak: 'break-all' } as const
+const LINK_STYLE = { color: '#C84B2F', textDecoration: 'underline', wordBreak: 'break-all' } as const
 
 function linkify(text: string): React.ReactNode {
   const urlRe = /(https?:\/\/[^\s]+|www\.[^\s]+\.[^\s]+)/g
@@ -45,17 +44,354 @@ function renderContact(contact: string): React.ReactNode {
   return <>{linkify(s)}</>
 }
 
-/* ── Barre d'actions Facebook-style ── */
-const BTN: React.CSSProperties = {
-  flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-  gap: 4, padding: '10px 4px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer',
-  WebkitTapHighlightColor: 'transparent', touchAction: 'none',
-}
-const LBL: React.CSSProperties = {
-  fontSize: 11, fontWeight: 600, fontFamily: 'Inter, sans-serif',
+/* ─── Page principale ─────────────────────────────────────────────────── */
+
+export default function EvenementPageClient({ id }: { id: string }) {
+  const [evt, setEvt]           = useState<Evenement | null>(null)
+  const [loading, setLoading]   = useState(true)
+  const [editing, setEditing]       = useState(false)
+  const [commentsOpen, setCommentsOpen] = useState(false)
+  const [commentCount, setCommentCount] = useState(0)
+  const isAdmin = useAdminSession()
+
+  useEffect(() => {
+    supabase.from('evenements').select('*, lieux(*)').eq('id', id).single()
+      .then(({ data }) => {
+        if (data) setEvt(data as Evenement)
+        setLoading(false)
+      })
+    supabase.from('comments').select('id', { count: 'exact', head: true }).eq('evenement_id', id)
+      .then(({ count }) => setCommentCount(count ?? 0))
+  }, [id])
+
+  if (loading) return (
+    <div className="flex min-h-[100dvh] items-center justify-center bg-creme">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-bord border-t-primary" />
+    </div>
+  )
+  if (!evt) return (
+    <div className="flex min-h-[100dvh] items-center justify-center bg-creme font-inter">
+      <p className="text-texte-doux">Événement introuvable</p>
+    </div>
+  )
+
+  const cat   = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
+  const lieu  = evt.lieux
+  const mapsUrl = lieu?.lat && lieu?.lng
+    ? `https://www.google.com/maps/dir/?api=1&destination=${lieu.lat},${lieu.lng}`
+    : lieu?.adresse
+    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(lieu.adresse)}`
+    : null
+
+  const handleShare = async () => {
+    const url = `${window.location.origin}/evenement/${evt.id}`
+    if (navigator.share) {
+      try { await navigator.share({ title: evt.titre, text: evt.titre, url }) } catch {}
+    } else {
+      await navigator.clipboard.writeText(url).catch(() => {})
+    }
+  }
+
+  return (
+    <div className="relative min-h-[100dvh] bg-creme font-inter text-texte">
+      {/* ── Hero photo + floating actions ── */}
+      <div className="relative h-[300px] w-full overflow-hidden bg-[#F0EBE3]">
+        {evt.image_url ? (
+          <ImageLightbox src={evt.image_url} alt={evt.titre} objectPosition={evt.image_position ?? '50% 50%'} />
+        ) : (
+          <div
+            className="h-full w-full"
+            style={{ background: `linear-gradient(135deg, ${cat.color} 0%, #1A3A2A 100%)` }}
+          />
+        )}
+        {/* Bottom gradient */}
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-[120px]"
+          style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.35) 100%)' }}
+        />
+        {/* Floating top actions */}
+        <FloatingTopActions
+          onShare={handleShare}
+          adminExtra={isAdmin ? (
+            <div className="flex items-center gap-2">
+              <FeatureButton contentType="evenement" contentId={id} ownerUserId={(evt as { user_id?: string | null }).user_id ?? null} />
+              <button
+                onClick={() => setEditing(true)}
+                aria-label="Éditer"
+                className="flex h-[38px] w-[38px] items-center justify-center rounded-full border-none bg-white/92 text-texte shadow-[0_2px_8px_rgba(0,0,0,0.15)] backdrop-blur"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 20h9"/>
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                </svg>
+              </button>
+            </div>
+          ) : null}
+        />
+        {/* Type badge bottom-left */}
+        <span
+          className="absolute bottom-3.5 left-3.5 z-[3] inline-flex items-center gap-1 rounded-full bg-primary-light/95 px-2.5 py-[5px] text-[10px] font-extrabold uppercase tracking-[0.08em] text-primary"
+          style={{ backdropFilter: 'blur(4px)' }}
+        >
+          {cat.label}
+        </span>
+      </div>
+
+      {/* ── ContentCard sliding up ── */}
+      <div className="relative z-[4] -mt-5 rounded-t-[24px] bg-white pb-6">
+        {/* Title block */}
+        <div className="px-4 pt-[18px]">
+          <h1
+            className="m-0 font-serif text-[30px] font-normal leading-[1.05] text-texte"
+            style={{ letterSpacing: '-0.02em' }}
+          >
+            {evt.titre}
+          </h1>
+          {evt.submitted_by && evt.submitted_by_name && (
+            <p className="mt-2 text-[11px] text-texte-tres-doux">
+              Proposé par{' '}
+              <Link href={`/profil/${evt.submitted_by}`} className="font-semibold text-accent hover:underline">
+                {evt.submitted_by_name}
+              </Link>
+            </p>
+          )}
+        </div>
+
+        {/* Info cards stack */}
+        <div className="flex flex-col gap-2.5 px-4 pt-[18px]">
+          {evt.date_debut && (
+            <InfoCard
+              icon={<IconCalendarLg />}
+              title={formatDate(evt.date_debut, 'long') + (evt.heure ? ` · ${evt.heure.slice(0,5)}` : '')}
+              subtitle={evt.date_fin && evt.date_fin !== evt.date_debut ? `Jusqu'au ${formatDate(evt.date_fin, 'long')}` : undefined}
+            />
+          )}
+          {lieu && (
+            <InfoCard
+              icon={<IconPinLg />}
+              title={lieu.nom ?? 'Lieu'}
+              subtitle={lieu.adresse ?? lieu.commune ?? undefined}
+              action={mapsUrl ? 'Itinéraire' : undefined}
+              actionHref={mapsUrl ?? undefined}
+              warning={isApproxLocation(lieu) ? 'Localisation approximative' : undefined}
+            />
+          )}
+          {evt.prix && (
+            <InfoCard
+              icon={<IconTicket />}
+              title={evt.prix}
+            />
+          )}
+        </div>
+
+        {/* Social action bar */}
+        <ActionBar evt={evt} commentCount={commentCount} onCommentOpen={() => setCommentsOpen(true)} onShare={handleShare} />
+
+        {/* Description */}
+        {evt.description && (
+          <>
+            <div className="h-[22px]" />
+            <Divider />
+            <div className="px-4 pt-[18px]">
+              <div className="mb-2 text-[11px] font-extrabold tracking-[0.1em] text-texte-doux">À PROPOS</div>
+              <p className="m-0 whitespace-pre-wrap text-[14px] leading-[1.6] text-texte">
+                {linkify(evt.description)}
+              </p>
+            </div>
+          </>
+        )}
+
+        {/* Contact */}
+        {(evt.contact || evt.organisateurs) && (
+          <>
+            <div className="h-[22px]" />
+            <Divider />
+            <div className="px-4 pt-[18px]">
+              <div className="mb-2 text-[11px] font-extrabold tracking-[0.1em] text-texte-doux">CONTACT</div>
+              <div className="flex flex-col gap-1.5 text-[14px] text-texte">
+                {evt.organisateurs && <p className="m-0">{renderContact(evt.organisateurs)}</p>}
+                {evt.contact && <p className="m-0">{renderContact(evt.contact)}</p>}
+              </div>
+            </div>
+          </>
+        )}
+
+        {evt.source && /^https?:\/\//i.test(evt.source) && (
+          <>
+            <div className="h-[22px]" />
+            <Divider />
+            <div className="px-4 pt-[18px]">
+              <a
+                href={evt.source}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[13px] font-semibold text-accent underline"
+                style={{ wordBreak: 'break-all' }}
+              >
+                Voir la source originale
+              </a>
+            </div>
+          </>
+        )}
+
+        <div className="h-7" />
+      </div>
+
+      {/* ── Sticky bottom bar ── */}
+      <div className="sticky bottom-0 left-0 right-0 z-30 flex items-center gap-2.5 border-t border-[#EDE8E0] bg-white px-4 py-3 shadow-[0_-4px_16px_rgba(44,28,16,0.04)]">
+        <button
+          onClick={handleShare}
+          aria-label="Partager"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] border border-bord bg-white text-texte"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+            <polyline points="16 6 12 2 8 6"/>
+            <line x1="12" y1="2" x2="12" y2="15"/>
+          </svg>
+        </button>
+        {mapsUrl ? (
+          <a
+            href={mapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex h-12 flex-1 items-center justify-center gap-2 rounded-[14px] bg-primary text-[14px] font-bold text-white no-underline"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+            </svg>
+            Y aller
+          </a>
+        ) : (
+          <button
+            onClick={() => setCommentsOpen(true)}
+            className="flex h-12 flex-1 items-center justify-center gap-2 rounded-[14px] border-none bg-primary text-[14px] font-bold text-white"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            Commentaires
+          </button>
+        )}
+      </div>
+
+      {/* Commentaires */}
+      <CommentSheet
+        evenementId={evt.id}
+        open={commentsOpen}
+        onClose={() => setCommentsOpen(false)}
+        onCountChange={setCommentCount}
+      />
+
+      {editing && (
+        <EventEditDrawer
+          evenementId={evt.id}
+          onClose={() => setEditing(false)}
+          onSaved={() => {
+            setEditing(false)
+            supabase.from('evenements').select('*, lieux(*)').eq('id', id).single()
+              .then(({ data }) => { if (data) setEvt(data as Evenement) })
+          }}
+        />
+      )}
+    </div>
+  )
 }
 
-function ActionBar({ evt, commentCount, onCommentOpen }: { evt: Evenement; commentCount: number; onCommentOpen: () => void }) {
+/* ─── Floating top actions ────────────────────────────────────────────── */
+
+function FloatingTopActions({ onShare, adminExtra }: { onShare: () => void; adminExtra?: React.ReactNode }) {
+  return (
+    <div className="absolute left-0 right-0 top-12 z-[6] flex items-center justify-between px-3.5">
+      <button
+        onClick={() => window.history.back()}
+        aria-label="Retour"
+        className="flex h-[38px] w-[38px] items-center justify-center rounded-full border-none bg-white/92 text-texte shadow-[0_2px_8px_rgba(0,0,0,0.15)] backdrop-blur"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12"/>
+          <polyline points="12 19 5 12 12 5"/>
+        </svg>
+      </button>
+      <div className="flex items-center gap-2">
+        {adminExtra}
+        <button
+          onClick={onShare}
+          aria-label="Partager"
+          className="flex h-[38px] w-[38px] items-center justify-center rounded-full border-none bg-white/92 text-texte shadow-[0_2px_8px_rgba(0,0,0,0.15)] backdrop-blur"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+            <polyline points="16 6 12 2 8 6"/>
+            <line x1="12" y1="2" x2="12" y2="15"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ─── InfoCard (date / lieu / prix) ───────────────────────────────────── */
+
+function InfoCard({
+  icon, title, subtitle, action, actionHref, warning,
+}: {
+  icon: React.ReactNode
+  title: string
+  subtitle?: string
+  action?: string
+  actionHref?: string
+  warning?: string
+}) {
+  return (
+    <div
+      className="flex items-center gap-3 rounded-[14px] border bg-white px-3.5 py-3 shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
+      style={{ borderColor: '#F0EAE0' }}
+    >
+      <div className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[12px] bg-cremeDeep text-primary">
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[13px] font-bold leading-[1.2] text-texte">{title}</div>
+        {subtitle && (
+          <div className="mt-0.5 truncate text-[11px] text-texte-doux">{subtitle}</div>
+        )}
+        {warning && (
+          <div className="mt-1 inline-block rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-bold text-accent">
+            {warning}
+          </div>
+        )}
+      </div>
+      {action && actionHref && (
+        <a
+          href={actionHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="shrink-0 rounded-full bg-cremeDeep px-3 py-1.5 text-[11px] font-bold text-primary no-underline"
+        >
+          {action}
+        </a>
+      )}
+    </div>
+  )
+}
+
+/* ─── Divider ─────────────────────────────────────────────────────────── */
+
+function Divider() {
+  return <div className="my-1 h-px" style={{ background: '#F0EAE0' }} />
+}
+
+/* ─── ActionBar V3 (Favori / Partager / Intéressé / Commenter / Utile) ── */
+
+function ActionBar({
+  evt, commentCount, onCommentOpen, onShare,
+}: {
+  evt: Evenement
+  commentCount: number
+  onCommentOpen: () => void
+  onShare: () => void
+}) {
   const { isFav, toggle: toggleFav } = useFavorites()
   const { user } = useAuth()
   const { openAuthModal } = useAuthModal()
@@ -65,7 +401,6 @@ function ActionBar({ evt, commentCount, onCommentOpen }: { evt: Evenement; comme
   const [interested, setInterested]         = useState(false)
   const [interestCount, setInterestCount]   = useState(0)
   const [interestLoading, setInterestLoading] = useState(false)
-  const [toast, setToast]                   = useState<string | null>(null)
   const [voters, setVoters]                 = useState<{ id: string; name: string }[] | null>(null)
   const [loadingVoters, setLoadingVoters]   = useState(false)
   const lpTimer   = useRef<ReturnType<typeof setTimeout>>()
@@ -86,17 +421,6 @@ function ActionBar({ evt, commentCount, onCommentOpen }: { evt: Evenement; comme
       .then(({ data }) => setInterested(!!data))
   }, [user, evt.id])
 
-  const showToast = (msg: string) => {
-    setToast(null)
-    requestAnimationFrame(() => setToast(msg))
-    setTimeout(() => setToast(null), 1800)
-  }
-
-  const handleFav = () => {
-    toggleFav(evt.id)
-    showToast(!fav ? '❤️ Ajouté aux favoris' : 'Retiré des favoris')
-  }
-
   const handleInterest = async () => {
     if (!user) { openAuthModal(); return }
     if (interestLoading) return
@@ -105,25 +429,12 @@ function ActionBar({ evt, commentCount, onCommentOpen }: { evt: Evenement; comme
       await supabase.from('interests').delete().eq('evenement_id', evt.id).eq('user_id', user.id)
       setInterested(false)
       setInterestCount(p => Math.max(0, p - 1))
-      showToast('Retiré')
     } else {
       await supabase.from('interests').insert({ evenement_id: evt.id, user_id: user.id })
       setInterested(true)
       setInterestCount(p => p + 1)
-      showToast('⭐ Marqué comme intéressé')
     }
     setInterestLoading(false)
-  }
-
-  const handleShare = async () => {
-    const url = `${window.location.origin}/evenement/${evt.id}`
-    const cat = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
-    if (navigator.share) {
-      try { await navigator.share({ title: evt.titre, text: `${cat.emoji} ${evt.titre}`, url }) } catch {}
-    } else {
-      await navigator.clipboard.writeText(url).catch(() => {})
-      showToast('Lien copié !')
-    }
   }
 
   const handleVote = async () => {
@@ -165,325 +476,199 @@ function ActionBar({ evt, commentCount, onCommentOpen }: { evt: Evenement; comme
   }
 
   return (
-    <div style={{ position: 'relative', backgroundColor: '#fff' }}>
-      <style>{`
-        @keyframes toastPop {
-          0%  { opacity:0; transform:translateX(-50%) translateY(6px) scale(.94) }
-          18% { opacity:1; transform:translateX(-50%) translateY(0)   scale(1)   }
-          75% { opacity:1; transform:translateX(-50%) translateY(0)   scale(1)   }
-          100%{ opacity:0; transform:translateX(-50%) translateY(-4px) scale(.96) }
-        }
-      `}</style>
-
-      {/* Toast */}
-      {toast && (
-        <div key={toast + Date.now()} style={{
-          position: 'absolute', top: -34, left: '50%',
-          backgroundColor: 'rgba(18,18,18,0.82)', color: '#fff',
-          fontSize: 12, fontWeight: 600, padding: '6px 16px', borderRadius: 999,
-          whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 10,
-          fontFamily: 'Inter, sans-serif', letterSpacing: '0.01em',
-          animation: 'toastPop 1.8s ease forwards',
-        }}>{toast}</div>
-      )}
-
-      {/* Icônes */}
-      <div style={{
-        display: 'flex',
-        borderTop: '1px solid #EDE8E0', borderBottom: '1px solid #EDE8E0',
-      }}>
-        {/* Favori */}
-        <button onClick={handleFav} style={BTN}>
-          <svg width="21" height="21" viewBox="0 0 24 24" fill={fav ? '#EC407A' : 'none'} stroke={fav ? '#EC407A' : '#9CA3AF'} strokeWidth="2">
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-          </svg>
-          <span style={{ ...LBL, color: fav ? '#EC407A' : '#9CA3AF' }}>Favori</span>
-        </button>
-
-        {/* Partager */}
-        <button onClick={handleShare} style={BTN}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-          </svg>
-          <span style={{ ...LBL, color: '#9CA3AF' }}>Partager</span>
-        </button>
-
-        {/* Intéressé */}
-        <button onClick={handleInterest} disabled={interestLoading} style={BTN}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill={interested ? '#F59E0B' : 'none'} stroke={interested ? '#F59E0B' : '#9CA3AF'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-            </svg>
-            {interestCount > 0 && (
-              <span style={{ fontSize: 13, fontWeight: 700, color: interested ? '#F59E0B' : '#9CA3AF', lineHeight: 1 }}>{interestCount}</span>
-            )}
-          </div>
-          <span style={{ ...LBL, color: interested ? '#F59E0B' : '#9CA3AF' }}>Intéressé</span>
-        </button>
-
-        {/* Commenter */}
-        <button onClick={onCommentOpen} style={BTN}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg>
-            {commentCount > 0 && (
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#9CA3AF', lineHeight: 1 }}>{commentCount}</span>
-            )}
-          </div>
-          <span style={{ ...LBL, color: '#9CA3AF' }}>Commenter</span>
-        </button>
-
-        {/* Utile — long press → voters */}
-        <button
-          onClick={handleVote}
-          onPointerDown={lpStart(fetchVoters)}
-          onPointerUp={lpEnd}
-          onPointerCancel={lpEnd}
-          disabled={voteLoading}
-          style={BTN}
+    <>
+      <div className="px-4 pt-[18px]">
+        <div
+          className="flex items-stretch overflow-hidden rounded-[14px] border bg-white shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
+          style={{ borderColor: '#F0EAE0' }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill={voted ? 'var(--primary)' : 'none'} stroke={voted ? 'var(--primary)' : '#9CA3AF'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/>
-              <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
-            </svg>
-            {voteCount > 0 && (
-              <span style={{ fontSize: 13, fontWeight: 700, color: voted ? 'var(--primary)' : '#9CA3AF', lineHeight: 1 }}>
-                {voteCount}
-              </span>
+          <ActionBtn
+            label="Intéressé"
+            count={interestCount}
+            active={interested}
+            disabled={interestLoading}
+            onClick={handleInterest}
+            icon={(active) => (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+              </svg>
             )}
-          </div>
-          <span style={{ ...LBL, color: voted ? 'var(--primary)' : '#9CA3AF' }}>Utile</span>
-        </button>
+          />
+          <Sep />
+          <ActionBtn
+            label="Partager"
+            onClick={onShare}
+            icon={() => (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+                <polyline points="16 6 12 2 8 6"/>
+                <line x1="12" y1="2" x2="12" y2="15"/>
+              </svg>
+            )}
+          />
+          <Sep />
+          <ActionBtn
+            label="Commenter"
+            count={commentCount}
+            onClick={onCommentOpen}
+            icon={() => (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+            )}
+          />
+          <Sep />
+          <ActionBtnLP
+            label="Utile"
+            count={voteCount}
+            active={voted}
+            disabled={voteLoading}
+            onClick={handleVote}
+            onLongPress={fetchVoters}
+            lpStart={lpStart}
+            lpEnd={lpEnd}
+            icon={(active) => (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3z"/>
+                <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+              </svg>
+            )}
+          />
+          <Sep />
+          <ActionBtn
+            label="Favori"
+            active={fav}
+            onClick={() => toggleFav(evt.id)}
+            icon={(active) => (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+              </svg>
+            )}
+          />
+        </div>
       </div>
 
       {/* Popup voters (long press 👍) */}
       {voters !== null && (
         <>
-          <div onClick={() => setVoters(null)} style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'rgba(0,0,0,0.35)' }} />
-          <div style={{
-            position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 201,
-            backgroundColor: '#fff', borderRadius: '20px 20px 0 0',
-            padding: '16px 20px 44px', fontFamily: 'Inter, sans-serif',
-          }}>
-            <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '0 auto 16px' }} />
-            <p style={{ fontWeight: 700, fontSize: 15, color: '#2C1810', marginBottom: 14 }}>
-              👍 {voteCount} personne{voteCount !== 1 ? 's' : ''} trouve ça utile
+          <div onClick={() => setVoters(null)} className="fixed inset-0 z-[200] bg-black/35" />
+          <div className="fixed bottom-0 left-0 right-0 z-[201] rounded-t-[20px] bg-white px-5 pb-11 pt-4 font-inter">
+            <div className="mx-auto mb-4 h-1 w-9 rounded-full bg-[#D1CCC4]" />
+            <p className="mb-3.5 text-[15px] font-bold text-texte">
+              {voteCount} personne{voteCount !== 1 ? 's' : ''} trouve ça utile
             </p>
             {loadingVoters ? (
-              <div style={{ textAlign: 'center', padding: '10px 0' }}>
-                <div style={{ width: 24, height: 24, borderRadius: '50%', border: '3px solid #E0D8CE', borderTopColor: 'var(--primary)', animation: 'spin 0.7s linear infinite', margin: '0 auto' }} />
+              <div className="py-2 text-center">
+                <div className="mx-auto h-6 w-6 animate-spin rounded-full border-[3px] border-bord border-t-primary" />
               </div>
             ) : voters.length === 0 ? (
-              <p style={{ fontSize: 13, color: '#9A8E82' }}>Personne pour l&apos;instant.</p>
+              <p className="text-[13px] text-texte-doux">Personne pour l&apos;instant.</p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div className="flex flex-col gap-2.5">
                 {voters.map((p, i) => (
-                  <Link key={i} href={`/profil/${p.id}`} onClick={() => setVoters(null)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-                    <div style={{
-                      width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
-                      backgroundColor: 'var(--primary-light)', color: 'var(--primary)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontWeight: 800, fontSize: 14, fontFamily: 'Inter, sans-serif',
-                    }}>{p.name[0].toUpperCase()}</div>
-                    <span style={{ fontSize: 14, color: '#2C1810', fontWeight: 500 }}>{p.name}</span>
+                  <Link
+                    key={i}
+                    href={`/profil/${p.id}`}
+                    onClick={() => setVoters(null)}
+                    className="flex items-center gap-2.5 text-[14px] text-texte no-underline"
+                  >
+                    <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-primary-light text-[14px] font-extrabold text-primary">
+                      {p.name[0].toUpperCase()}
+                    </div>
+                    {p.name}
                   </Link>
                 ))}
               </div>
             )}
-            <button onClick={() => setVoters(null)} style={{
-              width: '100%', marginTop: 18, padding: '12px', borderRadius: 14, border: 'none',
-              backgroundColor: '#F5F1EC', color: '#6B7280', fontWeight: 600, fontSize: 14,
-              cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-            }}>Fermer</button>
+            <button
+              onClick={() => setVoters(null)}
+              className="mt-4 w-full rounded-2xl border-none bg-cremeDeep py-3 text-[14px] font-semibold text-texte-doux"
+            >
+              Fermer
+            </button>
           </div>
         </>
       )}
-    </div>
+    </>
   )
 }
 
-/* ── Page principale ── */
-export default function EvenementPageClient({ id }: { id: string }) {
-  const [evt, setEvt]           = useState<Evenement | null>(null)
-  const [loading, setLoading]   = useState(true)
-  const [editing, setEditing]       = useState(false)
-  const [commentsOpen, setCommentsOpen] = useState(false)
-  const [commentCount, setCommentCount] = useState(0)
-  const isAdmin = useAdminSession()
-
-  useEffect(() => {
-    supabase.from('evenements').select('*, lieux(*)').eq('id', id).single()
-      .then(({ data }) => {
-        if (data) setEvt(data as Evenement)
-        setLoading(false)
-      })
-    supabase.from('comments').select('id', { count: 'exact', head: true }).eq('evenement_id', id)
-      .then(({ count }) => setCommentCount(count ?? 0))
-  }, [id])
-
-  if (loading) return (
-    <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FBF7F0' }}>
-      <div style={{ width: 32, height: 32, borderRadius: '50%', border: '4px solid #E0D8CE', borderTopColor: '#C4622D', animation: 'spin 0.7s linear infinite' }} />
-    </div>
-  )
-
-  if (!evt) return (
-    <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FBF7F0' }}>
-      <p style={{ color: '#8A8A8A' }}>Événement introuvable</p>
-    </div>
-  )
-
-  const cat    = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
-  const lieu   = evt.lieux
-  const mapsUrl = lieu?.lat && lieu?.lng
-    ? `https://www.google.com/maps/dir/?api=1&destination=${lieu.lat},${lieu.lng}`
-    : lieu?.adresse
-    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(lieu.adresse)}`
-    : null
-
+function ActionBtn({
+  label, count, active, disabled, onClick, icon,
+}: {
+  label:    string
+  count?:   number
+  active?:  boolean
+  disabled?:boolean
+  onClick:  () => void
+  icon:     (active: boolean) => React.ReactNode
+}) {
   return (
-    <div className="min-h-screen bg-[#FBF7F0]">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-white border-b border-[#E8E0D5] px-4 py-3 flex items-center gap-3">
-        <Link href="/" className="text-[#C4622D] font-bold text-2xl leading-none">←</Link>
-        <h1 className="font-bold text-[#2C1810] flex-1 truncate text-base">{evt.titre}</h1>
-        {isAdmin && (
-          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-            <FeatureButton contentType="evenement" contentId={id} ownerUserId={(evt as { user_id?: string | null }).user_id ?? null} />
-            <button onClick={() => setEditing(true)}
-              style={{ fontSize: 11, fontWeight: 700, color: '#C4622D', border: '1px solid #C4622D', borderRadius: 999, padding: '4px 12px', backgroundColor: 'transparent', cursor: 'pointer' }}>
-              ✏️ Éditer
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Photo */}
-      {evt.image_url && <ImageLightbox src={evt.image_url} alt={evt.titre} objectPosition={evt.image_position ?? '50% 50%'} />}
-
-      {/* Barre d'actions */}
-      <ActionBar evt={evt} commentCount={commentCount} onCommentOpen={() => setCommentsOpen(true)} />
-
-      {/* Contenu */}
-      <div className="p-4 space-y-3 pb-8">
-        <div>
-          <span className="inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-1 rounded-full text-white mb-2"
-            style={{ backgroundColor: cat.color }}>
-            {cat.emoji} {cat.label}
-          </span>
-          <h2 className="text-2xl font-bold text-[#2C1810] leading-tight">{evt.titre}</h2>
-          {evt.submitted_by && evt.submitted_by_name && (
-            <p className="text-xs text-gray-400 mt-1">
-              Proposé par{' '}
-              <Link
-                href={`/profil/${evt.submitted_by}`}
-                className="text-[#C4622D] font-medium hover:underline"
-              >
-                {evt.submitted_by_name}
-              </Link>
-            </p>
-          )}
-        </div>
-
-        <div className="bg-white rounded-2xl p-4 space-y-2.5">
-          {evt.date_debut && (
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-base">📅</span>
-              <span className="font-medium">{formatDate(evt.date_debut, 'long')}</span>
-            </div>
-          )}
-          {evt.date_fin && evt.date_fin !== evt.date_debut && (
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-base">📅</span>
-              <span className="text-gray-500">jusqu&apos;au {formatDate(evt.date_fin, 'long')}</span>
-            </div>
-          )}
-          {evt.heure && (
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-base">🕐</span>
-              <span className="font-medium">{evt.heure.slice(0, 5)}</span>
-            </div>
-          )}
-          {lieu && (
-            <div className="flex items-start gap-2 text-sm">
-              <span className="text-base mt-0.5">📍</span>
-              <div>
-                <span className="font-medium">{lieu.nom}</span>
-                {isApproxLocation(lieu) && (
-                  <span className="ml-2 text-xs bg-orange-100 text-orange-500 font-semibold px-1.5 py-0.5 rounded-full">
-                    localisation approximative
-                  </span>
-                )}
-                {lieu.adresse && <p className="text-gray-500 text-xs">{lieu.adresse}</p>}
-                {lieu.commune && !lieu.adresse && <p className="text-gray-500 text-xs">{lieu.commune}</p>}
-              </div>
-            </div>
-          )}
-          {evt.prix && (
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-base">💶</span>
-              <span className="font-medium">{evt.prix}</span>
-            </div>
-          )}
-        </div>
-
-        {evt.description && (
-          <div className="bg-white rounded-2xl p-4">
-            <h3 className="font-bold text-[#2C1810] mb-2">À propos</h3>
-            <p className="text-sm text-gray-600 leading-relaxed" style={{ whiteSpace: 'pre-wrap' }}>{linkify(evt.description)}</p>
-          </div>
-        )}
-
-        {(evt.contact || evt.organisateurs) && (
-          <div className="bg-white rounded-2xl p-4 space-y-1.5">
-            <h3 className="font-bold text-[#2C1810] mb-1">Contact</h3>
-            {evt.organisateurs && <p className="text-sm text-gray-600">🏛️ {renderContact(evt.organisateurs)}</p>}
-            {evt.contact && <p className="text-sm text-gray-600">📞 {renderContact(evt.contact)}</p>}
-          </div>
-        )}
-
-        {evt.source && /^https?:\/\//i.test(evt.source) && (
-          <div className="bg-white rounded-2xl p-4">
-            <a href={evt.source} target="_blank" rel="noopener noreferrer"
-              className="text-sm font-medium"
-              style={{ color: '#C4622D', textDecoration: 'underline', wordBreak: 'break-all' }}>
-              🔗 Voir la source
-            </a>
-          </div>
-        )}
-
-        {mapsUrl && (
-          <a href={mapsUrl} target="_blank" rel="noopener noreferrer"
-            className="block w-full bg-[#C4622D] text-white text-center py-4 rounded-2xl font-bold text-base shadow-md active:bg-[#A8521E] transition-colors">
-            🗺️ Y aller
-          </a>
-        )}
-      </div>
-
-      {/* Commentaires */}
-      <CommentSheet
-        evenementId={evt.id}
-        open={commentsOpen}
-        onClose={() => setCommentsOpen(false)}
-        onCountChange={setCommentCount}
-      />
-
-      {editing && (
-        <EventEditDrawer
-          evenementId={evt.id}
-          onClose={() => setEditing(false)}
-          onSaved={() => {
-            setEditing(false)
-            supabase.from('evenements').select('*, lieux(*)').eq('id', id).single()
-              .then(({ data }) => { if (data) setEvt(data as Evenement) })
-          }}
-        />
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 border-none bg-transparent px-1 py-3 ${
+        active ? 'text-primary' : 'text-texte'
+      }`}
+    >
+      {icon(!!active)}
+      <span className={`text-[10px] font-semibold leading-none ${active ? 'text-primary' : 'text-texte-doux'}`}>{label}</span>
+      {typeof count === 'number' && count > 0 && (
+        <span className={`text-[10px] font-bold leading-none ${active ? 'text-primary' : 'text-texte'}`}>{count}</span>
       )}
-
-    </div>
+    </button>
   )
 }
+
+function ActionBtnLP(props: React.ComponentProps<typeof ActionBtn> & {
+  onLongPress: () => void
+  lpStart: (cb: () => void) => (e: React.PointerEvent) => void
+  lpEnd: () => void
+}) {
+  const { onLongPress, lpStart, lpEnd, ...rest } = props
+  return (
+    <button
+      onClick={rest.onClick}
+      disabled={rest.disabled}
+      onPointerDown={lpStart(onLongPress)}
+      onPointerUp={lpEnd}
+      onPointerCancel={lpEnd}
+      className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 border-none bg-transparent px-1 py-3 ${
+        rest.active ? 'text-primary' : 'text-texte'
+      }`}
+    >
+      {rest.icon(!!rest.active)}
+      <span className={`text-[10px] font-semibold leading-none ${rest.active ? 'text-primary' : 'text-texte-doux'}`}>{rest.label}</span>
+      {typeof rest.count === 'number' && rest.count > 0 && (
+        <span className={`text-[10px] font-bold leading-none ${rest.active ? 'text-primary' : 'text-texte'}`}>{rest.count}</span>
+      )}
+    </button>
+  )
+}
+
+function Sep() {
+  return <div className="w-px self-stretch" style={{ background: '#F0EAE0', margin: '10px 0' }} />
+}
+
+/* ─── Icons ──────────────────────────────────────────────────────────── */
+
+const IconCalendarLg = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="5" width="18" height="16" rx="2"/>
+    <line x1="3" y1="10" x2="21" y2="10"/>
+    <line x1="8" y1="3" x2="8" y2="7"/>
+    <line x1="16" y1="3" x2="16" y2="7"/>
+  </svg>
+)
+const IconPinLg = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/>
+    <circle cx="12" cy="10" r="2.5"/>
+  </svg>
+)
+const IconTicket = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4z"/>
+    <line x1="13" y1="5" x2="13" y2="19"/>
+  </svg>
+)

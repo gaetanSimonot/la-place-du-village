@@ -258,24 +258,58 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
   const mapsUrl = etab.lat && etab.lng ? `https://www.google.com/maps/dir/?api=1&destination=${etab.lat},${etab.lng}` : etab.adresse ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(etab.adresse)}` : null
   const commentCount = comments.length
 
-  const BTN: React.CSSProperties = { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '13px 4px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }
-  const LBL: React.CSSProperties = { fontSize: 11, fontWeight: 600, fontFamily: 'Inter, sans-serif' }
-  const CARD: React.CSSProperties = { backgroundColor: '#fff', borderRadius: 16, padding: '16px 18px', boxShadow: '0 1px 8px rgba(44,28,16,0.08)' }
+  const BTN: React.CSSProperties = { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '12px 4px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', WebkitTapHighlightColor: 'transparent', minWidth: 0 }
+  const LBL: React.CSSProperties = { fontSize: 10, fontWeight: 600, fontFamily: 'Inter, sans-serif', lineHeight: 1 }
+  // V3 — card unifiée
+  const CARD: React.CSSProperties = { backgroundColor: '#fff', borderRadius: 16, padding: '16px 18px', border: '1px solid #F0EAE0', boxShadow: '0 1px 4px rgba(44,28,16,0.04)' }
 
   return (
-    <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', fontFamily: 'Inter, sans-serif' }}>
-      {toast && <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 999, backgroundColor: '#2C1810', color: '#fff', borderRadius: 14, padding: '10px 20px', fontSize: 13, fontWeight: 600, pointerEvents: 'none', boxShadow: '0 6px 24px rgba(0,0,0,0.28)' }}>{toast}</div>}
-
-      {/* Header sticky */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 20, backgroundColor: 'rgba(242,235,224,0.92)', backdropFilter: 'blur(10px)', padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={() => onBack ? onBack() : router.back()} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.8)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2D5A3D', fontSize: 18, flexShrink: 0, boxShadow: '0 1px 6px rgba(0,0,0,0.1)' }}>←</button>
-        <p style={{ flex: 1, fontWeight: 700, fontSize: 15, color: '#2C1810', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{etab.nom}</p>
-        {isAdmin && <FeatureButton contentType="etablissement" contentId={etab.id} ownerUserId={etab.user_id ?? null} />}
-        {canEdit && <button onClick={() => setEditing(true)} style={{ fontSize: 11, fontWeight: 700, color: '#2D5A3D', border: '1.5px solid #2D5A3D', borderRadius: 10, padding: '5px 12px', backgroundColor: 'transparent', cursor: 'pointer', flexShrink: 0 }}>✏️</button>}
-      </div>
+    <div style={{ minHeight: '100dvh', backgroundColor: '#FDFAF5', fontFamily: 'Inter, sans-serif' }}>
+      {toast && <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 999, backgroundColor: '#1A1209', color: '#fff', borderRadius: 14, padding: '10px 20px', fontSize: 13, fontWeight: 600, pointerEvents: 'none', boxShadow: '0 6px 24px rgba(0,0,0,0.28)' }}>{toast}</div>}
 
       {/* Photo / Carousel swipable */}
-      <div style={{ position: 'relative', height: 280, backgroundColor: typeInfo.bg, overflow: 'hidden' }}>
+      <div style={{ position: 'relative', height: 290, backgroundColor: typeInfo.bg, overflow: 'hidden' }}>
+        {/* Floating top actions */}
+        <div style={{ position: 'absolute', top: 48, left: 0, right: 0, padding: '0 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 6 }}>
+          <button onClick={() => onBack ? onBack() : router.back()} aria-label="Retour" style={{
+            width: 38, height: 38, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.92)',
+            backdropFilter: 'blur(8px)', border: 'none', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#1A1209', boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+            </svg>
+          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {isAdmin && <FeatureButton contentType="etablissement" contentId={etab.id} ownerUserId={etab.user_id ?? null} />}
+            {canEdit && (
+              <button onClick={() => setEditing(true)} aria-label="Éditer" style={{
+                width: 38, height: 38, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.92)',
+                backdropFilter: 'blur(8px)', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#1A1209', boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+              }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 20h9"/>
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                </svg>
+              </button>
+            )}
+            <button onClick={share} aria-label="Partager" style={{
+              width: 38, height: 38, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.92)',
+              backdropFilter: 'blur(8px)', border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#1A1209', boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+                <polyline points="16 6 12 2 8 6"/>
+                <line x1="12" y1="2" x2="12" y2="15"/>
+              </svg>
+            </button>
+          </div>
+        </div>
         {photos.length > 0 ? (
           <div
             ref={photosScrollerRef}
@@ -312,10 +346,22 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
         ) : (
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 72 }}>{typeInfo.emoji}</div>
         )}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 18%, rgba(0,0,0,0.15) 48%, rgba(0,0,0,0.78) 100%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', top: 12, left: 12, display: 'flex', gap: 6, pointerEvents: 'none' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, backgroundColor: typeInfo.color, color: '#fff', borderRadius: 999, padding: '4px 11px', fontSize: 11, fontWeight: 800, letterSpacing: '0.04em' }}>{typeInfo.emoji} {typeInfo.label.toUpperCase()}</span>
-          {(etab.is_featured || etab.plan === 'pro') && <span style={{ backgroundColor: '#F5EFD6', color: '#8B6914', borderRadius: 999, padding: '4px 10px', fontSize: 11, fontWeight: 700 }}>★ À la une</span>}
+        <div style={{ position: 'absolute', inset: 'auto 0 0 0', height: 120, background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.35) 100%)', pointerEvents: 'none' }} />
+        {/* Type chip + featured chip — bottom-left V3 */}
+        <div style={{ position: 'absolute', bottom: 14, left: 14, display: 'flex', gap: 6, pointerEvents: 'none', zIndex: 3 }}>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            backgroundColor: 'rgba(232,242,235,0.95)', backdropFilter: 'blur(4px)',
+            color: '#2D5A3D', borderRadius: 999, padding: '5px 10px',
+            fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase',
+          }}>{typeInfo.label}</span>
+          {(etab.is_featured || etab.plan === 'pro') && (
+            <span style={{
+              backgroundColor: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(4px)',
+              color: '#8B6914', borderRadius: 999, padding: '5px 10px',
+              fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase',
+            }}>★ À la une</span>
+          )}
         </div>
         {photos.length > 1 && (
           <>
@@ -344,43 +390,79 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
             </div>
           </>
         )}
-        <div style={{ position: 'absolute', bottom: 50, left: 16, right: 16, pointerEvents: 'none' }}>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: '#fff', margin: '0 0 3px', lineHeight: 1.15 }}>{etab.nom}</h1>
-          {etab.commune && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', margin: '0 0 4px' }}>📍 {etab.commune}</p>}
-          {etab.note_google && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', margin: 0 }}>⭐ {etab.note_google.toFixed(1)} Google</p>}
-        </div>
       </div>
 
-      {/* Bandeau action flottant */}
-      <div style={{ position: 'relative', zIndex: 2, marginTop: -38, marginLeft: 12, marginRight: 12, borderRadius: 20, backgroundColor: '#fff', boxShadow: '0 2px 14px rgba(44,28,16,0.1)' }}>
-        <div style={{ display: 'flex' }}>
-          <button style={BTN} onClick={toggleFav}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill={isFav ? '#E8622A' : 'none'} stroke={isFav ? '#E8622A' : '#8A7A6A'} strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-            <span style={{ ...LBL, color: isFav ? '#E8622A' : '#8A7A6A' }}>Favori</span>
-          </button>
-          {etab.user_id !== user?.id && (
-            <button style={BTN} onClick={toggleFollow}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={isFollowing ? '#2D5A3D' : '#8A7A6A'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                {isFollowing ? <path d="M20 6L9 17l-5-5"/> : <><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></>}
-              </svg>
-              <span style={{ ...LBL, color: isFollowing ? '#2D5A3D' : '#8A7A6A' }}>{isFollowing ? 'Suivi ✓' : 'Suivre'}</span>
-            </button>
-          )}
-          <button style={BTN} onClick={scrollToComments}>
-            <div style={{ position: 'relative' }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8A7A6A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-              {commentCount > 0 && <span style={{ position: 'absolute', top: -5, right: -7, backgroundColor: '#2D5A3D', color: '#fff', borderRadius: 999, fontSize: 9, fontWeight: 700, padding: '0 4px', minWidth: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{commentCount}</span>}
+      {/* ContentCard sliding up */}
+      <div style={{ position: 'relative', zIndex: 4, marginTop: -20, backgroundColor: '#fff', borderRadius: '24px 24px 0 0', paddingBottom: 24 }}>
+
+        {/* Title + meta */}
+        <div style={{ padding: '18px 16px 0' }}>
+          <h1 style={{
+            margin: 0, fontFamily: '"DM Serif Display", Georgia, serif',
+            fontSize: 28, lineHeight: 1.1, color: '#1A1209',
+            letterSpacing: '-0.02em', fontWeight: 400,
+          }}>{etab.nom}</h1>
+          {(etab.note_google || etab.commune) && (
+            <div style={{ marginTop: 6, fontSize: 13, color: '#7A6A5A', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              {etab.note_google != null && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#D4A93C' }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9"/>
+                  </svg>
+                  <span style={{ color: '#1A1209', fontWeight: 700 }}>{etab.note_google.toFixed(1)}</span>
+                  <span style={{ color: '#7A6A5A', fontWeight: 500 }}>Google</span>
+                </span>
+              )}
             </div>
-            <span style={{ ...LBL, color: '#8A7A6A' }}>Avis</span>
-          </button>
-          <button style={BTN} onClick={share}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8A7A6A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-            <span style={{ ...LBL, color: '#8A7A6A' }}>Partager</span>
-          </button>
+          )}
+          {etab.commune && (
+            <div style={{ marginTop: 8, fontSize: 12, color: '#7A6A5A', display: 'flex', alignItems: 'center', gap: 5 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/>
+                <circle cx="12" cy="10" r="2.5"/>
+              </svg>
+              {etab.adresse ?? etab.commune}
+            </div>
+          )}
         </div>
-      </div>
 
-      <div style={{ padding: '12px 12px 48px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* Action bar V3 */}
+        <div style={{ padding: '18px 16px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'stretch', backgroundColor: '#fff', border: '1px solid #F0EAE0', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 4px rgba(44,28,16,0.04)' }}>
+            <button style={{ ...BTN, color: isFav ? '#C84B2F' : '#1A1209' }} onClick={toggleFav}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill={isFav ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+              <span style={{ ...LBL, color: isFav ? '#C84B2F' : '#7A6A5A' }}>Favori</span>
+            </button>
+            {etab.user_id !== user?.id && (
+              <>
+                <div style={{ width: 1, alignSelf: 'stretch', backgroundColor: '#F0EAE0', margin: '10px 0' }} />
+                <button style={{ ...BTN, color: isFollowing ? '#2D5A3D' : '#1A1209' }} onClick={toggleFollow}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    {isFollowing ? <path d="M20 6L9 17l-5-5"/> : <><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></>}
+                  </svg>
+                  <span style={{ ...LBL, color: isFollowing ? '#2D5A3D' : '#7A6A5A' }}>{isFollowing ? 'Suivi' : 'Suivre'}</span>
+                </button>
+              </>
+            )}
+            <div style={{ width: 1, alignSelf: 'stretch', backgroundColor: '#F0EAE0', margin: '10px 0' }} />
+            <button style={BTN} onClick={scrollToComments}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <span style={{ ...LBL, color: '#7A6A5A' }}>Avis</span>
+              {commentCount > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: '#1A1209', lineHeight: 1 }}>{commentCount}</span>}
+            </button>
+            <div style={{ width: 1, alignSelf: 'stretch', backgroundColor: '#F0EAE0', margin: '10px 0' }} />
+            <button style={BTN} onClick={share}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+                <polyline points="16 6 12 2 8 6"/>
+                <line x1="12" y1="2" x2="12" y2="15"/>
+              </svg>
+              <span style={{ ...LBL, color: '#7A6A5A' }}>Partager</span>
+            </button>
+          </div>
+        </div>
+
+      <div style={{ padding: '18px 12px 96px', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* Description */}
         {(etab.description_courte || etab.description_longue) && (
@@ -587,6 +669,46 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
         )}
 
       </div>
+      </div>
+
+      {/* Sticky bottom bar V3 — Appeler + Itinéraire */}
+      {(etab.contact_tel || mapsUrl) && (
+        <div style={{
+          position: 'sticky', bottom: 0, left: 0, right: 0, zIndex: 30,
+          backgroundColor: '#fff', borderTop: '1px solid #EDE8E0',
+          padding: '12px 16px 16px', display: 'flex', alignItems: 'center', gap: 10,
+          boxShadow: '0 -4px 16px rgba(44,28,16,0.04)',
+        }}>
+          {etab.contact_tel && (
+            <a href={`tel:${etab.contact_tel}`} style={{
+              flex: 1, height: 46, borderRadius: 13,
+              backgroundColor: '#fff', border: '1px solid #E8E0D4',
+              fontSize: 12, fontWeight: 700, color: '#1A1209',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              textDecoration: 'none',
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+              </svg>
+              Appeler
+            </a>
+          )}
+          {mapsUrl && (
+            <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{
+              flex: etab.contact_tel ? 1.5 : 1, height: 46, borderRadius: 13,
+              backgroundColor: '#2D5A3D', color: '#fff', border: 'none',
+              fontSize: 13, fontWeight: 700,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              textDecoration: 'none',
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+              </svg>
+              Itinéraire
+            </a>
+          )}
+        </div>
+      )}
 
       {claimOpen && (
         <SubscriptionModal
