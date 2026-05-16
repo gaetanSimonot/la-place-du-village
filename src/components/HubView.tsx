@@ -35,9 +35,18 @@ interface HeroEtab {
   type: string | null
 }
 
+interface HeroProducteur {
+  id: string
+  nom: string
+  commune: string | null
+  photos: string[] | null
+  produit_categories: string[] | null
+}
+
 type HeroItem =
   | { kind: 'evenement';     data: Evenement }
   | { kind: 'etablissement'; data: HeroEtab }
+  | { kind: 'producteur';    data: HeroProducteur }
 
 const TILES: { id: string; label: string; sublabel: string; icon: string; color: string; bg: string; click: (p: Props, router: ReturnType<typeof useRouter>) => void }[] = [
   { id: 'agenda',      label: 'Agenda',      sublabel: 'culturel',      icon: '📅', color: '#2D5A3D', bg: '#E8F2EB', click: p => p.onSelectAgenda() },
@@ -112,18 +121,23 @@ export default function HubView({
       if (featuredSlots && featuredSlots.length > 0) {
         const evIds   = featuredSlots.filter(s => s.content_type === 'evenement').map(s => s.content_id)
         const etabIds = featuredSlots.filter(s => s.content_type === 'etablissement').map(s => s.content_id)
+        const prodIds = featuredSlots.filter(s => s.content_type === 'producteur').map(s => s.content_id)
 
-        const [evRes, etabRes] = await Promise.all([
+        const [evRes, etabRes, prodRes] = await Promise.all([
           evIds.length > 0
             ? supabase.from('evenements').select('*, lieux(*)').in('id', evIds).eq('statut', 'publie')
             : Promise.resolve({ data: [] }),
           etabIds.length > 0
             ? supabase.from('etablissements').select('id, nom, commune, photos, type').in('id', etabIds)
             : Promise.resolve({ data: [] }),
+          prodIds.length > 0
+            ? supabase.from('producers').select('id, nom, commune, photos, produit_categories').in('id', prodIds)
+            : Promise.resolve({ data: [] }),
         ])
 
         const evMap   = Object.fromEntries(((evRes.data ?? []) as Evenement[]).map(e => [e.id, e]))
         const etabMap = Object.fromEntries(((etabRes.data ?? []) as HeroEtab[]).map(e => [e.id, e]))
+        const prodMap = Object.fromEntries(((prodRes.data ?? []) as HeroProducteur[]).map(p => [p.id, p]))
 
         // Re-merge dans l'ordre priority des slots
         featuredSlots.forEach(s => {
@@ -131,6 +145,8 @@ export default function HubView({
             items.push({ kind: 'evenement', data: evMap[s.content_id] })
           } else if (s.content_type === 'etablissement' && etabMap[s.content_id]) {
             items.push({ kind: 'etablissement', data: etabMap[s.content_id] })
+          } else if (s.content_type === 'producteur' && prodMap[s.content_id]) {
+            items.push({ kind: 'producteur', data: prodMap[s.content_id] })
           }
         })
       }
@@ -397,8 +413,9 @@ export default function HubView({
         <HubHeroCarousel
           items={heroItems}
           onSelect={item => {
-            if (item.kind === 'evenement') router.push(`/evenement/${item.data.id}`)
-            else                            router.push(`/etablissement/${item.data.id}`)
+            if      (item.kind === 'evenement')     router.push(`/evenement/${item.data.id}`)
+            else if (item.kind === 'etablissement') router.push(`/etablissement/${item.data.id}`)
+            else                                    router.push(`/producteur/${item.data.id}`)
           }}
         />
       )}
@@ -678,9 +695,9 @@ function HubHeroCarousel({
               minWidth: 0,
             }}
           >
-            {item.kind === 'evenement'
-              ? <HeroEvent ev={item.data} onClick={() => onSelect(item)} />
-              : <HeroEtabCard etab={item.data} onClick={() => onSelect(item)} />}
+            {item.kind === 'evenement'     ? <HeroEvent      ev={item.data}    onClick={() => onSelect(item)} /> :
+             item.kind === 'etablissement' ? <HeroEtabCard   etab={item.data}  onClick={() => onSelect(item)} /> :
+                                              <HeroProducteurCard prod={item.data} onClick={() => onSelect(item)} />}
           </div>
         ))}
       </div>
@@ -716,6 +733,73 @@ function HubHeroCarousel({
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+function HeroProducteurCard({ prod, onClick }: { prod: HeroProducteur; onClick: () => void }) {
+  const photo = prod.photos?.[0]
+  const cats  = (prod.produit_categories ?? []).slice(0, 2).join(' · ')
+  return (
+    <div style={{ padding: '0 16px' }}>
+      <button
+        onClick={onClick}
+        style={{
+          width: '100%', textAlign: 'left',
+          padding: 0, border: 'none', cursor: 'pointer',
+          borderRadius: 24, overflow: 'hidden',
+          backgroundColor: '#2D5A3D',
+          position: 'relative',
+          height: 248,
+          boxShadow: '0 10px 32px rgba(44,28,16,0.22)',
+          fontFamily: 'inherit',
+        }}
+      >
+        {photo ? (
+          <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : (
+          <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #2D5A3D 0%, #4A8B5C 100%)' }} />
+        )}
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0) 25%, rgba(0,0,0,0.55) 65%, rgba(0,0,0,0.88) 100%)',
+        }} />
+
+        <span style={{
+          position: 'absolute', top: 14, left: 14,
+          backgroundColor: 'rgba(255,255,255,0.95)', color: '#2D5A3D',
+          fontSize: 10, fontWeight: 800,
+          padding: '6px 11px', borderRadius: 999,
+          letterSpacing: '0.06em', textTransform: 'uppercase',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
+        }}>🌱 Producteur local</span>
+
+        <div style={{ position: 'absolute', bottom: 16, left: 16, right: 16 }}>
+          <h2 style={{
+            margin: '0 0 6px', fontSize: 22, fontWeight: 900,
+            color: '#fff', lineHeight: 1.1,
+            textShadow: '0 1px 6px rgba(0,0,0,0.4)',
+            overflow: 'hidden', display: '-webkit-box',
+            WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+          }}>{prod.nom}</h2>
+
+          {prod.commune && (
+            <p style={{
+              margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.92)',
+              textShadow: '0 1px 4px rgba(0,0,0,0.4)',
+            }}>📍 {prod.commune}{cats ? ` · ${cats}` : ''}</p>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '7px 14px', borderRadius: 999,
+              backgroundColor: '#fff', color: '#1A1209',
+              fontSize: 12, fontWeight: 800,
+            }}>Découvrir →</span>
+          </div>
+        </div>
+      </button>
     </div>
   )
 }

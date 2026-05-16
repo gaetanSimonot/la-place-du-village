@@ -37,8 +37,8 @@ export const FEATURED_SLOTS: { id: FeaturedSlot; label: string; description: str
 
 /** Types autorisés par slot. Le modal de placement filtre ce qui est proposé. */
 export const SLOT_ALLOWED_TYPES: Record<FeaturedSlot, FeaturedContentType[]> = {
-  splash:    ['evenement', 'promotion', 'annonce', 'etablissement'],
-  hub_hero:  ['evenement', 'etablissement'],
+  splash:    ['evenement', 'promotion', 'annonce', 'etablissement', 'producteur'],
+  hub_hero:  ['evenement', 'etablissement', 'producteur'],
   a_la_une:  [],  // déprécié — géré par les bandeaux de catégorie
   homepage:  ['promotion', 'annonce'],
 }
