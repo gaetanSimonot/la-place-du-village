@@ -237,7 +237,7 @@ export default function DemandesAdmin() {
                   <p style={{ fontSize: 11, color: '#7A6A5A', margin: '4px 0 0' }}>📍 {d.adresse}</p>
                 )}
                 {d.description && (
-                  <p style={{ fontSize: 12, color: '#3C2C20', margin: '6px 0 0', lineHeight: 1.4, fontFamily: 'Lora, serif' }}>{d.description}</p>
+                  <p style={{ fontSize: 12, color: '#3C2C20', margin: '6px 0 0', lineHeight: 1.4, }}>{d.description}</p>
                 )}
                 {d.site_web && (
                   <p style={{ fontSize: 11, margin: '4px 0 0' }}><a href={d.site_web} target="_blank" rel="noreferrer" style={{ color: '#3A5BC7' }}>{d.site_web}</a></p>
@@ -356,7 +356,7 @@ export default function DemandesAdmin() {
                     <p style={{ fontSize: 11, color: '#7A6A5A', margin: '3px 0 0' }}>{d.produit_categories.join(' · ')}</p>
                   )}
                   {d.adresse && <p style={{ fontSize: 11, color: '#7A6A5A', margin: '4px 0 0' }}>📍 {d.adresse}</p>}
-                  {d.description && <p style={{ fontSize: 12, color: '#3C2C20', margin: '6px 0 0', lineHeight: 1.4, fontFamily: 'Lora, serif' }}>{d.description}</p>}
+                  {d.description && <p style={{ fontSize: 12, color: '#3C2C20', margin: '6px 0 0', lineHeight: 1.4, }}>{d.description}</p>}
                   {d.contact && <p style={{ fontSize: 11, color: '#7A6A5A', margin: '4px 0 0' }}>📞 {d.contact}</p>}
                   {d.site_web && <p style={{ fontSize: 11, margin: '4px 0 0' }}><a href={d.site_web} target="_blank" rel="noreferrer" style={{ color: '#3A5BC7' }}>{d.site_web}</a></p>}
                   {d.horaires && <p style={{ fontSize: 11, color: '#7A6A5A', margin: '2px 0 0' }}>🕐 {d.horaires}</p>}

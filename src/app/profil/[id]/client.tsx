@@ -238,7 +238,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
             placeholder="Quelques mots sur toi…" rows={3}
             style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #E0D8CE', fontSize: 14, lineHeight: 1.5, fontFamily: 'Inter, sans-serif', color: '#1A1209', resize: 'none', outline: 'none', boxSizing: 'border-box', marginBottom: 10 }} />
         ) : profile.bio ? (
-          <p style={{ fontSize: 14, color: '#1A1209', lineHeight: 1.55, margin: '0 0 14px', fontFamily: 'Lora, serif' }}>{profile.bio}</p>
+          <p style={{ fontSize: 14, color: '#1A1209', lineHeight: 1.55, margin: '0 0 14px', }}>{profile.bio}</p>
         ) : null}
 
         {uploadError && <p style={{ fontSize: 12, color: '#EF4444', marginBottom: 8 }}>{uploadError}</p>}
@@ -260,11 +260,11 @@ export default function ProfilPageClient({ id }: { id: string }) {
           <div style={{ display: 'flex', gap: 20 }}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontWeight: 800, fontSize: 17, color: '#1A1209', fontFamily: 'Inter, sans-serif' }}>{followerCount}</div>
-              <div style={{ fontSize: 11, color: '#6B5E4E', fontFamily: 'Lora, serif' }}>abonnés</div>
+              <div style={{ fontSize: 11, color: '#6B5E4E', }}>abonnés</div>
             </div>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontWeight: 800, fontSize: 17, color: '#1A1209', fontFamily: 'Inter, sans-serif' }}>{followingCount}</div>
-              <div style={{ fontSize: 11, color: '#6B5E4E', fontFamily: 'Lora, serif' }}>suivis</div>
+              <div style={{ fontSize: 11, color: '#6B5E4E', }}>suivis</div>
             </div>
           </div>
           {!isOwn && user && (
@@ -329,7 +329,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
                     </div>
                     <div style={{ padding: '8px 10px' }}>
                       <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 12, color: '#1A1209', margin: 0, lineHeight: 1.35, maxHeight: '2.7em', overflow: 'hidden' }}>{e.titre}</p>
-                      {e.date_debut && <p style={{ fontSize: 11, color: '#6B5E4E', fontFamily: 'Lora, serif', margin: '3px 0 0' }}>{new Date(e.date_debut + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</p>}
+                      {e.date_debut && <p style={{ fontSize: 11, color: '#6B5E4E', margin: '3px 0 0' }}>{new Date(e.date_debut + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</p>}
                     </div>
                   </Link>
                 )
@@ -340,7 +340,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
           followings.length === 0 && (
             <div style={{ textAlign: 'center', paddingTop: 32 }}>
               <p style={{ fontSize: 32, marginBottom: 8 }}>⭐</p>
-              <p style={{ fontSize: 14, color: '#6B5E4E', fontFamily: 'Lora, serif' }}>Aucun événement intéressant pour l&apos;instant</p>
+              <p style={{ fontSize: 14, color: '#6B5E4E', }}>Aucun événement intéressant pour l&apos;instant</p>
             </div>
           )
         )}

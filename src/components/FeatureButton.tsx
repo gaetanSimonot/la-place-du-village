@@ -185,7 +185,7 @@ export function FeatureModal({ contentType, contentId, isAdmin, isOwner, plan, o
         <h2 style={{ margin: '0 0 6px', fontSize: 20, fontWeight: 900, color: '#1C1917', textAlign: 'center', letterSpacing: '-0.02em' }}>
           ⭐ Mettre en avant
         </h2>
-        <p style={{ margin: '0 0 22px', fontSize: 12, color: '#6B5E4E', textAlign: 'center', fontFamily: 'Lora, serif', fontStyle: 'italic' }}>
+        <p style={{ margin: '0 0 22px', fontSize: 12, color: '#6B5E4E', textAlign: 'center', }}>
           Boostez la visibilité de votre contenu — choisissez votre formule.
         </p>
 

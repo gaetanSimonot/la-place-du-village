@@ -104,7 +104,7 @@ export default function SupportList() {
             <p style={{ fontSize: 14, color: '#1A1209', fontWeight: 700, margin: '0 0 6px' }}>
               Aucun échange pour l&apos;instant
             </p>
-            <p style={{ fontSize: 12, color: '#8A7A6A', fontFamily: 'Lora, serif', fontStyle: 'italic', margin: '0 0 20px', lineHeight: 1.5 }}>
+            <p style={{ fontSize: 12, color: '#8A7A6A', margin: '0 0 20px', lineHeight: 1.5 }}>
               Une question, un bug, une suggestion ?
               <br />Contacte l&apos;équipe — on te répond au plus vite.
             </p>

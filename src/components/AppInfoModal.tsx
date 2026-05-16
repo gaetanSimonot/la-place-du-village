@@ -190,7 +190,7 @@ export default function AppInfoModal({ onClose }: { onClose: () => void }) {
           <div style={{ fontSize: 40, marginBottom: 8 }}>🌿</div>
           <h2 style={{ fontWeight: 800, fontSize: 20, color: '#1C1917', margin: '0 0 8px', letterSpacing: '-0.02em' }}>La Place du Village</h2>
           <span style={{ fontSize: 10, fontWeight: 800, color: '#EC407A', backgroundColor: '#FEF0F5', borderRadius: 999, padding: '3px 12px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Version Bêta</span>
-          <p style={{ fontSize: 13, color: '#6B5E4E', margin: '12px 0 0', lineHeight: 1.6, fontFamily: 'Lora, serif', fontStyle: 'italic' }}>
+          <p style={{ fontSize: 13, color: '#6B5E4E', margin: '12px 0 0', lineHeight: 1.6, }}>
             L&apos;application dont vous êtes le hérault.
           </p>
         </div>
@@ -322,7 +322,7 @@ export default function AppInfoModal({ onClose }: { onClose: () => void }) {
 
 function P({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (
-    <p style={{ fontSize: 12.5, color: '#3C2C20', lineHeight: 1.6, margin: '0 0 10px', fontFamily: 'Lora, serif', ...style }}>
+    <p style={{ fontSize: 12.5, color: '#3C2C20', lineHeight: 1.6, margin: '0 0 10px', ...style }}>
       {children}
     </p>
   )
@@ -338,7 +338,7 @@ function SubH({ children }: { children: React.ReactNode }) {
 
 function Bullets({ items }: { items: string[] }) {
   return (
-    <ul style={{ margin: '0 0 10px', paddingLeft: 18, fontSize: 12.5, color: '#3C2C20', lineHeight: 1.6, fontFamily: 'Lora, serif' }}>
+    <ul style={{ margin: '0 0 10px', paddingLeft: 18, fontSize: 12.5, color: '#3C2C20', lineHeight: 1.6, }}>
       {items.map((it, i) => <li key={i} style={{ marginBottom: 3 }}>{it}</li>)}
     </ul>
   )

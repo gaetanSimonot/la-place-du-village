@@ -253,7 +253,7 @@ export default function AnnoncePageClient({ id }: Props) {
           <span style={{ fontSize: 26, flexShrink: 0 }}>🎉</span>
           <div style={{ flex: 1 }}>
             <p style={{ margin: 0, fontSize: 13, fontWeight: 800 }}>Votre annonce est en ligne !</p>
-            <p style={{ margin: '2px 0 0', fontSize: 11, opacity: 0.9, fontFamily: 'Lora, serif', fontStyle: 'italic' }}>
+            <p style={{ margin: '2px 0 0', fontSize: 11, opacity: 0.9, }}>
               Voulez-vous la mettre en avant ?
             </p>
           </div>

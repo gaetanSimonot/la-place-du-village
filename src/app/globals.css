@@ -15,6 +15,12 @@
 @tailwind utilities;
 
 :root {
+  /* Force le thème light pour les form controls — empêche iOS/Android (PWA)
+     d'appliquer leur dark mode système et de rendre les inputs blanc-sur-blanc.
+     Sans ça, les !important de couleur ci-dessous sont écrasés par
+     -webkit-text-fill-color du user-agent en mode système dark. */
+  color-scheme: light;
+
   --primary:       #2D5A3D;
   --primary-light: #E8F2EB;
   --accent:        #C84B2F;
@@ -39,17 +45,19 @@ html, body {
   overscroll-behavior: none;
   background-color: var(--creme);
   color: var(--texte);
-  font-family: "Lora", serif;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, .font-display {
-  font-family: "Playfair Display", serif;
-  font-weight: 700;
-}
-
-h3, .font-title {
-  font-family: "Inter", sans-serif;
-  font-weight: 700;
+/* Headings — utilise Inter (sans-serif unique).
+   Les composants pas encore migrés peuvent encore poser explicitement
+   font-family: "Lora"/"Playfair" en inline si besoin. */
+h1, h2, h3, h4, h5, h6, .font-display, .font-title {
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 /* Scrollbar invisible sur les rails de pills */

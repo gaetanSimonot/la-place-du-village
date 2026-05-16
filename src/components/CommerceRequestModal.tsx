@@ -108,7 +108,7 @@ function KindPicker({ onPick }: { onPick: (k: Kind) => void }) {
       <h2 style={{ margin: '0 0 6px', fontSize: 20, fontWeight: 900, color: '#1C1917', textAlign: 'center', letterSpacing: '-0.02em' }}>
         Référencer
       </h2>
-      <p style={{ margin: '0 0 22px', fontSize: 12, color: '#6B5E4E', textAlign: 'center', fontFamily: 'Lora, serif', fontStyle: 'italic' }}>
+      <p style={{ margin: '0 0 22px', fontSize: 12, color: '#6B5E4E', textAlign: 'center', }}>
         Que voulez-vous ajouter à La Place du Village ?
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -481,7 +481,7 @@ function ReferenceForm({
         >
           {submitting ? 'Envoi…' : '✓ Soumettre pour validation'}
         </button>
-        <p style={{ margin: 0, fontSize: 10, color: '#9A8A7A', textAlign: 'center', fontFamily: 'Lora, serif', fontStyle: 'italic' }}>
+        <p style={{ margin: 0, fontSize: 10, color: '#9A8A7A', textAlign: 'center', }}>
           Votre demande sera relue par l&apos;équipe avant publication.
         </p>
       </div>
@@ -512,7 +512,7 @@ function SuccessView({ result, onClose }: { result: SubmitResult; onClose: () =>
     <div style={{ textAlign: 'center', padding: '20px 0' }}>
       <div style={{ fontSize: 52, marginBottom: 16 }}>{emoji}</div>
       <p style={{ fontWeight: 900, fontSize: 18, color: '#1C1917', margin: '0 0 8px' }}>{title}</p>
-      <p style={{ fontSize: 13, color: '#6B5E4E', lineHeight: 1.6, margin: '0 0 24px', fontFamily: 'Lora, serif', fontStyle: 'italic' }}>
+      <p style={{ fontSize: 13, color: '#6B5E4E', lineHeight: 1.6, margin: '0 0 24px', }}>
         {sub}
       </p>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>

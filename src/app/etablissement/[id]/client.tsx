@@ -55,8 +55,9 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
   const [editing, setEditing]       = useState(false)
   const [toast, setToast]           = useState<string | null>(null)
   const [manageLoading, setManageLoading] = useState(false)
-  const toastTimer  = useRef<ReturnType<typeof setTimeout>>()
-  const commentsRef = useRef<HTMLDivElement>(null)
+  const toastTimer       = useRef<ReturnType<typeof setTimeout>>()
+  const commentsRef      = useRef<HTMLDivElement>(null)
+  const photosScrollerRef = useRef<HTMLDivElement | null>(null)
 
   const showToast = useCallback((msg: string) => {
     clearTimeout(toastTimer.current); setToast(msg)
@@ -273,21 +274,77 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
         {canEdit && <button onClick={() => setEditing(true)} style={{ fontSize: 11, fontWeight: 700, color: '#2D5A3D', border: '1.5px solid #2D5A3D', borderRadius: 10, padding: '5px 12px', backgroundColor: 'transparent', cursor: 'pointer', flexShrink: 0 }}>✏️</button>}
       </div>
 
-      {/* Photo */}
+      {/* Photo / Carousel swipable */}
       <div style={{ position: 'relative', height: 280, backgroundColor: typeInfo.bg, overflow: 'hidden' }}>
-        {photos.length > 0
-          ? <img src={photos[photoIdx]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 72 }}>{typeInfo.emoji}</div>}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 18%, rgba(0,0,0,0.15) 48%, rgba(0,0,0,0.78) 100%)' }} />
-        <div style={{ position: 'absolute', top: 12, left: 12, display: 'flex', gap: 6 }}>
+        {photos.length > 0 ? (
+          <div
+            ref={photosScrollerRef}
+            onScroll={() => {
+              const el = photosScrollerRef.current
+              if (!el || el.clientWidth === 0) return
+              const idx = Math.round(el.scrollLeft / el.clientWidth)
+              if (idx !== photoIdx) setPhotoIdx(idx)
+            }}
+            style={{
+              display: 'flex', width: '100%', height: '100%',
+              overflowX: 'auto', overflowY: 'hidden',
+              scrollSnapType: 'x mandatory',
+              WebkitOverflowScrolling: 'touch',
+              scrollbarWidth: 'none',
+              touchAction: 'pan-x',
+            }}
+            className="pdv-hscroll"
+          >
+            {photos.map((url, i) => (
+              <img
+                key={i}
+                src={url}
+                alt=""
+                draggable={false}
+                style={{
+                  flex: '0 0 100%', width: '100%', height: '100%',
+                  objectFit: 'cover', scrollSnapAlign: 'start',
+                  userSelect: 'none',
+                }}
+              />
+            ))}
+          </div>
+        ) : (
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 72 }}>{typeInfo.emoji}</div>
+        )}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 18%, rgba(0,0,0,0.15) 48%, rgba(0,0,0,0.78) 100%)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: 12, left: 12, display: 'flex', gap: 6, pointerEvents: 'none' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, backgroundColor: typeInfo.color, color: '#fff', borderRadius: 999, padding: '4px 11px', fontSize: 11, fontWeight: 800, letterSpacing: '0.04em' }}>{typeInfo.emoji} {typeInfo.label.toUpperCase()}</span>
           {(etab.is_featured || etab.plan === 'pro') && <span style={{ backgroundColor: '#F5EFD6', color: '#8B6914', borderRadius: 999, padding: '4px 10px', fontSize: 11, fontWeight: 700 }}>★ À la une</span>}
         </div>
-        {photos.length > 1 && <>
-          <button onClick={() => setPhotoIdx(i => (i - 1 + photos.length) % photos.length)} style={{ position: 'absolute', left: 10, top: '45%', transform: 'translateY(-50%)', width: 30, height: 30, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.55)', border: 'none', color: '#2C1810', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
-          <button onClick={() => setPhotoIdx(i => (i + 1) % photos.length)} style={{ position: 'absolute', right: 10, top: '45%', transform: 'translateY(-50%)', width: 30, height: 30, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.55)', border: 'none', color: '#2C1810', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
-        </>}
-        <div style={{ position: 'absolute', bottom: 50, left: 16, right: 16 }}>
+        {photos.length > 1 && (
+          <>
+            <button
+              onClick={() => {
+                const el = photosScrollerRef.current
+                if (!el) return
+                const target = ((photoIdx - 1 + photos.length) % photos.length) * el.clientWidth
+                el.scrollTo({ left: target, behavior: 'smooth' })
+              }}
+              aria-label="Photo précédente"
+              style={{ position: 'absolute', left: 10, top: '42%', transform: 'translateY(-50%)', width: 32, height: 32, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.72)', border: 'none', color: '#2C1810', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(6px)' }}
+            >‹</button>
+            <button
+              onClick={() => {
+                const el = photosScrollerRef.current
+                if (!el) return
+                const target = ((photoIdx + 1) % photos.length) * el.clientWidth
+                el.scrollTo({ left: target, behavior: 'smooth' })
+              }}
+              aria-label="Photo suivante"
+              style={{ position: 'absolute', right: 10, top: '42%', transform: 'translateY(-50%)', width: 32, height: 32, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.72)', border: 'none', color: '#2C1810', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(6px)' }}
+            >›</button>
+            <div style={{ position: 'absolute', top: 12, right: 12, padding: '4px 10px', borderRadius: 999, backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)', color: '#fff', fontSize: 11, fontWeight: 700, pointerEvents: 'none' }}>
+              {photoIdx + 1} / {photos.length}
+            </div>
+          </>
+        )}
+        <div style={{ position: 'absolute', bottom: 50, left: 16, right: 16, pointerEvents: 'none' }}>
           <h1 style={{ fontSize: 26, fontWeight: 800, color: '#fff', margin: '0 0 3px', lineHeight: 1.15 }}>{etab.nom}</h1>
           {etab.commune && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', margin: '0 0 4px' }}>📍 {etab.commune}</p>}
           {etab.note_google && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', margin: 0 }}>⭐ {etab.note_google.toFixed(1)} Google</p>}

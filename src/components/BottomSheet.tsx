@@ -353,22 +353,6 @@ export default function BottomSheet({
     return Array.from(names).slice(0, 6)
   }, [producers, producerSearch])
 
-  const etabSuggestions = useMemo(() => {
-    if (!etabSearch || etabSearch.length < 1) return []
-    const q = etabSearch.toLowerCase()
-    const seen = new Set<string>()
-    const results: { label: string; hint: string }[] = []
-    etablissements.forEach(e => {
-      if (e.nom.toLowerCase().includes(q) && !seen.has(e.nom)) {
-        seen.add(e.nom); results.push({ label: e.nom, hint: e.commune ?? '' })
-      }
-      if (e.commune && e.commune.toLowerCase().includes(q) && !seen.has(`commune:${e.commune}`)) {
-        seen.add(`commune:${e.commune}`); results.push({ label: e.commune, hint: 'commune' })
-      }
-    })
-    return results.slice(0, 6)
-  }, [etablissements, etabSearch])
-
   const sortedEvents = selectedId
     ? [...evenements.filter(e => e.id === selectedId), ...evenements.filter(e => e.id !== selectedId)]
     : evenements
@@ -421,7 +405,7 @@ export default function BottomSheet({
                     : `${displayedEtabs.length} commerce${displayedEtabs.length !== 1 ? 's' : ''}`
                 }
               </p>
-              <p style={{ fontFamily: 'Lora, serif', fontSize: 12, color: '#9E9089', margin: '2px 0 0' }}>
+              <p style={{ fontSize: 12, color: '#9E9089', margin: '2px 0 0' }}>
                 {appMode === 'agenda'
                   ? 'Marchés · ateliers · concerts…'
                   : annuaireTabIdx === 0
@@ -702,9 +686,16 @@ export default function BottomSheet({
                     style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
                     <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
                   </svg>
-                  <input type="text" value={etabSearch} onChange={e => onEtabSearchChange?.(e.target.value)}
+                  <input
+                    type="text"
+                    inputMode="search"
+                    enterKeyHint="search"
+                    value={etabSearch}
+                    onChange={e => onEtabSearchChange?.(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur() }}
                     placeholder="Commerce, commune…"
-                    style={{ width: '100%', padding: '10px 34px 10px 34px', borderRadius: etabSearch && etabSuggestions.length > 0 ? '12px 12px 0 0' : 12, border: `1.5px solid ${sheetBg.border}`, borderBottom: etabSearch && etabSuggestions.length > 0 ? 'none' : `1.5px solid ${sheetBg.border}`, fontSize: 13, fontFamily: 'Inter, sans-serif', color: '#2C1810', backgroundColor: sheetBg.bg, outline: 'none', boxSizing: 'border-box' }} />
+                    style={{ width: '100%', padding: '10px 34px 10px 34px', borderRadius: 12, border: `1.5px solid ${sheetBg.border}`, fontSize: 13, fontFamily: 'Inter, sans-serif', color: '#2C1810', backgroundColor: sheetBg.bg, outline: 'none', boxSizing: 'border-box' }}
+                  />
                   {etabSearch && (
                     <button onClick={() => onEtabSearchChange?.('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', cursor: 'pointer', color: '#AAA', fontSize: 15, padding: 2, display: 'flex' }}>✕</button>
                   )}
@@ -774,19 +765,6 @@ export default function BottomSheet({
                 </div>
               )}
 
-              {/* Suggestions */}
-              {etabSearch && etabSuggestions.length > 0 && (
-                <div style={{ position: 'absolute', left: 16, right: 16, zIndex: 50, backgroundColor: sheetBg.bg, border: `1.5px solid ${sheetBg.border}`, borderTop: 'none', borderRadius: '0 0 12px 12px', overflow: 'hidden', boxShadow: '0 6px 16px rgba(0,0,0,0.10)' }}>
-                  {etabSuggestions.map((s, i) => (
-                    <button key={s.label} onPointerDown={e => { e.preventDefault(); e.stopPropagation(); onEtabSearchChange?.(s.label) }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 14px', border: 'none', borderTop: i > 0 ? `1px solid ${sheetBg.border}` : 'none', backgroundColor: 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 13, color: '#2C1810', fontFamily: 'Inter, sans-serif' }}>
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#8A8A8A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h18v4H3z"/><path d="M3 7v14h18V7"/><path d="M9 7v14"/><path d="M15 7v14"/></svg>
-                      <span style={{ flex: 1 }}>{s.label}</span>
-                      {s.hint && <span style={{ fontSize: 10, color: '#AAA', fontWeight: 600 }}>{s.hint}</span>}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
           )}
         </>
@@ -950,7 +928,7 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
               borderRadius: 999, padding: '2px 7px',
             }}>{cat.label}</span>
             {lieu?.commune && (
-              <span style={{ fontSize: 10, color: '#6B5E4E', fontWeight: 600, fontFamily: 'Lora, serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 10, color: '#6B5E4E', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {lieu.commune}
               </span>
             )}
@@ -968,7 +946,7 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
         {/* Bas : date + actions */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           {evt.date_debut ? (
-            <p style={{ fontSize: 11, color: '#6B5E4E', margin: 0, fontFamily: 'Lora, serif' }}>
+            <p style={{ fontSize: 11, color: '#6B5E4E', margin: 0, }}>
               {formatDate(evt.date_debut)}{evt.heure ? ` · ${evt.heure.slice(0,5)}` : ''}
             </p>
           ) : <div />}
@@ -1034,7 +1012,7 @@ function ProducerListCard({ producer, isSelected, onSelect, onViewOnMap, onOpenP
       <div style={{ flex: 1, padding: '8px 10px 8px 12px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minWidth: 0 }}>
         <div>
           <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14, color: '#1C1917', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{producer.nom}</p>
-          {producer.commune && <p style={{ fontSize: 11, color: '#6B5E4E', margin: 0, fontFamily: 'Lora, serif' }}>📍 {producer.commune}</p>}
+          {producer.commune && <p style={{ fontSize: 11, color: '#6B5E4E', margin: 0, }}>📍 {producer.commune}</p>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', gap: 4, flexWrap: 'nowrap', overflow: 'hidden', flex: 1, minWidth: 0 }}>
@@ -1104,14 +1082,14 @@ function EtablissementListCard({ etab, onOpen }: { etab: EtablissementCard; onOp
             {etab.is_featured && <span style={{ fontSize: 9, color: '#B45309', fontWeight: 700 }}>★</span>}
           </div>
           <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14, color: '#1C1917', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{etab.nom}</p>
-          {etab.commune && <p style={{ fontSize: 11, color: '#6B5E4E', margin: 0, fontFamily: 'Lora, serif' }}>📍 {etab.commune}</p>}
+          {etab.commune && <p style={{ fontSize: 11, color: '#6B5E4E', margin: 0, }}>📍 {etab.commune}</p>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           {etab.note_google ? (
             <span style={{ fontSize: 11, color: '#92400E', fontWeight: 700 }}>⭐ {etab.note_google.toFixed(1)}</span>
           ) : <div />}
           {etab.description_courte && (
-            <p style={{ fontSize: 10, color: '#8A8A8A', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, paddingLeft: 6, fontFamily: 'Lora, serif' }}>{etab.description_courte}</p>
+            <p style={{ fontSize: 10, color: '#8A8A8A', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, paddingLeft: 6, }}>{etab.description_courte}</p>
           )}
         </div>
       </div>

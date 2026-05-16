@@ -122,7 +122,7 @@ export default function VisibiliteView() {
             <div style={{ marginTop: 10, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.25)', overflow: 'hidden' }}>
               <div style={{ width: `${100 - pct}%`, height: '100%', backgroundColor: '#fff', borderRadius: 3 }} />
             </div>
-            <p style={{ margin: '8px 0 0', fontSize: 11, opacity: 0.85, fontFamily: 'Lora, serif', fontStyle: 'italic' }}>
+            <p style={{ margin: '8px 0 0', fontSize: 11, opacity: 0.85, }}>
               1 crédit = 1 jour de mise en avant dans un slot. Reset le 1er du mois.
             </p>
           </div>
@@ -137,7 +137,7 @@ export default function VisibiliteView() {
             <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#1A1209' }}>
               🚀 Boost ponctuel
             </p>
-            <p style={{ margin: '4px 0 0', fontSize: 12, color: '#6B5E4E', lineHeight: 1.5, fontFamily: 'Lora, serif', fontStyle: 'italic' }}>
+            <p style={{ margin: '4px 0 0', fontSize: 12, color: '#6B5E4E', lineHeight: 1.5, }}>
               Pour mettre en avant un contenu : choisissez-le ci-dessous, on vous propose la formule adaptée (à partir de 4€).
             </p>
           </div>
@@ -171,7 +171,7 @@ export default function VisibiliteView() {
             <p style={{ fontSize: 13, color: '#1A1209', fontWeight: 700, margin: '0 0 6px' }}>
               Aucun contenu à mettre en avant
             </p>
-            <p style={{ fontSize: 12, color: '#8A7A6A', fontStyle: 'italic', fontFamily: 'Lora, serif' }}>
+            <p style={{ fontSize: 12, color: '#8A7A6A', }}>
               Publiez une annonce, un événement, ou ajoutez des favoris pour démarrer.
             </p>
           </div>

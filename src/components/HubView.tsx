@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
 import type { EtablissementType, Evenement } from '@/lib/types'
@@ -47,12 +48,13 @@ type HeroItem =
   | { kind: 'etablissement'; data: HeroEtab }
   | { kind: 'producteur';    data: HeroProducteur }
 
-const TILES: { id: string; label: string; sublabel: string; icon: string; color: string; bg: string; click: (p: Props, router: ReturnType<typeof useRouter>) => void }[] = [
-  { id: 'agenda',      label: 'Agenda',      sublabel: 'culturel',      icon: '📅', color: '#2D5A3D', bg: '#E8F2EB', click: p => p.onSelectAgenda() },
-  { id: 'annuaire',    label: 'Annuaire',    sublabel: 'pro',           icon: '🏪', color: '#3A5BC7', bg: '#EEF3FF', click: p => p.onSelectAnnuaire() },
-  { id: 'producteurs', label: 'Producteurs', sublabel: 'vente libre',   icon: '🌱', color: '#2D5A3D', bg: '#E8F2EB', click: p => p.onSelectProducteurs() },
-  { id: 'restos',      label: 'Restos',      sublabel: '& bars',        icon: '🍴', color: '#E8622A', bg: '#FFF0EB', click: p => p.onSelectAnnuaire('restaurant_bar') },
-  { id: 'annonces',    label: 'Annonces',    sublabel: 'locales',       icon: '🏷️', color: '#C0392B', bg: '#FBE9E7', click: (_, r) => r.push('/annonces') },
+const TILES: { id: string; label: string; iconSrc: string; click: (p: Props, router: ReturnType<typeof useRouter>) => void }[] = [
+  { id: 'agenda',      label: 'Agenda',        iconSrc: '/icones-rondes/01_agenda_culturel.png',         click: p => p.onSelectAgenda() },
+  { id: 'annuaire',    label: 'Annuaire',      iconSrc: '/icones-rondes/02_annuaire_professionnel.png',  click: p => p.onSelectAnnuaire() },
+  { id: 'producteurs', label: 'Producteurs',   iconSrc: '/icones-rondes/05_producteurs_vente_libre.png', click: p => p.onSelectProducteurs() },
+  { id: 'restos',      label: 'Restos & Bars', iconSrc: '/icones-rondes/03_restos_bars.png',             click: p => p.onSelectAnnuaire('restaurant_bar') },
+  { id: 'annonces',    label: 'Annonces',      iconSrc: '/icones-rondes/07_annonces_locales.png',        click: (_, r) => r.push('/annonces') },
+  { id: 'promos',      label: 'Bons plans',    iconSrc: '/icones-rondes/11_promotions_locales.png',      click: (_, r) => r.push('/promotions') },
 ]
 
 const CATEGORIE_META: Record<string, { icon: string; label: string }> = {
@@ -373,10 +375,15 @@ export default function HubView({
                   backgroundColor: '#fff', border: '1px solid #E5DDD2',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-                  fontSize: 17, fontWeight: 900, color: '#2D5A3D',
-                  fontFamily: 'Lora, serif', fontStyle: 'italic',
+                  color: '#2D5A3D',
                 }}
-              >i</button>
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="16" x2="12" y2="12"/>
+                  <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+              </button>
             )}
             {onOpenNotifs && (
               <button
@@ -412,15 +419,19 @@ export default function HubView({
         </div>
 
         <h1 style={{
-          fontSize: 30, fontWeight: 900, letterSpacing: '-0.03em',
-          color: '#1A1209', margin: '14px 0 4px',
-          lineHeight: 1.05,
+          fontSize: 32, fontWeight: 800, letterSpacing: '-0.035em',
+          color: '#2D5A3D', margin: '16px 0 0',
+          lineHeight: 1.0,
         }}>
           La Place du Village
         </h1>
+        <div style={{
+          width: 56, height: 3, borderRadius: 2,
+          backgroundColor: '#E8622A', margin: '8px 0 10px',
+        }} />
         <p style={{
-          margin: 0, fontSize: 13, color: '#7A6A5A',
-          fontFamily: 'Lora, serif', fontStyle: 'italic',
+          margin: 0, fontSize: 13.5, color: '#7A6A5A',
+          fontWeight: 500, letterSpacing: '-0.005em',
         }}>
           {subtitle}
         </p>
@@ -439,34 +450,40 @@ export default function HubView({
       )}
 
       {/* ── 3. Tuiles accès rapide ────────────────────────────────────────── */}
-      <div style={{ padding: '16px 14px 4px' }}>
-        <div style={{ display: 'flex', gap: 8, overflowX: 'auto' }} className="pdv-hscroll">
+      <div style={{ padding: '18px 14px 6px' }}>
+        <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }} className="pdv-hscroll">
           {TILES.map(t => (
             <button
               key={t.id}
               onClick={() => t.click({ onSelectAgenda, onSelectAnnuaire, onSelectProducteurs, onComingSoon, onUpgradePrompt }, router)}
               style={{
                 flex: '0 0 auto',
-                width: 86,
-                padding: '12px 8px 10px',
-                borderRadius: 16, border: 'none',
-                backgroundColor: '#fff',
-                boxShadow: '0 1px 6px rgba(44,28,16,0.06)',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                width: 108,
+                minHeight: 128,
+                padding: '14px 8px 12px',
+                borderRadius: 22, border: '1px solid #F0E8DC',
+                backgroundColor: '#FFFFFF',
+                boxShadow: '0 2px 10px rgba(44,28,16,0.06)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
                 cursor: 'pointer',
                 fontFamily: 'inherit',
+                transition: 'transform 0.12s ease, box-shadow 0.12s ease',
               }}
             >
-              <div style={{
-                width: 40, height: 40, borderRadius: 12,
-                backgroundColor: t.bg, color: t.color,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 20,
-              }}>{t.icon}</div>
-              <div style={{ textAlign: 'center' }}>
-                <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: '#1A1209', lineHeight: 1.15 }}>{t.label}</p>
-                <p style={{ margin: '1px 0 0', fontSize: 10, color: '#8A7A6A', lineHeight: 1.15 }}>{t.sublabel}</p>
-              </div>
+              <Image
+                src={t.iconSrc}
+                alt={t.label}
+                width={56}
+                height={56}
+                style={{ width: 56, height: 56, display: 'block', flexShrink: 0 }}
+                priority
+              />
+              <p style={{
+                margin: 0, fontSize: 13, fontWeight: 700,
+                color: '#1A1209', lineHeight: 1.2,
+                letterSpacing: '-0.01em',
+                textAlign: 'center',
+              }}>{t.label}</p>
             </button>
           ))}
         </div>
@@ -968,10 +985,10 @@ function HeroEvent({ ev, onClick }: { ev: Evenement; onClick: () => void }) {
 
 function SectionHeader({ title, cta, onCta }: { title: string; cta: string; onCta?: () => void }) {
   return (
-    <div style={{ padding: '20px 18px 10px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-      <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#1A1209' }}>{title}</h3>
+    <div style={{ padding: '22px 18px 12px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#1A1209', letterSpacing: '-0.015em', lineHeight: 1.2 }}>{title}</h3>
       {cta && (
-        <button onClick={onCta} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#2D5A3D', padding: 0 }}>
+        <button onClick={onCta} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#2D5A3D', padding: 0, whiteSpace: 'nowrap', flexShrink: 0 }}>
           {cta} →
         </button>
       )}

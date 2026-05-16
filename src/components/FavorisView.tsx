@@ -211,7 +211,7 @@ function ProducerCard({ p, onClick, onRemove, accentColor }: {
       {/* Infos */}
       <div style={{ flex: 1, padding: '13px 46px 13px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4, minWidth: 0 }}>
         <p style={{ fontWeight: 700, fontSize: 14, color: '#1C1917', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'Inter, sans-serif' }}>{p.nom}</p>
-        {p.commune && <p style={{ fontSize: 11, color: '#6B5E4E', margin: 0, fontFamily: 'Lora, serif' }}>📍 {p.commune}</p>}
+        {p.commune && <p style={{ fontSize: 11, color: '#6B5E4E', margin: 0, }}>📍 {p.commune}</p>}
         {p.produit_categories.length > 0 && (
           <div style={{ display: 'flex', gap: 4, overflow: 'hidden' }}>
             {p.produit_categories.slice(0, 2).map(c => {
@@ -249,7 +249,7 @@ function EtabCard({ e, onClick, onRemove, accentColor }: {
       </div>
       <div style={{ flex: 1, padding: '13px 46px 13px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4, minWidth: 0 }}>
         <p style={{ fontWeight: 700, fontSize: 14, color: '#1C1917', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'Inter, sans-serif' }}>{e.nom}</p>
-        {e.commune && <p style={{ fontSize: 11, color: '#6B5E4E', margin: 0, fontFamily: 'Lora, serif' }}>📍 {e.commune}</p>}
+        {e.commune && <p style={{ fontSize: 11, color: '#6B5E4E', margin: 0, }}>📍 {e.commune}</p>}
         {typeInfo && <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, backgroundColor: typeInfo.bg, color: typeInfo.color, fontWeight: 700, fontFamily: 'Inter, sans-serif', alignSelf: 'flex-start' }}>{typeInfo.emoji} {typeInfo.label}</span>}
       </div>
       <button onClick={ev => { ev.stopPropagation(); onRemove() }}

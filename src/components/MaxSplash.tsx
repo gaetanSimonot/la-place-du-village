@@ -216,7 +216,7 @@ export default function MaxSplash({ events, loading = false }: Props) {
           )}
 
           {/* Catégorie */}
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', margin: '0 0 6px', fontFamily: 'Lora, serif', fontWeight: 600 }}>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', margin: '0 0 6px', fontWeight: 600 }}>
             {cat.emoji} {cat.label}
           </p>
 
@@ -230,7 +230,7 @@ export default function MaxSplash({ events, loading = false }: Props) {
 
           {/* Date + lieu */}
           {(evt.date_debut || evt.lieux?.commune) && (
-            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', margin: 0, lineHeight: 1.4, fontFamily: 'Lora, serif' }}>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', margin: 0, lineHeight: 1.4, }}>
               {evt.date_debut ? formatDate(evt.date_debut) : ''}
               {evt.heure ? ` · ${evt.heure.slice(0, 5)}` : ''}
               {evt.lieux?.commune ? ` • ${evt.lieux.commune}` : ''}
