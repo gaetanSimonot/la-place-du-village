@@ -43,6 +43,22 @@ export default function ProfilView() {
   const [nameInput, setNameInput] = useState('')
   const [showUpgrade, setShowUpgrade] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
+  const [supportUnread, setSupportUnread] = useState(0)
+
+  // Compteur unread pour les tickets support (admin only)
+  useEffect(() => {
+    if (!isAdmin) return
+    let cancelled = false
+    ;(async () => {
+      const { count } = await supabase
+        .from('support_messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('sender_is_admin', false)
+        .is('lu_at', null)
+      if (!cancelled && typeof count === 'number') setSupportUnread(count)
+    })()
+    return () => { cancelled = true }
+  }, [isAdmin])
 
   const getToken = async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -366,6 +382,36 @@ export default function ProfilView() {
                   <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.65)' }}>Membres, demandes, scraping, inbox</p>
                 </div>
                 <span style={{ color: '#fff', fontSize: 18 }}>›</span>
+              </Link>
+            )}
+
+            {/* Admin — Tickets support */}
+            {isAdmin && (
+              <Link
+                href="/admin/support"
+                style={{
+                  textDecoration: 'none', color: 'inherit',
+                  backgroundColor: '#fff', borderRadius: 18, padding: '16px',
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  border: '1px solid #E5DDD2',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                }}
+              >
+                <span style={{ fontSize: 22 }}>💬</span>
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#1A1209' }}>Tickets support</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 11, color: '#8A7A6A' }}>Messages des utilisateurs</p>
+                </div>
+                {supportUnread > 0 && (
+                  <span style={{
+                    minWidth: 22, height: 22, borderRadius: 11,
+                    backgroundColor: '#E53935', color: '#fff',
+                    fontSize: 11, fontWeight: 800,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '0 7px',
+                  }}>{supportUnread > 99 ? '99+' : supportUnread}</span>
+                )}
+                <span style={{ color: '#8A7A6A', fontSize: 18 }}>›</span>
               </Link>
             )}
           </>

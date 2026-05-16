@@ -102,6 +102,11 @@ const NOTIF_CONFIG: Record<NotifType, { emoji: string; color: string; label: (n:
     color: '#2D5A3D',
     label: n => `Ton événement est publié : ${n.actor_name ?? 'événement'}`,
   },
+  support_message: {
+    emoji: '💬',
+    color: '#2D5A3D',
+    label: n => `${n.actor_name ?? 'Quelqu\'un'} — nouveau message support`,
+  },
 }
 
 function relativeDate(iso: string): string {
@@ -208,6 +213,12 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
     // Notifs conversation (intérêt, message, contact, vente close) → ouvre le chat
     if (n.target_type === 'conversation' && n.target_id) {
       router.push(`/annonces/conversations/${n.target_id}`)
+      return
+    }
+
+    // Notifs support → ouvre le ticket (route différente selon admin / user)
+    if (n.target_type === 'support_conversation' && n.target_id) {
+      router.push(isAdmin ? `/admin/support/${n.target_id}` : `/support/${n.target_id}`)
       return
     }
 

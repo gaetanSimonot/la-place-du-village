@@ -14,6 +14,7 @@ interface Props {
   onComingSoon:          (label: string) => void
   onUpgradePrompt:       (requiredPlan: 'habitants' | 'pro', label: string) => void
   onOpenNotifs?:         () => void
+  onOpenInfo?:           () => void
   unreadCount?:          number
 }
 
@@ -59,7 +60,7 @@ function dateLabel(iso: string | null): string {
 export default function HubView({
   onSelectAgenda, onSelectAnnuaire, onSelectProducteurs,
   onComingSoon, onUpgradePrompt,
-  onOpenNotifs, unreadCount = 0,
+  onOpenNotifs, onOpenInfo, unreadCount = 0,
 }: Props) {
   const router = useRouter()
   const { profile } = useAuth()
@@ -243,37 +244,52 @@ export default function HubView({
               </p>
             </div>
           </Link>
-          {onOpenNotifs && (
-            <button
-              onClick={onOpenNotifs}
-              aria-label="Notifications"
-              style={{
-                position: 'relative', width: 42, height: 42, borderRadius: 14,
-                backgroundColor: '#fff', border: '1px solid #E5DDD2',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-                flexShrink: 0,
-              }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2D5A3D" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-              </svg>
-              {unreadCount > 0 && (
-                <span style={{
-                  position: 'absolute', top: -5, right: -5,
-                  minWidth: 18, height: 18, borderRadius: 9,
-                  backgroundColor: '#E53935', color: '#fff',
-                  fontSize: 10, fontWeight: 800,
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            {onOpenInfo && (
+              <button
+                onClick={onOpenInfo}
+                aria-label="À propos de l'app"
+                style={{
+                  width: 42, height: 42, borderRadius: 14,
+                  backgroundColor: '#fff', border: '1px solid #E5DDD2',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  padding: '0 4px', fontFamily: 'Inter, sans-serif',
-                  border: '1.5px solid #fff',
-                }}>
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
-            </button>
-          )}
+                  cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                  fontSize: 17, fontWeight: 900, color: '#2D5A3D',
+                  fontFamily: 'Lora, serif', fontStyle: 'italic',
+                }}
+              >i</button>
+            )}
+            {onOpenNotifs && (
+              <button
+                onClick={onOpenNotifs}
+                aria-label="Notifications"
+                style={{
+                  position: 'relative', width: 42, height: 42, borderRadius: 14,
+                  backgroundColor: '#fff', border: '1px solid #E5DDD2',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2D5A3D" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+                {unreadCount > 0 && (
+                  <span style={{
+                    position: 'absolute', top: -5, right: -5,
+                    minWidth: 18, height: 18, borderRadius: 9,
+                    backgroundColor: '#E53935', color: '#fff',
+                    fontSize: 10, fontWeight: 800,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '0 4px', fontFamily: 'Inter, sans-serif',
+                    border: '1.5px solid #fff',
+                  }}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         <h1 style={{
