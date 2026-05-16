@@ -760,22 +760,31 @@ function HeroCardShell({
     <button
       type="button"
       onClick={onClick}
-      className="relative block h-[180px] w-full overflow-hidden rounded-tile border-none bg-primary p-0 text-left shadow-hero"
+      className="relative block h-[180px] w-full appearance-none rounded-tile border-none bg-transparent p-0 text-left shadow-hero"
+      style={{ WebkitTapHighlightColor: 'transparent' }}
     >
-      {photo ? (
-        <img
-          src={photo}
-          alt=""
-          className="h-full w-full object-cover"
-          style={{ objectPosition: imagePosition }}
-        />
-      ) : (
-        <div className="h-full w-full bg-gradient-to-br from-primary to-[#1A3A2A]" />
-      )}
+      {/* Couche visuelle : photo + gradient, explicitement clippée à la
+          forme arrondie (workaround iOS Safari sur button + overflow-hidden) */}
       <div
-        className="absolute inset-0"
-        style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.05) 30%, rgba(0,0,0,0.80) 100%)' }}
-      />
+        className="absolute inset-0 overflow-hidden rounded-tile bg-primary"
+        style={{ transform: 'translateZ(0)' }}
+      >
+        {photo ? (
+          <img
+            src={photo}
+            alt=""
+            className="h-full w-full object-cover"
+            style={{ objectPosition: imagePosition }}
+          />
+        ) : (
+          <div className="h-full w-full bg-gradient-to-br from-primary to-[#1A3A2A]" />
+        )}
+        <div
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.05) 30%, rgba(0,0,0,0.80) 100%)' }}
+        />
+      </div>
+
       {/* Badge À LA UNE */}
       <span
         className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-primary-light/95 px-2.5 py-[5px] text-[10px] font-bold tracking-[0.08em] text-primary"
