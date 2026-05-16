@@ -255,13 +255,23 @@ export default function ProfilView() {
                 ) : (
                   <button
                     onClick={() => { setNameInput(profile?.display_name ?? ''); setEditingName(true) }}
-                    style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
+                    style={{
+                      background: 'none', border: 'none', padding: 0,
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      cursor: 'pointer',
+                      maxWidth: '100%', minWidth: 0, overflow: 'hidden',
+                      textAlign: 'left',
+                    }}
                   >
-                    <span style={{ fontSize: 17, fontWeight: 800, color: '#1A1209', letterSpacing: '-0.01em' }}>
+                    <span style={{
+                      fontSize: 17, fontWeight: 800, color: '#1A1209', letterSpacing: '-0.01em',
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      minWidth: 0, flex: '0 1 auto',
+                    }}>
                       {displayName}
                     </span>
                     <PlanBadge plan={currentPlan} />
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B0A898" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B0A898" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                       <path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
                     </svg>
                   </button>

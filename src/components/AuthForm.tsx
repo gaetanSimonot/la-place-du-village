@@ -101,7 +101,10 @@ export default function AuthForm({ onBeforeRedirect, title = 'Connexion', compac
   }
 
   return (
-    <div style={{ padding: compact ? '4px 0 0' : '20px 0' }}>
+    <div style={{
+      padding: compact ? '4px 0 0' : '20px 18px',
+      maxWidth: 440, margin: '0 auto', boxSizing: 'border-box',
+    }}>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
 
       {!compact && (
