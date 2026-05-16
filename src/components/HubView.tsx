@@ -605,7 +605,11 @@ function HubHeroCarousel({
       const el = scrollerRef.current
       if (!el) return
       const slideW = el.clientWidth
-      el.scrollTo({ left: el.scrollLeft + slideW, behavior: 'smooth' })
+      if (!slideW) return
+      // Toujours viser un multiple exact de slideW pour éviter les dérives
+      // d'arrondi avec scroll-snap
+      const currentIdx = Math.round(el.scrollLeft / slideW)
+      el.scrollTo({ left: (currentIdx + 1) * slideW, behavior: 'smooth' })
     }, 3000)
     return () => clearInterval(t)
   }, [items.length])
@@ -657,7 +661,9 @@ function HubHeroCarousel({
           display: 'flex',
           overflowX: 'auto',
           scrollSnapType: 'x mandatory',
-          scrollBehavior: 'smooth',
+          // PAS de scrollBehavior:'smooth' en CSS — sinon les resets silencieux
+          // (scrollLeft = X) sont eux aussi animés, ce qui crée le retour visible.
+          // On utilise behavior:'smooth' explicitement dans les scrollTo voulus.
           WebkitOverflowScrolling: 'touch',
           scrollbarWidth: 'none',
         }}

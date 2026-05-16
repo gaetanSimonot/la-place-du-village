@@ -122,24 +122,34 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Demande incomplète (type/adresse/coordonnées manquants)' }, { status: 400 })
     }
 
+    // Mapping demande → schéma etablissements :
+    //  - description (demande) → description_longue + troncature pour description_courte
+    //  - horaires (text libre) → jsonb { texte: ... } pour respecter le schéma jsonb
+    //  - contact → contact_tel
+    const description = req_row.description ?? null
+    const descCourte  = description && description.length > 180 ? description.slice(0, 177) + '…' : description
+    const horairesJson = req_row.horaires ? { texte: req_row.horaires } : null
+
     const { data: newEtab, error: createErr } = await supabaseAdmin
       .from('etablissements')
       .insert({
-        nom:             req_row.nom,
-        type:            req_row.type,
-        adresse:         req_row.adresse,
-        commune:         req_row.commune ?? null,
-        lat:             req_row.lat,
-        lng:             req_row.lng,
-        place_id_google: req_row.place_id_google ?? null,
-        description:     req_row.description ?? null,
-        contact_tel:     req_row.contact ?? null,
-        site_web:        req_row.site_web ?? null,
-        horaires:        req_row.horaires ?? null,
-        photos:          req_row.photos ?? [],
-        plan:            'basic',
-        is_featured:     false,
-        user_id:         null, // fiche non revendiquée
+        nom:                 req_row.nom,
+        type:                req_row.type,
+        adresse:             req_row.adresse,
+        commune:             req_row.commune ?? null,
+        lat:                 req_row.lat,
+        lng:                 req_row.lng,
+        place_id_google:     req_row.place_id_google ?? null,
+        description_courte:  descCourte,
+        description_longue:  description,
+        contact_tel:         req_row.contact ?? null,
+        site_web:            req_row.site_web ?? null,
+        horaires:            horairesJson,
+        photos:              req_row.photos ?? [],
+        plan:                'basic',
+        is_featured:         false,
+        statut:              'publie',
+        user_id:             null, // fiche non revendiquée
       })
       .select('id, nom')
       .single()

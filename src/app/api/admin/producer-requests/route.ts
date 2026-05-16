@@ -94,12 +94,18 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Demande incomplète (adresse/coordonnées manquants)' }, { status: 400 })
     }
 
+    // Mapping demande → schéma producers :
+    // (la table producers n'a pas de colonne horaires — horaires demandé est ignoré ici,
+    // l'admin pourra l'ajouter en édition manuelle plus tard si besoin)
+    const description = r.description ?? null
+    const descCourte = description && description.length > 180 ? description.slice(0, 177) + '…' : description
+
     const { data: newProd, error: createErr } = await supabaseAdmin
       .from('producers')
       .insert({
         nom:                 r.nom,
-        description_courte:  r.description?.slice(0, 200) ?? null,
-        description_longue:  r.description ?? null,
+        description_courte:  descCourte,
+        description_longue:  description,
         commune:             r.commune,
         adresse:             r.adresse,
         lat:                 r.lat,
@@ -107,7 +113,6 @@ export async function PATCH(req: NextRequest) {
         place_id_google:     r.place_id_google,
         contact_tel:         r.contact,
         site_web:            r.site_web,
-        horaires:            r.horaires,
         produit_categories:  r.produit_categories ?? [],
         photos:              r.photos ?? [],
         user_id:             null,

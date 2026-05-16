@@ -112,8 +112,13 @@ export default function DemandesAdmin() {
       setWorking(null)
       return
     }
+    const data = await res.json().catch(() => ({}))
     setDemandes(prev => prev.filter(d => d.id !== id))
     setWorking(null)
+    // approve_create : redirige vers la fiche créée pour permettre l'édition
+    if (action === 'approve_create' && data.etablissement_id) {
+      window.location.href = `/etablissement/${data.etablissement_id}`
+    }
   }
 
   const handleProducerAction = async (id: string, action: 'approve_create' | 'reject') => {
@@ -130,8 +135,12 @@ export default function DemandesAdmin() {
       setWorking(null)
       return
     }
+    const data = await res.json().catch(() => ({}))
     setProducerDemandes(prev => prev.filter(d => d.id !== id))
     setWorking(null)
+    if (action === 'approve_create' && data.producer_id) {
+      window.location.href = `/producteur/${data.producer_id}`
+    }
   }
 
   if (loading) return (
