@@ -98,11 +98,6 @@ export async function PATCH(
     if (k in body) patch[k] = body[k] === '' ? null : body[k]
   }
 
-  // vedette_hub : admin only (champ séparé pour éviter qu'un user se mette en vedette)
-  if ('vedette_hub' in body && ctx.isAdmin) {
-    patch.vedette_hub = !!body.vedette_hub
-  }
-
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: 'Aucun champ à modifier' }, { status: 400 })
   }

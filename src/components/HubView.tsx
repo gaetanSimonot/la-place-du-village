@@ -77,24 +77,37 @@ export default function HubView({
       .then(({ data }) => { if (data?.value) setSubtitle(data.value) })
   }, [])
 
-  // Hero event : cascade admin pin > today > week > random publié
+  // Hero event : 1. featured_slots hub_hero (override) > 2. today > 3. week
   useEffect(() => {
     let mounted = true
     ;(async () => {
       const todayISO = new Date().toISOString().slice(0, 10)
       const inAWeek = new Date(); inAWeek.setDate(inAWeek.getDate() + 7)
       const weekISO = inAWeek.toISOString().slice(0, 10)
+      const nowISO  = new Date().toISOString()
 
-      // 1. Admin pin
-      let { data } = await supabase
-        .from('evenements')
-        .select('*, lieux(*)')
-        .eq('statut', 'publie')
-        .eq('vedette_hub', true)
-        .gte('date_debut', todayISO)
-        .order('date_debut', { ascending: true })
+      // 1. Override featured_slots
+      let data: Evenement | null = null
+      const { data: featuredSlots } = await supabase
+        .from('featured_slots')
+        .select('content_id')
+        .eq('slot', 'hub_hero')
+        .eq('content_type', 'evenement')
+        .lte('starts_at', nowISO)
+        .gt('ends_at', nowISO)
+        .order('priority', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(1)
-        .maybeSingle()
+
+      if (featuredSlots && featuredSlots.length > 0) {
+        const { data: ev } = await supabase
+          .from('evenements')
+          .select('*, lieux(*)')
+          .eq('id', featuredSlots[0].content_id)
+          .eq('statut', 'publie')
+          .maybeSingle()
+        data = ev as Evenement | null
+      }
 
       // 2. Du jour
       if (!data) {
@@ -105,7 +118,7 @@ export default function HubView({
           .eq('date_debut', todayISO)
           .order('promo_ordre', { ascending: false })
           .limit(1)
-        data = r.data?.[0] ?? null
+        data = (r.data?.[0] as Evenement | undefined) ?? null
       }
 
       // 3. De la semaine
@@ -118,10 +131,10 @@ export default function HubView({
           .lte('date_debut', weekISO)
           .order('date_debut', { ascending: true })
           .limit(1)
-        data = r.data?.[0] ?? null
+        data = (r.data?.[0] as Evenement | undefined) ?? null
       }
 
-      if (mounted) setHeroEvent(data as Evenement | null)
+      if (mounted) setHeroEvent(data)
     })()
     return () => { mounted = false }
   }, [])
@@ -143,29 +156,73 @@ export default function HubView({
     return () => { mounted = false }
   }, [])
 
-  // Promotions actives
-  useEffect(() => {
-    let mounted = true
-    fetch('/api/promotions')
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (mounted && d?.promotions) setPromos(d.promotions.slice(0, 6)) })
-      .catch(() => {})
-    return () => { mounted = false }
-  }, [])
-
-  // Annonce vedette : admin pin, fallback sponsored, fallback récente
+  // Promotions actives : featured_slots homepage type=promotion en tête + reste depuis /api/promotions
   useEffect(() => {
     let mounted = true
     ;(async () => {
-      // 1. Admin pin
-      let { data } = await supabase
-        .from('annonces')
-        .select('*')
-        .eq('statut', 'active')
-        .eq('vedette_hub', true)
-        .order('updated_at', { ascending: false })
+      const nowISO = new Date().toISOString()
+      const featuredIds = new Set<string>()
+      const ordered: PromoCard[] = []
+
+      // 1. Featured slots
+      const { data: featuredSlots } = await supabase
+        .from('featured_slots')
+        .select('content_id')
+        .eq('slot', 'homepage')
+        .eq('content_type', 'promotion')
+        .lte('starts_at', nowISO)
+        .gt('ends_at', nowISO)
+        .order('priority', { ascending: false })
+        .order('created_at', { ascending: false })
+
+      const featuredContentIds = (featuredSlots ?? []).map(s => s.content_id)
+      featuredContentIds.forEach(id => featuredIds.add(id))
+
+      // 2. Toutes les promos depuis /api/promotions
+      const r = await fetch('/api/promotions').catch(() => null)
+      const allPromos: PromoCard[] = r && r.ok ? ((await r.json())?.promotions ?? []) : []
+
+      // 3. Mettre les featured en tête
+      featuredContentIds.forEach(id => {
+        const p = allPromos.find(x => x.id === id)
+        if (p) ordered.push(p)
+      })
+      // 4. Compléter avec le reste
+      allPromos.forEach(p => { if (!featuredIds.has(p.id)) ordered.push(p) })
+
+      if (mounted) setPromos(ordered.slice(0, 6))
+    })()
+    return () => { mounted = false }
+  }, [])
+
+  // Annonce vedette : 1. featured_slots homepage (override) > 2. sponsored > 3. enchère récente
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      const nowISO = new Date().toISOString()
+      let data: Annonce | null = null
+
+      // 1. Override featured_slots homepage type annonce
+      const { data: featuredSlots } = await supabase
+        .from('featured_slots')
+        .select('content_id')
+        .eq('slot', 'homepage')
+        .eq('content_type', 'annonce')
+        .lte('starts_at', nowISO)
+        .gt('ends_at', nowISO)
+        .order('priority', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(1)
-        .maybeSingle()
+
+      if (featuredSlots && featuredSlots.length > 0) {
+        const { data: a } = await supabase
+          .from('annonces')
+          .select('*')
+          .eq('id', featuredSlots[0].content_id)
+          .eq('statut', 'active')
+          .maybeSingle()
+        data = a as Annonce | null
+      }
 
       // 2. Fallback sponsored
       if (!data) {
@@ -176,7 +233,7 @@ export default function HubView({
           .eq('sponsored', true)
           .order('updated_at', { ascending: false })
           .limit(1)
-        data = r.data?.[0] ?? null
+        data = (r.data?.[0] as Annonce | undefined) ?? null
       }
 
       // 3. Fallback enchère récente
@@ -188,10 +245,10 @@ export default function HubView({
           .eq('type', 'enchere_inversee')
           .order('created_at', { ascending: false })
           .limit(1)
-        data = r.data?.[0] ?? null
+        data = (r.data?.[0] as Annonce | undefined) ?? null
       }
 
-      if (mounted) setFeaturedAnnonce(data as Annonce | null)
+      if (mounted) setFeaturedAnnonce(data)
     })()
     return () => { mounted = false }
   }, [])

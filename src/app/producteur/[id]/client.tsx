@@ -8,6 +8,7 @@ import { useAdminSession } from '@/hooks/useAdminSession'
 import { PRODUIT_CATS_MAP, normalizeProduitCat } from '@/lib/produit-cats'
 import ProducerEditDrawer from '@/components/ProducerEditDrawer'
 import ProductsEditSection from '@/components/ProductsEditSection'
+import FeatureButton from '@/components/FeatureButton'
 
 interface Producer {
   id: string; nom: string; description_courte: string | null; description_longue: string | null
@@ -451,6 +452,7 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
       </div>
 
       {editing && producer && <ProducerEditDrawer producer={producer} onClose={() => setEditing(false)} onSaved={updated => setProducer(updated)} />}
+      {producer && <FeatureButton contentType="producteur" contentId={producer.id} ownerUserId={(producer as { user_id?: string | null }).user_id ?? null} />}
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )

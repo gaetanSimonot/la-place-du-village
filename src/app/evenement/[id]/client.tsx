@@ -13,6 +13,7 @@ import { useAdminSession } from '@/hooks/useAdminSession'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import { useFavorites } from '@/hooks/useFavorites'
+import FeatureButton from '@/components/FeatureButton'
 
 const LINK_STYLE = { color: '#C4622D', textDecoration: 'underline', wordBreak: 'break-all' } as const
 
@@ -479,6 +480,8 @@ export default function EvenementPageClient({ id }: { id: string }) {
           }}
         />
       )}
+
+      <FeatureButton contentType="evenement" contentId={id} ownerUserId={(evt as { user_id?: string | null }).user_id ?? null} />
     </div>
   )
 }

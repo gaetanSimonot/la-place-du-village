@@ -127,7 +127,11 @@ export default function AnnonceForm({ initial, onSuccess }: Props) {
 
     const id = data.annonce?.id ?? initial?.id
     if (onSuccess && id) onSuccess(id)
-    else if (id) router.push(`/annonces/${id}`)
+    else if (id) {
+      // Si création (pas édition) → flag just_created pour proposer le boost
+      const isCreation = !initial?.id
+      router.push(`/annonces/${id}${isCreation ? '?just_created=1' : ''}`)
+    }
   }
 
   const showPrix    = type === 'vente' || type === 'enchere_inversee'

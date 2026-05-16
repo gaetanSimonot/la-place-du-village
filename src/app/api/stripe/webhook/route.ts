@@ -32,6 +32,14 @@ export async function POST(req: NextRequest) {
 
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session
+
+    // — Boost one-shot (payment mode) —
+    if (session.metadata?.kind === 'boost') {
+      await handleBoostCompleted(session)
+      return NextResponse.json({ received: true })
+    }
+
+    // — Abonnement (subscription mode) —
     const { etab_id, user_id, plan } = session.metadata ?? {}
 
     if (!user_id || !plan) return NextResponse.json({ received: true })
@@ -106,4 +114,60 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ received: true })
+}
+
+/**
+ * Boost one-shot : on retrouve le boost_purchases pending, on le marque payé,
+ * et on crée le featured_slot avec la durée prévue.
+ */
+async function handleBoostCompleted(session: Stripe.Checkout.Session): Promise<void> {
+  const purchaseId = session.metadata?.purchase_id
+  if (!purchaseId) return
+
+  const { data: purchase } = await supabaseAdmin
+    .from('boost_purchases')
+    .select('*')
+    .eq('id', purchaseId)
+    .maybeSingle()
+
+  if (!purchase || purchase.status === 'paid') return  // idempotence
+
+  const startsAt = new Date()
+  const endsAt   = new Date(startsAt.getTime() + purchase.duration_hours * 3600 * 1000)
+
+  const { data: slotRow } = await supabaseAdmin
+    .from('featured_slots')
+    .insert({
+      slot:             purchase.slot,
+      content_type:     purchase.content_type,
+      content_id:       purchase.content_id,
+      starts_at:        startsAt.toISOString(),
+      ends_at:          endsAt.toISOString(),
+      priority:         5,                    // un peu prioritaire sur l'éditorial gratuit
+      sponsored:        true,
+      source:           'boost_purchase',
+      created_by:        purchase.user_id,
+      created_by_admin:  false,
+    })
+    .select()
+    .single()
+
+  await supabaseAdmin
+    .from('boost_purchases')
+    .update({
+      status:           'paid',
+      paid_at:          new Date().toISOString(),
+      featured_slot_id: slotRow?.id ?? null,
+    })
+    .eq('id', purchaseId)
+
+  // Notif au user
+  if (purchase.user_id) {
+    await notifyUser(purchase.user_id, {
+      type:        'promo_used',   // type générique le plus proche — à scinder plus tard si besoin
+      actor_name:  '🚀 Boost activé',
+      target_type: purchase.content_type === 'annonce' ? 'annonce' : 'event',
+      target_id:   purchase.content_id,
+    })
+  }
 }

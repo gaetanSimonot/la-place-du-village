@@ -367,6 +367,12 @@ export default function ProfilView() {
                   label="Mes échanges support"
                   onClick={() => { window.location.href = '/support' }}
                 />
+                <ActionRow
+                  icon="🚀"
+                  label="Visibilité & boost"
+                  badge={plan === 'pro' ? 'Inclus' : ''}
+                  onClick={() => { window.location.href = '/profil/visibilite' }}
+                />
               </div>
             </Card>
 
@@ -387,6 +393,27 @@ export default function ProfilView() {
                   <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.65)' }}>Membres, demandes, scraping, inbox</p>
                 </div>
                 <span style={{ color: '#fff', fontSize: 18 }}>›</span>
+              </Link>
+            )}
+
+            {/* Admin — Hub carousel manager */}
+            {isAdmin && (
+              <Link
+                href="/admin/hub-carousel"
+                style={{
+                  textDecoration: 'none', color: 'inherit',
+                  backgroundColor: '#fff', borderRadius: 18, padding: '16px',
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  border: '1px solid #E5DDD2',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                }}
+              >
+                <span style={{ fontSize: 22 }}>⭐</span>
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#1A1209' }}>Hub carousel</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 11, color: '#8A7A6A' }}>Mise en avant éditoriale</p>
+                </div>
+                <span style={{ color: '#8A7A6A', fontSize: 18 }}>›</span>
               </Link>
             )}
 

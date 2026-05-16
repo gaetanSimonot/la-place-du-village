@@ -4,10 +4,10 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
-import { useAdminSession } from '@/hooks/useAdminSession'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import AnnonceForm from '@/components/AnnonceForm'
 import BottomNavBar from '@/components/BottomNavBar'
+import FeatureButton, { FeatureModal } from '@/components/FeatureButton'
 import {
   getPrixAffiche,
   getNextDropDate,
@@ -72,7 +72,6 @@ export default function AnnoncePageClient({ id }: Props) {
   const router = useRouter()
   const { user, profile } = useAuth()
   const { openAuthModal } = useAuthModal()
-  const isAdmin = useAdminSession()
   const plan = (profile?.plan as Plan) ?? 'basic'
 
   const [annonce, setAnnonce]     = useState<Annonce | null>(null)
@@ -84,6 +83,16 @@ export default function AnnoncePageClient({ id }: Props) {
   const [error, setError]         = useState<string | null>(null)
   const [toast, setToast]         = useState<string | null>(null)
   const [convs, setConvs]         = useState<ConvSummary[]>([])
+  const [showBoostBanner, setShowBoostBanner] = useState(false)
+  const [boostModalOpen, setBoostModalOpen]   = useState(false)
+
+  // Détection ?just_created=1 (post-création → propose boost)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (new URLSearchParams(window.location.search).get('just_created') === '1') {
+      setShowBoostBanner(true)
+    }
+  }, [])
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 2200) }
 
@@ -184,21 +193,6 @@ export default function AnnoncePageClient({ id }: Props) {
     else setAction(null)
   }
 
-  async function toggleVedette() {
-    if (!annonce) return
-    setAction('vedette'); setError(null)
-    const { data: { session } } = await supabase.auth.getSession()
-    const token = session?.access_token
-    if (!token) { setAction(null); return }
-    const res = await fetch(`/api/annonces/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ vedette_hub: !annonce.vedette_hub }),
-    })
-    if (res.ok) { showToast(annonce.vedette_hub ? 'Retiré du hub' : 'Mis en vedette du hub'); await reload() }
-    else { const d = await res.json().catch(() => ({})); setError(d.error ?? 'Erreur') }
-    setAction(null)
-  }
 
   if (loading) {
     return (
@@ -244,6 +238,57 @@ export default function AnnoncePageClient({ id }: Props) {
   return (
     <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', fontFamily: 'Inter, sans-serif', paddingBottom: isActive && !isOwner ? 144 : 80 }}>
       {toast && <Toast msg={toast} />}
+
+      {/* Bannière post-création */}
+      {showBoostBanner && isOwner && (
+        <div style={{
+          margin: '12px 12px 0',
+          padding: '14px 14px',
+          borderRadius: 14,
+          background: 'linear-gradient(135deg, #2D5A3D 0%, #4A7A5A 100%)',
+          color: '#fff',
+          display: 'flex', alignItems: 'center', gap: 12,
+          boxShadow: '0 4px 16px rgba(45,90,61,0.25)',
+        }}>
+          <span style={{ fontSize: 26, flexShrink: 0 }}>🎉</span>
+          <div style={{ flex: 1 }}>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 800 }}>Votre annonce est en ligne !</p>
+            <p style={{ margin: '2px 0 0', fontSize: 11, opacity: 0.9, fontFamily: 'Lora, serif', fontStyle: 'italic' }}>
+              Voulez-vous la mettre en avant ?
+            </p>
+          </div>
+          <button
+            onClick={() => setBoostModalOpen(true)}
+            style={{
+              padding: '8px 14px', borderRadius: 999,
+              backgroundColor: '#fff', color: '#2D5A3D',
+              border: 'none', fontSize: 11, fontWeight: 800,
+              cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+            }}
+          >🚀 Booster</button>
+          <button
+            onClick={() => setShowBoostBanner(false)}
+            aria-label="Fermer"
+            style={{
+              width: 26, height: 26, borderRadius: 999,
+              backgroundColor: 'rgba(255,255,255,0.15)', color: '#fff',
+              border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 800,
+              flexShrink: 0,
+            }}
+          >✕</button>
+        </div>
+      )}
+
+      {boostModalOpen && annonce && (
+        <FeatureModal
+          contentType="annonce"
+          contentId={annonce.id}
+          isAdmin={false}
+          isOwner={true}
+          plan={plan as 'basic' | 'habitants' | 'pro'}
+          onClose={() => { setBoostModalOpen(false); setShowBoostBanner(false) }}
+        />
+      )}
 
       {/* Header */}
       <div style={stickyHeaderStyle}>
@@ -417,15 +462,6 @@ export default function AnnoncePageClient({ id }: Props) {
           </div>
         )}
 
-        {/* Actions admin */}
-        {isAdmin && (
-          <div style={{ ...cardStyle, border: '2px dashed #E8A627' }}>
-            <p style={{ ...cardLabel, color: '#B07E1F' }}>Admin</p>
-            <ActionButton onClick={toggleVedette} disabled={action === 'vedette'}>
-              {action === 'vedette' ? '...' : annonce.vedette_hub ? '📌 Retirer du hub' : '📌 Mettre en vedette dans le hub'}
-            </ActionButton>
-          </div>
-        )}
       </div>
 
       {/* Bottom bar fixe — acheteur sur annonce active */}
@@ -472,6 +508,7 @@ export default function AnnoncePageClient({ id }: Props) {
         </div>
       )}
 
+      <FeatureButton contentType="annonce" contentId={id} ownerUserId={annonce.user_id ?? null} />
       <BottomNavBar />
     </div>
   )

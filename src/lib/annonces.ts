@@ -44,7 +44,6 @@ export interface Annonce {
   sponsored: boolean
   sponsored_until: string | null
   remise_main_propre: boolean
-  vedette_hub: boolean
   created_at: string
   updated_at: string
 }

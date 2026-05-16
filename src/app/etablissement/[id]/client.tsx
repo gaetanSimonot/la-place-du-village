@@ -13,6 +13,7 @@ import type { Etablissement } from '@/lib/types'
 import { can, toUserContext } from '@/lib/capabilities'
 import { QuotaReachedModal } from '@/components/HubModals'
 import PromotionsManager from '@/components/PromotionsManager'
+import FeatureButton from '@/components/FeatureButton'
 import SubscriptionModal from '@/components/SubscriptionModal'
 
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
@@ -544,6 +545,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
         />
       )}
       {editing && <EtabEditDrawer etab={etab} isAdmin={isAdmin} onClose={() => setEditing(false)} onSaved={patch => setEtab(prev => prev ? { ...prev, ...patch } : prev)} />}
+      <FeatureButton contentType="etablissement" contentId={etab.id} ownerUserId={etab.user_id ?? null} />
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
