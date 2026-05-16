@@ -6,8 +6,40 @@ interface AddressComponent {
   types: string[]
 }
 
+interface PlaceDetailsResult {
+  name?: string
+  formatted_address?: string
+  geometry?: { location?: { lat?: number; lng?: number } }
+  address_components?: AddressComponent[]
+  international_phone_number?: string
+  formatted_phone_number?: string
+  website?: string
+  url?: string
+  opening_hours?: { weekday_text?: string[] }
+  types?: string[]
+  photos?: { photo_reference: string; width: number; height: number }[]
+}
+
 function extractComponent(components: AddressComponent[], ...types: string[]): string {
   return components.find(c => types.some(t => c.types.includes(t)))?.long_name ?? ''
+}
+
+/**
+ * Devine la catégorie etablissement (5 valeurs) à partir des types Google Places.
+ */
+function guessEtabType(googleTypes: string[]): string | null {
+  const t = new Set(googleTypes.map(s => s.toLowerCase()))
+  if (t.has('restaurant') || t.has('bar') || t.has('cafe') || t.has('night_club') || t.has('meal_takeaway') || t.has('meal_delivery') || t.has('bakery'))
+    return 'restaurant_bar'
+  if (t.has('lodging') || t.has('hotel') || t.has('campground') || t.has('rv_park') || t.has('guest_house'))
+    return 'hebergement'
+  if (t.has('spa') || t.has('beauty_salon') || t.has('hair_care') || t.has('doctor') || t.has('dentist') || t.has('hospital') || t.has('pharmacy') || t.has('physiotherapist') || t.has('health'))
+    return 'sante_bien_etre'
+  if (t.has('gym') || t.has('park') || t.has('museum') || t.has('tourist_attraction') || t.has('amusement_park') || t.has('aquarium') || t.has('zoo') || t.has('movie_theater') || t.has('art_gallery'))
+    return 'activite'
+  if (t.has('store') || t.has('shopping_mall') || t.has('plumber') || t.has('electrician') || t.has('locksmith') || t.has('car_repair') || t.has('laundry') || t.has('travel_agency'))
+    return 'artisan_service'
+  return null
 }
 
 export async function GET(req: NextRequest) {
@@ -18,13 +50,18 @@ export async function GET(req: NextRequest) {
   if (placeId) {
     const url = new URL('https://maps.googleapis.com/maps/api/place/details/json')
     url.searchParams.set('place_id', placeId)
-    url.searchParams.set('fields', 'name,geometry,formatted_address,address_components')
+    // Champs enrichis pour pouvoir pré-remplir la fiche de référencement
+    url.searchParams.set('fields', [
+      'name', 'geometry', 'formatted_address', 'address_components',
+      'international_phone_number', 'formatted_phone_number',
+      'website', 'url', 'opening_hours', 'types', 'photos',
+    ].join(','))
     url.searchParams.set('language', 'fr')
     url.searchParams.set('key', process.env.GOOGLE_PLACES_KEY!)
 
     const res  = await fetch(url.toString())
     const data = await res.json()
-    const p    = data.result
+    const p: PlaceDetailsResult | undefined = data.result
 
     if (!p) return NextResponse.json({ lat: null, lng: null })
 
@@ -33,15 +70,28 @@ export async function GET(req: NextRequest) {
                     extractComponent(comps, 'administrative_area_level_2')
     const route   = extractComponent(comps, 'route')
     const num     = extractComponent(comps, 'street_number')
-    const adresse = num && route ? `${num} ${route}` : route || ''
+    const adresse = num && route ? `${num} ${route}` : route || p.formatted_address || ''
+
+    const horaires = p.opening_hours?.weekday_text?.join('\n') ?? ''
+    const phone    = p.formatted_phone_number ?? p.international_phone_number ?? ''
+    const types    = p.types ?? []
+    const typeGuess = guessEtabType(types)
+    const photoRefs = (p.photos ?? []).slice(0, 6).map(ph => ph.photo_reference)
 
     return NextResponse.json({
-      lat:        p.geometry?.location?.lat ?? null,
-      lng:        p.geometry?.location?.lng ?? null,
-      nom:        p.name ?? '',
+      lat:      p.geometry?.location?.lat ?? null,
+      lng:      p.geometry?.location?.lng ?? null,
+      nom:      p.name ?? '',
       adresse,
       commune,
-      place_id:   placeId,
+      place_id: placeId,
+      phone,
+      website:  p.website ?? '',
+      horaires,
+      types,
+      type_guess: typeGuess,
+      photo_refs: photoRefs,
+      formatted_address: p.formatted_address ?? '',
     })
   }
 

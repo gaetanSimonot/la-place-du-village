@@ -156,6 +156,8 @@ function ReferenceForm({
   const [uploading, setUploading]     = useState(false)
   const [submitting, setSubmitting]   = useState(false)
   const [error, setError]             = useState<string | null>(null)
+  const [googlePhotos, setGooglePhotos] = useState<string[]>([])
+  const [autoFilled, setAutoFilled]   = useState<string[]>([])
 
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -178,17 +180,44 @@ function ReferenceForm({
     setAdresse(p.description)
     setPredictions([])
     const r = await fetch(`/api/admin/geocode?place_id=${encodeURIComponent(p.place_id)}`).catch(() => null)
-    if (r && r.ok) {
-      const d = await r.json()
-      if (d.lat != null) setLat(d.lat)
-      if (d.lng != null) setLng(d.lng)
-      if (d.commune)     setCommune(d.commune)
-      setPlaceId(p.place_id)
+    if (!r || !r.ok) { setPlaceId(p.place_id); return }
+    const d = await r.json()
+    if (d.lat != null) setLat(d.lat)
+    if (d.lng != null) setLng(d.lng)
+    if (d.commune)     setCommune(d.commune)
+    if (d.adresse)     setAdresse(d.adresse)
+
+    // Auto-fill — uniquement si le champ est vide (on respecte ce que le user a tapé)
+    const filled: string[] = []
+    if (kind === 'commerce' && d.nom && !nom.trim())          { setNom(d.nom);          filled.push('nom') }
+    if (kind === 'commerce' && d.type_guess && !type)         { setType(d.type_guess);  filled.push('catégorie') }
+    if (d.phone && !contact.trim())                            { setContact(d.phone);    filled.push('téléphone') }
+    if (d.website && !siteWeb.trim())                          { setSiteWeb(d.website);  filled.push('site web') }
+    if (d.horaires && !horaires.trim())                        { setHoraires(d.horaires); filled.push('horaires') }
+    setAutoFilled(filled)
+
+    // Photos Google proposées (preview)
+    if (Array.isArray(d.photo_refs) && d.photo_refs.length > 0) {
+      setGooglePhotos(d.photo_refs.map((ref: string) => `/api/google-place-photo?ref=${encodeURIComponent(ref)}&maxwidth=800`))
     }
+
+    setPlaceId(p.place_id)
   }
 
   function resetAddress() {
     setLat(null); setLng(null); setPlaceId(null); setCommune('')
+    setGooglePhotos([])
+    setAutoFilled([])
+  }
+
+  function addAllGooglePhotos() {
+    setPhotos(prev => Array.from(new Set([...prev, ...googlePhotos])))
+    setGooglePhotos([])
+  }
+
+  function addOneGooglePhoto(url: string) {
+    setPhotos(prev => prev.includes(url) ? prev : [...prev, url])
+    setGooglePhotos(prev => prev.filter(p => p !== url))
   }
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -301,13 +330,16 @@ function ReferenceForm({
           </Field>
         )}
 
-        <Field label="Adresse *" hint="Tapez pour autocompléter via Google">
+        <Field label="Adresse ou nom du lieu *" hint="Google complète automatiquement les infos">
           <div style={{ position: 'relative' }}>
             <input
               value={adresse}
               onChange={e => { setAdresse(e.target.value); if (placeId) resetAddress() }}
-              placeholder="Ex: 12 rue de la République, Ganges"
+              placeholder="Ex: Boulangerie du Village, Ganges"
               style={INPUT}
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
             />
             {predictions.length > 0 && !placeId && (
               <div style={{
@@ -334,9 +366,44 @@ function ReferenceForm({
                 ✓ Adresse localisée{commune ? ` · ${commune}` : ''}
               </p>
             )}
+            {autoFilled.length > 0 && (
+              <p style={{ margin: '4px 0 0', fontSize: 11, color: '#3A5BC7', fontWeight: 700 }}>
+                ✨ Pré-rempli depuis Google : {autoFilled.join(', ')}
+              </p>
+            )}
             {searching && <p style={{ margin: '6px 0 0', fontSize: 11, color: '#8A7A6A' }}>Recherche…</p>}
           </div>
         </Field>
+
+        {/* Photos Google proposées */}
+        {googlePhotos.length > 0 && (
+          <Field label={`📷 ${googlePhotos.length} photo${googlePhotos.length > 1 ? 's' : ''} Google disponible${googlePhotos.length > 1 ? 's' : ''}`} hint="Cliquez pour ajouter">
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+              {googlePhotos.map((url, i) => (
+                <button key={i} type="button" onClick={() => addOneGooglePhoto(url)} style={{
+                  position: 'relative', width: 72, height: 72, padding: 0,
+                  borderRadius: 10, overflow: 'hidden',
+                  border: '1.5px dashed #3A5BC7', cursor: 'pointer',
+                  background: 'none',
+                }}>
+                  <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <span style={{
+                    position: 'absolute', bottom: 0, left: 0, right: 0,
+                    backgroundColor: 'rgba(58,91,199,0.85)', color: '#fff',
+                    fontSize: 9, fontWeight: 800, padding: '2px 0',
+                    textAlign: 'center',
+                  }}>+ Ajouter</span>
+                </button>
+              ))}
+            </div>
+            <button type="button" onClick={addAllGooglePhotos} style={{
+              padding: '7px 12px', borderRadius: 999,
+              backgroundColor: '#3A5BC7', color: '#fff',
+              border: 'none', fontSize: 11, fontWeight: 800,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}>Tout ajouter ({googlePhotos.length})</button>
+          </Field>
+        )}
 
         <Field label="Description">
           <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3}
@@ -454,6 +521,10 @@ const INPUT: React.CSSProperties = {
   fontSize: 14, fontFamily: 'Inter, sans-serif',
   outline: 'none', boxSizing: 'border-box',
   color: '#2C1810', backgroundColor: '#FDFAF6',
+  // Force la couleur du texte sur iOS/Safari/Chrome autofill et dans le PWA
+  // où certains user-agents posent un thème "system" qui rend le texte invisible.
+  WebkitTextFillColor: '#2C1810',
+  colorScheme: 'light',
 }
 
 function catBtnStyle(active: boolean): React.CSSProperties {
