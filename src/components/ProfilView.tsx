@@ -44,6 +44,26 @@ export default function ProfilView() {
   const [showUpgrade, setShowUpgrade] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
   const [supportUnread, setSupportUnread] = useState(0)
+  const [openingPortal, setOpeningPortal] = useState(false)
+
+  async function openStripePortal() {
+    if (openingPortal) return
+    setOpeningPortal(true)
+    const t = await getToken()
+    if (!t) { setOpeningPortal(false); return }
+    const r = await fetch('/api/stripe/manage', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${t}` },
+    })
+    if (r.ok) {
+      const d = await r.json()
+      if (d.url) { window.location.href = d.url; return }
+    } else {
+      const d = await r.json().catch(() => ({}))
+      alert(d.error ?? 'Erreur ouverture du portail')
+    }
+    setOpeningPortal(false)
+  }
 
   // Compteur unread pour les tickets support (admin only)
   useEffect(() => {
@@ -286,8 +306,24 @@ export default function ProfilView() {
                   fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
                 }}
               >
-                {currentPlan === 'basic' ? '✦ Découvrir nos offres' : 'Voir les offres / gérer'}
+                {currentPlan === 'basic' ? '✦ Découvrir nos offres' : 'Voir les offres'}
               </button>
+              {currentPlan !== 'basic' && (
+                <button
+                  onClick={openStripePortal}
+                  disabled={openingPortal}
+                  style={{
+                    width: '100%', padding: '10px', marginTop: 8,
+                    background: '#FDFAF6', color: '#6B5E4E',
+                    border: '1.5px solid #E5DDD2', borderRadius: 12,
+                    fontSize: 12, fontWeight: 700,
+                    cursor: openingPortal ? 'wait' : 'pointer', fontFamily: 'inherit',
+                    opacity: openingPortal ? 0.6 : 1,
+                  }}
+                >
+                  {openingPortal ? 'Ouverture…' : '⚙ Gérer / annuler mon abonnement'}
+                </button>
+              )}
             </Card>
 
             {/* Card Mes établissements */}
@@ -446,6 +482,24 @@ export default function ProfilView() {
                 <span style={{ color: '#8A7A6A', fontSize: 18 }}>›</span>
               </Link>
             )}
+
+            {/* Compte — déconnexion */}
+            <Card>
+              <CardLabel>👤 Compte</CardLabel>
+              <button
+                onClick={handleSignOut}
+                disabled={signingOut}
+                style={{
+                  width: '100%', padding: '12px',
+                  background: 'transparent', color: '#C0392B',
+                  border: '1.5px solid #F4C9C2', borderRadius: 12,
+                  fontSize: 13, fontWeight: 800, cursor: signingOut ? 'default' : 'pointer',
+                  fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }}
+              >
+                🚪 {signingOut ? 'Déconnexion…' : 'Se déconnecter'}
+              </button>
+            </Card>
           </>
         )}
 
@@ -513,24 +567,6 @@ export default function ProfilView() {
                   )
                 })}
               </div>
-            </Card>
-
-            {/* Compte */}
-            <Card>
-              <CardLabel>👤 Compte</CardLabel>
-              <button
-                onClick={handleSignOut}
-                disabled={signingOut}
-                style={{
-                  width: '100%', padding: '12px',
-                  background: 'transparent', color: '#C0392B',
-                  border: '1.5px solid #F4C9C2', borderRadius: 12,
-                  fontSize: 13, fontWeight: 800, cursor: signingOut ? 'default' : 'pointer',
-                  fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                }}
-              >
-                🚪 {signingOut ? 'Déconnexion…' : 'Se déconnecter'}
-              </button>
             </Card>
 
             {/* Footer info */}
