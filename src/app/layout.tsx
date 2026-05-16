@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'black-translucent',
+    statusBarStyle: 'default',
     title: 'La Place',
   },
   icons: {
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#2D5A3D',
+  themeColor: '#FDFAF5',
   colorScheme: 'light',
   width: 'device-width',
   initialScale: 1,

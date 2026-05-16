@@ -4,8 +4,8 @@
   "description": "Événements locaux autour de Ganges (Hérault)",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#FAF7F2",
-  "theme_color": "#2D5A3D",
+  "background_color": "#FDFAF5",
+  "theme_color": "#FDFAF5",
   "orientation": "portrait",
   "categories": ["lifestyle", "social"],
   "share_target": {
