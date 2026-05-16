@@ -760,7 +760,7 @@ function HeroCardShell({
     <button
       type="button"
       onClick={onClick}
-      className="relative block h-[180px] w-full appearance-none rounded-tile border-none bg-transparent p-0 text-left shadow-hero"
+      className="relative block h-[180px] w-full appearance-none rounded-tile border-none bg-transparent p-0 text-left"
       style={{ WebkitTapHighlightColor: 'transparent' }}
     >
       {/* Couche visuelle : photo + gradient, explicitement clippée à la
