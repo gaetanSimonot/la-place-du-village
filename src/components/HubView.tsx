@@ -9,7 +9,6 @@ import type { EtablissementType, Evenement } from '@/lib/types'
 import { getPrixAffiche, type Annonce } from '@/lib/annonces'
 import HubTopBar from '@/components/HubTopBar'
 import HubSearchBar from '@/components/HubSearchBar'
-import HubSearchModal from '@/components/HubSearchModal'
 
 interface Props {
   onSelectAgenda:        () => void
@@ -19,6 +18,7 @@ interface Props {
   onUpgradePrompt:       (requiredPlan: 'habitants' | 'pro', label: string) => void
   onOpenNotifs?:         () => void
   onOpenInfo?:           () => void
+  onOpenSearch?:         () => void
   unreadCount?:          number
 }
 
@@ -75,7 +75,7 @@ function dateLabel(iso: string | null): string {
 export default function HubView({
   onSelectAgenda, onSelectAnnuaire, onSelectProducteurs,
   onComingSoon, onUpgradePrompt,
-  onOpenNotifs, onOpenInfo, unreadCount = 0,
+  onOpenNotifs, onOpenInfo, onOpenSearch, unreadCount = 0,
 }: Props) {
   const router = useRouter()
   const { profile } = useAuth()
@@ -84,7 +84,6 @@ export default function HubView({
   const [todayEvents, setTodayEvents] = useState<Evenement[]>([])
   const [promos, setPromos] = useState<PromoCard[]>([])
   const [featuredAnnonces, setFeaturedAnnonces] = useState<Annonce[]>([])
-  const [searchOpen, setSearchOpen] = useState(false)
 
   // Hero carousel : 1. featured_slots hub_hero (events + etabs) > 2. today event > 3. week event
   const loadHero = useCallback(async () => {
@@ -333,7 +332,7 @@ export default function HubView({
       />
 
       {/* ── 2. Search bar (ouvre la modale recherche globale) ─────────── */}
-      <HubSearchBar onClick={() => setSearchOpen(true)} />
+      <HubSearchBar onClick={onOpenSearch} />
 
       {/* ── 3. Greeting line ──────────────────────────────────────────── */}
       <div className="px-4 pb-1.5 pt-3.5">
@@ -342,8 +341,6 @@ export default function HubView({
           {' '}Voici ce qui se passe.
         </p>
       </div>
-
-      <HubSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
 
       {/* ── 4. Hero carousel ──────────────────────────────────────────── */}
       {heroItems.length > 0 && (

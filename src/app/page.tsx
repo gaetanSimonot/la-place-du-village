@@ -22,6 +22,7 @@ import AppInfoModal from '@/components/AppInfoModal'
 import AppSplash from '@/components/AppSplash'
 import WelcomePopup from '@/components/WelcomePopup'
 import HubView from '@/components/HubView'
+import HubSearchModal, { type SearchKind } from '@/components/HubSearchModal'
 import { ComingSoonModal } from '@/components/HubModals'
 import SubscriptionModal from '@/components/SubscriptionModal'
 import { useFavorites } from '@/hooks/useFavorites'
@@ -187,7 +188,6 @@ export default function HomePage() {
   const [upgradePrompt, setUpgradePrompt] = useState<{ plan: 'habitants' | 'pro'; label: string } | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const searchInputRef = useRef<HTMLInputElement>(null)
   const [fabOpen, setFabOpen]       = useState(false)
   const [paramsOpen, setParamsOpen] = useState(false)
   const [commerceFormOpen, setCommerceFormOpen] = useState(false)
@@ -550,6 +550,27 @@ export default function HomePage() {
     setSheetMode('half')
   }
 
+  // "Voir tout sur la carte" depuis la modale recherche globale
+  const handleSearchViewAll = useCallback((kind: SearchKind, query: string) => {
+    setShowHub(false)
+    setSelectedId(null)
+    setNavTab('carte')
+    setSheetMode('half')
+    if (kind === 'evenement') {
+      setAppMode('agenda')
+      setSearchQuery(query)
+    } else if (kind === 'etablissement') {
+      setAppMode('annuaire')
+      setAnnuaireTab(1)
+      setSelectedEtabType(null)
+      setEtabSearch(query)
+    } else {
+      setAppMode('annuaire')
+      setAnnuaireTab(0)
+      setProducerSearch(query)
+    }
+  }, [])
+
   const availableProducerCats = useMemo(() => {
     const s = new Set<ProduitCategorie>()
     producers.forEach(p => p.produit_categories.forEach(c => s.add(c)))
@@ -673,6 +694,7 @@ export default function HomePage() {
             onUpgradePrompt={(plan, label) => setUpgradePrompt({ plan, label })}
             onOpenNotifs={() => handleNavTab('notifs')}
             onOpenInfo={() => setInfoOpen(true)}
+            onOpenSearch={() => setSearchOpen(true)}
             unreadCount={notifCount}
           />
         </div>
@@ -747,8 +769,8 @@ export default function HomePage() {
                 )}
               </AnimatePresence>
 
-              {/* Loupe */}
-              <button onClick={() => { setSearchOpen(true); setParamsOpen(false); setTimeout(() => searchInputRef.current?.focus(), 80) }}
+              {/* Loupe — ouvre la modale recherche globale */}
+              <button onClick={() => { setSearchOpen(true); setParamsOpen(false) }}
                 style={{ ...BTN, ...activeColor(false) }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
@@ -764,32 +786,6 @@ export default function HomePage() {
                 <line x1="12" y1="8" x2="12.01" y2="8"/>
               </svg>
             </button>
-
-            {/* Barre de recherche */}
-            <AnimatePresence>
-              {searchOpen && showBtns && (
-                <motion.div key="search-bar" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}
-                  style={{ position: 'absolute', top: 14, left: 14, right: 14, zIndex: 210, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.97)', borderRadius: 12, boxShadow: '0 2px 12px rgba(0,0,0,0.16)', border: '1px solid #E0D8CE', padding: '0 12px', height: 44 }}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8A8A8A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-                    </svg>
-                    <input ref={searchInputRef}
-                      value={appMode === 'annuaire' ? producerSearch : searchQuery}
-                      onChange={e => appMode === 'annuaire' ? setProducerSearch(e.target.value) : setSearchQuery(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery(''); setProducerSearch('') } }}
-                      placeholder={appMode === 'annuaire' ? 'Rechercher un producteur…' : 'Rechercher un événement…'}
-                      style={{ flex: 1, border: 'none', outline: 'none', fontSize: 14, backgroundColor: 'transparent', marginLeft: 8, color: '#2C1810', fontFamily: 'Inter, sans-serif' }}
-                    />
-                    {(searchQuery || producerSearch) && (
-                      <button onClick={() => { setSearchQuery(''); setProducerSearch('') }} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#AAA', fontSize: 15, padding: '0 2px', display: 'flex' }}>✕</button>
-                    )}
-                  </div>
-                  <button onClick={() => { setSearchOpen(false); setSearchQuery(''); setProducerSearch('') }}
-                    style={{ flexShrink: 0, width: 44, height: 44, borderRadius: 12, border: 'none', backgroundColor: 'rgba(255,255,255,0.92)', boxShadow: '0 2px 10px rgba(0,0,0,0.14)', cursor: 'pointer', color: '#6B6B6B', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>✕</button>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </>
         )
       })()}
@@ -1118,6 +1114,13 @@ export default function HomePage() {
 
       {commerceFormOpen && <CommerceRequestModal onClose={() => setCommerceFormOpen(false)} />}
       {infoOpen && <AppInfoModal onClose={() => setInfoOpen(false)} />}
+
+      {/* Modale recherche globale — accessible depuis hub (loupe header) et carte (loupe gauche) */}
+      <HubSearchModal
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        onViewAll={handleSearchViewAll}
+      />
 
       {/* Bottom Nav avec FAB central "Publier" */}
       <nav style={{

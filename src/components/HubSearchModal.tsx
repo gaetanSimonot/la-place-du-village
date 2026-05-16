@@ -29,7 +29,12 @@ interface Results {
   evenements:     EvenementRow[]
   etablissements: EtablissementRow[]
   producteurs:    ProducteurRow[]
+  totalEv:        number
+  totalEtab:      number
+  totalProd:      number
 }
+
+export type SearchKind = 'evenement' | 'etablissement' | 'producteur'
 
 function dateLabel(iso: string | null): string {
   if (!iso) return ''
@@ -47,9 +52,11 @@ const ESC_OR = (s: string) => s.replace(/,/g, '\\,').replace(/\)/g, '\\)').repla
 interface Props {
   open:    boolean
   onClose: () => void
+  /** Tap "Voir tout (N)" — route vers la carte avec le filtre appliqué. */
+  onViewAll?: (kind: SearchKind, query: string) => void
 }
 
-export default function HubSearchModal({ open, onClose }: Props) {
+export default function HubSearchModal({ open, onClose, onViewAll }: Props) {
   const router = useRouter()
   const [q, setQ] = useState('')
   const [results, setResults] = useState<Results | null>(null)
@@ -89,17 +96,17 @@ export default function HubSearchModal({ open, onClose }: Props) {
       const term = `%${ESC_OR(trimmed)}%`
       const [evRes, etabRes, prodRes] = await Promise.all([
         supabase.from('evenements')
-          .select('id, titre, image_url, date_debut, heure, lieux(nom, commune)')
+          .select('id, titre, image_url, date_debut, heure, lieux(nom, commune)', { count: 'exact' })
           .eq('statut', 'publie')
           .ilike('titre', term)
           .order('date_debut', { ascending: true })
           .limit(6),
         supabase.from('etablissements')
-          .select('id, nom, commune, photos, type')
+          .select('id, nom, commune, photos, type', { count: 'exact' })
           .or(`nom.ilike.${term},commune.ilike.${term}`)
           .limit(6),
         supabase.from('producers')
-          .select('id, nom, commune, photos')
+          .select('id, nom, commune, photos', { count: 'exact' })
           .or(`nom.ilike.${term},commune.ilike.${term}`)
           .limit(6),
       ])
@@ -108,6 +115,9 @@ export default function HubSearchModal({ open, onClose }: Props) {
         evenements:     (evRes.data   ?? []) as unknown as EvenementRow[],
         etablissements: (etabRes.data ?? []) as EtablissementRow[],
         producteurs:    (prodRes.data ?? []) as ProducteurRow[],
+        totalEv:        evRes.count   ?? 0,
+        totalEtab:      etabRes.count ?? 0,
+        totalProd:      prodRes.count ?? 0,
       })
       setLoading(false)
     }, 200)
@@ -209,7 +219,8 @@ export default function HubSearchModal({ open, onClose }: Props) {
               <ResultSection
                 icon={<IconCalendar />}
                 title="Événements"
-                count={results.evenements.length}
+                total={results.totalEv}
+                onViewAll={onViewAll ? () => { onClose(); onViewAll('evenement', q.trim()) } : undefined}
               >
                 {results.evenements.map(e => (
                   <ResultRow
@@ -230,7 +241,8 @@ export default function HubSearchModal({ open, onClose }: Props) {
               <ResultSection
                 icon={<IconStore />}
                 title="Commerces"
-                count={results.etablissements.length}
+                total={results.totalEtab}
+                onViewAll={onViewAll ? () => { onClose(); onViewAll('etablissement', q.trim()) } : undefined}
               >
                 {results.etablissements.map(et => (
                   <ResultRow
@@ -250,7 +262,8 @@ export default function HubSearchModal({ open, onClose }: Props) {
               <ResultSection
                 icon={<IconLeaf />}
                 title="Producteurs"
-                count={results.producteurs.length}
+                total={results.totalProd}
+                onViewAll={onViewAll ? () => { onClose(); onViewAll('producteur', q.trim()) } : undefined}
               >
                 {results.producteurs.map(p => (
                   <ResultRow
@@ -281,21 +294,34 @@ export default function HubSearchModal({ open, onClose }: Props) {
 /* ─── Sub-components ─────────────────────────────────────────────────── */
 
 function ResultSection({
-  icon, title, count, children,
+  icon, title, total, children, onViewAll,
 }: {
   icon: React.ReactNode
   title: string
-  count: number
+  total: number
   children: React.ReactNode
+  onViewAll?: () => void
 }) {
+  const showViewAll = onViewAll && total > 6
   return (
     <section className="pt-2">
-      <div className="flex items-center gap-2 px-4 pb-2 pt-3">
-        <span className="inline-flex shrink-0 text-primary">{icon}</span>
-        <h3 className="m-0 text-[14px] font-extrabold tracking-tight2 text-texte">{title}</h3>
-        <span className="rounded-full bg-bord/40 px-[7px] py-0.5 text-[11px] font-bold text-texte-doux">
-          {count}
-        </span>
+      <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="inline-flex shrink-0 text-primary">{icon}</span>
+          <h3 className="m-0 truncate text-[14px] font-extrabold tracking-tight2 text-texte">{title}</h3>
+          <span className="shrink-0 rounded-full bg-bord/40 px-[7px] py-0.5 text-[11px] font-bold text-texte-doux">
+            {total}
+          </span>
+        </div>
+        {showViewAll && (
+          <button
+            type="button"
+            onClick={onViewAll}
+            className="shrink-0 whitespace-nowrap bg-transparent p-0 text-[12px] font-bold text-primary"
+          >
+            Voir tout →
+          </button>
+        )}
       </div>
       <div className="flex flex-col gap-1.5 px-4">{children}</div>
     </section>
