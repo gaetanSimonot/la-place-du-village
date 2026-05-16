@@ -100,6 +100,10 @@ export async function PATCH(req: NextRequest) {
     const description = r.description ?? null
     const descCourte = description && description.length > 180 ? description.slice(0, 177) + '…' : description
 
+    // produit_categories n'est pas une colonne directe de `producers` (calculée
+    // via la table `products`) — on ne l'insère pas ici. Les catégories
+    // demandées seront conservées dans producer_requests pour traçabilité ;
+    // l'admin pourra créer les products correspondants depuis la fiche.
     const { data: newProd, error: createErr } = await supabaseAdmin
       .from('producers')
       .insert({
@@ -113,7 +117,6 @@ export async function PATCH(req: NextRequest) {
         place_id_google:     r.place_id_google,
         contact_tel:         r.contact,
         site_web:            r.site_web,
-        produit_categories:  r.produit_categories ?? [],
         photos:              r.photos ?? [],
         user_id:             null,
       })

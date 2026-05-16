@@ -40,7 +40,6 @@ interface HeroProducteur {
   nom: string
   commune: string | null
   photos: string[] | null
-  produit_categories: string[] | null
 }
 
 type HeroItem =
@@ -131,7 +130,7 @@ export default function HubView({
             ? supabase.from('etablissements').select('id, nom, commune, photos, type').in('id', etabIds)
             : Promise.resolve({ data: [] }),
           prodIds.length > 0
-            ? supabase.from('producers').select('id, nom, commune, photos, produit_categories').in('id', prodIds)
+            ? supabase.from('producers').select('id, nom, commune, photos').in('id', prodIds)
             : Promise.resolve({ data: [] }),
         ])
 
@@ -757,7 +756,6 @@ function HubHeroCarousel({
 
 function HeroProducteurCard({ prod, onClick }: { prod: HeroProducteur; onClick: () => void }) {
   const photo = prod.photos?.[0]
-  const cats  = (prod.produit_categories ?? []).slice(0, 2).join(' · ')
   return (
     <div style={{ padding: '0 16px' }}>
       <button
@@ -805,7 +803,7 @@ function HeroProducteurCard({ prod, onClick }: { prod: HeroProducteur; onClick: 
             <p style={{
               margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.92)',
               textShadow: '0 1px 4px rgba(0,0,0,0.4)',
-            }}>📍 {prod.commune}{cats ? ` · ${cats}` : ''}</p>
+            }}>📍 {prod.commune}</p>
           )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>

@@ -65,6 +65,8 @@ export async function POST(req: NextRequest) {
 
     const descCourte = description && description.length > 180 ? description.slice(0, 177) + '…' : description
 
+    // produit_categories n'est pas une colonne de `producers` (calculée via products).
+    // Les catégories restent dans producer_requests pour traçabilité.
     const { data: newProd, error: createErr } = await supabaseAdmin
       .from('producers')
       .insert({
@@ -75,7 +77,6 @@ export async function POST(req: NextRequest) {
         place_id_google: placeId,
         contact_tel: contact,
         site_web: siteWeb,
-        produit_categories: cats,
         photos,
         user_id: null,
       })
