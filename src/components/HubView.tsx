@@ -577,6 +577,25 @@ function HubHeroCarousel({
   const scrollerRef = useRef<HTMLDivElement | null>(null)
   const [activeIdx, setActiveIdx] = useState(0)
   const pausedUntil = useRef<number>(0)
+  const scrollEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Pour un défilement infini visuellement fluide, on triple la liste.
+  // L'utilisateur démarre dans la copie centrale, et chaque fois qu'il
+  // atteint une extrémité on saute silencieusement à la copie du milieu.
+  // (Si un seul item, pas de tripling — pas de carousel.)
+  const tripled = items.length > 1 ? [...items, ...items, ...items] : items
+  const loop = items.length > 1
+
+  // Démarre dans la copie du milieu au mount (et reset si items change)
+  useEffect(() => {
+    if (!loop) return
+    const el = scrollerRef.current
+    if (!el) return
+    // Attendre un tick pour que clientWidth soit posé
+    requestAnimationFrame(() => {
+      el.scrollLeft = items.length * el.clientWidth
+    })
+  }, [items.length, loop])
 
   // Auto-play 3s — sauf pendant 8s après une interaction manuelle
   useEffect(() => {
@@ -586,18 +605,39 @@ function HubHeroCarousel({
       const el = scrollerRef.current
       if (!el) return
       const slideW = el.clientWidth
-      const nextIdx = (activeIdx + 1) % items.length
-      el.scrollTo({ left: nextIdx * slideW, behavior: 'smooth' })
+      el.scrollTo({ left: el.scrollLeft + slideW, behavior: 'smooth' })
     }, 3000)
     return () => clearInterval(t)
-  }, [items.length, activeIdx])
+  }, [items.length])
 
-  // Met à jour l'index actif quand le user scroll
+  // Met à jour l'index actif + reset silencieux quand on franchit les extrémités
   function handleScroll() {
     const el = scrollerRef.current
     if (!el) return
-    const idx = Math.round(el.scrollLeft / el.clientWidth)
-    if (idx !== activeIdx) setActiveIdx(idx)
+    const slideW = el.clientWidth
+    if (!slideW) return
+    const physicalIdx = Math.round(el.scrollLeft / slideW)
+    const wrapped = ((physicalIdx % items.length) + items.length) % items.length
+    if (wrapped !== activeIdx) setActiveIdx(wrapped)
+
+    // Debounce le reset jusqu'à ce que le scroll soit "fini" (sinon on coupe
+    // l'animation smooth en cours et l'utilisateur voit un saut).
+    if (loop) {
+      if (scrollEndTimer.current) clearTimeout(scrollEndTimer.current)
+      scrollEndTimer.current = setTimeout(() => {
+        const el2 = scrollerRef.current
+        if (!el2) return
+        const slideW2 = el2.clientWidth
+        const idx2 = Math.round(el2.scrollLeft / slideW2)
+        // 3e copie (≥ 2 × items.length) → on saute en arrière d'une copie
+        if (idx2 >= items.length * 2) {
+          el2.scrollLeft = (idx2 - items.length) * slideW2
+        // 1ère copie (< items.length) → on saute en avant d'une copie
+        } else if (idx2 < items.length) {
+          el2.scrollLeft = (idx2 + items.length) * slideW2
+        }
+      }, 120)
+    }
   }
 
   function handleInteraction() {
@@ -623,9 +663,9 @@ function HubHeroCarousel({
         }}
         className="pdv-hscroll"
       >
-        {items.map((item, idx) => (
+        {tripled.map((item, idx) => (
           <div
-            key={`${item.kind}:${item.data.id}:${idx}`}
+            key={`slide-${idx}`}
             style={{
               flex: '0 0 100%',
               scrollSnapAlign: 'start',
@@ -651,7 +691,13 @@ function HubHeroCarousel({
               onClick={() => {
                 handleInteraction()
                 const el = scrollerRef.current
-                if (el) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' })
+                if (!el) return
+                const slideW = el.clientWidth
+                // On vise la copie la plus proche pour éviter un grand scroll
+                const currentPhysical = Math.round(el.scrollLeft / slideW)
+                const currentCopy = Math.floor(currentPhysical / items.length)
+                const target = (currentCopy * items.length + i)
+                el.scrollTo({ left: target * slideW, behavior: 'smooth' })
               }}
               aria-label={`Slide ${i + 1}`}
               style={{

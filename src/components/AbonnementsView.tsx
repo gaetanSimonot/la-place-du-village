@@ -71,7 +71,7 @@ function FeedCard({ evt }: { evt: StarredEvent }) {
   )
 }
 
-export default function AbonnementsView() {
+export default function AbonnementsView({ mode = 'feed' }: { mode?: 'feed' | 'mine' }) {
   const { user } = useAuth()
   const [events, setEvents] = useState<StarredEvent[]>([])
   const [loading, setLoading] = useState(false)
@@ -82,28 +82,35 @@ export default function AbonnementsView() {
     setLoading(true)
 
     async function load() {
-      const { data: followData } = await supabase
-        .from('follows')
-        .select('followed_id')
-        .eq('follower_id', user!.id)
+      // Mode 'mine' = mes propres events suivis (interests du user lui-même)
+      // Mode 'feed' = activité des personnes que je suis
+      let userIds: string[] = []
 
-      const followedIds = (followData ?? []).map((f: { followed_id: string }) => f.followed_id)
-      setFollowCount(followedIds.length)
-
-      if (followedIds.length === 0) { setLoading(false); return }
+      if (mode === 'mine') {
+        userIds = [user!.id]
+        setFollowCount(null)
+      } else {
+        const { data: followData } = await supabase
+          .from('follows')
+          .select('followed_id')
+          .eq('follower_id', user!.id)
+        userIds = (followData ?? []).map((f: { followed_id: string }) => f.followed_id)
+        setFollowCount(userIds.length)
+        if (userIds.length === 0) { setLoading(false); return }
+      }
 
       const { data: interestData } = await supabase
         .from('interests')
         .select('evenement_id, user_id, created_at, evenements(id, titre, categorie, date_debut, heure, image_url, image_position, lieux(nom, commune))')
-        .in('user_id', followedIds)
+        .in('user_id', userIds)
         .order('created_at', { ascending: false })
         .limit(100)
 
-      const userIds = Array.from(new Set((interestData ?? []).map((i: { user_id: string }) => i.user_id)))
+      const starredByIds = Array.from(new Set((interestData ?? []).map((i: { user_id: string }) => i.user_id)))
       const { data: profileData } = await supabase
         .from('profiles')
         .select('user_id, display_name, avatar_url')
-        .in('user_id', userIds)
+        .in('user_id', starredByIds)
 
       const profileMap: Record<string, { id: string; display_name: string | null; avatar_url: string | null }> =
         Object.fromEntries((profileData ?? []).map(p => [p.user_id, { id: p.user_id, display_name: p.display_name, avatar_url: p.avatar_url }]))
@@ -125,25 +132,33 @@ export default function AbonnementsView() {
     }
 
     load()
-  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, mode]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const headerTitle = mode === 'mine' ? 'Événements suivis' : 'Abonnements'
 
   return (
     <div style={{ minHeight: '100%', backgroundColor: 'var(--creme)', fontFamily: 'Inter, sans-serif' }}>
       <div style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: '#fff', borderBottom: '1px solid #EDE8E0', padding: '12px 16px' }}>
-        <h1 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 18, color: '#2C1810', margin: 0 }}>Abonnements</h1>
+        <h1 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 18, color: '#2C1810', margin: 0 }}>{headerTitle}</h1>
       </div>
 
       <div style={{ padding: '16px 16px 40px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         {!user ? (
-          <EmptyState emoji="⭐" title="Connecte-toi pour voir le feed" sub="Les événements ⭐ des gens que tu suis apparaîtront ici." />
+          <EmptyState emoji="⭐" title="Connecte-toi" sub={mode === 'mine' ? 'Pour voir tes événements suivis.' : 'Les événements ⭐ des gens que tu suis apparaîtront ici.'} />
         ) : loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 60 }}>
             <div style={{ width: 28, height: 28, borderRadius: '50%', border: '3px solid #E0D8CE', borderTopColor: 'var(--primary)', animation: 'spin 0.7s linear infinite' }} />
           </div>
-        ) : followCount === 0 ? (
+        ) : mode === 'feed' && followCount === 0 ? (
           <EmptyState emoji="👥" title="Tu ne suis personne encore" sub="Visite les profils des participants pour les suivre." />
         ) : events.length === 0 ? (
-          <EmptyState emoji="🔔" title="Rien pour l'instant" sub="Les gens que tu suis n'ont pas encore marqué d'événements." />
+          <EmptyState
+            emoji={mode === 'mine' ? '⭐' : '🔔'}
+            title={mode === 'mine' ? 'Aucun événement suivi' : 'Rien pour l\'instant'}
+            sub={mode === 'mine'
+              ? 'Appuie sur ⭐ Intéressé·e sur les fiches événement pour les retrouver ici.'
+              : 'Les gens que tu suis n\'ont pas encore marqué d\'événements.'}
+          />
         ) : (
           events.map(evt => <FeedCard key={evt.id} evt={evt} />)
         )}

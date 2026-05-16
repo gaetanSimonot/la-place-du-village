@@ -15,7 +15,7 @@ import AbonnementsView from '@/components/AbonnementsView'
 import MonEspaceProducteur from '@/components/MonEspaceProducteur'
 
 type Tab = 'profil' | 'reglages'
-type SubView = null | 'annonces' | 'abonnements' | 'producteur'
+type SubView = null | 'annonces' | 'abonnements' | 'mes_events' | 'producteur'
 
 interface Etab { id: string; nom: string; plan: string; photos: string[] | null }
 interface AbandonedDraft {
@@ -153,7 +153,10 @@ export default function ProfilView() {
     return <SubViewWrap title="Mes annonces" onBack={() => setSubView(null)}><MesAnnonces /></SubViewWrap>
   }
   if (subView === 'abonnements') {
-    return <SubViewWrap title="Mes abonnements" onBack={() => setSubView(null)}><AbonnementsView /></SubViewWrap>
+    return <SubViewWrap title="Mes abonnements" onBack={() => setSubView(null)}><AbonnementsView mode="feed" /></SubViewWrap>
+  }
+  if (subView === 'mes_events') {
+    return <SubViewWrap title="Événements suivis" onBack={() => setSubView(null)}><AbonnementsView mode="mine" /></SubViewWrap>
   }
   if (subView === 'producteur') {
     return <SubViewWrap title="Ma fiche producteur" onBack={() => setSubView(null)}><MonEspaceProducteur /></SubViewWrap>
@@ -390,7 +393,7 @@ export default function ProfilView() {
                   icon="⭐"
                   label="Événements suivis"
                   badge={interestCount != null ? `${interestCount}` : ''}
-                  onClick={() => setSubView('abonnements')}
+                  onClick={() => setSubView('mes_events')}
                 />
                 <ActionRow
                   icon="👥"
