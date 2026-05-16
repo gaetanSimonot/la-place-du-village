@@ -138,25 +138,22 @@ export default function PromotionsClient() {
       {/* Header */}
       <div style={{
         background: 'linear-gradient(135deg, #1A3A2A 0%, #2D5A3D 60%, #3F7A52 100%)',
-        padding: '32px 20px 40px',
+        padding: '20px 18px 22px',
         position: 'relative', overflow: 'hidden',
         color: '#fff',
       }}>
         <button onClick={() => router.push('/')} style={{
           background: 'rgba(255,255,255,0.15)', color: '#fff', border: 'none',
-          borderRadius: 999, padding: '6px 14px', fontSize: 12, fontWeight: 700,
-          cursor: 'pointer', marginBottom: 14, fontFamily: 'Inter, sans-serif',
+          borderRadius: 999, padding: '5px 12px', fontSize: 12, fontWeight: 700,
+          cursor: 'pointer', marginBottom: 10, fontFamily: 'Inter, sans-serif',
         }}>
           ← Accueil
         </button>
-        <p style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', opacity: 0.7, margin: '0 0 6px' }}>
-          🎁 Promotions locales
-        </p>
-        <h1 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 6px', letterSpacing: '-0.02em' }}>
-          Vos avantages près de chez vous
+        <h1 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 4px', letterSpacing: '-0.02em' }}>
+          Bons plans du village
         </h1>
-        <p style={{ fontSize: 13, opacity: 0.85, margin: 0, maxWidth: 360 }}>
-          Profitez d&apos;offres exclusives chez vos commerçants partenaires Pro/Max.
+        <p style={{ fontSize: 12.5, opacity: 0.82, margin: 0, maxWidth: 360, lineHeight: 1.45 }}>
+          Offres exclusives chez vos commerçants partenaires.
         </p>
       </div>
 
@@ -212,8 +209,11 @@ export default function PromotionsClient() {
           </div>
         ) : filteredPromos.length === 0 ? (
           <div style={{ padding: 60, textAlign: 'center', color: '#9A8A7A' }}>
-            <p style={{ fontSize: 40, margin: '0 0 12px' }}>🎁</p>
-            <p style={{ fontSize: 14, fontWeight: 700, color: '#7A6A5A' }}>
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#C8B8A8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: '0 auto 12px' }}>
+              <polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/>
+              <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
+            </svg>
+            <p style={{ fontSize: 14, fontWeight: 700, color: '#7A6A5A', margin: 0 }}>
               {typeFilter ? 'Aucune promo dans cette catégorie' : 'Aucune promo en cours'}
             </p>
             <p style={{ fontSize: 12, margin: '6px 0 0' }}>
@@ -223,7 +223,7 @@ export default function PromotionsClient() {
             </p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             {filteredPromos.map(p => (
               <div key={p.id} id={`promo-${p.id}`} style={{ scrollMarginTop: 80, position: 'relative' }}>
                 {isAdmin && (
@@ -281,103 +281,75 @@ function PromoCard({ promo, onUse, disabled }: {
   onUse: () => void
   disabled: boolean
 }) {
-  const router = useRouter()
   return (
     <div style={{
-      backgroundColor: '#fff', borderRadius: 18,
-      boxShadow: '0 2px 12px rgba(0,0,0,0.07)',
+      backgroundColor: '#fff', borderRadius: 14,
+      boxShadow: '0 2px 8px rgba(44,28,16,0.06)',
       overflow: 'hidden',
+      display: 'flex', flexDirection: 'column',
+      height: '100%',
     }}>
-      {/* Image hero (custom ou fallback sur la photo de l'établissement) */}
-      {promo.display_image_url && (
-        <img
-          src={promo.display_image_url}
-          alt={promo.title}
-          style={{ width: '100%', height: 130, objectFit: 'cover', display: 'block' }}
-        />
-      )}
+      {/* Image hero */}
+      <div style={{ position: 'relative', height: 110, backgroundColor: '#F0EBE3', overflow: 'hidden' }}>
+        {promo.display_image_url ? (
+          <img src={promo.display_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        ) : (
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#C8B8A8' }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/>
+              <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
+            </svg>
+          </div>
+        )}
+        <span style={{
+          position: 'absolute', top: 6, left: 6,
+          backgroundColor: '#E8622A', color: '#fff',
+          fontSize: 9, fontWeight: 800,
+          padding: '2px 7px', borderRadius: 999,
+          letterSpacing: '0.04em',
+        }}>BON PLAN</span>
+      </div>
 
-      <div style={{ padding: '14px 16px 16px' }}>
-        {/* Établissement */}
+      <div style={{ padding: '9px 10px 10px', display: 'flex', flexDirection: 'column', gap: 3, flex: 1 }}>
+        {/* Étab (texte simple, pas un bouton — toute la card est cliquable via le CTA) */}
         {promo.etablissement && (
-          <button onClick={() => router.push(`/etablissement/${promo.etablissement!.id}`)} style={{
-            display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10,
-            background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-          }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, overflow: 'hidden', backgroundColor: '#E8F2EB', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              {promo.etablissement.photos?.[0]
-                ? <img src={promo.etablissement.photos[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : <span style={{ fontSize: 14 }}>🏪</span>}
-            </div>
-            <div style={{ textAlign: 'left', flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: '#1C1917', margin: 0 }}>
-                {promo.etablissement.nom}
-              </p>
-              {promo.etablissement.commune && (
-                <p style={{ fontSize: 10, color: '#9A8A7A', margin: 0 }}>
-                  {promo.etablissement.commune}
-                </p>
-              )}
-            </div>
-            <span style={{ color: '#C8B8A8', fontSize: 14 }}>›</span>
-          </button>
+          <p style={{ fontSize: 10.5, fontWeight: 600, color: '#8A7A6A', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+            {promo.etablissement.nom}
+          </p>
         )}
 
-        {/* Titre + desc */}
-        <h3 style={{ fontSize: 16, fontWeight: 800, color: '#1A1209', margin: '0 0 4px', letterSpacing: '-0.01em' }}>
+        {/* Titre */}
+        <h3 style={{
+          fontSize: 13, fontWeight: 800, color: '#1A1209',
+          margin: 0, letterSpacing: '-0.01em', lineHeight: 1.2,
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+        }}>
           {promo.title}
         </h3>
-        {promo.description && (
-          <p style={{ fontSize: 13, color: '#7A6A5A', margin: '0 0 8px', lineHeight: 1.5 }}>
-            {promo.description}
-          </p>
-        )}
-        {promo.conditions && (
-          <p style={{ fontSize: 11, color: '#9A8A7A', margin: '0 0 12px', fontStyle: 'italic' }}>
-            ⚡ {promo.conditions}
-          </p>
-        )}
 
-        {/* Métadonnées */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-          <span style={{
-            fontSize: 10, fontWeight: 700, color: '#3F7A52',
-            backgroundColor: '#E8F2EB', padding: '3px 8px', borderRadius: 999,
-          }}>
-            {FREQ_LABEL[promo.frequency] ?? promo.frequency}
-          </span>
-          {promo.use_count > 0 && (
-            <span style={{
-              fontSize: 10, fontWeight: 700, color: '#7A6A5A',
-              backgroundColor: '#F5EFE5', padding: '3px 8px', borderRadius: 999,
-            }}>
-              ★ {promo.use_count} utilisation{promo.use_count > 1 ? 's' : ''}
-            </span>
-          )}
-          {promo.valid_until && (
-            <span style={{
-              fontSize: 10, fontWeight: 700, color: '#A0654E',
-              backgroundColor: '#FFF0E5', padding: '3px 8px', borderRadius: 999,
-            }}>
-              Jusqu&apos;au {new Date(promo.valid_until).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-            </span>
-          )}
-        </div>
+        {/* Fréquence + validité (compact) */}
+        <p style={{ fontSize: 10.5, color: '#9A8A7A', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {FREQ_LABEL[promo.frequency] ?? promo.frequency}
+          {promo.valid_until && ` · ${new Date(promo.valid_until).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`}
+        </p>
 
         {/* CTA */}
         <button
           onClick={onUse}
           disabled={disabled}
           style={{
-            width: '100%', padding: '12px',
+            marginTop: 'auto',
+            padding: '8px 10px', borderRadius: 10,
             backgroundColor: '#C4622D',
-            color: '#fff', border: 'none', borderRadius: 12,
-            fontSize: 14, fontWeight: 700, cursor: disabled ? 'default' : 'pointer',
+            color: '#fff', border: 'none',
+            fontSize: 12, fontWeight: 700, cursor: disabled ? 'default' : 'pointer',
             opacity: disabled ? 0.6 : 1,
             fontFamily: 'Inter, sans-serif',
+            letterSpacing: '-0.01em',
           }}
         >
-          {disabled ? '…' : "🎁 J'en profite"}
+          {disabled ? '…' : "J'en profite"}
         </button>
       </div>
     </div>

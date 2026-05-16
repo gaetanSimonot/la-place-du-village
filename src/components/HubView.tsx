@@ -330,41 +330,41 @@ export default function HubView({
       `}</style>
 
       {/* ── 1. Header ─────────────────────────────────────────────────────── */}
-      <div style={{ padding: '10px 18px 4px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+      <div style={{ padding: '10px 18px 14px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
           <Link
             href={profile ? `/profil/${profile.id ?? ''}` : '/?tab=profil'}
+            aria-label="Mon profil"
             style={{
-              display: 'flex', alignItems: 'center', gap: 10,
+              display: 'flex', alignItems: 'center',
               textDecoration: 'none', color: 'inherit',
-              flex: '0 1 auto', minWidth: 0,
+              flexShrink: 0,
             }}
           >
             <div style={{
-              width: 38, height: 38, borderRadius: '50%',
+              width: 36, height: 36, borderRadius: '50%',
               backgroundColor: '#2D5A3D', color: '#fff',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 15, fontWeight: 800,
+              fontSize: 14, fontWeight: 800,
               backgroundImage: profile?.avatar_url ? `url(${profile.avatar_url})` : undefined,
               backgroundSize: 'cover', backgroundPosition: 'center',
-              flexShrink: 0,
               boxShadow: '0 1px 3px rgba(0,0,0,0.10)',
             }}>
               {!profile?.avatar_url && ((profile?.display_name?.[0] || '?').toUpperCase())}
             </div>
-            <div style={{ minWidth: 0 }}>
-              <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: '#8A7A6A', lineHeight: 1.1 }}>
-                Bonjour 👋
-              </p>
-              <p style={{
-                margin: '1px 0 0', fontSize: 14, fontWeight: 800,
-                color: '#1A1209', lineHeight: 1.15,
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}>
-                {profile?.display_name || 'visiteur'}
-              </p>
-            </div>
           </Link>
+          <h1 style={{
+            flex: 1, minWidth: 0,
+            fontFamily: '"Playfair Display", Georgia, serif',
+            fontStyle: 'italic',
+            fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em',
+            color: '#2D5A3D', margin: 0,
+            lineHeight: 1.0,
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            textAlign: 'center',
+          }}>
+            La Place du Village
+          </h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             {onOpenInfo && (
               <button
@@ -418,27 +418,17 @@ export default function HubView({
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, marginTop: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 10 }}>
           <div style={{ flex: '1 1 auto', minWidth: 0 }}>
-            <h1 style={{
-              fontFamily: '"Playfair Display", Georgia, serif',
-              fontStyle: 'italic',
-              fontSize: 23, fontWeight: 700, letterSpacing: '-0.01em',
-              color: '#2D5A3D', margin: 0,
-              lineHeight: 1.0,
-              whiteSpace: 'nowrap',
-            }}>
-              La Place du Village
-            </h1>
             <div style={{
               width: 38, height: 3, borderRadius: 999,
-              backgroundColor: '#E8622A', margin: '4px 0 2px',
+              backgroundColor: '#E8622A', margin: '0 0 6px',
             }} />
             <p style={{
               fontFamily: '"Caveat", cursive',
               fontWeight: 500,
-              margin: 0, fontSize: 17, color: '#7A6A5A',
-              lineHeight: 1.0,
+              margin: 0, fontSize: 18, color: '#7A6A5A',
+              lineHeight: 1.05,
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>
               {subtitle}
@@ -452,7 +442,7 @@ export default function HubView({
             priority
             style={{
               flexShrink: 0,
-              width: 100, height: 'auto',
+              width: 110, height: 'auto',
               marginRight: -12,
               userSelect: 'none',
               mixBlendMode: 'multiply',
@@ -644,9 +634,9 @@ export default function HubView({
                       </span>
                     )}
                   </div>
-                  <div style={{ padding: '7px 9px 9px' }}>
-                    <p style={{ margin: 0, fontSize: 11.5, fontWeight: 700, color: '#1A1209', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>{a.titre}</p>
-                    <p style={{ margin: '3px 0 0', fontSize: 14, fontWeight: 800, color: '#C0392B', fontVariantNumeric: 'tabular-nums' }}>{getPrixAffiche(a)}</p>
+                  <div style={{ padding: '8px 10px 10px' }}>
+                    <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#1A1209', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>{a.titre}</p>
+                    <p style={{ margin: '1px 0 0', fontSize: 12.5, fontWeight: 800, color: '#C0392B', fontVariantNumeric: 'tabular-nums' }}>{getPrixAffiche(a)}</p>
                   </div>
                 </Link>
               ))}
