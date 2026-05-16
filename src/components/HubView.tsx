@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -87,9 +87,7 @@ export default function HubView({
   const [searchOpen, setSearchOpen] = useState(false)
 
   // Hero carousel : 1. featured_slots hub_hero (events + etabs) > 2. today event > 3. week event
-  useEffect(() => {
-    let mounted = true
-    ;(async () => {
+  const loadHero = useCallback(async () => {
       const todayISO = new Date().toISOString().slice(0, 10)
       const inAWeek = new Date(); inAWeek.setDate(inAWeek.getDate() + 7)
       const weekISO = inAWeek.toISOString().slice(0, 10)
@@ -166,15 +164,11 @@ export default function HubView({
         if (ev) items.push({ kind: 'evenement', data: ev, imagePosition: ev.image_position ?? null })
       }
 
-      if (mounted) setHeroItems(items)
-    })()
-    return () => { mounted = false }
+      setHeroItems(items)
   }, [])
 
   // Events du jour pour "Aujourd'hui dans le village"
-  useEffect(() => {
-    let mounted = true
-    ;(async () => {
+  const loadToday = useCallback(async () => {
       const today = new Date().toISOString().slice(0, 10)
       const { data } = await supabase
         .from('evenements')
@@ -183,15 +177,11 @@ export default function HubView({
         .or(`date_debut.eq.${today},date_debut.gte.${today}`)
         .order('date_debut', { ascending: true })
         .limit(8)
-      if (mounted) setTodayEvents((data ?? []) as Evenement[])
-    })()
-    return () => { mounted = false }
+      setTodayEvents((data ?? []) as Evenement[])
   }, [])
 
   // Promotions actives : featured_slots homepage type=promotion en tête + reste depuis /api/promotions
-  useEffect(() => {
-    let mounted = true
-    ;(async () => {
+  const loadPromos = useCallback(async () => {
       const nowISO = new Date().toISOString()
       const featuredIds = new Set<string>()
       const ordered: PromoCard[] = []
@@ -218,15 +208,11 @@ export default function HubView({
       })
       allPromos.forEach(p => { if (!featuredIds.has(p.id)) ordered.push(p) })
 
-      if (mounted) setPromos(ordered.slice(0, 8))
-    })()
-    return () => { mounted = false }
+      setPromos(ordered.slice(0, 8))
   }, [])
 
   // Annonces "Les prix baissent" : featured + sponsored + enchères inversées + récentes
-  useEffect(() => {
-    let mounted = true
-    ;(async () => {
+  const loadAnnonces = useCallback(async () => {
       const nowISO = new Date().toISOString()
       const ordered: Annonce[] = []
       const seen = new Set<string>()
@@ -289,10 +275,46 @@ export default function HubView({
         })
       }
 
-      if (mounted) setFeaturedAnnonces(ordered.slice(0, 10))
-    })()
-    return () => { mounted = false }
+      setFeaturedAnnonces(ordered.slice(0, 10))
   }, [])
+
+  // Premier chargement + refresh sur retour PWA / focus fenêtre
+  useEffect(() => {
+    loadHero()
+    loadToday()
+    loadPromos()
+    loadAnnonces()
+  }, [loadHero, loadToday, loadPromos, loadAnnonces])
+
+  // Realtime — refetch immédiat quand un slot featured change (admin pin / unpin / crop)
+  useEffect(() => {
+    const ch = supabase
+      .channel('hub-featured-slots')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'featured_slots' }, () => {
+        loadHero()
+        loadPromos()
+        loadAnnonces()
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [loadHero, loadPromos, loadAnnonces])
+
+  // Retour en avant-plan / focus fenêtre → refresh complet
+  useEffect(() => {
+    const refreshAll = () => {
+      loadHero()
+      loadToday()
+      loadPromos()
+      loadAnnonces()
+    }
+    const onVisible = () => { if (document.visibilityState === 'visible') refreshAll() }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', refreshAll)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', refreshAll)
+    }
+  }, [loadHero, loadToday, loadPromos, loadAnnonces])
 
   const firstName = profile?.display_name?.split(' ')[0] || 'Visiteur'
 
