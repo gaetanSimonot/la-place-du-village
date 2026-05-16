@@ -47,7 +47,10 @@ CREATE INDEX IF NOT EXISTS idx_ratings_acheteur    ON public.annonces_ratings (a
 -- =====================================================================
 -- 3. VUE stats vendeur (calcul à la volée, pas de cache)
 -- =====================================================================
-CREATE OR REPLACE VIEW public.vendeur_stats AS
+-- security_invoker=true : la vue applique la RLS du user qui requête,
+-- pas celle du créateur (sinon Supabase Linter remonte un warning sécu).
+CREATE OR REPLACE VIEW public.vendeur_stats
+WITH (security_invoker = true) AS
 SELECT
   vendeur_id           AS user_id,
   ROUND(AVG(note)::numeric, 1) AS note_moyenne,
