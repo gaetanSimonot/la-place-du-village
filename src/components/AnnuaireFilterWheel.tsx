@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 const TOUT_ID = '__tout' as const
 
@@ -50,6 +50,9 @@ export default function AnnuaireFilterWheel({
   const lastReportedId = useRef<string>(activeId ?? TOUT_ID)
   const userInteracting = useRef<boolean>(false)
 
+  // Index visuel temps réel : la pill au centre du slot vert
+  const [centerVisualIdx, setCenterVisualIdx] = useState<number>(currentIdx)
+
   // Init scroll : bloc central + activeId
   useEffect(() => {
     const el = scrollRef.current
@@ -57,6 +60,7 @@ export default function AnnuaireFilterWheel({
     requestAnimationFrame(() => {
       el.scrollLeft = (N + currentIdx) * STEP
       lastReportedId.current = activeId ?? TOUT_ID
+      setCenterVisualIdx(currentIdx)
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [N])
@@ -71,27 +75,33 @@ export default function AnnuaireFilterWheel({
     if (!el) return
     el.scrollTo({ left: (N + targetIdx) * STEP, behavior: 'smooth' })
     lastReportedId.current = wantedId
+    setCenterVisualIdx(targetIdx)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId])
 
-  // handleScroll : pas de wrap pendant, juste settle 130ms.
+  // handleScroll : update visualIdx temps réel pour le visuel pill au centre,
+  // wrap invisible + notify parent au settle.
   const handleScroll = () => {
+    const el = scrollRef.current
+    if (!el) return
+    const c = Math.round(el.scrollLeft / STEP)
+    const realIdx = ((c % N) + N) % N
+    if (realIdx !== centerVisualIdx) setCenterVisualIdx(realIdx)
+
     if (settleTimer.current) clearTimeout(settleTimer.current)
     settleTimer.current = setTimeout(() => {
       userInteracting.current = false
-      const el = scrollRef.current
-      if (!el) return
+      const el2 = scrollRef.current
+      if (!el2) return
+      const finalC = Math.round(el2.scrollLeft / STEP)
+      const finalReal = ((finalC % N) + N) % N
 
-      const centerIdx = Math.round(el.scrollLeft / STEP)
-      const realIdx = ((centerIdx % N) + N) % N
-
-      // Wrap invisible vers bloc central
-      const wrappedCenterIdx = N + realIdx
-      if (wrappedCenterIdx !== centerIdx) {
-        el.scrollLeft = wrappedCenterIdx * STEP
+      const wrappedCenter = N + finalReal
+      if (wrappedCenter !== finalC) {
+        el2.scrollLeft = wrappedCenter * STEP
       }
 
-      const item = all[realIdx]
+      const item = all[finalReal]
       const newId = item?.id ?? TOUT_ID
       if (newId !== lastReportedId.current) {
         lastReportedId.current = newId
@@ -120,14 +130,35 @@ export default function AnnuaireFilterWheel({
     handleClickPill(next)
   }
 
+  // Couleur du slot fixe : celle de la pill au centre (utile pour
+  // catégories etab qui ont chacune leur couleur)
+  const slotColor = all[centerVisualIdx]?.color ?? accent
+
   return (
     <div
       role="listbox"
       aria-label={ariaLabel}
       tabIndex={0}
       onKeyDown={handleKey}
-      style={{ height: 42, outline: 'none' }}
+      style={{ position: 'relative', height: 42, outline: 'none' }}
     >
+      {/* Slot vert fixe au centre — sélection visuelle qui ne bouge pas */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          width: PILL_W,
+          height: 34,
+          borderRadius: 17,
+          transform: 'translate(-50%, -50%)',
+          background: slotColor,
+          pointerEvents: 'none',
+          zIndex: 0,
+        }}
+      />
+
       <div
         ref={scrollRef}
         onScroll={handleScroll}
@@ -136,6 +167,8 @@ export default function AnnuaireFilterWheel({
         onWheel={handleInteract}
         className="pdv-loopwheel-h"
         style={{
+          position: 'relative',
+          zIndex: 1,
           height: '100%',
           overflowX: 'auto',
           overflowY: 'hidden',
@@ -143,7 +176,6 @@ export default function AnnuaireFilterWheel({
           display: 'flex',
           alignItems: 'center',
           gap: GAP,
-          // Padding latéral pour que la pill au centre soit au milieu visuel
           paddingLeft: `calc(50% - ${PILL_W / 2}px)`,
           paddingRight: `calc(50% - ${PILL_W / 2}px)`,
           WebkitOverflowScrolling: 'touch',
@@ -152,31 +184,30 @@ export default function AnnuaireFilterWheel({
       >
         {tripled.map((item, i) => {
           const realIdx = ((i % N) + N) % N
-          const isActive = realIdx === currentIdx
+          const isInSlot = realIdx === centerVisualIdx
           const color = item.color ?? accent
           return (
             <button
               key={`${item.id}-${i}`}
               type="button"
               role="option"
-              aria-selected={isActive}
+              aria-selected={isInSlot}
               onClick={() => handleClickPill(realIdx)}
               onPointerDown={e => e.stopPropagation()}
               style={{
                 flexShrink: 0,
                 width: PILL_W,
                 height: 34,
-                borderRadius: 17,
                 border: 'none',
-                background: isActive ? color : 'transparent',
-                color: isActive ? '#fff' : color,
+                background: 'transparent',
+                color: isInSlot ? '#fff' : color,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 4,
                 fontFamily: 'Inter, sans-serif',
                 fontSize: 12.5,
-                fontWeight: isActive ? 700 : 600,
+                fontWeight: isInSlot ? 700 : 600,
                 scrollSnapAlign: 'center',
                 cursor: 'pointer',
                 userSelect: 'none',

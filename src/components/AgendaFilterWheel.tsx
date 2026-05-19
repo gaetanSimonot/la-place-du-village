@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CATEGORIES } from '@/lib/categories'
 import type { Categorie, FiltreQuand, Filtres } from '@/lib/types'
 
@@ -114,10 +114,12 @@ function LoopWheel({
   const userInteracting = useRef<boolean>(false)
   const N = items.length
 
-  // Triple-clone : [items, items, items]. On scrolle dans le bloc central
-  // (indices N..2N-1). Au settle, si on a glissé hors du bloc central, on
-  // téléporte scrollTop instantanément à la position équivalente du milieu.
-  // Comme les 3 blocs sont identiques visuellement, ce wrap est invisible.
+  // Index visuel : la pill au centre du slot vert. Update en temps réel
+  // pendant le scroll → la pill bascule en blanc instantanément quand elle
+  // entre dans le slot. Pas de transition CSS = pas de layout shift = pas
+  // de "vibration".
+  const [centerIdx, setCenterIdx] = useState<number>(activeIdx)
+
   const tripled = useMemo(() => [...items, ...items, ...items], [items])
 
   // Init au mount : position = bloc central + activeIdx
@@ -127,6 +129,7 @@ function LoopWheel({
     requestAnimationFrame(() => {
       el.scrollTop = (N + activeIdx) * STEP
       lastReportedIdx.current = activeIdx
+      setCenterIdx(activeIdx)
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [N])
@@ -139,30 +142,35 @@ function LoopWheel({
     if (!el) return
     el.scrollTo({ top: (N + activeIdx) * STEP, behavior: 'smooth' })
     lastReportedIdx.current = activeIdx
+    setCenterIdx(activeIdx)
   }, [activeIdx, N])
 
-  // handleScroll : aucun setState, aucun wrap pendant le scroll.
-  // Tout se fait au settle (130ms après dernier scroll event).
+  // handleScroll : update centerIdx en temps réel (pour le visuel pill
+  // qui entre dans le slot vert). Wrap invisible au settle uniquement.
   const handleScroll = () => {
+    const el = scrollRef.current
+    if (!el) return
+    const c = Math.round(el.scrollTop / STEP)
+    const realIdx = ((c % N) + N) % N
+    if (realIdx !== centerIdx) setCenterIdx(realIdx)
+
     if (settleTimer.current) clearTimeout(settleTimer.current)
     settleTimer.current = setTimeout(() => {
       userInteracting.current = false
-      const el = scrollRef.current
-      if (!el) return
+      const el2 = scrollRef.current
+      if (!el2) return
+      const finalC = Math.round(el2.scrollTop / STEP)
+      const finalReal = ((finalC % N) + N) % N
 
-      const centerIdx = Math.round(el.scrollTop / STEP)
-      const realIdx = ((centerIdx % N) + N) % N
-
-      // Wrap invisible : ramène le scroll dans le bloc central
-      // Position équivalente visuellement → l'œil ne voit rien
-      const wrappedCenterIdx = N + realIdx
-      if (wrappedCenterIdx !== centerIdx) {
-        el.scrollTop = wrappedCenterIdx * STEP
+      // Wrap invisible : téléporte au bloc central, position équivalente
+      const wrappedCenter = N + finalReal
+      if (wrappedCenter !== finalC) {
+        el2.scrollTop = wrappedCenter * STEP
       }
 
-      if (realIdx !== lastReportedIdx.current) {
-        lastReportedIdx.current = realIdx
-        onChange(realIdx)
+      if (finalReal !== lastReportedIdx.current) {
+        lastReportedIdx.current = finalReal
+        onChange(finalReal)
       }
     }, 130)
   }
@@ -193,8 +201,27 @@ function LoopWheel({
       aria-label={ariaLabel}
       tabIndex={0}
       onKeyDown={handleKey}
-      style={{ flex: 1, height: CONTAINER_H, outline: 'none' }}
+      style={{ flex: 1, height: CONTAINER_H, outline: 'none', position: 'relative' }}
     >
+      {/* Slot vert fixe au centre — la "sélection" qui ne bouge pas.
+          Les pills défilent à travers ; celle qui se trouve dedans
+          devient visuellement active (couleur texte blanche). */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          top: '50%',
+          left: 0,
+          right: 0,
+          height: PILL_H,
+          borderRadius: 16,
+          transform: 'translateY(-50%)',
+          background: accent,
+          pointerEvents: 'none',
+          zIndex: 0,
+        }}
+      />
+
       <div
         ref={scrollRef}
         onScroll={handleScroll}
@@ -203,6 +230,8 @@ function LoopWheel({
         onWheel={handleInteract}
         className="pdv-loopwheel-v"
         style={{
+          position: 'relative',
+          zIndex: 1,
           height: '100%',
           overflowY: 'auto',
           overflowX: 'hidden',
@@ -219,29 +248,28 @@ function LoopWheel({
       >
         {tripled.map((item, i) => {
           const realIdx = ((i % N) + N) % N
-          const isActive = realIdx === activeIdx
+          const isInSlot = realIdx === centerIdx
           return (
             <button
               key={`${item.id}-${i}`}
               type="button"
               role="option"
-              aria-selected={isActive}
+              aria-selected={isInSlot}
               onClick={() => handleClickPill(realIdx)}
               onPointerDown={e => e.stopPropagation()}
               style={{
                 flexShrink: 0,
                 width: '100%',
                 height: PILL_H,
-                borderRadius: 16,
                 border: 'none',
-                background: isActive ? accent : 'transparent',
-                color: isActive ? '#fff' : accent,
+                background: 'transparent',
+                color: isInSlot ? '#fff' : accent,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontFamily: 'Inter, sans-serif',
                 fontSize: 12.5,
-                fontWeight: isActive ? 700 : 600,
+                fontWeight: isInSlot ? 700 : 600,
                 scrollSnapAlign: 'center',
                 cursor: 'pointer',
                 userSelect: 'none',
