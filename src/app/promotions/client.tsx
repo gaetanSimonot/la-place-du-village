@@ -9,6 +9,7 @@ import FeatureButton from '@/components/FeatureButton'
 import type { Plan } from '@/lib/capabilities'
 import { ETAB_TYPES } from '@/lib/etablissement-types'
 import type { EtablissementType } from '@/lib/types'
+import EntityQuickView from '@/components/EntityQuickView'
 
 interface Promotion {
   id: string
@@ -326,11 +327,6 @@ export default function PromotionsClient() {
           promo={discoverModal}
           onClose={() => setDiscoverModal(null)}
           onUse={() => { setDiscoverModal(null); openUseConfirm(discoverModal) }}
-          onOpenEtab={() => {
-            if (discoverModal.etablissement) {
-              router.push(`/etablissement/${discoverModal.etablissement.id}`)
-            }
-          }}
         />
       )}
 
@@ -727,13 +723,13 @@ function FeaturedPromoCarousel({ promos, onUse }: { promos: Promotion[]; onUse: 
 
 // ─── Modal Découvrir : encart promo + mini fiche etab ───
 function DiscoverPromoModal({
-  promo, onClose, onUse, onOpenEtab,
+  promo, onClose, onUse,
 }: {
   promo: Promotion
   onClose: () => void
   onUse: () => void
-  onOpenEtab: () => void
 }) {
+  const [showEtabQuickView, setShowEtabQuickView] = useState(false)
   const etabPhoto = promo.etablissement?.photos?.[0]
   const etabTypeInfo = promo.etablissement?.type ? ETAB_TYPES[promo.etablissement.type] : null
   return (
@@ -813,11 +809,11 @@ function DiscoverPromoModal({
             </div>
           </div>
 
-          {/* Encart etablissement */}
+          {/* Encart etablissement (clic = dépliage quickview, pas navigation) */}
           {promo.etablissement && (
             <button
               type="button"
-              onClick={onOpenEtab}
+              onClick={() => setShowEtabQuickView(true)}
               className="mt-3 flex w-full items-center gap-3 overflow-hidden rounded-[16px] border border-bordSoft bg-white p-3 text-left"
             >
               <div className="h-14 w-14 shrink-0 overflow-hidden rounded-[12px] bg-bord/40">
@@ -857,6 +853,15 @@ function DiscoverPromoModal({
           </button>
         </div>
       </div>
+
+      {/* QuickView fiche etab/producer empilée au-dessus (clic Fermer revient ici) */}
+      {showEtabQuickView && promo.etablissement && (
+        <EntityQuickView
+          kind="etablissement"
+          id={promo.etablissement.id}
+          onClose={() => setShowEtabQuickView(false)}
+        />
+      )}
     </div>
   )
 }
