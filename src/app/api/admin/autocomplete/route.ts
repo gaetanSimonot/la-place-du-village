@@ -84,10 +84,16 @@ export async function GET(req: NextRequest) {
   // kind=lieux → mode event LieuSearch (cherche dans lieux + etablissements)
   // sinon → mode commerce (etablissements + producteurs)
   const kind = req.nextUrl.searchParams.get('kind') === 'lieux' ? 'lieux' : 'commerce'
+  // types=address → restreint l'autocomplete Google aux adresses uniquement
+  // (pas de commerces/lieux). Plus simple, juste pour fixer lat/lng.
+  const types = req.nextUrl.searchParams.get('types')
   if (!input || input.length < 2) return NextResponse.json({ predictions: [], db: [] })
 
   // Lance DB search + Google en parallèle pour latence min
-  const dbPromise = searchDb(input, kind)
+  // - dbOnly: skip Google
+  // - types=address: skip DB (use case purement adresse pour fixer lat/lng)
+  // - défaut: les 2 en parallèle
+  const dbPromise = types ? Promise.resolve([]) : searchDb(input, kind)
   const googlePromise = dbOnly ? Promise.resolve(null) : (async () => {
     const url = new URL('https://maps.googleapis.com/maps/api/place/autocomplete/json')
     url.searchParams.set('input', input)
@@ -95,6 +101,7 @@ export async function GET(req: NextRequest) {
     url.searchParams.set('radius', RADIUS)
     url.searchParams.set('language', 'fr')
     url.searchParams.set('components', 'country:fr')
+    if (types) url.searchParams.set('types', types)
     url.searchParams.set('key', process.env.GOOGLE_PLACES_KEY!)
     if (session) url.searchParams.set('sessiontoken', session)
     const res = await fetch(url.toString())
