@@ -19,7 +19,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .from('journaux_hebdo')
     .select('cover_titre, cover_deck, cover_image_url, date_parution')
     .eq('numero', n)
-    .eq('statut', 'publie')
     .maybeSingle()
 
   if (!data) return { title: `Journal n°${n} — La Place du Village` }
@@ -46,11 +45,13 @@ export default async function JournalNumeroPage({ params }: Props) {
   const n = parseInt(numero, 10)
   if (!Number.isFinite(n)) notFound()
 
+  // On accepte les brouillons aussi (bannière affichée côté client si non publié).
+  // Évite les 404 quand l'utilisateur navigue depuis un lien partagé avant qu'un
+  // numéro ne soit officiellement publié.
   const { data: journal } = await supabaseAdmin
     .from('journaux_hebdo')
     .select('*')
     .eq('numero', n)
-    .eq('statut', 'publie')
     .maybeSingle()
 
   if (!journal) notFound()

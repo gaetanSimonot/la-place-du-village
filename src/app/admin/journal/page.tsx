@@ -190,7 +190,6 @@ function JournalList({ rows, onDelete }: { rows: JournalRow[]; onDelete: () => v
           </Link>
           <Link
             href={r.statut === 'publie' ? `/journal/${r.numero}` : `/admin/journal/${r.id}/preview`}
-            target="_blank"
             className="rounded-lg border border-bord bg-white px-3 py-1.5 text-[11px] font-bold text-texte"
           >
             {r.statut === 'publie' ? 'Voir' : 'Aperçu'}

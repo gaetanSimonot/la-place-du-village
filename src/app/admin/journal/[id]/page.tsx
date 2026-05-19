@@ -130,7 +130,6 @@ export default function AdminJournalEditPage() {
           }
           <Link
             href={journal.statut === 'publie' ? `/journal/${journal.numero}` : `/admin/journal/${id}/preview`}
-            target="_blank"
             className="rounded-[12px] border border-bord bg-white px-5 py-2.5 text-[13px] font-bold text-texte"
           >
             {journal.statut === 'publie' ? 'Voir la page publique →' : 'Aperçu →'}

@@ -115,8 +115,20 @@ export default function JournalPageClient({
     }
   }
 
+  const isDraft = row.statut !== 'publie'
+
   return (
     <main className="min-h-screen bg-creme pb-16 font-inter">
+      {isDraft && (
+        <div
+          className="sticky top-0 z-40 flex items-center justify-center gap-2 bg-accent px-4 py-2 text-white"
+          style={{ fontFamily: 'Inter, sans-serif' }}
+        >
+          <span className="text-[11px] font-extrabold tracking-[0.12em]">
+            BROUILLON · NUMÉRO NON PUBLIÉ
+          </span>
+        </div>
+      )}
       {/* ── Top bar ─────────────────────────────────────────────────────── */}
       <div className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-bordSoft bg-creme/95 px-4 py-3 backdrop-blur">
         <button
@@ -190,7 +202,7 @@ export default function JournalPageClient({
         </h1>
         <p
           className="mt-3 font-serif italic text-texte-doux"
-          style={{ fontFamily: 'var(--font-caveat), "Crimson Pro", Georgia, serif', fontSize: 16, lineHeight: 1.5 }}
+          style={{ fontFamily: '"Crimson Pro", Georgia, serif', fontSize: 16, lineHeight: 1.5 }}
         >
           {row.cover_deck}
         </p>
