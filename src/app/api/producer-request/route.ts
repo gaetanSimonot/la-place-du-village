@@ -41,32 +41,43 @@ export async function POST(req: NextRequest) {
 
   // ─── Chemin AUTO-VALIDATION (Google + catégories OK) ────────────────────
   if (placeId && lat != null && lng != null && cats.length > 0) {
-    // Évite les doublons
-    const { data: existing } = await supabaseAdmin
-      .from('producers')
-      .select('id, nom')
+    // Évite les doublons : on cherche un producer_request déjà lié à ce placeId
+    // (la table producers n'a pas la colonne place_id_google, mais producer_requests si).
+    const { data: existingReq } = await supabaseAdmin
+      .from('producer_requests')
+      .select('producer_id')
       .eq('place_id_google', placeId)
+      .not('producer_id', 'is', null)
       .maybeSingle()
 
-    if (existing) {
-      await supabaseAdmin.from('producer_requests').insert({
-        nom, produit_categories: cats, adresse, lat, lng,
-        place_id_google: placeId, commune, description, contact,
-        site_web: siteWeb, horaires, photos, message,
-        user_id: ctx.userId, traite: true,
-        producer_id: existing.id,
-      })
-      return NextResponse.json({
-        success: true,
-        already_exists: true,
-        producer_id: existing.id,
-      })
+    if (existingReq?.producer_id) {
+      // Vérifie que le producer existe toujours
+      const { data: existing } = await supabaseAdmin
+        .from('producers')
+        .select('id, nom')
+        .eq('id', existingReq.producer_id)
+        .maybeSingle()
+
+      if (existing) {
+        await supabaseAdmin.from('producer_requests').insert({
+          nom, produit_categories: cats, adresse, lat, lng,
+          place_id_google: placeId, commune, description, contact,
+          site_web: siteWeb, horaires, photos, message,
+          user_id: ctx.userId, traite: true,
+          producer_id: existing.id,
+        })
+        return NextResponse.json({
+          success: true,
+          already_exists: true,
+          producer_id: existing.id,
+        })
+      }
     }
 
     const descCourte = description && description.length > 180 ? description.slice(0, 177) + '…' : description
 
     // produit_categories n'est pas une colonne de `producers` (calculée via products).
-    // Les catégories restent dans producer_requests pour traçabilité.
+    // place_id_google n'existe pas non plus sur producers — tracé uniquement dans producer_requests.
     const { data: newProd, error: createErr } = await supabaseAdmin
       .from('producers')
       .insert({
@@ -74,7 +85,6 @@ export async function POST(req: NextRequest) {
         description_courte: descCourte,
         description_longue: description,
         commune, adresse, lat, lng,
-        place_id_google: placeId,
         contact_tel: contact,
         site_web: siteWeb,
         photos,
