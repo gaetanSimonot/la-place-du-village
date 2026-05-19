@@ -347,8 +347,8 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 72 }}>{typeInfo.emoji}</div>
         )}
         <div style={{ position: 'absolute', inset: 'auto 0 0 0', height: 120, background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.35) 100%)', pointerEvents: 'none' }} />
-        {/* Type chip + featured chip — bottom-left V3 */}
-        <div style={{ position: 'absolute', bottom: 14, left: 14, display: 'flex', gap: 6, pointerEvents: 'none', zIndex: 3 }}>
+        {/* Type chip + featured chip — bottom-left, remontés au-dessus de la card V3 */}
+        <div style={{ position: 'absolute', bottom: 36, left: 14, display: 'flex', gap: 6, pointerEvents: 'none', zIndex: 5 }}>
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 4,
             backgroundColor: 'rgba(232,242,235,0.95)', backdropFilter: 'blur(4px)',
@@ -366,9 +366,9 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
         {photos.length > 1 && (
           <div
             style={{
-              position: 'absolute', bottom: 14, left: '50%', transform: 'translateX(-50%)',
-              display: 'flex', alignItems: 'center', gap: 5, zIndex: 3,
-              background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(6px)',
+              position: 'absolute', bottom: 36, right: 14,
+              display: 'flex', alignItems: 'center', gap: 5, zIndex: 5,
+              background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(6px)',
               padding: '5px 10px', borderRadius: 999,
               pointerEvents: 'none',
             }}
