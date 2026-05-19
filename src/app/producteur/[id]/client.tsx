@@ -345,20 +345,61 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
         </div>
       </div>
 
-      {/* Hero photo 290px — swipe + auto-advance */}
+      {/* Hero photo 290px — carousel strip translateX (toutes les photos chargées, swipe smooth) */}
       <div
         style={{ position: 'relative', width: '100%', height: 290, background: '#E8F2EB', overflow: 'hidden', touchAction: 'pan-y' }}
         onTouchStart={onPhotoTouchStart}
         onTouchEnd={onPhotoTouchEnd}
       >
-        {photos.length > 0
-          ? <img key={photoIdx} src={photos[photoIdx]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', animation: 'photoFadeIn 0.32s ease-out' }} />
-          : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><img src="/icons/producteur-local.png" alt="" style={{ width: 100, opacity: 0.3 }} /></div>}
-        <div style={{ position: 'absolute', inset: 'auto 0 0 0', height: 120, background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.35) 100%)' }} />
+        {photos.length > 0 ? (
+          <div
+            style={{
+              display: 'flex', height: '100%', width: `${photos.length * 100}%`,
+              transform: `translateX(-${photoIdx * (100 / photos.length)}%)`,
+              transition: 'transform 0.32s cubic-bezier(0.32, 0.72, 0, 1)',
+              willChange: 'transform',
+            }}
+          >
+            {photos.map((src, i) => (
+              <img
+                key={i}
+                src={src}
+                alt=""
+                draggable={false}
+                style={{
+                  width: `${100 / photos.length}%`, height: '100%',
+                  objectFit: 'cover', flexShrink: 0, userSelect: 'none', pointerEvents: 'none',
+                }}
+              />
+            ))}
+          </div>
+        ) : (
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <img src="/icons/producteur-local.png" alt="" style={{ width: 100, opacity: 0.3 }} />
+          </div>
+        )}
+        {/* Gradient bas pour lisibilité dots/badge */}
+        <div style={{ position: 'absolute', inset: 'auto 0 0 0', height: 140, background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.45) 100%)', pointerEvents: 'none' }} />
 
-        {/* Dots */}
+        {/* Photo counter top-right */}
         {photos.length > 1 && (
-          <div style={{ position: 'absolute', bottom: 14, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 5, zIndex: 3, background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(6px)', padding: '5px 10px', borderRadius: 999 }}>
+          <div style={{ position: 'absolute', top: 14, right: '50%', transform: 'translateX(50%)', fontSize: 11, fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,0.45)', padding: '4px 8px', borderRadius: 999, backdropFilter: 'blur(4px)', zIndex: 7 }}>
+            {photoIdx + 1}/{photos.length}
+          </div>
+        )}
+
+        {/* Badge PRODUCTEUR LOCAL — remonté pour ne pas passer sous le content card */}
+        <div style={{ position: 'absolute', bottom: 36, left: 14, zIndex: 5 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(232,242,235,0.95)', backdropFilter: 'blur(4px)', color: T.primary, fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', padding: '5px 10px', borderRadius: 999 }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19.2 2.96c1.4 9.3-3.6 15.8-8.2 17.04z"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/></svg>
+            PRODUCTEUR LOCAL
+          </div>
+          {producer.is_featured && <span style={{ marginLeft: 6, backgroundColor: '#F5EFD6', color: '#8B6914', borderRadius: 999, padding: '4px 10px', fontSize: 10, fontWeight: 800 }}>★ À la une</span>}
+        </div>
+
+        {/* Dots — remonté à 36 pour rester au-dessus du content card slide-up (-20) */}
+        {photos.length > 1 && (
+          <div style={{ position: 'absolute', bottom: 36, right: 14, zIndex: 5, display: 'flex', gap: 5, background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(6px)', padding: '5px 10px', borderRadius: 999 }}>
             {photos.map((_, i) => (
               <span
                 key={i}
@@ -368,22 +409,6 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
             ))}
           </div>
         )}
-
-        {/* Photo counter */}
-        {photos.length > 1 && (
-          <div style={{ position: 'absolute', top: 14, right: '50%', transform: 'translateX(50%)', fontSize: 11, fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,0.45)', padding: '4px 8px', borderRadius: 999, backdropFilter: 'blur(4px)', zIndex: 7 }}>
-            {photoIdx + 1}/{photos.length}
-          </div>
-        )}
-
-        {/* Badge PRODUCTEUR LOCAL */}
-        <div style={{ position: 'absolute', bottom: 14, left: 14, zIndex: 3 }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(232,242,235,0.95)', backdropFilter: 'blur(4px)', color: T.primary, fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', padding: '5px 10px', borderRadius: 999 }}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19.2 2.96c1.4 9.3-3.6 15.8-8.2 17.04z"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/></svg>
-            PRODUCTEUR LOCAL
-          </div>
-          {producer.is_featured && <span style={{ marginLeft: 6, backgroundColor: '#F5EFD6', color: '#8B6914', borderRadius: 999, padding: '4px 10px', fontSize: 10, fontWeight: 800 }}>★ À la une</span>}
-        </div>
       </div>
 
       {/* Content card slide up */}
@@ -820,10 +845,7 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
           currentPlan={(profile?.plan as 'basic' | 'habitants' | 'pro') ?? 'basic'}
         />
       )}
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg) } }
-        @keyframes photoFadeIn { from { opacity: 0.55; } to { opacity: 1; } }
-      `}</style>
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 }
