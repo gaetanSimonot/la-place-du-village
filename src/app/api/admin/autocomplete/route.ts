@@ -4,8 +4,15 @@ import { NextRequest, NextResponse } from 'next/server'
 const LOCATION = '43.9333,3.7005'
 const RADIUS = '40000'
 
+// Force dynamic — empêche Next.js de cacher les réponses autocomplete
+export const dynamic = 'force-dynamic'
+
 export async function GET(req: NextRequest) {
   const input = req.nextUrl.searchParams.get('q')
+  // sessiontoken: UUID généré côté client par session de recherche.
+  // Avec ce token, Google groupe les frappes en 1 session → autocomplete
+  // devient gratuit, seul le Place Details au select est facturé.
+  const session = req.nextUrl.searchParams.get('sessiontoken')
   if (!input || input.length < 2) return NextResponse.json({ predictions: [] })
 
   const url = new URL('https://maps.googleapis.com/maps/api/place/autocomplete/json')
@@ -15,6 +22,7 @@ export async function GET(req: NextRequest) {
   url.searchParams.set('language', 'fr')
   url.searchParams.set('components', 'country:fr')
   url.searchParams.set('key', process.env.GOOGLE_PLACES_KEY!)
+  if (session) url.searchParams.set('sessiontoken', session)
 
   const res = await fetch(url.toString())
   const data = await res.json()

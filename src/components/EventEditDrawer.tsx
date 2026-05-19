@@ -8,8 +8,9 @@ type Mode = 'edit' | 'crop' | 'fullscreen'
 interface Prediction { place_id: string; description: string; main: string; secondary: string }
 
 // ── Autocomplete lieu ─────────────────────────────────────────────────────────
-function LieuSearch({ onSelect }: {
+function LieuSearch({ onSelect, sessionTokenRef }: {
   onSelect: (p: Prediction) => void
+  sessionTokenRef: React.MutableRefObject<string>
 }) {
   const [query, setQuery]   = useState('')
   const [preds, setPreds]   = useState<Prediction[]>([])
@@ -20,12 +21,13 @@ function LieuSearch({ onSelect }: {
   const search = useCallback(async (q: string) => {
     if (q.length < 2) { setPreds([]); setSearching(false); return }
     setSearching(true)
-    const r = await fetch(`/api/admin/autocomplete?q=${encodeURIComponent(q)}`)
+    // sessionToken : Autocomplete gratuit dans la session, seul le Details au select facturé
+    const r = await fetch(`/api/admin/autocomplete?q=${encodeURIComponent(q)}&sessiontoken=${sessionTokenRef.current}`)
     const d = await r.json()
     setPreds(d.predictions ?? [])
     setOpen(true)
     setSearching(false)
-  }, [])
+  }, [sessionTokenRef])
 
   const handleChange = (v: string) => {
     setQuery(v)
@@ -196,6 +198,8 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
   const fileRef = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
+  // Session token Google Places — partagé entre Autocomplete + Details, regen après select
+  const sessionTokenRef = useRef<string>(crypto.randomUUID())
 
   useEffect(() => {
     if (!evenementId) {
@@ -310,8 +314,12 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
   }, [lieuNom, commune])
 
   const handleLieuSelect = async (p: Prediction) => {
-    const res = await fetch(`/api/admin/geocode?place_id=${encodeURIComponent(p.place_id)}`)
+    // mode=basic : pour un event on a besoin que lat/lng/nom/adresse → SKU basic ($0.017)
+    // Sans mode=basic : full ($0.025 avec contact + atmosphere) — inutile pour event.
+    const res = await fetch(`/api/admin/geocode?place_id=${encodeURIComponent(p.place_id)}&mode=basic&sessiontoken=${sessionTokenRef.current}`)
     const d = await res.json()
+    // Regen token pour la prochaine session
+    sessionTokenRef.current = crypto.randomUUID()
     if (!d.lat) return
     setLat(d.lat.toString())
     setLng(d.lng.toString())
@@ -639,7 +647,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
           </div>
           {/* LieuSearch advanced (caché par défaut, utile pour autocomplete Google) */}
           <div className="mt-2">
-            <LieuSearch onSelect={handleLieuSelect} />
+            <LieuSearch onSelect={handleLieuSelect} sessionTokenRef={sessionTokenRef} />
           </div>
         </div>
 

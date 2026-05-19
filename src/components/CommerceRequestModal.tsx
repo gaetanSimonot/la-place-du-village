@@ -235,13 +235,17 @@ function ReferenceForm({
   const [autoFilled, setAutoFilled]   = useState<string[]>([])
 
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  // Session token Google Places : régénéré à chaque nouvelle session de recherche
+  // (= après chaque sélection ou nouveau focus). Permet de grouper les frappes
+  // en 1 session facturée (Autocomplete devient gratuit, seul le Details payé).
+  const sessionTokenRef = useRef<string>(crypto.randomUUID())
 
   // Autocomplete debounce
   useEffect(() => {
     if (!adresse || adresse.length < 3 || placeId) { setPredictions([]); return }
     const t = setTimeout(async () => {
       setSearching(true)
-      const r = await fetch(`/api/admin/autocomplete?q=${encodeURIComponent(adresse)}`).catch(() => null)
+      const r = await fetch(`/api/admin/autocomplete?q=${encodeURIComponent(adresse)}&sessiontoken=${sessionTokenRef.current}`).catch(() => null)
       if (r && r.ok) {
         const d = await r.json()
         setPredictions((d.predictions ?? []).slice(0, 5))
@@ -254,7 +258,10 @@ function ReferenceForm({
   async function selectPrediction(p: Prediction) {
     setAdresse(p.description)
     setPredictions([])
-    const r = await fetch(`/api/admin/geocode?place_id=${encodeURIComponent(p.place_id)}`).catch(() => null)
+    // Le Details est appelé avec le même sessiontoken → bundle facturé
+    const r = await fetch(`/api/admin/geocode?place_id=${encodeURIComponent(p.place_id)}&sessiontoken=${sessionTokenRef.current}`).catch(() => null)
+    // Après le select, régénère un nouveau token pour la prochaine session
+    sessionTokenRef.current = crypto.randomUUID()
     if (!r || !r.ok) { setPlaceId(p.place_id); return }
     const d = await r.json()
     if (d.lat != null) setLat(d.lat)
@@ -291,6 +298,8 @@ function ReferenceForm({
     setLat(null); setLng(null); setPlaceId(null); setCommune('')
     setGooglePhotos([])
     setAutoFilled([])
+    // Nouveau token car nouvelle session de recherche
+    sessionTokenRef.current = crypto.randomUUID()
   }
 
 

@@ -45,19 +45,25 @@ function guessEtabType(googleTypes: string[]): string | null {
 export async function GET(req: NextRequest) {
   const placeId = req.nextUrl.searchParams.get('place_id')
   const q       = req.nextUrl.searchParams.get('q')
+  // mode=basic → ne demande que les champs Basic SKU (~$0.017) au lieu du full
+  // ($0.025 avec Contact + Atmosphere). Pour les events on n'a besoin que de
+  // lat/lng + nom + adresse, économise ~32% sur le Details.
+  const mode    = req.nextUrl.searchParams.get('mode') ?? 'full'
+  const session = req.nextUrl.searchParams.get('sessiontoken')
 
   // ── Place Details by place_id (précis, structuré) ────────────────────────
   if (placeId) {
     const url = new URL('https://maps.googleapis.com/maps/api/place/details/json')
     url.searchParams.set('place_id', placeId)
-    // Champs enrichis pour pouvoir pré-remplir la fiche de référencement
-    url.searchParams.set('fields', [
-      'name', 'geometry', 'formatted_address', 'address_components',
-      'international_phone_number', 'formatted_phone_number',
-      'website', 'url', 'opening_hours', 'types', 'photos',
-    ].join(','))
+    // Champs : full pour commerce (pré-remplit phone/website/hours), basic pour event
+    const baseFields = ['name', 'geometry', 'formatted_address', 'address_components', 'types', 'photos']
+    const fullFields = [...baseFields, 'international_phone_number', 'formatted_phone_number', 'website', 'url', 'opening_hours']
+    url.searchParams.set('fields', (mode === 'basic' ? baseFields : fullFields).join(','))
     url.searchParams.set('language', 'fr')
     url.searchParams.set('key', process.env.GOOGLE_PLACES_KEY!)
+    // Session token : si présent, le Details devient gratuit (juste l'Autocomplete payé)
+    // car ils sont facturés en bundle pour la session.
+    if (session) url.searchParams.set('sessiontoken', session)
 
     const res  = await fetch(url.toString())
     const data = await res.json()
