@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '@/lib/supabase'
 import { PRODUIT_CATS } from '@/lib/produit-cats'
 
@@ -143,9 +144,11 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
     setTimeout(onClose, 1500)
   }
 
-  return (
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
     <div onClick={onClose} style={{
-      position: 'fixed', inset: 0, zIndex: 1100,
+      position: 'fixed', inset: 0, zIndex: 9999,
       backgroundColor: 'rgba(0,0,0,0.55)',
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
     }}>
@@ -316,6 +319,7 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
 
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

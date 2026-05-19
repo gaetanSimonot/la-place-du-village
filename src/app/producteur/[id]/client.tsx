@@ -116,9 +116,23 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
   useEffect(() => {
     fetch(`/api/producers/${id}`)
       .then(r => r.json())
-      .then(d => { setProducer(d.producer ?? null); setLoading(false) })
+      .then(d => {
+        setProducer(d.producer ?? null); setLoading(false)
+        // Auto-edit mode si ?edit=1 (vient du redirect post-claim)
+        if (typeof window !== 'undefined') {
+          const params = new URLSearchParams(window.location.search)
+          if (params.get('edit') === '1' && d.producer?.user_id === user?.id) {
+            setTab('produits')
+            setEditMode(true)
+            showToast('🎉 Cette fiche est maintenant à toi — ajoute tes produits !')
+            // Clean URL pour éviter le re-trigger sur refresh
+            window.history.replaceState({}, '', `/producteur/${id}`)
+            setTimeout(() => tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300)
+          }
+        }
+      })
       .catch(() => setLoading(false))
-  }, [id])
+  }, [id, user?.id, showToast])
 
   // Favorite count public
   useEffect(() => {
@@ -328,17 +342,9 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
       if (res.ok) {
         const data = await res.json().catch(() => ({}))
         if (data.autoApproved) {
-          showToast('🎉 Vous gérez maintenant cette fiche — ajoute tes produits !')
-          // Optimistic update + refetch confirmation
-          setProducer(p => p ? { ...p, user_id: user.id } : p)
-          fetch(`/api/producers/${id}`)
-            .then(r => r.json())
-            .then(d => { if (d.producer) setProducer(d.producer) })
-            .catch(() => {})
-          // Passe direct en mode édition produits
-          setTab('produits')
-          setEditMode(true)
-          setTimeout(() => tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200)
+          // Hard reload avec ?edit=1 — garantit l'état serveur frais
+          // (sinon optimistic update peut être écrasé par cache PostgREST)
+          window.location.href = `/producteur/${id}?edit=1`
         } else {
           showToast('✓ Demande envoyée — un admin la validera bientôt')
         }
