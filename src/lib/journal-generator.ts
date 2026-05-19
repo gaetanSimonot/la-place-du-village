@@ -263,6 +263,7 @@ export async function generateJournalDraft(): Promise<{ id: string; numero: numb
     .maybeSingle()
   const numero = (last?.numero ?? 0) + 1
 
+  const nowISO = new Date().toISOString()
   const insert = {
     numero,
     date_parution:        du.toISOString().slice(0, 10),
@@ -280,9 +281,10 @@ export async function generateJournalDraft(): Promise<{ id: string; numero: numb
     selection_article_id: ctx.article?.id ?? null,
     spotlight_etab_id:    ctx.spotlight?.id ?? null,
     temps_lecture_min:    5,
-    statut:               'brouillon',
-    // au passage : on note que la semaine peut être (du, au)
-    publie_at:            null,
+    // Auto-publication : seul l'humain (article) demande validation ;
+    // l'agrégat hebdo ne contient que des entités déjà publiées → safe à publier.
+    statut:               'publie',
+    publie_at:            nowISO,
   }
 
   const { data, error } = await supabaseAdmin
@@ -292,5 +294,14 @@ export async function generateJournalDraft(): Promise<{ id: string; numero: numb
     .single()
 
   if (error) throw new Error(`Insert journal: ${error.message}`)
+
+  // Si un article était attaché au numéro, on le passe en 'publie' + lien
+  if (ctx.article?.id) {
+    await supabaseAdmin
+      .from('articles_journal')
+      .update({ statut: 'publie', journal_id: data.id })
+      .eq('id', ctx.article.id)
+  }
+
   return { id: data.id, numero: data.numero }
 }

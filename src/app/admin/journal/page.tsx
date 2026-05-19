@@ -212,11 +212,15 @@ function ArticleList({ articles, onChange }: { articles: ArticleRow[]; onChange:
     return <p className="mt-3 text-[13px] text-texte-tres-doux">Aucun article soumis.</p>
   }
   const handlePatch = async (id: string, statut: 'valide' | 'refuse') => {
-    await fetch(`/api/admin/articles/${id}`, {
+    const res = await fetch(`/api/admin/articles/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
       body: JSON.stringify({ statut }),
     })
+    const data = await res.json().catch(() => ({}))
+    if (statut === 'valide' && data.attachedTo) {
+      alert(`✓ Article validé et publié dans le numéro n°${data.attachedTo.numero} (numéro en cours)`)
+    }
     onChange()
   }
   return (
