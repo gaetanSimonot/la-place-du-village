@@ -7,24 +7,38 @@ import { CATEGORIES } from '@/lib/categories'
 type Mode = 'edit' | 'crop' | 'fullscreen'
 interface Prediction { place_id: string; description: string; main: string; secondary: string }
 
+interface LieuDbMatch {
+  kind: 'etablissement' | 'lieu'
+  id: string
+  nom: string
+  commune: string | null
+  adresse?: string | null
+  lat?: number | null
+  lng?: number | null
+}
+
 // ── Autocomplete lieu ─────────────────────────────────────────────────────────
-function LieuSearch({ onSelect, sessionTokenRef }: {
+function LieuSearch({ onSelect, onSelectDb, sessionTokenRef }: {
   onSelect: (p: Prediction) => void
+  onSelectDb: (m: LieuDbMatch) => void
   sessionTokenRef: React.MutableRefObject<string>
 }) {
   const [query, setQuery]   = useState('')
   const [preds, setPreds]   = useState<Prediction[]>([])
+  const [dbMatches, setDbMatches] = useState<LieuDbMatch[]>([])
   const [open, setOpen]     = useState(false)
   const [searching, setSearching] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout>>()
 
   const search = useCallback(async (q: string) => {
-    if (q.length < 2) { setPreds([]); setSearching(false); return }
+    if (q.length < 2) { setPreds([]); setDbMatches([]); setSearching(false); return }
     setSearching(true)
+    // kind=lieux : DB search dans lieux + etablissements
     // sessionToken : Autocomplete gratuit dans la session, seul le Details au select facturé
-    const r = await fetch(`/api/admin/autocomplete?q=${encodeURIComponent(q)}&sessiontoken=${sessionTokenRef.current}`)
+    const r = await fetch(`/api/admin/autocomplete?q=${encodeURIComponent(q)}&kind=lieux&sessiontoken=${sessionTokenRef.current}`)
     const d = await r.json()
     setPreds(d.predictions ?? [])
+    setDbMatches((d.db ?? []).slice(0, 4))
     setOpen(true)
     setSearching(false)
   }, [sessionTokenRef])
@@ -38,8 +52,17 @@ function LieuSearch({ onSelect, sessionTokenRef }: {
   const handleSelect = (p: Prediction) => {
     setQuery('')
     setPreds([])
+    setDbMatches([])
     setOpen(false)
     onSelect(p)
+  }
+
+  const handleSelectDb = (m: LieuDbMatch) => {
+    setQuery('')
+    setPreds([])
+    setDbMatches([])
+    setOpen(false)
+    onSelectDb(m)
   }
 
   return (
@@ -57,18 +80,46 @@ function LieuSearch({ onSelect, sessionTokenRef }: {
           <div className="w-4 h-4 border-2 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
         </div>
       )}
-      {open && preds.length > 0 && (
+      {open && (dbMatches.length > 0 || preds.length > 0) && (
         <div className="absolute z-50 left-0 right-0 bg-white border border-[#E8E0D5] rounded-xl shadow-xl mt-1 overflow-hidden">
-          {preds.map(p => (
-            <button key={p.place_id} onMouseDown={() => handleSelect(p)}
-              className="w-full text-left px-3 py-3 hover:bg-[#FBF7F0] border-b border-[#F0EAE0] last:border-0 flex items-start gap-2">
-              <span className="text-base shrink-0 mt-0.5">📍</span>
-              <div>
-                <p className="text-sm font-medium text-[#2C1810] leading-tight">{p.main}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{p.secondary}</p>
+          {/* Matches DB — lieux récurrents déjà connus (évite l'appel Google Details) */}
+          {dbMatches.length > 0 && (
+            <>
+              <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#2D5A3D] bg-[#F0F7F2]">
+                📍 Déjà connu
               </div>
-            </button>
-          ))}
+              {dbMatches.map(m => (
+                <button key={`${m.kind}-${m.id}`} onMouseDown={() => handleSelectDb(m)}
+                  className="w-full text-left px-3 py-3 hover:bg-[#F0F7F2] border-b border-[#F0EAE0] flex items-start gap-2">
+                  <span className="text-base shrink-0 mt-0.5">{m.kind === 'etablissement' ? '🏪' : '🏛️'}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-[#2C1810] leading-tight truncate">{m.nom}</p>
+                    <p className="text-xs text-gray-400 mt-0.5 truncate">{[m.adresse, m.commune].filter(Boolean).join(' · ')}</p>
+                  </div>
+                </button>
+              ))}
+            </>
+          )}
+          {/* Predictions Google (nouvelles adresses) */}
+          {preds.length > 0 && (
+            <>
+              {dbMatches.length > 0 && (
+                <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.08em] text-gray-500 bg-gray-50">
+                  🔍 Google
+                </div>
+              )}
+              {preds.map(p => (
+                <button key={p.place_id} onMouseDown={() => handleSelect(p)}
+                  className="w-full text-left px-3 py-3 hover:bg-[#FBF7F0] border-b border-[#F0EAE0] last:border-0 flex items-start gap-2">
+                  <span className="text-base shrink-0 mt-0.5">📍</span>
+                  <div>
+                    <p className="text-sm font-medium text-[#2C1810] leading-tight">{p.main}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{p.secondary}</p>
+                  </div>
+                </button>
+              ))}
+            </>
+          )}
         </div>
       )}
     </div>
@@ -327,6 +378,17 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
     if (d.adresse) setAdresse(d.adresse)
     if (d.commune) setCommune(d.commune)
     setPlaceIdGoogle(p.place_id)
+  }
+
+  // Selection d'un lieu déjà connu en DB → lat/lng direct, zéro appel Google
+  const handleLieuSelectDb = (m: { kind: 'etablissement' | 'lieu'; id: string; nom: string; commune: string | null; adresse?: string | null; lat?: number | null; lng?: number | null }) => {
+    if (m.lat != null) setLat(m.lat.toString())
+    if (m.lng != null) setLng(m.lng.toString())
+    setLieuNom(m.nom)
+    if (m.adresse) setAdresse(m.adresse)
+    if (m.commune) setCommune(m.commune)
+    // Pas de place_id_google car ne vient pas de Google
+    setPlaceIdGoogle(m.kind === 'lieu' ? `lieu:${m.id}` : `etab:${m.id}`)
   }
 
   const save = async (statutOverride?: string) => {
@@ -647,7 +709,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
           </div>
           {/* LieuSearch advanced (caché par défaut, utile pour autocomplete Google) */}
           <div className="mt-2">
-            <LieuSearch onSelect={handleLieuSelect} sessionTokenRef={sessionTokenRef} />
+            <LieuSearch onSelect={handleLieuSelect} onSelectDb={handleLieuSelectDb} sessionTokenRef={sessionTokenRef} />
           </div>
         </div>
 

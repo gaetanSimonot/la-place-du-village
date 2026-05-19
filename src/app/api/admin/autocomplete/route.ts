@@ -9,20 +9,47 @@ const RADIUS = '40000'
 export const dynamic = 'force-dynamic'
 
 interface DbMatch {
-  kind: 'etablissement' | 'producteur'
+  kind: 'etablissement' | 'producteur' | 'lieu'
   id: string
   nom: string
   commune: string | null
   adresse?: string | null
   type?: string | null
   claimed: boolean
+  // Pour les lieux : lat/lng directement utilisables sans nouvel appel
+  lat?: number | null
+  lng?: number | null
 }
 
-// Cherche dans Supabase (etablissements + producteurs) en parallèle —
-// permet d'afficher 'Déjà sur l'app' avant les résultats Google et d'éviter
-// de payer Google pour une fiche qu'on a déjà.
-async function searchDb(q: string): Promise<DbMatch[]> {
+// Cherche dans Supabase. Selon le mode:
+// - 'commerce' (défaut): etablissements + producteurs
+// - 'lieux' (pour event LieuSearch): lieux + etablissements (qui peuvent servir
+//   de lieu récurrent comme 'Bergerie du Col', 'Salle des fêtes de Ganges')
+async function searchDb(q: string, mode: 'commerce' | 'lieux'): Promise<DbMatch[]> {
   const like = `%${q}%`
+  if (mode === 'lieux') {
+    const [{ data: lieux }, { data: etabs }] = await Promise.all([
+      supabaseAdmin
+        .from('lieux')
+        .select('id, nom, commune, adresse, lat, lng')
+        .or(`nom.ilike.${like},commune.ilike.${like}`)
+        .limit(5),
+      supabaseAdmin
+        .from('etablissements')
+        .select('id, nom, commune, adresse, type, lat, lng, user_id')
+        .or(`nom.ilike.${like},commune.ilike.${like}`)
+        .limit(3),
+    ])
+    const results: DbMatch[] = []
+    for (const l of (lieux ?? [])) {
+      results.push({ kind: 'lieu', id: l.id, nom: l.nom, commune: l.commune, adresse: l.adresse, lat: l.lat, lng: l.lng, claimed: false })
+    }
+    for (const e of (etabs ?? [])) {
+      results.push({ kind: 'etablissement', id: e.id, nom: e.nom, commune: e.commune, adresse: e.adresse, type: e.type, lat: e.lat, lng: e.lng, claimed: !!e.user_id })
+    }
+    return results.slice(0, 6)
+  }
+  // commerce mode
   const [{ data: etabs }, { data: prods }] = await Promise.all([
     supabaseAdmin
       .from('etablissements')
@@ -54,10 +81,13 @@ export async function GET(req: NextRequest) {
   // dbonly=1 → skip Google complètement (économie max si on sait que le user
   // veut juste chercher dans la DB locale). Par défaut: les 2 en parallèle.
   const dbOnly = req.nextUrl.searchParams.get('dbonly') === '1'
+  // kind=lieux → mode event LieuSearch (cherche dans lieux + etablissements)
+  // sinon → mode commerce (etablissements + producteurs)
+  const kind = req.nextUrl.searchParams.get('kind') === 'lieux' ? 'lieux' : 'commerce'
   if (!input || input.length < 2) return NextResponse.json({ predictions: [], db: [] })
 
   // Lance DB search + Google en parallèle pour latence min
-  const dbPromise = searchDb(input)
+  const dbPromise = searchDb(input, kind)
   const googlePromise = dbOnly ? Promise.resolve(null) : (async () => {
     const url = new URL('https://maps.googleapis.com/maps/api/place/autocomplete/json')
     url.searchParams.set('input', input)
