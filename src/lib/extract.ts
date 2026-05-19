@@ -90,6 +90,13 @@ export async function extractMultipleWithClaude(text: string | null, imageBase64
 
 const randOffset = () => Math.random() * 0.004 - 0.002
 
+// Client Supabase admin pour DB-first (cache lieux)
+import { createClient } from '@supabase/supabase-js'
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_KEY!,
+)
+
 async function textsearch(query: string): Promise<Omit<GeoResult, 'approx'> | null> {
   const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${process.env.GOOGLE_PLACES_KEY}`
   const res = await fetch(url)
@@ -106,16 +113,53 @@ async function textsearch(query: string): Promise<Omit<GeoResult, 'approx'> | nu
   return null
 }
 
+// Cherche dans la table lieux d'abord (DB-first cache).
+// Si nom+commune matche un lieu déjà géocodé → réutilise lat/lng sans Google.
+async function lookupLieuxCache(lieuNom: string, commune?: string | null): Promise<Omit<GeoResult, 'approx'> | null> {
+  let query = supabaseAdmin
+    .from('lieux')
+    .select('nom, commune, adresse, lat, lng, place_id_google')
+    .ilike('nom', lieuNom)
+    .not('lat', 'is', null)
+    .limit(1)
+  if (commune) query = query.ilike('commune', commune)
+  const { data } = await query.maybeSingle()
+  if (!data || data.lat == null) return null
+  return {
+    place_id_google: data.place_id_google ?? null,
+    lat: data.lat,
+    lng: data.lng,
+    adresse: data.adresse ?? null,
+  }
+}
+
 export async function geocodeWithGoogle(lieuNom: string | null, commune?: string | null): Promise<GeoResult> {
-  // 1. Lieu précis + commune → coords exactes
+  // 1. Lieu précis + commune → DB-first puis Google
   if (lieuNom) {
-    const query = [lieuNom, commune, 'France'].filter(Boolean).join(', ')
-    const result = await textsearch(query)
+    // Cache hit dans table lieux → ZERO appel Google
+    const cached = await lookupLieuxCache(lieuNom, commune)
+    if (cached && cached.lat != null) return { ...cached, approx: false }
+
+    // Sinon Google textsearch
+    const q = [lieuNom, commune, 'France'].filter(Boolean).join(', ')
+    const result = await textsearch(q)
     if (result) return { ...result, approx: false }
   }
 
   // 2. Commune seule → coords approximatives centrées sur la commune
   if (commune) {
+    // Cache hit sur une commune déjà connue
+    const cachedCommune = await lookupLieuxCache(commune)
+    if (cachedCommune && cachedCommune.lat != null) {
+      return {
+        place_id_google: null,
+        lat: cachedCommune.lat + randOffset(),
+        lng: cachedCommune.lng! + randOffset(),
+        adresse: null,
+        approx: true,
+      }
+    }
+    // Sinon Google
     const result = await textsearch(commune + ', France')
     if (result) return {
       place_id_google: null,
