@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { motion, useMotionValue, animate, useDragControls, AnimatePresence } from 'framer-motion'
+import { motion, useMotionValue, animate, useDragControls } from 'framer-motion'
 import { EvenementCard, Filtres, AppMode, ProducerCard, ProduitCategorie, EtablissementCard, EtablissementType } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { PRODUIT_CATS } from '@/lib/produit-cats'
@@ -16,6 +16,7 @@ const FULL_TOP = 60   // espace laissé en haut quand sheet pleine
 import { useTheme } from '@/components/ThemeProvider'
 import ProBandeau from '@/components/ProBandeau'
 import AgendaFilterWheel from '@/components/AgendaFilterWheel'
+import AnnuaireFilterWheel from '@/components/AnnuaireFilterWheel'
 
 const BATCH = 20
 
@@ -119,12 +120,6 @@ export default function BottomSheet({
     onAnnuaireTabChange?.(idx)
   }
 
-  // Cycling state pour les boutons annuaire
-  const [prodCatCursor, setProdCatCursor]   = useState(-1)
-  const [etabTypeCursor, setEtabTypeCursor] = useState(-1)
-  const prodCatPillRefs  = useRef<(HTMLButtonElement | null)[]>([])
-  const etabTypePillRefs = useRef<(HTMLButtonElement | null)[]>([])
-
   // Filtre établissements
   const [etabFilterOpen, setEtabFilterOpen] = useState(false)
   const [etabMinNote, setEtabMinNote]       = useState(0)
@@ -194,38 +189,6 @@ export default function BottomSheet({
   const handleAgendaFilterChange = () => {
     if (mode === 'peek') snapTo('half')
   }
-
-  // ── Annuaire tab buttons — cycling filtres au clic ──
-  // Cycle : -1(Tout) → 0 → 1 → … → N-1 → -1(Tout) → …  (une seule boucle, pas de double clic)
-  const handleProdBtn = () => {
-    if (annuaireTabIdx !== 0) { setAnnuaireTabIdx(0); if (mode === 'peek') snapTo('half'); return }
-    if (mode === 'peek') snapTo('half')
-    const next = (prodCatCursor + 2) % (PRODUIT_CATS.length + 1) - 1  // -1,0,1,…,N-1,-1,…
-    setProdCatCursor(next)
-    if (next < 0) onSelectedCatsChange?.([])
-    else onSelectedCatsChange?.([PRODUIT_CATS[next].id])
-  }
-  const handleEtabBtn = () => {
-    if (annuaireTabIdx !== 1) { setAnnuaireTabIdx(1); if (mode === 'peek') snapTo('half'); return }
-    if (mode === 'peek') snapTo('half')
-    const next = (etabTypeCursor + 2) % (ETAB_TYPE_LIST.length + 1) - 1
-    setEtabTypeCursor(next)
-    if (next < 0) onEtabTypeChange?.(null)
-    else onEtabTypeChange?.(ETAB_TYPE_LIST[next].id)
-  }
-
-  // Auto-scroll vers le pill actif (annuaire)
-  useEffect(() => {
-    prodCatPillRefs.current[prodCatCursor]?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
-  }, [prodCatCursor])
-  useEffect(() => {
-    etabTypePillRefs.current[etabTypeCursor]?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
-  }, [etabTypeCursor])
-
-  const prodBtnLabel = prodCatCursor < 0 ? 'Producteurs' : PRODUIT_CATS[prodCatCursor]?.label ?? 'Producteurs'
-  const etabBtnLabel = etabTypeCursor < 0 ? 'Commerces'  : ETAB_TYPE_LIST[etabTypeCursor]?.label ?? 'Commerces'
-  const hasProdFilter = prodCatCursor >= 0
-  const hasEtabFilter = etabTypeCursor >= 0
 
   // Centre de la ville saisie (lat/lng du premier établissement correspondant)
   const villeCenter = useMemo(() => {
@@ -411,96 +374,58 @@ export default function BottomSheet({
           </div>
         )}
 
-        {/* Filtres annuaire — agenda intégré dans le header grille ci-dessus */}
+        {/* Filtres annuaire — wheel horizontal selon tab actif.
+            En !V3, mini-toggle Producteurs/Commerces au-dessus pour switch. */}
         {appMode !== 'agenda' && (
-          <div style={{ display: 'flex', gap: 10, padding: '0 16px 10px' }}>
-            {/* Bouton Producteurs — cycle les catégories produit au clic. En V3, masqué quand on est en mode etab */}
-            {(!topBarV3 || annuaireTabIdx === 0) && (() => {
-              const active = annuaireTabIdx === 0
-              return (
-                <button onClick={handleProdBtn}
-                  style={{ flex: 1, height: 52, borderRadius: 14, border: 'none', backgroundColor: active ? '#2D5A3D' : '#E8F2EB', color: active ? '#fff' : '#2D5A3D', fontFamily: 'Inter, sans-serif', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '0 12px', gap: 9, overflow: 'hidden', opacity: active ? 1 : 0.85, transition: 'all 0.15s' }}>
-                  <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: active ? 'rgba(255,255,255,0.18)' : 'rgba(45,90,61,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={active ? 'white' : '#2D5A3D'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
-                    </svg>
-                  </div>
-                  <AnimatePresence mode="wait">
-                    <motion.div key={prodBtnLabel} initial={{ y: 5, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -5, opacity: 0 }} transition={{ duration: 0.13 }} style={{ textAlign: 'left', overflow: 'hidden' }}>
-                      <p style={{ fontWeight: 700, fontSize: 13, margin: 0, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{prodBtnLabel}</p>
-                      <p style={{ fontSize: 10, margin: '1px 0 0', color: active ? 'rgba(255,255,255,0.65)' : 'rgba(45,90,61,0.55)', lineHeight: 1 }}>
-                        {hasProdFilter ? 'Filtrer par produit' : `${producers.length} producteur${producers.length !== 1 ? 's' : ''}`}
-                      </p>
-                    </motion.div>
-                  </AnimatePresence>
-                </button>
-              )
-            })()}
-            {/* Bouton Commerces — cycle les types d'établissement au clic. En V3, masqué quand on est en mode prod */}
-            {(!topBarV3 || annuaireTabIdx === 1) && (() => {
-              const active = annuaireTabIdx === 1
-              return (
-                <button onClick={handleEtabBtn}
-                  style={{ flex: 1, height: 52, borderRadius: 14, border: 'none', backgroundColor: active ? '#2D5A3D' : '#E8F2EB', color: active ? '#fff' : '#2D5A3D', fontFamily: 'Inter, sans-serif', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '0 12px', gap: 9, overflow: 'hidden', opacity: active ? 1 : 0.85, transition: 'all 0.15s' }}>
-                  <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: active ? 'rgba(255,255,255,0.18)' : 'rgba(45,90,61,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={active ? 'white' : '#2D5A3D'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 3h18v4H3z"/><path d="M3 7v14h18V7"/><path d="M9 7v14"/><path d="M15 7v14"/>
-                    </svg>
-                  </div>
-                  <AnimatePresence mode="wait">
-                    <motion.div key={etabBtnLabel} initial={{ y: 5, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -5, opacity: 0 }} transition={{ duration: 0.13 }} style={{ textAlign: 'left', overflow: 'hidden' }}>
-                      <p style={{ fontWeight: 700, fontSize: 13, margin: 0, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{etabBtnLabel}</p>
-                      <p style={{ fontSize: 10, margin: '1px 0 0', color: active ? 'rgba(255,255,255,0.65)' : 'rgba(45,90,61,0.55)', lineHeight: 1 }}>
-                        {hasEtabFilter ? 'Filtrer par type' : `${displayedEtabs.length} commerce${displayedEtabs.length !== 1 ? 's' : ''}`}
-                      </p>
-                    </motion.div>
-                  </AnimatePresence>
-                </button>
-              )
-            })()}
+          <div style={{ padding: '0 16px 10px' }}>
+            {!topBarV3 && (
+              <div style={{ display: 'flex', backgroundColor: '#E8F2EB', borderRadius: 999, padding: 3, gap: 2, marginBottom: 8, width: 'fit-content' }}>
+                <button onClick={() => setAnnuaireTabIdx(0)} style={{
+                  padding: '5px 13px', borderRadius: 999, border: 'none',
+                  backgroundColor: annuaireTabIdx === 0 ? '#2D5A3D' : 'transparent',
+                  color: annuaireTabIdx === 0 ? '#fff' : '#2D5A3D',
+                  fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 11,
+                  cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background-color 0.15s, color 0.15s',
+                }}>Producteurs</button>
+                <button onClick={() => setAnnuaireTabIdx(1)} style={{
+                  padding: '5px 13px', borderRadius: 999, border: 'none',
+                  backgroundColor: annuaireTabIdx === 1 ? '#2D5A3D' : 'transparent',
+                  color: annuaireTabIdx === 1 ? '#fff' : '#2D5A3D',
+                  fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 11,
+                  cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background-color 0.15s, color 0.15s',
+                }}>Commerces</button>
+              </div>
+            )}
+            {annuaireTabIdx === 0 ? (
+              <AnnuaireFilterWheel
+                ariaLabel="Filtre catégorie produit"
+                sheetBg={sheetBg.bg}
+                items={PRODUIT_CATS.map(c => ({ id: c.id, label: c.label, emoji: c.emoji }))}
+                activeId={selectedCats[0] ?? null}
+                onChange={id => {
+                  onSelectedCatsChange?.(id ? [id as typeof PRODUIT_CATS[number]['id']] : [])
+                  if (mode === 'peek') snapTo('half')
+                }}
+              />
+            ) : (
+              <AnnuaireFilterWheel
+                ariaLabel="Filtre type commerce"
+                sheetBg={sheetBg.bg}
+                items={ETAB_TYPE_LIST.map(t => ({ id: t.id, label: t.label, emoji: t.emoji, color: t.color }))}
+                activeId={selectedEtabType ?? null}
+                onChange={id => {
+                  onEtabTypeChange?.((id as typeof ETAB_TYPE_LIST[number]['id'] | null) ?? null)
+                  if (mode === 'peek') snapTo('half')
+                }}
+              />
+            )}
           </div>
         )}
       </div>{/* fin zone drag */}
 
-      {/* ── Rows annuaire ── */}
+      {/* ── Rows annuaire (filtres déplacés dans le header, search & etab filter restent) ── */}
       {appMode === 'annuaire' && (
         <>
-          {/* Catégories produits */}
-          {annuaireTabIdx === 0 && (
-            <div style={{ display: 'flex', gap: 7, padding: '0 16px 8px', overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }} onPointerDown={e => e.stopPropagation()}>
-              <button onClick={() => { onSelectedCatsChange?.([]); setProdCatCursor(-1) }} style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${sheetBg.border}`, backgroundColor: selectedCats.length === 0 ? 'var(--primary)' : sheetBg.pill, color: selectedCats.length === 0 ? '#fff' : sheetBg.sub, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', minHeight: 34 }}>Tout</button>
-              {PRODUIT_CATS.map((cat, i) => {
-                const active = selectedCats.includes(cat.id)
-                const isCursor = prodCatCursor === i
-                return (
-                  <button key={cat.id}
-                    ref={el => { prodCatPillRefs.current[i] = el }}
-                    onClick={() => { const next = active ? [] : [cat.id]; onSelectedCatsChange?.(next); setProdCatCursor(next.length ? i : -1) }}
-                    style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${isCursor ? 'var(--primary)' : active ? 'var(--primary)' : sheetBg.border}`, backgroundColor: active ? 'var(--primary)' : sheetBg.pill, color: active ? '#fff' : sheetBg.sub, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', minHeight: 34, display: 'flex', alignItems: 'center', gap: 4, boxShadow: isCursor ? '0 0 0 3px rgba(45,90,61,0.20)' : 'none', transition: 'all 0.12s' }}>
-                    {cat.emoji} {cat.label}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-          {/* Filtre types établissements */}
-          {annuaireTabIdx === 1 && (
-            <div style={{ display: 'flex', gap: 7, padding: '0 16px 8px', overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }} onPointerDown={e => e.stopPropagation()}>
-              <button onClick={() => { onEtabTypeChange?.(null); setEtabTypeCursor(-1) }} style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${sheetBg.border}`, backgroundColor: !selectedEtabType ? 'var(--primary)' : sheetBg.pill, color: !selectedEtabType ? '#fff' : sheetBg.sub, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', minHeight: 34 }}>Tout</button>
-              {ETAB_TYPE_LIST.map((t, i) => {
-                const active = selectedEtabType === t.id
-                const isCursor = etabTypeCursor === i
-                return (
-                  <button key={t.id}
-                    ref={el => { etabTypePillRefs.current[i] = el }}
-                    onClick={() => { const next = active ? null : t.id; onEtabTypeChange?.(next); setEtabTypeCursor(next ? i : -1) }}
-                    style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 999, border: `2px solid ${active ? t.color : sheetBg.border}`, backgroundColor: active ? t.color : sheetBg.pill, color: active ? '#fff' : sheetBg.sub, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', minHeight: 34, display: 'flex', alignItems: 'center', gap: 4, boxShadow: isCursor ? `0 0 0 3px ${t.color}30` : 'none', transition: 'all 0.12s' }}>
-                    {t.emoji} {t.label}
-                  </button>
-                )
-              })}
-            </div>
-          )}
 
           {/* Barre de recherche + suggestions */}
           {annuaireTabIdx === 0 ? (
