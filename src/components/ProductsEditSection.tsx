@@ -128,8 +128,10 @@ export default function ProductsEditSection({ producerId }: { producerId: string
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ nom: newProduct.nom, categorie: newProduct.categorie, prix_indicatif: newProduct.prix_indicatif || null, disponible: newProduct.disponible, periode_dispo: newProduct.periode_dispo || null, dispo_jusqu_au: newProduct.dispo_jusqu_au || null }),
     })
+    const d = await res.json().catch(() => ({}))
+    // [PDV-DEBUG-NOTIF] visible dans la console F12 — followersNotified + notifError
+    console.log('[PDV-DEBUG-NOTIF] POST /api/mon-producteur/products →', { status: res.status, body: d })
     if (res.ok) {
-      const d = await res.json()
       setProducts(prev => [...prev, d.product].sort((a, b) => a.categorie.localeCompare(b.categorie)))
       setNewProduct({ nom: '', categorie: 'fruits_legumes', prix_indicatif: '', disponible: true, periode_dispo: '', dispo_jusqu_au: '' })
       setAddingProduct(false)
