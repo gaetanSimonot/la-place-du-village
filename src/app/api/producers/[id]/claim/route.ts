@@ -55,14 +55,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const body = await req.json().catch(() => ({}))
   const { contact, message } = body
 
+  // Match exactement la requête GET (qui fonctionne) pour éviter tout pb subtil
   const { data: prod, error: lookupErr } = await supabaseAdmin
     .from('producers')
-    .select('nom, user_id')
+    .select('*')
     .eq('id', id)
-    .maybeSingle()
+    .single()
 
   if (lookupErr) {
-    return NextResponse.json({ error: `DB lookup error: ${lookupErr.message}`, id }, { status: 500 })
+    return NextResponse.json({ error: `DB lookup: ${lookupErr.message}`, id }, { status: 500 })
   }
   if (!prod) {
     return NextResponse.json({ error: `Producteur introuvable (id: ${id})` }, { status: 404 })
