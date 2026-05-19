@@ -36,6 +36,16 @@ interface Prediction {
   secondary_text: string
 }
 
+interface DbMatch {
+  kind: 'etablissement' | 'producteur'
+  id: string
+  nom: string
+  commune: string | null
+  adresse?: string | null
+  type?: string | null
+  claimed: boolean
+}
+
 interface SubmitResult {
   auto_published?: boolean
   already_exists?: boolean
@@ -227,6 +237,7 @@ function ReferenceForm({
   const [message, setMessage]         = useState('')
 
   const [predictions, setPredictions] = useState<Prediction[]>([])
+  const [dbMatches, setDbMatches]     = useState<DbMatch[]>([])
   const [searching, setSearching]     = useState(false)
   const [uploading, setUploading]     = useState(false)
   const [submitting, setSubmitting]   = useState(false)
@@ -240,20 +251,28 @@ function ReferenceForm({
   // en 1 session facturée (Autocomplete devient gratuit, seul le Details payé).
   const sessionTokenRef = useRef<string>(crypto.randomUUID())
 
-  // Autocomplete debounce
+  // Autocomplete debounce (DB-first : retourne aussi matches DB locale)
   useEffect(() => {
-    if (!adresse || adresse.length < 3 || placeId) { setPredictions([]); return }
+    if (!adresse || adresse.length < 2 || placeId) { setPredictions([]); setDbMatches([]); return }
     const t = setTimeout(async () => {
       setSearching(true)
       const r = await fetch(`/api/admin/autocomplete?q=${encodeURIComponent(adresse)}&sessiontoken=${sessionTokenRef.current}`).catch(() => null)
       if (r && r.ok) {
         const d = await r.json()
         setPredictions((d.predictions ?? []).slice(0, 5))
+        setDbMatches((d.db ?? []).slice(0, 4))
       }
       setSearching(false)
     }, 280)
     return () => clearTimeout(t)
   }, [adresse, placeId])
+
+  // Clic sur un match DB → navigate vers la fiche, ferme la modal
+  function openDbMatch(m: DbMatch) {
+    onClose()
+    const path = m.kind === 'etablissement' ? `/etablissement/${m.id}` : `/producteur/${m.id}`
+    window.location.href = path
+  }
 
   async function selectPrediction(p: Prediction) {
     setAdresse(p.description)
@@ -298,6 +317,7 @@ function ReferenceForm({
     setLat(null); setLng(null); setPlaceId(null); setCommune('')
     setGooglePhotos([])
     setAutoFilled([])
+    setDbMatches([])
     // Nouveau token car nouvelle session de recherche
     sessionTokenRef.current = crypto.randomUUID()
   }
@@ -487,11 +507,53 @@ function ReferenceForm({
           {searching && <p style={{ margin: '6px 0 0', fontSize: 11, color: '#7A6A5A' }}>Recherche…</p>}
         </div>
 
-        {/* Predictions V3 — Tailwind pur, anti dark-mode UA */}
+        {/* Matches DB — déjà sur l'app (économise l'appel Google) */}
+        {dbMatches.length > 0 && !placeId && (
+          <div>
+            <div className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.1em] text-primary">
+              📍 Déjà sur l&apos;app ({dbMatches.length})
+            </div>
+            <div className="overflow-hidden rounded-2xl border border-[#C5DCC9] bg-[#F0F7F2] shadow-[0_1px_4px_rgba(44,28,16,0.04)]">
+              {dbMatches.map((m, i) => (
+                <button
+                  key={`${m.kind}-${m.id}`}
+                  type="button"
+                  onClick={() => openDbMatch(m)}
+                  className={`flex w-full cursor-pointer items-center gap-3 bg-transparent px-3.5 py-3 text-left text-texte ${i < dbMatches.length - 1 ? 'border-b border-[#C5DCC9]' : ''}`}
+                  style={{ WebkitTextFillColor: '#1A1209' }}
+                >
+                  <div className={`flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] text-base ${m.kind === 'producteur' ? 'bg-primary text-white' : 'bg-[#FDE8DF] text-[#C0440A]'}`}>
+                    {m.kind === 'producteur' ? '🌿' : '🏪'}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-[14px] font-bold text-texte" style={{ WebkitTextFillColor: '#1A1209' }}>{m.nom}</span>
+                      {m.claimed && (
+                        <span className="shrink-0 rounded-full bg-white px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.05em] text-primary">Géré</span>
+                      )}
+                    </div>
+                    <div className="mt-0.5 truncate text-[11px] text-texte-doux" style={{ WebkitTextFillColor: '#7A6A5A' }}>
+                      {m.kind === 'producteur' ? 'Producteur' : 'Commerce'}
+                      {m.commune ? ` · ${m.commune}` : ''}
+                    </div>
+                  </div>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5A8A6A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                    <polyline points="9 6 15 12 9 18"/>
+                  </svg>
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[10px] text-texte-doux">
+              Si la fiche existe déjà, clique pour la voir — pas besoin de la créer à nouveau.
+            </p>
+          </div>
+        )}
+
+        {/* Predictions Google V3 — Tailwind pur, anti dark-mode UA */}
         {predictions.length > 0 && !placeId && (
           <div>
             <div className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">
-              Suggestions proches
+              🔍 Suggestions Google (nouvelles fiches)
             </div>
             <div className="overflow-hidden rounded-2xl border border-bordSoft bg-white shadow-[0_1px_4px_rgba(44,28,16,0.04)]">
               {predictions.map((p, i) => (

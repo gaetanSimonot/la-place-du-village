@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 // Biaisé sur Ganges (Hérault) — rayon 40km
 const LOCATION = '43.9333,3.7005'
@@ -7,27 +8,72 @@ const RADIUS = '40000'
 // Force dynamic — empêche Next.js de cacher les réponses autocomplete
 export const dynamic = 'force-dynamic'
 
+interface DbMatch {
+  kind: 'etablissement' | 'producteur'
+  id: string
+  nom: string
+  commune: string | null
+  adresse?: string | null
+  type?: string | null
+  claimed: boolean
+}
+
+// Cherche dans Supabase (etablissements + producteurs) en parallèle —
+// permet d'afficher 'Déjà sur l'app' avant les résultats Google et d'éviter
+// de payer Google pour une fiche qu'on a déjà.
+async function searchDb(q: string): Promise<DbMatch[]> {
+  const like = `%${q}%`
+  const [{ data: etabs }, { data: prods }] = await Promise.all([
+    supabaseAdmin
+      .from('etablissements')
+      .select('id, nom, commune, adresse, type, user_id')
+      .or(`nom.ilike.${like},commune.ilike.${like}`)
+      .limit(5),
+    supabaseAdmin
+      .from('producers')
+      .select('id, nom, commune, adresse, user_id')
+      .or(`nom.ilike.${like},commune.ilike.${like}`)
+      .limit(5),
+  ])
+  const results: DbMatch[] = []
+  for (const e of (etabs ?? [])) {
+    results.push({ kind: 'etablissement', id: e.id, nom: e.nom, commune: e.commune, adresse: e.adresse, type: e.type, claimed: !!e.user_id })
+  }
+  for (const p of (prods ?? [])) {
+    results.push({ kind: 'producteur', id: p.id, nom: p.nom, commune: p.commune, adresse: p.adresse, claimed: !!p.user_id })
+  }
+  return results.slice(0, 6)
+}
+
 export async function GET(req: NextRequest) {
   const input = req.nextUrl.searchParams.get('q')
   // sessiontoken: UUID généré côté client par session de recherche.
   // Avec ce token, Google groupe les frappes en 1 session → autocomplete
   // devient gratuit, seul le Place Details au select est facturé.
   const session = req.nextUrl.searchParams.get('sessiontoken')
-  if (!input || input.length < 2) return NextResponse.json({ predictions: [] })
+  // dbonly=1 → skip Google complètement (économie max si on sait que le user
+  // veut juste chercher dans la DB locale). Par défaut: les 2 en parallèle.
+  const dbOnly = req.nextUrl.searchParams.get('dbonly') === '1'
+  if (!input || input.length < 2) return NextResponse.json({ predictions: [], db: [] })
 
-  const url = new URL('https://maps.googleapis.com/maps/api/place/autocomplete/json')
-  url.searchParams.set('input', input)
-  url.searchParams.set('location', LOCATION)
-  url.searchParams.set('radius', RADIUS)
-  url.searchParams.set('language', 'fr')
-  url.searchParams.set('components', 'country:fr')
-  url.searchParams.set('key', process.env.GOOGLE_PLACES_KEY!)
-  if (session) url.searchParams.set('sessiontoken', session)
+  // Lance DB search + Google en parallèle pour latence min
+  const dbPromise = searchDb(input)
+  const googlePromise = dbOnly ? Promise.resolve(null) : (async () => {
+    const url = new URL('https://maps.googleapis.com/maps/api/place/autocomplete/json')
+    url.searchParams.set('input', input)
+    url.searchParams.set('location', LOCATION)
+    url.searchParams.set('radius', RADIUS)
+    url.searchParams.set('language', 'fr')
+    url.searchParams.set('components', 'country:fr')
+    url.searchParams.set('key', process.env.GOOGLE_PLACES_KEY!)
+    if (session) url.searchParams.set('sessiontoken', session)
+    const res = await fetch(url.toString())
+    return res.json()
+  })()
 
-  const res = await fetch(url.toString())
-  const data = await res.json()
+  const [db, data] = await Promise.all([dbPromise, googlePromise])
 
-  const predictions = (data.predictions ?? []).map((p: {
+  const predictions = !data ? [] : (data.predictions ?? []).map((p: {
     place_id: string
     description: string
     structured_formatting: { main_text: string; secondary_text: string }
@@ -38,5 +84,5 @@ export async function GET(req: NextRequest) {
     secondary: p.structured_formatting?.secondary_text,
   }))
 
-  return NextResponse.json({ predictions })
+  return NextResponse.json({ predictions, db })
 }
