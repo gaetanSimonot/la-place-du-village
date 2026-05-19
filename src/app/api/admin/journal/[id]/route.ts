@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser, notifyAllUsers } from '@/lib/server-auth'
 
@@ -69,6 +70,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Invalide le cache Next.js pour que la page publique affiche les modifs
+  // tout de suite (sinon ça reste sur l'ancienne version à cause du cache).
+  try {
+    revalidatePath(`/journal/${data.numero}`)
+    revalidatePath('/journal')
+    revalidatePath('/')   // tuile homepage
+  } catch {
+    // revalidatePath peut throw hors d'un context request, ignore
+  }
 
   // Broadcast notif si on vient de publier (fail-silent)
   if (body.statut === 'publie') {

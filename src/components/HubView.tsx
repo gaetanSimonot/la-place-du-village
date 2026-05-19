@@ -314,17 +314,20 @@ export default function HubView({
     loadJournal()
   }, [loadHero, loadToday, loadPromos, loadVentes, loadJournal])
 
-  // Realtime refetch sur changement featured_slots
+  // Realtime refetch sur changement featured_slots + journaux_hebdo
   useEffect(() => {
     const ch = supabase
-      .channel('hub-featured-slots')
+      .channel('hub-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'featured_slots' }, () => {
         loadHero()
         loadPromos()
-          })
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'journaux_hebdo' }, () => {
+        loadJournal()
+      })
       .subscribe()
     return () => { supabase.removeChannel(ch) }
-  }, [loadHero, loadPromos])
+  }, [loadHero, loadPromos, loadJournal])
 
   // Refresh sur retour PWA / focus fenêtre
   useEffect(() => {
