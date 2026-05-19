@@ -40,23 +40,28 @@ export default function AnnuaireFilterWheel({
   }
   const currentIdx = indexOf(activeId)
 
+  // Triple-clone : on scrolle dans le bloc central. Au settle, on
+  // téléporte instantanément à la position équivalente du milieu si
+  // on a glissé hors. Le wrap est invisible (les 3 blocs sont identiques).
+  const tripled = useMemo(() => [...all, ...all, ...all], [all])
+
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastReportedId = useRef<string>(activeId ?? TOUT_ID)
   const userInteracting = useRef<boolean>(false)
 
-  // Init scroll au mount sur l'item actif
+  // Init scroll : bloc central + activeId
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
     requestAnimationFrame(() => {
-      el.scrollLeft = currentIdx * STEP
+      el.scrollLeft = (N + currentIdx) * STEP
       lastReportedId.current = activeId ?? TOUT_ID
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [N])
 
-  // Sync externe : parent reset → recentrer
+  // Sync externe
   useEffect(() => {
     if (userInteracting.current) return
     const wantedId = activeId ?? TOUT_ID
@@ -64,19 +69,29 @@ export default function AnnuaireFilterWheel({
     const targetIdx = indexOf(wantedId)
     const el = scrollRef.current
     if (!el) return
-    el.scrollTo({ left: targetIdx * STEP, behavior: 'smooth' })
+    el.scrollTo({ left: (N + targetIdx) * STEP, behavior: 'smooth' })
     lastReportedId.current = wantedId
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId])
 
+  // handleScroll : pas de wrap pendant, juste settle 130ms.
   const handleScroll = () => {
     if (settleTimer.current) clearTimeout(settleTimer.current)
     settleTimer.current = setTimeout(() => {
       userInteracting.current = false
       const el = scrollRef.current
       if (!el) return
-      const idx = Math.max(0, Math.min(N - 1, Math.round(el.scrollLeft / STEP)))
-      const item = all[idx]
+
+      const centerIdx = Math.round(el.scrollLeft / STEP)
+      const realIdx = ((centerIdx % N) + N) % N
+
+      // Wrap invisible vers bloc central
+      const wrappedCenterIdx = N + realIdx
+      if (wrappedCenterIdx !== centerIdx) {
+        el.scrollLeft = wrappedCenterIdx * STEP
+      }
+
+      const item = all[realIdx]
       const newId = item?.id ?? TOUT_ID
       if (newId !== lastReportedId.current) {
         lastReportedId.current = newId
@@ -90,18 +105,18 @@ export default function AnnuaireFilterWheel({
     if (settleTimer.current) clearTimeout(settleTimer.current)
   }
 
-  const handleClickPill = (idx: number) => {
+  const handleClickPill = (realIdx: number) => {
     const el = scrollRef.current
     if (!el) return
     userInteracting.current = true
-    el.scrollTo({ left: idx * STEP, behavior: 'smooth' })
+    el.scrollTo({ left: (N + realIdx) * STEP, behavior: 'smooth' })
   }
 
   const handleKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
     e.preventDefault()
     const delta = e.key === 'ArrowRight' ? 1 : -1
-    const next = Math.max(0, Math.min(N - 1, currentIdx + delta))
+    const next = ((currentIdx + delta) % N + N) % N
     handleClickPill(next)
   }
 
@@ -119,7 +134,7 @@ export default function AnnuaireFilterWheel({
         onTouchStart={handleInteract}
         onMouseDown={handleInteract}
         onWheel={handleInteract}
-        className="pdv-wheel-h"
+        className="pdv-loopwheel-h"
         style={{
           height: '100%',
           overflowX: 'auto',
@@ -128,23 +143,24 @@ export default function AnnuaireFilterWheel({
           display: 'flex',
           alignItems: 'center',
           gap: GAP,
-          // padding pour que les items aux bords puissent atteindre le centre
+          // Padding latéral pour que la pill au centre soit au milieu visuel
           paddingLeft: `calc(50% - ${PILL_W / 2}px)`,
           paddingRight: `calc(50% - ${PILL_W / 2}px)`,
           WebkitOverflowScrolling: 'touch',
           touchAction: 'pan-x',
         }}
       >
-        {all.map((item, idx) => {
-          const isActive = idx === currentIdx
+        {tripled.map((item, i) => {
+          const realIdx = ((i % N) + N) % N
+          const isActive = realIdx === currentIdx
           const color = item.color ?? accent
           return (
             <button
-              key={item.id}
+              key={`${item.id}-${i}`}
               type="button"
               role="option"
               aria-selected={isActive}
-              onClick={() => handleClickPill(idx)}
+              onClick={() => handleClickPill(realIdx)}
               onPointerDown={e => e.stopPropagation()}
               style={{
                 flexShrink: 0,
@@ -178,8 +194,8 @@ export default function AnnuaireFilterWheel({
       </div>
 
       <style jsx>{`
-        .pdv-wheel-h { scrollbar-width: none; }
-        .pdv-wheel-h::-webkit-scrollbar { display: none; }
+        .pdv-loopwheel-h { scrollbar-width: none; }
+        .pdv-loopwheel-h::-webkit-scrollbar { display: none; }
       `}</style>
     </div>
   )

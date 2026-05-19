@@ -23,9 +23,7 @@ interface WheelItem {
 interface Props {
   filtres: Filtres
   onFiltresChange: (f: Filtres) => void
-  /** Couleur primary (vert Cévennes par défaut) */
   accent?: string
-  /** Callback optionnel à chaque changement (ex : snap sheet à half) */
   onChange?: () => void
 }
 
@@ -73,14 +71,14 @@ export default function AgendaFilterWheel({
 
   return (
     <div style={{ display: 'flex', gap: 8 }}>
-      <VerticalScrollPicker
+      <LoopWheel
         items={quoiItems}
         activeIdx={quoiIdx}
         onChange={handleQuoiChange}
         accent={accent}
         ariaLabel="Filtre catégorie"
       />
-      <VerticalScrollPicker
+      <LoopWheel
         items={quandItems}
         activeIdx={quandIdx}
         onChange={handleQuandChange}
@@ -92,16 +90,16 @@ export default function AgendaFilterWheel({
 }
 
 /* ──────────────────────────────────────────────────────────────────────
-   VerticalScrollPicker — minimal : scroll vertical natif + snap center.
-   Pas de loop infini, pas de slot indicator, pas de fades.
+   LoopWheel — carrousel vertical infini avec snap natif.
+   Wrap invisible au settle uniquement (pas pendant le scroll).
    ────────────────────────────────────────────────────────────────────── */
 
 const PILL_H = 32
 const GAP = 6
 const STEP = PILL_H + GAP
-const CONTAINER_H = 108 // ~3 pills visibles
+const CONTAINER_H = 108
 
-function VerticalScrollPicker({
+function LoopWheel({
   items, activeIdx, onChange, accent, ariaLabel,
 }: {
   items: WheelItem[]
@@ -114,38 +112,57 @@ function VerticalScrollPicker({
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastReportedIdx = useRef<number>(activeIdx)
   const userInteracting = useRef<boolean>(false)
+  const N = items.length
 
-  // Init scrollTop sur l'item actif au mount
+  // Triple-clone : [items, items, items]. On scrolle dans le bloc central
+  // (indices N..2N-1). Au settle, si on a glissé hors du bloc central, on
+  // téléporte scrollTop instantanément à la position équivalente du milieu.
+  // Comme les 3 blocs sont identiques visuellement, ce wrap est invisible.
+  const tripled = useMemo(() => [...items, ...items, ...items], [items])
+
+  // Init au mount : position = bloc central + activeIdx
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
     requestAnimationFrame(() => {
-      el.scrollTop = activeIdx * STEP
+      el.scrollTop = (N + activeIdx) * STEP
       lastReportedIdx.current = activeIdx
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [N])
 
-  // Sync externe : parent change activeIdx → on recentre
+  // Sync externe : parent change activeIdx (reset, click externe)
   useEffect(() => {
     if (userInteracting.current) return
     if (activeIdx === lastReportedIdx.current) return
     const el = scrollRef.current
     if (!el) return
-    el.scrollTo({ top: activeIdx * STEP, behavior: 'smooth' })
+    el.scrollTo({ top: (N + activeIdx) * STEP, behavior: 'smooth' })
     lastReportedIdx.current = activeIdx
-  }, [activeIdx])
+  }, [activeIdx, N])
 
+  // handleScroll : aucun setState, aucun wrap pendant le scroll.
+  // Tout se fait au settle (130ms après dernier scroll event).
   const handleScroll = () => {
     if (settleTimer.current) clearTimeout(settleTimer.current)
     settleTimer.current = setTimeout(() => {
       userInteracting.current = false
       const el = scrollRef.current
       if (!el) return
-      const idx = Math.max(0, Math.min(items.length - 1, Math.round(el.scrollTop / STEP)))
-      if (idx !== lastReportedIdx.current) {
-        lastReportedIdx.current = idx
-        onChange(idx)
+
+      const centerIdx = Math.round(el.scrollTop / STEP)
+      const realIdx = ((centerIdx % N) + N) % N
+
+      // Wrap invisible : ramène le scroll dans le bloc central
+      // Position équivalente visuellement → l'œil ne voit rien
+      const wrappedCenterIdx = N + realIdx
+      if (wrappedCenterIdx !== centerIdx) {
+        el.scrollTop = wrappedCenterIdx * STEP
+      }
+
+      if (realIdx !== lastReportedIdx.current) {
+        lastReportedIdx.current = realIdx
+        onChange(realIdx)
       }
     }, 130)
   }
@@ -155,18 +172,18 @@ function VerticalScrollPicker({
     if (settleTimer.current) clearTimeout(settleTimer.current)
   }
 
-  const handleClickPill = (idx: number) => {
+  const handleClickPill = (realIdx: number) => {
     const el = scrollRef.current
     if (!el) return
     userInteracting.current = true
-    el.scrollTo({ top: idx * STEP, behavior: 'smooth' })
+    el.scrollTo({ top: (N + realIdx) * STEP, behavior: 'smooth' })
   }
 
   const handleKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
     e.preventDefault()
     const delta = e.key === 'ArrowDown' ? 1 : -1
-    const next = Math.max(0, Math.min(items.length - 1, activeIdx + delta))
+    const next = ((activeIdx + delta) % N + N) % N
     handleClickPill(next)
   }
 
@@ -184,7 +201,7 @@ function VerticalScrollPicker({
         onTouchStart={handleInteract}
         onMouseDown={handleInteract}
         onWheel={handleInteract}
-        className="pdv-wheel-v"
+        className="pdv-loopwheel-v"
         style={{
           height: '100%',
           overflowY: 'auto',
@@ -194,22 +211,22 @@ function VerticalScrollPicker({
           flexDirection: 'column',
           alignItems: 'stretch',
           gap: GAP,
-          // padding pour que le premier et le dernier item puissent être centrés
           paddingTop: (CONTAINER_H - PILL_H) / 2,
           paddingBottom: (CONTAINER_H - PILL_H) / 2,
           WebkitOverflowScrolling: 'touch',
           touchAction: 'pan-y',
         }}
       >
-        {items.map((item, idx) => {
-          const isActive = idx === activeIdx
+        {tripled.map((item, i) => {
+          const realIdx = ((i % N) + N) % N
+          const isActive = realIdx === activeIdx
           return (
             <button
-              key={item.id}
+              key={`${item.id}-${i}`}
               type="button"
               role="option"
               aria-selected={isActive}
-              onClick={() => handleClickPill(idx)}
+              onClick={() => handleClickPill(realIdx)}
               onPointerDown={e => e.stopPropagation()}
               style={{
                 flexShrink: 0,
@@ -241,8 +258,8 @@ function VerticalScrollPicker({
       </div>
 
       <style jsx>{`
-        .pdv-wheel-v { scrollbar-width: none; }
-        .pdv-wheel-v::-webkit-scrollbar { display: none; }
+        .pdv-loopwheel-v { scrollbar-width: none; }
+        .pdv-loopwheel-v::-webkit-scrollbar { display: none; }
       `}</style>
     </div>
   )
