@@ -504,14 +504,64 @@ function ReferenceForm({
           </div>
         )}
 
-        {/* Notice plan V3 */}
-        <div style={{
-          fontSize: 11, color: '#7A6A5A', lineHeight: 1.5,
-          background: '#F7F1E6', borderRadius: 12, padding: '10px 14px',
-        }}>
-          {kind === 'commerce'
-            ? 'Les commerces sont modérés avant publication. Compte la durée d\'une journée environ.'
-            : 'Les producteurs sont modérés avant publication. Compte la durée d\'une journée environ.'}
+        {/* Notice 2 cas V3 : Google trouvé vs Saisie manuelle */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {/* Cas 1 — Trouvé sur Google → publi directe */}
+          <div style={{
+            display: 'flex', alignItems: 'flex-start', gap: 10,
+            padding: '10px 12px', borderRadius: 12,
+            background: placeId ? '#E8F2EB' : '#F7F1E6',
+            border: `1px solid ${placeId ? '#C5DCC9' : '#F0EAE0'}`,
+            opacity: placeId ? 1 : 0.7,
+            transition: 'all 0.18s',
+          }}>
+            <div style={{
+              width: 22, height: 22, borderRadius: '50%',
+              background: '#2D5A3D', color: '#fff', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              marginTop: 1,
+            }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#2D5A3D', letterSpacing: '-0.01em' }}>
+                Trouvé sur Google
+              </div>
+              <div style={{ fontSize: 11, color: '#5A8A6A', marginTop: 2, lineHeight: 1.4 }}>
+                La fiche est ajoutée directement sur la carte.
+              </div>
+            </div>
+          </div>
+          {/* Cas 2 — Saisie manuelle → modéré ~1 jour */}
+          <div style={{
+            display: 'flex', alignItems: 'flex-start', gap: 10,
+            padding: '10px 12px', borderRadius: 12,
+            background: !placeId ? '#FFF0E5' : '#F7F1E6',
+            border: `1px solid ${!placeId ? '#F5D0B5' : '#F0EAE0'}`,
+            opacity: !placeId ? 1 : 0.7,
+            transition: 'all 0.18s',
+          }}>
+            <div style={{
+              width: 22, height: 22, borderRadius: '50%',
+              background: '#C84B2F', color: '#fff', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              marginTop: 1,
+            }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#C84B2F', letterSpacing: '-0.01em' }}>
+                Saisie manuelle
+              </div>
+              <div style={{ fontSize: 11, color: '#A8634F', marginTop: 2, lineHeight: 1.4 }}>
+                Modéré avant publication — compte ~1 journée.
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* === 2. Nom (souvent rempli automatiquement) === */}
