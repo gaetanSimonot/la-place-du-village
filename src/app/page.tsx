@@ -20,7 +20,7 @@ import NotificationsView from '@/components/NotificationsView'
 import CommerceRequestModal from '@/components/CommerceRequestModal'
 import AppInfoModal from '@/components/AppInfoModal'
 import AppSplash from '@/components/AppSplash'
-import WelcomePopup from '@/components/WelcomePopup'
+import WelcomeModal from '@/components/WelcomeModal'
 import HubView from '@/components/HubView'
 import HubSearchModal, { type SearchKind } from '@/components/HubSearchModal'
 import PublishMenuModal from '@/components/PublishMenuModal'
@@ -1076,7 +1076,7 @@ export default function HomePage() {
           setShowWelcome(true)
         }
       }} />}
-      {showWelcome && <WelcomePopup onClose={() => {
+      {showWelcome && <WelcomeModal onClose={() => {
         setShowWelcome(false)
         localStorage.setItem('pdv-welcome-seen', '1')
       }} />}
