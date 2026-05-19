@@ -584,15 +584,19 @@ export default function HomePage() {
     const centres = userZoneActive && userCentre
       ? [userCentre]
       : zoneCentres.length > 0 ? zoneCentres : [{ lat: GANGES.lat, lng: GANGES.lng, nom: 'Ganges' }]
+    // Quand l'user fait une recherche active → ignore le filtre zone/rayon
+    // (il cherche un nom précis, doit pouvoir trouver même hors zone)
+    const hasActiveSearch = etabSearch.trim().length > 0
 
     return etablissements
       .filter(e => {
+        if (hasActiveSearch) return true
         if (rayon <= 0 || e.lat == null || e.lng == null) return true
         return centres.some(c => haversineKm(e.lat!, e.lng!, c.lat, c.lng) <= rayon)
       })
       .filter(e => {
-        if (!etabSearch.trim()) return true
-        const q = etabSearch.toLowerCase()
+        if (!hasActiveSearch) return true
+        const q = etabSearch.toLowerCase().trim()
         return e.nom.toLowerCase().includes(q) || (e.commune ?? '').toLowerCase().includes(q)
       })
   }, [etablissements, etabSearch, userZoneActive, userRayon, userCentre, zoneCentres, rayonAffichage])
