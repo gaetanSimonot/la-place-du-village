@@ -55,13 +55,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const body = await req.json().catch(() => ({}))
   const { contact, message } = body
 
-  const { data: prod } = await supabaseAdmin
+  const { data: prod, error: lookupErr } = await supabaseAdmin
     .from('producers')
     .select('nom, user_id')
     .eq('id', id)
     .maybeSingle()
 
-  if (!prod) return NextResponse.json({ error: 'Non trouvé' }, { status: 404 })
+  if (lookupErr) {
+    return NextResponse.json({ error: `DB lookup error: ${lookupErr.message}`, id }, { status: 500 })
+  }
+  if (!prod) {
+    return NextResponse.json({ error: `Producteur introuvable (id: ${id})` }, { status: 404 })
+  }
   if (prod.user_id) return NextResponse.json({ error: 'Déjà revendiqué' }, { status: 409 })
 
   // Auto-validation : assigne la fiche
