@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 
 const TOUT_ID = '__tout' as const
 
@@ -46,14 +46,12 @@ export default function AnnuaireFilterWheel({
   const lastReportedId = useRef<string>(activeId ?? TOUT_ID)
   const userInteracting = useRef<boolean>(false)
 
-  // Index visuel (instantané) pour effet "clap" pendant le scroll
   const indexOf = (id: string | null | undefined) => {
     if (!id) return 0
     const i = all.findIndex(x => x.id === id)
     return i < 0 ? 0 : i
   }
-  const [visualIdx, setVisualIdx] = useState<number>(indexOf(activeId))
-  useEffect(() => { setVisualIdx(indexOf(activeId)) }, [activeId]) // eslint-disable-line react-hooks/exhaustive-deps
+  const currentIdx = indexOf(activeId)
 
   // Triple-clone pour loop infini
   const tripled = useMemo(() => [...all, ...all, ...all], [all])
@@ -63,7 +61,7 @@ export default function AnnuaireFilterWheel({
     const el = scrollRef.current
     if (!el) return
     requestAnimationFrame(() => {
-      el.scrollLeft = (N + visualIdx) * STEP
+      el.scrollLeft = (N + currentIdx) * STEP
     })
   }, [N]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -79,11 +77,12 @@ export default function AnnuaireFilterWheel({
     lastReportedId.current = wantedId
   }, [activeId, N]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // handleScroll : pas de setState. Juste loop wrap + settle 150ms.
+  // La pill devient active SEULEMENT quand le scroll s'arrête sur elle.
   const handleScroll = () => {
     const el = scrollRef.current
     if (!el) return
     const centerIdx = Math.round(el.scrollLeft / STEP)
-    const realIdx = ((centerIdx % N) + N) % N
 
     // Loop invisible
     if (centerIdx < Math.floor(N / 2)) {
@@ -92,22 +91,20 @@ export default function AnnuaireFilterWheel({
       el.scrollLeft = el.scrollLeft - N * STEP
     }
 
-    // Feedback visuel immédiat (clap)
-    if (realIdx !== visualIdx) {
-      setVisualIdx(realIdx)
-    }
-
-    // Settle puis notifie parent
     if (settleTimer.current) clearTimeout(settleTimer.current)
     settleTimer.current = setTimeout(() => {
       userInteracting.current = false
+      const el2 = scrollRef.current
+      if (!el2) return
+      const finalCenter = Math.round(el2.scrollLeft / STEP)
+      const realIdx = ((finalCenter % N) + N) % N
       const item = all[realIdx]
       const newId = item?.id ?? TOUT_ID
       if (newId !== lastReportedId.current) {
         lastReportedId.current = newId
         onChange(newId === TOUT_ID ? null : newId)
       }
-    }, 60)
+    }, 150)
   }
 
   const handleInteract = () => {
@@ -126,7 +123,7 @@ export default function AnnuaireFilterWheel({
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
     e.preventDefault()
     const delta = e.key === 'ArrowRight' ? 1 : -1
-    const next = ((visualIdx + delta) % N + N) % N
+    const next = ((currentIdx + delta) % N + N) % N
     handleClickPill(next)
   }
 
@@ -190,7 +187,7 @@ export default function AnnuaireFilterWheel({
       >
         {tripled.map((item, i) => {
           const realIdx = ((i % N) + N) % N
-          const isActive = realIdx === visualIdx
+          const isActive = realIdx === currentIdx
           const color = item.color ?? accent
           return (
             <button

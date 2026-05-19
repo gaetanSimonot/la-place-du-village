@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { CATEGORIES } from '@/lib/categories'
 import type { Categorie, FiltreQuand, Filtres } from '@/lib/types'
 
@@ -128,12 +128,6 @@ function VerticalFilterWheel({
   const userInteracting = useRef<boolean>(false)
   const N = items.length
 
-  // État visuel local : drive l'affichage de la pill active en temps réel
-  // pendant le scroll, avant même que le parent ait notifié. Donne l'effet
-  // « clap » : la pill bascule à active dès qu'elle traverse le slot central.
-  const [visualIdx, setVisualIdx] = useState<number>(activeIdx)
-  useEffect(() => { setVisualIdx(activeIdx) }, [activeIdx])
-
   // Triple-clone pour l'illusion d'infini
   const tripled = useMemo(() => [...items, ...items, ...items], [items])
 
@@ -157,33 +151,34 @@ function VerticalFilterWheel({
     lastReportedIdx.current = activeIdx
   }, [activeIdx, N])
 
+  // handleScroll : aucun setState pendant le scroll. Juste loop wrap
+  // (pour l'infini) + settle timer qui notifie le parent UNE SEULE FOIS
+  // quand le user s'arrête. Pas de re-render = pas de vibration.
   const handleScroll = () => {
     const el = scrollRef.current
     if (!el) return
     const centerIdx = Math.round(el.scrollTop / STEP)
-    const realIdx = ((centerIdx % N) + N) % N
 
-    // Loop invisible — saute au bloc du milieu si on dépasse
+    // Loop invisible — saute au bloc du milieu si on dépasse les bornes
     if (centerIdx < Math.floor(N / 2)) {
       el.scrollTop = el.scrollTop + N * STEP
     } else if (centerIdx >= 2 * N + Math.floor(N / 2)) {
       el.scrollTop = el.scrollTop - N * STEP
     }
 
-    // Feedback visuel immédiat : la pill traverse le slot → bascule à active
-    if (realIdx !== visualIdx) {
-      setVisualIdx(realIdx)
-    }
-
-    // Settle court puis notifie le parent
+    // Settle 150ms après le dernier scroll : notify parent
     if (settleTimer.current) clearTimeout(settleTimer.current)
     settleTimer.current = setTimeout(() => {
       userInteracting.current = false
+      const el2 = scrollRef.current
+      if (!el2) return
+      const finalCenter = Math.round(el2.scrollTop / STEP)
+      const realIdx = ((finalCenter % N) + N) % N
       if (realIdx !== lastReportedIdx.current) {
         lastReportedIdx.current = realIdx
         onChange(realIdx)
       }
-    }, 60)
+    }, 150)
   }
 
   const handleInteract = () => {
@@ -205,6 +200,7 @@ function VerticalFilterWheel({
     const next = ((activeIdx + delta) % N + N) % N
     handleClickPill(next)
   }
+
 
   return (
     <div
@@ -268,7 +264,7 @@ function VerticalFilterWheel({
       >
         {tripled.map((item, i) => {
           const realIdx = ((i % N) + N) % N
-          const isActive = realIdx === visualIdx
+          const isActive = realIdx === activeIdx
           return (
             <button
               key={`${item.id}-${i}`}

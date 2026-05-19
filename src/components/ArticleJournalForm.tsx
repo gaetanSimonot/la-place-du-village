@@ -56,7 +56,10 @@ export default function ArticleJournalForm({ initial = null, onSaved }: Props) {
       const { data: session } = await supabase.auth.getSession()
       const userId = session.session?.user?.id
       if (!userId) throw new Error('Non connecté')
-      const path = `articles/${userId}/${Date.now()}-${file.name.replace(/\s+/g, '_')}`
+      // userId en premier segment du path : la policy storage Supabase
+      // exige (storage.foldername(name))[1] = auth.uid()::text pour autoriser
+      // l'INSERT sur le bucket 'annonces'.
+      const path = `${userId}/articles/${Date.now()}-${file.name.replace(/\s+/g, '_')}`
       const { error: upErr } = await supabase.storage.from('annonces').upload(path, file, {
         cacheControl: '3600', upsert: false,
       })

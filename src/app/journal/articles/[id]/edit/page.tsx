@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import { supabase } from '@/lib/supabase'
 import ArticleJournalForm from '@/components/ArticleJournalForm'
+import BottomNavBar from '@/components/BottomNavBar'
 import type { ArticleJournal } from '@/lib/articles'
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -88,6 +89,7 @@ export default function EditArticlePage() {
           }}
         />
       </div>
+      <BottomNavBar />
     </main>
   )
 }

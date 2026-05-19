@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import { canSubmitArticleJournal } from '@/lib/articles'
 import ArticleJournalForm from '@/components/ArticleJournalForm'
+import BottomNavBar from '@/components/BottomNavBar'
 
 export default function NouvelArticleJournalPage() {
   const router = useRouter()
@@ -68,6 +69,7 @@ export default function NouvelArticleJournalPage() {
           </div>
         )}
       </div>
+      <BottomNavBar />
     </main>
   )
 }

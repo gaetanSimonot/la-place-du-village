@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import { supabase } from '@/lib/supabase'
 import type { ArticleJournal } from '@/lib/articles'
+import BottomNavBar from '@/components/BottomNavBar'
 
 const STATUT_LABELS: Record<ArticleJournal['statut'], { label: string; bg: string; color: string }> = {
   brouillon:  { label: 'Brouillon',        bg: '#F0EAE0', color: '#7A6A5A' },
@@ -182,6 +183,7 @@ export default function MesArticlesPage() {
           </ul>
         )}
       </div>
+      <BottomNavBar />
     </main>
   )
 }
