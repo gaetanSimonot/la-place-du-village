@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import SpotlightPicker, { type SpotlightKind } from '@/components/SpotlightPicker'
+import ArticlePicker from '@/components/ArticlePicker'
 
 interface JournalFull {
   id: string
@@ -80,8 +81,13 @@ export default function AdminJournalEditPage() {
     await patch({ statut: 'publie' })
   }
   const depublier = async () => {
-    if (!confirm('Dépublier ce numéro ?')) return
+    if (!confirm('Repasser ce numéro en brouillon (l\'URL publique sera marquée "brouillon") ?')) return
     await patch({ statut: 'brouillon' })
+  }
+  const republier = async () => {
+    // Re-trigger broadcast notif + publie_at = now sans changer le statut
+    if (!confirm('Renotifier tous les abonnés et marquer la republication maintenant ?')) return
+    await patch({ statut: 'publie' })
   }
   const supprimer = async () => {
     if (!confirm('Supprimer définitivement ce numéro ?')) return
@@ -126,20 +132,35 @@ export default function AdminJournalEditPage() {
 
         {/* Actions */}
         <div className="mt-6 flex flex-wrap gap-2">
-          {journal.statut === 'brouillon'
-            ? <button onClick={publier} className="rounded-[12px] bg-primary px-5 py-2.5 text-[13px] font-bold text-white">Publier</button>
-            : <button onClick={depublier} className="rounded-[12px] border border-bord bg-white px-5 py-2.5 text-[13px] font-bold text-texte">Dépublier</button>
-          }
+          {journal.statut === 'brouillon' && (
+            <button onClick={publier} className="rounded-[12px] bg-primary px-5 py-2.5 text-[13px] font-bold text-white">
+              ✓ Publier
+            </button>
+          )}
+          {journal.statut === 'publie' && (
+            <button onClick={republier} className="rounded-[12px] bg-primary px-5 py-2.5 text-[13px] font-bold text-white">
+              📣 Renotifier &amp; republier
+            </button>
+          )}
           <Link
             href={journal.statut === 'publie' ? `/journal/${journal.numero}` : `/admin/journal/${id}/preview`}
             className="rounded-[12px] border border-bord bg-white px-5 py-2.5 text-[13px] font-bold text-texte"
           >
             {journal.statut === 'publie' ? 'Voir la page publique →' : 'Aperçu →'}
           </Link>
+          {journal.statut === 'publie' && (
+            <button onClick={depublier} className="rounded-[12px] border border-bord bg-white px-5 py-2.5 text-[13px] font-bold text-texte-doux">
+              Repasser en brouillon
+            </button>
+          )}
           <button onClick={supprimer} className="rounded-[12px] border border-accent bg-white px-5 py-2.5 text-[13px] font-bold text-accent">
             Supprimer
           </button>
         </div>
+
+        <p className="mt-2 text-[11px] text-texte-doux">
+          Les modifications de champs sont enregistrées automatiquement en quittant le champ.
+        </p>
 
         {/* Sections édition */}
         <Section title="Couverture">
@@ -174,12 +195,37 @@ export default function AdminJournalEditPage() {
             ids={journal.selection_bonplan_ids ?? []}
             onSave={ids => patch({ selection_bonplan_ids: ids })}
           />
-          <Field
-            label="Article du numéro (UUID)"
-            value={journal.selection_article_id ?? ''}
-            onSave={v => patch({ selection_article_id: v || null })}
-            placeholder="UUID de articles_journal"
-          />
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-[0.04em] text-texte-doux">
+              Article du numéro
+            </span>
+            <div className="mt-1">
+              <ArticlePicker
+                value={journal.selection_article_id}
+                journalId={id}
+                onChange={async newId => {
+                  // Si on retire/change, on relâche l'ancien article attaché
+                  // pour qu'il puisse repartir en file d'attente.
+                  if (journal.selection_article_id && journal.selection_article_id !== newId) {
+                    await fetch(`/api/admin/articles/${journal.selection_article_id}`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+                      body: JSON.stringify({ statut: 'valide' }),
+                    })
+                  }
+                  // Update journal + publie le nouvel article
+                  await patch({ selection_article_id: newId })
+                  if (newId) {
+                    await fetch(`/api/admin/articles/${newId}`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+                      body: JSON.stringify({ statut: 'publie' }),
+                    })
+                  }
+                }}
+              />
+            </div>
+          </div>
           <div>
             <span className="text-[11px] font-bold uppercase tracking-[0.04em] text-texte-doux">
               Spotlight (établissement ou producteur)
