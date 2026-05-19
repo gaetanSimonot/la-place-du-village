@@ -65,7 +65,7 @@ export default function CommerceRequestModal({ onClose }: { onClose: () => void 
         .pdv-ref-modal textarea {
           color: #2C1810 !important;
           -webkit-text-fill-color: #2C1810 !important;
-          background-color: #FDFAF6 !important;
+          background-color: transparent !important;
           caret-color: #2C1810 !important;
         }
         .pdv-ref-modal input::placeholder,
@@ -73,6 +73,16 @@ export default function CommerceRequestModal({ onClose }: { onClose: () => void 
           color: #B0A898 !important;
           -webkit-text-fill-color: #B0A898 !important;
           opacity: 1;
+        }
+        /* Force visibilité textes prédictions Google (cards) — anti dark-mode UA */
+        .pdv-ref-modal .pdv-pred-card,
+        .pdv-ref-modal .pdv-pred-card * {
+          color: #1A1209 !important;
+          -webkit-text-fill-color: #1A1209 !important;
+        }
+        .pdv-ref-modal .pdv-pred-card .pdv-pred-sub {
+          color: #7A6A5A !important;
+          -webkit-text-fill-color: #7A6A5A !important;
         }
       `}</style>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'rgba(26,18,9,0.55)', backdropFilter: 'blur(3px)' }} />
@@ -483,12 +493,14 @@ function ReferenceForm({
                   key={p.place_id}
                   type="button"
                   onClick={() => selectPrediction(p)}
+                  className="pdv-pred-card"
                   style={{
                     width: '100%', display: 'flex', alignItems: 'center', gap: 12,
                     padding: '12px 14px',
                     background: 'transparent', border: 'none', cursor: 'pointer',
                     borderBottom: i < predictions.length - 1 ? '1px solid #F0EAE0' : 'none',
                     textAlign: 'left', fontFamily: 'inherit',
+                    color: '#1A1209',
                   }}
                 >
                   <div style={{
@@ -505,7 +517,7 @@ function ReferenceForm({
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#1A1209', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.main_text}</p>
-                    <p style={{ margin: '2px 0 0', fontSize: 11, color: '#7A6A5A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.secondary_text}</p>
+                    <p className="pdv-pred-sub" style={{ margin: '2px 0 0', fontSize: 11, color: '#7A6A5A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.secondary_text}</p>
                   </div>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A99B89" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                     <polyline points="9 6 15 12 9 18"/>
