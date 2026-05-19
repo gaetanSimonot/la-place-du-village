@@ -443,10 +443,12 @@ function ReferenceForm({
               placeholder={kind === 'commerce' ? 'Ex: Boulangerie du Village, Ganges' : 'Ex: Ferme du Mas Neuf, Sumène'}
               style={{
                 flex: 1, border: 'none', outline: 'none', backgroundColor: 'transparent',
-                fontSize: 14, fontWeight: 500, color: '#1A1209',
+                fontSize: 14, fontWeight: 500,
+                color: '#1A1209',
+                WebkitTextFillColor: '#1A1209',
                 fontFamily: 'inherit', minWidth: 0,
               }}
-              autoComplete="off"
+              autoComplete="new-password"
               autoCorrect="off"
               spellCheck={false}
               autoFocus
@@ -476,50 +478,43 @@ function ReferenceForm({
           {searching && <p style={{ margin: '6px 0 0', fontSize: 11, color: '#7A6A5A' }}>Recherche…</p>}
         </div>
 
-        {/* Predictions V3 (cards avec IcStore en cremeDeep cercle) */}
+        {/* Predictions V3 — Tailwind pur, anti dark-mode UA */}
         {predictions.length > 0 && !placeId && (
           <div>
-            <div style={{
-              fontSize: 11, fontWeight: 800, color: '#7A6A5A',
-              letterSpacing: '0.1em', marginBottom: 8, textTransform: 'uppercase',
-            }}>Suggestions proches</div>
-            <div style={{
-              backgroundColor: '#fff', border: '1px solid #F0EAE0',
-              borderRadius: 14, overflow: 'hidden',
-              boxShadow: '0 1px 4px rgba(44,28,16,0.04)',
-            }}>
+            <div className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">
+              Suggestions proches
+            </div>
+            <div className="overflow-hidden rounded-2xl border border-bordSoft bg-white shadow-[0_1px_4px_rgba(44,28,16,0.04)]">
               {predictions.map((p, i) => (
                 <button
                   key={p.place_id}
                   type="button"
                   onClick={() => selectPrediction(p)}
-                  className="pdv-pred-card"
-                  style={{
-                    width: '100%', display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '12px 14px',
-                    background: 'transparent', border: 'none', cursor: 'pointer',
-                    borderBottom: i < predictions.length - 1 ? '1px solid #F0EAE0' : 'none',
-                    textAlign: 'left', fontFamily: 'inherit',
-                    color: '#1A1209',
-                  }}
+                  className={`flex w-full cursor-pointer items-center gap-3 bg-white px-3.5 py-3 text-left text-texte ${i < predictions.length - 1 ? 'border-b border-bordSoft' : ''}`}
+                  style={{ WebkitTextFillColor: '#1A1209' }}
                 >
-                  <div style={{
-                    width: 38, height: 38, borderRadius: 10,
-                    backgroundColor: '#F7F1E6', color: '#7A6A5A',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0,
-                  }}>
+                  <div className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-cremeDeep text-texte-doux">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M3 9l1-5h16l1 5"/>
                       <path d="M4 9v11a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9"/>
                       <path d="M9 21V12h6v9"/>
                     </svg>
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#1A1209', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.main_text}</p>
-                    <p className="pdv-pred-sub" style={{ margin: '2px 0 0', fontSize: 11, color: '#7A6A5A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.secondary_text}</p>
+                  <div className="min-w-0 flex-1">
+                    <div
+                      className="overflow-hidden truncate whitespace-nowrap text-[14px] font-bold text-texte"
+                      style={{ WebkitTextFillColor: '#1A1209' }}
+                    >
+                      {p.main_text}
+                    </div>
+                    <div
+                      className="mt-0.5 overflow-hidden truncate whitespace-nowrap text-[11px] text-texte-doux"
+                      style={{ WebkitTextFillColor: '#7A6A5A' }}
+                    >
+                      {p.secondary_text}
+                    </div>
                   </div>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A99B89" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A99B89" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
                     <polyline points="9 6 15 12 9 18"/>
                   </svg>
                 </button>
