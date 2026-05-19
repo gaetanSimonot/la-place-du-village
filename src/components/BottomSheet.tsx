@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, useMotionValue, animate, useDragControls, AnimatePresence } from 'framer-motion'
-import { EvenementCard, Filtres, Categorie, FiltreQuand, AppMode, ProducerCard, ProduitCategorie, EtablissementCard, EtablissementType } from '@/lib/types'
+import { EvenementCard, Filtres, AppMode, ProducerCard, ProduitCategorie, EtablissementCard, EtablissementType } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { PRODUIT_CATS } from '@/lib/produit-cats'
 import { ETAB_TYPE_LIST } from '@/lib/etablissement-types'
@@ -13,17 +13,9 @@ import EtabBandeau from '@/components/EtabBandeau'
 
 const FULL_TOP = 60   // espace laissé en haut quand sheet pleine
 
-const CATS = Object.keys(CATEGORIES) as Categorie[]
-
-const QUAND_OPTIONS: { value: FiltreQuand; label: string; short: string }[] = [
-  { value: 'aujourd_hui',    label: "Aujourd'hui",   short: "Auj."    },
-  { value: 'cette_semaine',  label: 'Cette semaine', short: 'Semaine' },
-  { value: 'ce_week_end',    label: 'Ce week-end',   short: 'Ce WE'   },
-  { value: 'ce_mois',        label: 'Ce mois',       short: 'Ce mois' },
-]
-
 import { useTheme } from '@/components/ThemeProvider'
 import ProBandeau from '@/components/ProBandeau'
+import AgendaFilterWheel from '@/components/AgendaFilterWheel'
 
 const BATCH = 20
 
@@ -119,13 +111,6 @@ export default function BottomSheet({
   }, [])
   const dragControls              = useDragControls()
 
-  // Filtre "Que faire" — cursor dans CATS, -1 = row fermée
-  const [quoiOpen,   setQuoiOpen]   = useState(false)
-  const [quoiCursor, setQuoiCursor] = useState(-1)
-  // Filtre "Quand donc" — cursor dans QUAND_OPTIONS, -1 = reset
-  const [quandOpen,   setQuandOpen]   = useState(false)
-  const [quandCursor, setQuandCursor] = useState(-1)
-
   // Annuaire state — contrôlé par le parent si onAnnuaireTabChange est fourni
   const [annuaireTabIdxLocal, setAnnuaireTabIdxLocal] = useState(0)
   const annuaireTabIdx = annuaireTabProp ?? annuaireTabIdxLocal
@@ -134,11 +119,7 @@ export default function BottomSheet({
     onAnnuaireTabChange?.(idx)
   }
 
-  // Refs pour auto-scroll des rows
-  const quoiPillRefs  = useRef<(HTMLButtonElement | null)[]>([])
-  const quandPillRefs = useRef<(HTMLButtonElement | null)[]>([])
-
-  // Cycling state pour les boutons annuaire (comme quoi/quand pour l'agenda)
+  // Cycling state pour les boutons annuaire
   const [prodCatCursor, setProdCatCursor]   = useState(-1)
   const [etabTypeCursor, setEtabTypeCursor] = useState(-1)
   const prodCatPillRefs  = useRef<(HTMLButtonElement | null)[]>([])
@@ -209,54 +190,9 @@ export default function BottomSheet({
     snapTo(target)
   }
 
-  // ── "Que faire" button : cycle + sélectionne ──
-  const handleQuoiBtn = () => {
-    if (!quoiOpen) {
-      setQuoiOpen(true)
-      if (mode === 'peek') snapTo('half')
-    }
-    const next = quoiCursor + 1 < CATS.length ? quoiCursor + 1 : -1
-    if (next === -1) {
-      resetQuoi()
-    } else {
-      setQuoiCursor(next)
-      onFiltresChange({ ...filtres, categories: [CATS[next]] })
-    }
-  }
-
-  // ── "Quand donc" button : cycle + reset comme "Que faire" ──
-  const handleQuandBtn = () => {
-    if (!quandOpen) {
-      setQuandOpen(true)
-      if (mode === 'peek') snapTo('half')
-    }
-    const next = quandCursor + 1 < QUAND_OPTIONS.length ? quandCursor + 1 : -1
-    if (next === -1) {
-      resetQuand()
-    } else {
-      setQuandCursor(next)
-      onFiltresChange({ ...filtres, quand: QUAND_OPTIONS[next].value })
-    }
-  }
-
-  // Auto-scroll vers le pill actif
-  useEffect(() => {
-    quoiPillRefs.current[quoiCursor]?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
-  }, [quoiCursor])
-  useEffect(() => {
-    quandPillRefs.current[quandCursor]?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
-  }, [quandCursor])
-
-  const resetQuoi = () => {
-    setQuoiOpen(false)
-    setQuoiCursor(-1)
-    onFiltresChange({ ...filtres, categories: [] })
-  }
-
-  const resetQuand = () => {
-    setQuandOpen(false)
-    setQuandCursor(-1)
-    onFiltresChange({ ...filtres, quand: 'toujours' })
+  // Quand un filtre agenda change, on remonte le sheet en half si on était en peek
+  const handleAgendaFilterChange = () => {
+    if (mode === 'peek') snapTo('half')
   }
 
   // ── Annuaire tab buttons — cycling filtres au clic ──
@@ -285,12 +221,6 @@ export default function BottomSheet({
   useEffect(() => {
     etabTypePillRefs.current[etabTypeCursor]?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
   }, [etabTypeCursor])
-
-  const hasQuoi  = filtres.categories.length > 0
-  const hasQuand = filtres.quand !== 'toujours'
-
-  const quoiLabel     = quoiCursor < 0 ? 'Que faire ?' : CATEGORIES[CATS[quoiCursor]].label
-  const quandBtnLabel = quandCursor < 0 ? 'Quand donc ?' : QUAND_OPTIONS[quandCursor].short
 
   const prodBtnLabel = prodCatCursor < 0 ? 'Producteurs' : PRODUIT_CATS[prodCatCursor]?.label ?? 'Producteurs'
   const etabBtnLabel = etabTypeCursor < 0 ? 'Commerces'  : ETAB_TYPE_LIST[etabTypeCursor]?.label ?? 'Commerces'
@@ -330,8 +260,11 @@ export default function BottomSheet({
 
   // Reset state quand on change de mode
   useEffect(() => {
-    if (appMode === 'annuaire') { setQuoiOpen(false); setQuandOpen(false) }
-    else { onSelectedCatsChange?.([]); onProducerSearchChange?.(''); onEtabSearchChange?.('') }
+    if (appMode === 'agenda') {
+      onSelectedCatsChange?.([])
+      onProducerSearchChange?.('')
+      onEtabSearchChange?.('')
+    }
   }, [appMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset visibleCount quand la liste change (nouveau filtre)
@@ -439,35 +372,15 @@ export default function BottomSheet({
           </div>
         )}
 
-        {/* Boutons filtres : agenda → deux boutons, annuaire → bouton unique */}
+        {/* Filtres : agenda → wheel-picker 2 rails, annuaire → boutons cycling */}
         {appMode === 'agenda' ? (
-          <div style={{ display: 'flex', gap: 10, padding: '0 16px 10px' }}>
-            <button onClick={handleQuoiBtn} style={{ flex: 1, height: 52, borderRadius: 14, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontFamily: 'Inter, sans-serif', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '0 12px', gap: 9, opacity: hasQuoi ? 1 : 0.85, overflow: 'hidden' }}>
-              <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="11" cy="11" r="8"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
-                </svg>
-              </div>
-              <AnimatePresence mode="wait">
-                <motion.div key={quoiLabel} initial={{ y: 5, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -5, opacity: 0 }} transition={{ duration: 0.13 }} style={{ textAlign: 'left', overflow: 'hidden' }}>
-                  <p style={{ fontWeight: 700, fontSize: 13, margin: 0, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{quoiLabel}</p>
-                  {!hasQuoi && <p style={{ fontSize: 10, margin: '1px 0 0', color: 'rgba(255,255,255,0.65)', lineHeight: 1 }}>Explorer par activité</p>}
-                </motion.div>
-              </AnimatePresence>
-            </button>
-            <button onClick={handleQuandBtn} style={{ flex: 1, height: 52, borderRadius: 14, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontFamily: 'Inter, sans-serif', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '0 12px', gap: 9, opacity: hasQuand ? 1 : 0.85, overflow: 'hidden' }}>
-              <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-                </svg>
-              </div>
-              <AnimatePresence mode="wait">
-                <motion.div key={quandBtnLabel} initial={{ y: 5, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -5, opacity: 0 }} transition={{ duration: 0.13 }} style={{ textAlign: 'left', overflow: 'hidden' }}>
-                  <p style={{ fontWeight: 700, fontSize: 13, margin: 0, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{quandBtnLabel}</p>
-                  {!hasQuand && <p style={{ fontSize: 10, margin: '1px 0 0', color: 'rgba(255,255,255,0.65)', lineHeight: 1 }}>Explorer par date</p>}
-                </motion.div>
-              </AnimatePresence>
-            </button>
+          <div style={{ padding: '0 0 4px' }}>
+            <AgendaFilterWheel
+              filtres={filtres}
+              onFiltresChange={onFiltresChange}
+              sheetBg={sheetBg.bg}
+              onChange={handleAgendaFilterChange}
+            />
           </div>
         ) : (
           <div style={{ display: 'flex', gap: 10, padding: '0 16px 10px' }}>
@@ -518,101 +431,6 @@ export default function BottomSheet({
           </div>
         )}
       </div>{/* fin zone drag */}
-
-      {/* ── Row "Que faire" ── */}
-      <AnimatePresence>
-        {appMode === 'agenda' && quoiOpen && (
-          <motion.div key="quoi-row"
-            initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            style={{ overflow: 'hidden', flexShrink: 0 }}
-          >
-            <div style={{ display: 'flex', gap: 7, padding: '0 16px 10px', overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-              onPointerDown={e => e.stopPropagation()}>
-              {/* Pill "Tout" */}
-              <button onClick={resetQuoi} style={{
-                flexShrink: 0, padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${sheetBg.border}`,
-                backgroundColor: !hasQuoi ? 'var(--primary)' : sheetBg.pill,
-                color: !hasQuoi ? '#fff' : sheetBg.sub,
-                fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-                minHeight: 34,
-              }}>Tout</button>
-
-              {CATS.map((cat, i) => {
-                const info     = CATEGORIES[cat]
-                const isCursor = quoiCursor === i
-                const isActive = filtres.categories.includes(cat)
-                return (
-                  <button
-                    key={cat}
-                    ref={el => { quoiPillRefs.current[i] = el }}
-                    onClick={() => { setQuoiCursor(i); onFiltresChange({ ...filtres, categories: [cat] }) }}
-                    style={{
-                      flexShrink: 0,
-                      display: 'flex', alignItems: 'center', gap: 5,
-                      padding: '6px 13px', borderRadius: 999,
-                      border: `2px solid ${isCursor ? info.color : isActive ? info.color + '88' : sheetBg.border}`,
-                      backgroundColor: isActive ? info.color : isCursor ? info.color + '18' : sheetBg.pill,
-                      color: isActive ? '#fff' : isCursor ? info.color : sheetBg.sub,
-                      fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-                      minHeight: 34,
-                      boxShadow: isCursor ? `0 0 0 3px ${info.color}30` : 'none',
-                      transition: 'all 0.12s',
-                    }}
-                  >
-                    {info.label}
-                  </button>
-                )
-              })}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── Row "Quand donc" ── */}
-      <AnimatePresence>
-        {appMode === 'agenda' && quandOpen && (
-          <motion.div key="quand-row"
-            initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            style={{ overflow: 'hidden', flexShrink: 0 }}
-          >
-            <div style={{ display: 'flex', gap: 7, padding: '0 16px 10px', overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-              onPointerDown={e => e.stopPropagation()}>
-              {/* Pill "Tout" */}
-              <button onClick={resetQuand} style={{
-                flexShrink: 0, padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${sheetBg.border}`,
-                backgroundColor: quandCursor < 0 ? 'var(--primary)' : sheetBg.pill,
-                color: quandCursor < 0 ? '#fff' : sheetBg.sub,
-                fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-                minHeight: 34,
-              }}>Tout</button>
-
-              {QUAND_OPTIONS.map((opt, i) => {
-                const isCursor = quandCursor === i
-                return (
-                  <button
-                    key={opt.value}
-                    ref={el => { quandPillRefs.current[i] = el }}
-                    onClick={() => { setQuandCursor(i); onFiltresChange({ ...filtres, quand: opt.value }) }}
-                    style={{
-                      flexShrink: 0,
-                      padding: '6px 14px', borderRadius: 999,
-                      border: `2px solid ${isCursor ? 'var(--primary)' : sheetBg.border}`,
-                      backgroundColor: isCursor ? 'var(--primary)' : sheetBg.pill,
-                      color: isCursor ? '#fff' : sheetBg.sub,
-                      fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-                      minHeight: 34,
-                      boxShadow: isCursor ? '0 0 0 3px rgba(0,0,0,0.1)' : 'none',
-                      transition: 'all 0.12s',
-                    }}
-                  >{opt.short}</button>
-                )
-              })}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* ── Rows annuaire ── */}
       {appMode === 'annuaire' && (
