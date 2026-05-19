@@ -77,7 +77,12 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [photoIdx, setPhotoIdx] = useState(0)
-  // Swipe + auto-advance carousel
+  // Carousel infinite avec clones + drag-following
+  // internalIdx: 0 = clone du dernier, 1..N = vraies photos, N+1 = clone du premier
+  const [internalIdx, setInternalIdx] = useState(1)
+  const [transitionEnabled, setTransitionEnabled] = useState(true)
+  const [dragOffsetPx, setDragOffsetPx] = useState(0)
+  const carouselWidthRef = useRef<number>(390)
   const touchStartXRef = useRef<number | null>(null)
   const lastInteractionRef = useRef<number>(Date.now())
   const photosLenRef = useRef<number>(0)
@@ -167,28 +172,73 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
     })
   }, [user?.id, id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-advance carousel toutes les 5s si user n'a pas touché récemment
+  // Sync photosLenRef + photoIdx ↔ internalIdx
   useEffect(() => {
     const photos = producer?.photos ?? []
     photosLenRef.current = photos.length
-    if (photos.length <= 1) return
+    if (photos.length <= 1) {
+      setInternalIdx(1)
+      setPhotoIdx(0)
+    }
+  }, [producer?.photos])
+
+  // Auto-advance toutes les 5s si user idle
+  useEffect(() => {
+    if (photosLenRef.current <= 1) return
     const interval = setInterval(() => {
       const idleMs = Date.now() - lastInteractionRef.current
       if (idleMs < 5000) return
-      setPhotoIdx(i => (i + 1) % photosLenRef.current)
+      setInternalIdx(i => i + 1) // avance dans le strip, snap-back gère le loop
     }, 5000)
     return () => clearInterval(interval)
   }, [producer?.photos])
 
+  // Au end de transition, snap-back invisible si on est sur un clone
+  const handleStripTransitionEnd = () => {
+    const N = photosLenRef.current
+    if (N <= 1) return
+    const stripLen = N + 2
+    if (internalIdx === 0) {
+      setTransitionEnabled(false)
+      setInternalIdx(N)
+      requestAnimationFrame(() => requestAnimationFrame(() => setTransitionEnabled(true)))
+    } else if (internalIdx === stripLen - 1) {
+      setTransitionEnabled(false)
+      setInternalIdx(1)
+      requestAnimationFrame(() => requestAnimationFrame(() => setTransitionEnabled(true)))
+    }
+  }
+
+  // Sync displayed photoIdx (0..N-1) from internalIdx for dots/counter
+  useEffect(() => {
+    const N = photosLenRef.current
+    if (N <= 1) { setPhotoIdx(0); return }
+    const stripLen = N + 2
+    const display = internalIdx === 0 ? N - 1 : internalIdx === stripLen - 1 ? 0 : internalIdx - 1
+    setPhotoIdx(display)
+  }, [internalIdx])
+
   const onPhotoTouchStart = (e: React.TouchEvent) => {
     touchStartXRef.current = e.touches[0].clientX
     lastInteractionRef.current = Date.now()
+    setTransitionEnabled(false) // pendant le drag, pas de transition
+    carouselWidthRef.current = e.currentTarget.getBoundingClientRect().width || 390
+  }
+  const onPhotoTouchMove = (e: React.TouchEvent) => {
+    if (touchStartXRef.current == null || photosLenRef.current <= 1) return
+    const dx = e.touches[0].clientX - touchStartXRef.current
+    setDragOffsetPx(dx)
   }
   const onPhotoTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartXRef.current == null || photosLenRef.current <= 1) return
+    if (touchStartXRef.current == null || photosLenRef.current <= 1) {
+      touchStartXRef.current = null; setDragOffsetPx(0); setTransitionEnabled(true); return
+    }
     const dx = e.changedTouches[0].clientX - touchStartXRef.current
-    if (Math.abs(dx) > 40) {
-      setPhotoIdx(i => dx < 0 ? (i + 1) % photosLenRef.current : (i - 1 + photosLenRef.current) % photosLenRef.current)
+    const threshold = carouselWidthRef.current * 0.18 // 18% de la largeur = swipe valide
+    setDragOffsetPx(0)
+    setTransitionEnabled(true)
+    if (Math.abs(dx) > threshold) {
+      setInternalIdx(i => dx < 0 ? i + 1 : i - 1)
       lastInteractionRef.current = Date.now()
     }
     touchStartXRef.current = null
@@ -345,39 +395,50 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
         </div>
       </div>
 
-      {/* Hero photo 290px — carousel strip translateX (toutes les photos chargées, swipe smooth) */}
+      {/* Hero photo 290px — carousel infinite (clones + drag-following) */}
       <div
         style={{ position: 'relative', width: '100%', height: 290, background: '#E8F2EB', overflow: 'hidden', touchAction: 'pan-y' }}
         onTouchStart={onPhotoTouchStart}
+        onTouchMove={onPhotoTouchMove}
         onTouchEnd={onPhotoTouchEnd}
       >
-        {photos.length > 0 ? (
-          <div
-            style={{
-              display: 'flex', height: '100%', width: `${photos.length * 100}%`,
-              transform: `translateX(-${photoIdx * (100 / photos.length)}%)`,
-              transition: 'transform 0.32s cubic-bezier(0.32, 0.72, 0, 1)',
-              willChange: 'transform',
-            }}
-          >
-            {photos.map((src, i) => (
-              <img
-                key={i}
-                src={src}
-                alt=""
-                draggable={false}
-                style={{
-                  width: `${100 / photos.length}%`, height: '100%',
-                  objectFit: 'cover', flexShrink: 0, userSelect: 'none', pointerEvents: 'none',
-                }}
-              />
-            ))}
-          </div>
-        ) : (
+        {photos.length === 0 ? (
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <img src="/icons/producteur-local.png" alt="" style={{ width: 100, opacity: 0.3 }} />
           </div>
-        )}
+        ) : photos.length === 1 ? (
+          <img src={photos[0]} alt="" draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover', userSelect: 'none', pointerEvents: 'none' }} />
+        ) : (() => {
+          const stripPhotos = [photos[photos.length - 1], ...photos, photos[0]] // clones début/fin
+          const stripLen = stripPhotos.length
+          const slideWidthPercent = 100 / stripLen
+          const baseTranslatePercent = internalIdx * slideWidthPercent
+          // Combine % base + px drag pour un mouvement smooth qui suit le doigt
+          return (
+            <div
+              onTransitionEnd={handleStripTransitionEnd}
+              style={{
+                display: 'flex', height: '100%', width: `${stripLen * 100}%`,
+                transform: `translate3d(calc(-${baseTranslatePercent}% + ${dragOffsetPx}px), 0, 0)`,
+                transition: transitionEnabled ? 'transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1)' : 'none',
+                willChange: 'transform',
+              }}
+            >
+              {stripPhotos.map((src, i) => (
+                <img
+                  key={i}
+                  src={src}
+                  alt=""
+                  draggable={false}
+                  style={{
+                    width: `${slideWidthPercent}%`, height: '100%',
+                    objectFit: 'cover', flexShrink: 0, userSelect: 'none', pointerEvents: 'none',
+                  }}
+                />
+              ))}
+            </div>
+          )
+        })()}
         {/* Gradient bas pour lisibilité dots/badge */}
         <div style={{ position: 'absolute', inset: 'auto 0 0 0', height: 140, background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.45) 100%)', pointerEvents: 'none' }} />
 
@@ -403,7 +464,7 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
             {photos.map((_, i) => (
               <span
                 key={i}
-                onClick={() => { setPhotoIdx(i); lastInteractionRef.current = Date.now() }}
+                onClick={() => { setInternalIdx(i + 1); lastInteractionRef.current = Date.now() }}
                 style={{ width: i === photoIdx ? 14 : 4, height: 4, background: i === photoIdx ? '#fff' : 'rgba(255,255,255,0.55)', borderRadius: i === photoIdx ? 2 : '50%', cursor: 'pointer', transition: 'width 0.18s' }}
               />
             ))}
