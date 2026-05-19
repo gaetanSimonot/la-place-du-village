@@ -330,7 +330,6 @@ export default function BottomSheet({
             <AgendaFilterWheel
               filtres={filtres}
               onFiltresChange={onFiltresChange}
-              sheetBg={sheetBg.bg}
               onChange={handleAgendaFilterChange}
             />
           </div>
@@ -399,7 +398,6 @@ export default function BottomSheet({
             {annuaireTabIdx === 0 ? (
               <AnnuaireFilterWheel
                 ariaLabel="Filtre catégorie produit"
-                sheetBg={sheetBg.bg}
                 items={PRODUIT_CATS.map(c => ({ id: c.id, label: c.label, emoji: c.emoji }))}
                 activeId={selectedCats[0] ?? null}
                 onChange={id => {
@@ -410,7 +408,6 @@ export default function BottomSheet({
             ) : (
               <AnnuaireFilterWheel
                 ariaLabel="Filtre type commerce"
-                sheetBg={sheetBg.bg}
                 items={ETAB_TYPE_LIST.map(t => ({ id: t.id, label: t.label, emoji: t.emoji, color: t.color }))}
                 activeId={selectedEtabType ?? null}
                 onChange={id => {
