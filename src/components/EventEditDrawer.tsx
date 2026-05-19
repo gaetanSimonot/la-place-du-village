@@ -190,7 +190,12 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
   const [newBase64, setNewBase64]         = useState<string | null>(null)
   const [newMime, setNewMime]             = useState('image/jpeg')
   const [newPreview, setNewPreview]       = useState<string | null>(null)
+  // V3: track si l'image vient d'une extraction (pour badge "EXTRAIT DE L'AFFICHE")
+  const [imageFromExtract, setImageFromExtract] = useState(false)
+  const [pexelsLoading, setPexelsLoading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const cameraRef = useRef<HTMLInputElement>(null)
+  const galleryRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!evenementId) {
@@ -213,6 +218,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
         setNewMime(initialImage.mime)
         setNewPreview(initialImage.preview)
         setImagePosition(initialImage.position)
+        setImageFromExtract(true)
       }
       setLoading(false)
       return
@@ -253,6 +259,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
     const file = e.target.files?.[0]
     if (!file) return
     setNewMime(file.type || 'image/jpeg')
+    setImageFromExtract(false)
     const reader = new FileReader()
     reader.onload = ev => {
       const dataUrl = ev.target?.result as string
@@ -262,6 +269,32 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
     }
     reader.readAsDataURL(file)
     e.target.value = ''
+  }
+
+  // V3: récupère une image depuis Pexels (Banque libre)
+  const loadFromPexels = async () => {
+    setPexelsLoading(true)
+    try {
+      const q = encodeURIComponent(titre || categorie || 'event')
+      const r = await fetch(`/api/pexels?nom=${q}`)
+      const d = await r.json()
+      if (d.url) {
+        // Récupère l'image en base64 pour pouvoir l'uploader comme les autres
+        const imgRes = await fetch(d.url)
+        const blob = await imgRes.blob()
+        const reader = new FileReader()
+        reader.onload = ev => {
+          const dataUrl = ev.target?.result as string
+          setNewBase64(dataUrl.split(',')[1])
+          setNewMime(blob.type || 'image/jpeg')
+          setNewPreview(dataUrl)
+          setImageUrl(null)
+          setImageFromExtract(false)
+        }
+        reader.readAsDataURL(blob)
+      }
+    } catch { /* ignore */ }
+    finally { setPexelsLoading(false) }
   }
 
   const geocodeManual = useCallback(async () => {
@@ -367,14 +400,6 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
 
   const activeSrc = newPreview ?? imageUrl
 
-  const inp = (label: string, value: string, set: (v: string) => void, type = 'text', placeholder = '') => (
-    <div>
-      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{label}</label>
-      <input type={type} value={value} onChange={e => set(e.target.value)} placeholder={placeholder}
-        className="w-full bg-white border border-[#E8E0D5] rounded-xl px-3 py-2.5 text-sm text-[#2C1810] focus:outline-none focus:border-[#C4622D]" />
-    </div>
-  )
-
   if (loading) return (
     <div className="fixed inset-0 z-[1000] bg-[#FBF7F0] flex items-center justify-center">
       <div className="w-8 h-8 border-4 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
@@ -396,43 +421,124 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
   )
 
   return (
-    <div className="fixed inset-0 z-[1000] bg-[#FBF7F0] overflow-y-auto">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-[#2C1810] text-white px-4 py-3 flex items-center gap-3">
-        <button onClick={onClose} className="text-[#C4622D] font-bold text-xl leading-none">←</button>
-        <span className="font-bold flex-1 truncate text-sm">{titre || 'Éditer'}</span>
-        <button onClick={() => save()} disabled={saving}
-          className="bg-[#C4622D] text-white px-4 py-2 rounded-xl font-bold text-sm disabled:opacity-50">
-          {saving ? '…' : evenementId ? 'Sauvegarder' : 'Publier →'}
+    <div className="fixed inset-0 z-[1000] overflow-y-auto" style={{ background: '#FDFAF5' }}>
+      {/* V3 Header — back + DM Serif title + Annuler */}
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-2.5 px-4 pt-3.5 pb-3" style={{ background: '#FDFAF5' }}>
+        <button
+          onClick={onClose}
+          aria-label="Retour"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte shadow-[0_1px_2px_rgba(44,28,16,0.04)]"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"/>
+            <polyline points="12 19 5 12 12 5"/>
+          </svg>
+        </button>
+        <div className="min-w-0 flex-1 text-center">
+          <div className="font-serif text-[17px] leading-none text-texte" style={{ letterSpacing: '-0.01em' }}>
+            {evenementId ? 'Modifier l’événement' : 'Vérifier les infos'}
+          </div>
+        </div>
+        <button
+          onClick={onClose}
+          className="shrink-0 bg-transparent px-1 py-2 text-[12px] font-bold text-texte-doux"
+        >
+          Annuler
         </button>
       </div>
 
-      <div className="p-4 space-y-4 pb-10">
+      <div className="px-4 pb-32 space-y-4">
+        {/* Notice succès V3 — uniquement création */}
+        {!evenementId && (
+          <div className="flex items-center gap-3 rounded-xl p-3" style={{ background: '#E8F2EB', border: '1px solid #C5DCC9' }}>
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-white">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+            <p className="m-0 flex-1 text-[12px] leading-[1.5] text-texte">On a tout pré-rempli pour toi. Corrige si besoin avant de publier.</p>
+          </div>
+        )}
+
         {error && <div className="bg-red-50 text-red-600 text-sm px-3 py-2 rounded-xl">{error}</div>}
 
-        {/* Image */}
+        {/* V3 Section PHOTO */}
         <div>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="m-0 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Photo</p>
+            {activeSrc && (
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="bg-transparent text-[11px] font-semibold text-texte-doux underline"
+              >
+                Pas la bonne ? Remplace-la
+              </button>
+            )}
+          </div>
           {activeSrc ? (
-            <div className="relative rounded-2xl overflow-hidden" style={{ height: 200, backgroundColor: '#f0ece6' }}>
+            <div className="relative overflow-hidden rounded-2xl" style={{ height: 180, backgroundColor: '#F0EBE3' }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={activeSrc} alt="" onClick={() => setMode('fullscreen')}
-                className="w-full h-full object-cover cursor-zoom-in"
+                className="absolute inset-0 h-full w-full cursor-zoom-in object-cover"
                 style={{ objectPosition: imagePosition }} />
-              <div className="absolute bottom-2 right-2 flex gap-2">
-                <button onClick={() => setMode('crop')}
-                  className="bg-black/60 text-white text-xs font-bold px-3 py-1.5 rounded-lg">✂️ Recadrer</button>
-                <button onClick={() => fileRef.current?.click()}
-                  className="bg-black/60 text-white text-xs font-bold px-3 py-1.5 rounded-lg">📷 Changer</button>
-                <button onClick={() => { setImageUrl(null); setNewBase64(null); setNewPreview(null) }}
-                  className="bg-black/60 text-white text-xs font-bold px-3 py-1.5 rounded-lg">✕</button>
-              </div>
+              {/* Badge EXTRAIT DE L'AFFICHE */}
+              {imageFromExtract && (
+                <span className="absolute left-3 top-3 inline-flex items-center rounded-full bg-[#1A1209] px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-[0.08em] text-white">
+                  Extrait de l&apos;affiche
+                </span>
+              )}
+              {/* Bouton Recadrer */}
+              <button
+                onClick={() => setMode('crop')}
+                className="absolute right-3 top-3 rounded-full bg-white/95 px-3 py-1 text-[11px] font-bold text-texte backdrop-blur-sm"
+              >
+                Recadrer
+              </button>
             </div>
           ) : (
-            <button onClick={() => fileRef.current?.click()}
-              className="w-full h-24 rounded-2xl border-2 border-dashed border-[#E8E0D5] bg-white text-gray-400 text-sm">
-              + Ajouter une image
-            </button>
+            <div className="flex items-center justify-center rounded-2xl" style={{ height: 100, backgroundColor: '#F0EBE3', border: '1px dashed #E5DDD2' }}>
+              <span className="text-[12px] text-texte-doux">Aucune photo pour l&apos;instant</span>
+            </div>
           )}
+
+          {/* 3 boutons Caméra / Galerie / Banque libre */}
+          <div className="mt-2.5 flex gap-2">
+            <button
+              onClick={() => cameraRef.current?.click()}
+              className="flex flex-1 flex-col items-center gap-1 rounded-xl bg-white py-2.5 text-[11px] font-bold text-texte"
+              style={{ border: '1px solid #F0EAE0' }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+              Caméra
+            </button>
+            <button
+              onClick={() => galleryRef.current?.click()}
+              className="flex flex-1 flex-col items-center gap-1 rounded-xl bg-white py-2.5 text-[11px] font-bold text-texte"
+              style={{ border: '1px solid #F0EAE0' }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+              </svg>
+              Galerie
+            </button>
+            <button
+              onClick={loadFromPexels}
+              disabled={pexelsLoading}
+              className="flex flex-1 flex-col items-center gap-1 rounded-xl py-2.5 text-[11px] font-bold text-primary disabled:opacity-55"
+              style={{ background: '#E8F2EB', border: '1px solid #C5DCC9' }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+              </svg>
+              {pexelsLoading ? '…' : 'Banque libre'}
+            </button>
+          </div>
+          {/* Inputs file cachés */}
+          <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handleFile} className="hidden" />
+          <input ref={galleryRef} type="file" accept="image/*" onChange={handleFile} className="hidden" />
           <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} className="hidden" />
         </div>
 
@@ -460,74 +566,121 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
           </div>
         )}
 
-        {/* Catégorie */}
+        {/* V3 TITRE */}
         <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Catégorie</label>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(CATEGORIES).map(([key, cat]) => (
-              <button key={key} onClick={() => setCategorie(key as Categorie)}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
-                  categorie === key ? 'text-white border-transparent' : 'bg-white border-[#E8E0D5] text-gray-500'
-                }`}
-                style={categorie === key ? { backgroundColor: cat.color } : {}}>
-                {cat.emoji} {cat.label}
-              </button>
-            ))}
+          <p className="m-0 mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Titre</p>
+          <input
+            type="text" value={titre} onChange={e => setTitre(e.target.value)}
+            placeholder="Titre de l'événement"
+            className="w-full rounded-xl bg-white px-3.5 py-2.5 text-[14px] text-texte outline-none focus:border-primary"
+            style={{ border: '1px solid #F0EAE0' }}
+          />
+        </div>
+
+        {/* V3 CATÉGORIE pills colorées */}
+        <div>
+          <p className="m-0 mb-2 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Catégorie</p>
+          <div className="flex flex-wrap gap-1.5">
+            {Object.entries(CATEGORIES).map(([key, cat]) => {
+              const active = categorie === key
+              return (
+                <button
+                  key={key}
+                  onClick={() => setCategorie(key as Categorie)}
+                  className="rounded-full px-3 py-1.5 text-[12px] font-bold transition-colors"
+                  style={
+                    active
+                      ? { backgroundColor: cat.color, color: '#fff', border: 'none' }
+                      : { backgroundColor: '#fff', color: '#7A6A5A', border: '1px solid #F0EAE0' }
+                  }
+                >
+                  <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full" style={{ background: active ? '#fff' : cat.color }} />
+                  {cat.label}
+                </button>
+              )
+            })}
           </div>
         </div>
 
-        {inp('Titre', titre, setTitre, 'text', 'Titre de l\'événement')}
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Description</label>
-          <textarea value={description} onChange={e => setDescription(e.target.value)} rows={4}
-            className="w-full bg-white border border-[#E8E0D5] rounded-xl px-3 py-2.5 text-sm text-[#2C1810] focus:outline-none focus:border-[#C4622D] resize-none" />
-        </div>
-
-        {/* Dates & heure */}
-        <div className="space-y-3">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Date &amp; Heure</p>
-          <div className="grid grid-cols-2 gap-3">
-            {inp('Date début', dateDebut, setDateDebut, 'date')}
-            {inp('Date fin', dateFin, setDateFin, 'date')}
-          </div>
-          {inp('Heure', heure, setHeure, 'time')}
-        </div>
-
-        {/* Lieu */}
-        <div className="space-y-3">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Lieu</p>
-          <LieuSearch onSelect={handleLieuSelect} />
-
-          {/* Champs remplis après sélection, éditables */}
-          <div className="space-y-2 bg-white rounded-2xl p-3 border border-[#E8E0D5]">
-            {inp('Nom du lieu', lieuNom, setLieuNom, 'text', 'Salle des fêtes…')}
-            <div className="grid grid-cols-2 gap-2">
-              {inp('Commune', commune, setCommune, 'text', 'Ganges')}
-              {inp('Adresse', adresse, setAdresse, 'text', '12 rue…')}
+        {/* V3 DATE | HEURE 2-col */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="m-0 mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Date</p>
+            <div className="flex items-center gap-2 rounded-xl bg-white px-3.5 py-2.5" style={{ border: '1px solid #F0EAE0' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-texte-doux"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <input type="date" value={dateDebut} onChange={e => setDateDebut(e.target.value)} className="w-full border-none bg-transparent text-[13px] text-texte outline-none" />
             </div>
-            {lat && lng ? (
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-green-600 font-medium">
-                  ✓ {parseFloat(lat).toFixed(4)}, {parseFloat(lng).toFixed(4)}
-                  {placeIdGoogle && placeIdGoogle !== 'manual' ? ' · Google Places' : ' · manuel'}
-                </p>
-                <button onClick={geocodeManual} className="text-xs text-gray-400 underline">Relocaliser</button>
-              </div>
-            ) : (
-              <button onClick={geocodeManual}
-                className="w-full py-2 bg-[#FBF7F0] border border-[#C4622D] text-[#C4622D] text-xs font-bold rounded-xl">
-                📍 Localiser depuis les champs ci-dessus
-              </button>
-            )}
+          </div>
+          <div>
+            <p className="m-0 mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Heure</p>
+            <div className="flex items-center gap-2 rounded-xl bg-white px-3.5 py-2.5" style={{ border: '1px solid #F0EAE0' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-texte-doux"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <input type="time" value={heure} onChange={e => setHeure(e.target.value)} className="w-full border-none bg-transparent text-[13px] text-texte outline-none" />
+            </div>
           </div>
         </div>
 
-        {/* Infos pratiques */}
-        <div className="space-y-3">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Infos pratiques</p>
-          {inp('Prix', prix, setPrix, 'text', 'Gratuit, 5€…')}
-          {inp('Contact', contact, setContact, 'text', 'Email, téléphone…')}
-          {inp('Organisateurs', organisateurs, setOrganisateurs, 'text', 'Association, mairie…')}
+        {/* V3 LIEU */}
+        <div>
+          <div className="mb-1.5 flex items-center justify-between">
+            <p className="m-0 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Lieu</p>
+            <button onClick={geocodeManual} className="bg-transparent text-[11px] font-semibold text-primary underline">
+              Changer
+            </button>
+          </div>
+          <div className="rounded-xl bg-white p-3" style={{ border: '1px solid #F0EAE0' }}>
+            <div className="flex items-start gap-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0 text-primary"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <div className="flex-1">
+                <input type="text" value={lieuNom} onChange={e => setLieuNom(e.target.value)} placeholder="Nom du lieu" className="w-full border-none bg-transparent text-[14px] font-bold text-texte outline-none" />
+                <input type="text" value={[adresse, commune].filter(Boolean).join(', ')} onChange={e => { const parts = e.target.value.split(','); setAdresse(parts[0]?.trim() ?? ''); setCommune(parts.slice(1).join(',').trim()) }} placeholder="Adresse, commune" className="w-full border-none bg-transparent text-[12px] text-texte-doux outline-none" />
+              </div>
+            </div>
+          </div>
+          {/* LieuSearch advanced (caché par défaut, utile pour autocomplete Google) */}
+          <div className="mt-2">
+            <LieuSearch onSelect={handleLieuSelect} />
+          </div>
+        </div>
+
+        {/* V3 DESCRIPTION */}
+        <div>
+          <p className="m-0 mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Description</p>
+          <textarea
+            value={description} onChange={e => setDescription(e.target.value)} rows={4}
+            placeholder="Décris l'événement…"
+            className="block w-full resize-none rounded-xl bg-white px-3.5 py-2.5 text-[13px] leading-[1.5] text-texte outline-none focus:border-primary"
+            style={{ border: '1px solid #F0EAE0' }}
+          />
+        </div>
+
+        {/* V3 PRIX | CONTACT 2-col */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="m-0 mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Prix</p>
+            <div className="flex items-center gap-2 rounded-xl bg-white px-3.5 py-2.5" style={{ border: '1px solid #F0EAE0' }}>
+              <span className="text-[14px] text-texte-doux">€</span>
+              <input type="text" value={prix} onChange={e => setPrix(e.target.value)} placeholder="Gratuit, 5…" className="w-full border-none bg-transparent text-[13px] text-texte outline-none" />
+            </div>
+          </div>
+          <div>
+            <p className="m-0 mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Contact</p>
+            <div className="flex items-center gap-2 rounded-xl bg-white px-3.5 py-2.5" style={{ border: '1px solid #F0EAE0' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-texte-doux"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              <input type="text" value={contact} onChange={e => setContact(e.target.value)} placeholder="06 12…" className="w-full border-none bg-transparent text-[13px] text-texte outline-none" />
+            </div>
+          </div>
+        </div>
+
+        {/* V3 ORGANISATEURS */}
+        <div>
+          <p className="m-0 mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Organisateurs</p>
+          <input
+            type="text" value={organisateurs} onChange={e => setOrganisateurs(e.target.value)}
+            placeholder="Association, mairie…"
+            className="w-full rounded-xl bg-white px-3.5 py-2.5 text-[14px] text-texte outline-none focus:border-primary"
+            style={{ border: '1px solid #F0EAE0' }}
+          />
         </div>
 
         {/* Promotion — édition uniquement */}
@@ -579,6 +732,32 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
             🗑️ Supprimer cet événement
           </button>
         )}
+      </div>
+
+      {/* Sticky CTA bottom — V3 */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-20"
+        style={{ background: '#FFFFFF', borderTop: '1px solid #EDE8E0', padding: '12px 16px 16px', paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))' }}
+      >
+        <button
+          onClick={() => save()}
+          disabled={saving}
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border-none bg-primary text-[14px] font-bold text-white disabled:opacity-55"
+        >
+          {saving ? (
+            <>
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              Publication en cours…
+            </>
+          ) : (
+            <>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              {evenementId ? 'Sauvegarder' : 'Publier l\'événement'}
+            </>
+          )}
+        </button>
       </div>
     </div>
   )
