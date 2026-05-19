@@ -247,6 +247,14 @@ export default function PromotionsClient() {
         </div>
       )}
 
+      {/* Featured carousel — À ne pas manquer (top 3 promos) */}
+      {!loading && filteredPromos.length > 0 && (
+        <FeaturedPromoCarousel
+          promos={filteredPromos.slice(0, Math.min(5, filteredPromos.length))}
+          onUse={openUseConfirm}
+        />
+      )}
+
       {/* Section header */}
       <div className="flex items-center justify-between gap-2.5 px-4 pb-2.5 pt-[22px]">
         <div className="flex min-w-0 items-center gap-2">
@@ -611,6 +619,81 @@ function ConfirmPositionModal({ promo, onClose, onConfirm, loading }: {
         >
           Annuler
         </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Featured carousel V3 (À ne pas manquer) ───
+function FeaturedPromoCarousel({ promos, onUse }: { promos: Promotion[]; onUse: (p: Promotion) => void }) {
+  const [activeIdx, setActiveIdx] = useState(0)
+  return (
+    <div className="pt-[18px]">
+      <div className="flex items-center justify-between gap-2 px-4 pb-2.5">
+        <h3 className="m-0 text-[15px] font-extrabold tracking-tight2 text-texte">À ne pas manquer</h3>
+        <span className="text-[11px] font-bold text-texte-doux">{activeIdx + 1}/{promos.length}</span>
+      </div>
+      <div
+        className="pdv-hscroll flex gap-3 overflow-x-auto px-4 pb-1"
+        style={{ scrollSnapType: 'x mandatory', scrollPaddingLeft: 16, scrollPaddingRight: 16 }}
+        onScroll={e => {
+          const el = e.currentTarget
+          const idx = Math.round(el.scrollLeft / (el.clientWidth - 32))
+          if (idx !== activeIdx && idx >= 0 && idx < promos.length) setActiveIdx(idx)
+        }}
+      >
+        {promos.map((p, i) => {
+          const img = p.display_image_url ?? p.image_url ?? p.etablissement?.photos?.[0]
+          return (
+            <button
+              key={p.id}
+              onClick={() => onUse(p)}
+              className="relative shrink-0 overflow-hidden rounded-[18px] border border-bordSoft bg-white shadow-card text-left"
+              style={{ width: 'calc(100vw - 64px)', maxWidth: 380, height: 200, scrollSnapAlign: 'start' }}
+            >
+              {img ? (
+                <img src={img} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center bg-[#FFF0E5] text-[64px]">🎁</div>
+              )}
+              {/* Gradient bottom */}
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.78) 100%)' }} />
+              {/* Badges top-left */}
+              <div className="absolute left-3 top-3 flex gap-1.5">
+                <span className="inline-flex items-center rounded-full bg-accent px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-[0.06em] text-white">
+                  BON PLAN
+                </span>
+                {i === 0 && (
+                  <span className="inline-flex items-center rounded-full bg-white/95 px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-[0.06em] text-accent backdrop-blur-sm">
+                    ★ Coup de cœur
+                  </span>
+                )}
+              </div>
+              {/* Heart top-right */}
+              <div className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-texte-doux shadow-[0_1px_4px_rgba(0,0,0,0.12)] backdrop-blur-sm">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                </svg>
+              </div>
+              {/* Text bottom-left */}
+              <div className="absolute bottom-0 left-0 right-0 p-3.5">
+                <div className="text-[11px] font-bold text-white/85">{p.etablissement?.nom ?? ''}{p.etablissement?.commune ? ` · ${p.etablissement.commune}` : ''}</div>
+                <div className="mt-0.5 text-[16px] font-extrabold leading-tight text-white" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>
+                  {p.title}
+                </div>
+              </div>
+            </button>
+          )
+        })}
+      </div>
+      {/* Dots indicator */}
+      <div className="mt-2.5 flex justify-center gap-1">
+        {promos.map((_, i) => (
+          <span
+            key={i}
+            style={{ width: i === activeIdx ? 18 : 5, height: 5, borderRadius: 999, background: i === activeIdx ? '#2D5A3D' : '#D8D0C8', transition: 'width 0.18s' }}
+          />
+        ))}
       </div>
     </div>
   )
