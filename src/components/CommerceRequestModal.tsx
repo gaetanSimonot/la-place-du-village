@@ -94,6 +94,7 @@ export default function CommerceRequestModal({ onClose }: { onClose: () => void 
           <ReferenceForm
             kind={kind}
             onBack={() => setKind(null)}
+            onClose={onClose}
             onDone={(data) => setResult({ ...data, kind })}
           />
         )}
@@ -193,10 +194,11 @@ function KindPicker({ onPick }: { onPick: (k: Kind) => void }) {
 }
 
 function ReferenceForm({
-  kind, onBack, onDone,
+  kind, onBack, onClose, onDone,
 }: {
   kind: Kind
   onBack: () => void
+  onClose: () => void
   onDone: (data: { auto_published?: boolean; already_exists?: boolean; etablissement_id?: string; producer_id?: string }) => void
 }) {
   const [nom, setNom]                 = useState('')
@@ -374,22 +376,32 @@ function ReferenceForm({
         </button>
         <div style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
           <div style={{
-            fontFamily: '"DM Serif Display", Georgia, serif',
+            fontFamily: 'var(--font-dm-serif), Georgia, serif',
             fontSize: 17, color: '#1A1209', letterSpacing: '-0.01em', lineHeight: 1.1,
           }}>
             {kind === 'commerce' ? 'Référencer un commerce' : 'Référencer un producteur'}
           </div>
         </div>
-        <div style={{ width: 40, height: 40, flexShrink: 0 }} />
+        <button
+          onClick={onClose}
+          style={{
+            flexShrink: 0, background: 'transparent', border: 'none',
+            padding: '4px 4px', cursor: 'pointer',
+            fontSize: 12, fontWeight: 700, color: '#7A6A5A',
+            fontFamily: 'inherit',
+          }}
+        >
+          Annuler
+        </button>
       </div>
 
-      {/* Hero intro V3 */}
+      {/* Hero intro V3 — mockup typo */}
       <div style={{ marginBottom: 18 }}>
         <h1 style={{
           margin: 0,
-          fontFamily: '"DM Serif Display", Georgia, serif',
-          fontSize: 26, lineHeight: 1.1, color: '#1A1209',
-          letterSpacing: '-0.02em', fontWeight: 400,
+          fontFamily: 'var(--font-dm-serif), Georgia, serif',
+          fontSize: 28, lineHeight: 1.05, color: '#1A1209',
+          letterSpacing: '-0.02em', fontWeight: 700,
         }}>
           {kind === 'commerce' ? 'Quel commerce ?' : 'Quel producteur ?'}
         </h1>
@@ -502,6 +514,45 @@ function ReferenceForm({
               ))}
             </div>
           </div>
+        )}
+
+        {/* Pas dans la liste — invite à la saisie manuelle */}
+        {!placeId && adresse.trim().length >= 2 && (
+          <button
+            type="button"
+            onClick={() => {
+              // Focus le champ Nom pour saisie manuelle
+              setNom(adresse)
+              const nomInput = document.querySelector<HTMLInputElement>('input[placeholder="Ex: Boulangerie du Village"]')
+              nomInput?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              setTimeout(() => nomInput?.focus(), 300)
+            }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '13px 14px', borderRadius: 14,
+              background: '#FDFAF5', border: '1px dashed #E5DDD2',
+              cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
+            }}
+          >
+            <div style={{
+              width: 38, height: 38, borderRadius: 10,
+              background: '#fff', color: '#2D5A3D', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: '1px solid #C5DCC9',
+            }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#1A1209' }}>Pas dans la liste&nbsp;?</div>
+              <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2 }}>Saisis les infos toi-même</div>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A99B89" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <polyline points="9 6 15 12 9 18"/>
+            </svg>
+          </button>
         )}
 
         {/* Notice 2 cas V3 : Google trouvé vs Saisie manuelle */}
