@@ -16,6 +16,11 @@ export interface JournalRow {
   billet_titre: string | null
   billet_corps: string | null
   saviez_vous: string | null
+  selection_event_ids: string[] | null
+  selection_annonce_ids: string[] | null
+  selection_bonplan_ids: string[] | null
+  selection_article_id: string | null
+  spotlight_etab_id: string | null
   temps_lecture_min: number | null
   publie_at: string | null
 }
@@ -24,6 +29,53 @@ export interface ArchiveEntry {
   numero: number
   cover_titre: string
   date_parution: string
+}
+
+export interface EventEntry {
+  id: string
+  titre: string
+  image_url: string | null
+  date_debut: string | null
+  heure: string | null
+  categorie: string | null
+  lieux: { nom: string | null; commune: string | null } | null
+}
+
+export interface AnnonceEntry {
+  id: string
+  titre: string
+  description: string | null
+  photos: string[] | null
+  type: string
+  prix_initial: number | null
+  prix_actuel: number | null
+  ville: string | null
+}
+
+export interface PromoEntry {
+  id: string
+  title: string
+  description: string | null
+  image_url: string | null
+  etablissement_id: string | null
+  etablissements: { nom: string | null; commune: string | null } | null
+}
+
+export interface SpotlightEntry {
+  id: string
+  nom: string
+  commune: string | null
+  type: string | null
+  photos: string[] | null
+  description_courte: string | null
+}
+
+export interface ArticleEntry {
+  id: string
+  titre: string
+  corps: string
+  photo_url: string | null
+  user_id: string | null
 }
 
 function formatDateLong(iso: string): string {
@@ -36,7 +88,20 @@ function formatDateShort(iso: string): string {
   return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 }
 
-export default function JournalPageClient({ row, archives }: { row: JournalRow; archives: ArchiveEntry[] }) {
+interface JournalProps {
+  row: JournalRow
+  archives: ArchiveEntry[]
+  events?: EventEntry[]
+  annonces?: AnnonceEntry[]
+  promos?: PromoEntry[]
+  article?: ArticleEntry | null
+  spotlight?: SpotlightEntry | null
+}
+
+export default function JournalPageClient({
+  row, archives,
+  events = [], annonces = [], promos = [], article = null, spotlight = null,
+}: JournalProps) {
   const router = useRouter()
 
   function handleShare() {
@@ -191,6 +256,171 @@ export default function JournalPageClient({ row, archives }: { row: JournalRow; 
           >
             <BilletBody body={row.billet_corps} />
           </div>
+        </section>
+      )}
+
+      {/* ── Spotlight établissement ────────────────────────────────────── */}
+      {spotlight && (
+        <section className="px-4 pt-10">
+          <div className="text-[10px] font-extrabold tracking-[0.18em] text-primary">
+            COUP DE PROJECTEUR
+          </div>
+          <h2
+            className="mt-1 font-serif leading-[1.1] text-texte"
+            style={{ fontSize: 24, letterSpacing: '-0.02em' }}
+          >
+            {spotlight.nom}
+          </h2>
+          <div className="mt-1 text-[12px] text-texte-doux">
+            {[spotlight.type, spotlight.commune].filter(Boolean).join(' · ')}
+          </div>
+          {spotlight.photos?.[0] && (
+            <div
+              className="mt-3 overflow-hidden rounded-[14px] bg-bord/40"
+              style={{ height: 180, boxShadow: '0 4px 16px rgba(44,28,16,0.12)' }}
+            >
+              <img src={spotlight.photos[0]} alt={spotlight.nom} className="h-full w-full object-cover" />
+            </div>
+          )}
+          {spotlight.description_courte && (
+            <p className="mt-3 text-[14px] leading-[1.6] text-texte">{spotlight.description_courte}</p>
+          )}
+          <Link
+            href={`/etablissement/${spotlight.id}`}
+            className="mt-3 inline-flex items-center gap-1 text-[12px] font-bold text-primary"
+          >
+            Voir la fiche →
+          </Link>
+        </section>
+      )}
+
+      {/* ── Événements de la semaine ───────────────────────────────────── */}
+      {events.length > 0 && (
+        <section className="px-4 pt-10">
+          <div className="text-[10px] font-extrabold tracking-[0.18em] text-accent">
+            AGENDA DE LA SEMAINE
+          </div>
+          <h2 className="mt-1 font-serif leading-[1.1] text-texte" style={{ fontSize: 22, letterSpacing: '-0.02em' }}>
+            Ce qu&apos;il ne faut pas manquer
+          </h2>
+          <ul className="mt-4 divide-y divide-bordSoft border-y border-bordSoft">
+            {events.map(e => (
+              <li key={e.id}>
+                <Link href={`/evenement/${e.id}`} className="flex items-center gap-3 py-3">
+                  {e.image_url && (
+                    <img src={e.image_url} alt="" className="h-14 w-14 shrink-0 rounded-[10px] object-cover" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[10px] font-extrabold tracking-[0.1em] text-texte-doux">
+                      {[e.date_debut, e.heure?.slice(0, 5), e.categorie].filter(Boolean).join(' · ')}
+                    </div>
+                    <div className="mt-1 truncate font-serif text-[15px] text-texte" style={{ letterSpacing: '-0.01em' }}>
+                      {e.titre}
+                    </div>
+                    {(e.lieux?.nom || e.lieux?.commune) && (
+                      <div className="mt-0.5 truncate text-[11px] text-texte-doux">
+                        {[e.lieux?.nom, e.lieux?.commune].filter(Boolean).join(' · ')}
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* ── Article d'habitant ─────────────────────────────────────────── */}
+      {article && (
+        <section className="px-4 pt-10">
+          <div className="text-[10px] font-extrabold tracking-[0.18em] text-primary">
+            L&apos;ARTICLE DE LA SEMAINE
+          </div>
+          <h2
+            className="mt-1 font-serif leading-[1.1] text-texte"
+            style={{ fontSize: 24, letterSpacing: '-0.02em' }}
+          >
+            {article.titre}
+          </h2>
+          {article.photo_url && (
+            <div
+              className="mt-3 overflow-hidden rounded-[14px] bg-bord/40"
+              style={{ height: 200, boxShadow: '0 4px 16px rgba(44,28,16,0.12)' }}
+            >
+              <img src={article.photo_url} alt={article.titre} className="h-full w-full object-cover" />
+            </div>
+          )}
+          <div
+            className="mt-3 whitespace-pre-wrap text-[15px] leading-[1.65] text-texte"
+            style={{ fontFamily: 'Georgia, "Crimson Pro", serif' }}
+          >
+            {article.corps}
+          </div>
+        </section>
+      )}
+
+      {/* ── Bons plans ─────────────────────────────────────────────────── */}
+      {promos.length > 0 && (
+        <section className="px-4 pt-10">
+          <div className="text-[10px] font-extrabold tracking-[0.18em] text-accent">
+            BONS PLANS DES COMMERÇANTS
+          </div>
+          <ul className="mt-3 divide-y divide-bordSoft border-y border-bordSoft">
+            {promos.map(p => (
+              <li key={p.id}>
+                <Link href={`/promotions?id=${p.id}`} className="flex items-center gap-3 py-3">
+                  {p.image_url && (
+                    <img src={p.image_url} alt="" className="h-14 w-14 shrink-0 rounded-[10px] object-cover" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[10px] font-extrabold tracking-[0.1em] text-[#E8622A]">BON PLAN</div>
+                    <div className="mt-1 truncate font-serif text-[15px] text-texte" style={{ letterSpacing: '-0.01em' }}>
+                      {p.title}
+                    </div>
+                    {p.etablissements?.nom && (
+                      <div className="mt-0.5 truncate text-[11px] text-texte-doux">
+                        chez {p.etablissements.nom}{p.etablissements.commune ? ` · ${p.etablissements.commune}` : ''}
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* ── Petites annonces ───────────────────────────────────────────── */}
+      {annonces.length > 0 && (
+        <section className="px-4 pt-10">
+          <div className="text-[10px] font-extrabold tracking-[0.18em] text-accent">
+            PETITES ANNONCES
+          </div>
+          <ul className="mt-3 grid grid-cols-2 gap-3">
+            {annonces.map(a => (
+              <li key={a.id}>
+                <Link
+                  href={`/annonces/${a.id}`}
+                  className="block overflow-hidden rounded-[12px] border border-bordSoft bg-white"
+                >
+                  {a.photos?.[0] && (
+                    <img src={a.photos[0]} alt="" className="h-24 w-full object-cover" />
+                  )}
+                  <div className="px-2.5 py-2">
+                    <div className="truncate text-[12px] font-bold text-texte" style={{ letterSpacing: '-0.01em' }}>
+                      {a.titre}
+                    </div>
+                    <div className="mt-0.5 truncate text-[10px] text-texte-doux">
+                      {[
+                        a.prix_actuel ?? a.prix_initial ? `${a.prix_actuel ?? a.prix_initial} €` : null,
+                        a.ville,
+                      ].filter(Boolean).join(' · ')}
+                    </div>
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 

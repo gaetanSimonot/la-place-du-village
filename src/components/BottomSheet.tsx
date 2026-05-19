@@ -329,8 +329,9 @@ export default function BottomSheet({
           <div style={{ width: 40, height: 5, borderRadius: 3, backgroundColor: '#C8BDB0', margin: '0 auto' }} />
         </div>
 
-        {/* ── Header compact (non-full) ── */}
-        {mode !== 'full' && appMode === 'agenda' && (
+        {/* ── Header compact agenda (visible dans tous les modes pour garder
+             le contrôle wheel même en plein écran) ── */}
+        {appMode === 'agenda' && (
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'minmax(92px, 1fr) 2.3fr',
@@ -341,9 +342,9 @@ export default function BottomSheet({
             {/* Col 1 : compteur événements */}
             <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
               <div style={{
-                fontFamily: 'var(--font-dm-serif), Georgia, serif',
-                fontSize: 36, color: '#1A1209', lineHeight: 0.95,
-                letterSpacing: '-0.02em',
+                fontFamily: 'Inter, sans-serif',
+                fontSize: 32, fontWeight: 800, color: '#1A1209',
+                lineHeight: 1, letterSpacing: '-0.02em',
               }}>
                 {evenements.length}
               </div>

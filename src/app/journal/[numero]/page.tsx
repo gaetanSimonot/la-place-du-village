@@ -1,7 +1,10 @@
 import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import JournalPageClient, { type JournalRow, type ArchiveEntry } from './client'
+import JournalPageClient, {
+  type JournalRow, type ArchiveEntry,
+  type EventEntry, type AnnonceEntry, type PromoEntry, type SpotlightEntry, type ArticleEntry,
+} from './client'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,15 +57,58 @@ export default async function JournalNumeroPage({ params }: Props) {
 
   const row = journal as JournalRow
 
-  // Archives — 6 numéros précédents
-  const { data: archivesData } = await supabaseAdmin
-    .from('journaux_hebdo')
-    .select('numero, cover_titre, date_parution')
-    .eq('statut', 'publie')
-    .lt('numero', row.numero)
-    .order('numero', { ascending: false })
-    .limit(6)
-  const archives: ArchiveEntry[] = (archivesData ?? []) as ArchiveEntry[]
+  // Charge les entités liées en parallèle
+  const evIds  = (row.selection_event_ids ?? []) as string[]
+  const annIds = (row.selection_annonce_ids ?? []) as string[]
+  const proIds = (row.selection_bonplan_ids ?? []) as string[]
 
-  return <JournalPageClient row={row} archives={archives} />
+  const [eventsRes, annoncesRes, promosRes, articleRes, spotlightRes, archivesRes] = await Promise.all([
+    evIds.length > 0
+      ? supabaseAdmin.from('evenements').select('id, titre, image_url, date_debut, heure, categorie, lieux(nom, commune)').in('id', evIds)
+      : Promise.resolve({ data: [] }),
+    annIds.length > 0
+      ? supabaseAdmin.from('annonces').select('id, titre, description, photos, type, prix_initial, prix_actuel, ville').in('id', annIds)
+      : Promise.resolve({ data: [] }),
+    proIds.length > 0
+      ? supabaseAdmin.from('promotions').select('id, title, description, image_url, etablissement_id, etablissements(nom, commune)').in('id', proIds)
+      : Promise.resolve({ data: [] }),
+    row.selection_article_id
+      ? supabaseAdmin.from('articles_journal').select('id, titre, corps, photo_url, user_id').eq('id', row.selection_article_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    row.spotlight_etab_id
+      ? supabaseAdmin.from('etablissements').select('id, nom, commune, type, photos, description_courte').eq('id', row.spotlight_etab_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabaseAdmin
+      .from('journaux_hebdo')
+      .select('numero, cover_titre, date_parution')
+      .eq('statut', 'publie')
+      .lt('numero', row.numero)
+      .order('numero', { ascending: false })
+      .limit(6),
+  ])
+
+  // Préserve l'ordre demandé par l'admin (selection_*_ids)
+  const orderById = <T extends { id: string }>(rows: T[], ids: string[]): T[] => {
+    const map = Object.fromEntries(rows.map(r => [r.id, r]))
+    return ids.map(id => map[id]).filter(Boolean)
+  }
+
+  const events    = orderById(((eventsRes.data ?? []) as unknown as EventEntry[]), evIds)
+  const annonces  = orderById(((annoncesRes.data ?? []) as AnnonceEntry[]), annIds)
+  const promos    = orderById(((promosRes.data ?? []) as unknown as PromoEntry[]), proIds)
+  const article   = (articleRes.data as ArticleEntry | null) ?? null
+  const spotlight = (spotlightRes.data as SpotlightEntry | null) ?? null
+  const archives: ArchiveEntry[] = (archivesRes.data ?? []) as ArchiveEntry[]
+
+  return (
+    <JournalPageClient
+      row={row}
+      archives={archives}
+      events={events}
+      annonces={annonces}
+      promos={promos}
+      article={article}
+      spotlight={spotlight}
+    />
+  )
 }

@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CATEGORIES } from '@/lib/categories'
 import type { Categorie, FiltreQuand, Filtres } from '@/lib/types'
 
@@ -128,6 +128,12 @@ function VerticalFilterWheel({
   const userInteracting = useRef<boolean>(false)
   const N = items.length
 
+  // État visuel local : drive l'affichage de la pill active en temps réel
+  // pendant le scroll, avant même que le parent ait notifié. Donne l'effet
+  // « clap » : la pill bascule à active dès qu'elle traverse le slot central.
+  const [visualIdx, setVisualIdx] = useState<number>(activeIdx)
+  useEffect(() => { setVisualIdx(activeIdx) }, [activeIdx])
+
   // Triple-clone pour l'illusion d'infini
   const tripled = useMemo(() => [...items, ...items, ...items], [items])
 
@@ -164,7 +170,16 @@ function VerticalFilterWheel({
       el.scrollTop = el.scrollTop - N * STEP
     }
 
-    // Settle puis notifie le parent
+    // Feedback visuel immédiat : la pill traverse le slot → bascule à active
+    if (realIdx !== visualIdx) {
+      setVisualIdx(realIdx)
+      // Haptic léger sur mobile pour matérialiser le "clap"
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+        navigator.vibrate(8)
+      }
+    }
+
+    // Settle court puis notifie le parent
     if (settleTimer.current) clearTimeout(settleTimer.current)
     settleTimer.current = setTimeout(() => {
       userInteracting.current = false
@@ -172,7 +187,7 @@ function VerticalFilterWheel({
         lastReportedIdx.current = realIdx
         onChange(realIdx)
       }
-    }, 120)
+    }, 60)
   }
 
   const handleInteract = () => {
@@ -256,7 +271,7 @@ function VerticalFilterWheel({
       >
         {tripled.map((item, i) => {
           const realIdx = ((i % N) + N) % N
-          const isActive = realIdx === activeIdx
+          const isActive = realIdx === visualIdx
           return (
             <button
               key={`${item.id}-${i}`}
@@ -272,15 +287,16 @@ function VerticalFilterWheel({
                 color: isActive ? '#fff' : accent,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontFamily: 'Inter, sans-serif',
-                fontSize: isActive ? 12.5 : 11.5,
-                fontWeight: isActive ? 700 : 600,
+                fontSize: isActive ? 13 : 11.5,
+                fontWeight: isActive ? 800 : 600,
                 letterSpacing: '-0.005em',
                 scrollSnapAlign: 'center',
                 scrollSnapStop: 'always',
-                transition: 'background 0.18s, color 0.18s, font-size 0.18s, font-weight 0.18s, box-shadow 0.18s',
+                transition: 'background 90ms cubic-bezier(0.2, 0.9, 0.3, 1.2), color 90ms ease-out, font-size 110ms cubic-bezier(0.2, 0.9, 0.3, 1.2), font-weight 90ms ease-out, box-shadow 90ms ease-out, transform 110ms cubic-bezier(0.2, 0.9, 0.3, 1.2)',
+                transform: isActive ? 'scale(1.03)' : 'scale(1)',
                 cursor: 'pointer',
                 userSelect: 'none',
-                boxShadow: isActive ? '0 2px 6px rgba(45,90,61,0.25)' : 'none',
+                boxShadow: isActive ? '0 3px 10px rgba(45,90,61,0.32)' : 'none',
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 padding: '0 10px',
               }}

@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import type { EtablissementType, Evenement } from '@/lib/types'
-import type { Annonce } from '@/lib/annonces'
+import { getPrixAffiche, type Annonce } from '@/lib/annonces'
 import HubTopBar from '@/components/HubTopBar'
 import HubSearchBar from '@/components/HubSearchBar'
 import { useFavorites } from '@/hooks/useFavorites'
@@ -253,24 +253,59 @@ export default function HubView({
       setPromos(ordered.slice(0, 8))
   }, [])
 
-  // Ventes — annonces en baisse réelle (enchères inversées dont prix_actuel < prix_initial)
+  // Ventes — priorité admin pin (featured_slots), puis enchères inversées en baisse.
   // Cible 4 cards pour le bento 2x2.
   const loadVentes = useCallback(async () => {
-      const { data, count } = await supabase
-        .from('annonces')
-        .select('*', { count: 'exact' })
-        .eq('statut', 'active')
-        .eq('type', 'enchere_inversee')
-        .not('prix_actuel', 'is', null)
-        .not('prix_initial', 'is', null)
+      const nowISO = new Date().toISOString()
+      const ordered: Annonce[] = []
+      const seen = new Set<string>()
+
+      // 1. Annonces pinées par l'admin (peu importe le type) en priorité
+      const { data: featuredSlots } = await supabase
+        .from('featured_slots')
+        .select('content_id, priority')
+        .eq('slot', 'homepage')
+        .eq('content_type', 'annonce')
+        .lte('starts_at', nowISO)
+        .gt('ends_at', nowISO)
+        .order('priority', { ascending: false })
         .order('created_at', { ascending: false })
-        .limit(12)
-      const rows = (data ?? []) as Annonce[]
-      const baisse = rows.filter(a =>
-        a.prix_actuel != null && a.prix_initial != null && a.prix_actuel < a.prix_initial,
-      )
-      setVentesAnnonces(baisse.slice(0, 4))
-      setVentesTotal(count ?? baisse.length)
+
+      const featuredIds = (featuredSlots ?? []).map(s => s.content_id)
+      if (featuredIds.length > 0) {
+        const { data: featuredRows } = await supabase
+          .from('annonces')
+          .select('*')
+          .in('id', featuredIds)
+          .eq('statut', 'active')
+        const map = Object.fromEntries(((featuredRows ?? []) as Annonce[]).map(a => [a.id, a]))
+        featuredIds.forEach(id => {
+          const a = map[id]
+          if (a && !seen.has(a.id)) { ordered.push(a); seen.add(a.id) }
+        })
+      }
+
+      // 2. Complète avec les enchères inversées en baisse réelle si pas plein
+      if (ordered.length < 4) {
+        const { data: encheres } = await supabase
+          .from('annonces')
+          .select('*')
+          .eq('statut', 'active')
+          .eq('type', 'enchere_inversee')
+          .not('prix_actuel', 'is', null)
+          .not('prix_initial', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(12)
+        ;((encheres ?? []) as Annonce[]).forEach(a => {
+          if (seen.has(a.id)) return
+          if (a.prix_actuel != null && a.prix_initial != null && a.prix_actuel < a.prix_initial) {
+            ordered.push(a); seen.add(a.id)
+          }
+        })
+      }
+
+      setVentesAnnonces(ordered.slice(0, 4))
+      setVentesTotal(ordered.length)
   }, [])
 
   // Journal hebdo — dernier numéro publié (graceful empty)
@@ -714,9 +749,11 @@ function SaleAnnonceCard({
   const photo = annonce.photos?.[0]
   const prixActuel = annonce.prix_actuel
   const prixInitial = annonce.prix_initial
-  const pct = (prixActuel != null && prixInitial != null && prixInitial > 0)
-    ? Math.round(100 - (prixActuel / prixInitial) * 100)
+  const showStrike = prixActuel != null && prixInitial != null && prixInitial > prixActuel
+  const pct = showStrike
+    ? Math.round(100 - (prixActuel! / prixInitial!) * 100)
     : null
+  const prixLabel = getPrixAffiche(annonce)
   const villeBlock = annonce.ville ?? '—'
   return (
     <div
@@ -757,12 +794,10 @@ function SaleAnnonceCard({
           {annonce.titre}
         </div>
         <div className="mt-[3px] flex items-baseline gap-1.5">
-          {prixActuel != null && (
-            <span className="font-serif text-[16px] leading-none text-accent">
-              {prixActuel} €
-            </span>
-          )}
-          {prixInitial != null && prixActuel != null && prixInitial > prixActuel && (
+          <span className="font-serif text-[16px] leading-none text-accent">
+            {prixLabel}
+          </span>
+          {showStrike && (
             <span className="text-[11px] text-texte-tres-doux line-through">
               {prixInitial} €
             </span>

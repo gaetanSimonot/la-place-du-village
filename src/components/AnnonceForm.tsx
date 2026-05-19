@@ -21,6 +21,9 @@ import SubscriptionModal from '@/components/SubscriptionModal'
 interface Props {
   initial?: Annonce | null
   onSuccess?: (annonceId: string) => void
+  /** Si true, affiche la checkbox "Publier aussi dans le journal hebdo".
+      Réservé Habitants/Pro côté serveur — le parent décide d'afficher l'option. */
+  canFlagJournal?: boolean
 }
 
 const TYPE_INFO: Record<AnnonceType, { label: string; sub: string; color: string; bg: string; help: string; icon: React.ReactNode }> = {
@@ -48,7 +51,7 @@ const TYPE_INFO: Record<AnnonceType, { label: string; sub: string; color: string
 
 const MAX_PHOTOS = 3
 
-export default function AnnonceForm({ initial, onSuccess }: Props) {
+export default function AnnonceForm({ initial, onSuccess, canFlagJournal = false }: Props) {
   const router = useRouter()
   const { user, profile } = useAuth()
   const plan = (profile?.plan as Plan) ?? 'basic'
@@ -66,6 +69,8 @@ export default function AnnonceForm({ initial, onSuccess }: Props) {
   const [ville, setVille]                 = useState(initial?.ville ?? '')
   const [photos, setPhotos]               = useState<string[]>(initial?.photos ?? [])
   const [remiseMP, setRemiseMP]           = useState<boolean>(initial?.remise_main_propre ?? true)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [publierJournal, setPublierJournal] = useState<boolean>(!!(initial as any)?.publier_dans_journal)
   const [uploading, setUploading]         = useState(false)
   const [submitting, setSubmitting]       = useState(false)
   const [error, setError]                 = useState<string | null>(null)
@@ -117,6 +122,9 @@ export default function AnnonceForm({ initial, onSuccess }: Props) {
       ville:           ville.trim() || null,
       remise_main_propre: remiseMP,
     }
+    // Flag journal : extra field consommé côté API
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(input as any).publier_dans_journal = canFlagJournal && publierJournal
 
     const validationError = validateAnnonceInput(input, plan)
     if (validationError) { setError(validationError); return }
@@ -451,6 +459,32 @@ export default function AnnonceForm({ initial, onSuccess }: Props) {
         <p style={{ fontSize: 11, color: '#7A6A5A', margin: 0, textAlign: 'center' }}>
           Ton annonce restera en ligne pendant <b>{dureeJours} jours</b> (plan {plan}).
         </p>
+      )}
+
+      {/* Flag publier dans le journal — visible Habitants/Pro */}
+      {canFlagJournal && (
+        <label style={{
+          display: 'flex', alignItems: 'flex-start', gap: 10,
+          padding: '12px 14px', borderRadius: 12,
+          border: `1.5px solid ${publierJournal ? '#2D5A3D' : '#F0EAE0'}`,
+          background: publierJournal ? '#E8F2EB' : '#fff',
+          cursor: 'pointer',
+        }}>
+          <input
+            type="checkbox"
+            checked={publierJournal}
+            onChange={e => setPublierJournal(e.target.checked)}
+            style={{ marginTop: 3, width: 18, height: 18, accentColor: '#2D5A3D', cursor: 'pointer' }}
+          />
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1A1209', lineHeight: 1.2 }}>
+              📰 Publier aussi dans le Journal du Village
+            </div>
+            <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 3, lineHeight: 1.4 }}>
+              Ton annonce remontera dans la section &laquo;&nbsp;Petites annonces&nbsp;&raquo; du prochain numéro hebdo.
+            </div>
+          </div>
+        </label>
       )}
 
       {error && (

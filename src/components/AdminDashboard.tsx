@@ -406,6 +406,9 @@ export default function AdminDashboard() {
       <div className="bg-[#2C1810] text-white px-4 py-4 flex items-center gap-3">
         <Link href="/" className="text-[#C4622D] text-xl font-bold">←</Link>
         <h1 className="font-bold text-lg flex-1">Back-office</h1>
+        <Link href="/admin/journal" className="text-xs text-[#C4622D] font-semibold border border-[#C4622D] px-2 py-1 rounded-lg">
+          Journal
+        </Link>
         <Link href="/admin/prompts" className="text-xs text-[#C4622D] font-semibold border border-[#C4622D] px-2 py-1 rounded-lg">
           IA
         </Link>
