@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
+// Force dynamic — empêche Next.js / Vercel de cacher la réponse
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const { data: producer, error } = await supabaseAdmin

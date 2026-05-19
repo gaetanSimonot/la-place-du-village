@@ -5,6 +5,11 @@ import { normalizeProduitCat } from '@/lib/produit-cats'
 // Utilise supabaseAdmin (service role) pour bypasser RLS et retourner TOUS
 // les producteurs (y compris ceux ayant un user_id set après claim).
 // Sans ça, la RLS publique cache les fiches revendiquees → disparues du map.
+
+// Force dynamic — empêche Next.js / Vercel de cacher la réponse statique
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export async function GET(req: NextRequest) {
   const url  = new URL(req.url)
   const cat  = url.searchParams.get('categorie') ?? ''
