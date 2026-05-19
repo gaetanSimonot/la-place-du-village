@@ -1,8 +1,7 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
-import { use } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 interface JournalFull {
@@ -35,8 +34,9 @@ async function authHeaders(): Promise<Record<string, string>> {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-export default function AdminJournalEditPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
+export default function AdminJournalEditPage() {
+  const params = useParams<{ id: string }>()
+  const id = params?.id ?? ''
   const router = useRouter()
   const [journal, setJournal] = useState<JournalFull | null>(null)
   const [saving, setSaving] = useState(false)
