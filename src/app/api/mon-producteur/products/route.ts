@@ -74,13 +74,17 @@ export async function POST(req: NextRequest) {
   }
 
   // Notify followers of new product
+  let notifiedCount = 0
+  let notifError: string | null = null
   const { data: producerFull } = await supabaseAdmin
     .from('producers').select('id, nom').eq('id', producer.id).maybeSingle()
   if (producerFull) {
-    const { data: followers } = await supabaseAdmin
+    const { data: followers, error: followersErr } = await supabaseAdmin
       .from('producer_followers').select('user_id').eq('producer_id', producer.id)
-    if (followers && followers.length > 0) {
-      await supabaseAdmin.from('notifications').insert(
+    if (followersErr) {
+      notifError = `followers lookup: ${followersErr.message}`
+    } else if (followers && followers.length > 0) {
+      const { error: insertErr } = await supabaseAdmin.from('notifications').insert(
         followers.map(f => ({
           user_id: f.user_id,
           type: 'nouveau_produit',
@@ -91,8 +95,13 @@ export async function POST(req: NextRequest) {
           lu: false,
         }))
       )
+      if (insertErr) {
+        notifError = `notif insert: ${insertErr.message}`
+      } else {
+        notifiedCount = followers.length
+      }
     }
   }
 
-  return NextResponse.json({ product: data })
+  return NextResponse.json({ product: data, _debug: { followersNotified: notifiedCount, notifError } })
 }
