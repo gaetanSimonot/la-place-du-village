@@ -1,7 +1,9 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { validateArticleInput } from '@/lib/articles'
+import { useHistoryTrap } from '@/contexts/HistoryTrapContext'
+import { useConfirm } from '@/contexts/ConfirmDialogContext'
 
 interface Props {
   onSuccess: (id: string) => void
@@ -14,6 +16,27 @@ export default function ArticleJournalForm({ onSuccess }: Props) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+
+  // ── Dirty tracking + guard PWA (back involontaire) ──
+  const submittedRef = useRef(false)
+  const dirty = !submittedRef.current && (
+    titre.trim().length > 0 || corps.trim().length > 0 || !!photoUrl
+  )
+  const trap = useHistoryTrap()
+  const { confirm } = useConfirm()
+  useEffect(() => {
+    return trap.registerGuard(async () => {
+      if (!dirty) return true
+      const ok = await confirm({
+        title: 'Quitter sans soumettre ?',
+        message: 'Ton article ne sera pas envoyé pour validation.',
+        confirmLabel: 'Quitter',
+        cancelLabel: 'Continuer',
+        destructive: true,
+      })
+      return ok
+    })
+  }, [trap, confirm, dirty])
 
   const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -57,6 +80,7 @@ export default function ArticleJournalForm({ onSuccess }: Props) {
       })
       const d = await res.json()
       if (!res.ok) throw new Error(d.error || 'Erreur soumission')
+      submittedRef.current = true   // désamorce le guard dirty
       onSuccess(d.article.id)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur')

@@ -1,8 +1,10 @@
 'use client'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
+import { useHistoryTrap } from '@/contexts/HistoryTrapContext'
+import { useConfirm } from '@/contexts/ConfirmDialogContext'
 import {
   CATEGORIES_ANNONCES,
   CATEGORIES_LABELS,
@@ -79,6 +81,40 @@ export default function AnnonceForm({ initial, onSuccess, canFlagJournal = false
   const cameraInputRef  = useRef<HTMLInputElement>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
 
+  // ── Dirty tracking + guard PWA (back involontaire en standalone) ──
+  // On considère le form "dirty" dès que l'user a touché un champ texte ou
+  // ajouté/retiré une photo, sauf juste après un submit réussi.
+  const dirtyRef = useRef(false)
+  const submittedRef = useRef(false)
+  if (!submittedRef.current) {
+    const baseTitre = initial?.titre ?? ''
+    const baseDesc  = initial?.description ?? ''
+    const baseVille = initial?.ville ?? ''
+    const basePhotos = initial?.photos ?? []
+    dirtyRef.current = (
+      titre.trim() !== baseTitre.trim() ||
+      description.trim() !== baseDesc.trim() ||
+      ville.trim() !== baseVille.trim() ||
+      photos.length !== basePhotos.length ||
+      photos.some((p, i) => p !== basePhotos[i])
+    )
+  }
+  const trap = useHistoryTrap()
+  const { confirm } = useConfirm()
+  useEffect(() => {
+    return trap.registerGuard(async () => {
+      if (!dirtyRef.current) return true
+      const ok = await confirm({
+        title: 'Quitter sans publier ?',
+        message: 'Tes modifications ne seront pas enregistrées.',
+        confirmLabel: 'Quitter',
+        cancelLabel: 'Continuer',
+        destructive: true,
+      })
+      return ok
+    })
+  }, [trap, confirm])
+
   async function handleUpload(files: FileList | null) {
     if (!files?.length || !user) return
     setUploading(true)
@@ -152,6 +188,8 @@ export default function AnnonceForm({ initial, onSuccess, canFlagJournal = false
     }
 
     const id = data.annonce?.id ?? initial?.id
+    submittedRef.current = true   // désamorce le guard dirty pour la nav suivante
+    dirtyRef.current = false
     if (onSuccess && id) onSuccess(id)
     else if (id) {
       // Si création (pas édition) → flag just_created pour proposer le boost

@@ -5,6 +5,8 @@ import { ThemeProvider } from '@/components/ThemeProvider'
 import InstallBanner from '@/components/InstallBanner'
 import { AuthModalProvider } from '@/contexts/AuthModalContext'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { ConfirmDialogProvider } from '@/contexts/ConfirmDialogContext'
+import { HistoryTrapProvider } from '@/contexts/HistoryTrapContext'
 import AuthModal from '@/components/AuthModal'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' })
@@ -59,9 +61,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           <AuthModalProvider>
             <ThemeProvider>
-              {children}
-              <InstallBanner />
-              <AuthModal />
+              <ConfirmDialogProvider>
+                <HistoryTrapProvider>
+                  {children}
+                  <InstallBanner />
+                  <AuthModal />
+                </HistoryTrapProvider>
+              </ConfirmDialogProvider>
             </ThemeProvider>
           </AuthModalProvider>
         </AuthProvider>

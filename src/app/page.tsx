@@ -614,9 +614,24 @@ export default function HomePage() {
     if (window.location.pathname.startsWith('/producteur/')) history.back()
   }, [])
 
-  // Ferme l'overlay producteur quand l'utilisateur appuie sur "retour"
+  // Ferme l'overlay producteur/établissement quand l'utilisateur appuie sur "retour".
+  //
+  // Coordination avec HistoryTrapProvider (cf. src/contexts/HistoryTrapContext.tsx) :
+  // Le trap PWA re-pousse en boucle une sentinelle marquée `_pwa_trap` au-dessus
+  // de l'entrée d'historique courante. Quand l'utilisateur pop cette sentinelle
+  // alors qu'un overlay est ouvert, on veut fermer l'overlay (priorité ici) ;
+  // si AUCUN overlay n'est ouvert et que l'event vient juste du trap, on laisse
+  // tomber pour éviter un side effect inutile — le trap se charge alors lui-même
+  // du repush dans son listener.
   useEffect(() => {
-    const onPop = () => {
+    const onPop = (e: PopStateEvent) => {
+      const hasOverlay = !!openProducerIdRef.current || !!openEtablissementIdRef.current
+      // Si aucun overlay actif ET event de sentinelle trap → no-op
+      // (Évite que page.tsx interfère avec le cycle de re-push du trap.)
+      if (!hasOverlay && e.state && typeof e.state === 'object' && (e.state as { _pwa_trap?: boolean })._pwa_trap) {
+        return
+      }
+      // Sinon, ferme les overlays s'il y en a (idempotent si pas ouverts)
       if (openProducerIdRef.current) {
         openProducerIdRef.current = null
         setOpenProducerIdState(null)
