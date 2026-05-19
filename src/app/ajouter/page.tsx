@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { Categorie } from '@/lib/types'
-import MicButton, { type MicButtonHandle } from '@/components/MicButton'
+import DicteeModal from '@/components/DicteeModal'
 import EventEditDrawer from '@/components/EventEditDrawer'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
@@ -114,8 +114,7 @@ export default function AjouterPage() {
   const [submitMessage, setSubmitMessage] = useState<string | undefined>()
   const cameraRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
-  const micRef = useRef<MicButtonHandle>(null)
-  const [micRecording, setMicRecording] = useState(false)
+  const [dicteeOpen, setDicteeOpen] = useState(false)
 
   // Bloquer l'accès si non connecté (après chargement auth)
   useEffect(() => {
@@ -317,8 +316,13 @@ export default function AjouterPage() {
       <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handleImageChange} className="hidden" />
       <input ref={galleryRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
 
-      {/* MicButton invisible — déclenché par Card 2 via ref */}
-      <MicButton ref={micRef} hidden onTranscript={t => { setTexte(prev => prev ? prev + ' ' + t : t); setMicRecording(false) }} />
+      {/* DicteeModal — ouvre quand Card 2 cliquée */}
+      {dicteeOpen && (
+        <DicteeModal
+          onClose={() => setDicteeOpen(false)}
+          onTranscript={t => setTexte(prev => prev ? prev + ' ' + t : t)}
+        />
+      )}
 
       {/* ─── Card 1: Photo d'une affiche (border primary) ─── */}
       <div className="px-4 pt-5">
@@ -369,19 +373,42 @@ export default function AjouterPage() {
           </div>
 
           {imagePreviewUrl && (
-            <div className="mt-3 flex items-stretch gap-2">
-              <div className="relative h-[70px] flex-1 overflow-hidden rounded-xl">
-                <img src={imagePreviewUrl} alt="preview" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: imagePosition }} />
-                <button onClick={() => setStep('crop')} className="absolute inset-0 flex items-center justify-center bg-black/35">
-                  <span className="rounded-full bg-black/40 px-3 py-1 text-[11px] font-bold text-white">Modifier le cadrage</span>
+            <>
+              <div className="mt-3 flex items-stretch gap-2">
+                <div className="relative h-[70px] flex-1 overflow-hidden rounded-xl">
+                  <img src={imagePreviewUrl} alt="preview" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: imagePosition }} />
+                  <button onClick={() => setStep('crop')} className="absolute inset-0 flex items-center justify-center bg-black/35">
+                    <span className="rounded-full bg-black/40 px-3 py-1 text-[11px] font-bold text-white">Modifier le cadrage</span>
+                  </button>
+                </div>
+                <button onClick={resetImage} aria-label="Supprimer la photo" className="flex w-12 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte-doux">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
                 </button>
               </div>
-              <button onClick={resetImage} aria-label="Supprimer la photo" className="flex w-12 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte-doux">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
+              {/* Bouton extract direct depuis la photo */}
+              <button
+                onClick={handleAnalyse}
+                disabled={loading}
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-[12px] font-bold text-white disabled:opacity-55"
+              >
+                {loading ? (
+                  <>
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Lecture de l&apos;affiche…
+                  </>
+                ) : (
+                  <>
+                    Extraire les infos de cette photo
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="5" y1="12" x2="19" y2="12"/>
+                      <polyline points="13 6 19 12 13 18"/>
+                    </svg>
+                  </>
+                )}
               </button>
-            </div>
+            </>
           )}
         </div>
       </div>
@@ -391,19 +418,15 @@ export default function AjouterPage() {
         <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-texte-tres-doux">OU</span>
       </div>
 
-      {/* ─── Card 2: Dictée vocale (clickable card → trigger mic) ─── */}
+      {/* ─── Card 2: Dictée vocale (chevron → ouvre DicteeModal Whisper) ─── */}
       <div className="px-4">
         <button
           type="button"
-          onClick={() => { setMicRecording(prev => !prev); micRef.current?.toggle() }}
+          onClick={() => setDicteeOpen(true)}
           className="flex w-full items-center gap-3 rounded-2xl border bg-white p-3.5 text-left shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
-          style={{ borderColor: micRecording ? '#C84B2F' : '#F0EAE0', transition: 'border-color 0.18s' }}
+          style={{ borderColor: '#F0EAE0' }}
         >
-          <div
-            className={`flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-xl text-accent ${
-              micRecording ? 'animate-pulse bg-accent text-white' : 'bg-[#FFF0E5]'
-            }`}
-          >
+          <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-xl bg-[#FFF0E5] text-accent">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="9" y="2" width="6" height="11" rx="3"/>
               <path d="M5 10a7 7 0 0 0 14 0"/>
@@ -412,14 +435,8 @@ export default function AjouterPage() {
             </svg>
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-[15px] font-extrabold leading-tight text-texte">
-              {micRecording ? 'Enregistrement en cours…' : 'Dicter vocalement'}
-            </div>
-            <div className="mt-0.5 text-[11px] text-texte-doux">
-              {micRecording
-                ? 'Tape de nouveau pour arrêter et transcrire.'
-                : 'Parle naturellement. Ex : « Concert samedi 20h salle des fêtes 8 euros ».'}
-            </div>
+            <div className="text-[15px] font-extrabold leading-tight text-texte">Dicter vocalement</div>
+            <div className="mt-0.5 text-[11px] text-texte-doux">Parle naturellement. Ex&nbsp;: «&nbsp;Concert samedi 20h salle des fêtes 8&nbsp;€&nbsp;».</div>
           </div>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-texte-tres-doux">
             <polyline points="9 6 15 12 9 18"/>
