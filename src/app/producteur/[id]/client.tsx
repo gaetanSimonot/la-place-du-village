@@ -9,6 +9,8 @@ import { PRODUIT_CATS_MAP, normalizeProduitCat } from '@/lib/produit-cats'
 import ProducerEditDrawer from '@/components/ProducerEditDrawer'
 import ProductsEditSection from '@/components/ProductsEditSection'
 import FeatureButton from '@/components/FeatureButton'
+import SubscriptionModal from '@/components/SubscriptionModal'
+import { can, toUserContext } from '@/lib/capabilities'
 
 interface Producer {
   id: string; nom: string; description_courte: string | null; description_longue: string | null
@@ -79,6 +81,9 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
   const touchStartXRef = useRef<number | null>(null)
   const lastInteractionRef = useRef<number>(Date.now())
   const photosLenRef = useRef<number>(0)
+  // Claim system (mirror etablissement)
+  const [claimOpen, setClaimOpen] = useState(false)
+  const [claiming, setClaiming] = useState(false)
   const [isFav, setIsFav] = useState(false)
   const [isFollowing, setIsFollowing] = useState(false)
   const [favoriteCount, setFavoriteCount] = useState(0)
@@ -248,6 +253,47 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
     if (navigator.share) navigator.share({ title: producer?.nom ?? '', url }).catch(() => {})
     else { navigator.clipboard.writeText(url).catch(() => {}); showToast('Lien copié !') }
   }
+
+  // Routing 3-voies pour "Revendiquer cette fiche producteur"
+  // (mirror etablissement claim)
+  async function handleClaimClick() {
+    if (!user) {
+      openAuthModal(`${window.location.origin}/producteur/${id}`)
+      return
+    }
+    const ctx = toUserContext(profile, isAdmin)
+    if (!can(ctx, 'open_shop')) {
+      setClaimOpen(true)
+      return
+    }
+    setClaiming(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const res = await fetch(`/api/producers/${id}/claim`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({}),
+      })
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}))
+        if (data.autoApproved) {
+          showToast('🎉 Vous gérez maintenant cette fiche !')
+          // Recharge la fiche
+          fetch(`/api/producers/${id}`)
+            .then(r => r.json())
+            .then(d => { if (d.producer) setProducer(d.producer) })
+        } else {
+          showToast('✓ Demande envoyée — un admin la validera bientôt')
+        }
+      } else {
+        const d = await res.json().catch(() => ({}))
+        showToast(d.error ?? 'Erreur lors de la demande')
+      }
+    } finally {
+      setClaiming(false)
+    }
+  }
   function scrollToAvis() {
     setTab('avis')
     setTimeout(() => tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
@@ -375,6 +421,35 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
             </p>
           )}
         </div>
+
+        {/* Claim card — visible si pas owner et pas encore claim */}
+        {!isOwner && !producer.user_id && (
+          <div style={{ padding: '14px 16px 0' }}>
+            <div style={{
+              padding: '14px 16px', borderRadius: 16,
+              background: '#FDFAF5', border: `1.5px dashed ${T.bord}`,
+            }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: T.texte, margin: '0 0 4px' }}>
+                Vous êtes ce producteur ?
+              </p>
+              <p style={{ fontSize: 12, color: T.texteDoux, lineHeight: 1.5, margin: '0 0 12px' }}>
+                Revendiquez cette fiche pour la compléter et la gérer.
+              </p>
+              <button
+                onClick={handleClaimClick}
+                disabled={claiming}
+                style={{
+                  padding: '10px 20px', borderRadius: 999,
+                  background: T.primary, color: '#fff', border: 'none',
+                  fontWeight: 700, fontSize: 13, cursor: claiming ? 'wait' : 'pointer',
+                  opacity: claiming ? 0.6 : 1, fontFamily: 'inherit',
+                }}
+              >
+                {claiming ? '…' : 'Revendiquer cette fiche'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Follow banner */}
         {producer.user_id !== user?.id && (
@@ -736,6 +811,15 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
       )}
 
       {editing && producer && <ProducerEditDrawer producer={producer} onClose={() => setEditing(false)} onSaved={updated => setProducer(updated)} />}
+
+      {/* Modale upgrade plan si user pas Pro */}
+      {claimOpen && (
+        <SubscriptionModal
+          context={{ kind: 'feature', featureLabel: 'Revendiquer une fiche producteur', minPlan: 'pro' }}
+          onClose={() => setClaimOpen(false)}
+          currentPlan={(profile?.plan as 'basic' | 'habitants' | 'pro') ?? 'basic'}
+        />
+      )}
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
         @keyframes photoFadeIn { from { opacity: 0.55; } to { opacity: 1; } }
