@@ -328,11 +328,17 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
       if (res.ok) {
         const data = await res.json().catch(() => ({}))
         if (data.autoApproved) {
-          showToast('🎉 Vous gérez maintenant cette fiche !')
-          // Recharge la fiche
+          showToast('🎉 Vous gérez maintenant cette fiche — ajoute tes produits !')
+          // Optimistic update + refetch confirmation
+          setProducer(p => p ? { ...p, user_id: user.id } : p)
           fetch(`/api/producers/${id}`)
             .then(r => r.json())
             .then(d => { if (d.producer) setProducer(d.producer) })
+            .catch(() => {})
+          // Passe direct en mode édition produits
+          setTab('produits')
+          setEditMode(true)
+          setTimeout(() => tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200)
         } else {
           showToast('✓ Demande envoyée — un admin la validera bientôt')
         }
