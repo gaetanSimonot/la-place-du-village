@@ -10,7 +10,7 @@ interface Props {
 
 export default function HubTopBar({
   onOpenMenu, onOpenNotifs, onOpenZone,
-  zoneLabel = 'Ganges · 30 km', unreadCount = 0,
+  zoneLabel = 'Ganges et alentours', unreadCount = 0,
 }: Props) {
   return (
     <div className="flex items-center justify-between gap-2.5 px-4 pt-3.5">
@@ -46,13 +46,7 @@ export default function HubTopBar({
             <path d="M12 22s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/>
             <circle cx="12" cy="10" r="2.5"/>
           </svg>
-          <span className="truncate">
-            {(() => {
-              // Affiche "Ganges · ≈ 30 km" (le ≈ indique que le rayon est approximatif)
-              const m = zoneLabel.match(/^(.*?)\s*·\s*(.+)$/)
-              return m ? <>{m[1]} · <span aria-label="environ">≈</span> {m[2]}</> : zoneLabel
-            })()}
-          </span>
+          <span className="truncate">{zoneLabel}</span>
         </button>
       </div>
 

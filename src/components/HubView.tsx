@@ -87,6 +87,18 @@ export default function HubView({
   const [todayTotal, setTodayTotal] = useState<number>(0)
   const [promos, setPromos] = useState<PromoCard[]>([])
   const [featuredAnnonces, setFeaturedAnnonces] = useState<Annonce[]>([])
+  // Counts globaux pour le bandeau hero map (V3 variant-a2)
+  const [zoneCounts, setZoneCounts] = useState<{ evt: number; etab: number; prod: number }>({ evt: 0, etab: 0, prod: 0 })
+
+  useEffect(() => {
+    Promise.all([
+      supabase.from('evenements').select('*', { count: 'exact', head: true }).eq('statut', 'publie'),
+      supabase.from('etablissements').select('*', { count: 'exact', head: true }),
+      supabase.from('producers').select('*', { count: 'exact', head: true }),
+    ]).then(([evt, etab, prod]) => {
+      setZoneCounts({ evt: evt.count ?? 0, etab: etab.count ?? 0, prod: prod.count ?? 0 })
+    }).catch(() => {})
+  }, [])
 
   // Hero carousel : 1. featured_slots hub_hero (events + etabs) > 2. today event > 3. week event
   const loadHero = useCallback(async () => {
@@ -349,10 +361,87 @@ export default function HubView({
         <p className="mt-1 text-[13px] text-texte-doux">Voici ce qui se passe près de toi.</p>
       </div>
 
-      {/* spacer avant hero */}
+      {/* spacer avant hero map */}
+      <div className="h-[14px]" />
+
+      {/* ── 3.5 Hero map bandeau V3 (variant-a2) ─────────────────────────── */}
+      <div className="px-4">
+        <button
+          type="button"
+          onClick={() => onSelectAgenda()}
+          aria-label="Ouvrir la carte vivante"
+          style={{
+            width: '100%', padding: 0, border: 'none', cursor: 'pointer',
+            position: 'relative', borderRadius: 18, overflow: 'hidden',
+            boxShadow: '0 4px 18px rgba(44,28,16,0.14)',
+            height: 128, display: 'block',
+          }}
+        >
+          {/* SVG carte stylisé statique */}
+          <svg viewBox="0 0 390 200" xmlns="http://www.w3.org/2000/svg"
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+            preserveAspectRatio="xMidYMid slice"
+          >
+            <rect width="390" height="200" fill="#E4DED2" />
+            <path d="M0,130 C100,90 200,140 300,110 C350,95 380,120 390,118 L390,130 L0,130 Z" fill="#B8C89A" opacity="0.55" />
+            <ellipse cx="60" cy="60" rx="55" ry="30" fill="#B8C89A" opacity="0.45" />
+            <path d="M0,90 C100,80 200,110 300,100 C350,95 380,105 390,103 L390,108 C380,110 350,100 300,105 C200,115 100,85 0,95 Z" fill="#AAC4D8" opacity="0.85" />
+            <path d="M-10,75 Q200,55 400,90" stroke="#F8F3EC" strokeWidth="10" fill="none" />
+            <path d="M120,-10 Q160,80 200,170 Q240,250 280,310" stroke="#F8F3EC" strokeWidth="7" fill="none" />
+            <path d="M-10,150 L400,140" stroke="#F8F3EC" strokeWidth="4" fill="none" />
+            <text x="200" y="100" fill="#8C6E5A" fontSize="9" fontWeight="700" textAnchor="middle" fontFamily="Inter, sans-serif" letterSpacing="0.15em">GANGES</text>
+          </svg>
+          {/* Pins stylisés */}
+          {[
+            { x: 30, y: 38, color: '#E74C3C' }, { x: 52, y: 28, color: '#F39C12' },
+            { x: 65, y: 55, color: '#E91E63', big: true }, { x: 42, y: 65, color: '#3498DB' },
+            { x: 75, y: 42, color: '#27AE60' }, { x: 22, y: 58, color: '#9B59B6' },
+            { x: 58, y: 75, color: '#E74C3C' }, { x: 80, y: 68, color: '#F39C12' },
+          ].map((p, i) => {
+            const size = (p.big ? 14 : 10) * 1.2
+            return (
+              <svg key={i} width={size} height={size * 1.4} viewBox="0 0 12 17"
+                style={{ position: 'absolute', left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%, -100%)' }}
+              >
+                <path d="M6 0 C2.5 0 0 2.5 0 6 C0 11 6 17 6 17 C6 17 12 11 12 6 C12 2.5 9.5 0 6 0z" fill={p.color} stroke="rgba(255,255,255,0.92)" strokeWidth="1" />
+                <circle cx="6" cy="6" r="2" fill="white" opacity="0.55" />
+              </svg>
+            )
+          })}
+          {/* Gradient overlay */}
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(26,18,9,0.05) 0%, rgba(26,18,9,0.55) 100%)' }} />
+          {/* Chip EN DIRECT top-left */}
+          <div style={{ position: 'absolute', top: 10, left: 12, display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(6px)', padding: '4px 9px', borderRadius: 999, fontSize: 9, fontWeight: 800, color: '#2D5A3D', letterSpacing: '0.08em' }}>
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#E74C3C', boxShadow: '0 0 0 2.5px rgba(231,76,60,0.30)' }} />
+            EN DIRECT
+          </div>
+          {/* CTA Ouvrir top-right */}
+          <div style={{ position: 'absolute', top: 10, right: 12, display: 'flex', alignItems: 'center', gap: 5, background: '#2D5A3D', color: '#fff', padding: '5px 10px 5px 12px', borderRadius: 999, fontSize: 11, fontWeight: 800, boxShadow: '0 2px 8px rgba(45,90,61,0.30)' }}>
+            Ouvrir
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" />
+            </svg>
+          </div>
+          {/* 3 stats glass bottom */}
+          <div style={{ position: 'absolute', left: 12, right: 12, bottom: 10, display: 'flex', gap: 6 }}>
+            {[
+              { n: zoneCounts.evt, l: 'événements' },
+              { n: zoneCounts.etab, l: 'commerces' },
+              { n: zoneCounts.prod, l: 'producteurs' },
+            ].map(s => (
+              <div key={s.l} style={{ flex: 1, background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)', borderRadius: 10, padding: '6px 9px', display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                <span style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif', fontSize: 18, color: '#1A1209', lineHeight: 1 }}>{s.n}</span>
+                <span style={{ fontSize: 9, fontWeight: 700, color: '#7A6A5A', letterSpacing: '0.02em' }}>{s.l}</span>
+              </div>
+            ))}
+          </div>
+        </button>
+      </div>
+
+      {/* spacer */}
       <div className="h-[18px]" />
 
-      {/* ── 4. Hero carousel ──────────────────────────────────────────── */}
+      {/* ── 4. Hero carousel À LA UNE ──────────────────────────────────── */}
       {heroItems.length > 0 && (
         <HubHeroCarousel
           items={heroItems}
