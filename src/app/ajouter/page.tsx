@@ -304,7 +304,7 @@ export default function AjouterPage() {
       <div className="px-4 pt-6">
         <h1
           className="m-0 font-serif text-[26px] leading-[1.1] text-texte"
-          style={{ letterSpacing: '-0.02em' }}
+          style={{ letterSpacing: '-0.02em', fontWeight: 700 }}
         >
           Capture-le, on s&apos;occupe du reste
         </h1>
