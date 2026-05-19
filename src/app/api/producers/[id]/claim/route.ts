@@ -64,13 +64,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!prod) return NextResponse.json({ error: 'Non trouvé' }, { status: 404 })
   if (prod.user_id) return NextResponse.json({ error: 'Déjà revendiqué' }, { status: 409 })
 
-  // Auto-validation : assigne la fiche (is_featured si user pro)
+  // Auto-validation : assigne la fiche
+  // (la table producers n'a pas de colonne plan ni is_featured — on ne touche
+  // qu'à user_id ; le statut 'à la une' est géré ailleurs via featured_slots)
   const { error: upErr } = await supabaseAdmin
     .from('producers')
-    .update({
-      user_id: ctx.userId,
-      is_featured: ctx.plan === 'pro',
-    })
+    .update({ user_id: ctx.userId })
     .eq('id', id)
 
   if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 })

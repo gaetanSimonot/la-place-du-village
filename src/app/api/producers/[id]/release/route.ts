@@ -33,7 +33,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { error } = await supabaseAdmin
     .from('producers')
-    .update({ user_id: null, is_featured: false })
+    .update({ user_id: null })
     .eq('id', id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
