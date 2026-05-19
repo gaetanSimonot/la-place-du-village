@@ -23,12 +23,30 @@ interface Props {
   onSuccess?: (annonceId: string) => void
 }
 
-const TYPE_INFO: Record<AnnonceType, { label: string; emoji: string; color: string; bg: string; help: string }> = {
-  vente:            { label: 'Vente',   emoji: '🏷️', color: '#3A5BC7', bg: '#EEF3FF', help: 'Prix fixe, contact direct.' },
-  troc:             { label: 'Troc',    emoji: '🔄', color: '#E8622A', bg: '#FFF0EB', help: 'Échange contre autre chose.' },
-  don:              { label: 'Don',     emoji: '🎁', color: '#2D5A3D', bg: '#E8F2EB', help: 'Gratuit, visible par tous.' },
-  enchere_inversee: { label: 'Enchère', emoji: '📉', color: '#C0392B', bg: '#FBE9E7', help: 'Le prix baisse chaque jour. Si personne ne prend avant le seuil, l\'annonce devient un don.' },
+const TYPE_INFO: Record<AnnonceType, { label: string; sub: string; color: string; bg: string; help: string; icon: React.ReactNode }> = {
+  vente:            {
+    label: 'Vente',   sub: 'À prix fixe',          color: '#1A1209', bg: '#FFFFFF',
+    help: 'Prix fixe, contact direct.',
+    icon: <span style={{ fontSize: 22, fontWeight: 800, lineHeight: 1, color: '#1A1209' }}>€</span>,
+  },
+  don:              {
+    label: 'Don',     sub: 'Gratuit',              color: '#2D5A3D', bg: '#E8F2EB',
+    help: 'Gratuit, visible par tous.',
+    icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2D5A3D" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>,
+  },
+  troc:             {
+    label: 'Troc',    sub: 'Échange contre…',      color: '#3A5BC7', bg: '#EEF3FF',
+    help: 'Échange contre autre chose.',
+    icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3A5BC7" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>,
+  },
+  enchere_inversee: {
+    label: 'Enchère', sub: 'Le prix baisse / j',   color: '#C0392B', bg: '#FBE9E7',
+    help: 'Le prix baisse chaque jour. Si personne ne prend avant le seuil, l\'annonce devient un don.',
+    icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C0392B" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>,
+  },
 }
+
+const MAX_PHOTOS = 3
 
 export default function AnnonceForm({ initial, onSuccess }: Props) {
   const router = useRouter()
@@ -137,17 +155,17 @@ export default function AnnonceForm({ initial, onSuccess }: Props) {
   const showPrix    = type === 'vente' || type === 'enchere_inversee'
   const showEnchere = type === 'enchere_inversee'
   const dureeJours  = getDureeAnnonceJours(plan)
-  const info = TYPE_INFO[type]
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
 
-      {/* ─────────── Type ─────────── */}
+      {/* ─────────── TYPE D'ANNONCE 2x2 V3 ─────────── */}
       <Section title="Type d'annonce">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-          {(['vente', 'troc', 'don', 'enchere_inversee'] as AnnonceType[]).map(t => {
+          {(['vente', 'don', 'troc', 'enchere_inversee'] as AnnonceType[]).map(t => {
             const allowed = typesAutorises.includes(t)
             const ti = TYPE_INFO[t]
+            const active = type === t
             return (
               <button
                 key={t}
@@ -156,56 +174,106 @@ export default function AnnonceForm({ initial, onSuccess }: Props) {
                 onClick={() => setType(t)}
                 title={!allowed ? `Plan ${plan} → upgrade requis` : ''}
                 style={{
-                  padding: '14px 12px', borderRadius: 14,
-                  border: type === t ? `2px solid ${ti.color}` : '1.5px solid #E5DDD2',
-                  backgroundColor: type === t ? ti.bg : '#fff',
+                  padding: '12px 14px', borderRadius: 14,
+                  border: active ? `1.5px solid #1A1209` : '1px solid #F0EAE0',
+                  backgroundColor: '#fff',
                   fontFamily: 'inherit',
                   cursor: allowed ? 'pointer' : 'not-allowed',
                   opacity: allowed ? 1 : 0.45,
-                  display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4,
+                  display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left',
+                  boxShadow: '0 1px 4px rgba(44,28,16,0.04)',
                 }}
               >
-                <span style={{ fontSize: 22 }}>{ti.emoji}</span>
-                <span style={{ fontSize: 13, fontWeight: 800, color: type === t ? ti.color : '#1C1917' }}>
-                  {ti.label}
-                </span>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  background: ti.bg, color: ti.color,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}>
+                  {ti.icon}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209', lineHeight: 1.2 }}>{ti.label}</div>
+                  <div style={{ fontSize: 10, color: '#7A6A5A', marginTop: 2, lineHeight: 1.2 }}>{ti.sub}</div>
+                </div>
               </button>
             )
           })}
         </div>
-        <p style={{ fontSize: 12, color: '#8A7A6A', margin: '8px 0 0' }}>{info.help}</p>
         {plan === 'basic' && type !== 'don' && (
-          <p style={{ fontSize: 12, color: '#7A5614', margin: '6px 0 0', lineHeight: 1.5 }}>
-            Plan Villageois : 3 annonces vente/troc/enchère par mois (les dons restent illimités).{' '}
+          <p style={{ fontSize: 11, color: '#7A5614', margin: '6px 0 0', lineHeight: 1.5 }}>
+            Plan Villageois : 3 annonces vente/troc/enchère par mois.{' '}
             <button
               type="button"
               onClick={() => setShowUpgrade(true)}
-              style={{ background: 'none', border: 'none', padding: 0, color: '#3A5BC7', textDecoration: 'underline', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#3A5BC7', textDecoration: 'underline', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11 }}
             >
               Passer Habitants
-            </button>{' '}pour publier sans limite.
+            </button>
           </p>
         )}
       </Section>
 
-      {/* ─────────── Photos ─────────── */}
-      <Section title="Photos">
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {photos.map(url => (
-            <div key={url} style={{ position: 'relative', width: 84, height: 84, borderRadius: 10, overflow: 'hidden', backgroundColor: '#F0EBE3' }}>
-              <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      {/* ─────────── PHOTOS 3 slots V3 ─────────── */}
+      <Section title="Photos" subtitle={`${MAX_PHOTOS} photos maximum, la 1ère est la principale`}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+          {[0, 1, 2].map(idx => {
+            const url = photos[idx]
+            if (url) {
+              return (
+                <div key={idx} style={{ position: 'relative', aspectRatio: '1', borderRadius: 12, overflow: 'hidden', backgroundColor: '#F0EBE3' }}>
+                  <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  {idx === 0 && (
+                    <span style={{
+                      position: 'absolute', top: 6, left: 6, zIndex: 2,
+                      fontSize: 9, fontWeight: 800, color: '#fff',
+                      background: '#1A1209', borderRadius: 4, padding: '2px 5px',
+                      letterSpacing: '0.04em', textTransform: 'uppercase',
+                    }}>
+                      Principale
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(url)}
+                    aria-label="Retirer la photo"
+                    style={{
+                      position: 'absolute', top: 6, right: 6,
+                      width: 22, height: 22, borderRadius: '50%',
+                      backgroundColor: 'rgba(0,0,0,0.65)', color: '#fff',
+                      border: 'none', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </div>
+              )
+            }
+            // Slot vide → bouton Ajouter
+            return (
               <button
+                key={idx}
                 type="button"
-                onClick={() => removePhoto(url)}
+                onClick={() => galleryInputRef.current?.click()}
+                disabled={uploading}
                 style={{
-                  position: 'absolute', top: 4, right: 4,
-                  width: 22, height: 22, borderRadius: '50%',
-                  backgroundColor: 'rgba(0,0,0,0.65)', color: '#fff',
-                  border: 'none', cursor: 'pointer', fontSize: 13, lineHeight: 1,
+                  aspectRatio: '1', borderRadius: 12,
+                  border: '1px dashed #E5DDD2', background: '#FDFAF5',
+                  cursor: uploading ? 'wait' : 'pointer',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
+                  color: '#7A6A5A',
                 }}
-              >×</button>
-            </div>
-          ))}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+                <span style={{ fontSize: 11, fontWeight: 700 }}>Ajouter</span>
+              </button>
+            )
+          })}
         </div>
 
         <input
@@ -217,25 +285,19 @@ export default function AnnonceForm({ initial, onSuccess }: Props) {
         <input
           ref={galleryInputRef}
           type="file" accept="image/*" multiple
-          onChange={e => { handleUpload(e.target.files); e.target.value = '' }}
+          onChange={e => {
+            const remaining = MAX_PHOTOS - photos.length
+            const files = e.target.files
+            if (files && remaining > 0) {
+              const dt = new DataTransfer()
+              for (let i = 0; i < Math.min(files.length, remaining); i++) dt.items.add(files[i])
+              handleUpload(dt.files)
+            }
+            e.target.value = ''
+          }}
           style={{ display: 'none' }}
         />
-
-        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-          <button
-            type="button"
-            onClick={() => cameraInputRef.current?.click()}
-            disabled={uploading}
-            style={uploadBtnStyle('#2D5A3D')}
-          >📷 Prendre une photo</button>
-          <button
-            type="button"
-            onClick={() => galleryInputRef.current?.click()}
-            disabled={uploading}
-            style={uploadBtnStyle('#fff', '#2D5A3D')}
-          >🖼 Galerie</button>
-        </div>
-        {uploading && <p style={{ fontSize: 12, color: '#8A7A6A', margin: '6px 0 0' }}>Envoi en cours…</p>}
+        {uploading && <p style={{ fontSize: 11, color: '#7A6A5A', margin: '6px 0 0' }}>Envoi en cours…</p>}
       </Section>
 
       {/* ─────────── Infos principales ─────────── */}
@@ -262,11 +324,15 @@ export default function AnnonceForm({ initial, onSuccess }: Props) {
         <Field label="Description (optionnel)">
           <textarea
             value={description}
-            onChange={e => setDescription(e.target.value)}
+            onChange={e => setDescription(e.target.value.slice(0, 1000))}
             rows={4}
-            placeholder="État, usage, détails…"
+            placeholder="État, usage, détails… Donne de la précision pour vendre vite"
             style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
           />
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 11, color: '#7A6A5A' }}>
+            <span>Donne de la précision pour vendre vite</span>
+            <span>{description.length}/1000</span>
+          </div>
         </Field>
       </Section>
 
@@ -336,40 +402,53 @@ export default function AnnonceForm({ initial, onSuccess }: Props) {
         </label>
       </Section>
 
-      {/* ─────────── Localisation ─────────── */}
-      <Section title="Localisation (optionnel)">
-        <input
-          value={ville}
-          onChange={e => setVille(e.target.value)}
-          placeholder="Ganges, Saint-Bauzille, etc."
-          style={inputStyle}
-        />
+      {/* ─────────── LIEU DE RETRAIT V3 ─────────── */}
+      <Section title="Lieu de retrait">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, background: '#fff', border: '1px solid #F0EAE0' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#7A6A5A', flexShrink: 0 }}>
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          <input
+            value={ville}
+            onChange={e => setVille(e.target.value)}
+            placeholder="Ganges, Saint-Bauzille…"
+            style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 14, color: '#1A1209', fontFamily: 'inherit' }}
+          />
+        </div>
       </Section>
 
-      {/* ─────────── Coordonnées (requises) ─────────── */}
-      <Section title="📞 Coordonnées" subtitle="Au moins l'une des deux. Partageables dans la discussion avec l'acheteur.">
-        <Field label="Téléphone">
+      {/* ─────────── COORDONNÉES V3 ─────────── */}
+      <Section title="Coordonnées" subtitle="Au moins l'un des deux, partageable dans la discussion">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, background: '#fff', border: '1px solid #F0EAE0' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#7A6A5A', flexShrink: 0 }}>
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+          </svg>
           <input
             type="tel"
             value={contactTel}
             onChange={e => setContactTel(e.target.value)}
             placeholder="06 12 34 56 78"
-            style={inputStyle}
+            style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 14, color: '#1A1209', fontFamily: 'inherit' }}
           />
-        </Field>
-        <Field label="Email">
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, background: '#fff', border: '1px solid #F0EAE0' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#7A6A5A', flexShrink: 0 }}>
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
+          </svg>
           <input
             type="email"
             value={contactEmail}
             onChange={e => setContactEmail(e.target.value)}
-            placeholder="moi@exemple.fr"
-            style={inputStyle}
+            placeholder="Email (optionnel)"
+            style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 14, color: '#1A1209', fontFamily: 'inherit' }}
           />
-        </Field>
+        </div>
       </Section>
 
       {!initial && (
-        <p style={{ fontSize: 12, color: '#8A7A6A', margin: 0, textAlign: 'center' }}>
+        <p style={{ fontSize: 11, color: '#7A6A5A', margin: 0, textAlign: 'center' }}>
           Ton annonce restera en ligne pendant <b>{dureeJours} jours</b> (plan {plan}).
         </p>
       )}
@@ -378,20 +457,40 @@ export default function AnnonceForm({ initial, onSuccess }: Props) {
         <p style={{ fontSize: 13, color: '#C0392B', margin: 0, fontWeight: 600, padding: 10, backgroundColor: '#FEF2F2', borderRadius: 10, textAlign: 'center' }}>{error}</p>
       )}
 
-      <button
-        type="submit"
-        disabled={submitting || uploading}
+      {/* Sticky CTA bottom V3 */}
+      <div
         style={{
-          padding: '15px 20px', borderRadius: 14, border: 'none',
-          backgroundColor: '#2D5A3D', color: '#fff',
-          fontSize: 15, fontWeight: 800, fontFamily: 'inherit',
-          cursor: submitting ? 'wait' : 'pointer',
-          opacity: submitting ? 0.6 : 1,
-          boxShadow: '0 4px 14px rgba(45,90,61,0.25)',
+          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 30,
+          background: '#FFFFFF', borderTop: '1px solid #EDE8E0',
+          padding: '12px 16px 16px',
+          paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))',
         }}
       >
-        {submitting ? '…' : initial ? 'Mettre à jour' : 'Publier l\'annonce'}
-      </button>
+        <button
+          type="submit"
+          disabled={submitting || uploading}
+          style={{
+            width: '100%', height: 48, borderRadius: 14, border: 'none',
+            backgroundColor: '#2D5A3D', color: '#fff',
+            fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
+            cursor: submitting ? 'wait' : 'pointer',
+            opacity: submitting ? 0.6 : 1,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}
+        >
+          {submitting ? (
+            <>
+              <span style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid #fff', borderTopColor: 'transparent', animation: 'spin 0.7s linear infinite' }} />
+              Publication…
+            </>
+          ) : (
+            <>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              {initial ? 'Mettre à jour' : 'Publier l\'annonce'}
+            </>
+          )}
+        </button>
+      </div>
 
       {showUpgrade && (
         <SubscriptionModal
@@ -437,12 +536,3 @@ const inputStyle: React.CSSProperties = {
   backgroundColor: '#fff',
 }
 
-function uploadBtnStyle(bg: string, fg = '#fff'): React.CSSProperties {
-  return {
-    flex: 1, padding: '11px 14px', borderRadius: 12,
-    border: bg === '#fff' ? `1.5px solid ${fg}` : 'none',
-    backgroundColor: bg, color: bg === '#fff' ? fg : fg,
-    fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
-    cursor: 'pointer',
-  }
-}

@@ -32,9 +32,9 @@ export default function NouvelleAnnonceClient() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-creme pb-20 font-inter text-texte">
+    <div className="min-h-[100dvh] pb-32 font-inter text-texte" style={{ background: '#FDFAF5' }}>
       {/* Top bar V3 */}
-      <div className="flex items-center justify-between gap-2.5 px-4 pt-3.5">
+      <div className="flex items-center justify-between gap-2.5 px-4 pt-3.5 pb-2">
         <button
           onClick={() => router.back()}
           aria-label="Retour"
@@ -58,27 +58,9 @@ export default function NouvelleAnnonceClient() {
         </button>
       </div>
 
-      {/* Hero intro */}
-      <div className="px-4 pt-6">
-        <h1
-          className="m-0 font-serif text-[26px] leading-[1.1] text-texte"
-          style={{ letterSpacing: '-0.02em' }}
-        >
-          Créer une annonce
-        </h1>
-        <p className="mt-1.5 text-[13px] leading-[1.5] text-texte-doux">
-          Choisis le type (vente, don, troc, enchère), ajoute des photos et décris ton objet.
-        </p>
-      </div>
-
-      {/* Form card V3 */}
-      <div className="px-4 pt-5">
-        <div
-          className="rounded-2xl border bg-white p-4 shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
-          style={{ borderColor: '#F0EAE0' }}
-        >
-          <AnnonceForm onSuccess={id => router.push(`/annonces/${id}`)} />
-        </div>
+      {/* Form direct sur creme — pas de card wrapper */}
+      <div className="px-4 pt-2">
+        <AnnonceForm onSuccess={id => router.push(`/annonces/${id}`)} />
       </div>
 
       <BottomNavBar />
