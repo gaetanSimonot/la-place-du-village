@@ -22,6 +22,7 @@ export interface JournalRow {
   selection_article_id: string | null
   spotlight_etab_id: string | null
   temps_lecture_min: number | null
+  statut: 'brouillon' | 'publie'
   publie_at: string | null
 }
 

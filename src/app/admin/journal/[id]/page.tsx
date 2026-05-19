@@ -129,11 +129,11 @@ export default function AdminJournalEditPage() {
             : <button onClick={depublier} className="rounded-[12px] border border-bord bg-white px-5 py-2.5 text-[13px] font-bold text-texte">Dépublier</button>
           }
           <Link
-            href={`/journal/${journal.numero}`}
+            href={journal.statut === 'publie' ? `/journal/${journal.numero}` : `/admin/journal/${id}/preview`}
             target="_blank"
             className="rounded-[12px] border border-bord bg-white px-5 py-2.5 text-[13px] font-bold text-texte"
           >
-            Voir la page publique →
+            {journal.statut === 'publie' ? 'Voir la page publique →' : 'Aperçu →'}
           </Link>
           <button onClick={supprimer} className="rounded-[12px] border border-accent bg-white px-5 py-2.5 text-[13px] font-bold text-accent">
             Supprimer

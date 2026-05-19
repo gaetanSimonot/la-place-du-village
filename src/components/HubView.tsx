@@ -530,23 +530,22 @@ export default function HubView({
         </>
       )}
 
-      {/* ── 9. Bottom bento — Carte (1.5fr) + Journal (1fr) ───────────── */}
+      {/* ── 9. Bottom bento — Carte (1.5fr) + Journal (1fr, si publié) ── */}
       <div
         className="grid gap-2 px-4 pt-6"
-        style={{ gridTemplateColumns: '1.5fr 1fr' }}
+        style={{ gridTemplateColumns: journal ? '1.5fr 1fr' : '1fr' }}
       >
         <CarteTile
           counts={zoneCounts}
           total={totalCarte}
           onClick={onSelectAgenda}
         />
-        <JournalTile
-          journal={journal}
-          onClick={() => {
-            if (journal) router.push(`/journal/${journal.numero}`)
-            else router.push('/journal')
-          }}
-        />
+        {journal && (
+          <JournalTile
+            journal={journal}
+            onClick={() => router.push(`/journal/${journal.numero}`)}
+          />
+        )}
       </div>
     </div>
   )

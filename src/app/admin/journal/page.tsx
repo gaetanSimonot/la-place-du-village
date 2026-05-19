@@ -189,11 +189,11 @@ function JournalList({ rows, onDelete }: { rows: JournalRow[]; onDelete: () => v
             Éditer
           </Link>
           <Link
-            href={`/journal/${r.numero}`}
+            href={r.statut === 'publie' ? `/journal/${r.numero}` : `/admin/journal/${r.id}/preview`}
             target="_blank"
             className="rounded-lg border border-bord bg-white px-3 py-1.5 text-[11px] font-bold text-texte"
           >
-            Voir
+            {r.statut === 'publie' ? 'Voir' : 'Aperçu'}
           </Link>
           <button
             type="button"
