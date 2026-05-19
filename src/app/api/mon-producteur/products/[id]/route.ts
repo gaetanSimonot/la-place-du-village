@@ -46,7 +46,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         followers.map(f => ({
           user_id: f.user_id,
           type: 'disponibilite',
-          actor_id: item.producer.id,
+          actor_id: null, // producer entity, pas un user — FK exige auth.users
           actor_name: item.producer.nom,
           target_id: item.producer.id,
           target_type: 'producer',

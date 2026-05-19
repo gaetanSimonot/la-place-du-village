@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
         followers.map(f => ({
           user_id: f.user_id,
           type: 'nouveau_produit',
-          actor_id: producerFull.id,
+          actor_id: null, // producer entity, pas un user — FK exige auth.users
           actor_name: producerFull.nom,
           target_id: producerFull.id,
           target_type: 'producer',
