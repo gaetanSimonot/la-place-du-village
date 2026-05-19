@@ -2,7 +2,6 @@
 import React from 'react'
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react'
 import dynamic from 'next/dynamic'
-import { AnimatePresence, motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import ProfilView from '@/components/ProfilView'
@@ -190,7 +189,6 @@ export default function HomePage() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [fabOpen, setFabOpen]       = useState(false)
-  const [paramsOpen, setParamsOpen] = useState(false)
   const [commerceFormOpen, setCommerceFormOpen] = useState(false)
   const [infoOpen, setInfoOpen]     = useState(false)
   const mapDragTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -666,8 +664,6 @@ export default function HomePage() {
     router.push(`/evenement/${id}`)
   }, [saveNavForEvent, router])
 
-  const showFab = !showHub && navTab === 'carte' && sheetMode !== 'full' && !openProducerId && !openEtablissementId && !searchOpen
-
   return (
     <div style={{ height: '100dvh', position: 'relative', overflow: 'hidden', backgroundColor: '#e8dece' }}>
 
@@ -729,52 +725,87 @@ export default function HomePage() {
       {/* ─── Boutons carte — haut gauche + haut droite ─── */}
       {(() => {
         const showBtns = !showHub && navTab === 'carte' && sheetMode !== 'full' && !openProducerId && !openEtablissementId && !searchOpen
-        const BTN: React.CSSProperties = { width: 44, height: 44, borderRadius: 12, boxShadow: '0 2px 10px rgba(0,0,0,0.14)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E0D8CE', transition: 'background-color 0.15s' }
-        const activeColor = (on: boolean): React.CSSProperties => on ? { backgroundColor: 'var(--primary)', border: 'none', color: '#fff' } : { backgroundColor: 'rgba(255,255,255,0.92)', color: '#6B6B6B' }
+        // V3 derived map mode (evt/etab/prod)
+        const mapMode: 'evt' | 'etab' | 'prod' =
+          appMode === 'agenda' ? 'evt' : annuaireTab === 1 ? 'etab' : 'prod'
+        const setMapMode = (m: 'evt' | 'etab' | 'prod') => {
+          if (m === 'evt') { setAppMode('agenda') }
+          else { setAppMode('annuaire'); setAnnuaireTab(m === 'etab' ? 1 : 0) }
+        }
+        const MODES = [
+          { id: 'evt' as const, label: 'Événements' },
+          { id: 'etab' as const, label: 'Commerces' },
+          { id: 'prod' as const, label: 'Producteurs' },
+        ]
+        const FBTN: React.CSSProperties = { width: 38, height: 38, borderRadius: '50%', background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1A1209', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }
         return (
           <>
-            {/* Stack gauche */}
-            <div style={{ position: 'absolute', top: 14, left: 14, zIndex: 200, display: 'flex', flexDirection: 'column', gap: 8, opacity: showBtns && !searchOpen ? 1 : 0, pointerEvents: showBtns && !searchOpen ? 'auto' : 'none', transition: 'opacity 0.18s' }}>
+            {/* V3 — Top bar : back + segmented 3-mode + Publier+ */}
+            {showBtns && (
+              <div style={{ position: 'absolute', top: 14, left: 12, right: 12, zIndex: 200, display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button
+                  onClick={() => { setShowHub(true); setNavTab('accueil') }}
+                  aria-label="Retour au hub"
+                  style={{ width: 42, height: 42, borderRadius: 14, background: '#fff', border: '1px solid #E8E0D4', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1A1209', cursor: 'pointer', flexShrink: 0, boxShadow: '0 3px 12px rgba(0,0,0,0.12)' }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
+                  </svg>
+                </button>
+                <div style={{ flex: 1, display: 'flex', background: '#fff', borderRadius: 14, padding: 4, gap: 2, border: '1px solid #E8E0D4', boxShadow: '0 3px 12px rgba(0,0,0,0.12)' }}>
+                  {MODES.map(m => {
+                    const active = mapMode === m.id
+                    return (
+                      <button
+                        key={m.id}
+                        onClick={() => setMapMode(m.id)}
+                        style={{
+                          flex: 1, padding: '7px 4px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                          background: active ? '#2D5A3D' : 'transparent',
+                          color: active ? '#fff' : '#7A6A5A',
+                          fontFamily: 'Inter, sans-serif', fontWeight: active ? 800 : 700, fontSize: 11,
+                          whiteSpace: 'nowrap', transition: 'all 0.15s',
+                        }}
+                      >
+                        {m.label}
+                      </button>
+                    )
+                  })}
+                </div>
+                <button
+                  onClick={handlePublierClick}
+                  aria-label="Publier"
+                  style={{ width: 42, height: 42, borderRadius: 14, background: '#2D5A3D', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', cursor: 'pointer', flexShrink: 0, boxShadow: '0 4px 14px rgba(45,90,61,0.35)' }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                    <line x1="10" y1="3" x2="10" y2="17" stroke="white" strokeWidth="2.4" strokeLinecap="round" />
+                    <line x1="3" y1="10" x2="17" y2="10" stroke="white" strokeWidth="2.4" strokeLinecap="round" />
+                  </svg>
+                </button>
+              </div>
+            )}
 
-              {/* Paramètres */}
-              <button onClick={() => setParamsOpen(p => !p)} style={{ ...BTN, ...activeColor(paramsOpen) }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="3"/>
-                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                </svg>
-              </button>
-
-              {/* Sub-buttons */}
-              <AnimatePresence>
-                {paramsOpen && (
-                  <motion.div key="params-sub" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.14 }} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <button onClick={() => setFixedMap(!fixedMap)} style={{ ...BTN, ...activeColor(fixedMap) }}>
-                      {fixedMap
-                        ? <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                        : <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>}
-                    </button>
-                    <button onClick={() => { setZonePopup(true); setParamsOpen(false) }} style={{ ...BTN, ...activeColor(userZoneActive), fontSize: 18 }}>📍</button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Loupe — ouvre la modale recherche globale */}
-              <button onClick={() => { setSearchOpen(true); setParamsOpen(false) }}
-                style={{ ...BTN, ...activeColor(false) }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-                </svg>
-              </button>
-            </div>
-
-            {/* Bouton Info — haut droite */}
-            <button onClick={() => setInfoOpen(true)} style={{ ...BTN, position: 'absolute', top: 14, right: 14, zIndex: 200, opacity: showBtns ? 1 : 0, pointerEvents: showBtns ? 'auto' : 'none', transition: 'opacity 0.18s', backgroundColor: 'rgba(255,255,255,0.92)', color: '#6B6B6B' }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="12" y1="16" x2="12" y2="12"/>
-                <line x1="12" y1="8" x2="12.01" y2="8"/>
-              </svg>
-            </button>
+            {/* V3 — Stack 3 boutons flottants 38px à gauche (sous la top bar) */}
+            {showBtns && (
+              <div style={{ position: 'absolute', top: 70, left: 14, zIndex: 200, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button onClick={() => setZonePopup(true)} style={FBTN} aria-label="Réglages de la carte">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                  </svg>
+                </button>
+                <button onClick={() => setSearchOpen(true)} style={FBTN} aria-label="Recherche">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                  </svg>
+                </button>
+                <button onClick={() => setInfoOpen(true)} style={FBTN} aria-label="Infos / FAQ">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+                  </svg>
+                </button>
+              </div>
+            )}
           </>
         )
       })()}
@@ -1005,35 +1036,6 @@ export default function HomePage() {
       )}
 
       {/* FAB haut centre — mode-aware */}
-      <AnimatePresence>
-        {showFab && (
-          <motion.div key="fab"
-            initial={{ opacity: 0, scale: 0.85, y: -4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.85, y: -4 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-            style={{ position: 'absolute', top: 14, left: 0, right: 0, zIndex: 200, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}
-          >
-            {appMode === 'annuaire' ? (
-              <button onClick={() => { if (!user) openAuthModal(); else setCommerceFormOpen(true) }}
-                style={{ height: 40, borderRadius: 20, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', display: 'flex', alignItems: 'center', gap: 7, padding: '0 16px', boxShadow: '0 4px 18px rgba(0,0,0,0.25)', cursor: 'pointer', fontFamily: 'Inter, sans-serif', pointerEvents: 'auto' }}>
-                <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
-                  <line x1="10" y1="2" x2="10" y2="18" stroke="white" strokeWidth="2.4" strokeLinecap="round"/>
-                  <line x1="2" y1="10" x2="18" y2="10" stroke="white" strokeWidth="2.4" strokeLinecap="round"/>
-                </svg>
-                <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.01em' }}>Référencer</span>
-              </button>
-            ) : (
-              <button onClick={handlePublierClick}
-                style={{ height: 40, borderRadius: 20, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', display: 'flex', alignItems: 'center', gap: 7, padding: '0 16px', boxShadow: '0 4px 18px rgba(0,0,0,0.25)', cursor: 'pointer', fontFamily: 'Inter, sans-serif', pointerEvents: 'auto' }}>
-                <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
-                  <line x1="10" y1="2" x2="10" y2="18" stroke="white" strokeWidth="2.4" strokeLinecap="round"/>
-                  <line x1="2" y1="10" x2="18" y2="10" stroke="white" strokeWidth="2.4" strokeLinecap="round"/>
-                </svg>
-                <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.01em' }}>Publier</span>
-              </button>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* ProBandeau flottant sur la carte — 2/3 largeur, se fait avaler par le sheet (zIndex 19 < 20) */}
       {!showHub && proEvents.length > 0 && appMode === 'agenda' && navTab !== 'profil' && navTab !== 'favoris' && navTab !== 'notifs' && (
@@ -1093,6 +1095,7 @@ export default function HomePage() {
         onEtabSearchChange={setEtabSearch}
         annuaireTab={annuaireTab}
         onAnnuaireTabChange={setAnnuaireTab}
+        topBarV3
       />}
 
       {/* Favoris — panneau inline au-dessus de la carte */}

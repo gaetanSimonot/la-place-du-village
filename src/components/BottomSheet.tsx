@@ -72,6 +72,8 @@ interface Props {
   onOpenEtablissement?: (id: string) => void
   annuaireTab?: number
   onAnnuaireTabChange?: (idx: number) => void
+  /** V3: hide Agenda/Annuaire segmented + in annuaire mode show only the active mode's button (no toggle) */
+  topBarV3?: boolean
 }
 
 export default function BottomSheet({
@@ -89,6 +91,7 @@ export default function BottomSheet({
   etablissements = [], etablissementLoading = false,
   selectedEtabType = null, onEtabTypeChange, onOpenEtablissement,
   annuaireTab: annuaireTabProp, onAnnuaireTabChange,
+  topBarV3 = false,
 }: Props) {
   const { sheetBg } = useTheme()
   const [peekH, setPeekH]         = useState(130) // hauteur mesurée du header
@@ -414,23 +417,25 @@ export default function BottomSheet({
                 }
               </p>
             </div>
-            {/* Segmented control Agenda / Annuaire */}
-            <div style={{ display: 'flex', backgroundColor: '#E8F2EB', borderRadius: 999, padding: 3, gap: 2, flexShrink: 0 }}>
-              <button onClick={() => onAppModeChange?.('agenda')} style={{
-                padding: '5px 13px', borderRadius: 999, border: 'none',
-                backgroundColor: appMode === 'agenda' ? '#2D5A3D' : 'transparent',
-                color: appMode === 'agenda' ? '#fff' : '#2D5A3D',
-                fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 11,
-                cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background-color 0.15s, color 0.15s',
-              }}>Agenda</button>
-              <button onClick={() => onAppModeChange?.('annuaire')} style={{
-                padding: '5px 13px', borderRadius: 999, border: 'none',
-                backgroundColor: appMode === 'annuaire' ? '#2D5A3D' : 'transparent',
-                color: appMode === 'annuaire' ? '#fff' : '#2D5A3D',
-                fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 11,
-                cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background-color 0.15s, color 0.15s',
-              }}>Annuaire</button>
-            </div>
+            {/* Segmented control Agenda / Annuaire — caché en V3 (3-mode top remplace) */}
+            {!topBarV3 && (
+              <div style={{ display: 'flex', backgroundColor: '#E8F2EB', borderRadius: 999, padding: 3, gap: 2, flexShrink: 0 }}>
+                <button onClick={() => onAppModeChange?.('agenda')} style={{
+                  padding: '5px 13px', borderRadius: 999, border: 'none',
+                  backgroundColor: appMode === 'agenda' ? '#2D5A3D' : 'transparent',
+                  color: appMode === 'agenda' ? '#fff' : '#2D5A3D',
+                  fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 11,
+                  cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background-color 0.15s, color 0.15s',
+                }}>Agenda</button>
+                <button onClick={() => onAppModeChange?.('annuaire')} style={{
+                  padding: '5px 13px', borderRadius: 999, border: 'none',
+                  backgroundColor: appMode === 'annuaire' ? '#2D5A3D' : 'transparent',
+                  color: appMode === 'annuaire' ? '#fff' : '#2D5A3D',
+                  fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 11,
+                  cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background-color 0.15s, color 0.15s',
+                }}>Annuaire</button>
+              </div>
+            )}
           </div>
         )}
 
@@ -466,8 +471,8 @@ export default function BottomSheet({
           </div>
         ) : (
           <div style={{ display: 'flex', gap: 10, padding: '0 16px 10px' }}>
-            {/* Bouton Producteurs — cycle les catégories produit au clic */}
-            {(() => {
+            {/* Bouton Producteurs — cycle les catégories produit au clic. En V3, masqué quand on est en mode etab */}
+            {(!topBarV3 || annuaireTabIdx === 0) && (() => {
               const active = annuaireTabIdx === 0
               return (
                 <button onClick={handleProdBtn}
@@ -488,8 +493,8 @@ export default function BottomSheet({
                 </button>
               )
             })()}
-            {/* Bouton Commerces — cycle les types d'établissement au clic */}
-            {(() => {
+            {/* Bouton Commerces — cycle les types d'établissement au clic. En V3, masqué quand on est en mode prod */}
+            {(!topBarV3 || annuaireTabIdx === 1) && (() => {
               const active = annuaireTabIdx === 1
               return (
                 <button onClick={handleEtabBtn}
