@@ -18,6 +18,7 @@ type Tab = 'profil' | 'reglages'
 type SubView = null | 'annonces' | 'abonnements' | 'mes_events' | 'producteur'
 
 interface Etab { id: string; nom: string; plan: string; photos: string[] | null }
+interface MyProducer { id: string; nom: string; photos: string[] | null; commune: string | null }
 interface AbandonedDraft {
   id: string
   etablissement: { id: string; nom: string; commune: string | null; photos: string[] | null }
@@ -68,6 +69,7 @@ export default function ProfilView() {
 
   const [plan, setPlan] = useState<string | null>(null)
   const [myEtabs, setMyEtabs] = useState<Etab[]>([])
+  const [myProducers, setMyProducers] = useState<MyProducer[]>([])
   const [interestCount, setInterestCount] = useState<number | null>(null)
   const [activeAnnonceCount, setActiveAnnonceCount] = useState<number | null>(null)
   const [followingCount, setFollowingCount] = useState<number | null>(null)
@@ -128,6 +130,9 @@ export default function ProfilView() {
 
     supabase.from('etablissements').select('id, nom, plan, photos').eq('user_id', user.id)
       .then(({ data }) => { if (!cancelled && data) setMyEtabs(data) })
+
+    supabase.from('producers').select('id, nom, photos, commune').eq('user_id', user.id)
+      .then(({ data }) => { if (!cancelled && data) setMyProducers(data) })
 
     supabase.from('interests').select('id', { count: 'exact', head: true }).eq('user_id', user.id)
       .then(({ count }) => { if (!cancelled) setInterestCount(count ?? 0) })
@@ -357,6 +362,39 @@ export default function ProfilView() {
                         : ICONS.store(18)}
                     </div>
                     <span className="flex-1 truncate text-[13px] font-bold text-texte">{e.nom}</span>
+                    <span className="text-texte-tres-doux">{ICONS.chev(14)}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Mes producteurs */}
+          {myProducers.length > 0 && (
+            <div className="px-4">
+              <div
+                className="overflow-hidden rounded-2xl border bg-white shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
+                style={{ borderColor: '#F0EAE0' }}
+              >
+                <div className="border-b px-4 pb-1.5 pt-3.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux" style={{ borderColor: '#F0EAE0' }}>
+                  Mes producteurs ({myProducers.length})
+                </div>
+                {myProducers.map((p, i) => (
+                  <Link
+                    key={p.id}
+                    href={`/producteur/${p.id}`}
+                    className="flex items-center gap-3 px-4 py-3 text-inherit no-underline"
+                    style={{ borderTop: i > 0 ? '1px solid #F0EAE0' : undefined }}
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary-light text-primary">
+                      {p.photos?.[0]
+                        ? <img src={p.photos[0]} alt="" className="h-full w-full object-cover" />
+                        : <span className="text-lg">🌿</span>}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13px] font-bold text-texte">{p.nom}</div>
+                      {p.commune && <div className="text-[11px] text-texte-doux">{p.commune}</div>}
+                    </div>
                     <span className="text-texte-tres-doux">{ICONS.chev(14)}</span>
                   </Link>
                 ))}
