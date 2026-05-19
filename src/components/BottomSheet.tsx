@@ -330,23 +330,61 @@ export default function BottomSheet({
         </div>
 
         {/* ── Header compact (non-full) ── */}
-        {mode !== 'full' && (
+        {mode !== 'full' && appMode === 'agenda' && (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(92px, 1fr) 2.3fr',
+            gap: 12,
+            padding: '4px 16px 14px',
+            alignItems: 'center',
+          }}>
+            {/* Col 1 : compteur événements */}
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <div style={{
+                fontFamily: 'var(--font-dm-serif), Georgia, serif',
+                fontSize: 36, color: '#1A1209', lineHeight: 0.95,
+                letterSpacing: '-0.02em',
+              }}>
+                {evenements.length}
+              </div>
+              <div style={{
+                fontFamily: 'Inter, sans-serif',
+                fontSize: 11, fontWeight: 700, color: '#1A1209',
+                marginTop: 4, letterSpacing: '0.02em',
+              }}>
+                événement{evenements.length > 1 ? 's' : ''}
+              </div>
+              <div style={{
+                fontFamily: 'Inter, sans-serif',
+                fontSize: 10, color: '#9E9089',
+                marginTop: 3, lineHeight: 1.25,
+              }}>
+                Marchés · ateliers · concerts
+              </div>
+            </div>
+            {/* Col 2-3 : 2 wheels verticaux */}
+            <AgendaFilterWheel
+              filtres={filtres}
+              onFiltresChange={onFiltresChange}
+              sheetBg={sheetBg.bg}
+              onChange={handleAgendaFilterChange}
+            />
+          </div>
+        )}
+
+        {mode !== 'full' && appMode !== 'agenda' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 16px 10px' }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 18, color: '#1C1917', margin: 0, lineHeight: 1.1 }}>
-                {appMode === 'agenda'
-                  ? `${evenements.length} événement${evenements.length > 1 ? 's' : ''}`
-                  : annuaireTabIdx === 0
-                    ? `${producers.length} producteur${producers.length !== 1 ? 's' : ''}`
-                    : `${displayedEtabs.length} commerce${displayedEtabs.length !== 1 ? 's' : ''}`
+                {annuaireTabIdx === 0
+                  ? `${producers.length} producteur${producers.length !== 1 ? 's' : ''}`
+                  : `${displayedEtabs.length} commerce${displayedEtabs.length !== 1 ? 's' : ''}`
                 }
               </p>
               <p style={{ fontSize: 12, color: '#9E9089', margin: '2px 0 0' }}>
-                {appMode === 'agenda'
-                  ? 'Marchés · ateliers · concerts…'
-                  : annuaireTabIdx === 0
-                    ? 'Producteurs · artisans · locaux…'
-                    : 'Restos · bars · hébergements…'
+                {annuaireTabIdx === 0
+                  ? 'Producteurs · artisans · locaux…'
+                  : 'Restos · bars · hébergements…'
                 }
               </p>
             </div>
@@ -355,15 +393,15 @@ export default function BottomSheet({
               <div style={{ display: 'flex', backgroundColor: '#E8F2EB', borderRadius: 999, padding: 3, gap: 2, flexShrink: 0 }}>
                 <button onClick={() => onAppModeChange?.('agenda')} style={{
                   padding: '5px 13px', borderRadius: 999, border: 'none',
-                  backgroundColor: appMode === 'agenda' ? '#2D5A3D' : 'transparent',
-                  color: appMode === 'agenda' ? '#fff' : '#2D5A3D',
+                  backgroundColor: 'transparent',
+                  color: '#2D5A3D',
                   fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 11,
                   cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background-color 0.15s, color 0.15s',
                 }}>Agenda</button>
                 <button onClick={() => onAppModeChange?.('annuaire')} style={{
                   padding: '5px 13px', borderRadius: 999, border: 'none',
-                  backgroundColor: appMode === 'annuaire' ? '#2D5A3D' : 'transparent',
-                  color: appMode === 'annuaire' ? '#fff' : '#2D5A3D',
+                  backgroundColor: '#2D5A3D',
+                  color: '#fff',
                   fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 11,
                   cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background-color 0.15s, color 0.15s',
                 }}>Annuaire</button>
@@ -372,17 +410,8 @@ export default function BottomSheet({
           </div>
         )}
 
-        {/* Filtres : agenda → wheel-picker 2 rails, annuaire → boutons cycling */}
-        {appMode === 'agenda' ? (
-          <div style={{ padding: '0 0 4px' }}>
-            <AgendaFilterWheel
-              filtres={filtres}
-              onFiltresChange={onFiltresChange}
-              sheetBg={sheetBg.bg}
-              onChange={handleAgendaFilterChange}
-            />
-          </div>
-        ) : (
+        {/* Filtres annuaire — agenda intégré dans le header grille ci-dessus */}
+        {appMode !== 'agenda' && (
           <div style={{ display: 'flex', gap: 10, padding: '0 16px 10px' }}>
             {/* Bouton Producteurs — cycle les catégories produit au clic. En V3, masqué quand on est en mode etab */}
             {(!topBarV3 || annuaireTabIdx === 0) && (() => {

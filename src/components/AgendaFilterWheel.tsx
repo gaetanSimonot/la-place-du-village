@@ -50,7 +50,6 @@ export default function AgendaFilterWheel({
     ...QUAND_OPTIONS.map(o => ({ id: o.value, label: o.label })),
   ]), [])
 
-  // Index actif déduit des filtres existants (source de vérité = parent)
   const quoiIdx = useMemo(() => {
     const cat = filtres.categories[0]
     if (!cat) return 0
@@ -79,8 +78,8 @@ export default function AgendaFilterWheel({
   }
 
   return (
-    <div style={{ padding: '4px 0 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <FilterWheel
+    <div style={{ display: 'flex', gap: 8 }}>
+      <VerticalFilterWheel
         items={quoiItems}
         activeIdx={quoiIdx}
         onChange={handleQuoiChange}
@@ -89,7 +88,7 @@ export default function AgendaFilterWheel({
         accentSoft={accentSoft}
         ariaLabel="Filtre catégorie"
       />
-      <FilterWheel
+      <VerticalFilterWheel
         items={quandItems}
         activeIdx={quandIdx}
         onChange={handleQuandChange}
@@ -103,14 +102,15 @@ export default function AgendaFilterWheel({
 }
 
 /* ──────────────────────────────────────────────────────────────────────
-   FilterWheel — rail horizontal swipeable infini avec snap au centre.
+   VerticalFilterWheel — rail vertical swipeable infini avec snap centre.
    ────────────────────────────────────────────────────────────────────── */
 
-const PILL_W = 108
+const PILL_H = 32
 const GAP = 4
-const STEP = PILL_W + GAP
+const STEP = PILL_H + GAP
+const CONTAINER_H = 108  // 3 pills visibles (centre + 1 haut + 1 bas)
 
-function FilterWheel({
+function VerticalFilterWheel({
   items, activeIdx, onChange,
   sheetBg, accent, accentSoft, ariaLabel,
 }: {
@@ -131,41 +131,40 @@ function FilterWheel({
   // Triple-clone pour l'illusion d'infini
   const tripled = useMemo(() => [...items, ...items, ...items], [items])
 
-  // Init scrollLeft sur le bloc central + activeIdx
+  // Init scrollTop sur le bloc central + activeIdx
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
     requestAnimationFrame(() => {
-      el.scrollLeft = (N + activeIdx) * STEP
+      el.scrollTop = (N + activeIdx) * STEP
       lastReportedIdx.current = activeIdx
     })
   }, [N]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sync externe : si le parent change activeIdx (ex : reset filtres),
-  // on recentre le wheel sans déclencher onChange.
+  // Sync externe (parent reset filtres → recentrer sans déclencher onChange)
   useEffect(() => {
     if (userInteracting.current) return
     if (activeIdx === lastReportedIdx.current) return
     const el = scrollRef.current
     if (!el) return
-    el.scrollTo({ left: (N + activeIdx) * STEP, behavior: 'smooth' })
+    el.scrollTo({ top: (N + activeIdx) * STEP, behavior: 'smooth' })
     lastReportedIdx.current = activeIdx
   }, [activeIdx, N])
 
   const handleScroll = () => {
     const el = scrollRef.current
     if (!el) return
-    const centerIdx = Math.round(el.scrollLeft / STEP)
+    const centerIdx = Math.round(el.scrollTop / STEP)
     const realIdx = ((centerIdx % N) + N) % N
 
     // Loop invisible — saute au bloc du milieu si on dépasse
     if (centerIdx < Math.floor(N / 2)) {
-      el.scrollLeft = el.scrollLeft + N * STEP
+      el.scrollTop = el.scrollTop + N * STEP
     } else if (centerIdx >= 2 * N + Math.floor(N / 2)) {
-      el.scrollLeft = el.scrollLeft - N * STEP
+      el.scrollTop = el.scrollTop - N * STEP
     }
 
-    // On attend que le snap se stabilise avant de notifier le parent
+    // Settle puis notifie le parent
     if (settleTimer.current) clearTimeout(settleTimer.current)
     settleTimer.current = setTimeout(() => {
       userInteracting.current = false
@@ -185,13 +184,13 @@ function FilterWheel({
     const el = scrollRef.current
     if (!el) return
     userInteracting.current = true
-    el.scrollTo({ left: (N + realIdx) * STEP, behavior: 'smooth' })
+    el.scrollTo({ top: (N + realIdx) * STEP, behavior: 'smooth' })
   }
 
   const handleKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
     e.preventDefault()
-    const delta = e.key === 'ArrowRight' ? 1 : -1
+    const delta = e.key === 'ArrowDown' ? 1 : -1
     const next = ((activeIdx + delta) % N + N) % N
     handleClickPill(next)
   }
@@ -202,35 +201,35 @@ function FilterWheel({
       aria-label={ariaLabel}
       tabIndex={0}
       onKeyDown={handleKey}
-      style={{ position: 'relative', height: 42, outline: 'none' }}
+      style={{ position: 'relative', flex: 1, height: CONTAINER_H, outline: 'none' }}
     >
-      {/* Slot indicator central */}
+      {/* Slot indicator central (puits horizontal pill-shape) */}
       <div
         aria-hidden
         style={{
-          position: 'absolute', top: '50%', left: '50%',
-          width: PILL_W, height: 36, borderRadius: 18,
-          transform: 'translate(-50%, -50%)',
+          position: 'absolute', top: '50%', left: 0, right: 0,
+          height: PILL_H + 4, borderRadius: 16,
+          transform: 'translateY(-50%)',
           background: accentSoft,
-          boxShadow: 'inset 0 1px 2px rgba(45,90,61,0.08)',
+          boxShadow: 'inset 0 1px 2px rgba(45,90,61,0.10)',
           pointerEvents: 'none', zIndex: 1,
         }}
       />
 
-      {/* Fades latéraux — couleur sheet */}
+      {/* Fades haut / bas */}
       <div
         aria-hidden
         style={{
-          position: 'absolute', top: 0, bottom: 0, left: 0, width: 48,
-          background: `linear-gradient(90deg, ${sheetBg} 0%, ${withAlpha(sheetBg, 0.92)} 40%, ${withAlpha(sheetBg, 0)} 100%)`,
+          position: 'absolute', top: 0, left: 0, right: 0, height: 28,
+          background: `linear-gradient(180deg, ${sheetBg} 0%, ${withAlpha(sheetBg, 0.92)} 40%, ${withAlpha(sheetBg, 0)} 100%)`,
           pointerEvents: 'none', zIndex: 3,
         }}
       />
       <div
         aria-hidden
         style={{
-          position: 'absolute', top: 0, bottom: 0, right: 0, width: 48,
-          background: `linear-gradient(-90deg, ${sheetBg} 0%, ${withAlpha(sheetBg, 0.92)} 40%, ${withAlpha(sheetBg, 0)} 100%)`,
+          position: 'absolute', bottom: 0, left: 0, right: 0, height: 28,
+          background: `linear-gradient(0deg, ${sheetBg} 0%, ${withAlpha(sheetBg, 0.92)} 40%, ${withAlpha(sheetBg, 0)} 100%)`,
           pointerEvents: 'none', zIndex: 3,
         }}
       />
@@ -242,12 +241,15 @@ function FilterWheel({
         onMouseDown={handleInteract}
         onWheel={handleInteract}
         onPointerDown={e => e.stopPropagation()}
-        className="pdv-wheel-scroll"
+        className="pdv-vwheel-scroll"
         style={{
-          height: '100%', overflowX: 'auto', overflowY: 'hidden',
-          scrollSnapType: 'x mandatory',
-          display: 'flex', alignItems: 'center', gap: GAP,
-          padding: `0 calc(50% - ${PILL_W / 2}px)`,
+          height: '100%', overflowY: 'auto', overflowX: 'hidden',
+          scrollSnapType: 'y mandatory',
+          display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: GAP,
+          padding: `calc(50% - ${PILL_H / 2}px) 0`,
+          // calc(50% - ...) résolu via paddingBlock dynamique :
+          paddingTop: (CONTAINER_H - PILL_H) / 2,
+          paddingBottom: (CONTAINER_H - PILL_H) / 2,
           position: 'relative', zIndex: 2,
           WebkitOverflowScrolling: 'touch',
         }}
@@ -264,13 +266,13 @@ function FilterWheel({
               onClick={() => handleClickPill(realIdx)}
               style={{
                 flexShrink: 0,
-                width: PILL_W, height: 34, borderRadius: 17,
+                width: '100%', height: PILL_H, borderRadius: 16,
                 border: 'none',
                 background: isActive ? accent : 'transparent',
                 color: isActive ? '#fff' : accent,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontFamily: 'Inter, sans-serif',
-                fontSize: isActive ? 12.5 : 12,
+                fontSize: isActive ? 12.5 : 11.5,
                 fontWeight: isActive ? 700 : 600,
                 letterSpacing: '-0.005em',
                 scrollSnapAlign: 'center',
@@ -279,7 +281,8 @@ function FilterWheel({
                 cursor: 'pointer',
                 userSelect: 'none',
                 boxShadow: isActive ? '0 2px 6px rgba(45,90,61,0.25)' : 'none',
-                whiteSpace: 'nowrap',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                padding: '0 10px',
               }}
             >
               {item.label}
@@ -289,8 +292,8 @@ function FilterWheel({
       </div>
 
       <style jsx>{`
-        .pdv-wheel-scroll { scrollbar-width: none; }
-        .pdv-wheel-scroll::-webkit-scrollbar { display: none; }
+        .pdv-vwheel-scroll { scrollbar-width: none; }
+        .pdv-vwheel-scroll::-webkit-scrollbar { display: none; }
       `}</style>
     </div>
   )
