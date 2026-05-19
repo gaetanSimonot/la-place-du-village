@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 import { normalizeProduitCat } from '@/lib/produit-cats'
 
+// Utilise supabaseAdmin (service role) pour bypasser RLS et retourner TOUS
+// les producteurs (y compris ceux ayant un user_id set après claim).
+// Sans ça, la RLS publique cache les fiches revendiquees → disparues du map.
 export async function GET(req: NextRequest) {
   const url  = new URL(req.url)
   const cat  = url.searchParams.get('categorie') ?? ''
   const q    = url.searchParams.get('search')    ?? ''
 
-  let query = supabase
+  let query = supabaseAdmin
     .from('producers')
     .select('*, products(*)')
     .order('is_max', { ascending: false })
