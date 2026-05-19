@@ -112,7 +112,8 @@ export default function AjouterPage() {
   const [error, setError] = useState<string | null>(null)
   const [eventId, setEventId] = useState<string | null>(null)
   const [submitMessage, setSubmitMessage] = useState<string | undefined>()
-  const fileRef = useRef<HTMLInputElement>(null)
+  const cameraRef = useRef<HTMLInputElement>(null)
+  const galleryRef = useRef<HTMLInputElement>(null)
 
   // Bloquer l'accès si non connecté (après chargement auth)
   useEffect(() => {
@@ -182,7 +183,8 @@ export default function AjouterPage() {
     setImage(null)
     setImagePreviewUrl(null)
     setImagePosition('50% 50%')
-    if (fileRef.current) fileRef.current.value = ''
+    if (cameraRef.current) cameraRef.current.value = ''
+    if (galleryRef.current) galleryRef.current.value = ''
   }
 
   // ── Cadrage photo ─────────────────────────────────────────────────────────────
@@ -296,115 +298,141 @@ export default function AjouterPage() {
         </Link>
       </div>
 
-      {/* Hero intro */}
+      {/* Hero intro V3 */}
       <div className="px-4 pt-6">
         <h1
           className="m-0 font-serif text-[26px] leading-[1.1] text-texte"
           style={{ letterSpacing: '-0.02em' }}
         >
-          Raconte-nous
+          Capture-le, on s&apos;occupe du reste.
         </h1>
         <p className="mt-1.5 text-[13px] leading-[1.5] text-texte-doux">
-          Colle un message, dicte-le, ou prends une photo de l&apos;affiche. On pré-remplit tout, tu n&apos;as plus qu&apos;à vérifier.
+          3 méthodes pour publier ton événement. On lit, on transcrit et on pré-remplit la fiche.
         </p>
       </div>
 
-      {/* Big textarea card */}
+      {/* 2 file inputs (caméra + galerie) */}
+      <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handleImageChange} className="hidden" />
+      <input ref={galleryRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+
+      {/* ─── Card 1: Photo d'une affiche (primaire, bordée vert) ─── */}
       <div className="px-4 pt-5">
+        <div
+          className="rounded-2xl bg-white p-3.5 shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
+          style={{ border: `1.5px solid ${image ? '#2D5A3D' : '#2D5A3D'}` }}
+        >
+          <div className="mb-2 flex items-center gap-2.5">
+            <div className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-xl bg-primary-light text-primary">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <div className="text-[14px] font-extrabold text-texte">Photo d&apos;une affiche</div>
+                <span className="inline-flex items-center rounded-full bg-primary-light px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.05em] text-primary">
+                  RAPIDE ~5 sec
+                </span>
+              </div>
+              <div className="mt-0.5 text-[11px] text-texte-doux">On lit titre, date, lieu, prix…</div>
+            </div>
+          </div>
+          <div className="mt-2 flex gap-2">
+            <button
+              onClick={() => cameraRef.current?.click()}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-[12px] font-bold text-white"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+              Caméra
+            </button>
+            <button
+              onClick={() => galleryRef.current?.click()}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl border bg-white py-2.5 text-[12px] font-bold text-primary"
+              style={{ borderColor: '#C5DCC9' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+              </svg>
+              Galerie
+            </button>
+          </div>
+
+          {imagePreviewUrl && (
+            <div className="mt-3 flex items-stretch gap-2">
+              <div className="relative h-[70px] flex-1 overflow-hidden rounded-xl">
+                <img src={imagePreviewUrl} alt="preview" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: imagePosition }} />
+                <button onClick={() => setStep('crop')} className="absolute inset-0 flex items-center justify-center bg-black/35">
+                  <span className="rounded-full bg-black/40 px-3 py-1 text-[11px] font-bold text-white">Modifier le cadrage</span>
+                </button>
+              </div>
+              <button onClick={resetImage} aria-label="Supprimer la photo" className="flex w-12 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte-doux">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ─── Card 2: Dictée vocale ─── */}
+      <div className="px-4 pt-3">
         <div
           className="rounded-2xl border bg-white p-3.5 shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
           style={{ borderColor: '#F0EAE0' }}
         >
-          <div className="mb-2.5 flex items-center justify-between">
-            <div className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Texte</div>
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-xl bg-[#FFF0E5] text-accent">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="23"/>
+                <line x1="8" y1="23" x2="16" y2="23"/>
+              </svg>
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[14px] font-extrabold text-texte">Dicter vocalement</div>
+              <div className="mt-0.5 text-[11px] text-texte-doux">Appuie sur le micro et raconte l&apos;événement.</div>
+            </div>
             <MicButton onTranscript={t => setTexte(prev => prev ? prev + ' ' + t : t)} />
-          </div>
-          <textarea
-            value={texte}
-            onChange={e => setTexte(e.target.value.slice(0, 2000))}
-            rows={6}
-            placeholder="Concert de jazz samedi 12 avril à 20h à la salle des fêtes de Ganges. Entrée 8€. Contact : 06 12 34 56 78"
-            className="block w-full resize-none border-none bg-transparent text-[14px] leading-[1.5] text-texte outline-none placeholder:text-texte-tres-doux"
-            style={{ minHeight: 110 }}
-          />
-          <div className="mt-2 flex justify-between text-[11px] text-texte-doux">
-            <span>Tu peux coller un SMS ou un message WhatsApp</span>
-            <span>{texte.length}/2000</span>
           </div>
         </div>
       </div>
 
-      {/* OU divider */}
-      <div className="flex items-center gap-2.5 px-4 pt-[18px]">
-        <div className="h-px flex-1" style={{ backgroundColor: '#F0EAE0' }} />
-        <div className="text-[11px] font-bold tracking-[0.1em] text-texte-tres-doux">OU</div>
-        <div className="h-px flex-1" style={{ backgroundColor: '#F0EAE0' }} />
-      </div>
-
-      {/* Photo upload card */}
-      <div className="px-4 pt-[18px]">
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleImageChange}
-          className="hidden"
-        />
-        <button
-          onClick={() => fileRef.current?.click()}
-          className="flex w-full items-center gap-3.5 rounded-2xl border-[1.5px] border-dashed bg-white px-3.5 py-4 text-left"
-          style={{ borderColor: image ? '#2D5A3D' : '#E8E0D4' }}
+      {/* ─── Card 3: Écrire / coller un texte ─── */}
+      <div className="px-4 pt-3">
+        <div
+          className="rounded-2xl border bg-white p-3.5 shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
+          style={{ borderColor: '#F0EAE0' }}
         >
-          <div className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-xl bg-primary-light text-primary">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-              <circle cx="12" cy="13" r="4"/>
-            </svg>
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-[14px] font-extrabold text-texte">
-              {image ? 'Changer la photo' : 'Photographier une affiche'}
-            </div>
-            <div className="mt-0.5 text-[11px] text-texte-doux">
-              On lit le titre, la date, le lieu, le prix…
-            </div>
-          </div>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-texte-tres-doux">
-            <polyline points="9 6 15 12 9 18"/>
-          </svg>
-        </button>
-
-        {imagePreviewUrl && (
-          <div className="mt-3 flex items-stretch gap-2">
-            <div className="relative h-[80px] flex-1 overflow-hidden rounded-xl">
-              <img
-                src={imagePreviewUrl}
-                alt="preview"
-                className="absolute inset-0 h-full w-full object-cover"
-                style={{ objectPosition: imagePosition }}
-              />
-              <button
-                onClick={() => setStep('crop')}
-                className="absolute inset-0 flex items-center justify-center bg-black/35"
-              >
-                <span className="rounded-full bg-black/40 px-3 py-1.5 text-[11px] font-bold text-white">
-                  Modifier le cadrage
-                </span>
-              </button>
-            </div>
-            <button
-              onClick={resetImage}
-              aria-label="Supprimer la photo"
-              className="flex w-12 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte-doux"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18"/>
-                <line x1="6" y1="6" x2="18" y2="18"/>
+          <div className="mb-2.5 flex items-center gap-2.5">
+            <div className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-xl bg-cremeDeep text-texte-doux">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
               </svg>
-            </button>
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[14px] font-extrabold text-texte">Écrire ou coller un texte</div>
+              <div className="mt-0.5 text-[11px] text-texte-doux">SMS, message WhatsApp, copier-coller…</div>
+            </div>
           </div>
-        )}
+          <textarea
+            value={texte}
+            onChange={e => setTexte(e.target.value.slice(0, 2000))}
+            rows={5}
+            placeholder="Concert de jazz samedi 12 avril à 20h à la salle des fêtes de Ganges. Entrée 8€. Contact : 06 12 34 56 78"
+            className="block w-full resize-none border-none bg-transparent text-[14px] leading-[1.5] text-texte outline-none placeholder:text-texte-tres-doux"
+            style={{ minHeight: 100 }}
+          />
+          <div className="mt-1 flex justify-end text-[11px] text-texte-doux">
+            <span>{texte.length}/2000</span>
+          </div>
+        </div>
       </div>
 
       {error && (
@@ -429,7 +457,7 @@ export default function AjouterPage() {
             </>
           ) : (
             <>
-              Continuer
+              Extraire les infos
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="5" y1="12" x2="19" y2="12"/>
                 <polyline points="13 6 19 12 13 18"/>
