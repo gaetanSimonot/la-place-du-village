@@ -1,12 +1,5 @@
-/* Fonts principales : Inter + DM Serif Display via next/font/google (cf. layout.tsx).
-   Fontsource legacy gardé pour composants pas encore migrés (Playfair, Lora, Syne).
-   À nettoyer en passe finale après audit. */
-@import "@fontsource/playfair-display/700.css";
-@import "@fontsource/playfair-display/400.css";
-@import "@fontsource/lora/400.css";
-@import "@fontsource/lora/600.css";
-@import "@fontsource/syne/700.css";
-@import "@fontsource/syne/800.css";
+/* Fonts: Inter + DM Serif Display + Caveat via next/font/google (cf. layout.tsx).
+   Plus aucune dépendance @fontsource legacy. */
 
 @tailwind base;
 @tailwind components;
@@ -43,20 +36,17 @@ html, body {
   overscroll-behavior: none;
   background-color: var(--creme);
   color: var(--texte);
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  /* Utilise next/font Inter via CSS variable. Fallback: Inter local, puis system-ui. */
+  font-family: var(--font-inter), "Inter", system-ui, -apple-system, sans-serif;
   font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Headings — utilise Inter (sans-serif unique).
-   Les composants pas encore migrés peuvent encore poser explicitement
-   font-family: "Lora"/"Playfair" en inline si besoin. */
-h1, h2, h3, h4, h5, h6, .font-display, .font-title {
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
+/* Headings — héritent simplement de body (Inter via next/font).
+   Les composants V3 utilisent className="font-serif" pour DM Serif Display
+   ou className="font-caveat" pour Caveat (tailwind config). Pas de surcharge
+   font-family forcée ici (ça écrasait les classes Tailwind avant). */
 
 /* Scrollbar invisible sur les rails de pills */
 .pills-scroll {

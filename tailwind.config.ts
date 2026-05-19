@@ -27,10 +27,9 @@ const config: Config = {
       },
       fontFamily: {
         inter:   ["var(--font-inter)", "Inter", "system-ui", "-apple-system", "sans-serif"],
+        sans:    ["var(--font-inter)", "Inter", "system-ui", "-apple-system", "sans-serif"],
         serif:   ["var(--font-dm-serif)", "Georgia", "serif"],
         caveat:  ["var(--font-caveat)", "Caveat", "cursive"],
-        // legacy — gardé pour composants pas encore migrés
-        syne:    ["Syne", "sans-serif"],
       },
       borderRadius: {
         card:  "16px",

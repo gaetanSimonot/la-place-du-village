@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { Categorie } from '@/lib/types'
-import MicButton from '@/components/MicButton'
+import MicButton, { type MicButtonHandle } from '@/components/MicButton'
 import EventEditDrawer from '@/components/EventEditDrawer'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
@@ -114,6 +114,8 @@ export default function AjouterPage() {
   const [submitMessage, setSubmitMessage] = useState<string | undefined>()
   const cameraRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
+  const micRef = useRef<MicButtonHandle>(null)
+  const [micRecording, setMicRecording] = useState(false)
 
   // Bloquer l'accès si non connecté (après chargement auth)
   useEffect(() => {
@@ -298,66 +300,71 @@ export default function AjouterPage() {
         </Link>
       </div>
 
-      {/* Hero intro V3 */}
+      {/* Hero intro V3 — copy mockup */}
       <div className="px-4 pt-6">
         <h1
           className="m-0 font-serif text-[26px] leading-[1.1] text-texte"
           style={{ letterSpacing: '-0.02em' }}
         >
-          Capture-le, on s&apos;occupe du reste.
+          Capture-le, on s&apos;occupe du reste
         </h1>
         <p className="mt-1.5 text-[13px] leading-[1.5] text-texte-doux">
-          3 méthodes pour publier ton événement. On lit, on transcrit et on pré-remplit la fiche.
+          Choisis ta méthode. On extrait le titre, la date, le lieu, le prix… tu vérifies, tu publies.
         </p>
       </div>
 
-      {/* 2 file inputs (caméra + galerie) */}
+      {/* 2 file inputs cachés (caméra + galerie) */}
       <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handleImageChange} className="hidden" />
       <input ref={galleryRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
 
-      {/* ─── Card 1: Photo d'une affiche (primaire, bordée vert) ─── */}
+      {/* MicButton invisible — déclenché par Card 2 via ref */}
+      <MicButton ref={micRef} hidden onTranscript={t => { setTexte(prev => prev ? prev + ' ' + t : t); setMicRecording(false) }} />
+
+      {/* ─── Card 1: Photo d'une affiche (border primary) ─── */}
       <div className="px-4 pt-5">
         <div
           className="rounded-2xl bg-white p-3.5 shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
-          style={{ border: `1.5px solid ${image ? '#2D5A3D' : '#2D5A3D'}` }}
+          style={{ border: '1.5px solid #2D5A3D' }}
         >
-          <div className="mb-2 flex items-center gap-2.5">
-            <div className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-xl bg-primary-light text-primary">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <div className="mb-3 flex items-center gap-3">
+            {/* Icon dark green filled, white camera */}
+            <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-xl bg-primary text-white">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
                 <circle cx="12" cy="13" r="4"/>
               </svg>
             </div>
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <div className="text-[14px] font-extrabold text-texte">Photo d&apos;une affiche</div>
-                <span className="inline-flex items-center rounded-full bg-primary-light px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.05em] text-primary">
-                  RAPIDE ~5 sec
+              <div className="mb-0.5 flex items-center gap-2">
+                <span className="inline-flex items-center rounded-md bg-primary px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.06em] text-white">
+                  RAPIDE
                 </span>
+                <span className="text-[11px] text-texte-doux">~ 5 sec</span>
               </div>
-              <div className="mt-0.5 text-[11px] text-texte-doux">On lit titre, date, lieu, prix…</div>
+              <div className="text-[15px] font-extrabold leading-tight text-texte">Photo d&apos;une affiche</div>
+              <div className="mt-0.5 text-[11px] text-texte-doux">On lit l&apos;image et on remplit toutes les infos.</div>
             </div>
           </div>
-          <div className="mt-2 flex gap-2">
+          {/* 2 boutons cremeDeep avec icônes */}
+          <div className="flex gap-2">
             <button
               onClick={() => cameraRef.current?.click()}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-[12px] font-bold text-white"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-cremeDeep py-2.5 text-[12px] font-bold text-texte"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
                 <circle cx="12" cy="13" r="4"/>
               </svg>
-              Caméra
+              Prendre une photo
             </button>
             <button
               onClick={() => galleryRef.current?.click()}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl border bg-white py-2.5 text-[12px] font-bold text-primary"
-              style={{ borderColor: '#C5DCC9' }}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-cremeDeep py-2.5 text-[12px] font-bold text-texte"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
               </svg>
-              Galerie
+              Choisir
             </button>
           </div>
 
@@ -379,57 +386,87 @@ export default function AjouterPage() {
         </div>
       </div>
 
-      {/* ─── Card 2: Dictée vocale ─── */}
-      <div className="px-4 pt-3">
-        <div
-          className="rounded-2xl border bg-white p-3.5 shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
-          style={{ borderColor: '#F0EAE0' }}
+      {/* ─── Divider OU ─── */}
+      <div className="flex items-center justify-center px-4 py-3">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-texte-tres-doux">OU</span>
+      </div>
+
+      {/* ─── Card 2: Dictée vocale (clickable card → trigger mic) ─── */}
+      <div className="px-4">
+        <button
+          type="button"
+          onClick={() => { setMicRecording(prev => !prev); micRef.current?.toggle() }}
+          className="flex w-full items-center gap-3 rounded-2xl border bg-white p-3.5 text-left shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
+          style={{ borderColor: micRecording ? '#C84B2F' : '#F0EAE0', transition: 'border-color 0.18s' }}
         >
-          <div className="flex items-center gap-3.5">
-            <div className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-xl bg-[#FFF0E5] text-accent">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                <line x1="12" y1="19" x2="12" y2="23"/>
-                <line x1="8" y1="23" x2="16" y2="23"/>
-              </svg>
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[14px] font-extrabold text-texte">Dicter vocalement</div>
-              <div className="mt-0.5 text-[11px] text-texte-doux">Appuie sur le micro et raconte l&apos;événement.</div>
-            </div>
-            <MicButton onTranscript={t => setTexte(prev => prev ? prev + ' ' + t : t)} />
+          <div
+            className={`flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-xl text-accent ${
+              micRecording ? 'animate-pulse bg-accent text-white' : 'bg-[#FFF0E5]'
+            }`}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="9" y="2" width="6" height="11" rx="3"/>
+              <path d="M5 10a7 7 0 0 0 14 0"/>
+              <line x1="12" y1="19" x2="12" y2="22"/>
+              <line x1="8" y1="22" x2="16" y2="22"/>
+            </svg>
           </div>
-        </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[15px] font-extrabold leading-tight text-texte">
+              {micRecording ? 'Enregistrement en cours…' : 'Dicter vocalement'}
+            </div>
+            <div className="mt-0.5 text-[11px] text-texte-doux">
+              {micRecording
+                ? 'Tape de nouveau pour arrêter et transcrire.'
+                : 'Parle naturellement. Ex : « Concert samedi 20h salle des fêtes 8 euros ».'}
+            </div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-texte-tres-doux">
+            <polyline points="9 6 15 12 9 18"/>
+          </svg>
+        </button>
+      </div>
+
+      {/* ─── Divider OU ─── */}
+      <div className="flex items-center justify-center px-4 py-3">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-texte-tres-doux">OU</span>
       </div>
 
       {/* ─── Card 3: Écrire / coller un texte ─── */}
-      <div className="px-4 pt-3">
+      <div className="px-4">
         <div
           className="rounded-2xl border bg-white p-3.5 shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
           style={{ borderColor: '#F0EAE0' }}
         >
-          <div className="mb-2.5 flex items-center gap-2.5">
-            <div className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-xl bg-cremeDeep text-texte-doux">
+          <div className="mb-3 flex items-center gap-3">
+            {/* Icon light blue filled, doc icon */}
+            <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-xl bg-[#EEF3FF] text-[#3A5BC7]">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
               </svg>
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-[14px] font-extrabold text-texte">Écrire ou coller un texte</div>
+              <div className="text-[15px] font-extrabold leading-tight text-texte">Écrire ou coller un texte</div>
               <div className="mt-0.5 text-[11px] text-texte-doux">SMS, message WhatsApp, copier-coller…</div>
             </div>
           </div>
-          <textarea
-            value={texte}
-            onChange={e => setTexte(e.target.value.slice(0, 2000))}
-            rows={5}
-            placeholder="Concert de jazz samedi 12 avril à 20h à la salle des fêtes de Ganges. Entrée 8€. Contact : 06 12 34 56 78"
-            className="block w-full resize-none border-none bg-transparent text-[14px] leading-[1.5] text-texte outline-none placeholder:text-texte-tres-doux"
-            style={{ minHeight: 100 }}
-          />
-          <div className="mt-1 flex justify-end text-[11px] text-texte-doux">
+          {/* Textarea on cremeDeep zone */}
+          <div className="rounded-xl bg-cremeDeep p-3">
+            <textarea
+              value={texte}
+              onChange={e => setTexte(e.target.value.slice(0, 2000))}
+              rows={4}
+              placeholder="Concert de jazz samedi 12 avril à 20h à la salle des fêtes de Ganges. Entrée 8€. Contact : 06 12 34 56 78"
+              className="block w-full resize-none border-none bg-transparent text-[13px] leading-[1.5] text-texte outline-none placeholder:text-texte-tres-doux"
+              style={{ minHeight: 90 }}
+            />
+          </div>
+          {/* Hint + counter */}
+          <div className="mt-2 flex items-center justify-between text-[11px] text-texte-doux">
+            <span>Tu choisiras la photo à l&apos;étape suivante.</span>
             <span>{texte.length}/2000</span>
           </div>
         </div>

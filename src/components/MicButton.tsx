@@ -1,15 +1,24 @@
 'use client'
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { supabase } from '@/lib/supabase'
 
 interface Props {
   onTranscript: (text: string) => void
   className?: string
+  /** Si true, le bouton interne est invisible (utile quand on déclenche via ref depuis un parent). */
+  hidden?: boolean
+}
+
+export interface MicButtonHandle {
+  start: () => void
+  stop: () => void
+  toggle: () => void
+  state: 'idle' | 'recording' | 'transcribing'
 }
 
 type State = 'idle' | 'recording' | 'transcribing'
 
-export default function MicButton({ onTranscript, className = '' }: Props) {
+const MicButton = forwardRef<MicButtonHandle, Props>(({ onTranscript, className = '', hidden = false }, ref) => {
   const [state, setState] = useState<State>('idle')
   const [error, setError] = useState<string | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
@@ -66,6 +75,15 @@ export default function MicButton({ onTranscript, className = '' }: Props) {
     else if (state === 'recording') stop()
   }
 
+  useImperativeHandle(ref, () => ({
+    start,
+    stop,
+    toggle: handleClick,
+    state,
+  }), [start, stop, state]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (hidden) return null
+
   return (
     <span className={`inline-flex flex-col items-center ${className}`}>
       <button
@@ -105,4 +123,8 @@ export default function MicButton({ onTranscript, className = '' }: Props) {
       )}
     </span>
   )
-}
+})
+
+MicButton.displayName = 'MicButton'
+
+export default MicButton
