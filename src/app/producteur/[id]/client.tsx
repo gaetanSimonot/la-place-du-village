@@ -75,6 +75,10 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [photoIdx, setPhotoIdx] = useState(0)
+  // Swipe + auto-advance carousel
+  const touchStartXRef = useRef<number | null>(null)
+  const lastInteractionRef = useRef<number>(Date.now())
+  const photosLenRef = useRef<number>(0)
   const [isFav, setIsFav] = useState(false)
   const [isFollowing, setIsFollowing] = useState(false)
   const [favoriteCount, setFavoriteCount] = useState(0)
@@ -157,6 +161,33 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
       ]).then(([fav, fol]) => { setIsFav(!!fav.favorited); setIsFollowing(!!fol.following) })
     })
   }, [user?.id, id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-advance carousel toutes les 5s si user n'a pas touché récemment
+  useEffect(() => {
+    const photos = producer?.photos ?? []
+    photosLenRef.current = photos.length
+    if (photos.length <= 1) return
+    const interval = setInterval(() => {
+      const idleMs = Date.now() - lastInteractionRef.current
+      if (idleMs < 5000) return
+      setPhotoIdx(i => (i + 1) % photosLenRef.current)
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [producer?.photos])
+
+  const onPhotoTouchStart = (e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX
+    lastInteractionRef.current = Date.now()
+  }
+  const onPhotoTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartXRef.current == null || photosLenRef.current <= 1) return
+    const dx = e.changedTouches[0].clientX - touchStartXRef.current
+    if (Math.abs(dx) > 40) {
+      setPhotoIdx(i => dx < 0 ? (i + 1) % photosLenRef.current : (i - 1 + photosLenRef.current) % photosLenRef.current)
+      lastInteractionRef.current = Date.now()
+    }
+    touchStartXRef.current = null
+  }
 
   const availableCats = useMemo(() => Array.from(new Set(products.map(p => normalizeProduitCat(p.categorie)))), [products])
   const filteredProducts = useMemo(() =>
@@ -268,10 +299,14 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
         </div>
       </div>
 
-      {/* Hero photo 290px */}
-      <div style={{ position: 'relative', width: '100%', height: 290, background: '#E8F2EB', overflow: 'hidden' }}>
+      {/* Hero photo 290px — swipe + auto-advance */}
+      <div
+        style={{ position: 'relative', width: '100%', height: 290, background: '#E8F2EB', overflow: 'hidden', touchAction: 'pan-y' }}
+        onTouchStart={onPhotoTouchStart}
+        onTouchEnd={onPhotoTouchEnd}
+      >
         {photos.length > 0
-          ? <img src={photos[photoIdx]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ? <img key={photoIdx} src={photos[photoIdx]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', animation: 'photoFadeIn 0.32s ease-out' }} />
           : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><img src="/icons/producteur-local.png" alt="" style={{ width: 100, opacity: 0.3 }} /></div>}
         <div style={{ position: 'absolute', inset: 'auto 0 0 0', height: 120, background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.35) 100%)' }} />
 
@@ -281,7 +316,7 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
             {photos.map((_, i) => (
               <span
                 key={i}
-                onClick={() => setPhotoIdx(i)}
+                onClick={() => { setPhotoIdx(i); lastInteractionRef.current = Date.now() }}
                 style={{ width: i === photoIdx ? 14 : 4, height: 4, background: i === photoIdx ? '#fff' : 'rgba(255,255,255,0.55)', borderRadius: i === photoIdx ? 2 : '50%', cursor: 'pointer', transition: 'width 0.18s' }}
               />
             ))}
@@ -701,7 +736,10 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
       )}
 
       {editing && producer && <ProducerEditDrawer producer={producer} onClose={() => setEditing(false)} onSaved={updated => setProducer(updated)} />}
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg) } }
+        @keyframes photoFadeIn { from { opacity: 0.55; } to { opacity: 1; } }
+      `}</style>
     </div>
   )
 }
