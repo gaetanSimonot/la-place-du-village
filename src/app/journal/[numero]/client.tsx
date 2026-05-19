@@ -1,7 +1,7 @@
 'use client'
-import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import BottomNavBar from '@/components/BottomNavBar'
 
 export interface JournalRow {
   id: string
@@ -107,7 +107,6 @@ export default function JournalPageClient({
   events = [], annonces = [], promos = [], article = null, spotlight = null,
 }: JournalProps) {
   const router = useRouter()
-  const [showParticiper, setShowParticiper] = useState(false)
 
   function handleShare() {
     const url = typeof window !== 'undefined' ? window.location.href : ''
@@ -122,7 +121,7 @@ export default function JournalPageClient({
   const isDraft = row.statut !== 'publie'
 
   return (
-    <main className="min-h-screen bg-creme pb-16 font-inter">
+    <main className="min-h-screen bg-creme pb-28 font-inter">
       {isDraft && (
         <div
           className="sticky top-0 z-40 flex items-center justify-center gap-2 bg-accent px-4 py-2 text-white"
@@ -509,15 +508,15 @@ export default function JournalPageClient({
         Publié le {formatDateLong(row.date_parution)}
       </footer>
 
-      {/* ── FAB Participer ─────────────────────────────────────────────── */}
+      {/* ── FAB Écrire un article — au-dessus de la bottom nav ─────────── */}
       <button
         type="button"
-        onClick={() => setShowParticiper(true)}
-        aria-label="Participer au prochain numéro"
+        onClick={() => router.push('/journal/articles/nouveau')}
+        aria-label="Écrire un article pour le journal"
         className="fixed z-30 flex items-center gap-2 rounded-full bg-accent px-5 py-3 text-[13px] font-bold text-white"
         style={{
           right: 16,
-          bottom: 'max(20px, env(safe-area-inset-bottom, 20px))',
+          bottom: 'calc(72px + env(safe-area-inset-bottom, 0px) + 12px)',
           boxShadow: '0 6px 22px rgba(200,75,47,0.42)',
         }}
       >
@@ -525,112 +524,11 @@ export default function JournalPageClient({
           <path d="M12 20h9"/>
           <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
         </svg>
-        Participer
+        Écrire un article
       </button>
 
-      {showParticiper && (
-        <ParticiperModal
-          onClose={() => setShowParticiper(false)}
-          onChoose={kind => {
-            setShowParticiper(false)
-            // /annonces/nouvelle — l'user choisit l'onglet Annonce ou Article dedans
-            // kind est juste un hint visuel pour l'UX future. Pour l'instant on
-            // route vers la même page de création.
-            void kind
-            router.push('/annonces/nouvelle')
-          }}
-        />
-      )}
+      <BottomNavBar />
     </main>
-  )
-}
-
-function ParticiperModal({
-  onClose, onChoose,
-}: {
-  onClose: () => void
-  onChoose: (kind: 'annonce' | 'article') => void
-}) {
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 100,
-        background: 'rgba(26,18,9,0.55)', backdropFilter: 'blur(4px)',
-        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-        padding: 16, paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))',
-      }}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          width: '100%', maxWidth: 420,
-          background: '#FDFAF5', borderRadius: 20,
-          padding: '20px 20px 16px',
-          boxShadow: '0 -8px 30px rgba(26,18,9,0.35)',
-        }}
-      >
-        <div className="text-center">
-          <div className="text-[10px] font-extrabold tracking-[0.16em] text-accent">
-            ✍ PARTICIPEZ AU JOURNAL
-          </div>
-          <h2
-            className="mt-2 font-serif leading-[1.15] text-texte"
-            style={{ fontSize: 22, letterSpacing: '-0.01em' }}
-          >
-            Faites parler du village
-          </h2>
-          <p className="mt-2 text-[13px] leading-[1.5] text-texte-doux">
-            Publiez votre propre contenu — une annonce, ou un article rédigé qui sera lu dans le prochain numéro.
-          </p>
-        </div>
-        <div className="mt-5 flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={() => onChoose('annonce')}
-            className="flex items-center gap-3 rounded-[14px] border border-bord bg-white px-4 py-3 text-left"
-          >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#FFF0E5] text-accent">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
-                <line x1="7" y1="7" x2="7.01" y2="7"/>
-              </svg>
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[14px] font-bold text-texte">Publier une annonce</div>
-              <div className="text-[11px] text-texte-doux">Vente, troc, don, enchère — visible dans les petites annonces du journal</div>
-            </div>
-          </button>
-          <button
-            type="button"
-            onClick={() => onChoose('article')}
-            className="flex items-center gap-3 rounded-[14px] border border-bord bg-white px-4 py-3 text-left"
-          >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#E8F2EB] text-primary">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="4" width="20" height="16" rx="2" ry="2"/>
-                <line x1="6" y1="8" x2="18" y2="8"/>
-                <line x1="6" y1="12" x2="18" y2="12"/>
-                <line x1="6" y1="16" x2="14" y2="16"/>
-              </svg>
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[14px] font-bold text-texte">Écrire un article</div>
-              <div className="text-[11px] text-texte-doux">Réservé Habitants &amp; Pro. Soumis à modération avant parution</div>
-            </div>
-          </button>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-4 w-full rounded-[12px] border border-bord bg-white py-2.5 text-[12px] font-bold text-texte-doux"
-        >
-          Plus tard
-        </button>
-      </div>
-    </div>
   )
 }
 

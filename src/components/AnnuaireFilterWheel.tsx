@@ -213,7 +213,7 @@ export default function AnnuaireFilterWheel({
                 fontWeight: isActive ? 700 : 600,
                 letterSpacing: '-0.005em',
                 scrollSnapAlign: 'center',
-                scrollSnapStop: 'always',
+                scrollSnapStop: 'normal',
                 transition: 'background 150ms ease-out, color 150ms ease-out, font-weight 150ms ease-out',
                 cursor: 'pointer',
                 userSelect: 'none',

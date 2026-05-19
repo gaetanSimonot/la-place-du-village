@@ -10,7 +10,6 @@ import {
   type AnnonceCreateInput,
 } from '@/lib/annonces'
 import { can } from '@/lib/capabilities'
-import { canSubmitArticleJournal } from '@/lib/articles'
 
 /**
  * GET — liste publique des annonces visibles.
@@ -110,12 +109,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Flag "publier dans le journal" : réservé Habitants/Pro.
-  // Si user basic envoie true, on ignore silencieusement (degrade gracefully).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const wantJournal = !!(body as any).publier_dans_journal
-  const publierDansJournal = wantJournal && canSubmitArticleJournal(ctx.plan)
-
   const insert = {
     user_id:             ctx.userId,
     type:                body.type,
@@ -132,7 +125,6 @@ export async function POST(req: NextRequest) {
     lat:                 body.lat ?? null,
     lng:                 body.lng ?? null,
     remise_main_propre:  !!body.remise_main_propre,
-    publier_dans_journal: publierDansJournal,
   }
 
   const { data, error } = await supabaseAdmin

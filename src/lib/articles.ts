@@ -1,6 +1,6 @@
 import type { Plan } from './capabilities'
 
-export type ArticleStatut = 'en_attente' | 'valide' | 'refuse' | 'publie'
+export type ArticleStatut = 'brouillon' | 'en_attente' | 'valide' | 'refuse' | 'publie'
 
 export interface ArticleJournal {
   id: string

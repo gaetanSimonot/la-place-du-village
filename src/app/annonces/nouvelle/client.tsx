@@ -1,23 +1,15 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import AnnonceForm from '@/components/AnnonceForm'
-import ArticleJournalForm from '@/components/ArticleJournalForm'
 import BottomNavBar from '@/components/BottomNavBar'
-import { canSubmitArticleJournal } from '@/lib/articles'
-
-type Tab = 'annonce' | 'article'
 
 export default function NouvelleAnnonceClient() {
   const router = useRouter()
-  const { user, profile, loading } = useAuth()
+  const { user, loading } = useAuth()
   const { openAuthModal } = useAuthModal()
-  const [tab, setTab] = useState<Tab>('annonce')
-
-  const plan = (profile?.plan ?? 'basic') as 'basic' | 'habitants' | 'pro'
-  const canArticle = canSubmitArticleJournal(plan)
 
   useEffect(() => {
     if (!loading && !user) openAuthModal('/annonces/nouvelle')
@@ -55,7 +47,7 @@ export default function NouvelleAnnonceClient() {
         </button>
         <div className="min-w-0 flex-1 text-center">
           <div className="font-serif text-[17px] leading-none text-texte" style={{ letterSpacing: '-0.01em' }}>
-            {tab === 'article' ? 'Nouvel article' : 'Nouvelle annonce'}
+            Nouvelle annonce
           </div>
         </div>
         <button
@@ -66,42 +58,8 @@ export default function NouvelleAnnonceClient() {
         </button>
       </div>
 
-      {/* Toggle Annonce / Article — visible si plan habitants/pro */}
-      {canArticle && (
-        <div className="px-4 pt-2">
-          <div className="flex rounded-full bg-[#E8F2EB] p-1">
-            <button
-              type="button"
-              onClick={() => setTab('annonce')}
-              className="flex-1 rounded-full py-2 text-[12px] font-bold transition-colors"
-              style={{
-                background: tab === 'annonce' ? '#2D5A3D' : 'transparent',
-                color: tab === 'annonce' ? '#fff' : '#2D5A3D',
-              }}
-            >
-              Annonce
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab('article')}
-              className="flex-1 rounded-full py-2 text-[12px] font-bold transition-colors"
-              style={{
-                background: tab === 'article' ? '#2D5A3D' : 'transparent',
-                color: tab === 'article' ? '#fff' : '#2D5A3D',
-              }}
-            >
-              Article journal
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Form — annonce ou article selon l'onglet */}
       <div className="px-4 pt-3">
-        {tab === 'article'
-          ? <ArticleJournalForm onSuccess={() => router.push('/profil')} />
-          : <AnnonceForm onSuccess={id => router.push(`/annonces/${id}`)} canFlagJournal={canArticle} />
-        }
+        <AnnonceForm onSuccess={id => router.push(`/annonces/${id}`)} />
       </div>
 
       <BottomNavBar />

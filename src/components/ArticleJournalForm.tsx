@@ -1,26 +1,36 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { validateArticleInput } from '@/lib/articles'
+import { validateArticleInput, type ArticleJournal } from '@/lib/articles'
 import { useHistoryTrap } from '@/contexts/HistoryTrapContext'
 import { useConfirm } from '@/contexts/ConfirmDialogContext'
 
 interface Props {
-  onSuccess: (id: string) => void
+  /** Si fourni, on édite l'article (charge ses champs) */
+  initial?: ArticleJournal | null
+  onSaved?: (article: ArticleJournal, action: 'brouillon' | 'soumis') => void
 }
 
-export default function ArticleJournalForm({ onSuccess }: Props) {
-  const [titre, setTitre] = useState('')
-  const [corps, setCorps] = useState('')
-  const [photoUrl, setPhotoUrl] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [uploading, setUploading] = useState(false)
+async function authHeaders(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
 
-  // ── Dirty tracking + guard PWA (back involontaire) ──
+export default function ArticleJournalForm({ initial = null, onSaved }: Props) {
+  const [titre, setTitre]         = useState(initial?.titre ?? '')
+  const [corps, setCorps]         = useState(initial?.corps ?? '')
+  const [photoUrl, setPhotoUrl]   = useState(initial?.photo_url ?? '')
+  const [submitting, setSubmitting] = useState<'brouillon' | 'soumis' | null>(null)
+  const [error, setError]         = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
   const submittedRef = useRef(false)
+
+  // Dirty detection
   const dirty = !submittedRef.current && (
-    titre.trim().length > 0 || corps.trim().length > 0 || !!photoUrl
+    titre.trim() !== (initial?.titre ?? '').trim() ||
+    corps.trim() !== (initial?.corps ?? '').trim() ||
+    (photoUrl || '') !== (initial?.photo_url ?? '')
   )
   const trap = useHistoryTrap()
   const { confirm } = useConfirm()
@@ -28,8 +38,8 @@ export default function ArticleJournalForm({ onSuccess }: Props) {
     return trap.registerGuard(async () => {
       if (!dirty) return true
       const ok = await confirm({
-        title: 'Quitter sans soumettre ?',
-        message: 'Ton article ne sera pas envoyé pour validation.',
+        title: 'Quitter sans enregistrer ?',
+        message: 'Tes modifications ne seront pas sauvegardées (pense au bouton Brouillon).',
         confirmLabel: 'Quitter',
         cancelLabel: 'Continuer',
         destructive: true,
@@ -60,43 +70,44 @@ export default function ArticleJournalForm({ onSuccess }: Props) {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const persist = async (action: 'brouillon' | 'soumis') => {
     setError(null)
-    const localErr = validateArticleInput({ titre, corps, photo_url: photoUrl || null })
-    if (localErr) { setError(localErr); return }
-
-    setSubmitting(true)
+    if (action === 'soumis') {
+      const err = validateArticleInput({ titre, corps, photo_url: photoUrl || null })
+      if (err) { setError(err); return }
+    } else {
+      if (!titre.trim()) { setError('Au moins un titre pour le brouillon'); return }
+    }
+    setSubmitting(action)
+    const statutCible = action === 'soumis' ? 'en_attente' : 'brouillon'
     try {
-      const { data: session } = await supabase.auth.getSession()
-      const token = session.session?.access_token
-      const res = await fetch('/api/articles', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ titre, corps, photo_url: photoUrl || null }),
-      })
+      const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) }
+      const body = JSON.stringify({ titre, corps, photo_url: photoUrl || null, statut: statutCible })
+      const url = initial ? `/api/articles/${initial.id}` : '/api/articles'
+      const method = initial ? 'PATCH' : 'POST'
+      const res = await fetch(url, { method, headers, body })
       const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Erreur soumission')
-      submittedRef.current = true   // désamorce le guard dirty
-      onSuccess(d.article.id)
+      if (!res.ok) throw new Error(d.error || 'Erreur')
+      submittedRef.current = true
+      onSaved?.(d.article as ArticleJournal, action)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur')
     } finally {
-      setSubmitting(false)
+      setSubmitting(null)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form
+      onSubmit={e => { e.preventDefault(); persist('soumis') }}
+      className="space-y-4"
+    >
       {/* Encart info */}
       <div className="rounded-[14px] border border-primary bg-[#E8F2EB] p-4 text-[12px] leading-[1.5] text-primary">
-        <div className="font-bold">📰 Article du journal</div>
+        <div className="font-bold">📰 Article du Journal du Village</div>
         <p className="mt-1 text-[12px] text-texte">
-          Ton texte sera soumis à modération avant d&apos;être publié dans le prochain numéro du Journal du Village.
-          Réservé aux abonnés Habitants &amp; Pro. 1 article par numéro maximum.
+          Sauvegarde en brouillon quand tu veux, soumets quand c&apos;est prêt.
+          Réservé aux abonnés Habitants &amp; Pro. Un seul article par numéro hebdo.
         </p>
       </div>
 
@@ -118,10 +129,9 @@ export default function ArticleJournalForm({ onSuccess }: Props) {
           Corps de l&apos;article ({corps.length} / 4000)
         </span>
         <textarea
-          rows={12}
+          rows={14}
           value={corps}
           onChange={e => setCorps(e.target.value)}
-          required
           maxLength={4000}
           placeholder="Raconte… (markdown autorisé, double saut de ligne = nouveau paragraphe)"
           className="mt-1 w-full rounded-[12px] border border-bord bg-white px-4 py-3 text-[15px] leading-[1.6] text-texte focus:outline-none focus:ring-2 focus:ring-primary/30"
@@ -153,13 +163,24 @@ export default function ArticleJournalForm({ onSuccess }: Props) {
         </div>
       )}
 
-      <button
-        type="submit"
-        disabled={submitting || uploading}
-        className="w-full rounded-[14px] bg-primary py-3.5 text-[14px] font-bold text-white disabled:opacity-50"
-      >
-        {submitting ? 'Envoi…' : "Soumettre l'article"}
-      </button>
+      {/* CTA double : brouillon + soumettre */}
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => persist('brouillon')}
+          disabled={!!submitting || uploading}
+          className="rounded-[14px] border border-bord bg-white py-3.5 text-[13px] font-bold text-texte disabled:opacity-50"
+        >
+          {submitting === 'brouillon' ? 'Enregistrement…' : 'Sauvegarder brouillon'}
+        </button>
+        <button
+          type="submit"
+          disabled={!!submitting || uploading}
+          className="rounded-[14px] bg-primary py-3.5 text-[13px] font-bold text-white disabled:opacity-50"
+        >
+          {submitting === 'soumis' ? 'Envoi…' : 'Soumettre'}
+        </button>
+      </div>
     </form>
   )
 }

@@ -459,6 +459,12 @@ export default function ProfilView() {
                 onClick={() => setSubView('annonces')}
               />
               <MenuRow
+                icon={ICONS.journal}
+                label="Mes articles (Journal)"
+                sub="Brouillons, soumissions et publiés"
+                href="/journal/articles"
+              />
+              <MenuRow
                 icon={ICONS.cal}
                 label="Événements suivis"
                 sub={interestCount != null ? `${interestCount} événement${interestCount > 1 ? 's' : ''}` : undefined}

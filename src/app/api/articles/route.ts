@@ -23,16 +23,24 @@ export async function POST(req: NextRequest) {
     }, { status: 403 })
   }
 
-  const body = (await req.json()) as ArticleCreateInput
-  const err = validateArticleInput(body)
-  if (err) return NextResponse.json({ error: err }, { status: 400 })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const body = (await req.json()) as ArticleCreateInput & { statut?: 'brouillon' | 'en_attente' }
+  // Pour brouillon : on autorise titre+corps moins stricts (l'user sauvegarde
+  // en cours de rédaction). Pour en_attente, on valide complètement.
+  const wantStatut = body.statut === 'brouillon' ? 'brouillon' : 'en_attente'
+  if (wantStatut === 'en_attente') {
+    const err = validateArticleInput(body)
+    if (err) return NextResponse.json({ error: err }, { status: 400 })
+  } else {
+    if (!body.titre?.trim()) return NextResponse.json({ error: 'Le titre est requis' }, { status: 400 })
+  }
 
   const insert = {
     user_id: ctx.userId,
     titre: body.titre.trim(),
-    corps: body.corps.trim(),
+    corps: (body.corps ?? '').trim(),
     photo_url: body.photo_url?.trim() || null,
-    statut: 'en_attente' as const,
+    statut: wantStatut,
   }
 
   const { data, error } = await supabaseAdmin

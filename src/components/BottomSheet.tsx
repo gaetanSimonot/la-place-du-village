@@ -336,7 +336,7 @@ export default function BottomSheet({
           </div>
         )}
 
-        {mode !== 'full' && appMode !== 'agenda' && (
+        {appMode !== 'agenda' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 16px 10px' }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 18, color: '#1C1917', margin: 0, lineHeight: 1.1 }}>
