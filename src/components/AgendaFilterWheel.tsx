@@ -173,10 +173,6 @@ function VerticalFilterWheel({
     // Feedback visuel immédiat : la pill traverse le slot → bascule à active
     if (realIdx !== visualIdx) {
       setVisualIdx(realIdx)
-      // Haptic léger sur mobile pour matérialiser le "clap"
-      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-        navigator.vibrate(8)
-      }
     }
 
     // Settle court puis notifie le parent
@@ -255,18 +251,19 @@ function VerticalFilterWheel({
         onTouchStart={handleInteract}
         onMouseDown={handleInteract}
         onWheel={handleInteract}
-        onPointerDown={e => e.stopPropagation()}
         className="pdv-vwheel-scroll"
         style={{
           height: '100%', overflowY: 'auto', overflowX: 'hidden',
           scrollSnapType: 'y mandatory',
           display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: GAP,
           padding: `calc(50% - ${PILL_H / 2}px) 0`,
-          // calc(50% - ...) résolu via paddingBlock dynamique :
           paddingTop: (CONTAINER_H - PILL_H) / 2,
           paddingBottom: (CONTAINER_H - PILL_H) / 2,
           position: 'relative', zIndex: 2,
           WebkitOverflowScrolling: 'touch',
+          // touchAction pan-y autorise le scroll vertical natif du wheel,
+          // mais laisse au parent (sheet drag) les autres gestes.
+          touchAction: 'pan-y',
         }}
       >
         {tripled.map((item, i) => {
@@ -279,6 +276,7 @@ function VerticalFilterWheel({
               role="option"
               aria-selected={isActive}
               onClick={() => handleClickPill(realIdx)}
+              onPointerDown={e => e.stopPropagation()}
               style={{
                 flexShrink: 0,
                 width: '100%', height: PILL_H, borderRadius: 16,
@@ -287,16 +285,14 @@ function VerticalFilterWheel({
                 color: isActive ? '#fff' : accent,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontFamily: 'Inter, sans-serif',
-                fontSize: isActive ? 13 : 11.5,
-                fontWeight: isActive ? 800 : 600,
+                fontSize: 12.5,
+                fontWeight: isActive ? 700 : 600,
                 letterSpacing: '-0.005em',
                 scrollSnapAlign: 'center',
                 scrollSnapStop: 'always',
-                transition: 'background 90ms cubic-bezier(0.2, 0.9, 0.3, 1.2), color 90ms ease-out, font-size 110ms cubic-bezier(0.2, 0.9, 0.3, 1.2), font-weight 90ms ease-out, box-shadow 90ms ease-out, transform 110ms cubic-bezier(0.2, 0.9, 0.3, 1.2)',
-                transform: isActive ? 'scale(1.03)' : 'scale(1)',
+                transition: 'background 150ms ease-out, color 150ms ease-out, font-weight 150ms ease-out',
                 cursor: 'pointer',
                 userSelect: 'none',
-                boxShadow: isActive ? '0 3px 10px rgba(45,90,61,0.32)' : 'none',
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 padding: '0 10px',
               }}

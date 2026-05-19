@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { requireUser } from '@/lib/server-auth'
+import { requireUser, notifyAllUsers } from '@/lib/server-auth'
 
 type Patch = Partial<{
   cover_kicker: string
@@ -68,6 +68,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Broadcast notif si on vient de publier (fail-silent)
+  if (body.statut === 'publie') {
+    await notifyAllUsers({
+      type:        'journal_publie',
+      actor_name:  'Le Journal du Village',
+      target_type: 'journal',
+      target_id:   id,
+    })
+  }
+
   return NextResponse.json({ journal: data })
 }
 

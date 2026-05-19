@@ -14,6 +14,7 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { notifyAllUsers } from '@/lib/server-auth'
 
 const SONNET_MODEL = 'claude-sonnet-4-6'
 
@@ -302,6 +303,14 @@ export async function generateJournalDraft(): Promise<{ id: string; numero: numb
       .update({ statut: 'publie', journal_id: data.id })
       .eq('id', ctx.article.id)
   }
+
+  // Notif broadcast à tous les users (fail-silent)
+  await notifyAllUsers({
+    type:        'journal_publie',
+    actor_name:  'Le Journal du Village',
+    target_type: 'journal',
+    target_id:   data.id,
+  })
 
   return { id: data.id, numero: data.numero }
 }

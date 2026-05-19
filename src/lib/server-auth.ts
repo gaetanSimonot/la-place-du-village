@@ -108,6 +108,34 @@ export async function requireAdmin(
  * Fail-silent : si aucun admin n'est trouvé ou si l'insert plante, on log et on continue.
  */
 /**
+ * Insère une notification pour TOUS les users de l'app (broadcast).
+ * Utilisé pour les events globaux comme la publication d'un journal hebdo.
+ * Fail-silent. Limite hard à 1000 users (listUsers pagination).
+ */
+export async function notifyAllUsers(payload: {
+  type: string
+  actor_name: string
+  target_type?: string
+  target_id?: string
+}): Promise<void> {
+  try {
+    const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
+    if (!users?.length) return
+    const rows = users.map(u => ({
+      user_id:     u.id,
+      type:        payload.type,
+      actor_name:  payload.actor_name,
+      target_type: payload.target_type ?? null,
+      target_id:   payload.target_id ?? null,
+      lu:          false,
+    }))
+    await supabaseAdmin.from('notifications').insert(rows)
+  } catch (e) {
+    console.error('[notifyAllUsers] failed', e)
+  }
+}
+
+/**
  * Insère une notification pour un user spécifique.
  * Fail-silent.
  */

@@ -95,9 +95,6 @@ export default function AnnuaireFilterWheel({
     // Feedback visuel immédiat (clap)
     if (realIdx !== visualIdx) {
       setVisualIdx(realIdx)
-      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-        navigator.vibrate(8)
-      }
     }
 
     // Settle puis notifie parent
@@ -178,7 +175,6 @@ export default function AnnuaireFilterWheel({
         onTouchStart={handleInteract}
         onMouseDown={handleInteract}
         onWheel={handleInteract}
-        onPointerDown={e => e.stopPropagation()}
         className="pdv-hwheel-scroll"
         style={{
           height: '100%', overflowX: 'auto', overflowY: 'hidden',
@@ -187,6 +183,9 @@ export default function AnnuaireFilterWheel({
           padding: `0 calc(50% - ${PILL_W / 2}px)`,
           position: 'relative', zIndex: 2,
           WebkitOverflowScrolling: 'touch',
+          // touchAction pan-x autorise le scroll horizontal natif du wheel,
+          // mais laisse au parent (sheet drag) intercepter le pan-y vertical.
+          touchAction: 'pan-x',
         }}
       >
         {tripled.map((item, i) => {
@@ -200,6 +199,7 @@ export default function AnnuaireFilterWheel({
               role="option"
               aria-selected={isActive}
               onClick={() => handleClickPill(realIdx)}
+              onPointerDown={e => e.stopPropagation()}
               style={{
                 flexShrink: 0,
                 width: PILL_W, height: 34, borderRadius: 17,
@@ -209,16 +209,14 @@ export default function AnnuaireFilterWheel({
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 gap: 4,
                 fontFamily: 'Inter, sans-serif',
-                fontSize: isActive ? 13 : 11.5,
-                fontWeight: isActive ? 800 : 600,
+                fontSize: 12.5,
+                fontWeight: isActive ? 700 : 600,
                 letterSpacing: '-0.005em',
                 scrollSnapAlign: 'center',
                 scrollSnapStop: 'always',
-                transition: 'background 90ms cubic-bezier(0.2, 0.9, 0.3, 1.2), color 90ms ease-out, font-size 110ms cubic-bezier(0.2, 0.9, 0.3, 1.2), font-weight 90ms ease-out, box-shadow 90ms ease-out, transform 110ms cubic-bezier(0.2, 0.9, 0.3, 1.2)',
-                transform: isActive ? 'scale(1.03)' : 'scale(1)',
+                transition: 'background 150ms ease-out, color 150ms ease-out, font-weight 150ms ease-out',
                 cursor: 'pointer',
                 userSelect: 'none',
-                boxShadow: isActive ? `0 3px 10px ${withAlpha(color, 0.32)}` : 'none',
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 padding: '0 10px',
               }}

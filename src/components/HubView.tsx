@@ -81,12 +81,6 @@ function dateLabel(iso: string | null): string {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 }
 
-function formatElapsed(s: number): string {
-  if (s < 60)    return `maj il y a ${s} sec`
-  if (s < 3600)  return `maj il y a ${Math.floor(s / 60)} min`
-  return 'maj récente'
-}
-
 function categorieKicker(c: string | null | undefined): string {
   if (!c) return 'ÉVÉNEMENT'
   return c.toUpperCase()
@@ -108,17 +102,7 @@ export default function HubView({
   const [ventesAnnonces, setVentesAnnonces] = useState<Annonce[]>([])
   const [ventesTotal, setVentesTotal] = useState<number>(0)
   const [zoneCounts, setZoneCounts] = useState<{ evt: number; etab: number; prod: number }>({ evt: 0, etab: 0, prod: 0 })
-  const [lastRefresh, setLastRefresh] = useState<number>(Date.now())
-  const [elapsed, setElapsed] = useState<number>(0)
   const [journal, setJournal] = useState<JournalLite | null>(null)
-
-  // Ticker "maj il y a X sec" — passe à 1s tant que <60s, puis tick à 60s
-  useEffect(() => {
-    const tick = () => setElapsed(Math.floor((Date.now() - lastRefresh) / 1000))
-    tick()
-    const t = setInterval(tick, 1000)
-    return () => clearInterval(t)
-  }, [lastRefresh])
 
   useEffect(() => {
     Promise.all([
@@ -328,7 +312,6 @@ export default function HubView({
     loadPromos()
     loadVentes()
     loadJournal()
-    setLastRefresh(Date.now())
   }, [loadHero, loadToday, loadPromos, loadVentes, loadJournal])
 
   // Realtime refetch sur changement featured_slots
@@ -338,8 +321,7 @@ export default function HubView({
       .on('postgres_changes', { event: '*', schema: 'public', table: 'featured_slots' }, () => {
         loadHero()
         loadPromos()
-        setLastRefresh(Date.now())
-      })
+          })
       .subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [loadHero, loadPromos])
@@ -352,8 +334,7 @@ export default function HubView({
       loadPromos()
       loadVentes()
       loadJournal()
-      setLastRefresh(Date.now())
-    }
+      }
     const onVisible = () => { if (document.visibilityState === 'visible') refreshAll() }
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('focus', refreshAll)
@@ -364,8 +345,10 @@ export default function HubView({
   }, [loadHero, loadToday, loadPromos, loadVentes, loadJournal])
 
   const firstName = profile?.display_name?.split(' ')[0] || 'Visiteur'
-  const totalNear = zoneCounts.evt + zoneCounts.etab + zoneCounts.prod
-  const totalCarte = totalNear
+  // Compteur greeting = nombre d'événements totaux (cohérent avec page Agenda
+  // quand tous filtres sont sur "Tout"). Pas le grand total tout-confondu.
+  const totalNear = zoneCounts.evt
+  const totalCarte = zoneCounts.evt + zoneCounts.etab + zoneCounts.prod
 
   const [featuredEv, ...restEvents] = todayEvents
   const miniEvents = restEvents.slice(0, 2)
@@ -387,7 +370,7 @@ export default function HubView({
       {/* ── 2. Search bar ─────────────────────────────────────────────── */}
       <HubSearchBar onClick={onOpenSearch} />
 
-      {/* ── 3. Greeting + compteur live ───────────────────────────────── */}
+      {/* ── 3. Greeting + compteur events + EN DIRECT ─────────────────── */}
       <div className="px-4 pt-[18px]">
         <h1
           className="m-0 font-serif text-[24px] leading-[1.1] text-texte"
@@ -395,10 +378,15 @@ export default function HubView({
         >
           Bonjour, {firstName}
         </h1>
-        <p className="mt-1 text-[13px] text-texte-doux">
-          <span className="font-semibold text-texte">{totalNear}</span> choses près de toi
-          <span className="opacity-50"> · </span>
-          {formatElapsed(elapsed)}
+        <p className="mt-1 flex items-center gap-2 text-[13px] text-texte-doux">
+          <span><span className="font-semibold text-texte">{totalNear}</span> événement{totalNear > 1 ? 's' : ''} près de toi</span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#E8F2EB] px-1.5 py-[2px] text-[9px] font-extrabold tracking-[0.06em] text-primary">
+            <span
+              className="inline-block h-[5px] w-[5px] rounded-full bg-[#5BC85B]"
+              style={{ boxShadow: '0 0 0 2px rgba(91,200,91,0.30)' }}
+            />
+            EN DIRECT
+          </span>
         </p>
       </div>
 
@@ -607,7 +595,7 @@ function FeaturedEventCard({ ev, onClick }: { ev: Evenement; onClick: () => void
       tabIndex={0}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
       style={{ gridColumn: 'span 1', gridRow: 'span 2', borderColor: '#F0EAE0' }}
-      className="flex cursor-pointer flex-col overflow-hidden rounded-[16px] border bg-white shadow-[0_2px_10px_rgba(44,28,16,0.06)]"
+      className="flex cursor-pointer flex-col overflow-hidden rounded-[16px] border bg-white shadow-[0_6px_20px_rgba(44,28,16,0.10)]"
     >
       <div className="relative h-[128px] bg-bord/40">
         {ev.image_url
@@ -650,7 +638,7 @@ function MiniEventCard({ ev, onClick }: { ev: Evenement; onClick: () => void }) 
       tabIndex={0}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
       style={{ borderColor: '#F0EAE0' }}
-      className="flex cursor-pointer overflow-hidden rounded-[14px] border bg-white shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
+      className="flex cursor-pointer overflow-hidden rounded-[14px] border bg-white shadow-[0_4px_14px_rgba(44,28,16,0.08)]"
     >
       <div className="relative w-[64px] shrink-0 bg-bord/40">
         {ev.image_url
