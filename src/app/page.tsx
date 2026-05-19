@@ -168,7 +168,7 @@ export default function HomePage() {
   })
   const mapCameraRef = useRef<{ lat: number; lng: number; zoom: number } | null>(null)
   const prevUserRef  = useRef<typeof user>(null)
-  const [geocoding, setGeocoding]       = useState(false)
+  const [, setGeocoding]                = useState(false)
   const [adminMapSaved, setAdminMapSaved] = useState(false)
   const [sheetMode, setSheetMode]   = useState<'peek'|'half'|'full'>('half')
   const [sheetPeekH, setSheetPeekH] = useState(130)
@@ -779,139 +779,227 @@ export default function HomePage() {
         )
       })()}
 
-      {/* Popup zone user */}
+      {/* Réglages de la carte — V3 */}
       {zonePopup && (
         <>
           <div
             onClick={() => setZonePopup(false)}
-            style={{ position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.4)' }}
+            style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(26,18,9,0.55)', backdropFilter: 'blur(3px)' }}
           />
           <div style={{
             position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 301,
-            backgroundColor: '#fff', borderRadius: '20px 20px 0 0',
-            padding: '20px 20px 40px', fontFamily: 'Inter, sans-serif',
+            backgroundColor: '#fff', borderRadius: '22px 22px 0 0',
+            display: 'flex', flexDirection: 'column',
+            maxHeight: '88dvh',
+            fontFamily: 'Inter, sans-serif',
           }}>
-            <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '0 auto 20px' }} />
-            <p style={{ fontWeight: 700, fontSize: 16, color: '#2C1810', marginBottom: 4 }}>Ma zone d&apos;affichage</p>
-            <p style={{ fontSize: 12, color: '#8A8A8A', marginBottom: 20 }}>Affiche uniquement les événements proches de chez toi.</p>
+            {/* Grabber */}
+            <div style={{ width: 40, height: 4, borderRadius: 999, background: '#E4DED2', margin: '10px auto 6px', flexShrink: 0 }} />
 
-            {/* Ville */}
-            <div style={{ marginBottom: 16 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: '#8A8A8A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Village / Commune</p>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input
-                  value={userVille}
-                  onChange={e => setUserVille(e.target.value)}
-                  onKeyDown={async e => {
-                    if (e.key === 'Enter' && userVille.trim()) {
-                      setGeocoding(true)
-                      const r = await fetch(`/api/admin/geocode?q=${encodeURIComponent(userVille + ', Hérault, France')}`)
-                      const d = await r.json()
-                      if (d.lat) setUserCentre({ lat: d.lat, lng: d.lng, nom: userVille.trim() })
-                      setGeocoding(false)
-                    }
-                  }}
-                  placeholder="Ex: Ganges, Le Vigan..."
-                  style={{ flex: 1, border: '1px solid #E0D8CE', borderRadius: 12, padding: '10px 14px', fontSize: 14, outline: 'none', backgroundColor: '#FBF7F0' }}
-                />
+            {/* Header DM Serif + reset link */}
+            <div style={{ padding: '8px 20px 14px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, flexShrink: 0 }}>
+              <h2 style={{
+                margin: 0, fontFamily: 'var(--font-dm-serif), Georgia, serif',
+                fontSize: 22, color: '#1A1209', letterSpacing: '-0.01em', lineHeight: 1.1,
+              }}>
+                Réglages de la carte
+              </h2>
+              {userZoneActive && (
                 <button
-                  onClick={async () => {
-                    if (!userVille.trim()) return
-                    setGeocoding(true)
-                    const r = await fetch(`/api/admin/geocode?q=${encodeURIComponent(userVille + ', Hérault, France')}`)
-                    const d = await r.json()
-                    if (d.lat) setUserCentre({ lat: d.lat, lng: d.lng, nom: userVille.trim() })
-                    setGeocoding(false)
+                  onClick={() => {
+                    localStorage.removeItem('pdv-zone-user')
+                    setUserZoneActive(false)
+                    setUserCentre(null)
+                    setUserVille('')
                   }}
-                  disabled={geocoding || !userVille.trim()}
-                  style={{ padding: '10px 14px', borderRadius: 12, backgroundColor: '#C4622D', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: geocoding ? 0.5 : 1 }}
+                  style={{ background: 'none', border: 'none', color: '#2D5A3D', fontSize: 12, fontWeight: 800, cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}
                 >
-                  {geocoding ? '…' : 'OK'}
+                  Réinitialiser
                 </button>
-              </div>
-              {userCentre && (
-                <p style={{ fontSize: 11, color: '#C4622D', marginTop: 6 }}>📍 {userCentre.nom} localisé</p>
               )}
             </div>
 
-            {/* Rayon */}
-            <div style={{ marginBottom: 24 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: '#8A8A8A', textTransform: 'uppercase', letterSpacing: 1 }}>Rayon</p>
-                <span style={{ fontSize: 16, fontWeight: 700, color: '#C4622D' }}>{userRayon} km</span>
+            {/* Scroll body */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px' }}>
+              {/* CENTRÉ SUR */}
+              <p style={{ fontSize: 11, fontWeight: 800, color: '#7A6A5A', textTransform: 'uppercase', letterSpacing: 1, margin: '6px 4px 8px' }}>Centré sur</p>
+              <div style={{
+                background: '#FDFAF5', border: '1px solid #F0EAE0', borderRadius: 14,
+                padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16,
+              }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  background: '#E8F2EB', color: '#2D5A3D', flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                  </svg>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209', letterSpacing: '-0.01em' }}>
+                    {userCentre?.nom ?? userVille ?? 'Ganges'}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2 }}>
+                    {userZoneActive ? 'Zone personnelle active' : 'Zone par défaut du village'}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input
+                    value={userVille}
+                    onChange={e => setUserVille(e.target.value)}
+                    onKeyDown={async e => {
+                      if (e.key === 'Enter' && userVille.trim()) {
+                        setGeocoding(true)
+                        const r = await fetch(`/api/admin/geocode?q=${encodeURIComponent(userVille + ', Hérault, France')}`)
+                        const d = await r.json()
+                        if (d.lat) setUserCentre({ lat: d.lat, lng: d.lng, nom: userVille.trim() })
+                        setGeocoding(false)
+                      }
+                    }}
+                    placeholder="Changer…"
+                    style={{ width: 110, border: '1px solid #E0D8CE', borderRadius: 10, padding: '7px 10px', fontSize: 12, outline: 'none', background: '#fff', fontFamily: 'inherit' }}
+                  />
+                </div>
               </div>
-              <input
-                type="range" min={5} max={200} step={5}
-                value={userRayon}
-                onChange={e => setUserRayon(Number(e.target.value))}
-                style={{ width: '100%', accentColor: '#C4622D' }}
-              />
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#C0B9B0', marginTop: 2 }}>
-                <span>5 km</span><span>200 km</span>
+
+              {/* RAYON DE RECHERCHE */}
+              <p style={{ fontSize: 11, fontWeight: 800, color: '#7A6A5A', textTransform: 'uppercase', letterSpacing: 1, margin: '14px 4px 8px' }}>Rayon de recherche</p>
+              <div style={{ background: '#FDFAF5', border: '1px solid #F0EAE0', borderRadius: 14, padding: '14px 14px 16px', marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 6, marginBottom: 12 }}>
+                  <span style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif', fontSize: 32, color: '#2D5A3D', lineHeight: 1 }}>{userRayon}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#2D5A3D' }}>km</span>
+                </div>
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
+                  {[5, 10, 30, 50, 100].map(km => {
+                    const active = userRayon === km
+                    return (
+                      <button
+                        key={km}
+                        onClick={() => setUserRayon(km)}
+                        style={{
+                          padding: '6px 12px', borderRadius: 999,
+                          fontSize: 12, fontWeight: 800, cursor: 'pointer',
+                          background: active ? '#2D5A3D' : '#fff',
+                          color: active ? '#fff' : '#7A6A5A',
+                          border: `1px solid ${active ? '#2D5A3D' : '#E5DDD2'}`,
+                          fontFamily: 'inherit',
+                        }}
+                      >
+                        {km} km
+                      </button>
+                    )
+                  })}
+                </div>
+                <input
+                  type="range" min={5} max={200} step={5}
+                  value={userRayon}
+                  onChange={e => setUserRayon(Number(e.target.value))}
+                  style={{ width: '100%', accentColor: '#2D5A3D' }}
+                />
               </div>
+
+              {/* COMPORTEMENT */}
+              <p style={{ fontSize: 11, fontWeight: 800, color: '#7A6A5A', textTransform: 'uppercase', letterSpacing: 1, margin: '14px 4px 8px' }}>Comportement</p>
+              <div style={{ background: '#FDFAF5', border: '1px solid #F0EAE0', borderRadius: 14, marginBottom: 16, overflow: 'hidden' }}>
+                <button
+                  onClick={() => setFixedMap(!fixedMap)}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
+                >
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>Fixer la carte</div>
+                    <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2 }}>Empêche le déplacement libre.</div>
+                  </div>
+                  <div style={{
+                    width: 36, height: 22, borderRadius: 999,
+                    background: fixedMap ? '#2D5A3D' : '#E5DDD2',
+                    position: 'relative', transition: 'background 0.18s', flexShrink: 0,
+                  }}>
+                    <div style={{
+                      position: 'absolute', top: 2, left: fixedMap ? 16 : 2,
+                      width: 18, height: 18, borderRadius: '50%',
+                      background: '#fff', transition: 'left 0.18s',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                    }} />
+                  </div>
+                </button>
+                <div style={{ height: 1, background: '#F0EAE0' }} />
+                <button
+                  onClick={() => setMasquerPasses(!masquerPasses)}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
+                >
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>Masquer les événements passés</div>
+                    <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2 }}>Cache les événements terminés.</div>
+                  </div>
+                  <div style={{
+                    width: 36, height: 22, borderRadius: 999,
+                    background: masquerPasses ? '#2D5A3D' : '#E5DDD2',
+                    position: 'relative', transition: 'background 0.18s', flexShrink: 0,
+                  }}>
+                    <div style={{
+                      position: 'absolute', top: 2, left: masquerPasses ? 16 : 2,
+                      width: 18, height: 18, borderRadius: '50%',
+                      background: '#fff', transition: 'left 0.18s',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                    }} />
+                  </div>
+                </button>
+              </div>
+
+              {isAdmin && (
+                <>
+                  <div style={{ borderTop: '1px solid #F0EBE3', margin: '8px 0 12px' }} />
+                  <button
+                    onClick={async () => {
+                      const cam = mapCameraRef.current
+                      if (!cam) return
+                      const pos = { lat: cam.lat, lng: cam.lng, zoom: cam.zoom }
+                      await fetch('/api/admin/zone', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ carte_depart_lat: pos.lat, carte_depart_lng: pos.lng, carte_depart_zoom: pos.zoom }),
+                      })
+                      try { localStorage.setItem('pdv-carte-depart', JSON.stringify(pos)) } catch {}
+                      setMapCenterOn(pos)
+                      setAdminMapSaved(true)
+                      setTimeout(() => setAdminMapSaved(false), 2000)
+                    }}
+                    style={{
+                      width: '100%', padding: '12px', borderRadius: 14, border: 'none',
+                      background: adminMapSaved ? '#2D5A3D' : '#1C3829',
+                      color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      transition: 'background-color 0.3s', fontFamily: 'inherit',
+                      marginBottom: 12,
+                    }}
+                  >
+                    <span>{adminMapSaved ? '✓' : '📍'}</span>
+                    {adminMapSaved ? 'Point de départ enregistré !' : 'Fixer le point de départ ici'}
+                  </button>
+                </>
+              )}
             </div>
 
-            {/* Actions */}
-            <button
-              onClick={() => {
-                if (!userCentre) return
-                const z = { rayon: userRayon, nom: userCentre.nom, lat: userCentre.lat, lng: userCentre.lng }
-                localStorage.setItem('pdv-zone-user', JSON.stringify(z))
-                setUserZoneActive(true)
-                setMapCenterOn({ lat: userCentre.lat, lng: userCentre.lng })
-                setZonePopup(false)
-              }}
-              disabled={!userCentre}
-              style={{ width: '100%', padding: '14px', borderRadius: 16, backgroundColor: '#C4622D', color: '#fff', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer', marginBottom: 10, opacity: userCentre ? 1 : 0.4 }}
-            >
-              Appliquer ma zone
-            </button>
-            {userZoneActive && (
+            {/* Sticky CTA "Appliquer" */}
+            <div style={{ padding: '12px 16px 16px', borderTop: '1px solid #F0EAE0', background: '#fff', flexShrink: 0, paddingBottom: 'max(20px, env(safe-area-inset-bottom, 20px))' }}>
               <button
                 onClick={() => {
-                  localStorage.removeItem('pdv-zone-user')
-                  setUserZoneActive(false)
-                  setUserCentre(null)
-                  setUserVille('')
+                  if (userCentre) {
+                    const z = { rayon: userRayon, nom: userCentre.nom, lat: userCentre.lat, lng: userCentre.lng }
+                    localStorage.setItem('pdv-zone-user', JSON.stringify(z))
+                    setUserZoneActive(true)
+                    setMapCenterOn({ lat: userCentre.lat, lng: userCentre.lng })
+                  }
                   setZonePopup(false)
                 }}
-                style={{ width: '100%', padding: '12px', borderRadius: 16, backgroundColor: 'transparent', color: '#8A8A8A', fontWeight: 600, fontSize: 14, border: '1px solid #E0D8CE', cursor: 'pointer' }}
+                style={{ width: '100%', padding: 14, borderRadius: 14, background: '#2D5A3D', color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit' }}
               >
-                Réinitialiser (utiliser zone par défaut)
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Appliquer
               </button>
-            )}
-
-            {isAdmin && (
-              <>
-                <div style={{ borderTop: '1px solid #F0EBE3', margin: '16px 0 12px' }} />
-                <button
-                  onClick={async () => {
-                    const cam = mapCameraRef.current
-                    if (!cam) return
-                    const pos = { lat: cam.lat, lng: cam.lng, zoom: cam.zoom }
-                    await fetch('/api/admin/zone', {
-                      method: 'PATCH',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ carte_depart_lat: pos.lat, carte_depart_lng: pos.lng, carte_depart_zoom: pos.zoom }),
-                    })
-                    try { localStorage.setItem('pdv-carte-depart', JSON.stringify(pos)) } catch {}
-                    setMapCenterOn(pos)
-                    setAdminMapSaved(true)
-                    setTimeout(() => setAdminMapSaved(false), 2000)
-                  }}
-                  style={{
-                    width: '100%', padding: '12px', borderRadius: 16, border: 'none',
-                    backgroundColor: adminMapSaved ? '#2D5A3D' : '#1C3829',
-                    color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    transition: 'background-color 0.3s',
-                  }}
-                >
-                  <span>{adminMapSaved ? '✓' : '📍'}</span>
-                  {adminMapSaved ? 'Point de départ enregistré !' : 'Fixer le point de départ de la carte ici'}
-                </button>
-              </>
-            )}
+            </div>
           </div>
         </>
       )}
