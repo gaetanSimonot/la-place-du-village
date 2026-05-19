@@ -23,6 +23,20 @@ interface Comment {
   profile: { user_id: string; display_name: string | null; avatar_url: string | null } | null
 }
 
+const T = {
+  primary: '#2D5A3D',
+  primaryLight: '#E8F2EB',
+  accent: '#C84B2F',
+  texte: '#1A1209',
+  texteDoux: '#7A6A5A',
+  texteTresDoux: '#A99B89',
+  creme: '#FDFAF5',
+  cremeDeep: '#F7F1E6',
+  bord: '#E8E0D4',
+  bordSoft: '#F0EAE0',
+  white: '#FFFFFF',
+}
+
 function timeAgo(d: string) {
   const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000)
   if (m < 1) return 'à l\'instant'; if (m < 60) return `${m} min`
@@ -30,19 +44,25 @@ function timeAgo(d: string) {
 }
 function Avatar({ name, url, size = 32 }: { name: string; url?: string | null; size?: number }) {
   if (url) return <img src={url} alt="" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-  return <div style={{ width: size, height: size, borderRadius: '50%', backgroundColor: '#2D5A3D', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: size * 0.38, flexShrink: 0 }}>{(name || '?')[0].toUpperCase()}</div>
+  return <div style={{ width: size, height: size, borderRadius: '50%', backgroundColor: T.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: size * 0.38, flexShrink: 0 }}>{(name || '?')[0].toUpperCase()}</div>
 }
-function InfoChip({ label, sub }: { label: string; sub: string }) {
+
+// Floating circular button (back/share/heart)
+function FloatBtn({ children, onClick, ariaLabel, color = T.texte, filled = false }: { children: React.ReactNode; onClick: () => void; ariaLabel: string; color?: string; filled?: boolean }) {
   return (
-    <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, backgroundColor: '#E8F2EB', borderRadius: 14, padding: '9px 10px' }}>
-      <div style={{ width: 22, height: 22, borderRadius: '50%', backgroundColor: '#2D5A3D', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-      </div>
-      <div style={{ minWidth: 0 }}>
-        <p style={{ fontSize: 11, fontWeight: 700, color: '#2D5A3D', margin: 0, lineHeight: 1.2 }}>{label}</p>
-        <p style={{ fontSize: 10, color: '#5A8A6A', margin: 0, lineHeight: 1.2 }}>{sub}</p>
-      </div>
-    </div>
+    <button
+      onClick={onClick} aria-label={ariaLabel}
+      style={{
+        width: 38, height: 38, borderRadius: '50%',
+        background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)',
+        border: 'none', cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', flexShrink: 0,
+      }}
+    >
+      {children}
+      {filled && <span style={{ position: 'absolute' }} />}
+    </button>
   )
 }
 
@@ -57,6 +77,7 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
   const [photoIdx, setPhotoIdx] = useState(0)
   const [isFav, setIsFav] = useState(false)
   const [isFollowing, setIsFollowing] = useState(false)
+  const [favoriteCount, setFavoriteCount] = useState(0)
   const [commentCount, setCommentCount] = useState(0)
   const [comments, setComments] = useState<Comment[]>([])
   const [commentText, setCommentText] = useState('')
@@ -64,13 +85,14 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
   const [editing, setEditing] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [productCatFilter, setProductCatFilter] = useState<string | null>(null)
+  const [tab, setTab] = useState<'produits' | 'infos' | 'avis'>('produits')
   const isOwner = !!user && !!producer && producer.user_id === user.id
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
   const [editCommentText, setEditCommentText] = useState('')
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout>>()
-  const commentsRef = useRef<HTMLDivElement>(null)
+  const tabsRef = useRef<HTMLDivElement>(null)
 
   const showToast = useCallback((msg: string) => {
     clearTimeout(toastTimer.current); setToast(msg)
@@ -82,6 +104,12 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
       .then(r => r.json())
       .then(d => { setProducer(d.producer ?? null); setLoading(false) })
       .catch(() => setLoading(false))
+  }, [id])
+
+  // Favorite count public
+  useEffect(() => {
+    supabase.from('producer_favorites').select('*', { count: 'exact', head: true }).eq('producer_id', id)
+      .then(({ count }) => setFavoriteCount(count ?? 0))
   }, [id])
 
   useEffect(() => {
@@ -135,14 +163,19 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
     productCatFilter ? products.filter(p => normalizeProduitCat(p.categorie) === productCatFilter) : products,
     [products, productCatFilter])
 
+  const dispoSemaineCount = useMemo(() => products.filter(p => p.periode_dispo === 'semaine').length, [products])
+  const actifCetteSemaine = dispoSemaineCount > 0
+
   async function toggleFav() {
     if (!user) { openAuthModal(); return }
     const next = !isFav
     setIsFav(next)
+    setFavoriteCount(c => Math.max(0, c + (next ? 1 : -1)))
     showToast(next ? '❤️ Ajouté aux favoris' : 'Retiré des favoris')
-    const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; if (!token) { setIsFav(!next); return }
+    const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token
+    if (!token) { setIsFav(!next); setFavoriteCount(c => Math.max(0, c + (next ? -1 : 1))); return }
     const res = await fetch(`/api/producers/${id}/favorite`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
-    if (!res.ok) setIsFav(!next)
+    if (!res.ok) { setIsFav(!next); setFavoriteCount(c => Math.max(0, c + (next ? -1 : 1))) }
   }
   async function toggleFollow() {
     if (!user) { openAuthModal(); return }
@@ -152,20 +185,6 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
     const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; if (!token) { setIsFollowing(!next); return }
     const res = await fetch(`/api/producers/${id}/follow`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
     if (!res.ok) setIsFollowing(!next)
-  }
-  function scrollToComments() {
-    if (!commentsRef.current) return
-    let parent: HTMLElement | null = commentsRef.current.parentElement
-    while (parent) {
-      const ov = window.getComputedStyle(parent).overflowY
-      if (ov === 'auto' || ov === 'scroll') {
-        const top = commentsRef.current.getBoundingClientRect().top - parent.getBoundingClientRect().top + parent.scrollTop - 12
-        parent.scrollTo({ top, behavior: 'smooth' })
-        return
-      }
-      parent = parent.parentElement
-    }
-    commentsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
   async function deleteComment(commentId: string) {
     const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; if (!token) return
@@ -198,9 +217,13 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
     if (navigator.share) navigator.share({ title: producer?.nom ?? '', url }).catch(() => {})
     else { navigator.clipboard.writeText(url).catch(() => {}); showToast('Lien copié !') }
   }
+  function scrollToAvis() {
+    setTab('avis')
+    setTimeout(() => tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+  }
 
-  if (loading) return <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5F0E8' }}><div style={{ width: 32, height: 32, borderRadius: '50%', border: '4px solid #E0D8CE', borderTopColor: '#2D5A3D', animation: 'spin 0.7s linear infinite' }} /></div>
-  if (!producer) return <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5F0E8' }}><p style={{ color: '#8A8A8A', fontFamily: 'Inter, sans-serif' }}>Producteur introuvable</p></div>
+  if (loading) return <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: T.creme }}><div style={{ width: 32, height: 32, borderRadius: '50%', border: `4px solid ${T.bord}`, borderTopColor: T.primary, animation: 'spin 0.7s linear infinite' }} /></div>
+  if (!producer) return <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: T.creme }}><p style={{ color: T.texteDoux, fontFamily: 'Inter, sans-serif' }}>Producteur introuvable</p></div>
 
   const photos = producer.photos ?? []
   const mapsUrl = producer.lat && producer.lng
@@ -210,127 +233,233 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
     : products.some(p => p.periode_dispo === 'weekend') ? 'Ce weekend'
     : products.length > 0 ? 'En vente' : null
 
-  const BTN: React.CSSProperties = { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '13px 4px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }
-  const LBL: React.CSSProperties = { fontSize: 11, fontWeight: 600, fontFamily: 'Inter, sans-serif' }
-  const CARD: React.CSSProperties = { backgroundColor: '#fff', borderRadius: 16, padding: '16px 18px', boxShadow: '0 1px 8px rgba(44,28,16,0.08)' }
+  const tabsList: { id: 'produits' | 'infos' | 'avis'; label: string; count: number | null }[] = [
+    { id: 'produits', label: 'Produits', count: products.length },
+    { id: 'infos', label: 'Infos', count: null },
+    { id: 'avis', label: 'Avis', count: commentCount },
+  ]
 
   return (
-    <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ minHeight: '100dvh', backgroundColor: T.creme, fontFamily: 'Inter, sans-serif', color: T.texte }}>
       {toast && <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 999, backgroundColor: '#2C1810', color: '#fff', borderRadius: 14, padding: '10px 20px', fontSize: 13, fontWeight: 600, pointerEvents: 'none', boxShadow: '0 6px 24px rgba(0,0,0,0.28)' }}>{toast}</div>}
 
-      {/* Header sticky */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 20, backgroundColor: 'rgba(242,235,224,0.92)', backdropFilter: 'blur(10px)', padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={() => onBack ? onBack() : router.back()} style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.8)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2D5A3D', fontSize: 18, flexShrink: 0, boxShadow: '0 1px 6px rgba(0,0,0,0.1)' }}>←</button>
-        <p style={{ flex: 1, fontWeight: 700, fontSize: 15, color: '#2C1810', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{producer.nom}</p>
-        {isAdmin && <FeatureButton contentType="producteur" contentId={producer.id} ownerUserId={(producer as { user_id?: string | null }).user_id ?? null} />}
-        {isAdmin && !isOwner && <button onClick={() => setEditing(true)} style={{ fontSize: 11, fontWeight: 700, color: '#2D5A3D', border: '1.5px solid #2D5A3D', borderRadius: 10, padding: '5px 12px', backgroundColor: 'transparent', cursor: 'pointer', flexShrink: 0 }}>✏️</button>}
+      {/* Floating top actions */}
+      <div style={{ position: 'absolute', top: 14, left: 0, right: 0, padding: '0 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 20 }}>
+        <FloatBtn ariaLabel="Retour" onClick={() => onBack ? onBack() : router.back()}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
+          </svg>
+        </FloatBtn>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {isAdmin && <FeatureButton contentType="producteur" contentId={producer.id} ownerUserId={(producer as { user_id?: string | null }).user_id ?? null} />}
+          {isAdmin && !isOwner && (
+            <button onClick={() => setEditing(true)} style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.primary, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', flexShrink: 0 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+          )}
+          <FloatBtn ariaLabel="Partager" onClick={share}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          </FloatBtn>
+          <FloatBtn ariaLabel="Favori" onClick={toggleFav} color={isFav ? T.accent : T.texte}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill={isFav ? T.accent : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+            </svg>
+          </FloatBtn>
+        </div>
       </div>
 
-      {/* Photo avec gradient + infos */}
-      <div style={{ position: 'relative', height: 280, backgroundColor: '#C4D9C4', overflow: 'hidden' }}>
+      {/* Hero photo 290px */}
+      <div style={{ position: 'relative', width: '100%', height: 290, background: '#E8F2EB', overflow: 'hidden' }}>
         {photos.length > 0
           ? <img src={photos[photoIdx]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><img src="/icons/producteur-local.png" alt="" style={{ width: 100, opacity: 0.3 }} /></div>}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 18%, rgba(0,0,0,0.15) 48%, rgba(0,0,0,0.78) 100%)' }} />
-        <div style={{ position: 'absolute', top: 12, left: 12, display: 'flex', gap: 6 }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, backgroundColor: '#2D5A3D', color: '#fff', borderRadius: 999, padding: '4px 11px', fontSize: 11, fontWeight: 800, letterSpacing: '0.04em' }}>🌿 PRODUCTEUR LOCAL</span>
-          {producer.is_featured && <span style={{ backgroundColor: '#F5EFD6', color: '#8B6914', borderRadius: 999, padding: '4px 10px', fontSize: 11, fontWeight: 700 }}>★ À la une</span>}
-        </div>
-        {photos.length > 1 && <>
-          <button onClick={() => setPhotoIdx(i => (i - 1 + photos.length) % photos.length)} style={{ position: 'absolute', left: 10, top: '45%', transform: 'translateY(-50%)', width: 30, height: 30, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.55)', border: 'none', color: '#2C1810', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
-          <button onClick={() => setPhotoIdx(i => (i + 1) % photos.length)} style={{ position: 'absolute', right: 10, top: '45%', transform: 'translateY(-50%)', width: 30, height: 30, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.55)', border: 'none', color: '#2C1810', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
-        </>}
-        <div style={{ position: 'absolute', bottom: 50, left: 16, right: 16 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: '#fff', margin: '0 0 3px', lineHeight: 1.15 }}>{producer.nom}</h1>
-          {producer.commune && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', margin: '0 0 6px' }}>📍 {producer.commune}</p>}
-          {producer.description_courte && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', lineHeight: 1.45, margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{producer.description_courte}</p>}
+        <div style={{ position: 'absolute', inset: 'auto 0 0 0', height: 120, background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.35) 100%)' }} />
+
+        {/* Dots */}
+        {photos.length > 1 && (
+          <div style={{ position: 'absolute', bottom: 14, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 5, zIndex: 3, background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(6px)', padding: '5px 10px', borderRadius: 999 }}>
+            {photos.map((_, i) => (
+              <span
+                key={i}
+                onClick={() => setPhotoIdx(i)}
+                style={{ width: i === photoIdx ? 14 : 4, height: 4, background: i === photoIdx ? '#fff' : 'rgba(255,255,255,0.55)', borderRadius: i === photoIdx ? 2 : '50%', cursor: 'pointer', transition: 'width 0.18s' }}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Photo counter */}
+        {photos.length > 1 && (
+          <div style={{ position: 'absolute', top: 14, right: '50%', transform: 'translateX(50%)', fontSize: 11, fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,0.45)', padding: '4px 8px', borderRadius: 999, backdropFilter: 'blur(4px)', zIndex: 7 }}>
+            {photoIdx + 1}/{photos.length}
+          </div>
+        )}
+
+        {/* Badge PRODUCTEUR LOCAL */}
+        <div style={{ position: 'absolute', bottom: 14, left: 14, zIndex: 3 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(232,242,235,0.95)', backdropFilter: 'blur(4px)', color: T.primary, fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', padding: '5px 10px', borderRadius: 999 }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19.2 2.96c1.4 9.3-3.6 15.8-8.2 17.04z"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/></svg>
+            PRODUCTEUR LOCAL
+          </div>
+          {producer.is_featured && <span style={{ marginLeft: 6, backgroundColor: '#F5EFD6', color: '#8B6914', borderRadius: 999, padding: '4px 10px', fontSize: 10, fontWeight: 800 }}>★ À la une</span>}
         </div>
       </div>
 
-      {/* Bandeau flottant */}
-      <div style={{ position: 'relative', zIndex: 2, marginTop: -38, marginLeft: 12, marginRight: 12, borderRadius: 20, backgroundColor: '#fff', boxShadow: '0 2px 14px rgba(44,28,16,0.1)' }}>
-        <div style={{ display: 'flex' }}>
-          <button style={BTN} onClick={toggleFav}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill={isFav ? '#E8622A' : 'none'} stroke={isFav ? '#E8622A' : '#8A7A6A'} strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-            <span style={{ ...LBL, color: isFav ? '#E8622A' : '#8A7A6A' }}>Favori</span>
-          </button>
-          {producer.user_id !== user?.id && (
-            <button style={BTN} onClick={toggleFollow}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={isFollowing ? '#2D5A3D' : '#8A7A6A'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                {isFollowing ? <path d="M20 6L9 17l-5-5"/> : <><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></>}
-              </svg>
-              <span style={{ ...LBL, color: isFollowing ? '#2D5A3D' : '#8A7A6A' }}>{isFollowing ? 'Suivi ✓' : 'Suivre'}</span>
-            </button>
-          )}
-          <button style={BTN} onClick={scrollToComments}>
-            <div style={{ position: 'relative' }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8A7A6A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-              {commentCount > 0 && <span style={{ position: 'absolute', top: -5, right: -7, backgroundColor: '#2D5A3D', color: '#fff', borderRadius: 999, fontSize: 9, fontWeight: 700, padding: '0 4px', minWidth: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{commentCount}</span>}
+      {/* Content card slide up */}
+      <div style={{ background: T.white, borderRadius: '24px 24px 0 0', marginTop: -20, position: 'relative', zIndex: 4, paddingBottom: 100 }}>
+        {/* Title block */}
+        <div style={{ padding: '20px 16px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+            <h1 style={{ margin: 0, fontFamily: 'var(--font-dm-serif), Georgia, serif', fontSize: 28, lineHeight: 1.1, color: T.texte, letterSpacing: '-0.02em', fontWeight: 400 }}>
+              {producer.nom}
+            </h1>
+            {favoriteCount > 0 && (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: T.accent, fontSize: 13, fontWeight: 800, flexShrink: 0, marginTop: 6 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill={T.accent} stroke="none"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+                {favoriteCount}
+              </div>
+            )}
+          </div>
+          <div style={{ marginTop: 6, fontSize: 13, color: T.texteDoux, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            {actifCetteSemaine && (
+              <span style={{ color: T.primary, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ width: 6, height: 6, background: T.primary, borderRadius: '50%' }} />
+                Actif cette semaine
+              </span>
+            )}
+          </div>
+          {producer.commune && (
+            <div style={{ marginTop: 10, fontSize: 12, color: T.texteDoux, display: 'flex', alignItems: 'center', gap: 5 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              {producer.adresse ? `${producer.adresse} · ${producer.commune}` : producer.commune}
             </div>
-            <span style={{ ...LBL, color: '#8A7A6A' }}>Avis</span>
-          </button>
-          <button style={BTN} onClick={share}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8A7A6A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-            <span style={{ ...LBL, color: '#8A7A6A' }}>Partager</span>
-          </button>
+          )}
+          {producer.description_courte && (
+            <p style={{ marginTop: 12, fontSize: 14, color: T.texte, lineHeight: 1.6, margin: '12px 0 0' }}>
+              {producer.description_courte}
+            </p>
+          )}
         </div>
-      </div>
 
-      {/* Chips d'information */}
-      <div style={{ display: 'flex', gap: 6, margin: '10px 12px 0' }}>
-        {dispoPeriodLabel && <InfoChip label="Ouvert" sub={dispoPeriodLabel} />}
-        {producer.vente_directe !== false && <InfoChip label="Vente directe" sub="Du producteur" />}
-        {producer.retrait_sur_place !== false && <InfoChip label="À retirer" sub="Sur place / marché" />}
-      </div>
-
-      <div style={{ padding: '12px 12px 48px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-
-        {producer.description_longue && (
-          <div style={{ ...CARD, position: 'relative', overflow: 'hidden' }}>
-            <img src="/icons/a-propos.png" alt="" style={{ position: 'absolute', top: 10, right: 10, width: 58, opacity: 0.14, pointerEvents: 'none' }} />
-            <h3 style={{ fontSize: 11, fontWeight: 800, color: '#8A7A6A', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>À propos</h3>
-            <p style={{ fontSize: 14, color: '#4A3728', lineHeight: 1.7, margin: 0 }}>{producer.description_longue}</p>
+        {/* Follow banner */}
+        {producer.user_id !== user?.id && (
+          <div style={{ padding: '18px 16px 0' }}>
+            <div style={{
+              background: isFollowing ? T.primaryLight : T.white,
+              border: isFollowing ? `1.5px solid ${T.primary}` : `1px solid ${T.bordSoft}`,
+              borderRadius: 16, padding: '12px 14px',
+              display: 'flex', alignItems: 'center', gap: 14,
+              boxShadow: isFollowing ? 'none' : '0 1px 4px rgba(44,28,16,0.04)',
+            }}>
+              <div style={{ width: 42, height: 42, borderRadius: 12, background: isFollowing ? T.white : T.primaryLight, color: T.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: T.texte, lineHeight: 1.2, letterSpacing: '-0.01em' }}>
+                  {isFollowing ? 'Tu suis ce producteur' : 'Suivre ce producteur'}
+                </div>
+                <div style={{ fontSize: 11, color: T.texteDoux, marginTop: 2, lineHeight: 1.4 }}>
+                  {isFollowing ? 'Tu seras notifié dès qu\'il publie un nouveau produit.' : 'Recevoir une notif dès qu\'il publie de nouveaux produits.'}
+                </div>
+              </div>
+              <button
+                onClick={toggleFollow}
+                style={{
+                  padding: '8px 14px', borderRadius: 999,
+                  background: isFollowing ? T.white : T.primary,
+                  color: isFollowing ? T.primary : '#fff',
+                  border: isFollowing ? `1px solid ${T.primary}` : 'none',
+                  fontSize: 12, fontWeight: 800, cursor: 'pointer', flexShrink: 0,
+                  display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: 'inherit',
+                }}
+              >
+                {isFollowing ? (
+                  <>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    Suivi
+                  </>
+                ) : 'Suivre'}
+              </button>
+            </div>
           </div>
         )}
 
-        {(producer.contact_tel || producer.contact_whatsapp || producer.site_web || mapsUrl) && (
-          <div style={{ ...CARD, padding: '16px 18px' }}>
-            <p style={{ fontSize: 11, fontWeight: 800, color: '#8A7A6A', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Contact</p>
-            {producer.contact_tel && <a href={`tel:${producer.contact_tel}`} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', textDecoration: 'none', borderBottom: '1px solid #F0E8DC' }}>
-              <span style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#E8F2EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>📞</span>
-              <span style={{ flex: 1, fontSize: 14, color: '#2D5A3D', fontWeight: 600 }}>{producer.contact_tel}</span>
-              <span style={{ color: '#C8B8A8', fontSize: 20 }}>›</span>
-            </a>}
-            {producer.contact_whatsapp && <a href={`https://wa.me/${producer.contact_whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', textDecoration: 'none', borderBottom: '1px solid #F0E8DC' }}>
-              <span style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#E8F2EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>💬</span>
-              <span style={{ flex: 1, fontSize: 14, color: '#2D5A3D', fontWeight: 600 }}>WhatsApp</span>
-              <span style={{ color: '#C8B8A8', fontSize: 20 }}>›</span>
-            </a>}
-            {producer.site_web && <a href={producer.site_web.startsWith('http') ? producer.site_web : `https://${producer.site_web}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', textDecoration: 'none', borderBottom: mapsUrl ? '1px solid #F0E8DC' : 'none' }}>
-              <span style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#E8F2EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>🔗</span>
-              <span style={{ flex: 1, fontSize: 14, color: '#2D5A3D', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{producer.site_web.replace(/^https?:\/\//, '').replace(/\/$/, '')}</span>
-              <span style={{ color: '#C8B8A8', fontSize: 20 }}>›</span>
-            </a>}
-            {mapsUrl && <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', textDecoration: 'none' }}>
-              <span style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#E8F2EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>🗺️</span>
-              <span style={{ flex: 1, fontSize: 14, color: '#2D5A3D', fontWeight: 600 }}>Voir l&apos;itinéraire</span>
-              <span style={{ color: '#C8B8A8', fontSize: 20 }}>›</span>
-            </a>}
+        {/* Dispo chips */}
+        {(dispoPeriodLabel || producer.vente_directe !== false || producer.retrait_sur_place !== false) && (
+          <div style={{ padding: '18px 16px 0', display: 'flex', gap: 8 }}>
+            {dispoPeriodLabel && (
+              <div style={{ flex: 1, minWidth: 0, background: T.primaryLight, border: '1px solid #C5DCC9', borderRadius: 12, padding: '9px 10px' }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: T.primary, letterSpacing: '-0.01em', lineHeight: 1.2 }}>{dispoPeriodLabel}</div>
+                <div style={{ fontSize: 10, color: '#5A8A6A', marginTop: 2, lineHeight: 1.2 }}>{dispoSemaineCount > 0 ? `${dispoSemaineCount} produits dispos` : 'En vente'}</div>
+              </div>
+            )}
+            {producer.vente_directe !== false && (
+              <div style={{ flex: 1, minWidth: 0, background: T.cremeDeep, border: `1px solid ${T.bordSoft}`, borderRadius: 12, padding: '9px 10px' }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: T.texte, letterSpacing: '-0.01em', lineHeight: 1.2 }}>Vente directe</div>
+                <div style={{ fontSize: 10, color: T.texteDoux, marginTop: 2, lineHeight: 1.2 }}>Du producteur</div>
+              </div>
+            )}
+            {producer.retrait_sur_place !== false && (
+              <div style={{ flex: 1, minWidth: 0, background: T.cremeDeep, border: `1px solid ${T.bordSoft}`, borderRadius: 12, padding: '9px 10px' }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: T.texte, letterSpacing: '-0.01em', lineHeight: 1.2 }}>À retirer</div>
+                <div style={{ fontSize: 10, color: T.texteDoux, marginTop: 2, lineHeight: 1.2 }}>Sur place / marché</div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* ── Produits ── */}
-        {(products.length > 0 || isOwner) && (
-          <div style={{ backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 1px 8px rgba(44,28,16,0.08)' }}>
-            {/* Header section produits */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 18px 12px' }}>
-              <div style={{ flex: 1 }}>
-                <p style={{ fontSize: 11, fontWeight: 800, color: '#8A7A6A', margin: 0, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Produits disponibles</p>
-                <p style={{ fontSize: 12, color: '#AAA', margin: '2px 0 0' }}>Mis à jour par le producteur</p>
+        <div style={{ height: 18 }} />
+
+        {/* Tabs sticky */}
+        <div ref={tabsRef} style={{ position: 'sticky', top: 0, zIndex: 10, background: T.white, borderBottom: `1px solid ${T.bordSoft}`, padding: '0 16px' }}>
+          <div style={{ display: 'flex', gap: 0 }}>
+            {tabsList.map(t => {
+              const active = tab === t.id
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  style={{
+                    flex: 1, padding: '14px 8px',
+                    background: 'transparent', border: 'none', cursor: 'pointer',
+                    borderBottom: active ? `2.5px solid ${T.primary}` : '2.5px solid transparent',
+                    fontSize: 13, fontWeight: active ? 800 : 600,
+                    color: active ? T.primary : T.texteDoux,
+                    letterSpacing: '0.02em',
+                    fontFamily: 'Inter, sans-serif',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                  }}
+                >
+                  {t.label}
+                  {t.count != null && t.count > 0 && (
+                    <span style={{
+                      fontSize: 10, fontWeight: 700,
+                      color: active ? T.primary : T.texteTresDoux,
+                      background: active ? T.primaryLight : T.cremeDeep,
+                      padding: '1px 6px', borderRadius: 999,
+                    }}>{t.count}</span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Tab Produits */}
+        {tab === 'produits' && (
+          <div style={{ padding: '18px 16px 0' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 800, color: T.texteDoux, letterSpacing: '0.1em' }}>DISPONIBLES MAINTENANT</div>
+                <div style={{ fontSize: 11, color: T.texteTresDoux, marginTop: 2 }}>
+                  Mis à jour par le producteur · {products.length} produits
+                </div>
               </div>
               {isOwner && (
-                <button onClick={() => { if (editMode) loadProducts(); setEditMode(e => !e); setProductCatFilter(null) }}
-                  style={{ padding: '6px 16px', borderRadius: 10, border: '1.5px solid #2D5A3D', fontSize: 12, fontWeight: 700, color: editMode ? '#fff' : '#2D5A3D', backgroundColor: editMode ? '#2D5A3D' : 'transparent', cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0 }}>
+                <button
+                  onClick={() => { if (editMode) loadProducts(); setEditMode(e => !e); setProductCatFilter(null) }}
+                  style={{ padding: '6px 14px', borderRadius: 10, border: `1.5px solid ${T.primary}`, fontSize: 12, fontWeight: 700, color: editMode ? '#fff' : T.primary, background: editMode ? T.primary : 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}
+                >
                   {editMode ? '✓ Publier' : '✏️ Gérer'}
                 </button>
               )}
@@ -339,48 +468,51 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
             {isOwner && editMode ? (
               <ProductsEditSection producerId={producer.id} />
             ) : products.length === 0 ? (
-              <p style={{ fontSize: 13, color: '#AAA', textAlign: 'center', padding: '8px 18px 24px', margin: 0 }}>Aucun produit disponible actuellement</p>
+              <p style={{ fontSize: 13, color: T.texteTresDoux, textAlign: 'center', padding: '8px 18px 24px', margin: 0 }}>Aucun produit disponible actuellement</p>
             ) : (
               <>
-                {/* Filtres catégories */}
                 {availableCats.length > 1 && (
-                  <div style={{ display: 'flex', gap: 7, padding: '0 14px 12px', overflowX: 'auto', scrollbarWidth: 'none' }}>
-                    <button onClick={() => setProductCatFilter(null)} style={{ flexShrink: 0, padding: '5px 12px', borderRadius: 999, border: 'none', backgroundColor: !productCatFilter ? '#2D5A3D' : '#F0EDE8', color: !productCatFilter ? '#fff' : '#6B5E4E', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Tout</button>
+                  <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 12, scrollbarWidth: 'none' }}>
+                    <button onClick={() => setProductCatFilter(null)} style={{ flexShrink: 0, padding: '5px 11px', borderRadius: 999, background: !productCatFilter ? T.primary : T.cremeDeep, color: !productCatFilter ? '#fff' : T.texteDoux, border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Tout</button>
                     {availableCats.map(cat => {
                       const info = PRODUIT_CATS_MAP[cat]
-                      return <button key={cat} onClick={() => setProductCatFilter(cat === productCatFilter ? null : cat)} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: 999, border: 'none', backgroundColor: productCatFilter === cat ? '#2D5A3D' : '#F0EDE8', color: productCatFilter === cat ? '#fff' : '#6B5E4E', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>{info?.emoji} {info?.label ?? cat}</button>
+                      const active = productCatFilter === cat
+                      return (
+                        <button key={cat} onClick={() => setProductCatFilter(active ? null : cat)} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '5px 11px', borderRadius: 999, background: active ? T.primary : T.cremeDeep, color: active ? '#fff' : T.texteDoux, border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit' }}>
+                          {info?.emoji} {info?.label ?? cat}
+                        </button>
+                      )
                     })}
                   </div>
                 )}
 
-                {/* Grille 2 colonnes */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, padding: '0 14px 16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   {filteredProducts.map(p => {
                     const catInfo = PRODUIT_CATS_MAP[normalizeProduitCat(p.categorie)]
+                    const periodLabel = p.periode_dispo === 'semaine' ? 'Cette sem.' : p.periode_dispo === 'weekend' ? 'Ce weekend' : null
+                    const periodColor = p.periode_dispo === 'semaine' ? T.primary : '#C4622D'
                     return (
-                      <div key={p.id} style={{ backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 10px rgba(44,28,16,0.07)' }}>
-                        {/* Photo */}
-                        <div style={{ height: 130, backgroundColor: '#E8F2EB', overflow: 'hidden', position: 'relative' }}>
-                          {p.image_url
-                            ? <>
-                                <img src={p.image_url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.15), transparent 55%)' }} />
-                              </>
-                            : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44 }}>{catInfo?.emoji ?? '✦'}</div>}
-                          {/* Badge dispo en overlay */}
-                          {p.periode_dispo === 'semaine' && (
-                            <span style={{ position: 'absolute', top: 8, left: 8, fontSize: 9, fontWeight: 700, color: '#2D5A3D', backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 999, padding: '2px 7px', backdropFilter: 'blur(4px)' }}>Cette sem.</span>
+                      <div key={p.id} style={{ background: T.white, borderRadius: 14, overflow: 'hidden', border: `1px solid ${T.bordSoft}`, boxShadow: '0 1px 4px rgba(44,28,16,0.04)' }}>
+                        <div style={{ height: 120, background: '#E8F2EB', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', fontSize: 42 }}>
+                          {p.image_url ? (
+                            <>
+                              <img src={p.image_url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.15), transparent 55%)' }} />
+                            </>
+                          ) : (
+                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44 }}>{catInfo?.emoji ?? '✦'}</div>
                           )}
-                          {p.periode_dispo === 'weekend' && (
-                            <span style={{ position: 'absolute', top: 8, left: 8, fontSize: 9, fontWeight: 700, color: '#C4622D', backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 999, padding: '2px 7px', backdropFilter: 'blur(4px)' }}>Ce weekend</span>
+                          {periodLabel && (
+                            <span style={{ position: 'absolute', top: 8, left: 8, zIndex: 2, fontSize: 9, fontWeight: 800, color: periodColor, background: 'rgba(255,255,255,0.94)', borderRadius: 999, padding: '3px 8px', backdropFilter: 'blur(4px)', letterSpacing: '0.02em' }}>{periodLabel}</span>
                           )}
                         </div>
-                        {/* Infos */}
                         <div style={{ padding: '9px 11px 11px' }}>
-                          <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 13, color: '#2C1810', margin: '0 0 3px', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{p.nom}</p>
-                          {p.prix_indicatif
-                            ? <p style={{ fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 800, color: '#2D5A3D', margin: 0, letterSpacing: '-0.01em' }}>{p.prix_indicatif}</p>
-                            : <p style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: '#C0B9B0', margin: 0 }}>Prix sur demande</p>}
+                          <div style={{ fontSize: 13, fontWeight: 700, color: T.texte, lineHeight: 1.3, marginBottom: 3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 34 }}>{p.nom}</div>
+                          {p.prix_indicatif ? (
+                            <div style={{ fontSize: 14, fontWeight: 800, color: T.primary, letterSpacing: '-0.01em' }}>{p.prix_indicatif}</div>
+                          ) : (
+                            <div style={{ fontSize: 11, color: T.texteTresDoux }}>Prix sur demande</div>
+                          )}
                         </div>
                       </div>
                     )
@@ -391,66 +523,182 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
           </div>
         )}
 
-        {/* Commentaires */}
-        <div ref={commentsRef} style={CARD}>
-          <p style={{ fontSize: 11, fontWeight: 800, color: '#8A7A6A', margin: '0 0 14px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Avis {commentCount > 0 && `(${commentCount})`}</p>
-          <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-            <Avatar name={profile?.display_name || user?.email || '?'} url={profile?.avatar_url} size={34} />
-            <div style={{ flex: 1, display: 'flex', gap: 8 }}>
-              <input value={commentText} onChange={e => setCommentText(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendComment()}
-                placeholder={user ? 'Votre avis…' : 'Connectez-vous pour commenter'}
-                style={{ flex: 1, padding: '9px 13px', borderRadius: 12, border: '1.5px solid #E8E0D5', fontSize: 13, fontFamily: 'Inter, sans-serif', outline: 'none', color: '#2C1810', backgroundColor: '#FAF7F2' }}
-                onClick={() => { if (!user) openAuthModal() }} />
-              <button onClick={sendComment} disabled={!commentText.trim() || sendingComment}
-                style={{ padding: '9px 16px', borderRadius: 12, border: 'none', backgroundColor: commentText.trim() && !sendingComment ? '#2D5A3D' : '#D8D0C8', color: '#fff', fontWeight: 700, fontSize: 13, cursor: commentText.trim() && !sendingComment ? 'pointer' : 'default' }}>→</button>
-            </div>
-          </div>
-          {comments.length === 0 && <p style={{ fontSize: 13, color: '#AAA', textAlign: 'center', margin: 0 }}>Soyez le premier à donner votre avis !</p>}
-          {comments.map(c => (
-            <div key={c.id} style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-              <Avatar name={c.profile?.display_name || '?'} url={c.profile?.avatar_url} size={32} />
-              <div style={{ flex: 1, backgroundColor: '#FAF7F2', borderRadius: 12, padding: '9px 13px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <a href={`/profil/${c.user_id}`} style={{ fontSize: 13, fontWeight: 700, color: '#2C1810', textDecoration: 'none' }}>{c.profile?.display_name ?? 'Anonyme'}</a>
-                  <span style={{ fontSize: 11, color: '#AAA' }}>{timeAgo(c.created_at)}</span>
-                  {c.user_id === user?.id && editingCommentId !== c.id && (
-                    <div style={{ marginLeft: 'auto', position: 'relative' }}>
-                      <button onClick={() => setOpenMenuId(openMenuId === c.id ? null : c.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8A7A6A', fontSize: 18 }}>⋮</button>
-                      {openMenuId === c.id && (
-                        <div style={{ position: 'absolute', right: 0, top: '110%', backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 4px 24px rgba(0,0,0,0.13)', zIndex: 20, minWidth: 150, overflow: 'hidden' }}>
-                          <button onClick={() => { setEditingCommentId(c.id); setEditCommentText(c.content); setOpenMenuId(null) }} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#2C1810', fontFamily: 'Inter, sans-serif' }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Modifier
-                          </button>
-                          <div style={{ height: 1, backgroundColor: '#F0EDE8', margin: '0 14px' }} />
-                          <button onClick={() => { deleteComment(c.id); setOpenMenuId(null) }} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#E8622A', fontFamily: 'Inter, sans-serif' }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>Supprimer
-                          </button>
-                        </div>
-                      )}
-                    </div>
+        {/* Tab Infos */}
+        {tab === 'infos' && (
+          <>
+            {producer.description_longue && (
+              <div style={{ padding: '18px 16px 0' }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: T.texteDoux, letterSpacing: '0.1em', marginBottom: 8 }}>À PROPOS</div>
+                <p style={{ margin: 0, fontSize: 14, color: T.texte, lineHeight: 1.6 }}>{producer.description_longue}</p>
+              </div>
+            )}
+
+            {(producer.contact_tel || producer.contact_whatsapp || producer.site_web || mapsUrl) && (
+              <>
+                <div style={{ height: 22 }} />
+                <div style={{ height: 1, background: T.bordSoft, margin: '0 16px' }} />
+                <div style={{ padding: '18px 16px 0' }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: T.texteDoux, letterSpacing: '0.1em', marginBottom: 6 }}>CONTACT</div>
+                  {producer.contact_tel && (
+                    <a href={`tel:${producer.contact_tel}`} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', textDecoration: 'none', borderBottom: `1px solid ${T.bordSoft}` }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 10, background: T.primaryLight, color: T.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: T.texteDoux, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Téléphone</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: T.texte, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{producer.contact_tel}</div>
+                      </div>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.texteTresDoux} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+                    </a>
+                  )}
+                  {producer.contact_whatsapp && (
+                    <a href={`https://wa.me/${producer.contact_whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', textDecoration: 'none', borderBottom: `1px solid ${T.bordSoft}` }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 10, background: T.primaryLight, color: T.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: T.texteDoux, letterSpacing: '0.04em', textTransform: 'uppercase' }}>WhatsApp</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: T.texte, marginTop: 2 }}>Écrire un message</div>
+                      </div>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.texteTresDoux} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+                    </a>
+                  )}
+                  {producer.site_web && (
+                    <a href={producer.site_web.startsWith('http') ? producer.site_web : `https://${producer.site_web}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', textDecoration: 'none', borderBottom: mapsUrl ? `1px solid ${T.bordSoft}` : 'none' }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 10, background: T.primaryLight, color: T.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: T.texteDoux, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Site web</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: T.texte, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{producer.site_web.replace(/^https?:\/\//, '').replace(/\/$/, '')}</div>
+                      </div>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.texteTresDoux} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+                    </a>
+                  )}
+                  {mapsUrl && (
+                    <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', textDecoration: 'none' }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 10, background: T.primaryLight, color: T.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: T.texteDoux, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Itinéraire</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: T.texte, marginTop: 2 }}>{producer.adresse ?? producer.commune ?? 'Voir sur la carte'}</div>
+                      </div>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.texteTresDoux} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+                    </a>
                   )}
                 </div>
-                {editingCommentId === c.id ? (
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <input value={editCommentText} onChange={e => setEditCommentText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveEditComment(c.id); if (e.key === 'Escape') setEditingCommentId(null) }} autoFocus style={{ flex: 1, padding: '6px 10px', borderRadius: 8, border: '1.5px solid #2D5A3D', fontSize: 13, fontFamily: 'Inter, sans-serif', outline: 'none', backgroundColor: '#fff' }} />
-                    <button onClick={() => saveEditComment(c.id)} style={{ padding: '6px 12px', borderRadius: 8, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>✓</button>
-                    <button onClick={() => setEditingCommentId(null)} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #DDD', backgroundColor: 'transparent', fontSize: 12, cursor: 'pointer' }}>✕</button>
-                  </div>
-                ) : <p style={{ fontSize: 13, color: '#4A3728', margin: 0, lineHeight: 1.55 }}>{c.content}</p>}
+              </>
+            )}
+          </>
+        )}
+
+        {/* Tab Avis */}
+        {tab === 'avis' && (
+          <div style={{ padding: '18px 16px 0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: T.texteDoux, letterSpacing: '0.1em' }}>
+                AVIS DES VOISINS {commentCount > 0 && `· ${commentCount}`}
               </div>
             </div>
-          ))}
-        </div>
 
-        <div style={{ background: 'linear-gradient(135deg, #2D5A3D 0%, #3A7050 100%)', borderRadius: 16, padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 14, boxShadow: '0 3px 12px rgba(45,90,61,0.2)' }}>
-          <img src="/icons/producteur-local.png" alt="" style={{ width: 52, flexShrink: 0, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.2))' }} />
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 800, color: '#fff', margin: '0 0 4px' }}>Soutenez vos producteurs locaux</p>
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', margin: 0, lineHeight: 1.45 }}>En achetant local, vous soutenez une agriculture durable et humaine.</p>
+            <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+              <Avatar name={profile?.display_name || user?.email || '?'} url={profile?.avatar_url} size={34} />
+              <div style={{ flex: 1, display: 'flex', gap: 8 }}>
+                <input
+                  value={commentText}
+                  onChange={e => setCommentText(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendComment()}
+                  placeholder={user ? 'Votre avis…' : 'Connectez-vous pour commenter'}
+                  style={{ flex: 1, padding: '9px 13px', borderRadius: 12, border: `1.5px solid ${T.bord}`, fontSize: 13, fontFamily: 'inherit', outline: 'none', color: T.texte, background: T.cremeDeep }}
+                  onClick={() => { if (!user) openAuthModal() }}
+                />
+                <button
+                  onClick={sendComment} disabled={!commentText.trim() || sendingComment}
+                  style={{ padding: '9px 16px', borderRadius: 12, border: 'none', background: commentText.trim() && !sendingComment ? T.primary : '#D8D0C8', color: '#fff', fontWeight: 700, fontSize: 13, cursor: commentText.trim() && !sendingComment ? 'pointer' : 'default', fontFamily: 'inherit' }}
+                >→</button>
+              </div>
+            </div>
+
+            {comments.length === 0 && <p style={{ fontSize: 13, color: T.texteTresDoux, textAlign: 'center', margin: 0 }}>Soyez le premier à donner votre avis !</p>}
+            {comments.map(c => (
+              <div key={c.id} style={{ display: 'flex', gap: 10, padding: '10px 0', borderTop: `1px dashed ${T.bord}` }}>
+                <Avatar name={c.profile?.display_name || '?'} url={c.profile?.avatar_url} size={32} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <a href={`/profil/${c.user_id}`} style={{ fontSize: 13, fontWeight: 700, color: T.texte, textDecoration: 'none' }}>{c.profile?.display_name ?? 'Anonyme'}</a>
+                    {c.user_id === user?.id && editingCommentId !== c.id && (
+                      <div style={{ position: 'relative' }}>
+                        <button onClick={() => setOpenMenuId(openMenuId === c.id ? null : c.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.texteDoux, fontSize: 18 }}>⋮</button>
+                        {openMenuId === c.id && (
+                          <div style={{ position: 'absolute', right: 0, top: '110%', background: T.white, borderRadius: 12, boxShadow: '0 4px 24px rgba(0,0,0,0.13)', zIndex: 20, minWidth: 150, overflow: 'hidden' }}>
+                            <button onClick={() => { setEditingCommentId(c.id); setEditCommentText(c.content); setOpenMenuId(null) }} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: T.texte, fontFamily: 'inherit' }}>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                              Modifier
+                            </button>
+                            <div style={{ height: 1, background: T.bordSoft, margin: '0 14px' }} />
+                            <button onClick={() => { deleteComment(c.id); setOpenMenuId(null) }} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: T.accent, fontFamily: 'inherit' }}>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                              Supprimer
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 11, color: T.texteTresDoux, marginTop: 1 }}>{timeAgo(c.created_at)}</div>
+                  {editingCommentId === c.id ? (
+                    <div style={{ display: 'flex', gap: 6, marginTop: 5 }}>
+                      <input value={editCommentText} onChange={e => setEditCommentText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveEditComment(c.id); if (e.key === 'Escape') setEditingCommentId(null) }} autoFocus style={{ flex: 1, padding: '6px 10px', borderRadius: 8, border: `1.5px solid ${T.primary}`, fontSize: 13, fontFamily: 'inherit', outline: 'none', background: T.white }} />
+                      <button onClick={() => saveEditComment(c.id)} style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: T.primary, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>✓</button>
+                      <button onClick={() => setEditingCommentId(null)} style={{ padding: '6px 10px', borderRadius: 8, border: `1px solid ${T.bord}`, background: 'transparent', fontSize: 12, cursor: 'pointer' }}>✕</button>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 13, color: T.texte, lineHeight: 1.5, marginTop: 5 }}>{c.content}</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Banner local */}
+        <div style={{ padding: '22px 16px 0' }}>
+          <div style={{ background: 'linear-gradient(135deg, #2D5A3D 0%, #3A7050 100%)', borderRadius: 16, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14, boxShadow: '0 3px 12px rgba(45,90,61,0.2)' }}>
+            <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(255,255,255,0.18)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19.2 2.96c1.4 9.3-3.6 15.8-8.2 17.04z"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/></svg>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>Soutenez vos producteurs locaux</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.78)', marginTop: 3, lineHeight: 1.4 }}>
+                Acheter local, c&apos;est soutenir une agriculture durable et humaine.
+              </div>
+            </div>
           </div>
         </div>
 
       </div>
+
+      {/* Sticky bottom bar */}
+      {(producer.contact_tel || mapsUrl) && (
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: T.white, borderTop: `1px solid #EDE8E0`, padding: '12px 16px 16px', display: 'flex', alignItems: 'center', gap: 10, boxShadow: '0 -4px 16px rgba(44,28,16,0.04)', zIndex: 30, paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))' }}>
+          {producer.contact_tel && (
+            <a href={`tel:${producer.contact_tel}`} style={{ width: 48, height: 48, borderRadius: 14, background: T.white, border: `1px solid ${T.bord}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, color: T.texte, textDecoration: 'none' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            </a>
+          )}
+          {mapsUrl ? (
+            <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ flex: 1, height: 48, borderRadius: 14, background: T.primary, color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, textDecoration: 'none', fontFamily: 'inherit' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+              Itinéraire
+            </a>
+          ) : (
+            <button onClick={scrollToAvis} style={{ flex: 1, height: 48, borderRadius: 14, background: T.primary, color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit' }}>
+              Voir les avis
+            </button>
+          )}
+        </div>
+      )}
 
       {editing && producer && <ProducerEditDrawer producer={producer} onClose={() => setEditing(false)} onSaved={updated => setProducer(updated)} />}
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
