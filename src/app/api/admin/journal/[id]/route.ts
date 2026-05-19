@@ -17,6 +17,7 @@ type Patch = Partial<{
   selection_bonplan_ids: string[]
   selection_article_id: string | null
   spotlight_etab_id: string | null
+  spotlight_kind: 'etablissement' | 'producteur'
   statut: 'brouillon' | 'publie'
 }>
 

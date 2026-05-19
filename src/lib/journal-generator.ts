@@ -281,6 +281,7 @@ export async function generateJournalDraft(): Promise<{ id: string; numero: numb
     selection_bonplan_ids: ctx.promos.map(p => p.id),
     selection_article_id: ctx.article?.id ?? null,
     spotlight_etab_id:    ctx.spotlight?.id ?? null,
+    spotlight_kind:       'etablissement' as const,
     temps_lecture_min:    5,
     // Auto-publication : seul l'humain (article) demande validation ;
     // l'agrégat hebdo ne contient que des entités déjà publiées → safe à publier.

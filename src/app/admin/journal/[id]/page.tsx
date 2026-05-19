@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import SpotlightPicker, { type SpotlightKind } from '@/components/SpotlightPicker'
 
 interface JournalFull {
   id: string
@@ -23,6 +24,7 @@ interface JournalFull {
   selection_bonplan_ids: string[] | null
   selection_article_id: string | null
   spotlight_etab_id: string | null
+  spotlight_kind: SpotlightKind | null
   temps_lecture_min: number | null
   statut: 'brouillon' | 'publie'
   publie_at: string | null
@@ -178,12 +180,22 @@ export default function AdminJournalEditPage() {
             onSave={v => patch({ selection_article_id: v || null })}
             placeholder="UUID de articles_journal"
           />
-          <Field
-            label="Spotlight établissement (UUID)"
-            value={journal.spotlight_etab_id ?? ''}
-            onSave={v => patch({ spotlight_etab_id: v || null })}
-            placeholder="UUID etablissement"
-          />
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-[0.04em] text-texte-doux">
+              Spotlight (établissement ou producteur)
+            </span>
+            <div className="mt-1">
+              <SpotlightPicker
+                value={journal.spotlight_etab_id
+                  ? { kind: (journal.spotlight_kind ?? 'etablissement') as SpotlightKind, id: journal.spotlight_etab_id }
+                  : null}
+                onChange={v => patch({
+                  spotlight_etab_id: v?.id ?? null,
+                  spotlight_kind:    v?.kind ?? 'etablissement',
+                })}
+              />
+            </div>
+          </div>
         </Section>
 
         <Section title="Métadonnées">

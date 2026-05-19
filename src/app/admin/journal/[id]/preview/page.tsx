@@ -59,7 +59,10 @@ export default function JournalPreviewPage() {
             ? supabase.from('articles_journal').select('id, titre, corps, photo_url, user_id').eq('id', j.selection_article_id).maybeSingle()
             : Promise.resolve({ data: null }),
           j.spotlight_etab_id
-            ? supabase.from('etablissements').select('id, nom, commune, type, photos, description_courte').eq('id', j.spotlight_etab_id).maybeSingle()
+            ? (j.spotlight_kind === 'producteur'
+                ? supabase.from('producers').select('id, nom, commune, photos, description_courte').eq('id', j.spotlight_etab_id).maybeSingle()
+                : supabase.from('etablissements').select('id, nom, commune, type, photos, description_courte').eq('id', j.spotlight_etab_id).maybeSingle()
+              )
             : Promise.resolve({ data: null }),
           supabase
             .from('journaux_hebdo')
@@ -81,7 +84,16 @@ export default function JournalPreviewPage() {
         setAnnonces(order((annoncesRes.data ?? []) as AnnonceEntry[], annIds))
         setPromos(order((promosRes.data ?? []) as unknown as PromoEntry[], proIds))
         setArticle((articleRes.data as ArticleEntry | null) ?? null)
-        setSpotlight((spotRes.data as SpotlightEntry | null) ?? null)
+        const spotRaw = spotRes.data as Omit<SpotlightEntry, 'kind' | 'type'> & { type?: string | null } | null
+        setSpotlight(spotRaw ? {
+          id: spotRaw.id,
+          nom: spotRaw.nom,
+          commune: spotRaw.commune,
+          photos: spotRaw.photos,
+          description_courte: spotRaw.description_courte,
+          type: spotRaw.type ?? null,
+          kind: (j.spotlight_kind ?? 'etablissement') as 'etablissement' | 'producteur',
+        } : null)
         setArchives((archRes.data ?? []) as ArchiveEntry[])
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Erreur')

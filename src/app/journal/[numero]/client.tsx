@@ -22,6 +22,7 @@ export interface JournalRow {
   selection_bonplan_ids: string[] | null
   selection_article_id: string | null
   spotlight_etab_id: string | null
+  spotlight_kind: 'etablissement' | 'producteur' | null
   temps_lecture_min: number | null
   statut: 'brouillon' | 'publie'
   publie_at: string | null
@@ -70,6 +71,7 @@ export interface SpotlightEntry {
   type: string | null
   photos: string[] | null
   description_courte: string | null
+  kind: 'etablissement' | 'producteur'
 }
 
 export interface ArticleEntry {
@@ -274,7 +276,7 @@ export default function JournalPageClient({
         </section>
       )}
 
-      {/* ── Spotlight établissement ────────────────────────────────────── */}
+      {/* ── Spotlight établissement ou producteur ──────────────────────── */}
       {spotlight && (
         <section className="px-4 pt-10">
           <div className="text-[10px] font-extrabold tracking-[0.18em] text-primary">
@@ -287,7 +289,10 @@ export default function JournalPageClient({
             {spotlight.nom}
           </h2>
           <div className="mt-1 text-[12px] text-texte-doux">
-            {[spotlight.type, spotlight.commune].filter(Boolean).join(' · ')}
+            {[
+              spotlight.kind === 'producteur' ? 'Producteur local' : spotlight.type,
+              spotlight.commune,
+            ].filter(Boolean).join(' · ')}
           </div>
           {spotlight.photos?.[0] && (
             <div
@@ -301,7 +306,7 @@ export default function JournalPageClient({
             <p className="mt-3 text-[14px] leading-[1.6] text-texte">{spotlight.description_courte}</p>
           )}
           <Link
-            href={`/etablissement/${spotlight.id}`}
+            href={spotlight.kind === 'producteur' ? `/producteur/${spotlight.id}` : `/etablissement/${spotlight.id}`}
             className="mt-3 inline-flex items-center gap-1 text-[12px] font-bold text-primary"
           >
             Voir la fiche →

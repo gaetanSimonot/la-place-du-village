@@ -77,7 +77,10 @@ export default async function JournalNumeroPage({ params }: Props) {
       ? supabaseAdmin.from('articles_journal').select('id, titre, corps, photo_url, user_id').eq('id', row.selection_article_id).maybeSingle()
       : Promise.resolve({ data: null }),
     row.spotlight_etab_id
-      ? supabaseAdmin.from('etablissements').select('id, nom, commune, type, photos, description_courte').eq('id', row.spotlight_etab_id).maybeSingle()
+      ? (row.spotlight_kind === 'producteur'
+          ? supabaseAdmin.from('producers').select('id, nom, commune, photos, description_courte').eq('id', row.spotlight_etab_id).maybeSingle()
+          : supabaseAdmin.from('etablissements').select('id, nom, commune, type, photos, description_courte').eq('id', row.spotlight_etab_id).maybeSingle()
+        )
       : Promise.resolve({ data: null }),
     supabaseAdmin
       .from('journaux_hebdo')
@@ -98,7 +101,18 @@ export default async function JournalNumeroPage({ params }: Props) {
   const annonces  = orderById(((annoncesRes.data ?? []) as AnnonceEntry[]), annIds)
   const promos    = orderById(((promosRes.data ?? []) as unknown as PromoEntry[]), proIds)
   const article   = (articleRes.data as ArticleEntry | null) ?? null
-  const spotlight = (spotlightRes.data as SpotlightEntry | null) ?? null
+  const spotlightRaw = spotlightRes.data as Omit<SpotlightEntry, 'kind' | 'type'> & { type?: string | null } | null
+  const spotlight: SpotlightEntry | null = spotlightRaw
+    ? {
+        id: spotlightRaw.id,
+        nom: spotlightRaw.nom,
+        commune: spotlightRaw.commune,
+        photos: spotlightRaw.photos,
+        description_courte: spotlightRaw.description_courte,
+        type: spotlightRaw.type ?? null,
+        kind: (row.spotlight_kind ?? 'etablissement') as 'etablissement' | 'producteur',
+      }
+    : null
   const archives: ArchiveEntry[] = (archivesRes.data ?? []) as ArchiveEntry[]
 
   return (
