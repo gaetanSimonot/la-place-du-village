@@ -2,7 +2,7 @@
 import { useEffect } from 'react'
 
 interface PublishOption {
-  id:    'event' | 'annonce' | 'capture' | 'commerce' | 'producteur'
+  id:    'event' | 'annonce' | 'commerce' | 'producteur'
   title: string
   sub:   string
   tint:  string
@@ -12,7 +12,7 @@ interface PublishOption {
 
 const OPTIONS: PublishOption[] = [
   {
-    id: 'event', title: 'Un événement', sub: 'Concert, marché, atelier…',
+    id: 'event', title: 'Un événement', sub: "Photo d'affiche ou dictée vocale",
     tint: '#E8F2EB', color: '#2D5A3D',
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -30,16 +30,6 @@ const OPTIONS: PublishOption[] = [
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
         <line x1="7" y1="7" x2="7.01" y2="7"/>
-      </svg>
-    ),
-  },
-  {
-    id: 'capture', title: 'Capturer une affiche', sub: 'Photo de flyer → on remplit pour toi',
-    tint: '#E8EEF7', color: '#3A5D8C',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-        <circle cx="12" cy="13" r="4"/>
       </svg>
     ),
   },

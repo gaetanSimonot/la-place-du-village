@@ -232,11 +232,10 @@ export default function HomePage() {
     setFabOpen(true)
   }, [user, authLoading, openAuthModal])
 
-  const handlePublishPick = useCallback((kind: 'event' | 'annonce' | 'capture' | 'commerce' | 'producteur') => {
+  const handlePublishPick = useCallback((kind: 'event' | 'annonce' | 'commerce' | 'producteur') => {
     setFabOpen(false)
     if (kind === 'event')      router.push('/ajouter')
     else if (kind === 'annonce') router.push('/annonces/nouvelle')
-    else if (kind === 'capture') router.push('/capturer')
     else                       setCommerceFormOpen(true)
   }, [router])
 
