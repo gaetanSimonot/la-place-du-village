@@ -2,7 +2,7 @@
 import { useEffect } from 'react'
 
 interface PublishOption {
-  id:    'event' | 'annonce' | 'commerce' | 'producteur'
+  id:    'event' | 'annonce' | 'commerce'
   title: string
   sub:   string
   tint:  string
@@ -34,23 +34,13 @@ const OPTIONS: PublishOption[] = [
     ),
   },
   {
-    id: 'commerce', title: 'Référencer un commerce', sub: 'Restaurant, artisan, hébergement…',
+    id: 'commerce', title: 'Référencer un commerce ou producteur', sub: 'Restaurant, artisan, ferme…',
     tint: '#F0EBE3', color: '#7C5C3B',
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M3 9l1-5h16l1 5"/>
         <path d="M4 9v11a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9"/>
         <path d="M9 21V12h6v9"/>
-      </svg>
-    ),
-  },
-  {
-    id: 'producteur', title: 'Devenir producteur', sub: 'Vente directe, vente libre',
-    tint: '#EAF3E6', color: '#5B8A4A',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19.2 2.96c1.4 9.3-3.6 15.8-8.2 17.04z"/>
-        <path d="M2 21c0-3 1.85-5.36 5.08-6"/>
       </svg>
     ),
   },
