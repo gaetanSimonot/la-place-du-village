@@ -1,7 +1,7 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import { supabase } from '@/lib/supabase'
@@ -23,7 +23,6 @@ async function authHeaders(): Promise<Record<string, string>> {
 
 export default function MesArticlesPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const { user, loading } = useAuth()
   const { openAuthModal } = useAuthModal()
   const [articles, setArticles] = useState<ArticleJournal[]>([])
@@ -47,15 +46,19 @@ export default function MesArticlesPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, loading])
 
+  // Lecture des query params via window.location pour éviter le bailout
+  // CSR sur Next.js (useSearchParams force le prerender à fail).
   useEffect(() => {
-    if (searchParams.get('soumis') === '1') {
+    if (typeof window === 'undefined') return
+    const sp = new URLSearchParams(window.location.search)
+    if (sp.get('soumis') === '1') {
       setToast('✓ Article soumis pour modération')
       setTimeout(() => setToast(null), 3500)
-    } else if (searchParams.get('brouillon') === '1') {
+    } else if (sp.get('brouillon') === '1') {
       setToast('✓ Brouillon sauvegardé')
       setTimeout(() => setToast(null), 2500)
     }
-  }, [searchParams])
+  }, [])
 
   const handleDelete = async (id: string) => {
     if (!confirm('Supprimer cet article ?')) return
