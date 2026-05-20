@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
     prix:          Number(body.prix ?? 0),
     places:        Number(body.places ?? 1),
     point_recup:   body.point_recup?.trim() || null,
+    vehicule:      body.vehicule?.trim() || null,
     fumeur:        !!body.fumeur,
     animaux:       !!body.animaux,
     bagages:       body.bagages !== false,

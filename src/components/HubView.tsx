@@ -847,7 +847,7 @@ function SaleAnnonceCard({
   )
 }
 
-/* ─── Bottom bento — CovoitTile (1.5fr, fond vert clair) ─────────────── */
+/* ─── Bottom bento — CovoitTile (tableau "départ → destination") ─────── */
 
 function CovoitTile({
   covoits, onClick,
@@ -863,86 +863,75 @@ function CovoitTile({
     if (d.getTime() === tomorrow.getTime()) return 'Demain'
     return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
   }
-  const total = covoits.length
+  const rows = covoits.slice(0, 3)
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label="Ouvrir le covoiturage"
-      className="flex cursor-pointer flex-col overflow-hidden rounded-[18px] border-none bg-primary p-0 text-left text-white"
-      style={{ boxShadow: '0 6px 18px rgba(45,90,61,0.28)' }}
+      className="flex w-full cursor-pointer flex-col overflow-hidden rounded-[18px] border bg-white p-0 text-left text-texte"
+      style={{
+        borderColor: '#E8E0D4',
+        boxShadow: '0 4px 14px rgba(26,18,9,0.08)',
+      }}
     >
-      {/* Bandeau supérieur — illustration route stylisée */}
-      <div className="relative h-[80px]">
-        <svg viewBox="0 0 200 80" className="absolute inset-0 h-full w-full" preserveAspectRatio="xMidYMid slice">
-          <rect width="200" height="80" fill="#3F7150" />
-          {/* Route */}
-          <path d="M-5,55 Q60,30 100,40 T205,30" stroke="rgba(255,255,255,0.18)" strokeWidth="22" fill="none" strokeLinecap="round"/>
-          <path d="M-5,55 Q60,30 100,40 T205,30" stroke="rgba(255,255,255,0.45)" strokeWidth="2" strokeDasharray="6 6" fill="none" />
-          {/* Point départ */}
-          <circle cx="20" cy="52" r="6" fill="#E8C58A" stroke="#fff" strokeWidth="2" />
-          {/* Point arrivée */}
-          <circle cx="180" cy="32" r="6" fill="#FFFFFF" stroke="#1A1209" strokeWidth="1.5" />
-          {/* Petite voiture */}
-          <g transform="translate(95, 30)">
-            <rect x="-10" y="-4" width="20" height="9" rx="2" fill="#fff" />
-            <rect x="-8"  y="-7" width="13" height="5" rx="1.5" fill="#fff" />
-            <circle cx="-5" cy="6" r="2" fill="#1A1209" />
-            <circle cx="5"  cy="6" r="2" fill="#1A1209" />
-          </g>
-        </svg>
-        <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-[rgba(26,18,9,0.85)] px-2 py-[3px] text-[9px] font-extrabold tracking-[0.06em] text-white">
-          <span
-            className="inline-block h-[5px] w-[5px] rounded-full bg-[#E8C58A]"
-            style={{ boxShadow: '0 0 0 3px rgba(232,197,138,0.35)' }}
-          />
-          GRATUIT
-        </span>
-      </div>
-
-      {/* Header + mini liste */}
-      <div className="flex flex-col gap-2 px-3.5 py-3">
-        <div className="flex items-end justify-between gap-2">
-          <div>
-            <div className="text-[9px] font-extrabold tracking-[0.12em] opacity-85">ENTRE VOISINS</div>
-            <div className="mt-[3px] font-serif text-[17px] leading-[1.1]" style={{ letterSpacing: '-0.01em' }}>
-              Covoiturage
-            </div>
+      {/* Header — typo */}
+      <div className="flex items-end justify-between gap-2 border-b border-bordSoft px-4 py-3">
+        <div>
+          <div className="text-[9px] font-extrabold tracking-[0.12em] text-texte-doux">ENTRE VOISINS</div>
+          <div
+            className="mt-[3px] font-serif text-[18px] leading-[1.1] text-texte"
+            style={{ letterSpacing: '-0.01em' }}
+          >
+            Covoiturage
           </div>
-          <IconArrow size={20} />
         </div>
-
-        {/* Mini liste 3 prochains trajets */}
-        {covoits.length > 0 ? (
-          <div className="mt-1 flex flex-col gap-1.5 rounded-xl bg-[rgba(255,255,255,0.10)] p-2">
-            {covoits.slice(0, 3).map(c => (
-              <div key={c.id} className="flex items-center justify-between gap-2 text-[10.5px]">
-                <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                  <span className="shrink-0 rounded bg-[rgba(26,18,9,0.45)] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.04em]">
-                    {fmtDate(c.date_trajet)}
-                  </span>
-                  <span className="truncate font-bold">
-                    {c.depart} → {c.destination}
-                  </span>
-                </div>
-                <span className="shrink-0 text-[10px] opacity-85">
-                  {c.prix > 0 ? `${c.prix.toFixed(2).replace(/\.00$/, '')} €` : 'Gratuit'}
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="mt-1 text-[10.5px] opacity-75">
-            Pas encore de trajet — propose-en un, c&apos;est gratuit.
-          </div>
-        )}
-
-        {total > 0 && (
-          <div className="text-[10px] opacity-70">
-            {total >= 3 ? '3 prochains' : `${total} trajet${total > 1 ? 's' : ''}`} · Voir tout
-          </div>
-        )}
+        <IconArrow size={18} />
       </div>
+
+      {/* Tableau */}
+      {rows.length === 0 ? (
+        <div className="px-4 py-4 text-[12px] text-texte-doux">
+          Aucun trajet pour l&apos;instant — propose-en un.
+        </div>
+      ) : (
+        <div className="flex flex-col">
+          {rows.map((c, i) => (
+            <div
+              key={c.id}
+              className="flex items-center gap-3 px-4 py-2.5"
+              style={{
+                borderTop: i === 0 ? 'none' : '1px solid #F0EAE0',
+              }}
+            >
+              {/* Date / Heure */}
+              <div className="w-[54px] shrink-0 leading-tight">
+                <div className="text-[10px] font-extrabold uppercase tracking-[0.04em] text-texte">
+                  {fmtDate(c.date_trajet)}
+                </div>
+                {c.heure_depart && (
+                  <div className="text-[10px] font-medium tabular-nums text-texte-doux">{c.heure_depart}</div>
+                )}
+              </div>
+
+              {/* Depart → Destination */}
+              <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                <span className="truncate text-[13px] font-bold text-texte">{c.depart}</span>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7A6A5A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                  <polyline points="13 6 19 12 13 18"/>
+                </svg>
+                <span className="truncate text-[13px] font-bold text-texte">{c.destination}</span>
+              </div>
+
+              {/* Prix */}
+              <div className="shrink-0 text-[11px] font-extrabold tabular-nums text-primary">
+                {c.prix > 0 ? `${c.prix.toFixed(2).replace(/\.00$/, '')} €` : 'Gratuit'}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </button>
   )
 }

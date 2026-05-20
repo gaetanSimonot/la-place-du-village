@@ -38,6 +38,8 @@ export default function CovoitDetailClient({ id }: { id: string }) {
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
+  const [favori, setFavori] = useState(false)
+  const [favLoading, setFavLoading] = useState(false)
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/covoiturages/${id}`)
@@ -48,6 +50,45 @@ export default function CovoitDetailClient({ id }: { id: string }) {
   }, [id])
 
   useEffect(() => { load() }, [load])
+
+  // Charge l'état favori si user connecté
+  useEffect(() => {
+    if (!user) { setFavori(false); return }
+    let cancel = false
+    ;(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      if (!token) return
+      const res = await fetch(`/api/covoiturages/${id}/favori`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (cancel || !res.ok) return
+      const d = await res.json()
+      setFavori(!!d.favori)
+    })()
+    return () => { cancel = true }
+  }, [id, user])
+
+  const toggleFavori = async () => {
+    if (!user) { openAuthModal(`/covoiturage/${id}`); return }
+    if (favLoading) return
+    setFavLoading(true)
+    // Optimistic
+    const prev = favori
+    setFavori(!prev)
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+    const res = await fetch(`/api/covoiturages/${id}/favori`, {
+      method: 'POST',
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    })
+    if (!res.ok) { setFavori(prev) } // rollback
+    else {
+      const d = await res.json()
+      setFavori(!!d.favori)
+    }
+    setFavLoading(false)
+  }
 
   const isOwner = !!user && !!covoit && user.id === covoit.user_id
   const placesRest = covoit ? covoit.places - covoit.places_prises : 0
@@ -136,17 +177,37 @@ export default function CovoitDetailClient({ id }: { id: string }) {
             Trajet
           </div>
         </div>
-        <button
-          type="button"
-          onClick={handleShare}
-          aria-label="Partager"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-          </svg>
-        </button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {!isOwner && (
+            <button
+              type="button"
+              onClick={toggleFavori}
+              aria-label={favori ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+              disabled={favLoading}
+              className="flex h-10 w-10 items-center justify-center rounded-xl border bg-white"
+              style={{
+                borderColor: favori ? '#C84B2F' : '#E8E0D4',
+                color:       favori ? '#C84B2F' : '#7A6A5A',
+                background:  favori ? '#FFF0E5' : '#fff',
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill={favori ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+              </svg>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleShare}
+            aria-label="Partager"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-bord bg-white text-texte"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+          </button>
+        </div>
       </div>
 
       {shareOpen && (
@@ -183,9 +244,9 @@ export default function CovoitDetailClient({ id }: { id: string }) {
               <div className="my-1 h-7 w-px bg-bord" />
               <div className="h-2.5 w-2.5 rounded-full border-2 border-primary bg-white" />
             </div>
-            <div className="flex flex-1 flex-col gap-3">
-              <div className="text-[16px] font-bold text-texte">{covoit.depart}</div>
-              <div className="text-[16px] font-bold text-texte">{covoit.destination}</div>
+            <div className="flex min-w-0 flex-1 flex-col gap-3">
+              <div className="break-words text-[16px] font-bold leading-tight text-texte">{covoit.depart}</div>
+              <div className="break-words text-[16px] font-bold leading-tight text-texte">{covoit.destination}</div>
             </div>
           </div>
 
@@ -195,9 +256,23 @@ export default function CovoitDetailClient({ id }: { id: string }) {
                 <path d="M12 22s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/>
                 <circle cx="12" cy="10" r="2.5"/>
               </svg>
-              <div>
+              <div className="min-w-0 break-words">
                 <div className="font-bold text-texte">Récup&apos;</div>
                 <div>{covoit.point_recup}</div>
+              </div>
+            </div>
+          )}
+
+          {covoit.vehicule && (
+            <div className="mt-2 flex items-start gap-2 rounded-xl bg-cremeDeep px-3 py-2.5 text-[12px] text-texte-doux">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0">
+                <path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a1 1 0 0 0-.8-.4H5.24a2 2 0 0 0-1.8 1.1l-.8 1.63A6 6 0 0 0 2 12.42V16h2"/>
+                <circle cx="6.5" cy="16.5" r="2.5"/>
+                <circle cx="16.5" cy="16.5" r="2.5"/>
+              </svg>
+              <div className="min-w-0 break-words">
+                <div className="font-bold text-texte">Véhicule</div>
+                <div>{covoit.vehicule}</div>
               </div>
             </div>
           )}
@@ -251,6 +326,14 @@ export default function CovoitDetailClient({ id }: { id: string }) {
               >
                 Voir les candidatures
               </Link>
+              {covoit.statut !== 'annule' && (
+                <Link
+                  href={`/covoiturage/nouveau?id=${covoit.id}`}
+                  className="rounded-xl bg-primary py-2.5 text-center text-[13px] font-bold text-white no-underline"
+                >
+                  Modifier le trajet
+                </Link>
+              )}
               {covoit.statut !== 'annule' && (
                 <button
                   type="button"

@@ -17,6 +17,7 @@ export interface Covoiturage {
   places: number
   places_prises: number
   point_recup: string | null
+  vehicule: string | null     // marque/modèle, ex: "Renault Clio gris"
   fumeur: boolean
   animaux: boolean
   bagages: boolean
@@ -54,6 +55,7 @@ export interface CovoitFormInput {
   prix: number
   places: number
   point_recup?: string | null
+  vehicule?: string | null
   fumeur: boolean
   animaux: boolean
   bagages: boolean

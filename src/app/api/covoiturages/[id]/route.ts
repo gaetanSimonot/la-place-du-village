@@ -52,8 +52,8 @@ export async function PATCH(
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
   // Whitelist des champs éditables
   const allowed = ['depart', 'destination', 'date_trajet', 'heure_depart',
-                   'prix', 'places', 'point_recup', 'fumeur', 'animaux',
-                   'bagages', 'description', 'statut'] as const
+                   'prix', 'places', 'point_recup', 'vehicule', 'fumeur',
+                   'animaux', 'bagages', 'description', 'statut'] as const
   const update: Record<string, unknown> = {}
   for (const k of allowed) {
     if (k in body) update[k] = body[k]
