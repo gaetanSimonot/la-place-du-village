@@ -33,6 +33,12 @@ export default withPWA({
     clientsClaim: true,
     runtimeCaching: [
       {
+        // Callback OAuth — JAMAIS depuis le cache, sinon le code passe
+        // a cote du handler et l user atterrit sur une page random.
+        urlPattern: /\/auth\/callback/,
+        handler: 'NetworkOnly',
+      },
+      {
         urlPattern: /\/api\/producers/,
         handler: 'NetworkOnly',
       },
