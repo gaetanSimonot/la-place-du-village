@@ -27,7 +27,12 @@
     height: 92dvh;
     max-height: 940px;
     min-height: 100%;
-    overflow: hidden;
+    /* Scroll interne au frame — les fixed enfants (BottomNav, modales…)
+       restent collés au frame grâce au transform ci-dessous, indépendants
+       du scroll. */
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
     border-radius: 32px;
     background: var(--creme, #FDFAF5);
     box-shadow:
@@ -39,10 +44,15 @@
     /* HACK CLÉ — crée un nouveau containing block pour les `position: fixed`
        enfants. Toute l'app se relativise au frame. */
     transform: translateZ(0);
-    /* En plus de translateZ, on force le containment paint pour que rien
-       ne déborde visuellement. */
-    contain: layout paint;
   }
+
+  /* Scrollbar discrète à l'intérieur du frame */
+  .pf-frame::-webkit-scrollbar { width: 6px; }
+  .pf-frame::-webkit-scrollbar-thumb {
+    background: rgba(26, 18, 9, 0.15);
+    border-radius: 999px;
+  }
+  .pf-frame::-webkit-scrollbar-track { background: transparent; }
 }
 
 /* Très grand écran : on laisse un peu plus respirer */
