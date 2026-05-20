@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
-import BottomNavBar from '@/components/BottomNavBar'
 import type { Covoiturage, CovoitConversation, CovoitMessage } from '@/lib/covoiturage'
 
 function timeAgo(d: string) {
@@ -134,7 +133,7 @@ export default function CovoitConversationClient({ convId }: { convId: string })
   const closed = conv.statut === 'closed' || conv.statut === 'refusee'
 
   return (
-    <main className="flex min-h-[100dvh] flex-col bg-creme font-inter text-texte">
+    <main className="flex flex-col bg-creme font-inter text-texte" style={{ height: '100dvh' }}>
       {/* Top bar */}
       <div className="sticky top-0 z-30 flex items-center gap-2.5 border-b border-bordSoft bg-creme/95 px-4 py-3 backdrop-blur">
         <Link
@@ -261,7 +260,11 @@ export default function CovoitConversationClient({ convId }: { convId: string })
           Cette conversation est fermée.
         </div>
       ) : (
-        <form onSubmit={sendMessage} className="border-t border-bordSoft bg-white p-3.5">
+        <form
+          onSubmit={sendMessage}
+          className="shrink-0 border-t border-bordSoft bg-white p-3.5"
+          style={{ paddingBottom: 'max(14px, env(safe-area-inset-bottom, 14px))' }}
+        >
           <div className="flex items-end gap-2">
             <textarea
               value={text}
@@ -291,8 +294,6 @@ export default function CovoitConversationClient({ convId }: { convId: string })
           {error && <p className="mt-2 text-[11px] text-accent">{error}</p>}
         </form>
       )}
-
-      <BottomNavBar />
     </main>
   )
 }

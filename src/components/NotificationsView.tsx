@@ -55,6 +55,14 @@ const ICONS = {
   trash:    I(<><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></>),
   eye:      I(<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>),
   bell:     I(<><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></>),
+  car:      I(<><path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a1 1 0 0 0-.8-.4H5.24a2 2 0 0 0-1.8 1.1l-.8 1.63A6 6 0 0 0 2 12.42V16h2"/><circle cx="6.5" cy="16.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/></>),
+}
+
+// Fallback safe : si un nouveau type est inséré côté serveur avant que ce
+// fichier soit mis à jour, on évite le crash et on affiche un visuel neutre.
+const DEFAULT_NOTIF_VISUAL: NotifVisual = {
+  bg: '#F0EBE3', color: '#7A6A5A', icon: ICONS.bell,
+  label: n => n.actor_name ?? 'Notification',
 }
 
 const NOTIF_VISUAL: Record<NotifType, NotifVisual> = {
@@ -79,6 +87,11 @@ const NOTIF_VISUAL: Record<NotifType, NotifVisual> = {
   journal_publie:         { bg: '#1A1209', color: '#E8C58A', icon: ICONS.clipboard,label: () => 'Nouveau Journal du Village publié' },
   article_like:           { bg: '#FFF0E5', color: '#C84B2F', icon: ICONS.star,     label: n => `${n.actor_name ?? 'Un lecteur'} a aimé ton article` },
   article_comment:        { bg: '#E8EEF7', color: '#3A5BC7', icon: ICONS.chat,     label: n => `${n.actor_name ?? 'Un lecteur'} a commenté ton article` },
+  covoit_candidat:        { bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.car,      label: n => `${n.actor_name ?? 'Un voyageur'} candidate à ton trajet` },
+  covoit_message:         { bg: '#E8EEF7', color: '#3A5BC7', icon: ICONS.chat,     label: n => `${n.actor_name ?? 'Un utilisateur'} — message covoit` },
+  covoit_validee:         { bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.check,    label: n => `Ta place est validée${n.actor_name ? ` : ${n.actor_name}` : ''}` },
+  covoit_refusee:         { bg: '#FFF0E5', color: '#C84B2F', icon: ICONS.cross,    label: n => `Candidature refusée${n.actor_name ? ` : ${n.actor_name}` : ''}` },
+  covoit_closed:          { bg: '#F0EBE3', color: '#7A6A5A', icon: ICONS.clock,    label: n => `Conversation covoit fermée${n.actor_name ? ` : ${n.actor_name}` : ''}` },
 }
 
 function relativeDate(iso: string): string {
@@ -448,7 +461,7 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
                   {bucket.label}
                 </div>
                 {bucket.items.map(n => {
-                  const cfg = NOTIF_VISUAL[n.type]
+                  const cfg = NOTIF_VISUAL[n.type] ?? DEFAULT_NOTIF_VISUAL
                   const isUnread = !n.lu
                   return (
                     <NotifRow
@@ -687,7 +700,7 @@ function NotifActionsModal({
   onMarkRead: () => void
   onDelete:   () => void
 }) {
-  const cfg = NOTIF_VISUAL[notif.type]
+  const cfg = NOTIF_VISUAL[notif.type] ?? DEFAULT_NOTIF_VISUAL
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }

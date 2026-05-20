@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
+import TimeWheelPicker from '@/components/TimeWheelPicker'
 import type { CovoitFormInput, Covoiturage } from '@/lib/covoiturage'
 
 const todayIso = () => new Date().toISOString().slice(0, 10)
@@ -42,6 +43,7 @@ function NouveauCovoitInner() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(!editId)
+  const [timeOpen, setTimeOpen] = useState(false)
 
   // Auth gate
   useEffect(() => {
@@ -209,15 +211,23 @@ function NouveauCovoitInner() {
                 className="block w-full rounded-xl border border-bord bg-white px-3 py-2.5 text-[14px] text-texte outline-none focus:border-primary"
               />
             </Field>
-            <Field label="Heure" hint="ex: 08:30" className="w-[130px]">
-              <input
-                type="text"
-                inputMode="numeric"
-                value={form.heure_depart}
-                onChange={e => set('heure_depart', e.target.value.slice(0, 5))}
-                placeholder="08:30"
-                className="block w-full rounded-xl border border-bord bg-white px-3 py-2.5 text-center text-[14px] tabular-nums text-texte outline-none focus:border-primary"
-              />
+            <Field label="Heure" className="w-[130px]">
+              <button
+                type="button"
+                onClick={() => setTimeOpen(true)}
+                className="flex h-[42px] w-full items-center justify-center rounded-xl border border-bord bg-white text-[14px] tabular-nums text-texte focus:border-primary"
+              >
+                {form.heure_depart || <span className="text-texte-tres-doux">--:--</span>}
+              </button>
+              {form.heure_depart && (
+                <button
+                  type="button"
+                  onClick={() => set('heure_depart', '')}
+                  className="mt-1 block w-full text-[10px] font-bold text-texte-doux underline"
+                >
+                  Effacer
+                </button>
+              )}
             </Field>
           </div>
         </section>
@@ -324,6 +334,13 @@ function NouveauCovoitInner() {
           {saving ? (editId ? 'Enregistrement…' : 'Publication…') : (editId ? 'Enregistrer les modifications' : 'Publier le trajet')}
         </button>
       </div>
+
+      <TimeWheelPicker
+        open={timeOpen}
+        value={form.heure_depart}
+        onClose={() => setTimeOpen(false)}
+        onConfirm={(hhmm) => { set('heure_depart', hhmm); setTimeOpen(false) }}
+      />
     </main>
   )
 }
