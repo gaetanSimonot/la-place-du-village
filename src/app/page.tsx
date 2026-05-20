@@ -69,11 +69,18 @@ const IconAnnonces = () => (
     <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>
   </svg>
 )
+const IconBell = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+  </svg>
+)
 const NAV_TABS: { id: NavTab; label: string; Icon: (p: { active: boolean; badge?: number }) => React.JSX.Element }[] = [
   { id: 'accueil',  label: 'Accueil',  Icon: () => <IconHome /> },
   { id: 'carte',    label: 'Carte',    Icon: () => <IconCarte /> },
   { id: 'annonces', label: 'Annonces', Icon: () => <IconAnnonces /> },
   { id: 'favoris',  label: 'Favoris',  Icon: ({ active }) => <IconCoeur filled={active} /> },
+  { id: 'notifs',   label: 'Notifs',   Icon: () => <IconBell /> },
   { id: 'profil',   label: 'Profil',   Icon: () => <IconProfil /> },
 ]
 
@@ -1215,6 +1222,7 @@ export default function HomePage() {
       }}>
         {NAV_TABS.map(tab => {
           const active = navTab === tab.id
+          const badge = tab.id === 'notifs' ? notifCount : 0
           return (
             <button key={tab.id} onClick={() => handleNavTab(tab.id)} style={{
               flex: 1, display: 'flex', flexDirection: 'column',
@@ -1225,7 +1233,19 @@ export default function HomePage() {
               paddingBottom: 4,
               color: active ? 'var(--primary)' : '#8A8A8A',
             }}>
-              <tab.Icon active={active} />
+              <span style={{ position: 'relative', display: 'inline-flex' }}>
+                <tab.Icon active={active} />
+                {badge > 0 && (
+                  <span style={{
+                    position: 'absolute', top: -4, right: -5,
+                    minWidth: 16, height: 16, borderRadius: 8,
+                    backgroundColor: '#E53935', color: '#fff',
+                    fontSize: 9, fontWeight: 800,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '0 3px', border: '1.5px solid #fff',
+                  }}>{badge > 99 ? '99+' : badge}</span>
+                )}
+              </span>
               <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>
                 {tab.label}
               </span>
