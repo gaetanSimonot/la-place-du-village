@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import JournalAttachPicker from '@/components/JournalAttachPicker'
+import SpotlightPicker, { type SpotlightValue } from '@/components/SpotlightPicker'
 import BottomNavBar from '@/components/BottomNavBar'
 
 interface JournalRow {
@@ -43,6 +44,9 @@ export default function AdminJournalPage() {
   const [articles, setArticles] = useState<ArticleRow[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Spotlight choisi AVANT la generation (optionnel). Si null, le generator
+  // utilise le pin featured_slots ou tire au hasard via RPC.
+  const [spotlight, setSpotlight] = useState<SpotlightValue | null>(null)
 
   const load = useCallback(async () => {
     const headers = await authHeaders()
@@ -73,7 +77,11 @@ export default function AdminJournalPage() {
     try {
       const res = await fetch('/api/admin/journal/generate', {
         method: 'POST',
-        headers: await authHeaders(),
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+        // Si l admin a choisi un spotlight avant -> envoye au generator
+        // pour qu il soit cohérent avec la rédaction Claude. Sinon null
+        // = comportement actuel (pin > random).
+        body: JSON.stringify({ spotlight: spotlight ?? null }),
       })
       const d = await res.json()
       if (!res.ok) throw new Error(d.error || 'Erreur génération')
@@ -124,8 +132,31 @@ export default function AdminJournalPage() {
           </div>
         )}
 
+        {/* Spotlight optionnel avant generation — si vide, le generator
+            laisse le pin/random faire son travail. */}
+        <div className="mt-6 rounded-[14px] border border-bord bg-white p-4">
+          <div className="mb-1 flex items-baseline justify-between gap-2">
+            <h3 className="m-0 text-[13px] font-bold text-texte">
+              Spotlight de ce numéro <span className="text-[11px] font-medium text-texte-doux">(optionnel)</span>
+            </h3>
+            {spotlight && (
+              <button
+                type="button"
+                onClick={() => setSpotlight(null)}
+                className="text-[11px] font-bold text-texte-doux underline"
+              >
+                Aléatoire
+              </button>
+            )}
+          </div>
+          <p className="m-0 mb-3 text-[11px] text-texte-doux">
+            Choisis un établissement ou producteur à mettre en avant. Si tu ne choisis rien, l&apos;IA en prend un au hasard.
+          </p>
+          <SpotlightPicker value={spotlight} onChange={setSpotlight} />
+        </div>
+
         {/* Actions */}
-        <div className="mt-6 flex flex-wrap gap-3">
+        <div className="mt-4 flex flex-wrap gap-3">
           <button
             type="button"
             onClick={handleGenerate}

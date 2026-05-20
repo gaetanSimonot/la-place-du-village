@@ -69,8 +69,11 @@ interface ContextSemaine {
   annonces: AnnonceRow[]
   promos: PromoRow[]
   spotlight: EtabRow | null
+  spotlightKind: 'etablissement' | 'producteur'
   article: ArticleRow | null
 }
+
+export type SpotlightOverride = { kind: 'etablissement' | 'producteur'; id: string }
 
 interface ClaudeOutput {
   cover_kicker: string
@@ -92,7 +95,7 @@ function getSemaineCourante(): { du: Date; au: Date } {
   return { du: monday, au: sunday }
 }
 
-async function collectContext(): Promise<ContextSemaine> {
+async function collectContext(spotlightOverride?: SpotlightOverride): Promise<ContextSemaine> {
   const { du, au } = getSemaineCourante()
   const duISO = du.toISOString().slice(0, 10)
   const auISO = au.toISOString().slice(0, 10)
@@ -135,9 +138,23 @@ async function collectContext(): Promise<ContextSemaine> {
   const pinPromos = allPromos.filter(p => pinPromoIds.includes(p.id))
   const promos = mergeUnique<PromoRow>([pinPromos, allPromos]).slice(0, 5)
 
-  // 5. Spotlight : pin etab > random RPC
+  // 5. Spotlight : override admin (pre-redaction) > pin etab > random RPC
   let spotlight: EtabRow | null = null
-  if (pinEtabIds.length > 0) {
+  let spotlightKind: 'etablissement' | 'producteur' = 'etablissement'
+  if (spotlightOverride) {
+    // L admin a choisi un spotlight specifique avant generation -> on l utilise
+    const tbl = spotlightOverride.kind === 'etablissement' ? 'etablissements' : 'producers'
+    const { data } = await supabaseAdmin
+      .from(tbl)
+      .select('id, nom, commune, type, description_courte')
+      .eq('id', spotlightOverride.id)
+      .maybeSingle()
+    if (data) {
+      spotlight = data as EtabRow
+      spotlightKind = spotlightOverride.kind
+    }
+  }
+  if (!spotlight && pinEtabIds.length > 0) {
     const { data } = await supabaseAdmin
       .from('etablissements')
       .select('id, nom, commune, type, description_courte')
@@ -168,6 +185,7 @@ async function collectContext(): Promise<ContextSemaine> {
     annonces,
     promos,
     spotlight,
+    spotlightKind,
     article,
   }
 }
@@ -207,8 +225,9 @@ Tu dois retourner STRICTEMENT du JSON valide avec ces clés (et rien d'autre, pa
     ? '(aucun bon plan actif)'
     : ctx.promos.map(p => `  - ${p.title}${p.etablissement?.nom ? ` chez ${p.etablissement.nom}` : ''}${p.etablissement?.commune ? ` (${p.etablissement.commune})` : ''}`).join('\n')
 
+  const spotlightLabel = ctx.spotlightKind === 'producteur' ? 'producteur' : (ctx.spotlight?.type ?? 'établissement')
   const spotlightBlock = ctx.spotlight
-    ? `${ctx.spotlight.nom} (${ctx.spotlight.type ?? 'établissement'})${ctx.spotlight.commune ? ` à ${ctx.spotlight.commune}` : ''}${ctx.spotlight.description_courte ? ` — ${ctx.spotlight.description_courte}` : ''}`
+    ? `${ctx.spotlight.nom} (${spotlightLabel})${ctx.spotlight.commune ? ` à ${ctx.spotlight.commune}` : ''}${ctx.spotlight.description_courte ? ` — ${ctx.spotlight.description_courte}` : ''}`
     : '(aucun)'
 
   const articleBlock = ctx.article
@@ -255,8 +274,10 @@ async function callClaude(system: string, user: string): Promise<ClaudeOutput> {
   return JSON.parse(clean) as ClaudeOutput
 }
 
-export async function generateJournalDraft(): Promise<{ id: string; numero: number }> {
-  const ctx = await collectContext()
+export async function generateJournalDraft(
+  spotlightOverride?: SpotlightOverride,
+): Promise<{ id: string; numero: number }> {
+  const ctx = await collectContext(spotlightOverride)
   const { system, user } = buildPrompt(ctx)
   const ai = await callClaude(system, user)
 
@@ -287,7 +308,7 @@ export async function generateJournalDraft(): Promise<{ id: string; numero: numb
     selection_bonplan_ids: ctx.promos.map(p => p.id),
     selection_article_id: ctx.article?.id ?? null,
     spotlight_etab_id:    ctx.spotlight?.id ?? null,
-    spotlight_kind:       'etablissement' as const,
+    spotlight_kind:       ctx.spotlightKind,
     temps_lecture_min:    5,
     // Auto-publication : seul l'humain (article) demande validation ;
     // l'agrégat hebdo ne contient que des entités déjà publiées → safe à publier.
