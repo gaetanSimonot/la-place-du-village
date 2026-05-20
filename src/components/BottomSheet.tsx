@@ -127,23 +127,27 @@ export default function BottomSheet({
   const [etabVille, setEtabVille]           = useState('')
   const [etabRayon, setEtabRayon]           = useState<number | null>(null)
 
-  // Recherche live globale (BDD) — comme la loupe d'en haut. Override la
-  // liste locale dès que l'user tape ≥2 chars.
+  // Recherche live globale (BDD) — même pattern que la loupe HubSearchModal.
+  // ESC_OR : PostgREST .or() utilise les virgules/parenthèses comme séparateurs,
+  // il faut donc les échapper dans le terme utilisateur sinon la query plante
+  // silencieusement (data null, on affiche "rien trouvé").
   const [etabSearchHits, setEtabSearchHits] = useState<EtablissementCard[] | null>(null)
   useEffect(() => {
     const q = etabSearch.trim()
     if (q.length < 2) { setEtabSearchHits(null); return }
     let cancelled = false
     const t = setTimeout(async () => {
-      const like = `%${q}%`
+      const escaped = q.replace(/,/g, '\\,').replace(/\)/g, '\\)').replace(/\(/g, '\\(')
+      const like = `%${escaped}%`
       let query = supabase
         .from('etablissements')
         .select('id, type, nom, commune, lat, lng, photos, note_google, is_featured, statut, description_courte, plan')
-        .or(`nom.ilike.${like},commune.ilike.${like},description_courte.ilike.${like}`)
+        .or(`nom.ilike.${like},commune.ilike.${like}`)
         .limit(50)
       if (selectedEtabType) query = query.eq('type', selectedEtabType)
-      const { data } = await query
+      const { data, error } = await query
       if (cancelled) return
+      if (error) console.warn('[etab search]', error)
       setEtabSearchHits((data ?? []) as EtablissementCard[])
     }, 200)
     return () => { cancelled = true; clearTimeout(t) }
@@ -155,13 +159,15 @@ export default function BottomSheet({
     if (q.length < 2) { setProducerSearchHits(null); return }
     let cancelled = false
     const t = setTimeout(async () => {
-      const like = `%${q}%`
-      const { data } = await supabase
+      const escaped = q.replace(/,/g, '\\,').replace(/\)/g, '\\)').replace(/\(/g, '\\(')
+      const like = `%${escaped}%`
+      const { data, error } = await supabase
         .from('producers')
         .select('*')
         .or(`nom.ilike.${like},commune.ilike.${like}`)
         .limit(50)
       if (cancelled) return
+      if (error) console.warn('[producer search]', error)
       setProducerSearchHits((data ?? []) as ProducerCard[])
     }, 200)
     return () => { cancelled = true; clearTimeout(t) }
