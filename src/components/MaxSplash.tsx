@@ -48,7 +48,13 @@ function Slide({ evt }: { evt: EvenementCard }) {
 }
 
 export default function MaxSplash({ events, loading = false }: Props) {
-  const [phase, setPhase]           = useState<Phase>('logo')
+  // Lazy init : si déjà vu (localStorage), on part directement en 'dismissed'
+  // pour éviter le flash du logo à chaque remount de page.tsx (= chaque
+  // navigation vers /).
+  const [phase, setPhase] = useState<Phase>(() => {
+    if (typeof window === 'undefined') return 'dismissed'
+    return localStorage.getItem(SEEN_KEY) ? 'dismissed' : 'logo'
+  })
   const [logoReady, setLogoReady]   = useState(false)
   const [idx, setIdx]               = useState(0)
   const [dragX, setDragX]           = useState(0)
@@ -60,10 +66,6 @@ export default function MaxSplash({ events, loading = false }: Props) {
 
   const evts = sorted(events)
   const n    = evts.length
-
-  useEffect(() => {
-    if (localStorage.getItem(SEEN_KEY)) setPhase('dismissed')
-  }, [])
 
   useEffect(() => {
     const t = setTimeout(() => setLogoReady(true), 1800)
