@@ -329,7 +329,7 @@ export default function AjouterPage() {
             <div className="min-w-0 flex-1">
               <div className="mb-0.5 flex items-center gap-2">
                 <span className="inline-flex items-center rounded-md bg-primary px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.06em] text-white">
-                  IA
+                  AUTO
                 </span>
                 <span className="text-[11px] text-texte-doux">~ 5 sec</span>
               </div>
@@ -422,7 +422,7 @@ export default function AjouterPage() {
             <div className="min-w-0 flex-1">
               <div className="mb-0.5 flex items-center gap-2">
                 <span className="inline-flex items-center rounded-md bg-[#3A5BC7] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.06em] text-white">
-                  IA
+                  AUTO
                 </span>
               </div>
               <div className="text-[15px] font-extrabold leading-tight text-texte">Écrire, coller ou dicter</div>
