@@ -23,6 +23,7 @@ import WelcomeModal from '@/components/WelcomeModal'
 import HubView from '@/components/HubView'
 import HubSearchModal, { type SearchKind } from '@/components/HubSearchModal'
 import PublishMenuModal from '@/components/PublishMenuModal'
+import BottomNavBar from '@/components/BottomNavBar'
 import { ComingSoonModal } from '@/components/HubModals'
 import SubscriptionModal from '@/components/SubscriptionModal'
 import { useFavorites } from '@/hooks/useFavorites'
@@ -38,51 +39,6 @@ const defaultFiltres: Filtres = { categories: [], quand: 'toujours' }
 const NAV_H = 62
 
 type NavTab = 'accueil' | 'carte' | 'annonces' | 'favoris' | 'profil' | 'notifs'
-
-const IconHome = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1V9.5z"/>
-  </svg>
-)
-const IconCarte = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
-    <line x1="9" y1="3" x2="9" y2="18"/>
-    <line x1="15" y1="6" x2="15" y2="21"/>
-  </svg>
-)
-const IconProfil = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="8" r="4"/>
-    <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-  </svg>
-)
-const IconCoeur = ({ filled }: { filled?: boolean }) => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-  </svg>
-)
-const IconAnnonces = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    {/* tag / megaphone : icone qui evoque les petites annonces */}
-    <path d="M3 11l18-8v18l-18-8z"/>
-    <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>
-  </svg>
-)
-const IconBell = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-  </svg>
-)
-const NAV_TABS: { id: NavTab; label: string; Icon: (p: { active: boolean; badge?: number }) => React.JSX.Element }[] = [
-  { id: 'accueil',  label: 'Accueil',  Icon: () => <IconHome /> },
-  { id: 'carte',    label: 'Carte',    Icon: () => <IconCarte /> },
-  { id: 'annonces', label: 'Annonces', Icon: () => <IconAnnonces /> },
-  { id: 'favoris',  label: 'Favoris',  Icon: ({ active }) => <IconCoeur filled={active} /> },
-  { id: 'notifs',   label: 'Notifs',   Icon: () => <IconBell /> },
-  { id: 'profil',   label: 'Profil',   Icon: () => <IconProfil /> },
-]
 
 export default function HomePage() {
   const { fixedMap, setFixedMap } = useTheme()
@@ -1220,45 +1176,11 @@ export default function HomePage() {
         onPick={handlePublishPick}
       />
 
-      {/* Bottom Nav avec FAB central "Publier" */}
-      <nav style={{
-        position: 'absolute', bottom: 0, left: 0, right: 0, height: NAV_H,
-        backgroundColor: '#fff', borderTop: '1px solid #EDE8E0',
-        display: 'flex', zIndex: 30, alignItems: 'stretch',
-      }}>
-        {NAV_TABS.map(tab => {
-          const active = navTab === tab.id
-          const badge = tab.id === 'notifs' ? notifCount : 0
-          return (
-            <button key={tab.id} onClick={() => handleNavTab(tab.id)} style={{
-              flex: 1, display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center', gap: 3,
-              border: 'none', backgroundColor: 'transparent', cursor: 'pointer',
-              borderTop: active ? '2.5px solid var(--primary)' : '2.5px solid transparent',
-              transition: 'border-color 0.15s',
-              paddingBottom: 4,
-              color: active ? 'var(--primary)' : '#8A8A8A',
-            }}>
-              <span style={{ position: 'relative', display: 'inline-flex' }}>
-                <tab.Icon active={active} />
-                {badge > 0 && (
-                  <span style={{
-                    position: 'absolute', top: -4, right: -5,
-                    minWidth: 16, height: 16, borderRadius: 8,
-                    backgroundColor: '#E53935', color: '#fff',
-                    fontSize: 9, fontWeight: 800,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    padding: '0 3px', border: '1.5px solid #fff',
-                  }}>{badge > 99 ? '99+' : badge}</span>
-                )}
-              </span>
-              <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>
-                {tab.label}
-              </span>
-            </button>
-          )
-        })}
-      </nav>
+      {/* Bottom Nav — composant unifié, navigation par state interne via onNavigate */}
+      <BottomNavBar
+        activeTab={navTab}
+        onNavigate={(id) => handleNavTab(id as NavTab)}
+      />
 
     </div>
   )

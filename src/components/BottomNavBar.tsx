@@ -4,14 +4,19 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 
+interface Props {
+  /** Si fourni, override le click par défaut (router.push) — utile pour le hub
+   *  qui veut piloter son state interne sans changer d'URL. */
+  onNavigate?: (tabId: string) => void
+  /** Si fourni, force le highlight d'un onglet (sinon basé sur le pathname). */
+  activeTab?: string
+}
+
 /**
- * Bottom nav réutilisable, path-aware, pour les pages /annonces et autres
- * routes hors `/` (où la nav inline de page.tsx prend le relais).
- *
- * Tabs : Accueil / Annonces / Favoris / Notifs / Profil
- * Highlight basé sur `usePathname`.
+ * Bottom nav réutilisable, path-aware partout sauf si props override.
+ * Tabs : Accueil / Carte / Annonces / Favoris / Notifs / Profil
  */
-export default function BottomNavBar() {
+export default function BottomNavBar({ onNavigate, activeTab }: Props = {}) {
   const router = useRouter()
   const pathname = usePathname()
   const { user } = useAuth()
@@ -133,17 +138,24 @@ export default function BottomNavBar() {
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
-      {tabs.map(t => (
+      {tabs.map(t => {
+        // active : si activeTab fourni, on l'utilise (mode hub interne) ;
+        // sinon fallback sur la détection par pathname (autres routes).
+        const isActive = activeTab ? activeTab === t.id : t.active
+        return (
         <button
           key={t.id}
-          onClick={() => router.push(t.href)}
+          onClick={() => {
+            if (onNavigate) onNavigate(t.id)
+            else router.push(t.href)
+          }}
           style={{
             flex: 1, display: 'flex', flexDirection: 'column',
             alignItems: 'center', justifyContent: 'center', gap: 3,
             border: 'none', backgroundColor: 'transparent', cursor: 'pointer',
-            borderTop: t.active ? '2.5px solid #2D5A3D' : '2.5px solid transparent',
+            borderTop: isActive ? '2.5px solid #2D5A3D' : '2.5px solid transparent',
             paddingBottom: 4,
-            color: t.active ? '#2D5A3D' : '#8A8A8A',
+            color: isActive ? '#2D5A3D' : '#8A8A8A',
             WebkitTapHighlightColor: 'transparent',
           }}
         >
@@ -162,7 +174,8 @@ export default function BottomNavBar() {
           </div>
           <span style={{ fontSize: 10, fontWeight: 700 }}>{t.label}</span>
         </button>
-      ))}
+        )
+      })}
     </nav>
   )
 }
