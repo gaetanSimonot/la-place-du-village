@@ -16,6 +16,7 @@
     "@fontsource/playfair-display": "^5.2.8",
     "@fontsource/syne": "^5.2.7",
     "@googlemaps/markerclusterer": "^2.6.2",
+    "@ncdai/react-wheel-picker": "^1.2.2",
     "@supabase/ssr": "^0.10.0",
     "@supabase/supabase-js": "^2.101.1",
     "@vis.gl/react-google-maps": "^1.8.2",

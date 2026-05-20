@@ -84,3 +84,28 @@ textarea:-webkit-autofill {
   -webkit-text-fill-color: #2C1810 !important;
   caret-color: #2C1810 !important;
 }
+
+/* ── Wheel picker (@ncdai/react-wheel-picker) — adapt à la charte vert ── */
+.pdv-wheel-wrapper {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  gap: 8px !important;
+}
+.pdv-wp-item {
+  color: var(--primary) !important;
+  font-family: var(--font-inter), Inter, sans-serif !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.005em !important;
+}
+.pdv-wp-highlight {
+  background: var(--primary) !important;
+  border-radius: 16px !important;
+  border: none !important;
+}
+.pdv-wp-highlight-item {
+  color: #fff !important;
+  font-weight: 700 !important;
+}
