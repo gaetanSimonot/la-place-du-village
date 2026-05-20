@@ -723,6 +723,16 @@ export default function HomePage() {
           { id: 'prod' as const, label: 'Producteurs' },
         ]
         const FBTN: React.CSSProperties = { width: 38, height: 38, borderRadius: '50%', background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1A1209', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }
+        // Filtre texte actif (hérité de la recherche du hub) — chip visible et effaçable
+        const activeSearch =
+          mapMode === 'evt'  ? searchQuery   :
+          mapMode === 'etab' ? etabSearch    :
+                               producerSearch
+        const clearActiveSearch = () => {
+          if (mapMode === 'evt')       setSearchQuery('')
+          else if (mapMode === 'etab') setEtabSearch('')
+          else                         setProducerSearch('')
+        }
         return (
           <>
             {/* V3 — Top bar : back + segmented 3-mode + Publier+ */}
@@ -789,6 +799,48 @@ export default function HomePage() {
                     <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
                   </svg>
                 </button>
+              </div>
+            )}
+
+            {/* Chip filtre texte actif — vient de la recherche du hub, retirable */}
+            {showBtns && activeSearch.trim() && (
+              <div style={{
+                position: 'absolute', top: 70, left: 64, right: 14, zIndex: 200,
+                display: 'flex', justifyContent: 'flex-start',
+              }}>
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  maxWidth: '100%',
+                  background: '#fff', border: '1px solid #E8E0D4', borderRadius: 999,
+                  padding: '7px 6px 7px 12px',
+                  boxShadow: '0 3px 12px rgba(0,0,0,0.12)',
+                }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A6A5A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                  </svg>
+                  <span style={{
+                    fontSize: 12, fontWeight: 700, color: '#1A1209',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    maxWidth: 180,
+                  }}>
+                    {activeSearch}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={clearActiveSearch}
+                    aria-label="Retirer le filtre"
+                    style={{
+                      width: 22, height: 22, borderRadius: '50%',
+                      background: '#F0EAE0', border: 'none',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: '#7A6A5A', cursor: 'pointer', flexShrink: 0, padding: 0,
+                    }}
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
             )}
           </>
