@@ -18,7 +18,6 @@ import FavorisView from '@/components/FavorisView'
 import NotificationsView from '@/components/NotificationsView'
 import CommerceRequestModal from '@/components/CommerceRequestModal'
 import AppInfoModal from '@/components/AppInfoModal'
-import AppSplash from '@/components/AppSplash'
 import WelcomeModal from '@/components/WelcomeModal'
 import HubView from '@/components/HubView'
 import HubSearchModal, { type SearchKind } from '@/components/HubSearchModal'
@@ -52,14 +51,13 @@ export default function HomePage() {
   const [allEvenements, setAllEvenements] = useState<EvenementCard[]>([])
   const [promoEventsData, setPromoEventsData] = useState<EvenementCard[]>([])
   const [splashFeaturedEvents, setSplashFeaturedEvents] = useState<EvenementCard[]>([])
-  // Splash à chaque OUVERTURE de l'app (= nouvelle session navigateur)
-  // mais pas à chaque navigation interne. sessionStorage persiste durant
-  // toute la session PWA → premier mount = splash, navs suivantes vers / = skip.
-  const [splashDone, setSplashDone]           = useState(() => {
-    if (typeof window === 'undefined') return true
-    return sessionStorage.getItem('pdv-splash-done') === '1'
-  })
   const [showWelcome, setShowWelcome]         = useState(false)
+  // Welcome modal une fois par session navigateur (au lieu d'attendre la fin
+  // d'un splash dédié, qui faisait doublon avec le splash natif PWA).
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!sessionStorage.getItem('pdv-welcome-shown')) setShowWelcome(true)
+  }, [])
   const [appMode, setAppMode]                 = useState<'agenda' | 'annuaire'>('agenda')
   // Restore annuaire mode after returning from a producer page
   useEffect(() => {
@@ -1197,15 +1195,6 @@ export default function HomePage() {
 
       <MaxSplash events={splashEvents} loading={loading} />
 
-      {!splashDone && <AppSplash onDone={() => {
-        sessionStorage.setItem('pdv-splash-done', '1')
-        setSplashDone(true)
-        // Welcome à chaque ouverture (= une fois par session navigateur),
-        // après le splash. Si déjà vu dans la session courante, skip.
-        if (typeof window !== 'undefined' && !sessionStorage.getItem('pdv-welcome-shown')) {
-          setShowWelcome(true)
-        }
-      }} />}
       {showWelcome && <WelcomeModal onClose={() => {
         setShowWelcome(false)
         sessionStorage.setItem('pdv-welcome-shown', '1')
