@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
@@ -82,7 +83,6 @@ export default function AnnoncePageClient({ id }: Props) {
   const [editing, setEditing]     = useState(false)
   const [action, setAction]       = useState<string | null>(null)
   const [error, setError]         = useState<string | null>(null)
-  const [toast, setToast]         = useState<string | null>(null)
   const [convs, setConvs]         = useState<ConvSummary[]>([])
   const [showBoostBanner, setShowBoostBanner] = useState(false)
   const [boostModalOpen, setBoostModalOpen]   = useState(false)
@@ -95,8 +95,6 @@ export default function AnnoncePageClient({ id }: Props) {
       setShowBoostBanner(true)
     }
   }, [])
-
-  function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 2200) }
 
   async function reload() {
     const { data } = await supabase.from('annonces').select('*').eq('id', id).maybeSingle()
@@ -182,14 +180,14 @@ export default function AnnoncePageClient({ id }: Props) {
     if (!confirm('Marquer comme vendu ? Cette action ferme l\'annonce.')) return
     setAction('vendu'); setError(null)
     const ok = await callApi(`/api/annonces/${id}/marquer-vendu`, 'POST', {})
-    if (ok) { showToast('Annonce vendue'); await reload() }
+    if (ok) { toast.success('Annonce vendue'); await reload() }
     setAction(null)
   }
 
   async function handleSponsoriser() {
     setAction('sponsor'); setError(null)
     const ok = await callApi(`/api/annonces/${id}/sponsoriser`, 'POST', {})
-    if (ok) { showToast('En vedette 5 jours !'); await reload() }
+    if (ok) { toast.success('En vedette 5 jours'); await reload() }
     setAction(null)
   }
 
@@ -245,7 +243,6 @@ export default function AnnoncePageClient({ id }: Props) {
 
   return (
     <div style={{ minHeight: '100dvh', position: 'relative', backgroundColor: '#FDFAF5', fontFamily: 'Inter, sans-serif', paddingBottom: isActive && !isOwner ? 144 : 80 }}>
-      {toast && <Toast msg={toast} />}
 
       {/* Bannière post-création */}
       {showBoostBanner && isOwner && (
@@ -322,7 +319,7 @@ export default function AnnoncePageClient({ id }: Props) {
             onClick={() => {
               const url = window.location.href
               if (navigator.share) navigator.share({ title: annonce.titre, url }).catch(() => {})
-              else { navigator.clipboard.writeText(url).catch(() => {}); showToast('Lien copié !') }
+              else { navigator.clipboard.writeText(url).catch(() => {}); toast.success('Lien copié') }
             }}
             aria-label="Partager"
             style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1A1209', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
@@ -621,17 +618,6 @@ function Badge({ children }: { children: React.ReactNode }) {
       backgroundColor: '#F5F1EB', color: '#3C2C20',
       fontSize: 11, fontWeight: 700,
     }}>{children}</span>
-  )
-}
-
-function Toast({ msg }: { msg: string }) {
-  return (
-    <div style={{
-      position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 999,
-      backgroundColor: '#2C1810', color: '#fff', borderRadius: 14,
-      padding: '10px 20px', fontSize: 13, fontWeight: 600,
-      boxShadow: '0 6px 24px rgba(0,0,0,0.28)',
-    }}>{msg}</div>
   )
 }
 

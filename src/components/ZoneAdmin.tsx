@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { toast } from 'sonner'
 import { APIProvider, Map, useMap } from '@vis.gl/react-google-maps'
 
 interface Centre {
@@ -58,7 +59,6 @@ export default function ZoneAdmin() {
   const [newNom, setNewNom]           = useState('')
   const [adding, setAdding]           = useState(false)
   const [saving, setSaving]           = useState(false)
-  const [saved, setSaved]             = useState(false)
   const [error, setError]             = useState<string | null>(null)
   const [deletingId, setDeletingId]   = useState<string | null>(null)
 
@@ -83,15 +83,21 @@ export default function ZoneAdmin() {
   useEffect(() => { fetchZone() }, [fetchZone])
 
   const validerZone = async () => {
-    setSaving(true); setSaved(false)
-    await fetch('/api/admin/zone', {
+    setSaving(true)
+    const promise = fetch('/api/admin/zone', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rayon_insertion: rayonInsertion, rayon_affichage: rayonAffichage, carte_depart_lat: carteLat, carte_depart_lng: carteLng, carte_depart_zoom: carteZoom }),
+    }).then(res => {
+      if (!res.ok) throw new Error('Erreur')
+      localStorage.setItem('pdv-zone-updated', String(Date.now()))
+    }).finally(() => setSaving(false))
+
+    toast.promise(promise, {
+      loading: 'Sauvegarde…',
+      success: 'Zone validée',
+      error: 'Erreur',
     })
-    setSaving(false); setSaved(true)
-    localStorage.setItem('pdv-zone-updated', String(Date.now()))
-    setTimeout(() => setSaved(false), 2000)
   }
 
   const addCentre = async () => {
@@ -258,8 +264,8 @@ export default function ZoneAdmin() {
 
       {/* Bouton valider */}
       <button onClick={validerZone} disabled={saving}
-        className={`w-full py-4 rounded-2xl font-bold text-base transition-colors ${saved ? 'bg-green-500 text-white' : 'bg-[#C4622D] text-white disabled:opacity-50'}`}>
-        {saving ? 'Sauvegarde…' : saved ? '✓ Zone validée — carte et liste mises à jour' : 'Valider la zone'}
+        className="w-full py-4 rounded-2xl font-bold text-base bg-[#C4622D] text-white disabled:opacity-50">
+        {saving ? 'Sauvegarde…' : 'Valider la zone'}
       </button>
     </div>
   )

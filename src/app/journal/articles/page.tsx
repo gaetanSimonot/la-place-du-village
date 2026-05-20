@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import { supabase } from '@/lib/supabase'
@@ -28,7 +29,6 @@ export default function MesArticlesPage() {
   const { openAuthModal } = useAuthModal()
   const [articles, setArticles] = useState<ArticleJournal[]>([])
   const [loadingList, setLoadingList] = useState(true)
-  const [toast, setToast] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoadingList(true)
@@ -53,11 +53,9 @@ export default function MesArticlesPage() {
     if (typeof window === 'undefined') return
     const sp = new URLSearchParams(window.location.search)
     if (sp.get('soumis') === '1') {
-      setToast('✓ Article soumis pour modération')
-      setTimeout(() => setToast(null), 3500)
+      toast.success('Article soumis pour modération')
     } else if (sp.get('brouillon') === '1') {
-      setToast('✓ Brouillon sauvegardé')
-      setTimeout(() => setToast(null), 2500)
+      toast.success('Brouillon sauvegardé')
     }
   }, [])
 
@@ -119,12 +117,6 @@ export default function MesArticlesPage() {
           + Nouvel
         </Link>
       </div>
-
-      {toast && (
-        <div className="mx-4 mt-2 rounded-[12px] border border-primary bg-[#E8F2EB] px-4 py-2 text-[12px] font-bold text-primary">
-          {toast}
-        </div>
-      )}
 
       <div className="px-4 pt-3">
         {loadingList && <p className="text-[13px] text-texte-doux">Chargement…</p>}

@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
@@ -105,14 +106,7 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
   const [editCommentText, setEditCommentText] = useState('')
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
-  const toastTimer = useRef<ReturnType<typeof setTimeout>>()
   const tabsRef = useRef<HTMLDivElement>(null)
-
-  const showToast = useCallback((msg: string) => {
-    clearTimeout(toastTimer.current); setToast(msg)
-    toastTimer.current = setTimeout(() => setToast(null), 2000)
-  }, [])
 
   useEffect(() => {
     fetch(`/api/producers/${id}`)
@@ -125,7 +119,7 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
           if (params.get('edit') === '1' && d.producer?.user_id === user?.id) {
             setTab('produits')
             setEditMode(true)
-            showToast('🎉 Cette fiche est maintenant à toi — ajoute tes produits !')
+            toast.success('Fiche attribuée — ajoute tes produits')
             // Clean URL pour éviter le re-trigger sur refresh
             window.history.replaceState({}, '', `/producteur/${id}`)
             setTimeout(() => tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300)
@@ -133,7 +127,7 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
         }
       })
       .catch(() => setLoading(false))
-  }, [id, user?.id, showToast])
+  }, [id, user?.id])
 
   // Favorite count public
   useEffect(() => {
@@ -272,7 +266,7 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
     const next = !isFav
     setIsFav(next)
     setFavoriteCount(c => Math.max(0, c + (next ? 1 : -1)))
-    showToast(next ? '❤️ Ajouté aux favoris' : 'Retiré des favoris')
+    toast.success(next ? 'Ajouté aux favoris' : 'Retiré des favoris')
     const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token
     if (!token) { setIsFav(!next); setFavoriteCount(c => Math.max(0, c + (next ? -1 : 1))); return }
     const res = await fetch(`/api/producers/${id}/favorite`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
@@ -282,7 +276,7 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
     if (!user) { openAuthModal(); return }
     const next = !isFollowing
     setIsFollowing(next)
-    showToast(next ? '✓ Vous suivez ce producteur' : 'Abonnement retiré')
+    toast.success(next ? 'Vous suivez ce producteur' : 'Abonnement retiré')
     const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; if (!token) { setIsFollowing(!next); return }
     const res = await fetch(`/api/producers/${id}/follow`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
     if (!res.ok) setIsFollowing(!next)
@@ -316,7 +310,7 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
   function share() {
     const url = window.location.href
     if (navigator.share) navigator.share({ title: producer?.nom ?? '', url }).catch(() => {})
-    else { navigator.clipboard.writeText(url).catch(() => {}); showToast('Lien copié !') }
+    else { navigator.clipboard.writeText(url).catch(() => {}); toast.success('Lien copié') }
   }
 
   // Routing 3-voies pour "Revendiquer cette fiche producteur"
@@ -347,11 +341,11 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
           // (sinon optimistic update peut être écrasé par cache PostgREST)
           window.location.href = `/producteur/${id}?edit=1`
         } else {
-          showToast('✓ Demande envoyée — un admin la validera bientôt')
+          toast.success('Demande envoyée')
         }
       } else {
         const d = await res.json().catch(() => ({}))
-        showToast(d.error ?? 'Erreur lors de la demande')
+        toast.error(d.error ?? 'Erreur lors de la demande')
       }
     } finally {
       setClaiming(false)
@@ -381,7 +375,6 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
 
   return (
     <div style={{ minHeight: '100dvh', backgroundColor: T.creme, fontFamily: 'Inter, sans-serif', color: T.texte }}>
-      {toast && <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 999, backgroundColor: '#2C1810', color: '#fff', borderRadius: 14, padding: '10px 20px', fontSize: 13, fontWeight: 600, pointerEvents: 'none', boxShadow: '0 6px 24px rgba(0,0,0,0.28)' }}>{toast}</div>}
 
       {/* Floating top actions */}
       <div style={{ position: 'absolute', top: 14, left: 0, right: 0, padding: '0 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 20 }}>

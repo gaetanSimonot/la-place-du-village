@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { formatDate } from '@/lib/filters'
 
 interface Paire {
@@ -39,7 +40,7 @@ export default function DoublonsAdmin() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, id_a: paire.id_a, id_b: paire.id_b }),
       })
-      if (!res.ok) { alert('Erreur lors de la résolution'); return }
+      if (!res.ok) { toast.error('Erreur lors de la résolution'); return }
       setPaires(prev => prev.filter(p => p.id_a !== paire.id_a))
       setStats(s => ({
         ...s,

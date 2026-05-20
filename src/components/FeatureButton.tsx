@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { FEATURED_SLOTS, SLOT_ALLOWED_TYPES, type FeaturedSlot, type FeaturedContentType, type FeatureCredits, creditsRemaining } from '@/lib/featured'
@@ -119,7 +120,7 @@ export function FeatureModal({ contentType, contentId, isAdmin, isOwner, plan, o
       return
     }
     onClose()
-    alert('✅ Mis en avant.')
+    toast.success('Mis en avant')
   }
 
   async function doRedeem(slot: FeaturedSlot, hours: number) {
@@ -140,7 +141,7 @@ export function FeatureModal({ contentType, contentId, isAdmin, isOwner, plan, o
       return
     }
     onClose()
-    alert('✅ Crédit utilisé, votre contenu est en avant.')
+    toast.success('Contenu mis en avant')
   }
 
   async function doBoost(offerKey: string) {

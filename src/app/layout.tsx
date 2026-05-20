@@ -9,6 +9,7 @@ import { ConfirmDialogProvider } from '@/contexts/ConfirmDialogContext'
 import { HistoryTrapProvider } from '@/contexts/HistoryTrapContext'
 import AuthModal from '@/components/AuthModal'
 import PhoneFrame from '@/components/PhoneFrame'
+import { Toaster } from 'sonner'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' })
 const dmSerif = DM_Serif_Display({
@@ -68,6 +69,34 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     {children}
                     <InstallBanner />
                     <AuthModal />
+                    <Toaster
+                      position="top-center"
+                      richColors={false}
+                      closeButton={false}
+                      duration={3500}
+                      offset={70}
+                      toastOptions={{
+                        // Style aligné sur la charte (cards Inter, radius 16,
+                        // couleurs primary/accent/texte du theme Tailwind)
+                        style: {
+                          fontFamily: 'var(--font-inter), Inter, sans-serif',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          borderRadius: '14px',
+                          padding: '12px 16px',
+                          boxShadow: '0 6px 24px rgba(26,18,9,0.18)',
+                          border: '1px solid #E8E0D4',
+                          background: '#FFFFFF',
+                          color: '#1A1209',
+                        },
+                        classNames: {
+                          success: 'pdv-toast-success',
+                          error:   'pdv-toast-error',
+                          info:    'pdv-toast-info',
+                          warning: 'pdv-toast-warning',
+                        },
+                      }}
+                    />
                   </PhoneFrame>
                 </HistoryTrapProvider>
               </ConfirmDialogProvider>

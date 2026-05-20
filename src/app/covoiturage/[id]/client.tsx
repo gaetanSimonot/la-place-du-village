@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
@@ -37,7 +38,6 @@ export default function CovoitDetailClient({ id }: { id: string }) {
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
-  const [shareOpen, setShareOpen] = useState(false)
   const [favori, setFavori] = useState(false)
   const [favLoading, setFavLoading] = useState(false)
 
@@ -124,8 +124,7 @@ export default function CovoitDetailClient({ id }: { id: string }) {
       } catch { /* user cancelled */ }
     } else {
       await navigator.clipboard.writeText(`${text}\n${url}`).catch(() => {})
-      setShareOpen(true)
-      setTimeout(() => setShareOpen(false), 2500)
+      toast.success('Lien copié')
     }
   }
 
@@ -209,12 +208,6 @@ export default function CovoitDetailClient({ id }: { id: string }) {
           </button>
         </div>
       </div>
-
-      {shareOpen && (
-        <div className="fixed top-16 left-1/2 z-50 -translate-x-1/2 rounded-full bg-primary px-4 py-2 text-[12px] font-bold text-white shadow-lg">
-          Lien copié !
-        </div>
-      )}
 
       {/* Hero card */}
       <div className="px-4 pt-5">

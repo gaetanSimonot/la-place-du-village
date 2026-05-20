@@ -1,7 +1,8 @@
 'use client'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
@@ -54,16 +55,9 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
   const [claimOpen, setClaimOpen]   = useState(false)
   const [quotaModalOpen, setQuotaModalOpen] = useState(false)
   const [editing, setEditing]       = useState(false)
-  const [toast, setToast]           = useState<string | null>(null)
   const [manageLoading, setManageLoading] = useState(false)
-  const toastTimer       = useRef<ReturnType<typeof setTimeout>>()
   const commentsRef      = useRef<HTMLDivElement>(null)
   const photosScrollerRef = useRef<HTMLDivElement | null>(null)
-
-  const showToast = useCallback((msg: string) => {
-    clearTimeout(toastTimer.current); setToast(msg)
-    toastTimer.current = setTimeout(() => setToast(null), 2000)
-  }, [])
 
   const handleRelease = async () => {
     if (!confirm('Êtes-vous sûr de ne plus vouloir gérer cette fiche ? Vous perdrez l\'accès à son édition.')) return
@@ -74,11 +68,11 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
     })
     if (res.ok) {
-      showToast('✓ Vous ne gérez plus cette fiche')
+      toast.success('Fiche libérée')
       setEtab(prev => prev ? { ...prev, user_id: null, plan: 'basic', is_featured: false } : prev)
     } else {
       const d = await res.json().catch(() => ({}))
-      showToast(d.error ?? 'Erreur')
+      toast.error(d.error ?? 'Erreur')
     }
   }
 
@@ -112,24 +106,24 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
     if (res.ok) {
       const data = await res.json().catch(() => ({}))
       if (data.autoApproved) {
-        showToast('🎉 Vous gérez maintenant cette fiche !')
+        toast.success('Vous gérez cette fiche')
         await refreshEtab()
       } else {
-        showToast('✓ Demande envoyée — un admin la validera bientôt')
+        toast.success('Demande envoyée')
       }
     } else {
       const d = await res.json().catch(() => ({}))
       if (d.quotaReached) {
         setQuotaModalOpen(true)
       } else {
-        showToast(d.error ?? 'Erreur lors de la demande')
+        toast.error(d.error ?? 'Erreur lors de la demande')
       }
     }
   }
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get('subscribed') === '1') {
-      showToast('🎉 Abonnement activé ! Vous gérez maintenant cette fiche.')
+      toast.success('Abonnement activé — vous gérez cette fiche')
       window.history.replaceState({}, '', window.location.pathname)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -180,14 +174,14 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
 
   async function toggleFav() {
     if (!user) { openAuthModal(); return }
-    const next = !isFav; setIsFav(next); showToast(next ? '❤️ Ajouté aux favoris' : 'Retiré des favoris')
+    const next = !isFav; setIsFav(next); toast.success(next ? 'Ajouté aux favoris' : 'Retiré des favoris')
     const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; if (!token) { setIsFav(!next); return }
     const res = await fetch(`/api/etablissements/${id}/favorite`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
     if (!res.ok) setIsFav(!next)
   }
   async function toggleFollow() {
     if (!user) { openAuthModal(); return }
-    const next = !isFollowing; setIsFollowing(next); showToast(next ? '✓ Vous suivez cet établissement' : 'Abonnement retiré')
+    const next = !isFollowing; setIsFollowing(next); toast.success(next ? 'Vous suivez cette fiche' : 'Abonnement retiré')
     const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; if (!token) { setIsFollowing(!next); return }
     const res = await fetch(`/api/etablissements/${id}/follow`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
     if (!res.ok) setIsFollowing(!next)
@@ -195,7 +189,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
   function share() {
     const url = window.location.href
     if (navigator.share) navigator.share({ title: etab?.nom ?? '', url }).catch(() => {})
-    else { navigator.clipboard.writeText(url).catch(() => {}); showToast('Lien copié !') }
+    else { navigator.clipboard.writeText(url).catch(() => {}); toast.success('Lien copié') }
   }
   function scrollToComments() {
     if (!commentsRef.current) return
@@ -243,8 +237,8 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
       })
       const data = await res.json()
       if (data.url) window.location.href = data.url
-      else showToast(data.error ?? 'Erreur portail')
-    } catch { showToast('Erreur de connexion') }
+      else toast.error(data.error ?? 'Erreur portail')
+    } catch { toast.error('Erreur de connexion') }
     setManageLoading(false)
   }
 
@@ -266,7 +260,6 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
 
   return (
     <div style={{ minHeight: '100dvh', backgroundColor: '#FDFAF5', fontFamily: 'Inter, sans-serif' }}>
-      {toast && <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 999, backgroundColor: '#1A1209', color: '#fff', borderRadius: 14, padding: '10px 20px', fontSize: 13, fontWeight: 600, pointerEvents: 'none', boxShadow: '0 6px 24px rgba(0,0,0,0.28)' }}>{toast}</div>}
 
       {/* Photo / Carousel swipable */}
       <div style={{ position: 'relative', height: 290, backgroundColor: typeInfo.bg, overflow: 'hidden' }}>

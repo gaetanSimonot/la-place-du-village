@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
@@ -49,7 +50,6 @@ export default function PromotionsClient() {
   const [promos, setPromos] = useState<Promotion[]>([])
   const [loading, setLoading] = useState(true)
   const [using, setUsing] = useState<string | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
   const [upgradePromo, setUpgradePromo] = useState<Promotion | null>(null)
   const [typeFilter, setTypeFilter] = useState<EtablissementType | null>(null)
   const [confirmModal, setConfirmModal] = useState<Promotion | null>(null)
@@ -107,11 +107,6 @@ export default function PromotionsClient() {
     }
   }, [loading, promos.length])
 
-  const showToastMsg = (msg: string) => {
-    setToast(msg)
-    setTimeout(() => setToast(null), 3500)
-  }
-
   // Étape 1 : clic "J'en profite" → ouvre la modale de confirmation position.
   const openUseConfirm = (promo: Promotion) => {
     if (!user) { openAuthModal('/promotions'); return }
@@ -131,13 +126,13 @@ export default function PromotionsClient() {
     setConfirmModal(null)
     const d = await res.json().catch(() => ({}))
     if (res.ok) {
-      showToastMsg('Promo enregistrée — passez un bon moment !')
+      toast.success('Promo enregistrée')
       fetchPromos()
       refreshUsedThisMonth()
     } else if (d.upgradeRequired) {
       setUpgradePromo(promo)
     } else {
-      showToastMsg(d.error ?? 'Erreur')
+      toast.error(d.error ?? 'Erreur')
     }
   }
 
@@ -329,13 +324,6 @@ export default function PromotionsClient() {
           onClose={() => setDiscoverModal(null)}
           onUse={() => { setDiscoverModal(null); openUseConfirm(discoverModal) }}
         />
-      )}
-
-      {/* Toast */}
-      {toast && (
-        <div className="fixed bottom-20 left-1/2 z-50 max-w-[90%] -translate-x-1/2 rounded-full bg-texte px-5 py-3 text-center text-[13px] font-semibold text-white shadow-[0_4px_18px_rgba(0,0,0,0.25)]">
-          {toast}
-        </div>
       )}
 
       {upgradePromo && (

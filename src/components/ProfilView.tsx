@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAdminSession } from '@/hooks/useAdminSession'
@@ -96,7 +97,7 @@ export default function ProfilView() {
       if (d.url) { window.location.href = d.url; return }
     } else {
       const d = await r.json().catch(() => ({}))
-      alert(d.error ?? 'Erreur ouverture du portail')
+      toast.error(d.error ?? 'Erreur ouverture du portail')
     }
     setOpeningPortal(false)
   }

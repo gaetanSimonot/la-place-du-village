@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import SpotlightPicker, { type SpotlightKind } from '@/components/SpotlightPicker'
 import ArticlePicker from '@/components/ArticlePicker'
@@ -46,7 +47,6 @@ export default function AdminJournalEditPage() {
   const router = useRouter()
   const [journal, setJournal] = useState<JournalFull | null>(null)
   const [saving, setSaving] = useState(false)
-  const [savedHint, setSavedHint] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -69,8 +69,7 @@ export default function AdminJournalEditPage() {
       const d = await res.json()
       if (!res.ok) throw new Error(d.error || 'Erreur sauvegarde')
       setJournal(d.journal)
-      setSavedHint('✓ Sauvegardé')
-      setTimeout(() => setSavedHint(null), 1500)
+      toast.success('Sauvegardé')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur')
     } finally {
@@ -115,7 +114,6 @@ export default function AdminJournalEditPage() {
             <span className={journal.statut === 'publie' ? 'rounded-full bg-primary px-3 py-1 font-bold text-white' : 'rounded-full border border-bord bg-white px-3 py-1 font-bold text-texte-doux'}>
               {journal.statut === 'publie' ? 'PUBLIÉ' : 'BROUILLON'}
             </span>
-            {savedHint && <span className="text-primary">{savedHint}</span>}
             {saving && <span className="text-texte-doux">enregistrement…</span>}
           </div>
         </div>

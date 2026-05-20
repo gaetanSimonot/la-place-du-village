@@ -109,3 +109,31 @@ textarea:-webkit-autofill {
   color: #fff !important;
   font-weight: 700 !important;
 }
+
+/* ── Sonner toasts — alignés sur la charte PDV ────────────────────────── */
+/* Les couleurs s'appliquent en bordure gauche colorée + petite icône via
+   le slot data-icon. Le fond reste blanc/neutre pour la lisibilité. */
+.pdv-toast-success {
+  border-left: 4px solid var(--primary) !important;
+}
+.pdv-toast-success [data-icon] {
+  color: var(--primary) !important;
+}
+.pdv-toast-error {
+  border-left: 4px solid var(--accent) !important;
+}
+.pdv-toast-error [data-icon] {
+  color: var(--accent) !important;
+}
+.pdv-toast-info {
+  border-left: 4px solid #3A5BC7 !important;
+}
+.pdv-toast-info [data-icon] {
+  color: #3A5BC7 !important;
+}
+.pdv-toast-warning {
+  border-left: 4px solid #E8A627 !important;
+}
+.pdv-toast-warning [data-icon] {
+  color: #E8A627 !important;
+}

@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import JournalAttachPicker from '@/components/JournalAttachPicker'
 import BottomNavBar from '@/components/BottomNavBar'
@@ -239,16 +240,25 @@ function ArticleList({
   }
 
   const handlePatch = async (id: string, statut: 'valide' | 'refuse') => {
-    const res = await fetch(`/api/admin/articles/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
-      body: JSON.stringify({ statut }),
+    const promise = (async () => {
+      const res = await fetch(`/api/admin/articles/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+        body: JSON.stringify({ statut }),
+      })
+      if (!res.ok) throw new Error('Erreur')
+      const data = await res.json().catch(() => ({}))
+      onChange()
+      return data as { attachedTo?: { numero: number } }
+    })()
+
+    toast.promise(promise, {
+      loading: statut === 'valide' ? 'Validation…' : 'Refus…',
+      success: (data) => statut === 'valide'
+        ? (data.attachedTo ? `Article publié dans le n°${data.attachedTo.numero}` : 'Article validé')
+        : 'Article refusé',
+      error: 'Erreur',
     })
-    const data = await res.json().catch(() => ({}))
-    if (statut === 'valide' && data.attachedTo) {
-      alert(`✓ Article validé et publié dans le numéro n°${data.attachedTo.numero} (numéro en cours)`)
-    }
-    onChange()
   }
 
   const handleDelete = async (id: string) => {
