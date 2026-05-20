@@ -16,7 +16,8 @@ const FULL_TOP = 60   // espace laissé en haut quand sheet pleine
 import { useTheme } from '@/components/ThemeProvider'
 import ProBandeau from '@/components/ProBandeau'
 import AgendaFilterWheel from '@/components/AgendaFilterWheel'
-import AnnuaireFilterWheel from '@/components/AnnuaireFilterWheel'
+import CategoryPicker from '@/components/CategoryPicker'
+import { supabase } from '@/lib/supabase'
 
 const BATCH = 20
 
@@ -126,6 +127,46 @@ export default function BottomSheet({
   const [etabVille, setEtabVille]           = useState('')
   const [etabRayon, setEtabRayon]           = useState<number | null>(null)
 
+  // Recherche live globale (BDD) — comme la loupe d'en haut. Override la
+  // liste locale dès que l'user tape ≥2 chars.
+  const [etabSearchHits, setEtabSearchHits] = useState<EtablissementCard[] | null>(null)
+  useEffect(() => {
+    const q = etabSearch.trim()
+    if (q.length < 2) { setEtabSearchHits(null); return }
+    let cancelled = false
+    const t = setTimeout(async () => {
+      const like = `%${q}%`
+      let query = supabase
+        .from('etablissements')
+        .select('id, type, nom, commune, lat, lng, photos, note_google, is_featured, statut, description_courte, plan')
+        .or(`nom.ilike.${like},commune.ilike.${like},description_courte.ilike.${like}`)
+        .limit(50)
+      if (selectedEtabType) query = query.eq('type', selectedEtabType)
+      const { data } = await query
+      if (cancelled) return
+      setEtabSearchHits((data ?? []) as EtablissementCard[])
+    }, 200)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [etabSearch, selectedEtabType])
+
+  const [producerSearchHits, setProducerSearchHits] = useState<ProducerCard[] | null>(null)
+  useEffect(() => {
+    const q = producerSearch.trim()
+    if (q.length < 2) { setProducerSearchHits(null); return }
+    let cancelled = false
+    const t = setTimeout(async () => {
+      const like = `%${q}%`
+      const { data } = await supabase
+        .from('producers')
+        .select('*')
+        .or(`nom.ilike.${like},commune.ilike.${like}`)
+        .limit(50)
+      if (cancelled) return
+      setProducerSearchHits((data ?? []) as ProducerCard[])
+    }, 200)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [producerSearch])
+
   // ResizeObserver sur le header pour mesurer sa hauteur réelle
   useEffect(() => {
     const el = headerRef.current
@@ -198,17 +239,21 @@ export default function BottomSheet({
     return e ? { lat: e.lat!, lng: e.lng! } : null
   }, [etablissements, etabVille])
 
-  // Tous les filtres locaux appliqués à la liste
+  // Liste affichée :
+  //  - Si recherche live active (etabSearchHits != null) → on prend les hits
+  //    BDD globale (cohérent avec la loupe d'en haut). Filtre par type appliqué
+  //    côté supabase pour minimiser le payload.
+  //  - Sinon → liste locale filtrée par zone/rayon/note (mode "navigation").
   const displayedEtabs = useMemo(() => {
-    const q = etabSearch.trim().toLowerCase()
+    if (etabSearchHits) {
+      // Search active : applique uniquement les filtres légers (note min)
+      return etabSearchHits.filter(e => {
+        if (etabMinNote > 0 && (!e.note_google || e.note_google < etabMinNote)) return false
+        return true
+      })
+    }
     return etablissements.filter(e => {
       if (etabMinNote > 0 && (!e.note_google || e.note_google < etabMinNote)) return false
-      if (q) {
-        const hit = e.nom.toLowerCase().includes(q)
-          || (e.commune?.toLowerCase().includes(q) ?? false)
-          || (e.description_courte?.toLowerCase().includes(q) ?? false)
-        if (!hit) return false
-      }
       if (etabVille.trim()) {
         if (!e.commune?.toLowerCase().includes(etabVille.trim().toLowerCase())) return false
       }
@@ -217,9 +262,12 @@ export default function BottomSheet({
       }
       return true
     })
-  }, [etablissements, etabMinNote, etabSearch, etabVille, etabRayon, villeCenter])
+  }, [etablissements, etabSearchHits, etabMinNote, etabVille, etabRayon, villeCenter])
 
   const etabFilterActive = etabMinNote > 0 || !!etabVille.trim() || etabRayon !== null
+
+  // Producteurs affichés : recherche live override la liste locale
+  const displayedProducers: ProducerCard[] = producerSearchHits ?? producers
 
   // Reset state quand on change de mode
   useEffect(() => {
@@ -338,7 +386,7 @@ export default function BottomSheet({
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 18, color: '#1C1917', margin: 0, lineHeight: 1.1 }}>
                 {annuaireTabIdx === 0
-                  ? `${producers.length} producteur${producers.length !== 1 ? 's' : ''}`
+                  ? `${displayedProducers.length} producteur${displayedProducers.length !== 1 ? 's' : ''}`
                   : `${displayedEtabs.length} commerce${displayedEtabs.length !== 1 ? 's' : ''}`
                 }
               </p>
@@ -393,33 +441,27 @@ export default function BottomSheet({
                 }}>Commerces</button>
               </div>
             )}
-            <div
-              onPointerDown={e => e.stopPropagation()}
-              onTouchStart={e => e.stopPropagation()}
-              style={{ touchAction: 'pan-x' }}
-            >
-              {annuaireTabIdx === 0 ? (
-                <AnnuaireFilterWheel
-                  ariaLabel="Filtre catégorie produit"
-                  items={PRODUIT_CATS.map(c => ({ id: c.id, label: c.label, emoji: c.emoji }))}
-                  activeId={selectedCats[0] ?? null}
-                  onChange={id => {
-                    onSelectedCatsChange?.(id ? [id as typeof PRODUIT_CATS[number]['id']] : [])
-                    if (mode === 'peek') snapTo('half')
-                  }}
-                />
-              ) : (
-                <AnnuaireFilterWheel
-                  ariaLabel="Filtre type commerce"
-                  items={ETAB_TYPE_LIST.map(t => ({ id: t.id, label: t.label, emoji: t.emoji, color: t.color }))}
-                  activeId={selectedEtabType ?? null}
-                  onChange={id => {
-                    onEtabTypeChange?.((id as typeof ETAB_TYPE_LIST[number]['id'] | null) ?? null)
-                    if (mode === 'peek') snapTo('half')
-                  }}
-                />
-              )}
-            </div>
+            {annuaireTabIdx === 0 ? (
+              <CategoryPicker
+                ariaLabel="Filtre catégorie produit"
+                items={PRODUIT_CATS.map(c => ({ id: c.id, label: c.label, emoji: c.emoji }))}
+                activeId={selectedCats[0] ?? null}
+                onChange={id => {
+                  onSelectedCatsChange?.(id ? [id as typeof PRODUIT_CATS[number]['id']] : [])
+                  if (mode === 'peek') snapTo('half')
+                }}
+              />
+            ) : (
+              <CategoryPicker
+                ariaLabel="Filtre type commerce"
+                items={ETAB_TYPE_LIST.map(t => ({ id: t.id, label: t.label, emoji: t.emoji, color: t.color }))}
+                activeId={selectedEtabType ?? null}
+                onChange={id => {
+                  onEtabTypeChange?.((id as typeof ETAB_TYPE_LIST[number]['id'] | null) ?? null)
+                  if (mode === 'peek') snapTo('half')
+                }}
+              />
+            )}
           </div>
         )}
       </div>{/* fin zone drag */}
@@ -598,7 +640,7 @@ export default function BottomSheet({
           )
         ) : appMode === 'annuaire' ? (
           producerLoading ? [1,2,3].map(i => <SkeletonCard key={i} />) :
-          producers.length === 0 ? (
+          displayedProducers.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: sheetBg.sub }}>
               <p style={{ fontSize: 48, marginBottom: 10 }}>🌿</p>
               <p style={{ fontWeight: 700, fontSize: 16, fontFamily: 'Inter, sans-serif', color: sheetBg.text }}>Producteurs locaux</p>
@@ -609,7 +651,7 @@ export default function BottomSheet({
               {featuredProducers.length > 0 && mode !== 'peek' && (
                 <ProducerBandeau producers={featuredProducers} onDiscover={id => { onSelectProducer?.(id) }} />
               )}
-              {producers.map(p => (
+              {displayedProducers.map(p => (
                 <ProducerListCard
                   key={p.id}
                   producer={p}

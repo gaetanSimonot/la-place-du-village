@@ -10,6 +10,7 @@ import type { Plan } from '@/lib/capabilities'
 import { ETAB_TYPES } from '@/lib/etablissement-types'
 import type { EtablissementType } from '@/lib/types'
 import EntityQuickView from '@/components/EntityQuickView'
+import BottomNavBar from '@/components/BottomNavBar'
 
 interface Promotion {
   id: string
@@ -352,6 +353,7 @@ export default function PromotionsClient() {
           currentPlan={currentPlan}
         />
       )}
+      <BottomNavBar />
     </div>
   )
 }
