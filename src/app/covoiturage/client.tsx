@@ -103,28 +103,23 @@ export default function CovoiturageListClient() {
         </Link>
       </div>
 
-      {/* Filtres */}
+      {/* Filtres — verticaux pour ne pas deborder sur mobile etroit */}
       <div className="px-4 pt-4">
         <div className="rounded-2xl border border-bord bg-white p-3 shadow-[0_1px_4px_rgba(44,28,16,0.04)]">
-          <div className="flex items-center gap-2">
-            <div className="flex flex-1 items-center gap-2 rounded-xl bg-cremeDeep px-3 py-2">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7A6A5A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <div className="flex flex-col gap-2">
+            <div className="flex min-w-0 items-center gap-2 rounded-xl bg-cremeDeep px-3 py-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7A6A5A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
                 <circle cx="12" cy="12" r="3"/>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33"/>
               </svg>
               <input
                 value={depart}
                 onChange={e => setDepart(e.target.value)}
                 placeholder="Départ"
-                className="flex-1 border-none bg-transparent text-[13px] text-texte outline-none placeholder:text-texte-tres-doux"
+                className="min-w-0 flex-1 border-none bg-transparent text-[13px] text-texte outline-none placeholder:text-texte-tres-doux"
               />
             </div>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7A6A5A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="5" y1="12" x2="19" y2="12"/>
-              <polyline points="13 6 19 12 13 18"/>
-            </svg>
-            <div className="flex flex-1 items-center gap-2 rounded-xl bg-cremeDeep px-3 py-2">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7A6A5A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <div className="flex min-w-0 items-center gap-2 rounded-xl bg-cremeDeep px-3 py-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7A6A5A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
                 <path d="M12 22s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/>
                 <circle cx="12" cy="10" r="2.5"/>
               </svg>
@@ -132,7 +127,7 @@ export default function CovoiturageListClient() {
                 value={destination}
                 onChange={e => setDestination(e.target.value)}
                 placeholder="Destination"
-                className="flex-1 border-none bg-transparent text-[13px] text-texte outline-none placeholder:text-texte-tres-doux"
+                className="min-w-0 flex-1 border-none bg-transparent text-[13px] text-texte outline-none placeholder:text-texte-tres-doux"
               />
             </div>
           </div>
