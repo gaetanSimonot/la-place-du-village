@@ -33,9 +33,9 @@ export default function AppSplash({ onDone }: { onDone: () => void }) {
       }}
     >
       <img
-        src="/logo.png"
-        width={148}
-        height={148}
+        src="/logo.svg"
+        width={160}
+        height={160}
         alt="La Place du Village"
         className="pdv-splash-logo"
         style={{ display: 'block' }}

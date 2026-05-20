@@ -96,9 +96,13 @@ export default function HomePage() {
   const [allEvenements, setAllEvenements] = useState<EvenementCard[]>([])
   const [promoEventsData, setPromoEventsData] = useState<EvenementCard[]>([])
   const [splashFeaturedEvents, setSplashFeaturedEvents] = useState<EvenementCard[]>([])
-  // Splash à chaque ouverture/montage (plus de cache session) — chaque fois
-  // qu'on (re)ouvre l'app, on revoit le splash brièvement.
-  const [splashDone, setSplashDone]           = useState(false)
+  // Splash à chaque OUVERTURE de l'app (= nouvelle session navigateur)
+  // mais pas à chaque navigation interne. sessionStorage persiste durant
+  // toute la session PWA → premier mount = splash, navs suivantes vers / = skip.
+  const [splashDone, setSplashDone]           = useState(() => {
+    if (typeof window === 'undefined') return true
+    return sessionStorage.getItem('pdv-splash-done') === '1'
+  })
   const [showWelcome, setShowWelcome]         = useState(false)
   const [appMode, setAppMode]                 = useState<'agenda' | 'annuaire'>('agenda')
   // Restore annuaire mode after returning from a producer page
@@ -1186,8 +1190,10 @@ export default function HomePage() {
       <MaxSplash events={splashEvents} loading={loading} />
 
       {!splashDone && <AppSplash onDone={() => {
+        sessionStorage.setItem('pdv-splash-done', '1')
         setSplashDone(true)
-        // Welcome carousel uniquement à la première visite, après le splash
+        // Welcome carousel uniquement à la première visite (jamais vu),
+        // après le splash
         if (typeof window !== 'undefined' && !localStorage.getItem('pdv-welcome-seen')) {
           setShowWelcome(true)
         }

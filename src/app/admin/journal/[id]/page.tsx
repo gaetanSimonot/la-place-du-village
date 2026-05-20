@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import SpotlightPicker, { type SpotlightKind } from '@/components/SpotlightPicker'
 import ArticlePicker from '@/components/ArticlePicker'
+import BottomNavBar from '@/components/BottomNavBar'
 
 interface JournalFull {
   id: string
@@ -104,10 +105,10 @@ export default function AdminJournalEditPage() {
   }
 
   return (
-    <main className="min-h-screen bg-creme p-6 font-inter">
+    <main className="min-h-screen bg-creme p-6 pb-28 font-inter">
       <div className="mx-auto max-w-3xl">
         <div className="flex items-center justify-between">
-          <Link href="/admin/journal" className="text-[12px] font-semibold text-primary">← Journal</Link>
+          <Link href="/admin/journal" className="text-[12px] font-semibold text-primary">← Liste journaux</Link>
           <div className="flex items-center gap-2 text-[11px]">
             <span className={journal.statut === 'publie' ? 'rounded-full bg-primary px-3 py-1 font-bold text-white' : 'rounded-full border border-bord bg-white px-3 py-1 font-bold text-texte-doux'}>
               {journal.statut === 'publie' ? 'PUBLIÉ' : 'BROUILLON'}
@@ -252,6 +253,7 @@ export default function AdminJournalEditPage() {
           />
         </Section>
       </div>
+      <BottomNavBar />
     </main>
   )
 }

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import JournalAttachPicker from '@/components/JournalAttachPicker'
+import BottomNavBar from '@/components/BottomNavBar'
 
 interface JournalRow {
   id: string
@@ -106,9 +107,9 @@ export default function AdminJournalPage() {
   const articlesValides = articles.filter(a => a.statut === 'valide')
 
   return (
-    <main className="min-h-screen bg-creme p-6 font-inter">
+    <main className="min-h-screen bg-creme p-6 pb-28 font-inter">
       <div className="mx-auto max-w-4xl">
-        <Link href="/admin" className="text-[12px] font-semibold text-primary">← Admin</Link>
+        <Link href="/profil" className="text-[12px] font-semibold text-primary">← Mon espace</Link>
         <h1 className="mt-2 font-serif text-[32px] leading-tight text-texte" style={{ letterSpacing: '-0.02em' }}>
           Journal du Village
         </h1>
@@ -171,6 +172,7 @@ export default function AdminJournalPage() {
           <JournalList rows={publies} onDelete={load} />
         </section>
       </div>
+      <BottomNavBar />
     </main>
   )
 }
