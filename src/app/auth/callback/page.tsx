@@ -2,6 +2,7 @@
 import { useEffect, Suspense, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { sanitizeNext } from '@/lib/authRedirect'
 
 function CallbackHandler() {
   const searchParams = useSearchParams()
@@ -9,7 +10,11 @@ function CallbackHandler() {
 
   useEffect(() => {
     const code = searchParams.get('code')
-    const next = searchParams.get('next') ?? '/'
+    // Sanitize cote reception : meme si on a sanitize cote envoi, on
+    // re-valide (defense en profondeur). Un attaquant pourrait avoir
+    // construit un lien direct vers /auth/callback?next=evil.
+    const rawNext = searchParams.get('next')
+    const next = sanitizeNext(rawNext)
 
     let cancelled = false
     let timeoutId: ReturnType<typeof setTimeout> | null = null
@@ -17,14 +22,13 @@ function CallbackHandler() {
     function go() {
       if (cancelled) return
       cancelled = true
-      // Hard reload — ré-init AuthContext avec la session présente
+      // Hard reload — re-init AuthContext avec la session presente
       window.location.replace(next)
     }
 
-    // Écoute SIGNED_IN : c'est le seul signal fiable que la session a été
-    // écrite dans le storage par supabase-js. exchangeCodeForSession peut
-    // resolve avant que l'écriture soit committed → reload prématuré =
-    // AuthContext qui voit pas la session.
+    // Ecoute SIGNED_IN : seul signal fiable que la session a ete ecrite
+    // dans le storage par supabase-js. exchangeCodeForSession peut resolve
+    // avant que l ecriture soit committed.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
         if (timeoutId) clearTimeout(timeoutId)
@@ -36,8 +40,9 @@ function CallbackHandler() {
       if (!code) { go(); return }
       try {
         await supabase.auth.exchangeCodeForSession(code)
-        // Filet de sécurité : si pour une raison X SIGNED_IN n'arrive pas
-        // (déjà signé in avant ?), on reload après 1.5s quand même.
+        // Filet de securite : si SIGNED_IN n arrive pas (cas deja signe ?),
+        // on reload apres 1.5s. Si l exchange a fail (PKCE verifier perdu
+        // entre browser contexts), au moins on quitte la page de callback.
         timeoutId = setTimeout(() => {
           setHint('Connexion plus longue que prévu…')
           go()

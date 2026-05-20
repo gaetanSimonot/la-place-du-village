@@ -88,7 +88,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
   // - connecté basic → modal d'abonnement Stripe
   const handleClaimClick = async () => {
     if (!user) {
-      openAuthModal(`${window.location.origin}/etablissement/${id}`)
+      openAuthModal(`/etablissement/${id}`)
       return
     }
     const ctx = toUserContext(profile, isAdmin)

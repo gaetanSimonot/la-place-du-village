@@ -9,13 +9,6 @@ export default function AuthModal() {
 
   if (!open || user) return null
 
-  const storeReturnTo = () => {
-    try {
-      if (returnTo) sessionStorage.setItem('pdv-return-to', returnTo)
-      sessionStorage.setItem('pdv-login-pending', '1')
-    } catch {}
-  }
-
   return (
     <div
       style={{
@@ -42,7 +35,10 @@ export default function AuthModal() {
           <button onClick={closeAuthModal} style={{ background: 'none', border: 'none', color: '#9CA3AF', fontSize: 20, cursor: 'pointer' }}>✕</button>
         </div>
 
-        <AuthForm compact onBeforeRedirect={storeReturnTo} />
+        {/* returnTo passe au form pour etre encode dans l URL OAuth (survit
+            au changement de browser context PWA <-> Safari) ET stocke en
+            sessionStorage en backup pour signInWithPassword (synchrone). */}
+        <AuthForm compact returnTo={returnTo} />
       </div>
     </div>
   )

@@ -1,20 +1,23 @@
 'use client'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { buildOAuthCallbackUrl, sanitizeNext } from '@/lib/authRedirect'
 
 type Mode = 'signin' | 'signup'
 
 interface AuthFormProps {
-  /** Hook appelé juste avant une redirection externe (Google OAuth ou magic link),
-   *  utile pour stocker un returnTo en sessionStorage. */
-  onBeforeRedirect?: () => void
+  /** Page sur laquelle retourner après login. Sanitize cote consumer (cf
+   *  AuthModalContext). Default '/'. Sera encode dans `redirectTo?next=...`
+   *  pour OAuth (survit au changement de browser context PWA <-> Safari)
+   *  et stocke en sessionStorage pour signInWithPassword (synchrone). */
+  returnTo?: string
   /** Titre affiché en haut (défaut : "Connexion") */
   title?: string
   /** Compacte le layout (utile en modal) */
   compact?: boolean
 }
 
-export default function AuthForm({ onBeforeRedirect, title = 'Connexion', compact = false }: AuthFormProps) {
+export default function AuthForm({ returnTo = '/', title = 'Connexion', compact = false }: AuthFormProps) {
   const [mode, setMode]                   = useState<Mode>('signin')
   const [email, setEmail]                 = useState('')
   const [password, setPassword]           = useState('')
@@ -24,12 +27,25 @@ export default function AuthForm({ onBeforeRedirect, title = 'Connexion', compac
   const [error, setError]                 = useState<string | null>(null)
   const [magicSent, setMagicSent]         = useState(false)
 
+  // Sanitize a chaque action (defense en profondeur — meme si le parent
+  // a deja sanitize, on re-valide cote envoi reel a Supabase).
+  const safeReturnTo = sanitizeNext(returnTo)
+
+  // Set sessionStorage en backup pour les flows synchrones (password).
+  // Pour OAuth, c est l URL ?next= qui prend le relais.
+  function storeFallbackReturnTo() {
+    try {
+      if (safeReturnTo !== '/') sessionStorage.setItem('pdv-return-to', safeReturnTo)
+      sessionStorage.setItem('pdv-login-pending', '1')
+    } catch {}
+  }
+
   const handleGoogle = async () => {
     setGoogleLoading(true)
-    onBeforeRedirect?.()
+    storeFallbackReturnTo()
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: buildOAuthCallbackUrl(safeReturnTo) },
     })
   }
 
@@ -40,12 +56,13 @@ export default function AuthForm({ onBeforeRedirect, title = 'Connexion', compac
       setError('Mot de passe : 6 caractères minimum')
       return
     }
+    storeFallbackReturnTo()
     setLoading(true); setError(null)
     if (mode === 'signup') {
       const { error: err } = await supabase.auth.signUp({
         email: e,
         password,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+        options: { emailRedirectTo: buildOAuthCallbackUrl(safeReturnTo) },
       })
       if (err) setError(err.message)
     } else {
@@ -61,11 +78,11 @@ export default function AuthForm({ onBeforeRedirect, title = 'Connexion', compac
       setError('Renseigne ton email')
       return
     }
-    onBeforeRedirect?.()
+    storeFallbackReturnTo()
     setMagicLoading(true); setError(null)
     const { error: err } = await supabase.auth.signInWithOtp({
       email: e,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback`, shouldCreateUser: true },
+      options: { emailRedirectTo: buildOAuthCallbackUrl(safeReturnTo), shouldCreateUser: true },
     })
     setMagicLoading(false)
     if (err) { setError(err.message); return }

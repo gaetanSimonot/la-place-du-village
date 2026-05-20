@@ -224,22 +224,20 @@ export default function HomePage() {
     return () => window.removeEventListener('resize', update)
   }, [])
 
-  // After login (null → user) — si le flag login-pending est posé, aller sur profil
-  // Sauf si pdv-return-to est défini (login depuis une fiche) — dans ce cas on ne touche pas à la nav
+  // After login (null → user) — restore la page d origine pour les flows
+  // synchrones (signInWithPassword). Pour OAuth, le callback redirige deja
+  // directement vers `next` via l URL, donc ce useEffect ne se declenche
+  // pas (l user arrive sur la page cible avec le user deja loggé).
   useEffect(() => {
     if (user && !prevUserRef.current) {
       try {
         const returnTo = sessionStorage.getItem('pdv-return-to')
-        if (returnTo) {
-          sessionStorage.removeItem('pdv-return-to')
-          sessionStorage.removeItem('pdv-login-pending')
+        sessionStorage.removeItem('pdv-return-to')
+        sessionStorage.removeItem('pdv-login-pending')
+        if (returnTo && returnTo !== window.location.pathname + window.location.search) {
           window.location.href = returnTo
-          return
         }
-        if (sessionStorage.getItem('pdv-login-pending')) {
-          sessionStorage.removeItem('pdv-login-pending')
-          setNavTab('profil')
-        }
+        // Sinon : on est deja sur la bonne page, rien a faire.
       } catch {}
     }
     prevUserRef.current = user

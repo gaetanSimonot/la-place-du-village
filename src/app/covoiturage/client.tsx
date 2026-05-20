@@ -191,13 +191,13 @@ export default function CovoiturageListClient() {
                 {c.statut === 'complet' ? 'Complet' : `${c.places - c.places_prises} place${c.places - c.places_prises > 1 ? 's' : ''}`}
               </span>
             </div>
-            <div className="mt-2 flex items-center gap-2 text-[14px] font-bold text-texte">
-              <span className="truncate">{c.depart}</span>
+            <div className="mt-2 flex min-w-0 items-center gap-2 text-[14px] font-bold text-texte">
+              <span className="min-w-0 flex-1 truncate">{c.depart}</span>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7A6A5A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
                 <line x1="5" y1="12" x2="19" y2="12"/>
                 <polyline points="13 6 19 12 13 18"/>
               </svg>
-              <span className="truncate">{c.destination}</span>
+              <span className="min-w-0 flex-1 truncate">{c.destination}</span>
             </div>
             <div className="mt-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
