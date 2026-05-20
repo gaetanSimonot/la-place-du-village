@@ -94,6 +94,27 @@ function dateLabel(iso: string | null): string {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 }
 
+/**
+ * Label compact pour vignettes d'événements. Cas :
+ *  - Event mono-jour avec heure → "HH:MM"
+ *  - Event multi-jours (date_fin > date_debut) → "Jusqu'au DD mois" (les expos
+ *    en cours auraient sinon une date_debut passée trompeuse).
+ *  - Sinon → dateLabel(date_debut)
+ */
+function eventWhenLabel(
+  date_debut: string | null,
+  date_fin: string | null,
+  heure: string | null,
+): string {
+  const multiJour = !!date_debut && !!date_fin && date_fin !== date_debut
+  if (multiJour && date_fin) {
+    const fin = new Date(date_fin)
+    return `Jusqu'au ${fin.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`
+  }
+  if (heure) return heure.slice(0, 5)
+  return date_debut ? dateLabel(date_debut) : '—'
+}
+
 function categorieKicker(c: string | null | undefined): string {
   if (!c) return 'ÉVÉNEMENT'
   return c.toUpperCase()
@@ -634,7 +655,7 @@ function SectionHeaderV3({
 /* ─── Aujourd'hui — FeaturedEventCard ────────────────────────────────── */
 
 function FeaturedEventCard({ ev, onClick }: { ev: Evenement; onClick: () => void }) {
-  const time = ev.heure ? ev.heure.slice(0, 5) : (ev.date_debut ? dateLabel(ev.date_debut) : '—')
+  const time = eventWhenLabel(ev.date_debut, ev.date_fin, ev.heure)
   const kicker = `${categorieKicker(ev.categorie)} · À LA UNE`
   const where = ev.lieux?.nom ?? ev.lieux?.commune ?? '—'
   return (
@@ -677,7 +698,7 @@ function FeaturedEventCard({ ev, onClick }: { ev: Evenement; onClick: () => void
 /* ─── Aujourd'hui — MiniEventCard ────────────────────────────────────── */
 
 function MiniEventCard({ ev, onClick }: { ev: Evenement; onClick: () => void }) {
-  const time = ev.heure ? ev.heure.slice(0, 5) : (ev.date_debut ? dateLabel(ev.date_debut) : '—')
+  const time = eventWhenLabel(ev.date_debut, ev.date_fin, ev.heure)
   const kicker = categorieKicker(ev.categorie)
   const where = ev.lieux?.nom ?? ev.lieux?.commune ?? '—'
   return (
@@ -1104,7 +1125,7 @@ function HeroSlide({ item, onClick }: { item: HeroItem; onClick: () => void }) {
   const imagePosition = item.imagePosition ?? '50% 50%'
   if (item.kind === 'evenement') {
     const ev = item.data
-    const when = ev.date_debut ? dateLabel(ev.date_debut) : ''
+    const when = eventWhenLabel(ev.date_debut, ev.date_fin, ev.heure)
     const cat = ev.categorie ? ev.categorie.toUpperCase() : 'ÉVÉNEMENT'
     const venue = ev.lieux?.nom ? ` · ${ev.lieux.nom.toUpperCase()}` : ''
     return (

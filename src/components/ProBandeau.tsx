@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { EvenementCard } from '@/lib/types'
-import { formatDate } from '@/lib/filters'
+import { formatEventDate } from '@/lib/filters'
 import { CATEGORIES } from '@/lib/categories'
 
 const INTERVAL_MS = 5500
@@ -163,7 +163,7 @@ export default function ProBandeau({ events, onDiscover, compact = false }: Prop
                   )}
                   {evt.date_debut && (
                     <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap' }}>
-                      · {formatDate(evt.date_debut)}{evt.heure ? ` ${evt.heure.slice(0,5)}` : ''}
+                      · {formatEventDate(evt.date_debut, evt.date_fin)}{evt.heure && !evt.date_fin ? ` ${evt.heure.slice(0,5)}` : ''}
                     </span>
                   )}
                 </div>

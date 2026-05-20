@@ -320,7 +320,7 @@ export default function HomePage() {
     if (!zoneLoaded) return // attendre la zone
     if (!silent) setLoading(true)
 
-    const SELECT = 'id, titre, categorie, date_debut, heure, image_url, image_position, promotion, promo_ordre, lieux(id, nom, commune, lat, lng, place_id_google)'
+    const SELECT = 'id, titre, categorie, date_debut, date_fin, heure, image_url, image_position, promotion, promo_ordre, lieux(id, nom, commune, lat, lng, place_id_google)'
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let query: any = supabase.from('evenements').select(SELECT).eq('statut', 'publie').order('date_debut', { ascending: true }).limit(300)
@@ -373,7 +373,7 @@ export default function HomePage() {
       const ids = slots.map(s => s.content_id)
       const { data: events } = await supabase
         .from('evenements')
-        .select('id, titre, categorie, date_debut, heure, image_url, image_position, promotion, promo_ordre, vote_count, submitted_by_name, lieux(id, nom, commune, lat, lng, place_id_google)')
+        .select('id, titre, categorie, date_debut, date_fin, heure, image_url, image_position, promotion, promo_ordre, vote_count, submitted_by_name, lieux(id, nom, commune, lat, lng, place_id_google)')
         .in('id', ids)
         .eq('statut', 'publie')
 

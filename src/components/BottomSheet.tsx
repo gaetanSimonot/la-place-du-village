@@ -5,7 +5,7 @@ import { EvenementCard, Filtres, AppMode, ProducerCard, ProduitCategorie, Etabli
 import { CATEGORIES } from '@/lib/categories'
 import { PRODUIT_CATS } from '@/lib/produit-cats'
 import { ETAB_TYPE_LIST } from '@/lib/etablissement-types'
-import { formatDate } from '@/lib/filters'
+import { formatEventDate } from '@/lib/filters'
 import { haversineKm } from '@/lib/distance'
 import Link from 'next/link'
 import ProducerBandeau from '@/components/ProducerBandeau'
@@ -774,7 +774,7 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           {evt.date_debut ? (
             <p style={{ fontSize: 11, color: '#6B5E4E', margin: 0, }}>
-              {formatDate(evt.date_debut)}{evt.heure ? ` · ${evt.heure.slice(0,5)}` : ''}
+              {formatEventDate(evt.date_debut, evt.date_fin)}{evt.heure && !evt.date_fin ? ` · ${evt.heure.slice(0,5)}` : ''}
             </p>
           ) : <div />}
 

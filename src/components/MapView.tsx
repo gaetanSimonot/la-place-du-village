@@ -4,7 +4,7 @@ import { APIProvider, Map, InfoWindow, useMap } from '@vis.gl/react-google-maps'
 import { MarkerClusterer } from '@googlemaps/markerclusterer'
 import { EvenementCard, ProducerCard, isApproxLocation, EtablissementCard } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
-import { formatDate } from '@/lib/filters'
+import { formatEventDate } from '@/lib/filters'
 import { useTheme } from '@/components/ThemeProvider'
 import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 
@@ -553,8 +553,8 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
                   </p>
                   {selectedEvent.date_debut && (
                     <p style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 600 }}>
-                      {formatDate(selectedEvent.date_debut)}
-                      {selectedEvent.heure && ` · ${selectedEvent.heure.slice(0, 5)}`}
+                      {formatEventDate(selectedEvent.date_debut, selectedEvent.date_fin)}
+                      {selectedEvent.heure && !selectedEvent.date_fin && ` · ${selectedEvent.heure.slice(0, 5)}`}
                     </p>
                   )}
                   {selectedEvent.lieux && (

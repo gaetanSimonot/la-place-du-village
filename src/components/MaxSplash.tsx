@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { EvenementCard } from '@/lib/types'
-import { formatDate } from '@/lib/filters'
+import { formatEventDate } from '@/lib/filters'
 import { CATEGORIES } from '@/lib/categories'
 
 const SEEN_KEY = 'pdv-max-seen'
@@ -233,8 +233,8 @@ export default function MaxSplash({ events, loading = false }: Props) {
           {/* Date + lieu */}
           {(evt.date_debut || evt.lieux?.commune) && (
             <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', margin: 0, lineHeight: 1.4, }}>
-              {evt.date_debut ? formatDate(evt.date_debut) : ''}
-              {evt.heure ? ` · ${evt.heure.slice(0, 5)}` : ''}
+              {evt.date_debut ? formatEventDate(evt.date_debut, evt.date_fin) : ''}
+              {evt.heure && !evt.date_fin ? ` · ${evt.heure.slice(0, 5)}` : ''}
               {evt.lieux?.commune ? ` • ${evt.lieux.commune}` : ''}
             </p>
           )}

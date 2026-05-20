@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { EvenementCard } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
-import { formatDate } from '@/lib/filters'
+import { formatEventDate } from '@/lib/filters'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { PRODUIT_CATS_MAP, normalizeProduitCat } from '@/lib/produit-cats'
@@ -387,7 +387,7 @@ function FavCard({ evt, onRemove }: { evt: EvenementCard; onRemove: () => void }
       </span>
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 48px 13px 14px' }}>
         <h3 style={{ fontSize: 14, fontWeight: 700, color: '#fff', lineHeight: 1.3, margin: '0 0 3px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{evt.titre}</h3>
-        {evt.date_debut && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)', margin: 0 }}>{formatDate(evt.date_debut)}{evt.heure ? ` · ${evt.heure.slice(0, 5)}` : ''}{evt.lieux?.commune ? ` • ${evt.lieux.commune}` : ''}</p>}
+        {evt.date_debut && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)', margin: 0 }}>{formatEventDate(evt.date_debut, evt.date_fin)}{evt.heure && !evt.date_fin ? ` · ${evt.heure.slice(0, 5)}` : ''}{evt.lieux?.commune ? ` • ${evt.lieux.commune}` : ''}</p>}
       </div>
       <button onClick={e => { e.preventDefault(); e.stopPropagation(); onRemove() }}
         style={{ position: 'absolute', bottom: 11, right: 12, width: 30, height: 30, borderRadius: 9, backgroundColor: 'rgba(0,0,0,0.48)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)', color: T.accent }}>

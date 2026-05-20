@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { Evenement, isApproxLocation } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
-import { formatDate } from '@/lib/filters'
+import { formatEventDate } from '@/lib/filters'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useAdminSession } from '@/hooks/useAdminSession'
@@ -61,8 +61,8 @@ export default function EventCard({ evenement, isSelected, onClick }: Props) {
 
             {evenement.date_debut && (
               <p className="text-sm font-semibold" style={{ color: 'var(--orange)' }}>
-                {formatDate(evenement.date_debut)}
-                {evenement.heure && ` · ${evenement.heure.slice(0, 5)}`}
+                {formatEventDate(evenement.date_debut, evenement.date_fin)}
+                {evenement.heure && !evenement.date_fin && ` · ${evenement.heure.slice(0, 5)}`}
               </p>
             )}
 

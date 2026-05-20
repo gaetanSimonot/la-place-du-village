@@ -8,6 +8,7 @@ interface EvenementRow {
   titre: string
   image_url: string | null
   date_debut: string | null
+  date_fin: string | null
   heure: string | null
   lieux: { nom: string | null; commune: string | null } | null
 }
@@ -45,6 +46,18 @@ function dateLabel(iso: string | null): string {
   if (diff === 1)  return 'Demain'
   if (diff > 1 && diff < 7) return d.toLocaleDateString('fr-FR', { weekday: 'long' })
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+}
+
+/**
+ * Pour les events multi-jours (expos…), affiche "Jusqu'au DD mois" au lieu
+ * de la date de début qui peut être passée et tromper l'utilisateur.
+ */
+function eventDateLabel(date_debut: string | null, date_fin: string | null): string {
+  if (date_debut && date_fin && date_fin !== date_debut) {
+    const fin = new Date(date_fin)
+    return `Jusqu'au ${fin.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`
+  }
+  return dateLabel(date_debut)
 }
 
 const ESC_OR = (s: string) => s.replace(/,/g, '\\,').replace(/\)/g, '\\)').replace(/\(/g, '\\(')
@@ -96,7 +109,7 @@ export default function HubSearchModal({ open, onClose, onViewAll }: Props) {
       const term = `%${ESC_OR(trimmed)}%`
       const [evRes, etabRes, prodRes] = await Promise.all([
         supabase.from('evenements')
-          .select('id, titre, image_url, date_debut, heure, lieux(nom, commune)', { count: 'exact' })
+          .select('id, titre, image_url, date_debut, date_fin, heure, lieux(nom, commune)', { count: 'exact' })
           .eq('statut', 'publie')
           .ilike('titre', term)
           .order('date_debut', { ascending: true })
@@ -231,7 +244,7 @@ export default function HubSearchModal({ open, onClose, onViewAll }: Props) {
                     title={e.titre}
                     metaIcon={<IconPin size={11} />}
                     meta={e.lieux?.nom ?? e.lieux?.commune ?? null}
-                    tail={dateLabel(e.date_debut)}
+                    tail={eventDateLabel(e.date_debut, e.date_fin)}
                   />
                 ))}
               </ResultSection>

@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { EvenementCard } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
-import { formatDate } from '@/lib/filters'
+import { formatEventDate } from '@/lib/filters'
 
 type StarredEvent = EvenementCard & {
   starred_by: Array<{ id: string; display_name: string | null; avatar_url: string | null }>
@@ -52,7 +52,7 @@ function FeedCard({ evt }: { evt: StarredEvent }) {
           </h3>
           {evt.date_debut && (
             <p style={{ fontSize: 12, color: '#8A8A8A', margin: '0 0 8px' }}>
-              {formatDate(evt.date_debut)}{evt.heure ? ` · ${evt.heure.slice(0, 5)}` : ''}{evt.lieux?.commune ? ` • ${evt.lieux.commune}` : ''}
+              {formatEventDate(evt.date_debut, evt.date_fin)}{evt.heure && !evt.date_fin ? ` · ${evt.heure.slice(0, 5)}` : ''}{evt.lieux?.commune ? ` • ${evt.lieux.commune}` : ''}
             </p>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -101,7 +101,7 @@ export default function AbonnementsView({ mode = 'feed' }: { mode?: 'feed' | 'mi
 
       const { data: interestData } = await supabase
         .from('interests')
-        .select('evenement_id, user_id, created_at, evenements(id, titre, categorie, date_debut, heure, image_url, image_position, lieux(nom, commune))')
+        .select('evenement_id, user_id, created_at, evenements(id, titre, categorie, date_debut, date_fin, heure, image_url, image_position, lieux(nom, commune))')
         .in('user_id', userIds)
         .order('created_at', { ascending: false })
         .limit(100)

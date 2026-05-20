@@ -59,3 +59,24 @@ export function formatDate(dateStr: string, style: 'court' | 'long' = 'court'): 
     weekday: 'short', day: 'numeric', month: 'long',
   }).format(date)
 }
+
+/**
+ * Label pour vignettes d'événement gérant les multi-jours (expos…).
+ * Si l'event a une date_fin différente, on affiche "Jusqu'au DD mois"
+ * plutôt que la date de début qui peut être passée et tromper l'utilisateur.
+ */
+export function formatEventDate(
+  date_debut: string | null,
+  date_fin: string | null,
+  style: 'court' | 'long' = 'court',
+): string {
+  if (!date_debut) return ''
+  if (date_fin && date_fin !== date_debut) {
+    const fin = new Date(date_fin + 'T12:00:00')
+    const fmt = style === 'long'
+      ? new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(fin)
+      : new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long' }).format(fin)
+    return `Jusqu'au ${fmt}`
+  }
+  return formatDate(date_debut, style)
+}

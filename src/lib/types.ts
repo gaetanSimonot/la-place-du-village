@@ -54,6 +54,7 @@ export interface EvenementCard {
   titre: string
   categorie: Categorie
   date_debut: string | null
+  date_fin: string | null
   heure: string | null
   image_url: string | null
   image_position: string | null
