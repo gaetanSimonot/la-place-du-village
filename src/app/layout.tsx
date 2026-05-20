@@ -29,10 +29,16 @@ export const metadata: Metadata = {
     title: 'La Place',
   },
   icons: {
-    apple: '/apple-touch-icon.png',
     icon: [
       { url: '/icon.svg', type: 'image/svg+xml' },
       { url: '/favicon-32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/favicon-16.png', sizes: '16x16', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+      { url: '/icon-167.png',         sizes: '167x167', type: 'image/png' },
+      { url: '/icon-152.png',         sizes: '152x152', type: 'image/png' },
+      { url: '/icon-120.png',         sizes: '120x120', type: 'image/png' },
     ],
   },
 }

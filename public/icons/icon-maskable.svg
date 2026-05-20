@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
-  <title>La Place du Village — app icon</title>
+  <title>La Place du Village — app icon (maskable)</title>
   <defs>
     <clipPath id="pinClip">
       <path d="M800 112C474 112 250 336 250 616c0 372 550 872 550 872s550-500 550-872C1350 336 1126 112 800 112Z"/>
@@ -39,17 +39,15 @@
     </filter>
   </defs>
 
-  <!-- Fond carré opaque (teal foncé matchant les toits) -->
+  <!-- Fond carré opaque edge-to-edge -->
   <rect width="1024" height="1024" fill="#1E3D49"/>
 
-  <!-- Pin centré, échelle 0.62, padding ~16px tout autour -->
-  <g transform="translate(16 16) scale(0.62)">
-    <!-- Pin shadow + base -->
+  <!-- Pin scale 0.595 — respecte la safe zone de 80% (819x819 centré) pour les masques Android -->
+  <g transform="translate(36 36) scale(0.595)">
     <path filter="url(#softShadow)" d="M800 112C474 112 250 336 250 616c0 372 550 872 550 872s550-500 550-872C1350 336 1126 112 800 112Z" fill="#F4F0E7"/>
 
     <g clip-path="url(#pinClip)">
       <rect x="0" y="0" width="1600" height="1600" fill="url(#sky)"/>
-
       <path d="M190 760C330 640 460 630 610 720C760 810 880 730 1020 675C1158 620 1288 650 1420 740V1030H190V760Z" fill="#9AB78C" opacity="0.55"/>
       <path d="M90 830C270 728 430 760 560 850C700 948 815 868 966 805C1122 738 1308 770 1510 885V1095H90V830Z" fill="#799E75" opacity="0.42"/>
 
