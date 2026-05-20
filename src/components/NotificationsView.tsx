@@ -218,7 +218,13 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
       return
     }
     if (n.target_type === 'conversation' && n.target_id) {
-      router.push(`/annonces/conversations/${n.target_id}`)
+      // covoit_* utilise le même target_type 'conversation' mais pointe vers
+      // covoit_conversations, pas annonces_conversations
+      if (n.type.startsWith('covoit_')) {
+        router.push(`/covoiturage/conversations/${n.target_id}`)
+      } else {
+        router.push(`/annonces/conversations/${n.target_id}`)
+      }
       return
     }
     if (n.target_type === 'support_conversation' && n.target_id) {
