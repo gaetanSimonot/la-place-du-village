@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import type { AppNotification } from '@/lib/types'
@@ -15,6 +15,14 @@ export function useNotifications() {
   const [notifications, setNotifications] = useState<AppNotification[]>([])
   const [loading, setLoading] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  // Identifiant unique par instance — évite les "cannot add postgres_changes
+  // callbacks after subscribe()" si le hook est instancié plusieurs fois
+  // simultanément (StrictMode dev ou navigation Next.js rapide).
+  const instanceIdRef = useRef<string>(
+    typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2),
+  )
 
   // Live unread count via Supabase direct (not fetch() — PWA SW may intercept)
   useEffect(() => {
@@ -28,7 +36,7 @@ export function useNotifications() {
       .then(({ count }) => setUnreadCount(count ?? 0))
 
     const channel = supabase
-      .channel(`notifs-${user.id}`)
+      .channel(`notifs-${user.id}-${instanceIdRef.current}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',

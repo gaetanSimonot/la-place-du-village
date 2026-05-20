@@ -66,8 +66,11 @@ export default function MesCovoitConversationsPage() {
 
   useEffect(() => {
     if (!user) return
+    const id = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2)
     const ch = supabase
-      .channel('covoit-conv-list')
+      .channel(`covoit-conv-list-${id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'covoit_conversations' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'covoit_messages' }, () => load())
       .subscribe()

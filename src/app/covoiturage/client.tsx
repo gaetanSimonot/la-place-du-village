@@ -52,10 +52,14 @@ export default function CovoiturageListClient() {
 
   useEffect(() => { load() }, [load])
 
-  // Realtime sur covoiturages
+  // Realtime sur covoiturages — channel unique par instance pour eviter les
+  // conflits "cannot add postgres_changes callbacks after subscribe()"
   useEffect(() => {
+    const id = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2)
     const ch = supabase
-      .channel('covoit-list')
+      .channel(`covoit-list-${id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'covoiturages' }, () => load())
       .subscribe()
     return () => { supabase.removeChannel(ch) }

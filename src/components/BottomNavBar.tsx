@@ -1,6 +1,6 @@
 'use client'
 import { useRouter, usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 
@@ -21,6 +21,15 @@ export default function BottomNavBar({ onNavigate, activeTab }: Props = {}) {
   const pathname = usePathname()
   const { user } = useAuth()
   const [notifCount, setNotifCount] = useState(0)
+  // Identifiant unique par instance — évite les conflits si plusieurs
+  // BottomNavBar montent simultanément (navigation Next.js) qui partageraient
+  // le même nom de channel et causeraient "cannot add postgres_changes
+  // callbacks after subscribe()".
+  const instanceIdRef = useRef<string>(
+    typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2),
+  )
 
   // Compteur unread temps réel pour le badge cloche
   useEffect(() => {
@@ -32,7 +41,7 @@ export default function BottomNavBar({ onNavigate, activeTab }: Props = {}) {
       .then(({ count }) => setNotifCount(count ?? 0))
 
     const ch = supabase
-      .channel(`bn-notifs-${user.id}`)
+      .channel(`bn-notifs-${user.id}-${instanceIdRef.current}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
