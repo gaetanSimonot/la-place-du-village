@@ -84,5 +84,20 @@ export function useNotifications() {
     })
   }, [])
 
-  return { unreadCount, notifications, loading, loaded, fetchAll, markRead, markAllRead }
+  const removeNotif = useCallback(async (id: string) => {
+    const token = await getToken()
+    if (!token) return
+    // Optimistic update
+    setNotifications(prev => {
+      const target = prev.find(n => n.id === id)
+      if (target && !target.lu) setUnreadCount(c => Math.max(0, c - 1))
+      return prev.filter(n => n.id !== id)
+    })
+    await fetch(`/api/notifications/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  }, [])
+
+  return { unreadCount, notifications, loading, loaded, fetchAll, markRead, markAllRead, removeNotif }
 }

@@ -10,6 +10,7 @@ import ProducerEditDrawer from '@/components/ProducerEditDrawer'
 import ProductsEditSection from '@/components/ProductsEditSection'
 import FeatureButton from '@/components/FeatureButton'
 import SubscriptionModal from '@/components/SubscriptionModal'
+import BottomNavBar from '@/components/BottomNavBar'
 import { can, toUserContext } from '@/lib/capabilities'
 
 interface Producer {
@@ -919,6 +920,7 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
         />
       )}
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      <BottomNavBar />
     </div>
   )
 }

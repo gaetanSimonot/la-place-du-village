@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAdminSession } from '@/hooks/useAdminSession'
@@ -13,6 +13,7 @@ interface Props {
   onOpen: () => void
   onMarkRead: (id: string) => void
   onMarkAllRead: () => void
+  onDelete?: (id: string) => void
   onOpenProducer?: (id: string) => void
   onBack?: () => void
 }
@@ -126,7 +127,7 @@ interface PromoUseHistory {
 type UserFilter = 'all' | 'annonces' | 'producteurs' | 'promos' | 'events'
 type AdminFilter = 'all' | 'unread' | 'demandes' | 'annonces' | 'events' | 'support' | 'boost'
 
-export default function NotificationsView({ notifications, loading, loaded, onOpen, onMarkRead, onMarkAllRead, onOpenProducer, onBack }: Props) {
+export default function NotificationsView({ notifications, loading, loaded, onOpen, onMarkRead, onMarkAllRead, onDelete, onOpenProducer, onBack }: Props) {
   const router = useRouter()
   const isAdmin = useAdminSession()
   const [adminCounts, setAdminCounts] = useState<AdminCounts | null>(null)
@@ -448,6 +449,7 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
                       unread={isUnread}
                       onClick={() => handleClick(n)}
                       onMenu={() => setActionModal(n)}
+                      onDelete={onDelete ? () => onDelete(n.id) : undefined}
                     />
                   )
                 })}
@@ -518,8 +520,8 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
           onClose={() => setActionModal(null)}
           onMarkRead={() => { onMarkRead(actionModal.id); setActionModal(null) }}
           onDelete={() => {
-            // Suppression non implémentée côté backend pour les notifs — fallback markRead
-            onMarkRead(actionModal.id)
+            if (onDelete) onDelete(actionModal.id)
+            else onMarkRead(actionModal.id)
             setActionModal(null)
           }}
         />
@@ -531,7 +533,7 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
 /* ─── NotifRow V3 ────────────────────────────────────────────────────── */
 
 function NotifRow({
-  bg, color, icon, label, when, unread, onClick, onMenu,
+  bg, color, icon, label, when, unread, onClick, onMenu, onDelete,
 }: {
   bg:     string
   color:  string
@@ -541,47 +543,124 @@ function NotifRow({
   unread: boolean
   onClick:() => void
   onMenu: () => void
+  onDelete?: () => void
 }) {
-  // Long-press handler
-  const lpTimer = (typeof window !== 'undefined' ? { current: null as ReturnType<typeof setTimeout> | null } : { current: null }) as React.MutableRefObject<ReturnType<typeof setTimeout> | null>
+  const lpTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const startX = useRef<number | null>(null)
+  const swipedRef = useRef(false)
+  const [swipeX, setSwipeX] = useState(0)
+
+  const REVEAL = 84  // largeur du bouton "Supprimer" révélé
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    startX.current = e.touches[0].clientX
+    swipedRef.current = false
+  }
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (startX.current == null || !onDelete) return
+    const dx = e.touches[0].clientX - startX.current
+    if (dx < -8) {
+      swipedRef.current = true
+      if (lpTimer.current) { clearTimeout(lpTimer.current); lpTimer.current = null }
+    }
+    // Clamp entre -REVEAL et +20 (petit overshoot pour rebond visuel)
+    const x = Math.max(-REVEAL, Math.min(20, dx))
+    setSwipeX(x)
+  }
+  const handleTouchEnd = () => {
+    if (startX.current == null) return
+    // Snap : si > moitié, on révèle ; sinon on referme
+    if (swipeX < -REVEAL / 2) setSwipeX(-REVEAL)
+    else setSwipeX(0)
+    startX.current = null
+  }
+
+  const handleClickRow = () => {
+    // Si on vient de swipe, on ne déclenche pas le click (ou on close)
+    if (swipedRef.current || swipeX !== 0) {
+      setSwipeX(0)
+      swipedRef.current = false
+      return
+    }
+    onClick()
+  }
 
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onContextMenu={e => { e.preventDefault(); onMenu() }}
-      onPointerDown={() => { lpTimer.current = setTimeout(onMenu, 500) }}
-      onPointerUp={() => { if (lpTimer.current) clearTimeout(lpTimer.current) }}
-      onPointerCancel={() => { if (lpTimer.current) clearTimeout(lpTimer.current) }}
-      onKeyDown={e => { if (e.key === 'Enter') onClick() }}
-      className="relative flex cursor-pointer items-start gap-3 border-b px-4 py-3.5"
-      style={{
-        borderColor: '#F0EAE0',
-        backgroundColor: unread ? '#FFFCF6' : 'transparent',
-      }}
+      className="relative overflow-hidden border-b"
+      style={{ borderColor: '#F0EAE0' }}
     >
-      <div
-        className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl"
-        style={{ backgroundColor: bg, color }}
-      >
-        {icon(20)}
-      </div>
-      <div className="min-w-0 flex-1 pr-4">
-        <div
-          className="text-[13px] leading-[1.4] text-texte"
-          style={{ fontWeight: unread ? 600 : 500 }}
+      {/* Bouton Supprimer caché derrière */}
+      {onDelete && (
+        <button
+          type="button"
+          aria-label="Supprimer la notification"
+          onClick={() => { onDelete(); setSwipeX(0) }}
+          style={{
+            position: 'absolute',
+            top: 0, right: 0, bottom: 0,
+            width: REVEAL,
+            background: '#C84B2F',
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: 12,
+            fontWeight: 800,
+            zIndex: 0,
+          }}
         >
-          {label}
-        </div>
-        <div className="mt-0.5 text-[11px] text-texte-doux">{when}</div>
-      </div>
-      {unread && (
-        <span
-          className="absolute right-4 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-primary"
-          aria-hidden
-        />
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          </svg>
+        </button>
       )}
+
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={handleClickRow}
+        onContextMenu={e => { e.preventDefault(); onMenu() }}
+        onPointerDown={() => { lpTimer.current = setTimeout(onMenu, 500) }}
+        onPointerUp={() => { if (lpTimer.current) clearTimeout(lpTimer.current) }}
+        onPointerCancel={() => { if (lpTimer.current) clearTimeout(lpTimer.current) }}
+        onTouchStart={onDelete ? handleTouchStart : undefined}
+        onTouchMove={onDelete ? handleTouchMove : undefined}
+        onTouchEnd={onDelete ? handleTouchEnd : undefined}
+        onKeyDown={e => { if (e.key === 'Enter') onClick() }}
+        className="relative flex cursor-pointer items-start gap-3 px-4 py-3.5"
+        style={{
+          backgroundColor: unread ? '#FFFCF6' : '#FDFAF5',
+          transform: `translateX(${swipeX}px)`,
+          transition: startX.current == null ? 'transform 180ms ease-out' : 'none',
+          zIndex: 1,
+        }}
+      >
+        <div
+          className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl"
+          style={{ backgroundColor: bg, color }}
+        >
+          {icon(20)}
+        </div>
+        <div className="min-w-0 flex-1 pr-4">
+          <div
+            className="text-[13px] leading-[1.4] text-texte"
+            style={{ fontWeight: unread ? 600 : 500 }}
+          >
+            {label}
+          </div>
+          <div className="mt-0.5 text-[11px] text-texte-doux">{when}</div>
+        </div>
+        {unread && (
+          <span
+            className="absolute right-4 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-primary"
+            aria-hidden
+          />
+        )}
+      </div>
     </div>
   )
 }

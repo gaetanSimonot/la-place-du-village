@@ -13,6 +13,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import { useFavorites } from '@/hooks/useFavorites'
 import FeatureButton from '@/components/FeatureButton'
+import BottomNavBar from '@/components/BottomNavBar'
 
 const LINK_STYLE = { color: '#C84B2F', textDecoration: 'underline', wordBreak: 'break-all' } as const
 
@@ -293,6 +294,7 @@ export default function EvenementPageClient({ id }: { id: string }) {
           }}
         />
       )}
+      <BottomNavBar />
     </div>
   )
 }

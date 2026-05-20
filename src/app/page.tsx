@@ -89,7 +89,7 @@ export default function HomePage() {
   const { user, profile, loading: authLoading, isAdmin } = useAuth()
   const { favIds, toggle: toggleFav } = useFavorites()
   const { favIds: producerFavIds, toggle: toggleProducerFav } = useProducerFavorites()
-  const { unreadCount: notifCount, notifications, loading: notifLoading, loaded: notifLoaded, fetchAll: fetchNotifs, markRead: markNotifRead, markAllRead: markAllNotifsRead } = useNotifications()
+  const { unreadCount: notifCount, notifications, loading: notifLoading, loaded: notifLoaded, fetchAll: fetchNotifs, markRead: markNotifRead, markAllRead: markAllNotifsRead, removeNotif } = useNotifications()
   const { openAuthModal } = useAuthModal()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [filtres, setFiltres]       = useState<Filtres>(defaultFiltres)
@@ -1152,6 +1152,7 @@ export default function HomePage() {
             onOpen={fetchNotifs}
             onMarkRead={markNotifRead}
             onMarkAllRead={markAllNotifsRead}
+            onDelete={removeNotif}
             onOpenProducer={openProducer}
             onBack={() => handleNavTab('accueil')}
           />

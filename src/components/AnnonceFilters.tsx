@@ -48,9 +48,9 @@ export default function AnnonceFilters({
 
   return (
     <div className="flex flex-col">
-      {/* Type pills V3 — sans emoji, accent par type pour l'actif */}
+      {/* Type pills V3 — centrés, scrollable horizontalement si débordement */}
       <div
-        className="pdv-hscroll flex gap-1.5 overflow-x-auto px-4 pt-[18px]"
+        className="pdv-hscroll flex justify-center gap-1.5 overflow-x-auto px-4 pt-[18px]"
         style={{ scrollSnapType: 'x mandatory' }}
       >
         {TYPES.map(t => {
@@ -67,13 +67,12 @@ export default function AnnonceFilters({
               type="button"
               onClick={() => onTypeChange(t.id)}
               className="shrink-0 whitespace-nowrap rounded-full border-[1.5px] px-3.5 py-2 text-[12px] font-bold transition-colors"
-              style={{ ...style, scrollSnapAlign: 'start' }}
+              style={{ ...style, scrollSnapAlign: 'center' }}
             >
               {t.label}
             </button>
           )
         })}
-        <div className="w-4 shrink-0" aria-hidden />
       </div>
 
       {/* Filter + sort row */}

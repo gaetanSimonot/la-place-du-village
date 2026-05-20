@@ -15,6 +15,7 @@ import { QuotaReachedModal } from '@/components/HubModals'
 import PromotionsManager from '@/components/PromotionsManager'
 import FeatureButton from '@/components/FeatureButton'
 import SubscriptionModal from '@/components/SubscriptionModal'
+import BottomNavBar from '@/components/BottomNavBar'
 
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
 const DAY_KEYS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
@@ -721,6 +722,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
       )}
       {editing && <EtabEditDrawer etab={etab} isAdmin={isAdmin} onClose={() => setEditing(false)} onSaved={patch => setEtab(prev => prev ? { ...prev, ...patch } : prev)} />}
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      <BottomNavBar />
     </div>
   )
 }
