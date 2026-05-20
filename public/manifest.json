@@ -5,7 +5,7 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#1E3D49",
+  "background_color": "#2D5A3D",
   "theme_color": "#FDFAF5",
   "orientation": "portrait",
   "categories": ["lifestyle", "social"],

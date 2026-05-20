@@ -40,7 +40,7 @@
   </defs>
 
   <!-- Fond carré opaque (teal foncé matchant les toits) -->
-  <rect width="1024" height="1024" fill="#1E3D49"/>
+  <rect width="1024" height="1024" fill="#2D5A3D"/>
 
   <!-- Pin centré, échelle 0.62, padding ~16px tout autour -->
   <g transform="translate(16 16) scale(0.62)">

@@ -40,7 +40,7 @@
   </defs>
 
   <!-- Fond carré opaque edge-to-edge -->
-  <rect width="1024" height="1024" fill="#1E3D49"/>
+  <rect width="1024" height="1024" fill="#2D5A3D"/>
 
   <!-- Pin scale 0.595 — respecte la safe zone de 80% (819x819 centré) pour les masques Android -->
   <g transform="translate(36 36) scale(0.595)">
