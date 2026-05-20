@@ -62,6 +62,18 @@ interface JournalLite {
   position_hub: 'haut' | 'bas' | null
 }
 
+interface CovoitLite {
+  id: string
+  depart: string
+  destination: string
+  date_trajet: string
+  heure_depart: string | null
+  prix: number
+  places: number
+  places_prises: number
+  statut: 'actif' | 'complet' | 'annule'
+}
+
 const TILES: { id: string; label: string; iconSrc: string; click: (p: Props, router: ReturnType<typeof useRouter>) => void }[] = [
   { id: 'agenda',      label: 'Agenda',      iconSrc: '/icones-rondes/01_agenda_culturel.png',         click: p => p.onSelectAgenda() },
   { id: 'annuaire',    label: 'Annuaire',    iconSrc: '/icones-rondes/02_annuaire_professionnel.png',  click: p => p.onSelectAnnuaire() },
@@ -104,6 +116,7 @@ export default function HubView({
   const [ventesTotal, setVentesTotal] = useState<number>(0)
   const [zoneCounts, setZoneCounts] = useState<{ evt: number; etab: number; prod: number }>({ evt: 0, etab: 0, prod: 0 })
   const [journal, setJournal] = useState<JournalLite | null>(null)
+  const [covoits, setCovoits] = useState<CovoitLite[]>([])
 
   useEffect(() => {
     Promise.all([
@@ -306,6 +319,20 @@ export default function HubView({
       setJournal((data as JournalLite | null) ?? null)
   }, [])
 
+  const loadCovoits = useCallback(async () => {
+    const today = new Date().toISOString().slice(0, 10)
+    const { data, error } = await supabase
+      .from('covoiturages')
+      .select('id, depart, destination, date_trajet, heure_depart, prix, places, places_prises, statut')
+      .neq('statut', 'annule')
+      .gte('date_trajet', today)
+      .order('date_trajet', { ascending: true })
+      .order('heure_depart', { ascending: true })
+      .limit(3)
+    if (error) { setCovoits([]); return }
+    setCovoits((data as CovoitLite[] | null) ?? [])
+  }, [])
+
   // Premier chargement
   useEffect(() => {
     loadHero()
@@ -313,7 +340,8 @@ export default function HubView({
     loadPromos()
     loadVentes()
     loadJournal()
-  }, [loadHero, loadToday, loadPromos, loadVentes, loadJournal])
+    loadCovoits()
+  }, [loadHero, loadToday, loadPromos, loadVentes, loadJournal, loadCovoits])
 
   // Realtime refetch sur changement featured_slots + journaux_hebdo
   useEffect(() => {
@@ -326,9 +354,12 @@ export default function HubView({
       .on('postgres_changes', { event: '*', schema: 'public', table: 'journaux_hebdo' }, () => {
         loadJournal()
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'covoiturages' }, () => {
+        loadCovoits()
+      })
       .subscribe()
     return () => { supabase.removeChannel(ch) }
-  }, [loadHero, loadPromos, loadJournal])
+  }, [loadHero, loadPromos, loadJournal, loadCovoits])
 
   // Refresh sur retour PWA / focus fenêtre
   useEffect(() => {
@@ -338,6 +369,7 @@ export default function HubView({
       loadPromos()
       loadVentes()
       loadJournal()
+      loadCovoits()
       }
     const onVisible = () => { if (document.visibilityState === 'visible') refreshAll() }
     document.addEventListener('visibilitychange', onVisible)
@@ -346,13 +378,12 @@ export default function HubView({
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('focus', refreshAll)
     }
-  }, [loadHero, loadToday, loadPromos, loadVentes, loadJournal])
+  }, [loadHero, loadToday, loadPromos, loadVentes, loadJournal, loadCovoits])
 
   const firstName = profile?.display_name?.split(' ')[0] || 'Visiteur'
   // Compteur greeting = nombre d'événements totaux (cohérent avec page Agenda
   // quand tous filtres sont sur "Tout"). Pas le grand total tout-confondu.
   const totalNear = zoneCounts.evt
-  const totalCarte = zoneCounts.evt + zoneCounts.etab + zoneCounts.prod
 
   const [featuredEv, ...restEvents] = todayEvents
   const miniEvents = restEvents.slice(0, 2)
@@ -532,7 +563,7 @@ export default function HubView({
         </>
       )}
 
-      {/* ── 9. Bottom bento — Carte (+ Journal si position=bas) ── */}
+      {/* ── 9. Bottom bento — Covoit (+ Journal si position=bas) ── */}
       {(() => {
         const showJournalBottom = journal && journal.position_hub !== 'haut'
         return (
@@ -540,10 +571,9 @@ export default function HubView({
             className="grid gap-2 px-4 pt-6"
             style={{ gridTemplateColumns: showJournalBottom ? '1.5fr 1fr' : '1fr' }}
           >
-            <CarteTile
-              counts={zoneCounts}
-              total={totalCarte}
-              onClick={onSelectAgenda}
+            <CovoitTile
+              covoits={covoits}
+              onClick={() => router.push('/covoiturage')}
             />
             {showJournalBottom && (
               <JournalTile
@@ -817,72 +847,101 @@ function SaleAnnonceCard({
   )
 }
 
-/* ─── Bottom bento — Carte tile (1.5fr, fond vert) ───────────────────── */
+/* ─── Bottom bento — CovoitTile (1.5fr, fond vert clair) ─────────────── */
 
-function CarteTile({
-  counts, total, onClick,
+function CovoitTile({
+  covoits, onClick,
 }: {
-  counts: { evt: number; etab: number; prod: number }
-  total: number
+  covoits: CovoitLite[]
   onClick: () => void
 }) {
+  const fmtDate = (iso: string) => {
+    const d = new Date(iso + 'T00:00:00')
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1)
+    if (d.getTime() === today.getTime())    return "Auj."
+    if (d.getTime() === tomorrow.getTime()) return 'Demain'
+    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+  }
+  const total = covoits.length
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label="Ouvrir la carte"
+      aria-label="Ouvrir le covoiturage"
       className="flex cursor-pointer flex-col overflow-hidden rounded-[18px] border-none bg-primary p-0 text-left text-white"
       style={{ boxShadow: '0 6px 18px rgba(45,90,61,0.28)' }}
     >
-      <div className="relative h-[114px]">
-        <svg viewBox="0 0 200 120" className="absolute inset-0 h-full w-full" preserveAspectRatio="xMidYMid slice">
-          <rect width="200" height="120" fill="#E4DED2" />
-          <path d="M0,80 C50,60 100,90 150,75 C170,68 190,80 200,80 L200,120 L0,120 Z" fill="#B8C89A" opacity="0.55" />
-          <ellipse cx="40" cy="40" rx="36" ry="20" fill="#B8C89A" opacity="0.45" />
-          <path d="M0,55 C50,48 100,68 150,60 C175,55 195,62 200,62 L200,68 C190,65 175,60 150,65 C100,72 50,55 0,60 Z" fill="#AAC4D8" opacity="0.85" />
-          <path d="M-5,45 Q100,30 205,55" stroke="#F8F3EC" strokeWidth="5" fill="none" />
-          <path d="M60,-5 Q80,50 100,105" stroke="#F8F3EC" strokeWidth="3.5" fill="none" />
+      {/* Bandeau supérieur — illustration route stylisée */}
+      <div className="relative h-[80px]">
+        <svg viewBox="0 0 200 80" className="absolute inset-0 h-full w-full" preserveAspectRatio="xMidYMid slice">
+          <rect width="200" height="80" fill="#3F7150" />
+          {/* Route */}
+          <path d="M-5,55 Q60,30 100,40 T205,30" stroke="rgba(255,255,255,0.18)" strokeWidth="22" fill="none" strokeLinecap="round"/>
+          <path d="M-5,55 Q60,30 100,40 T205,30" stroke="rgba(255,255,255,0.45)" strokeWidth="2" strokeDasharray="6 6" fill="none" />
+          {/* Point départ */}
+          <circle cx="20" cy="52" r="6" fill="#E8C58A" stroke="#fff" strokeWidth="2" />
+          {/* Point arrivée */}
+          <circle cx="180" cy="32" r="6" fill="#FFFFFF" stroke="#1A1209" strokeWidth="1.5" />
+          {/* Petite voiture */}
+          <g transform="translate(95, 30)">
+            <rect x="-10" y="-4" width="20" height="9" rx="2" fill="#fff" />
+            <rect x="-8"  y="-7" width="13" height="5" rx="1.5" fill="#fff" />
+            <circle cx="-5" cy="6" r="2" fill="#1A1209" />
+            <circle cx="5"  cy="6" r="2" fill="#1A1209" />
+          </g>
         </svg>
-        {[
-          { x: 25, y: 35, c: '#E74C3C' },
-          { x: 50, y: 50, c: '#2D5A3D', big: true },
-          { x: 70, y: 30, c: '#F39C12' },
-          { x: 38, y: 65, c: '#3498DB' },
-          { x: 78, y: 62, c: '#27AE60' },
-          { x: 18, y: 55, c: '#9B59B6' },
-        ].map((p, i) => {
-          const s = p.big ? 14 : 10
-          return (
-            <div key={i} style={{ position: 'absolute', left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%, -100%)' }}>
-              <svg width={s} height={s * 1.4} viewBox="0 0 12 17">
-                <path d="M6 0 C2.5 0 0 2.5 0 6 C0 11 6 17 6 17 C6 17 12 11 12 6 C12 2.5 9.5 0 6 0z" fill={p.c} stroke="rgba(255,255,255,0.92)" strokeWidth="1" />
-              </svg>
-            </div>
-          )
-        })}
-        {/* Pastille LIVE */}
         <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-[rgba(26,18,9,0.85)] px-2 py-[3px] text-[9px] font-extrabold tracking-[0.06em] text-white">
           <span
-            className="inline-block h-[5px] w-[5px] rounded-full bg-[#5BC85B]"
-            style={{ boxShadow: '0 0 0 3px rgba(91,200,91,0.35)' }}
+            className="inline-block h-[5px] w-[5px] rounded-full bg-[#E8C58A]"
+            style={{ boxShadow: '0 0 0 3px rgba(232,197,138,0.35)' }}
           />
-          LIVE
+          GRATUIT
         </span>
       </div>
-      <div className="flex items-center justify-between px-3.5 py-3" aria-label={`${total} points sur la carte`}>
-        <div>
-          <div className="text-[9px] font-extrabold tracking-[0.12em] opacity-85">LE PIVOT</div>
-          <div
-            className="mt-[3px] font-serif text-[17px] leading-[1.1]"
-            style={{ letterSpacing: '-0.01em' }}
-          >
-            Tout sur la carte
+
+      {/* Header + mini liste */}
+      <div className="flex flex-col gap-2 px-3.5 py-3">
+        <div className="flex items-end justify-between gap-2">
+          <div>
+            <div className="text-[9px] font-extrabold tracking-[0.12em] opacity-85">ENTRE VOISINS</div>
+            <div className="mt-[3px] font-serif text-[17px] leading-[1.1]" style={{ letterSpacing: '-0.01em' }}>
+              Covoiturage
+            </div>
           </div>
-          <div className="mt-[3px] text-[10.5px] opacity-75">
-            {total} points · {counts.evt} évts · {counts.etab} pros
-          </div>
+          <IconArrow size={20} />
         </div>
-        <IconArrow size={20} />
+
+        {/* Mini liste 3 prochains trajets */}
+        {covoits.length > 0 ? (
+          <div className="mt-1 flex flex-col gap-1.5 rounded-xl bg-[rgba(255,255,255,0.10)] p-2">
+            {covoits.slice(0, 3).map(c => (
+              <div key={c.id} className="flex items-center justify-between gap-2 text-[10.5px]">
+                <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                  <span className="shrink-0 rounded bg-[rgba(26,18,9,0.45)] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.04em]">
+                    {fmtDate(c.date_trajet)}
+                  </span>
+                  <span className="truncate font-bold">
+                    {c.depart} → {c.destination}
+                  </span>
+                </div>
+                <span className="shrink-0 text-[10px] opacity-85">
+                  {c.prix > 0 ? `${c.prix.toFixed(2).replace(/\.00$/, '')} €` : 'Gratuit'}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-1 text-[10.5px] opacity-75">
+            Pas encore de trajet — propose-en un, c&apos;est gratuit.
+          </div>
+        )}
+
+        {total > 0 && (
+          <div className="text-[10px] opacity-70">
+            {total >= 3 ? '3 prochains' : `${total} trajet${total > 1 ? 's' : ''}`} · Voir tout
+          </div>
+        )}
       </div>
     </button>
   )
