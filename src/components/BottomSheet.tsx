@@ -292,54 +292,45 @@ export default function BottomSheet({
           <div style={{ width: 40, height: 5, borderRadius: 3, backgroundColor: '#C8BDB0', margin: '0 auto' }} />
         </div>
 
-        {/* ── Header compact agenda (visible dans tous les modes pour garder
-             le contrôle wheel même en plein écran) ── */}
+        {/* ── Header agenda : compteur en haut (peek/half), wheels centrés
+             toujours visibles avec marges latérales grabable pour le drag ── */}
         {appMode === 'agenda' && (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(92px, 1fr) 2.3fr',
-            gap: 12,
-            padding: '4px 16px 14px',
-            alignItems: 'center',
-          }}>
-            {/* Col 1 : compteur événements */}
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <>
+            {mode !== 'full' && (
               <div style={{
+                padding: '2px 16px 8px',
+                textAlign: 'center',
                 fontFamily: 'Inter, sans-serif',
-                fontSize: 32, fontWeight: 800, color: '#1A1209',
-                lineHeight: 1, letterSpacing: '-0.02em',
+                fontSize: 13, color: '#7A6A5A',
               }}>
-                {evenements.length}
-              </div>
-              <div style={{
-                fontFamily: 'Inter, sans-serif',
-                fontSize: 11, fontWeight: 700, color: '#1A1209',
-                marginTop: 4, letterSpacing: '0.02em',
-              }}>
+                <span style={{ fontWeight: 800, fontSize: 15, color: '#1A1209' }}>
+                  {evenements.length}
+                </span>
+                {' '}
                 événement{evenements.length > 1 ? 's' : ''}
+                <span style={{ opacity: 0.5 }}> · </span>
+                <span style={{ fontSize: 11, color: '#9E9089' }}>marchés · ateliers · concerts</span>
               </div>
-              <div style={{
-                fontFamily: 'Inter, sans-serif',
-                fontSize: 10, color: '#9E9089',
-                marginTop: 3, lineHeight: 1.25,
-              }}>
-                Marchés · ateliers · concerts
+            )}
+            {/* Wheels centrés ~300px, marges latérales restent grabable */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              padding: '0 16px 14px',
+            }}>
+              <div
+                onPointerDown={e => e.stopPropagation()}
+                onTouchStart={e => e.stopPropagation()}
+                style={{ touchAction: 'pan-y', width: '100%', maxWidth: 300 }}
+              >
+                <AgendaFilterWheel
+                  filtres={filtres}
+                  onFiltresChange={onFiltresChange}
+                  onChange={handleAgendaFilterChange}
+                />
               </div>
             </div>
-            {/* Col 2-3 : 2 wheels verticaux. Stop la propagation pour
-                empêcher le sheet drag quand on swipe le wheel. */}
-            <div
-              onPointerDown={e => e.stopPropagation()}
-              onTouchStart={e => e.stopPropagation()}
-              style={{ touchAction: 'pan-y' }}
-            >
-              <AgendaFilterWheel
-                filtres={filtres}
-                onFiltresChange={onFiltresChange}
-                onChange={handleAgendaFilterChange}
-              />
-            </div>
-          </div>
+          </>
         )}
 
         {appMode !== 'agenda' && (
