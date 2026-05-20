@@ -2,79 +2,13 @@
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { Categorie } from '@/lib/types'
-import DicteeModal from '@/components/DicteeModal'
 import EventEditDrawer from '@/components/EventEditDrawer'
+import CropRect from '@/components/CropRect'
+import SubscriptionModal from '@/components/SubscriptionModal'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import { supabase } from '@/lib/supabase'
-
-function CropModal({ previewUrl, position, onChange, onConfirm }: {
-  previewUrl: string
-  position: string
-  onChange: (pos: string) => void
-  onConfirm: () => void
-}) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [px, py] = position.split(' ').map(v => parseFloat(v))
-
-  const handlePointer = (e: React.PointerEvent) => {
-    const rect = containerRef.current!.getBoundingClientRect()
-    const x = Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)))
-    const y = Math.max(0, Math.min(100, Math.round(((e.clientY - rect.top) / rect.height) * 100)))
-    onChange(`${x}% ${y}%`)
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 bg-[#1a1a1a] flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-4 flex-shrink-0">
-        <p className="text-white font-bold text-lg">Cadrer la photo</p>
-        <button
-          onClick={onConfirm}
-          className="bg-[#C4622D] text-white px-5 py-2 rounded-xl font-bold text-sm"
-        >
-          OK
-        </button>
-      </div>
-
-      {/* Image interactive — plein écran */}
-      <div
-        ref={containerRef}
-        className="flex-1 relative touch-none select-none cursor-crosshair"
-        onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); handlePointer(e) }}
-        onPointerMove={e => { if (e.buttons > 0) handlePointer(e) }}
-      >
-        <img
-          src={previewUrl}
-          alt="preview"
-          draggable={false}
-          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-          style={{ objectPosition: position }}
-        />
-        {/* Lignes de tiers */}
-        <div className="absolute inset-0 pointer-events-none" style={{
-          backgroundImage: 'linear-gradient(rgba(255,255,255,0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.2) 1px, transparent 1px)',
-          backgroundSize: '33.33% 33.33%',
-        }} />
-        {/* Point focal */}
-        <div
-          className="absolute pointer-events-none"
-          style={{ left: `${px}%`, top: `${py}%`, transform: 'translate(-50%, -50%)' }}
-        >
-          <div className="w-10 h-10 rounded-full border-[3px] border-white shadow-xl flex items-center justify-center"
-            style={{ backgroundColor: 'rgba(196,98,45,0.65)' }}>
-            <div className="w-2 h-2 rounded-full bg-white" />
-          </div>
-        </div>
-      </div>
-
-      {/* Instruction bas */}
-      <div className="px-4 py-4 flex-shrink-0 text-center">
-        <p className="text-white/60 text-sm">Appuie sur la partie importante de la photo</p>
-      </div>
-    </div>
-  )
-}
+import { useLiveDictation } from '@/hooks/useLiveDictation'
 
 interface FormData {
   titre: string
@@ -96,31 +30,64 @@ const emptyForm: FormData = {
   prix: '', contact: '', organisateurs: '',
 }
 
-type Step = 'input' | 'crop' | 'preview' | 'success'
+type Step = 'input' | 'crop' | 'preview' | 'manual' | 'success'
+type Mode = 'idle' | 'photo' | 'text'
 
 export default function AjouterPage() {
-  const { user, loading: authLoading } = useAuth()
+  const { user, profile, isAdmin, loading: authLoading } = useAuth()
   const { openAuthModal } = useAuthModal()
   const [step, setStep] = useState<Step>('input')
+
   const [texte, setTexte] = useState('')
   const [image, setImage] = useState<string | null>(null)
   const [imageMimeType, setImageMimeType] = useState('image/jpeg')
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
   const [imagePosition, setImagePosition] = useState('50% 50%')
+
   const [form, setForm] = useState<FormData>(emptyForm)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [eventId, setEventId] = useState<string | null>(null)
   const [submitMessage, setSubmitMessage] = useState<string | undefined>()
+
   const cameraRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
-  const [dicteeOpen, setDicteeOpen] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // ─── Gating IA ────────────────────────────────────────────────────────
+  const plan = (profile?.plan as 'basic' | 'habitants' | 'pro') ?? 'basic'
+  const canUseAi = isAdmin || plan === 'habitants' || plan === 'pro'
+  const [showUpgrade, setShowUpgrade] = useState(false)
+
+  // ─── Mode mutex ───────────────────────────────────────────────────────
+  // 'idle' tant qu'aucun input ; bascule en 'photo' dès qu'une image est
+  // chargée, 'text' dès qu'un caractère est tapé. Le mode actif détermine
+  // ce qui est grisé/désactivé.
+  const mode: Mode = image ? 'photo' : (texte.trim() ? 'text' : 'idle')
+  const photoDisabled = mode === 'text'
+  const textDisabled  = mode === 'photo'
+
+  // ─── Dictée live ──────────────────────────────────────────────────────
+  const dictation = useLiveDictation({
+    onFinalChunk: (chunk) => {
+      setTexte(prev => {
+        const sep = prev && !prev.endsWith(' ') ? ' ' : ''
+        return (prev + sep + chunk).slice(0, 2000)
+      })
+    },
+  })
+
+  // Auto-stop dictée si on quitte l'écran input
+  useEffect(() => {
+    if (step !== 'input' && dictation.listening) dictation.stop()
+  }, [step, dictation])
 
   // Bloquer l'accès si non connecté (après chargement auth)
   useEffect(() => {
     if (!authLoading && !user) openAuthModal()
   }, [authLoading, user, openAuthModal])
 
+  // ─── Handlers ─────────────────────────────────────────────────────────
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -136,9 +103,28 @@ export default function AjouterPage() {
     reader.readAsDataURL(file)
   }
 
+  const handlePhotoClick = (which: 'camera' | 'gallery') => {
+    if (photoDisabled) return
+    if (!canUseAi) { setShowUpgrade(true); return }
+    if (which === 'camera') cameraRef.current?.click()
+    else galleryRef.current?.click()
+  }
+
+  const handleMicClick = () => {
+    if (textDisabled) return
+    if (!canUseAi) { setShowUpgrade(true); return }
+    if (!dictation.supported) {
+      setError('La dictée vocale n\'est pas disponible sur ce navigateur.')
+      return
+    }
+    dictation.toggle()
+  }
+
   const handleAnalyse = async () => {
-    if (!texte.trim()) return
+    if (!texte.trim() && !image) return
     if (!user) { openAuthModal(); return }
+    if (!canUseAi) { setShowUpgrade(true); return }
+    if (dictation.listening) dictation.stop()
     setLoading(true)
     setError(null)
     try {
@@ -180,6 +166,13 @@ export default function AjouterPage() {
     }
   }
 
+  const handleManualOpen = () => {
+    if (!user) { openAuthModal(); return }
+    if (dictation.listening) dictation.stop()
+    setForm(emptyForm)
+    setStep('manual')
+  }
+
   const resetImage = () => {
     setImage(null)
     setImagePreviewUrl(null)
@@ -188,19 +181,64 @@ export default function AjouterPage() {
     if (galleryRef.current) galleryRef.current.value = ''
   }
 
-  // ── Cadrage photo ─────────────────────────────────────────────────────────────
+  const resetAll = () => {
+    setStep('input')
+    setTexte('')
+    setForm(emptyForm)
+    resetImage()
+    setSubmitMessage(undefined)
+    setEventId(null)
+    setError(null)
+  }
+
+  // ── Cadrage photo (rectangle utile, plus de point focal) ───────────────────
   if (step === 'crop' && imagePreviewUrl) {
     return (
-      <CropModal
-        previewUrl={imagePreviewUrl}
+      <CropRect
+        src={imagePreviewUrl}
         position={imagePosition}
-        onChange={setImagePosition}
-        onConfirm={() => setStep('input')}
+        aspect={3}
+        title="Cadrer l'affiche"
+        hint="Touche pour déplacer la zone visible. Le cadre blanc = ce que les autres verront."
+        onCancel={() => setStep('input')}
+        onConfirm={(p) => { setImagePosition(p); setStep('input') }}
       />
     )
   }
 
-  // ── Succès V3 ───────────────────────────────────────────────────────────────
+  // ── Mode "à la main" : EventEditDrawer avec form vide ──────────────────────
+  if (step === 'manual') {
+    return (
+      <EventEditDrawer
+        initialData={emptyForm}
+        initialImage={null}
+        onClose={() => setStep('input')}
+        onSaved={(result) => {
+          setEventId(result?.id ?? null)
+          setSubmitMessage(result?.message)
+          setStep('success')
+        }}
+      />
+    )
+  }
+
+  // ── Preview (après extraction IA) ──────────────────────────────────────────
+  if (step === 'preview') {
+    return (
+      <EventEditDrawer
+        initialData={form}
+        initialImage={image ? { base64: image, mime: imageMimeType, preview: imagePreviewUrl!, position: imagePosition } : null}
+        onClose={() => setStep('input')}
+        onSaved={(result) => {
+          setEventId(result?.id ?? null)
+          setSubmitMessage(result?.message)
+          setStep('success')
+        }}
+      />
+    )
+  }
+
+  // ── Succès ─────────────────────────────────────────────────────────────────
   if (step === 'success') {
     const isSubmitted = submitMessage === 'submitted'
     return (
@@ -240,7 +278,7 @@ export default function AjouterPage() {
           ) : (
             <>
               <button
-                onClick={() => { setStep('input'); setTexte(''); setForm(emptyForm); resetImage(); setSubmitMessage(undefined) }}
+                onClick={resetAll}
                 className="rounded-2xl border-[1.5px] border-primary bg-transparent py-3 text-[13px] font-bold text-primary"
               >
                 Ajouter un autre événement
@@ -255,26 +293,10 @@ export default function AjouterPage() {
     )
   }
 
-  // ── Preview ──────────────────────────────────────────────────────────────────
-  if (step === 'preview') {
-    return (
-      <EventEditDrawer
-        initialData={form}
-        initialImage={image ? { base64: image, mime: imageMimeType, preview: imagePreviewUrl!, position: imagePosition } : null}
-        onClose={() => setStep('input')}
-        onSaved={(result) => {
-          setEventId(result?.id ?? null)
-          setSubmitMessage(result?.message)
-          setStep('success')
-        }}
-      />
-    )
-  }
-
-  // ── Saisie V3 ────────────────────────────────────────────────────────────────
+  // ── Saisie principale (input) ──────────────────────────────────────────────
   return (
     <div className="min-h-[100dvh] bg-creme pb-28 font-inter text-texte">
-      {/* Top bar V3 */}
+      {/* Top bar */}
       <div className="flex items-center justify-between gap-2.5 px-4 pt-3.5">
         <Link
           href="/"
@@ -299,7 +321,7 @@ export default function AjouterPage() {
         </Link>
       </div>
 
-      {/* Hero intro V3 — copy mockup */}
+      {/* Hero intro */}
       <div className="px-4 pt-6">
         <h1
           className="m-0 font-serif text-[26px] leading-[1.1] text-texte"
@@ -308,30 +330,25 @@ export default function AjouterPage() {
           Capture-le, on s&apos;occupe du reste
         </h1>
         <p className="mt-1.5 text-[13px] leading-[1.5] text-texte-doux">
-          Choisis ta méthode. On extrait le titre, la date, le lieu, le prix… tu vérifies, tu publies.
+          Choisis ta méthode. L&apos;IA extrait titre, date, lieu, prix… tu vérifies, tu publies.
         </p>
       </div>
 
-      {/* 2 file inputs cachés (caméra + galerie) */}
+      {/* File inputs cachés */}
       <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handleImageChange} className="hidden" />
       <input ref={galleryRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
 
-      {/* DicteeModal — ouvre quand Card 2 cliquée */}
-      {dicteeOpen && (
-        <DicteeModal
-          onClose={() => setDicteeOpen(false)}
-          onTranscript={t => setTexte(prev => prev ? prev + ' ' + t : t)}
-        />
-      )}
-
-      {/* ─── Card 1: Photo d'une affiche (border primary) ─── */}
+      {/* ─── Card 1: Photo d'une affiche ─── */}
       <div className="px-4 pt-5">
         <div
-          className="rounded-2xl bg-white p-3.5 shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
-          style={{ border: '1.5px solid #2D5A3D' }}
+          className="rounded-2xl bg-white p-3.5 shadow-[0_1px_4px_rgba(44,28,16,0.04)] transition-opacity"
+          style={{
+            border: mode === 'photo' ? '1.5px solid #2D5A3D' : '1px solid #F0EAE0',
+            opacity: photoDisabled ? 0.45 : 1,
+            pointerEvents: photoDisabled ? 'none' : 'auto',
+          }}
         >
           <div className="mb-3 flex items-center gap-3">
-            {/* Icon dark green filled, white camera */}
             <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-xl bg-primary text-white">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
@@ -341,7 +358,7 @@ export default function AjouterPage() {
             <div className="min-w-0 flex-1">
               <div className="mb-0.5 flex items-center gap-2">
                 <span className="inline-flex items-center rounded-md bg-primary px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.06em] text-white">
-                  RAPIDE
+                  IA
                 </span>
                 <span className="text-[11px] text-texte-doux">~ 5 sec</span>
               </div>
@@ -349,10 +366,10 @@ export default function AjouterPage() {
               <div className="mt-0.5 text-[11px] text-texte-doux">On lit l&apos;image et on remplit toutes les infos.</div>
             </div>
           </div>
-          {/* 2 boutons cremeDeep avec icônes */}
           <div className="flex gap-2">
             <button
-              onClick={() => cameraRef.current?.click()}
+              type="button"
+              onClick={() => handlePhotoClick('camera')}
               className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-cremeDeep py-2.5 text-[12px] font-bold text-texte"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -362,7 +379,8 @@ export default function AjouterPage() {
               Prendre une photo
             </button>
             <button
-              onClick={() => galleryRef.current?.click()}
+              type="button"
+              onClick={() => handlePhotoClick('gallery')}
               className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-cremeDeep py-2.5 text-[12px] font-bold text-texte"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -373,42 +391,35 @@ export default function AjouterPage() {
           </div>
 
           {imagePreviewUrl && (
-            <>
-              <div className="mt-3 flex items-stretch gap-2">
-                <div className="relative h-[70px] flex-1 overflow-hidden rounded-xl">
-                  <img src={imagePreviewUrl} alt="preview" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: imagePosition }} />
-                  <button onClick={() => setStep('crop')} className="absolute inset-0 flex items-center justify-center bg-black/35">
-                    <span className="rounded-full bg-black/40 px-3 py-1 text-[11px] font-bold text-white">Modifier le cadrage</span>
-                  </button>
-                </div>
-                <button onClick={resetImage} aria-label="Supprimer la photo" className="flex w-12 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte-doux">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                  </svg>
+            <div className="mt-3 flex items-stretch gap-2">
+              <div className="relative h-[70px] flex-1 overflow-hidden rounded-xl">
+                <img
+                  src={imagePreviewUrl}
+                  alt="preview"
+                  className="absolute inset-0 h-full w-full object-cover"
+                  style={{ objectPosition: imagePosition }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setStep('crop')}
+                  className="absolute inset-0 flex items-center justify-center bg-black/35"
+                >
+                  <span className="rounded-full bg-black/40 px-3 py-1 text-[11px] font-bold text-white">
+                    Modifier le cadrage
+                  </span>
                 </button>
               </div>
-              {/* Bouton extract direct depuis la photo */}
               <button
-                onClick={handleAnalyse}
-                disabled={loading}
-                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-[12px] font-bold text-white disabled:opacity-55"
+                type="button"
+                onClick={resetImage}
+                aria-label="Supprimer la photo"
+                className="flex w-12 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte-doux"
               >
-                {loading ? (
-                  <>
-                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    Lecture de l&apos;affiche…
-                  </>
-                ) : (
-                  <>
-                    Extraire les infos de cette photo
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="5" y1="12" x2="19" y2="12"/>
-                      <polyline points="13 6 19 12 13 18"/>
-                    </svg>
-                  </>
-                )}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
               </button>
-            </>
+            </div>
           )}
         </div>
       </div>
@@ -418,45 +429,17 @@ export default function AjouterPage() {
         <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-texte-tres-doux">OU</span>
       </div>
 
-      {/* ─── Card 2: Dictée vocale (chevron → ouvre DicteeModal Whisper) ─── */}
-      <div className="px-4">
-        <button
-          type="button"
-          onClick={() => setDicteeOpen(true)}
-          className="flex w-full items-center gap-3 rounded-2xl border bg-white p-3.5 text-left shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
-          style={{ borderColor: '#F0EAE0' }}
-        >
-          <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-xl bg-[#FFF0E5] text-accent">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="9" y="2" width="6" height="11" rx="3"/>
-              <path d="M5 10a7 7 0 0 0 14 0"/>
-              <line x1="12" y1="19" x2="12" y2="22"/>
-              <line x1="8" y1="22" x2="16" y2="22"/>
-            </svg>
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-[15px] font-extrabold leading-tight text-texte">Dicter vocalement</div>
-            <div className="mt-0.5 text-[11px] text-texte-doux">Parle naturellement. Ex&nbsp;: «&nbsp;Concert samedi 20h salle des fêtes 8&nbsp;€&nbsp;».</div>
-          </div>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-texte-tres-doux">
-            <polyline points="9 6 15 12 9 18"/>
-          </svg>
-        </button>
-      </div>
-
-      {/* ─── Divider OU ─── */}
-      <div className="flex items-center justify-center px-4 py-3">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-texte-tres-doux">OU</span>
-      </div>
-
-      {/* ─── Card 3: Écrire / coller un texte ─── */}
+      {/* ─── Card 2: Écrire / coller / dicter (micro intégré) ─── */}
       <div className="px-4">
         <div
-          className="rounded-2xl border bg-white p-3.5 shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
-          style={{ borderColor: '#F0EAE0' }}
+          className="rounded-2xl bg-white p-3.5 shadow-[0_1px_4px_rgba(44,28,16,0.04)] transition-opacity"
+          style={{
+            border: mode === 'text' ? '1.5px solid #2D5A3D' : '1px solid #F0EAE0',
+            opacity: textDisabled ? 0.45 : 1,
+            pointerEvents: textDisabled ? 'none' : 'auto',
+          }}
         >
           <div className="mb-3 flex items-center gap-3">
-            {/* Icon light blue filled, doc icon */}
             <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-xl bg-[#EEF3FF] text-[#3A5BC7]">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -466,27 +449,111 @@ export default function AjouterPage() {
               </svg>
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-[15px] font-extrabold leading-tight text-texte">Écrire ou coller un texte</div>
-              <div className="mt-0.5 text-[11px] text-texte-doux">SMS, message WhatsApp, copier-coller…</div>
+              <div className="mb-0.5 flex items-center gap-2">
+                <span className="inline-flex items-center rounded-md bg-[#3A5BC7] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.06em] text-white">
+                  IA
+                </span>
+              </div>
+              <div className="text-[15px] font-extrabold leading-tight text-texte">Écrire, coller ou dicter</div>
+              <div className="mt-0.5 text-[11px] text-texte-doux">
+                SMS, message WhatsApp, ou parle au micro &nbsp;
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline align-text-bottom">
+                  <rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/>
+                </svg>
+              </div>
             </div>
           </div>
-          {/* Textarea on cremeDeep zone */}
-          <div className="rounded-xl bg-cremeDeep p-3">
+
+          {/* Zone textarea + bouton micro intégré */}
+          <div className="relative rounded-xl bg-cremeDeep p-3">
             <textarea
-              value={texte}
-              onChange={e => setTexte(e.target.value.slice(0, 2000))}
+              ref={textareaRef}
+              value={texte + (dictation.interim ? (texte && !texte.endsWith(' ') ? ' ' : '') + dictation.interim : '')}
+              onChange={e => {
+                // On bloque l'édition pendant la dictée pour éviter
+                // les conflits avec l'interim
+                if (!dictation.listening) {
+                  setTexte(e.target.value.slice(0, 2000))
+                }
+              }}
               rows={4}
               placeholder="Concert de jazz samedi 12 avril à 20h à la salle des fêtes de Ganges. Entrée 8€. Contact : 06 12 34 56 78"
-              className="block w-full resize-none border-none bg-transparent text-[13px] leading-[1.5] text-texte outline-none placeholder:text-texte-tres-doux"
+              className="block w-full resize-none border-none bg-transparent pr-10 text-[13px] leading-[1.5] text-texte outline-none placeholder:text-texte-tres-doux"
               style={{ minHeight: 90 }}
             />
+            {/* Micro intégré en bottom-right */}
+            <button
+              type="button"
+              onClick={handleMicClick}
+              aria-label={dictation.listening ? 'Arrêter la dictée' : 'Dicter à la voix'}
+              className="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full border transition-colors"
+              style={{
+                background: dictation.listening ? '#C84B2F' : '#fff',
+                borderColor: dictation.listening ? '#C84B2F' : '#E8E0D4',
+                color: dictation.listening ? '#fff' : '#7A6A5A',
+                boxShadow: dictation.listening
+                  ? '0 0 0 6px rgba(200,75,47,0.15), 0 0 0 12px rgba(200,75,47,0.08)'
+                  : '0 1px 3px rgba(44,28,16,0.06)',
+                animation: dictation.listening ? 'micPulse 1.5s ease-in-out infinite' : 'none',
+              }}
+            >
+              {dictation.listening ? (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                  <rect x="6" y="6" width="12" height="12" rx="1.5"/>
+                </svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="9" y="2" width="6" height="11" rx="3"/>
+                  <path d="M5 10a7 7 0 0 0 14 0"/>
+                  <line x1="12" y1="19" x2="12" y2="22"/>
+                  <line x1="8" y1="22" x2="16" y2="22"/>
+                </svg>
+              )}
+            </button>
           </div>
+
           {/* Hint + counter */}
           <div className="mt-2 flex items-center justify-between text-[11px] text-texte-doux">
-            <span>Tu choisiras la photo à l&apos;étape suivante.</span>
+            <span>
+              {dictation.listening ? '🔴 Dictée en cours…' : 'Tu choisiras la photo après extraction.'}
+            </span>
             <span>{texte.length}/2000</span>
           </div>
+          {dictation.error && (
+            <p className="mt-1 text-[11px] text-accent">Dictée : {dictation.error}</p>
+          )}
         </div>
+      </div>
+
+      {/* ─── Divider OU ─── */}
+      <div className="flex items-center justify-center px-4 py-3">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-texte-tres-doux">OU</span>
+      </div>
+
+      {/* ─── Card 3: Renseigner à la main (gratuit, ouvre EventEditDrawer) ─── */}
+      <div className="px-4">
+        <button
+          type="button"
+          onClick={handleManualOpen}
+          className="flex w-full items-center gap-3 rounded-2xl border bg-white p-3.5 text-left shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
+          style={{ borderColor: '#F0EAE0' }}
+        >
+          <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-xl bg-[#FFF7E5] text-[#B8860B]">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[15px] font-extrabold leading-tight text-texte">Renseigner à la main</div>
+            <div className="mt-0.5 text-[11px] text-texte-doux">
+              Sans IA — remplis le formulaire toi-même (gratuit, sans limite).
+            </div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-texte-tres-doux">
+            <polyline points="9 6 15 12 9 18"/>
+          </svg>
+        </button>
       </div>
 
       {error && (
@@ -497,11 +564,12 @@ export default function AjouterPage() {
         </div>
       )}
 
-      {/* Sticky CTA */}
+      {/* Sticky CTA "Extraire les infos" — seul déclencheur IA, désactivé si idle */}
       <div className="fixed bottom-0 left-0 right-0 z-30 border-t bg-white p-3.5" style={{ borderColor: '#EDE8E0' }}>
         <button
+          type="button"
           onClick={handleAnalyse}
-          disabled={loading || (!texte.trim() && !image)}
+          disabled={loading || mode === 'idle'}
           className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border-none bg-primary text-[14px] font-bold text-white disabled:opacity-55"
         >
           {loading ? (
@@ -520,6 +588,26 @@ export default function AjouterPage() {
           )}
         </button>
       </div>
+
+      {/* Modal upgrade si plan basic clique sur IA */}
+      {showUpgrade && (
+        <SubscriptionModal
+          context={{
+            kind: 'feature',
+            featureLabel: 'Extraction IA des événements',
+            minPlan: 'habitants',
+          }}
+          onClose={() => setShowUpgrade(false)}
+          currentPlan={plan}
+        />
+      )}
+
+      <style>{`
+        @keyframes micPulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.06); }
+        }
+      `}</style>
     </div>
   )
 }
