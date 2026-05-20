@@ -1,8 +1,9 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import JournalAttachPicker from '@/components/JournalAttachPicker'
 
 interface JournalRow {
   id: string
@@ -21,8 +22,11 @@ interface ArticleRow {
   id: string
   titre: string
   user_id: string | null
-  statut: 'en_attente' | 'valide' | 'refuse' | 'publie'
+  statut: 'brouillon' | 'en_attente' | 'valide' | 'refuse' | 'publie'
+  journal_id: string | null
+  photo_url: string | null
   created_at: string
+  refus_motif: string | null
 }
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -38,7 +42,7 @@ export default function AdminJournalPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const headers = await authHeaders()
     const [j, a] = await Promise.all([
       fetch('/api/admin/journal', { headers }).then(r => r.json()),
@@ -46,9 +50,21 @@ export default function AdminJournalPage() {
     ])
     setJournaux(j.journaux ?? [])
     setArticles(a.articles ?? [])
-  }
+  }, [])
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [load])
+
+  // Realtime refresh : refetch dès qu'un article ou un journal change en BDD
+  useEffect(() => {
+    const ch = supabase
+      .channel('admin-journal-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'articles_journal' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'journaux_hebdo' }, () => load())
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [load])
+
+  const journauxByid: Record<string, JournalRow> = Object.fromEntries(journaux.map(j => [j.id, j]))
 
   const handleGenerate = async () => {
     setBusy(true); setError(null)
@@ -136,7 +152,7 @@ export default function AdminJournalPage() {
               {articlesEnAttente.length} en attente · {articlesValides.length} validés
             </span>
           </div>
-          <ArticleList articles={articles} onChange={load} />
+          <ArticleList articles={articles} journauxByid={journauxByid} onChange={load} />
         </section>
 
         {/* Brouillons */}
@@ -207,10 +223,19 @@ function JournalList({ rows, onDelete }: { rows: JournalRow[]; onDelete: () => v
   )
 }
 
-function ArticleList({ articles, onChange }: { articles: ArticleRow[]; onChange: () => void }) {
+function ArticleList({
+  articles, journauxByid, onChange,
+}: {
+  articles: ArticleRow[]
+  journauxByid: Record<string, JournalRow>
+  onChange: () => void
+}) {
+  const [attaching, setAttaching] = useState<ArticleRow | null>(null)
+
   if (articles.length === 0) {
     return <p className="mt-3 text-[13px] text-texte-tres-doux">Aucun article soumis.</p>
   }
+
   const handlePatch = async (id: string, statut: 'valide' | 'refuse') => {
     const res = await fetch(`/api/admin/articles/${id}`, {
       method: 'PATCH',
@@ -223,37 +248,100 @@ function ArticleList({ articles, onChange }: { articles: ArticleRow[]; onChange:
     }
     onChange()
   }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Supprimer définitivement cet article ?')) return
+    const res = await fetch(`/api/admin/articles/${id}`, {
+      method: 'DELETE',
+      headers: await authHeaders(),
+    })
+    if (res.ok) onChange()
+  }
+
   return (
-    <ul className="mt-3 space-y-2">
-      {articles.map(a => (
-        <li key={a.id} className="flex items-center gap-3 rounded-[12px] border border-bord bg-white px-4 py-3">
-          <span
-            className="rounded-full px-2 py-[3px] text-[9px] font-extrabold tracking-[0.06em] uppercase"
-            style={{
-              background: a.statut === 'en_attente' ? '#FFF0E5'
-                       : a.statut === 'valide' ? '#E8F2EB'
-                       : a.statut === 'publie' ? '#2D5A3D'
-                       : '#F0EAE0',
-              color: a.statut === 'en_attente' ? '#C84B2F'
-                   : a.statut === 'valide' ? '#2D5A3D'
-                   : a.statut === 'publie' ? '#FDFAF5'
-                   : '#7A6A5A',
-            }}
-          >
-            {a.statut.replace('_', ' ')}
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-[13px] font-bold text-texte">{a.titre}</div>
-            <div className="text-[10px] text-texte-doux">{a.created_at.slice(0, 16).replace('T', ' ')}</div>
-          </div>
-          {a.statut === 'en_attente' && (
-            <>
-              <button onClick={() => handlePatch(a.id, 'valide')} className="rounded-lg bg-primary px-3 py-1.5 text-[11px] font-bold text-white">Valider</button>
-              <button onClick={() => handlePatch(a.id, 'refuse')} className="rounded-lg border border-accent bg-white px-3 py-1.5 text-[11px] font-bold text-accent">Refuser</button>
-            </>
-          )}
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul className="mt-3 space-y-2">
+        {articles.map(a => {
+          const meta = STATUT_META[a.statut]
+          const journal = a.journal_id ? journauxByid[a.journal_id] : null
+          return (
+            <li key={a.id} className="overflow-hidden rounded-[12px] border border-bord bg-white">
+              <div className="flex items-center gap-3 p-3">
+                {a.photo_url && (
+                  <img src={a.photo_url} alt="" className="h-12 w-12 shrink-0 rounded-[8px] object-cover" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span
+                      className="rounded-full px-2 py-[2px] text-[9px] font-extrabold tracking-[0.06em] uppercase"
+                      style={{ background: meta.bg, color: meta.color }}
+                    >
+                      {meta.label}
+                    </span>
+                    {journal && (
+                      <span className="rounded-full bg-[#E8F2EB] px-2 py-[2px] text-[9px] font-bold text-primary">
+                        → n°{journal.numero}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-1 truncate text-[13px] font-bold text-texte">{a.titre}</div>
+                  <div className="text-[10px] text-texte-doux">{a.created_at.slice(0, 16).replace('T', ' ')}</div>
+                  {a.refus_motif && a.statut === 'refuse' && (
+                    <div className="mt-1 text-[10px] text-accent">Motif : {a.refus_motif}</div>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-1.5 border-t border-bordSoft bg-creme px-3 py-2">
+                {a.statut === 'en_attente' && (
+                  <>
+                    <button onClick={() => handlePatch(a.id, 'valide')} className="rounded-lg bg-primary px-3 py-1.5 text-[11px] font-bold text-white">Valider</button>
+                    <button onClick={() => handlePatch(a.id, 'refuse')} className="rounded-lg border border-accent bg-white px-3 py-1.5 text-[11px] font-bold text-accent">Refuser</button>
+                  </>
+                )}
+                {(a.statut === 'valide' || a.statut === 'publie') && (
+                  <button
+                    onClick={() => setAttaching(a)}
+                    className="rounded-lg bg-primary px-3 py-1.5 text-[11px] font-bold text-white"
+                  >
+                    {journal ? 'Changer numéro' : 'Attacher à un n°'}
+                  </button>
+                )}
+                <Link
+                  href={`/journal/articles/${a.id}/view`}
+                  target="_blank"
+                  className="rounded-lg border border-bord bg-white px-3 py-1.5 text-[11px] font-bold text-texte"
+                >
+                  Lire
+                </Link>
+                <button
+                  onClick={() => handleDelete(a.id)}
+                  className="rounded-lg border border-accent bg-white px-3 py-1.5 text-[11px] font-bold text-accent"
+                >
+                  Suppr
+                </button>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+
+      {attaching && (
+        <JournalAttachPicker
+          articleId={attaching.id}
+          currentJournalId={attaching.journal_id}
+          onAttached={() => { setAttaching(null); onChange() }}
+          onDetached={() => { setAttaching(null); onChange() }}
+          onClose={() => setAttaching(null)}
+        />
+      )}
+    </>
   )
+}
+
+const STATUT_META: Record<ArticleRow['statut'], { label: string; bg: string; color: string }> = {
+  brouillon:  { label: 'Brouillon',        bg: '#F0EAE0', color: '#7A6A5A' },
+  en_attente: { label: 'En attente',       bg: '#FFF0E5', color: '#C84B2F' },
+  valide:     { label: 'Validé',           bg: '#E8F2EB', color: '#2D5A3D' },
+  refuse:     { label: 'Refusé',           bg: '#FBE9E7', color: '#C0392B' },
+  publie:     { label: 'Publié',           bg: '#2D5A3D', color: '#FDFAF5' },
 }

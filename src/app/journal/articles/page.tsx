@@ -67,6 +67,24 @@ export default function MesArticlesPage() {
     if (res.ok) load()
   }
 
+  // Click sur un article : si publié + journal → ouvre le numéro public,
+  // sinon → page view standalone.
+  const openArticle = async (a: ArticleJournal) => {
+    if (a.statut === 'publie' && a.journal_id) {
+      // Récupère le numero du journal pour la route publique
+      const { data: j } = await supabase
+        .from('journaux_hebdo')
+        .select('numero, statut')
+        .eq('id', a.journal_id)
+        .maybeSingle()
+      if (j && j.statut === 'publie') {
+        router.push(`/journal/${j.numero}`)
+        return
+      }
+    }
+    router.push(`/journal/articles/${a.id}/view`)
+  }
+
   if (loading || !user) {
     return (
       <main className="min-h-[100dvh] bg-creme p-6 font-inter">
@@ -134,7 +152,11 @@ export default function MesArticlesPage() {
               const canDelete = a.statut !== 'publie'
               return (
                 <li key={a.id} className="overflow-hidden rounded-[14px] border border-bord bg-white">
-                  <div className="flex items-center gap-3 p-3">
+                  <button
+                    type="button"
+                    onClick={() => openArticle(a)}
+                    className="flex w-full items-center gap-3 p-3 text-left"
+                  >
                     {a.photo_url && (
                       <img src={a.photo_url} alt="" className="h-14 w-14 shrink-0 rounded-[10px] object-cover" />
                     )}
@@ -157,7 +179,10 @@ export default function MesArticlesPage() {
                         <div className="mt-1 text-[10px] text-accent">Motif : {a.refus_motif}</div>
                       )}
                     </div>
-                  </div>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-texte-doux">
+                      <polyline points="9 6 15 12 9 18"/>
+                    </svg>
+                  </button>
                   <div className="flex gap-2 border-t border-bordSoft bg-creme px-3 py-2">
                     {canEdit && (
                       <Link

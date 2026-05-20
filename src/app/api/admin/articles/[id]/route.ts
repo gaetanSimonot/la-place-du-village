@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser } from '@/lib/server-auth'
 
 type Patch = {
-  statut?: 'en_attente' | 'valide' | 'refuse' | 'publie'
+  statut?: 'brouillon' | 'en_attente' | 'valide' | 'refuse' | 'publie'
   refus_motif?: string | null
   titre?: string
   corps?: string
   photo_url?: string | null
+  journal_id?: string | null
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -24,6 +26,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (body.titre !== undefined)     update.titre = body.titre.trim()
   if (body.corps !== undefined)     update.corps = body.corps.trim()
   if (body.photo_url !== undefined) update.photo_url = body.photo_url
+  if (body.journal_id !== undefined) update.journal_id = body.journal_id
 
   let attachedTo: { numero: number } | null = null
 
@@ -60,6 +63,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Invalide le cache des pages journal qui dépendent de cet article
+  try {
+    const journalId = (data as { journal_id?: string | null }).journal_id
+    if (journalId) {
+      const { data: j } = await supabaseAdmin
+        .from('journaux_hebdo')
+        .select('numero')
+        .eq('id', journalId)
+        .maybeSingle()
+      if (j?.numero != null) revalidatePath(`/journal/${j.numero}`)
+    }
+    revalidatePath('/journal')
+    revalidatePath(`/journal/articles/${id}/view`)
+  } catch {}
+
   return NextResponse.json({ article: data, attachedTo })
 }
 
