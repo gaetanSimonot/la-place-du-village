@@ -1,0 +1,53 @@
+/* Mobile : transparent — l'app prend 100% du viewport comme avant. */
+.pf-bg,
+.pf-frame {
+  width: 100%;
+  min-height: 100dvh;
+}
+
+/* Au-dessus de 600px (tablette portrait + desktop), on encadre l'app. */
+@media (min-width: 600px) {
+  .pf-bg {
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at top, #efe7d8 0%, #d8cdb8 65%, #c0b39a 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 16px;
+    z-index: 0;
+  }
+
+  .pf-frame {
+    /* Dimensions iPhone Pro-ish, mais on respire un peu en hauteur */
+    width: 430px;
+    max-width: 100%;
+    height: 92dvh;
+    max-height: 940px;
+    min-height: 100%;
+    overflow: hidden;
+    border-radius: 32px;
+    background: var(--creme, #FDFAF5);
+    box-shadow:
+      0 32px 96px rgba(26, 18, 9, 0.30),
+      0 10px 32px rgba(26, 18, 9, 0.18),
+      0 0 0 8px #1A1209,             /* "coque" noire fine */
+      0 0 0 9px rgba(255, 255, 255, 0.08);
+    position: relative;
+    /* HACK CLÉ — crée un nouveau containing block pour les `position: fixed`
+       enfants. Toute l'app se relativise au frame. */
+    transform: translateZ(0);
+    /* En plus de translateZ, on force le containment paint pour que rien
+       ne déborde visuellement. */
+    contain: layout paint;
+  }
+}
+
+/* Très grand écran : on laisse un peu plus respirer */
+@media (min-width: 1024px) {
+  .pf-frame {
+    height: 88dvh;
+  }
+}

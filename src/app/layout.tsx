@@ -8,6 +8,7 @@ import { AuthProvider } from '@/contexts/AuthContext'
 import { ConfirmDialogProvider } from '@/contexts/ConfirmDialogContext'
 import { HistoryTrapProvider } from '@/contexts/HistoryTrapContext'
 import AuthModal from '@/components/AuthModal'
+import PhoneFrame from '@/components/PhoneFrame'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' })
 const dmSerif = DM_Serif_Display({
@@ -63,9 +64,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <ThemeProvider>
               <ConfirmDialogProvider>
                 <HistoryTrapProvider>
-                  {children}
-                  <InstallBanner />
-                  <AuthModal />
+                  <PhoneFrame>
+                    {children}
+                    <InstallBanner />
+                    <AuthModal />
+                  </PhoneFrame>
                 </HistoryTrapProvider>
               </ConfirmDialogProvider>
             </ThemeProvider>
