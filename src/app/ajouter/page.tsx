@@ -4,11 +4,10 @@ import Link from 'next/link'
 import { Categorie } from '@/lib/types'
 import EventEditDrawer from '@/components/EventEditDrawer'
 import CropRect from '@/components/CropRect'
-import SubscriptionModal from '@/components/SubscriptionModal'
+import DicteeModal from '@/components/DicteeModal'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import { supabase } from '@/lib/supabase'
-import { useLiveDictation } from '@/hooks/useLiveDictation'
 
 interface FormData {
   titre: string
@@ -34,7 +33,7 @@ type Step = 'input' | 'crop' | 'preview' | 'manual' | 'success'
 type Mode = 'idle' | 'photo' | 'text'
 
 export default function AjouterPage() {
-  const { user, profile, isAdmin, loading: authLoading } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const { openAuthModal } = useAuthModal()
   const [step, setStep] = useState<Step>('input')
 
@@ -49,15 +48,11 @@ export default function AjouterPage() {
   const [error, setError] = useState<string | null>(null)
   const [eventId, setEventId] = useState<string | null>(null)
   const [submitMessage, setSubmitMessage] = useState<string | undefined>()
+  const [dicteeOpen, setDicteeOpen] = useState(false)
 
   const cameraRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-
-  // ─── Gating IA ────────────────────────────────────────────────────────
-  const plan = (profile?.plan as 'basic' | 'habitants' | 'pro') ?? 'basic'
-  const canUseAi = isAdmin || plan === 'habitants' || plan === 'pro'
-  const [showUpgrade, setShowUpgrade] = useState(false)
 
   // ─── Mode mutex ───────────────────────────────────────────────────────
   // 'idle' tant qu'aucun input ; bascule en 'photo' dès qu'une image est
@@ -66,21 +61,6 @@ export default function AjouterPage() {
   const mode: Mode = image ? 'photo' : (texte.trim() ? 'text' : 'idle')
   const photoDisabled = mode === 'text'
   const textDisabled  = mode === 'photo'
-
-  // ─── Dictée live ──────────────────────────────────────────────────────
-  const dictation = useLiveDictation({
-    onFinalChunk: (chunk) => {
-      setTexte(prev => {
-        const sep = prev && !prev.endsWith(' ') ? ' ' : ''
-        return (prev + sep + chunk).slice(0, 2000)
-      })
-    },
-  })
-
-  // Auto-stop dictée si on quitte l'écran input
-  useEffect(() => {
-    if (step !== 'input' && dictation.listening) dictation.stop()
-  }, [step, dictation])
 
   // Bloquer l'accès si non connecté (après chargement auth)
   useEffect(() => {
@@ -105,26 +85,18 @@ export default function AjouterPage() {
 
   const handlePhotoClick = (which: 'camera' | 'gallery') => {
     if (photoDisabled) return
-    if (!canUseAi) { setShowUpgrade(true); return }
     if (which === 'camera') cameraRef.current?.click()
     else galleryRef.current?.click()
   }
 
   const handleMicClick = () => {
     if (textDisabled) return
-    if (!canUseAi) { setShowUpgrade(true); return }
-    if (!dictation.supported) {
-      setError('La dictée vocale n\'est pas disponible sur ce navigateur.')
-      return
-    }
-    dictation.toggle()
+    setDicteeOpen(true)
   }
 
   const handleAnalyse = async () => {
     if (!texte.trim() && !image) return
     if (!user) { openAuthModal(); return }
-    if (!canUseAi) { setShowUpgrade(true); return }
-    if (dictation.listening) dictation.stop()
     setLoading(true)
     setError(null)
     try {
@@ -168,7 +140,6 @@ export default function AjouterPage() {
 
   const handleManualOpen = () => {
     if (!user) { openAuthModal(); return }
-    if (dictation.listening) dictation.stop()
     setForm(emptyForm)
     setStep('manual')
   }
@@ -464,64 +435,44 @@ export default function AjouterPage() {
             </div>
           </div>
 
-          {/* Zone textarea + bouton micro intégré */}
+          {/* Zone textarea + bouton micro intégré (ouvre DicteeModal Whisper) */}
           <div className="relative rounded-xl bg-cremeDeep p-3">
             <textarea
               ref={textareaRef}
-              value={texte + (dictation.interim ? (texte && !texte.endsWith(' ') ? ' ' : '') + dictation.interim : '')}
-              onChange={e => {
-                // On bloque l'édition pendant la dictée pour éviter
-                // les conflits avec l'interim
-                if (!dictation.listening) {
-                  setTexte(e.target.value.slice(0, 2000))
-                }
-              }}
+              value={texte}
+              onChange={e => setTexte(e.target.value.slice(0, 2000))}
               rows={4}
               placeholder="Concert de jazz samedi 12 avril à 20h à la salle des fêtes de Ganges. Entrée 8€. Contact : 06 12 34 56 78"
-              className="block w-full resize-none border-none bg-transparent pr-10 text-[13px] leading-[1.5] text-texte outline-none placeholder:text-texte-tres-doux"
+              className="block w-full resize-none border-none bg-transparent pr-12 text-[13px] leading-[1.5] text-texte outline-none placeholder:text-texte-tres-doux"
               style={{ minHeight: 90 }}
             />
-            {/* Micro intégré en bottom-right */}
+            {/* Micro intégré en bottom-right — ouvre la modal dictée Whisper */}
             <button
               type="button"
               onClick={handleMicClick}
-              aria-label={dictation.listening ? 'Arrêter la dictée' : 'Dicter à la voix'}
+              aria-label="Dicter à la voix"
               className="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full border transition-colors"
               style={{
-                background: dictation.listening ? '#C84B2F' : '#fff',
-                borderColor: dictation.listening ? '#C84B2F' : '#E8E0D4',
-                color: dictation.listening ? '#fff' : '#7A6A5A',
-                boxShadow: dictation.listening
-                  ? '0 0 0 6px rgba(200,75,47,0.15), 0 0 0 12px rgba(200,75,47,0.08)'
-                  : '0 1px 3px rgba(44,28,16,0.06)',
-                animation: dictation.listening ? 'micPulse 1.5s ease-in-out infinite' : 'none',
+                background: '#fff',
+                borderColor: '#E8E0D4',
+                color: '#C84B2F',
+                boxShadow: '0 1px 3px rgba(44,28,16,0.06)',
               }}
             >
-              {dictation.listening ? (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                  <rect x="6" y="6" width="12" height="12" rx="1.5"/>
-                </svg>
-              ) : (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="9" y="2" width="6" height="11" rx="3"/>
-                  <path d="M5 10a7 7 0 0 0 14 0"/>
-                  <line x1="12" y1="19" x2="12" y2="22"/>
-                  <line x1="8" y1="22" x2="16" y2="22"/>
-                </svg>
-              )}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="9" y="2" width="6" height="11" rx="3"/>
+                <path d="M5 10a7 7 0 0 0 14 0"/>
+                <line x1="12" y1="19" x2="12" y2="22"/>
+                <line x1="8" y1="22" x2="16" y2="22"/>
+              </svg>
             </button>
           </div>
 
           {/* Hint + counter */}
           <div className="mt-2 flex items-center justify-between text-[11px] text-texte-doux">
-            <span>
-              {dictation.listening ? '🔴 Dictée en cours…' : 'Tu choisiras la photo après extraction.'}
-            </span>
+            <span>Tu choisiras la photo après extraction.</span>
             <span>{texte.length}/2000</span>
           </div>
-          {dictation.error && (
-            <p className="mt-1 text-[11px] text-accent">Dictée : {dictation.error}</p>
-          )}
         </div>
       </div>
 
@@ -589,25 +540,16 @@ export default function AjouterPage() {
         </button>
       </div>
 
-      {/* Modal upgrade si plan basic clique sur IA */}
-      {showUpgrade && (
-        <SubscriptionModal
-          context={{
-            kind: 'feature',
-            featureLabel: 'Extraction IA des événements',
-            minPlan: 'habitants',
-          }}
-          onClose={() => setShowUpgrade(false)}
-          currentPlan={plan}
+      {/* Modal dictée vocale (Whisper) — append le résultat au textarea */}
+      {dicteeOpen && (
+        <DicteeModal
+          onClose={() => setDicteeOpen(false)}
+          onTranscript={t => setTexte(prev => {
+            const sep = prev && !prev.endsWith(' ') ? ' ' : ''
+            return (prev + sep + t).slice(0, 2000)
+          })}
         />
       )}
-
-      <style>{`
-        @keyframes micPulse {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.06); }
-        }
-      `}</style>
     </div>
   )
 }
