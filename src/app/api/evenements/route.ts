@@ -5,24 +5,25 @@ import { Categorie } from '@/lib/types'
 import { checkDoublon } from '@/lib/checkDoublon'
 import { checkZone } from '@/lib/checkZone'
 import { rateLimit } from '@/lib/rateLimit'
+import { validateImageUpload } from '@/lib/imageUpload'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_KEY!
 )
 
-async function uploadImage(base64: string, mimeType: string): Promise<string | null> {
+async function uploadImage(base64: string, mimeType: string): Promise<{ url: string | null; error?: string }> {
+  const v = validateImageUpload(base64, mimeType)
+  if (!v.ok) return { url: null, error: v.error }
   try {
-    const buffer = Buffer.from(base64, 'base64')
-    const ext = mimeType.split('/')[1]?.split(';')[0] || 'jpg'
-    const filename = `formulaire/${Date.now()}_${Math.random().toString(36).slice(2, 9)}.${ext}`
+    const filename = `formulaire/${Date.now()}_${Math.random().toString(36).slice(2, 9)}.${v.ext}`
     const { error } = await supabaseAdmin.storage
       .from('event-images')
-      .upload(filename, buffer, { contentType: mimeType, upsert: false })
-    if (error) { console.error('Upload error:', error.message); return null }
+      .upload(filename, v.buffer, { contentType: v.mimeType, upsert: false })
+    if (error) { console.error('Upload error:', error.message); return { url: null, error: error.message } }
     const { data: { publicUrl } } = supabaseAdmin.storage.from('event-images').getPublicUrl(filename)
-    return publicUrl
-  } catch (e) { console.error('Upload exception:', e); return null }
+    return { url: publicUrl }
+  } catch (e) { console.error('Upload exception:', e); return { url: null, error: 'upload_failed' } }
 }
 
 export async function POST(req: NextRequest) {
@@ -81,7 +82,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const imageUrl = image ? await uploadImage(image, imageMimeType || 'image/jpeg') : null
+    let imageUrl: string | null = null
+    if (image) {
+      const up = await uploadImage(image, imageMimeType || 'image/jpeg')
+      if (up.error) {
+        return NextResponse.json({ error: `Image refusée : ${up.error}` }, { status: 400 })
+      }
+      imageUrl = up.url
+    }
 
     let lieuId: string | null = null
     let geo = { place_id_google: null as string | null, lat: null as number | null, lng: null as number | null, adresse: null as string | null, approx: false }

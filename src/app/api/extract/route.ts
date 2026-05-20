@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { extractWithClaude, geocodeWithGoogle, calcStatut } from '@/lib/extract'
 import { requireUser } from '@/lib/server-auth'
 import { rateLimit } from '@/lib/rateLimit'
+import { validateImageUpload } from '@/lib/imageUpload'
 
 // Client service role pour l'upload Storage (contourne les RLS)
 const supabaseAdmin = createClient(
@@ -12,14 +13,17 @@ const supabaseAdmin = createClient(
 )
 
 async function uploadImageToStorage(base64: string, mimeType: string): Promise<string | null> {
+  const v = validateImageUpload(base64, mimeType)
+  if (!v.ok) {
+    console.warn('[extract] image refusée:', v.error)
+    return null
+  }
   try {
-    const buffer = Buffer.from(base64, 'base64')
-    const ext = mimeType.split('/')[1]?.split(';')[0] || 'jpg'
-    const filename = `whatsapp/${Date.now()}_${Math.random().toString(36).slice(2, 9)}.${ext}`
+    const filename = `whatsapp/${Date.now()}_${Math.random().toString(36).slice(2, 9)}.${v.ext}`
 
     const { error } = await supabaseAdmin.storage
       .from('event-images')
-      .upload(filename, buffer, { contentType: mimeType, upsert: false })
+      .upload(filename, v.buffer, { contentType: v.mimeType, upsert: false })
 
     if (error) {
       console.error('Upload image error:', error.message)

@@ -1,17 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { validateImageUpload } from '@/lib/imageUpload'
+
+async function isAdmin(req: NextRequest): Promise<boolean> {
+  const token = req.headers.get('Authorization')?.replace('Bearer ', '')
+  if (!token) return false
+  const { data: { user } } = await supabaseAdmin.auth.getUser(token)
+  if (!user?.email) return false
+  const { data } = await supabaseAdmin
+    .from('admin_emails')
+    .select('email')
+    .eq('email', user.email)
+    .maybeSingle()
+  return !!data
+}
 
 export async function POST(req: NextRequest) {
-  const { base64, mimeType = 'image/jpeg' } = await req.json()
-  if (!base64) return NextResponse.json({ error: 'base64 requis' }, { status: 400 })
+  if (!(await isAdmin(req))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
-  const buffer = Buffer.from(base64, 'base64')
-  const ext = mimeType.split('/')[1]?.split(';')[0] || 'jpg'
-  const filename = `edits/${Date.now()}_${Math.random().toString(36).slice(2, 9)}.${ext}`
+  const { base64, mimeType } = await req.json()
+  const v = validateImageUpload(base64, mimeType)
+  if (!v.ok) return NextResponse.json({ error: v.error }, { status: v.status })
+
+  const filename = `edits/${Date.now()}_${Math.random().toString(36).slice(2, 9)}.${v.ext}`
 
   const { error } = await supabaseAdmin.storage
     .from('event-images')
-    .upload(filename, buffer, { contentType: mimeType, upsert: false })
+    .upload(filename, v.buffer, { contentType: v.mimeType, upsert: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

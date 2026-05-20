@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser, notifyUser } from '@/lib/server-auth'
+import { rateLimit } from '@/lib/rateLimit'
 
 /**
  * GET — liste les commentaires de l'article + profil auteur de chaque comment.
@@ -40,6 +41,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await requireUser(req)
   if (ctx instanceof Response) return ctx
+
+  const blocked = await rateLimit(ctx.userId, 'article_comment', ctx.plan, ctx.isAdmin)
+  if (blocked) return blocked
+
   const { id } = await params
 
   const body = await req.json().catch(() => ({}))

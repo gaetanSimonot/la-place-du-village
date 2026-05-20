@@ -31,6 +31,10 @@ import type { Plan } from '@/lib/capabilities'
 export type RateLimitAction =
   | 'ai_extract'      // Whisper + Claude extract combinés
   | 'create_event'
+  | 'article_like'    // toggle like sur article (anti-spam clic)
+  | 'article_comment' // ajout commentaire article
+  | 'create_article'  // soumission article journal
+  | 'create_comment'  // commentaire générique
 
 export interface RateLimitRule {
   limit: number
@@ -73,6 +77,26 @@ const RATE_LIMITS_BY_PLAN: Record<RateLimitAction, Record<Plan, RateLimitRule>> 
     basic:     { limit: 20, windowMs: DAY, message: 'Tu as soumis trop d\'événements aujourd\'hui. Réessaie demain.' },
     habitants: { limit: 20, windowMs: DAY, message: 'Tu as soumis trop d\'événements aujourd\'hui. Réessaie demain.' },
     pro:       { limit: 20, windowMs: DAY, message: 'Tu as soumis trop d\'événements aujourd\'hui. Réessaie demain.' },
+  },
+  article_like: {
+    basic:     { limit: 60, windowMs: HOUR, message: 'Trop de likes en peu de temps. Réessaie dans 1 heure.' },
+    habitants: { limit: 60, windowMs: HOUR, message: 'Trop de likes en peu de temps. Réessaie dans 1 heure.' },
+    pro:       { limit: 60, windowMs: HOUR, message: 'Trop de likes en peu de temps. Réessaie dans 1 heure.' },
+  },
+  article_comment: {
+    basic:     { limit: 10, windowMs: HOUR, message: 'Trop de commentaires en peu de temps. Réessaie dans 1 heure.' },
+    habitants: { limit: 30, windowMs: HOUR, message: 'Trop de commentaires en peu de temps. Réessaie dans 1 heure.' },
+    pro:       { limit: 30, windowMs: HOUR, message: 'Trop de commentaires en peu de temps. Réessaie dans 1 heure.' },
+  },
+  create_article: {
+    basic:     { limit: 3,  windowMs: DAY, message: 'Trop d\'articles soumis aujourd\'hui. Réessaie demain.' },
+    habitants: { limit: 5,  windowMs: DAY, message: 'Trop d\'articles soumis aujourd\'hui. Réessaie demain.' },
+    pro:       { limit: 10, windowMs: DAY, message: 'Trop d\'articles soumis aujourd\'hui. Réessaie demain.' },
+  },
+  create_comment: {
+    basic:     { limit: 30, windowMs: HOUR, message: 'Trop de commentaires. Réessaie dans 1 heure.' },
+    habitants: { limit: 60, windowMs: HOUR, message: 'Trop de commentaires. Réessaie dans 1 heure.' },
+    pro:       { limit: 60, windowMs: HOUR, message: 'Trop de commentaires. Réessaie dans 1 heure.' },
   },
 }
 

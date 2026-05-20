@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser, notifyUser } from '@/lib/server-auth'
+import { rateLimit } from '@/lib/rateLimit'
 
 /**
  * POST — toggle like sur l'article (insert si pas like, delete sinon).
@@ -9,6 +10,10 @@ import { requireUser, notifyUser } from '@/lib/server-auth'
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await requireUser(req)
   if (ctx instanceof Response) return ctx
+
+  const blocked = await rateLimit(ctx.userId, 'article_like', ctx.plan, ctx.isAdmin)
+  if (blocked) return blocked
+
   const { id } = await params
 
   // Check si déjà liké

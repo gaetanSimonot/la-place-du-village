@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { validateImageUpload } from '@/lib/imageUpload'
 
 async function verifyOwner(req: NextRequest, etabId: string, productId: string) {
   const token = req.headers.get('Authorization')?.replace('Bearer ', '')
@@ -20,15 +21,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const ownership = await verifyOwner(req, id, productId)
   if (!ownership) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
 
-  const { base64 } = await req.json()
-  if (!base64) return NextResponse.json({ error: 'Image requise' }, { status: 400 })
+  const { base64, mimeType } = await req.json()
+  const v = validateImageUpload(base64, mimeType)
+  if (!v.ok) return NextResponse.json({ error: v.error }, { status: v.status })
 
-  const buffer = Buffer.from(base64, 'base64')
   const path = `products/${productId}.jpg`
 
   const { error: storageErr } = await supabaseAdmin.storage
     .from('product-images')
-    .upload(path, buffer, { contentType: 'image/jpeg', upsert: true })
+    .upload(path, v.buffer, { contentType: v.mimeType, upsert: true })
 
   if (storageErr) return NextResponse.json({ error: storageErr.message }, { status: 500 })
 

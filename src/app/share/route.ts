@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { validateImageFile } from '@/lib/imageUpload'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,19 +21,20 @@ export async function POST(req: NextRequest) {
 
   if (image && image.size > 0) {
     try {
-      const buffer   = Buffer.from(await image.arrayBuffer())
-      const ext      = (image.type.split('/')[1] || 'jpg').split(';')[0]
-      const filename = `share/${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`
+      const v = await validateImageFile(image)
+      if (v.ok) {
+        const filename = `share/${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${v.ext}`
 
-      const { error } = await supabaseAdmin.storage
-        .from('event-images')
-        .upload(filename, buffer, { contentType: image.type, upsert: false })
-
-      if (!error) {
-        const { data: { publicUrl } } = supabaseAdmin.storage
+        const { error } = await supabaseAdmin.storage
           .from('event-images')
-          .getPublicUrl(filename)
-        params.set('share_image', publicUrl)
+          .upload(filename, v.buffer, { contentType: v.mimeType, upsert: false })
+
+        if (!error) {
+          const { data: { publicUrl } } = supabaseAdmin.storage
+            .from('event-images')
+            .getPublicUrl(filename)
+          params.set('share_image', publicUrl)
+        }
       }
     } catch { /* upload échoué — on continue sans image */ }
   }
