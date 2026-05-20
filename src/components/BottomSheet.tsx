@@ -326,12 +326,19 @@ export default function BottomSheet({
                 Marchés · ateliers · concerts
               </div>
             </div>
-            {/* Col 2-3 : 2 wheels verticaux */}
-            <AgendaFilterWheel
-              filtres={filtres}
-              onFiltresChange={onFiltresChange}
-              onChange={handleAgendaFilterChange}
-            />
+            {/* Col 2-3 : 2 wheels verticaux. Stop la propagation pour
+                empêcher le sheet drag quand on swipe le wheel. */}
+            <div
+              onPointerDown={e => e.stopPropagation()}
+              onTouchStart={e => e.stopPropagation()}
+              style={{ touchAction: 'pan-y' }}
+            >
+              <AgendaFilterWheel
+                filtres={filtres}
+                onFiltresChange={onFiltresChange}
+                onChange={handleAgendaFilterChange}
+              />
+            </div>
           </div>
         )}
 
@@ -395,27 +402,33 @@ export default function BottomSheet({
                 }}>Commerces</button>
               </div>
             )}
-            {annuaireTabIdx === 0 ? (
-              <AnnuaireFilterWheel
-                ariaLabel="Filtre catégorie produit"
-                items={PRODUIT_CATS.map(c => ({ id: c.id, label: c.label, emoji: c.emoji }))}
-                activeId={selectedCats[0] ?? null}
-                onChange={id => {
-                  onSelectedCatsChange?.(id ? [id as typeof PRODUIT_CATS[number]['id']] : [])
-                  if (mode === 'peek') snapTo('half')
-                }}
-              />
-            ) : (
-              <AnnuaireFilterWheel
-                ariaLabel="Filtre type commerce"
-                items={ETAB_TYPE_LIST.map(t => ({ id: t.id, label: t.label, emoji: t.emoji, color: t.color }))}
-                activeId={selectedEtabType ?? null}
-                onChange={id => {
-                  onEtabTypeChange?.((id as typeof ETAB_TYPE_LIST[number]['id'] | null) ?? null)
-                  if (mode === 'peek') snapTo('half')
-                }}
-              />
-            )}
+            <div
+              onPointerDown={e => e.stopPropagation()}
+              onTouchStart={e => e.stopPropagation()}
+              style={{ touchAction: 'pan-x' }}
+            >
+              {annuaireTabIdx === 0 ? (
+                <AnnuaireFilterWheel
+                  ariaLabel="Filtre catégorie produit"
+                  items={PRODUIT_CATS.map(c => ({ id: c.id, label: c.label, emoji: c.emoji }))}
+                  activeId={selectedCats[0] ?? null}
+                  onChange={id => {
+                    onSelectedCatsChange?.(id ? [id as typeof PRODUIT_CATS[number]['id']] : [])
+                    if (mode === 'peek') snapTo('half')
+                  }}
+                />
+              ) : (
+                <AnnuaireFilterWheel
+                  ariaLabel="Filtre type commerce"
+                  items={ETAB_TYPE_LIST.map(t => ({ id: t.id, label: t.label, emoji: t.emoji, color: t.color }))}
+                  activeId={selectedEtabType ?? null}
+                  onChange={id => {
+                    onEtabTypeChange?.((id as typeof ETAB_TYPE_LIST[number]['id'] | null) ?? null)
+                    if (mode === 'peek') snapTo('half')
+                  }}
+                />
+              )}
+            </div>
           </div>
         )}
       </div>{/* fin zone drag */}
