@@ -232,26 +232,35 @@ export default function AppInfoModal({ onClose }: { onClose: () => void }) {
       title: 'Comment ça marche ?',
       body: (
         <>
-          <InfoSubH>Habitants</InfoSubH>
+          <InfoSubH>Habitants — tout ce qu&apos;on peut faire</InfoSubH>
           <InfoBullets items={[
-            'Publier événements, annonces et bons plans',
-            'Consulter la carte locale et découvrir ce qui se passe autour',
-            'Acheter, vendre, échanger et participer aux enchères locales',
-            'Partager les initiatives et les infos du coin',
-            'Soutenir les commerces et producteurs locaux',
+            'Découvrir les événements, commerces et producteurs autour de chez soi',
+            'Publier un événement en prenant simplement une photo de l\'affiche',
+            'Acheter, vendre, donner ou échanger via les annonces locales',
+            'Profiter des bons plans et promotions des commerces du village',
+            'Proposer ou rejoindre un covoiturage entre voisins (gratuit, sans intermédiaire)',
+            'Écrire un article pour le journal du village — partager ce qui vous tient à cœur',
+            'Suivre ses commerces, producteurs et événements favoris',
+            'Recevoir une notif quand un producteur sort un nouveau panier',
+            'Partager une trouvaille locale d\'un tap (WhatsApp, SMS, mail…)',
           ]} />
 
           <InfoSubH>Commerces &amp; artisans</InfoSubH>
           <InfoBullets items={[
-            'Revendiquer votre établissement et gagner en visibilité',
-            'Diffuser événements et actualités',
-            'Créer des promotions réservées aux habitants',
-            'Outils simples de mise en avant locale',
-            'Marketplace producteur et ventes privées locales',
+            'Revendiquer sa fiche et gagner en visibilité locale',
+            'Diffuser événements et actualités aux voisins',
+            'Créer des promotions réservées aux habitants connectés',
+            'Mettre en avant un événement ou une promo dans le hub du village',
           ]} />
           <InfoP style={{ fontSize: 11, color: T.texteDoux, lineHeight: 1.5 }}>
-            Les promotions ont un système de validation simple : les habitants génèrent
-            un QR code unique que vous validez depuis votre tableau de bord.
+            <strong style={{ color: T.texte, fontWeight: 800 }}>Validation en main :</strong> l&apos;habitant
+            vous montre son écran avec la promo activée, vous validez d&apos;un tap
+            depuis votre tableau de bord. Pas de QR code, pas de matériel.
+          </InfoP>
+          <InfoP style={{ fontSize: 11, color: T.texteDoux, lineHeight: 1.5 }}>
+            <strong style={{ color: T.texte, fontWeight: 800 }}>Stats de rentabilité :</strong> nombre
+            de promos utilisées, période la plus active, comparatif semaine /
+            mois. Vous voyez en un coup d&apos;œil ce qui marche.
           </InfoP>
 
           <InfoSubH>Producteurs</InfoSubH>
