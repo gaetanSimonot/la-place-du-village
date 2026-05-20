@@ -39,24 +39,21 @@ function CallbackHandler() {
     async function run() {
       if (!code) { go(); return }
       try {
-        const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-        if (error) {
-          console.error('[auth/callback] exchangeCodeForSession error:', error)
-          setHint(`Erreur: ${error.message}`)
-        } else {
-          console.log('[auth/callback] session OK', data.session?.user?.id)
-        }
+        const { error } = await supabase.auth.exchangeCodeForSession(code)
+        if (error) setHint(`Erreur : ${error.message}`)
         // Filet de securite : si SIGNED_IN n arrive pas (cas deja signe ?),
-        // on reload apres 1.5s. Si l exchange a fail (PKCE verifier perdu
-        // entre browser contexts), au moins on quitte la page de callback.
+        // on reload apres 1.5s. Si l exchange a fail, on quitte la page.
         timeoutId = setTimeout(() => {
           setHint('Connexion plus longue que prévu…')
           go()
         }, 1500)
-      } catch (err) {
-        console.error('[auth/callback] exchangeCodeForSession threw:', err)
-        setHint('Connexion échouée — retour à l\'accueil')
-        timeoutId = setTimeout(go, 1000)
+      } catch {
+        // L exchange peut throw alors que la session est quand meme
+        // etablie en fallback par detectSessionInUrl. On verifie avant
+        // d afficher un message d echec trompeur.
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) setHint('Connexion échouée — retour à l\'accueil')
+        timeoutId = setTimeout(go, session ? 200 : 1000)
       }
     }
 
