@@ -131,7 +131,7 @@ export default function PromotionsClient() {
     setConfirmModal(null)
     const d = await res.json().catch(() => ({}))
     if (res.ok) {
-      showToastMsg('Promo enregistrée — bon appétit !')
+      showToastMsg('Promo enregistrée — passez un bon moment !')
       fetchPromos()
       refreshUsedThisMonth()
     } else if (d.upgradeRequired) {

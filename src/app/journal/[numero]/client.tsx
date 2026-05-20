@@ -23,6 +23,7 @@ export interface JournalRow {
   selection_article_id: string | null
   spotlight_etab_id: string | null
   spotlight_kind: 'etablissement' | 'producteur' | null
+  article_position: number | null
   temps_lecture_min: number | null
   statut: 'brouillon' | 'publie'
   publie_at: string | null
@@ -119,6 +120,44 @@ export default function JournalPageClient({
   }
 
   const isDraft = row.statut !== 'publie'
+  const articlePos = row.article_position ?? 3
+
+  // Section article — rendue à la position choisie par l'admin (1 à 5)
+  const articleSection = article ? (
+    <section className="px-4 pt-10">
+      <div className="text-[10px] font-extrabold tracking-[0.18em] text-primary">
+        VOUS AVEZ LA PAROLE
+      </div>
+      <h2
+        className="mt-1 font-serif leading-[1.1] text-texte"
+        style={{ fontSize: 24, letterSpacing: '-0.02em' }}
+      >
+        {article.titre}
+      </h2>
+      {article.user_id && (
+        <Link
+          href={`/profil/${article.user_id}`}
+          className="mt-1 inline-block text-[12px] text-primary"
+        >
+          Écrit par un habitant →
+        </Link>
+      )}
+      {article.photo_url && (
+        <div
+          className="mt-3 overflow-hidden rounded-[14px] bg-bord/40"
+          style={{ height: 200, boxShadow: '0 4px 16px rgba(44,28,16,0.12)' }}
+        >
+          <img src={article.photo_url} alt={article.titre} className="h-full w-full object-cover" />
+        </div>
+      )}
+      <div
+        className="mt-3 whitespace-pre-wrap text-[15px] leading-[1.65] text-texte"
+        style={{ fontFamily: 'Georgia, "Crimson Pro", serif' }}
+      >
+        {article.corps}
+      </div>
+    </section>
+  ) : null
 
   return (
     <main className="min-h-screen bg-creme pb-28 font-inter">
@@ -275,6 +314,9 @@ export default function JournalPageClient({
         </section>
       )}
 
+      {/* Article position 1 : avant Spotlight (tout en haut après le billet) */}
+      {articlePos === 1 && articleSection}
+
       {/* ── Spotlight établissement ou producteur ──────────────────────── */}
       {spotlight && (
         <section className="px-4 pt-10">
@@ -313,6 +355,9 @@ export default function JournalPageClient({
         </section>
       )}
 
+      {/* Article position 2 : entre Spotlight et Agenda */}
+      {articlePos === 2 && articleSection}
+
       {/* ── Événements de la semaine ───────────────────────────────────── */}
       {events.length > 0 && (
         <section className="px-4 pt-10">
@@ -349,34 +394,8 @@ export default function JournalPageClient({
         </section>
       )}
 
-      {/* ── Article d'habitant ─────────────────────────────────────────── */}
-      {article && (
-        <section className="px-4 pt-10">
-          <div className="text-[10px] font-extrabold tracking-[0.18em] text-primary">
-            L&apos;ARTICLE DE LA SEMAINE
-          </div>
-          <h2
-            className="mt-1 font-serif leading-[1.1] text-texte"
-            style={{ fontSize: 24, letterSpacing: '-0.02em' }}
-          >
-            {article.titre}
-          </h2>
-          {article.photo_url && (
-            <div
-              className="mt-3 overflow-hidden rounded-[14px] bg-bord/40"
-              style={{ height: 200, boxShadow: '0 4px 16px rgba(44,28,16,0.12)' }}
-            >
-              <img src={article.photo_url} alt={article.titre} className="h-full w-full object-cover" />
-            </div>
-          )}
-          <div
-            className="mt-3 whitespace-pre-wrap text-[15px] leading-[1.65] text-texte"
-            style={{ fontFamily: 'Georgia, "Crimson Pro", serif' }}
-          >
-            {article.corps}
-          </div>
-        </section>
-      )}
+      {/* Article position 3 : entre Agenda et Bons plans (placement par défaut) */}
+      {articlePos === 3 && articleSection}
 
       {/* ── Bons plans ─────────────────────────────────────────────────── */}
       {promos.length > 0 && (
@@ -408,6 +427,9 @@ export default function JournalPageClient({
           </ul>
         </section>
       )}
+
+      {/* Article position 4 : entre Bons plans et Petites annonces */}
+      {articlePos === 4 && articleSection}
 
       {/* ── Petites annonces ───────────────────────────────────────────── */}
       {annonces.length > 0 && (
@@ -442,6 +464,9 @@ export default function JournalPageClient({
           </ul>
         </section>
       )}
+
+      {/* Article position 5 : avant Le saviez-vous (tout en bas) */}
+      {articlePos === 5 && articleSection}
 
       {/* ── Le saviez-vous ? ───────────────────────────────────────────── */}
       {row.saviez_vous && (

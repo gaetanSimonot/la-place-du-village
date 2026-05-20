@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
@@ -123,6 +123,7 @@ export default function AppInfoModal({ onClose }: { onClose: () => void }) {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string>('about')
+  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   function handleCreateAccount() {
     onClose()
@@ -420,10 +421,20 @@ export default function AppInfoModal({ onClose }: { onClose: () => void }) {
               return (
                 <div
                   key={s.id}
+                  ref={el => { sectionRefs.current[s.id] = el }}
                   style={{ background: T.white, border: `1px solid ${T.bordSoft}`, borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 4px rgba(44,28,16,0.04)' }}
                 >
                   <button
-                    onClick={() => setOpenId(isOpen ? '' : s.id)}
+                    onClick={() => {
+                      const next = isOpen ? '' : s.id
+                      setOpenId(next)
+                      if (next) {
+                        // Au tick suivant : scroll l'accordéon ouvert dans le viewport
+                        setTimeout(() => {
+                          sectionRefs.current[s.id]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                        }, 50)
+                      }
+                    }}
                     style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px', border: 'none', cursor: 'pointer', background: 'transparent', fontFamily: 'inherit' }}
                   >
                     <span style={{ flexShrink: 0, color: s.color, width: 36, height: 36, borderRadius: 10, background: s.tint, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -441,6 +452,9 @@ export default function AppInfoModal({ onClose }: { onClose: () => void }) {
                       <div style={{ paddingTop: 14 }}>{s.body}</div>
                     </div>
                   )}
+                  {/* Espace tampon en bas du dernier accordéon ouvert pour que
+                      le scrollIntoView aligne bien sans coller au bord */}
+                  {isOpen && <div aria-hidden style={{ height: 60 }} />}
                 </div>
               )
             })}

@@ -25,7 +25,8 @@ export async function GET(req: NextRequest) {
   // Si pas de row ou period_start obsolète, on (re)crée
   const periodStartStr = periodStart.toISOString().slice(0, 10)
   if (!existing || existing.period_start !== periodStartStr) {
-    const slotsTotal = ctx.plan === 'pro' ? 3 : 0
+    // Pro = 1 crédit/mois inclus (boost Hub 48h). Habitants/basic = 0.
+    const slotsTotal = ctx.plan === 'pro' ? 1 : 0
     const periodEndStr = periodEnd.toISOString().slice(0, 10)
 
     const { data: upserted, error } = await supabaseAdmin

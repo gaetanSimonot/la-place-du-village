@@ -1148,15 +1148,15 @@ export default function HomePage() {
       {!splashDone && <AppSplash onDone={() => {
         sessionStorage.setItem('pdv-splash-done', '1')
         setSplashDone(true)
-        // Welcome carousel uniquement à la première visite (jamais vu),
-        // après le splash
-        if (typeof window !== 'undefined' && !localStorage.getItem('pdv-welcome-seen')) {
+        // Welcome à chaque ouverture (= une fois par session navigateur),
+        // après le splash. Si déjà vu dans la session courante, skip.
+        if (typeof window !== 'undefined' && !sessionStorage.getItem('pdv-welcome-shown')) {
           setShowWelcome(true)
         }
       }} />}
       {showWelcome && <WelcomeModal onClose={() => {
         setShowWelcome(false)
-        localStorage.setItem('pdv-welcome-seen', '1')
+        sessionStorage.setItem('pdv-welcome-shown', '1')
       }} />}
 
       {commerceFormOpen && <CommerceRequestModal onClose={() => setCommerceFormOpen(false)} />}

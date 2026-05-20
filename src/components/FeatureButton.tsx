@@ -207,21 +207,34 @@ export function FeatureModal({ contentType, contentId, isAdmin, isOwner, plan, o
           </Section>
         )}
 
-        {/* — PRO AVEC CRÉDIT — */}
+        {/* — PRO AVEC CRÉDIT — 1 crédit = boost Hub 48h */}
         {!isAdmin && isOwner && creditsLoaded && plan === 'pro' && remaining > 0 && (
-          <Section title="💙 Crédit Partenaire" subtitle={`${remaining} crédit${remaining > 1 ? 's' : ''} restant${remaining > 1 ? 's' : ''} ce mois-ci · 1 crédit = 1 jour`}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {allowedSlots.map(s => (
-                <SlotPicker
-                  key={s.id}
-                  slot={s}
-                  onChoose={hours => doRedeem(s.id, hours)}
-                  disabled={submitting}
-                  hoursOptions={[24, 48, 72]}
-                  hoursLabels={['1j', '2j', '3j']}
-                />
-              ))}
-            </div>
+          <Section title="💙 Crédit Partenaire" subtitle={`${remaining} crédit Partenaire ce mois-ci · 1 crédit = Hub pendant 48h`}>
+            <button
+              onClick={() => doRedeem('hub_hero', 48)}
+              disabled={submitting}
+              style={{
+                width: '100%',
+                padding: '14px 16px', borderRadius: 14,
+                border: '1.5px solid #2D5A3D',
+                backgroundColor: '#E8F2EB',
+                display: 'flex', alignItems: 'center', gap: 12,
+                cursor: submitting ? 'wait' : 'pointer',
+                fontFamily: 'inherit', textAlign: 'left',
+                opacity: submitting ? 0.6 : 1,
+              }}
+            >
+              <span style={{ fontSize: 22 }}>🌟</span>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#1A1209' }}>
+                  Utiliser mon crédit · Hub 48h
+                </p>
+                <p style={{ margin: '2px 0 0', fontSize: 11, color: '#2D5A3D' }}>
+                  Mise en avant dans le carrousel du hub pendant 48h
+                </p>
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 800, color: '#2D5A3D' }}>1 crédit</span>
+            </button>
           </Section>
         )}
 

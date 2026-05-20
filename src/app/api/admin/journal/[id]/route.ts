@@ -101,16 +101,35 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   const { id } = await params
 
+  // Charge le numero AVANT delete pour revalidate la page publique
+  const { data: existing } = await supabaseAdmin
+    .from('journaux_hebdo')
+    .select('numero')
+    .eq('id', id)
+    .maybeSingle()
+
   // Si un article était publié dans ce numéro, on le repasse en 'valide'
   await supabaseAdmin
     .from('articles_journal')
     .update({ statut: 'valide', journal_id: null })
     .eq('journal_id', id)
 
-  const { error } = await supabaseAdmin
+  const { error, count } = await supabaseAdmin
     .from('journaux_hebdo')
-    .delete()
+    .delete({ count: 'exact' })
     .eq('id', id)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ ok: true })
+  if (error) {
+    console.error('[admin/journal DELETE] failed', { id, error })
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  console.log('[admin/journal DELETE] ok', { id, deleted_count: count })
+
+  // Invalide le cache des pages dépendantes
+  try {
+    if (existing?.numero != null) revalidatePath(`/journal/${existing.numero}`)
+    revalidatePath('/journal')
+    revalidatePath('/')
+  } catch {}
+
+  return NextResponse.json({ ok: true, deleted: count ?? 0 })
 }

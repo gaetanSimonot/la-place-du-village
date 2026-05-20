@@ -27,6 +27,7 @@ interface JournalFull {
   selection_article_id: string | null
   spotlight_etab_id: string | null
   spotlight_kind: SpotlightKind | null
+  article_position: number | null
   temps_lecture_min: number | null
   statut: 'brouillon' | 'publie'
   publie_at: string | null
@@ -226,6 +227,39 @@ export default function AdminJournalEditPage() {
                 }}
               />
             </div>
+            {journal.selection_article_id && (
+              <div className="mt-3">
+                <span className="text-[11px] font-bold uppercase tracking-[0.04em] text-texte-doux">
+                  Position de la section &laquo;&nbsp;Vous avez la parole&nbsp;&raquo;
+                </span>
+                <div className="mt-1 grid grid-cols-5 gap-1.5">
+                  {([
+                    [1, 'Tout en haut'],
+                    [2, 'Après spotlight'],
+                    [3, 'Après agenda (défaut)'],
+                    [4, 'Après bons plans'],
+                    [5, 'En bas'],
+                  ] as const).map(([pos, label]) => {
+                    const active = (journal.article_position ?? 3) === pos
+                    return (
+                      <button
+                        key={pos}
+                        type="button"
+                        onClick={() => patch({ article_position: pos })}
+                        className="rounded-[10px] border px-2 py-2 text-[10px] font-bold leading-tight"
+                        style={{
+                          background: active ? '#2D5A3D' : '#fff',
+                          color: active ? '#fff' : '#2D5A3D',
+                          borderColor: active ? '#2D5A3D' : '#E8E0D4',
+                        }}
+                      >
+                        {pos}<br/><span className="text-[9px] font-medium opacity-80">{label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
           <div>
             <span className="text-[11px] font-bold uppercase tracking-[0.04em] text-texte-doux">

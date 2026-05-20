@@ -238,10 +238,16 @@ ${articleBlock}
 }
 
 async function callClaude(system: string, user: string): Promise<ClaudeOutput> {
+  // Timestamp seed dans le system prompt pour forcer de la variabilité
+  // entre deux générations consécutives sur le même contexte.
+  const seed = new Date().toISOString()
+  const systemWithSeed = `${system}\n\n[seed: ${seed}]\nVarie le ton, l'angle et la formulation par rapport à toute version antérieure que tu aurais pu produire. Utilise des tournures fraîches.`
+
   const response = await anthropic.messages.create({
     model: SONNET_MODEL,
     max_tokens: 2048,
-    system,
+    temperature: 0.95,
+    system: systemWithSeed,
     messages: [{ role: 'user', content: user }],
   })
   const raw = response.content[0].type === 'text' ? response.content[0].text : ''
