@@ -225,19 +225,30 @@ export default function HomePage() {
   }, [])
 
   // After login (null → user) — restore la page d origine pour les flows
-  // synchrones (signInWithPassword). Pour OAuth, le callback redirige deja
-  // directement vers `next` via l URL, donc ce useEffect ne se declenche
-  // pas (l user arrive sur la page cible avec le user deja loggé).
+  // synchrones (signInWithPassword via AuthModal sur une fiche).
+  // Pour OAuth, le callback redirige deja directement vers `next` via l URL,
+  // donc cet effect ne fait rien (returnTo est null en sessionStorage).
   useEffect(() => {
     if (user && !prevUserRef.current) {
       try {
         const returnTo = sessionStorage.getItem('pdv-return-to')
+        const wasPending = sessionStorage.getItem('pdv-login-pending')
         sessionStorage.removeItem('pdv-return-to')
         sessionStorage.removeItem('pdv-login-pending')
+        // Si returnTo specifique != URL courante -> reload sur la cible
         if (returnTo && returnTo !== window.location.pathname + window.location.search) {
           window.location.href = returnTo
+          return
         }
-        // Sinon : on est deja sur la bonne page, rien a faire.
+        // Si pas de returnTo specifique mais pending : on basculait avant sur
+        // 'profil'. Ne fait sens que si l user vient de l onglet Profil
+        // (LoginView). Pour eviter de l envoyer sur Profil depuis une fiche,
+        // on ne bascule que si navTab est deja accueil (et que le user a
+        // cliqué LoginView via la bottom-nav profil sans loggé).
+        if (wasPending && !returnTo) {
+          // No-op : la BottomNav reflete deja l onglet courant, et ProfilView
+          // se met a jour automatiquement quand user devient defini.
+        }
       } catch {}
     }
     prevUserRef.current = user
