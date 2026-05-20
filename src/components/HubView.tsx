@@ -59,6 +59,7 @@ interface JournalLite {
   cover_image_url: string | null
   temps_lecture_min: number | null
   publie_at: string | null
+  position_hub: 'haut' | 'bas' | null
 }
 
 const TILES: { id: string; label: string; iconSrc: string; click: (p: Props, router: ReturnType<typeof useRouter>) => void }[] = [
@@ -296,7 +297,7 @@ export default function HubView({
   const loadJournal = useCallback(async () => {
       const { data, error } = await supabase
         .from('journaux_hebdo')
-        .select('id, numero, cover_titre, cover_image_url, temps_lecture_min, publie_at')
+        .select('id, numero, cover_titre, cover_image_url, temps_lecture_min, publie_at, position_hub')
         .eq('statut', 'publie')
         .order('numero', { ascending: false })
         .limit(1)
@@ -428,52 +429,62 @@ export default function HubView({
         ))}
       </div>
 
-      {/* ── 6. Aujourd'hui — bento featured + 2 mini ──────────────────── */}
-      {todayEvents.length > 0 && (
-        <>
-          <SectionHeaderV3
-            title="Aujourd'hui"
-            kicker={`· ${todayTotal}`}
-            subtitle={`${todayTotal} événement${todayTotal > 1 ? 's' : ''} près de chez vous`}
-            action="Voir tout"
-            onAction={onSelectAgendaToday ?? onSelectAgenda}
-          />
-          <div
-            className="grid gap-2 px-4"
-            style={{
-              gridTemplateColumns: '1.25fr 1fr',
-              gridTemplateRows: miniEvents.length >= 1 ? '1fr 1fr' : '1fr',
-            }}
-          >
-            {featuredEv && (
-              <FeaturedEventCard
-                ev={featuredEv}
-                onClick={() => router.push(`/evenement/${featuredEv.id}`)}
-              />
-            )}
-            {miniEvents.map(ev => (
-              <MiniEventCard
-                key={ev.id}
-                ev={ev}
-                onClick={() => router.push(`/evenement/${ev.id}`)}
-              />
-            ))}
-            {/* Combler la grille si on n'a qu'1 mini : ajout placeholder "+N" */}
-            {featuredEv && miniEvents.length === 1 && todayTotal > 2 && (
-              <MoreEventsCard
-                count={todayTotal - 2}
-                onClick={onSelectAgendaToday ?? onSelectAgenda}
-              />
-            )}
-            {featuredEv && miniEvents.length === 0 && todayTotal > 1 && (
-              <MoreEventsCard
-                count={todayTotal - 1}
-                onClick={onSelectAgendaToday ?? onSelectAgenda}
-              />
-            )}
-          </div>
-        </>
-      )}
+      {/* ── 6. Aujourd'hui — bento featured + 2 mini (ou 1 mini + journal si position=haut) ── */}
+      {todayEvents.length > 0 && (() => {
+        const journalInTop = journal?.position_hub === 'haut'
+        // Si journal en haut : il prend la place de la 2e mini → on garde max 1 mini event
+        const visibleMinis = journalInTop ? miniEvents.slice(0, 1) : miniEvents
+        // Compteur "+N" : nb d'events restants (total - featured - minis visibles)
+        const shownEvents = (featuredEv ? 1 : 0) + visibleMinis.length
+        const remaining = Math.max(0, todayTotal - shownEvents)
+        // En layout 'haut' : on n'affiche le +N que s'il n'y a pas déjà le journal qui occupe la cell bas-droite
+        const showMoreCard = !journalInTop && featuredEv && remaining > 0 && visibleMinis.length < 2
+        return (
+          <>
+            <SectionHeaderV3
+              title="Aujourd'hui"
+              kicker={`· ${todayTotal}`}
+              subtitle={`${todayTotal} événement${todayTotal > 1 ? 's' : ''} près de chez vous`}
+              action="Voir tout"
+              onAction={onSelectAgendaToday ?? onSelectAgenda}
+            />
+            <div
+              className="grid gap-2 px-4"
+              style={{
+                gridTemplateColumns: '1.25fr 1fr',
+                gridTemplateRows: (visibleMinis.length >= 1 || journalInTop) ? '1fr 1fr' : '1fr',
+              }}
+            >
+              {featuredEv && (
+                <FeaturedEventCard
+                  ev={featuredEv}
+                  onClick={() => router.push(`/evenement/${featuredEv.id}`)}
+                />
+              )}
+              {visibleMinis.map(ev => (
+                <MiniEventCard
+                  key={ev.id}
+                  ev={ev}
+                  onClick={() => router.push(`/evenement/${ev.id}`)}
+                />
+              ))}
+              {/* Journal en haut : prend la 2e cellule droite (col 2, row 2) */}
+              {journalInTop && journal && (
+                <JournalTile
+                  journal={journal}
+                  onClick={() => router.push(`/journal/${journal.numero}`)}
+                />
+              )}
+              {showMoreCard && (
+                <MoreEventsCard
+                  count={remaining}
+                  onClick={onSelectAgendaToday ?? onSelectAgenda}
+                />
+              )}
+            </div>
+          </>
+        )
+      })()}
 
       {/* ── 7. Bons plans — 3 colonnes compactes ──────────────────────── */}
       {promos.length > 0 && (
@@ -521,23 +532,28 @@ export default function HubView({
         </>
       )}
 
-      {/* ── 9. Bottom bento — Carte (1.5fr) + Journal (1fr, si publié) ── */}
-      <div
-        className="grid gap-2 px-4 pt-6"
-        style={{ gridTemplateColumns: journal ? '1.5fr 1fr' : '1fr' }}
-      >
-        <CarteTile
-          counts={zoneCounts}
-          total={totalCarte}
-          onClick={onSelectAgenda}
-        />
-        {journal && (
-          <JournalTile
-            journal={journal}
-            onClick={() => router.push(`/journal/${journal.numero}`)}
-          />
-        )}
-      </div>
+      {/* ── 9. Bottom bento — Carte (+ Journal si position=bas) ── */}
+      {(() => {
+        const showJournalBottom = journal && journal.position_hub !== 'haut'
+        return (
+          <div
+            className="grid gap-2 px-4 pt-6"
+            style={{ gridTemplateColumns: showJournalBottom ? '1.5fr 1fr' : '1fr' }}
+          >
+            <CarteTile
+              counts={zoneCounts}
+              total={totalCarte}
+              onClick={onSelectAgenda}
+            />
+            {showJournalBottom && (
+              <JournalTile
+                journal={journal}
+                onClick={() => router.push(`/journal/${journal.numero}`)}
+              />
+            )}
+          </div>
+        )
+      })()}
     </div>
   )
 }

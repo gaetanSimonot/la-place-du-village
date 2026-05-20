@@ -20,6 +20,7 @@ type Patch = Partial<{
   spotlight_etab_id: string | null
   spotlight_kind: 'etablissement' | 'producteur'
   statut: 'brouillon' | 'publie'
+  position_hub: 'haut' | 'bas'
 }>
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

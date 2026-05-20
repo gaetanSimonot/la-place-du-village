@@ -31,6 +31,7 @@ interface JournalFull {
   temps_lecture_min: number | null
   statut: 'brouillon' | 'publie'
   publie_at: string | null
+  position_hub: 'haut' | 'bas' | null
 }
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -285,6 +286,35 @@ export default function AdminJournalEditPage() {
             value={String(journal.temps_lecture_min ?? 5)}
             onSave={v => patch({ temps_lecture_min: parseInt(v, 10) || 5 })}
           />
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-[0.04em] text-texte-doux">
+              Position sur la page d&apos;accueil
+            </span>
+            <div className="mt-1 grid grid-cols-2 gap-1.5">
+              {([
+                ['haut', 'En haut', 'Remplace la 2ᵉ mini event d\'aujourd\'hui'],
+                ['bas',  'En bas',  'À côté de la tuile Carte (layout actuel)'],
+              ] as const).map(([pos, label, desc]) => {
+                const active = (journal.position_hub ?? 'bas') === pos
+                return (
+                  <button
+                    key={pos}
+                    type="button"
+                    onClick={() => patch({ position_hub: pos })}
+                    className="rounded-[10px] border px-3 py-2.5 text-left leading-tight"
+                    style={{
+                      background: active ? '#2D5A3D' : '#fff',
+                      color: active ? '#fff' : '#2D5A3D',
+                      borderColor: active ? '#2D5A3D' : '#E8E0D4',
+                    }}
+                  >
+                    <div className="text-[12px] font-bold">{label}</div>
+                    <div className="mt-0.5 text-[10px] font-medium opacity-80">{desc}</div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
         </Section>
       </div>
       <BottomNavBar />
