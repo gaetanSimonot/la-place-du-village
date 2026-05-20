@@ -83,7 +83,7 @@ export type ProduitCategorie =
   | 'pain' | 'miel' | 'panier' | 'plantes' | 'huiles' | 'boissons'
   | 'artisanat' | 'autre'
 
-export type NotifType = 'disponibilite' | 'nouveau_produit' | 'suivi_producteur' | 'commentaire' | 'claim_approved' | 'claim_rejected' | 'claim_pending' | 'promo_used' | 'annonce_interet_recu' | 'annonce_enchere_prise' | 'annonce_expire_bientot' | 'annonce_devient_don' | 'annonce_message' | 'annonce_contact_partage' | 'annonce_vente_close' | 'annonce_note_recue' | 'event_published' | 'support_message'
+export type NotifType = 'disponibilite' | 'nouveau_produit' | 'suivi_producteur' | 'commentaire' | 'claim_approved' | 'claim_rejected' | 'claim_pending' | 'promo_used' | 'annonce_interet_recu' | 'annonce_enchere_prise' | 'annonce_expire_bientot' | 'annonce_devient_don' | 'annonce_message' | 'annonce_contact_partage' | 'annonce_vente_close' | 'annonce_note_recue' | 'event_published' | 'support_message' | 'journal_publie' | 'article_like' | 'article_comment'
 
 export interface AppNotification {
   id: string
@@ -92,7 +92,7 @@ export interface AppNotification {
   actor_id: string | null
   actor_name: string | null
   target_id: string | null
-  target_type: 'producer' | 'event' | 'etablissement' | 'claim' | 'promotion' | 'annonce' | 'conversation' | 'support_conversation' | null
+  target_type: 'producer' | 'event' | 'etablissement' | 'claim' | 'promotion' | 'annonce' | 'conversation' | 'support_conversation' | 'journal' | 'article' | null
   lu: boolean
   created_at: string
 }

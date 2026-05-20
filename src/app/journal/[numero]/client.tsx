@@ -2,6 +2,7 @@
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import BottomNavBar from '@/components/BottomNavBar'
+import ArticleSocial from '@/components/ArticleSocial'
 
 export interface JournalRow {
   id: string
@@ -156,6 +157,7 @@ export default function JournalPageClient({
       >
         {article.corps}
       </div>
+      <ArticleSocial articleId={article.id} />
     </section>
   ) : null
 

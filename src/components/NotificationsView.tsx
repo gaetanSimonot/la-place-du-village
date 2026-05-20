@@ -76,6 +76,9 @@ const NOTIF_VISUAL: Record<NotifType, NotifVisual> = {
   annonce_note_recue:     { bg: '#FFF7DC', color: '#A8770F', icon: ICONS.star,     label: n => `${n.actor_name ?? 'Un acheteur'} vous a noté` },
   event_published:        { bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.calendar, label: n => `Événement publié${n.actor_name ? ` : ${n.actor_name}` : ''}` },
   support_message:        { bg: '#E8EEF7', color: '#3A5BC7', icon: ICONS.chat,     label: n => `${n.actor_name ?? 'Quelqu\'un'} — message support` },
+  journal_publie:         { bg: '#1A1209', color: '#E8C58A', icon: ICONS.clipboard,label: () => 'Nouveau Journal du Village publié' },
+  article_like:           { bg: '#FFF0E5', color: '#C84B2F', icon: ICONS.star,     label: n => `${n.actor_name ?? 'Un lecteur'} a aimé ton article` },
+  article_comment:        { bg: '#E8EEF7', color: '#3A5BC7', icon: ICONS.chat,     label: n => `${n.actor_name ?? 'Un lecteur'} a commenté ton article` },
 }
 
 function relativeDate(iso: string): string {
@@ -219,6 +222,15 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
     }
     if (n.target_type === 'producer' && n.target_id) {
       onOpenProducer?.(n.target_id)
+      return
+    }
+    if (n.target_type === 'article' && n.target_id) {
+      router.push(`/journal/articles/${n.target_id}/view`)
+      return
+    }
+    if (n.target_type === 'journal') {
+      router.push('/journal')
+      return
     }
   }
 

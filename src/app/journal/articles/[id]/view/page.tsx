@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import BottomNavBar from '@/components/BottomNavBar'
+import ArticleSocial from '@/components/ArticleSocial'
 
 export const dynamic = 'force-dynamic'
 
@@ -122,6 +123,14 @@ export default async function ArticleViewPage({ params }: Props) {
         >
           {row.titre}
         </h1>
+        {row.user_id && (
+          <Link
+            href={`/profil/${row.user_id}`}
+            className="mt-2 inline-block text-[12px] text-primary"
+          >
+            Écrit par un habitant →
+          </Link>
+        )}
         {row.photo_url && (
           <div
             className="mt-4 overflow-hidden rounded-[16px] bg-bord/40"
@@ -136,6 +145,7 @@ export default async function ArticleViewPage({ params }: Props) {
         >
           {row.corps}
         </div>
+        <ArticleSocial articleId={row.id} />
       </article>
 
       <BottomNavBar />
