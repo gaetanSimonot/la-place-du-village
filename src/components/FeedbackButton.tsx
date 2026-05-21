@@ -16,23 +16,43 @@ export default function FeedbackButton({ evenementId, evenementTitre, open: exte
   const [state, setState] = useState<State>('idle')
   const [message, setMessage] = useState('')
   const [contact, setContact] = useState('')
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (externalOpen) setState('open')
   }, [externalOpen])
 
-  const close = () => { setState('idle'); setMessage(''); setContact(''); onClose?.() }
+  const close = () => { setState('idle'); setMessage(''); setContact(''); setError(null); onClose?.() }
 
   const submit = async () => {
     if (!message.trim()) return
+    setError(null)
     setState('sending')
-    await supabase.from('feedbacks').insert({
-      evenement_id:    evenementId,
-      evenement_titre: evenementTitre,
-      message:         message.trim(),
-      contact:         contact.trim() || null,
-    })
-    setState('done')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        throw new Error('Connecte-toi pour proposer une correction.')
+      }
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          evenement_id:    evenementId,
+          evenement_titre: evenementTitre,
+          message:         message.trim(),
+          contact:         contact.trim() || null,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Erreur lors de l\'envoi')
+      setState('done')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur lors de l\'envoi')
+      setState('open')
+    }
   }
 
   return (
@@ -117,6 +137,14 @@ export default function FeedbackButton({ evenementId, evenementTitre, open: exte
                       backgroundColor: state === 'sending' ? '#F5F1EC' : '#fff',
                     }}
                   />
+
+                  {error && (
+                    <p style={{
+                      marginTop: 10, padding: '8px 12px', borderRadius: 8,
+                      backgroundColor: '#FDECEA', color: '#C02C20',
+                      fontSize: 12, lineHeight: 1.4,
+                    }}>{error}</p>
+                  )}
 
                   <button
                     onClick={submit}

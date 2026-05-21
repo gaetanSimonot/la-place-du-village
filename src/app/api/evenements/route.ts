@@ -127,7 +127,10 @@ export async function POST(req: NextRequest) {
         .select('id')
         .single()
 
-      if (lieuErr) throw new Error(`Erreur insertion lieu : ${lieuErr.message}`)
+      if (lieuErr) {
+        console.error('[evenements] insert lieu erreur:', lieuErr.message)
+        throw new Error('Le lieu est incomplet ou invalide. Indique au moins un nom de lieu ou une commune.')
+      }
       lieuId = lieu.id
     }
 

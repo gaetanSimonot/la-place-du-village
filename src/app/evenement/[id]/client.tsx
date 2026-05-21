@@ -14,6 +14,7 @@ import { useAuthModal } from '@/contexts/AuthModalContext'
 import { useFavorites } from '@/hooks/useFavorites'
 import FeatureButton from '@/components/FeatureButton'
 import BottomNavBar from '@/components/BottomNavBar'
+import FeedbackButton from '@/components/FeedbackButton'
 
 const LINK_STYLE = { color: '#C84B2F', textDecoration: 'underline', wordBreak: 'break-all' } as const
 
@@ -53,6 +54,7 @@ export default function EvenementPageClient({ id }: { id: string }) {
   const [editing, setEditing]       = useState(false)
   const [commentsOpen, setCommentsOpen] = useState(false)
   const [commentCount, setCommentCount] = useState(0)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
   const isAdmin = useAdminSession()
 
   useEffect(() => {
@@ -281,6 +283,23 @@ export default function EvenementPageClient({ id }: { id: string }) {
         open={commentsOpen}
         onClose={() => setCommentsOpen(false)}
         onCountChange={setCommentCount}
+      />
+
+      {/* Proposer une correction (discret, en bas) */}
+      <div className="flex justify-center px-6 pb-6 pt-2">
+        <button
+          onClick={() => setFeedbackOpen(true)}
+          className="border-none bg-transparent text-[12px] text-texte-doux underline"
+        >
+          Proposer une correction
+        </button>
+      </div>
+
+      <FeedbackButton
+        evenementId={evt.id}
+        evenementTitre={evt.titre}
+        open={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
       />
 
       {editing && (
