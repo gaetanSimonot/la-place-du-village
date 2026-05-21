@@ -7,11 +7,14 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import BottomNavBar from '@/components/BottomNavBar'
+import RatingStars from '@/components/RatingStars'
 import type { Covoiturage } from '@/lib/covoiturage'
 
 type CovoitFull = Covoiturage & {
   conducteur: { display_name: string | null; avatar_url: string | null } | null
 }
+
+type ConducteurStats = { note_moyenne: number | null; nombre_avis: number }
 
 function fmtDate(iso: string): string {
   const d = new Date(iso + 'T00:00:00')
@@ -41,6 +44,13 @@ export default function CovoitDetailClient({ id }: { id: string }) {
   const [favori, setFavori] = useState(false)
   const [favLoading, setFavLoading] = useState(false)
 
+  // V3 : stats conducteur + notation passager
+  const [conducteurStats, setConducteurStats] = useState<ConducteurStats>({ note_moyenne: null, nombre_avis: 0 })
+  const [userConvId, setUserConvId] = useState<string | null>(null)   // conv 'validee' du user sur ce trajet, si elle existe
+  const [userHasRated, setUserHasRated] = useState(false)
+  const [completing, setCompleting] = useState(false)
+  const [ratingOpen, setRatingOpen] = useState(false)
+
   const load = useCallback(async () => {
     const res = await fetch(`/api/covoiturages/${id}`)
     const d = await res.json()
@@ -50,6 +60,49 @@ export default function CovoitDetailClient({ id }: { id: string }) {
   }, [id])
 
   useEffect(() => { load() }, [load])
+
+  // V3 : stats conducteur (lecture publique de la vue)
+  useEffect(() => {
+    if (!covoit?.user_id) return
+    let cancel = false
+    ;(async () => {
+      const { data } = await supabase
+        .from('covoit_conducteur_stats')
+        .select('note_moyenne, nombre_avis')
+        .eq('user_id', covoit.user_id)
+        .maybeSingle()
+      if (cancel) return
+      if (data) setConducteurStats({ note_moyenne: data.note_moyenne, nombre_avis: data.nombre_avis ?? 0 })
+      else setConducteurStats({ note_moyenne: null, nombre_avis: 0 })
+    })()
+    return () => { cancel = true }
+  }, [covoit?.user_id])
+
+  // V3 : conv 'validee' du user sur ce trajet + notation déjà donnée ?
+  useEffect(() => {
+    if (!user || !covoit) { setUserConvId(null); setUserHasRated(false); return }
+    if (user.id === covoit.user_id) return   // conducteur, pas concerné par notation
+    let cancel = false
+    ;(async () => {
+      const { data: conv } = await supabase
+        .from('covoit_conversations')
+        .select('id, statut')
+        .eq('covoit_id', covoit.id)
+        .eq('candidat_id', user.id)
+        .eq('statut', 'validee')
+        .maybeSingle()
+      if (cancel) return
+      if (!conv) { setUserConvId(null); setUserHasRated(false); return }
+      setUserConvId(conv.id)
+      const { data: rating } = await supabase
+        .from('covoit_ratings')
+        .select('id')
+        .eq('conversation_id', conv.id)
+        .maybeSingle()
+      if (!cancel) setUserHasRated(!!rating)
+    })()
+    return () => { cancel = true }
+  }, [user, covoit])
 
   // Charge l'état favori si user connecté
   useEffect(() => {
@@ -139,6 +192,55 @@ export default function CovoitDetailClient({ id }: { id: string }) {
       body: JSON.stringify({ statut: 'annule' }),
     })
     router.push('/covoiturage')
+  }
+
+  // V3 : conducteur marque le trajet effectué (déclenche notif "noter le conducteur"
+  // aux passagers validés côté serveur — cf. PATCH /api/covoiturages/[id])
+  const handleTerminer = async () => {
+    if (!covoit || !isOwner) return
+    if (!confirm('Marquer ce trajet comme effectué ? Les passagers recevront une invitation à te noter.')) return
+    setCompleting(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+    const res = await fetch(`/api/covoiturages/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ is_completed: true }),
+    })
+    setCompleting(false)
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}))
+      toast.error(d.error || 'Erreur')
+      return
+    }
+    toast.success('Trajet marqué comme effectué')
+    await load()
+  }
+
+  // V3 : passager soumet une note 1-5 (+ commentaire optionnel)
+  const handleSubmitRating = async (note: 1 | 2 | 3 | 4 | 5, comment: string) => {
+    if (!userConvId) return
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+    const res = await fetch(`/api/covoiturages/conversations/${userConvId}/rating`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ note, comment: comment.trim() || null }),
+    })
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}))
+      throw new Error(d.error || 'Erreur')
+    }
+    setUserHasRated(true)
+    setRatingOpen(false)
+    toast.success('Merci pour ta note !')
+    // Refresh des stats conducteur
+    const { data } = await supabase
+      .from('covoit_conducteur_stats')
+      .select('note_moyenne, nombre_avis')
+      .eq('user_id', covoit!.user_id)
+      .maybeSingle()
+    if (data) setConducteurStats({ note_moyenne: data.note_moyenne, nombre_avis: data.nombre_avis ?? 0 })
   }
 
   if (loading) {
@@ -270,7 +372,7 @@ export default function CovoitDetailClient({ id }: { id: string }) {
             </div>
           )}
 
-          {/* Conducteur */}
+          {/* Conducteur — avec étoiles V3 */}
           <Link
             href={covoit.user_id ? `/profil/${covoit.user_id}` : '#'}
             className="mt-3 flex items-center gap-3 rounded-xl border border-bordSoft bg-white p-2.5 no-underline"
@@ -278,7 +380,11 @@ export default function CovoitDetailClient({ id }: { id: string }) {
             <Avatar name={covoit.conducteur?.display_name ?? 'C'} url={covoit.conducteur?.avatar_url} size={40} />
             <div className="min-w-0 flex-1">
               <div className="text-[13px] font-bold text-texte">{covoit.conducteur?.display_name ?? 'Conducteur'}</div>
-              <div className="text-[10.5px] text-texte-doux">Voir le profil →</div>
+              {conducteurStats.nombre_avis > 0 ? (
+                <RatingStars value={conducteurStats.note_moyenne} count={conducteurStats.nombre_avis} size={12} />
+              ) : (
+                <div className="text-[10.5px] text-texte-doux">Pas encore d&apos;avis · Voir le profil →</div>
+              )}
             </div>
           </Link>
 
@@ -313,21 +419,36 @@ export default function CovoitDetailClient({ id }: { id: string }) {
               C&apos;est votre trajet. Vous recevrez les candidatures par notification.
             </p>
             <div className="flex flex-col gap-2">
+              {/* V3 : trajet déjà effectué = badge ; sinon bouton pour le marquer */}
+              {covoit.is_completed ? (
+                <div className="rounded-xl border border-primary bg-primary-light py-2.5 text-center text-[13px] font-bold text-primary">
+                  ✓ Trajet effectué — les passagers ont été invités à te noter
+                </div>
+              ) : covoit.statut !== 'annule' && (
+                <button
+                  type="button"
+                  onClick={handleTerminer}
+                  disabled={completing}
+                  className="rounded-xl bg-primary py-2.5 text-[13px] font-bold text-white disabled:opacity-55"
+                >
+                  {completing ? '…' : '✓ J\'ai effectué ce trajet'}
+                </button>
+              )}
               <Link
                 href={`/covoiturage/mes-conversations?covoit=${covoit.id}`}
                 className="rounded-xl border border-bord bg-white py-2.5 text-center text-[13px] font-bold text-texte no-underline"
               >
                 Voir les candidatures
               </Link>
-              {covoit.statut !== 'annule' && (
+              {covoit.statut !== 'annule' && !covoit.is_completed && (
                 <Link
                   href={`/covoiturage/nouveau?id=${covoit.id}`}
-                  className="rounded-xl bg-primary py-2.5 text-center text-[13px] font-bold text-white no-underline"
+                  className="rounded-xl border border-bord bg-white py-2.5 text-center text-[13px] font-bold text-texte no-underline"
                 >
                   Modifier le trajet
                 </Link>
               )}
-              {covoit.statut !== 'annule' && (
+              {covoit.statut !== 'annule' && !covoit.is_completed && (
                 <button
                   type="button"
                   onClick={handleAnnuler}
@@ -371,7 +492,7 @@ export default function CovoitDetailClient({ id }: { id: string }) {
         )
       )}
 
-      {covoit.statut === 'complet' && !isOwner && (
+      {covoit.statut === 'complet' && !isOwner && !covoit.is_completed && (
         <div className="mt-4 px-4">
           <div className="rounded-2xl border border-bord bg-[#FFF0E5] p-4 text-center">
             <p className="m-0 text-[13px] font-bold text-[#C84B2F]">Ce trajet est complet.</p>
@@ -379,8 +500,115 @@ export default function CovoitDetailClient({ id }: { id: string }) {
         </div>
       )}
 
+      {/* V3 : passager validé + trajet effectué = bouton noter (ou label si déjà noté) */}
+      {!isOwner && covoit.is_completed && userConvId && (
+        <div className="mt-4 px-4">
+          {userHasRated ? (
+            <div className="rounded-2xl border border-primary bg-primary-light p-4 text-center text-[13px] font-bold text-primary">
+              ✓ Tu as noté ce conducteur
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setRatingOpen(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3 text-[14px] font-bold text-white"
+              style={{ boxShadow: '0 4px 14px rgba(45,90,61,0.25)' }}
+            >
+              ⭐ Noter le conducteur
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Modal notation */}
+      {ratingOpen && covoit && (
+        <RatingModal
+          conducteurName={covoit.conducteur?.display_name ?? 'le conducteur'}
+          onSubmit={handleSubmitRating}
+          onClose={() => setRatingOpen(false)}
+        />
+      )}
+
       <BottomNavBar />
     </main>
+  )
+}
+
+// ─────────────────────────────────────────────────────────
+// Modal notation
+// ─────────────────────────────────────────────────────────
+
+function RatingModal({
+  conducteurName,
+  onSubmit,
+  onClose,
+}: {
+  conducteurName: string
+  onSubmit: (note: 1 | 2 | 3 | 4 | 5, comment: string) => Promise<void>
+  onClose: () => void
+}) {
+  const [note, setNote] = useState<1 | 2 | 3 | 4 | 5 | null>(null)
+  const [comment, setComment] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  const submit = async () => {
+    if (!note) return
+    setSubmitting(true); setErr(null)
+    try {
+      await onSubmit(note, comment)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Erreur')
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/40" onClick={!submitting ? onClose : undefined} aria-hidden />
+      <div
+        className="fixed inset-x-0 bottom-0 z-50 max-h-[88dvh] overflow-y-auto rounded-t-3xl bg-white px-5 pb-6 pt-3 shadow-2xl"
+        role="dialog" aria-modal="true"
+      >
+        <div className="flex justify-center pt-1">
+          <div className="h-1 w-9 rounded-full bg-bord" />
+        </div>
+        <h2 className="m-0 mt-3 font-serif text-[18px] font-semibold text-texte">
+          Comment s&apos;est passé ton trajet ?
+        </h2>
+        <p className="m-0 mt-1 text-[13px] text-texte-doux">Note <b>{conducteurName}</b> de 1 à 5 étoiles.</p>
+        <div className="mt-4 flex justify-center">
+          <RatingStars value={note ?? 0} size={36} onChange={(n) => setNote(n)} disabled={submitting} hideLabel />
+        </div>
+        <label className="mt-5 block">
+          <span className="block text-[11px] font-extrabold uppercase tracking-[0.06em] text-texte-doux">Commentaire (optionnel)</span>
+          <textarea
+            value={comment}
+            onChange={e => setComment(e.target.value.slice(0, 1000))}
+            rows={3}
+            placeholder="Conducteur sympa, voiture propre…"
+            disabled={submitting}
+            className="mt-1.5 block w-full resize-none rounded-xl border border-bord bg-cremeDeep px-3 py-2.5 text-[13px] text-texte outline-none focus:border-primary disabled:opacity-55"
+          />
+          <div className="mt-1 text-right text-[10px] text-texte-doux">{comment.length}/1000</div>
+        </label>
+        {err && <p className="mt-2 text-[12px] text-accent">{err}</p>}
+        <div className="mt-4 flex gap-2">
+          <button
+            onClick={onClose}
+            disabled={submitting}
+            className="flex-1 rounded-xl border border-bord bg-white py-3 text-[13px] font-bold text-texte"
+          >Annuler</button>
+          <button
+            onClick={submit}
+            disabled={!note || submitting}
+            className="flex-1 rounded-xl bg-primary py-3 text-[14px] font-bold text-white disabled:opacity-55"
+          >
+            {submitting ? 'Envoi…' : 'Envoyer ma note'}
+          </button>
+        </div>
+      </div>
+    </>
   )
 }
 

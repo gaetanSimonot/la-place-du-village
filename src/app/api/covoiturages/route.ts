@@ -58,23 +58,38 @@ export async function GET(req: NextRequest) {
   const { data, error } = await q
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Enrichit avec le profil conducteur (display_name + avatar)
+  // Enrichit avec le profil conducteur (display_name + avatar + genre + is_verified)
+  // + les stats covoit (note moyenne + nb avis) depuis la vue agrégée.
   const userIds = Array.from(new Set((data ?? []).map(c => c.user_id)))
-  let profiles: Record<string, { display_name: string | null; avatar_url: string | null }> = {}
+  let profiles: Record<string, { display_name: string | null; avatar_url: string | null; genre: string | null; is_verified: boolean }> = {}
+  let stats: Record<string, { note_moyenne: number | null; nombre_avis: number }> = {}
+
   if (userIds.length > 0) {
-    const { data: profs } = await supabaseAdmin
-      .from('profiles')
-      .select('user_id, display_name, avatar_url')
-      .in('user_id', userIds)
+    const [{ data: profs }, { data: statsRows }] = await Promise.all([
+      supabaseAdmin
+        .from('profiles')
+        .select('user_id, display_name, avatar_url, genre, is_verified')
+        .in('user_id', userIds),
+      supabaseAdmin
+        .from('covoit_conducteur_stats')
+        .select('user_id, note_moyenne, nombre_avis')
+        .in('user_id', userIds),
+    ])
     profiles = Object.fromEntries(
-      ((profs ?? []) as { user_id: string; display_name: string | null; avatar_url: string | null }[])
-        .map(p => [p.user_id, { display_name: p.display_name, avatar_url: p.avatar_url }]),
+      ((profs ?? []) as { user_id: string; display_name: string | null; avatar_url: string | null; genre: string | null; is_verified: boolean }[])
+        .map(p => [p.user_id, { display_name: p.display_name, avatar_url: p.avatar_url, genre: p.genre, is_verified: p.is_verified }]),
+    )
+    stats = Object.fromEntries(
+      ((statsRows ?? []) as { user_id: string; note_moyenne: number | null; nombre_avis: number }[])
+        .map(s => [s.user_id, { note_moyenne: s.note_moyenne, nombre_avis: s.nombre_avis }]),
     )
   }
 
   const enriched = (data ?? []).map(c => ({
     ...c,
-    conducteur: profiles[c.user_id] ?? null,
+    conducteur: profiles[c.user_id]
+      ? { ...profiles[c.user_id], ...stats[c.user_id] ?? { note_moyenne: null, nombre_avis: 0 } }
+      : null,
   }))
 
   return NextResponse.json({ covoiturages: enriched })
