@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import BottomNavBar from '@/components/BottomNavBar'
 import PersonCard, { type PersonCardData } from '@/components/PersonCard'
+import { useFriendships } from '@/hooks/useFriendships'
 
 type Filter = 'all' | 'friends'
 
@@ -14,6 +15,7 @@ export default function PeopleClient() {
   const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
   const [filter, setFilter]     = useState<Filter>('all')
+  const { statusWith, friendProfiles, sendRequest, accept, cancel } = useFriendships()
 
   // ──────────────────────────────────────────────────────────────────────
   // Fetch BROWSE (search vide) — lit la VUE profiles_public_listing.
@@ -62,10 +64,18 @@ export default function PeopleClient() {
   }, [search, loadBrowse, loadSearch])
 
   const visible = useMemo(() => {
-    // Filtre "Mes amis" pas encore branché → empty si sélectionné
-    if (filter === 'friends') return []
+    // Filtre "Mes amis" : on prend la liste des amis depuis le hook + filter par search
+    if (filter === 'friends') {
+      const q = search.trim().toLowerCase()
+      const arr = friendProfiles as PersonCardData[]
+      if (!q) return arr
+      return arr.filter(p =>
+        (p.display_name ?? '').toLowerCase().includes(q) ||
+        (p.ville ?? '').toLowerCase().includes(q),
+      )
+    }
     return people
-  }, [people, filter])
+  }, [people, filter, friendProfiles, search])
 
   return (
     <main className="min-h-[100dvh] bg-creme pb-28 font-inter text-texte">
@@ -88,7 +98,7 @@ export default function PeopleClient() {
             {loading
               ? '…'
               : filter === 'friends'
-                ? 'Bientôt'
+                ? `${visible.length} ami${visible.length > 1 ? 's' : ''}`
                 : `${people.length} membre${people.length > 1 ? 's' : ''}`}
           </div>
         </div>
@@ -133,12 +143,16 @@ export default function PeopleClient() {
         <button
           type="button"
           onClick={() => setFilter('friends')}
-          disabled
-          title="Bientôt — système d'amis à venir"
-          className="cursor-not-allowed rounded-full border border-bord bg-white px-3 py-1.5 text-[12px] font-bold text-texte-tres-doux opacity-60"
+          className={`rounded-full border px-3 py-1.5 text-[12px] font-bold transition-colors ${
+            filter === 'friends' ? 'border-primary bg-primary text-white' : 'border-bord bg-white text-texte'
+          }`}
         >
           Mes amis
-          <span className="ml-1 text-[9px] font-extrabold uppercase tracking-[0.04em] text-texte-doux">Bientôt</span>
+          {friendProfiles.length > 0 && (
+            <span className={`ml-1 text-[10px] font-extrabold ${filter === 'friends' ? 'opacity-80' : 'text-texte-doux'}`}>
+              ({friendProfiles.length})
+            </span>
+          )}
         </button>
       </div>
 
@@ -159,13 +173,28 @@ export default function PeopleClient() {
         )}
         {!loading && visible.length === 0 && filter === 'friends' && (
           <div className="rounded-2xl border border-bordSoft bg-white p-6 text-center">
-            <p className="m-0 mb-1 text-[14px] font-bold text-texte">Bientôt</p>
+            <p className="m-0 mb-1 text-[14px] font-bold text-texte">
+              {search.trim() ? 'Aucun ami ne correspond' : 'Tu n\'as encore aucun ami'}
+            </p>
             <p className="m-0 text-[12px] text-texte-doux">
-              Le système d&apos;amis arrive très bientôt. Tu pourras envoyer des demandes et retrouver tes contacts ici.
+              {search.trim()
+                ? 'Essaie un autre nom ou ville.'
+                : 'Va dans l\'onglet « Tous » pour ajouter des amis.'}
             </p>
           </div>
         )}
-        {visible.map(p => <PersonCard key={p.user_id} p={p} />)}
+        {visible.map(p => (
+          <PersonCard
+            key={p.user_id}
+            p={p}
+            friend={{
+              state:         statusWith(p.user_id),
+              onSendRequest: sendRequest,
+              onAccept:      accept,
+              onCancel:      cancel,
+            }}
+          />
+        ))}
       </div>
 
       <BottomNavBar />

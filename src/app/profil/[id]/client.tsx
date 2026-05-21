@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import EditProfileModal from '@/components/EditProfileModal'
+import FriendButton from '@/components/FriendButton'
+import { useFriendships } from '@/hooks/useFriendships'
 
 interface FullProfile {
   id: string
@@ -117,6 +119,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
   const router = useRouter()
   const { user, updateProfile } = useAuth()
   const [editModalOpen, setEditModalOpen] = useState(false)
+  const { statusWith, sendRequest, accept, cancel } = useFriendships()
 
   const [profile, setProfile]               = useState<FullProfile | null>(null)
   const [loading, setLoading]               = useState(true)
@@ -525,6 +528,14 @@ export default function ProfilPageClient({ id }: { id: string }) {
                 </>
               )}
             </button>
+            <FriendButton
+              targetUserId={id}
+              state={statusWith(id)}
+              onSendRequest={sendRequest}
+              onAccept={accept}
+              onCancel={cancel}
+              size="md"
+            />
           </>
         )}
       </div>

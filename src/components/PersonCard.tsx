@@ -1,5 +1,7 @@
 'use client'
 import Link from 'next/link'
+import FriendButton from '@/components/FriendButton'
+import type { FriendshipStateForMe } from '@/lib/friendships'
 
 export interface PersonCardData {
   user_id: string
@@ -8,6 +10,13 @@ export interface PersonCardData {
   ville?: string | null
   genre?: 'homme' | 'femme' | 'autre' | null
   is_verified?: boolean
+}
+
+interface FriendActions {
+  state:         FriendshipStateForMe
+  onSendRequest: (userId: string) => Promise<void>
+  onAccept:      (friendshipId: string) => Promise<void>
+  onCancel:      (friendshipId: string) => Promise<void>
 }
 
 function Avatar({ name, url, size = 44 }: { name: string | null; url: string | null; size?: number }) {
@@ -26,7 +35,7 @@ function Avatar({ name, url, size = 44 }: { name: string | null; url: string | n
   )
 }
 
-export default function PersonCard({ p }: { p: PersonCardData }) {
+export default function PersonCard({ p, friend }: { p: PersonCardData; friend?: FriendActions }) {
   const name = p.display_name || 'Anonyme'
   return (
     <Link
@@ -65,10 +74,21 @@ export default function PersonCard({ p }: { p: PersonCardData }) {
         )}
       </div>
 
-      {/* Chevron (visuel pour suggérer click) */}
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B5A99A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-        <polyline points="9 6 15 12 9 18"/>
-      </svg>
+      {/* Bouton ami si fourni, sinon chevron neutre */}
+      {friend ? (
+        <FriendButton
+          targetUserId={p.user_id}
+          state={friend.state}
+          onSendRequest={friend.onSendRequest}
+          onAccept={friend.onAccept}
+          onCancel={friend.onCancel}
+          size="sm"
+        />
+      ) : (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B5A99A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+          <polyline points="9 6 15 12 9 18"/>
+        </svg>
+      )}
     </Link>
   )
 }
