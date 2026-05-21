@@ -39,21 +39,22 @@ function CallbackHandler() {
     async function run() {
       if (!code) { go(); return }
       try {
-        const { error } = await supabase.auth.exchangeCodeForSession(code)
-        if (error) setHint(`Erreur : ${error.message}`)
-        // Filet de securite : si SIGNED_IN n arrive pas (cas deja signe ?),
-        // on reload apres 1.5s. Si l exchange a fail, on quitte la page.
-        timeoutId = setTimeout(() => {
-          setHint('Connexion plus longue que prévu…')
-          go()
-        }, 1500)
-      } catch {
-        // L exchange peut throw alors que la session est quand meme
-        // etablie en fallback par detectSessionInUrl. On verifie avant
-        // d afficher un message d echec trompeur.
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+        // Succes propre -> redirect direct, AUCUN hint affiche
+        if (!error && data?.session) { go(); return }
+        // Erreur retournee OU pas de session -> verifie le fallback
+        // (detectSessionInUrl peut avoir etabli la session en parallele,
+        // notamment apres une erreur PKCE residuelle).
         const { data: { session } } = await supabase.auth.getSession()
-        if (!session) setHint('Connexion échouée — retour à l\'accueil')
-        timeoutId = setTimeout(go, session ? 200 : 1000)
+        if (session) { go(); return }
+        // Vraie erreur : message generique, jamais d error.message brut
+        setHint('Connexion échouée — retour à l\'accueil')
+        timeoutId = setTimeout(go, 1500)
+      } catch {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) { go(); return }
+        setHint('Connexion échouée — retour à l\'accueil')
+        timeoutId = setTimeout(go, 1500)
       }
     }
 
