@@ -454,6 +454,12 @@ export default function ProfilView() {
                 />
               )}
               <MenuRow
+                icon={ICONS.chat}
+                label="Messages"
+                sub="Annonces · Covoit · Support"
+                href="/messages"
+              />
+              <MenuRow
                 icon={ICONS.megaphone}
                 label="Mes annonces"
                 sub={activeAnnonceCount != null ? `${activeAnnonceCount} active${activeAnnonceCount > 1 ? 's' : ''}` : undefined}
