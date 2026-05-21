@@ -13,8 +13,8 @@
  * les résultats. Pas de silo à ajouter ailleurs.
  */
 
-export type Source = 'annonce' | 'covoit' | 'support'
-// Quand on ajoutera : 'friends' | 'tombola' | 'rencontre' etc.
+export type Source = 'annonce' | 'covoit' | 'support' | 'friend'
+// Quand on ajoutera : 'tombola' | 'rencontre' etc.
 
 export interface UnifiedConversation {
   id:           string
@@ -42,6 +42,7 @@ export const SOURCE_META: Record<Source, { label: string; badgeBg: string; badge
   annonce: { label: 'Annonce', badgeBg: '#E8F2EB', badgeFg: '#2D5A3D' },
   covoit:  { label: 'Covoit',  badgeBg: '#EAF1F8', badgeFg: '#1E4D7E' },
   support: { label: 'Support', badgeBg: '#FFF1E5', badgeFg: '#C84B2F' },
+  friend:  { label: 'Ami',     badgeBg: '#F0EBE3', badgeFg: '#7A6A5A' },
 }
 
 // ─────────────────────────────────────────────────────────
@@ -74,6 +75,11 @@ interface CovoitConv extends RawConv {
 
 interface SupportConv extends RawConv {
   subject: string | null
+}
+
+interface FriendConv extends RawConv {
+  kind:         'friend'
+  other_member: { user_id: string; display_name: string | null; avatar_url: string | null; ville: string | null } | null
 }
 
 // ─────────────────────────────────────────────────────────
@@ -137,6 +143,25 @@ const supportAdapter: InboxAdapter = {
   },
 }
 
+const friendAdapter: InboxAdapter = {
+  source: 'friend',
+  async fetch(token) {
+    const data = await fetchJson<{ conversations: FriendConv[] }>('/api/conversations?kind=friend', token)
+    return (data.conversations ?? []).map(c => ({
+      id:          c.id,
+      source:      'friend' as const,
+      title:       c.other_member?.display_name ?? 'Ami',
+      subtitle:    c.other_member?.ville ?? null,
+      otherName:   c.other_member?.display_name ?? null,
+      otherAvatar: c.other_member?.avatar_url ?? null,
+      lastMessage: c.last_message ? { content: c.last_message.content, createdAt: c.last_message.created_at } : null,
+      unreadCount: c.unread_count ?? 0,
+      updatedAt:   c.updated_at,
+      href:        `/conversations/${c.id}`,
+    }))
+  },
+}
+
 // ─────────────────────────────────────────────────────────
 // Liste des adapters actifs — étendre ici pour de nouvelles sources
 // ─────────────────────────────────────────────────────────
@@ -145,4 +170,5 @@ export const ADAPTERS: InboxAdapter[] = [
   annonceAdapter,
   covoitAdapter,
   supportAdapter,
+  friendAdapter,
 ]

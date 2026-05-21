@@ -153,14 +153,20 @@ export default function PeopleClient() {
                 <div className="flex shrink-0 gap-1.5">
                   <button
                     onClick={() => accept(friendship.id)}
-                    className="rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-white"
+                    className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-white"
                   >
-                    ✓ Accepter
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                    Accepter
                   </button>
                   <button
                     onClick={() => cancel(friendship.id)}
-                    className="rounded-full border border-bord bg-white px-3 py-1.5 text-[11px] font-bold text-texte-doux"
+                    className="inline-flex items-center gap-1 rounded-full border border-bord bg-white px-3 py-1.5 text-[11px] font-bold text-texte-doux"
                   >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
                     Refuser
                   </button>
                 </div>

@@ -52,7 +52,7 @@ export default function MessagesClient() {
 
   // Counts par source + total unread
   const { countsBySource, totalUnread } = useMemo(() => {
-    const c: Record<Source, number> = { annonce: 0, covoit: 0, support: 0 }
+    const c: Record<Source, number> = { annonce: 0, covoit: 0, support: 0, friend: 0 }
     let u = 0
     for (const conv of convs) {
       c[conv.source]++
@@ -124,7 +124,7 @@ export default function MessagesClient() {
           label="Toutes"
           count={convs.length}
         />
-        {(['annonce', 'covoit', 'support'] as Source[]).map(s => (
+        {(['friend', 'annonce', 'covoit', 'support'] as Source[]).map(s => (
           <FilterChip
             key={s}
             active={filter === s}

@@ -97,6 +97,7 @@ const NOTIF_VISUAL: Record<NotifType, NotifVisual> = {
   feedback_new:           { bg: '#FFF0E5', color: '#C84B2F', icon: ICONS.chat,     label: n => `${n.actor_name ?? 'Un utilisateur'} a signalé un événement` },
   friend_request_received:{ bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.star,     label: n => `${n.actor_name ?? 'Quelqu\'un'} t'a envoyé une demande d'ami` },
   friend_request_accepted:{ bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.check,    label: n => `${n.actor_name ?? 'Quelqu\'un'} a accepté ta demande d'ami` },
+  friend_message:         { bg: '#E8EEF7', color: '#3A5BC7', icon: ICONS.chat,     label: n => `${n.actor_name ?? 'Un ami'} t'a envoyé un message` },
 }
 
 function relativeDate(iso: string): string {
@@ -260,6 +261,11 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
       // friend_request_received → /people (la bannière "Demandes reçues" en haut affiche les pending)
       // friend_request_accepted → /people aussi (filtre "Mes amis" disponible)
       router.push('/people')
+      return
+    }
+    if (n.target_type === 'conversation_unified' && n.target_id) {
+      // friend_message → /conversations/[id]
+      router.push(`/conversations/${n.target_id}`)
       return
     }
   }
