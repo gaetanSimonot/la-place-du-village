@@ -83,6 +83,14 @@ const SOURCE_LABELS: Record<string, string> = {
   scrape:     '🌐 Scrape',
 }
 
+// Couleurs de badge par source (cohérent avec AdminInbox)
+const SOURCE_BADGE_COLORS: Record<string, string> = {
+  whatsapp:   'bg-green-100 text-green-700',
+  signal:     'bg-blue-100 text-blue-700',
+  formulaire: 'bg-purple-100 text-purple-700',
+  scrape:     'bg-gray-100 text-gray-600',
+}
+
 // ─────────────────────────────────────────────────────────
 // Composant principal
 // ─────────────────────────────────────────────────────────
@@ -164,7 +172,7 @@ export default function AdminDashboard() {
     setLoading(true)
     let query = supabase
       .from('evenements')
-      .select('id, titre, description, categorie, date_debut, statut, source, created_at, lieu_id, doublon_verifie, image_url, image_position, promotion, submitted_by, submitted_by_name, vote_count, publish_at, lieux(id, nom, commune, lat, lng, place_id_google)')
+      .select('id, titre, description, categorie, date_debut, statut, source, source_groupe, source_auteur, source_telephone, created_at, lieu_id, doublon_verifie, image_url, image_position, promotion, submitted_by, submitted_by_name, vote_count, publish_at, lieux(id, nom, commune, lat, lng, place_id_google)')
       .in('statut', STATUTS_BY_FILTER[sub])
       .order('created_at', { ascending: false })
       .limit(100)
@@ -761,6 +769,7 @@ function EventCard({ evt, isSelected, isLoading, feedbacks, fbExpanded, onSelect
   const approx         = isApproxLocation(evt.lieux)
   const hasFeedback    = feedbacks.length > 0
   const sourceLabel    = evt.source ? (SOURCE_LABELS[evt.source] ?? evt.source) : null
+  const sourceBadge    = evt.source ? (SOURCE_BADGE_COLORS[evt.source] ?? 'bg-gray-100 text-gray-600') : ''
 
   return (
     <div
@@ -835,11 +844,24 @@ function EventCard({ evt, isSelected, isLoading, feedbacks, fbExpanded, onSelect
             {evt.lieux ? ` · ${evt.lieux.nom}` : ''}
             {evt.lieux?.commune ? `, ${evt.lieux.commune}` : ''}
           </p>
-          <div className="flex items-center gap-2 mt-0.5 text-xs">
+          <div className="flex flex-wrap items-center gap-1.5 mt-1 text-xs">
             {sourceLabel && (
-              <span className="text-gray-400">{sourceLabel}</span>
+              <span className={`font-semibold px-1.5 py-0.5 rounded-md ${sourceBadge}`}>
+                {sourceLabel}
+              </span>
             )}
-            {evt.submitted_by_name && (
+            {evt.source_groupe && (
+              <span className="font-semibold px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
+                📁 {evt.source_groupe}
+              </span>
+            )}
+            {evt.source_auteur && (
+              <span className="text-gray-500">
+                👤 {evt.source_auteur}
+                {evt.source_telephone && <span className="text-gray-400"> · {evt.source_telephone}</span>}
+              </span>
+            )}
+            {evt.submitted_by_name && !evt.source_auteur && (
               <span className="text-orange-500 font-medium">👤 {evt.submitted_by_name}</span>
             )}
             {(evt.vote_count ?? 0) > 0 && (

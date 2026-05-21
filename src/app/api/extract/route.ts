@@ -43,7 +43,11 @@ async function uploadImageToStorage(base64: string, mimeType: string): Promise<s
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { text, image, imageMimeType, source = 'formulaire' } = body
+    const {
+      text, image, imageMimeType,
+      source = 'formulaire',
+      source_groupe, source_auteur, source_telephone,
+    } = body
 
     // Auth : source whatsapp requiert la clé x-wa-key, sinon user authentifié + rate-limit
     if (source === 'whatsapp') {
@@ -136,6 +140,11 @@ export async function POST(req: NextRequest) {
         organisateurs: extracted.organisateurs,
         image_url: imageUrl,
         source,
+        // Provenance source whatsapp/signal (groupe, auteur, telephone) — utile
+        // pour le dashboard admin + un scraping futur sur les memes posts.
+        source_groupe:    typeof source_groupe    === 'string' ? source_groupe.slice(0, 200)    : null,
+        source_auteur:    typeof source_auteur    === 'string' ? source_auteur.slice(0, 200)    : null,
+        source_telephone: typeof source_telephone === 'string' ? source_telephone.slice(0, 40)  : null,
       })
       .select()
       .single()

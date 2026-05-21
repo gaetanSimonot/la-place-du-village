@@ -27,6 +27,9 @@ export interface Evenement {
   image_url: string | null
   image_position: string | null
   source: string | null
+  source_groupe: string | null
+  source_auteur: string | null
+  source_telephone: string | null
   score_confiance: number | null
   created_at: string
   lieux: Lieu | null
