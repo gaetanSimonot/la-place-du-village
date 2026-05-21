@@ -19,7 +19,7 @@ import EventEditDrawer from '@/components/EventEditDrawer'
 // ─────────────────────────────────────────────────────────
 
 type Section    = 'evenements' | 'etablissements' | 'parametres'
-type EventTab   = 'collector' | 'soumission' | 'scrap'
+type EventTab   = 'tous' | 'collector' | 'soumission' | 'scrap'
 type SubFilter  = 'publies' | 'a_traiter' | 'rejetes'
 type ParamPanel =
   | 'config'
@@ -49,7 +49,9 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: 'date_desc',    label: 'Date événement ↓' },
 ]
 
-const SOURCES_BY_TAB: Record<EventTab, string[]> = {
+/** Sources par onglet. `null` = pas de filtre source (vue globale "Tous"). */
+const SOURCES_BY_TAB: Record<EventTab, string[] | null> = {
+  tous:       null,
   collector:  ['whatsapp', 'signal'],
   soumission: ['formulaire'],
   scrap:      ['scrape'],
@@ -62,6 +64,7 @@ const STATUTS_BY_FILTER: Record<SubFilter, string[]> = {
 }
 
 const TAB_LABELS: Record<EventTab, string> = {
+  tous:       '✨ Tous',
   collector:  '📥 Collector',
   soumission: '👥 Soumissions',
   scrap:      '🌐 Scrap',
@@ -114,7 +117,7 @@ export default function AdminDashboard() {
   })()
 
   const [section, setSection]       = useState<Section>(initialSection)
-  const [evtTab, setEvtTab]         = useState<EventTab>('collector')
+  const [evtTab, setEvtTab]         = useState<EventTab>('tous')
   const [subFilter, setSubFilter]   = useState<SubFilter>('a_traiter')
   const [paramPanel, setParamPanel] = useState<ParamPanel>('config')
 
@@ -129,7 +132,7 @@ export default function AdminDashboard() {
 
   // ── Counts par onglet (juste "à traiter" pour le badge) ──
   const [tabCounts, setTabCounts] = useState<Record<EventTab, number>>({
-    collector: 0, soumission: 0, scrap: 0,
+    tous: 0, collector: 0, soumission: 0, scrap: 0,
   })
   const [demandesCount, setDemandesCount] = useState(0)
 
@@ -159,27 +162,32 @@ export default function AdminDashboard() {
 
   const fetchEvents = useCallback(async (tab: EventTab, sub: SubFilter) => {
     setLoading(true)
-    const { data } = await supabase
+    let query = supabase
       .from('evenements')
       .select('id, titre, description, categorie, date_debut, statut, source, created_at, lieu_id, doublon_verifie, image_url, image_position, promotion, submitted_by, submitted_by_name, vote_count, publish_at, lieux(id, nom, commune, lat, lng, place_id_google)')
-      .in('source', SOURCES_BY_TAB[tab])
       .in('statut', STATUTS_BY_FILTER[sub])
       .order('created_at', { ascending: false })
       .limit(100)
+    const sources = SOURCES_BY_TAB[tab]
+    if (sources) query = query.in('source', sources)
+    const { data } = await query
     setEvenements((data as unknown as Evenement[]) ?? [])
     setLoading(false)
   }, [])
 
   const fetchTabCounts = useCallback(async () => {
-    const [c1, c2, c3] = await Promise.all([
+    const [cAll, c1, c2, c3] = await Promise.all([
       supabase.from('evenements').select('id', { count: 'exact', head: true })
-        .in('source', SOURCES_BY_TAB.collector).in('statut', STATUTS_BY_FILTER.a_traiter),
+        .in('statut', STATUTS_BY_FILTER.a_traiter),
       supabase.from('evenements').select('id', { count: 'exact', head: true })
-        .in('source', SOURCES_BY_TAB.soumission).in('statut', STATUTS_BY_FILTER.a_traiter),
+        .in('source', SOURCES_BY_TAB.collector!).in('statut', STATUTS_BY_FILTER.a_traiter),
       supabase.from('evenements').select('id', { count: 'exact', head: true })
-        .in('source', SOURCES_BY_TAB.scrap).in('statut', STATUTS_BY_FILTER.a_traiter),
+        .in('source', SOURCES_BY_TAB.soumission!).in('statut', STATUTS_BY_FILTER.a_traiter),
+      supabase.from('evenements').select('id', { count: 'exact', head: true })
+        .in('source', SOURCES_BY_TAB.scrap!).in('statut', STATUTS_BY_FILTER.a_traiter),
     ])
     setTabCounts({
+      tous:       cAll.count ?? 0,
       collector:  c1.count ?? 0,
       soumission: c2.count ?? 0,
       scrap:      c3.count ?? 0,
@@ -450,7 +458,7 @@ export default function AdminDashboard() {
     </div>
   )
 
-  const totalATraiter = tabCounts.collector + tabCounts.soumission + tabCounts.scrap
+  const totalATraiter = tabCounts.tous
 
   return (
     <div className="min-h-screen bg-[#FBF7F0] pb-24">
@@ -491,9 +499,9 @@ export default function AdminDashboard() {
       {/* ═══════════════════════════════════════════════════════ */}
       {section === 'evenements' && (
         <>
-          {/* Onglets source : Collector / Soumission / Scrap */}
-          <div className="flex border-b border-[#E8E0D5] bg-white">
-            {(['collector', 'soumission', 'scrap'] as EventTab[]).map(tab => (
+          {/* Onglets source : Tous / Collector / Soumission / Scrap */}
+          <div className="flex border-b border-[#E8E0D5] bg-white overflow-x-auto">
+            {(['tous', 'collector', 'soumission', 'scrap'] as EventTab[]).map(tab => (
               <button
                 key={tab}
                 onClick={() => setEvtTab(tab)}
