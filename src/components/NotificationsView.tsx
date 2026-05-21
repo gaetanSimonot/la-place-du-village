@@ -256,6 +256,12 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
       router.push('/journal')
       return
     }
+    if (n.target_type === 'friendship') {
+      // friend_request_received → /people (la bannière "Demandes reçues" en haut affiche les pending)
+      // friend_request_accepted → /people aussi (filtre "Mes amis" disponible)
+      router.push('/people')
+      return
+    }
   }
 
   // Filtres user (non-admin) par catégorie
