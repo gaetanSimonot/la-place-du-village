@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { notifyAdmins } from '@/lib/server-auth'
 
 // POST /api/feedback
 // Body: { evenement_id, evenement_titre, message, contact? }
@@ -43,6 +44,19 @@ export async function POST(req: NextRequest) {
   if (insertErr) {
     console.error('[feedback] insert error:', insertErr.message)
     return NextResponse.json({ error: 'Erreur enregistrement' }, { status: 500 })
+  }
+
+  // Notif aux admins (best-effort, n'empêche pas la réponse OK si ça échoue)
+  try {
+    const titreShort = typeof evenement_titre === 'string' ? evenement_titre.slice(0, 60) : 'événement'
+    await notifyAdmins({
+      type: 'feedback_new',
+      actor_name: `📝 Correction proposée sur "${titreShort}"`,
+      target_type: 'event',
+      target_id: evenement_id,
+    })
+  } catch (notifErr) {
+    console.error('[feedback] notifyAdmins error (non bloquant):', notifErr)
   }
 
   return NextResponse.json({ ok: true })
