@@ -66,8 +66,7 @@ SELECT
   ville,
   genre,
   is_verified,
-  plan,
-  created_at
+  plan
 FROM profiles
 WHERE is_public = true
   AND banned    = false;
