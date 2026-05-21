@@ -136,7 +136,18 @@ export default function HomePage() {
   const [sheetMode, setSheetMode]   = useState<'peek'|'half'|'full'>('half')
   const [sheetPeekH, setSheetPeekH] = useState(130)
   const [screenH, setScreenH]       = useState(812)
-  const [navTab, setNavTab]         = useState<NavTab>('accueil')
+  const [navTab, setNavTab]         = useState<NavTab>(() => {
+    if (typeof window === 'undefined') return 'accueil'
+    const saved = sessionStorage.getItem('pdv-nav-tab') as NavTab | null
+    return saved ?? 'accueil'
+  })
+  // Persiste navTab pour survivre aux navigations (ex: retour depuis /ajouter,
+  // /capturer, /covoiturage/[id], etc.). Sans ça, navTab repart à 'accueil'
+  // au mount → la condition `navTab === 'carte'` redevient fausse → les boutons
+  // top (filtres, +, loupe) disparaissent à tort.
+  useEffect(() => {
+    try { sessionStorage.setItem('pdv-nav-tab', navTab) } catch {}
+  }, [navTab])
   // Hub : écran d'accueil avec tuiles. Par défaut au lancement.
   // Restauré false si l'user était dans un module avant un refresh.
   const [showHub, setShowHub] = useState(() => {
