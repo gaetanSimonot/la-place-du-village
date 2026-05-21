@@ -164,12 +164,14 @@ export async function POST(req: NextRequest) {
     let eventPublishAt: string | null = null
 
     if (isUserSubmission) {
-      // doublon → archive, IA approuve → en_attente + auto-publish, sinon → a_verifier (admin review)
+      // doublon → archive, IA approuve → publication directe via calcStatut, sinon → a_verifier
+      // (le form bloque déjà les soumissions incomplètes côté UI ; le fallback
+      // 'a_verifier' couvre le cas où baseStatut='en_attente' passerait quand même,
+      // pour éviter qu'un event reste coincé sans cron pour le sortir)
       if (check.doublon) {
         finalStatut = 'archive'
       } else if (check.publier) {
-        finalStatut = 'en_attente'
-        eventPublishAt = publishAt
+        finalStatut = baseStatut === 'en_attente' ? 'a_verifier' : baseStatut
       } else {
         finalStatut = 'a_verifier'
       }
