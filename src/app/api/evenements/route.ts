@@ -48,7 +48,6 @@ export async function POST(req: NextRequest) {
     let submittedBy: string | null = null
     let submittedByName: string | null = null
     let isUserSubmission = false
-    let publishAt: string | null = null
 
     const token = req.headers.get('authorization')?.replace('Bearer ', '')
     if (!token) {
@@ -76,7 +75,6 @@ export async function POST(req: NextRequest) {
           submittedBy = user.id
           submittedByName = profile?.display_name ?? (user.email?.split('@')[0] ?? null)
           isUserSubmission = true
-          publishAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
 
           // Anti-spam : 20 events/jour pour les non-admins
           const userPlan = (profile?.plan === 'habitants' || profile?.plan === 'pro') ? profile.plan : 'basic'
@@ -161,7 +159,6 @@ export async function POST(req: NextRequest) {
     })
 
     let finalStatut: string
-    let eventPublishAt: string | null = null
 
     if (isUserSubmission) {
       // doublon → archive, IA approuve → publication directe via calcStatut, sinon → a_verifier
@@ -198,7 +195,7 @@ export async function POST(req: NextRequest) {
         source: 'formulaire',
         submitted_by: submittedBy,
         submitted_by_name: submittedByName,
-        publish_at: eventPublishAt,
+        publish_at: null,
       })
       .select()
       .single()
