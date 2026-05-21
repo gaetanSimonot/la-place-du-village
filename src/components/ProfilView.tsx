@@ -660,13 +660,28 @@ export default function ProfilView() {
         <EditProfileModal
           initialName={profile?.display_name ?? ''}
           initialGenre={(profile?.genre ?? null) as 'homme' | 'femme' | 'autre' | null}
+          initialBannerUrl={profile?.banner_url ?? null}
+          initialIsPublic={profile?.is_public ?? true}
+          initialSearchable={profile?.searchable ?? true}
           email={user.email ?? ''}
           avatarUrl={profile?.avatar_url ?? null}
           onClose={() => setEditOpen(false)}
-          onSave={async (name, genre) => {
-            const patch: { display_name?: string; genre?: 'homme' | 'femme' | 'autre' | null } = {}
-            if (name.trim() && name.trim() !== profile?.display_name) patch.display_name = name.trim()
-            if (genre !== (profile?.genre ?? null))                   patch.genre = genre
+          onSave={async ({ name, genre, bannerUrl, isPublic, searchable }) => {
+            const patch: {
+              display_name?: string
+              genre?: 'homme' | 'femme' | 'autre' | null
+              banner_url?: string | null
+              is_public?: boolean
+              searchable?: boolean
+            } = {}
+            if (name.trim() && name.trim() !== profile?.display_name)  patch.display_name = name.trim()
+            if (genre !== (profile?.genre ?? null))                    patch.genre = genre
+            // Compare bannière brute (sans le cache-buster ?v=...)
+            const cleanBanner = bannerUrl ? bannerUrl.split('?')[0] : null
+            const currentBanner = profile?.banner_url ?? null
+            if (cleanBanner !== currentBanner)                         patch.banner_url = cleanBanner
+            if (isPublic !== (profile?.is_public ?? true))             patch.is_public = isPublic
+            if (searchable !== (profile?.searchable ?? true))          patch.searchable = searchable
             if (Object.keys(patch).length > 0) await updateProfile(patch)
             setEditOpen(false)
           }}

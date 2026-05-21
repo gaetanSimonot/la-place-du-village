@@ -7,12 +7,15 @@ export interface Profile {
   id: string
   display_name: string | null
   avatar_url: string | null
+  banner_url?: string | null
   email: string | null
   username: string | null
   banned: boolean
   plan: string | null
   genre?: 'homme' | 'femme' | 'autre' | null
   is_verified?: boolean
+  is_public?: boolean
+  searchable?: boolean
 }
 
 interface AuthContextType {
@@ -22,7 +25,13 @@ interface AuthContextType {
   isAdmin: boolean
   signOut: () => Promise<void>
   updateDisplayName: (name: string) => Promise<void>
-  updateProfile: (patch: { display_name?: string; genre?: 'homme' | 'femme' | 'autre' | null }) => Promise<void>
+  updateProfile: (patch: {
+    display_name?: string
+    genre?: 'homme' | 'femme' | 'autre' | null
+    banner_url?: string | null
+    is_public?: boolean
+    searchable?: boolean
+  }) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -107,7 +116,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await updateProfile({ display_name: name })
   }
 
-  const updateProfile = async (patch: { display_name?: string; genre?: 'homme' | 'femme' | 'autre' | null }) => {
+  const updateProfile = async (patch: {
+    display_name?: string
+    genre?: 'homme' | 'femme' | 'autre' | null
+    banner_url?: string | null
+    is_public?: boolean
+    searchable?: boolean
+  }) => {
     if (!user) return
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return

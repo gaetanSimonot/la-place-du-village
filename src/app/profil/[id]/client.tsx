@@ -9,12 +9,15 @@ interface FullProfile {
   id: string
   display_name: string | null
   avatar_url: string | null
+  banner_url: string | null
   email: string | null
   bio: string | null
   ville: string | null
   plan: string | null
   genre: 'homme' | 'femme' | 'autre' | null
   is_verified: boolean
+  is_public: boolean
+  searchable: boolean
   created_at?: string | null
 }
 
@@ -320,8 +323,16 @@ export default function ProfilPageClient({ id }: { id: string }) {
         </button>
       </div>
 
-      {/* Hero centered */}
-      <div className="flex flex-col items-center px-4 pt-6 text-center">
+      {/* Bannière (si renseignée) */}
+      {profile.banner_url && (
+        <div className="relative mx-4 mt-3 h-[140px] overflow-hidden rounded-2xl bg-cremeDeep">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={profile.banner_url} alt="" className="h-full w-full object-cover" />
+        </div>
+      )}
+
+      {/* Hero centered — chevauche la bannière si présente */}
+      <div className={`flex flex-col items-center px-4 text-center ${profile.banner_url ? '-mt-12' : 'pt-6'}`}>
         <div className="relative">
           <Avatar name={name} url={profile.avatar_url} size={96} />
           {isOwn && editing && (

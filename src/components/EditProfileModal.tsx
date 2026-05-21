@@ -1,22 +1,50 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
 
 type Genre = 'homme' | 'femme' | 'autre' | null
 
-interface Props {
-  initialName:  string
-  initialGenre?: Genre
-  email:        string
-  avatarUrl:    string | null
-  onClose:      () => void
-  onSave:       (name: string, genre: Genre) => void | Promise<void>
+export interface ProfileEditPatch {
+  name:       string
+  genre:      Genre
+  bannerUrl:  string | null
+  isPublic:   boolean
+  searchable: boolean
 }
 
-export default function EditProfileModal({ initialName, initialGenre = null, email, avatarUrl, onClose, onSave }: Props) {
-  const [name, setName]   = useState(initialName)
-  const [genre, setGenre] = useState<Genre>(initialGenre)
-  const [saving, setSaving] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
+interface Props {
+  initialName:       string
+  initialGenre?:     Genre
+  initialBannerUrl?: string | null
+  initialIsPublic?:  boolean
+  initialSearchable?: boolean
+  email:             string
+  avatarUrl:         string | null
+  onClose:           () => void
+  onSave:            (patch: ProfileEditPatch) => void | Promise<void>
+}
+
+export default function EditProfileModal({
+  initialName,
+  initialGenre = null,
+  initialBannerUrl = null,
+  initialIsPublic = true,
+  initialSearchable = true,
+  email,
+  avatarUrl,
+  onClose,
+  onSave,
+}: Props) {
+  const [name, setName]               = useState(initialName)
+  const [genre, setGenre]             = useState<Genre>(initialGenre)
+  const [bannerUrl, setBannerUrl]     = useState<string | null>(initialBannerUrl)
+  const [isPublic, setIsPublic]       = useState(initialIsPublic)
+  const [searchable, setSearchable]   = useState(initialSearchable)
+  const [saving, setSaving]           = useState(false)
+  const [uploading, setUploading]     = useState(false)
+  const [uploadErr, setUploadErr]     = useState<string | null>(null)
+  const inputRef    = useRef<HTMLInputElement>(null)
+  const bannerInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const t = setTimeout(() => inputRef.current?.focus(), 80)
@@ -32,7 +60,24 @@ export default function EditProfileModal({ initialName, initialGenre = null, ema
   async function handleSave() {
     if (saving) return
     setSaving(true)
-    try { await onSave(name, genre) } finally { setSaving(false) }
+    try { await onSave({ name, genre, bannerUrl, isPublic, searchable }) }
+    finally { setSaving(false) }
+  }
+
+  async function handleBannerPick(file: File) {
+    setUploadErr(null)
+    setUploading(true)
+    try {
+      // Compresse (largeur max 1600px, qualité 0.85) puis upload via signed URL
+      const compressed = await compressImage(file, { maxDim: 1600, quality: 0.85 })
+      const r = await uploadViaSignedUrl({ file: compressed, kind: 'profile-banner' })
+      // Cache buster — sinon Next/img garde la vieille image (path FIXE par user)
+      setBannerUrl(`${r.publicUrl}?v=${Date.now()}`)
+    } catch (e) {
+      setUploadErr(e instanceof Error ? e.message : 'Erreur upload bannière')
+    } finally {
+      setUploading(false)
+    }
   }
 
   const GENRE_OPTIONS: { value: Genre; label: string }[] = [
@@ -66,25 +111,79 @@ export default function EditProfileModal({ initialName, initialGenre = null, ema
           Affiché aux autres habitants du village.
         </p>
 
-        {/* Avatar (display-only pour l'instant) */}
-        <div className="mb-5 flex flex-col items-center">
-          {avatarUrl ? (
-            <img
-              src={avatarUrl}
-              alt=""
-              className="h-[84px] w-[84px] rounded-full object-cover"
-              style={{ border: '3px solid #E8F2EB' }}
-            />
-          ) : (
-            <div
-              className="flex h-[84px] w-[84px] items-center justify-center rounded-full bg-primary text-[32px] font-extrabold text-white"
-              style={{ border: '3px solid #E8F2EB' }}
+        {/* Bannière + avatar superposés */}
+        <div className="mb-5">
+          {/* Bannière */}
+          <div
+            className="relative h-[110px] w-full overflow-hidden rounded-2xl"
+            style={{ backgroundColor: bannerUrl ? 'transparent' : '#E8F2EB' }}
+          >
+            {bannerUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={bannerUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full items-center justify-center text-[11px] font-bold uppercase tracking-[0.08em] text-primary/60">
+                Ajoute une bannière
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => bannerInput.current?.click()}
+              disabled={uploading}
+              aria-label="Modifier la bannière"
+              className="absolute right-2 top-2 flex h-8 items-center gap-1.5 rounded-full bg-white/95 px-2.5 text-[11px] font-bold text-texte shadow-sm backdrop-blur disabled:opacity-50"
             >
-              {initial}
-            </div>
-          )}
-          {/* L'upload d'avatar n'est pas encore branché côté backend.
-              Le bouton est masqué pour éviter une UX cassée. */}
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+              </svg>
+              {uploading ? '…' : (bannerUrl ? 'Changer' : 'Ajouter')}
+            </button>
+            {bannerUrl && (
+              <button
+                type="button"
+                onClick={() => setBannerUrl(null)}
+                disabled={uploading}
+                aria-label="Retirer la bannière"
+                className="absolute left-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-accent shadow-sm backdrop-blur disabled:opacity-50"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            )}
+          </div>
+          <input
+            ref={bannerInput}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={e => {
+              const f = e.target.files?.[0]
+              if (f) handleBannerPick(f)
+              e.target.value = ''
+            }}
+          />
+          {uploadErr && <p className="mt-1.5 text-[11px] text-accent">{uploadErr}</p>}
+
+          {/* Avatar (display-only) — chevauche la bannière */}
+          <div className="-mt-10 flex justify-center">
+            {avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={avatarUrl}
+                alt=""
+                className="h-[84px] w-[84px] rounded-full object-cover"
+                style={{ border: '3px solid #fff' }}
+              />
+            ) : (
+              <div
+                className="flex h-[84px] w-[84px] items-center justify-center rounded-full bg-primary text-[32px] font-extrabold text-white"
+                style={{ border: '3px solid #fff' }}
+              >
+                {initial}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Name input */}
@@ -130,6 +229,28 @@ export default function EditProfileModal({ initialName, initialGenre = null, ema
           </div>
         </div>
 
+        {/* Confidentialité */}
+        <div className="mb-[18px]">
+          <label className="mb-2 block text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">
+            Confidentialité
+          </label>
+          <div className="space-y-2 rounded-2xl border border-bord bg-white p-3.5">
+            <ToggleRow
+              label="Apparaître sur la page « Les gens »"
+              hint="Décoche pour rester invisible dans la liste publique des membres."
+              checked={isPublic}
+              onChange={setIsPublic}
+            />
+            <div className="h-px bg-bordSoft" />
+            <ToggleRow
+              label="Apparaître dans la recherche"
+              hint="Décoche pour ne pas être trouvé via la barre de recherche."
+              checked={searchable}
+              onChange={setSearchable}
+            />
+          </div>
+        </div>
+
         {/* Email (readonly) */}
         <div className="mb-[18px]">
           <label className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">
@@ -159,5 +280,33 @@ export default function EditProfileModal({ initialName, initialGenre = null, ema
         </button>
       </div>
     </div>
+  )
+}
+
+function ToggleRow({
+  label, hint, checked, onChange,
+}: {
+  label: string
+  hint?: string
+  checked: boolean
+  onChange: (v: boolean) => void
+}) {
+  return (
+    <label className="flex w-full cursor-pointer items-center justify-between gap-3 py-1">
+      <div className="min-w-0 flex-1">
+        <div className="text-[13px] font-bold text-texte">{label}</div>
+        {hint && <div className="mt-0.5 text-[11px] text-texte-doux">{hint}</div>}
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        aria-pressed={checked}
+        className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? 'bg-primary' : 'bg-bord'}`}
+      >
+        <span
+          className={`absolute top-0.5 inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${checked ? 'left-[18px]' : 'left-0.5'}`}
+        />
+      </button>
+    </label>
   )
 }

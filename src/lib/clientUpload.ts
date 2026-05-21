@@ -19,7 +19,7 @@
 
 import { supabase } from '@/lib/supabase'
 
-export type UploadKind = 'event-image' | 'product-image' | 'admin-edit'
+export type UploadKind = 'event-image' | 'product-image' | 'admin-edit' | 'profile-banner'
 
 interface UploadOptions {
   file: Blob | File

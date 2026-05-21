@@ -14,14 +14,15 @@ import { requireUser } from '@/lib/server-auth'
  * sur le path d un autre, ou hors du bucket attendu).
  *
  * Body : { kind, mimeType, size, refId? }
- *   - kind 'event-image'   : event en cours de creation (random path)
- *   - kind 'product-image' : product image, refId = product id (ownership check)
- *   - kind 'admin-edit'    : admin uniquement, edits hero/carousel
+ *   - kind 'event-image'    : event en cours de creation (random path)
+ *   - kind 'product-image'  : product image, refId = product id (ownership check)
+ *   - kind 'admin-edit'     : admin uniquement, edits hero/carousel
+ *   - kind 'profile-banner' : banniere du profil de l user authentifie (path fixe par userId)
  *
  * Returns : { uploadUrl, token, publicUrl, path, bucket }
  */
 
-type UploadKind = 'event-image' | 'product-image' | 'admin-edit'
+type UploadKind = 'event-image' | 'product-image' | 'admin-edit' | 'profile-banner'
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const MAX_BYTES = 10 * 1024 * 1024 // 10 MB (max bucket configure)
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
   const size = Number(body?.size ?? 0)
   const refId = body?.refId ? String(body.refId) : null
 
-  if (!kind || !['event-image', 'product-image', 'admin-edit'].includes(kind)) {
+  if (!kind || !['event-image', 'product-image', 'admin-edit', 'profile-banner'].includes(kind)) {
     return NextResponse.json({ error: 'kind invalide' }, { status: 400 })
   }
   if (!ALLOWED_MIME.has(mimeType)) {
@@ -106,6 +107,12 @@ export async function POST(req: NextRequest) {
     bucket = 'product-images'
     // Path fixe par product : ecrase l image precedente automatiquement
     path = `products/${refId}.jpg`
+  } else if (kind === 'profile-banner') {
+    // Path FIXE par userId : on ecrase la banniere precedente. Le serveur impose
+    // le userId du token Bearer, jamais un userId envoye par le client → impossible
+    // d ecrire sur le path d un autre user.
+    bucket = 'avatars'
+    path = `banners/${ctx.userId}.${extFromMime(mimeType)}`
   } else {
     return NextResponse.json({ error: 'kind non géré' }, { status: 400 })
   }
@@ -113,7 +120,7 @@ export async function POST(req: NextRequest) {
   // Genere l URL signee (token a courte duree de vie, default ~2 min)
   const { data, error } = await supabaseAdmin.storage
     .from(bucket)
-    .createSignedUploadUrl(path, { upsert: kind === 'product-image' })
+    .createSignedUploadUrl(path, { upsert: kind === 'product-image' || kind === 'profile-banner' })
 
   if (error || !data) {
     return NextResponse.json({ error: error?.message ?? 'Erreur signed URL' }, { status: 500 })
