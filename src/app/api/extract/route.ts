@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
 import { extractWithClaude, geocodeWithGoogle, calcStatut } from '@/lib/extract'
 import { requireUser } from '@/lib/server-auth'
 import { rateLimit } from '@/lib/rateLimit'
@@ -75,7 +74,7 @@ export async function POST(req: NextRequest) {
 
     // Déduplication : même titre (insensible casse) + même date → doublon
     if (extracted.titre && extracted.date_debut) {
-      const { data: existing } = await supabase
+      const { data: existing } = await supabaseAdmin
         .from('evenements')
         .select('id')
         .ilike('titre', extracted.titre)
@@ -94,7 +93,7 @@ export async function POST(req: NextRequest) {
     if (extracted.lieu_nom || extracted.commune) {
       geo = await geocodeWithGoogle(extracted.lieu_nom, extracted.commune)
 
-      const { data: lieu, error: lieuErr } = await supabase
+      const { data: lieu, error: lieuErr } = await supabaseAdmin
         .from('lieux')
         .insert({
           nom: extracted.lieu_nom ?? extracted.commune,
@@ -121,7 +120,7 @@ export async function POST(req: NextRequest) {
       adresse: geo.adresse ?? extracted.lieu_adresse,
     })
 
-    const { data: evenement, error: evtErr } = await supabase
+    const { data: evenement, error: evtErr } = await supabaseAdmin
       .from('evenements')
       .insert({
         titre: extracted.titre,
