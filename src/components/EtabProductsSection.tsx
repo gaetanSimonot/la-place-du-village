@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { PRODUIT_CATS, PRODUIT_CATS_MAP, normalizeProduitCat } from '@/lib/produit-cats'
+import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
 
 interface Product {
   id: string; nom: string; categorie: string; prix_indicatif: string | null
@@ -18,24 +19,6 @@ const inp: React.CSSProperties = {
 async function getToken() {
   const { data: { session } } = await supabase.auth.getSession()
   return session?.access_token ?? null
-}
-
-function resizeImage(file: File, maxSize = 400): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    const url = URL.createObjectURL(file)
-    img.onload = () => {
-      URL.revokeObjectURL(url)
-      const scale = Math.min(maxSize / img.width, maxSize / img.height, 1)
-      const canvas = document.createElement('canvas')
-      canvas.width = Math.round(img.width * scale)
-      canvas.height = Math.round(img.height * scale)
-      canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
-      resolve(canvas.toDataURL('image/jpeg', 0.85).split(',')[1])
-    }
-    img.onerror = reject
-    img.src = url
-  })
 }
 
 export default function EtabProductsSection({ etabId }: { etabId: string }) {
@@ -126,12 +109,17 @@ export default function EtabProductsSection({ etabId }: { etabId: string }) {
   async function uploadImage(p: Product, file: File) {
     setUploadingId(p.id)
     try {
-      const base64 = await resizeImage(file)
+      // Upload direct browser -> Supabase via signed URL (zero transit Vercel)
+      const compressed = await compressImage(file, { maxDim: 1024, quality: 0.82 })
+      const { publicUrl } = await uploadViaSignedUrl({
+        file: compressed, kind: 'product-image', refId: p.id,
+      })
+      // Finalise cote serveur : ecrit image_url en DB + ownership re-check
       const token = await getToken()
       const res = await fetch(`/api/etablissements/${etabId}/products/${p.id}/image`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ base64 }),
+        body: JSON.stringify({ image_url: publicUrl }),
       })
       if (res.ok) { const d = await res.json(); setProducts(prev => prev.map(x => x.id === p.id ? { ...x, image_url: d.url } : x)) }
     } finally { setUploadingId(null) }
