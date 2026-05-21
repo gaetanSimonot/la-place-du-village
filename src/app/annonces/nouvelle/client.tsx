@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import AnnonceForm from '@/components/AnnonceForm'
-import BottomNavBar from '@/components/BottomNavBar'
 
 export default function NouvelleAnnonceClient() {
   const router = useRouter()
@@ -61,8 +60,6 @@ export default function NouvelleAnnonceClient() {
       <div className="px-4 pt-3">
         <AnnonceForm onSuccess={id => router.push(`/annonces/${id}`)} />
       </div>
-
-      <BottomNavBar />
     </div>
   )
 }
