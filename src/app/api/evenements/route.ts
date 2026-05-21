@@ -33,7 +33,11 @@ export async function POST(req: NextRequest) {
       titre, description, date_debut, date_fin, heure,
       categorie, lieu_nom, lieu_adresse, commune, code_postal,
       lat: bodyLat, lng: bodyLng, place_id_google: bodyPlaceId, adresse: bodyAdresse,
-      prix, contact, organisateurs, image, imageMimeType, image_position,
+      prix, contact, organisateurs,
+      // Nouveau flow : image_url (upload deja fait via signed URL cote
+      // client). Ancien flow conserve pour retro-compat : image base64 +
+      // imageMimeType -> upload serveur via supabaseAdmin.
+      image_url: bodyImageUrl, image, imageMimeType, image_position,
     } = body
 
     if (!titre?.trim()) {
@@ -83,7 +87,17 @@ export async function POST(req: NextRequest) {
     }
 
     let imageUrl: string | null = null
-    if (image) {
+    if (bodyImageUrl && typeof bodyImageUrl === 'string') {
+      // Nouveau flow : image deja uploadee par le client via signed URL.
+      // Verifie que l URL pointe bien vers notre Supabase Storage (anti
+      // injection : impossible d injecter une URL externe arbitraire).
+      const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+      if (!bodyImageUrl.startsWith(supaUrl + '/storage/v1/object/public/')) {
+        return NextResponse.json({ error: 'image_url invalide' }, { status: 400 })
+      }
+      imageUrl = bodyImageUrl
+    } else if (image) {
+      // Ancien flow (deprecated) : base64 -> upload serveur via supabaseAdmin
       const up = await uploadImage(image, imageMimeType || 'image/jpeg')
       if (up.error) {
         return NextResponse.json({ error: `Image refusée : ${up.error}` }, { status: 400 })

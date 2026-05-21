@@ -3,6 +3,7 @@ import { useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { ETAB_TYPES } from '@/lib/etablissement-types'
 import { PLAN_ORDER, PLANS_INFO } from '@/lib/capabilities'
+import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
 import type { Etablissement } from '@/lib/types'
 
 const s = {
@@ -13,24 +14,6 @@ const s = {
 const DAY_KEYS   = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
 const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 const ETAB_TYPES_KEYS = ['restaurant_bar', 'hebergement', 'artisan_service', 'sante_bien_etre', 'activite'] as const
-
-function resizeImage(file: File, maxSize = 900): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    const url = URL.createObjectURL(file)
-    img.onload = () => {
-      URL.revokeObjectURL(url)
-      const scale = Math.min(maxSize / img.width, maxSize / img.height, 1)
-      const canvas = document.createElement('canvas')
-      canvas.width = Math.round(img.width * scale)
-      canvas.height = Math.round(img.height * scale)
-      canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
-      resolve(canvas.toDataURL('image/jpeg', 0.85).split(',')[1])
-    }
-    img.onerror = reject
-    img.src = url
-  })
-}
 
 interface Props {
   etab: Etablissement
@@ -69,14 +52,10 @@ export default function EtabEditDrawer({ etab, isAdmin, onClose, onSaved }: Prop
     if (!file || photos.length >= 3) return
     setUploading(true)
     try {
-      const base64 = await resizeImage(file)
-      const res = await fetch('/api/admin/upload-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ base64, mimeType: file.type }),
-      })
-      const d = await res.json()
-      if (d.url) setPhotos(p => [...p, d.url])
+      // Upload direct browser -> Supabase via signed URL (zero transit Vercel)
+      const compressed = await compressImage(file, { maxDim: 1600, quality: 0.85 })
+      const { publicUrl } = await uploadViaSignedUrl({ file: compressed, kind: 'admin-edit' })
+      setPhotos(p => [...p, publicUrl])
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ''

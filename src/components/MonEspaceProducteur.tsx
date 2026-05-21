@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
 import ProductsEditSection from '@/components/ProductsEditSection'
 
 interface Producer {
@@ -128,20 +129,15 @@ export default function MonEspaceProducteur() {
 
   async function handlePhotoUpload(file: File) {
     setUploadingPhoto(true)
-    const reader = new FileReader()
-    reader.onload = async (e) => {
-      const base64 = (e.target?.result as string).split(',')[1]
-      const token = await getToken()
-      const res = await fetch('/api/admin/upload-image', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ base64, mimeType: file.type }),
-      })
-      const d = await res.json()
-      if (d.url) setEditData(p => ({ ...p, photos: [...(p.photos ?? []), d.url].slice(0, 3) }))
+    try {
+      // Upload direct browser -> Supabase via signed URL (kind event-image
+      // -> path formulaire/..., accepte tout user authentifie).
+      const compressed = await compressImage(file, { maxDim: 1600, quality: 0.85 })
+      const { publicUrl } = await uploadViaSignedUrl({ file: compressed, kind: 'event-image' })
+      setEditData(p => ({ ...p, photos: [...(p.photos ?? []), publicUrl].slice(0, 3) }))
+    } finally {
       setUploadingPhoto(false)
     }
-    reader.readAsDataURL(file)
   }
 
   async function deleteProducer() {

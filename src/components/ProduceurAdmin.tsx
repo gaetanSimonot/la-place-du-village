@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
+import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
 
 const PRODUIT_CATS = [
   { id: 'oeufs', label: 'Œufs' }, { id: 'legumes', label: 'Légumes' },
@@ -146,25 +147,18 @@ export default function ProduceurAdmin({ embedded }: { embedded?: boolean }) {
     if (d.lat) setForm(f => ({ ...f, lat: String(d.lat), lng: String(d.lng), commune: d.commune || f.commune, adresse: d.adresse || f.adresse }))
   }
 
-  // Upload photo
+  // Upload photo (admin) — direct browser -> Supabase via signed URL
   const uploadPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     setUploading(true)
-    const reader = new FileReader()
-    reader.onload = async (ev) => {
-      const base64 = (ev.target?.result as string).split(',')[1]
-      const t = await token()
-      const r = await fetch('/api/admin/upload-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
-        body: JSON.stringify({ base64, mimeType: file.type }),
-      })
-      const d = await r.json()
-      if (d.url) setForm(f => ({ ...f, photo_url: d.url }))
+    try {
+      const compressed = await compressImage(file, { maxDim: 1600, quality: 0.85 })
+      const { publicUrl } = await uploadViaSignedUrl({ file: compressed, kind: 'admin-edit' })
+      setForm(f => ({ ...f, photo_url: publicUrl }))
+    } finally {
       setUploading(false)
     }
-    reader.readAsDataURL(file)
   }
 
   // Ajouter un produit

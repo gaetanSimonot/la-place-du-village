@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '@/lib/supabase'
+import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
 
 interface Promotion {
   id: string
@@ -186,29 +187,12 @@ function PromotionForm({ etablissementId, etablissementPhotos, promo, onClose, o
   const handleUpload = async (file: File) => {
     setUploading(true); setError(null)
     try {
-      const reader = new FileReader()
-      const base64 = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => {
-          const result = reader.result as string
-          const b64 = result.split(',')[1] // strip data:image/...;base64, prefix
-          resolve(b64)
-        }
-        reader.onerror = () => reject(new Error('read fail'))
-        reader.readAsDataURL(file)
-      })
-      const r = await fetch('/api/admin/upload-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ base64, mimeType: file.type }),
-      })
-      if (r.ok) {
-        const d = await r.json()
-        setImageUrl(d.url)
-      } else {
-        setError('Échec upload image')
-      }
-    } catch {
-      setError('Erreur upload')
+      // Upload direct browser -> Supabase via signed URL (kind admin-edit)
+      const compressed = await compressImage(file, { maxDim: 1280, quality: 0.82 })
+      const { publicUrl } = await uploadViaSignedUrl({ file: compressed, kind: 'admin-edit' })
+      setImageUrl(publicUrl)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur upload')
     }
     setUploading(false)
   }

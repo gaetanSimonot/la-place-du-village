@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { validateImageUpload } from '@/lib/imageUpload'
 
 async function verifyUser(req: NextRequest) {
   const token = req.headers.get('Authorization')?.replace('Bearer ', '')
@@ -52,7 +51,9 @@ async function fetchPexelsUrl(nom: string, categorie: string): Promise<{ url: st
   } catch (e) { return { url: null, reason: String(e) } }
 }
 
-// POST: upload custom image (base64 → Supabase Storage)
+// POST: finalise une image custom apres upload direct client -> Supabase
+// (via signed URL). Le client a deja uploade le fichier en path products/${id}.jpg,
+// il nous passe juste l URL publique a stocker en DB.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const user = await verifyUser(req)
@@ -60,22 +61,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const item = await verifyOwnership(user.id, id)
   if (!item) return NextResponse.json({ error: 'Non trouvé' }, { status: 404 })
 
-  const { base64, mimeType } = await req.json()
-  const v = validateImageUpload(base64, mimeType)
-  if (!v.ok) return NextResponse.json({ error: v.error }, { status: v.status })
+  const { image_url } = await req.json()
+  if (!image_url || typeof image_url !== 'string') {
+    return NextResponse.json({ error: 'image_url requis' }, { status: 400 })
+  }
+  // Anti-injection : l URL doit pointer sur notre Supabase Storage
+  const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+  if (!image_url.startsWith(supaUrl + '/storage/v1/object/public/product-images/')) {
+    return NextResponse.json({ error: 'image_url invalide' }, { status: 400 })
+  }
 
-  const path = `products/${id}.jpg`
-
-  const { error: storageErr } = await supabaseAdmin.storage
-    .from('product-images')
-    .upload(path, v.buffer, { contentType: v.mimeType, upsert: true })
-
-  if (storageErr) return NextResponse.json({ error: storageErr.message }, { status: 500 })
-
-  const { data: { publicUrl } } = supabaseAdmin.storage.from('product-images').getPublicUrl(path)
-  await supabaseAdmin.from('products').update({ image_url: publicUrl }).eq('id', id)
-
-  return NextResponse.json({ url: publicUrl })
+  await supabaseAdmin.from('products').update({ image_url }).eq('id', id)
+  return NextResponse.json({ url: image_url })
 }
 
 // DELETE: remove custom image → revert to Pexels

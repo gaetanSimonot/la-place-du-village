@@ -8,6 +8,7 @@ import DicteeModal from '@/components/DicteeModal'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import { supabase } from '@/lib/supabase'
+import { compressToBase64 } from '@/lib/clientUpload'
 
 interface FormData {
   titre: string
@@ -68,19 +69,31 @@ export default function AjouterPage() {
   }, [authLoading, user, openAuthModal])
 
   // ─── Handlers ─────────────────────────────────────────────────────────
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    setImageMimeType(file.type || 'image/jpeg')
     setImagePosition('50% 50%')
-    const reader = new FileReader()
-    reader.onload = () => {
-      const result = reader.result as string
-      setImagePreviewUrl(result)
-      setImage(result.split(',')[1]) // base64 only for API
+    try {
+      // Compression agressive avant envoi serveur (Claude vision n a pas
+      // besoin de la HD originale). Reduit le payload Vercel de 50-70%.
+      const { base64, mimeType } = await compressToBase64(file, { maxDim: 1280, quality: 0.78 })
+      setImageMimeType(mimeType)
+      // Pour la preview, on reconstruit le dataURL depuis le base64 compresse
+      setImagePreviewUrl(`data:${mimeType};base64,${base64}`)
+      setImage(base64)
       setStep('crop')
+    } catch {
+      // Fallback : envoie l original sans compression si le canvas plante
+      const reader = new FileReader()
+      reader.onload = () => {
+        const result = reader.result as string
+        setImageMimeType(file.type || 'image/jpeg')
+        setImagePreviewUrl(result)
+        setImage(result.split(',')[1])
+        setStep('crop')
+      }
+      reader.readAsDataURL(file)
     }
-    reader.readAsDataURL(file)
   }
 
   const handlePhotoClick = (which: 'camera' | 'gallery') => {

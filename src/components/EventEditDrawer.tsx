@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Categorie, Evenement } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
+import { uploadViaSignedUrl, base64ToBlob, compressImage } from '@/lib/clientUpload'
 
 type Mode = 'edit' | 'crop' | 'fullscreen'
 interface Prediction { place_id: string; description: string; main: string; secondary: string }
@@ -395,7 +396,21 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
     setSaving(true); setError(null)
     try {
       if (!evenementId) {
-        // Mode création : POST à /api/evenements
+        // Mode création : pre-upload de l image via signed URL (zero transit
+        // Vercel), puis POST a /api/evenements avec image_url.
+        let uploadedImageUrl: string | null = null
+        if (newBase64) {
+          try {
+            const blob = base64ToBlob(newBase64, newMime)
+            const compressed = await compressImage(blob, { maxDim: 1600, quality: 0.85 })
+            const r = await uploadViaSignedUrl({ file: compressed, kind: 'event-image' })
+            uploadedImageUrl = r.publicUrl
+          } catch (upErr) {
+            const msg = upErr instanceof Error ? upErr.message : 'Erreur upload image'
+            throw new Error(`Image refusée : ${msg}`)
+          }
+        }
+
         const { data: { session } } = await supabase.auth.getSession()
         const headers: Record<string, string> = { 'Content-Type': 'application/json' }
         if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
@@ -410,7 +425,9 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
             lng: lng ? parseFloat(lng) : undefined,
             place_id_google: placeIdGoogle || null,
             prix: prix || null, contact: contact || null, organisateurs: organisateurs || null,
-            image: newBase64, imageMimeType: newMime, image_position: imagePosition,
+            // Nouveau : image_url deja uploadee. Plus de base64 = pas de
+            // transit Vercel pour l image.
+            image_url: uploadedImageUrl, image_position: imagePosition,
           }),
         })
         const d = await res.json()
@@ -422,13 +439,15 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
       // Mode édition : PATCH admin
       let finalUrl = imageUrl
       if (newBase64) {
-        const r = await fetch('/api/admin/upload-image', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ base64: newBase64, mimeType: newMime }),
-        })
-        const d = await r.json()
-        if (!r.ok) throw new Error(d.error)
-        finalUrl = d.url
+        // Upload via signed URL (kind admin-edit, ownership = isAdmin server)
+        try {
+          const blob = base64ToBlob(newBase64, newMime)
+          const compressed = await compressImage(blob, { maxDim: 1600, quality: 0.85 })
+          const r = await uploadViaSignedUrl({ file: compressed, kind: 'admin-edit' })
+          finalUrl = r.publicUrl
+        } catch (upErr) {
+          throw new Error(upErr instanceof Error ? upErr.message : 'Erreur upload')
+        }
       }
 
       const body: Record<string, unknown> = {
