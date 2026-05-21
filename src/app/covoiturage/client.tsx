@@ -390,6 +390,11 @@ function CovoitCard({ c }: { c: CovoitWithProf }) {
                   <path d="M12 2l3 6 6 1-4.5 4.5L18 20l-6-3-6 3 1.5-6.5L3 9l6-1z"/>
                 </svg>
               )}
+              {c.conducteur?.genre && (
+                <span className="shrink-0 text-[10px] font-medium text-texte-doux">
+                  · {c.conducteur.genre === 'homme' ? 'H' : c.conducteur.genre === 'femme' ? 'F' : 'A'}
+                </span>
+              )}
             </div>
             {(c.conducteur?.nombre_avis ?? 0) > 0 ? (
               <RatingStars value={c.conducteur?.note_moyenne} count={c.conducteur?.nombre_avis} size={11} />
