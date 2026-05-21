@@ -13,7 +13,15 @@ interface FullProfile {
   bio: string | null
   ville: string | null
   plan: string | null
+  genre: 'homme' | 'femme' | 'autre' | null
+  is_verified: boolean
   created_at?: string | null
+}
+
+interface CovoitStats {
+  note_moyenne: number | null
+  nombre_avis: number
+  trajets_effectues: number
 }
 
 interface AnnonceSnippet {
@@ -116,6 +124,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
   const [events, setEvents]                 = useState<EventSnippet[]>([])
   const [followings, setFollowings]         = useState<MiniProfile[]>([])
   const [stats, setStats]                   = useState<VendeurStats | null>(null)
+  const [covoitStats, setCovoitStats]       = useState<CovoitStats>({ note_moyenne: null, nombre_avis: 0, trajets_effectues: 0 })
 
   const [editing, setEditing]               = useState(false)
   const [editName, setEditName]             = useState('')
@@ -139,18 +148,27 @@ export default function ProfilPageClient({ id }: { id: string }) {
           { count: ing },
           { count: annCount },
           { data: vstats },
+          { data: cvStats },
+          { data: cvTrajets },
         ] = await Promise.all([
           supabase.from('profiles').select('*').eq('user_id', id).single(),
           supabase.from('follows').select('*', { count: 'exact', head: true }).eq('followed_id', id),
           supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
           supabase.from('annonces').select('*', { count: 'exact', head: true }).eq('user_id', id).in('statut', ['active', 'don_final', 'vendu']),
           supabase.from('vendeur_stats').select('note_moyenne, notes_count').eq('user_id', id).maybeSingle(),
+          supabase.from('covoit_conducteur_stats').select('note_moyenne, nombre_avis').eq('user_id', id).maybeSingle(),
+          supabase.from('covoit_conducteur_trajets').select('trajets_effectues').eq('user_id', id).maybeSingle(),
         ])
         if (p) setProfile({ ...p, id } as FullProfile)
         setFollowerCount(fc ?? 0)
         setFollowingCount(ing ?? 0)
         setAnnonceCount(annCount ?? 0)
         setStats(vstats as VendeurStats | null)
+        setCovoitStats({
+          note_moyenne:       (cvStats as { note_moyenne: number | null } | null)?.note_moyenne ?? null,
+          nombre_avis:        (cvStats as { nombre_avis: number } | null)?.nombre_avis ?? 0,
+          trajets_effectues:  (cvTrajets as { trajets_effectues: number } | null)?.trajets_effectues ?? 0,
+        })
 
         if (user) {
           const { data: f } = await supabase.from('follows')
@@ -325,10 +343,21 @@ export default function ProfilPageClient({ id }: { id: string }) {
 
         {!editing ? (
           <h1
-            className="m-0 mt-3.5 font-serif text-[26px] font-normal text-texte"
+            className="m-0 mt-3.5 flex items-center justify-center gap-1.5 font-serif text-[26px] font-normal text-texte"
             style={{ letterSpacing: '-0.02em' }}
           >
-            {name}
+            <span>{name}</span>
+            {profile.is_verified && (
+              <span
+                aria-label="Profil vérifié"
+                title="Profil vérifié"
+                className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </span>
+            )}
           </h1>
         ) : (
           <input
@@ -404,6 +433,30 @@ export default function ProfilPageClient({ id }: { id: string }) {
           />
         </div>
       </div>
+
+      {/* Section Covoiturage (V3) — affichée seulement si stats existent */}
+      {(covoitStats.trajets_effectues > 0 || covoitStats.nombre_avis > 0) && (
+        <div className="px-4 pt-3">
+          <div
+            className="flex items-stretch rounded-2xl border bg-white py-3 shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
+            style={{ borderColor: '#F0EAE0' }}
+          >
+            <Stat value={covoitStats.trajets_effectues} label="Trajets" />
+            <Divider />
+            <Stat
+              value={covoitStats.note_moyenne != null ? covoitStats.note_moyenne.toFixed(1).replace('.', ',') : '—'}
+              label="Note covoit"
+              iconRight={covoitStats.note_moyenne != null ? (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="#D4A93C">
+                  <polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9"/>
+                </svg>
+              ) : undefined}
+            />
+            <Divider />
+            <Stat value={covoitStats.nombre_avis} label="Avis covoit" />
+          </div>
+        </div>
+      )}
 
       {/* Actions */}
       <div className="flex gap-2 px-4 pt-[18px]">

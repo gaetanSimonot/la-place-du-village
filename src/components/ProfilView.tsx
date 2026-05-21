@@ -62,7 +62,7 @@ const ICONS = {
 }
 
 export default function ProfilView() {
-  const { user, profile, loading: authLoading, signOut, updateDisplayName } = useAuth()
+  const { user, profile, loading: authLoading, signOut, updateProfile } = useAuth()
   const isAdmin = useAdminSession()
   const theme = useTheme()
 
@@ -653,13 +653,15 @@ export default function ProfilView() {
       {editOpen && (
         <EditProfileModal
           initialName={profile?.display_name ?? ''}
+          initialGenre={(profile?.genre ?? null) as 'homme' | 'femme' | 'autre' | null}
           email={user.email ?? ''}
           avatarUrl={profile?.avatar_url ?? null}
           onClose={() => setEditOpen(false)}
-          onSave={async (name) => {
-            if (name.trim() && name.trim() !== profile?.display_name) {
-              await updateDisplayName(name.trim())
-            }
+          onSave={async (name, genre) => {
+            const patch: { display_name?: string; genre?: 'homme' | 'femme' | 'autre' | null } = {}
+            if (name.trim() && name.trim() !== profile?.display_name) patch.display_name = name.trim()
+            if (genre !== (profile?.genre ?? null))                   patch.genre = genre
+            if (Object.keys(patch).length > 0) await updateProfile(patch)
             setEditOpen(false)
           }}
         />

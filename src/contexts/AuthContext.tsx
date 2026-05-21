@@ -11,6 +11,8 @@ export interface Profile {
   username: string | null
   banned: boolean
   plan: string | null
+  genre?: 'homme' | 'femme' | 'autre' | null
+  is_verified?: boolean
 }
 
 interface AuthContextType {
@@ -20,6 +22,7 @@ interface AuthContextType {
   isAdmin: boolean
   signOut: () => Promise<void>
   updateDisplayName: (name: string) => Promise<void>
+  updateProfile: (patch: { display_name?: string; genre?: 'homme' | 'femme' | 'autre' | null }) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -29,6 +32,7 @@ const AuthContext = createContext<AuthContextType>({
   isAdmin: false,
   signOut: async () => {},
   updateDisplayName: async () => {},
+  updateProfile: async () => {},
 })
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -100,13 +104,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const updateDisplayName = async (name: string) => {
+    await updateProfile({ display_name: name })
+  }
+
+  const updateProfile = async (patch: { display_name?: string; genre?: 'homme' | 'femme' | 'autre' | null }) => {
     if (!user) return
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
     const res = await fetch('/api/profile', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ display_name: name }),
+      body: JSON.stringify(patch),
     })
     if (res.ok) {
       const d = await res.json()
@@ -115,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, isAdmin, signOut, updateDisplayName }}>
+    <AuthContext.Provider value={{ user, profile, loading, isAdmin, signOut, updateDisplayName, updateProfile }}>
       {children}
     </AuthContext.Provider>
   )

@@ -1,16 +1,20 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 
+type Genre = 'homme' | 'femme' | 'autre' | null
+
 interface Props {
-  initialName: string
-  email:       string
-  avatarUrl:   string | null
-  onClose:     () => void
-  onSave:      (name: string) => void | Promise<void>
+  initialName:  string
+  initialGenre?: Genre
+  email:        string
+  avatarUrl:    string | null
+  onClose:      () => void
+  onSave:       (name: string, genre: Genre) => void | Promise<void>
 }
 
-export default function EditProfileModal({ initialName, email, avatarUrl, onClose, onSave }: Props) {
-  const [name, setName] = useState(initialName)
+export default function EditProfileModal({ initialName, initialGenre = null, email, avatarUrl, onClose, onSave }: Props) {
+  const [name, setName]   = useState(initialName)
+  const [genre, setGenre] = useState<Genre>(initialGenre)
   const [saving, setSaving] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -28,8 +32,15 @@ export default function EditProfileModal({ initialName, email, avatarUrl, onClos
   async function handleSave() {
     if (saving) return
     setSaving(true)
-    try { await onSave(name) } finally { setSaving(false) }
+    try { await onSave(name, genre) } finally { setSaving(false) }
   }
+
+  const GENRE_OPTIONS: { value: Genre; label: string }[] = [
+    { value: 'homme', label: 'Homme' },
+    { value: 'femme', label: 'Femme' },
+    { value: 'autre', label: 'Autre' },
+    { value: null,    label: 'Préfère ne pas dire' },
+  ]
 
   const initial = (name || initialName || '?')[0]?.toUpperCase() ?? '?'
 
@@ -91,6 +102,32 @@ export default function EditProfileModal({ initialName, email, avatarUrl, onClos
             style={{ borderColor: name.trim() ? '#2D5A3D' : '#E8E0D4' }}
             maxLength={64}
           />
+        </div>
+
+        {/* Genre (optionnel) */}
+        <div className="mb-[18px]">
+          <label className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">
+            Genre <span className="font-normal text-texte-tres-doux">(optionnel)</span>
+          </label>
+          <div className="flex flex-wrap gap-1.5">
+            {GENRE_OPTIONS.map(opt => {
+              const active = genre === opt.value
+              return (
+                <button
+                  key={opt.label}
+                  type="button"
+                  onClick={() => setGenre(opt.value)}
+                  className={`rounded-full border px-3 py-1.5 text-[12px] font-bold transition-colors ${
+                    active
+                      ? 'border-primary bg-primary-light text-primary'
+                      : 'border-bord bg-white text-texte'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         {/* Email (readonly) */}
