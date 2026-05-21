@@ -1,6 +1,7 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
@@ -426,14 +427,25 @@ export default function HubView({
       {/* ── 2. Search bar ─────────────────────────────────────────────── */}
       <HubSearchBar onClick={onOpenSearch} />
 
-      {/* ── 3. Greeting + compteur events + EN DIRECT ─────────────────── */}
+      {/* ── 3. Greeting + bouton "Les gens" + compteur events + EN DIRECT ─ */}
       <div className="px-4 pt-[18px]">
-        <h1
-          className="m-0 font-serif text-[24px] leading-[1.1] text-texte"
-          style={{ letterSpacing: '-0.01em' }}
-        >
-          Bonjour, {firstName}
-        </h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1
+            className="m-0 min-w-0 flex-1 truncate font-serif text-[24px] leading-[1.1] text-texte"
+            style={{ letterSpacing: '-0.01em' }}
+          >
+            Bonjour, {firstName}
+          </h1>
+          <Link
+            href="/people"
+            className="flex shrink-0 items-center gap-1.5 rounded-full border border-bord bg-white px-3 py-1.5 text-[12px] font-bold text-texte no-underline"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            Les gens
+          </Link>
+        </div>
         <p className="mt-1 flex items-center gap-2 text-[13px] text-texte-doux">
           <span><span className="font-semibold text-texte">{totalNear}</span> événement{totalNear > 1 ? 's' : ''} près de toi</span>
           <span className="inline-flex items-center gap-1 rounded-full bg-[#E8F2EB] px-1.5 py-[2px] text-[9px] font-extrabold tracking-[0.06em] text-primary">
