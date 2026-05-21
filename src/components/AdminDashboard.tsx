@@ -9,15 +9,28 @@ import { CATEGORIES } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
 import DoublonsAdmin from '@/components/DoublonsAdmin'
 import ZoneAdmin from '@/components/ZoneAdmin'
-import AdminInbox from '@/components/AdminInbox'
 import MembresAdmin from '@/components/MembresAdmin'
 import ProduceurAdmin from '@/components/ProduceurAdmin'
 import DemandesAdmin from '@/components/DemandesAdmin'
 import EventEditDrawer from '@/components/EventEditDrawer'
 
-type Section  = 'agenda' | 'annuaire' | 'membres' | 'demandes' | 'parametres'
-type Onglet   = 'inbox' | 'soumissions' | 'a_traiter' | 'publie' | 'rejete' | 'scrap' | 'doublons' | 'zone'
+// ─────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────
+
+type Section    = 'evenements' | 'etablissements' | 'parametres'
+type EventTab   = 'collector' | 'soumission' | 'scrap'
+type SubFilter  = 'publies' | 'a_traiter' | 'rejetes'
+type ParamPanel =
+  | 'config'
+  | 'membres'
+  | 'demandes'
+  | 'signalements'
+  | 'doublons'
+  | 'zone'
+  | 'admins'
 type SortKey  = 'created_desc' | 'created_asc' | 'date_asc' | 'date_desc'
+
 const PAGE_SIZE = 20
 
 interface Feedback {
@@ -36,21 +49,55 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: 'date_desc',    label: 'Date événement ↓' },
 ]
 
+const SOURCES_BY_TAB: Record<EventTab, string[]> = {
+  collector:  ['whatsapp', 'signal'],
+  soumission: ['formulaire'],
+  scrap:      ['scrape'],
+}
+
+const STATUTS_BY_FILTER: Record<SubFilter, string[]> = {
+  publies:   ['publie'],
+  a_traiter: ['en_attente', 'a_verifier'],
+  rejetes:   ['rejete', 'archive'],
+}
+
+const TAB_LABELS: Record<EventTab, string> = {
+  collector:  '📥 Collector',
+  soumission: '👥 Soumissions',
+  scrap:      '🌐 Scrap',
+}
+
+const FILTER_LABELS: Record<SubFilter, string> = {
+  publies:   'Publiés',
+  a_traiter: 'À traiter',
+  rejetes:   'Rejetés',
+}
+
+const SOURCE_LABELS: Record<string, string> = {
+  whatsapp:   '💬 WhatsApp',
+  signal:     '💬 Signal',
+  formulaire: '✍️ Formulaire',
+  scrape:     '🌐 Scrape',
+}
+
+// ─────────────────────────────────────────────────────────
+// Composant principal
+// ─────────────────────────────────────────────────────────
+
 export default function AdminDashboard() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
   const [adminVerified, setAdminVerified] = useState(false)
 
-  // Auth guard — redirige si non connecté ou non admin
-  // Ne re-vérifie pas si déjà validé (évite l'éjection sur resume Android)
+  // Auth guard
   useEffect(() => {
     if (adminVerified) return
     if (authLoading) return
     if (!user?.email) { router.replace('/'); return }
     supabase.from('admin_emails').select('email').eq('email', user.email).maybeSingle()
       .then(({ data, error }) => {
-        if (error) return // erreur réseau — ne pas rediriger
+        if (error) return
         if (!data) router.replace('/')
         else {
           setAdminVerified(true)
@@ -59,11 +106,91 @@ export default function AdminDashboard() {
       })
   }, [adminVerified, authLoading, user, router])
 
-  // Admins management state
-  const [adminList, setAdminList]     = useState<{ email: string; created_at: string }[]>([])
-  const [adminInput, setAdminInput]   = useState('')
-  const [adminLoading, setAdminLoading] = useState(false)
-  const [adminError, setAdminError]   = useState('')
+  // ── Section / sous-onglet / sous-filtre ──
+  const initialSection: Section = (() => {
+    const s = searchParams?.get('section')
+    if (s === 'evenements' || s === 'etablissements' || s === 'parametres') return s
+    return 'evenements'
+  })()
+
+  const [section, setSection]       = useState<Section>(initialSection)
+  const [evtTab, setEvtTab]         = useState<EventTab>('collector')
+  const [subFilter, setSubFilter]   = useState<SubFilter>('a_traiter')
+  const [paramPanel, setParamPanel] = useState<ParamPanel>('config')
+
+  // ── Data state ──
+  const [evenements, setEvenements] = useState<Evenement[]>([])
+  const [feedbacks, setFeedbacks]   = useState<Feedback[]>([])
+  const [loading, setLoading]       = useState(true)
+  const [actionId, setActionId]     = useState<string | null>(null)
+  const [selection, setSelection]   = useState<Set<string>>(new Set())
+  const [bulkLoading, setBulkLoading] = useState(false)
+  const [editId, setEditId]         = useState<string | null>(null)
+
+  // ── Counts par onglet (juste "à traiter" pour le badge) ──
+  const [tabCounts, setTabCounts] = useState<Record<EventTab, number>>({
+    collector: 0, soumission: 0, scrap: 0,
+  })
+  const [demandesCount, setDemandesCount] = useState(0)
+
+  // ── Config admin (sous-panel "config") ──
+  const [masquerPasses, setMasquerPasses]       = useState(false)
+  const [togglingConfig, setTogglingConfig]     = useState(false)
+  const [hubSubtitle, setHubSubtitle]           = useState('')
+  const [hubSubtitleInput, setHubSubtitleInput] = useState('')
+  const [savingSubtitle, setSavingSubtitle]     = useState(false)
+
+  // ── Admins list (sous-panel "admins") ──
+  const [adminList, setAdminList]         = useState<{ email: string; created_at: string }[]>([])
+  const [adminInput, setAdminInput]       = useState('')
+  const [adminLoading, setAdminLoading]   = useState(false)
+  const [adminError, setAdminError]       = useState('')
+
+  // ── Recherche / tri / pagination (liste events) ──
+  const [search, setSearch] = useState('')
+  const [sort, setSort]     = useState<SortKey>('created_desc')
+  const [page, setPage]     = useState(1)
+  const [onlyFeedbacks, setOnlyFeedbacks] = useState(false)
+  const [expandedFeedback, setExpandedFeedback] = useState<Set<string>>(new Set())
+
+  // ─────────────────────────────────────────────────────────
+  // Fetchers
+  // ─────────────────────────────────────────────────────────
+
+  const fetchEvents = useCallback(async (tab: EventTab, sub: SubFilter) => {
+    setLoading(true)
+    const { data } = await supabase
+      .from('evenements')
+      .select('id, titre, description, categorie, date_debut, statut, source, created_at, lieu_id, doublon_verifie, image_url, image_position, promotion, submitted_by, submitted_by_name, vote_count, publish_at, lieux(id, nom, commune, lat, lng, place_id_google)')
+      .in('source', SOURCES_BY_TAB[tab])
+      .in('statut', STATUTS_BY_FILTER[sub])
+      .order('created_at', { ascending: false })
+      .limit(100)
+    setEvenements((data as unknown as Evenement[]) ?? [])
+    setLoading(false)
+  }, [])
+
+  const fetchTabCounts = useCallback(async () => {
+    const [c1, c2, c3] = await Promise.all([
+      supabase.from('evenements').select('id', { count: 'exact', head: true })
+        .in('source', SOURCES_BY_TAB.collector).in('statut', STATUTS_BY_FILTER.a_traiter),
+      supabase.from('evenements').select('id', { count: 'exact', head: true })
+        .in('source', SOURCES_BY_TAB.soumission).in('statut', STATUTS_BY_FILTER.a_traiter),
+      supabase.from('evenements').select('id', { count: 'exact', head: true })
+        .in('source', SOURCES_BY_TAB.scrap).in('statut', STATUTS_BY_FILTER.a_traiter),
+    ])
+    setTabCounts({
+      collector:  c1.count ?? 0,
+      soumission: c2.count ?? 0,
+      scrap:      c3.count ?? 0,
+    })
+  }, [])
+
+  const fetchFeedbacks = useCallback(async () => {
+    const res = await fetch('/api/admin/feedbacks')
+    const data = res.ok ? await res.json() : []
+    setFeedbacks(Array.isArray(data) ? data : [])
+  }, [])
 
   const fetchAdmins = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -73,144 +200,47 @@ export default function AdminDashboard() {
     if (res.ok) setAdminList(await res.json())
   }, [])
 
-  const addAdmin = async () => {
-    const email = adminInput.trim().toLowerCase()
-    if (!email.includes('@')) return
-    setAdminLoading(true); setAdminError('')
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/admin/admins', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-      body: JSON.stringify({ email }),
-    })
-    const json = await res.json()
-    if (!res.ok) setAdminError(json.error ?? 'Erreur')
-    else { setAdminInput(''); fetchAdmins() }
-    setAdminLoading(false)
-  }
-
-  const removeAdmin = async (email: string) => {
-    if (!confirm(`Retirer ${email} des admins ?`)) return
-    const { data: { session } } = await supabase.auth.getSession()
-    await fetch('/api/admin/admins', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-      body: JSON.stringify({ email }),
-    })
-    fetchAdmins()
-  }
-
-  const initialSection: Section = (() => {
-    const s = searchParams?.get('section')
-    if (s === 'agenda' || s === 'annuaire' || s === 'membres' || s === 'demandes' || s === 'parametres') return s
-    return 'agenda'
-  })()
-  const [section, setSection]           = useState<Section>(initialSection)
-  const [demandesCount, setDemandesCount] = useState(0)
-  const [onglet, setOnglet]             = useState<Onglet>('a_traiter')
-  const [evenements, setEvenements]     = useState<Evenement[]>([])
-  const [feedbacks, setFeedbacks]       = useState<Feedback[]>([])
-  const [loading, setLoading]           = useState(true)
-  const [actionId, setActionId]         = useState<string | null>(null)
-  const [selection, setSelection]       = useState<Set<string>>(new Set())
-  const [bulkLoading, setBulkLoading]   = useState(false)
-  const [masquerPasses, setMasquerPasses]   = useState(false)
-  const [togglingConfig, setTogglingConfig] = useState(false)
-  const [hubSubtitle, setHubSubtitle]       = useState('')
-  const [hubSubtitleInput, setHubSubtitleInput] = useState('')
-  const [savingSubtitle, setSavingSubtitle] = useState(false)
-  const [search, setSearch]             = useState('')
-  const [sort, setSort]                 = useState<SortKey>('created_desc')
-  const [page, setPage]                 = useState(1)
-  const [onlyFeedbacks, setOnlyFeedbacks] = useState(false)
-  const [expandedFeedback, setExpandedFeedback] = useState<Set<string>>(new Set())
-  const [inboxCount, setInboxCount]             = useState(0)
-  const [tabCounts, setTabCounts]               = useState({ a_traiter: 0, publie: 0, rejete: 0, scrap: 0, soumissions: 0 })
-  const [editId, setEditId]                     = useState<string | null>(null)
-  const [soumissions, setSoumissions]           = useState<Evenement[]>([])
-
-  const fetchTabCounts = useCallback(async () => {
-    const [r1, r2, r3, r4, r5] = await Promise.all([
-      supabase.from('evenements').select('id', { count: 'exact', head: true }).neq('source', 'scrape').in('statut', ['en_attente', 'a_verifier']),
-      supabase.from('evenements').select('id', { count: 'exact', head: true }).eq('statut', 'publie'),
-      supabase.from('evenements').select('id', { count: 'exact', head: true }).eq('statut', 'rejete'),
-      supabase.from('evenements').select('id', { count: 'exact', head: true }).eq('source', 'scrape').in('statut', ['en_attente', 'a_verifier']),
-      supabase.from('evenements').select('id', { count: 'exact', head: true }).not('submitted_by', 'is', null).in('statut', ['en_attente', 'a_verifier', 'archive']),
-    ])
-    setTabCounts({
-      a_traiter:   r1.count ?? 0,
-      publie:      r2.count ?? 0,
-      rejete:      r3.count ?? 0,
-      scrap:       r4.count ?? 0,
-      soumissions: r5.count ?? 0,
-    })
-  }, [])
-
-  const fetchSoumissions = useCallback(async () => {
-    const { data } = await supabase
-      .from('evenements')
-      .select('id, titre, categorie, date_debut, statut, source, created_at, lieu_id, image_url, image_position, submitted_by, submitted_by_name, publish_at, lieux(id, nom, commune)')
-      .not('submitted_by', 'is', null)
-      .order('created_at', { ascending: false })
-      .limit(100)
-    setSoumissions((data as unknown as Evenement[]) ?? [])
-  }, [])
-
-  const fetchTabData = useCallback(async (tab: Onglet) => {
-    if (tab === 'doublons' || tab === 'zone' || tab === 'inbox' || tab === 'soumissions') return
-    setLoading(true)
-    let query = supabase
-      .from('evenements')
-      .select('id, titre, categorie, date_debut, statut, source, created_at, lieu_id, doublon_verifie, image_url, image_position, promotion, submitted_by_name, vote_count, lieux(id, nom, commune, lat, lng, place_id_google)')
-      .order('created_at', { ascending: false })
-      .limit(100)
-
-    if (tab === 'a_traiter') {
-      query = query.neq('source', 'scrape').in('statut', ['en_attente', 'a_verifier', 'publie'])
-    } else if (tab === 'publie') {
-      query = query.eq('statut', 'publie')
-    } else if (tab === 'rejete') {
-      query = query.eq('statut', 'rejete')
-    } else if (tab === 'scrap') {
-      query = query.eq('source', 'scrape').in('statut', ['en_attente', 'a_verifier'])
-    }
-
-    const { data } = await query
-    setEvenements((data as unknown as Evenement[]) ?? [])
-    setLoading(false)
-  }, [])
-
-  const fetchAll = useCallback(async () => {
-    const [{ data: cfg }, { data: subCfg }, fbRes] = await Promise.all([
+  const fetchConfig = useCallback(async () => {
+    const [{ data: cfg }, { data: subCfg }] = await Promise.all([
       supabase.from('config').select('value').eq('key', 'masquer_passes').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'hub_subtitle').maybeSingle(),
-      fetch('/api/admin/feedbacks'),
     ])
     setMasquerPasses(cfg?.value === 'true')
     const sub = subCfg?.value ?? 'Tout le village, à portée de main'
     setHubSubtitle(sub)
     setHubSubtitleInput(sub)
-    const fbData = fbRes.ok ? await fbRes.json() : []
-    setFeedbacks(Array.isArray(fbData) ? fbData : [])
-    await fetchTabData(onglet)
-    fetchTabCounts()
-  }, [onglet, fetchTabData, fetchTabCounts])
-
-  // Cleanup silencieux au chargement
-  useEffect(() => {
-    fetch('/api/admin/cleanup', { method: 'POST' }).catch(() => {})
   }, [])
 
-  useEffect(() => { fetchAll() }, [fetchAll])
-  useEffect(() => {
-    setSelection(new Set()); setPage(1); fetchTabData(onglet)
-    if (onglet === 'soumissions') fetchSoumissions()
-  }, [onglet]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (section === 'parametres') fetchAdmins()
-  }, [section]) // eslint-disable-line react-hooks/exhaustive-deps
+  // ─────────────────────────────────────────────────────────
+  // Effects
+  // ─────────────────────────────────────────────────────────
 
-  // Badge "Demandes" — count pending, refresh quand on quitte la section demandes
+  // Cleanup silencieux au chargement
+  useEffect(() => { fetch('/api/admin/cleanup', { method: 'POST' }).catch(() => {}) }, [])
+
+  // Fetch initial après auth OK
+  useEffect(() => {
+    if (!adminVerified) return
+    fetchEvents(evtTab, subFilter)
+    fetchTabCounts()
+    fetchFeedbacks()
+    fetchConfig()
+  }, [adminVerified]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Refresh events à chaque changement onglet/filtre
+  useEffect(() => {
+    if (!adminVerified) return
+    setSelection(new Set())
+    setPage(1)
+    fetchEvents(evtTab, subFilter)
+  }, [evtTab, subFilter, adminVerified]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch admins quand on bascule sur le panel admins
+  useEffect(() => {
+    if (section === 'parametres' && paramPanel === 'admins') fetchAdmins()
+  }, [section, paramPanel]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Badge "Demandes" count
   useEffect(() => {
     if (!adminVerified) return
     supabase
@@ -218,19 +248,20 @@ export default function AdminDashboard() {
       .select('id', { count: 'exact', head: true })
       .eq('traite', false)
       .then(({ count }) => setDemandesCount(count ?? 0))
-  }, [adminVerified, section])
+  }, [adminVerified, section, paramPanel])
 
-  // Sync section depuis le query param (ex: /admin?section=demandes depuis une notif)
+  // Sync section depuis query param
   useEffect(() => {
     const s = searchParams?.get('section')
-    if (s === 'agenda' || s === 'annuaire' || s === 'membres' || s === 'demandes' || s === 'parametres') {
-      setSection(s)
-    }
+    if (s === 'evenements' || s === 'etablissements' || s === 'parametres') setSection(s)
   }, [searchParams])
 
   useEffect(() => { setPage(1) }, [search, sort, onlyFeedbacks])
 
-  // Index feedbacks par evenement_id
+  // ─────────────────────────────────────────────────────────
+  // Memoized derivations
+  // ─────────────────────────────────────────────────────────
+
   const feedbacksByEvent = useMemo(() => {
     const map = new Map<string, Feedback[]>()
     for (const fb of feedbacks) {
@@ -241,6 +272,50 @@ export default function AdminDashboard() {
   }, [feedbacks])
 
   const totalFeedbacks = feedbacks.length
+
+  const afterFbFilter = useMemo(() =>
+    onlyFeedbacks ? evenements.filter(e => feedbacksByEvent.has(e.id)) : evenements
+  , [evenements, onlyFeedbacks, feedbacksByEvent])
+
+  const q = search.trim().toLowerCase()
+  const afterSearch = useMemo(() => {
+    if (!q) return afterFbFilter
+    return afterFbFilter.filter(e => {
+      const titre   = (e.titre ?? '').toLowerCase()
+      const lieu    = (e.lieux?.nom ?? '').toLowerCase()
+      const commune = (e.lieux?.commune ?? '').toLowerCase()
+      const desc    = (e.description ?? '').toLowerCase()
+      return titre.includes(q) || lieu.includes(q) || commune.includes(q) || desc.includes(q)
+    })
+  }, [afterFbFilter, q])
+
+  const sorted = useMemo(() => {
+    const arr = [...afterSearch]
+    // Sur "À traiter" du collector ou de soumission, on priorise les lieux approximatifs
+    if (subFilter === 'a_traiter' && !q && !onlyFeedbacks) {
+      arr.sort((a, b) => {
+        const approxDiff = (isApproxLocation(a.lieux) ? 0 : 1) - (isApproxLocation(b.lieux) ? 0 : 1)
+        if (approxDiff !== 0) return approxDiff
+        return applySortKey(sort, a, b)
+      })
+      return arr
+    }
+    arr.sort((a, b) => applySortKey(sort, a, b))
+    return arr
+  }, [afterSearch, sort, subFilter, q, onlyFeedbacks])
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
+  const paginated  = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  const allSelected = paginated.length > 0 && paginated.every(e => selection.has(e.id))
+  const toggleAll   = () => {
+    if (allSelected) setSelection(new Set())
+    else setSelection(new Set(paginated.map(e => e.id)))
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // Actions
+  // ─────────────────────────────────────────────────────────
 
   const toggleMasquerPasses = async () => {
     const next = !masquerPasses
@@ -274,7 +349,7 @@ export default function AdminDashboard() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ statut }),
     })
-    await fetchTabData(onglet)
+    await fetchEvents(evtTab, subFilter)
     fetchTabCounts()
     setActionId(null)
   }
@@ -315,7 +390,7 @@ export default function AdminDashboard() {
       })
     ))
     setSelection(new Set())
-    await fetchTabData(onglet)
+    await fetchEvents(evtTab, subFilter)
     fetchTabCounts()
     setBulkLoading(false)
   }
@@ -323,7 +398,8 @@ export default function AdminDashboard() {
   const toggleSelect = (id: string) => {
     setSelection(prev => {
       const next = new Set(prev)
-      if (next.has(id)) { next.delete(id) } else { next.add(id) }
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
       return next
     })
   }
@@ -331,68 +407,42 @@ export default function AdminDashboard() {
   const toggleExpandFeedback = (id: string) => {
     setExpandedFeedback(prev => {
       const next = new Set(prev)
-      if (next.has(id)) { next.delete(id) } else { next.add(id) }
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
       return next
     })
   }
 
-  // Filtrage par onglet
-  const byOnglet = useMemo(() => evenements.filter(e => {
-    if (onglet === 'scrap')     return e.source === 'scrape' && (e.statut === 'en_attente' || e.statut === 'a_verifier')
-    if (onglet === 'a_traiter') return e.source !== 'scrape' && (e.statut === 'en_attente' || e.statut === 'a_verifier' || (e.statut === 'publie' && isApproxLocation(e.lieux)))
-    return e.statut === onglet
-  }), [evenements, onglet])
-
-  // Filtre signalements
-  const afterFbFilter = useMemo(() =>
-    onlyFeedbacks ? byOnglet.filter(e => feedbacksByEvent.has(e.id)) : byOnglet
-  , [byOnglet, onlyFeedbacks, feedbacksByEvent])
-
-  // Recherche dynamique
-  const q = search.trim().toLowerCase()
-  const afterSearch = useMemo(() => {
-    if (!q) return afterFbFilter
-    return afterFbFilter.filter(e => {
-      const titre   = (e.titre ?? '').toLowerCase()
-      const lieu    = (e.lieux?.nom ?? '').toLowerCase()
-      const commune = (e.lieux?.commune ?? '').toLowerCase()
-      const desc    = (e.description ?? '').toLowerCase()
-      return titre.includes(q) || lieu.includes(q) || commune.includes(q) || desc.includes(q)
+  const addAdmin = async () => {
+    const email = adminInput.trim().toLowerCase()
+    if (!email.includes('@')) return
+    setAdminLoading(true); setAdminError('')
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/admins', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ email }),
     })
-  }, [afterFbFilter, q])
-
-  // Tri
-  const sorted = useMemo(() => {
-    const arr = [...afterSearch]
-    if (onglet === 'a_traiter' && !q && !onlyFeedbacks) {
-      arr.sort((a, b) => {
-        const approxDiff = (isApproxLocation(a.lieux) ? 0 : 1) - (isApproxLocation(b.lieux) ? 0 : 1)
-        if (approxDiff !== 0) return approxDiff
-        return applySortKey(sort, a, b)
-      })
-      return arr
-    }
-    arr.sort((a, b) => applySortKey(sort, a, b))
-    return arr
-  }, [afterSearch, sort, onglet, q, onlyFeedbacks])
-
-  const counts = {
-    inbox:       inboxCount,
-    soumissions: tabCounts.soumissions,
-    a_traiter:   tabCounts.a_traiter,
-    publie:      tabCounts.publie,
-    rejete:      tabCounts.rejete,
-    scrap:       tabCounts.scrap,
+    const json = await res.json()
+    if (!res.ok) setAdminError(json.error ?? 'Erreur')
+    else { setAdminInput(''); fetchAdmins() }
+    setAdminLoading(false)
   }
 
-  const totalPages  = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
-  const paginated   = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-
-  const allSelected = paginated.length > 0 && paginated.every(e => selection.has(e.id))
-  const toggleAll   = () => {
-    if (allSelected) setSelection(new Set())
-    else setSelection(new Set(paginated.map(e => e.id)))
+  const removeAdmin = async (email: string) => {
+    if (!confirm(`Retirer ${email} des admins ?`)) return
+    const { data: { session } } = await supabase.auth.getSession()
+    await fetch('/api/admin/admins', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ email }),
+    })
+    fetchAdmins()
   }
+
+  // ─────────────────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────────────────
 
   if (authLoading || !adminVerified) return (
     <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FBF7F0' }}>
@@ -400,29 +450,26 @@ export default function AdminDashboard() {
     </div>
   )
 
+  const totalATraiter = tabCounts.collector + tabCounts.soumission + tabCounts.scrap
+
   return (
     <div className="min-h-screen bg-[#FBF7F0] pb-24">
-      {/* Header */}
+      {/* ─── Header ─────────────────────────────────────────── */}
       <div className="bg-[#2C1810] text-white px-4 py-4 flex items-center gap-3">
         <Link href="/" className="text-[#C4622D] text-xl font-bold">←</Link>
         <h1 className="font-bold text-lg flex-1">Back-office</h1>
-        <Link href="/admin/prompts" className="text-xs text-[#C4622D] font-semibold border border-[#C4622D] px-2 py-1 rounded-lg">
-          IA
-        </Link>
-        <Link href="/admin/sources" className="text-xs text-[#C4622D] font-semibold border border-[#C4622D] px-2 py-1 rounded-lg">
-          Sources
-        </Link>
-        <button onClick={fetchAll} className="text-xs text-gray-400 underline">↺</button>
+        <button
+          onClick={() => { fetchEvents(evtTab, subFilter); fetchTabCounts(); fetchFeedbacks() }}
+          className="text-xs text-gray-400 underline"
+        >↺</button>
       </div>
 
-      {/* Section nav */}
+      {/* ─── Nav 3 sections ─────────────────────────────────── */}
       <div className="flex border-b-2 border-[#E8E0D5] bg-white">
         {([
-          { key: 'agenda',     label: '📅 Agenda',     badge: (tabCounts.a_traiter + inboxCount) || 0 },
-          { key: 'annuaire',   label: '🗺 Annuaire',   badge: 0 },
-          { key: 'membres',    label: '👥 Membres',    badge: 0 },
-          { key: 'demandes',   label: '📋 Demandes',   badge: demandesCount },
-          { key: 'parametres', label: '⚙️ Paramètres', badge: 0 },
+          { key: 'evenements',    label: '📅 Événements',    badge: totalATraiter },
+          { key: 'etablissements', label: '🗺 Établissements', badge: 0 },
+          { key: 'parametres',    label: '⚙️ Paramètres',    badge: demandesCount + totalFeedbacks },
         ] as { key: Section; label: string; badge: number }[]).map(s => (
           <button
             key={s.key}
@@ -439,465 +486,221 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* Agenda — masquer passés toggle + onglets */}
-      {section === 'agenda' && (
-        <div className="bg-[#3D2318] px-4 py-2 flex items-center gap-3">
-          <label className="flex items-center gap-2.5 cursor-pointer select-none flex-1" onClick={toggleMasquerPasses}>
-            <div className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${masquerPasses ? 'bg-orange-500' : 'bg-gray-600'}`}>
-              <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all duration-200 ${masquerPasses ? 'left-4' : 'left-0.5'}`} />
-            </div>
-            <span className="text-xs text-gray-300">Masquer les passés</span>
-            {togglingConfig && <span className="text-xs text-gray-500">…</span>}
-          </label>
-        </div>
-      )}
+      {/* ═══════════════════════════════════════════════════════ */}
+      {/* SECTION ÉVÉNEMENTS                                       */}
+      {/* ═══════════════════════════════════════════════════════ */}
+      {section === 'evenements' && (
+        <>
+          {/* Onglets source : Collector / Soumission / Scrap */}
+          <div className="flex border-b border-[#E8E0D5] bg-white">
+            {(['collector', 'soumission', 'scrap'] as EventTab[]).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setEvtTab(tab)}
+                className={`flex-1 py-2.5 text-xs font-semibold flex items-center justify-center gap-1 transition-colors px-1.5 ${
+                  evtTab === tab ? 'text-[#C4622D] border-b-2 border-[#C4622D]' : 'text-gray-400'
+                }`}
+              >
+                {TAB_LABELS[tab]}
+                {tabCounts[tab] > 0 && (
+                  <span className="bg-orange-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                    {tabCounts[tab]}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
 
-      {section === 'agenda' && (
-        <div className="flex border-b border-[#E8E0D5] bg-white overflow-x-auto">
-          {([
-            { key: 'inbox',       label: '📥 Réception',   color: 'bg-red-500'    },
-            { key: 'soumissions', label: '👥 Soumissions', color: 'bg-indigo-500' },
-            { key: 'a_traiter',   label: 'À traiter',      color: 'bg-orange-500' },
-            { key: 'scrap',       label: 'Scrap',          color: 'bg-blue-500'   },
-            { key: 'publie',      label: 'Publiés',        color: 'bg-green-500'  },
-            { key: 'rejete',      label: 'Rejetés',        color: 'bg-gray-400'   },
-            { key: 'doublons',    label: '🔀 Doublons',    color: 'bg-amber-500'  },
-            { key: 'zone',        label: '📍 Zone',        color: 'bg-teal-500'   },
-          ] as { key: Onglet; label: string; color: string }[]).map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setOnglet(tab.key)}
-              className={`flex-1 py-2.5 text-xs font-semibold flex items-center justify-center gap-1 transition-colors whitespace-nowrap px-1.5 ${
-                onglet === tab.key ? 'text-[#C4622D] border-b-2 border-[#C4622D]' : 'text-gray-400'
-              }`}
-            >
-              {tab.label}
-              {counts[tab.key as keyof typeof counts] > 0 && (
-                <span className={`${tab.color} text-white text-xs rounded-full w-4 h-4 flex items-center justify-center`}>
-                  {counts[tab.key as keyof typeof counts]}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Annuaire section */}
-      {section === 'annuaire' && <ProduceurAdmin embedded />}
-
-      {/* Membres section */}
-      {section === 'membres' && <MembresAdmin />}
-
-      {/* Demandes section */}
-      {section === 'demandes' && <DemandesAdmin />}
-
-      {/* Paramètres section */}
-      {section === 'parametres' && (
-        <div className="p-4 max-w-md mx-auto space-y-6">
-          <div className="bg-white rounded-2xl p-4 shadow-sm">
-            <p className="font-bold text-[#2C1810] text-sm mb-3">Affichage agenda</p>
-            <label className="flex items-center gap-3 cursor-pointer select-none" onClick={toggleMasquerPasses}>
-              <div className={`relative w-10 h-6 rounded-full transition-colors duration-200 ${masquerPasses ? 'bg-orange-500' : 'bg-gray-300'}`}>
-                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all duration-200 ${masquerPasses ? 'left-5' : 'left-1'}`} />
+          {/* Sous-filtres statut : Publiés / À traiter / Rejetés */}
+          <div className="flex border-b border-[#E8E0D5] bg-[#FBF7F0] gap-1 px-3 py-2 overflow-x-auto">
+            {(['publies', 'a_traiter', 'rejetes'] as SubFilter[]).map(f => {
+              const active = subFilter === f
+              return (
+                <button
+                  key={f}
+                  onClick={() => setSubFilter(f)}
+                  className={`text-xs font-bold px-3 py-1.5 rounded-full transition-colors whitespace-nowrap ${
+                    active
+                      ? 'bg-[#C4622D] text-white'
+                      : 'bg-white text-gray-500 border border-[#E8E0D5]'
+                  }`}
+                >
+                  {FILTER_LABELS[f]}
+                </button>
+              )
+            })}
+            <label className="ml-auto flex items-center gap-2 text-xs text-gray-500 cursor-pointer select-none" onClick={toggleMasquerPasses}>
+              <div className={`relative w-8 h-4 rounded-full transition-colors ${masquerPasses ? 'bg-orange-500' : 'bg-gray-300'}`}>
+                <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all ${masquerPasses ? 'left-4' : 'left-0.5'}`} />
               </div>
-              <span className="text-sm text-[#2C1810]">Masquer les événements passés</span>
+              Masquer passés
               {togglingConfig && <span className="text-xs text-gray-400">…</span>}
             </label>
           </div>
 
-          <div className="bg-white rounded-2xl p-4 shadow-sm">
-            <p className="font-bold text-[#2C1810] text-sm mb-1">Sous-titre du hub</p>
-            <p className="text-xs text-gray-400 mb-3">Affiché sous &laquo;La Place du Village&raquo; sur l&apos;écran d&apos;accueil.</p>
-            <div className="flex gap-2">
-              <input
-                type="text" value={hubSubtitleInput}
-                onChange={e => setHubSubtitleInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && saveHubSubtitle()}
-                maxLength={80}
-                placeholder="Tout le village, à portée de main"
-                className="flex-1 border border-[#E0D8CE] rounded-xl px-3 py-2 text-sm outline-none focus:border-[#C4622D] bg-[#FBF7F0]"
-              />
-              <button
-                onClick={saveHubSubtitle}
-                disabled={savingSubtitle || hubSubtitleInput.trim() === hubSubtitle || !hubSubtitleInput.trim()}
-                className="bg-[#2D5A3D] text-white px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-40"
-              >
-                {savingSubtitle ? '…' : 'Enregistrer'}
-              </button>
+          {/* Bandeau info contextuel */}
+          {evtTab === 'scrap' && (
+            <div className="bg-blue-50 border-b border-blue-100 px-4 py-2 flex items-center justify-between">
+              <p className="text-xs text-blue-700 font-medium">
+                Événements issus du scraping
+              </p>
+              <Link href="/admin/sources" className="text-xs text-blue-600 underline">Gérer les sources</Link>
             </div>
-          </div>
-
-          <div>
-            <h2 className="font-bold text-[#2C1810] text-base mb-3">Administrateurs</h2>
-            <div className="space-y-2 mb-4">
-              {adminList.map(a => (
-                <div key={a.email} className="flex items-center justify-between bg-white rounded-xl px-4 py-3 shadow-sm">
-                  <span className="text-sm font-medium text-[#2C1810]">{a.email}</span>
-                  {a.email !== user?.email ? (
-                    <button onClick={() => removeAdmin(a.email)} className="text-xs text-red-400 hover:text-red-600 font-semibold transition-colors">Retirer</button>
-                  ) : (
-                    <span className="text-xs text-[#C4622D] font-semibold">Vous</span>
-                  )}
-                </div>
-              ))}
-            </div>
-            <div className="bg-white rounded-xl p-4 shadow-sm">
-              <p className="text-sm font-bold text-[#2C1810] mb-3">Ajouter un admin</p>
-              <div className="flex gap-2">
-                <input
-                  type="email" value={adminInput}
-                  onChange={e => setAdminInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && addAdmin()}
-                  placeholder="email@exemple.com"
-                  className="flex-1 border border-[#E0D8CE] rounded-xl px-3 py-2 text-sm outline-none focus:border-[#C4622D] bg-[#FBF7F0]"
-                />
-                <button onClick={addAdmin} disabled={adminLoading || !adminInput.includes('@')}
-                  className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-40">
-                  {adminLoading ? '…' : 'Ajouter'}
-                </button>
-              </div>
-              {adminError && <p className="text-xs text-red-500 mt-2">{adminError}</p>}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Onglet Réception */}
-      {section === 'agenda' && onglet === 'inbox' && <AdminInbox onCountChange={setInboxCount} />}
-
-      {/* Onglet Soumissions */}
-      {section === 'agenda' && onglet === 'soumissions' && (
-        <div className="p-3 space-y-6 pb-10">
-          <button onClick={fetchSoumissions} className="text-xs text-gray-400 underline w-full text-right">Actualiser</button>
-
-          {/* En attente de publication */}
-          {(() => {
-            const list = soumissions.filter(e => e.statut === 'en_attente' && e.publish_at)
-            return (
-              <section>
-                <h2 className="text-xs font-bold text-indigo-700 uppercase tracking-wide mb-2 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" />
-                  À publier automatiquement ({list.length})
-                </h2>
-                {list.length === 0 ? (
-                  <p className="text-xs text-gray-400 py-2">Aucun événement en file de publication</p>
-                ) : list.map(e => (
-                  <SoumissionCard key={e.id} evt={e} onDelete={() => { supprimer(e.id); fetchSoumissions() }} onEdit={() => setEditId(e.id)} onStatut={(s) => { setStatut(e.id, s).then(fetchSoumissions) }} />
-                ))}
-              </section>
-            )
-          })()}
-
-          {/* À vérifier */}
-          {(() => {
-            const list = soumissions.filter(e => e.statut === 'a_verifier')
-            return (
-              <section>
-                <h2 className="text-xs font-bold text-amber-700 uppercase tracking-wide mb-2 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
-                  À vérifier ({list.length})
-                </h2>
-                {list.length === 0 ? (
-                  <p className="text-xs text-gray-400 py-2">Aucun événement à vérifier</p>
-                ) : list.map(e => (
-                  <SoumissionCard key={e.id} evt={e} onDelete={() => { supprimer(e.id); fetchSoumissions() }} onEdit={() => setEditId(e.id)} onStatut={(s) => { setStatut(e.id, s).then(fetchSoumissions) }} />
-                ))}
-              </section>
-            )
-          })()}
-
-          {/* Doublons */}
-          {(() => {
-            const list = soumissions.filter(e => e.statut === 'archive')
-            return (
-              <section>
-                <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-gray-400 inline-block" />
-                  Doublons / Ignorés ({list.length})
-                </h2>
-                {list.length === 0 ? (
-                  <p className="text-xs text-gray-400 py-2">Aucun doublon</p>
-                ) : list.map(e => (
-                  <SoumissionCard key={e.id} evt={e} onDelete={() => { supprimer(e.id); fetchSoumissions() }} onEdit={() => setEditId(e.id)} onStatut={(s) => { setStatut(e.id, s).then(fetchSoumissions) }} />
-                ))}
-                {list.length > 0 && (
-                  <p className="text-xs text-gray-400 mt-2">Suppression automatique après 7 jours</p>
-                )}
-              </section>
-            )
-          })()}
-        </div>
-      )}
-
-      {/* Onglet Doublons */}
-      {section === 'agenda' && onglet === 'doublons' && <DoublonsAdmin />}
-
-      {/* Onglet Zone */}
-      {section === 'agenda' && onglet === 'zone' && <ZoneAdmin />}
-
-      {/* Bandeau info Scrap */}
-      {section === 'agenda' && onglet === 'scrap' && (
-        <div className="bg-blue-50 border-b border-blue-100 px-4 py-2 flex items-center justify-between">
-          <p className="text-xs text-blue-700 font-medium">
-            Événements issus du scraping — à valider avant publication
-          </p>
-          <Link href="/admin/sources" className="text-xs text-blue-600 underline">Gérer les sources</Link>
-        </div>
-      )}
-
-      {/* Barre recherche + tri + filtre signalements */}
-      {section === 'agenda' && onglet !== 'doublons' && onglet !== 'zone' && onglet !== 'inbox' && onglet !== 'soumissions' && (
-        <div className="bg-white border-b border-[#E8E0D5] px-3 py-2 space-y-2">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
-              <input
-                type="text"
-                placeholder="Rechercher titre, lieu, commune…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="w-full pl-8 pr-8 py-2 text-sm bg-[#FBF7F0] rounded-xl border border-[#E8E0D5] focus:outline-none focus:border-[#C4622D] text-[#2C1810] placeholder-gray-400"
-              />
-              {search && (
-                <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">✕</button>
-              )}
-            </div>
-            <select
-              value={sort}
-              onChange={e => setSort(e.target.value as SortKey)}
-              className="text-xs bg-[#FBF7F0] border border-[#E8E0D5] rounded-xl px-2 py-2 text-[#2C1810] focus:outline-none focus:border-[#C4622D] cursor-pointer"
-            >
-              {SORT_OPTIONS.map(o => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Filtre signalements */}
-          {totalFeedbacks > 0 && (
-            <button
-              onClick={() => setOnlyFeedbacks(p => !p)}
-              className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
-                onlyFeedbacks
-                  ? 'bg-amber-500 text-white border-amber-500'
-                  : 'bg-amber-50 text-amber-700 border-amber-300'
-              }`}
-            >
-              ⚠️ {totalFeedbacks} signalement{totalFeedbacks > 1 ? 's' : ''} en attente
-              {onlyFeedbacks ? ' — afficher tout' : ' — voir uniquement'}
-            </button>
           )}
-        </div>
-      )}
 
-      {/* Barre sélection */}
-      {section === 'agenda' && onglet !== 'doublons' && onglet !== 'zone' && onglet !== 'inbox' && onglet !== 'soumissions' && !loading && sorted.length > 0 && (
-        <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-[#E8E0D5]">
-          <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600 select-none">
-            <input type="checkbox" checked={allSelected} onChange={toggleAll} className="w-4 h-4 accent-[#C4622D] cursor-pointer" />
-            {allSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
-          </label>
-          <span className="text-xs text-gray-400">
-            {sorted.length} résultat{sorted.length > 1 ? 's' : ''}
-            {selection.size > 0 && (
-              <span className="ml-2 text-[#C4622D] font-semibold">
-                · {selection.size} sélectionné{selection.size > 1 ? 's' : ''}
-              </span>
-            )}
-          </span>
-        </div>
-      )}
-
-      {/* Liste */}
-      {section === 'agenda' && onglet !== 'doublons' && onglet !== 'zone' && onglet !== 'inbox' && onglet !== 'soumissions' && <div className="p-3 space-y-3 pb-6">
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="w-8 h-8 border-4 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : sorted.length === 0 ? (
-          <p className="text-center text-gray-400 py-12">
-            {search ? 'Aucun résultat pour cette recherche' : onlyFeedbacks ? 'Aucun signalement dans cet onglet' : onglet === 'scrap' ? 'Aucun événement à valider' : 'Aucun événement'}
-          </p>
-        ) : paginated.map(evt => {
-          const cat            = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
-          const approx         = isApproxLocation(evt.lieux)
-          const isLoading      = actionId === evt.id
-          const isSelected     = selection.has(evt.id)
-          const evtFeedbacks   = feedbacksByEvent.get(evt.id) ?? []
-          const hasFeedback    = evtFeedbacks.length > 0
-          const fbExpanded     = expandedFeedback.has(evt.id)
-
-          return (
-            <div
-              key={evt.id}
-              className={`bg-white rounded-2xl p-4 border-2 transition-colors ${
-                isSelected ? 'border-[#C4622D]' : hasFeedback ? 'border-amber-400' : approx ? 'border-orange-200' : 'border-transparent'
-              } shadow-sm`}
-            >
-              {/* Badge signalement */}
-              {hasFeedback && (
-                <button
-                  onClick={() => toggleExpandFeedback(evt.id)}
-                  className="flex items-center gap-1.5 text-xs text-amber-700 font-semibold mb-2 bg-amber-50 rounded-lg px-2 py-1.5 w-full text-left border border-amber-200 hover:bg-amber-100 transition-colors"
-                >
-                  <span>⚠️</span>
-                  <span>{evtFeedbacks.length} signalement{evtFeedbacks.length > 1 ? 's' : ''} utilisateur</span>
-                  <span className="ml-auto text-amber-400">{fbExpanded ? '▲' : '▼'}</span>
-                </button>
-              )}
-
-              {/* Messages feedback dépliés */}
-              {hasFeedback && fbExpanded && (
-                <div className="mb-3 space-y-2">
-                  {evtFeedbacks.map(fb => (
-                    <div key={fb.id} className="bg-amber-50 rounded-xl p-3 border border-amber-100">
-                      <p className="text-xs text-[#2C1810] leading-relaxed">{fb.message}</p>
-                      {fb.contact && (
-                        <p className="text-xs text-gray-400 mt-1">Contact : {fb.contact}</p>
-                      )}
-                      <div className="flex items-center justify-between mt-2">
-                        <span className="text-xs text-gray-400">
-                          {new Date(fb.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                        <button
-                          onClick={() => marquerFeedbackTraite(fb.id)}
-                          className="text-xs text-green-600 font-semibold bg-green-50 border border-green-200 px-2 py-0.5 rounded-lg hover:bg-green-100 transition-colors"
-                        >
-                          ✓ Traité
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {approx && (
-                <div className="flex items-center gap-1.5 text-xs text-orange-500 font-semibold mb-2 bg-orange-50 rounded-lg px-2 py-1">
-                  📍 Localisation approximative — à corriger
-                </div>
-              )}
-
-              {evt.image_url && (
-                <div className="relative w-full rounded-xl overflow-hidden mb-2 cursor-pointer" style={{ height: 120, backgroundColor: '#f0ece6' }}
-                  onClick={() => setEditId(evt.id)}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={evt.image_url} alt="" className="w-full h-full object-cover"
-                    style={{ objectPosition: evt.image_position ?? '50% 50%' }} />
-                </div>
-              )}
-
-              <div className="flex items-start gap-2 mb-1">
+          {/* Barre recherche + tri */}
+          <div className="bg-white border-b border-[#E8E0D5] px-3 py-2 space-y-2">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
                 <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() => toggleSelect(evt.id)}
-                  className="w-4 h-4 accent-[#C4622D] cursor-pointer mt-1 shrink-0"
+                  type="text"
+                  placeholder="Rechercher titre, lieu, commune…"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="w-full pl-8 pr-8 py-2 text-sm bg-[#FBF7F0] rounded-xl border border-[#E8E0D5] focus:outline-none focus:border-[#C4622D] text-[#2C1810] placeholder-gray-400"
                 />
-                <span
-                  className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full text-white mt-0.5"
-                  style={{ backgroundColor: cat.color }}
-                >
-                  {cat.emoji}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-[#2C1810] leading-tight">{evt.titre}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {evt.date_debut ? formatDate(evt.date_debut) : 'Sans date'}
-                    {evt.lieux ? ` · ${evt.lieux.nom}` : ''}
-                    {evt.lieux?.commune ? `, ${evt.lieux.commune}` : ''}
-                  </p>
-                  {evt.submitted_by_name && (
-                    <p className="text-xs text-orange-500 mt-0.5 font-medium">👤 {evt.submitted_by_name}</p>
-                  )}
-                  {(evt.vote_count ?? 0) > 0 && (
-                    <p className="text-xs text-blue-500 mt-0.5">👍 {evt.vote_count}</p>
-                  )}
-                </div>
-                <StatutBadge statut={evt.statut} />
-                {evt.promotion && evt.promotion !== 'basic' && (
-                  <span className={`shrink-0 text-xs font-bold px-2 py-0.5 rounded-full ${evt.promotion === 'max' ? 'bg-purple-100 text-purple-700' : 'bg-pink-100 text-pink-600'}`}>
-                    {evt.promotion === 'max' ? '⚡ Max' : '★ Pro'}
+                {search && (
+                  <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">✕</button>
+                )}
+              </div>
+              <select
+                value={sort}
+                onChange={e => setSort(e.target.value as SortKey)}
+                className="text-xs bg-[#FBF7F0] border border-[#E8E0D5] rounded-xl px-2 py-2 text-[#2C1810] focus:outline-none focus:border-[#C4622D] cursor-pointer"
+              >
+                {SORT_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {totalFeedbacks > 0 && (
+              <button
+                onClick={() => setOnlyFeedbacks(p => !p)}
+                className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+                  onlyFeedbacks
+                    ? 'bg-amber-500 text-white border-amber-500'
+                    : 'bg-amber-50 text-amber-700 border-amber-300'
+                }`}
+              >
+                ⚠️ {totalFeedbacks} signalement{totalFeedbacks > 1 ? 's' : ''} en attente
+                {onlyFeedbacks ? ' — afficher tout' : ' — voir uniquement'}
+              </button>
+            )}
+          </div>
+
+          {/* Barre sélection */}
+          {!loading && sorted.length > 0 && (
+            <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-[#E8E0D5]">
+              <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600 select-none">
+                <input type="checkbox" checked={allSelected} onChange={toggleAll} className="w-4 h-4 accent-[#C4622D] cursor-pointer" />
+                {allSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
+              </label>
+              <span className="text-xs text-gray-400">
+                {sorted.length} résultat{sorted.length > 1 ? 's' : ''}
+                {selection.size > 0 && (
+                  <span className="ml-2 text-[#C4622D] font-semibold">
+                    · {selection.size} sélectionné{selection.size > 1 ? 's' : ''}
                   </span>
                 )}
-              </div>
-
-              <div className="flex gap-2 mt-3 flex-wrap">
-                {evt.statut !== 'publie' && (
-                  <button
-                    onClick={() => setStatut(evt.id, 'publie')}
-                    disabled={isLoading}
-                    className="flex-1 py-1.5 bg-green-500 text-white text-xs font-bold rounded-lg disabled:opacity-50"
-                  >
-                    ✓ Publier
-                  </button>
-                )}
-                {evt.statut === 'publie' && (
-                  <button
-                    onClick={() => setStatut(evt.id, 'en_attente')}
-                    disabled={isLoading}
-                    className="flex-1 py-1.5 bg-orange-400 text-white text-xs font-bold rounded-lg disabled:opacity-50"
-                  >
-                    ⏸ Dépublier
-                  </button>
-                )}
-                {evt.statut !== 'rejete' && (
-                  <button
-                    onClick={() => setStatut(evt.id, 'rejete')}
-                    disabled={isLoading}
-                    className="flex-1 py-1.5 bg-gray-300 text-gray-700 text-xs font-bold rounded-lg disabled:opacity-50"
-                  >
-                    ✗ Rejeter
-                  </button>
-                )}
-                <button
-                  onClick={() => setEditId(evt.id)}
-                  className="flex-1 py-1.5 bg-[#FBF7F0] text-[#C4622D] text-xs font-bold rounded-lg text-center border border-[#C4622D]"
-                >
-                  ✏️ Éditer
-                </button>
-                <button
-                  onClick={() => supprimer(evt.id)}
-                  disabled={isLoading}
-                  className="py-1.5 px-3 bg-red-50 text-red-400 text-xs font-bold rounded-lg disabled:opacity-50"
-                >
-                  🗑️
-                </button>
-              </div>
+              </span>
             </div>
-          )
-        })}
+          )}
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-3 py-4">
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-[#E8E0D5] text-[#2C1810] disabled:opacity-30"
-            >← Préc.</button>
-            <span className="text-xs text-gray-500 font-medium">
-              Page {page} / {totalPages}
-            </span>
-            <button
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-[#E8E0D5] text-[#2C1810] disabled:opacity-30"
-            >Suiv. →</button>
+          {/* Liste */}
+          <div className="p-3 space-y-3 pb-6">
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <div className="w-8 h-8 border-4 border-[#C4622D] border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : sorted.length === 0 ? (
+              <p className="text-center text-gray-400 py-12">
+                {search ? 'Aucun résultat pour cette recherche'
+                  : onlyFeedbacks ? 'Aucun signalement dans cet onglet'
+                  : `Aucun événement ${FILTER_LABELS[subFilter].toLowerCase()} dans ${TAB_LABELS[evtTab]}`}
+              </p>
+            ) : paginated.map(evt => (
+              <EventCard
+                key={evt.id}
+                evt={evt}
+                isSelected={selection.has(evt.id)}
+                isLoading={actionId === evt.id}
+                feedbacks={feedbacksByEvent.get(evt.id) ?? []}
+                fbExpanded={expandedFeedback.has(evt.id)}
+                onSelect={() => toggleSelect(evt.id)}
+                onEdit={() => setEditId(evt.id)}
+                onStatut={(s) => setStatut(evt.id, s)}
+                onDelete={() => supprimer(evt.id)}
+                onToggleFbExpand={() => toggleExpandFeedback(evt.id)}
+                onMarkFbTraite={marquerFeedbackTraite}
+              />
+            ))}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-3 py-4">
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-[#E8E0D5] text-[#2C1810] disabled:opacity-30">← Préc.</button>
+                <span className="text-xs text-gray-500 font-medium">Page {page} / {totalPages}</span>
+                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-[#E8E0D5] text-[#2C1810] disabled:opacity-30">Suiv. →</button>
+              </div>
+            )}
           </div>
-        )}
-      </div>}
+        </>
+      )}
 
-      {/* Drawer édition */}
+      {/* ═══════════════════════════════════════════════════════ */}
+      {/* SECTION ÉTABLISSEMENTS                                   */}
+      {/* ═══════════════════════════════════════════════════════ */}
+      {section === 'etablissements' && <ProduceurAdmin embedded />}
+
+      {/* ═══════════════════════════════════════════════════════ */}
+      {/* SECTION PARAMÈTRES (fourre-tout)                        */}
+      {/* ═══════════════════════════════════════════════════════ */}
+      {section === 'parametres' && (
+        <ParametersSection
+          panel={paramPanel}
+          setPanel={setParamPanel}
+          demandesCount={demandesCount}
+          feedbacksCount={totalFeedbacks}
+          // config
+          masquerPasses={masquerPasses}
+          togglingConfig={togglingConfig}
+          onToggleMasquer={toggleMasquerPasses}
+          hubSubtitle={hubSubtitle}
+          hubSubtitleInput={hubSubtitleInput}
+          savingSubtitle={savingSubtitle}
+          onChangeHubInput={setHubSubtitleInput}
+          onSaveHub={saveHubSubtitle}
+          // admins
+          adminList={adminList}
+          adminInput={adminInput}
+          adminLoading={adminLoading}
+          adminError={adminError}
+          userEmail={user?.email ?? null}
+          onChangeAdminInput={setAdminInput}
+          onAddAdmin={addAdmin}
+          onRemoveAdmin={removeAdmin}
+          // signalements
+          feedbacks={feedbacks}
+          onOpenEvent={(id) => { setSection('evenements'); setEditId(id) }}
+          onMarkFbTraite={marquerFeedbackTraite}
+        />
+      )}
+
+      {/* ─── Drawer édition (global) ───────────────────────── */}
       {editId && (
         <EventEditDrawer
           evenementId={editId}
           onClose={() => setEditId(null)}
-          onSaved={() => { setEditId(null); fetchTabData(onglet); fetchTabCounts() }}
+          onSaved={() => { setEditId(null); fetchEvents(evtTab, subFilter); fetchTabCounts() }}
         />
       )}
 
-      {/* Barre flottante sélection */}
-      {selection.size > 0 && onglet !== 'inbox' && (
+      {/* ─── Barre flottante sélection ─────────────────────── */}
+      {section === 'evenements' && selection.size > 0 && (
         <div className="fixed bottom-0 left-0 right-0 bg-[#2C1810] px-4 py-3 flex items-center gap-2 shadow-2xl">
           <span className="text-white text-sm font-semibold flex-1">
             {selection.size} sélectionné{selection.size > 1 ? 's' : ''}
@@ -905,7 +708,7 @@ export default function AdminDashboard() {
           <button onClick={() => setSelection(new Set())} className="text-gray-400 text-sm px-3 py-2 rounded-lg">
             Annuler
           </button>
-          {(onglet === 'scrap' || onglet === 'a_traiter') && (
+          {subFilter === 'a_traiter' && (
             <button
               onClick={publierSelection}
               disabled={bulkLoading}
@@ -927,76 +730,153 @@ export default function AdminDashboard() {
   )
 }
 
-function SoumissionCard({ evt, onDelete, onEdit, onStatut }: {
+// ─────────────────────────────────────────────────────────
+// Sous-composants
+// ─────────────────────────────────────────────────────────
+
+interface EventCardProps {
   evt: Evenement
-  onDelete: () => void
+  isSelected: boolean
+  isLoading: boolean
+  feedbacks: Feedback[]
+  fbExpanded: boolean
+  onSelect: () => void
   onEdit: () => void
   onStatut: (s: string) => void
-}) {
-  const cat = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
-  const publishIn = evt.publish_at ? Math.max(0, Math.round((new Date(evt.publish_at).getTime() - Date.now()) / 60000)) : null
+  onDelete: () => void
+  onToggleFbExpand: () => void
+  onMarkFbTraite: (fbId: string) => void
+}
+
+function EventCard({ evt, isSelected, isLoading, feedbacks, fbExpanded, onSelect, onEdit, onStatut, onDelete, onToggleFbExpand, onMarkFbTraite }: EventCardProps) {
+  const cat            = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
+  const approx         = isApproxLocation(evt.lieux)
+  const hasFeedback    = feedbacks.length > 0
+  const sourceLabel    = evt.source ? (SOURCE_LABELS[evt.source] ?? evt.source) : null
 
   return (
-    <div className="bg-white rounded-2xl p-3 shadow-sm border border-[#F0EAE0] mb-2">
-      <div className="flex items-start gap-2">
-        <span className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full text-white mt-0.5" style={{ backgroundColor: cat.color }}>
+    <div
+      className={`bg-white rounded-2xl p-4 border-2 transition-colors ${
+        isSelected ? 'border-[#C4622D]' : hasFeedback ? 'border-amber-400' : approx ? 'border-orange-200' : 'border-transparent'
+      } shadow-sm`}
+    >
+      {/* Badge signalement */}
+      {hasFeedback && (
+        <button
+          onClick={onToggleFbExpand}
+          className="flex items-center gap-1.5 text-xs text-amber-700 font-semibold mb-2 bg-amber-50 rounded-lg px-2 py-1.5 w-full text-left border border-amber-200 hover:bg-amber-100 transition-colors"
+        >
+          <span>⚠️</span>
+          <span>{feedbacks.length} signalement{feedbacks.length > 1 ? 's' : ''} utilisateur</span>
+          <span className="ml-auto text-amber-400">{fbExpanded ? '▲' : '▼'}</span>
+        </button>
+      )}
+
+      {hasFeedback && fbExpanded && (
+        <div className="mb-3 space-y-2">
+          {feedbacks.map(fb => (
+            <div key={fb.id} className="bg-amber-50 rounded-xl p-3 border border-amber-100">
+              <p className="text-xs text-[#2C1810] leading-relaxed">{fb.message}</p>
+              {fb.contact && <p className="text-xs text-gray-400 mt-1">Contact : {fb.contact}</p>}
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-xs text-gray-400">
+                  {new Date(fb.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                </span>
+                <button
+                  onClick={() => onMarkFbTraite(fb.id)}
+                  className="text-xs text-green-600 font-semibold bg-green-50 border border-green-200 px-2 py-0.5 rounded-lg hover:bg-green-100 transition-colors"
+                >
+                  ✓ Traité
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {approx && (
+        <div className="flex items-center gap-1.5 text-xs text-orange-500 font-semibold mb-2 bg-orange-50 rounded-lg px-2 py-1">
+          📍 Localisation approximative — à corriger
+        </div>
+      )}
+
+      {evt.image_url && (
+        <div className="relative w-full rounded-xl overflow-hidden mb-2 cursor-pointer" style={{ height: 120, backgroundColor: '#f0ece6' }}
+          onClick={onEdit}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={evt.image_url} alt="" className="w-full h-full object-cover"
+            style={{ objectPosition: evt.image_position ?? '50% 50%' }} />
+        </div>
+      )}
+
+      <div className="flex items-start gap-2 mb-1">
+        <input
+          type="checkbox" checked={isSelected} onChange={onSelect}
+          className="w-4 h-4 accent-[#C4622D] cursor-pointer mt-1 shrink-0"
+        />
+        <span
+          className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full text-white mt-0.5"
+          style={{ backgroundColor: cat.color }}
+        >
           {cat.emoji}
         </span>
         <div className="flex-1 min-w-0">
-          <p className="font-bold text-[#2C1810] text-sm leading-tight truncate">{evt.titre}</p>
+          <p className="font-bold text-[#2C1810] leading-tight">{evt.titre}</p>
           <p className="text-xs text-gray-500 mt-0.5">
             {evt.date_debut ? formatDate(evt.date_debut) : 'Sans date'}
-            {evt.lieux?.commune ? ` · ${evt.lieux.commune}` : ''}
+            {evt.lieux ? ` · ${evt.lieux.nom}` : ''}
+            {evt.lieux?.commune ? `, ${evt.lieux.commune}` : ''}
           </p>
-          {evt.submitted_by_name && (
-            <p className="text-xs text-indigo-600 mt-0.5 font-medium">👤 {evt.submitted_by_name}</p>
-          )}
-          {publishIn !== null && (
-            <p className="text-xs text-indigo-500 mt-0.5 font-semibold">
-              {publishIn <= 0 ? '⏱ Publication imminente' : `⏱ Publication dans ~${publishIn} min`}
-            </p>
-          )}
+          <div className="flex items-center gap-2 mt-0.5 text-xs">
+            {sourceLabel && (
+              <span className="text-gray-400">{sourceLabel}</span>
+            )}
+            {evt.submitted_by_name && (
+              <span className="text-orange-500 font-medium">👤 {evt.submitted_by_name}</span>
+            )}
+            {(evt.vote_count ?? 0) > 0 && (
+              <span className="text-blue-500">👍 {evt.vote_count}</span>
+            )}
+          </div>
         </div>
         <StatutBadge statut={evt.statut} />
+        {evt.promotion && evt.promotion !== 'basic' && (
+          <span className={`shrink-0 text-xs font-bold px-2 py-0.5 rounded-full ${evt.promotion === 'max' ? 'bg-purple-100 text-purple-700' : 'bg-pink-100 text-pink-600'}`}>
+            {evt.promotion === 'max' ? '⚡ Max' : '★ Pro'}
+          </span>
+        )}
       </div>
-      <div className="flex gap-1.5 mt-2.5">
+
+      <div className="flex gap-2 mt-3 flex-wrap">
         {evt.statut !== 'publie' && (
-          <button onClick={() => onStatut('publie')}
-            className="flex-1 py-1.5 bg-green-500 text-white text-xs font-bold rounded-lg">
+          <button onClick={() => onStatut('publie')} disabled={isLoading}
+            className="flex-1 py-1.5 bg-green-500 text-white text-xs font-bold rounded-lg disabled:opacity-50">
             ✓ Publier
           </button>
         )}
         {evt.statut === 'publie' && (
-          <button onClick={() => onStatut('en_attente')}
-            className="flex-1 py-1.5 bg-orange-400 text-white text-xs font-bold rounded-lg">
+          <button onClick={() => onStatut('en_attente')} disabled={isLoading}
+            className="flex-1 py-1.5 bg-orange-400 text-white text-xs font-bold rounded-lg disabled:opacity-50">
             ⏸ Dépublier
           </button>
         )}
         {evt.statut !== 'rejete' && (
-          <button onClick={() => onStatut('rejete')}
-            className="flex-1 py-1.5 bg-gray-200 text-gray-600 text-xs font-bold rounded-lg">
+          <button onClick={() => onStatut('rejete')} disabled={isLoading}
+            className="flex-1 py-1.5 bg-gray-300 text-gray-700 text-xs font-bold rounded-lg disabled:opacity-50">
             ✗ Rejeter
           </button>
         )}
         <button onClick={onEdit}
-          className="flex-1 py-1.5 bg-[#FBF7F0] text-[#C4622D] text-xs font-bold rounded-lg border border-[#C4622D]">
-          ✏️
+          className="flex-1 py-1.5 bg-[#FBF7F0] text-[#C4622D] text-xs font-bold rounded-lg text-center border border-[#C4622D]">
+          ✏️ Éditer
         </button>
-        <button onClick={onDelete}
-          className="py-1.5 px-2.5 bg-red-50 text-red-400 text-xs font-bold rounded-lg">
+        <button onClick={onDelete} disabled={isLoading}
+          className="py-1.5 px-3 bg-red-50 text-red-400 text-xs font-bold rounded-lg disabled:opacity-50">
           🗑️
         </button>
       </div>
     </div>
   )
-}
-
-function applySortKey(sort: SortKey, a: Evenement, b: Evenement): number {
-  if (sort === 'created_desc') return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
-  if (sort === 'created_asc')  return new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime()
-  if (sort === 'date_asc')     return (a.date_debut ?? '').localeCompare(b.date_debut ?? '')
-  if (sort === 'date_desc')    return (b.date_debut ?? '').localeCompare(a.date_debut ?? '')
-  return 0
 }
 
 function StatutBadge({ statut }: { statut: string }) {
@@ -1018,5 +898,209 @@ function StatutBadge({ statut }: { statut: string }) {
     <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${styles[statut] ?? ''}`}>
       {labels[statut] ?? statut}
     </span>
+  )
+}
+
+function applySortKey(sort: SortKey, a: Evenement, b: Evenement): number {
+  if (sort === 'created_desc') return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
+  if (sort === 'created_asc')  return new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime()
+  if (sort === 'date_asc')     return (a.date_debut ?? '').localeCompare(b.date_debut ?? '')
+  if (sort === 'date_desc')    return (b.date_debut ?? '').localeCompare(a.date_debut ?? '')
+  return 0
+}
+
+// ─────────────────────────────────────────────────────────
+// Section Paramètres (menu + panels)
+// ─────────────────────────────────────────────────────────
+
+interface ParamProps {
+  panel: ParamPanel
+  setPanel: (p: ParamPanel) => void
+  demandesCount: number
+  feedbacksCount: number
+  // config
+  masquerPasses: boolean
+  togglingConfig: boolean
+  onToggleMasquer: () => void
+  hubSubtitle: string
+  hubSubtitleInput: string
+  savingSubtitle: boolean
+  onChangeHubInput: (v: string) => void
+  onSaveHub: () => void
+  // admins
+  adminList: { email: string; created_at: string }[]
+  adminInput: string
+  adminLoading: boolean
+  adminError: string
+  userEmail: string | null
+  onChangeAdminInput: (v: string) => void
+  onAddAdmin: () => void
+  onRemoveAdmin: (email: string) => void
+  // signalements
+  feedbacks: Feedback[]
+  onOpenEvent: (id: string) => void
+  onMarkFbTraite: (fbId: string) => void
+}
+
+function ParametersSection(p: ParamProps) {
+  const panels: { key: ParamPanel; label: string; emoji: string; badge?: number }[] = [
+    { key: 'config',       label: 'Config affichage',    emoji: '⚙️' },
+    { key: 'admins',       label: 'Administrateurs',     emoji: '👤' },
+    { key: 'membres',      label: 'Membres',             emoji: '👥' },
+    { key: 'demandes',     label: 'Demandes',            emoji: '📋', badge: p.demandesCount },
+    { key: 'signalements', label: 'Signalements',        emoji: '⚠️', badge: p.feedbacksCount },
+    { key: 'doublons',     label: 'Outils doublons',     emoji: '🔀' },
+    { key: 'zone',         label: 'Outils zone géo',     emoji: '📍' },
+  ]
+
+  return (
+    <div className="bg-[#FBF7F0] min-h-[calc(100vh-200px)]">
+      {/* Menu sous-panels */}
+      <div className="flex gap-1.5 px-3 py-3 overflow-x-auto bg-white border-b border-[#E8E0D5]">
+        {panels.map(pn => (
+          <button
+            key={pn.key}
+            onClick={() => p.setPanel(pn.key)}
+            className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap transition-colors ${
+              p.panel === pn.key
+                ? 'bg-[#C4622D] text-white'
+                : 'bg-[#FBF7F0] text-gray-600 border border-[#E8E0D5]'
+            }`}
+          >
+            <span>{pn.emoji}</span>
+            <span>{pn.label}</span>
+            {pn.badge !== undefined && pn.badge > 0 && (
+              <span className={`text-[10px] rounded-full w-4 h-4 flex items-center justify-center ${
+                p.panel === pn.key ? 'bg-white text-[#C4622D]' : 'bg-orange-500 text-white'
+              }`}>{pn.badge}</span>
+            )}
+          </button>
+        ))}
+        <Link
+          href="/admin/sources"
+          className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-[#FBF7F0] text-gray-600 border border-[#E8E0D5] whitespace-nowrap"
+        >🌐 Sources scrap</Link>
+        <Link
+          href="/admin/prompts"
+          className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-[#FBF7F0] text-gray-600 border border-[#E8E0D5] whitespace-nowrap"
+        >🧠 Prompts IA</Link>
+      </div>
+
+      {/* Panels */}
+      {p.panel === 'config' && (
+        <div className="p-4 max-w-md mx-auto space-y-4">
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            <p className="font-bold text-[#2C1810] text-sm mb-3">Affichage agenda</p>
+            <label className="flex items-center gap-3 cursor-pointer select-none" onClick={p.onToggleMasquer}>
+              <div className={`relative w-10 h-6 rounded-full transition-colors ${p.masquerPasses ? 'bg-orange-500' : 'bg-gray-300'}`}>
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${p.masquerPasses ? 'left-5' : 'left-1'}`} />
+              </div>
+              <span className="text-sm text-[#2C1810]">Masquer les événements passés</span>
+              {p.togglingConfig && <span className="text-xs text-gray-400">…</span>}
+            </label>
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            <p className="font-bold text-[#2C1810] text-sm mb-1">Sous-titre du hub</p>
+            <p className="text-xs text-gray-400 mb-3">Affiché sous «La Place du Village» sur l&apos;écran d&apos;accueil.</p>
+            <div className="flex gap-2">
+              <input
+                type="text" value={p.hubSubtitleInput}
+                onChange={e => p.onChangeHubInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && p.onSaveHub()}
+                maxLength={80}
+                placeholder="Tout le village, à portée de main"
+                className="flex-1 border border-[#E0D8CE] rounded-xl px-3 py-2 text-sm outline-none focus:border-[#C4622D] bg-[#FBF7F0]"
+              />
+              <button
+                onClick={p.onSaveHub}
+                disabled={p.savingSubtitle || p.hubSubtitleInput.trim() === p.hubSubtitle || !p.hubSubtitleInput.trim()}
+                className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-40"
+              >
+                {p.savingSubtitle ? '…' : 'Enregistrer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {p.panel === 'admins' && (
+        <div className="p-4 max-w-md mx-auto">
+          <h2 className="font-bold text-[#2C1810] text-base mb-3">Administrateurs</h2>
+          <div className="space-y-2 mb-4">
+            {p.adminList.map(a => (
+              <div key={a.email} className="flex items-center justify-between bg-white rounded-xl px-4 py-3 shadow-sm">
+                <span className="text-sm font-medium text-[#2C1810]">{a.email}</span>
+                {a.email !== p.userEmail ? (
+                  <button onClick={() => p.onRemoveAdmin(a.email)} className="text-xs text-red-400 hover:text-red-600 font-semibold transition-colors">Retirer</button>
+                ) : (
+                  <span className="text-xs text-[#C4622D] font-semibold">Vous</span>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="bg-white rounded-xl p-4 shadow-sm">
+            <p className="text-sm font-bold text-[#2C1810] mb-3">Ajouter un admin</p>
+            <div className="flex gap-2">
+              <input
+                type="email" value={p.adminInput}
+                onChange={e => p.onChangeAdminInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && p.onAddAdmin()}
+                placeholder="email@exemple.com"
+                className="flex-1 border border-[#E0D8CE] rounded-xl px-3 py-2 text-sm outline-none focus:border-[#C4622D] bg-[#FBF7F0]"
+              />
+              <button onClick={p.onAddAdmin} disabled={p.adminLoading || !p.adminInput.includes('@')}
+                className="bg-[#C4622D] text-white px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-40">
+                {p.adminLoading ? '…' : 'Ajouter'}
+              </button>
+            </div>
+            {p.adminError && <p className="text-xs text-red-500 mt-2">{p.adminError}</p>}
+          </div>
+        </div>
+      )}
+
+      {p.panel === 'membres'  && <MembresAdmin />}
+      {p.panel === 'demandes' && <DemandesAdmin />}
+      {p.panel === 'doublons' && <DoublonsAdmin />}
+      {p.panel === 'zone'     && <ZoneAdmin />}
+
+      {p.panel === 'signalements' && (
+        <div className="p-3 space-y-3 pb-10">
+          {p.feedbacks.length === 0 ? (
+            <p className="text-center text-gray-400 py-12">Aucun signalement en attente</p>
+          ) : p.feedbacks.map(fb => (
+            <div key={fb.id} className="bg-white rounded-2xl p-4 shadow-sm border border-amber-200">
+              <div className="flex items-start gap-2 mb-2">
+                <span className="text-amber-500 text-lg">⚠️</span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-[#2C1810] text-sm truncate">{fb.evenement_titre || '(événement supprimé)'}</p>
+                  <p className="text-xs text-gray-400">
+                    {new Date(fb.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+              </div>
+              <p className="text-sm text-[#2C1810] leading-relaxed mb-2">{fb.message}</p>
+              {fb.contact && (
+                <p className="text-xs text-gray-500 mb-2">Contact : <span className="text-[#2C1810]">{fb.contact}</span></p>
+              )}
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={() => p.onOpenEvent(fb.evenement_id)}
+                  className="flex-1 py-1.5 bg-[#FBF7F0] text-[#C4622D] text-xs font-bold rounded-lg border border-[#C4622D]"
+                >
+                  ✏️ Voir l&apos;événement
+                </button>
+                <button
+                  onClick={() => p.onMarkFbTraite(fb.id)}
+                  className="flex-1 py-1.5 bg-green-500 text-white text-xs font-bold rounded-lg"
+                >
+                  ✓ Marquer traité
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
