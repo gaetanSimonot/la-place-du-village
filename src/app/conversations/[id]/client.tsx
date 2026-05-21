@@ -20,12 +20,14 @@ interface Props {
 export default function ConversationClient({ convId }: Props) {
   const { user, loading: authLoading } = useAuth()
   const { openAuthModal } = useAuthModal()
-  const [messages, setMessages] = useState<Message[]>([])
-  const [loading, setLoading]   = useState(true)
-  const [text, setText]         = useState('')
-  const [sending, setSending]   = useState(false)
-  const [error, setError]       = useState<string | null>(null)
-  const [other, setOther]       = useState<{ display_name: string | null; avatar_url: string | null } | null>(null)
+  const [messages, setMessages]     = useState<Message[]>([])
+  const [loading, setLoading]       = useState(true)
+  const [text, setText]             = useState('')
+  const [sending, setSending]       = useState(false)
+  const [error, setError]           = useState<string | null>(null)
+  const [accessDenied, setAccessDenied] = useState(false)
+  const [canWrite, setCanWrite]     = useState(true)
+  const [other, setOther]           = useState<{ display_name: string | null; avatar_url: string | null } | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // Auth guard
@@ -42,6 +44,11 @@ export default function ConversationClient({ convId }: Props) {
     if (!token) { setLoading(false); return }
 
     const res = await fetch(`/api/conversations/${convId}/messages`, { headers: { Authorization: `Bearer ${token}` } })
+    if (res.status === 403) {
+      setAccessDenied(true)
+      setLoading(false)
+      return
+    }
     if (!res.ok) {
       const d = await res.json().catch(() => ({}))
       setError(d.error || 'Erreur de chargement')
@@ -50,6 +57,7 @@ export default function ConversationClient({ convId }: Props) {
     }
     const data = await res.json()
     setMessages((data.messages ?? []) as Message[])
+    setCanWrite(data.canWrite !== false)
     setLoading(false)
 
     // Marque comme lu
@@ -132,6 +140,31 @@ export default function ConversationClient({ convId }: Props) {
     )
   }
 
+  // ── Accès refusé (URL d'une conv qui n'est pas la mienne) ──────────────
+  if (accessDenied) {
+    return (
+      <main className="flex min-h-[100dvh] flex-col items-center justify-center bg-creme px-6 text-center font-inter">
+        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-cremeDeep text-texte-doux">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+        <h1 className="m-0 mb-1 font-serif text-[20px] text-texte" style={{ letterSpacing: '-0.01em' }}>
+          Conversation inaccessible
+        </h1>
+        <p className="m-0 mb-5 max-w-[320px] text-[13px] text-texte-doux">
+          Tu n&apos;es pas membre de cette conversation.
+        </p>
+        <Link
+          href="/messages"
+          className="rounded-xl bg-primary px-4 py-2.5 text-[13px] font-bold text-white no-underline"
+        >
+          Retour aux messages
+        </Link>
+      </main>
+    )
+  }
+
   const initial = (other?.display_name || '?')[0]?.toUpperCase() ?? '?'
 
   return (
@@ -197,28 +230,36 @@ export default function ConversationClient({ convId }: Props) {
         </div>
       </div>
 
-      {/* ─── Composer ───────────────────────────────────────── */}
-      <form onSubmit={send} className="sticky bottom-0 z-30 flex items-center gap-2 border-t border-bordSoft bg-creme/95 px-3 py-2.5 backdrop-blur" style={{ paddingBottom: 'max(10px, env(safe-area-inset-bottom, 10px))' }}>
-        <input
-          type="text"
-          value={text}
-          onChange={e => setText(e.target.value)}
-          placeholder="Écris un message…"
-          disabled={sending}
-          className="min-w-0 flex-1 rounded-full border border-bord bg-white px-4 py-2.5 text-[14px] text-texte outline-none placeholder:text-texte-tres-doux disabled:opacity-60"
-        />
-        <button
-          type="submit"
-          disabled={!text.trim() || sending}
-          aria-label="Envoyer"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white disabled:opacity-50"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13"/>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-          </svg>
-        </button>
-      </form>
+      {/* ─── Composer (caché si plus amis = conv figée) ───── */}
+      {canWrite ? (
+        <form onSubmit={send} className="sticky bottom-0 z-30 flex items-center gap-2 border-t border-bordSoft bg-creme/95 px-3 py-2.5 backdrop-blur" style={{ paddingBottom: 'max(10px, env(safe-area-inset-bottom, 10px))' }}>
+          <input
+            type="text"
+            value={text}
+            onChange={e => setText(e.target.value)}
+            placeholder="Écris un message…"
+            disabled={sending}
+            className="min-w-0 flex-1 rounded-full border border-bord bg-white px-4 py-2.5 text-[14px] text-texte outline-none placeholder:text-texte-tres-doux disabled:opacity-60"
+          />
+          <button
+            type="submit"
+            disabled={!text.trim() || sending}
+            aria-label="Envoyer"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white disabled:opacity-50"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
+        </form>
+      ) : (
+        <div className="sticky bottom-0 z-30 border-t border-bordSoft bg-cremeDeep/80 px-4 py-3 text-center backdrop-blur" style={{ paddingBottom: 'max(14px, env(safe-area-inset-bottom, 14px))' }}>
+          <p className="m-0 text-[12px] font-medium text-texte-doux">
+            Vous n&apos;êtes plus amis. Reprenez l&apos;amitié pour pouvoir discuter à nouveau.
+          </p>
+        </div>
+      )}
 
       {error && (
         <div className="px-4 pb-2 text-center text-[11px] text-accent">{error}</div>

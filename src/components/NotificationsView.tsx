@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAdminSession } from '@/hooks/useAdminSession'
+import { useFriendships } from '@/hooks/useFriendships'
 import { PLANS_INFO, PLAN_ORDER, type Plan } from '@/lib/capabilities'
 import type { AppNotification, NotifType } from '@/lib/types'
 
@@ -150,6 +151,32 @@ type UserFilter = 'all' | 'annonces' | 'producteurs' | 'promos' | 'events'
 type AdminFilter = 'all' | 'unread' | 'demandes' | 'annonces' | 'events' | 'support' | 'boost'
 
 export default function NotificationsView({ notifications, loading, loaded, onOpen, onMarkRead, onMarkAllRead, onDelete, onOpenProducer, onBack }: Props) {
+  const { accept: acceptFriendship, cancel: cancelFriendship } = useFriendships()
+  const [busyFriendIds, setBusyFriendIds] = useState<Set<string>>(new Set())
+
+  async function handleFriendAccept(friendshipId: string, notifId: string) {
+    if (busyFriendIds.has(friendshipId)) return
+    setBusyFriendIds(prev => new Set(prev).add(friendshipId))
+    try {
+      await acceptFriendship(friendshipId)
+      onMarkRead(notifId)
+    } catch (e) { console.error('[notif accept]', e) }
+    finally {
+      setBusyFriendIds(prev => { const next = new Set(prev); next.delete(friendshipId); return next })
+    }
+  }
+
+  async function handleFriendRefuse(friendshipId: string, notifId: string) {
+    if (busyFriendIds.has(friendshipId)) return
+    setBusyFriendIds(prev => new Set(prev).add(friendshipId))
+    try {
+      await cancelFriendship(friendshipId)
+      onMarkRead(notifId)
+    } catch (e) { console.error('[notif refuse]', e) }
+    finally {
+      setBusyFriendIds(prev => { const next = new Set(prev); next.delete(friendshipId); return next })
+    }
+  }
   const router = useRouter()
   const isAdmin = useAdminSession()
   const [adminCounts, setAdminCounts] = useState<AdminCounts | null>(null)
@@ -486,6 +513,12 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
                 {bucket.items.map(n => {
                   const cfg = NOTIF_VISUAL[n.type] ?? DEFAULT_NOTIF_VISUAL
                   const isUnread = !n.lu
+                  // Actions inline pour les demandes d'ami reçues
+                  const friendActions = (n.type === 'friend_request_received' && n.target_id) ? {
+                    busy: busyFriendIds.has(n.target_id),
+                    onAccept: () => handleFriendAccept(n.target_id!, n.id),
+                    onRefuse: () => handleFriendRefuse(n.target_id!, n.id),
+                  } : undefined
                   return (
                     <NotifRow
                       key={n.id}
@@ -498,6 +531,7 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
                       onClick={() => handleClick(n)}
                       onMenu={() => setActionModal(n)}
                       onDelete={onDelete ? () => onDelete(n.id) : undefined}
+                      friendActions={friendActions}
                     />
                   )
                 })}
@@ -581,7 +615,7 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
 /* ─── NotifRow V3 ────────────────────────────────────────────────────── */
 
 function NotifRow({
-  bg, color, icon, label, when, unread, onClick, onMenu, onDelete,
+  bg, color, icon, label, when, unread, onClick, onMenu, onDelete, friendActions,
 }: {
   bg:     string
   color:  string
@@ -592,6 +626,7 @@ function NotifRow({
   onClick:() => void
   onMenu: () => void
   onDelete?: () => void
+  friendActions?: { busy: boolean; onAccept: () => void; onRefuse: () => void }
 }) {
   const lpTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const startX = useRef<number | null>(null)
@@ -701,6 +736,32 @@ function NotifRow({
             {label}
           </div>
           <div className="mt-0.5 text-[11px] text-texte-doux">{when}</div>
+          {friendActions && (
+            <div className="mt-2 flex gap-1.5" onClick={e => e.stopPropagation()}>
+              <button
+                type="button"
+                onClick={friendActions.onAccept}
+                disabled={friendActions.busy}
+                className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-white disabled:opacity-50"
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                {friendActions.busy ? '…' : 'Accepter'}
+              </button>
+              <button
+                type="button"
+                onClick={friendActions.onRefuse}
+                disabled={friendActions.busy}
+                className="inline-flex items-center gap-1 rounded-full border border-bord bg-white px-3 py-1.5 text-[11px] font-bold text-texte-doux disabled:opacity-50"
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+                Refuser
+              </button>
+            </div>
+          )}
         </div>
         {unread && (
           <span

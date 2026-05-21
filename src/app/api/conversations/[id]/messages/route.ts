@@ -32,7 +32,32 @@ export async function GET(
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ messages: messages ?? [] })
+  // Pour les convs kind='friend' : flag canWrite (= toujours amis)
+  let canWrite = true
+  const { data: conv } = await supabaseAdmin
+    .from('conversations')
+    .select('kind')
+    .eq('id', id)
+    .maybeSingle()
+  if (conv?.kind === 'friend') {
+    const { data: members } = await supabaseAdmin
+      .from('conversation_members')
+      .select('user_id')
+      .eq('conversation_id', id)
+    const otherId = (members ?? []).find(m => m.user_id !== ctx.userId)?.user_id
+    if (otherId) {
+      const [u1, u2] = ctx.userId < otherId ? [ctx.userId, otherId] : [otherId, ctx.userId]
+      const { data: friendship } = await supabaseAdmin
+        .from('friendships')
+        .select('status')
+        .eq('user1_id', u1)
+        .eq('user2_id', u2)
+        .maybeSingle()
+      canWrite = friendship?.status === 'accepted'
+    }
+  }
+
+  return NextResponse.json({ messages: messages ?? [], canWrite })
 }
 
 /**
@@ -62,6 +87,38 @@ export async function POST(
     .eq('user_id', ctx.userId)
     .maybeSingle()
   if (!membership) return NextResponse.json({ error: 'Interdit' }, { status: 403 })
+
+  // GARDE-FOU AMITIÉ : pour les conv kind='friend', les 2 membres doivent
+  // être TOUJOURS amis (status='accepted'). Si l'un a retiré l'autre, on
+  // bloque l'envoi de nouveaux messages (la conv reste lisible mais figée).
+  const { data: conv } = await supabaseAdmin
+    .from('conversations')
+    .select('kind')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (conv?.kind === 'friend') {
+    const { data: members } = await supabaseAdmin
+      .from('conversation_members')
+      .select('user_id')
+      .eq('conversation_id', id)
+    const otherId = (members ?? []).find(m => m.user_id !== ctx.userId)?.user_id
+    if (otherId) {
+      const [u1, u2] = ctx.userId < otherId ? [ctx.userId, otherId] : [otherId, ctx.userId]
+      const { data: friendship } = await supabaseAdmin
+        .from('friendships')
+        .select('status')
+        .eq('user1_id', u1)
+        .eq('user2_id', u2)
+        .maybeSingle()
+      if (!friendship || friendship.status !== 'accepted') {
+        return NextResponse.json({
+          error: 'Vous n\'êtes plus amis. Reprenez d\'abord l\'amitié pour discuter à nouveau.',
+          code:  'not_friends',
+        }, { status: 403 })
+      }
+    }
+  }
 
   // INSERT message
   const { data: msg, error: insErr } = await supabaseAdmin
