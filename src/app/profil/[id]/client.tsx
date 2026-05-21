@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
+import EditProfileModal from '@/components/EditProfileModal'
 
 interface FullProfile {
   id: string
@@ -114,7 +115,8 @@ function getPrixLabel(a: AnnonceSnippet): { value: string; color?: string } {
 
 export default function ProfilPageClient({ id }: { id: string }) {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, updateProfile } = useAuth()
+  const [editModalOpen, setEditModalOpen] = useState(false)
 
   const [profile, setProfile]               = useState<FullProfile | null>(null)
   const [loading, setLoading]               = useState(true)
@@ -232,13 +234,6 @@ export default function ProfilPageClient({ id }: { id: string }) {
       setIsFollowing(true); setFollowerCount(p => p + 1)
     }
     setFollowLoading(false)
-  }
-
-  const startEdit = () => {
-    setEditName(profile?.display_name ?? '')
-    setEditBio(profile?.bio ?? '')
-    setEditVille(profile?.ville ?? '')
-    setEditing(true)
   }
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -490,7 +485,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
             </>
           ) : (
             <button
-              onClick={startEdit}
+              onClick={() => setEditModalOpen(true)}
               className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl border border-bord bg-white px-3 py-3 text-[13px] font-bold text-texte"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -643,6 +638,41 @@ export default function ProfilPageClient({ id }: { id: string }) {
             )
           )}
         </div>
+      )}
+
+      {/* Modal édition (réutilise EditProfileModal — contient bannière + genre + confidentialité) */}
+      {isOwn && editModalOpen && profile && (
+        <EditProfileModal
+          initialName={profile.display_name ?? ''}
+          initialGenre={profile.genre}
+          initialBannerUrl={profile.banner_url}
+          initialIsPublic={profile.is_public}
+          initialSearchable={profile.searchable}
+          email={user?.email ?? ''}
+          avatarUrl={profile.avatar_url}
+          onClose={() => setEditModalOpen(false)}
+          onSave={async ({ name, genre, bannerUrl, isPublic, searchable }) => {
+            const patch: {
+              display_name?: string
+              genre?: 'homme' | 'femme' | 'autre' | null
+              banner_url?: string | null
+              is_public?: boolean
+              searchable?: boolean
+            } = {}
+            if (name.trim() && name.trim() !== profile.display_name)  patch.display_name = name.trim()
+            if (genre !== (profile.genre ?? null))                    patch.genre = genre
+            const cleanBanner = bannerUrl ? bannerUrl.split('?')[0] : null
+            if (cleanBanner !== (profile.banner_url ?? null))         patch.banner_url = cleanBanner
+            if (isPublic !== (profile.is_public ?? true))             patch.is_public = isPublic
+            if (searchable !== (profile.searchable ?? true))          patch.searchable = searchable
+            if (Object.keys(patch).length > 0) {
+              await updateProfile(patch)
+              // Refresh local du profile affiché (sinon il faut recharger la page)
+              setProfile(prev => prev ? { ...prev, ...patch } as FullProfile : prev)
+            }
+            setEditModalOpen(false)
+          }}
+        />
       )}
     </div>
   )
