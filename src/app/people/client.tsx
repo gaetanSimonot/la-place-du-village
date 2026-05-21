@@ -15,7 +15,7 @@ export default function PeopleClient() {
   const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
   const [filter, setFilter]     = useState<Filter>('all')
-  const { statusWith, friendProfiles, sendRequest, accept, cancel } = useFriendships()
+  const { statusWith, friendProfiles, pendingReceived, sendRequest, accept, cancel } = useFriendships()
 
   // ──────────────────────────────────────────────────────────────────────
   // Fetch BROWSE (search vide) — lit la VUE profiles_public_listing.
@@ -128,6 +128,47 @@ export default function PeopleClient() {
           )}
         </div>
       </div>
+
+      {/* ─── Demandes reçues (visible en haut tant qu'il y en a) ─── */}
+      {pendingReceived.length > 0 && (
+        <div className="mx-4 mt-3 rounded-2xl border border-primary-light bg-primary-light/30 p-3">
+          <p className="m-0 mb-2 text-[11px] font-extrabold uppercase tracking-[0.08em] text-primary">
+            {pendingReceived.length} demande{pendingReceived.length > 1 ? 's' : ''} d&apos;ami{pendingReceived.length > 1 ? 's' : ''} reçue{pendingReceived.length > 1 ? 's' : ''}
+          </p>
+          <div className="space-y-2">
+            {pendingReceived.map(({ friendship, profile }) => (
+              <div key={friendship.id} className="flex items-center gap-3 rounded-xl bg-white p-2.5">
+                {profile?.avatar_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={profile.avatar_url} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+                ) : (
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-[16px] font-bold text-white">
+                    {(profile?.display_name || '?')[0].toUpperCase()}
+                  </div>
+                )}
+                <Link href={`/profil/${friendship.user1_id === friendship.requested_by ? friendship.user1_id : friendship.user2_id}`} className="min-w-0 flex-1 no-underline">
+                  <div className="truncate text-[13px] font-bold text-texte">{profile?.display_name ?? 'Membre'}</div>
+                  {profile?.ville && <div className="truncate text-[11px] text-texte-doux">{profile.ville}</div>}
+                </Link>
+                <div className="flex shrink-0 gap-1.5">
+                  <button
+                    onClick={() => accept(friendship.id)}
+                    className="rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-white"
+                  >
+                    ✓ Accepter
+                  </button>
+                  <button
+                    onClick={() => cancel(friendship.id)}
+                    className="rounded-full border border-bord bg-white px-3 py-1.5 text-[11px] font-bold text-texte-doux"
+                  >
+                    Refuser
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ─── Filtres (chips) ────────────────────────────── */}
       <div className="flex gap-1.5 px-4 pt-3">

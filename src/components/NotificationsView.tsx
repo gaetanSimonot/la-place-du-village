@@ -92,6 +92,11 @@ const NOTIF_VISUAL: Record<NotifType, NotifVisual> = {
   covoit_validee:         { bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.check,    label: n => `Ta place est validée${n.actor_name ? ` : ${n.actor_name}` : ''}` },
   covoit_refusee:         { bg: '#FFF0E5', color: '#C84B2F', icon: ICONS.cross,    label: n => `Candidature refusée${n.actor_name ? ` : ${n.actor_name}` : ''}` },
   covoit_closed:          { bg: '#F0EBE3', color: '#7A6A5A', icon: ICONS.clock,    label: n => `Conversation covoit fermée${n.actor_name ? ` : ${n.actor_name}` : ''}` },
+  covoit_note_recue:      { bg: '#FFF7DC', color: '#A8770F', icon: ICONS.star,     label: n => `${n.actor_name ?? 'Un passager'} t'a noté sur ton trajet` },
+  covoit_rate_invitation: { bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.star,     label: n => `Trajet effectué${n.actor_name ? ` avec ${n.actor_name}` : ''} — note le conducteur` },
+  feedback_new:           { bg: '#FFF0E5', color: '#C84B2F', icon: ICONS.chat,     label: n => `${n.actor_name ?? 'Un utilisateur'} a signalé un événement` },
+  friend_request_received:{ bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.star,     label: n => `${n.actor_name ?? 'Quelqu\'un'} t'a envoyé une demande d'ami` },
+  friend_request_accepted:{ bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.check,    label: n => `${n.actor_name ?? 'Quelqu\'un'} a accepté ta demande d'ami` },
 }
 
 function relativeDate(iso: string): string {

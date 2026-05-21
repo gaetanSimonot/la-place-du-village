@@ -87,7 +87,7 @@ export type ProduitCategorie =
   | 'pain' | 'miel' | 'panier' | 'plantes' | 'huiles' | 'boissons'
   | 'artisanat' | 'autre'
 
-export type NotifType = 'disponibilite' | 'nouveau_produit' | 'suivi_producteur' | 'commentaire' | 'claim_approved' | 'claim_rejected' | 'claim_pending' | 'promo_used' | 'annonce_interet_recu' | 'annonce_enchere_prise' | 'annonce_expire_bientot' | 'annonce_devient_don' | 'annonce_message' | 'annonce_contact_partage' | 'annonce_vente_close' | 'annonce_note_recue' | 'event_published' | 'support_message' | 'journal_publie' | 'article_like' | 'article_comment' | 'covoit_candidat' | 'covoit_message' | 'covoit_validee' | 'covoit_refusee' | 'covoit_closed'
+export type NotifType = 'disponibilite' | 'nouveau_produit' | 'suivi_producteur' | 'commentaire' | 'claim_approved' | 'claim_rejected' | 'claim_pending' | 'promo_used' | 'annonce_interet_recu' | 'annonce_enchere_prise' | 'annonce_expire_bientot' | 'annonce_devient_don' | 'annonce_message' | 'annonce_contact_partage' | 'annonce_vente_close' | 'annonce_note_recue' | 'event_published' | 'support_message' | 'journal_publie' | 'article_like' | 'article_comment' | 'covoit_candidat' | 'covoit_message' | 'covoit_validee' | 'covoit_refusee' | 'covoit_closed' | 'covoit_note_recue' | 'covoit_rate_invitation' | 'feedback_new' | 'friend_request_received' | 'friend_request_accepted'
 
 export interface AppNotification {
   id: string
