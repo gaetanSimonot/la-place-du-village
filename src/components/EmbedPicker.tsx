@@ -199,9 +199,9 @@ export default function EmbedPicker({ onSelect, onClose }: Props) {
 
           {/* Contenu scrollable */}
           <div className="flex-1 overflow-y-auto px-4 py-4">
-            {/* ──── Vue racine : grille de catégories ──── */}
+            {/* ──── Vue racine : grille de catégories (compacte, 3 col) ──── */}
             {isRoot && (
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-3 gap-2">
                 {ORDERED_KINDS.map(kind => {
                   const c = KIND_COLOR[kind]
                   return (
@@ -209,16 +209,16 @@ export default function EmbedPicker({ onSelect, onClose }: Props) {
                       key={kind}
                       type="button"
                       onClick={() => setSelectedKind(kind)}
-                      className="flex flex-col items-start gap-2 rounded-[16px] p-3.5 text-left"
+                      className="flex flex-col items-center justify-center gap-1.5 rounded-[12px] p-2"
                       style={{
                         background: c.tile,
                         color: c.color,
-                        minHeight: 100,
+                        minHeight: 78,
                         WebkitTapHighlightColor: 'transparent',
                       }}
                     >
-                      <CatIcon kind={kind} size={32} />
-                      <div className="mt-auto font-serif text-[15px] leading-[1.1]" style={{ color: '#1A1209', letterSpacing: '-0.005em' }}>
+                      <CatIcon kind={kind} size={22} />
+                      <div className="text-center text-[11px] font-bold leading-[1.15]" style={{ color: '#1A1209', letterSpacing: '-0.003em' }}>
                         {KIND_LABEL[kind]}
                       </div>
                     </button>

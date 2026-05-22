@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser } from '@/lib/server-auth'
 
 export type EmbedKind = 'event' | 'etab' | 'producer' | 'annonce' | 'promo' | 'covoit'
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
 
   if (requested.includes('event')) {
     tasks.push((async () => {
-      let qb = supabase
+      let qb = supabaseAdmin
         .from('evenements')
         .select('id, titre, image_url, date_debut, lieux(commune)')
         .eq('statut', 'publie')
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
 
   if (requested.includes('etab')) {
     tasks.push((async () => {
-      let qb = supabase
+      let qb = supabaseAdmin
         .from('etablissements')
         .select('id, nom, commune, photos')
       if (ilike) qb = qb.ilike('nom', ilike)
@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
 
   if (requested.includes('producer')) {
     tasks.push((async () => {
-      let qb = supabase
+      let qb = supabaseAdmin
         .from('producers')
         .select('id, nom, commune, photos')
       if (ilike) qb = qb.ilike('nom', ilike)
@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
 
   if (requested.includes('annonce')) {
     tasks.push((async () => {
-      let qb = supabase
+      let qb = supabaseAdmin
         .from('annonces')
         .select('id, titre, photos, prix, statut, type')
         .eq('statut', 'active')
@@ -127,7 +127,7 @@ export async function GET(req: NextRequest) {
 
   if (requested.includes('promo')) {
     tasks.push((async () => {
-      let qb = supabase
+      let qb = supabaseAdmin
         .from('promotions')
         .select('id, titre, image_url')
       if (ilike) qb = qb.ilike('titre', ilike)
@@ -146,7 +146,7 @@ export async function GET(req: NextRequest) {
 
   if (requested.includes('covoit')) {
     tasks.push((async () => {
-      let qb = supabase
+      let qb = supabaseAdmin
         .from('covoit_trajets')
         .select('id, ville_depart, ville_arrivee, date_depart')
       if (ilike) qb = qb.or(`ville_depart.ilike.${ilike},ville_arrivee.ilike.${ilike}`)
