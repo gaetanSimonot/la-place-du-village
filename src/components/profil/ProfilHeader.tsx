@@ -12,6 +12,7 @@ import {
   IcChev,
   IcLeaf,
   IcStore,
+  IcSpark,
 } from './icons'
 
 export type ViewMode = 'own' | 'public'
@@ -33,6 +34,7 @@ interface Props {
   ville: string | null
   followersCount: number | null
   ficheProMini: FicheProMini | null
+  moduleUtileActive: boolean
   onModifyClick: () => void
   onToggleViewMode: () => void
   onContactClick?: () => void
@@ -48,6 +50,7 @@ export default function ProfilHeader({
   ville,
   followersCount,
   ficheProMini,
+  moduleUtileActive,
   onModifyClick,
   onToggleViewMode,
   onContactClick,
@@ -136,12 +139,22 @@ export default function ProfilHeader({
             </div>
           )}
           <div className="min-w-0 flex-1 pb-1">
-            <h1
-              className="m-0 truncate font-serif text-[21px] text-texte"
-              style={{ letterSpacing: '-0.02em', lineHeight: 1.05 }}
-            >
-              {displayName}
-            </h1>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <h1
+                className="m-0 truncate font-serif text-[21px] text-texte"
+                style={{ letterSpacing: '-0.02em', lineHeight: 1.05 }}
+              >
+                {displayName}
+              </h1>
+              {moduleUtileActive && (
+                <span
+                  className="inline-flex shrink-0 items-center gap-[3px] rounded-full px-[7px] py-[2px] text-[9px] font-extrabold"
+                  style={{ background: '#EAF3E6', color: '#5B8A4A', letterSpacing: '0.06em' }}
+                >
+                  <IcSpark size={8} /> UTILE
+                </span>
+              )}
+            </div>
             {metaLine && (
               <div className="mt-[3px] flex items-center gap-1 text-[11.5px] text-texte-doux">
                 <IcPin size={11} /> {metaLine}

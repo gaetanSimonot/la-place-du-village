@@ -2,10 +2,14 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
+import { useFriendships } from '@/hooks/useFriendships'
 import LoginView from '@/components/LoginView'
 import EditProfileModal from '@/components/EditProfileModal'
 import ProfilHeader, { type FicheProMini, type ViewMode } from './ProfilHeader'
 import ProfilTabSwitcher, { type ProfilTab } from './ProfilTabSwitcher'
+import AmisTab from './tabs/AmisTab'
+import MurTabPlaceholder from './tabs/MurTabPlaceholder'
+import UtileTabPlaceholder from './tabs/UtileTabPlaceholder'
 
 interface Etab {
   id: string
@@ -25,6 +29,7 @@ function isProfilTab(v: string | null): v is ProfilTab {
 
 export default function ProfilHybridView() {
   const { user, profile, loading, updateProfile } = useAuth()
+  const { pendingReceived } = useFriendships()
 
   const [activeTab, setActiveTab] = useState<ProfilTab>('mur')
   const [viewMode, setViewMode] = useState<ViewMode>('own')
@@ -111,6 +116,7 @@ export default function ProfilHybridView() {
   }
 
   const displayName = profile?.display_name ?? user.email?.split('@')[0] ?? 'Mon profil'
+  const moduleUtileActive = profile?.display_settings?.module_utile ?? true
 
   // 1 seule fiche pro mini affichée : producteur prioritaire, sinon premier établissement.
   const ficheProMini: FicheProMini | null = (() => {
@@ -147,19 +153,20 @@ export default function ProfilHybridView() {
         ville={profile?.ville ?? null}
         followersCount={followersCount}
         ficheProMini={ficheProMini}
+        moduleUtileActive={moduleUtileActive}
         onModifyClick={() => setEditOpen(true)}
         onToggleViewMode={() => setViewMode(m => (m === 'own' ? 'public' : 'own'))}
       />
 
-      <ProfilTabSwitcher active={activeTab} onChange={handleTabChange} />
+      <ProfilTabSwitcher
+        active={activeTab}
+        onChange={handleTabChange}
+        amisAlert={pendingReceived.length > 0}
+      />
 
-      {/* Slot tab content — placeholders minimaux. Commit 3 livre :
-          - AmisTab branché sur useFriendships
-          - MurTabPlaceholder / UtileTabPlaceholder fidèles au mockup
-          - HubDecouverteBlock en bas du tab Utile */}
-      <div className="px-4 pt-6 text-center text-[12px] text-texte-doux">
-        Contenu de l&apos;onglet « {activeTab} » — livré au commit 3.
-      </div>
+      {activeTab === 'mur'   && <MurTabPlaceholder />}
+      {activeTab === 'amis'  && <AmisTab />}
+      {activeTab === 'utile' && <UtileTabPlaceholder />}
 
       {editOpen && (
         <EditProfileModal
