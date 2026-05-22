@@ -9,6 +9,15 @@ import FriendButton from '@/components/FriendButton'
 import BottomNavBar from '@/components/BottomNavBar'
 import { useFriendships } from '@/hooks/useFriendships'
 
+interface DisplaySettingsLite {
+  banner?: boolean
+  bio?: boolean
+  fiche_pro?: boolean
+  module_utile?: boolean
+  pages_suivies?: boolean
+  publications?: boolean
+}
+
 interface FullProfile {
   id: string
   display_name: string | null
@@ -23,6 +32,7 @@ interface FullProfile {
   is_verified: boolean
   is_public: boolean
   searchable: boolean
+  display_settings?: DisplaySettingsLite | null
   created_at?: string | null
 }
 
@@ -299,6 +309,17 @@ export default function ProfilPageClient({ id }: { id: string }) {
     </div>
   )
 
+  // Toggles affichage : appliqués UNIQUEMENT pour les visiteurs (non isOwn).
+  // L'auteur voit toujours son contenu peu importe ses settings.
+  // (`showFichePro` non utilisé ici — pas de section fiches mini sur ce composant ;
+  // appliqué dans ProfilHybridView pour la vue /profil mode aperçu.)
+  const ds = profile.display_settings ?? {}
+  const showBanner       = isOwn || ds.banner       !== false
+  const showBio          = isOwn || ds.bio          !== false
+  const showPagesSuivies = isOwn || ds.pages_suivies !== false
+  // Si pages_suivies est cachée et qu'on est sur tab='abos', on retombe sur annonces
+  const safeTab: Tab = (!showPagesSuivies && tab === 'abos') ? 'annonces' : tab
+
   return (
     <div className="min-h-[100dvh] bg-creme pb-28 font-inter text-texte">
       <style>{`@keyframes spin { to { transform: rotate(360deg) } } .pdv-hscroll { scrollbar-width: none } .pdv-hscroll::-webkit-scrollbar { display: none }`}</style>
@@ -329,16 +350,16 @@ export default function ProfilPageClient({ id }: { id: string }) {
         </button>
       </div>
 
-      {/* Bannière (si renseignée) */}
-      {profile.banner_url && (
+      {/* Bannière (si renseignée et toggle ON) */}
+      {showBanner && profile.banner_url && (
         <div className="relative mx-4 mt-3 h-[140px] overflow-hidden rounded-2xl bg-cremeDeep">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={profile.banner_url} alt="" className="h-full w-full object-cover" />
         </div>
       )}
 
-      {/* Hero centered — chevauche la bannière si présente */}
-      <div className={`flex flex-col items-center px-4 text-center ${profile.banner_url ? '-mt-12' : 'pt-6'}`}>
+      {/* Hero centered — chevauche la bannière si présente et visible */}
+      <div className={`flex flex-col items-center px-4 text-center ${showBanner && profile.banner_url ? '-mt-12' : 'pt-6'}`}>
         <div className="relative">
           <Avatar name={name} url={profile.avatar_url} size={96} />
           {isOwn && editing && (
@@ -412,7 +433,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
           />
         )}
 
-        {!editing && profile.bio && (
+        {!editing && showBio && profile.bio && (
           <p className="m-0 mt-3 max-w-[320px] px-2 text-[13px] leading-[1.5] text-texte">
             {profile.bio}
           </p>
@@ -552,11 +573,11 @@ export default function ProfilPageClient({ id }: { id: string }) {
       {!editing && (
         <div className="mx-4 mt-[22px] flex gap-0 border-b" style={{ borderColor: '#F0EAE0' }}>
           {([
-            { id: 'annonces' as Tab, label: 'Annonces',    count: annonceCount },
-            { id: 'events' as Tab,   label: 'Événements',  count: events.length },
-            { id: 'abos' as Tab,     label: 'Abonnements', count: followings.length },
-          ]).map(t => {
-            const active = tab === t.id
+            { id: 'annonces' as Tab, label: 'Annonces',    count: annonceCount, show: true },
+            { id: 'events' as Tab,   label: 'Événements',  count: events.length, show: true },
+            { id: 'abos' as Tab,     label: 'Abonnements', count: followings.length, show: showPagesSuivies },
+          ]).filter(t => t.show).map(t => {
+            const active = safeTab === t.id
             return (
               <button
                 key={t.id}
@@ -588,7 +609,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
       {/* Content par tab */}
       {!editing && (
         <div className="px-4 pt-3.5">
-          {tab === 'annonces' && (
+          {safeTab === 'annonces' && (
             annonces.length === 0 ? (
               <EmptyState label={isOwn ? 'Vous n\'avez pas encore d\'annonces' : 'Pas d\'annonces visibles'} />
             ) : (
@@ -600,7 +621,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
             )
           )}
 
-          {tab === 'events' && (
+          {safeTab === 'events' && (
             events.length === 0 ? (
               <EmptyState label={isOwn ? 'Vous ne suivez encore aucun événement' : 'Aucun événement suivi'} />
             ) : (
@@ -631,7 +652,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
             )
           )}
 
-          {tab === 'abos' && (
+          {safeTab === 'abos' && (
             followings.length === 0 ? (
               <EmptyState label={isOwn ? 'Vous ne suivez encore personne' : 'Ne suit personne'} />
             ) : (

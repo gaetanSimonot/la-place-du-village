@@ -91,6 +91,29 @@ export default function ProfilHybridView() {
     }
   }, [user?.id])
 
+  // Calculs liés aux toggles display_settings — avant les early returns pour
+  // respecter les rules of hooks (useEffect doit être appelé inconditionnellement).
+  const settings = profile?.display_settings ?? {
+    banner: true, bio: true, fiche_pro: true, module_utile: true, pages_suivies: false, publications: true,
+  }
+  const inPublic = viewMode === 'public'
+
+  const visibleTabs: ProfilTab[] = inPublic
+    ? (['mur', 'amis', 'utile'] as const).filter(t =>
+        (t === 'mur'   ? settings.publications  : true)
+        && (t === 'utile' ? settings.module_utile : true),
+      )
+    : ['mur', 'amis', 'utile']
+
+  // Si l'activeTab disparaît du visibleTabs (passage en public avec toggle off),
+  // bascule sur le premier tab visible (Amis dans le pire cas).
+  useEffect(() => {
+    if (!visibleTabs.includes(activeTab)) {
+      setActiveTab(visibleTabs[0] ?? 'amis')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inPublic, settings.publications, settings.module_utile])
+
   if (loading) {
     return (
       <div className="flex min-h-full items-center justify-center bg-creme">
@@ -139,6 +162,13 @@ export default function ProfilHybridView() {
     })),
   ]
 
+  // Application des toggles display_settings — uniquement en mode 'public' (aperçu).
+  // En mode 'own', l'user voit tout son contenu peu importe ses settings.
+  const effectiveBannerUrl     = inPublic && !settings.banner       ? null : (profile?.banner_url ?? null)
+  const effectiveBio           = inPublic && !settings.bio          ? null : (profile?.bio ?? null)
+  const effectiveFicheProMinis = inPublic && !settings.fiche_pro    ? []   : ficheProMinis
+  const effectiveIsVerified    = inPublic && !settings.module_utile ? false : isVerified
+
   return (
     <div className="min-h-full bg-creme pb-10 font-inter text-texte">
       {/* Bandeau "Aperçu public" — visible quand viewMode='public', avec retour explicite */}
@@ -164,12 +194,12 @@ export default function ProfilHybridView() {
         viewMode={viewMode}
         displayName={displayName}
         avatarUrl={profile?.avatar_url ?? null}
-        bannerUrl={profile?.banner_url ?? null}
-        bio={profile?.bio ?? null}
+        bannerUrl={effectiveBannerUrl}
+        bio={effectiveBio}
         ville={profile?.ville ?? null}
         followersCount={followersCount}
-        ficheProMinis={ficheProMinis}
-        isVerified={isVerified}
+        ficheProMinis={effectiveFicheProMinis}
+        isVerified={effectiveIsVerified}
         onModifyClick={() => setEditOpen(true)}
         onToggleViewMode={() => setViewMode(m => (m === 'own' ? 'public' : 'own'))}
       />
@@ -178,6 +208,7 @@ export default function ProfilHybridView() {
         active={activeTab}
         onChange={handleTabChange}
         amisAlert={friends.pendingReceived.length > 0}
+        visibleTabs={visibleTabs}
       />
 
       {activeTab === 'mur'   && (

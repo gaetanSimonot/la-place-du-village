@@ -7,22 +7,29 @@ interface Props {
   active: ProfilTab
   onChange: (tab: ProfilTab) => void
   amisAlert?: boolean
+  /** Tabs à afficher. Si non fournie, les 3 sont affichées. */
+  visibleTabs?: ProfilTab[]
 }
 
-const TABS: Array<{ id: ProfilTab; label: string; Icon: typeof IcChat }> = [
+const ALL_TABS: Array<{ id: ProfilTab; label: string; Icon: typeof IcChat }> = [
   { id: 'mur',   label: 'Mur',   Icon: IcChat  },
   { id: 'amis',  label: 'Amis',  Icon: IcUsers },
   { id: 'utile', label: 'Utile', Icon: IcSpark },
 ]
 
-export default function ProfilTabSwitcher({ active, onChange, amisAlert = false }: Props) {
+export default function ProfilTabSwitcher({ active, onChange, amisAlert = false, visibleTabs }: Props) {
+  const tabs = visibleTabs
+    ? ALL_TABS.filter(t => visibleTabs.includes(t.id))
+    : ALL_TABS
+  if (tabs.length === 0) return null
+  const gridCols = tabs.length === 3 ? 'grid-cols-3' : tabs.length === 2 ? 'grid-cols-2' : 'grid-cols-1'
   return (
     <div className="px-4 pt-[18px]">
       <div
-        className="grid grid-cols-3 gap-0 rounded-[14px] p-1"
+        className={`grid ${gridCols} gap-0 rounded-[14px] p-1`}
         style={{ background: '#F7F1E6' }}
       >
-        {TABS.map(({ id, label, Icon }) => {
+        {tabs.map(({ id, label, Icon }) => {
           const isActive = active === id
           return (
             <button
