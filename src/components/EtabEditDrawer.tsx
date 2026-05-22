@@ -67,7 +67,11 @@ export default function EtabEditDrawer({ etab, isAdmin, onClose, onSaved }: Prop
     if (!q.trim()) return
     setGeocoding(true)
     try {
-      const res = await fetch(`/api/admin/geocode?q=${encodeURIComponent(q)}`)
+      const { data: { session } } = await supabase.auth.getSession()
+      const tk = session?.access_token
+      const res = await fetch(`/api/admin/geocode?q=${encodeURIComponent(q)}`, {
+        headers: tk ? { Authorization: `Bearer ${tk}` } : {},
+      })
       await res.json()
     } finally { setGeocoding(false) }
   }

@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { getPrompt } from '@/lib/prompts-ia'
+import { requireUser } from '@/lib/server-auth'
+import { rateLimit } from '@/lib/rateLimit'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export async function POST(req: NextRequest) {
+  // Garde auth + rate-limit (édition vocale = tokens Claude, coûteuse).
+  // 20/jour/user pour anti-abus.
+  const ctx = await requireUser(req)
+  if (ctx instanceof Response) return ctx
+  const blocked = await rateLimit(ctx.userId, 'voice_edit', ctx.plan, ctx.isAdmin)
+  if (blocked) return blocked
+
   try {
     const { transcript, currentForm } = await req.json()
 

@@ -36,7 +36,11 @@ function LieuSearch({ onSelect, onSelectDb, sessionTokenRef }: {
     setSearching(true)
     // kind=lieux : DB search dans lieux + etablissements
     // sessionToken : Autocomplete gratuit dans la session, seul le Details au select facturé
-    const r = await fetch(`/api/admin/autocomplete?q=${encodeURIComponent(q)}&kind=lieux&sessiontoken=${sessionTokenRef.current}`)
+    const { data: { session } } = await supabase.auth.getSession()
+    const tk = session?.access_token
+    const r = await fetch(`/api/admin/autocomplete?q=${encodeURIComponent(q)}&kind=lieux&sessiontoken=${sessionTokenRef.current}`, {
+      headers: tk ? { Authorization: `Bearer ${tk}` } : {},
+    })
     const d = await r.json()
     setPreds(d.predictions ?? [])
     setDbMatches((d.db ?? []).slice(0, 4))
@@ -357,7 +361,11 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
   const geocodeManual = useCallback(async () => {
     if (!lieuNom && !commune) return
     const q = [lieuNom, commune, 'France'].filter(Boolean).join(', ')
-    const res = await fetch(`/api/admin/geocode?q=${encodeURIComponent(q)}`)
+    const { data: { session } } = await supabase.auth.getSession()
+    const tk = session?.access_token
+    const res = await fetch(`/api/admin/geocode?q=${encodeURIComponent(q)}`, {
+      headers: tk ? { Authorization: `Bearer ${tk}` } : {},
+    })
     const d = await res.json()
     if (d.lat) {
       setLat(d.lat.toString()); setLng(d.lng.toString())
@@ -369,7 +377,11 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
   const handleLieuSelect = async (p: Prediction) => {
     // mode=basic : pour un event on a besoin que lat/lng/nom/adresse → SKU basic ($0.017)
     // Sans mode=basic : full ($0.025 avec contact + atmosphere) — inutile pour event.
-    const res = await fetch(`/api/admin/geocode?place_id=${encodeURIComponent(p.place_id)}&mode=basic&sessiontoken=${sessionTokenRef.current}`)
+    const { data: { session } } = await supabase.auth.getSession()
+    const tk = session?.access_token
+    const res = await fetch(`/api/admin/geocode?place_id=${encodeURIComponent(p.place_id)}&mode=basic&sessiontoken=${sessionTokenRef.current}`, {
+      headers: tk ? { Authorization: `Bearer ${tk}` } : {},
+    })
     const d = await res.json()
     // Regen token pour la prochaine session
     sessionTokenRef.current = crypto.randomUUID()

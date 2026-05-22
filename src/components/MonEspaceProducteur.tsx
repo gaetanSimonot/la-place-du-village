@@ -107,7 +107,11 @@ export default function MonEspaceProducteur() {
     if (addrTimer.current) clearTimeout(addrTimer.current)
     addrTimer.current = setTimeout(async () => {
       if (val.length < 3) { setSuggestions([]); return }
-      const res = await fetch(`/api/admin/autocomplete?q=${encodeURIComponent(val)}`)
+      const { data: { session } } = await supabase.auth.getSession()
+      const tk = session?.access_token
+      const res = await fetch(`/api/admin/autocomplete?q=${encodeURIComponent(val)}`, {
+        headers: tk ? { Authorization: `Bearer ${tk}` } : {},
+      })
       const d = await res.json()
       setSuggestions(d.predictions ?? [])
     }, 350)
@@ -116,7 +120,11 @@ export default function MonEspaceProducteur() {
   async function selectAddress(s: Suggestion) {
     setAddrQuery(s.description)
     setSuggestions([])
-    const res = await fetch(`/api/admin/geocode?place_id=${s.place_id}`)
+    const { data: { session } } = await supabase.auth.getSession()
+    const tk = session?.access_token
+    const res = await fetch(`/api/admin/geocode?place_id=${s.place_id}`, {
+      headers: tk ? { Authorization: `Bearer ${tk}` } : {},
+    })
     const d = await res.json()
     setEditData(p => ({
       ...p,

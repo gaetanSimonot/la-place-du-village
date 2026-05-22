@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { requireUser } from '@/lib/server-auth'
+import { rateLimit } from '@/lib/rateLimit'
 
 // Biaisé sur Ganges (Hérault) — rayon 40km
 const LOCATION = '43.9333,3.7005'
@@ -73,6 +75,15 @@ async function searchDb(q: string, mode: 'commerce' | 'lieux'): Promise<DbMatch[
 }
 
 export async function GET(req: NextRequest) {
+  // Garde auth : user connecté requis (Google Places facturé par requête).
+  const ctx = await requireUser(req)
+  if (ctx instanceof Response) return ctx
+
+  // Rate-limit anti-abus : 100/h/user (suffit confort saisie, bloque les
+  // bots / runaways React qui spammeraient la frappe).
+  const blocked = await rateLimit(ctx.userId, 'places_autocomplete', ctx.plan, ctx.isAdmin)
+  if (blocked) return blocked
+
   const input = req.nextUrl.searchParams.get('q')
   // sessiontoken: UUID généré côté client par session de recherche.
   // Avec ce token, Google groupe les frappes en 1 session → autocomplete

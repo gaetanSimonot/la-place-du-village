@@ -35,6 +35,9 @@ export type RateLimitAction =
   | 'article_comment' // ajout commentaire article
   | 'create_article'  // soumission article journal
   | 'create_comment'  // commentaire générique
+  | 'places_autocomplete' // Google Places autocomplete (facturé par requête)
+  | 'geocode'         // Google Geocoding (facturé par requête)
+  | 'voice_edit'      // Édition vocale via Claude (tokens IA)
 
 export interface RateLimitRule {
   limit: number
@@ -97,6 +100,27 @@ const RATE_LIMITS_BY_PLAN: Record<RateLimitAction, Record<Plan, RateLimitRule>> 
     basic:     { limit: 30, windowMs: HOUR, message: 'Trop de commentaires. Réessaie dans 1 heure.' },
     habitants: { limit: 60, windowMs: HOUR, message: 'Trop de commentaires. Réessaie dans 1 heure.' },
     pro:       { limit: 60, windowMs: HOUR, message: 'Trop de commentaires. Réessaie dans 1 heure.' },
+  },
+  // Google Places autocomplete — facturé chaque frappe sans session token.
+  // Limite confort de saisie : ~100/h suffit pour le user normal qui crée
+  // un commerce / event ; bloque les bots / runaways React.
+  places_autocomplete: {
+    basic:     { limit: 100, windowMs: HOUR, message: 'Trop de recherches. Réessaie dans 1 heure.' },
+    habitants: { limit: 100, windowMs: HOUR, message: 'Trop de recherches. Réessaie dans 1 heure.' },
+    pro:       { limit: 100, windowMs: HOUR, message: 'Trop de recherches. Réessaie dans 1 heure.' },
+  },
+  // Google Geocoding — facturé par requête. Volontairement large (100/jour)
+  // pour ne JAMAIS gêner un placement payant (création fiche commerce, etc.).
+  geocode: {
+    basic:     { limit: 100, windowMs: DAY, message: 'Trop de géocodages aujourd\'hui. Réessaie demain.' },
+    habitants: { limit: 100, windowMs: DAY, message: 'Trop de géocodages aujourd\'hui. Réessaie demain.' },
+    pro:       { limit: 100, windowMs: DAY, message: 'Trop de géocodages aujourd\'hui. Réessaie demain.' },
+  },
+  // Édition vocale Claude — tokens IA coûteux. 20/jour pour anti-abus.
+  voice_edit: {
+    basic:     { limit: 20, windowMs: DAY, message: 'Quota édition vocale atteint (20/jour). Réessaie demain.' },
+    habitants: { limit: 20, windowMs: DAY, message: 'Quota édition vocale atteint (20/jour). Réessaie demain.' },
+    pro:       { limit: 20, windowMs: DAY, message: 'Quota édition vocale atteint (20/jour). Réessaie demain.' },
   },
 }
 

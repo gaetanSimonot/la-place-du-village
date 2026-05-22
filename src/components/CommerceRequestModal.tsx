@@ -256,7 +256,11 @@ function ReferenceForm({
     if (!searchQuery || searchQuery.length < 2) { setDbMatches([]); return }
     const t = setTimeout(async () => {
       setSearching(true)
-      const r = await fetch(`/api/admin/autocomplete?q=${encodeURIComponent(searchQuery)}&dbonly=1`).catch(() => null)
+      const { data: { session } } = await supabase.auth.getSession()
+      const tk = session?.access_token
+      const r = await fetch(`/api/admin/autocomplete?q=${encodeURIComponent(searchQuery)}&dbonly=1`, {
+        headers: tk ? { Authorization: `Bearer ${tk}` } : {},
+      }).catch(() => null)
       if (r && r.ok) {
         const d = await r.json()
         setDbMatches((d.db ?? []).slice(0, 5))
@@ -270,7 +274,11 @@ function ReferenceForm({
   useEffect(() => {
     if (!adresse || adresse.length < 3 || placeId) { setAddressPredictions([]); return }
     const t = setTimeout(async () => {
-      const r = await fetch(`/api/admin/autocomplete?q=${encodeURIComponent(adresse)}&types=address&sessiontoken=${sessionTokenRef.current}`).catch(() => null)
+      const { data: { session } } = await supabase.auth.getSession()
+      const tk = session?.access_token
+      const r = await fetch(`/api/admin/autocomplete?q=${encodeURIComponent(adresse)}&types=address&sessiontoken=${sessionTokenRef.current}`, {
+        headers: tk ? { Authorization: `Bearer ${tk}` } : {},
+      }).catch(() => null)
       if (r && r.ok) {
         const d = await r.json()
         setAddressPredictions((d.predictions ?? []).slice(0, 5))
@@ -283,7 +291,11 @@ function ReferenceForm({
     setAdresse(p.description)
     setAddressPredictions([])
     // Place Details basic + same session token = facturé en bundle
-    const r = await fetch(`/api/admin/geocode?place_id=${encodeURIComponent(p.place_id)}&mode=basic&sessiontoken=${sessionTokenRef.current}`).catch(() => null)
+    const { data: { session } } = await supabase.auth.getSession()
+    const tk = session?.access_token
+    const r = await fetch(`/api/admin/geocode?place_id=${encodeURIComponent(p.place_id)}&mode=basic&sessiontoken=${sessionTokenRef.current}`, {
+      headers: tk ? { Authorization: `Bearer ${tk}` } : {},
+    }).catch(() => null)
     sessionTokenRef.current = crypto.randomUUID() // regen pour prochaine session
     if (!r || !r.ok) return
     const d = await r.json()

@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUser } from '@/lib/server-auth'
+import { rateLimit } from '@/lib/rateLimit'
 
 interface AddressComponent {
   long_name: string
@@ -43,6 +45,13 @@ function guessEtabType(googleTypes: string[]): string | null {
 }
 
 export async function GET(req: NextRequest) {
+  // Garde auth + rate-limit (Google Geocoding facturé par requête).
+  // 100/jour/user : large pour ne JAMAIS gêner un placement payant.
+  const ctx = await requireUser(req)
+  if (ctx instanceof Response) return ctx
+  const blocked = await rateLimit(ctx.userId, 'geocode', ctx.plan, ctx.isAdmin)
+  if (blocked) return blocked
+
   const placeId = req.nextUrl.searchParams.get('place_id')
   const q       = req.nextUrl.searchParams.get('q')
   // mode=basic → ne demande que les champs Basic SKU (~$0.017) au lieu du full
