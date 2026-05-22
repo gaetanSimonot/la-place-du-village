@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import ProfilHybridView from '@/components/profil/ProfilHybridView'
 import { EvenementCard, Filtres, ProduitCategorie, EtablissementCard, EtablissementType } from '@/lib/types'
-import { getDateRange } from '@/lib/filters'
 import { useTheme } from '@/components/ThemeProvider'
 import { haversineKm, GANGES } from '@/lib/distance'
 import { useAuth } from '@/hooks/useAuth'
@@ -85,11 +84,15 @@ export default function HomePage() {
   const [rayonAffichage, setRayonAffichage] = useState<number | null>(null)
   const [zoneLoaded, setZoneLoaded]     = useState(false)
 
-  // Fetch producers when entering annuaire mode (/api/producers est NetworkOnly dans le SW)
+  // Mode annuaire : 1 SEUL fetch /api/annuaire qui regroupe producers +
+  // etablissements (au lieu de 2 appels séparés). Cache CDN 60s par variation
+  // ?type=. Le tri "mes producteurs en premier" reste côté client (PERSO).
   useEffect(() => {
     if (appMode !== 'annuaire') return
     setProducerLoading(true)
-    fetch('/api/producers')
+    setEtablissementLoading(true)
+    const url = selectedEtabType ? `/api/annuaire?type=${selectedEtabType}` : '/api/annuaire'
+    fetch(url)
       .then(r => r.json())
       .then(d => {
         const list: import('@/lib/types').ProducerCard[] = d.producers ?? []
@@ -99,22 +102,14 @@ export default function HomePage() {
           if (idx > 0) { const [mine] = list.splice(idx, 1); list.unshift(mine) }
         }
         setProducers(list)
+        setEtablissements(d.etablissements ?? [])
       })
       .catch(() => {})
-      .finally(() => setProducerLoading(false))
-  }, [appMode, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Fetch établissements quand on entre en mode annuaire
-  useEffect(() => {
-    if (appMode !== 'annuaire') return
-    setEtablissementLoading(true)
-    const url = selectedEtabType ? `/api/etablissements?type=${selectedEtabType}` : '/api/etablissements'
-    fetch(url)
-      .then(r => r.json())
-      .then(d => setEtablissements(d.etablissements ?? []))
-      .catch(() => {})
-      .finally(() => setEtablissementLoading(false))
-  }, [appMode, selectedEtabType]) // eslint-disable-line react-hooks/exhaustive-deps
+      .finally(() => {
+        setProducerLoading(false)
+        setEtablissementLoading(false)
+      })
+  }, [appMode, selectedEtabType, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Zone user (localStorage)
   const [zonePopup, setZonePopup]       = useState(false)
@@ -344,32 +339,29 @@ export default function HomePage() {
     return () => window.removeEventListener('storage', onStorage)
   }, [fetchZoneConfig]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 1 SEUL fetch /api/agenda qui regroupe events filtrés + promo events
+  // + splash featured. Cache CDN 60s par variation (cat+quand+masquerPasses).
+  // Avant : 2 queries supabase parallèles + 2 queries supabase splash featured
+  // (4 round-trips) à chaque fetch. Après : 1 fetch HTTP.
   const fetchEvenements = useCallback(async (silent = false) => {
     if (!zoneLoaded) return // attendre la zone
     if (!silent) setLoading(true)
 
-    const SELECT = 'id, titre, categorie, date_debut, date_fin, heure, image_url, image_position, promotion, promo_ordre, lieux(id, nom, commune, lat, lng, place_id_google)'
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query: any = supabase.from('evenements').select(SELECT).eq('statut', 'publie').order('date_debut', { ascending: true }).limit(300)
-    if (filtres.categories.length > 0) query = query.in('categorie', filtres.categories)
-    const range = getDateRange(filtres.quand)
-    if (range) query = query.gte('date_debut', range.from).lte('date_debut', range.to)
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let promoQuery: any = supabase.from('evenements').select(SELECT).eq('statut', 'publie').in('promotion', ['pro', 'max']).order('date_debut', { ascending: true })
-
-    if (masquerPasses) {
-      const d = new Date()
-      const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-      query = query.or(`date_fin.gte.${today},and(date_fin.is.null,date_debut.gte.${today})`)
-      promoQuery = promoQuery.or(`date_fin.gte.${today},and(date_fin.is.null,date_debut.gte.${today})`)
-    }
+    const params = new URLSearchParams()
+    if (filtres.categories.length > 0) params.set('cat', filtres.categories.join(','))
+    params.set('quand', filtres.quand)
+    if (masquerPasses) params.set('masquerPasses', '1')
 
     try {
-      const [{ data }, { data: promoData }] = await Promise.all([query, promoQuery])
-      setAllEvenements((data as EvenementCard[]) ?? [])
-      setPromoEventsData((promoData as EvenementCard[]) ?? [])
+      const res = await fetch(`/api/agenda?${params.toString()}`)
+      if (!res.ok) return
+      const d = await res.json()
+      setAllEvenements((d.evenements as EvenementCard[]) ?? [])
+      setPromoEventsData((d.promoEvents as EvenementCard[]) ?? [])
+      // splashFeatured arrive aussi dans le payload : on l'applique au 1er hit
+      // (les hits suivants restent identiques car cache CDN). Si l'user reload
+      // dans 60s, on récupère le même set, ce qui est OK.
+      setSplashFeaturedEvents((d.splashFeatured as EvenementCard[]) ?? [])
     } catch {
       // réseau coupé (app en arrière-plan) — on vide pas les données existantes
     } finally {
@@ -378,41 +370,6 @@ export default function HomePage() {
   }, [filtres, masquerPasses, zoneLoaded])
 
   useEffect(() => { fetchEvenements() }, [fetchEvenements])
-
-  // Splash featured : charge les events mis en avant dans le slot 'splash'
-  useEffect(() => {
-    let mounted = true
-    ;(async () => {
-      const nowISO = new Date().toISOString()
-      const { data: slots } = await supabase
-        .from('featured_slots')
-        .select('content_id, priority')
-        .eq('slot', 'splash')
-        .eq('content_type', 'evenement')
-        .lte('starts_at', nowISO)
-        .gt('ends_at', nowISO)
-        .order('priority', { ascending: false })
-
-      if (!slots || slots.length === 0) {
-        if (mounted) setSplashFeaturedEvents([])
-        return
-      }
-
-      const ids = slots.map(s => s.content_id)
-      const { data: events } = await supabase
-        .from('evenements')
-        .select('id, titre, categorie, date_debut, date_fin, heure, image_url, image_position, promotion, promo_ordre, vote_count, submitted_by_name, lieux(id, nom, commune, lat, lng, place_id_google)')
-        .in('id', ids)
-        .eq('statut', 'publie')
-
-      // Re-order selon priority des slots
-      const eventMap = Object.fromEntries(((events ?? []) as unknown[]).map((e) => [(e as { id: string }).id, e]))
-      const ordered = ids.map(id => eventMap[id]).filter(Boolean) as EvenementCard[]
-
-      if (mounted) setSplashFeaturedEvents(ordered)
-    })()
-    return () => { mounted = false }
-  }, [])
 
   // Relancer le fetch quand l'app revient au premier plan
   useEffect(() => {
