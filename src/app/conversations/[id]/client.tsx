@@ -240,7 +240,9 @@ export default function ConversationClient({ convId }: Props) {
       } else {
         const d = await res.json().catch(() => ({}))
         setMessages(prev => prev.map(m => m.id === payload.tempId ? { ...m, status: 'failed' } : m))
-        if (d.code === 'not_friends') setError(d.error)
+        // Affiche l'erreur serveur pour diagnostic (au lieu de fail silent)
+        if (d.error) setError(`${d.error}${d.hint ? ' — ' + d.hint : ''}`)
+        else         setError(`Erreur ${res.status}`)
       }
     } catch {
       setMessages(prev => prev.map(m => m.id === payload.tempId ? { ...m, status: 'failed' } : m))

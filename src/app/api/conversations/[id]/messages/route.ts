@@ -141,19 +141,37 @@ export async function POST(
     }
   }
 
-  // INSERT message (avec embed optionnel)
+  // INSERT message — payload conditionnel. Si pas d'embed, on n'inclut PAS
+  // les colonnes embed_kind/embed_ref_id dans l'insert. Comme ça :
+  // - Si la migration 2026-05-22_embed_attachments.sql a été passée → INSERT
+  //   fonctionne avec ou sans embed.
+  // - Si la migration N'A PAS été passée → INSERT avec embed crashe (normal,
+  //   les colonnes n'existent pas), mais INSERT sans embed marche toujours.
+  const insertPayload: Record<string, unknown> = {
+    conversation_id: id,
+    sender_id:       ctx.userId,
+    content,
+  }
+  if (validEmbedKind && validEmbedRefId) {
+    insertPayload.embed_kind   = validEmbedKind
+    insertPayload.embed_ref_id = validEmbedRefId
+  }
+
   const { data: msg, error: insErr } = await supabaseAdmin
     .from('messages')
-    .insert({
-      conversation_id: id,
-      sender_id:       ctx.userId,
-      content,
-      embed_kind:      validEmbedKind,
-      embed_ref_id:    validEmbedRefId,
-    })
+    .insert(insertPayload)
     .select()
     .single()
-  if (insErr || !msg) return NextResponse.json({ error: insErr?.message ?? 'Erreur' }, { status: 500 })
+  if (insErr || !msg) {
+    // Log côté serveur pour debug Vercel + retour structuré pour client
+    console.error('[messages POST] INSERT error:', insErr)
+    return NextResponse.json({
+      error:   insErr?.message ?? 'Erreur',
+      code:    insErr?.code,
+      details: insErr?.details,
+      hint:    insErr?.hint,
+    }, { status: 500 })
+  }
 
   // Notif aux autres membres
   const { data: otherMembers } = await supabaseAdmin
