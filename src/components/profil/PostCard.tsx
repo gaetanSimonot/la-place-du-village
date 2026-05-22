@@ -16,17 +16,17 @@ interface Props {
   authorAvatar:   string | null
   isOwn:          boolean
   likeCount:      number
+  commentCount:   number
   userHasLiked:   boolean
   onToggleLike:   () => void
   onDelete:       () => Promise<void> | void
-  onComment?:     () => void
-  onShare?:       () => void
+  onComment:      () => void
 }
 
 export default function PostCard({
   post, authorName, authorAvatar, isOwn,
-  likeCount, userHasLiked,
-  onToggleLike, onDelete, onComment, onShare,
+  likeCount, commentCount, userHasLiked,
+  onToggleLike, onDelete, onComment,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
   const initial = (authorName || '·').trim().charAt(0).toUpperCase() || '·'
@@ -40,6 +40,31 @@ export default function PostCard({
   function handleSignal() {
     setMenuOpen(false)
     toast('Signalement noté', { description: 'Notre équipe va revoir cette publication.' })
+  }
+
+  async function handleShare() {
+    const url = typeof window !== 'undefined'
+      ? `${window.location.origin}/profil/${post.user_id}`
+      : ''
+    const text = post.texte.length > 120 ? `${post.texte.slice(0, 120)}…` : post.texte
+    const data: ShareData = { title: 'La Place du Village', text, url }
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share && navigator.canShare?.(data)) {
+        await navigator.share(data)
+        return
+      }
+    } catch (e) {
+      // utilisateur a annulé ou navigator.share a échoué — on tombe sur le fallback
+      if (e instanceof Error && e.name === 'AbortError') return
+    }
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(url)
+        toast.success('Lien copié dans le presse-papier')
+      }
+    } catch {
+      toast.error('Impossible de partager')
+    }
   }
 
   return (
@@ -124,10 +149,17 @@ export default function PostCard({
       </p>
 
       {/* Footer compteurs + actions */}
-      <div className="flex items-center justify-between px-3.5 py-2 text-[11px] text-texte-doux" style={{ borderTop: '1px solid #F0EAE0' }}>
-        <span>
-          {likeCount > 0 && <span>{likeCount} j&apos;aime</span>}
-        </span>
+      <div className="flex items-center justify-between gap-2 px-3.5 py-2 text-[11px] text-texte-doux" style={{ borderTop: '1px solid #F0EAE0' }}>
+        <span>{likeCount > 0 && <>{likeCount} j&apos;aime</>}</span>
+        {commentCount > 0 && (
+          <button
+            type="button"
+            onClick={onComment}
+            className="bg-transparent text-[11px] text-texte-doux"
+          >
+            {commentCount} commentaire{commentCount > 1 ? 's' : ''}
+          </button>
+        )}
       </div>
       <div className="grid grid-cols-3" style={{ borderTop: '1px solid #F0EAE0' }}>
         <ActionBtn
@@ -142,7 +174,7 @@ export default function PostCard({
           }
         />
         <ActionBtn
-          onClick={onComment ?? (() => toast('Bientôt — commentaires', { description: 'Activé dans la prochaine PR.' }))}
+          onClick={onComment}
           active={false}
           label="Commenter"
           icon={
@@ -152,7 +184,7 @@ export default function PostCard({
           }
         />
         <ActionBtn
-          onClick={onShare ?? (() => toast('Bientôt — partage', { description: 'Activé dans la prochaine PR.' }))}
+          onClick={handleShare}
           active={false}
           label="Partager"
           icon={

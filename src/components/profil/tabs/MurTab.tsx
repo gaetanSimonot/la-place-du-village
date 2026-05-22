@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import PostComposer from '../PostComposer'
 import PostCard, { type PostData } from '../PostCard'
+import PostCommentsDrawer from '../PostCommentsDrawer'
 
 interface Props {
   /** L'user dont on affiche le mur (en V1 = toujours l'user connecté = soi). */
@@ -15,6 +16,7 @@ interface Props {
 
 interface PostWithLikes extends PostData {
   likeCount:    number
+  commentCount: number
   userHasLiked: boolean
 }
 
@@ -26,6 +28,7 @@ export default function MurTab({ profileUserId, authorName, authorAvatar }: Prop
   const [posts, setPosts]       = useState<PostWithLikes[]>([])
   const [loading, setLoading]   = useState(true)
   const [composerOpen, setComposerOpen] = useState(false)
+  const [commentsForPost, setCommentsForPost] = useState<PostWithLikes | null>(null)
 
   const loadPosts = useCallback(async () => {
     setLoading(true)
@@ -51,24 +54,29 @@ export default function MurTab({ profileUserId, authorName, authorAvatar }: Prop
       return
     }
 
-    // 2. Fetch likes pour tous les posts en une seule requête
+    // 2. Fetch likes + comments en parallèle (1 requête chacun)
     const ids = list.map(p => p.id)
-    const { data: likesData } = await supabase
-      .from('post_likes')
-      .select('post_id, user_id')
-      .in('post_id', ids)
+    const [likesRes, commentsRes] = await Promise.all([
+      supabase.from('post_likes').select('post_id, user_id').in('post_id', ids),
+      supabase.from('post_comments').select('post_id').in('post_id', ids),
+    ])
 
-    // 3. Aggrège : count par post + has_liked par moi
-    const countByPost = new Map<string, number>()
-    const myLikedSet  = new Set<string>()
-    for (const l of likesData ?? []) {
-      countByPost.set(l.post_id, (countByPost.get(l.post_id) ?? 0) + 1)
+    // 3. Aggrège : count likes + has_liked par moi + count comments
+    const likeCountByPost    = new Map<string, number>()
+    const commentCountByPost = new Map<string, number>()
+    const myLikedSet         = new Set<string>()
+    for (const l of likesRes.data ?? []) {
+      likeCountByPost.set(l.post_id, (likeCountByPost.get(l.post_id) ?? 0) + 1)
       if (l.user_id === myId) myLikedSet.add(l.post_id)
+    }
+    for (const c of commentsRes.data ?? []) {
+      commentCountByPost.set(c.post_id, (commentCountByPost.get(c.post_id) ?? 0) + 1)
     }
 
     setPosts(list.map(p => ({
       ...p,
-      likeCount:    countByPost.get(p.id) ?? 0,
+      likeCount:    likeCountByPost.get(p.id) ?? 0,
+      commentCount: commentCountByPost.get(p.id) ?? 0,
       userHasLiked: myLikedSet.has(p.id),
     })))
     setLoading(false)
@@ -76,12 +84,13 @@ export default function MurTab({ profileUserId, authorName, authorAvatar }: Prop
 
   useEffect(() => { loadPosts() }, [loadPosts])
 
-  // Realtime : refresh quand un post ou un like change pour ce mur
+  // Realtime : refresh quand post/like/comment change pour ce mur
   useEffect(() => {
     const ch = supabase
       .channel(`mur-${profileUserId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts',      filter: `user_id=eq.${profileUserId}` }, () => loadPosts())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'post_likes' }, () => loadPosts())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts',         filter: `user_id=eq.${profileUserId}` }, () => loadPosts())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'post_likes'    }, () => loadPosts())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'post_comments' }, () => loadPosts())
       .subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [profileUserId, loadPosts])
@@ -162,9 +171,11 @@ export default function MurTab({ profileUserId, authorName, authorAvatar }: Prop
             authorAvatar={authorAvatar}
             isOwn={isOwnWall}
             likeCount={p.likeCount}
+            commentCount={p.commentCount}
             userHasLiked={p.userHasLiked}
             onToggleLike={() => handleToggleLike(p)}
             onDelete={() => handleDelete(p)}
+            onComment={() => setCommentsForPost(p)}
           />
         ))}
       </div>
@@ -175,6 +186,19 @@ export default function MurTab({ profileUserId, authorName, authorAvatar }: Prop
           authorAvatar={authorAvatar}
           onClose={() => setComposerOpen(false)}
           onPosted={loadPosts}
+        />
+      )}
+
+      {commentsForPost && (
+        <PostCommentsDrawer
+          postId={commentsForPost.id}
+          postAuthorId={commentsForPost.user_id}
+          onClose={() => setCommentsForPost(null)}
+          onCountChange={count => {
+            setPosts(prev => prev.map(p =>
+              p.id === commentsForPost.id ? { ...p, commentCount: count } : p,
+            ))
+          }}
         />
       )}
     </div>
