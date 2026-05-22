@@ -156,25 +156,23 @@ export default function MessagesClient() {
         </div>
       </div>
 
-      {/* ── Pills catégories ─────────────────────────── */}
-      <div className="overflow-x-auto pt-3.5">
-        <div className="inline-flex min-w-full gap-1.5 px-4">
+      {/* ── Pills catégories — flex-wrap (pas de scroll horizontal) ─── */}
+      <div className="flex flex-wrap gap-1.5 px-4 pt-3.5">
+        <CatPill
+          active={filter === 'all'}
+          onClick={() => setFilter('all')}
+          label="Toutes"
+          count={convs.length}
+        />
+        {(['friend', 'annonce', 'covoit', 'support'] as Source[]).map(s => (
           <CatPill
-            active={filter === 'all'}
-            onClick={() => setFilter('all')}
-            label="Toutes"
-            count={convs.length}
+            key={s}
+            active={filter === s}
+            onClick={() => setFilter(s)}
+            label={s === 'covoit' ? 'Covoit.' : s === 'annonce' ? 'Annonces' : s === 'friend' ? 'Amis' : 'Support'}
+            count={countsBySource[s]}
           />
-          {(['friend', 'annonce', 'covoit', 'support'] as Source[]).map(s => (
-            <CatPill
-              key={s}
-              active={filter === s}
-              onClick={() => setFilter(s)}
-              label={s === 'covoit' ? 'Covoit.' : s === 'annonce' ? 'Annonces' : s === 'friend' ? 'Amis' : 'Support'}
-              count={countsBySource[s]}
-            />
-          ))}
-        </div>
+        ))}
       </div>
 
       {/* ── Banner demandes — masquée V1 (pas encore de séparation inconnus/amis dans la DB) ── */}

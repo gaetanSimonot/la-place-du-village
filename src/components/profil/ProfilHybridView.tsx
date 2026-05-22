@@ -141,6 +141,25 @@ export default function ProfilHybridView() {
 
   return (
     <div className="min-h-full bg-creme pb-10 font-inter text-texte">
+      {/* Bandeau "Aperçu public" — visible quand viewMode='public', avec retour explicite */}
+      {viewMode === 'public' && (
+        <button
+          type="button"
+          onClick={() => setViewMode('own')}
+          className="flex w-full items-center justify-center gap-2 px-4 py-2.5 text-[12px] font-bold text-white"
+          style={{ background: '#1A1209', letterSpacing: '-0.005em' }}
+        >
+          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+          Tu es en aperçu public — Retour à ma vue
+          <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 6 15 12 9 18" />
+          </svg>
+        </button>
+      )}
+
       <ProfilHeader
         viewMode={viewMode}
         displayName={displayName}

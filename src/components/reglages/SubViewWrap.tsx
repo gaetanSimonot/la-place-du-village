@@ -1,4 +1,5 @@
 'use client'
+import BottomNavBar from '@/components/BottomNavBar'
 
 interface Props {
   title:    string
@@ -15,7 +16,7 @@ const IcBack = () => (
 
 export default function SubViewWrap({ title, onBack, children }: Props) {
   return (
-    <div className="min-h-[100dvh] bg-creme font-inter">
+    <div className="min-h-[100dvh] bg-creme pb-28 font-inter">
       <div
         className="flex items-center gap-2.5 px-4 pt-3.5"
         style={{ paddingTop: 'max(14px, env(safe-area-inset-top, 14px))' }}
@@ -37,6 +38,7 @@ export default function SubViewWrap({ title, onBack, children }: Props) {
         </h1>
       </div>
       <div className="pt-3">{children}</div>
+      <BottomNavBar />
     </div>
   )
 }

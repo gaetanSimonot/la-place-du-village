@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { PLANS_INFO, type Plan } from '@/lib/capabilities'
 import LoginView from '@/components/LoginView'
 import AdminAccess from '@/components/AdminAccess'
+import BottomNavBar from '@/components/BottomNavBar'
 import MesAnnonces from '@/components/MesAnnonces'
 import AbonnementsView from '@/components/AbonnementsView'
 import MonEspaceProducteur from '@/components/MonEspaceProducteur'
@@ -118,7 +119,7 @@ export default function ReglagesView() {
   }
 
   return (
-    <main className="min-h-[100dvh] bg-creme pb-10 font-inter text-texte">
+    <main className="min-h-[100dvh] bg-creme pb-28 font-inter text-texte">
       {/* Top bar */}
       <div
         className="flex items-center gap-2.5 px-4 pt-3.5"
@@ -234,6 +235,8 @@ export default function ReglagesView() {
           onClose={() => setDeleteOpen(false)}
         />
       )}
+
+      <BottomNavBar />
     </main>
   )
 }

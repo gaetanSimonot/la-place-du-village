@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import EditProfileModal from '@/components/EditProfileModal'
 import FriendButton from '@/components/FriendButton'
+import BottomNavBar from '@/components/BottomNavBar'
 import { useFriendships } from '@/hooks/useFriendships'
 
 interface FullProfile {
@@ -280,20 +281,26 @@ export default function ProfilPageClient({ id }: { id: string }) {
   const name = useMemo(() => profile?.display_name || profile?.email?.split('@')[0] || 'Anonyme', [profile])
 
   if (loading) return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-creme">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-bord border-t-primary" />
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+    <div className="relative min-h-[100dvh] bg-creme pb-28">
+      <div className="flex min-h-[100dvh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-bord border-t-primary" />
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      </div>
+      <BottomNavBar />
     </div>
   )
 
   if (!profile) return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-creme font-inter">
-      <p className="text-texte-doux">Profil introuvable</p>
+    <div className="relative min-h-[100dvh] bg-creme pb-28 font-inter">
+      <div className="flex min-h-[100dvh] items-center justify-center">
+        <p className="text-texte-doux">Profil introuvable</p>
+      </div>
+      <BottomNavBar />
     </div>
   )
 
   return (
-    <div className="min-h-[100dvh] bg-creme pb-10 font-inter text-texte">
+    <div className="min-h-[100dvh] bg-creme pb-28 font-inter text-texte">
       <style>{`@keyframes spin { to { transform: rotate(360deg) } } .pdv-hscroll { scrollbar-width: none } .pdv-hscroll::-webkit-scrollbar { display: none }`}</style>
 
       {/* Top bar V3 */}
@@ -686,6 +693,8 @@ export default function ProfilPageClient({ id }: { id: string }) {
           }}
         />
       )}
+
+      <BottomNavBar />
     </div>
   )
 }
