@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { requireAdmin } from '@/lib/server-auth'
 
 export async function GET(req: NextRequest) {
+  const ctx = await requireAdmin(req)
+  if (ctx instanceof Response) return ctx
+
   const { searchParams } = req.nextUrl
   const statut = searchParams.get('statut')
   const limit  = Math.min(parseInt(searchParams.get('limit') ?? '50'), 100)

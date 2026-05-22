@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { processMessage } from '@/lib/processMessage'
+import { requireAdmin } from '@/lib/server-auth'
 
-export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const ctx = await requireAdmin(req)
+  if (ctx instanceof Response) return ctx
+
   const { data: msg, error } = await supabaseAdmin
     .from('messages_entrants')
     .select('*')

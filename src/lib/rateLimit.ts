@@ -109,12 +109,13 @@ const RATE_LIMITS_BY_PLAN: Record<RateLimitAction, Record<Plan, RateLimitRule>> 
     habitants: { limit: 100, windowMs: HOUR, message: 'Trop de recherches. Réessaie dans 1 heure.' },
     pro:       { limit: 100, windowMs: HOUR, message: 'Trop de recherches. Réessaie dans 1 heure.' },
   },
-  // Google Geocoding — facturé par requête. Volontairement large (100/jour)
-  // pour ne JAMAIS gêner un placement payant (création fiche commerce, etc.).
+  // Google Geocoding — facturé par requête. 30/jour/user : large pour ne
+  // pas gêner un placement payant (création fiche commerce), serré pour
+  // garder la facture Google sous contrôle.
   geocode: {
-    basic:     { limit: 100, windowMs: DAY, message: 'Trop de géocodages aujourd\'hui. Réessaie demain.' },
-    habitants: { limit: 100, windowMs: DAY, message: 'Trop de géocodages aujourd\'hui. Réessaie demain.' },
-    pro:       { limit: 100, windowMs: DAY, message: 'Trop de géocodages aujourd\'hui. Réessaie demain.' },
+    basic:     { limit: 30, windowMs: DAY, message: 'Trop de géocodages aujourd\'hui. Réessaie demain.' },
+    habitants: { limit: 30, windowMs: DAY, message: 'Trop de géocodages aujourd\'hui. Réessaie demain.' },
+    pro:       { limit: 30, windowMs: DAY, message: 'Trop de géocodages aujourd\'hui. Réessaie demain.' },
   },
   // Édition vocale Claude — tokens IA coûteux. 20/jour pour anti-abus.
   voice_edit: {

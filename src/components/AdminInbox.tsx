@@ -73,9 +73,12 @@ export default function AdminInbox({ onCountChange }: Props) {
 
   const fetchMessages = useCallback(async (s: string) => {
     setLoading(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const tk = session?.access_token
+    const headers: Record<string, string> = tk ? { Authorization: `Bearer ${tk}` } : {}
     const params = new URLSearchParams({ limit: '50' })
     if (s !== 'tous') params.set('statut', s)
-    const res = await fetch(`/api/admin/inbox?${params}`)
+    const res = await fetch(`/api/admin/inbox?${params}`, { headers })
     if (res.ok) {
       const data = await res.json()
       setMessages(data.messages)
@@ -85,10 +88,13 @@ export default function AdminInbox({ onCountChange }: Props) {
   }, [])
 
   const fetchCounts = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const tk = session?.access_token
+    const headers: Record<string, string> = tk ? { Authorization: `Bearer ${tk}` } : {}
     const statuts = ['non_publiable', 'en_attente', 'doublon', 'hors_zone', 'a_traiter']
     const results = await Promise.all(
       statuts.map(s =>
-        fetch(`/api/admin/inbox?statut=${s}&limit=1`)
+        fetch(`/api/admin/inbox?statut=${s}&limit=1`, { headers })
           .then(r => r.ok ? r.json() : { total: 0 })
           .then((d: { total?: number }) => ({ s, n: d.total ?? 0 }))
       )
@@ -129,9 +135,14 @@ export default function AdminInbox({ onCountChange }: Props) {
 
   const ignorer = async (id: string) => {
     setActionId(id)
+    const { data: { session } } = await supabase.auth.getSession()
+    const tk = session?.access_token
     await fetch(`/api/admin/inbox/${id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(tk ? { Authorization: `Bearer ${tk}` } : {}),
+      },
       body: JSON.stringify({ statut: 'ignore' }),
     })
     await refresh()
@@ -140,7 +151,12 @@ export default function AdminInbox({ onCountChange }: Props) {
 
   const retraiter = async (id: string) => {
     setActionId(id)
-    await fetch(`/api/admin/inbox/${id}/process`, { method: 'POST' })
+    const { data: { session } } = await supabase.auth.getSession()
+    const tk = session?.access_token
+    await fetch(`/api/admin/inbox/${id}/process`, {
+      method: 'POST',
+      headers: tk ? { Authorization: `Bearer ${tk}` } : {},
+    })
     await refresh()
     setActionId(null)
   }
@@ -148,7 +164,12 @@ export default function AdminInbox({ onCountChange }: Props) {
   const supprimer = async (id: string) => {
     if (!confirm('Supprimer ce message ?')) return
     setActionId(id)
-    await fetch(`/api/admin/inbox/${id}`, { method: 'DELETE' })
+    const { data: { session } } = await supabase.auth.getSession()
+    const tk = session?.access_token
+    await fetch(`/api/admin/inbox/${id}`, {
+      method: 'DELETE',
+      headers: tk ? { Authorization: `Bearer ${tk}` } : {},
+    })
     setMessages(prev => prev.filter(m => m.id !== id))
     setTotal(prev => prev - 1)
     setActionId(null)

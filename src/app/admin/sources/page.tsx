@@ -1,6 +1,16 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
+
+/** Helper local : récupère les headers avec token Bearer pour les routes
+ *  /api/admin/sources qui sont maintenant protégées par requireAdmin. */
+async function adminHeaders(extra?: Record<string, string>): Promise<Record<string, string>> {
+  const { data: { session } } = await supabase.auth.getSession()
+  const out: Record<string, string> = { ...(extra ?? {}) }
+  if (session?.access_token) out.Authorization = `Bearer ${session.access_token}`
+  return out
+}
 
 interface Source {
   id: string
@@ -39,7 +49,7 @@ export default function SourcesPage() {
 
   const fetchSources = useCallback(async () => {
     setLoading(true)
-    const res = await fetch('/api/admin/sources')
+    const res = await fetch('/api/admin/sources', { headers: await adminHeaders() })
     const data = await res.json()
     setSources(data.sources ?? [])
     setLoading(false)
@@ -52,7 +62,7 @@ export default function SourcesPage() {
     setAdding(true)
     await fetch('/api/admin/sources', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await adminHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(form),
     })
     setForm({ nom: '', url: '', frequence: '24h' })
@@ -64,7 +74,7 @@ export default function SourcesPage() {
   const toggleActif = async (id: string, actif: boolean) => {
     await fetch(`/api/admin/sources/${id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await adminHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ actif: !actif }),
     })
     await fetchSources()
@@ -72,7 +82,7 @@ export default function SourcesPage() {
 
   const deleteSource = async (id: string) => {
     if (!confirm('Supprimer cette source ?')) return
-    await fetch(`/api/admin/sources/${id}`, { method: 'DELETE' })
+    await fetch(`/api/admin/sources/${id}`, { method: 'DELETE', headers: await adminHeaders() })
     await fetchSources()
   }
 

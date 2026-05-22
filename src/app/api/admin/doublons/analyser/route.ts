@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import Anthropic from '@anthropic-ai/sdk'
 import { getPrompt } from '@/lib/prompts-ia'
+import { requireAdmin } from '@/lib/server-auth'
 
 export const maxDuration = 60
 
@@ -21,7 +22,9 @@ export interface PaireSuspecte {
   raison: string
 }
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  const ctx = await requireAdmin(req)
+  if (ctx instanceof Response) return ctx
   // Récupère tous les publiés non déjà vérifiés
   const { data: events, error } = await supabaseAdmin
     .from('evenements')

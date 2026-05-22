@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireAdmin } from '@/lib/server-auth'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,6 +8,9 @@ const supabaseAdmin = createClient(
 )
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const ctx = await requireAdmin(req)
+  if (ctx instanceof Response) return ctx
+
   const body = await req.json()
   const { error } = await supabaseAdmin
     .from('sources')
@@ -16,7 +20,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return NextResponse.json({ ok: true })
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const ctx = await requireAdmin(req)
+  if (ctx instanceof Response) return ctx
+
   const { error } = await supabaseAdmin
     .from('sources')
     .delete()

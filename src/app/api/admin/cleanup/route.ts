@@ -1,8 +1,12 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { requireAdmin } from '@/lib/server-auth'
 
 // Supprime les événements dont la date de fin (ou début) est passée depuis 2 jours
-export async function POST() {
+export async function POST(req: NextRequest) {
+  const ctx = await requireAdmin(req)
+  if (ctx instanceof Response) return ctx
+
   const now = new Date()
   const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2)
   const cutoffStr = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`

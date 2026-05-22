@@ -312,7 +312,17 @@ export default function HomePage() {
     supabase.from('config').select('value').eq('key', 'masquer_passes').single()
       .then(({ data, error }) => setMasquerPasses(error ? true : data?.value !== 'false'))
     fetchZoneConfig()
-    fetch('/api/admin/cleanup', { method: 'POST' }).catch(() => {})
+    // Cleanup silencieux : nécessite admin (la route est maintenant gardée).
+    // Si l'user n'est pas admin → 403 silencieux, pas de souci.
+    ;(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      const tk = session?.access_token
+      if (!tk) return
+      fetch('/api/admin/cleanup', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${tk}` },
+      }).catch(() => {})
+    })()
 
     // Charger zone user depuis localStorage
     try {

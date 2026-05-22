@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { invalidatePrompt } from '@/lib/prompts-ia'
+import { requireAdmin } from '@/lib/server-auth'
 
 // GET /api/admin/prompts → liste tous les prompts
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const ctx = await requireAdmin(req)
+  if (ctx instanceof Response) return ctx
+
   const { data, error } = await supabaseAdmin
     .from('prompts_ia')
     .select('id, nom, description, systeme, updated_at')
@@ -15,6 +19,9 @@ export async function GET() {
 
 // PATCH /api/admin/prompts → met à jour un prompt { id, systeme }
 export async function PATCH(req: NextRequest) {
+  const ctx = await requireAdmin(req)
+  if (ctx instanceof Response) return ctx
+
   const { id, systeme } = await req.json()
 
   if (!id || typeof systeme !== 'string') {

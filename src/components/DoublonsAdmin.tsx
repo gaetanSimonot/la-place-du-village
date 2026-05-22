@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { formatDate } from '@/lib/filters'
+import { supabase } from '@/lib/supabase'
 
 interface Paire {
   id_a: string; titre_a: string; date_a: string | null; commune_a: string | null; desc_a: string | null
@@ -22,7 +23,12 @@ export default function DoublonsAdmin() {
     setPaires([])
     setAnalysed(false)
     try {
-      const res  = await fetch('/api/admin/doublons/analyser', { method: 'POST' })
+      const { data: { session } } = await supabase.auth.getSession()
+      const tk = session?.access_token
+      const res  = await fetch('/api/admin/doublons/analyser', {
+        method: 'POST',
+        headers: tk ? { Authorization: `Bearer ${tk}` } : {},
+      })
       const data = await res.json()
       setPaires(data.paires ?? [])
       setTotalAnalyses(data.total_analyses ?? 0)
@@ -35,9 +41,14 @@ export default function DoublonsAdmin() {
   const resoudre = async (action: 'fusionner' | 'archiver' | 'ignorer', paire: Paire) => {
     setResolving(paire.id_a)
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const tk = session?.access_token
       const res = await fetch('/api/admin/doublons/resoudre', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(tk ? { Authorization: `Bearer ${tk}` } : {}),
+        },
         body: JSON.stringify({ action, id_a: paire.id_a, id_b: paire.id_b }),
       })
       if (!res.ok) { toast.error('Erreur lors de la résolution'); return }

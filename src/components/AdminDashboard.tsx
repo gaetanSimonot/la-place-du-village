@@ -203,7 +203,11 @@ export default function AdminDashboard() {
   }, [])
 
   const fetchFeedbacks = useCallback(async () => {
-    const res = await fetch('/api/admin/feedbacks')
+    const { data: { session } } = await supabase.auth.getSession()
+    const tk = session?.access_token
+    const res = await fetch('/api/admin/feedbacks', {
+      headers: tk ? { Authorization: `Bearer ${tk}` } : {},
+    })
     const data = res.ok ? await res.json() : []
     setFeedbacks(Array.isArray(data) ? data : [])
   }, [])
@@ -231,8 +235,18 @@ export default function AdminDashboard() {
   // Effects
   // ─────────────────────────────────────────────────────────
 
-  // Cleanup silencieux au chargement
-  useEffect(() => { fetch('/api/admin/cleanup', { method: 'POST' }).catch(() => {}) }, [])
+  // Cleanup silencieux au chargement (admin uniquement)
+  useEffect(() => {
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      const tk = session?.access_token
+      if (!tk) return
+      fetch('/api/admin/cleanup', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${tk}` },
+      }).catch(() => {})
+    })()
+  }, [])
 
   // Fetch initial après auth OK
   useEffect(() => {
@@ -390,7 +404,12 @@ export default function AdminDashboard() {
   }
 
   const marquerFeedbackTraite = async (fbId: string) => {
-    await fetch(`/api/admin/feedbacks/${fbId}`, { method: 'DELETE' })
+    const { data: { session } } = await supabase.auth.getSession()
+    const tk = session?.access_token
+    await fetch(`/api/admin/feedbacks/${fbId}`, {
+      method: 'DELETE',
+      headers: tk ? { Authorization: `Bearer ${tk}` } : {},
+    })
     setFeedbacks(prev => prev.filter(f => f.id !== fbId))
   }
 

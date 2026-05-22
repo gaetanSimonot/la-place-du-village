@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { notifyUser } from '@/lib/server-auth'
+import { notifyUser, requireAdmin } from '@/lib/server-auth'
 
 // Convertit les chaînes vides en null pour les champs date/heure
 function nullIfEmpty(v: unknown) {
@@ -8,6 +8,8 @@ function nullIfEmpty(v: unknown) {
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const ctx = await requireAdmin(req)
+  if (ctx instanceof Response) return ctx
   try {
     const body = await req.json()
 
@@ -73,7 +75,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const ctx = await requireAdmin(req)
+  if (ctx instanceof Response) return ctx
   try {
     // Récupère le lieu_id avant suppression
     const { data: evt } = await supabaseAdmin

@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
 
 interface PromptIA {
   id: string
@@ -30,9 +31,15 @@ export default function PromptsIAPage() {
   const textareaRef             = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    fetch('/api/admin/prompts')
-      .then(r => r.json())
-      .then(data => { setPrompts(data); setLoading(false) })
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      const tk = session?.access_token
+      const r = await fetch('/api/admin/prompts', {
+        headers: tk ? { Authorization: `Bearer ${tk}` } : {},
+      })
+      const data = await r.json()
+      setPrompts(data); setLoading(false)
+    })()
   }, [])
 
   const open = (p: PromptIA) => {
@@ -51,9 +58,14 @@ export default function PromptsIAPage() {
   const save = async () => {
     if (!editing) return
     setSaving(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const tk = session?.access_token
     const res = await fetch('/api/admin/prompts', {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(tk ? { Authorization: `Bearer ${tk}` } : {}),
+      },
       body: JSON.stringify({ id: editing.id, systeme: editText }),
     })
     if (res.ok) {
