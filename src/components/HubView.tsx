@@ -11,15 +11,7 @@ import { getPrixAffiche, type Annonce } from '@/lib/annonces'
 import HubTopBar from '@/components/HubTopBar'
 import HubSearchBar from '@/components/HubSearchBar'
 import { useFavorites } from '@/hooks/useFavorites'
-
-/** Fetcher SWR : JSON fetch standard. Renvoie le payload tel quel.
- *  Si le response n'est pas ok, on throw pour que SWR ne mette pas en cache une
- *  réponse vide / erreur. */
-async function hubFetcher(url: string) {
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`Hub fetch ${res.status}`)
-  return res.json()
-}
+// Fetcher + config SWR héritent du provider global (cf. src/components/SWRProvider.tsx).
 
 interface Props {
   onSelectAgenda:        () => void
@@ -150,11 +142,9 @@ export default function HubView({
   //   <5s (nav A → B → A rapide), on ne fait qu'un seul fetch.
   // - mutate() exposé pour invalider depuis le Realtime channel.
   // ──────────────────────────────────────────────────────────────────────
-  const { data: hubData, mutate: mutateHub } = useSWR('/api/hub', hubFetcher, {
-    revalidateOnFocus:  true,
-    dedupingInterval:   5000,
-    keepPreviousData:   true,  // pas de flash à vide pendant la revalidation
-  })
+  // Options (revalidateOnFocus / dedupingInterval / keepPreviousData) +
+  // fetcher viennent du SWRProvider global → on n'a plus à les répéter ici.
+  const { data: hubData, mutate: mutateHub } = useSWR('/api/hub')
 
   // ── Derive les states UI depuis hubData (SWR est la source de vérité) ──
   const zoneCounts = useMemo(() => ({

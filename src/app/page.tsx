@@ -1,6 +1,7 @@
 'use client'
 import React from 'react'
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react'
+import useSWR from 'swr'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -84,32 +85,42 @@ export default function HomePage() {
   const [rayonAffichage, setRayonAffichage] = useState<number | null>(null)
   const [zoneLoaded, setZoneLoaded]     = useState(false)
 
-  // Mode annuaire : 1 SEUL fetch /api/annuaire qui regroupe producers +
-  // etablissements (au lieu de 2 appels séparés). Cache CDN 60s par variation
-  // ?type=. Le tri "mes producteurs en premier" reste côté client (PERSO).
+  // SWR sur /api/annuaire — clé inclut le type filtre. Disable quand on n'est
+  // pas en mode annuaire (key=null) → SWR ne fetch pas, mais garde le cache
+  // de la dernière entrée. Au retour en annuaire, affichage instantané.
+  const annuaireKey = appMode === 'annuaire'
+    ? (selectedEtabType ? `/api/annuaire?type=${selectedEtabType}` : '/api/annuaire')
+    : null
+
+  const { data: annuaireData, isLoading: annuaireLoadingRaw } = useSWR(annuaireKey)
+
+  // Tri "mes producteurs en premier" : PERSO côté client, appliqué sur le
+  // payload SWR. useMemo pour ne pas recompute sans raison.
   useEffect(() => {
-    if (appMode !== 'annuaire') return
-    setProducerLoading(true)
-    setEtablissementLoading(true)
-    const url = selectedEtabType ? `/api/annuaire?type=${selectedEtabType}` : '/api/annuaire'
-    fetch(url)
-      .then(r => r.json())
-      .then(d => {
-        const list: import('@/lib/types').ProducerCard[] = d.producers ?? []
-        const myId = user?.id
-        if (myId) {
-          const idx = list.findIndex(p => p.user_id === myId)
-          if (idx > 0) { const [mine] = list.splice(idx, 1); list.unshift(mine) }
-        }
+    if (!annuaireData) return
+    const list: import('@/lib/types').ProducerCard[] = annuaireData.producers ?? []
+    const myId = user?.id
+    if (myId) {
+      const idx = list.findIndex(p => p.user_id === myId)
+      if (idx > 0) {
+        const sorted = [...list]
+        const [mine] = sorted.splice(idx, 1)
+        sorted.unshift(mine)
+        setProducers(sorted)
+      } else {
         setProducers(list)
-        setEtablissements(d.etablissements ?? [])
-      })
-      .catch(() => {})
-      .finally(() => {
-        setProducerLoading(false)
-        setEtablissementLoading(false)
-      })
-  }, [appMode, selectedEtabType, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+      }
+    } else {
+      setProducers(list)
+    }
+    setEtablissements(annuaireData.etablissements ?? [])
+  }, [annuaireData, user?.id])
+
+  useEffect(() => {
+    const fetching = annuaireKey !== null && annuaireLoadingRaw && !annuaireData
+    setProducerLoading(fetching)
+    setEtablissementLoading(fetching)
+  }, [annuaireKey, annuaireLoadingRaw, annuaireData])
 
   // Zone user (localStorage)
   const [zonePopup, setZonePopup]       = useState(false)
@@ -339,44 +350,36 @@ export default function HomePage() {
     return () => window.removeEventListener('storage', onStorage)
   }, [fetchZoneConfig]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 1 SEUL fetch /api/agenda qui regroupe events filtrés + promo events
-  // + splash featured. Cache CDN 60s par variation (cat+quand+masquerPasses).
-  // Avant : 2 queries supabase parallèles + 2 queries supabase splash featured
-  // (4 round-trips) à chaque fetch. Après : 1 fetch HTTP.
-  const fetchEvenements = useCallback(async (silent = false) => {
-    if (!zoneLoaded) return // attendre la zone
-    if (!silent) setLoading(true)
-
+  // SWR sur /api/agenda — clé inclut les filtres (cat + quand + masquerPasses)
+  // pour que chaque combinaison ait sa propre entrée cache. Le retour sur la
+  // page (quitter / revenir) sert depuis cache mémoire SWR instantanément,
+  // puis revalide en fond (revalidateOnFocus hérité du SWRProvider global).
+  const agendaKey = useMemo(() => {
+    if (!zoneLoaded) return null  // pas de fetch tant que zone pas prête
     const params = new URLSearchParams()
     if (filtres.categories.length > 0) params.set('cat', filtres.categories.join(','))
     params.set('quand', filtres.quand)
     if (masquerPasses) params.set('masquerPasses', '1')
-
-    try {
-      const res = await fetch(`/api/agenda?${params.toString()}`)
-      if (!res.ok) return
-      const d = await res.json()
-      setAllEvenements((d.evenements as EvenementCard[]) ?? [])
-      setPromoEventsData((d.promoEvents as EvenementCard[]) ?? [])
-      // splashFeatured arrive aussi dans le payload : on l'applique au 1er hit
-      // (les hits suivants restent identiques car cache CDN). Si l'user reload
-      // dans 60s, on récupère le même set, ce qui est OK.
-      setSplashFeaturedEvents((d.splashFeatured as EvenementCard[]) ?? [])
-    } catch {
-      // réseau coupé (app en arrière-plan) — on vide pas les données existantes
-    } finally {
-      if (!silent) setLoading(false)
-    }
+    return `/api/agenda?${params.toString()}`
   }, [filtres, masquerPasses, zoneLoaded])
 
-  useEffect(() => { fetchEvenements() }, [fetchEvenements])
+  const { data: agendaData, isLoading: agendaLoadingRaw } = useSWR(agendaKey)
 
-  // Relancer le fetch quand l'app revient au premier plan
+  // Sync des states existants depuis agendaData (le rendu utilise les states
+  // legacy → minimisation du diff dans la grosse page.tsx).
   useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') fetchEvenements(true) }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [fetchEvenements])
+    if (!agendaData) return
+    setAllEvenements((agendaData.evenements as EvenementCard[]) ?? [])
+    setPromoEventsData((agendaData.promoEvents as EvenementCard[]) ?? [])
+    setSplashFeaturedEvents((agendaData.splashFeatured as EvenementCard[]) ?? [])
+  }, [agendaData])
+
+  // Loading initial : tant que SWR n'a pas remonté de data ET qu'on est en train
+  // de fetcher, on affiche le loader. Au retour (cache hit), data est déjà là
+  // → pas de loader, affichage instantané.
+  useEffect(() => {
+    setLoading(agendaKey !== null && agendaLoadingRaw && !agendaData)
+  }, [agendaKey, agendaLoadingRaw, agendaData])
 
   // Sheet full → active le mode liste ; sheet réduite → revient en carte
   // Exception : sur le hub ou les onglets statiques, on ne touche pas au navTab
