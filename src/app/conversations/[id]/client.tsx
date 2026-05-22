@@ -142,6 +142,39 @@ export default function ConversationClient({ convId }: Props) {
     })
   }, [messages.length])
 
+  // Re-scroll quand le clavier monte/descend (visualViewport change de taille
+  // → la zone visible bouge, on garde le dernier message visible juste
+  // au-dessus du composer)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return
+    const onResize = () => {
+      requestAnimationFrame(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+        }
+      })
+    }
+    window.visualViewport.addEventListener('resize', onResize)
+    return () => window.visualViewport?.removeEventListener('resize', onResize)
+  }, [])
+
+  // Quand l'input prend le focus (= keyboard sur le point de monter), scroll
+  // en bas avec un délai pour laisser le clavier s'animer. Combiné au listener
+  // visualViewport ci-dessus, garantit que tout remonte ensemble.
+  useEffect(() => {
+    const input = inputRef.current
+    if (!input) return
+    const onFocus = () => {
+      setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+        }
+      }, 300)
+    }
+    input.addEventListener('focus', onFocus)
+    return () => input.removeEventListener('focus', onFocus)
+  }, [])
+
   // Envoi optimistic d'un payload (content + embed). Affiche le message
   // instantanément en 'sending' AVANT la réponse serveur. Au succès, remplace
   // le temp par le vrai message (avec gestion de la race condition Realtime).

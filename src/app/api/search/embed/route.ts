@@ -105,10 +105,12 @@ export async function GET(req: NextRequest) {
 
   if (requested.includes('annonce')) {
     tasks.push((async () => {
+      // Mêmes statuts que /api/annonces GET principal : 'active' + 'don_final'
+      // (don à donner et don déjà donné) — couvre l'annuaire visible
       let qb = supabaseAdmin
         .from('annonces')
         .select('id, titre, photos, prix, statut, type')
-        .eq('statut', 'active')
+        .in('statut', ['active', 'don_final'])
       if (ilike) qb = qb.ilike('titre', ilike)
       const { data } = await qb
         .order('created_at', { ascending: false })
@@ -127,9 +129,14 @@ export async function GET(req: NextRequest) {
 
   if (requested.includes('promo')) {
     tasks.push((async () => {
+      // Mêmes filtres que /api/promotions GET (mode public) : active=true +
+      // valid_until null ou >= now (non expirées)
+      const nowISO = new Date().toISOString()
       let qb = supabaseAdmin
         .from('promotions')
         .select('id, titre, image_url')
+        .eq('active', true)
+        .or(`valid_until.is.null,valid_until.gte.${nowISO}`)
       if (ilike) qb = qb.ilike('titre', ilike)
       const { data } = await qb.order('created_at', { ascending: false }).limit(LIMIT)
       return {
