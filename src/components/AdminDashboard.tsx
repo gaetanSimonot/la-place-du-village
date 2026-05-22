@@ -337,9 +337,14 @@ export default function AdminDashboard() {
     const next = !masquerPasses
     setTogglingConfig(true)
     setMasquerPasses(next)
+    const { data: { session } } = await supabase.auth.getSession()
+    const tk = session?.access_token
     await fetch('/api/admin/config', {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(tk ? { Authorization: `Bearer ${tk}` } : {}),
+      },
       body: JSON.stringify({ key: 'masquer_passes', value: next }),
     })
     setTogglingConfig(false)
@@ -349,9 +354,14 @@ export default function AdminDashboard() {
     const next = hubSubtitleInput.trim()
     if (!next || next === hubSubtitle) return
     setSavingSubtitle(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const tk = session?.access_token
     await fetch('/api/admin/config', {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(tk ? { Authorization: `Bearer ${tk}` } : {}),
+      },
       body: JSON.stringify({ key: 'hub_subtitle', value: next }),
     })
     setHubSubtitle(next)

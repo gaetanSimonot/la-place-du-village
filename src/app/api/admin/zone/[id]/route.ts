@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { requireAdmin } from '@/lib/server-auth'
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const ctx = await requireAdmin(req)
+  if (ctx instanceof Response) return ctx
+
   const { error } = await supabaseAdmin
     .from('zone_centres')
     .delete()

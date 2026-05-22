@@ -1042,9 +1042,14 @@ export default function HomePage() {
                       const cam = mapCameraRef.current
                       if (!cam) return
                       const pos = { lat: cam.lat, lng: cam.lng, zoom: cam.zoom }
+                      const { data: { session: sess } } = await supabase.auth.getSession()
+                      const tk = sess?.access_token
                       await fetch('/api/admin/zone', {
                         method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                          'Content-Type': 'application/json',
+                          ...(tk ? { Authorization: `Bearer ${tk}` } : {}),
+                        },
                         body: JSON.stringify({ carte_depart_lat: pos.lat, carte_depart_lng: pos.lng, carte_depart_zoom: pos.zoom }),
                       })
                       try { localStorage.setItem('pdv-carte-depart', JSON.stringify(pos)) } catch {}

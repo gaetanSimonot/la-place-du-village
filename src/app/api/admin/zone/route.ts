@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { geocodeWithGoogle } from '@/lib/extract'
+import { requireAdmin } from '@/lib/server-auth'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Garde admin : sans cette garde, n'importe quel user connecté pouvait
+  // appeler ces routes (service_role bypass RLS).
+  const ctx = await requireAdmin(req)
+  if (ctx instanceof Response) return ctx
+
   const [centresRes, insertionRes, affichageRes, latRes, lngRes, zoomRes] = await Promise.all([
     supabaseAdmin.from('zone_centres').select('*').order('created_at'),
     supabaseAdmin.from('config').select('value').eq('key', 'rayon_insertion_km').single(),
@@ -22,6 +28,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const ctx = await requireAdmin(req)
+  if (ctx instanceof Response) return ctx
+
   const { nom } = await req.json()
   if (!nom?.trim()) return NextResponse.json({ error: 'Nom requis' }, { status: 400 })
 
@@ -41,6 +50,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const ctx = await requireAdmin(req)
+  if (ctx instanceof Response) return ctx
+
   const { rayon_insertion, rayon_affichage, carte_depart_lat, carte_depart_lng, carte_depart_zoom } = await req.json()
 
   const upserts = []

@@ -2,6 +2,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 import { APIProvider, Map, useMap } from '@vis.gl/react-google-maps'
+import { supabase } from '@/lib/supabase'
+
+/** Helper : récupère le header Authorization Bearer pour les routes
+ *  /api/admin/zone qui sont protégées par requireAdmin. */
+async function adminHeaders(extra?: Record<string, string>): Promise<Record<string, string>> {
+  const { data: { session } } = await supabase.auth.getSession()
+  const out: Record<string, string> = { ...(extra ?? {}) }
+  if (session?.access_token) out.Authorization = `Bearer ${session.access_token}`
+  return out
+}
 
 interface Centre {
   id: string
@@ -70,7 +80,7 @@ export default function ZoneAdmin() {
   const [pickZoom,  setPickZoom]  = useState(carteZoom)
 
   const fetchZone = useCallback(async () => {
-    const res  = await fetch('/api/admin/zone')
+    const res  = await fetch('/api/admin/zone', { headers: await adminHeaders() })
     const data = await res.json()
     setCentres(data.centres ?? [])
     setRayonInsertion(data.rayon_insertion ?? 100)
@@ -84,9 +94,10 @@ export default function ZoneAdmin() {
 
   const validerZone = async () => {
     setSaving(true)
+    const headers = await adminHeaders({ 'Content-Type': 'application/json' })
     const promise = fetch('/api/admin/zone', {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ rayon_insertion: rayonInsertion, rayon_affichage: rayonAffichage, carte_depart_lat: carteLat, carte_depart_lng: carteLng, carte_depart_zoom: carteZoom }),
     }).then(res => {
       if (!res.ok) throw new Error('Erreur')
@@ -103,7 +114,8 @@ export default function ZoneAdmin() {
   const addCentre = async () => {
     if (!newNom.trim()) return
     setAdding(true); setError(null)
-    const res  = await fetch('/api/admin/zone', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nom: newNom.trim() }) })
+    const headers = await adminHeaders({ 'Content-Type': 'application/json' })
+    const res  = await fetch('/api/admin/zone', { method: 'POST', headers, body: JSON.stringify({ nom: newNom.trim() }) })
     const data = await res.json()
     if (!res.ok) { setError(data.error ?? 'Erreur') } else { setNewNom(''); await fetchZone() }
     setAdding(false)
@@ -111,7 +123,7 @@ export default function ZoneAdmin() {
 
   const deleteCentre = async (id: string) => {
     setDeletingId(id)
-    await fetch(`/api/admin/zone/${id}`, { method: 'DELETE' })
+    await fetch(`/api/admin/zone/${id}`, { method: 'DELETE', headers: await adminHeaders() })
     await fetchZone(); setDeletingId(null)
   }
 
