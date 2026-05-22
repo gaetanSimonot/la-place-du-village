@@ -106,7 +106,11 @@ export default function ReglagesView() {
       </div>
 
       {deleteOpen && (
-        <DeleteAccountModal email={user.email ?? ''} onClose={() => setDeleteOpen(false)} />
+        <DeleteAccountModal
+          email={user.email ?? ''}
+          signOut={signOut}
+          onClose={() => setDeleteOpen(false)}
+        />
       )}
     </main>
   )

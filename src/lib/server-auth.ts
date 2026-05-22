@@ -103,7 +103,7 @@ export async function requireAdmin(
 
 /**
  * Envoie une notification in-app à TOUS les admins (table admin_emails).
- * Remplace les anciens envois hardcodés vers gaetan.simonot@gmail.com.
+ * Source de vérité = table admin_emails (peuplée côté Dashboard Supabase).
  *
  * Fail-silent : si aucun admin n'est trouvé ou si l'insert plante, on log et on continue.
  */
