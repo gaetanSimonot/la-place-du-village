@@ -3,11 +3,22 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from '
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 
+export interface DisplaySettings {
+  banner: boolean
+  bio: boolean
+  fiche_pro: boolean
+  module_utile: boolean
+  pages_suivies: boolean
+  publications: boolean
+}
+
 export interface Profile {
   id: string
   display_name: string | null
   avatar_url: string | null
   banner_url?: string | null
+  bio?: string | null
+  ville?: string | null
   email: string | null
   username: string | null
   banned: boolean
@@ -16,6 +27,7 @@ export interface Profile {
   is_verified?: boolean
   is_public?: boolean
   searchable?: boolean
+  display_settings?: DisplaySettings | null
 }
 
 interface AuthContextType {

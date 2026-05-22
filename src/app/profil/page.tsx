@@ -1,16 +1,20 @@
 'use client'
-import ProfilView from '@/components/ProfilView'
-import AdminAccess from '@/components/AdminAccess'
+import ProfilHybridView from '@/components/profil/ProfilHybridView'
 
 /**
- * Page directe /profil — réutilise ProfilView pour avoir une seule source de vérité
- * (le même composant que celui affiché dans l'onglet "Profil" de la nav bottom).
+ * Page /profil — refonte V3 "profil hybride".
+ *
+ * Le composant ProfilView legacy est conservé volontairement (utilisé encore
+ * par d'autres entrées possibles ; cleanup dans une PR dédiée une fois la
+ * refonte stabilisée).
+ *
+ * AdminAccess est temporairement absent pendant la refonte — il sera remis
+ * dans /reglages > groupe Compte au commit 4.
  */
 export default function ProfilPage() {
   return (
     <div style={{ minHeight: '100dvh', backgroundColor: 'var(--creme)' }}>
-      <ProfilView />
-      <AdminAccess />
+      <ProfilHybridView />
     </div>
   )
 }
