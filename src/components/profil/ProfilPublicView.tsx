@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
+import { openFriendChat } from '@/lib/openFriendChat'
 import type { DisplaySettings, Profile } from '@/contexts/AuthContext'
 import BottomNavBar from '@/components/BottomNavBar'
 import ProfilHeader, { type FicheProMini } from './ProfilHeader'
@@ -108,10 +109,17 @@ export default function ProfilPublicView({ viewedUserId }: { viewedUserId: strin
     setFollowBusy(false)
   }
 
-  function handleContact() {
+  async function handleContact() {
     if (!user) { router.push('/profil'); return }
     if (isOwn) return
-    router.push(`/messages?friend=${viewedUserId}`)
+    // openFriendChat requiert que les 2 users soient amis acceptés (vérif serveur).
+    // Si pas amis → toast d'invitation à l'ajouter en ami d'abord.
+    const ok = await openFriendChat(viewedUserId)
+    if (!ok) {
+      toast('Vous devez être amis pour discuter', {
+        description: 'Envoie-lui d\'abord une demande d\'ami.',
+      })
+    }
   }
 
   if (loading) {

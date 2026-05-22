@@ -163,6 +163,7 @@ export function useFriendships() {
   return {
     loading:         state.loading,
     friendships:     state.friendships,
+    profilesByUserId: state.profilesByUserId,
     statusWith,
     friendIds,
     friendProfiles,

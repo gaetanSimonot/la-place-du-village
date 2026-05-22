@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import type { useFriendships } from '@/hooks/useFriendships'
+import { openFriendChat } from '@/lib/openFriendChat'
 import { IcChat, IcUsers, IcUserPlus, IcEye } from '../icons'
 
 type SubTab = 'amis' | 'suggestions' | 'demandes'
@@ -24,7 +25,7 @@ export type FriendsHookState = ReturnType<typeof useFriendships>
 
 export default function AmisTab({ friends }: { friends: FriendsHookState }) {
   const { user } = useAuth()
-  const { friendProfiles, friendIds, friendships, pendingReceived, sendRequest, accept, cancel, loading } =
+  const { friendProfiles, friendIds, friendships, pendingReceived, profilesByUserId, sendRequest, accept, cancel, loading } =
     friends
 
   const [sub, setSub] = useState<SubTab>('amis')
@@ -245,6 +246,7 @@ export default function AmisTab({ friends }: { friends: FriendsHookState }) {
                   <PersonRowDemEnvoyee
                     key={friendship.id}
                     otherId={otherId}
+                    profile={profilesByUserId[otherId] ?? null}
                     disabled={pendingActionId === friendship.id}
                     onCancel={() => handleDecline(friendship.id)}
                   />
@@ -321,13 +323,14 @@ function PersonRowAmi({ person }: { person: PersonRow }) {
         </Link>
         {person.ville && <div className="truncate text-[11px] text-texte-doux">{person.ville}</div>}
       </div>
-      <Link
-        href={`/messages?friend=${person.user_id}`}
+      <button
+        type="button"
+        onClick={() => openFriendChat(person.user_id)}
         aria-label="Discuter"
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-primary-light text-primary"
       >
         <IcChat size={16} />
-      </Link>
+      </button>
     </div>
   )
 }
@@ -407,20 +410,26 @@ function PersonRowDemReçue({
   )
 }
 
-/* ── Row Demande envoyée : juste annuler ─────────────────────────────── */
+/* ── Row Demande envoyée : avatar + nom + bouton annuler ──────────────── */
 function PersonRowDemEnvoyee({
-  otherId, disabled, onCancel,
-}: { otherId: string; disabled: boolean; onCancel: () => void }) {
+  otherId, profile, disabled, onCancel,
+}: {
+  otherId: string
+  profile: { display_name: string | null; avatar_url: string | null; ville: string | null } | null
+  disabled: boolean
+  onCancel: () => void
+}) {
   return (
     <div
       className="flex items-center gap-3 rounded-[14px] border bg-white px-3 py-2.5"
       style={{ borderColor: '#F0EAE0' }}
     >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-light text-[14px] font-extrabold text-primary">
-        ·
-      </div>
+      <Avatar url={profile?.avatar_url ?? null} name={profile?.display_name ?? null} />
       <Link href={`/profil/${otherId}`} className="min-w-0 flex-1 text-inherit no-underline">
-        <div className="text-[12px] italic text-texte-doux">Envoyée — en attente</div>
+        <div className="truncate text-[13px] font-extrabold text-texte" style={{ letterSpacing: '-0.005em' }}>
+          {profile?.display_name ?? 'Sans nom'}
+        </div>
+        <div className="mt-px text-[11px] italic text-texte-doux">Envoyée — en attente</div>
       </Link>
       <button
         type="button"
