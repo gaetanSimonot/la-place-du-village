@@ -24,23 +24,29 @@ export async function GET(req: NextRequest) {
     ? (kindsParam.split(',').filter(k => ['event','etab','producer','annonce','promo','covoit'].includes(k)) as EmbedKind[])
     : ['event','etab','producer','annonce','promo','covoit']
 
-  if (q.length < 2) {
+  // Mode "browse" : pas de query mais 1 seul kind demandé → liste les
+  // items récents de ce kind (pour le picker en mode "j'entre dans une
+  // catégorie"). Sinon, query < 2 chars → tableau vide.
+  const browseSingleKind = q.length < 2 && requested.length === 1
+  if (q.length < 2 && !browseSingleKind) {
     return NextResponse.json({ results: [] })
   }
 
-  const ilike = `%${q.replace(/%/g, '\\%')}%`
-  const LIMIT = 8
+  const ilike = q.length >= 2 ? `%${q.replace(/%/g, '\\%')}%` : null
+  // Mode browse : on remonte plus d'items (30) pour permettre de scroller
+  const LIMIT = browseSingleKind ? 30 : 8
 
   type Task = Promise<{ kind: EmbedKind; rows: Array<{ id: string; title: string; subtitle: string | null; photo: string | null }> }>
   const tasks: Task[] = []
 
   if (requested.includes('event')) {
     tasks.push((async () => {
-      const { data } = await supabase
+      let qb = supabase
         .from('evenements')
         .select('id, titre, image_url, date_debut, lieux(commune)')
         .eq('statut', 'publie')
-        .ilike('titre', ilike)
+      if (ilike) qb = qb.ilike('titre', ilike)
+      const { data } = await qb
         .order('date_debut', { ascending: true })
         .limit(LIMIT)
       return {
@@ -61,11 +67,11 @@ export async function GET(req: NextRequest) {
 
   if (requested.includes('etab')) {
     tasks.push((async () => {
-      const { data } = await supabase
+      let qb = supabase
         .from('etablissements')
         .select('id, nom, commune, photos')
-        .ilike('nom', ilike)
-        .limit(LIMIT)
+      if (ilike) qb = qb.ilike('nom', ilike)
+      const { data } = await qb.order('nom', { ascending: true }).limit(LIMIT)
       return {
         kind: 'etab' as const,
         rows: (data ?? []).map(e => ({
@@ -80,11 +86,11 @@ export async function GET(req: NextRequest) {
 
   if (requested.includes('producer')) {
     tasks.push((async () => {
-      const { data } = await supabase
+      let qb = supabase
         .from('producers')
         .select('id, nom, commune, photos')
-        .ilike('nom', ilike)
-        .limit(LIMIT)
+      if (ilike) qb = qb.ilike('nom', ilike)
+      const { data } = await qb.order('nom', { ascending: true }).limit(LIMIT)
       return {
         kind: 'producer' as const,
         rows: (data ?? []).map(p => ({
@@ -99,11 +105,12 @@ export async function GET(req: NextRequest) {
 
   if (requested.includes('annonce')) {
     tasks.push((async () => {
-      const { data } = await supabase
+      let qb = supabase
         .from('annonces')
         .select('id, titre, photos, prix, statut, type')
         .eq('statut', 'active')
-        .ilike('titre', ilike)
+      if (ilike) qb = qb.ilike('titre', ilike)
+      const { data } = await qb
         .order('created_at', { ascending: false })
         .limit(LIMIT)
       return {
@@ -120,11 +127,11 @@ export async function GET(req: NextRequest) {
 
   if (requested.includes('promo')) {
     tasks.push((async () => {
-      const { data } = await supabase
+      let qb = supabase
         .from('promotions')
         .select('id, titre, image_url')
-        .ilike('titre', ilike)
-        .limit(LIMIT)
+      if (ilike) qb = qb.ilike('titre', ilike)
+      const { data } = await qb.order('created_at', { ascending: false }).limit(LIMIT)
       return {
         kind: 'promo' as const,
         rows: (data ?? []).map(p => ({
@@ -139,10 +146,11 @@ export async function GET(req: NextRequest) {
 
   if (requested.includes('covoit')) {
     tasks.push((async () => {
-      const { data } = await supabase
+      let qb = supabase
         .from('covoit_trajets')
         .select('id, ville_depart, ville_arrivee, date_depart')
-        .or(`ville_depart.ilike.${ilike},ville_arrivee.ilike.${ilike}`)
+      if (ilike) qb = qb.or(`ville_depart.ilike.${ilike},ville_arrivee.ilike.${ilike}`)
+      const { data } = await qb
         .order('date_depart', { ascending: true })
         .limit(LIMIT)
       return {
