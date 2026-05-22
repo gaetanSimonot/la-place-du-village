@@ -76,7 +76,26 @@ export async function POST(
 
   const body = await req.json().catch(() => ({}))
   const content = typeof body?.content === 'string' ? body.content.trim() : ''
-  if (!content) return NextResponse.json({ error: 'Message vide' }, { status: 400 })
+  const embedKindRaw  = body?.embed_kind
+  const embedRefIdRaw = body?.embed_ref_id
+
+  // Validation embed optionnel (mêmes kinds que posts)
+  const ALLOWED_KINDS = ['event','etab','producer','annonce','promo','covoit']
+  let validEmbedKind: string | null = null
+  let validEmbedRefId: string | null = null
+  if (embedKindRaw != null && embedRefIdRaw != null) {
+    if (typeof embedKindRaw !== 'string' || !ALLOWED_KINDS.includes(embedKindRaw)) {
+      return NextResponse.json({ error: 'embed_kind invalide' }, { status: 400 })
+    }
+    if (typeof embedRefIdRaw !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(embedRefIdRaw)) {
+      return NextResponse.json({ error: 'embed_ref_id doit être un UUID' }, { status: 400 })
+    }
+    validEmbedKind = embedKindRaw
+    validEmbedRefId = embedRefIdRaw
+  }
+
+  // Texte requis SAUF si un embed est fourni (on peut envoyer juste un lien)
+  if (!content && !validEmbedKind) return NextResponse.json({ error: 'Message vide' }, { status: 400 })
   if (content.length > 4000) return NextResponse.json({ error: 'Message trop long' }, { status: 400 })
 
   // Check membership
@@ -120,10 +139,16 @@ export async function POST(
     }
   }
 
-  // INSERT message
+  // INSERT message (avec embed optionnel)
   const { data: msg, error: insErr } = await supabaseAdmin
     .from('messages')
-    .insert({ conversation_id: id, sender_id: ctx.userId, content })
+    .insert({
+      conversation_id: id,
+      sender_id:       ctx.userId,
+      content,
+      embed_kind:      validEmbedKind,
+      embed_ref_id:    validEmbedRefId,
+    })
     .select()
     .single()
   if (insErr || !msg) return NextResponse.json({ error: insErr?.message ?? 'Erreur' }, { status: 500 })

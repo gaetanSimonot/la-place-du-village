@@ -21,7 +21,10 @@ export async function POST(req: NextRequest) {
   if (ctx instanceof Response) return ctx
 
   const body = await req.json().catch(() => ({}))
-  const { texte, visibility } = body as { texte?: unknown; visibility?: unknown }
+  const { texte, visibility, embed_kind, embed_ref_id } = body as {
+    texte?: unknown; visibility?: unknown;
+    embed_kind?: unknown; embed_ref_id?: unknown
+  }
 
   if (typeof texte !== 'string') {
     return NextResponse.json({ error: 'Texte requis' }, { status: 400 })
@@ -39,10 +42,31 @@ export async function POST(req: NextRequest) {
     vis = visibility as Visibility
   }
 
+  // Validation embed optionnel
+  const ALLOWED_KINDS = ['event','etab','producer','annonce','promo','covoit']
+  let validEmbedKind: string | null = null
+  let validEmbedRefId: string | null = null
+  if (embed_kind != null && embed_ref_id != null) {
+    if (typeof embed_kind !== 'string' || !ALLOWED_KINDS.includes(embed_kind)) {
+      return NextResponse.json({ error: 'embed_kind invalide' }, { status: 400 })
+    }
+    if (typeof embed_ref_id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(embed_ref_id)) {
+      return NextResponse.json({ error: 'embed_ref_id doit être un UUID' }, { status: 400 })
+    }
+    validEmbedKind = embed_kind
+    validEmbedRefId = embed_ref_id
+  }
+
   const { data, error } = await supabaseAdmin
     .from('posts')
-    .insert({ user_id: ctx.userId, texte: trimmed, visibility: vis })
-    .select('id, user_id, texte, visibility, created_at')
+    .insert({
+      user_id: ctx.userId,
+      texte: trimmed,
+      visibility: vis,
+      embed_kind: validEmbedKind,
+      embed_ref_id: validEmbedRefId,
+    })
+    .select('id, user_id, texte, visibility, embed_kind, embed_ref_id, created_at')
     .single()
 
   if (error) {

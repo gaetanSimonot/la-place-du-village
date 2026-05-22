@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import ClientPortal from '@/components/ClientPortal'
+import EmbedPicker, { type EmbedItem } from '@/components/EmbedPicker'
 
 export type Visibility = 'public' | 'amis' | 'prive'
 
@@ -25,6 +26,8 @@ export default function PostComposer({ authorName, authorAvatar, onClose, onPost
   const [texte, setTexte]           = useState('')
   const [visibility, setVisibility] = useState<Visibility>('public')
   const [posting, setPosting]       = useState(false)
+  const [embed, setEmbed]           = useState<EmbedItem | null>(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
@@ -51,7 +54,12 @@ export default function PostComposer({ authorName, authorAvatar, onClose, onPost
       const res = await fetch('/api/posts', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body:    JSON.stringify({ texte: trimmed, visibility }),
+        body:    JSON.stringify({
+          texte: trimmed,
+          visibility,
+          embed_kind:   embed?.kind ?? null,
+          embed_ref_id: embed?.id ?? null,
+        }),
       })
       if (!res.ok) {
         const d = await res.json().catch(() => ({}))
@@ -142,12 +150,73 @@ export default function PostComposer({ authorName, authorAvatar, onClose, onPost
           disabled={posting}
         />
 
-        <div className="mt-2 text-right text-[11px] text-texte-tres-doux">
-          {texte.length}/{MAX}
+        {/* Preview embed sélectionné */}
+        {embed && <EmbedPreview embed={embed} onRemove={() => setEmbed(null)} />}
+
+        <div className="mt-2 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-full bg-cremeDeep px-3 py-1.5 text-[11.5px] font-extrabold text-primary"
+            aria-label="Lier un élément du village"
+          >
+            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            {embed ? 'Changer le lien' : 'Lier un élément'}
+          </button>
+          <div className="text-[11px] text-texte-tres-doux">{texte.length}/{MAX}</div>
         </div>
       </div>
+
+      {pickerOpen && (
+        <EmbedPicker
+          onSelect={item => { setEmbed(item); setPickerOpen(false) }}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
     </div>
     </ClientPortal>
+  )
+}
+
+/* ── Preview embed inline dans le composer ──────────────────────────── */
+function EmbedPreview({ embed, onRemove }: { embed: EmbedItem; onRemove: () => void }) {
+  const labels: Record<EmbedItem['kind'], string> = {
+    event: 'Événement', etab: 'Établissement', producer: 'Producteur',
+    annonce: 'Annonce', promo: 'Promotion', covoit: 'Covoiturage',
+  }
+  return (
+    <div
+      className="mt-3 flex items-center gap-2.5 rounded-[12px] border bg-cremeDeep px-2.5 py-2"
+      style={{ borderColor: '#E8E0D4' }}
+    >
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[8px] bg-primary-light text-primary">
+        {embed.photo
+          ? <img src={embed.photo} alt="" className="h-full w-full object-cover" />
+          : <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/></svg>}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[9.5px] font-extrabold uppercase text-primary" style={{ letterSpacing: '0.08em' }}>
+          {labels[embed.kind]}
+        </div>
+        <div className="truncate text-[13px] font-bold text-texte" style={{ letterSpacing: '-0.005em' }}>
+          {embed.title}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label="Retirer le lien"
+        className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-texte-doux"
+        style={{ border: '1px solid #E8E0D4' }}
+      >
+        <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
   )
 }
 

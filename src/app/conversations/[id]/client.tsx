@@ -4,12 +4,15 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
+import EmbedPicker, { type EmbedItem } from '@/components/EmbedPicker'
 
 interface Message {
   id:              string
   conversation_id: string
   sender_id:       string
   content:         string
+  embed_kind:      string | null
+  embed_ref_id:    string | null
   created_at:      string
 }
 
@@ -28,6 +31,8 @@ export default function ConversationClient({ convId }: Props) {
   const [accessDenied, setAccessDenied] = useState(false)
   const [canWrite, setCanWrite]     = useState(true)
   const [other, setOther]           = useState<{ display_name: string | null; avatar_url: string | null } | null>(null)
+  const [embed, setEmbed]           = useState<EmbedItem | null>(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // Auth guard
@@ -98,11 +103,11 @@ export default function ConversationClient({ convId }: Props) {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [messages.length])
 
-  // Envoi message
+  // Envoi message — accepte texte vide si embed sélectionné
   async function send(e: React.FormEvent) {
     e.preventDefault()
     const content = text.trim()
-    if (!content || sending) return
+    if ((!content && !embed) || sending) return
     setSending(true); setError(null)
     const { data: { session } } = await supabase.auth.getSession()
     const token = session?.access_token
@@ -110,10 +115,15 @@ export default function ConversationClient({ convId }: Props) {
     const res = await fetch(`/api/conversations/${convId}/messages`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body:    JSON.stringify({ content }),
+      body:    JSON.stringify({
+        content,
+        embed_kind:   embed?.kind ?? null,
+        embed_ref_id: embed?.id ?? null,
+      }),
     })
     if (res.ok) {
       setText('')
+      setEmbed(null)
       const data = await res.json()
       if (data?.message) {
         setMessages(prev => prev.some(x => x.id === data.message.id) ? prev : [...prev, data.message])
@@ -222,7 +232,12 @@ export default function ConversationClient({ convId }: Props) {
                   }`}
                   style={{ wordBreak: 'break-word' }}
                 >
-                  {m.content}
+                  {m.content && <div>{m.content}</div>}
+                  {m.embed_kind && m.embed_ref_id && (
+                    <div className={m.content ? 'mt-1.5' : ''}>
+                      <MessageEmbedRender kind={m.embed_kind} refId={m.embed_ref_id} mine={mine} />
+                    </div>
+                  )}
                 </div>
               </div>
             )
@@ -232,27 +247,46 @@ export default function ConversationClient({ convId }: Props) {
 
       {/* ─── Composer (caché si plus amis = conv figée) ───── */}
       {canWrite ? (
-        <form onSubmit={send} className="sticky bottom-0 z-30 flex items-center gap-2 border-t border-bordSoft bg-creme/95 px-3 py-2.5 backdrop-blur" style={{ paddingBottom: 'max(10px, env(safe-area-inset-bottom, 10px))' }}>
-          <input
-            type="text"
-            value={text}
-            onChange={e => setText(e.target.value)}
-            placeholder="Écris un message…"
-            disabled={sending}
-            className="min-w-0 flex-1 rounded-full border border-bord bg-white px-4 py-2.5 text-[14px] text-texte outline-none placeholder:text-texte-tres-doux disabled:opacity-60"
-          />
-          <button
-            type="submit"
-            disabled={!text.trim() || sending}
-            aria-label="Envoyer"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white disabled:opacity-50"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="22" y1="2" x2="11" y2="13"/>
-              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-            </svg>
-          </button>
-        </form>
+        <div className="sticky bottom-0 z-30 border-t border-bordSoft bg-creme/95 backdrop-blur" style={{ paddingBottom: 'max(10px, env(safe-area-inset-bottom, 10px))' }}>
+          {/* Preview embed sélectionné, au-dessus du champ */}
+          {embed && (
+            <div className="px-3 pt-2">
+              <ChatEmbedPreview embed={embed} onRemove={() => setEmbed(null)} />
+            </div>
+          )}
+          <form onSubmit={send} className="flex items-center gap-2 px-3 py-2.5">
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              aria-label="Lier un élément du village"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cremeDeep text-primary"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+            <input
+              type="text"
+              value={text}
+              onChange={e => setText(e.target.value)}
+              placeholder="Écris un message…"
+              disabled={sending}
+              className="min-w-0 flex-1 rounded-full border border-bord bg-white px-4 py-2.5 text-[14px] text-texte outline-none placeholder:text-texte-tres-doux disabled:opacity-60"
+            />
+            <button
+              type="submit"
+              disabled={(!text.trim() && !embed) || sending}
+              aria-label="Envoyer"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white disabled:opacity-50"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+            </button>
+          </form>
+        </div>
       ) : (
         <div className="sticky bottom-0 z-30 border-t border-bordSoft bg-cremeDeep/80 px-4 py-3 text-center backdrop-blur" style={{ paddingBottom: 'max(14px, env(safe-area-inset-bottom, 14px))' }}>
           <p className="m-0 text-[12px] font-medium text-texte-doux">
@@ -264,6 +298,130 @@ export default function ConversationClient({ convId }: Props) {
       {error && (
         <div className="px-4 pb-2 text-center text-[11px] text-accent">{error}</div>
       )}
+
+      {pickerOpen && (
+        <EmbedPicker
+          onSelect={item => { setEmbed(item); setPickerOpen(false) }}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
     </main>
+  )
+}
+
+/* ── Preview embed inline au-dessus du champ message ─────────────────── */
+function ChatEmbedPreview({ embed, onRemove }: { embed: EmbedItem; onRemove: () => void }) {
+  const labels: Record<EmbedItem['kind'], string> = {
+    event: 'Événement', etab: 'Établissement', producer: 'Producteur',
+    annonce: 'Annonce', promo: 'Promotion', covoit: 'Covoiturage',
+  }
+  return (
+    <div
+      className="flex items-center gap-2 rounded-[12px] border bg-white px-2 py-1.5"
+      style={{ borderColor: '#E8E0D4' }}
+    >
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[7px] bg-primary-light text-primary">
+        {embed.photo
+          ? <img src={embed.photo} alt="" className="h-full w-full object-cover" />
+          : <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/></svg>}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[9px] font-extrabold uppercase text-primary" style={{ letterSpacing: '0.06em' }}>
+          {labels[embed.kind]}
+        </div>
+        <div className="truncate text-[12px] font-bold text-texte">{embed.title}</div>
+      </div>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label="Retirer"
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cremeDeep text-texte-doux"
+      >
+        <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
+  )
+}
+
+/* ── Render d'un embed dans une bubble message ───────────────────────── */
+function MessageEmbedRender({ kind, refId, mine }: { kind: string; refId: string; mine: boolean }) {
+  const [details, setDetails] = useState<{ title: string; subtitle: string | null; photo: string | null; href: string } | null>(null)
+  const [notFound, setNotFound] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        if (kind === 'event') {
+          const { data } = await supabase.from('evenements').select('id, titre, image_url, lieux(commune)').eq('id', refId).maybeSingle()
+          if (!data) { if (!cancelled) setNotFound(true); return }
+          const lieuRaw = (data as { lieux?: { commune?: string | null } | { commune?: string | null }[] | null }).lieux
+          const lieu = Array.isArray(lieuRaw) ? lieuRaw[0] : lieuRaw
+          if (!cancelled) setDetails({ title: data.titre as string, subtitle: lieu?.commune ?? null, photo: (data.image_url as string | null) ?? null, href: `/evenement/${refId}` })
+        } else if (kind === 'etab') {
+          const { data } = await supabase.from('etablissements').select('nom, commune, photos').eq('id', refId).maybeSingle()
+          if (!data) { if (!cancelled) setNotFound(true); return }
+          if (!cancelled) setDetails({ title: data.nom as string, subtitle: (data.commune as string | null) ?? null, photo: ((data.photos as string[] | null) ?? [])[0] ?? null, href: `/etablissement/${refId}` })
+        } else if (kind === 'producer') {
+          const { data } = await supabase.from('producers').select('nom, commune, photos').eq('id', refId).maybeSingle()
+          if (!data) { if (!cancelled) setNotFound(true); return }
+          if (!cancelled) setDetails({ title: data.nom as string, subtitle: (data.commune as string | null) ?? null, photo: ((data.photos as string[] | null) ?? [])[0] ?? null, href: `/producteur/${refId}` })
+        } else if (kind === 'annonce') {
+          const { data } = await supabase.from('annonces').select('titre, photos, type').eq('id', refId).maybeSingle()
+          if (!data) { if (!cancelled) setNotFound(true); return }
+          if (!cancelled) setDetails({ title: data.titre as string, subtitle: (data.type as string | null) ?? null, photo: ((data.photos as string[] | null) ?? [])[0] ?? null, href: `/annonces/${refId}` })
+        } else if (kind === 'promo') {
+          const { data } = await supabase.from('promotions').select('titre, image_url').eq('id', refId).maybeSingle()
+          if (!data) { if (!cancelled) setNotFound(true); return }
+          if (!cancelled) setDetails({ title: data.titre as string, subtitle: null, photo: (data.image_url as string | null) ?? null, href: `/promotions` })
+        } else if (kind === 'covoit') {
+          const { data } = await supabase.from('covoit_trajets').select('ville_depart, ville_arrivee, date_depart').eq('id', refId).maybeSingle()
+          if (!data) { if (!cancelled) setNotFound(true); return }
+          const sub = data.date_depart ? new Date(data.date_depart as string).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : null
+          if (!cancelled) setDetails({ title: `${data.ville_depart} → ${data.ville_arrivee}`, subtitle: sub, photo: null, href: `/covoiturage/${refId}` })
+        }
+      } catch {
+        if (!cancelled) setNotFound(true)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [kind, refId])
+
+  const labels: Record<string, string> = {
+    event: 'Événement', etab: 'Établissement', producer: 'Producteur',
+    annonce: 'Annonce', promo: 'Promotion', covoit: 'Covoiturage',
+  }
+
+  if (notFound) {
+    return <div className={`text-[11px] italic ${mine ? 'text-white/80' : 'text-texte-doux'}`}>Élément supprimé</div>
+  }
+  if (!details) {
+    return <div className={`h-12 w-full animate-pulse rounded-lg ${mine ? 'bg-white/15' : 'bg-cremeDeep'}`} />
+  }
+
+  return (
+    <Link
+      href={details.href}
+      className={`flex items-center gap-2 rounded-[10px] px-2 py-1.5 no-underline ${
+        mine ? 'bg-white/15 text-white' : 'bg-cremeDeep text-texte'
+      }`}
+      onClick={e => e.stopPropagation()}
+    >
+      <div className={`flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[7px] ${
+        mine ? 'bg-white/15' : 'bg-primary-light text-primary'
+      }`}>
+        {details.photo
+          ? <img src={details.photo} alt="" className="h-full w-full object-cover" />
+          : <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/></svg>}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className={`text-[9px] font-extrabold uppercase ${mine ? 'text-white/85' : 'text-primary'}`} style={{ letterSpacing: '0.06em' }}>
+          {labels[kind] ?? kind}
+        </div>
+        <div className="truncate text-[12.5px] font-bold">{details.title}</div>
+      </div>
+    </Link>
   )
 }

@@ -1,13 +1,17 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { toast } from 'sonner'
+import { supabase } from '@/lib/supabase'
 
 export interface PostData {
-  id:          string
-  user_id:     string
-  texte:       string
-  visibility:  'public' | 'amis' | 'prive'
-  created_at:  string
+  id:           string
+  user_id:      string
+  texte:        string
+  visibility:   'public' | 'amis' | 'prive'
+  created_at:   string
+  embed_kind?:  string | null
+  embed_ref_id?: string | null
 }
 
 interface Props {
@@ -148,6 +152,13 @@ export default function PostCard({
         {post.texte}
       </p>
 
+      {/* Embed mini-card (élément du village lié) */}
+      {post.embed_kind && post.embed_ref_id && (
+        <div className="px-3.5 pb-3">
+          <PostEmbedRender kind={post.embed_kind} refId={post.embed_ref_id} />
+        </div>
+      )}
+
       {/* Footer compteurs + actions */}
       <div className="flex items-center justify-between gap-2 px-3.5 py-2 text-[11px] text-texte-doux" style={{ borderTop: '1px solid #F0EAE0' }}>
         <span>{likeCount > 0 && <>{likeCount} j&apos;aime</>}</span>
@@ -233,6 +244,114 @@ function VisibilityIcon({ visibility }: { visibility: 'public' | 'amis' | 'prive
       {visibility === 'amis'   && <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></>}
       {visibility === 'prive'  && <><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>}
     </svg>
+  )
+}
+
+/* ── Embed render : fetch l'élément lié + mini-card cliquable ───────── */
+interface EmbedDetails {
+  title:    string
+  subtitle: string | null
+  photo:    string | null
+  href:     string
+}
+
+const EMBED_LABEL: Record<string, string> = {
+  event: 'Événement', etab: 'Établissement', producer: 'Producteur',
+  annonce: 'Annonce', promo: 'Promotion', covoit: 'Covoiturage',
+}
+
+function PostEmbedRender({ kind, refId }: { kind: string; refId: string }) {
+  const [details, setDetails] = useState<EmbedDetails | null>(null)
+  const [notFound, setNotFound] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        if (kind === 'event') {
+          const { data } = await supabase.from('evenements').select('id, titre, image_url, date_debut, lieux(commune)').eq('id', refId).maybeSingle()
+          if (!data) { if (!cancelled) setNotFound(true); return }
+          const lieuRaw = (data as { lieux?: { commune?: string | null } | { commune?: string | null }[] | null }).lieux
+          const lieu = Array.isArray(lieuRaw) ? lieuRaw[0] : lieuRaw
+          if (!cancelled) setDetails({ title: data.titre as string, subtitle: lieu?.commune ?? null, photo: (data.image_url as string | null) ?? null, href: `/evenement/${refId}` })
+        } else if (kind === 'etab') {
+          const { data } = await supabase.from('etablissements').select('id, nom, commune, photos').eq('id', refId).maybeSingle()
+          if (!data) { if (!cancelled) setNotFound(true); return }
+          if (!cancelled) setDetails({ title: data.nom as string, subtitle: (data.commune as string | null) ?? null, photo: ((data.photos as string[] | null) ?? [])[0] ?? null, href: `/etablissement/${refId}` })
+        } else if (kind === 'producer') {
+          const { data } = await supabase.from('producers').select('id, nom, commune, photos').eq('id', refId).maybeSingle()
+          if (!data) { if (!cancelled) setNotFound(true); return }
+          if (!cancelled) setDetails({ title: data.nom as string, subtitle: (data.commune as string | null) ?? null, photo: ((data.photos as string[] | null) ?? [])[0] ?? null, href: `/producteur/${refId}` })
+        } else if (kind === 'annonce') {
+          const { data } = await supabase.from('annonces').select('id, titre, photos, type, prix').eq('id', refId).maybeSingle()
+          if (!data) { if (!cancelled) setNotFound(true); return }
+          if (!cancelled) setDetails({ title: data.titre as string, subtitle: (data.type as string | null) ?? null, photo: ((data.photos as string[] | null) ?? [])[0] ?? null, href: `/annonces/${refId}` })
+        } else if (kind === 'promo') {
+          const { data } = await supabase.from('promotions').select('id, titre, image_url').eq('id', refId).maybeSingle()
+          if (!data) { if (!cancelled) setNotFound(true); return }
+          if (!cancelled) setDetails({ title: data.titre as string, subtitle: null, photo: (data.image_url as string | null) ?? null, href: `/promotions` })
+        } else if (kind === 'covoit') {
+          const { data } = await supabase.from('covoit_trajets').select('id, ville_depart, ville_arrivee, date_depart').eq('id', refId).maybeSingle()
+          if (!data) { if (!cancelled) setNotFound(true); return }
+          const sub = data.date_depart ? new Date(data.date_depart as string).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : null
+          if (!cancelled) setDetails({ title: `${data.ville_depart} → ${data.ville_arrivee}`, subtitle: sub, photo: null, href: `/covoiturage/${refId}` })
+        }
+      } catch {
+        if (!cancelled) setNotFound(true)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [kind, refId])
+
+  if (notFound) {
+    return (
+      <div className="rounded-[12px] border bg-cremeDeep px-3 py-2 text-[11.5px] italic text-texte-doux" style={{ borderColor: '#E8E0D4' }}>
+        Élément supprimé
+      </div>
+    )
+  }
+
+  if (!details) {
+    return (
+      <div className="flex items-center gap-2.5 rounded-[12px] border bg-cremeDeep px-2.5 py-2" style={{ borderColor: '#E8E0D4' }}>
+        <div className="h-10 w-10 shrink-0 animate-pulse rounded-[8px] bg-bord" />
+        <div className="flex-1 space-y-1.5">
+          <div className="h-2.5 w-1/2 animate-pulse rounded bg-bord" />
+          <div className="h-2 w-1/3 animate-pulse rounded bg-bord" />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <Link
+      href={details.href}
+      className="flex items-center gap-2.5 rounded-[12px] border bg-cremeDeep px-2.5 py-2 text-inherit no-underline"
+      style={{ borderColor: '#E8E0D4' }}
+      onClick={e => e.stopPropagation()}
+    >
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[9px] bg-primary-light text-primary">
+        {details.photo
+          ? <img src={details.photo} alt="" className="h-full w-full object-cover" />
+          : <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/></svg>}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[9.5px] font-extrabold uppercase text-primary" style={{ letterSpacing: '0.08em' }}>
+          {EMBED_LABEL[kind] ?? kind}
+        </div>
+        <div className="truncate text-[13px] font-extrabold text-texte" style={{ letterSpacing: '-0.005em' }}>
+          {details.title}
+        </div>
+        {details.subtitle && (
+          <div className="truncate text-[11px] text-texte-doux">{details.subtitle}</div>
+        )}
+      </div>
+      <span className="shrink-0 text-texte-tres-doux">
+        <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="9 6 15 12 9 18" />
+        </svg>
+      </span>
+    </Link>
   )
 }
 

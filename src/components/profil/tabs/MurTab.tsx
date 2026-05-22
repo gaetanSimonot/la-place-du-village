@@ -35,7 +35,7 @@ export default function MurTab({ profileUserId, authorName, authorAvatar }: Prop
     // 1. Fetch posts (RLS filtre selon visibility + friendships)
     const { data: postsData, error: postsErr } = await supabase
       .from('posts')
-      .select('id, user_id, texte, visibility, created_at')
+      .select('id, user_id, texte, visibility, embed_kind, embed_ref_id, created_at')
       .eq('user_id', profileUserId)
       .order('created_at', { ascending: false })
       .limit(100)
