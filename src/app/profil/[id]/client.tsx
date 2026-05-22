@@ -16,6 +16,7 @@ interface FullProfile {
   email: string | null
   bio: string | null
   ville: string | null
+  link_url: string | null
   plan: string | null
   genre: 'homme' | 'femme' | 'autre' | null
   is_verified: boolean
@@ -651,34 +652,34 @@ export default function ProfilPageClient({ id }: { id: string }) {
         </div>
       )}
 
-      {/* Modal édition (réutilise EditProfileModal — contient bannière + genre + confidentialité) */}
+      {/* Modal édition — V3 mockup : nom + bio + localisation + lien + bannière.
+          Genre + confidentialité + email vivent désormais dans /reglages. */}
       {isOwn && editModalOpen && profile && (
         <EditProfileModal
           initialName={profile.display_name ?? ''}
-          initialGenre={profile.genre}
+          initialBio={profile.bio ?? null}
+          initialVille={profile.ville ?? null}
+          initialLinkUrl={profile.link_url ?? null}
           initialBannerUrl={profile.banner_url}
-          initialIsPublic={profile.is_public}
-          initialSearchable={profile.searchable}
           email={user?.email ?? ''}
           avatarUrl={profile.avatar_url}
           onClose={() => setEditModalOpen(false)}
-          onSave={async ({ name, genre, bannerUrl, isPublic, searchable }) => {
+          onSave={async ({ name, bio, ville, linkUrl, bannerUrl }) => {
             const patch: {
               display_name?: string
-              genre?: 'homme' | 'femme' | 'autre' | null
+              bio?: string | null
+              ville?: string | null
+              link_url?: string | null
               banner_url?: string | null
-              is_public?: boolean
-              searchable?: boolean
             } = {}
-            if (name.trim() && name.trim() !== profile.display_name)  patch.display_name = name.trim()
-            if (genre !== (profile.genre ?? null))                    patch.genre = genre
+            if (name.trim() && name.trim() !== profile.display_name) patch.display_name = name.trim()
+            if (bio !== (profile.bio ?? null))                        patch.bio = bio
+            if (ville !== (profile.ville ?? null))                    patch.ville = ville
+            if (linkUrl !== (profile.link_url ?? null))               patch.link_url = linkUrl
             const cleanBanner = bannerUrl ? bannerUrl.split('?')[0] : null
             if (cleanBanner !== (profile.banner_url ?? null))         patch.banner_url = cleanBanner
-            if (isPublic !== (profile.is_public ?? true))             patch.is_public = isPublic
-            if (searchable !== (profile.searchable ?? true))          patch.searchable = searchable
             if (Object.keys(patch).length > 0) {
               await updateProfile(patch)
-              // Refresh local du profile affiché (sinon il faut recharger la page)
               setProfile(prev => prev ? { ...prev, ...patch } as FullProfile : prev)
             }
             setEditModalOpen(false)

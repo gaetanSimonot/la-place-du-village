@@ -659,29 +659,28 @@ export default function ProfilView() {
       {editOpen && (
         <EditProfileModal
           initialName={profile?.display_name ?? ''}
-          initialGenre={(profile?.genre ?? null) as 'homme' | 'femme' | 'autre' | null}
+          initialBio={profile?.bio ?? null}
+          initialVille={profile?.ville ?? null}
+          initialLinkUrl={profile?.link_url ?? null}
           initialBannerUrl={profile?.banner_url ?? null}
-          initialIsPublic={profile?.is_public ?? true}
-          initialSearchable={profile?.searchable ?? true}
           email={user.email ?? ''}
           avatarUrl={profile?.avatar_url ?? null}
           onClose={() => setEditOpen(false)}
-          onSave={async ({ name, genre, bannerUrl, isPublic, searchable }) => {
+          onSave={async ({ name, bio, ville, linkUrl, bannerUrl }) => {
             const patch: {
               display_name?: string
-              genre?: 'homme' | 'femme' | 'autre' | null
+              bio?: string | null
+              ville?: string | null
+              link_url?: string | null
               banner_url?: string | null
-              is_public?: boolean
-              searchable?: boolean
             } = {}
             if (name.trim() && name.trim() !== profile?.display_name)  patch.display_name = name.trim()
-            if (genre !== (profile?.genre ?? null))                    patch.genre = genre
-            // Compare bannière brute (sans le cache-buster ?v=...)
+            if (bio !== (profile?.bio ?? null))                         patch.bio = bio
+            if (ville !== (profile?.ville ?? null))                     patch.ville = ville
+            if (linkUrl !== (profile?.link_url ?? null))                patch.link_url = linkUrl
             const cleanBanner = bannerUrl ? bannerUrl.split('?')[0] : null
             const currentBanner = profile?.banner_url ?? null
-            if (cleanBanner !== currentBanner)                         patch.banner_url = cleanBanner
-            if (isPublic !== (profile?.is_public ?? true))             patch.is_public = isPublic
-            if (searchable !== (profile?.searchable ?? true))          patch.searchable = searchable
+            if (cleanBanner !== currentBanner)                          patch.banner_url = cleanBanner
             if (Object.keys(patch).length > 0) await updateProfile(patch)
             setEditOpen(false)
           }}

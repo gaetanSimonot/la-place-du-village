@@ -19,6 +19,7 @@ export interface Profile {
   banner_url?: string | null
   bio?: string | null
   ville?: string | null
+  link_url?: string | null
   email: string | null
   username: string | null
   banned: boolean
@@ -41,6 +42,9 @@ interface AuthContextType {
     display_name?: string
     genre?: 'homme' | 'femme' | 'autre' | null
     banner_url?: string | null
+    bio?: string | null
+    ville?: string | null
+    link_url?: string | null
     is_public?: boolean
     searchable?: boolean
   }) => Promise<void>

@@ -7,7 +7,7 @@ export async function PATCH(req: NextRequest) {
   if (ctx instanceof Response) return ctx
 
   const body = await req.json().catch(() => ({}))
-  const { display_name, genre, banner_url, is_public, searchable } = body
+  const { display_name, genre, banner_url, is_public, searchable, bio, ville, link_url } = body
 
   const update: Record<string, unknown> = {}
 
@@ -60,6 +60,57 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'searchable doit être booléen' }, { status: 400 })
     }
     update.searchable = searchable
+  }
+
+  // bio : null, "" (= clear) ou string, 500 chars max
+  if (bio !== undefined) {
+    if (bio === null || bio === '') {
+      update.bio = null
+    } else if (typeof bio === 'string') {
+      if (bio.length > 500) {
+        return NextResponse.json({ error: 'Bio trop longue (max 500 caractères)' }, { status: 400 })
+      }
+      update.bio = bio.trim()
+    } else {
+      return NextResponse.json({ error: 'bio invalide' }, { status: 400 })
+    }
+  }
+
+  // ville : null, "" (= clear) ou string, 80 chars max
+  if (ville !== undefined) {
+    if (ville === null || ville === '') {
+      update.ville = null
+    } else if (typeof ville === 'string') {
+      if (ville.length > 80) {
+        return NextResponse.json({ error: 'Localisation trop longue (max 80 caractères)' }, { status: 400 })
+      }
+      update.ville = ville.trim()
+    } else {
+      return NextResponse.json({ error: 'ville invalide' }, { status: 400 })
+    }
+  }
+
+  // link_url : null, "" (= clear), ou URL http(s):// stricte, 500 chars max
+  if (link_url !== undefined) {
+    if (link_url === null || link_url === '') {
+      update.link_url = null
+    } else if (typeof link_url === 'string') {
+      const trimmed = link_url.trim()
+      if (trimmed.length > 500) {
+        return NextResponse.json({ error: 'Lien trop long (max 500 caractères)' }, { status: 400 })
+      }
+      try {
+        const u = new URL(trimmed)
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+          return NextResponse.json({ error: 'Lien doit commencer par http:// ou https://' }, { status: 400 })
+        }
+      } catch {
+        return NextResponse.json({ error: 'Lien invalide' }, { status: 400 })
+      }
+      update.link_url = trimmed
+    } else {
+      return NextResponse.json({ error: 'link_url invalide' }, { status: 400 })
+    }
   }
 
   if (Object.keys(update).length === 0) {
