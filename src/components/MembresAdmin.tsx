@@ -115,6 +115,27 @@ export default function MembresAdmin() {
     setSaving(null)
   }
 
+  const deleteMember = async (e: React.MouseEvent, membre: Membre) => {
+    e.stopPropagation()
+    if (!confirm(`Supprimer DÉFINITIVEMENT le compte de ${membre.email} ?\n\nToutes ses annonces, événements, posts, messages et fiches pro seront effacés. Cette action est irréversible.`)) return
+    setSaving(`del-${membre.id}`)
+    setSaveError(null)
+    const t = await token()
+    const res = await fetch(`/api/admin/membres/${membre.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${t}` },
+    })
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}))
+      setSaveError(d.error ?? `Erreur ${res.status}`)
+      setSaving(null)
+      return
+    }
+    await fetchAll()
+    setSaving(null)
+    setExpandedId(null)
+  }
+
   const removeProducer = async (e: React.MouseEvent, producerId: string) => {
     e.stopPropagation()
     if (!confirm('Retirer la fiche de l\'annuaire ?')) return
@@ -295,6 +316,17 @@ export default function MembresAdmin() {
                     {saveError && (
                       <p style={{ margin: '6px 0 0', fontSize: 11, color: '#C4622D', textAlign: 'center' }}>⚠ {saveError}</p>
                     )}
+
+                    {/* Zone danger — suppression définitive du compte */}
+                    <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed #E8C9BF' }}>
+                      <button
+                        onClick={e => deleteMember(e, m)}
+                        disabled={saving === `del-${m.id}`}
+                        style={{ width: '100%', padding: '9px', borderRadius: 9, border: '1px solid #F0D4C8', backgroundColor: '#FFF5F1', color: '#B53A22', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', opacity: saving === `del-${m.id}` ? 0.6 : 1, fontFamily: 'Inter, sans-serif' }}
+                      >
+                        {saving === `del-${m.id}` ? 'Suppression…' : 'Supprimer définitivement ce compte'}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Fiche annuaire (producteur) — Partenaire Local */}
