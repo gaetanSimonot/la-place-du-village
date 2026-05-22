@@ -50,8 +50,9 @@ export async function POST(req: NextRequest) {
     if (typeof embed_kind !== 'string' || !ALLOWED_KINDS.includes(embed_kind)) {
       return NextResponse.json({ error: 'embed_kind invalide' }, { status: 400 })
     }
-    if (typeof embed_ref_id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(embed_ref_id)) {
-      return NextResponse.json({ error: 'embed_ref_id doit être un UUID' }, { status: 400 })
+    // embed_ref_id : string non vide, ≤ 128 chars. Pas de regex UUID stricte.
+    if (typeof embed_ref_id !== 'string' || embed_ref_id.length === 0 || embed_ref_id.length > 128) {
+      return NextResponse.json({ error: 'embed_ref_id invalide' }, { status: 400 })
     }
     validEmbedKind = embed_kind
     validEmbedRefId = embed_ref_id

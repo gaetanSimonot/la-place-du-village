@@ -87,8 +87,10 @@ export async function POST(
     if (typeof embedKindRaw !== 'string' || !ALLOWED_KINDS.includes(embedKindRaw)) {
       return NextResponse.json({ error: 'embed_kind invalide' }, { status: 400 })
     }
-    if (typeof embedRefIdRaw !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(embedRefIdRaw)) {
-      return NextResponse.json({ error: 'embed_ref_id doit être un UUID' }, { status: 400 })
+    // embed_ref_id : string non vide, ≤ 128 chars. Pas de regex UUID stricte
+    // car certaines tables (promotions etc.) peuvent avoir des PK bigint.
+    if (typeof embedRefIdRaw !== 'string' || embedRefIdRaw.length === 0 || embedRefIdRaw.length > 128) {
+      return NextResponse.json({ error: 'embed_ref_id invalide' }, { status: 400 })
     }
     validEmbedKind = embedKindRaw
     validEmbedRefId = embedRefIdRaw

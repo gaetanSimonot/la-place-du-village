@@ -283,19 +283,21 @@ function PostEmbedRender({ kind, refId }: { kind: string; refId: string }) {
           if (!data) { if (!cancelled) setNotFound(true); return }
           if (!cancelled) setDetails({ title: data.nom as string, subtitle: (data.commune as string | null) ?? null, photo: ((data.photos as string[] | null) ?? [])[0] ?? null, href: `/producteur/${refId}` })
         } else if (kind === 'annonce') {
-          const { data } = await supabase.from('annonces').select('id, titre, photos, type, prix').eq('id', refId).maybeSingle()
+          // Pas de colonne 'prix' sur annonces (prix_initial / prix_seuil)
+          const { data } = await supabase.from('annonces').select('id, titre, photos, type, categorie').eq('id', refId).maybeSingle()
           if (!data) { if (!cancelled) setNotFound(true); return }
-          if (!cancelled) setDetails({ title: data.titre as string, subtitle: (data.type as string | null) ?? null, photo: ((data.photos as string[] | null) ?? [])[0] ?? null, href: `/annonces/${refId}` })
+          if (!cancelled) setDetails({ title: data.titre as string, subtitle: (data.categorie as string | null) ?? (data.type as string | null) ?? null, photo: ((data.photos as string[] | null) ?? [])[0] ?? null, href: `/annonces/${refId}` })
         } else if (kind === 'promo') {
           // Promotions : colonne "title" (pas "titre" comme annonces/events)
           const { data } = await supabase.from('promotions').select('id, title, image_url').eq('id', refId).maybeSingle()
           if (!data) { if (!cancelled) setNotFound(true); return }
           if (!cancelled) setDetails({ title: (data.title as string | null) ?? 'Promotion', subtitle: null, photo: (data.image_url as string | null) ?? null, href: `/promotions` })
         } else if (kind === 'covoit') {
-          const { data } = await supabase.from('covoit_trajets').select('id, ville_depart, ville_arrivee, date_depart').eq('id', refId).maybeSingle()
+          // Table 'covoiturages' (avec s), depart/destination/date_trajet
+          const { data } = await supabase.from('covoiturages').select('id, depart, destination, date_trajet').eq('id', refId).maybeSingle()
           if (!data) { if (!cancelled) setNotFound(true); return }
-          const sub = data.date_depart ? new Date(data.date_depart as string).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : null
-          if (!cancelled) setDetails({ title: `${data.ville_depart} → ${data.ville_arrivee}`, subtitle: sub, photo: null, href: `/covoiturage/${refId}` })
+          const sub = data.date_trajet ? new Date(data.date_trajet as string).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : null
+          if (!cancelled) setDetails({ title: `${data.depart} → ${data.destination}`, subtitle: sub, photo: null, href: `/covoiturage/${refId}` })
         }
       } catch {
         if (!cancelled) setNotFound(true)

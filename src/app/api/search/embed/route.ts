@@ -105,12 +105,12 @@ export async function GET(req: NextRequest) {
 
   if (requested.includes('annonce')) {
     tasks.push((async () => {
-      // Réplique EXACTE de /api/annonces GET (mode public) : statuts
-      // 'active' et 'don_final' (l'annuaire publique). Sur la page
-      // /annonces, c'est ces statuts qu'on voit — on remonte les mêmes ici.
+      // ATTENTION : la table 'annonces' n'a PAS de colonne 'prix' — elle a
+      // 'prix_initial' (et 'prix_seuil' pour enchères inversées). Référence
+      // /api/annonces POST insert : .insert({ titre, prix_initial, ... }).
       let qb = supabaseAdmin
         .from('annonces')
-        .select('id, titre, photos, prix, statut, type')
+        .select('id, titre, photos, prix_initial, statut, type, categorie')
         .in('statut', ['active', 'don_final'])
       if (ilike) qb = qb.ilike('titre', ilike)
       const { data } = await qb
@@ -121,7 +121,7 @@ export async function GET(req: NextRequest) {
         rows: (data ?? []).map(a => ({
           id: a.id as string,
           title: a.titre as string,
-          subtitle: (a.type as string | null) ?? null,
+          subtitle: (a.categorie as string | null) ?? (a.type as string | null) ?? null,
           photo: ((a.photos as string[] | null) ?? [])[0] ?? null,
         })),
       }
@@ -155,19 +155,22 @@ export async function GET(req: NextRequest) {
 
   if (requested.includes('covoit')) {
     tasks.push((async () => {
+      // ATTENTION : table 'covoiturages' (avec un 's') et colonnes
+      // 'depart', 'destination', 'date_trajet', 'heure_depart' (pas
+      // ville_depart/ville_arrivee/date_depart). Vérifié /api/covoiturages.
       let qb = supabaseAdmin
-        .from('covoit_trajets')
-        .select('id, ville_depart, ville_arrivee, date_depart')
-      if (ilike) qb = qb.or(`ville_depart.ilike.${ilike},ville_arrivee.ilike.${ilike}`)
+        .from('covoiturages')
+        .select('id, depart, destination, date_trajet, heure_depart')
+      if (ilike) qb = qb.or(`depart.ilike.${ilike},destination.ilike.${ilike}`)
       const { data } = await qb
-        .order('date_depart', { ascending: true })
+        .order('date_trajet', { ascending: true })
         .limit(LIMIT)
       return {
         kind: 'covoit' as const,
         rows: (data ?? []).map(c => ({
           id: c.id as string,
-          title: `${c.ville_depart} → ${c.ville_arrivee}`,
-          subtitle: c.date_depart ? new Date(c.date_depart as string).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : null,
+          title: `${c.depart} → ${c.destination}`,
+          subtitle: c.date_trajet ? new Date(c.date_trajet as string).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : null,
           photo: null,
         })),
       }

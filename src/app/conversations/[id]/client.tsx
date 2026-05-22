@@ -678,10 +678,11 @@ function MessageEmbedRender({ kind, refId, mine }: { kind: string; refId: string
           if (!data) { if (!cancelled) setNotFound(true); return }
           if (!cancelled) setDetails({ title: (data.title as string | null) ?? 'Promotion', subtitle: null, photo: (data.image_url as string | null) ?? null, href: `/promotions` })
         } else if (kind === 'covoit') {
-          const { data } = await supabase.from('covoit_trajets').select('ville_depart, ville_arrivee, date_depart').eq('id', refId).maybeSingle()
+          // Table 'covoiturages' (avec s), colonnes depart/destination/date_trajet
+          const { data } = await supabase.from('covoiturages').select('depart, destination, date_trajet').eq('id', refId).maybeSingle()
           if (!data) { if (!cancelled) setNotFound(true); return }
-          const sub = data.date_depart ? new Date(data.date_depart as string).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : null
-          if (!cancelled) setDetails({ title: `${data.ville_depart} → ${data.ville_arrivee}`, subtitle: sub, photo: null, href: `/covoiturage/${refId}` })
+          const sub = data.date_trajet ? new Date(data.date_trajet as string).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : null
+          if (!cancelled) setDetails({ title: `${data.depart} → ${data.destination}`, subtitle: sub, photo: null, href: `/covoiturage/${refId}` })
         }
       } catch {
         if (!cancelled) setNotFound(true)
