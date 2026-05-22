@@ -322,53 +322,66 @@ export default function ConversationClient({ convId }: Props) {
           </div>
         )}
         <div className="flex flex-col gap-1.5">
-          {messages.map(m => {
+          {messages.map((m, i) => {
             const mine = m.sender_id === user.id
             const isPending = m.status === 'sending'
             const isFailed  = m.status === 'failed'
+            // Confirmé serveur = pas pending et pas failed
+            const isConfirmed = !isPending && !isFailed
+
+            // Séparateur de jour : si le msg précédent est d'un autre jour
+            const prev = i > 0 ? messages[i - 1] : null
+            const showDateSep = !prev || !sameDay(prev.created_at, m.created_at)
+
             return (
-              <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                <div className="flex max-w-[78%] flex-col items-end gap-1">
-                  <div
-                    className={`rounded-2xl px-3 py-2 text-[13.5px] ${
-                      mine
-                        ? 'bg-primary text-white'
-                        : 'border border-bord bg-white text-texte'
-                    }`}
-                    style={{
-                      wordBreak: 'break-word',
-                      opacity:   isPending ? 0.6 : isFailed ? 0.8 : 1,
-                    }}
-                  >
-                    {m.content && <div>{m.content}</div>}
-                    {m.embed_kind && m.embed_ref_id && (
-                      <div className={m.content ? 'mt-1.5' : ''}>
-                        <MessageEmbedRender kind={m.embed_kind} refId={m.embed_ref_id} mine={mine} />
+              <div key={m.id}>
+                {showDateSep && <DateSeparator iso={m.created_at} />}
+                <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`flex max-w-[78%] flex-col ${mine ? 'items-end' : 'items-start'} gap-0.5`}>
+                    <div
+                      className={`rounded-2xl px-3 py-2 text-[13.5px] ${
+                        mine
+                          ? 'bg-primary text-white'
+                          : 'border border-bord bg-white text-texte'
+                      }`}
+                      style={{
+                        wordBreak: 'break-word',
+                        opacity:   isFailed ? 0.8 : 1,
+                      }}
+                    >
+                      {m.content && <div>{m.content}</div>}
+                      {m.embed_kind && m.embed_ref_id && (
+                        <div className={m.content ? 'mt-1.5' : ''}>
+                          <MessageEmbedRender kind={m.embed_kind} refId={m.embed_ref_id} mine={mine} />
+                        </div>
+                      )}
+                    </div>
+                    {/* Heure dessous : seulement quand confirmé serveur (pas pending) */}
+                    {isConfirmed && (
+                      <span className="text-[10px] text-texte-tres-doux">
+                        {formatTime(m.created_at)}
+                      </span>
+                    )}
+                    {isFailed && (
+                      <div className="flex items-center gap-2 text-[10.5px] font-medium text-accent">
+                        <span>Échec d&apos;envoi</span>
+                        <button
+                          type="button"
+                          onClick={() => retry(m)}
+                          className="rounded-full bg-accent px-2.5 py-1 text-[10.5px] font-extrabold text-white"
+                        >
+                          Réessayer
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => discardFailed(m)}
+                          className="rounded-full bg-transparent px-1 text-[10.5px] font-bold text-texte-doux underline"
+                        >
+                          Retirer
+                        </button>
                       </div>
                     )}
                   </div>
-                  {isPending && (
-                    <span className="text-[10px] italic text-texte-doux">Envoi…</span>
-                  )}
-                  {isFailed && (
-                    <div className="flex items-center gap-2 text-[10.5px] font-medium text-accent">
-                      <span>Échec d&apos;envoi</span>
-                      <button
-                        type="button"
-                        onClick={() => retry(m)}
-                        className="rounded-full bg-accent px-2.5 py-1 text-[10.5px] font-extrabold text-white"
-                      >
-                        Réessayer
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => discardFailed(m)}
-                        className="rounded-full bg-transparent px-1 text-[10.5px] font-bold text-texte-doux underline"
-                      >
-                        Retirer
-                      </button>
-                    </div>
-                  )}
                 </div>
               </div>
             )
@@ -440,6 +453,64 @@ export default function ConversationClient({ convId }: Props) {
 }
 
 /* ── Preview embed inline au-dessus du champ message ─────────────────── */
+/* ── Date helpers : sameDay + formatTime + DateSeparator WhatsApp-like ── */
+
+function sameDay(isoA: string, isoB: string): boolean {
+  const a = new Date(isoA), b = new Date(isoB)
+  return a.getFullYear() === b.getFullYear()
+    && a.getMonth() === b.getMonth()
+    && a.getDate()  === b.getDate()
+}
+
+function formatTime(iso: string): string {
+  try {
+    const d = new Date(iso)
+    const hh = String(d.getHours()).padStart(2, '0')
+    const mm = String(d.getMinutes()).padStart(2, '0')
+    return `${hh}:${mm}`
+  } catch { return '' }
+}
+
+function formatDateSeparator(iso: string): string {
+  const d = new Date(iso)
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1)
+  const ref = new Date(d); ref.setHours(0, 0, 0, 0)
+
+  if (ref.getTime() === today.getTime())     return "Aujourd'hui"
+  if (ref.getTime() === yesterday.getTime()) return 'Hier'
+
+  // Moins d'une semaine en arrière : jour + date
+  const diffDays = Math.round((today.getTime() - ref.getTime()) / 86400000)
+  if (diffDays > 0 && diffDays < 7) {
+    return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+  }
+  // Même année : jour + mois sans année
+  if (d.getFullYear() === today.getFullYear()) {
+    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+  }
+  // Année différente : avec année
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+function DateSeparator({ iso }: { iso: string }) {
+  return (
+    <div className="flex justify-center py-2.5">
+      <span
+        className="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase text-texte-doux"
+        style={{
+          background: 'rgba(255,255,255,0.85)',
+          border: '1px solid rgba(232,224,212,0.7)',
+          letterSpacing: '0.06em',
+          backdropFilter: 'blur(4px)',
+        }}
+      >
+        {formatDateSeparator(iso)}
+      </span>
+    </div>
+  )
+}
+
 function ChatEmbedPreview({ embed, onRemove }: { embed: EmbedItem; onRemove: () => void }) {
   const labels: Record<EmbedItem['kind'], string> = {
     event: 'Événement', etab: 'Établissement', producer: 'Producteur',
