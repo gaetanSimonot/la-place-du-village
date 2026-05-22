@@ -105,12 +105,12 @@ export async function GET(req: NextRequest) {
 
   if (requested.includes('annonce')) {
     tasks.push((async () => {
-      // Mêmes statuts que /api/annonces GET principal : 'active' + 'don_final'
-      // (don à donner et don déjà donné) — couvre l'annuaire visible
+      // Aucun filtre statut → on remonte toutes les annonces. Si tu veux
+      // restreindre, ajoute un .in('statut', [...]) ici. Pour le moment
+      // on laisse ouvert pour que rien ne soit caché.
       let qb = supabaseAdmin
         .from('annonces')
         .select('id, titre, photos, prix, statut, type')
-        .in('statut', ['active', 'don_final'])
       if (ilike) qb = qb.ilike('titre', ilike)
       const { data } = await qb
         .order('created_at', { ascending: false })
@@ -129,14 +129,11 @@ export async function GET(req: NextRequest) {
 
   if (requested.includes('promo')) {
     tasks.push((async () => {
-      // Mêmes filtres que /api/promotions GET (mode public) : active=true +
-      // valid_until null ou >= now (non expirées)
-      const nowISO = new Date().toISOString()
+      // Aucun filtre actif/valid_until — on remonte tout. À filtrer après
+      // si l'utilisateur veut exclure les promos expirées du picker.
       let qb = supabaseAdmin
         .from('promotions')
         .select('id, titre, image_url')
-        .eq('active', true)
-        .or(`valid_until.is.null,valid_until.gte.${nowISO}`)
       if (ilike) qb = qb.ilike('titre', ilike)
       const { data } = await qb.order('created_at', { ascending: false }).limit(LIMIT)
       return {

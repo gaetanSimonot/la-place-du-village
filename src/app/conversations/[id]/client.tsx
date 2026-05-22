@@ -51,7 +51,15 @@ export default function ConversationClient({ convId }: Props) {
   const [embed, setEmbed]           = useState<EmbedItem | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const endRef    = useRef<HTMLDivElement>(null)
   const inputRef  = useRef<HTMLInputElement>(null)
+
+  // Helper centralisé : scrolle au bas de la liste via scrollIntoView (plus
+  // robuste que scrollTop=scrollHeight sur iOS/Android quand le keyboard
+  // ouvre/ferme — utilise le layout réel, pas la mesure prematurée).
+  const scrollToEnd = useCallback((behavior: ScrollBehavior = 'auto') => {
+    endRef.current?.scrollIntoView({ block: 'end', behavior })
+  }, [])
 
   // Auth guard
   useEffect(() => {
@@ -129,51 +137,47 @@ export default function ConversationClient({ convId }: Props) {
     return () => { supabase.removeChannel(ch) }
   }, [user, convId])
 
-  // Auto-scroll en bas à chaque nouveau message. RAF + double pour s'assurer
-  // que le layout du nouveau msg est calculé AVANT de scroller (sinon scrollHeight
-  // ne reflète pas encore la nouvelle bubble → message coincé sous le composer).
+  // Auto-scroll quand un nouveau message arrive. RAF double = on attend le
+  // layout du nouveau msg avant de scroller.
   useEffect(() => {
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (scrollRef.current) {
-          scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-        }
-      })
+      requestAnimationFrame(() => scrollToEnd())
     })
-  }, [messages.length])
+  }, [messages.length, scrollToEnd])
 
-  // Re-scroll quand le clavier monte/descend (visualViewport change de taille
-  // → la zone visible bouge, on garde le dernier message visible juste
-  // au-dessus du composer)
+  // Re-scroll quand le keyboard monte/descend (visualViewport resize/scroll).
+  // On trigger plusieurs fois pour absorber les latences d'animation iOS.
   useEffect(() => {
     if (typeof window === 'undefined' || !window.visualViewport) return
-    const onResize = () => {
-      requestAnimationFrame(() => {
-        if (scrollRef.current) {
-          scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-        }
-      })
+    const vv = window.visualViewport
+    const onChange = () => {
+      scrollToEnd()
+      // 2 retries pour absorber les ré-arrangements de layout iOS
+      setTimeout(() => scrollToEnd(), 100)
+      setTimeout(() => scrollToEnd(), 300)
     }
-    window.visualViewport.addEventListener('resize', onResize)
-    return () => window.visualViewport?.removeEventListener('resize', onResize)
-  }, [])
+    vv.addEventListener('resize', onChange)
+    vv.addEventListener('scroll', onChange)
+    return () => {
+      vv.removeEventListener('resize', onChange)
+      vv.removeEventListener('scroll', onChange)
+    }
+  }, [scrollToEnd])
 
-  // Quand l'input prend le focus (= keyboard sur le point de monter), scroll
-  // en bas avec un délai pour laisser le clavier s'animer. Combiné au listener
-  // visualViewport ci-dessus, garantit que tout remonte ensemble.
+  // Quand l'input prend le focus → scroll en bas (avant + pendant + après
+  // l'animation keyboard). On trigger à 0/150/350ms pour couvrir tous les
+  // timings (iOS, Android, desktop).
   useEffect(() => {
     const input = inputRef.current
     if (!input) return
     const onFocus = () => {
-      setTimeout(() => {
-        if (scrollRef.current) {
-          scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-        }
-      }, 300)
+      scrollToEnd()
+      setTimeout(() => scrollToEnd(), 150)
+      setTimeout(() => scrollToEnd(), 350)
     }
     input.addEventListener('focus', onFocus)
     return () => input.removeEventListener('focus', onFocus)
-  }, [])
+  }, [scrollToEnd])
 
   // Envoi optimistic d'un payload (content + embed). Affiche le message
   // instantanément en 'sending' AVANT la réponse serveur. Au succès, remplace
@@ -258,6 +262,9 @@ export default function ConversationClient({ convId }: Props) {
     // Garde le focus sur l'input → le clavier mobile reste ouvert.
     // Doit être appelé dans le handler du user gesture (sinon iOS bloque).
     inputRef.current?.focus()
+    // Force le scroll dès maintenant (avant le useEffect [messages.length])
+    // pour que le nouveau temp message soit visible immédiatement
+    requestAnimationFrame(() => scrollToEnd())
 
     // Fire-and-forget — la résolution met à jour le status du temp
     postMessage({
@@ -444,6 +451,8 @@ export default function ConversationClient({ convId }: Props) {
               </div>
             )
           })}
+          {/* Anchor scroll-end : cible de scrollIntoView pour rester en bas */}
+          <div ref={endRef} aria-hidden style={{ height: 1 }} />
         </div>
       </div>
 
