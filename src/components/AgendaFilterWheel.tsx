@@ -1,20 +1,20 @@
 'use client'
-import { useMemo } from 'react'
-import { WheelPicker, WheelPickerWrapper } from '@ncdai/react-wheel-picker'
-import '@ncdai/react-wheel-picker/style.css'
+import { useMemo, useState } from 'react'
 import { CATEGORIES } from '@/lib/categories'
 import type { Categorie, FiltreQuand, Filtres } from '@/lib/types'
 
 const CATS = Object.keys(CATEGORIES) as Categorie[]
 
-const QUAND_OPTIONS: { value: FiltreQuand; label: string }[] = [
+type CategorieOuTout = Categorie | '__tout'
+type QuandOuTout    = FiltreQuand | 'toujours'
+
+const QUAND_OPTIONS: { value: QuandOuTout; label: string }[] = [
+  { value: 'toujours',      label: 'Tout' },
   { value: 'aujourd_hui',   label: "Aujourd'hui" },
   { value: 'cette_semaine', label: 'Cette semaine' },
   { value: 'ce_week_end',   label: 'Ce week-end' },
   { value: 'ce_mois',       label: 'Ce mois' },
 ]
-
-const TOUT_ID = '__tout' as const
 
 interface Props {
   filtres: Filtres
@@ -23,62 +23,100 @@ interface Props {
   onChange?: () => void
 }
 
+/**
+ * Remplace les anciens wheel-pickers par 2 boutons "cycle on tap" :
+ * un tap → avance d'un cran dans la liste de filtres, en loop.
+ * Chevrons haut/bas pour indiquer qu'on peut taper pour défiler.
+ * Léger bounce au tap (scale 0.96 → 1) pour feedback haptique visuel.
+ */
 export default function AgendaFilterWheel({ filtres, onFiltresChange, onChange }: Props) {
-  // Options 'Tout' en première position. Le picker du package retourne
-  // la value de l'option sélectionnée — on map vers le filtre métier.
   const quoiOptions = useMemo(() => [
-    { value: TOUT_ID as string, label: 'Tout' },
-    ...CATS.map(id => ({ value: id as string, label: CATEGORIES[id].label })),
+    { value: '__tout' as CategorieOuTout, label: 'Tout' },
+    ...CATS.map(id => ({ value: id as CategorieOuTout, label: CATEGORIES[id].label })),
   ], [])
 
-  const quandOptions = useMemo(() => [
-    { value: TOUT_ID as string, label: 'Tout' },
-    ...QUAND_OPTIONS.map(o => ({ value: o.value as string, label: o.label })),
-  ], [])
+  const quoiValue: CategorieOuTout = (filtres.categories[0] as Categorie | undefined) ?? '__tout'
+  const quandValue: QuandOuTout    = filtres.quand
 
-  const quoiValue: string = filtres.categories[0] ?? TOUT_ID
-  const quandValue: string = filtres.quand === 'toujours' ? TOUT_ID : filtres.quand
-
-  const handleQuoiChange = (v: string) => {
-    if (v === TOUT_ID) onFiltresChange({ ...filtres, categories: [] })
-    else onFiltresChange({ ...filtres, categories: [v as Categorie] })
+  function cycleQuoi() {
+    const idx = quoiOptions.findIndex(o => o.value === quoiValue)
+    const next = quoiOptions[(idx + 1) % quoiOptions.length].value
+    if (next === '__tout') onFiltresChange({ ...filtres, categories: [] })
+    else onFiltresChange({ ...filtres, categories: [next as Categorie] })
     onChange?.()
   }
 
-  const handleQuandChange = (v: string) => {
-    if (v === TOUT_ID) onFiltresChange({ ...filtres, quand: 'toujours' })
-    else onFiltresChange({ ...filtres, quand: v as FiltreQuand })
+  function cycleQuand() {
+    const idx = QUAND_OPTIONS.findIndex(o => o.value === quandValue)
+    const next = QUAND_OPTIONS[(idx + 1) % QUAND_OPTIONS.length].value
+    onFiltresChange({ ...filtres, quand: next as FiltreQuand })
     onChange?.()
+  }
+
+  const quoiLabel  = quoiOptions.find(o => o.value === quoiValue)?.label ?? 'Tout'
+  const quandLabel = QUAND_OPTIONS.find(o => o.value === quandValue)?.label ?? 'Tout'
+
+  return (
+    <div className="flex w-full gap-2">
+      <CycleBtn kicker="Que faire" label={quoiLabel}  onClick={cycleQuoi} />
+      <CycleBtn kicker="Quand"     label={quandLabel} onClick={cycleQuand} />
+    </div>
+  )
+}
+
+/* ── Bouton cycle on tap avec chevrons haut/bas + bounce ─────────────── */
+function CycleBtn({
+  kicker, label, onClick,
+}: { kicker: string; label: string; onClick: () => void }) {
+  const [pressed, setPressed] = useState(false)
+
+  const handleClick = () => {
+    setPressed(true)
+    onClick()
+    // Reset le bounce après l'animation
+    window.setTimeout(() => setPressed(false), 180)
   }
 
   return (
-    <WheelPickerWrapper className="pdv-wheel-wrapper">
-      <WheelPicker
-        options={quoiOptions}
-        value={quoiValue}
-        onValueChange={handleQuoiChange}
-        infinite
-        visibleCount={8}
-        optionItemHeight={32}
-        classNames={{
-          optionItem:       'pdv-wp-item',
-          highlightWrapper: 'pdv-wp-highlight',
-          highlightItem:    'pdv-wp-highlight-item',
-        }}
-      />
-      <WheelPicker
-        options={quandOptions}
-        value={quandValue}
-        onValueChange={handleQuandChange}
-        infinite
-        visibleCount={8}
-        optionItemHeight={32}
-        classNames={{
-          optionItem:       'pdv-wp-item',
-          highlightWrapper: 'pdv-wp-highlight',
-          highlightItem:    'pdv-wp-highlight-item',
-        }}
-      />
-    </WheelPickerWrapper>
+    <button
+      type="button"
+      onClick={handleClick}
+      className="inline-flex flex-1 items-center justify-between gap-3 rounded-2xl border bg-white px-4 py-3 text-left"
+      style={{
+        borderColor: '#E8E0D4',
+        boxShadow: pressed
+          ? '0 1px 2px rgba(44,28,16,0.04)'
+          : '0 2px 8px rgba(44,28,16,0.08)',
+        transform: pressed ? 'scale(0.96)' : 'scale(1)',
+        // Bounce élastique : overshoot léger au retour à 1 (cubic-bezier 0.34, 1.56, 0.64, 1)
+        transition: 'transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease',
+        WebkitTapHighlightColor: 'transparent',
+      }}
+    >
+      <div className="min-w-0 flex-1">
+        <div
+          className="text-[9.5px] font-extrabold uppercase text-texte-doux"
+          style={{ letterSpacing: '0.1em' }}
+        >
+          {kicker}
+        </div>
+        <div
+          className="mt-[2px] truncate font-serif text-[15px] text-texte"
+          style={{ letterSpacing: '-0.005em', lineHeight: 1.15 }}
+        >
+          {label}
+        </div>
+      </div>
+      <div className="flex shrink-0 flex-col items-center gap-1 text-texte-doux">
+        {/* Chevron haut (circonflexe haut) */}
+        <svg width={13} height={7} viewBox="0 0 24 14" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <polyline points="5 11 12 4 19 11" />
+        </svg>
+        {/* Chevron bas (circonflexe bas) */}
+        <svg width={13} height={7} viewBox="0 0 24 14" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <polyline points="5 3 12 10 19 3" />
+        </svg>
+      </div>
+    </button>
   )
 }
