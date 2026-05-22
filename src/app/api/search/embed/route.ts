@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
     tasks.push((async () => {
       let qb = supabaseAdmin
         .from('evenements')
-        .select('id, titre, image_url, date_debut, lieux(commune)')
+        .select('id, titre, image_url, date_debut, heure, lieux(commune)')
         .eq('statut', 'publie')
       if (ilike) qb = qb.ilike('titre', ilike)
       const { data } = await qb
@@ -54,10 +54,26 @@ export async function GET(req: NextRequest) {
         rows: (data ?? []).map(e => {
           const lieuRaw = (e as { lieux?: { commune?: string | null } | { commune?: string | null }[] | null }).lieux
           const lieu = Array.isArray(lieuRaw) ? lieuRaw[0] : lieuRaw
+          // Subtitle = date courte + (heure si dispo) · commune
+          let dateLabel: string | null = null
+          if (e.date_debut) {
+            const d = new Date(e.date_debut as string)
+            const today = new Date(); today.setHours(0, 0, 0, 0)
+            const ref = new Date(d); ref.setHours(0, 0, 0, 0)
+            const diffDays = Math.round((ref.getTime() - today.getTime()) / 86400000)
+            if (diffDays === 0)        dateLabel = "Aujourd'hui"
+            else if (diffDays === 1)   dateLabel = 'Demain'
+            else if (diffDays > 1 && diffDays < 7) dateLabel = d.toLocaleDateString('fr-FR', { weekday: 'long' })
+            else                       dateLabel = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+          }
+          const heureLabel = e.heure ? String(e.heure).slice(0, 5) : null
+          const parts: string[] = []
+          if (dateLabel) parts.push(heureLabel ? `${dateLabel} · ${heureLabel}` : dateLabel)
+          if (lieu?.commune) parts.push(lieu.commune)
           return {
             id: e.id as string,
             title: e.titre as string,
-            subtitle: lieu?.commune ?? null,
+            subtitle: parts.length ? parts.join(' · ') : null,
             photo: (e.image_url as string | null) ?? null,
           }
         }),

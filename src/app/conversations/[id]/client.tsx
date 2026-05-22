@@ -399,7 +399,7 @@ export default function ConversationClient({ convId }: Props) {
       </div>
 
       {/* ─── Messages (scroll) ──────────────────────────────── */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3" style={{ minHeight: 0 }}>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3" style={{ minHeight: 0 }}>
         {loading && messages.length === 0 && (
           <p className="py-6 text-center text-[12px] text-texte-doux">Chargement…</p>
         )}
@@ -409,13 +409,11 @@ export default function ConversationClient({ convId }: Props) {
             <p className="m-0 text-[12px] text-texte-doux">Envoie le premier mot.</p>
           </div>
         )}
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-2 px-1">
           {messages.map((m, i) => {
             const mine = m.sender_id === user.id
             const isPending = m.status === 'sending'
             const isFailed  = m.status === 'failed'
-            // Confirmé serveur = pas pending et pas failed
-            const isConfirmed = !isPending && !isFailed
 
             // Séparateur de jour : si le msg précédent est d'un autre jour
             const prev = i > 0 ? messages[i - 1] : null
@@ -430,14 +428,17 @@ export default function ConversationClient({ convId }: Props) {
               <div key={m.id}>
                 {showDateSep && <DateSeparator iso={m.created_at} />}
                 <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`flex max-w-[78%] flex-col ${mine ? 'items-end' : 'items-start'} gap-0.5`}>
+                  <div
+                    className="flex flex-col items-end gap-0.5"
+                    style={{ maxWidth: '75%' }}
+                  >
                     {embedOnly ? (
-                      <div style={{ opacity: isFailed ? 0.8 : 1 }}>
+                      <div className="w-full" style={{ opacity: isFailed ? 0.8 : 1 }}>
                         <MessageEmbedRender kind={m.embed_kind!} refId={m.embed_ref_id!} mine={mine} />
                       </div>
                     ) : (
                       <div
-                        className={`rounded-2xl px-3 py-2 text-[13.5px] ${
+                        className={`relative rounded-2xl px-3.5 pt-2 pb-1.5 text-[14px] leading-[1.35] ${
                           mine
                             ? 'bg-primary text-white'
                             : 'border border-bord bg-white text-texte'
@@ -445,19 +446,31 @@ export default function ConversationClient({ convId }: Props) {
                         style={{
                           wordBreak: 'break-word',
                           opacity:   isFailed ? 0.8 : 1,
+                          minWidth:  64,
                         }}
                       >
-                        {hasContent && <div>{m.content}</div>}
+                        {hasContent && <div className="pr-12">{m.content}</div>}
                         {hasEmbed && (
                           <div className={hasContent ? 'mt-1.5' : ''}>
                             <MessageEmbedRender kind={m.embed_kind!} refId={m.embed_ref_id!} mine={mine} />
                           </div>
                         )}
+                        {/* Heure intégrée dans la bulle, bas droite, même côté pour les 2
+                            correspondants. Pas affichée tant que le message est en pending. */}
+                        {!isPending && !isFailed && (
+                          <span
+                            className={`pointer-events-none absolute bottom-1 right-2.5 text-[10px] ${
+                              mine ? 'text-white/65' : 'text-texte-tres-doux'
+                            }`}
+                          >
+                            {formatTime(m.created_at)}
+                          </span>
+                        )}
                       </div>
                     )}
-                    {/* Heure dessous : seulement quand confirmé serveur (pas pending) */}
-                    {isConfirmed && (
-                      <span className="text-[10px] text-texte-tres-doux">
+                    {/* Heure sous la tuile embed-only (impossible de la mettre dedans) */}
+                    {embedOnly && !isPending && !isFailed && (
+                      <span className="text-[10px] text-texte-tres-doux pr-1">
                         {formatTime(m.created_at)}
                       </span>
                     )}
@@ -485,8 +498,10 @@ export default function ConversationClient({ convId }: Props) {
               </div>
             )
           })}
-          {/* Anchor scroll-end : cible de scrollIntoView pour rester en bas */}
-          <div ref={endRef} aria-hidden style={{ height: 1 }} />
+          {/* Anchor scroll-end : height généreux pour que le dernier message
+              ait de l'air dessous (tuiles 220px ou texte court) au lieu d'être
+              collé au composer. */}
+          <div ref={endRef} aria-hidden style={{ height: 40 }} />
         </div>
       </div>
 
