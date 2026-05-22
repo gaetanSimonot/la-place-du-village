@@ -1,8 +1,8 @@
 'use client'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import useSWR from 'swr'
 import AnnonceCard from '@/components/AnnonceCard'
 import AnnonceFilters, { type TriOption } from '@/components/AnnonceFilters'
 import BottomNavBar from '@/components/BottomNavBar'
@@ -10,40 +10,26 @@ import type { Annonce, AnnonceType, AnnonceCategorie } from '@/lib/annonces'
 
 export default function AnnoncesPageClient() {
   const router = useRouter()
-  const [annonces, setAnnonces] = useState<Annonce[]>([])
-  const [loading, setLoading]   = useState(true)
   const [type, setType]         = useState<AnnonceType | null>(null)
   const [categorie, setCategorie] = useState<AnnonceCategorie | null>(null)
   const [tri, setTri]           = useState<TriOption>('date_desc')
 
-  useEffect(() => {
-    let mounted = true
-    setLoading(true)
-    ;(async () => {
-      let query = supabase
-        .from('annonces')
-        .select('*')
-        .in('statut', ['active', 'don_final'])
-        .order('sponsored', { ascending: false })
-
-      if (type)      query = query.eq('type', type)
-      if (categorie) query = query.eq('categorie', categorie)
-
-      switch (tri) {
-        case 'prix_asc':  query = query.order('prix_actuel', { ascending: true,  nullsFirst: false }); break
-        case 'prix_desc': query = query.order('prix_actuel', { ascending: false, nullsFirst: false }); break
-        default:          query = query.order('created_at',  { ascending: false })
-      }
-
-      query = query.limit(100)
-      const { data } = await query
-      if (mounted) {
-        setAnnonces((data as Annonce[]) ?? [])
-        setLoading(false)
-      }
-    })()
-    return () => { mounted = false }
+  // SWR avec clé incluant les filtres → chaque combinaison a sa propre
+  // entrée cache (mémoire + CDN). Retour sur la page = instantané.
+  const annoncesKey = useMemo(() => {
+    const params = new URLSearchParams()
+    if (type)      params.set('type', type)
+    if (categorie) params.set('categorie', categorie)
+    params.set('tri', tri)
+    return `/api/annonces/public?${params.toString()}`
   }, [type, categorie, tri])
+
+  const { data, isLoading: swrLoading } = useSWR(annoncesKey)
+  // useMemo pour stabiliser la référence array (data?.annonces ?? [] crée
+  // un nouveau [] à chaque render quand data est undefined → useMemo
+  // downstream se déclenche en boucle).
+  const annonces = useMemo<Annonce[]>(() => (data?.annonces ?? []) as Annonce[], [data])
+  const loading = swrLoading && !data
 
   const sponsored = useMemo(() => annonces.filter(a => a.sponsored), [annonces])
   const standard  = useMemo(() => annonces.filter(a => !a.sponsored), [annonces])

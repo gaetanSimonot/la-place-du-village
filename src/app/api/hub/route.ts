@@ -15,8 +15,12 @@ function validateClientDate(clientDate: string | null): string {
   const serverYMD = new Date().toISOString().slice(0, 10)
   if (!clientDate || !/^\d{4}-\d{2}-\d{2}$/.test(clientDate)) return serverYMD
   const clientTs = Date.parse(clientDate + 'T00:00:00Z')
+  // Une chaîne bien formatée mais impossible (ex: 2026-13-45) passe la regex
+  // mais retourne NaN ici. Sans ce guard, NaN > x est toujours false → la
+  // valeur clientDate serait acceptée et créerait des entrées CDN parasites.
+  if (Number.isNaN(clientTs)) return serverYMD
   const serverTs = Date.parse(serverYMD + 'T00:00:00Z')
-  if (!isFinite(clientTs) || !isFinite(serverTs)) return serverYMD
+  if (!isFinite(serverTs)) return serverYMD
   if (Math.abs(clientTs - serverTs) > 1.5 * 86400 * 1000) return serverYMD
   return clientDate
 }

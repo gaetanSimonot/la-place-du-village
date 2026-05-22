@@ -79,7 +79,15 @@ export async function GET(req: NextRequest) {
     }
   })
 
-  return NextResponse.json({ promotions: enriched })
+  // Cache CDN UNIQUEMENT pour la vraie liste publique (pas mine=1, pas etab=).
+  // Si filtre etab ou mine=1 → réponse trop variable / personnelle.
+  const headers: Record<string, string> = {}
+  if (!mine && !etabId) {
+    headers['Cache-Control'] = 'public, s-maxage=60, stale-while-revalidate=120'
+  } else {
+    headers['Cache-Control'] = 'private, no-store'
+  }
+  return NextResponse.json({ promotions: enriched }, { headers })
 }
 
 /**

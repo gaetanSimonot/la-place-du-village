@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import useSWR from 'swr'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
@@ -47,8 +48,6 @@ export default function PromotionsClient() {
   const { openAuthModal } = useAuthModal()
   const currentPlan = (profile?.plan as Plan) ?? 'basic'
 
-  const [promos, setPromos] = useState<Promotion[]>([])
-  const [loading, setLoading] = useState(true)
   const [using, setUsing] = useState<string | null>(null)
   const [upgradePromo, setUpgradePromo] = useState<Promotion | null>(null)
   const [typeFilter, setTypeFilter] = useState<EtablissementType | null>(null)
@@ -76,17 +75,14 @@ export default function PromotionsClient() {
 
   useEffect(() => { refreshUsedThisMonth() }, [refreshUsedThisMonth])
 
-  const fetchPromos = useCallback(async () => {
-    setLoading(true)
-    const r = await fetch('/api/promotions')
-    if (r.ok) {
-      const d = await r.json()
-      setPromos(d.promotions ?? [])
-    }
-    setLoading(false)
-  }, [])
-
-  useEffect(() => { fetchPromos() }, [fetchPromos])
+  // SWR sur /api/promotions (mode public, sans mine ni etab) → cache CDN 60s
+  // + mémoire client. Retour sur la page = instantané. Le refetch après
+  // utilisation d'une promo se fait via mutatePromos().
+  const { data: promoData, isLoading: promoLoading, mutate: mutatePromos } = useSWR('/api/promotions')
+  // useMemo pour stabiliser la référence array (évite cascades useMemo aval).
+  const promos = useMemo<Promotion[]>(() => (promoData?.promotions ?? []) as Promotion[], [promoData])
+  const loading = promoLoading && !promoData
+  const fetchPromos = mutatePromos  // alias pour rester compat avec les callers existants
 
   // Scroll vers la promo ciblée si on arrive depuis le hub avec ?id=...
   useEffect(() => {
