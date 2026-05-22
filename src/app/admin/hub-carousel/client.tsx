@@ -319,7 +319,7 @@ export default function AdminHubCarousel() {
               }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={introImageUrl || '/hub-intro-slide.png'}
+                  src={introImageUrl || '/hub-intro-slide.webp'}
                   alt=""
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />

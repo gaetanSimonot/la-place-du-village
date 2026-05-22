@@ -1167,7 +1167,7 @@ function HeroSlide({ item, onClick }: { item: HeroItem; onClick: () => void }) {
   // SEULEMENT (pas de texte superposé, le texte est dans l'image). Click →
   // onOpenInfo (AppInfoModal). Image custom via config sinon /hub-intro-slide.png.
   if (item.kind === 'intro') {
-    const introSrc = item.data.imageUrl || '/hub-intro-slide.png'
+    const introSrc = item.data.imageUrl || '/hub-intro-slide.webp'
     return (
       <button
         type="button"
