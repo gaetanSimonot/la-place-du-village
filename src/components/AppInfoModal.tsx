@@ -349,6 +349,34 @@ export default function AppInfoModal({ onClose }: { onClose: () => void }) {
             Pour toute demande concernant vos données, utilisez le formulaire de contact
             ci-dessous.
           </InfoP>
+
+          {/* Liens vers pages légales complètes */}
+          <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${T.bordSoft}`, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <a
+              href="/mentions-legales"
+              onClick={onClose}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 10, background: T.cremeDeep, border: `1px solid ${T.bordSoft}`, color: T.texte, fontSize: 12, fontWeight: 700, textDecoration: 'none' }}
+            >
+              Mentions légales complètes
+              <span style={{ color: T.texteDoux }}><IconArrow /></span>
+            </a>
+            <a
+              href="/politique-confidentialite"
+              onClick={onClose}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 10, background: T.cremeDeep, border: `1px solid ${T.bordSoft}`, color: T.texte, fontSize: 12, fontWeight: 700, textDecoration: 'none' }}
+            >
+              Politique de confidentialité (RGPD)
+              <span style={{ color: T.texteDoux }}><IconArrow /></span>
+            </a>
+            <a
+              href="/cgu"
+              onClick={onClose}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 10, background: T.cremeDeep, border: `1px solid ${T.bordSoft}`, color: T.texte, fontSize: 12, fontWeight: 700, textDecoration: 'none' }}
+            >
+              Conditions générales d&apos;utilisation
+              <span style={{ color: T.texteDoux }}><IconArrow /></span>
+            </a>
+          </div>
         </>
       ),
     },
