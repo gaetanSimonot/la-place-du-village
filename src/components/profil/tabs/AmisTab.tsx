@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useFriendships } from '@/hooks/useFriendships'
-import { IcChat, IcChev, IcUsers, IcUserPlus, IcEye } from '../icons'
+import { IcChat, IcUsers, IcUserPlus, IcEye } from '../icons'
 
 type SubTab = 'amis' | 'suggestions' | 'demandes'
 
