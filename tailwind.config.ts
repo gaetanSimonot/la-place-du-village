@@ -12,6 +12,7 @@ const config: Config = {
         primary:       "#2D5A3D",
         "primary-light":"#E8F2EB",
         accent:        "#C84B2F",
+        accentSoft:    "#FFF0E5",   // V3 — fond pill catégorie Annonces, badge demandes messagerie
         creme:         "#FDFAF5",
         cremeDeep:     "#F7F1E6",   // V3 — pills count, fonds doux, badges secondaires
         texte:         "#1A1209",
