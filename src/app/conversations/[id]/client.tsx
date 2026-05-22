@@ -5,7 +5,8 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import BottomNavBar from '@/components/BottomNavBar'
-import EmbedPicker, { type EmbedItem } from '@/components/EmbedPicker'
+import EmbedPanel, { type EmbedItem } from '@/components/EmbedPanel'
+import { useAppViewportHeight } from '@/hooks/useAppViewportHeight'
 
 interface Message {
   id:              string  // 'temp_xxx' tant que pas confirmé serveur
@@ -49,22 +50,27 @@ export default function ConversationClient({ convId }: Props) {
   const [canWrite, setCanWrite]     = useState(true)
   const [other, setOther]           = useState<{ display_name: string | null; avatar_url: string | null } | null>(null)
   const [embed, setEmbed]           = useState<EmbedItem | null>(null)
-  const [pickerOpen, setPickerOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const endRef    = useRef<HTMLDivElement>(null)
   const inputRef  = useRef<HTMLInputElement>(null)
-  // Hauteur du viewport visible (= 100dvh moins le keyboard). On lit
-  // visualViewport.height en temps réel pour que le layout suive WhatsApp-like.
-  const [vvHeight, setVvHeight] = useState<number | null>(null)
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.visualViewport) return
-    const vv = window.visualViewport
-    const update = () => setVvHeight(vv.height)
-    update()
-    vv.addEventListener('resize', update)
-    return () => vv.removeEventListener('resize', update)
-  }, [])
+  // Hook source de vérité pour la hauteur du viewport (set --app-vh sur :root)
+  // + hauteur du keyboard détectée (innerHeight - visualViewport.height).
+  const { height: vvHeight, keyboardHeight } = useAppViewportHeight()
+
+  // Machine à états en bas d'écran : keyboard (clavier ouvert) | panel (panneau "+")
+  // | none (rien). Garantit qu'on n'a JAMAIS clavier + panneau en même temps.
+  const [bottomState, setBottomState] = useState<'keyboard' | 'panel' | 'none'>('none')
+  // Flag : on attend le blur réel de l'input avant d'ouvrir le panneau
+  // (séquencement par event natif plutôt que par timer fixe → pas de flicker).
+  const pendingPanelRef = useRef(false)
+  // Mémorise la dernière hauteur connue du keyboard pour donner la même au panel.
+  // Fallback ~40dvh si jamais on n'a pas encore eu le keyboard ouvert.
+  const lastKeyboardHeight = useRef<number>(0)
+  if (keyboardHeight > 0) lastKeyboardHeight.current = keyboardHeight
+  const panelHeight = lastKeyboardHeight.current > 0
+    ? lastKeyboardHeight.current
+    : Math.round(vvHeight * 0.4)
 
   // Helper centralisé : scrolle au bas de la liste via scrollIntoView (plus
   // robuste que scrollTop=scrollHeight sur iOS/Android quand le keyboard
@@ -157,39 +163,41 @@ export default function ConversationClient({ convId }: Props) {
     })
   }, [messages.length, scrollToEnd])
 
-  // Re-scroll quand le keyboard monte/descend (visualViewport resize/scroll).
-  // On trigger plusieurs fois pour absorber les latences d'animation iOS.
+  // Re-scroll quand bottomState change (keyboard ouvre, panel ouvre, etc.)
+  // ou quand vvHeight change (le hook gère le visualViewport).
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.visualViewport) return
-    const vv = window.visualViewport
-    const onChange = () => {
-      scrollToEnd()
-      // 2 retries pour absorber les ré-arrangements de layout iOS
-      setTimeout(() => scrollToEnd(), 100)
-      setTimeout(() => scrollToEnd(), 300)
-    }
-    vv.addEventListener('resize', onChange)
-    vv.addEventListener('scroll', onChange)
-    return () => {
-      vv.removeEventListener('resize', onChange)
-      vv.removeEventListener('scroll', onChange)
-    }
-  }, [scrollToEnd])
+    scrollToEnd()
+    setTimeout(() => scrollToEnd(), 150)
+    setTimeout(() => scrollToEnd(), 350)
+  }, [bottomState, vvHeight, scrollToEnd])
 
-  // Quand l'input prend le focus → scroll en bas (avant + pendant + après
-  // l'animation keyboard). On trigger à 0/150/350ms pour couvrir tous les
-  // timings (iOS, Android, desktop).
-  useEffect(() => {
-    const input = inputRef.current
-    if (!input) return
-    const onFocus = () => {
-      scrollToEnd()
-      setTimeout(() => scrollToEnd(), 150)
-      setTimeout(() => scrollToEnd(), 350)
+  // Handlers machine à états bottom :
+  // - Tap "+" : si keyboard ouvert, blur l'input. L'event blur natif (handler
+  //   onBlur de l'input) ouvrira ensuite le panel. Si keyboard pas ouvert,
+  //   ouvre directement.
+  function openPanel() {
+    if (document.activeElement === inputRef.current && inputRef.current) {
+      pendingPanelRef.current = true
+      inputRef.current.blur()
+      // L'onBlur de l'input set bottomState à 'panel' (voir <input onBlur=...>)
+    } else {
+      setBottomState('panel')
     }
-    input.addEventListener('focus', onFocus)
-    return () => input.removeEventListener('focus', onFocus)
-  }, [scrollToEnd])
+  }
+  function closePanel() {
+    setBottomState('none')
+  }
+  function handleInputFocus() {
+    setBottomState('keyboard')
+  }
+  function handleInputBlur() {
+    if (pendingPanelRef.current) {
+      pendingPanelRef.current = false
+      setBottomState('panel')
+    } else if (bottomState === 'keyboard') {
+      setBottomState('none')
+    }
+  }
 
   // Envoi optimistic d'un payload (content + embed). Affiche le message
   // instantanément en 'sending' AVANT la réponse serveur. Au succès, remplace
@@ -351,19 +359,18 @@ export default function ConversationClient({ convId }: Props) {
     <main
       className="flex flex-col bg-creme font-inter text-texte"
       style={{
-        // Hauteur EXACTE du viewport visible. On utilise visualViewport.height
-        // (qui shrink quand le keyboard monte sur iOS Safari + Android Chrome)
-        // au lieu de 100dvh (qui peut être imprécis selon le browser).
-        // pb=64 réserve la place pour BottomNavBar fixed bottom:0.
-        // Le composer en flex shrink-0 en bas du main remonte avec le
-        // keyboard automatiquement puisque vvHeight diminue → main shrink
-        // → flex-1 messages shrink → composer reste collé au bottom du main.
-        height: vvHeight ? `${vvHeight}px` : '100dvh',
-        paddingBottom: 64,
+        // Hauteur EXACTE du viewport visible via le hook useAppViewportHeight
+        // qui set --app-vh sur :root. Sur iOS, visualViewport.height shrink
+        // quand le keyboard monte ; sur Chrome Android, interactive-widget
+        // (scopé au segment via layout.tsx) le fait aussi.
+        height: 'var(--app-vh, 100dvh)',
+        // BottomNavBar fixed bottom:0 (64px) → seulement si rien d'autre
+        // n'occupe le bas. Sinon (keyboard ou panel), on libère la place.
+        paddingBottom: bottomState === 'none' ? 64 : 0,
         overflow: 'hidden',
       }}>
-      {/* ─── Top bar ─────────────────────────────────────────── */}
-      <div className="sticky top-0 z-30 flex items-center gap-2.5 border-b border-bordSoft bg-creme/95 px-4 py-3 backdrop-blur">
+      {/* ─── Top bar (shrink-0) ──────────────────────────────── */}
+      <div className="shrink-0 flex items-center gap-2.5 border-b border-bordSoft bg-creme/95 px-4 py-3 backdrop-blur">
         <Link
           href="/messages"
           aria-label="Retour aux messages"
@@ -483,9 +490,9 @@ export default function ConversationClient({ convId }: Props) {
         </div>
       </div>
 
-      {/* ─── Composer (caché si plus amis = conv figée) ───── */}
+      {/* ─── Composer (shrink-0, caché si conv figée plus amis) ─── */}
       {canWrite ? (
-        <div className="z-30 border-t border-bordSoft bg-creme/95 backdrop-blur" style={{ paddingBottom: 10 }}>
+        <div className="shrink-0 border-t border-bordSoft bg-creme/95 backdrop-blur">
           {/* Preview embed sélectionné, au-dessus du champ */}
           {embed && (
             <div className="px-3 pt-2">
@@ -495,11 +502,18 @@ export default function ConversationClient({ convId }: Props) {
           <form onSubmit={send} className="flex items-center gap-2 px-3 py-2.5">
             <button
               type="button"
-              onClick={() => setPickerOpen(true)}
+              onClick={openPanel}
               aria-label="Lier un élément du village"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cremeDeep text-primary"
+              // Désactivé si panel déjà ouvert (le bouton devient "fermer" visuellement)
+              onMouseDown={e => e.preventDefault()}
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors ${
+                bottomState === 'panel'
+                  ? 'bg-primary text-white'
+                  : 'bg-cremeDeep text-primary'
+              }`}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+                style={{ transform: bottomState === 'panel' ? 'rotate(45deg)' : 'rotate(0)', transition: 'transform 180ms ease' }}>
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
@@ -509,6 +523,8 @@ export default function ConversationClient({ convId }: Props) {
               type="text"
               value={text}
               onChange={e => setText(e.target.value)}
+              onFocus={handleInputFocus}
+              onBlur={handleInputBlur}
               placeholder="Écris un message…"
               className="min-w-0 flex-1 rounded-full border border-bord bg-white px-4 py-2.5 text-[14px] text-texte outline-none placeholder:text-texte-tres-doux"
             />
@@ -516,9 +532,8 @@ export default function ConversationClient({ convId }: Props) {
               type="submit"
               disabled={!text.trim() && !embed}
               aria-label="Envoyer"
-              // onMouseDown.preventDefault() empêche le bouton de prendre le
-              // focus desktop → l'input garde le focus. Pour mobile, on
-              // refocus explicitement dans le send handler (inputRef.focus()).
+              // onMouseDown.preventDefault() : preserve focus input desktop.
+              // Mobile : refocus explicite dans le send handler.
               onMouseDown={e => e.preventDefault()}
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white disabled:opacity-50"
             >
@@ -530,7 +545,7 @@ export default function ConversationClient({ convId }: Props) {
           </form>
         </div>
       ) : (
-        <div className="z-30 border-t border-bordSoft bg-cremeDeep/80 px-4 py-3 text-center backdrop-blur" style={{ paddingBottom: 14 }}>
+        <div className="shrink-0 border-t border-bordSoft bg-cremeDeep/80 px-4 py-3 text-center backdrop-blur" style={{ paddingBottom: 14 }}>
           <p className="m-0 text-[12px] font-medium text-texte-doux">
             Vous n&apos;êtes plus amis. Reprenez l&apos;amitié pour pouvoir discuter à nouveau.
           </p>
@@ -538,17 +553,31 @@ export default function ConversationClient({ convId }: Props) {
       )}
 
       {error && (
-        <div className="px-4 pb-2 text-center text-[11px] text-accent">{error}</div>
+        <div className="shrink-0 px-4 pb-2 pt-1 text-center text-[11px] text-accent">{error}</div>
       )}
 
-      {pickerOpen && (
-        <EmbedPicker
-          onSelect={item => { setEmbed(item); setPickerOpen(false) }}
-          onClose={() => setPickerOpen(false)}
-        />
+      {/* ─── Panneau "+" inline (sous le composer, dans le flex-col) ─── */}
+      {bottomState === 'panel' && (
+        <div
+          className="shrink-0 border-t border-bordSoft"
+          style={{ height: panelHeight }}
+        >
+          <EmbedPanel
+            onSelect={item => {
+              setEmbed(item)
+              // Retour clavier : refocus input → bottomState passera à 'keyboard'
+              // via onFocus handler.
+              setBottomState('none')
+              setTimeout(() => inputRef.current?.focus(), 50)
+            }}
+            onClose={closePanel}
+          />
+        </div>
       )}
 
-      <BottomNavBar />
+      {/* BottomNavBar visible UNIQUEMENT si pas de clavier ni de panneau.
+          Sinon → ils prennent la place et la nav serait masquée par le keyboard. */}
+      {bottomState === 'none' && <BottomNavBar />}
     </main>
   )
 }
