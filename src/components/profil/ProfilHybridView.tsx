@@ -8,7 +8,7 @@ import EditProfileModal from '@/components/EditProfileModal'
 import ProfilHeader, { type FicheProMini, type ViewMode } from './ProfilHeader'
 import ProfilTabSwitcher, { type ProfilTab } from './ProfilTabSwitcher'
 import AmisTab from './tabs/AmisTab'
-import MurTabPlaceholder from './tabs/MurTabPlaceholder'
+import MurTab from './tabs/MurTab'
 import UtileTabPlaceholder from './tabs/UtileTabPlaceholder'
 
 interface Etab {
@@ -180,7 +180,13 @@ export default function ProfilHybridView() {
         amisAlert={friends.pendingReceived.length > 0}
       />
 
-      {activeTab === 'mur'   && <MurTabPlaceholder />}
+      {activeTab === 'mur'   && (
+        <MurTab
+          profileUserId={user.id}
+          authorName={displayName}
+          authorAvatar={profile?.avatar_url ?? null}
+        />
+      )}
       {activeTab === 'amis'  && <AmisTab friends={friends} />}
       {activeTab === 'utile' && <UtileTabPlaceholder />}
 
