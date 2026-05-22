@@ -80,7 +80,7 @@ export default function ProfilHybridView() {
 
     supabase
       .from('follows')
-      .select('id', { count: 'exact', head: true })
+      .select('*', { count: 'exact', head: true })
       .eq('followed_id', user.id)
       .then(({ count }) => {
         if (!cancelled) setFollowersCount(count ?? 0)

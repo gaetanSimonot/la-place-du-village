@@ -32,6 +32,12 @@ export default function PostCommentsDrawer({ postId, postAuthorId, onClose, onCo
   const [sending, setSending]   = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  // Stabilise onCountChange via ref pour éviter une boucle infinie
+  // (la prop est recréée inline à chaque render parent → recréerait
+  // loadComments → relancerait useEffect → re-render parent → loop).
+  const onCountChangeRef = useRef(onCountChange)
+  useEffect(() => { onCountChangeRef.current = onCountChange }, [onCountChange])
+
   const loadComments = useCallback(async () => {
     setLoading(true)
     const { data, error } = await supabase
@@ -48,7 +54,7 @@ export default function PostCommentsDrawer({ postId, postAuthorId, onClose, onCo
     const rows = (data ?? []) as Array<{ id: string; user_id: string; texte: string; created_at: string }>
     if (rows.length === 0) {
       setComments([])
-      onCountChange?.(0)
+      onCountChangeRef.current?.(0)
       setLoading(false)
       return
     }
@@ -71,9 +77,9 @@ export default function PostCommentsDrawer({ postId, postAuthorId, onClose, onCo
       }
     })
     setComments(merged)
-    onCountChange?.(merged.length)
+    onCountChangeRef.current?.(merged.length)
     setLoading(false)
-  }, [postId, onCountChange])
+  }, [postId])
 
   useEffect(() => { loadComments() }, [loadComments])
 
