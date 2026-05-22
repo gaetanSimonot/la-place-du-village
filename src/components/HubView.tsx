@@ -1,8 +1,9 @@
 'use client'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
+import useSWR from 'swr'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import type { EtablissementType, Evenement } from '@/lib/types'
@@ -10,6 +11,15 @@ import { getPrixAffiche, type Annonce } from '@/lib/annonces'
 import HubTopBar from '@/components/HubTopBar'
 import HubSearchBar from '@/components/HubSearchBar'
 import { useFavorites } from '@/hooks/useFavorites'
+
+/** Fetcher SWR : JSON fetch standard. Renvoie le payload tel quel.
+ *  Si le response n'est pas ok, on throw pour que SWR ne mette pas en cache une
+ *  réponse vide / erreur. */
+async function hubFetcher(url: string) {
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`Hub fetch ${res.status}`)
+  return res.json()
+}
 
 interface Props {
   onSelectAgenda:        () => void
@@ -131,88 +141,60 @@ export default function HubView({
   const { profile } = useAuth()
   const { favIds, toggle: toggleFav } = useFavorites()
 
-  const [heroItems, setHeroItems] = useState<HeroItem[]>([])
-  // Indicateur "hero chargé au moins une fois" — réserve l'espace 180px en
-  // skeleton tant que !heroLoaded → évite que les tuiles sautent quand le
-  // carrousel arrive après le fetch featured_slots.
-  const [heroLoaded, setHeroLoaded] = useState(false)
-  const [todayEvents, setTodayEvents] = useState<Evenement[]>([])
-  const [todayTotal, setTodayTotal] = useState<number>(0)
-  const [promos, setPromos] = useState<PromoCard[]>([])
-  const [ventesAnnonces, setVentesAnnonces] = useState<Annonce[]>([])
-  const [ventesTotal, setVentesTotal] = useState<number>(0)
-  const [zoneCounts, setZoneCounts] = useState<{ evt: number; etab: number; prod: number }>({ evt: 0, etab: 0, prod: 0 })
-  const [journal, setJournal] = useState<JournalLite | null>(null)
-  const [covoits, setCovoits] = useState<CovoitLite[]>([])
+  // ──────────────────────────────────────────────────────────────────────
+  // SWR sur /api/hub :
+  // - 1ère visite : 1 fetch HTTP (comme avant)
+  // - Revisite : affichage INSTANTANÉ depuis le cache SWR (mémoire), puis
+  //   revalidation discrète en fond (revalidateOnFocus + revalidateOnMount).
+  // - dedupingInterval 5s : si le composant se remonte plusieurs fois en
+  //   <5s (nav A → B → A rapide), on ne fait qu'un seul fetch.
+  // - mutate() exposé pour invalider depuis le Realtime channel.
+  // ──────────────────────────────────────────────────────────────────────
+  const { data: hubData, mutate: mutateHub } = useSWR('/api/hub', hubFetcher, {
+    revalidateOnFocus:  true,
+    dedupingInterval:   5000,
+    keepPreviousData:   true,  // pas de flash à vide pendant la revalidation
+  })
 
-  // Counts zone : remontés par /api/hub désormais (cf. loadHub plus bas).
-  // L'ancien Promise.all client-side (3 requêtes parallèles) est supprimé.
+  // ── Derive les states UI depuis hubData (SWR est la source de vérité) ──
+  const zoneCounts = useMemo(() => ({
+    evt:  hubData?.zoneCounts?.evt  ?? 0,
+    etab: hubData?.zoneCounts?.etab ?? 0,
+    prod: hubData?.zoneCounts?.prod ?? 0,
+  }), [hubData])
 
-  // 1 SEUL fetch vers /api/hub qui regroupe les ~13 requêtes côté serveur.
-  // Response cachée CDN 60s + stale-while-revalidate 120s → ouvertures
-  // suivantes <100ms. Realtime déclenche un refetch silencieux (cf. plus bas).
-  const loadHub = useCallback(async () => {
-    try {
-      const res = await fetch('/api/hub')
-      if (!res.ok) return
-      const d = await res.json()
-
-      setZoneCounts({
-        evt:  d.zoneCounts?.evt  ?? 0,
-        etab: d.zoneCounts?.etab ?? 0,
-        prod: d.zoneCounts?.prod ?? 0,
-      })
-
-      // Hero carousel : items du serveur + prepend slide intro si admin a coché
-      const items: HeroItem[] = (d.heroItems ?? []) as HeroItem[]
-      if (d.introEnabled) {
-        items.unshift({ kind: 'intro', data: { imageUrl: d.introImageUrl ?? null }, imagePosition: null })
-      }
-      setHeroItems(items)
-      setHeroLoaded(true)
-
-      setTodayEvents((d.todayEvents ?? []) as Evenement[])
-      setTodayTotal(d.todayTotal ?? 0)
-      setPromos((d.promos ?? []) as PromoCard[])
-      setVentesAnnonces((d.ventes ?? []) as Annonce[])
-      setVentesTotal(d.ventesTotal ?? 0)
-      setJournal((d.journal ?? null) as JournalLite | null)
-      setCovoits((d.covoits ?? []) as CovoitLite[])
-    } catch {
-      // Fail silently — un /api/hub down ne doit pas casser le rendu.
-      // Les sections vides s'afficheront comme avant en cas d'absence de data.
+  // Hero items : prepend slide intro si admin a coché l'option
+  const heroItems = useMemo<HeroItem[]>(() => {
+    const items: HeroItem[] = (hubData?.heroItems ?? []) as HeroItem[]
+    if (hubData?.introEnabled) {
+      return [{ kind: 'intro', data: { imageUrl: hubData.introImageUrl ?? null }, imagePosition: null }, ...items]
     }
-  }, [])
+    return items
+  }, [hubData])
+  const heroLoaded = hubData !== undefined
 
-  // Premier chargement
-  useEffect(() => {
-    loadHub()
-  }, [loadHub])
+  const todayEvents: Evenement[] = (hubData?.todayEvents ?? []) as Evenement[]
+  const todayTotal: number       = hubData?.todayTotal ?? 0
+  const promos: PromoCard[]      = (hubData?.promos ?? []) as PromoCard[]
+  const ventesAnnonces: Annonce[] = (hubData?.ventes ?? []) as Annonce[]
+  const ventesTotal: number      = hubData?.ventesTotal ?? 0
+  const journal: JournalLite | null = (hubData?.journal ?? null) as JournalLite | null
+  const covoits: CovoitLite[]    = (hubData?.covoits ?? []) as CovoitLite[]
 
-  // Realtime refetch sur changement featured_slots + journaux_hebdo + covoiturages
-  // → un seul loadHub() qui re-fetch /api/hub (CDN cache invalidé par le SWR
-  // après 60s, donc le refetch sert toujours du frais).
+  // Realtime : invalide le cache SWR sur changement DB
+  // → mutate() refetch en arrière-plan, l'UI bascule automatiquement.
   useEffect(() => {
     const ch = supabase
       .channel('hub-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'featured_slots' }, () => loadHub())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'journaux_hebdo' }, () => loadHub())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'covoiturages' }, () => loadHub())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'featured_slots' }, () => mutateHub())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'journaux_hebdo' }, () => mutateHub())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'covoiturages' }, () => mutateHub())
       .subscribe()
     return () => { supabase.removeChannel(ch) }
-  }, [loadHub])
+  }, [mutateHub])
 
-  // Refresh sur retour PWA / focus fenêtre
-  useEffect(() => {
-    const refreshAll = () => { loadHub() }
-    const onVisible = () => { if (document.visibilityState === 'visible') refreshAll() }
-    document.addEventListener('visibilitychange', onVisible)
-    window.addEventListener('focus', refreshAll)
-    return () => {
-      document.removeEventListener('visibilitychange', onVisible)
-      window.removeEventListener('focus', refreshAll)
-    }
-  }, [loadHub])
+  // Note : revalidateOnFocus de SWR gère déjà focus + visibilitychange,
+  // pas besoin de listener manuel comme avant.
 
   const firstName = profile?.display_name?.split(' ')[0] || 'Visiteur'
   // Compteur greeting = nombre d'événements totaux (cohérent avec page Agenda

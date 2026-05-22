@@ -25,7 +25,8 @@
     "react": "^18",
     "react-dom": "^18",
     "sonner": "^2.0.7",
-    "stripe": "^22.1.0"
+    "stripe": "^22.1.0",
+    "swr": "^2.4.1"
   },
   "devDependencies": {
     "@types/google.maps": "^3.58.1",
