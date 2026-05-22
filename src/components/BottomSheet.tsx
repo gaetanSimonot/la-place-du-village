@@ -346,77 +346,42 @@ export default function BottomSheet({
           <div style={{ width: 40, height: 5, borderRadius: 3, backgroundColor: '#C8BDB0', margin: '0 auto' }} />
         </div>
 
-        {/* ── Header agenda : compteur + filtres, sur fond illustration village
-             en multiply + gradient blanc en bas pour détacher les boutons ── */}
+        {/* ── Header agenda : compteur + filtres ── */}
         {appMode === 'agenda' && (
-          <div style={{ position: 'relative', overflow: 'hidden' }}>
-            {/* Illustration village en arrière-plan multiply */}
-            <div
-              aria-hidden
-              style={{
-                position: 'absolute',
-                top: 0, left: 0, right: 0, height: '100%',
-                pointerEvents: 'none',
-                opacity: 0.55,
-                mixBlendMode: 'multiply',
-                backgroundImage: 'url(/village-illustration.png)',
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'center top',
-                backgroundSize: '100% auto',
-                zIndex: 0,
-              }}
-            />
-            {/* Gradient blanc en bas — détache les boutons du fond illustration */}
-            <div
-              aria-hidden
-              style={{
-                position: 'absolute',
-                left: 0, right: 0, bottom: 0,
-                height: 70,
-                pointerEvents: 'none',
-                background: 'linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.85) 70%, rgba(255,255,255,1) 100%)',
-                zIndex: 1,
-              }}
-            />
-
-            {/* Contenu : compteur + filtres */}
-            <div style={{ position: 'relative', zIndex: 2 }}>
-              {mode !== 'full' && (
-                <div style={{
-                  padding: '2px 16px 8px',
-                  textAlign: 'center',
-                  fontFamily: 'Inter, sans-serif',
-                  fontSize: 13, color: '#7A6A5A',
-                }}>
-                  <span style={{ fontWeight: 800, fontSize: 15, color: '#1A1209' }}>
-                    {evenements.length}
-                  </span>
-                  {' '}
-                  événement{evenements.length > 1 ? 's' : ''}
-                  <span style={{ opacity: 0.5 }}> · </span>
-                  <span style={{ fontSize: 11, color: '#9E9089' }}>marchés · ateliers · concerts</span>
-                </div>
-              )}
-              {/* Wheels centrés ~300px, marges latérales restent grabable */}
-              <div style={{
-                display: 'flex',
-                justifyContent: 'center',
-                padding: '0 16px 14px',
-              }}>
-                <div
-                  onPointerDown={e => e.stopPropagation()}
-                  onTouchStart={e => e.stopPropagation()}
-                  style={{ touchAction: 'pan-y', width: '100%', maxWidth: 300 }}
-                >
-                  <AgendaFilterWheel
-                    filtres={filtres}
-                    onFiltresChange={onFiltresChange}
-                    onChange={handleAgendaFilterChange}
-                  />
-                </div>
+          <>
+            <div style={{
+              padding: '2px 16px 8px',
+              textAlign: 'center',
+              fontFamily: 'Inter, sans-serif',
+              fontSize: 13, color: '#7A6A5A',
+            }}>
+              <span style={{ fontWeight: 800, fontSize: 15, color: '#1A1209' }}>
+                {evenements.length}
+              </span>
+              {' '}
+              événement{evenements.length > 1 ? 's' : ''}
+              <span style={{ opacity: 0.5 }}> · </span>
+              <span style={{ fontSize: 11, color: '#9E9089' }}>marchés · ateliers · concerts</span>
+            </div>
+            {/* Wheels centrés ~300px, marges latérales restent grabable */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              padding: '0 16px 14px',
+            }}>
+              <div
+                onPointerDown={e => e.stopPropagation()}
+                onTouchStart={e => e.stopPropagation()}
+                style={{ touchAction: 'pan-y', width: '100%', maxWidth: 300 }}
+              >
+                <AgendaFilterWheel
+                  filtres={filtres}
+                  onFiltresChange={onFiltresChange}
+                  onChange={handleAgendaFilterChange}
+                />
               </div>
             </div>
-          </div>
+          </>
         )}
 
         {appMode !== 'agenda' && (
