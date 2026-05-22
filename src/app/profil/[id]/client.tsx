@@ -692,13 +692,14 @@ export default function ProfilPageClient({ id }: { id: string }) {
           email={user?.email ?? ''}
           avatarUrl={profile.avatar_url}
           onClose={() => setEditModalOpen(false)}
-          onSave={async ({ name, bio, ville, linkUrl, bannerUrl }) => {
+          onSave={async ({ name, bio, ville, linkUrl, bannerUrl, avatarUrl }) => {
             const patch: {
               display_name?: string
               bio?: string | null
               ville?: string | null
               link_url?: string | null
               banner_url?: string | null
+              avatar_url?: string | null
             } = {}
             if (name.trim() && name.trim() !== profile.display_name) patch.display_name = name.trim()
             if (bio !== (profile.bio ?? null))                        patch.bio = bio
@@ -706,6 +707,8 @@ export default function ProfilPageClient({ id }: { id: string }) {
             if (linkUrl !== (profile.link_url ?? null))               patch.link_url = linkUrl
             const cleanBanner = bannerUrl ? bannerUrl.split('?')[0] : null
             if (cleanBanner !== (profile.banner_url ?? null))         patch.banner_url = cleanBanner
+            const cleanAvatar = avatarUrl ? avatarUrl.split('?')[0] : null
+            if (cleanAvatar !== (profile.avatar_url ?? null))         patch.avatar_url = cleanAvatar
             if (Object.keys(patch).length > 0) {
               await updateProfile(patch)
               setProfile(prev => prev ? { ...prev, ...patch } as FullProfile : prev)

@@ -1,6 +1,5 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { toast } from 'sonner'
 import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
 import ClientPortal from '@/components/ClientPortal'
 
@@ -10,6 +9,7 @@ export interface ProfileEditPatch {
   ville:      string | null
   linkUrl:    string | null
   bannerUrl:  string | null
+  avatarUrl:  string | null
 }
 
 interface Props {
@@ -66,6 +66,9 @@ export default function EditProfileModal({
   const [ville, setVille]         = useState(initialVille ?? '')
   const [linkUrl, setLinkUrl]     = useState(initialLinkUrl ?? '')
   const [bannerUrl, setBannerUrl] = useState<string | null>(initialBannerUrl)
+  const [localAvatarUrl, setLocalAvatarUrl] = useState<string | null>(avatarUrl)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const avatarInput = useRef<HTMLInputElement>(null)
 
   const [saving, setSaving]       = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -121,6 +124,7 @@ export default function EditProfileModal({
         ville: cleanVille,
         linkUrl: cleanLink,
         bannerUrl,
+        avatarUrl: localAvatarUrl,
       })
     } finally {
       setSaving(false)
@@ -138,6 +142,21 @@ export default function EditProfileModal({
       setUploadErr(e instanceof Error ? e.message : 'Erreur upload bannière')
     } finally {
       setUploading(false)
+    }
+  }
+
+  async function handleAvatarPick(file: File) {
+    setUploadErr(null)
+    setUploadingAvatar(true)
+    try {
+      // Avatar : square 512x512 max (compresse + crop conservé natif)
+      const compressed = await compressImage(file, { maxDim: 512, quality: 0.85 })
+      const r = await uploadViaSignedUrl({ file: compressed, kind: 'profile-avatar' })
+      setLocalAvatarUrl(`${r.publicUrl}?v=${Date.now()}`)
+    } catch (e) {
+      setUploadErr(e instanceof Error ? e.message : 'Erreur upload avatar')
+    } finally {
+      setUploadingAvatar(false)
     }
   }
 
@@ -238,12 +257,23 @@ export default function EditProfileModal({
         </div>
         {uploadErr && <p className="px-4 pt-2 text-[11px] text-accent">{uploadErr}</p>}
 
-        {/* Avatar overlap */}
+        {/* Avatar overlap — cliquable bouton caméra pour upload */}
         <div className="-mt-10 px-4">
           <div className="relative inline-block">
-            {avatarUrl ? (
+            <input
+              ref={avatarInput}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={e => {
+                const f = e.target.files?.[0]
+                if (f) handleAvatarPick(f)
+                e.target.value = ''
+              }}
+            />
+            {localAvatarUrl ? (
               <img
-                src={avatarUrl}
+                src={localAvatarUrl}
                 alt=""
                 className="h-20 w-20 rounded-full object-cover"
                 style={{ border: '4px solid #FDFAF5', boxShadow: '0 4px 14px rgba(44,28,16,0.18)' }}
@@ -262,12 +292,17 @@ export default function EditProfileModal({
             )}
             <button
               type="button"
-              onClick={() => toast('Modifier la photo bientôt', { description: 'L\'upload d\'avatar arrive dans une PR dédiée.' })}
+              onClick={() => avatarInput.current?.click()}
+              disabled={uploadingAvatar}
               aria-label="Modifier la photo de profil"
-              className="absolute -bottom-0.5 -right-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-white text-texte"
+              className="absolute -bottom-0.5 -right-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-white text-texte disabled:opacity-60"
               style={{ border: '2px solid #FDFAF5', boxShadow: '0 2px 4px rgba(0,0,0,0.08)' }}
             >
-              {IcCamera(13)}
+              {uploadingAvatar ? (
+                <span className="text-[10px]">…</span>
+              ) : (
+                IcCamera(13)
+              )}
             </button>
           </div>
         </div>

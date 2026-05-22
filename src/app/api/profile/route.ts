@@ -7,7 +7,7 @@ export async function PATCH(req: NextRequest) {
   if (ctx instanceof Response) return ctx
 
   const body = await req.json().catch(() => ({}))
-  const { display_name, genre, banner_url, is_public, searchable, bio, ville, link_url } = body
+  const { display_name, genre, banner_url, avatar_url, is_public, searchable, bio, ville, link_url } = body
 
   const update: Record<string, unknown> = {}
 
@@ -43,6 +43,21 @@ export async function PATCH(req: NextRequest) {
       update.banner_url = banner_url
     } else {
       return NextResponse.json({ error: 'banner_url invalide' }, { status: 400 })
+    }
+  }
+
+  // avatar_url : même validation que banner_url (URL Supabase Storage)
+  if (avatar_url !== undefined) {
+    if (avatar_url === null || avatar_url === '') {
+      update.avatar_url = null
+    } else if (typeof avatar_url === 'string') {
+      const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+      if (!avatar_url.startsWith(supaUrl + '/storage/v1/object/public/')) {
+        return NextResponse.json({ error: 'avatar_url invalide' }, { status: 400 })
+      }
+      update.avatar_url = avatar_url
+    } else {
+      return NextResponse.json({ error: 'avatar_url invalide' }, { status: 400 })
     }
   }
 

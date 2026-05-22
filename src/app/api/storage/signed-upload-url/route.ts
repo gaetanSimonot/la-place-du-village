@@ -22,7 +22,7 @@ import { requireUser } from '@/lib/server-auth'
  * Returns : { uploadUrl, token, publicUrl, path, bucket }
  */
 
-type UploadKind = 'event-image' | 'product-image' | 'admin-edit' | 'profile-banner'
+type UploadKind = 'event-image' | 'product-image' | 'admin-edit' | 'profile-banner' | 'profile-avatar'
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const MAX_BYTES = 10 * 1024 * 1024 // 10 MB (max bucket configure)
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   const size = Number(body?.size ?? 0)
   const refId = body?.refId ? String(body.refId) : null
 
-  if (!kind || !['event-image', 'product-image', 'admin-edit', 'profile-banner'].includes(kind)) {
+  if (!kind || !['event-image', 'product-image', 'admin-edit', 'profile-banner', 'profile-avatar'].includes(kind)) {
     return NextResponse.json({ error: 'kind invalide' }, { status: 400 })
   }
   if (!ALLOWED_MIME.has(mimeType)) {
@@ -113,6 +113,11 @@ export async function POST(req: NextRequest) {
     // d ecrire sur le path d un autre user.
     bucket = 'avatars'
     path = `banners/${ctx.userId}.${extFromMime(mimeType)}`
+  } else if (kind === 'profile-avatar') {
+    // Path FIXE par userId : meme principe que la banniere. Bucket 'avatars',
+    // dossier 'avatars/' pour distinguer des banners.
+    bucket = 'avatars'
+    path = `avatars/${ctx.userId}.${extFromMime(mimeType)}`
   } else {
     return NextResponse.json({ error: 'kind non géré' }, { status: 400 })
   }

@@ -1,7 +1,9 @@
 'use client'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/hooks/useAuth'
 import BottomNavBar from '@/components/BottomNavBar'
 import PersonCard, { type PersonCardData } from '@/components/PersonCard'
 import { useFriendships } from '@/hooks/useFriendships'
@@ -11,11 +13,20 @@ type Filter = 'all' | 'friends'
 const PAGE_LIMIT = 200
 
 export default function PeopleClient() {
+  const { user, loading: authLoading } = useAuth()
+  const router = useRouter()
   const [people, setPeople]     = useState<PersonCardData[]>([])
   const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
   const [filter, setFilter]     = useState<Filter>('all')
   const { statusWith, friendProfiles, pendingReceived, sendRequest, accept, cancel } = useFriendships()
+
+  // Guard auth : /people réservé aux users connectés
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace('/profil')
+    }
+  }, [authLoading, user, router])
 
   // ──────────────────────────────────────────────────────────────────────
   // Fetch BROWSE (search vide) — lit la VUE profiles_public_listing.
@@ -113,6 +124,15 @@ export default function PeopleClient() {
     }
     return people
   }, [people, filter, friendProfiles, search])
+
+  // Non loggé → spinner pendant la redirect (useEffect ci-dessus)
+  if (authLoading || !user) {
+    return (
+      <main className="flex min-h-[100dvh] items-center justify-center bg-creme">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-bord border-t-primary" />
+      </main>
+    )
+  }
 
   return (
     <main className="min-h-[100dvh] bg-creme pb-28 font-inter text-texte">

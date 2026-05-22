@@ -231,13 +231,14 @@ export default function ProfilHybridView() {
           email={user.email ?? ''}
           avatarUrl={profile?.avatar_url ?? null}
           onClose={() => setEditOpen(false)}
-          onSave={async ({ name, bio, ville, linkUrl, bannerUrl }) => {
+          onSave={async ({ name, bio, ville, linkUrl, bannerUrl, avatarUrl }) => {
             const patch: {
               display_name?: string
               bio?: string | null
               ville?: string | null
               link_url?: string | null
               banner_url?: string | null
+              avatar_url?: string | null
             } = {}
             if (name.trim() && name.trim() !== profile?.display_name) patch.display_name = name.trim()
             if (bio !== (profile?.bio ?? null))                        patch.bio = bio
@@ -246,6 +247,9 @@ export default function ProfilHybridView() {
             const cleanBanner = bannerUrl ? bannerUrl.split('?')[0] : null
             const currentBanner = profile?.banner_url ?? null
             if (cleanBanner !== currentBanner)                         patch.banner_url = cleanBanner
+            const cleanAvatar = avatarUrl ? avatarUrl.split('?')[0] : null
+            const currentAvatar = profile?.avatar_url ?? null
+            if (cleanAvatar !== currentAvatar)                         patch.avatar_url = cleanAvatar
             if (Object.keys(patch).length > 0) await updateProfile(patch)
             setEditOpen(false)
           }}

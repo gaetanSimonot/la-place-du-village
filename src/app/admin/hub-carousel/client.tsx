@@ -32,6 +32,34 @@ export default function AdminHubCarousel() {
   const [error, setError]       = useState<string | null>(null)
   const [showExpired, setShowExpired] = useState(false)
   const [cropping, setCropping] = useState<EnrichedSlot | null>(null)
+  // Slide intro "Bouche à oreille" en première position du carrousel hub_hero
+  const [introEnabled, setIntroEnabled] = useState(false)
+  const [introSaving, setIntroSaving]   = useState(false)
+
+  // Charge la config slide intro
+  useEffect(() => {
+    if (authLoading || !user || !isAdmin) return
+    supabase.from('config').select('value').eq('key', 'hub_hero_intro_enabled').maybeSingle()
+      .then(({ data }) => setIntroEnabled(data?.value === 'true'))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user, isAdmin])
+
+  async function toggleIntro(next: boolean) {
+    if (introSaving) return
+    const prev = introEnabled
+    setIntroEnabled(next)
+    setIntroSaving(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+    if (!token) { setIntroEnabled(prev); setIntroSaving(false); return }
+    const res = await fetch('/api/admin/config', {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body:    JSON.stringify({ key: 'hub_hero_intro_enabled', value: next ? 'true' : 'false' }),
+    })
+    if (!res.ok) setIntroEnabled(prev)
+    setIntroSaving(false)
+  }
 
   useEffect(() => {
     if (authLoading) return
@@ -194,6 +222,35 @@ export default function AdminHubCarousel() {
       </div>
 
       {error && <p style={{ padding: 16, color: '#C0392B', fontSize: 13, textAlign: 'center' }}>{error}</p>}
+
+      {/* Toggle slide intro "Bouche à oreille" — première position du hub_hero */}
+      <div style={{ padding: '14px 16px 0' }}>
+        <label style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          padding: '12px 14px', borderRadius: 12,
+          background: introEnabled ? '#E8F2EB' : '#FFFFFF',
+          border: `1px solid ${introEnabled ? '#C8DEC0' : '#E5DDD2'}`,
+          cursor: introSaving ? 'default' : 'pointer',
+          boxShadow: '0 1px 4px rgba(44,28,16,0.04)',
+        }}>
+          <input
+            type="checkbox"
+            checked={introEnabled}
+            disabled={introSaving}
+            onChange={e => toggleIntro(e.target.checked)}
+            style={{ accentColor: '#2D5A3D', cursor: 'pointer' }}
+          />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>
+              Slide intro « Bouche à oreille »
+            </div>
+            <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2 }}>
+              Affiche en première position du carrousel un slide illustration sans
+              texte. Click = ouvre la modale « C&apos;est quoi La Place du Village ? ».
+            </div>
+          </div>
+        </label>
+      </div>
 
       <div style={{ padding: '14px 12px' }}>
         {FEATURED_SLOTS.map(slot => {

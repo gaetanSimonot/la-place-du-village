@@ -49,6 +49,7 @@ interface HeroProducteur {
 }
 
 type HeroItem =
+  | { kind: 'intro';         data: null;             imagePosition: null }
   | { kind: 'evenement';     data: Evenement;        imagePosition: string | null }
   | { kind: 'etablissement'; data: HeroEtab;         imagePosition: string | null }
   | { kind: 'producteur';    data: HeroProducteur;   imagePosition: string | null }
@@ -150,12 +151,23 @@ export default function HubView({
     }).catch(() => {})
   }, [])
 
-  // Hero carousel : 1. featured_slots hub_hero (events + etabs) > 2. today event > 3. week event
+  // Hero carousel : 1. (config) slide intro "À la une / bouche à oreille"
+  //                  → optionnel via config 'hub_hero_intro_enabled' (toggle admin)
+  //                  2. featured_slots hub_hero (events + etabs)
+  //                  3. today event > 4. week event
   const loadHero = useCallback(async () => {
       const todayISO = new Date().toISOString().slice(0, 10)
       const inAWeek = new Date(); inAWeek.setDate(inAWeek.getDate() + 7)
       const weekISO = inAWeek.toISOString().slice(0, 10)
       const nowISO  = new Date().toISOString()
+
+      // Slide intro optionnel — toggle admin via config 'hub_hero_intro_enabled'
+      const { data: introCfg } = await supabase
+        .from('config')
+        .select('value')
+        .eq('key', 'hub_hero_intro_enabled')
+        .maybeSingle()
+      const introEnabled = introCfg?.value === 'true'
 
       const { data: featuredSlots } = await supabase
         .from('featured_slots')
@@ -223,6 +235,11 @@ export default function HubView({
           .limit(1)
         const ev = (r.data?.[0] as Evenement | undefined) ?? null
         if (ev) items.push({ kind: 'evenement', data: ev, imagePosition: ev.image_position ?? null })
+      }
+
+      // Prepend slide intro si admin a coché l'option
+      if (introEnabled) {
+        items.unshift({ kind: 'intro', data: null, imagePosition: null })
       }
 
       setHeroItems(items)
@@ -463,7 +480,8 @@ export default function HubView({
         <HubHeroCarousel
           items={heroItems}
           onSelect={item => {
-            if      (item.kind === 'evenement')     router.push(`/evenement/${item.data.id}`)
+            if      (item.kind === 'intro')         onOpenInfo?.()
+            else if (item.kind === 'evenement')     router.push(`/evenement/${item.data.id}`)
             else if (item.kind === 'etablissement') router.push(`/etablissement/${item.data.id}`)
             else                                    router.push(`/producteur/${item.data.id}`)
           }}
@@ -1134,6 +1152,36 @@ function HubHeroCarousel({
 }
 
 function HeroSlide({ item, onClick }: { item: HeroItem; onClick: () => void }) {
+  // Slide intro : illustration village + badge "À LA UNE" SEULEMENT (pas de
+  // texte superposé). Click → onOpenInfo (AppInfoModal).
+  if (item.kind === 'intro') {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="relative block h-[180px] w-full appearance-none rounded-tile border-none p-0 text-left"
+        style={{
+          WebkitTapHighlightColor: 'transparent',
+          background: 'linear-gradient(135deg, #FBF3E6 0%, #F8EDD8 100%)',
+        }}
+      >
+        <div className="absolute inset-0 overflow-hidden rounded-tile">
+          <img
+            src="/village-illustration.png"
+            alt=""
+            className="h-full w-full"
+            style={{ objectFit: 'contain', objectPosition: 'center', mixBlendMode: 'multiply', userSelect: 'none' }}
+          />
+        </div>
+        <span
+          className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-primary-light/95 px-2.5 py-[5px] text-[10px] font-bold tracking-[0.08em] text-primary"
+          style={{ backdropFilter: 'blur(4px)' }}
+        >
+          <IconStar size={11} /> À LA UNE
+        </span>
+      </button>
+    )
+  }
   const imagePosition = item.imagePosition ?? '50% 50%'
   if (item.kind === 'evenement') {
     const ev = item.data
