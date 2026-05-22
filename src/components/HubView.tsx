@@ -145,277 +145,66 @@ export default function HubView({
   const [journal, setJournal] = useState<JournalLite | null>(null)
   const [covoits, setCovoits] = useState<CovoitLite[]>([])
 
-  useEffect(() => {
-    Promise.all([
-      supabase.from('evenements').select('*', { count: 'exact', head: true }).eq('statut', 'publie'),
-      supabase.from('etablissements').select('*', { count: 'exact', head: true }),
-      supabase.from('producers').select('*', { count: 'exact', head: true }),
-    ]).then(([evt, etab, prod]) => {
-      setZoneCounts({ evt: evt.count ?? 0, etab: etab.count ?? 0, prod: prod.count ?? 0 })
-    }).catch(() => {})
-  }, [])
+  // Counts zone : remontés par /api/hub désormais (cf. loadHub plus bas).
+  // L'ancien Promise.all client-side (3 requêtes parallèles) est supprimé.
 
-  // Hero carousel : 1. (config) slide intro "À la une / bouche à oreille"
-  //                  → optionnel via config 'hub_hero_intro_enabled' (toggle admin)
-  //                  2. featured_slots hub_hero (events + etabs)
-  //                  3. today event > 4. week event
-  const loadHero = useCallback(async () => {
-      const todayISO = new Date().toISOString().slice(0, 10)
-      const inAWeek = new Date(); inAWeek.setDate(inAWeek.getDate() + 7)
-      const weekISO = inAWeek.toISOString().slice(0, 10)
-      const nowISO  = new Date().toISOString()
+  // 1 SEUL fetch vers /api/hub qui regroupe les ~13 requêtes côté serveur.
+  // Response cachée CDN 60s + stale-while-revalidate 120s → ouvertures
+  // suivantes <100ms. Realtime déclenche un refetch silencieux (cf. plus bas).
+  const loadHub = useCallback(async () => {
+    try {
+      const res = await fetch('/api/hub')
+      if (!res.ok) return
+      const d = await res.json()
 
-      // Slide intro optionnel — toggle admin via config 'hub_hero_intro_enabled'
-      // + image custom optionnelle via config 'hub_hero_intro_image_url'
-      const [introCfgRes, introImgRes] = await Promise.all([
-        supabase.from('config').select('value').eq('key', 'hub_hero_intro_enabled').maybeSingle(),
-        supabase.from('config').select('value').eq('key', 'hub_hero_intro_image_url').maybeSingle(),
-      ])
-      const introEnabled  = introCfgRes.data?.value === 'true'
-      const introImageUrl = introImgRes.data?.value || null
+      setZoneCounts({
+        evt:  d.zoneCounts?.evt  ?? 0,
+        etab: d.zoneCounts?.etab ?? 0,
+        prod: d.zoneCounts?.prod ?? 0,
+      })
 
-      const { data: featuredSlots } = await supabase
-        .from('featured_slots')
-        .select('content_type, content_id, priority, image_position')
-        .eq('slot', 'hub_hero')
-        .lte('starts_at', nowISO)
-        .gt('ends_at', nowISO)
-        .order('priority', { ascending: false })
-        .order('created_at', { ascending: false })
-
-      const items: HeroItem[] = []
-      if (featuredSlots && featuredSlots.length > 0) {
-        const evIds   = featuredSlots.filter(s => s.content_type === 'evenement').map(s => s.content_id)
-        const etabIds = featuredSlots.filter(s => s.content_type === 'etablissement').map(s => s.content_id)
-        const prodIds = featuredSlots.filter(s => s.content_type === 'producteur').map(s => s.content_id)
-
-        const [evRes, etabRes, prodRes] = await Promise.all([
-          evIds.length > 0
-            ? supabase.from('evenements').select('*, lieux(*)').in('id', evIds).eq('statut', 'publie')
-            : Promise.resolve({ data: [] }),
-          etabIds.length > 0
-            ? supabase.from('etablissements').select('id, nom, commune, photos, type').in('id', etabIds)
-            : Promise.resolve({ data: [] }),
-          prodIds.length > 0
-            ? supabase.from('producers').select('id, nom, commune, photos').in('id', prodIds)
-            : Promise.resolve({ data: [] }),
-        ])
-
-        const evMap   = Object.fromEntries(((evRes.data ?? []) as Evenement[]).map(e => [e.id, e]))
-        const etabMap = Object.fromEntries(((etabRes.data ?? []) as HeroEtab[]).map(e => [e.id, e]))
-        const prodMap = Object.fromEntries(((prodRes.data ?? []) as HeroProducteur[]).map(p => [p.id, p]))
-
-        featuredSlots.forEach(s => {
-          const pos = (s.image_position as string | null) ?? null
-          if (s.content_type === 'evenement' && evMap[s.content_id]) {
-            items.push({ kind: 'evenement', data: evMap[s.content_id], imagePosition: pos })
-          } else if (s.content_type === 'etablissement' && etabMap[s.content_id]) {
-            items.push({ kind: 'etablissement', data: etabMap[s.content_id], imagePosition: pos })
-          } else if (s.content_type === 'producteur' && prodMap[s.content_id]) {
-            items.push({ kind: 'producteur', data: prodMap[s.content_id], imagePosition: pos })
-          }
-        })
+      // Hero carousel : items du serveur + prepend slide intro si admin a coché
+      const items: HeroItem[] = (d.heroItems ?? []) as HeroItem[]
+      if (d.introEnabled) {
+        items.unshift({ kind: 'intro', data: { imageUrl: d.introImageUrl ?? null }, imagePosition: null })
       }
-
-      if (items.length === 0) {
-        const r = await supabase
-          .from('evenements')
-          .select('*, lieux(*)')
-          .eq('statut', 'publie')
-          .eq('date_debut', todayISO)
-          .order('promo_ordre', { ascending: false })
-          .limit(1)
-        const ev = (r.data?.[0] as Evenement | undefined) ?? null
-        if (ev) items.push({ kind: 'evenement', data: ev, imagePosition: ev.image_position ?? null })
-      }
-
-      if (items.length === 0) {
-        const r = await supabase
-          .from('evenements')
-          .select('*, lieux(*)')
-          .eq('statut', 'publie')
-          .gte('date_debut', todayISO)
-          .lte('date_debut', weekISO)
-          .order('date_debut', { ascending: true })
-          .limit(1)
-        const ev = (r.data?.[0] as Evenement | undefined) ?? null
-        if (ev) items.push({ kind: 'evenement', data: ev, imagePosition: ev.image_position ?? null })
-      }
-
-      // Prepend slide intro si admin a coché l'option (image custom ou default)
-      if (introEnabled) {
-        items.unshift({ kind: 'intro', data: { imageUrl: introImageUrl }, imagePosition: null })
-      }
-
       setHeroItems(items)
       setHeroLoaded(true)
-  }, [])
 
-  // Events du jour pour bento "Aujourd'hui" — 3 prochains + count exact
-  const loadToday = useCallback(async () => {
-      const today = new Date().toISOString().slice(0, 10)
-      const { data, count } = await supabase
-        .from('evenements')
-        .select('*, lieux(*)', { count: 'exact' })
-        .eq('statut', 'publie')
-        .eq('date_debut', today)
-        .order('heure', { ascending: true, nullsFirst: false })
-        .limit(8)
-      setTodayEvents((data ?? []) as Evenement[])
-      setTodayTotal(count ?? 0)
-  }, [])
-
-  // Promotions actives
-  const loadPromos = useCallback(async () => {
-      const nowISO = new Date().toISOString()
-      const featuredIds = new Set<string>()
-      const ordered: PromoCard[] = []
-
-      const { data: featuredSlots } = await supabase
-        .from('featured_slots')
-        .select('content_id')
-        .eq('slot', 'homepage')
-        .eq('content_type', 'promotion')
-        .lte('starts_at', nowISO)
-        .gt('ends_at', nowISO)
-        .order('priority', { ascending: false })
-        .order('created_at', { ascending: false })
-
-      const featuredContentIds = (featuredSlots ?? []).map(s => s.content_id)
-      featuredContentIds.forEach(id => featuredIds.add(id))
-
-      const r = await fetch('/api/promotions').catch(() => null)
-      const allPromos: PromoCard[] = r && r.ok ? ((await r.json())?.promotions ?? []) : []
-
-      featuredContentIds.forEach(id => {
-        const p = allPromos.find(x => x.id === id)
-        if (p) ordered.push(p)
-      })
-      allPromos.forEach(p => { if (!featuredIds.has(p.id)) ordered.push(p) })
-
-      setPromos(ordered.slice(0, 8))
-  }, [])
-
-  // Ventes — priorité admin pin (featured_slots), puis enchères inversées en baisse.
-  // Cible 4 cards pour le bento 2x2.
-  const loadVentes = useCallback(async () => {
-      const nowISO = new Date().toISOString()
-      const ordered: Annonce[] = []
-      const seen = new Set<string>()
-
-      // 1. Annonces pinées par l'admin (peu importe le type) en priorité
-      const { data: featuredSlots } = await supabase
-        .from('featured_slots')
-        .select('content_id, priority')
-        .eq('slot', 'homepage')
-        .eq('content_type', 'annonce')
-        .lte('starts_at', nowISO)
-        .gt('ends_at', nowISO)
-        .order('priority', { ascending: false })
-        .order('created_at', { ascending: false })
-
-      const featuredIds = (featuredSlots ?? []).map(s => s.content_id)
-      if (featuredIds.length > 0) {
-        const { data: featuredRows } = await supabase
-          .from('annonces')
-          .select('*')
-          .in('id', featuredIds)
-          .eq('statut', 'active')
-        const map = Object.fromEntries(((featuredRows ?? []) as Annonce[]).map(a => [a.id, a]))
-        featuredIds.forEach(id => {
-          const a = map[id]
-          if (a && !seen.has(a.id)) { ordered.push(a); seen.add(a.id) }
-        })
-      }
-
-      // 2. Complète avec les enchères inversées en baisse réelle si pas plein
-      if (ordered.length < 4) {
-        const { data: encheres } = await supabase
-          .from('annonces')
-          .select('*')
-          .eq('statut', 'active')
-          .eq('type', 'enchere_inversee')
-          .not('prix_actuel', 'is', null)
-          .not('prix_initial', 'is', null)
-          .order('created_at', { ascending: false })
-          .limit(12)
-        ;((encheres ?? []) as Annonce[]).forEach(a => {
-          if (seen.has(a.id)) return
-          if (a.prix_actuel != null && a.prix_initial != null && a.prix_actuel < a.prix_initial) {
-            ordered.push(a); seen.add(a.id)
-          }
-        })
-      }
-
-      setVentesAnnonces(ordered.slice(0, 4))
-      setVentesTotal(ordered.length)
-  }, [])
-
-  // Journal hebdo — dernier numéro publié (graceful empty)
-  const loadJournal = useCallback(async () => {
-      const { data, error } = await supabase
-        .from('journaux_hebdo')
-        .select('id, numero, cover_titre, cover_image_url, temps_lecture_min, publie_at, position_hub')
-        .eq('statut', 'publie')
-        .order('numero', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      if (error) { setJournal(null); return }
-      setJournal((data as JournalLite | null) ?? null)
-  }, [])
-
-  const loadCovoits = useCallback(async () => {
-    const today = new Date().toISOString().slice(0, 10)
-    const { data, error } = await supabase
-      .from('covoiturages')
-      .select('id, depart, destination, date_trajet, heure_depart, prix, places, places_prises, statut')
-      .neq('statut', 'annule')
-      .gte('date_trajet', today)
-      .order('date_trajet', { ascending: true })
-      .order('heure_depart', { ascending: true })
-      .limit(3)
-    if (error) { setCovoits([]); return }
-    setCovoits((data as CovoitLite[] | null) ?? [])
+      setTodayEvents((d.todayEvents ?? []) as Evenement[])
+      setTodayTotal(d.todayTotal ?? 0)
+      setPromos((d.promos ?? []) as PromoCard[])
+      setVentesAnnonces((d.ventes ?? []) as Annonce[])
+      setVentesTotal(d.ventesTotal ?? 0)
+      setJournal((d.journal ?? null) as JournalLite | null)
+      setCovoits((d.covoits ?? []) as CovoitLite[])
+    } catch {
+      // Fail silently — un /api/hub down ne doit pas casser le rendu.
+      // Les sections vides s'afficheront comme avant en cas d'absence de data.
+    }
   }, [])
 
   // Premier chargement
   useEffect(() => {
-    loadHero()
-    loadToday()
-    loadPromos()
-    loadVentes()
-    loadJournal()
-    loadCovoits()
-  }, [loadHero, loadToday, loadPromos, loadVentes, loadJournal, loadCovoits])
+    loadHub()
+  }, [loadHub])
 
-  // Realtime refetch sur changement featured_slots + journaux_hebdo
+  // Realtime refetch sur changement featured_slots + journaux_hebdo + covoiturages
+  // → un seul loadHub() qui re-fetch /api/hub (CDN cache invalidé par le SWR
+  // après 60s, donc le refetch sert toujours du frais).
   useEffect(() => {
     const ch = supabase
       .channel('hub-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'featured_slots' }, () => {
-        loadHero()
-        loadPromos()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'journaux_hebdo' }, () => {
-        loadJournal()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'covoiturages' }, () => {
-        loadCovoits()
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'featured_slots' }, () => loadHub())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'journaux_hebdo' }, () => loadHub())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'covoiturages' }, () => loadHub())
       .subscribe()
     return () => { supabase.removeChannel(ch) }
-  }, [loadHero, loadPromos, loadJournal, loadCovoits])
+  }, [loadHub])
 
   // Refresh sur retour PWA / focus fenêtre
   useEffect(() => {
-    const refreshAll = () => {
-      loadHero()
-      loadToday()
-      loadPromos()
-      loadVentes()
-      loadJournal()
-      loadCovoits()
-      }
+    const refreshAll = () => { loadHub() }
     const onVisible = () => { if (document.visibilityState === 'visible') refreshAll() }
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('focus', refreshAll)
@@ -423,7 +212,7 @@ export default function HubView({
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('focus', refreshAll)
     }
-  }, [loadHero, loadToday, loadPromos, loadVentes, loadJournal, loadCovoits])
+  }, [loadHub])
 
   const firstName = profile?.display_name?.split(' ')[0] || 'Visiteur'
   // Compteur greeting = nombre d'événements totaux (cohérent avec page Agenda
