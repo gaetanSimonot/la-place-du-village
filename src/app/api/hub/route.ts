@@ -1,5 +1,25 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+
+/**
+ * Valide une date YYYY-MM-DD venant du client. Retourne la date validée OU
+ * la date serveur si :
+ *  - format invalide
+ *  - écart > 1.5 jour avec la date serveur (anti-poisoning du cache CDN par
+ *    un user envoyant ?d=2050-01-01)
+ *
+ * Tolérance 1.5j pour couvrir les fuseaux extrêmes (+/- 14h) sans bloquer
+ * les users légitimes.
+ */
+function validateClientDate(clientDate: string | null): string {
+  const serverYMD = new Date().toISOString().slice(0, 10)
+  if (!clientDate || !/^\d{4}-\d{2}-\d{2}$/.test(clientDate)) return serverYMD
+  const clientTs = Date.parse(clientDate + 'T00:00:00Z')
+  const serverTs = Date.parse(serverYMD + 'T00:00:00Z')
+  if (!isFinite(clientTs) || !isFinite(serverTs)) return serverYMD
+  if (Math.abs(clientTs - serverTs) > 1.5 * 86400 * 1000) return serverYMD
+  return clientDate
+}
 
 /**
  * GET /api/hub — payload unique pour la home (HubView).
@@ -35,9 +55,13 @@ interface PromoCard {
   [key: string]: unknown
 }
 
-export async function GET() {
-  const todayISO = new Date().toISOString().slice(0, 10)
-  const inAWeek = new Date(); inAWeek.setDate(inAWeek.getDate() + 7)
+export async function GET(req: NextRequest) {
+  // todayISO : date locale du téléphone validée (param ?d=YYYY-MM-DD), fallback
+  // serveur si manquant/invalide/trop loin. Évite le décalage UTC (events
+  // "aujourd'hui" basés sur le fuseau de l'user) + cache cohérent par jour.
+  const { searchParams } = new URL(req.url)
+  const todayISO = validateClientDate(searchParams.get('d'))
+  const inAWeek = new Date(todayISO + 'T00:00:00Z'); inAWeek.setUTCDate(inAWeek.getUTCDate() + 7)
   const weekISO = inAWeek.toISOString().slice(0, 10)
   const nowISO  = new Date().toISOString()
 

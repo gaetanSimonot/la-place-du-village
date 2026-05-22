@@ -142,9 +142,20 @@ export default function HubView({
   //   <5s (nav A → B → A rapide), on ne fait qu'un seul fetch.
   // - mutate() exposé pour invalider depuis le Realtime channel.
   // ──────────────────────────────────────────────────────────────────────
+  // Date locale du téléphone au format YYYY-MM-DD (PAS toISOString → décalage
+  // UTC). Passée au serveur via `d=` pour que "aujourd'hui" soit calculé
+  // selon le fuseau de l'user. Bascule automatiquement à minuit local : la
+  // clé SWR change, nouvelle entrée cache, payload frais.
+  //
+  // Calculé à chaque render (pas de useMemo []) pour qu'au prochain
+  // re-render après minuit (focus, revalidate, etc.), la nouvelle date soit
+  // détectée et la clé SWR bascule.
+  const _d = new Date()
+  const todayLocalYMD = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`
+
   // Options (revalidateOnFocus / dedupingInterval / keepPreviousData) +
   // fetcher viennent du SWRProvider global → on n'a plus à les répéter ici.
-  const { data: hubData, mutate: mutateHub } = useSWR('/api/hub')
+  const { data: hubData, mutate: mutateHub } = useSWR(`/api/hub?d=${todayLocalYMD}`)
 
   // ── Derive les states UI depuis hubData (SWR est la source de vérité) ──
   const zoneCounts = useMemo(() => ({
