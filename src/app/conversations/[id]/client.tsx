@@ -7,13 +7,27 @@ import { useAuthModal } from '@/contexts/AuthModalContext'
 import EmbedPicker, { type EmbedItem } from '@/components/EmbedPicker'
 
 interface Message {
-  id:              string
+  id:              string  // 'temp_xxx' tant que pas confirmé serveur
   conversation_id: string
   sender_id:       string
   content:         string
   embed_kind:      string | null
   embed_ref_id:    string | null
   created_at:      string
+  /** Optimistic UI : 'sending' = en cours d'envoi (POST en vol),
+   *  'failed' = POST a échoué (réseau, validation, 403, etc.), undef = confirmé. */
+  status?:         'sending' | 'failed'
+}
+
+/** Match un temp message avec le vrai message qui revient via Realtime ou POST.
+ *  On compare sender + content + embed_ref_id : pas d'ID puisque le temp n'a pas
+ *  encore le vrai. Pour 2 messages identiques envoyés successivement, l'ordre
+ *  d'insertion est préservé (findIndex prend le premier). */
+function matchesTemp(temp: Message, real: { sender_id: string; content: string; embed_ref_id: string | null }): boolean {
+  return temp.id.startsWith('temp_')
+    && real.sender_id === temp.sender_id
+    && real.content    === temp.content
+    && (real.embed_ref_id ?? null) === (temp.embed_ref_id ?? null)
 }
 
 interface Props {
@@ -26,7 +40,9 @@ export default function ConversationClient({ convId }: Props) {
   const [messages, setMessages]     = useState<Message[]>([])
   const [loading, setLoading]       = useState(true)
   const [text, setText]             = useState('')
-  const [sending, setSending]       = useState(false)
+  // Plus de state `sending` global : chaque message a son propre status
+  // (sending/failed/undef). Permet d'enchaîner plusieurs envois sans bloquer
+  // le composer.
   const [error, setError]           = useState<string | null>(null)
   const [accessDenied, setAccessDenied] = useState(false)
   const [canWrite, setCanWrite]     = useState(true)
@@ -92,7 +108,20 @@ export default function ConversationClient({ convId }: Props) {
         filter: `conversation_id=eq.${convId}`,
       }, ({ new: m }) => {
         const msg = m as Message
-        setMessages(prev => prev.some(x => x.id === msg.id) ? prev : [...prev, msg])
+        setMessages(prev => {
+          // Déjà présent par vrai ID (cas : POST response l'a inséré avant Realtime)
+          if (prev.some(x => x.id === msg.id)) return prev
+          // Mon propre message qui revient via Realtime — match temp et remplace
+          if (msg.sender_id === user.id) {
+            const idx = prev.findIndex(x => matchesTemp(x, msg))
+            if (idx >= 0) {
+              const copy = [...prev]
+              copy[idx] = msg
+              return copy
+            }
+          }
+          return [...prev, msg]
+        })
       })
       .subscribe()
     return () => { supabase.removeChannel(ch) }
@@ -103,36 +132,109 @@ export default function ConversationClient({ convId }: Props) {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [messages.length])
 
-  // Envoi message — accepte texte vide si embed sélectionné
-  async function send(e: React.FormEvent) {
-    e.preventDefault()
-    const content = text.trim()
-    if ((!content && !embed) || sending) return
-    setSending(true); setError(null)
+  // Envoi optimistic d'un payload (content + embed). Affiche le message
+  // instantanément en 'sending' AVANT la réponse serveur. Au succès, remplace
+  // le temp par le vrai message (avec gestion de la race condition Realtime).
+  // À l'échec, marque le temp 'failed' avec bouton réessayer.
+  // Note : pas de blocage par `sending` global → l'user peut enchaîner plusieurs
+  // messages, chacun pending indépendamment (UX type Messenger/WhatsApp).
+  async function postMessage(payload: {
+    tempId: string
+    content: string
+    embedKind: string | null
+    embedRefId: string | null
+  }) {
+    if (!user) return
+    setError(null)
     const { data: { session } } = await supabase.auth.getSession()
     const token = session?.access_token
-    if (!token) { setSending(false); return }
-    const res = await fetch(`/api/conversations/${convId}/messages`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body:    JSON.stringify({
-        content,
-        embed_kind:   embed?.kind ?? null,
-        embed_ref_id: embed?.id ?? null,
-      }),
-    })
-    if (res.ok) {
-      setText('')
-      setEmbed(null)
-      const data = await res.json()
-      if (data?.message) {
-        setMessages(prev => prev.some(x => x.id === data.message.id) ? prev : [...prev, data.message])
-      }
-    } else {
-      const d = await res.json().catch(() => ({}))
-      setError(d.error || 'Erreur d\'envoi')
+    if (!token) {
+      setMessages(prev => prev.map(m => m.id === payload.tempId ? { ...m, status: 'failed' } : m))
+      return
     }
-    setSending(false)
+    try {
+      const res = await fetch(`/api/conversations/${convId}/messages`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body:    JSON.stringify({
+          content:      payload.content,
+          embed_kind:   payload.embedKind,
+          embed_ref_id: payload.embedRefId,
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        const realMsg = data?.message as Message | undefined
+        if (!realMsg) {
+          setMessages(prev => prev.map(m => m.id === payload.tempId ? { ...m, status: 'failed' } : m))
+          return
+        }
+        // Race possible : Realtime peut être arrivé AVANT cette réponse POST
+        // → si le vrai msg est déjà dans le state (via Realtime match), on retire
+        // juste le temp pour éviter le doublon. Sinon on remplace le temp par real.
+        setMessages(prev => {
+          if (prev.some(x => x.id === realMsg.id)) {
+            return prev.filter(x => x.id !== payload.tempId)
+          }
+          return prev.map(x => x.id === payload.tempId ? realMsg : x)
+        })
+      } else {
+        const d = await res.json().catch(() => ({}))
+        setMessages(prev => prev.map(m => m.id === payload.tempId ? { ...m, status: 'failed' } : m))
+        if (d.code === 'not_friends') setError(d.error)
+      }
+    } catch {
+      setMessages(prev => prev.map(m => m.id === payload.tempId ? { ...m, status: 'failed' } : m))
+    }
+  }
+
+  // Envoi nouveau message depuis le composer
+  function send(e: React.FormEvent) {
+    e.preventDefault()
+    const content = text.trim()
+    if (!content && !embed) return
+    if (!user) return
+
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    const tempMsg: Message = {
+      id:              tempId,
+      conversation_id: convId,
+      sender_id:       user.id,
+      content,
+      embed_kind:      embed?.kind ?? null,
+      embed_ref_id:    embed?.id ?? null,
+      created_at:      new Date().toISOString(),
+      status:          'sending',
+    }
+
+    // Affichage instantané + vide le composer
+    setMessages(prev => [...prev, tempMsg])
+    setText('')
+    setEmbed(null)
+
+    // Fire-and-forget — la résolution met à jour le status du temp
+    postMessage({
+      tempId,
+      content,
+      embedKind:   embed?.kind ?? null,
+      embedRefId:  embed?.id ?? null,
+    })
+  }
+
+  // Réessayer un message en échec (relance le POST avec le même contenu)
+  function retry(failed: Message) {
+    setMessages(prev => prev.map(m => m.id === failed.id ? { ...m, status: 'sending' } : m))
+    postMessage({
+      tempId:     failed.id,
+      content:    failed.content,
+      embedKind:  failed.embed_kind,
+      embedRefId: failed.embed_ref_id,
+    })
+  }
+
+  // Retirer un message en échec définitivement (bouton secondaire)
+  function discardFailed(failed: Message) {
+    setMessages(prev => prev.filter(m => m.id !== failed.id))
   }
 
   if (authLoading) {
@@ -222,20 +324,49 @@ export default function ConversationClient({ convId }: Props) {
         <div className="flex flex-col gap-1.5">
           {messages.map(m => {
             const mine = m.sender_id === user.id
+            const isPending = m.status === 'sending'
+            const isFailed  = m.status === 'failed'
             return (
               <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                <div
-                  className={`max-w-[78%] rounded-2xl px-3 py-2 text-[13.5px] ${
-                    mine
-                      ? 'bg-primary text-white'
-                      : 'border border-bord bg-white text-texte'
-                  }`}
-                  style={{ wordBreak: 'break-word' }}
-                >
-                  {m.content && <div>{m.content}</div>}
-                  {m.embed_kind && m.embed_ref_id && (
-                    <div className={m.content ? 'mt-1.5' : ''}>
-                      <MessageEmbedRender kind={m.embed_kind} refId={m.embed_ref_id} mine={mine} />
+                <div className="flex max-w-[78%] flex-col items-end gap-1">
+                  <div
+                    className={`rounded-2xl px-3 py-2 text-[13.5px] ${
+                      mine
+                        ? 'bg-primary text-white'
+                        : 'border border-bord bg-white text-texte'
+                    }`}
+                    style={{
+                      wordBreak: 'break-word',
+                      opacity:   isPending ? 0.6 : isFailed ? 0.8 : 1,
+                    }}
+                  >
+                    {m.content && <div>{m.content}</div>}
+                    {m.embed_kind && m.embed_ref_id && (
+                      <div className={m.content ? 'mt-1.5' : ''}>
+                        <MessageEmbedRender kind={m.embed_kind} refId={m.embed_ref_id} mine={mine} />
+                      </div>
+                    )}
+                  </div>
+                  {isPending && (
+                    <span className="text-[10px] italic text-texte-doux">Envoi…</span>
+                  )}
+                  {isFailed && (
+                    <div className="flex items-center gap-2 text-[10.5px] font-medium text-accent">
+                      <span>Échec d&apos;envoi</span>
+                      <button
+                        type="button"
+                        onClick={() => retry(m)}
+                        className="rounded-full bg-accent px-2.5 py-1 text-[10.5px] font-extrabold text-white"
+                      >
+                        Réessayer
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => discardFailed(m)}
+                        className="rounded-full bg-transparent px-1 text-[10.5px] font-bold text-texte-doux underline"
+                      >
+                        Retirer
+                      </button>
                     </div>
                   )}
                 </div>
@@ -271,12 +402,11 @@ export default function ConversationClient({ convId }: Props) {
               value={text}
               onChange={e => setText(e.target.value)}
               placeholder="Écris un message…"
-              disabled={sending}
-              className="min-w-0 flex-1 rounded-full border border-bord bg-white px-4 py-2.5 text-[14px] text-texte outline-none placeholder:text-texte-tres-doux disabled:opacity-60"
+              className="min-w-0 flex-1 rounded-full border border-bord bg-white px-4 py-2.5 text-[14px] text-texte outline-none placeholder:text-texte-tres-doux"
             />
             <button
               type="submit"
-              disabled={(!text.trim() && !embed) || sending}
+              disabled={!text.trim() && !embed}
               aria-label="Envoyer"
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white disabled:opacity-50"
             >
