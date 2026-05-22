@@ -4,7 +4,6 @@ import Link from 'next/link'
 import {
   IcMail,
   IcSettings,
-  IcMore,
   IcEdit,
   IcEye,
   IcChat,
@@ -97,29 +96,13 @@ export default function ProfilHeader({
           </svg>
         )}
 
-        {/* Top bar : titre + boutons */}
-        <div className="relative z-[2] flex items-center justify-between gap-3 px-4 pt-3.5">
+        {/* Top bar : titre seul (les actions descendent à droite du nom) */}
+        <div className="relative z-[2] px-4 pt-3.5">
           <div
             className="font-serif text-[18px] leading-none text-white"
             style={{ letterSpacing: '-0.01em', textShadow: '0 1px 4px rgba(0,0,0,0.2)' }}
           >
             {viewMode === 'public' ? 'Aperçu public' : 'Mon profil'}
-          </div>
-          <div className="flex gap-2">
-            {viewMode === 'own' ? (
-              <>
-                <CircleBtn href="/messages" ariaLabel="Messagerie">
-                  <IcMail size={18} />
-                </CircleBtn>
-                <CircleBtn href="/reglages" ariaLabel="Réglages">
-                  <IcSettings size={18} />
-                </CircleBtn>
-              </>
-            ) : (
-              <CircleBtn onClick={onToggleViewMode} ariaLabel="Revenir en vue privée">
-                <IcMore size={18} />
-              </CircleBtn>
-            )}
           </div>
         </div>
       </div>
@@ -154,20 +137,40 @@ export default function ProfilHeader({
           )}
         </button>
 
-        {/* Nom + meta — empilés sous l'avatar (margin-top pour respirer hors bannière) */}
-        <div className="mt-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1
-              className="m-0 truncate font-serif text-[23px] text-texte"
-              style={{ letterSpacing: '-0.02em', lineHeight: 1.05 }}
-            >
-              {displayName}
-            </h1>
-            {isVerified && <VerifiedBadge />}
+        {/* Nom + meta + actions icon-only à droite */}
+        <div className="mt-3 flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1
+                className="m-0 truncate font-serif text-[23px] text-texte"
+                style={{ letterSpacing: '-0.02em', lineHeight: 1.05 }}
+              >
+                {displayName}
+              </h1>
+              {isVerified && <VerifiedBadge />}
+            </div>
+            {metaLine && (
+              <div className="mt-[4px] flex items-center gap-1 text-[12px] text-texte-doux">
+                <IcPin size={12} /> {metaLine}
+              </div>
+            )}
           </div>
-          {metaLine && (
-            <div className="mt-[4px] flex items-center gap-1 text-[12px] text-texte-doux">
-              <IcPin size={12} /> {metaLine}
+
+          {/* Actions icon-only à droite du nom (mode own seulement) */}
+          {viewMode === 'own' && (
+            <div className="flex shrink-0 items-center gap-1.5">
+              <ActionIconBtn onClick={onToggleViewMode} ariaLabel="Aperçu public">
+                <IcEye size={16} />
+              </ActionIconBtn>
+              <ActionIconBtn onClick={onModifyClick} ariaLabel="Modifier mon profil" primary>
+                <IcEdit size={15} />
+              </ActionIconBtn>
+              <ActionIconBtn href="/messages" ariaLabel="Messagerie">
+                <IcMail size={16} />
+              </ActionIconBtn>
+              <ActionIconBtn href="/reglages" ariaLabel="Réglages">
+                <IcSettings size={16} />
+              </ActionIconBtn>
             </div>
           )}
         </div>
@@ -176,43 +179,24 @@ export default function ProfilHeader({
           <p className="m-0 mt-[10px] text-[13px] leading-[1.5] text-texte">{bio}</p>
         )}
 
-        {/* Boutons d'action */}
-        <div className="mt-3 flex gap-2">
-          {viewMode === 'own' ? (
-            <>
-              <button
-                onClick={onToggleViewMode}
-                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-[11px] border border-bord bg-white px-3.5 py-2.5 text-[13px] font-bold text-texte"
-              >
-                <IcEye size={14} /> Aperçu public
-              </button>
-              <button
-                onClick={onModifyClick}
-                title="Modifier mon profil"
-                aria-label="Modifier mon profil"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] bg-primary text-white"
-              >
-                <IcEdit size={15} />
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={onContactClick}
-                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-[11px] bg-primary px-3.5 py-2.5 text-[13px] font-extrabold text-white"
-                style={{ letterSpacing: '-0.005em' }}
-              >
-                <IcChat size={14} /> Contacter
-              </button>
-              <button
-                onClick={onSubscribeClick}
-                className="inline-flex items-center gap-1.5 rounded-[11px] border border-bord bg-white px-3.5 py-2.5 text-[13px] font-bold text-texte"
-              >
-                <IcUserPlus size={14} /> S&apos;abonner
-              </button>
-            </>
-          )}
-        </div>
+        {/* Boutons d'action — mode public uniquement (Contacter / S'abonner) */}
+        {viewMode === 'public' && (
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={onContactClick}
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-[11px] bg-primary px-3.5 py-2.5 text-[13px] font-extrabold text-white"
+              style={{ letterSpacing: '-0.005em' }}
+            >
+              <IcChat size={14} /> Contacter
+            </button>
+            <button
+              onClick={onSubscribeClick}
+              className="inline-flex items-center gap-1.5 rounded-[11px] border border-bord bg-white px-3.5 py-2.5 text-[13px] font-bold text-texte"
+            >
+              <IcUserPlus size={14} /> S&apos;abonner
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Lightbox avatar */}
@@ -294,49 +278,30 @@ export default function ProfilHeader({
   )
 }
 
-function CircleBtn({
-  children,
-  badge,
-  href,
-  onClick,
-  ariaLabel,
+/* ── Bouton icon-only à droite du nom (mode own) ─────────────────────── */
+function ActionIconBtn({
+  children, onClick, href, ariaLabel, primary,
 }: {
   children: React.ReactNode
-  badge?: number | null
-  href?: string
   onClick?: () => void
+  href?: string
   ariaLabel: string
+  primary?: boolean
 }) {
-  const className =
-    'relative flex h-9 w-9 items-center justify-center rounded-full border text-white'
-  const style = {
-    background: 'rgba(255,255,255,0.18)',
-    backdropFilter: 'blur(8px)',
-    WebkitBackdropFilter: 'blur(8px)',
-    borderColor: 'rgba(255,255,255,0.22)',
-  } as const
-  const badgeNode =
-    badge && badge > 0 ? (
-      <span
-        className="absolute -right-[3px] -top-[3px] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-extrabold text-white"
-        style={{ border: '2px solid #FDFAF5' }}
-      >
-        {badge > 99 ? '99+' : badge}
-      </span>
-    ) : null
-
+  const className = 'flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]'
+  const style: React.CSSProperties = primary
+    ? { background: '#2D5A3D', color: '#FFFFFF', boxShadow: '0 2px 6px rgba(45,90,61,0.25)' }
+    : { background: '#FFFFFF', color: '#1A1209', border: '1px solid #E8E0D4', boxShadow: '0 1px 2px rgba(44,28,16,0.04)' }
   if (href) {
     return (
-      <Link href={href} aria-label={ariaLabel} className={className} style={style}>
+      <Link href={href} aria-label={ariaLabel} title={ariaLabel} className={className} style={style}>
         {children}
-        {badgeNode}
       </Link>
     )
   }
   return (
-    <button onClick={onClick} aria-label={ariaLabel} className={className} style={style}>
+    <button type="button" onClick={onClick} aria-label={ariaLabel} title={ariaLabel} className={className} style={style}>
       {children}
-      {badgeNode}
     </button>
   )
 }

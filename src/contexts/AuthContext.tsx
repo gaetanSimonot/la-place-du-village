@@ -48,6 +48,10 @@ interface AuthContextType {
     is_public?: boolean
     searchable?: boolean
   }) => Promise<void>
+  /** Met à jour le profile local sans round-trip API.
+   *  À utiliser après les endpoints qui patchent un seul champ
+   *  (display-settings, privacy, etc.) pour garder le context synchro. */
+  patchProfileLocal: (patch: Partial<Profile>) => void
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -58,6 +62,7 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
   updateDisplayName: async () => {},
   updateProfile: async () => {},
+  patchProfileLocal: () => {},
 })
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -153,8 +158,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const patchProfileLocal = (patch: Partial<Profile>) => {
+    setProfile(prev => prev ? { ...prev, ...patch } : prev)
+  }
+
   return (
-    <AuthContext.Provider value={{ user, profile, loading, isAdmin, signOut, updateDisplayName, updateProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, isAdmin, signOut, updateDisplayName, updateProfile, patchProfileLocal }}>
       {children}
     </AuthContext.Provider>
   )

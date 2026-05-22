@@ -2,6 +2,7 @@
 import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/hooks/useAuth'
 import type { DisplaySettings, Profile } from '@/contexts/AuthContext'
 import {
   GroupCard,
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export default function ProfilTab({ profile }: Props) {
+  const { patchProfileLocal } = useAuth()
   const [settings, setSettings] = useState<DisplaySettings>(profile.display_settings ?? DEFAULT_DISPLAY)
   const [privacy, setPrivacy]   = useState<PrivacyOption>(deriveCurrentPrivacy(profile.is_public, profile.searchable))
 
@@ -27,7 +29,8 @@ export default function ProfilTab({ profile }: Props) {
   }, [])
 
   async function patchDisplay(key: keyof DisplaySettings, value: boolean) {
-    setSettings(s => ({ ...s, [key]: value }))
+    const next = { ...settings, [key]: value }
+    setSettings(next) // optimistic
     const token = await getToken()
     if (!token) return
     const res = await fetch('/api/profile/display-settings', {
@@ -36,15 +39,18 @@ export default function ProfilTab({ profile }: Props) {
       body:    JSON.stringify({ key, value }),
     })
     if (!res.ok) {
-      setSettings(s => ({ ...s, [key]: !value }))
+      setSettings(s => ({ ...s, [key]: !value })) // rollback
       const d = await res.json().catch(() => ({}))
       toast.error(d.error ?? 'Erreur')
+      return
     }
+    // Sync le context pour que /profil et les re-mounts du tab voient la nouvelle valeur
+    patchProfileLocal({ display_settings: next })
   }
 
   async function patchPrivacy(option: PrivacyOption) {
     const prev = privacy
-    setPrivacy(option)
+    setPrivacy(option) // optimistic
     const token = await getToken()
     if (!token) return
     const res = await fetch('/api/profile/privacy', {
@@ -56,7 +62,15 @@ export default function ProfilTab({ profile }: Props) {
       setPrivacy(prev)
       const d = await res.json().catch(() => ({}))
       toast.error(d.error ?? 'Erreur')
+      return
     }
+    // Sync le context (mapping option → 2 booléens)
+    const map = {
+      public:      { is_public: true,  searchable: true  },
+      search_only: { is_public: false, searchable: true  },
+      masque:      { is_public: false, searchable: false },
+    } as const
+    patchProfileLocal(map[option])
   }
 
   return (
@@ -102,6 +116,7 @@ export default function ProfilTab({ profile }: Props) {
 
 /* ── Genre row : pills inline ─────────────────────────────────────── */
 function GenreRow({ profile }: { profile: Profile }) {
+  const { patchProfileLocal } = useAuth()
   const [current, setCurrent] = useState<'homme' | 'femme' | 'autre' | null>(profile.genre ?? null)
   const [saving, setSaving]   = useState(false)
 
@@ -129,6 +144,8 @@ function GenreRow({ profile }: { profile: Profile }) {
       setCurrent(prev)
       const d = await res.json().catch(() => ({}))
       toast.error(d.error ?? 'Erreur')
+    } else {
+      patchProfileLocal({ genre: v })
     }
     setSaving(false)
   }

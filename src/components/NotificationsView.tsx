@@ -159,7 +159,9 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
     setBusyFriendIds(prev => new Set(prev).add(friendshipId))
     try {
       await acceptFriendship(friendshipId)
-      onMarkRead(notifId)
+      // Une fois acceptée, la notif disparaît du feed (pas seulement marquée lue)
+      if (onDelete) onDelete(notifId)
+      else          onMarkRead(notifId)
     } catch (e) { console.error('[notif accept]', e) }
     finally {
       setBusyFriendIds(prev => { const next = new Set(prev); next.delete(friendshipId); return next })
@@ -171,7 +173,9 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
     setBusyFriendIds(prev => new Set(prev).add(friendshipId))
     try {
       await cancelFriendship(friendshipId)
-      onMarkRead(notifId)
+      // Une fois refusée, la notif disparaît aussi (pas de raison de la garder)
+      if (onDelete) onDelete(notifId)
+      else          onMarkRead(notifId)
     } catch (e) { console.error('[notif refuse]', e) }
     finally {
       setBusyFriendIds(prev => { const next = new Set(prev); next.delete(friendshipId); return next })
