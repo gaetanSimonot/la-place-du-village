@@ -132,6 +132,10 @@ export default function HubView({
   const { favIds, toggle: toggleFav } = useFavorites()
 
   const [heroItems, setHeroItems] = useState<HeroItem[]>([])
+  // Indicateur "hero chargé au moins une fois" — réserve l'espace 180px en
+  // skeleton tant que !heroLoaded → évite que les tuiles sautent quand le
+  // carrousel arrive après le fetch featured_slots.
+  const [heroLoaded, setHeroLoaded] = useState(false)
   const [todayEvents, setTodayEvents] = useState<Evenement[]>([])
   const [todayTotal, setTodayTotal] = useState<number>(0)
   const [promos, setPromos] = useState<PromoCard[]>([])
@@ -243,6 +247,7 @@ export default function HubView({
       }
 
       setHeroItems(items)
+      setHeroLoaded(true)
   }, [])
 
   // Events du jour pour bento "Aujourd'hui" — 3 prochains + count exact
@@ -476,7 +481,12 @@ export default function HubView({
       </div>
 
       {/* ── 4. Hero carousel À LA UNE ─────────────────────────────────── */}
-      {heroItems.length > 0 && (
+      {!heroLoaded ? (
+        // Skeleton hauteur exacte (180px + px-4 pt-[18px] match du wrapper)
+        <div className="px-4 pt-[18px]">
+          <div className="h-[180px] w-full animate-pulse rounded-tile bg-cremeDeep" />
+        </div>
+      ) : heroItems.length > 0 ? (
         <HubHeroCarousel
           items={heroItems}
           onSelect={item => {
@@ -486,7 +496,7 @@ export default function HubView({
             else                                    router.push(`/producteur/${item.data.id}`)
           }}
         />
-      )}
+      ) : null}
 
       {/* ── 5. Tiles 5 colonnes ───────────────────────────────────────── */}
       <div className="grid grid-cols-5 gap-x-2 gap-y-3 px-4 pb-1 pt-[18px]">

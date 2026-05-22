@@ -80,6 +80,28 @@ export default withPWA({
           expiration: { maxEntries: 50 },
         },
       },
+      // Images user-content Supabase Storage (avatars, bannieres, photos
+      // events/etabs/annonces/producers). Avant : aucun cache SW, chaque
+      // nav re-fetch tout. StaleWhileRevalidate : sert le cache instant
+      // ET refetch en background -> les nouvelles versions arrivent au
+      // prochain affichage. Cap entries pour pas exploser le quota.
+      // STRICT : hostname Supabase + path /storage/v1/object/public/ +
+      // destination 'image' -> jamais les requetes REST ni auth.
+      {
+        urlPattern: ({ url, request }) =>
+          url.hostname === 'pboaaykucqbmxryyxslz.supabase.co'
+          && url.pathname.startsWith('/storage/v1/object/public/')
+          && request.destination === 'image',
+        handler: 'StaleWhileRevalidate',
+        options: {
+          cacheName: 'supabase-storage-images',
+          expiration: {
+            maxEntries: 200,
+            maxAgeSeconds: 14 * 24 * 60 * 60, // 14 jours
+          },
+          cacheableResponse: { statuses: [0, 200] },
+        },
+      },
     ],
   },
 })(nextConfig)
