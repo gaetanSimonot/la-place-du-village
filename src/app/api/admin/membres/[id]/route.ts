@@ -11,8 +11,12 @@ import { requireAdmin } from '@/lib/server-auth'
  *   être supprimé sans intervention manuelle Dashboard, évite les coups bas)
  * - Refuse de se supprimer soi-même (utiliser /api/profile/delete pour ça)
  *
- * Action : auth.admin.deleteUser → CASCADE FK sur public.* (annonces,
- * events, producer, etablissements, posts, friendships, etc.).
+ * Action : auth.admin.deleteUser → FK behavior par table :
+ * - CASCADE : annonces, posts (+ likes/comments), producers, friendships,
+ *   covoit, notifications, support_messages — contenu perso, part avec le user
+ * - SET NULL : etablissements — c'est une infrastructure du village (commerce,
+ *   restaurant) qui doit rester pour pouvoir être revendiquée plus tard.
+ *   Cf. scripts/2026-05-22_etablissements_set_null_on_delete.sql.
  */
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const ctx = await requireAdmin(req)
