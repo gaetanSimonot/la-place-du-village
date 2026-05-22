@@ -119,7 +119,7 @@ export default function ProfilHybridView() {
   }
 
   const displayName = profile?.display_name ?? user.email?.split('@')[0] ?? 'Mon profil'
-  const moduleUtileActive = profile?.display_settings?.module_utile ?? true
+  const isVerified  = profile?.is_verified ?? false
 
   // Toutes les fiches pro (producteurs + établissements) que gère l'user.
   // Producteurs d'abord (kicker spécifique), puis établissements.
@@ -150,7 +150,7 @@ export default function ProfilHybridView() {
         ville={profile?.ville ?? null}
         followersCount={followersCount}
         ficheProMinis={ficheProMinis}
-        moduleUtileActive={moduleUtileActive}
+        isVerified={isVerified}
         onModifyClick={() => setEditOpen(true)}
         onToggleViewMode={() => setViewMode(m => (m === 'own' ? 'public' : 'own'))}
       />

@@ -1,4 +1,5 @@
 'use client'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
   IcMail,
@@ -12,7 +13,6 @@ import {
   IcChev,
   IcLeaf,
   IcStore,
-  IcSpark,
 } from './icons'
 
 export type ViewMode = 'own' | 'public'
@@ -34,7 +34,7 @@ interface Props {
   ville: string | null
   followersCount: number | null
   ficheProMinis: FicheProMini[]
-  moduleUtileActive: boolean
+  isVerified: boolean
   onModifyClick: () => void
   onToggleViewMode: () => void
   onContactClick?: () => void
@@ -50,13 +50,21 @@ export default function ProfilHeader({
   ville,
   followersCount,
   ficheProMinis,
-  moduleUtileActive,
+  isVerified,
   onModifyClick,
   onToggleViewMode,
   onContactClick,
   onSubscribeClick,
 }: Props) {
+  const [lightboxOpen, setLightboxOpen] = useState(false)
   const initial = displayName.trim().charAt(0).toUpperCase() || '·'
+
+  useEffect(() => {
+    if (!lightboxOpen) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setLightboxOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [lightboxOpen])
   const metaLine = [ville, followersCount != null ? `${followersCount} abonné${followersCount === 1 ? '' : 's'}` : null]
     .filter(Boolean)
     .join(' · ')
@@ -116,51 +124,52 @@ export default function ProfilHeader({
         </div>
       </div>
 
-      {/* Identité — avatar overlap -38px */}
-      <div className="relative z-[3] -mt-[38px] px-4">
-        <div className="flex items-end gap-[14px]">
+      {/* Avatar 96px — pénètre la bannière de -48px, cliquable pour lightbox */}
+      <div className="relative z-[3] -mt-[48px] px-4">
+        <button
+          type="button"
+          onClick={() => avatarUrl && setLightboxOpen(true)}
+          disabled={!avatarUrl}
+          aria-label={avatarUrl ? 'Voir mon avatar en grand' : 'Avatar'}
+          className="block shrink-0 rounded-full bg-transparent p-0 disabled:cursor-default"
+        >
           {avatarUrl ? (
             <img
               src={avatarUrl}
               alt=""
-              className="h-20 w-20 shrink-0 rounded-full object-cover"
-              style={{ border: '4px solid #FDFAF5', boxShadow: '0 4px 14px rgba(44,28,16,0.18)' }}
+              className="h-24 w-24 rounded-full object-cover"
+              style={{ border: '4px solid #FDFAF5', boxShadow: '0 6px 18px rgba(44,28,16,0.22)' }}
             />
           ) : (
             <div
-              className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-primary font-serif text-[34px] leading-none text-white"
+              className="flex h-24 w-24 items-center justify-center rounded-full bg-primary font-serif text-[40px] leading-none text-white"
               style={{
                 letterSpacing: '-0.02em',
                 border: '4px solid #FDFAF5',
-                boxShadow: '0 4px 14px rgba(44,28,16,0.18)',
+                boxShadow: '0 6px 18px rgba(44,28,16,0.22)',
               }}
             >
               {initial}
             </div>
           )}
-          <div className="min-w-0 flex-1 pb-1">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <h1
-                className="m-0 truncate font-serif text-[21px] text-texte"
-                style={{ letterSpacing: '-0.02em', lineHeight: 1.05 }}
-              >
-                {displayName}
-              </h1>
-              {moduleUtileActive && (
-                <span
-                  className="inline-flex shrink-0 items-center gap-[3px] rounded-full px-[7px] py-[2px] text-[9px] font-extrabold"
-                  style={{ background: '#EAF3E6', color: '#5B8A4A', letterSpacing: '0.06em' }}
-                >
-                  <IcSpark size={8} /> UTILE
-                </span>
-              )}
-            </div>
-            {metaLine && (
-              <div className="mt-[3px] flex items-center gap-1 text-[11.5px] text-texte-doux">
-                <IcPin size={11} /> {metaLine}
-              </div>
-            )}
+        </button>
+
+        {/* Nom + meta — empilés sous l'avatar (margin-top pour respirer hors bannière) */}
+        <div className="mt-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1
+              className="m-0 truncate font-serif text-[23px] text-texte"
+              style={{ letterSpacing: '-0.02em', lineHeight: 1.05 }}
+            >
+              {displayName}
+            </h1>
+            {isVerified && <VerifiedBadge />}
           </div>
+          {metaLine && (
+            <div className="mt-[4px] flex items-center gap-1 text-[12px] text-texte-doux">
+              <IcPin size={12} /> {metaLine}
+            </div>
+          )}
         </div>
 
         {bio && (
@@ -205,6 +214,38 @@ export default function ProfilHeader({
           )}
         </div>
       </div>
+
+      {/* Lightbox avatar */}
+      {lightboxOpen && avatarUrl && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Avatar en grand"
+          onClick={() => setLightboxOpen(false)}
+          className="fixed inset-0 z-[4000] flex items-center justify-center p-6"
+          style={{ background: 'rgba(0,0,0,0.92)' }}
+        >
+          <img
+            src={avatarUrl}
+            alt=""
+            onClick={e => e.stopPropagation()}
+            className="max-h-[80vh] max-w-[90vw] rounded-2xl object-contain"
+            style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.5)' }}
+          />
+          <button
+            type="button"
+            onClick={() => setLightboxOpen(false)}
+            aria-label="Fermer"
+            className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full text-white"
+            style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)' }}
+          >
+            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {ficheProMinis.length > 0 && (
         <div className="flex flex-col gap-2 px-4 pt-[14px]">
@@ -297,5 +338,21 @@ function CircleBtn({
       {children}
       {badgeNode}
     </button>
+  )
+}
+
+/* ── Badge "Vérifié" — petit pill vert avec check ─────────────────────── */
+function VerifiedBadge() {
+  return (
+    <span
+      className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-[2px] text-[9.5px] font-extrabold"
+      style={{ background: '#E8F2EB', color: '#2D5A3D', letterSpacing: '0.06em' }}
+      title="Profil vérifié"
+    >
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+      VÉRIFIÉ
+    </span>
   )
 }
