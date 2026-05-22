@@ -602,8 +602,10 @@ export default function BottomSheet({
       </div>{/* fin header mesuré */}
 
       {/* ── Liste ── */}
+      <style>{`.pdv-list-noscroll{scrollbar-width:none}.pdv-list-noscroll::-webkit-scrollbar{display:none}`}</style>
       <div
         ref={listRef}
+        className="pdv-list-noscroll"
         style={{ flex: 1, overflowY: 'auto', padding: '4px 16px 24px', display: 'flex', flexDirection: 'column', gap: 10 }}
         onPointerDown={e => e.stopPropagation()}
       >

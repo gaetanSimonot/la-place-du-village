@@ -81,12 +81,13 @@ function CycleBtn({
     <button
       type="button"
       onClick={handleClick}
-      className="inline-flex flex-1 items-center justify-between gap-3 rounded-2xl border bg-white px-4 py-3 text-left"
+      className="inline-flex flex-1 items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left"
       style={{
-        borderColor: '#E8E0D4',
+        background: '#E8F2EB',
+        border: '1px solid #C8DEC0',
         boxShadow: pressed
-          ? '0 1px 2px rgba(44,28,16,0.04)'
-          : '0 2px 8px rgba(44,28,16,0.08)',
+          ? '0 1px 2px rgba(45,90,61,0.06)'
+          : '0 2px 8px rgba(45,90,61,0.10)',
         transform: pressed ? 'scale(0.96)' : 'scale(1)',
         // Bounce élastique : overshoot léger au retour à 1 (cubic-bezier 0.34, 1.56, 0.64, 1)
         transition: 'transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease',
@@ -95,19 +96,19 @@ function CycleBtn({
     >
       <div className="min-w-0 flex-1">
         <div
-          className="text-[9.5px] font-extrabold uppercase text-texte-doux"
-          style={{ letterSpacing: '0.1em' }}
+          className="text-[10px] uppercase"
+          style={{ letterSpacing: '0.1em', color: '#5B8A4A', fontWeight: 500 }}
         >
           {kicker}
         </div>
         <div
-          className="mt-[2px] truncate font-serif text-[15px] text-texte"
-          style={{ letterSpacing: '-0.005em', lineHeight: 1.15 }}
+          className="mt-[2px] truncate font-serif text-[15px]"
+          style={{ letterSpacing: '-0.005em', lineHeight: 1.15, color: '#1A1209' }}
         >
           {label}
         </div>
       </div>
-      <div className="flex shrink-0 flex-col items-center gap-1 text-texte-doux">
+      <div className="flex shrink-0 flex-col items-center gap-1" style={{ color: '#5B8A4A' }}>
         {/* Chevron haut (circonflexe haut) */}
         <svg width={13} height={7} viewBox="0 0 24 14" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <polyline points="5 11 12 4 19 11" />
