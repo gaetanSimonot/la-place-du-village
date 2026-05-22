@@ -162,15 +162,43 @@ export default function MembresAdmin() {
     </div>
   )
 
+  async function cleanupOrphans() {
+    if (saving === 'cleanup') return
+    if (!confirm('Nettoyer les profils orphelins (user supprimé d\'auth mais profile resté en DB) ?')) return
+    setSaving('cleanup')
+    setSaveError(null)
+    const t = await token()
+    const res = await fetch('/api/admin/cleanup-orphan-profiles', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${t}` },
+    })
+    const d = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      setSaveError(d.error ?? `Erreur ${res.status}`)
+    } else {
+      alert(`${d.deleted ?? 0} profil(s) orphelin(s) supprimé(s)`)
+      await fetchAll()
+    }
+    setSaving(null)
+  }
+
   return (
     <div style={{ fontFamily: 'Inter, sans-serif' }}>
-      {/* Search + stats */}
+      {/* Search + stats + cleanup orphelins */}
       <div style={{ padding: '12px 16px', borderBottom: '1px solid #F0EBE0', display: 'flex', gap: 10, alignItems: 'center' }}>
         <input
           value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Rechercher par nom, email, boutique…"
           style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1.5px solid #E0D8CE', fontSize: 13, outline: 'none', backgroundColor: '#FBF7F0', color: '#2C1810' }}
         />
+        <button
+          onClick={cleanupOrphans}
+          disabled={saving === 'cleanup'}
+          title="Supprimer les profils orphelins (membres déjà supprimés d'auth mais profile resté)"
+          style={{ padding: '7px 11px', borderRadius: 8, border: '1px solid #F0D4C8', backgroundColor: '#FFF5F1', color: '#B53A22', fontSize: 11, fontWeight: 700, cursor: saving === 'cleanup' ? 'default' : 'pointer', opacity: saving === 'cleanup' ? 0.6 : 1, whiteSpace: 'nowrap', fontFamily: 'inherit' }}
+        >
+          {saving === 'cleanup' ? 'Nettoyage…' : '🧹 Orphelins'}
+        </button>
         <span style={{ fontSize: 11, color: '#9A8A7A', whiteSpace: 'nowrap' }}>
           {membres.filter(m => m.plan === 'pro').length} Partenaire · {membres.filter(m => m.plan === 'habitants').length} Habitants · {membres.filter(m => m.etablissements.length > 0).length} fiches
         </span>

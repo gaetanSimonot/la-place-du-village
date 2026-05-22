@@ -1,41 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/server-auth'
+import { safeDeleteUser } from '@/lib/server-user-delete'
 
 /**
  * Suppression admin d'un membre.
  *
- * Sécurité :
  * - requireAdmin (table admin_emails)
- * - Refuse l'auto-suppression (utiliser /api/profile/delete pour ça —
- *   évite qu'un admin se retire les droits par accident depuis ce flow)
- * - Aucune restriction sur la cible : un admin peut supprimer n'importe
- *   quel membre, y compris un autre admin. L'admin principal du projet
- *   doit pouvoir tout faire.
+ * - Refuse l'auto-suppression (utiliser /api/profile/delete pour soi)
+ * - Aucune restriction sur la cible : peut supprimer n'importe quel membre
  *
- * Action : auth.admin.deleteUser → FK behavior par table :
- * - CASCADE : profiles (le profil part avec le user)
- * - SET NULL (après migration 2026-05-22_user_delete_set_null_global.sql) :
- *   annonces, posts, post_comments, producers, friendships, covoit, etc.
- *   → contenu anonymisé "Utilisateur supprimé" côté UI.
- * - SET NULL pour etablissements (infrastructure village, à revendiquer).
+ * Délègue à safeDeleteUser : cleanup profile + etablissements en SET NULL
+ * + auth.admin.deleteUser. Robuste face aux différents comportements FK.
  */
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const ctx = await requireAdmin(req)
   if (ctx instanceof Response) return ctx
 
-  const targetId = params.id
-
-  if (targetId === ctx.userId) {
+  if (params.id === ctx.userId) {
     return NextResponse.json(
       { error: 'Utilise /api/profile/delete pour supprimer ton propre compte' },
       { status: 400 },
     )
   }
 
-  const { error } = await supabaseAdmin.auth.admin.deleteUser(targetId)
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  const result = await safeDeleteUser(params.id)
+  if (!result.ok) {
+    return NextResponse.json(
+      { error: result.error ?? 'Erreur de suppression', step: result.step },
+      { status: 500 },
+    )
   }
   return NextResponse.json({ ok: true })
 }

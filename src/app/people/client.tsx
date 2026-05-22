@@ -63,6 +63,43 @@ export default function PeopleClient() {
     return () => clearTimeout(t)
   }, [search, loadBrowse, loadSearch])
 
+  // Refetch quand on revient sur la page (focus/visibility) — évite de
+  // garder un snapshot stale après suppression d'un profil ailleurs
+  useEffect(() => {
+    const onFocus = () => {
+      const q = search.trim()
+      if (q.length === 0) loadBrowse()
+      else if (q.length >= 2) loadSearch(q)
+    }
+    const onVisible = () => { if (document.visibilityState === 'visible') onFocus() }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search])
+
+  // Realtime sur profiles : refetch dès qu'un profile est supprimé ou modifié
+  useEffect(() => {
+    const ch = supabase
+      .channel('people-profiles-watch')
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'profiles' }, () => {
+        const q = search.trim()
+        if (q.length === 0) loadBrowse()
+        else if (q.length >= 2) loadSearch(q)
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, () => {
+        const q = search.trim()
+        if (q.length === 0) loadBrowse()
+        else if (q.length >= 2) loadSearch(q)
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search])
+
   const visible = useMemo(() => {
     // Filtre "Mes amis" : on prend la liste des amis depuis le hook + filter par search
     if (filter === 'friends') {
