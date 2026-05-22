@@ -7,16 +7,18 @@ import { requireAdmin } from '@/lib/server-auth'
  *
  * Sécurité :
  * - requireAdmin (table admin_emails)
- * - Refuse de supprimer un autre admin (protection : un admin ne peut pas
- *   être supprimé sans intervention manuelle Dashboard, évite les coups bas)
- * - Refuse de se supprimer soi-même (utiliser /api/profile/delete pour ça)
+ * - Refuse l'auto-suppression (utiliser /api/profile/delete pour ça —
+ *   évite qu'un admin se retire les droits par accident depuis ce flow)
+ * - Aucune restriction sur la cible : un admin peut supprimer n'importe
+ *   quel membre, y compris un autre admin. L'admin principal du projet
+ *   doit pouvoir tout faire.
  *
  * Action : auth.admin.deleteUser → FK behavior par table :
- * - CASCADE : annonces, posts (+ likes/comments), producers, friendships,
- *   covoit, notifications, support_messages — contenu perso, part avec le user
- * - SET NULL : etablissements — c'est une infrastructure du village (commerce,
- *   restaurant) qui doit rester pour pouvoir être revendiquée plus tard.
- *   Cf. scripts/2026-05-22_etablissements_set_null_on_delete.sql.
+ * - CASCADE : profiles (le profil part avec le user)
+ * - SET NULL (après migration 2026-05-22_user_delete_set_null_global.sql) :
+ *   annonces, posts, post_comments, producers, friendships, covoit, etc.
+ *   → contenu anonymisé "Utilisateur supprimé" côté UI.
+ * - SET NULL pour etablissements (infrastructure village, à revendiquer).
  */
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const ctx = await requireAdmin(req)
@@ -29,23 +31,6 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
       { error: 'Utilise /api/profile/delete pour supprimer ton propre compte' },
       { status: 400 },
     )
-  }
-
-  // Vérifie si la cible est elle-même admin → refuse
-  const { data: targetUser } = await supabaseAdmin.auth.admin.getUserById(targetId)
-  const targetEmail = targetUser?.user?.email
-  if (targetEmail) {
-    const { data: adminRow } = await supabaseAdmin
-      .from('admin_emails')
-      .select('email')
-      .eq('email', targetEmail)
-      .maybeSingle()
-    if (adminRow) {
-      return NextResponse.json(
-        { error: 'Impossible de supprimer un autre admin via l\'API. Passe par le Dashboard Supabase.' },
-        { status: 403 },
-      )
-    }
   }
 
   const { error } = await supabaseAdmin.auth.admin.deleteUser(targetId)
