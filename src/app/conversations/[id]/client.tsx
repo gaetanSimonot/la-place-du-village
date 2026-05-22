@@ -673,9 +673,10 @@ function MessageEmbedRender({ kind, refId, mine }: { kind: string; refId: string
           if (!data) { if (!cancelled) setNotFound(true); return }
           if (!cancelled) setDetails({ title: data.titre as string, subtitle: (data.type as string | null) ?? null, photo: ((data.photos as string[] | null) ?? [])[0] ?? null, href: `/annonces/${refId}` })
         } else if (kind === 'promo') {
-          const { data } = await supabase.from('promotions').select('titre, image_url').eq('id', refId).maybeSingle()
+          // Promotions : colonne "title" (pas "titre")
+          const { data } = await supabase.from('promotions').select('title, image_url').eq('id', refId).maybeSingle()
           if (!data) { if (!cancelled) setNotFound(true); return }
-          if (!cancelled) setDetails({ title: data.titre as string, subtitle: null, photo: (data.image_url as string | null) ?? null, href: `/promotions` })
+          if (!cancelled) setDetails({ title: (data.title as string | null) ?? 'Promotion', subtitle: null, photo: (data.image_url as string | null) ?? null, href: `/promotions` })
         } else if (kind === 'covoit') {
           const { data } = await supabase.from('covoit_trajets').select('ville_depart, ville_arrivee, date_depart').eq('id', refId).maybeSingle()
           if (!data) { if (!cancelled) setNotFound(true); return }

@@ -130,24 +130,23 @@ export async function GET(req: NextRequest) {
 
   if (requested.includes('promo')) {
     tasks.push((async () => {
-      // Réplique EXACTE de /api/promotions GET (mode public) :
-      //   .eq('active', true)
-      //   .or('valid_until.is.null,valid_until.gte.<now>')
-      // C'est ce qu'on voit sur la page /promotions → on remonte pareil.
+      // Réplique EXACTE de /api/promotions GET (mode public).
+      // ATTENTION : la colonne s'appelle "title" en DB pour promotions
+      // (et "titre" pour annonces/evenements). Pas la même conv.
       const nowISO = new Date().toISOString()
       let qb = supabaseAdmin
         .from('promotions')
-        .select('id, titre, image_url')
+        .select('id, title, image_url, description')
         .eq('active', true)
         .or(`valid_until.is.null,valid_until.gte.${nowISO}`)
-      if (ilike) qb = qb.ilike('titre', ilike)
+      if (ilike) qb = qb.ilike('title', ilike)
       const { data } = await qb.order('created_at', { ascending: false }).limit(LIMIT)
       return {
         kind: 'promo' as const,
         rows: (data ?? []).map(p => ({
           id: p.id as string,
-          title: p.titre as string,
-          subtitle: null,
+          title: (p.title as string | null) ?? 'Promotion',
+          subtitle: (p.description as string | null) ?? null,
           photo: (p.image_url as string | null) ?? null,
         })),
       }
