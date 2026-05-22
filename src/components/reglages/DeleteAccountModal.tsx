@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
+import ClientPortal from '@/components/ClientPortal'
 
 interface Props {
   email:    string
@@ -50,6 +51,7 @@ export default function DeleteAccountModal({ email, signOut, onClose }: Props) {
   }
 
   return (
+    <ClientPortal>
     <div
       className="fixed inset-0 z-[3500] flex items-end justify-center bg-black/55 backdrop-blur-[3px] font-inter"
       onClick={() => { if (!deleting) onClose() }}
@@ -100,5 +102,6 @@ export default function DeleteAccountModal({ email, signOut, onClose }: Props) {
         </button>
       </div>
     </div>
+    </ClientPortal>
   )
 }

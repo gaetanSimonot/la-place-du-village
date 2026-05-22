@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
+import ClientPortal from '@/components/ClientPortal'
 
 export type Visibility = 'public' | 'amis' | 'prive'
 
@@ -68,6 +69,7 @@ export default function PostComposer({ authorName, authorAvatar, onClose, onPost
   const canSend = texte.trim().length > 0 && !posting
 
   return (
+    <ClientPortal>
     <div
       className="fixed inset-0 z-[3500] flex flex-col bg-creme font-inter text-texte"
       role="dialog"
@@ -145,6 +147,7 @@ export default function PostComposer({ authorName, authorAvatar, onClose, onPost
         </div>
       </div>
     </div>
+    </ClientPortal>
   )
 }
 

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
+import ClientPortal from '@/components/ClientPortal'
 
 interface Props {
   postId:        string
@@ -132,6 +133,7 @@ export default function PostCommentsDrawer({ postId, postAuthorId, onClose, onCo
   }
 
   return (
+    <ClientPortal>
     <div
       className="fixed inset-0 z-[3500] flex items-end justify-center bg-black/55 backdrop-blur-[3px] font-inter"
       onClick={onClose}
@@ -229,6 +231,7 @@ export default function PostCommentsDrawer({ postId, postAuthorId, onClose, onCo
         )}
       </div>
     </div>
+    </ClientPortal>
   )
 }
 

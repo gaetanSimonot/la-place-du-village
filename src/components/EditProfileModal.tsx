@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
+import ClientPortal from '@/components/ClientPortal'
 
 export interface ProfileEditPatch {
   name:       string
@@ -144,6 +145,7 @@ export default function EditProfileModal({
   const nameOk = name.trim().length > 0
 
   return (
+    <ClientPortal>
     <div
       className="fixed inset-0 z-[3000] flex flex-col bg-creme font-inter text-texte"
       role="dialog"
@@ -321,6 +323,7 @@ export default function EditProfileModal({
         </div>
       </div>
     </div>
+    </ClientPortal>
   )
 }
 
