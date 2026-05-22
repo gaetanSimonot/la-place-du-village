@@ -121,29 +121,23 @@ export default function ProfilHybridView() {
   const displayName = profile?.display_name ?? user.email?.split('@')[0] ?? 'Mon profil'
   const moduleUtileActive = profile?.display_settings?.module_utile ?? true
 
-  // 1 seule fiche pro mini affichée : producteur prioritaire, sinon premier établissement.
-  const ficheProMini: FicheProMini | null = (() => {
-    if (myProducers.length > 0) {
-      const p = myProducers[0]
-      return {
-        kind: 'producer',
-        id: p.id,
-        nom: p.nom,
-        photoUrl: p.photos?.[0] ?? null,
-        sub: p.commune ?? undefined,
-      }
-    }
-    if (myEtabs.length > 0) {
-      const e = myEtabs[0]
-      return {
-        kind: 'etab',
-        id: e.id,
-        nom: e.nom,
-        photoUrl: e.photos?.[0] ?? null,
-      }
-    }
-    return null
-  })()
+  // Toutes les fiches pro (producteurs + établissements) que gère l'user.
+  // Producteurs d'abord (kicker spécifique), puis établissements.
+  const ficheProMinis: FicheProMini[] = [
+    ...myProducers.map(p => ({
+      kind: 'producer' as const,
+      id: p.id,
+      nom: p.nom,
+      photoUrl: p.photos?.[0] ?? null,
+      sub: p.commune ?? undefined,
+    })),
+    ...myEtabs.map(e => ({
+      kind: 'etab' as const,
+      id: e.id,
+      nom: e.nom,
+      photoUrl: e.photos?.[0] ?? null,
+    })),
+  ]
 
   return (
     <div className="min-h-full bg-creme pb-10 font-inter text-texte">
@@ -155,7 +149,7 @@ export default function ProfilHybridView() {
         bio={profile?.bio ?? null}
         ville={profile?.ville ?? null}
         followersCount={followersCount}
-        ficheProMini={ficheProMini}
+        ficheProMinis={ficheProMinis}
         moduleUtileActive={moduleUtileActive}
         onModifyClick={() => setEditOpen(true)}
         onToggleViewMode={() => setViewMode(m => (m === 'own' ? 'public' : 'own'))}

@@ -9,8 +9,16 @@ import AbonnementsView from '@/components/AbonnementsView'
 import MonEspaceProducteur from '@/components/MonEspaceProducteur'
 import ReglagesGroups from './ReglagesGroups'
 import SubViewWrap from './SubViewWrap'
+import DeleteAccountModal from './DeleteAccountModal'
+import MesEtablissementsList from './MesEtablissementsList'
 
-type SubView = null | 'annonces' | 'events' | 'promos' | 'producteur'
+export type ReglagesSubView =
+  | null
+  | 'annonces'
+  | 'events'
+  | 'producteur'
+  | 'etabs'
+  | 'abonnements'
 
 const IcBack = () => (
   <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
@@ -20,8 +28,9 @@ const IcBack = () => (
 )
 
 export default function ReglagesView() {
-  const { user, profile, loading, signOut } = useAuth()
-  const [subView, setSubView] = useState<SubView>(null)
+  const { user, profile, loading, isAdmin, signOut } = useAuth()
+  const [subView, setSubView] = useState<ReglagesSubView>(null)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   if (loading) {
     return (
@@ -50,15 +59,12 @@ export default function ReglagesView() {
     )
   }
 
-  // Sous-vues plein écran — pluggage des composants existants
-  if (subView === 'annonces')   return <SubViewWrap title="Mes annonces"     onBack={() => setSubView(null)}><MesAnnonces /></SubViewWrap>
-  if (subView === 'events')     return <SubViewWrap title="Mes événements"   onBack={() => setSubView(null)}><AbonnementsView mode="mine" /></SubViewWrap>
-  if (subView === 'producteur') return <SubViewWrap title="Ma fiche producteur" onBack={() => setSubView(null)}><MonEspaceProducteur /></SubViewWrap>
-  if (subView === 'promos')     {
-    // /promotions est une route complète avec sa propre nav — on y route plutôt que inliner.
-    if (typeof window !== 'undefined') window.location.href = '/promotions'
-    return null
-  }
+  // Sous-vues plein écran — réutilisent les composants existants tels quels
+  if (subView === 'annonces')     return <SubViewWrap title="Mes annonces"        onBack={() => setSubView(null)}><MesAnnonces /></SubViewWrap>
+  if (subView === 'events')       return <SubViewWrap title="Mes événements"      onBack={() => setSubView(null)}><AbonnementsView mode="mine" /></SubViewWrap>
+  if (subView === 'producteur')   return <SubViewWrap title="Ma fiche producteur" onBack={() => setSubView(null)}><MonEspaceProducteur /></SubViewWrap>
+  if (subView === 'etabs')        return <SubViewWrap title="Mes établissements"  onBack={() => setSubView(null)}><MesEtablissementsList /></SubViewWrap>
+  if (subView === 'abonnements')  return <SubViewWrap title="Mes abonnements"     onBack={() => setSubView(null)}><AbonnementsView mode="feed" /></SubViewWrap>
 
   return (
     <main className="min-h-[100dvh] bg-creme pb-10 font-inter text-texte">
@@ -87,17 +93,21 @@ export default function ReglagesView() {
       <ReglagesGroups
         profile={profile}
         email={user.email ?? ''}
+        isAdmin={isAdmin}
         onOpenSub={setSubView}
+        onDeleteAccount={() => setDeleteOpen(true)}
         signOut={signOut}
       />
 
-      {/* Footer + AdminAccess discret */}
+      {/* Footer + AdminAccess discret pour les non-admin connaissant le PIN */}
       <div className="mt-3 flex flex-col items-center gap-2 px-4 pt-3 text-[10.5px] leading-[1.5] text-texte-tres-doux">
-        <div className="text-center">
-          La Place du Village · version 0.1.0
-        </div>
-        <AdminAccess />
+        <div className="text-center">La Place du Village · version 0.1.0</div>
+        {!isAdmin && <AdminAccess />}
       </div>
+
+      {deleteOpen && (
+        <DeleteAccountModal email={user.email ?? ''} onClose={() => setDeleteOpen(false)} />
+      )}
     </main>
   )
 }

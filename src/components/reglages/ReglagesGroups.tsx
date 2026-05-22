@@ -42,6 +42,10 @@ const I = {
   logout:   makeIcon(<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>),
   chev:     makeIcon(<polyline points="9 6 15 12 9 18"/>),
   sparkSm:  makeIcon(<><path d="M12 2v6m0 8v6m10-10h-6m-8 0H2"/></>),
+  store:    makeIcon(<><path d="M3 9l1-5h16l1 5"/><path d="M4 9v11a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9"/><path d="M9 21V12h6v9"/></>),
+  journal:  makeIcon(<><rect x="2" y="4" width="20" height="16" rx="2" ry="2"/><line x1="6" y1="8" x2="18" y2="8"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="6" y1="16" x2="14" y2="16"/></>),
+  group:    makeIcon(<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>),
+  rocket:   makeIcon(<><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></>),
 }
 
 /* ── Defaults display_settings ─────────────────────────────────────── */
@@ -56,14 +60,18 @@ const DEFAULTS: DisplaySettings = {
 
 type PrivacyOption = 'public' | 'search_only' | 'masque'
 
+type SubKey = 'annonces' | 'events' | 'producteur' | 'etabs' | 'abonnements'
+
 interface Props {
   profile: Profile
   email:   string
-  onOpenSub: (sub: 'annonces' | 'events' | 'promos' | 'producteur') => void
+  isAdmin: boolean
+  onOpenSub: (sub: SubKey) => void
+  onDeleteAccount: () => void
   signOut: () => Promise<void>
 }
 
-export default function ReglagesGroups({ profile, email, onOpenSub, signOut }: Props) {
+export default function ReglagesGroups({ profile, email, isAdmin, onOpenSub, onDeleteAccount, signOut }: Props) {
   /* ── State ──────────────────────────────────────────────────── */
   const [settings, setSettings] = useState<DisplaySettings>(profile.display_settings ?? DEFAULTS)
   const [privacy, setPrivacy]   = useState<PrivacyOption>(
@@ -74,6 +82,9 @@ export default function ReglagesGroups({ profile, email, onOpenSub, signOut }: P
   const [openingPortal, setOpeningPortal] = useState(false)
   const [signingOut, setSigningOut]       = useState(false)
   const [plan, setPlan] = useState<Plan>((profile.plan as Plan) ?? 'basic')
+  const [etabCount, setEtabCount]         = useState<number>(0)
+  const [etabFirstId, setEtabFirstId]     = useState<string | null>(null)
+  const [hasProducer, setHasProducer]     = useState<boolean>(false)
   const planInfo = PLANS_INFO[plan]
 
   // Refresh du plan en arrière-plan (au cas où il aurait changé via webhook Stripe)
@@ -88,6 +99,25 @@ export default function ReglagesGroups({ profile, email, onOpenSub, signOut }: P
       .then(({ data }) => {
         if (!cancelled && data?.plan) setPlan(data.plan as Plan)
       })
+
+    // Compte rapide etabs + producer pour conditional rendering des rows
+    supabase
+      .from('etablissements')
+      .select('id', { count: 'exact' })
+      .eq('user_id', profile.id)
+      .then(({ data, count }) => {
+        if (cancelled) return
+        setEtabCount(count ?? 0)
+        setEtabFirstId(data?.[0]?.id ?? null)
+      })
+    supabase
+      .from('producers')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', profile.id)
+      .then(({ count }) => {
+        if (!cancelled) setHasProducer((count ?? 0) > 0)
+      })
+
     return () => { cancelled = true }
   }, [profile.id])
 
@@ -266,10 +296,21 @@ export default function ReglagesGroups({ profile, email, onOpenSub, signOut }: P
           icon={I.gift(16)}
           label="Mes promotions"
           sub="Pour les commerçants"
-          onClick={() => onOpenSub('promos')}
+          href="/promotions"
           badge="Pro"
         />
-        <NavRow icon={I.leaf(16)} label="Mon profil producteur" sub="Vitrine, produits, carte"  onClick={() => onOpenSub('producteur')} isLast />
+        {hasProducer && (
+          <NavRow icon={I.leaf(16)}  label="Ma fiche producteur" sub="Vitrine, produits, carte" onClick={() => onOpenSub('producteur')} />
+        )}
+        {etabCount === 1 && etabFirstId && (
+          <NavRow icon={I.store(16)} label="Mon établissement"   sub="Fiche, horaires, photos" href={`/etablissement/${etabFirstId}`} />
+        )}
+        {etabCount > 1 && (
+          <NavRow icon={I.store(16)} label="Mes établissements"  sub={`${etabCount} fiches gérées`} onClick={() => onOpenSub('etabs')} />
+        )}
+        <NavRow icon={I.journal(16)} label="Mes articles" sub="Brouillons, soumissions, publiés" href="/journal/articles" />
+        <NavRow icon={I.group(16)}   label="Mes abonnements" sub="Profils & lieux que je suis"    onClick={() => onOpenSub('abonnements')} />
+        <NavRow icon={I.rocket(16)}  label="Visibilité & boost" sub="Mettre en avant mes contenus" href="/profil/visibilite" isLast />
       </GroupCard>
 
       {/* ── PRÉFÉRENCES ─────────────────────────────────── */}
@@ -280,11 +321,22 @@ export default function ReglagesGroups({ profile, email, onOpenSub, signOut }: P
         <NavRow icon={I.slash(16)}  label="Membres bloqués"   sub="Personne pour le moment"       onClick={notReady} danger isLast />
       </GroupCard>
 
+      {/* ── ADMINISTRATION (admin only) ──────────────────── */}
+      {isAdmin && (
+        <GroupCard kicker="Administration" kickerColor="#7A6A5A" icon={I.shield(12)}>
+          <NavRow icon={I.shield(16)}  label="Tableau de bord"   sub="Membres, demandes, scraping, inbox" href="/admin" />
+          <NavRow icon={I.spark(16)}   label="Hub carousel"      sub="Mise en avant éditoriale"           href="/admin/hub-carousel" />
+          <NavRow icon={I.journal(16)} label="Journal du Village" sub="Numéros hebdo, modération"         href="/admin/journal" />
+          <NavRow icon={I.chat(16)}    label="Tickets support"   sub="Messages des utilisateurs"          href="/admin/support" isLast />
+        </GroupCard>
+      )}
+
       {/* ── COMPTE ──────────────────────────────────────── */}
       <GroupCard kicker="Compte" kickerColor="#7A6A5A">
-        <NavRow icon={I.card(16)} label="Facturation"     sub="Stripe portal"     onClick={openStripePortal} />
-        <NavRow icon={I.help(16)} label="Aide & contact"  sub="FAQ, signaler un bug" href="/support" />
-        <NavRow icon={I.doc(16)}  label="Mentions légales" sub="CGU, vie privée"   onClick={notReady} isLast />
+        <NavRow icon={I.card(16)}   label="Facturation"      sub="Stripe portal"            onClick={openStripePortal} />
+        <NavRow icon={I.help(16)}   label="Aide & contact"   sub="FAQ, signaler un bug"     href="/support" />
+        <NavRow icon={I.doc(16)}    label="Mentions légales" sub="CGU, vie privée"          onClick={notReady} />
+        <NavRow icon={I.slash(16)}  label="Supprimer mon compte" sub="Définitif — RGPD"     onClick={onDeleteAccount} danger isLast />
       </GroupCard>
 
       {/* ── Déconnexion ─────────────────────────────────── */}

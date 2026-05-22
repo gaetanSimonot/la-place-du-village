@@ -33,7 +33,7 @@ interface Props {
   bio: string | null
   ville: string | null
   followersCount: number | null
-  ficheProMini: FicheProMini | null
+  ficheProMinis: FicheProMini[]
   moduleUtileActive: boolean
   onModifyClick: () => void
   onToggleViewMode: () => void
@@ -49,7 +49,7 @@ export default function ProfilHeader({
   bio,
   ville,
   followersCount,
-  ficheProMini,
+  ficheProMinis,
   moduleUtileActive,
   onModifyClick,
   onToggleViewMode,
@@ -206,46 +206,47 @@ export default function ProfilHeader({
         </div>
       </div>
 
-      {ficheProMini && (
-        <div className="px-4 pt-[14px]">
-          <Link
-            href={ficheProMini.kind === 'producer' ? `/producteur/${ficheProMini.id}` : `/etablissement/${ficheProMini.id}`}
-            className="flex w-full items-center gap-[10px] rounded-[12px] border bg-white px-3 py-2.5 text-inherit no-underline"
-            style={{ borderColor: '#F0EAE0' }}
-          >
-            <div
-              className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[9px] bg-primary-light text-primary"
-              aria-hidden
+      {ficheProMinis.length > 0 && (
+        <div className="flex flex-col gap-2 px-4 pt-[14px]">
+          {ficheProMinis.map(f => (
+            <Link
+              key={`${f.kind}-${f.id}`}
+              href={f.kind === 'producer' ? `/producteur/${f.id}` : `/etablissement/${f.id}`}
+              className="flex w-full items-center gap-[10px] rounded-[12px] border bg-white px-3 py-2.5 text-inherit no-underline"
+              style={{ borderColor: '#F0EAE0' }}
             >
-              {ficheProMini.photoUrl ? (
-                <img src={ficheProMini.photoUrl} alt="" className="h-full w-full object-cover" />
-              ) : ficheProMini.kind === 'producer' ? (
-                <IcLeaf size={16} />
-              ) : (
-                <IcStore size={16} />
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
               <div
-                className="text-[9px] font-extrabold uppercase text-primary"
-                style={{ letterSpacing: '0.1em' }}
+                className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[9px] bg-primary-light text-primary"
+                aria-hidden
               >
-                {ficheProMini.kind === 'producer' ? 'Ma fiche producteur' : 'Mon établissement'}
+                {f.photoUrl ? (
+                  <img src={f.photoUrl} alt="" className="h-full w-full object-cover" />
+                ) : f.kind === 'producer' ? (
+                  <IcLeaf size={16} />
+                ) : (
+                  <IcStore size={16} />
+                )}
               </div>
-              <div
-                className="mt-px truncate text-[13px] font-bold text-texte"
-                style={{ letterSpacing: '-0.01em' }}
-              >
-                {ficheProMini.nom}
+              <div className="min-w-0 flex-1">
+                <div
+                  className="text-[9px] font-extrabold uppercase text-primary"
+                  style={{ letterSpacing: '0.1em' }}
+                >
+                  {f.kind === 'producer' ? 'Ma fiche producteur' : 'Mon établissement'}
+                </div>
+                <div
+                  className="mt-px truncate text-[13px] font-bold text-texte"
+                  style={{ letterSpacing: '-0.01em' }}
+                >
+                  {f.nom}
+                </div>
+                {f.sub && <div className="mt-px text-[10.5px] text-texte-doux">{f.sub}</div>}
               </div>
-              {ficheProMini.sub && (
-                <div className="mt-px text-[10.5px] text-texte-doux">{ficheProMini.sub}</div>
-              )}
-            </div>
-            <span className="text-texte-tres-doux">
-              <IcChev size={14} />
-            </span>
-          </Link>
+              <span className="text-texte-tres-doux">
+                <IcChev size={14} />
+              </span>
+            </Link>
+          ))}
         </div>
       )}
     </>

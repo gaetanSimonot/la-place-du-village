@@ -4,7 +4,7 @@ import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } fr
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import ProfilView from '@/components/ProfilView'
+import ProfilHybridView from '@/components/profil/ProfilHybridView'
 import { EvenementCard, Filtres, ProduitCategorie, EtablissementCard, EtablissementType } from '@/lib/types'
 import { getDateRange } from '@/lib/filters'
 import { useTheme } from '@/components/ThemeProvider'
@@ -1188,13 +1188,13 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Profil — panneau inline au-dessus de la carte */}
+      {/* Profil — panneau inline au-dessus de la carte (refonte V3 — hybride social) */}
       {navTab === 'profil' && (
         <div style={{
           position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H,
           zIndex: 25, overflowY: 'auto', backgroundColor: 'var(--creme)',
         }}>
-          <ProfilView />
+          <ProfilHybridView />
         </div>
       )}
 
