@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
-import { useFriendships } from '@/hooks/useFriendships'
+import type { useFriendships } from '@/hooks/useFriendships'
 import { IcChat, IcUsers, IcUserPlus, IcEye } from '../icons'
 
 type SubTab = 'amis' | 'suggestions' | 'demandes'
@@ -16,10 +16,16 @@ interface PersonRow {
   ville: string | null
 }
 
-export default function AmisTab() {
+/** Type complet du hook useFriendships — passé en prop pour éviter
+ *  l'erreur Realtime "callbacks added after subscribe()" causée par 2
+ *  consumers du hook qui partagent le même channel postgres_changes
+ *  (cf. memory feedback_supabase_realtime_unique_channel). */
+export type FriendsHookState = ReturnType<typeof useFriendships>
+
+export default function AmisTab({ friends }: { friends: FriendsHookState }) {
   const { user } = useAuth()
   const { friendProfiles, friendIds, friendships, pendingReceived, sendRequest, accept, cancel, loading } =
-    useFriendships()
+    friends
 
   const [sub, setSub] = useState<SubTab>('amis')
   const [search, setSearch] = useState('')

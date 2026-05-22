@@ -29,7 +29,10 @@ function isProfilTab(v: string | null): v is ProfilTab {
 
 export default function ProfilHybridView() {
   const { user, profile, loading, updateProfile } = useAuth()
-  const { pendingReceived } = useFriendships()
+  // Un seul consumer du hook useFriendships dans tout l'arbre /profil pour
+  // éviter le double subscribe Realtime sur friendships-<userId>.
+  // Le state est passé en prop à AmisTab.
+  const friends = useFriendships()
 
   const [activeTab, setActiveTab] = useState<ProfilTab>('mur')
   const [viewMode, setViewMode] = useState<ViewMode>('own')
@@ -161,11 +164,11 @@ export default function ProfilHybridView() {
       <ProfilTabSwitcher
         active={activeTab}
         onChange={handleTabChange}
-        amisAlert={pendingReceived.length > 0}
+        amisAlert={friends.pendingReceived.length > 0}
       />
 
       {activeTab === 'mur'   && <MurTabPlaceholder />}
-      {activeTab === 'amis'  && <AmisTab />}
+      {activeTab === 'amis'  && <AmisTab friends={friends} />}
       {activeTab === 'utile' && <UtileTabPlaceholder />}
 
       {editOpen && (
