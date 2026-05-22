@@ -105,12 +105,13 @@ export async function GET(req: NextRequest) {
 
   if (requested.includes('annonce')) {
     tasks.push((async () => {
-      // Aucun filtre statut → on remonte toutes les annonces. Si tu veux
-      // restreindre, ajoute un .in('statut', [...]) ici. Pour le moment
-      // on laisse ouvert pour que rien ne soit caché.
+      // Réplique EXACTE de /api/annonces GET (mode public) : statuts
+      // 'active' et 'don_final' (l'annuaire publique). Sur la page
+      // /annonces, c'est ces statuts qu'on voit — on remonte les mêmes ici.
       let qb = supabaseAdmin
         .from('annonces')
         .select('id, titre, photos, prix, statut, type')
+        .in('statut', ['active', 'don_final'])
       if (ilike) qb = qb.ilike('titre', ilike)
       const { data } = await qb
         .order('created_at', { ascending: false })
@@ -129,11 +130,16 @@ export async function GET(req: NextRequest) {
 
   if (requested.includes('promo')) {
     tasks.push((async () => {
-      // Aucun filtre actif/valid_until — on remonte tout. À filtrer après
-      // si l'utilisateur veut exclure les promos expirées du picker.
+      // Réplique EXACTE de /api/promotions GET (mode public) :
+      //   .eq('active', true)
+      //   .or('valid_until.is.null,valid_until.gte.<now>')
+      // C'est ce qu'on voit sur la page /promotions → on remonte pareil.
+      const nowISO = new Date().toISOString()
       let qb = supabaseAdmin
         .from('promotions')
         .select('id, titre, image_url')
+        .eq('active', true)
+        .or(`valid_until.is.null,valid_until.gte.${nowISO}`)
       if (ilike) qb = qb.ilike('titre', ilike)
       const { data } = await qb.order('created_at', { ascending: false }).limit(LIMIT)
       return {

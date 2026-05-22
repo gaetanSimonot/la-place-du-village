@@ -53,6 +53,18 @@ export default function ConversationClient({ convId }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const endRef    = useRef<HTMLDivElement>(null)
   const inputRef  = useRef<HTMLInputElement>(null)
+  // Hauteur du viewport visible (= 100dvh moins le keyboard). On lit
+  // visualViewport.height en temps réel pour que le layout suive WhatsApp-like.
+  const [vvHeight, setVvHeight] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return
+    const vv = window.visualViewport
+    const update = () => setVvHeight(vv.height)
+    update()
+    vv.addEventListener('resize', update)
+    return () => vv.removeEventListener('resize', update)
+  }, [])
 
   // Helper centralisé : scrolle au bas de la liste via scrollIntoView (plus
   // robuste que scrollTop=scrollHeight sur iOS/Android quand le keyboard
@@ -337,12 +349,16 @@ export default function ConversationClient({ convId }: Props) {
     <main
       className="flex flex-col bg-creme font-inter text-texte"
       style={{
-        // Hauteur exacte du viewport visible. dvh s'adapte au keyboard.
+        // Hauteur EXACTE du viewport visible. On utilise visualViewport.height
+        // (qui shrink quand le keyboard monte sur iOS Safari + Android Chrome)
+        // au lieu de 100dvh (qui peut être imprécis selon le browser).
         // pb=64 réserve la place pour BottomNavBar fixed bottom:0.
-        // Le composer (flex shrink-0) est PAR-DESSUS la zone padding et
-        // remonte automatiquement avec le keyboard puisque la dvh diminue.
-        height: '100dvh',
+        // Le composer en flex shrink-0 en bas du main remonte avec le
+        // keyboard automatiquement puisque vvHeight diminue → main shrink
+        // → flex-1 messages shrink → composer reste collé au bottom du main.
+        height: vvHeight ? `${vvHeight}px` : '100dvh',
         paddingBottom: 64,
+        overflow: 'hidden',
       }}>
       {/* ─── Top bar ─────────────────────────────────────────── */}
       <div className="sticky top-0 z-30 flex items-center gap-2.5 border-b border-bordSoft bg-creme/95 px-4 py-3 backdrop-blur">
