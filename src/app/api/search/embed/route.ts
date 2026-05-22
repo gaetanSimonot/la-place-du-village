@@ -172,13 +172,17 @@ export async function GET(req: NextRequest) {
   // Best-effort : si une source échoue (table inexistante, RLS), on continue.
   const settled = await Promise.allSettled(tasks)
   const results: Array<{ kind: EmbedKind; id: string; title: string; subtitle: string | null; photo: string | null }> = []
+  const debug: Record<string, number | string> = {}
   for (const r of settled) {
     if (r.status === 'fulfilled') {
+      debug[r.value.kind] = r.value.rows.length
       for (const row of r.value.rows) {
         results.push({ kind: r.value.kind, ...row })
       }
+    } else {
+      debug[`__error_${Object.keys(debug).length}`] = String(r.reason)
     }
   }
 
-  return NextResponse.json({ results, query: q })
+  return NextResponse.json({ results, query: q, debug })
 }

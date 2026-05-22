@@ -334,7 +334,16 @@ export default function ConversationClient({ convId }: Props) {
   const initial = (other?.display_name || '?')[0]?.toUpperCase() ?? '?'
 
   return (
-    <main className="flex min-h-[100dvh] flex-col bg-creme font-inter text-texte">
+    <main
+      className="flex flex-col bg-creme font-inter text-texte"
+      style={{
+        // Hauteur exacte du viewport visible. dvh s'adapte au keyboard.
+        // pb=64 réserve la place pour BottomNavBar fixed bottom:0.
+        // Le composer (flex shrink-0) est PAR-DESSUS la zone padding et
+        // remonte automatiquement avec le keyboard puisque la dvh diminue.
+        height: '100dvh',
+        paddingBottom: 64,
+      }}>
       {/* ─── Top bar ─────────────────────────────────────────── */}
       <div className="sticky top-0 z-30 flex items-center gap-2.5 border-b border-bordSoft bg-creme/95 px-4 py-3 backdrop-blur">
         <Link
@@ -365,7 +374,7 @@ export default function ConversationClient({ convId }: Props) {
       </div>
 
       {/* ─── Messages (scroll) ──────────────────────────────── */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3" style={{ minHeight: 0, paddingBottom: 96 }}>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3" style={{ minHeight: 0 }}>
         {loading && messages.length === 0 && (
           <p className="py-6 text-center text-[12px] text-texte-doux">Chargement…</p>
         )}
@@ -458,7 +467,7 @@ export default function ConversationClient({ convId }: Props) {
 
       {/* ─── Composer (caché si plus amis = conv figée) ───── */}
       {canWrite ? (
-        <div className="sticky z-30 border-t border-bordSoft bg-creme/95 backdrop-blur" style={{ bottom: 64, paddingBottom: 10 }}>
+        <div className="z-30 border-t border-bordSoft bg-creme/95 backdrop-blur" style={{ paddingBottom: 10 }}>
           {/* Preview embed sélectionné, au-dessus du champ */}
           {embed && (
             <div className="px-3 pt-2">
@@ -503,7 +512,7 @@ export default function ConversationClient({ convId }: Props) {
           </form>
         </div>
       ) : (
-        <div className="sticky z-30 border-t border-bordSoft bg-cremeDeep/80 px-4 py-3 text-center backdrop-blur" style={{ bottom: 64, paddingBottom: 14 }}>
+        <div className="z-30 border-t border-bordSoft bg-cremeDeep/80 px-4 py-3 text-center backdrop-blur" style={{ paddingBottom: 14 }}>
           <p className="m-0 text-[12px] font-medium text-texte-doux">
             Vous n&apos;êtes plus amis. Reprenez l&apos;amitié pour pouvoir discuter à nouveau.
           </p>
