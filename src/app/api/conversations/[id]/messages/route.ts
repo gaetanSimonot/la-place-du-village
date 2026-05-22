@@ -172,6 +172,7 @@ export async function POST(
         actor_name:  me?.display_name || 'Un ami',
         target_type: 'conversation_unified',
         target_id:   id,
+        coalesce:    true,  // 3 messages d'affilée = 1 notif, pas 3
       }),
     ))
   }

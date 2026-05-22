@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
+import BottomNavBar from '@/components/BottomNavBar'
 import EmbedPicker, { type EmbedItem } from '@/components/EmbedPicker'
 
 interface Message {
@@ -127,9 +128,17 @@ export default function ConversationClient({ convId }: Props) {
     return () => { supabase.removeChannel(ch) }
   }, [user, convId])
 
-  // Auto-scroll en bas à chaque nouveau message
+  // Auto-scroll en bas à chaque nouveau message. RAF + double pour s'assurer
+  // que le layout du nouveau msg est calculé AVANT de scroller (sinon scrollHeight
+  // ne reflète pas encore la nouvelle bubble → message coincé sous le composer).
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+        }
+      })
+    })
   }, [messages.length])
 
   // Envoi optimistic d'un payload (content + embed). Affiche le message
@@ -311,7 +320,7 @@ export default function ConversationClient({ convId }: Props) {
       </div>
 
       {/* ─── Messages (scroll) ──────────────────────────────── */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3" style={{ minHeight: 0 }}>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3" style={{ minHeight: 0, paddingBottom: 8 }}>
         {loading && messages.length === 0 && (
           <p className="py-6 text-center text-[12px] text-texte-doux">Chargement…</p>
         )}
@@ -333,29 +342,40 @@ export default function ConversationClient({ convId }: Props) {
             const prev = i > 0 ? messages[i - 1] : null
             const showDateSep = !prev || !sameDay(prev.created_at, m.created_at)
 
+            const hasContent = !!m.content
+            const hasEmbed   = !!(m.embed_kind && m.embed_ref_id)
+            // Si juste un embed sans texte → la tuile EST le message (pas de bubble verte)
+            const embedOnly  = hasEmbed && !hasContent
+
             return (
               <div key={m.id}>
                 {showDateSep && <DateSeparator iso={m.created_at} />}
                 <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                   <div className={`flex max-w-[78%] flex-col ${mine ? 'items-end' : 'items-start'} gap-0.5`}>
-                    <div
-                      className={`rounded-2xl px-3 py-2 text-[13.5px] ${
-                        mine
-                          ? 'bg-primary text-white'
-                          : 'border border-bord bg-white text-texte'
-                      }`}
-                      style={{
-                        wordBreak: 'break-word',
-                        opacity:   isFailed ? 0.8 : 1,
-                      }}
-                    >
-                      {m.content && <div>{m.content}</div>}
-                      {m.embed_kind && m.embed_ref_id && (
-                        <div className={m.content ? 'mt-1.5' : ''}>
-                          <MessageEmbedRender kind={m.embed_kind} refId={m.embed_ref_id} mine={mine} />
-                        </div>
-                      )}
-                    </div>
+                    {embedOnly ? (
+                      <div style={{ opacity: isFailed ? 0.8 : 1 }}>
+                        <MessageEmbedRender kind={m.embed_kind!} refId={m.embed_ref_id!} mine={mine} />
+                      </div>
+                    ) : (
+                      <div
+                        className={`rounded-2xl px-3 py-2 text-[13.5px] ${
+                          mine
+                            ? 'bg-primary text-white'
+                            : 'border border-bord bg-white text-texte'
+                        }`}
+                        style={{
+                          wordBreak: 'break-word',
+                          opacity:   isFailed ? 0.8 : 1,
+                        }}
+                      >
+                        {hasContent && <div>{m.content}</div>}
+                        {hasEmbed && (
+                          <div className={hasContent ? 'mt-1.5' : ''}>
+                            <MessageEmbedRender kind={m.embed_kind!} refId={m.embed_ref_id!} mine={mine} />
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {/* Heure dessous : seulement quand confirmé serveur (pas pending) */}
                     {isConfirmed && (
                       <span className="text-[10px] text-texte-tres-doux">
@@ -391,7 +411,7 @@ export default function ConversationClient({ convId }: Props) {
 
       {/* ─── Composer (caché si plus amis = conv figée) ───── */}
       {canWrite ? (
-        <div className="sticky bottom-0 z-30 border-t border-bordSoft bg-creme/95 backdrop-blur" style={{ paddingBottom: 'max(10px, env(safe-area-inset-bottom, 10px))' }}>
+        <div className="sticky z-30 border-t border-bordSoft bg-creme/95 backdrop-blur" style={{ bottom: 64, paddingBottom: 10 }}>
           {/* Preview embed sélectionné, au-dessus du champ */}
           {embed && (
             <div className="px-3 pt-2">
@@ -431,7 +451,7 @@ export default function ConversationClient({ convId }: Props) {
           </form>
         </div>
       ) : (
-        <div className="sticky bottom-0 z-30 border-t border-bordSoft bg-cremeDeep/80 px-4 py-3 text-center backdrop-blur" style={{ paddingBottom: 'max(14px, env(safe-area-inset-bottom, 14px))' }}>
+        <div className="sticky z-30 border-t border-bordSoft bg-cremeDeep/80 px-4 py-3 text-center backdrop-blur" style={{ bottom: 64, paddingBottom: 14 }}>
           <p className="m-0 text-[12px] font-medium text-texte-doux">
             Vous n&apos;êtes plus amis. Reprenez l&apos;amitié pour pouvoir discuter à nouveau.
           </p>
@@ -448,6 +468,8 @@ export default function ConversationClient({ convId }: Props) {
           onClose={() => setPickerOpen(false)}
         />
       )}
+
+      <BottomNavBar />
     </main>
   )
 }
@@ -602,26 +624,53 @@ function MessageEmbedRender({ kind, refId, mine }: { kind: string; refId: string
     return <div className={`h-12 w-full animate-pulse rounded-lg ${mine ? 'bg-white/15' : 'bg-cremeDeep'}`} />
   }
 
+  // Tuile large : image hero + meta block. Background blanc/cremeDeep selon
+  // côté pour ressortir dans la bubble. Border subtile.
   return (
     <Link
       href={details.href}
-      className={`flex items-center gap-2 rounded-[10px] px-2 py-1.5 no-underline ${
-        mine ? 'bg-white/15 text-white' : 'bg-cremeDeep text-texte'
+      className={`block overflow-hidden rounded-[14px] no-underline ${
+        mine ? 'bg-white text-texte' : 'bg-creme text-texte'
       }`}
+      style={{
+        width: 260, maxWidth: '100%',
+        border: '1px solid ' + (mine ? 'rgba(255,255,255,0.3)' : '#E8E0D4'),
+        boxShadow: mine ? '0 2px 8px rgba(0,0,0,0.15)' : '0 1px 4px rgba(44,28,16,0.06)',
+      }}
       onClick={e => e.stopPropagation()}
     >
-      <div className={`flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[7px] ${
-        mine ? 'bg-white/15' : 'bg-primary-light text-primary'
-      }`}>
-        {details.photo
-          ? <img src={details.photo} alt="" className="h-full w-full object-cover" />
-          : <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/></svg>}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className={`text-[9px] font-extrabold uppercase ${mine ? 'text-white/85' : 'text-primary'}`} style={{ letterSpacing: '0.06em' }}>
+      {/* Image hero 130h */}
+      <div className="relative h-[130px] w-full overflow-hidden" style={{ background: '#F0EBE3' }}>
+        {details.photo ? (
+          <img src={details.photo} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <div
+            className="flex h-full w-full items-center justify-center"
+            style={{ background: 'linear-gradient(135deg, #E8F2EB 0%, #C8DEC0 100%)' }}
+          >
+            <svg width={36} height={36} viewBox="0 0 24 24" fill="none" stroke="#5B8A4A" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+            </svg>
+          </div>
+        )}
+        {/* Kicker badge top-left */}
+        <span
+          className="absolute left-2 top-2 inline-block rounded-full bg-white/95 px-2 py-[3px] text-[9px] font-extrabold uppercase text-primary"
+          style={{ letterSpacing: '0.06em', backdropFilter: 'blur(4px)' }}
+        >
           {labels[kind] ?? kind}
+        </span>
+      </div>
+      {/* Meta block */}
+      <div className="px-3 py-2.5">
+        <div className="font-serif text-[15px] leading-[1.2] text-texte" style={{ letterSpacing: '-0.005em' }}>
+          {details.title}
         </div>
-        <div className="truncate text-[12.5px] font-bold">{details.title}</div>
+        {details.subtitle && (
+          <div className="mt-1 truncate text-[11.5px] text-texte-doux">
+            {details.subtitle}
+          </div>
+        )}
       </div>
     </Link>
   )

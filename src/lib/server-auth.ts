@@ -146,8 +146,21 @@ export async function notifyUser(
     actor_name: string
     target_type?: string
     target_id?: string
+    /** Si true, supprime les notifs unread du même (user, type, target_id) avant
+     *  d'insérer → une seule notif par cible (utile pour les messages de chat :
+     *  3 messages d'affilée = 1 notif au lieu de 3). */
+    coalesce?: boolean
   },
 ): Promise<void> {
+  if (payload.coalesce && payload.target_id) {
+    await supabaseAdmin
+      .from('notifications')
+      .delete()
+      .eq('user_id', userId)
+      .eq('type', payload.type)
+      .eq('target_id', payload.target_id)
+      .eq('lu', false)
+  }
   await supabaseAdmin.from('notifications').insert({
     user_id:     userId,
     type:        payload.type,
