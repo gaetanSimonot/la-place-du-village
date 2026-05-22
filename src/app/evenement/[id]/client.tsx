@@ -96,7 +96,7 @@ export default function EvenementPageClient({ id }: { id: string }) {
   }
 
   return (
-    <div className="relative min-h-[100dvh] bg-creme font-inter text-texte">
+    <div className="relative min-h-[100dvh] bg-creme pb-28 font-inter text-texte">
       {/* ── Hero photo + floating actions ── */}
       <div className="relative h-[300px] w-full overflow-hidden bg-[#F0EBE3]">
         {evt.image_url ? (
@@ -130,9 +130,9 @@ export default function EvenementPageClient({ id }: { id: string }) {
             </div>
           ) : null}
         />
-        {/* Type badge bottom-left */}
+        {/* Type badge bottom-left — montée un peu pour ne pas coller la coupe */}
         <span
-          className="absolute bottom-3.5 left-3.5 z-[3] inline-flex items-center gap-1 rounded-full bg-primary-light/95 px-2.5 py-[5px] text-[10px] font-extrabold uppercase tracking-[0.08em] text-primary"
+          className="absolute bottom-7 left-3.5 z-[3] inline-flex items-center gap-1 rounded-full bg-primary-light/95 px-2.5 py-[5px] text-[10px] font-extrabold uppercase tracking-[0.08em] text-primary"
           style={{ backdropFilter: 'blur(4px)' }}
         >
           {cat.label}
@@ -239,43 +239,8 @@ export default function EvenementPageClient({ id }: { id: string }) {
         <div className="h-7" />
       </div>
 
-      {/* ── Sticky bottom bar ── */}
-      <div className="sticky bottom-0 left-0 right-0 z-30 flex items-center gap-2.5 border-t border-[#EDE8E0] bg-white px-4 py-3 shadow-[0_-4px_16px_rgba(44,28,16,0.04)]">
-        <button
-          onClick={handleShare}
-          aria-label="Partager"
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] border border-bord bg-white text-texte"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
-            <polyline points="16 6 12 2 8 6"/>
-            <line x1="12" y1="2" x2="12" y2="15"/>
-          </svg>
-        </button>
-        {mapsUrl ? (
-          <a
-            href={mapsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex h-12 flex-1 items-center justify-center gap-2 rounded-[14px] bg-primary text-[14px] font-bold text-white no-underline"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="3 11 22 2 13 21 11 13 3 11"/>
-            </svg>
-            Y aller
-          </a>
-        ) : (
-          <button
-            onClick={() => setCommentsOpen(true)}
-            className="flex h-12 flex-1 items-center justify-center gap-2 rounded-[14px] border-none bg-primary text-[14px] font-bold text-white"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg>
-            Commentaires
-          </button>
-        )}
-      </div>
+      {/* Sticky bottom bar retirée — Partager dispo dans ActionBar et
+          "Itinéraire" dispo sur l'InfoCard du lieu. Plus de doublon. */}
 
       {/* Commentaires */}
       <CommentSheet
