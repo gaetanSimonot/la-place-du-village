@@ -22,7 +22,7 @@ import { requireUser } from '@/lib/server-auth'
  * Returns : { uploadUrl, token, publicUrl, path, bucket }
  */
 
-type UploadKind = 'event-image' | 'product-image' | 'admin-edit' | 'profile-banner' | 'profile-avatar'
+type UploadKind = 'event-image' | 'product-image' | 'admin-edit' | 'profile-banner' | 'profile-avatar' | 'hub-hero-intro'
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const MAX_BYTES = 10 * 1024 * 1024 // 10 MB (max bucket configure)
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   const size = Number(body?.size ?? 0)
   const refId = body?.refId ? String(body.refId) : null
 
-  if (!kind || !['event-image', 'product-image', 'admin-edit', 'profile-banner', 'profile-avatar'].includes(kind)) {
+  if (!kind || !['event-image', 'product-image', 'admin-edit', 'profile-banner', 'profile-avatar', 'hub-hero-intro'].includes(kind)) {
     return NextResponse.json({ error: 'kind invalide' }, { status: 400 })
   }
   if (!ALLOWED_MIME.has(mimeType)) {
@@ -118,6 +118,14 @@ export async function POST(req: NextRequest) {
     // dossier 'avatars/' pour distinguer des banners.
     bucket = 'avatars'
     path = `avatars/${ctx.userId}.${extFromMime(mimeType)}`
+  } else if (kind === 'hub-hero-intro') {
+    // Image du slide intro "Bouche-a-oreille" du carrousel hub_hero.
+    // Admin uniquement. Path fixe -> upsert ecrase l'image precedente.
+    if (!ctx.isAdmin) {
+      return NextResponse.json({ error: 'Admin uniquement' }, { status: 403 })
+    }
+    bucket = 'avatars'
+    path = `hub/hero-intro.${extFromMime(mimeType)}`
   } else {
     return NextResponse.json({ error: 'kind non géré' }, { status: 400 })
   }
@@ -125,7 +133,7 @@ export async function POST(req: NextRequest) {
   // Genere l URL signee (token a courte duree de vie, default ~2 min)
   const { data, error } = await supabaseAdmin.storage
     .from(bucket)
-    .createSignedUploadUrl(path, { upsert: kind === 'product-image' || kind === 'profile-banner' })
+    .createSignedUploadUrl(path, { upsert: kind === 'product-image' || kind === 'profile-banner' || kind === 'profile-avatar' || kind === 'hub-hero-intro' })
 
   if (error || !data) {
     return NextResponse.json({ error: error?.message ?? 'Erreur signed URL' }, { status: 500 })

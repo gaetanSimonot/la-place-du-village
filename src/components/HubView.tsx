@@ -49,7 +49,7 @@ interface HeroProducteur {
 }
 
 type HeroItem =
-  | { kind: 'intro';         data: null;             imagePosition: null }
+  | { kind: 'intro';         data: { imageUrl: string | null }; imagePosition: null }
   | { kind: 'evenement';     data: Evenement;        imagePosition: string | null }
   | { kind: 'etablissement'; data: HeroEtab;         imagePosition: string | null }
   | { kind: 'producteur';    data: HeroProducteur;   imagePosition: string | null }
@@ -166,12 +166,13 @@ export default function HubView({
       const nowISO  = new Date().toISOString()
 
       // Slide intro optionnel — toggle admin via config 'hub_hero_intro_enabled'
-      const { data: introCfg } = await supabase
-        .from('config')
-        .select('value')
-        .eq('key', 'hub_hero_intro_enabled')
-        .maybeSingle()
-      const introEnabled = introCfg?.value === 'true'
+      // + image custom optionnelle via config 'hub_hero_intro_image_url'
+      const [introCfgRes, introImgRes] = await Promise.all([
+        supabase.from('config').select('value').eq('key', 'hub_hero_intro_enabled').maybeSingle(),
+        supabase.from('config').select('value').eq('key', 'hub_hero_intro_image_url').maybeSingle(),
+      ])
+      const introEnabled  = introCfgRes.data?.value === 'true'
+      const introImageUrl = introImgRes.data?.value || null
 
       const { data: featuredSlots } = await supabase
         .from('featured_slots')
@@ -241,9 +242,9 @@ export default function HubView({
         if (ev) items.push({ kind: 'evenement', data: ev, imagePosition: ev.image_position ?? null })
       }
 
-      // Prepend slide intro si admin a coché l'option
+      // Prepend slide intro si admin a coché l'option (image custom ou default)
       if (introEnabled) {
-        items.unshift({ kind: 'intro', data: null, imagePosition: null })
+        items.unshift({ kind: 'intro', data: { imageUrl: introImageUrl }, imagePosition: null })
       }
 
       setHeroItems(items)
@@ -1162,9 +1163,11 @@ function HubHeroCarousel({
 }
 
 function HeroSlide({ item, onClick }: { item: HeroItem; onClick: () => void }) {
-  // Slide intro : illustration village + badge "À LA UNE" SEULEMENT (pas de
-  // texte superposé). Click → onOpenInfo (AppInfoModal).
+  // Slide intro : image complète "Bouche-à-oreille" en cover + badge "À LA UNE"
+  // SEULEMENT (pas de texte superposé, le texte est dans l'image). Click →
+  // onOpenInfo (AppInfoModal). Image custom via config sinon /hub-intro-slide.png.
   if (item.kind === 'intro') {
+    const introSrc = item.data.imageUrl || '/hub-intro-slide.png'
     return (
       <button
         type="button"
@@ -1172,15 +1175,15 @@ function HeroSlide({ item, onClick }: { item: HeroItem; onClick: () => void }) {
         className="relative block h-[180px] w-full appearance-none rounded-tile border-none p-0 text-left"
         style={{
           WebkitTapHighlightColor: 'transparent',
-          background: 'linear-gradient(135deg, #FBF3E6 0%, #F8EDD8 100%)',
+          background: '#FBF3E6',
         }}
       >
         <div className="absolute inset-0 overflow-hidden rounded-tile">
           <img
-            src="/village-illustration.png"
-            alt=""
+            src={introSrc}
+            alt="La Place du Village"
             className="h-full w-full"
-            style={{ objectFit: 'contain', objectPosition: 'center', mixBlendMode: 'multiply', userSelect: 'none' }}
+            style={{ objectFit: 'cover', objectPosition: 'center', userSelect: 'none' }}
           />
         </div>
         <span

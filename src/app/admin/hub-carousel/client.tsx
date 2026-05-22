@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { FEATURED_SLOTS, type FeaturedSlotRow } from '@/lib/featured'
+import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
 
 interface EnrichedSlot extends FeaturedSlotRow {
   title?: string
@@ -35,12 +36,21 @@ export default function AdminHubCarousel() {
   // Slide intro "Bouche à oreille" en première position du carrousel hub_hero
   const [introEnabled, setIntroEnabled] = useState(false)
   const [introSaving, setIntroSaving]   = useState(false)
+  // Image custom du slide intro (null = utiliser /hub-intro-slide.png par défaut)
+  const [introImageUrl, setIntroImageUrl] = useState<string | null>(null)
+  const [introImgUploading, setIntroImgUploading] = useState(false)
+  const introImgInput = useRef<HTMLInputElement>(null)
 
-  // Charge la config slide intro
+  // Charge la config slide intro (toggle + image custom)
   useEffect(() => {
     if (authLoading || !user || !isAdmin) return
-    supabase.from('config').select('value').eq('key', 'hub_hero_intro_enabled').maybeSingle()
-      .then(({ data }) => setIntroEnabled(data?.value === 'true'))
+    Promise.all([
+      supabase.from('config').select('value').eq('key', 'hub_hero_intro_enabled').maybeSingle(),
+      supabase.from('config').select('value').eq('key', 'hub_hero_intro_image_url').maybeSingle(),
+    ]).then(([toggleRes, imgRes]) => {
+      setIntroEnabled(toggleRes.data?.value === 'true')
+      setIntroImageUrl(imgRes.data?.value || null)
+    })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user, isAdmin])
 
@@ -59,6 +69,49 @@ export default function AdminHubCarousel() {
     })
     if (!res.ok) setIntroEnabled(prev)
     setIntroSaving(false)
+  }
+
+  async function handleIntroImagePick(file: File) {
+    if (introImgUploading) return
+    setIntroImgUploading(true)
+    try {
+      // Carrousel : ratio ~2:1 (180h x 360w typique), maxDim 1200, qualité 0.9
+      const compressed = await compressImage(file, { maxDim: 1200, quality: 0.9 })
+      const r = await uploadViaSignedUrl({ file: compressed, kind: 'hub-hero-intro' })
+      const newUrl = `${r.publicUrl}?v=${Date.now()}`
+
+      // Sauvegarde l'URL dans config
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      if (!token) { setIntroImgUploading(false); return }
+      const res = await fetch('/api/admin/config', {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body:    JSON.stringify({ key: 'hub_hero_intro_image_url', value: newUrl }),
+      })
+      if (res.ok) setIntroImageUrl(newUrl)
+    } catch (e) {
+      console.error('[intro image upload]', e)
+    } finally {
+      setIntroImgUploading(false)
+    }
+  }
+
+  async function resetIntroImage() {
+    if (introImgUploading) return
+    if (!confirm('Restaurer l\'image par défaut du slide intro ?')) return
+    setIntroImgUploading(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+    if (!token) { setIntroImgUploading(false); return }
+    // Vide la config → HubView retombera sur /hub-intro-slide.png
+    await fetch('/api/admin/config', {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body:    JSON.stringify({ key: 'hub_hero_intro_image_url', value: '' }),
+    })
+    setIntroImageUrl(null)
+    setIntroImgUploading(false)
   }
 
   useEffect(() => {
@@ -223,33 +276,114 @@ export default function AdminHubCarousel() {
 
       {error && <p style={{ padding: 16, color: '#C0392B', fontSize: 13, textAlign: 'center' }}>{error}</p>}
 
-      {/* Toggle slide intro "Bouche à oreille" — première position du hub_hero */}
+      {/* Toggle slide intro "Bouche à oreille" + image custom */}
       <div style={{ padding: '14px 16px 0' }}>
-        <label style={{
-          display: 'flex', alignItems: 'center', gap: 12,
-          padding: '12px 14px', borderRadius: 12,
+        <div style={{
+          padding: 14, borderRadius: 12,
           background: introEnabled ? '#E8F2EB' : '#FFFFFF',
           border: `1px solid ${introEnabled ? '#C8DEC0' : '#E5DDD2'}`,
-          cursor: introSaving ? 'default' : 'pointer',
           boxShadow: '0 1px 4px rgba(44,28,16,0.04)',
         }}>
-          <input
-            type="checkbox"
-            checked={introEnabled}
-            disabled={introSaving}
-            onChange={e => toggleIntro(e.target.checked)}
-            style={{ accentColor: '#2D5A3D', cursor: 'pointer' }}
-          />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>
-              Slide intro « Bouche à oreille »
+          <label style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            cursor: introSaving ? 'default' : 'pointer',
+          }}>
+            <input
+              type="checkbox"
+              checked={introEnabled}
+              disabled={introSaving}
+              onChange={e => toggleIntro(e.target.checked)}
+              style={{ accentColor: '#2D5A3D', cursor: 'pointer' }}
+            />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>
+                Slide intro « Bouche à oreille »
+              </div>
+              <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2 }}>
+                Affiche en première position du carrousel. Click = ouvre la modale
+                « C&apos;est quoi La Place du Village ? ».
+              </div>
             </div>
-            <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2 }}>
-              Affiche en première position du carrousel un slide illustration sans
-              texte. Click = ouvre la modale « C&apos;est quoi La Place du Village ? ».
+          </label>
+
+          {/* Preview + upload image custom */}
+          {introEnabled && (
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed #C8DEC0' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#5B8A4A', marginBottom: 8, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                Image du slide
+              </div>
+              <div style={{
+                position: 'relative',
+                width: '100%', height: 160, borderRadius: 12, overflow: 'hidden',
+                background: '#FBF3E6', border: '1px solid #E5DDD2',
+              }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={introImageUrl || '/hub-intro-slide.png'}
+                  alt=""
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+                <span style={{
+                  position: 'absolute', top: 8, left: 8,
+                  background: '#FFFFFF', color: '#7A6A5A',
+                  fontSize: 9, fontWeight: 800, letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  padding: '3px 7px', borderRadius: 999,
+                  border: '1px solid #E5DDD2',
+                }}>
+                  {introImageUrl ? 'Personnalisée' : 'Par défaut'}
+                </span>
+              </div>
+
+              <input
+                ref={introImgInput}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                style={{ display: 'none' }}
+                onChange={e => {
+                  const f = e.target.files?.[0]
+                  if (f) handleIntroImagePick(f)
+                  e.target.value = ''
+                }}
+              />
+
+              <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => introImgInput.current?.click()}
+                  disabled={introImgUploading}
+                  style={{
+                    flex: 1, padding: '9px 12px', borderRadius: 8,
+                    background: '#2D5A3D', color: '#FFFFFF',
+                    border: 'none', fontSize: 12, fontWeight: 800,
+                    cursor: introImgUploading ? 'default' : 'pointer',
+                    opacity: introImgUploading ? 0.6 : 1,
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  {introImgUploading ? 'Upload…' : 'Changer l\'image'}
+                </button>
+                {introImageUrl && (
+                  <button
+                    type="button"
+                    onClick={resetIntroImage}
+                    disabled={introImgUploading}
+                    style={{
+                      padding: '9px 12px', borderRadius: 8,
+                      background: '#FFFFFF', color: '#7A6A5A',
+                      border: '1px solid #E5DDD2', fontSize: 12, fontWeight: 700,
+                      cursor: introImgUploading ? 'default' : 'pointer',
+                      opacity: introImgUploading ? 0.6 : 1,
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    Restaurer défaut
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-        </label>
+          )}
+        </div>
       </div>
 
       <div style={{ padding: '14px 12px' }}>
