@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { Evenement, isApproxLocation, Categorie } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
+import { authedFetch } from '@/lib/swr-fetchers'
 
 interface Prediction { place_id: string; description: string; main: string; secondary: string }
 
@@ -22,7 +23,8 @@ function LieuAutocomplete({
 
   const search = useCallback(async (q: string) => {
     if (q.length < 2) { setPredictions([]); return }
-    const res = await fetch(`/api/admin/autocomplete?q=${encodeURIComponent(q)}`)
+    const res = await authedFetch(`/api/admin/autocomplete?q=${encodeURIComponent(q)}`)
+    if (!res.ok) { setPredictions([]); return }
     const data = await res.json()
     setPredictions(data.predictions ?? [])
     setOpen(true)
@@ -138,7 +140,7 @@ export default function AdminEditPage({ params }: { params: { id: string } }) {
     setSaving(true)
     try {
       const query = [lieuNom, commune, 'France'].filter(Boolean).join(', ')
-      const res = await fetch(`/api/admin/geocode?q=${encodeURIComponent(query)}`)
+      const res = await authedFetch(`/api/admin/geocode?q=${encodeURIComponent(query)}`)
       const data = await res.json()
       if (data.lat) {
         setLat(data.lat.toString())
@@ -233,13 +235,13 @@ export default function AdminEditPage({ params }: { params: { id: string } }) {
         if (lat && lng) body.place_id_google = evt.lieux?.place_id_google ?? 'manual'
       }
 
-      const res = await fetch(`/api/admin/evenements/${params.id}`, {
+      const res = await authedFetch(`/api/admin/evenements/${params.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `Erreur HTTP ${res.status}`)
       router.push('/admin')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erreur inconnue')
@@ -378,7 +380,7 @@ export default function AdminEditPage({ params }: { params: { id: string } }) {
             onChange={setLieuNom}
             onSelect={async (p) => {
               // Géocode la sélection immédiatement
-              const res = await fetch(`/api/admin/geocode?q=${encodeURIComponent(p.description)}`)
+              const res = await authedFetch(`/api/admin/geocode?q=${encodeURIComponent(p.description)}`)
               const data = await res.json()
               if (data.lat) {
                 setLat(data.lat.toString())

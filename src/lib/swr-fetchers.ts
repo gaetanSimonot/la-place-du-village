@@ -19,6 +19,65 @@ export class FetchError extends Error {
 }
 
 /**
+ * Helper authedFetch — wrapper fetch() pour ÉCRITURES authentifiées.
+ *
+ * À utiliser pour POST/PATCH/DELETE/PUT vers les routes API qui font
+ * requireUser/requireAdmin. Diffère de authedFetcher (lecture SWR) par :
+ *   - retourne la Response brute (pas le JSON) → le caller peut checker
+ *     res.ok avant d'updater son UI optimistic
+ *   - accepte un init (method, body, headers extra)
+ *
+ * Comportement 401 :
+ *   1. Récupère token via getSession() ; si absent → refreshSession()
+ *      une fois, puis retry une fois.
+ *   2. Si l'appel retourne 401, refresh + retry (1 fois max).
+ *   3. Si toujours 401 → renvoie la Response 401 telle quelle. Le
+ *      caller peut décider quoi faire (toast, openAuthModal…).
+ *
+ * Garanties :
+ *   - Pas de boucle infinie : 1 refresh + 1 retry MAX.
+ *   - Headers Authorization ajouté sans écraser ceux passés.
+ *
+ * Usage :
+ *   const res = await authedFetch('/api/admin/evenements/123', {
+ *     method: 'DELETE',
+ *   })
+ *   if (!res.ok) { toast.error('Erreur'); return }
+ *   setEvenements(prev => prev.filter(...))
+ */
+export async function authedFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  // Récupère le token avec fallback refresh
+  let token = (await supabase.auth.getSession()).data.session?.access_token ?? null
+  if (!token) {
+    const refreshed = await supabase.auth.refreshSession()
+    token = refreshed.data.session?.access_token ?? null
+  }
+  if (!token) {
+    // Pas de session du tout — on renvoie une Response 401 synthétique
+    // pour que le caller ait le même contrat (toujours une Response).
+    return new Response(JSON.stringify({ error: 'Non authentifié' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  const headers = new Headers(init.headers as HeadersInit | undefined)
+  headers.set('Authorization', `Bearer ${token}`)
+
+  const res1 = await fetch(url, { ...init, headers })
+  if (res1.status !== 401) return res1
+
+  // 401 → tentative refresh + retry une fois
+  const refreshed = await supabase.auth.refreshSession()
+  const token2 = refreshed.data.session?.access_token ?? null
+  if (!token2) return res1  // refresh impossible → renvoie le 401 d'origine
+
+  const headers2 = new Headers(init.headers as HeadersInit | undefined)
+  headers2.set('Authorization', `Bearer ${token2}`)
+  return fetch(url, { ...init, headers: headers2 })
+}
+
+/**
  * Fetcher SWR AUTHENTIFIÉ — attache le Bearer token de la session courante.
  *
  * Comportement 401 :

@@ -41,12 +41,17 @@ interface UploadResult {
 export async function uploadViaSignedUrl({
   file, kind, refId,
 }: UploadOptions): Promise<UploadResult> {
-  // 1. Demande la signed URL a notre API (auth via token user)
-  const { data: { session } } = await supabase.auth.getSession()
-  const token = session?.access_token
+  // 1. Demande la signed URL a notre API (auth via token user).
+  // Récupère la session avec fallback refresh — évite le "Non authentifié"
+  // quand le token vient juste d'expirer (auto-refresh pas encore fini).
+  let token = (await supabase.auth.getSession()).data.session?.access_token ?? null
+  if (!token) {
+    const refreshed = await supabase.auth.refreshSession()
+    token = refreshed.data.session?.access_token ?? null
+  }
   if (!token) throw new Error('Non authentifié')
 
-  const meta = await fetch('/api/storage/signed-upload-url', {
+  let meta = await fetch('/api/storage/signed-upload-url', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({
@@ -56,6 +61,23 @@ export async function uploadViaSignedUrl({
       refId: refId ?? null,
     }),
   })
+  // 401 → refresh + retry une fois (token expiré pile au moment du POST)
+  if (meta.status === 401) {
+    const refreshed = await supabase.auth.refreshSession()
+    const token2 = refreshed.data.session?.access_token
+    if (token2) {
+      meta = await fetch('/api/storage/signed-upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token2}` },
+        body: JSON.stringify({
+          kind,
+          mimeType: file.type || 'image/jpeg',
+          size: file.size,
+          refId: refId ?? null,
+        }),
+      })
+    }
+  }
   if (!meta.ok) {
     const d = await meta.json().catch(() => ({}))
     throw new Error(d.error ?? `Erreur signed URL (${meta.status})`)

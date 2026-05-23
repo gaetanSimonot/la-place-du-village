@@ -113,7 +113,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .eq('user_id', userId)
           .single(),
         email
-          ? supabase.from('admin_emails').select('email').eq('email', email).maybeSingle()
+          // Case-insensitive aligned avec is_admin() SQL (lower=lower)
+          ? supabase.from('admin_emails').select('email').ilike('email', email.toLowerCase()).maybeSingle()
           : Promise.resolve({ data: null }),
       ])
 

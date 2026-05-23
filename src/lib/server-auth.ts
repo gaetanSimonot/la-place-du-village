@@ -42,7 +42,11 @@ export async function getUserContextFromRequest(
       .eq('user_id', user.id)
       .maybeSingle(),
     user.email
-      ? supabaseAdmin.from('admin_emails').select('email').eq('email', user.email).maybeSingle()
+      // Comparaison case-insensitive (ilike avec email lowercase) — alignée
+      // sur la fonction SQL public.is_admin() qui fait lower(email)=lower(v_email).
+      // Évite un 403 si la casse de l'email dans admin_emails diffère de
+      // celle retournée par Supabase Auth.
+      ? supabaseAdmin.from('admin_emails').select('email').ilike('email', user.email.toLowerCase()).maybeSingle()
       : Promise.resolve({ data: null }),
   ])
 

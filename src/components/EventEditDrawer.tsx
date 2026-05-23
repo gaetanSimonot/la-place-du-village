@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { Categorie, Evenement } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { uploadViaSignedUrl, base64ToBlob, compressImage } from '@/lib/clientUpload'
+import { authedFetch } from '@/lib/swr-fetchers'
 
 type Mode = 'edit' | 'crop' | 'fullscreen'
 interface Prediction { place_id: string; description: string; main: string; secondary: string }
@@ -496,12 +497,13 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
         body.place_id_google = placeIdGoogle
       }
 
-      const r = await fetch(`/api/admin/evenements/${evenementId}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      const r = await authedFetch(`/api/admin/evenements/${evenementId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      const d = await r.json()
-      if (!r.ok) throw new Error(d.error)
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(d.error || `Erreur HTTP ${r.status}`)
       onSaved?.(); onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur')
@@ -510,7 +512,8 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
 
   const deleteEvent = async () => {
     if (!confirm('Supprimer cet événement définitivement ?')) return
-    await fetch(`/api/admin/evenements/${evenementId}`, { method: 'DELETE' })
+    const r = await authedFetch(`/api/admin/evenements/${evenementId}`, { method: 'DELETE' })
+    if (!r.ok) { setError(`Échec suppression (HTTP ${r.status})`); return }
     onSaved?.(); onClose()
   }
 

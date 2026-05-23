@@ -2,8 +2,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
+import { authedFetch } from '@/lib/swr-fetchers'
 import { Evenement, isApproxLocation } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
@@ -203,20 +205,13 @@ export default function AdminDashboard() {
   }, [])
 
   const fetchFeedbacks = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession()
-    const tk = session?.access_token
-    const res = await fetch('/api/admin/feedbacks', {
-      headers: tk ? { Authorization: `Bearer ${tk}` } : {},
-    })
+    const res = await authedFetch('/api/admin/feedbacks')
     const data = res.ok ? await res.json() : []
     setFeedbacks(Array.isArray(data) ? data : [])
   }, [])
 
   const fetchAdmins = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/admin/admins', {
-      headers: { Authorization: `Bearer ${session?.access_token}` },
-    })
+    const res = await authedFetch('/api/admin/admins')
     if (res.ok) setAdminList(await res.json())
   }, [])
 
@@ -237,15 +232,7 @@ export default function AdminDashboard() {
 
   // Cleanup silencieux au chargement (admin uniquement)
   useEffect(() => {
-    (async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      const tk = session?.access_token
-      if (!tk) return
-      fetch('/api/admin/cleanup', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${tk}` },
-      }).catch(() => {})
-    })()
+    authedFetch('/api/admin/cleanup', { method: 'POST' }).catch(() => {})
   }, [])
 
   // Fetch initial après auth OK
@@ -350,17 +337,17 @@ export default function AdminDashboard() {
   const toggleMasquerPasses = async () => {
     const next = !masquerPasses
     setTogglingConfig(true)
-    setMasquerPasses(next)
-    const { data: { session } } = await supabase.auth.getSession()
-    const tk = session?.access_token
-    await fetch('/api/admin/config', {
+    const prev = masquerPasses
+    setMasquerPasses(next)  // optimistic
+    const res = await authedFetch('/api/admin/config', {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(tk ? { Authorization: `Bearer ${tk}` } : {}),
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key: 'masquer_passes', value: next }),
     })
+    if (!res.ok) {
+      setMasquerPasses(prev)  // rollback
+      toast.error('Échec sauvegarde')
+    }
     setTogglingConfig(false)
   }
 
@@ -368,27 +355,28 @@ export default function AdminDashboard() {
     const next = hubSubtitleInput.trim()
     if (!next || next === hubSubtitle) return
     setSavingSubtitle(true)
-    const { data: { session } } = await supabase.auth.getSession()
-    const tk = session?.access_token
-    await fetch('/api/admin/config', {
+    const res = await authedFetch('/api/admin/config', {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(tk ? { Authorization: `Bearer ${tk}` } : {}),
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key: 'hub_subtitle', value: next }),
     })
-    setHubSubtitle(next)
+    if (res.ok) setHubSubtitle(next)
+    else toast.error('Échec sauvegarde')
     setSavingSubtitle(false)
   }
 
   const setStatut = async (id: string, statut: string) => {
     setActionId(id)
-    await fetch(`/api/admin/evenements/${id}`, {
+    const res = await authedFetch(`/api/admin/evenements/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ statut }),
     })
+    if (!res.ok) {
+      toast.error(res.status === 401 || res.status === 403 ? 'Accès refusé' : 'Erreur statut')
+      setActionId(null)
+      return
+    }
     await fetchEvents(evtTab, subFilter)
     fetchTabCounts()
     setActionId(null)
@@ -397,19 +385,20 @@ export default function AdminDashboard() {
   const supprimer = async (id: string) => {
     if (!confirm('Supprimer cet événement ?')) return
     setActionId(id)
-    await fetch(`/api/admin/evenements/${id}`, { method: 'DELETE' })
+    const res = await authedFetch(`/api/admin/evenements/${id}`, { method: 'DELETE' })
+    if (!res.ok) {
+      toast.error(res.status === 401 || res.status === 403 ? 'Accès refusé' : 'Erreur suppression')
+      setActionId(null)
+      return
+    }
     setEvenements(prev => prev.filter(e => e.id !== id))
     fetchTabCounts()
     setActionId(null)
   }
 
   const marquerFeedbackTraite = async (fbId: string) => {
-    const { data: { session } } = await supabase.auth.getSession()
-    const tk = session?.access_token
-    await fetch(`/api/admin/feedbacks/${fbId}`, {
-      method: 'DELETE',
-      headers: tk ? { Authorization: `Bearer ${tk}` } : {},
-    })
+    const res = await authedFetch(`/api/admin/feedbacks/${fbId}`, { method: 'DELETE' })
+    if (!res.ok) { toast.error('Erreur'); return }
     setFeedbacks(prev => prev.filter(f => f.id !== fbId))
   }
 
@@ -417,23 +406,33 @@ export default function AdminDashboard() {
     if (!confirm(`Supprimer ${selection.size} événement(s) ?`)) return
     setBulkLoading(true)
     const ids = Array.from(selection)
-    await Promise.all(ids.map(id => fetch(`/api/admin/evenements/${id}`, { method: 'DELETE' })))
-    setEvenements(prev => prev.filter(e => !ids.includes(e.id)))
+    const results = await Promise.all(
+      ids.map(id => authedFetch(`/api/admin/evenements/${id}`, { method: 'DELETE' })),
+    )
+    const okIds = ids.filter((_, i) => results[i].ok)
+    const failedCount = ids.length - okIds.length
+    if (okIds.length) setEvenements(prev => prev.filter(e => !okIds.includes(e.id)))
     setSelection(new Set())
+    if (failedCount > 0) toast.error(`${failedCount} suppression(s) échouée(s)`)
     fetchTabCounts()
+    // Resync au cas où certains échecs auraient laissé des fantômes dans l'UI
+    if (failedCount > 0) await fetchEvents(evtTab, subFilter)
     setBulkLoading(false)
   }
 
   const publierSelection = async () => {
     if (!confirm(`Publier ${selection.size} événement(s) ?`)) return
     setBulkLoading(true)
-    await Promise.all(Array.from(selection).map(id =>
-      fetch(`/api/admin/evenements/${id}`, {
+    const ids = Array.from(selection)
+    const results = await Promise.all(ids.map(id =>
+      authedFetch(`/api/admin/evenements/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ statut: 'publie' }),
-      })
+      }),
     ))
+    const failedCount = results.filter(r => !r.ok).length
+    if (failedCount > 0) toast.error(`${failedCount} publication(s) échouée(s)`)
     setSelection(new Set())
     await fetchEvents(evtTab, subFilter)
     fetchTabCounts()
@@ -462,13 +461,12 @@ export default function AdminDashboard() {
     const email = adminInput.trim().toLowerCase()
     if (!email.includes('@')) return
     setAdminLoading(true); setAdminError('')
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/admin/admins', {
+    const res = await authedFetch('/api/admin/admins', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
     })
-    const json = await res.json()
+    const json = await res.json().catch(() => ({}))
     if (!res.ok) setAdminError(json.error ?? 'Erreur')
     else { setAdminInput(''); fetchAdmins() }
     setAdminLoading(false)
@@ -476,12 +474,12 @@ export default function AdminDashboard() {
 
   const removeAdmin = async (email: string) => {
     if (!confirm(`Retirer ${email} des admins ?`)) return
-    const { data: { session } } = await supabase.auth.getSession()
-    await fetch('/api/admin/admins', {
+    const res = await authedFetch('/api/admin/admins', {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
     })
+    if (!res.ok) { toast.error('Erreur'); return }
     fetchAdmins()
   }
 
