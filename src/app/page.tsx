@@ -31,8 +31,9 @@ import { useNotifications } from '@/hooks/useNotifications'
 
 const MapView                   = dynamic(() => import('@/components/MapView'),                    { ssr: false })
 const BottomSheet               = dynamic(() => import('@/components/BottomSheet'),                { ssr: false })
-const ProducteurPageClient      = dynamic(() => import('@/app/producteur/[id]/client'),            { ssr: false })
-const EtablissementPageClient   = dynamic(() => import('@/app/etablissement/[id]/client'),         { ssr: false })
+// ProducteurPageClient / EtablissementPageClient : retirés (sous-étape 5.2)
+// Les fiches sont maintenant rendues via les intercepting routes
+// @modal/(.)producteur/[id] et @modal/(.)etablissement/[id].
 
 const defaultFiltres: Filtres = { categories: [], quand: 'toujours' }
 const NAV_H = 62
@@ -68,13 +69,12 @@ export default function HomePage() {
   const [producers, setProducers]             = useState<import('@/lib/types').ProducerCard[]>([])
   const [producerLoading, setProducerLoading] = useState(false)
   const [selectedProducerId, setSelectedProducerId] = useState<string | null>(null)
-  const [openProducerId, setOpenProducerIdState]    = useState<string | null>(null)
-  const openProducerIdRef = useRef<string | null>(null)
+  // openProducerId / openEtablissementId : supprimés (sous-étape 5.2).
+  // Les fiches s'affichent via intercepting routes (.)producteur/[id] et
+  // (.)etablissement/[id] dans le slot @modal. État géré par le router Next.
   const [etablissements, setEtablissements]         = useState<EtablissementCard[]>([])
   const [etablissementLoading, setEtablissementLoading] = useState(false)
   const [selectedEtabType, setSelectedEtabType]     = useState<EtablissementType | null>(null)
-  const [openEtablissementId, setOpenEtablissementId] = useState<string | null>(null)
-  const openEtablissementIdRef = useRef<string | null>(null)
   const [annuaireTab, setAnnuaireTab] = useState(0) // 0 = producteurs, 1 = commerces
   const [etabSearch, setEtabSearch] = useState('')
   const [selectedCats, setSelectedCats] = useState<ProduitCategorie[]>([])
@@ -537,9 +537,9 @@ export default function HomePage() {
   const splashEvents = splashFeaturedEvents.length > 0 ? splashFeaturedEvents : maxEventsLegacy
 
   const handleNavTab = (tab: NavTab) => {
-    // Ferme tout overlay etab/producer ouvert quand l'user clique sur la bottom nav
-    if (openProducerIdRef.current) { setOpenProducerIdState(null); openProducerIdRef.current = null }
-    if (openEtablissementIdRef.current) { setOpenEtablissementId(null); openEtablissementIdRef.current = null }
+    // Note : si une intercepting route (.)producteur/[id] ou (.)etablissement/[id]
+    // est ouverte, la nav vers la home est gérée par Next.js. Pas besoin de
+    // close manuel comme avant.
     if (tab === 'accueil') { setShowHub(true); setNavTab('accueil'); return }
     if (tab === 'annonces') { router.push('/annonces'); return }
     // Pour tous les autres onglets, on quitte le hub si on y était
@@ -652,62 +652,24 @@ export default function HomePage() {
       })
   }, [etablissements, etabSearch, userZoneActive, userRayon, userCentre, zoneCentres, rayonAffichage])
 
-  const openProducer = useCallback((id: string) => {
-    openProducerIdRef.current = id
-    setOpenProducerIdState(id)
-    history.pushState({ pdv: 'producer', id }, '', `/producteur/${id}`)
-  }, [])
-
-  const closeProducer = useCallback(() => {
-    if (!openProducerIdRef.current) return
-    openProducerIdRef.current = null
-    setOpenProducerIdState(null)
-    if (window.location.pathname.startsWith('/producteur/')) history.back()
-  }, [])
-
-  // Ferme l'overlay producteur/établissement quand l'utilisateur appuie sur "retour".
+  // ─────────────────────────────────────────────────────────────────────
+  // Sous-étape 5.2 : overlays producteur/établissement → intercepting routes
+  // Next.js (slot @modal au root layout). openProducer/openEtablissement
+  // deviennent de simples router.push : le slot intercepte le soft-nav et
+  // affiche la fiche par-dessus la home (children) — la home + sa carte
+  // restent montées dessous → pas de remount.
   //
-  // Coordination avec HistoryTrapProvider (cf. src/contexts/HistoryTrapContext.tsx) :
-  // Le trap PWA re-pousse en boucle une sentinelle marquée `_pwa_trap` au-dessus
-  // de l'entrée d'historique courante. Quand l'utilisateur pop cette sentinelle
-  // alors qu'un overlay est ouvert, on veut fermer l'overlay (priorité ici) ;
-  // si AUCUN overlay n'est ouvert et que l'event vient juste du trap, on laisse
-  // tomber pour éviter un side effect inutile — le trap se charge alors lui-même
-  // du repush dans son listener.
-  useEffect(() => {
-    const onPop = (e: PopStateEvent) => {
-      const hasOverlay = !!openProducerIdRef.current || !!openEtablissementIdRef.current
-      // Si aucun overlay actif ET event de sentinelle trap → no-op
-      // (Évite que page.tsx interfère avec le cycle de re-push du trap.)
-      if (!hasOverlay && e.state && typeof e.state === 'object' && (e.state as { _pwa_trap?: boolean })._pwa_trap) {
-        return
-      }
-      // Sinon, ferme les overlays s'il y en a (idempotent si pas ouverts)
-      if (openProducerIdRef.current) {
-        openProducerIdRef.current = null
-        setOpenProducerIdState(null)
-      }
-      if (openEtablissementIdRef.current) {
-        openEtablissementIdRef.current = null
-        setOpenEtablissementId(null)
-      }
-    }
-    window.addEventListener('popstate', onPop)
-    return () => window.removeEventListener('popstate', onPop)
-  }, [])
-
-  const openEtablissement = useCallback((id: string) => {
-    openEtablissementIdRef.current = id
-    setOpenEtablissementId(id)
-    history.pushState({ pdv: 'etablissement', id }, '', `/etablissement/${id}`)
-  }, [])
-
-  const closeEtablissement = useCallback(() => {
-    if (!openEtablissementIdRef.current) return
-    openEtablissementIdRef.current = null
-    setOpenEtablissementId(null)
-    if (window.location.pathname.startsWith('/etablissement/')) history.back()
-  }, [])
+  // Refresh / lien direct sur /producteur/[id] ou /etablissement/[id] →
+  // la vraie route prend le relais plein écran (SSR OpenGraph).
+  //
+  // Supprimé :
+  //   - openProducerIdRef / openEtablissementIdRef
+  //   - history.pushState hack
+  //   - listener popstate dédié aux overlays + coordination HistoryTrap
+  //   - closeProducer / closeEtablissement (router.back() côté fiche suffit)
+  // ─────────────────────────────────────────────────────────────────────
+  const openProducer      = useCallback((id: string) => router.push(`/producteur/${id}`), [router])
+  const openEtablissement = useCallback((id: string) => router.push(`/etablissement/${id}`), [router])
 
   const handleViewProducerOnMap = (id: string) => {
     const p = producers.find(x => x.id === id)
@@ -794,7 +756,10 @@ export default function HomePage() {
 
       {/* ─── Boutons carte — haut gauche + haut droite ─── */}
       {(() => {
-        const showBtns = !showHub && navTab === 'carte' && sheetMode !== 'full' && !openProducerId && !openEtablissementId && !searchOpen
+        // showBtns : les fiches producteur/etab ouvertes ne sont plus
+        // un state local — elles sont gérées par les intercepting routes.
+        // Le slot @modal au layout masque les boutons via z-index.
+        const showBtns = !showHub && navTab === 'carte' && sheetMode !== 'full' && !searchOpen
         // V3 derived map mode (evt/etab/prod)
         const mapMode: 'evt' | 'etab' | 'prod' =
           appMode === 'agenda' ? 'evt' : annuaireTab === 1 ? 'etab' : 'prod'
@@ -1270,20 +1235,10 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Overlay fiche producteur — sans navigation, retour = popstate
-          bottom: NAV_H laisse la bottom bar toujours visible et utilisable */}
-      {openProducerId && (
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 35, overflowY: 'auto', backgroundColor: '#F2EBE0' }}>
-          <ProducteurPageClient id={openProducerId} onBack={closeProducer} />
-        </div>
-      )}
-
-      {/* Overlay fiche établissement — idem, nav toujours accessible */}
-      {openEtablissementId && (
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 35, overflowY: 'auto', backgroundColor: '#FDFAF6' }}>
-          <EtablissementPageClient id={openEtablissementId} onBack={closeEtablissement} />
-        </div>
-      )}
+      {/* Fiches producteur/établissement : sous-étape 5.2 — rendues via
+          intercepting routes Next.js dans le slot @modal du root layout.
+          Plus de rendu local : router.push('/producteur/[id]') depuis la
+          carte ouvre la fiche par-dessus children sans démonter la home. */}
 
       <MaxSplash events={splashEvents} loading={loading} />
 
