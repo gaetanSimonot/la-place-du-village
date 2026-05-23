@@ -54,7 +54,17 @@ export const viewport: Viewport = {
   userScalable: false,
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+  modal,
+}: {
+  children: React.ReactNode
+  // Slot @modal : rendu en parallèle de children. Vide par défaut
+  // (cf. src/app/@modal/default.tsx). Rempli par les intercepting routes
+  // (.)producteur/[id] et (.)etablissement/[id] lors d'un soft-nav vers
+  // ces URLs depuis l'app.
+  modal: React.ReactNode
+}) {
   return (
     <html lang="fr" className={`${inter.variable} ${dmSerif.variable} ${caveat.variable}`}>
       <head>
@@ -77,6 +87,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <HistoryTrapProvider>
                   <PhoneFrame>
                     {children}
+                    {/* Modal slot : interceptors (.)producteur / (.)etablissement
+                        s'affichent ici par-dessus children. La home + sa carte
+                        restent montées dessous → pas de remount carte. */}
+                    {modal}
                     <InstallBanner />
                     <AuthModal />
                     <Toaster
