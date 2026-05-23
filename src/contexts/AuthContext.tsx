@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import { escapeLikePattern } from '@/lib/escape-like'
 
 export interface DisplaySettings {
   banner: boolean
@@ -113,8 +114,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .eq('user_id', userId)
           .single(),
         email
-          // Case-insensitive aligned avec is_admin() SQL (lower=lower)
-          ? supabase.from('admin_emails').select('email').ilike('email', email.toLowerCase()).maybeSingle()
+          // Case-insensitive aligned avec is_admin() SQL (lower=lower), ET
+          // wildcards LIKE échappés pour bloquer l'injection : un user qui
+          // se crée avec `admin_a@x.com` ne doit PAS matcher `adminxa@x.com`.
+          ? supabase.from('admin_emails').select('email').ilike('email', escapeLikePattern(email.toLowerCase())).maybeSingle()
           : Promise.resolve({ data: null }),
       ])
 

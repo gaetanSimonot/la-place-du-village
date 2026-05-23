@@ -16,6 +16,7 @@
 import type { NextRequest } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import type { Plan, UserContext } from '@/lib/capabilities'
+import { escapeLikePattern } from '@/lib/escape-like'
 
 export interface ServerUserContext extends UserContext {
   userId: string
@@ -42,11 +43,11 @@ export async function getUserContextFromRequest(
       .eq('user_id', user.id)
       .maybeSingle(),
     user.email
-      // Comparaison case-insensitive (ilike avec email lowercase) — alignée
-      // sur la fonction SQL public.is_admin() qui fait lower(email)=lower(v_email).
-      // Évite un 403 si la casse de l'email dans admin_emails diffère de
-      // celle retournée par Supabase Auth.
-      ? supabaseAdmin.from('admin_emails').select('email').ilike('email', user.email.toLowerCase()).maybeSingle()
+      // Case-insensitive ALIGNED avec la fonction SQL public.is_admin()
+      // (lower(email)=lower(v_email)) MAIS échappe les wildcards LIKE (_ et %)
+      // pour ne PAS être vulnérable à l'injection : sans escape, un user qui
+      // se crée avec `admin_a@x.com` matcherait `adminxa@x.com` via `_`.
+      ? supabaseAdmin.from('admin_emails').select('email').ilike('email', escapeLikePattern(user.email.toLowerCase())).maybeSingle()
       : Promise.resolve({ data: null }),
   ])
 
