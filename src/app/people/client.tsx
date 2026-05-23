@@ -1,23 +1,22 @@
 'use client'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import useSWR from 'swr'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import BottomNavBar from '@/components/BottomNavBar'
 import PersonCard, { type PersonCardData } from '@/components/PersonCard'
 import { useFriendships } from '@/hooks/useFriendships'
+import { authedFetcher } from '@/lib/swr-fetchers'
 
 type Filter = 'all' | 'friends'
-
-const PAGE_LIMIT = 200
 
 export default function PeopleClient() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
-  const [people, setPeople]     = useState<PersonCardData[]>([])
-  const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [filter, setFilter]     = useState<Filter>('all')
   const { statusWith, friendProfiles, pendingReceived, sendRequest, accept, cancel } = useFriendships()
 
@@ -28,88 +27,35 @@ export default function PeopleClient() {
     }
   }, [authLoading, user, router])
 
-  // ──────────────────────────────────────────────────────────────────────
-  // Fetch BROWSE (search vide) — lit la VUE profiles_public_listing.
-  // is_public=true AND banned=false enforced au niveau de la vue → impossible
-  // qu'un profil privé apparaisse, peu importe la query.
-  // ──────────────────────────────────────────────────────────────────────
-  const loadBrowse = useCallback(async () => {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('profiles_public_listing')
-      .select('user_id, display_name, avatar_url, ville, genre, is_verified')
-      .order('display_name', { ascending: true, nullsFirst: false })
-      .limit(PAGE_LIMIT)
-    if (error) console.error('[people] browse error:', error.message)
-    setPeople((data as PersonCardData[] | null) ?? [])
-    setLoading(false)
-  }, [])
-
-  // ──────────────────────────────────────────────────────────────────────
-  // Fetch SEARCH (search.length >= 2) — lit la VUE profiles_searchable.
-  // searchable=true AND banned=false enforced au niveau de la vue → impossible
-  // qu'un profil non-searchable soit trouvé via cette page.
-  // ──────────────────────────────────────────────────────────────────────
-  const loadSearch = useCallback(async (q: string) => {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('profiles_searchable')
-      .select('user_id, display_name, avatar_url, ville')
-      .or(`display_name.ilike.%${q}%,ville.ilike.%${q}%`)
-      .order('display_name', { ascending: true, nullsFirst: false })
-      .limit(PAGE_LIMIT)
-    if (error) console.error('[people] search error:', error.message)
-    setPeople((data as PersonCardData[] | null) ?? [])
-    setLoading(false)
-  }, [])
-
-  // Debounce sur search (250ms) — évite de saturer la DB à chaque keystroke
+  // Debounce sur search (250ms) — évite de saturer le serveur à chaque keystroke
   useEffect(() => {
-    const q = search.trim()
     const t = setTimeout(() => {
-      if (q.length === 0) loadBrowse()
-      else if (q.length >= 2) loadSearch(q)
-      // q.length === 1 → ne fait rien (évite trop de matches)
+      const q = search.trim()
+      // q.length === 1 → on ne change pas debouncedSearch (évite trop de matches)
+      if (q.length === 0 || q.length >= 2) setDebouncedSearch(q)
     }, 250)
     return () => clearTimeout(t)
-  }, [search, loadBrowse, loadSearch])
-
-  // Refetch quand on revient sur la page (focus/visibility) — évite de
-  // garder un snapshot stale après suppression d'un profil ailleurs
-  useEffect(() => {
-    const onFocus = () => {
-      const q = search.trim()
-      if (q.length === 0) loadBrowse()
-      else if (q.length >= 2) loadSearch(q)
-    }
-    const onVisible = () => { if (document.visibilityState === 'visible') onFocus() }
-    window.addEventListener('focus', onFocus)
-    document.addEventListener('visibilitychange', onVisible)
-    return () => {
-      window.removeEventListener('focus', onFocus)
-      document.removeEventListener('visibilitychange', onVisible)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search])
 
-  // Realtime sur profiles : refetch dès qu'un profile est supprimé ou modifié
+  // SWR + authedFetcher — clé null tant que la session n'est pas prête.
+  // Inclut la query dans la clé → cache par recherche, retour instantané.
+  const peopleKey = !authLoading && user
+    ? `/api/people${debouncedSearch ? `?q=${encodeURIComponent(debouncedSearch)}` : ''}`
+    : null
+  const { data, isLoading, mutate } = useSWR<{ people: PersonCardData[] }>(peopleKey, authedFetcher)
+  const people = useMemo<PersonCardData[]>(() => data?.people ?? [], [data])
+  const loading = (isLoading && !data) ? true : false
+
+  // Realtime sur profiles : mutate() invalide la clé courante → refetch
   useEffect(() => {
+    if (!peopleKey) return
     const ch = supabase
       .channel('people-profiles-watch')
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'profiles' }, () => {
-        const q = search.trim()
-        if (q.length === 0) loadBrowse()
-        else if (q.length >= 2) loadSearch(q)
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, () => {
-        const q = search.trim()
-        if (q.length === 0) loadBrowse()
-        else if (q.length >= 2) loadSearch(q)
-      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'profiles' }, () => mutate())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, () => mutate())
       .subscribe()
     return () => { supabase.removeChannel(ch) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search])
+  }, [peopleKey, mutate])
 
   const visible = useMemo(() => {
     // Filtre "Mes amis" : on prend la liste des amis depuis le hook + filter par search

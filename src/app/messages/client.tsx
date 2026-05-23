@@ -1,12 +1,13 @@
 'use client'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { supabase } from '@/lib/supabase'
+import useSWR from 'swr'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import BottomNavBar from '@/components/BottomNavBar'
-import { ADAPTERS, SOURCE_META, type Source, type UnifiedConversation } from '@/lib/inbox-adapters'
+import { type Source, type UnifiedConversation } from '@/lib/inbox-adapters'
+import { authedFetcher, FetchError } from '@/lib/swr-fetchers'
 
 type Filter = 'all' | Source
 
@@ -38,9 +39,6 @@ export default function MessagesClient() {
   const { user, loading: authLoading } = useAuth()
   const { openAuthModal } = useAuthModal()
 
-  const [convs, setConvs]       = useState<UnifiedConversation[]>([])
-  const [loading, setLoading]   = useState(true)
-  const [errors, setErrors]     = useState<string[]>([])
   const [filter, setFilter]     = useState<Filter>('all')
   const [search, setSearch]     = useState('')
 
@@ -49,29 +47,27 @@ export default function MessagesClient() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user])
 
-  const load = useCallback(async () => {
-    if (!user) return
-    setLoading(true)
-    setErrors([])
-    const { data: { session } } = await supabase.auth.getSession()
-    const token = session?.access_token
-    if (!token) { setLoading(false); return }
+  // SWR + authedFetcher — pattern validé sur MurTab. Clé null tant que la
+  // session n'est pas prête → pas de race "load avant token".
+  const messagesKey = !authLoading && user ? '/api/messages' : null
+  const { data, error, isLoading } = useSWR<{ conversations: UnifiedConversation[]; errors: string[] }>(
+    messagesKey,
+    authedFetcher,
+  )
 
-    const results = await Promise.allSettled(ADAPTERS.map(a => a.fetch(token)))
-    const merged: UnifiedConversation[] = []
-    const errs: string[] = []
-    results.forEach((r, i) => {
-      const src = ADAPTERS[i].source
-      if (r.status === 'fulfilled') merged.push(...r.value)
-      else                          errs.push(`${SOURCE_META[src].label} : ${r.reason instanceof Error ? r.reason.message : 'Erreur'}`)
-    })
-    merged.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    setConvs(merged)
-    setErrors(errs)
-    setLoading(false)
-  }, [user])
+  // 401 final → toast clair (au lieu d'écran vide silencieux)
+  useEffect(() => {
+    if (error instanceof FetchError && error.status === 401) {
+      toast.error('Session expirée, reconnecte-toi')
+    } else if (error) {
+      toast.error('Impossible de charger les conversations')
+    }
+  }, [error])
 
-  useEffect(() => { load() }, [load])
+  // useMemo pour stabiliser refs array (sinon useMemo aval re-trigger en boucle)
+  const convs = useMemo<UnifiedConversation[]>(() => data?.conversations ?? [], [data])
+  const errors = useMemo<string[]>(() => data?.errors ?? [], [data])
+  const loading = (isLoading && !data) ? true : false
 
   const countsBySource = useMemo(() => {
     const c: Record<Source, number> = { annonce: 0, covoit: 0, support: 0, friend: 0 }

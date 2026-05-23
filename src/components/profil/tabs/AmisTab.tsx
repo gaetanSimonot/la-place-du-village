@@ -1,11 +1,12 @@
 'use client'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { supabase } from '@/lib/supabase'
+import useSWR from 'swr'
 import { useAuth } from '@/hooks/useAuth'
 import type { useFriendships } from '@/hooks/useFriendships'
 import { openFriendChat } from '@/lib/openFriendChat'
+import { authedFetcher } from '@/lib/swr-fetchers'
 import { IcChat, IcUsers, IcUserPlus, IcEye } from '../icons'
 
 type SubTab = 'amis' | 'suggestions' | 'demandes'
@@ -24,14 +25,12 @@ interface PersonRow {
 export type FriendsHookState = ReturnType<typeof useFriendships>
 
 export default function AmisTab({ friends }: { friends: FriendsHookState }) {
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const { friendProfiles, friendIds, friendships, pendingReceived, profilesByUserId, sendRequest, accept, cancel, loading } =
     friends
 
   const [sub, setSub] = useState<SubTab>('amis')
   const [search, setSearch] = useState('')
-  const [suggestions, setSuggestions] = useState<PersonRow[]>([])
-  const [suggLoading, setSuggLoading] = useState(false)
   const [pendingActionId, setPendingActionId] = useState<string | null>(null)
 
   // Tous les user_id avec qui j'ai déjà une relation (amis OU pending) — à exclure des suggestions
@@ -48,22 +47,21 @@ export default function AmisTab({ friends }: { friends: FriendsHookState }) {
     return s
   }, [user, friendIds, friendships])
 
-  // Charge les suggestions : profils publics, hors moi/amis/pending. Pas de scoring V1.
-  const loadSuggestions = useCallback(async () => {
-    setSuggLoading(true)
-    const { data } = await supabase
-      .from('profiles_public_listing')
-      .select('user_id, display_name, avatar_url, ville')
-      .order('display_name', { ascending: true, nullsFirst: false })
-      .limit(100)
-    const filtered = (data ?? []).filter(p => !excludeIds.has(p.user_id))
-    setSuggestions(filtered as PersonRow[])
-    setSuggLoading(false)
-  }, [excludeIds])
-
-  useEffect(() => {
-    if (sub === 'suggestions') loadSuggestions()
-  }, [sub, loadSuggestions])
+  // Suggestions via /api/people (mode browse). Fetch UNIQUEMENT quand on est
+  // sur l'onglet suggestions ET que la session est prête → pas de race +
+  // pas de fetch inutile sur les autres onglets.
+  const suggestionsKey = sub === 'suggestions' && !authLoading && user
+    ? '/api/people'
+    : null
+  const { data: suggData, isLoading: suggLoadingRaw } = useSWR<{ people: PersonRow[] }>(
+    suggestionsKey,
+    authedFetcher,
+  )
+  const suggestions: PersonRow[] = useMemo(
+    () => (suggData?.people ?? []).filter(p => !excludeIds.has(p.user_id)),
+    [suggData, excludeIds],
+  )
+  const suggLoading = (suggLoadingRaw && !suggData) ? true : false
 
   // Demandes envoyées en attente (par moi)
   const pendingSent = useMemo(() => {
@@ -105,7 +103,9 @@ export default function AmisTab({ friends }: { friends: FriendsHookState }) {
     try {
       await sendRequest(id)
       toast.success('Demande envoyée')
-      setSuggestions(s => s.filter(p => p.user_id !== id))
+      // Pas besoin de filter manuellement : useFriendships propage la nouvelle
+      // friendship pending → excludeIds inclut maintenant `id` → le filtre
+      // suggestions (useMemo) retire automatiquement la personne.
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
     } finally {

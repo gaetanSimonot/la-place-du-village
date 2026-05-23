@@ -1,12 +1,14 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
+import useSWR from 'swr'
 import { EvenementCard } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { formatEventDate } from '@/lib/filters'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
-import { PRODUIT_CATS_MAP, normalizeProduitCat } from '@/lib/produit-cats'
+import { authedFetcher } from '@/lib/swr-fetchers'
+import { PRODUIT_CATS_MAP } from '@/lib/produit-cats'
 import { ETAB_TYPES } from '@/lib/etablissement-types'
 
 interface ProducerMin {
@@ -53,53 +55,33 @@ const BellIcon = ({ size = 14 }: { size?: number }) => (
 )
 
 export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpenEtablissement, onBack }: Props) {
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [tab, setTab] = useState<Tab>('likes')
-  const [producerFavs, setProducerFavs] = useState<ProducerMin[]>([])
-  const [producerFollows, setProducerFollows] = useState<ProducerMin[]>([])
-  const [etabFavs, setEtabFavs] = useState<EtabMin[]>([])
-  const [etabFollows, setEtabFollows] = useState<EtabMin[]>([])
-  const [loading, setLoading] = useState(false)
-  const [loaded, setLoaded] = useState(false)
 
-  useEffect(() => {
-    if (!user || loaded) return
-    setLoading(true)
+  // SWR + authedFetcher — pattern validé sur MurTab. Clé null tant que la
+  // session n'est pas prête → pas de race. 1 fetch HTTP regroupe les 4
+  // anciennes queries (favorites + followers × producers + etabs).
+  const favKey = !authLoading && user ? '/api/favoris' : null
+  const { data, isLoading, mutate } = useSWR<{
+    producerFavs: ProducerMin[]; producerFollows: ProducerMin[];
+    etabFavs: EtabMin[]; etabFollows: EtabMin[];
+  }>(favKey, authedFetcher)
+  const producerFavs    = data?.producerFavs    ?? []
+  const producerFollows = data?.producerFollows ?? []
+  const etabFavs        = data?.etabFavs        ?? []
+  const etabFollows     = data?.etabFollows     ?? []
+  const loading = isLoading && !data
 
-    async function fetchProducers(table: 'producer_favorites' | 'producer_followers') {
-      const { data: rows } = await supabase.from(table).select('producer_id').eq('user_id', user!.id)
-      const ids = (rows ?? []).map((r: { producer_id: string }) => r.producer_id)
-      if (ids.length === 0) return []
-      const { data } = await supabase.from('producers').select('id, nom, commune, photos, products(categorie, disponible)').in('id', ids)
-      return (data ?? []).map((p: { id: string; nom: string; commune: string | null; photos: string[] | null; products: { categorie: string; disponible: boolean }[] | null }) => ({
-        id: p.id, nom: p.nom, commune: p.commune, photos: p.photos ?? [],
-        produit_categories: Array.from(new Set((p.products ?? []).filter(pr => pr.disponible).map(pr => normalizeProduitCat(pr.categorie)))),
-      }))
-    }
-
-    async function fetchEtabs(table: 'etablissement_favorites' | 'etablissement_followers') {
-      const { data: rows } = await supabase.from(table).select('etablissement_id').eq('user_id', user!.id)
-      const ids = (rows ?? []).map((r: { etablissement_id: string }) => r.etablissement_id)
-      if (ids.length === 0) return []
-      const { data } = await supabase.from('etablissements').select('id, nom, commune, photos, type').in('id', ids)
-      return (data ?? []).map((e: { id: string; nom: string; commune: string | null; photos: string[] | null; type: string }) => ({
-        id: e.id, nom: e.nom, commune: e.commune, photos: e.photos ?? [], type: e.type,
-      }))
-    }
-
-    Promise.all([
-      fetchProducers('producer_favorites'),
-      fetchProducers('producer_followers'),
-      fetchEtabs('etablissement_favorites'),
-      fetchEtabs('etablissement_followers'),
-    ])
-      .then(([pFavs, pFollows, eFavs, eFollows]) => {
-        setProducerFavs(pFavs); setProducerFollows(pFollows)
-        setEtabFavs(eFavs); setEtabFollows(eFollows)
-        setLoaded(true)
-      })
-      .finally(() => setLoading(false))
-  }, [user, loaded])
+  // Helpers d'optimistic unfollow : update du cache SWR sans flash UI.
+  // mutate(updater, false) → bascule l'UI puis on déclenche une revalidation.
+  const removeProducerFav = (id: string) =>
+    mutate(prev => prev ? { ...prev, producerFavs: prev.producerFavs.filter(x => x.id !== id) } : prev, false)
+  const removeEtabFav = (id: string) =>
+    mutate(prev => prev ? { ...prev, etabFavs: prev.etabFavs.filter(x => x.id !== id) } : prev, false)
+  const removeProducerFollow = (id: string) =>
+    mutate(prev => prev ? { ...prev, producerFollows: prev.producerFollows.filter(x => x.id !== id) } : prev, false)
+  const removeEtabFollow = (id: string) =>
+    mutate(prev => prev ? { ...prev, etabFollows: prev.etabFollows.filter(x => x.id !== id) } : prev, false)
 
   const likesCount = events.length + producerFavs.length + etabFavs.length
   const suivisCount = producerFollows.length + etabFollows.length
@@ -192,7 +174,7 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
                           onClick={() => onOpenProducer?.(p.id)}
                           onRemove={async () => {
                             await supabase.from('producer_favorites').delete().eq('producer_id', p.id).eq('user_id', user!.id)
-                            setProducerFavs(prev => prev.filter(x => x.id !== p.id))
+                            removeProducerFav(p.id)
                           }} />
                       ))}
                     </div>
@@ -206,7 +188,7 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
                           onClick={() => onOpenEtablissement?.(e.id)}
                           onRemove={async () => {
                             await supabase.from('etablissement_favorites').delete().eq('etablissement_id', e.id).eq('user_id', user!.id)
-                            setEtabFavs(prev => prev.filter(x => x.id !== e.id))
+                            removeEtabFav(e.id)
                           }} />
                       ))}
                     </div>
@@ -232,7 +214,7 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
                           onClick={() => onOpenProducer?.(p.id)}
                           onRemove={async () => {
                             await supabase.from('producer_followers').delete().eq('producer_id', p.id).eq('user_id', user!.id)
-                            setProducerFollows(prev => prev.filter(x => x.id !== p.id))
+                            removeProducerFollow(p.id)
                           }} />
                       ))}
                     </div>
@@ -248,7 +230,7 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
                             onClick={() => onOpenEtablissement?.(e.id)}
                             onRemove={async () => {
                               await supabase.from('etablissement_followers').delete().eq('etablissement_id', e.id).eq('user_id', user!.id)
-                              setEtabFollows(prev => prev.filter(x => x.id !== e.id))
+                              removeEtabFollow(e.id)
                             }} />
                         )
                       })}
