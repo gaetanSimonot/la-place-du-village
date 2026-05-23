@@ -1,12 +1,14 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import useSWR from 'swr'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import BottomNavBar from '@/components/BottomNavBar'
 import EmbedPanel, { type EmbedItem } from '@/components/EmbedPanel'
 import { useAppViewportHeight } from '@/hooks/useAppViewportHeight'
+import { authedFetcher, FetchError } from '@/lib/swr-fetchers'
 
 interface Message {
   id:              string  // 'temp_xxx' tant que pas confirmé serveur
@@ -85,47 +87,92 @@ export default function ConversationClient({ convId }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user])
 
-  // Load messages + autre membre + mark read
-  const load = useCallback(async () => {
-    if (!user) return
-    const { data: { session } } = await supabase.auth.getSession()
-    const token = session?.access_token
-    if (!token) { setLoading(false); return }
+  // ──────────────────────────────────────────────────────────────────────
+  // SWR — BOOT LOADER uniquement. On hydrate le state local `messages` /
+  // `canWrite` au PREMIER mount, puis on laisse Realtime + optimistic
+  // gérer le state local seul. SWR conserve un cache mémoire → au retour
+  // sur une conv déjà ouverte, l'hydratation se fait depuis le cache et
+  // l'écran s'affiche instantané.
+  //
+  // POURQUOI ne PAS faire de SWR la source de vérité du chat :
+  //  - Realtime ajoute des messages au state local (setMessages prev=>...)
+  //  - Optimistic temp messages + reconciliation matchesTemp est complexe
+  //  - Synchroniser ces 2 mécaniques avec le cache SWR introduit des races
+  //    qu'on ne veut PAS prendre sur le chat (qui marche déjà très bien).
+  //
+  // Choix : SWR = hydratation initiale. State local = source de vérité
+  // après hydratation. revalidateOnFocus DÉSACTIVÉ pour cette clé (sinon
+  // un focus refetch écraserait les optimistic en cours).
+  // ──────────────────────────────────────────────────────────────────────
+  const bootKey = !authLoading && user && convId
+    ? `/api/conversations/${convId}/messages`
+    : null
 
-    const res = await fetch(`/api/conversations/${convId}/messages`, { headers: { Authorization: `Bearer ${token}` } })
-    if (res.status === 403) {
+  const { data: bootData, error: bootError } = useSWR<{ messages: Message[]; canWrite?: boolean }>(
+    bootKey,
+    authedFetcher,
+    {
+      // Pas de revalidateOnFocus : on a Realtime qui fait le job.
+      // Sinon un focus écraserait les temp_ messages optimistic en cours.
+      revalidateOnFocus: false,
+      // Pas non plus de revalidateIfStale : on garde le cache tel quel,
+      // Realtime se charge des updates pendant la session.
+      revalidateIfStale: false,
+    },
+  )
+
+  // Hydrate le state local UNE FOIS depuis le boot SWR. Les revalidations
+  // suivantes (rare car revalidateOnFocus=false) sont ignorées pour ne pas
+  // perturber le state live.
+  const hydratedRef = useRef(false)
+  useEffect(() => {
+    if (hydratedRef.current) return
+    if (bootData) {
+      setMessages((bootData.messages ?? []) as Message[])
+      setCanWrite(bootData.canWrite !== false)
+      setLoading(false)
+      hydratedRef.current = true
+    }
+  }, [bootData])
+
+  // Handle 403 (accès refusé) depuis l'error SWR
+  useEffect(() => {
+    if (!bootError) return
+    if (bootError instanceof FetchError && bootError.status === 403) {
       setAccessDenied(true)
-      setLoading(false)
-      return
+    } else {
+      setError(bootError instanceof Error ? bootError.message : 'Erreur de chargement')
     }
-    if (!res.ok) {
-      const d = await res.json().catch(() => ({}))
-      setError(d.error || 'Erreur de chargement')
-      setLoading(false)
-      return
-    }
-    const data = await res.json()
-    setMessages((data.messages ?? []) as Message[])
-    setCanWrite(data.canWrite !== false)
     setLoading(false)
+  }, [bootError])
 
-    // Marque comme lu
-    fetch(`/api/conversations/${convId}/read`, {
-      method:  'POST',
-      headers: { Authorization: `Bearer ${token}` },
-    }).catch(() => {})
-
-    // Récupère le profil de l'autre membre (depuis /api/conversations qui enrichit)
-    fetch('/api/conversations', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(d => {
-        const conv = (d.conversations ?? []).find((c: { id: string; other_member?: { display_name: string | null; avatar_url: string | null } | null }) => c.id === convId)
-        if (conv?.other_member) setOther(conv.other_member)
-      })
-      .catch(() => {})
-  }, [user, convId])
-
-  useEffect(() => { load() }, [load])
+  // Mark-as-read + récupération du profil de l'autre membre — déclenchés
+  // une fois que la boot data est arrivée. Ces 2 effets sont idempotents
+  // et ne dépendent pas de la source SWR.
+  useEffect(() => {
+    if (!bootData || !user) return
+    let cancelled = false
+    ;(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      if (!token || cancelled) return
+      // Marque comme lu
+      fetch(`/api/conversations/${convId}/read`, {
+        method:  'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {})
+      // Profil de l'autre membre
+      fetch('/api/conversations', { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(d => {
+          if (cancelled) return
+          const conv = (d.conversations ?? []).find((c: { id: string; other_member?: { display_name: string | null; avatar_url: string | null } | null }) => c.id === convId)
+          if (conv?.other_member) setOther(conv.other_member)
+        })
+        .catch(() => {})
+    })()
+    return () => { cancelled = true }
+  }, [bootData, user, convId])
 
   // ── Realtime (channel scopé à la conv + cleanup au unmount) ──────────────
   useEffect(() => {
