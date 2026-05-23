@@ -668,8 +668,12 @@ export default function HomePage() {
   //   - listener popstate dédié aux overlays + coordination HistoryTrap
   //   - closeProducer / closeEtablissement (router.back() côté fiche suffit)
   // ─────────────────────────────────────────────────────────────────────
-  const openProducer      = useCallback((id: string) => router.push(`/producteur/${id}`), [router])
-  const openEtablissement = useCallback((id: string) => router.push(`/etablissement/${id}`), [router])
+  // { scroll: false } : Next ne scrolle pas la window au push → la home
+  // (carte + sheet + listes) reste visuellement figée pendant que le shell
+  // modal s'ouvre par-dessus. Au retour (close modal), aucun re-scroll
+  // non plus → scroll interne préservé comme avec l'ancien overlay.
+  const openProducer      = useCallback((id: string) => router.push(`/producteur/${id}`,    { scroll: false }), [router])
+  const openEtablissement = useCallback((id: string) => router.push(`/etablissement/${id}`, { scroll: false }), [router])
 
   const handleViewProducerOnMap = (id: string) => {
     const p = producers.find(x => x.id === id)
