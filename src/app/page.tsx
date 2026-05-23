@@ -313,6 +313,103 @@ export default function HomePage() {
     }
   }, [])
 
+  // ──────────────────────────────────────────────────────────────────────
+  // MIROIR URL ↔ état (sous-étape 5.1)
+  //
+  // L'URL devient un miroir de l'écran courant + filtres → refresh ou
+  // partage de lien restaurent le bon écran SANS recharger ni démonter.
+  // Pattern history.replaceState (pas router.push) → aucune nav Next,
+  // aucun remount. Même approche que le ?tab= déjà en place sur /profil.
+  //
+  // Champs sync :
+  //   ?mode=hub|agenda|annuaire   (showHub + appMode combinés)
+  //   ?cat=concert,marche         (filtres.categories en CSV)
+  //   ?quand=cette_semaine        (filtres.quand si != 'toujours')
+  //   ?ann=commerces              (annuaireTab=1, omis si producteurs)
+  //   ?prodcat=legumes,fruits     (selectedCats en CSV, mode annuaire only)
+  //   ?q=texte                    (producerSearch ou etabSearch selon ann)
+  //
+  // URL > sessionStorage : si ?mode= explicit, on l'applique. Sinon les
+  // autres useEffect (sessionStorage / pdv-nav-state) restent maîtres.
+  // ──────────────────────────────────────────────────────────────────────
+
+  // 1) RESTAURATION depuis URL au MOUNT (URL prend priorité si présente)
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search)
+    if (!sp.has('mode')) return  // pas d'URL state → laisse sessionStorage faire
+
+    const mode = sp.get('mode')
+    if (mode === 'hub') {
+      setShowHub(true)
+    } else if (mode === 'agenda') {
+      setShowHub(false)
+      setAppMode('agenda')
+    } else if (mode === 'annuaire') {
+      setShowHub(false)
+      setAppMode('annuaire')
+    }
+
+    // Filtres agenda
+    const cat   = sp.get('cat')
+    const quand = sp.get('quand')
+    if (cat || quand) {
+      setFiltres(prev => ({
+        categories: cat
+          ? (cat.split(',').filter(Boolean) as import('@/lib/types').Categorie[])
+          : prev.categories,
+        quand: (quand as import('@/lib/types').FiltreQuand) ?? prev.quand,
+      }))
+    }
+
+    // Onglet + filtres annuaire
+    const ann = sp.get('ann')
+    const annTabFromUrl = ann === 'commerces' ? 1 : 0
+    if (ann === 'commerces') setAnnuaireTab(1)
+    else if (ann === 'producteurs') setAnnuaireTab(0)
+
+    const prodcat = sp.get('prodcat')
+    if (prodcat) setSelectedCats(prodcat.split(',').filter(Boolean) as ProduitCategorie[])
+
+    // Recherche selon l'onglet annuaire courant (déduit depuis l'URL)
+    const q = sp.get('q')
+    if (q) {
+      if (annTabFromUrl === 1) setEtabSearch(q)
+      else                     setProducerSearch(q)
+    }
+  }, [])
+
+  // 2) SYNC état → URL (replaceState, miroir non bloquant)
+  useEffect(() => {
+    const sp = new URLSearchParams()
+    const mode = showHub ? 'hub' : appMode
+    // hub est l'état par défaut → on garde l'URL propre sans ?mode= dans ce cas
+    if (mode !== 'hub') sp.set('mode', mode)
+
+    if (mode === 'agenda') {
+      if (filtres.categories.length > 0) sp.set('cat', filtres.categories.join(','))
+      if (filtres.quand !== 'toujours')  sp.set('quand', filtres.quand)
+    } else if (mode === 'annuaire') {
+      if (annuaireTab === 1) sp.set('ann', 'commerces')
+      if (annuaireTab === 0 && selectedCats.length > 0) sp.set('prodcat', selectedCats.join(','))
+      const q = (annuaireTab === 0 ? producerSearch : etabSearch).trim()
+      if (q) sp.set('q', q)
+    }
+
+    // Préserve les autres query params éventuels (?tab=, etc. utilisés par d'autres flows)
+    const current = new URLSearchParams(window.location.search)
+    current.forEach((v, k) => {
+      if (k !== 'mode' && k !== 'cat' && k !== 'quand' && k !== 'ann' && k !== 'prodcat' && k !== 'q') {
+        sp.set(k, v)
+      }
+    })
+
+    const search = sp.toString()
+    const newUrl = window.location.pathname + (search ? `?${search}` : '')
+    if (window.location.pathname + window.location.search !== newUrl) {
+      window.history.replaceState(window.history.state, '', newUrl)
+    }
+  }, [showHub, appMode, filtres, annuaireTab, selectedCats, producerSearch, etabSearch])
+
   // Config chargée une seule fois au mount + écoute changements admin
   useEffect(() => {
     supabase.from('config').select('value').eq('key', 'masquer_passes').single()
