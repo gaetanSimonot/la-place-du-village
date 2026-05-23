@@ -39,7 +39,11 @@ export default function InterceptModalShell({ children }: { children: React.Reac
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 90,
+        // z-index 400 = au-dessus de tous les overlays carte de page.tsx :
+        //   1 carte · 19 ProBandeau · 25 vues plein écran · 200 boutons map
+        //   (search/filtres/+) · 300/301 backdrop+menu publish · 50 nav bar
+        // → 400 nous met devant tout, fiche complètement isolée.
+        zIndex: 400,
         background: 'var(--creme, #FDFAF5)',
         overflowY: 'auto',
         // overscroll-behavior contain → swipe-back navigateur n'agit pas
