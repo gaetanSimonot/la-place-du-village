@@ -15,6 +15,7 @@ import { useFavorites } from '@/hooks/useFavorites'
 import FeatureButton from '@/components/FeatureButton'
 import BottomNavBar from '@/components/BottomNavBar'
 import FeedbackButton from '@/components/FeedbackButton'
+import { useSmartBack } from '@/hooks/useSmartBack'
 
 const LINK_STYLE = { color: '#C84B2F', textDecoration: 'underline', wordBreak: 'break-all' } as const
 
@@ -56,6 +57,7 @@ export default function EvenementPageClient({ id }: { id: string }) {
   const [commentCount, setCommentCount] = useState(0)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const isAdmin = useAdminSession()
+  const goBack = useSmartBack('/')
 
   useEffect(() => {
     supabase.from('evenements').select('*, lieux(*)').eq('id', id).single()
@@ -114,6 +116,7 @@ export default function EvenementPageClient({ id }: { id: string }) {
         />
         {/* Floating top actions */}
         <FloatingTopActions
+          onBack={goBack}
           adminExtra={isAdmin ? (
             <div className="flex items-center gap-2">
               <FeatureButton contentType="evenement" contentId={id} ownerUserId={(evt as { user_id?: string | null }).user_id ?? null} />
@@ -285,11 +288,11 @@ export default function EvenementPageClient({ id }: { id: string }) {
 
 /* ─── Floating top actions ────────────────────────────────────────────── */
 
-function FloatingTopActions({ adminExtra }: { adminExtra?: React.ReactNode }) {
+function FloatingTopActions({ onBack, adminExtra }: { onBack: () => void; adminExtra?: React.ReactNode }) {
   return (
     <div className="absolute left-0 right-0 top-12 z-[6] flex items-center justify-between px-3.5">
       <button
-        onClick={() => window.history.back()}
+        onClick={onBack}
         aria-label="Retour"
         className="flex h-[38px] w-[38px] items-center justify-center rounded-full border-none bg-white text-texte shadow-[0_2px_8px_rgba(0,0,0,0.15)]"
       >

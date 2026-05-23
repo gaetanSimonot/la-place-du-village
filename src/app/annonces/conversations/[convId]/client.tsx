@@ -1,12 +1,12 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import BottomNavBar from '@/components/BottomNavBar'
 import type { AnnonceMessage, AnnonceConversation } from '@/lib/annonces'
+import { useSmartBack } from '@/hooks/useSmartBack'
 
 interface Props { convId: string }
 
@@ -36,8 +36,8 @@ function timeAgo(d: string) {
 }
 
 export default function ConversationPageClient({ convId }: Props) {
-  const router = useRouter()
   const { user, loading: authLoading } = useAuth()
+  const goBack = useSmartBack('/messages')
   const { openAuthModal } = useAuthModal()
 
   const [conv, setConv]           = useState<AnnonceConversation | null>(null)
@@ -237,7 +237,7 @@ export default function ConversationPageClient({ convId }: Props) {
         borderBottom: '1px solid #E5DDD2',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={() => router.back()} style={{
+          <button onClick={goBack} style={{
             width: 34, height: 34, borderRadius: 10,
             backgroundColor: 'rgba(255,255,255,0.8)',
             border: 'none', cursor: 'pointer',

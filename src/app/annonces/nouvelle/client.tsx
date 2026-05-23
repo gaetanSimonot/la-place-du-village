@@ -4,9 +4,11 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import AnnonceForm from '@/components/AnnonceForm'
+import { useSmartBack } from '@/hooks/useSmartBack'
 
 export default function NouvelleAnnonceClient() {
   const router = useRouter()
+  const goBack = useSmartBack('/annonces')
   const { user, loading } = useAuth()
   const { openAuthModal } = useAuthModal()
 
@@ -35,7 +37,7 @@ export default function NouvelleAnnonceClient() {
       {/* Top bar V3 */}
       <div className="flex items-center justify-between gap-2.5 px-4 pt-3.5 pb-2">
         <button
-          onClick={() => router.back()}
+          onClick={goBack}
           aria-label="Retour"
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte shadow-[0_1px_2px_rgba(44,28,16,0.04)]"
         >
@@ -50,7 +52,7 @@ export default function NouvelleAnnonceClient() {
           </div>
         </div>
         <button
-          onClick={() => router.back()}
+          onClick={goBack}
           className="shrink-0 bg-transparent px-1 py-2 text-[12px] font-bold text-texte-doux"
         >
           Annuler

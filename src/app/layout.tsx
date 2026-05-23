@@ -7,6 +7,7 @@ import { AuthModalProvider } from '@/contexts/AuthModalContext'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ConfirmDialogProvider } from '@/contexts/ConfirmDialogContext'
 import { HistoryTrapProvider } from '@/contexts/HistoryTrapContext'
+import { NavigationHistoryProvider } from '@/contexts/NavigationHistoryContext'
 import SWRProvider from '@/components/SWRProvider'
 import AuthModal from '@/components/AuthModal'
 import PhoneFrame from '@/components/PhoneFrame'
@@ -68,6 +69,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="antialiased">
         <SWRProvider>
+        <NavigationHistoryProvider>
         <AuthProvider>
           <AuthModalProvider>
             <ThemeProvider>
@@ -111,6 +113,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </ThemeProvider>
           </AuthModalProvider>
         </AuthProvider>
+        </NavigationHistoryProvider>
         </SWRProvider>
       </body>
     </html>

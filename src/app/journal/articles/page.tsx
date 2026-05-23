@@ -8,6 +8,7 @@ import { useAuthModal } from '@/contexts/AuthModalContext'
 import { supabase } from '@/lib/supabase'
 import type { ArticleJournal } from '@/lib/articles'
 import BottomNavBar from '@/components/BottomNavBar'
+import { useSmartBack } from '@/hooks/useSmartBack'
 
 const STATUT_LABELS: Record<ArticleJournal['statut'], { label: string; bg: string; color: string }> = {
   brouillon:  { label: 'Brouillon',        bg: '#F0EAE0', color: '#7A6A5A' },
@@ -25,6 +26,7 @@ async function authHeaders(): Promise<Record<string, string>> {
 
 export default function MesArticlesPage() {
   const router = useRouter()
+  const goBack = useSmartBack('/journal')
   const { user, loading } = useAuth()
   const { openAuthModal } = useAuthModal()
   const [articles, setArticles] = useState<ArticleJournal[]>([])
@@ -96,7 +98,7 @@ export default function MesArticlesPage() {
       {/* Top bar */}
       <div className="flex items-center justify-between gap-2.5 px-4 pb-2 pt-3.5">
         <button
-          onClick={() => router.back()}
+          onClick={goBack}
           aria-label="Retour"
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte shadow-[0_1px_2px_rgba(44,28,16,0.04)]"
         >

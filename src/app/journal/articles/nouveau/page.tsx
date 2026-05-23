@@ -6,9 +6,11 @@ import { useAuthModal } from '@/contexts/AuthModalContext'
 import { canSubmitArticleJournal } from '@/lib/articles'
 import ArticleJournalForm from '@/components/ArticleJournalForm'
 import BottomNavBar from '@/components/BottomNavBar'
+import { useSmartBack } from '@/hooks/useSmartBack'
 
 export default function NouvelArticleJournalPage() {
   const router = useRouter()
+  const goBack = useSmartBack('/journal/articles')
   const { user, profile, loading } = useAuth()
   const { openAuthModal } = useAuthModal()
 
@@ -34,7 +36,7 @@ export default function NouvelArticleJournalPage() {
       {/* Top bar */}
       <div className="flex items-center justify-between gap-2.5 px-4 pb-2 pt-3.5">
         <button
-          onClick={() => router.back()}
+          onClick={goBack}
           aria-label="Retour"
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte shadow-[0_1px_2px_rgba(44,28,16,0.04)]"
         >

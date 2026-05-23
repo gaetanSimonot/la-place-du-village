@@ -1,12 +1,12 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import BottomNavBar from '@/components/BottomNavBar'
 import { FeatureModal } from '@/components/FeatureButton'
 import { creditsRemaining, type FeatureCredits, type FeaturedContentType } from '@/lib/featured'
+import { useSmartBack } from '@/hooks/useSmartBack'
 
 interface ContentItem {
   id: string
@@ -20,9 +20,9 @@ interface ContentItem {
 }
 
 export default function VisibiliteView() {
-  const router = useRouter()
   const { user, profile, isAdmin, loading: authLoading } = useAuth()
   const { openAuthModal } = useAuthModal()
+  const goBack = useSmartBack('/profil')
 
   const [items, setItems]       = useState<ContentItem[]>([])
   const [credits, setCredits]   = useState<FeatureCredits | null>(null)
@@ -85,7 +85,7 @@ export default function VisibiliteView() {
         position: 'sticky', top: 0, zIndex: 20,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={() => router.back()} style={{
+          <button onClick={goBack} style={{
             width: 34, height: 34, borderRadius: 10,
             backgroundColor: 'rgba(255,255,255,0.8)', border: 'none', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',

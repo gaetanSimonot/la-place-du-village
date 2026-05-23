@@ -1,11 +1,11 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import BottomNavBar from '@/components/BottomNavBar'
+import { useSmartBack } from '@/hooks/useSmartBack'
 
 interface ConvItem {
   id: string
@@ -41,9 +41,9 @@ function Avatar({ name, url, size = 44 }: { name: string; url?: string | null; s
 }
 
 export default function MesConversationsClient() {
-  const router = useRouter()
   const { user, loading: authLoading } = useAuth()
   const { openAuthModal } = useAuthModal()
+  const goBack = useSmartBack('/messages')
   const [convs, setConvs]   = useState<ConvItem[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'acheteur' | 'vendeur'>('all')
@@ -85,7 +85,7 @@ export default function MesConversationsClient() {
       {/* Header */}
       <div style={{ position: 'sticky', top: 0, zIndex: 20, backgroundColor: 'rgba(242,235,224,0.92)', backdropFilter: 'blur(10px)', borderBottom: '1px solid #E5DDD2' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 16px' }}>
-          <button onClick={() => router.back()} style={{
+          <button onClick={goBack} style={{
             width: 34, height: 34, borderRadius: 10,
             backgroundColor: 'rgba(255,255,255,0.8)', border: 'none', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',

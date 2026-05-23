@@ -1,6 +1,5 @@
 'use client'
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
@@ -8,6 +7,7 @@ import EditProfileModal from '@/components/EditProfileModal'
 import FriendButton from '@/components/FriendButton'
 import BottomNavBar from '@/components/BottomNavBar'
 import { useFriendships } from '@/hooks/useFriendships'
+import { useSmartBack } from '@/hooks/useSmartBack'
 
 interface DisplaySettingsLite {
   banner?: boolean
@@ -128,10 +128,10 @@ function getPrixLabel(a: AnnonceSnippet): { value: string; color?: string } {
 }
 
 export default function ProfilPageClient({ id }: { id: string }) {
-  const router = useRouter()
   const { user, updateProfile } = useAuth()
   const [editModalOpen, setEditModalOpen] = useState(false)
   const { statusWith, sendRequest, accept, cancel } = useFriendships()
+  const goBack = useSmartBack('/people')
 
   const [profile, setProfile]               = useState<FullProfile | null>(null)
   const [loading, setLoading]               = useState(true)
@@ -327,7 +327,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
       {/* Top bar V3 */}
       <div className="flex items-center justify-between gap-2.5 px-4 pt-3.5">
         <button
-          onClick={() => router.back()}
+          onClick={goBack}
           aria-label="Retour"
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte shadow-[0_1px_2px_rgba(44,28,16,0.04)]"
         >

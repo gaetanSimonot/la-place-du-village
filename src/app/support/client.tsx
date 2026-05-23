@@ -1,6 +1,5 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
@@ -8,6 +7,7 @@ import { useAuthModal } from '@/contexts/AuthModalContext'
 import BottomNavBar from '@/components/BottomNavBar'
 import AppInfoModal from '@/components/AppInfoModal'
 import type { SupportConversationListItem } from '@/lib/support'
+import { useSmartBack } from '@/hooks/useSmartBack'
 
 function timeAgo(d: string) {
   const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000)
@@ -19,9 +19,9 @@ function timeAgo(d: string) {
 }
 
 export default function SupportList() {
-  const router = useRouter()
   const { user, loading: authLoading } = useAuth()
   const { openAuthModal } = useAuthModal()
+  const goBack = useSmartBack('/messages')
   const [convs, setConvs] = useState<SupportConversationListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -73,7 +73,7 @@ export default function SupportList() {
         position: 'sticky', top: 0, zIndex: 20,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={() => router.back()} style={{
+          <button onClick={goBack} style={{
             width: 34, height: 34, borderRadius: 10,
             backgroundColor: 'rgba(255,255,255,0.8)',
             border: 'none', cursor: 'pointer',

@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import ArticleJournalForm from '@/components/ArticleJournalForm'
 import BottomNavBar from '@/components/BottomNavBar'
 import type { ArticleJournal } from '@/lib/articles'
+import { useSmartBack } from '@/hooks/useSmartBack'
 
 async function authHeaders(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession()
@@ -18,6 +19,7 @@ export default function EditArticlePage() {
   const params = useParams<{ id: string }>()
   const id = params?.id ?? ''
   const router = useRouter()
+  const goBack = useSmartBack('/journal/articles')
   const { user, loading } = useAuth()
   const { openAuthModal } = useAuthModal()
   const [article, setArticle] = useState<ArticleJournal | null>(null)
@@ -63,7 +65,7 @@ export default function EditArticlePage() {
     <main className="min-h-[100dvh] bg-creme pb-32 font-inter">
       <div className="flex items-center justify-between gap-2.5 px-4 pb-2 pt-3.5">
         <button
-          onClick={() => router.back()}
+          onClick={goBack}
           aria-label="Retour"
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte shadow-[0_1px_2px_rgba(44,28,16,0.04)]"
         >

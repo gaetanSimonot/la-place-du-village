@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import BottomNavBar from '@/components/BottomNavBar'
 import ArticleSocial from '@/components/ArticleSocial'
+import { useSmartBack } from '@/hooks/useSmartBack'
 
 export interface JournalRow {
   id: string
@@ -109,6 +110,7 @@ export default function JournalPageClient({
   events = [], annonces = [], promos = [], article = null, spotlight = null,
 }: JournalProps) {
   const router = useRouter()
+  const goBack = useSmartBack('/journal')
 
   function handleShare() {
     const url = typeof window !== 'undefined' ? window.location.href : ''
@@ -177,7 +179,7 @@ export default function JournalPageClient({
       <div className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-bordSoft bg-creme/95 px-4 py-3 backdrop-blur">
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={goBack}
           aria-label="Retour"
           className="flex h-10 w-10 items-center justify-center rounded-xl border border-bord bg-white text-texte"
           style={{ boxShadow: '0 1px 2px rgba(44,28,16,0.04)' }}

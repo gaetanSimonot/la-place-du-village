@@ -1,6 +1,5 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
@@ -17,6 +16,7 @@ import PromotionsManager from '@/components/PromotionsManager'
 import FeatureButton from '@/components/FeatureButton'
 import SubscriptionModal from '@/components/SubscriptionModal'
 import BottomNavBar from '@/components/BottomNavBar'
+import { useSmartBack } from '@/hooks/useSmartBack'
 
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
 const DAY_KEYS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
@@ -37,10 +37,10 @@ function Avatar({ name, url, size = 32 }: { name: string; url?: string | null; s
 }
 
 export default function EtablissementPageClient({ id, onBack }: { id: string; onBack?: () => void }) {
-  const router = useRouter()
   const { user, profile } = useAuth()
   const { openAuthModal } = useAuthModal()
   const isAdmin = useAdminSession()
+  const goBack = useSmartBack('/')
   const [etab, setEtab]             = useState<Etablissement | null>(null)
   const [etabPromos, setEtabPromos] = useState<Array<{ id: string; title: string; description: string | null; image_url: string | null; conditions: string | null; valid_until: string | null }>>([])
   const [loading, setLoading]       = useState(true)
@@ -265,7 +265,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
       <div style={{ position: 'relative', height: 290, backgroundColor: typeInfo.bg, overflow: 'hidden' }}>
         {/* Floating top actions */}
         <div style={{ position: 'absolute', top: 48, left: 0, right: 0, padding: '0 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 6 }}>
-          <button onClick={() => onBack ? onBack() : router.back()} aria-label="Retour" style={{
+          <button onClick={() => onBack ? onBack() : goBack()} aria-label="Retour" style={{
             width: 38, height: 38, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.92)',
             backdropFilter: 'blur(8px)', border: 'none', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
