@@ -75,7 +75,12 @@ export default function HomePage() {
   const [etablissements, setEtablissements]         = useState<EtablissementCard[]>([])
   const [etablissementLoading, setEtablissementLoading] = useState(false)
   const [selectedEtabType, setSelectedEtabType]     = useState<EtablissementType | null>(null)
-  const [annuaireTab, setAnnuaireTab] = useState(0) // 0 = producteurs, 1 = commerces
+  // 0 = producteurs, 1 = commerces.
+  // DÉFAUT = commerces (1) : Producteurs ne doit JAMAIS être un mode auto.
+  // Producteurs ne s'active QUE sur choix explicite (tuile hub, segment
+  // "Producteurs" en haut de carte, recherche tombée sur un producteur,
+  // ou URL avec ?ann=producteurs).
+  const [annuaireTab, setAnnuaireTab] = useState(1)
   const [etabSearch, setEtabSearch] = useState('')
   const [selectedCats, setSelectedCats] = useState<ProduitCategorie[]>([])
   const [producerSearch, setProducerSearch] = useState('')
@@ -325,7 +330,7 @@ export default function HomePage() {
   //   ?mode=hub|agenda|annuaire   (showHub + appMode combinés)
   //   ?cat=concert,marche         (filtres.categories en CSV)
   //   ?quand=cette_semaine        (filtres.quand si != 'toujours')
-  //   ?ann=commerces              (annuaireTab=1, omis si producteurs)
+  //   ?ann=producteurs            (annuaireTab=0, omis si commerces — défaut)
   //   ?prodcat=legumes,fruits     (selectedCats en CSV, mode annuaire only)
   //   ?q=texte                    (producerSearch ou etabSearch selon ann)
   //
@@ -361,11 +366,13 @@ export default function HomePage() {
       }))
     }
 
-    // Onglet + filtres annuaire
+    // Onglet + filtres annuaire — défaut = commerces (1) si ?ann absent.
+    // Producteurs (0) ne s'active QUE si ?ann=producteurs explicite.
     const ann = sp.get('ann')
-    const annTabFromUrl = ann === 'commerces' ? 1 : 0
-    if (ann === 'commerces') setAnnuaireTab(1)
-    else if (ann === 'producteurs') setAnnuaireTab(0)
+    const annTabFromUrl = ann === 'producteurs' ? 0 : 1
+    if (ann === 'producteurs') setAnnuaireTab(0)
+    else if (ann === 'commerces') setAnnuaireTab(1)
+    // ann absent → on ne set rien, le useState défaut (1 = commerces) s'applique
 
     const prodcat = sp.get('prodcat')
     if (prodcat) setSelectedCats(prodcat.split(',').filter(Boolean) as ProduitCategorie[])
@@ -373,8 +380,8 @@ export default function HomePage() {
     // Recherche selon l'onglet annuaire courant (déduit depuis l'URL)
     const q = sp.get('q')
     if (q) {
-      if (annTabFromUrl === 1) setEtabSearch(q)
-      else                     setProducerSearch(q)
+      if (annTabFromUrl === 0) setProducerSearch(q)
+      else                     setEtabSearch(q)
     }
   }, [])
 
@@ -389,7 +396,9 @@ export default function HomePage() {
       if (filtres.categories.length > 0) sp.set('cat', filtres.categories.join(','))
       if (filtres.quand !== 'toujours')  sp.set('quand', filtres.quand)
     } else if (mode === 'annuaire') {
-      if (annuaireTab === 1) sp.set('ann', 'commerces')
+      // Commerces = défaut → on omet ?ann pour garder l'URL propre.
+      // Producteurs = non-défaut → on l'annote explicitement.
+      if (annuaireTab === 0) sp.set('ann', 'producteurs')
       if (annuaireTab === 0 && selectedCats.length > 0) sp.set('prodcat', selectedCats.join(','))
       const q = (annuaireTab === 0 ? producerSearch : etabSearch).trim()
       if (q) sp.set('q', q)
