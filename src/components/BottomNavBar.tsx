@@ -3,6 +3,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
+import { useInterceptModal } from '@/contexts/InterceptModalContext'
 
 interface Props {
   /** Si fourni, override le click par défaut (router.push) — utile pour le hub
@@ -20,6 +21,11 @@ export default function BottomNavBar({ onNavigate, activeTab }: Props = {}) {
   const router = useRouter()
   const pathname = usePathname()
   const { user } = useAuth()
+  // Présent UNIQUEMENT quand cette nav est rendue à l'intérieur d'une
+  // intercepting modal (fiche commerce ouverte par-dessus la home).
+  // Dans ce cas, un push() simple ne ferme PAS le slot @modal → on doit
+  // d'abord fermer la modale (back), PUIS pousser la destination.
+  const intercept = useInterceptModal()
   const [notifCount, setNotifCount] = useState(0)
   // Identifiant unique par instance — évite les conflits si plusieurs
   // BottomNavBar montent simultanément (navigation Next.js) qui partageraient
@@ -155,8 +161,16 @@ export default function BottomNavBar({ onNavigate, activeTab }: Props = {}) {
         <button
           key={t.id}
           onClick={() => {
-            if (onNavigate) onNavigate(t.id)
-            else router.push(t.href)
+            if (onNavigate) { onNavigate(t.id); return }
+            if (intercept) {
+              // Fermer la modale (router.back via useSmartBack) puis
+              // pousser la destination au tick suivant — sinon le push
+              // serait avalé par la pop et le slot resterait sticky.
+              intercept.close()
+              setTimeout(() => router.push(t.href), 0)
+              return
+            }
+            router.push(t.href)
           }}
           style={{
             flex: 1, display: 'flex', flexDirection: 'column',

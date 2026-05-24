@@ -1,6 +1,7 @@
 'use client'
 import { useCallback, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useSmartBack } from '@/hooks/useSmartBack'
+import { InterceptModalProvider } from '@/contexts/InterceptModalContext'
 
 /**
  * Shell pour les modales d'intercepting routes (fiche producteur / établissement
@@ -8,21 +9,25 @@ import { useRouter } from 'next/navigation'
  *
  * - Rendu en position absolute par-dessus children du layout (la home + carte
  *   restent montées dessous → la carte ne recharge pas).
- * - router.back() au close → ferme la modale via la nav Next (l'historique
- *   reflète déjà /producteur/abc grâce au soft-nav initial).
+ * - close via useSmartBack('/') : back() si historique interne, push('/') sinon
+ *   → la modale se ferme proprement et l'app ne peut JAMAIS sortir, même sur
+ *   un cas d'historique tordu.
  * - Escape key → close.
  * - Click sur le shell (pas le contenu) → close.
+ * - Expose `close` à ses enfants via InterceptModalProvider : les nav
+ *   internes (BottomNavBar etc.) peuvent fermer la modale AVANT de pousser
+ *   leur destination — sinon le slot @modal reste sticky après un push.
  *
  * NB : ce composant n'est utilisé QUE par les intercepting routes du slot
  * @modal. La vraie route /producteur/[id] (refresh / lien direct) reste
- * plein écran via son layout normal.
+ * plein écran via son layout normal et ne reçoit PAS le contexte.
  */
 export default function InterceptModalShell({ children }: { children: React.ReactNode }) {
-  const router = useRouter()
+  const goBack = useSmartBack('/')
 
   const close = useCallback(() => {
-    router.back()
-  }, [router])
+    goBack()
+  }, [goBack])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -51,7 +56,9 @@ export default function InterceptModalShell({ children }: { children: React.Reac
         overscrollBehavior: 'contain',
       }}
     >
-      {children}
+      <InterceptModalProvider close={close}>
+        {children}
+      </InterceptModalProvider>
     </div>
   )
 }
