@@ -19,7 +19,7 @@ export default async function ProducteurInterceptModal(
 ) {
   const { id } = await params
   return (
-    <InterceptModalShell>
+    <InterceptModalShell match="/producteur/">
       <ProducteurPageClient id={id} />
     </InterceptModalShell>
   )

@@ -163,11 +163,14 @@ export default function BottomNavBar({ onNavigate, activeTab }: Props = {}) {
           onClick={() => {
             if (onNavigate) { onNavigate(t.id); return }
             if (intercept) {
-              // Fermer la modale (router.back via useSmartBack) puis
-              // pousser la destination au tick suivant — sinon le push
-              // serait avalé par la pop et le slot resterait sticky.
-              intercept.close()
-              setTimeout(() => router.push(t.href), 0)
+              // Dans une intercepting modal : router.replace échange
+              // l'entrée fiche contre la destination → historique propre
+              // [..., liste/carte, destination], pas [..., liste, fiche,
+              // destination]. La garde pathname du shell render null dès
+              // que l'URL change → fiche démontée au 1er clic. Pas de
+              // back+timeout, donc pas de course (le back précédent
+              // écrasait le push, d'où le bug "2 clics requis").
+              router.replace(t.href)
               return
             }
             router.push(t.href)

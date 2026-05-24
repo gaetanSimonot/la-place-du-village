@@ -1,5 +1,6 @@
 'use client'
 import { useCallback, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import { useSmartBack } from '@/hooks/useSmartBack'
 import { InterceptModalProvider } from '@/contexts/InterceptModalContext'
 
@@ -14,15 +15,28 @@ import { InterceptModalProvider } from '@/contexts/InterceptModalContext'
  *   un cas d'historique tordu.
  * - Escape key → close.
  * - Click sur le shell (pas le contenu) → close.
- * - Expose `close` à ses enfants via InterceptModalProvider : les nav
- *   internes (BottomNavBar etc.) peuvent fermer la modale AVANT de pousser
- *   leur destination — sinon le slot @modal reste sticky après un push.
+ * - GARDE pathname : Next garde le slot @modal "sticky" après un router.push
+ *   ou router.replace (le rendu intercepté n'est pas démonté). On masque
+ *   nous-mêmes le shell dès que le pathname ne matche plus le préfixe
+ *   d'origine de la fiche → render null = enfants démontés = fiche disparaît
+ *   au 1er clic. La BottomNavBar interne utilise router.replace pour
+ *   échanger l'entrée fiche contre la destination, sans pile [..., fiche,
+ *   destination] parasite.
  *
  * NB : ce composant n'est utilisé QUE par les intercepting routes du slot
  * @modal. La vraie route /producteur/[id] (refresh / lien direct) reste
  * plein écran via son layout normal et ne reçoit PAS le contexte.
  */
-export default function InterceptModalShell({ children }: { children: React.ReactNode }) {
+export default function InterceptModalShell({
+  match,
+  children,
+}: {
+  /** Préfixe du pathname intercepté (ex: "/producteur/"). Tant qu'il matche,
+   *  le shell s'affiche ; dès qu'il ne matche plus, on render null. */
+  match: string
+  children: React.ReactNode
+}) {
+  const pathname = usePathname()
   const goBack = useSmartBack('/')
 
   const close = useCallback(() => {
@@ -36,6 +50,11 @@ export default function InterceptModalShell({ children }: { children: React.Reac
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [close])
+
+  // Garde : si l'URL n'est plus la fiche interceptée, le slot @modal est
+  // resté sticky côté Next — on masque tout. Plus besoin de router.back()
+  // pour cacher la modale après une nav.
+  if (!pathname || !pathname.startsWith(match)) return null
 
   return (
     <div

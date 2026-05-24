@@ -13,7 +13,7 @@ export default async function EtablissementInterceptModal(
 ) {
   const { id } = await params
   return (
-    <InterceptModalShell>
+    <InterceptModalShell match="/etablissement/">
       <EtablissementPageClient id={id} />
     </InterceptModalShell>
   )
