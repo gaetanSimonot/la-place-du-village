@@ -3,10 +3,18 @@ import { FiltreQuand } from './types'
 export function getDateRange(quand: FiltreQuand): { from: string; to: string } | null {
   if (quand === 'toujours') return null
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  // toISOString() donne l'heure UTC — en France (UTC+2) minuit local = 22h UTC
-  // la veille, ce qui décale toutes les dates. On utilise les composantes locales.
+  // Force Europe/Paris : indépendant du fuseau système (Vercel tourne en UTC
+  // par défaut, peu importe la région physique). On extrait Y-M-D vus de Paris
+  // puis on reconstruit un Date pour que les calculs week-end/mois en aval
+  // (today.getDay/getDate) restent corrects en composantes locales.
+  const _parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date())
+  const _y = _parts.find(p => p.type === 'year')!.value
+  const _m = _parts.find(p => p.type === 'month')!.value
+  const _d = _parts.find(p => p.type === 'day')!.value
+  const today = new Date(`${_y}-${_m}-${_d}T00:00:00`)
   const fmt = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 

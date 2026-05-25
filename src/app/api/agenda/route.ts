@@ -49,8 +49,11 @@ export async function GET(req: NextRequest) {
   const range = getDateRange(quand)
   if (range) q = q.gte('date_debut', range.from).lte('date_debut', range.to)
   if (masquerPasses) {
-    const d = new Date()
-    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    // Force Europe/Paris (Vercel = UTC par défaut, peu importe la région).
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Paris',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(new Date())
     q = q.or(`date_fin.gte.${today},and(date_fin.is.null,date_debut.gte.${today})`)
   }
 
@@ -61,8 +64,11 @@ export async function GET(req: NextRequest) {
     .in('promotion', ['pro', 'max'])
     .order('date_debut', { ascending: true })
   if (masquerPasses) {
-    const d = new Date()
-    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    // Force Europe/Paris (Vercel = UTC par défaut, peu importe la région).
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Paris',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(new Date())
     pq = pq.or(`date_fin.gte.${today},and(date_fin.is.null,date_debut.gte.${today})`)
   }
 
