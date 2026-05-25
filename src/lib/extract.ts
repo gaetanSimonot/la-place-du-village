@@ -47,6 +47,7 @@ export async function extractWithClaude(text: string | null, imageBase64?: strin
   const response = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 1024,
+    temperature: 0,
     system: systemPrompt,
     messages: [{ role: 'user', content }],
   })
@@ -76,6 +77,7 @@ export async function extractMultipleWithClaude(text: string | null, imageBase64
   const response = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 4096,
+    temperature: 0,
     system: systemPrompt,
     messages: [{ role: 'user', content }],
   })
