@@ -11,6 +11,7 @@ import { NavigationHistoryProvider } from '@/contexts/NavigationHistoryContext'
 import SWRProvider from '@/components/SWRProvider'
 import AuthModal from '@/components/AuthModal'
 import PhoneFrame from '@/components/PhoneFrame'
+import MaintenanceGate from '@/components/MaintenanceGate'
 import { Toaster } from 'sonner'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' })
@@ -86,7 +87,7 @@ export default function RootLayout({
               <ConfirmDialogProvider>
                 <HistoryTrapProvider>
                   <PhoneFrame>
-                    {children}
+                    <MaintenanceGate>{children}</MaintenanceGate>
                     {/* Modal slot : interceptors (.)producteur / (.)etablissement
                         s'affichent ici par-dessus children. La home + sa carte
                         restent montées dessous → pas de remount carte. */}

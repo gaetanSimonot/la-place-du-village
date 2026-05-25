@@ -149,6 +149,8 @@ export default function AdminDashboard() {
   // ── Config admin (sous-panel "config") ──
   const [masquerPasses, setMasquerPasses]       = useState(false)
   const [togglingConfig, setTogglingConfig]     = useState(false)
+  const [maintenanceMode, setMaintenanceMode]   = useState(false)
+  const [togglingMaint, setTogglingMaint]       = useState(false)
   const [hubSubtitle, setHubSubtitle]           = useState('')
   const [hubSubtitleInput, setHubSubtitleInput] = useState('')
   const [savingSubtitle, setSavingSubtitle]     = useState(false)
@@ -216,11 +218,13 @@ export default function AdminDashboard() {
   }, [])
 
   const fetchConfig = useCallback(async () => {
-    const [{ data: cfg }, { data: subCfg }] = await Promise.all([
+    const [{ data: cfg }, { data: subCfg }, { data: maintCfg }] = await Promise.all([
       supabase.from('config').select('value').eq('key', 'masquer_passes').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'hub_subtitle').maybeSingle(),
+      supabase.from('config').select('value').eq('key', 'maintenance_mode').maybeSingle(),
     ])
     setMasquerPasses(cfg?.value === 'true')
+    setMaintenanceMode(maintCfg?.value === 'true')
     const sub = subCfg?.value ?? 'Tout le village, à portée de main'
     setHubSubtitle(sub)
     setHubSubtitleInput(sub)
@@ -349,6 +353,23 @@ export default function AdminDashboard() {
       toast.error('Échec sauvegarde')
     }
     setTogglingConfig(false)
+  }
+
+  const toggleMaintenance = async () => {
+    const next = !maintenanceMode
+    setTogglingMaint(true)
+    const prev = maintenanceMode
+    setMaintenanceMode(next)  // optimistic
+    const res = await authedFetch('/api/admin/config', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'maintenance_mode', value: next }),
+    })
+    if (!res.ok) {
+      setMaintenanceMode(prev)  // rollback
+      toast.error('Échec sauvegarde')
+    }
+    setTogglingMaint(false)
   }
 
   const saveHubSubtitle = async () => {
@@ -712,6 +733,9 @@ export default function AdminDashboard() {
           masquerPasses={masquerPasses}
           togglingConfig={togglingConfig}
           onToggleMasquer={toggleMasquerPasses}
+          maintenanceMode={maintenanceMode}
+          togglingMaint={togglingMaint}
+          onToggleMaintenance={toggleMaintenance}
           hubSubtitle={hubSubtitle}
           hubSubtitleInput={hubSubtitleInput}
           savingSubtitle={savingSubtitle}
@@ -979,6 +1003,9 @@ interface ParamProps {
   masquerPasses: boolean
   togglingConfig: boolean
   onToggleMasquer: () => void
+  maintenanceMode: boolean
+  togglingMaint: boolean
+  onToggleMaintenance: () => void
   hubSubtitle: string
   hubSubtitleInput: string
   savingSubtitle: boolean
@@ -1054,6 +1081,23 @@ function ParametersSection(p: ParamProps) {
               </div>
               <span className="text-sm text-[#2C1810]">Masquer les événements passés</span>
               {p.togglingConfig && <span className="text-xs text-gray-400">…</span>}
+            </label>
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 shadow-sm border-2 border-orange-200">
+            <p className="font-bold text-[#2C1810] text-sm mb-1">⚠️ Mode maintenance</p>
+            <p className="text-xs text-gray-500 mb-3">
+              Affiche un écran de maintenance à tous les visiteurs (sauf admins et /admin).
+              Filet de secours : <code>?nomaint=1</code> dans l&apos;URL.
+            </p>
+            <label className="flex items-center gap-3 cursor-pointer select-none" onClick={p.onToggleMaintenance}>
+              <div className={`relative w-10 h-6 rounded-full transition-colors ${p.maintenanceMode ? 'bg-red-500' : 'bg-gray-300'}`}>
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${p.maintenanceMode ? 'left-5' : 'left-1'}`} />
+              </div>
+              <span className="text-sm font-semibold text-[#2C1810]">
+                {p.maintenanceMode ? 'Maintenance ACTIVE' : 'Maintenance désactivée'}
+              </span>
+              {p.togglingMaint && <span className="text-xs text-gray-400">…</span>}
             </label>
           </div>
 
