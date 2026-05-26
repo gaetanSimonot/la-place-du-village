@@ -1,14 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { extractWithClaude, geocodeWithGoogle, calcStatut } from '@/lib/extract'
+import {
+  extractMultipleWithClaude,
+  geocodeWithGoogle,
+  calcStatut,
+  type ExtractedData,
+  type GeoResult,
+} from '@/lib/extract'
+import { checkDoublon } from '@/lib/checkDoublon'
 import { requireUser } from '@/lib/server-auth'
 import { rateLimit } from '@/lib/rateLimit'
 import { validateImageUpload } from '@/lib/imageUpload'
 
+// Pro Vercel : sur une affiche dense (15-20 events), on enchaîne séquentiellement
+// extract Claude + N × (checkDoublon Claude + geocode + insert). Comptez ~5s/event
+// pour la dédup Claude (timeout interne 7s) + insert. On donne 60s de marge.
+export const maxDuration = 60
+
 // Client service role pour l'upload Storage (contourne les RLS)
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY!
+  process.env.SUPABASE_SERVICE_KEY!,
 )
 
 async function uploadImageToStorage(base64: string, mimeType: string): Promise<string | null> {
@@ -40,6 +52,147 @@ async function uploadImageToStorage(base64: string, mimeType: string): Promise<s
   }
 }
 
+interface ProcessedEvent {
+  ok: true
+  id: string
+  titre: string
+  statut: string
+}
+interface ProcessedSkip {
+  ok: false
+  reason: 'duplicate' | 'lieu_insert_error' | 'event_insert_error'
+  titre: string | null
+  doublon_id?: string | null
+  error?: string
+}
+type ProcessResult = ProcessedEvent | ProcessedSkip
+
+/**
+ * Traite UN event extrait : dédup Claude → geocode → insert lieu → insert event.
+ * Séquentiel intentionnellement (pas Promise.all) pour que la dédup d'un event N
+ * voie l'event N-1 fraîchement inséré (sinon doublons intra-batch garantis sur
+ * les affiches qui répètent un event sous plusieurs angles).
+ */
+async function processOneEvent(
+  extracted: ExtractedData,
+  source: string,
+  sourceGroupe: string | null,
+  sourceAuteur: string | null,
+  sourceTelephone: string | null,
+  imageUrl: string | null,
+): Promise<ProcessResult> {
+  // 1. Dédup Claude-powered (cf. src/lib/checkDoublon.ts) — plus fiable que le
+  // simple titre+date utilisé avant. Timeout 7s interne, retourne publier:false
+  // en cas d'incertitude (events seront en statut a_verifier).
+  const dup = await checkDoublon({
+    titre: extracted.titre,
+    date_debut: extracted.date_debut,
+    commune: extracted.commune,
+    lieu_nom: extracted.lieu_nom,
+    description: extracted.description,
+  })
+
+  if (dup.doublon) {
+    return { ok: false, reason: 'duplicate', titre: extracted.titre, doublon_id: dup.doublon_id }
+  }
+
+  // 2. Geocode + insertion lieu (si lieu fourni)
+  let lieuId: string | null = null
+  let geo: GeoResult = { place_id_google: null, lat: null, lng: null, adresse: null, approx: false }
+
+  if (extracted.lieu_nom || extracted.commune) {
+    geo = await geocodeWithGoogle(extracted.lieu_nom, extracted.commune)
+    const { data: lieu, error: lieuErr } = await supabaseAdmin
+      .from('lieux')
+      .insert({
+        nom: extracted.lieu_nom ?? extracted.commune,
+        adresse: geo.adresse ?? extracted.lieu_adresse,
+        lat: geo.lat,
+        lng: geo.lng,
+        place_id_google: geo.place_id_google,
+        commune: extracted.commune,
+        code_postal: extracted.code_postal,
+      })
+      .select('id')
+      .single()
+    if (lieuErr || !lieu) {
+      return {
+        ok: false,
+        reason: 'lieu_insert_error',
+        titre: extracted.titre,
+        error: lieuErr?.message ?? 'lieu_insert_failed',
+      }
+    }
+    lieuId = lieu.id
+  }
+
+  // 3. Statut : combine calcStatut + override "publier" du check doublon (si
+  // checkDoublon est en doute mais pas certain → a_verifier au lieu de publie).
+  const baseStatut = calcStatut({
+    categorie: extracted.categorie,
+    date_debut: extracted.date_debut,
+    description: extracted.description,
+    hasGeo: !!geo.lat,
+    commune: extracted.commune,
+    adresse: geo.adresse ?? extracted.lieu_adresse,
+  })
+  const statut = dup.publier ? baseStatut : 'a_verifier'
+
+  // 4. Insert event
+  const { data: evt, error: evtErr } = await supabaseAdmin
+    .from('evenements')
+    .insert({
+      titre: extracted.titre,
+      description: extracted.description,
+      date_debut: extracted.date_debut,
+      date_fin: extracted.date_fin,
+      heure: extracted.heure,
+      categorie: extracted.categorie ?? 'autre',
+      statut,
+      lieu_id: lieuId,
+      prix: extracted.prix,
+      contact: extracted.contact,
+      organisateurs: extracted.organisateurs,
+      image_url: imageUrl,
+      source,
+      source_groupe:    sourceGroupe,
+      source_auteur:    sourceAuteur,
+      source_telephone: sourceTelephone,
+    })
+    .select('id, titre, statut')
+    .single()
+
+  if (evtErr || !evt) {
+    return {
+      ok: false,
+      reason: 'event_insert_error',
+      titre: extracted.titre,
+      error: evtErr?.message ?? 'event_insert_failed',
+    }
+  }
+
+  return { ok: true, id: evt.id, titre: evt.titre, statut: evt.statut }
+}
+
+/**
+ * POST /api/extract — extrait N événements d'un message (texte + image).
+ *
+ * Sources acceptées :
+ *   - 'whatsapp' / 'signal' : auth via header x-wa-key (sender VM/collector)
+ *   - 'formulaire' / autre  : auth user authentifié + rate-limit
+ *
+ * Pipeline pour CHAQUE event extrait :
+ *   1. checkDoublon (Claude) → skip si doublon avéré
+ *   2. geocode + insert lieu (si lieu fourni)
+ *   3. calcStatut + override "publier" du check doublon
+ *   4. insert event
+ *
+ * Réponse :
+ *   { success: bool, evenement: 1er event créé (rétrocompat), events: [...],
+ *     created: N, skipped: M, skippedDetails: [...], statut: string }
+ *
+ * Le sender VM Signal lit `data.statut` pour son log "→ <statut>".
+ */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
@@ -69,97 +222,69 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Texte ou image requis' }, { status: 400 })
     }
 
-    // Upload image vers Supabase Storage
+    // Upload image une fois (mutualisé entre tous les events extraits du même message)
     let imageUrl: string | null = null
     if (image) {
       imageUrl = await uploadImageToStorage(image, imageMimeType || 'image/jpeg')
     }
 
-    const extracted = await extractWithClaude(text || null, image, imageMimeType)
+    // Slice sécurité provenance
+    const sourceGroupe    = typeof source_groupe    === 'string' ? source_groupe.slice(0, 200) : null
+    const sourceAuteur    = typeof source_auteur    === 'string' ? source_auteur.slice(0, 200) : null
+    const sourceTelephone = typeof source_telephone === 'string' ? source_telephone.slice(0, 40)  : null
 
-    // Skip silencieux si Claude n'a pas trouvé de titre (message qui n'est pas
-    // vraiment un événement). Retour 200 "no_title" => le sender VM classe
-    // en processed (pas en retry) et n'encombre plus le retry_state.
-    if (!extracted.titre || !extracted.titre.trim()) {
-      return NextResponse.json({ success: false, reason: 'no_title' })
+    // Multi-extraction Claude. extractMultipleWithClaude filtre déjà les events
+    // sans titre (cf. src/lib/extract.ts), donc tableau retourné = events
+    // avec titre non-vide. Si tableau vide → message non-event, on retourne
+    // 200 sans erreur pour que le sender VM classe en processed.
+    const extractedEvents = await extractMultipleWithClaude(text || null, image, imageMimeType)
+
+    if (extractedEvents.length === 0) {
+      return NextResponse.json({
+        success: false,
+        reason: 'no_events',
+        created: 0,
+        skipped: 0,
+        events: [],
+        statut: 'no_event',
+      })
     }
 
-    // Déduplication : même titre (insensible casse) + même date → doublon
-    if (extracted.titre && extracted.date_debut) {
-      const { data: existing } = await supabaseAdmin
-        .from('evenements')
-        .select('id')
-        .ilike('titre', extracted.titre)
-        .eq('date_debut', extracted.date_debut)
-        .limit(1)
-        .maybeSingle()
+    // Process chaque event séquentiellement (cf. note sur la dédup intra-batch
+    // dans processOneEvent).
+    const created: Array<{ id: string; titre: string; statut: string }> = []
+    const skipped: Array<{ reason: string; titre: string | null; doublon_id?: string | null; error?: string }> = []
 
-      if (existing) {
-        return NextResponse.json({ success: false, duplicate: true, id: existing.id })
+    for (const extracted of extractedEvents) {
+      const result = await processOneEvent(
+        extracted, source, sourceGroupe, sourceAuteur, sourceTelephone, imageUrl,
+      )
+      if (result.ok) {
+        created.push({ id: result.id, titre: result.titre, statut: result.statut })
+      } else {
+        skipped.push({
+          reason: result.reason,
+          titre: result.titre,
+          doublon_id: result.doublon_id,
+          error: result.error,
+        })
       }
     }
 
-    let lieuId: string | null = null
-    let geo = { place_id_google: null as string | null, lat: null as number | null, lng: null as number | null, adresse: null as string | null, approx: false }
-
-    if (extracted.lieu_nom || extracted.commune) {
-      geo = await geocodeWithGoogle(extracted.lieu_nom, extracted.commune)
-
-      const { data: lieu, error: lieuErr } = await supabaseAdmin
-        .from('lieux')
-        .insert({
-          nom: extracted.lieu_nom ?? extracted.commune,
-          adresse: geo.adresse ?? extracted.lieu_adresse,
-          lat: geo.lat,
-          lng: geo.lng,
-          place_id_google: geo.place_id_google,
-          commune: extracted.commune,
-          code_postal: extracted.code_postal,
-        })
-        .select('id')
-        .single()
-
-      if (lieuErr) throw new Error(`Erreur insertion lieu : ${lieuErr.message}`)
-      lieuId = lieu.id
-    }
-
-    const statut = calcStatut({
-      categorie: extracted.categorie,
-      date_debut: extracted.date_debut,
-      description: extracted.description,
-      hasGeo: !!geo.lat,
-      commune: extracted.commune,
-      adresse: geo.adresse ?? extracted.lieu_adresse,
+    const firstEvent = created[0] ?? null
+    return NextResponse.json({
+      success: created.length > 0,
+      evenement: firstEvent,        // rétrocompat (1er event créé)
+      events: created,              // nouveau (multi)
+      created: created.length,
+      skipped: skipped.length,
+      skippedDetails: skipped,
+      // Statut consommé par le sender VM pour son log "→ <statut>". On compose
+      // un résumé lisible : ex. "3 cree(s), 2 doublon(s)".
+      statut: created.length > 0
+        ? (created.length === 1 ? firstEvent!.statut : `${created.length} crees, ${skipped.length} ignores`)
+        : (skipped.length > 0 ? `0 cree, ${skipped.length} ignores` : 'no_event'),
     })
-
-    const { data: evenement, error: evtErr } = await supabaseAdmin
-      .from('evenements')
-      .insert({
-        titre: extracted.titre,
-        description: extracted.description,
-        date_debut: extracted.date_debut,
-        date_fin: extracted.date_fin,
-        heure: extracted.heure,
-        categorie: extracted.categorie ?? 'autre',
-        statut,
-        lieu_id: lieuId,
-        prix: extracted.prix,
-        contact: extracted.contact,
-        organisateurs: extracted.organisateurs,
-        image_url: imageUrl,
-        source,
-        // Provenance source whatsapp/signal (groupe, auteur, telephone) — utile
-        // pour le dashboard admin + un scraping futur sur les memes posts.
-        source_groupe:    typeof source_groupe    === 'string' ? source_groupe.slice(0, 200)    : null,
-        source_auteur:    typeof source_auteur    === 'string' ? source_auteur.slice(0, 200)    : null,
-        source_telephone: typeof source_telephone === 'string' ? source_telephone.slice(0, 40)  : null,
-      })
-      .select()
-      .single()
-
-    if (evtErr) throw new Error(`Erreur insertion événement : ${evtErr.message}`)
-
-    return NextResponse.json({ success: true, evenement, statut })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erreur inconnue'
     return NextResponse.json({ error: message }, { status: 500 })
