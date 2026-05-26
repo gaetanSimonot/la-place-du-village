@@ -7,5 +7,6 @@ export const CATEGORIES: Record<Categorie, { label: string; emoji: string; color
   marche:  { label: 'Marché',   emoji: '🛒', color: '#F39C12' },
   atelier: { label: 'Atelier',  emoji: '🎨', color: '#3498DB' },
   fete:    { label: 'Fête',     emoji: '🎉', color: '#E91E63' },
+  sante_bien_etre: { label: 'Santé & bien-être', emoji: '🌿', color: '#16A085' },
   autre:   { label: 'Autre',    emoji: '📌', color: '#95A5A6' },
 }

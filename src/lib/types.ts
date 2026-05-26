@@ -72,7 +72,7 @@ export function isApproxLocation(lieu: Lieu | LieuCard | null): boolean {
   return !!lieu && lieu.lat !== null && lieu.place_id_google === null
 }
 
-export type Categorie = 'concert' | 'theatre' | 'sport' | 'marche' | 'atelier' | 'fete' | 'autre'
+export type Categorie = 'concert' | 'theatre' | 'sport' | 'marche' | 'atelier' | 'fete' | 'sante_bien_etre' | 'autre'
 export type FiltreQuand = 'toujours' | 'aujourd_hui' | 'ce_week_end' | 'cette_semaine' | 'ce_mois'
 
 export interface Filtres {
