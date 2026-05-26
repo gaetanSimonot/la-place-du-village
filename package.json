@@ -19,6 +19,8 @@
     "@ncdai/react-wheel-picker": "^1.2.2",
     "@supabase/ssr": "^0.10.0",
     "@supabase/supabase-js": "^2.101.1",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "@vis.gl/react-google-maps": "^1.8.2",
     "framer-motion": "^12.38.0",
     "jsonrepair": "^3.14.0",

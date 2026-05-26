@@ -12,6 +12,8 @@ import SWRProvider from '@/components/SWRProvider'
 import AuthModal from '@/components/AuthModal'
 import PhoneFrame from '@/components/PhoneFrame'
 import MaintenanceGate from '@/components/MaintenanceGate'
+import { Analytics } from '@vercel/analytics/next'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 import { Toaster } from 'sonner'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' })
@@ -146,6 +148,8 @@ export default function RootLayout({
         </AuthProvider>
         </NavigationHistoryProvider>
         </SWRProvider>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   )
