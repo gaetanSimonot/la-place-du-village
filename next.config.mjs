@@ -59,6 +59,15 @@ export default withPWA({
         urlPattern: /\/api\/mon-producteur/,
         handler: 'NetworkOnly',
       },
+      // Données dynamiques fréquentes — JAMAIS de cache SW, sinon les
+      // nouveaux inscrits / events / annonces n'apparaissent pas.
+      // (cf. incident 2026-05-26 : /people affichait 20 sur 38).
+      { urlPattern: /\/api\/people/,    handler: 'NetworkOnly' },
+      { urlPattern: /\/api\/agenda/,    handler: 'NetworkOnly' },
+      { urlPattern: /\/api\/hub/,       handler: 'NetworkOnly' },
+      { urlPattern: /\/api\/inbox/,     handler: 'NetworkOnly' },
+      { urlPattern: /\/api\/notifications/, handler: 'NetworkOnly' },
+      { urlPattern: /\/api\/maintenance/, handler: 'NetworkOnly' },
       // Chunks JS / CSS Next.js : content-hashed (immuables) -> CacheFirst
       // safe et economise la bande passante.
       {
