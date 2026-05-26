@@ -28,6 +28,12 @@ export const metadata: Metadata = {
   applicationName: 'La Place du Village',
   manifest: '/manifest.json',
   metadataBase: new URL('https://laplaceduvillage.app'),
+  // Canonique explicite (sans www) — sinon Google considère
+  // https://www.laplaceduvillage.app/ comme doublon canonique et n'indexe pas
+  // notre version officielle.
+  alternates: {
+    canonical: 'https://laplaceduvillage.app/',
+  },
   openGraph: {
     title: 'La Place du Village',
     siteName: 'La Place du Village',
