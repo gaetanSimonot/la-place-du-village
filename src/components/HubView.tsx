@@ -418,6 +418,18 @@ export default function HubView({
           </div>
         )
       })()}
+
+      {/* ── 10. Footer légal (discret, requis Google OAuth + RGPD) ───────
+          Présence d'un lien Privacy Policy/CGU depuis la home est attendue
+          par l'OAuth consent screen Google. Footer volontairement sobre,
+          11px gris, hors champ visuel principal. */}
+      <footer className="mt-10 border-t border-[#E8E0D4] px-4 pb-2 pt-6 text-center text-[11px] text-[#A99B89]">
+        <a href="/mentions-legales" className="hover:text-texte">Mentions légales</a>
+        <span className="mx-2">·</span>
+        <a href="/politique-confidentialite" className="hover:text-texte">Politique de confidentialité</a>
+        <span className="mx-2">·</span>
+        <a href="/cgu" className="hover:text-texte">CGU</a>
+      </footer>
     </div>
   )
 }

@@ -105,8 +105,9 @@ export default function PolitiqueConfidentialitePage() {
       <LegalSection title="Sécurité">
         <LegalP>
           Les mots de passe sont chiffrés (bcrypt) par Supabase Auth et jamais accessibles en clair.
-          Les communications sont chiffrées TLS de bout en bout. Les accès admin sont protégés par
-          une liste blanche serveur (<code>admin_emails</code>) et un code PIN à 4 chiffres.
+          Les communications sont chiffrées TLS de bout en bout. Les accès administrateurs sont
+          restreints à un petit nombre de comptes autorisés et protégés par plusieurs niveaux
+          d&apos;authentification.
         </LegalP>
       </LegalSection>
     </LegalPageLayout>
