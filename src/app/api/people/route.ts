@@ -41,26 +41,36 @@ export async function GET(req: NextRequest) {
   const q = (searchParams.get('q') ?? '').trim()
 
   if (q.length >= 2) {
-    const { data, error } = await freshAdmin()
-      .from('profiles_searchable')
-      .select('user_id, display_name, avatar_url, ville')
-      .or(`display_name.ilike.%${q}%,ville.ilike.%${q}%`)
-      .order('display_name', { ascending: true, nullsFirst: false })
-      .limit(PAGE_LIMIT)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ people: data ?? [] }, {
+    const admin = freshAdmin()
+    const [listRes, countRes] = await Promise.all([
+      admin
+        .from('profiles_searchable')
+        .select('user_id, display_name, avatar_url, ville')
+        .or(`display_name.ilike.%${q}%,ville.ilike.%${q}%`)
+        .order('display_name', { ascending: true, nullsFirst: false })
+        .limit(PAGE_LIMIT),
+      admin.from('profiles_searchable').select('*', { count: 'exact', head: true }),
+    ])
+    if (listRes.error) return NextResponse.json({ error: listRes.error.message }, { status: 500 })
+    return NextResponse.json({ people: listRes.data ?? [], total: countRes.count ?? 0 }, {
       headers: { 'Cache-Control': 'private, no-store' },
     })
   }
 
-  // Mode browse
-  const { data, error } = await freshAdmin()
-    .from('profiles_public_listing')
-    .select('user_id, display_name, avatar_url, ville, genre, is_verified')
-    .order('display_name', { ascending: true, nullsFirst: false })
-    .limit(PAGE_LIMIT)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ people: data ?? [] }, {
+  // Mode browse : on retourne aussi `total` = vrai count de la vue, indépendant
+  // de ce que sort le SELECT (peut différer en cas de RLS/filtrage subtil).
+  // Le UI affiche `total` pour le compteur "X membres".
+  const admin = freshAdmin()
+  const [listRes, countRes] = await Promise.all([
+    admin
+      .from('profiles_public_listing')
+      .select('user_id, display_name, avatar_url, ville, genre, is_verified')
+      .order('display_name', { ascending: true, nullsFirst: false })
+      .limit(PAGE_LIMIT),
+    admin.from('profiles_public_listing').select('*', { count: 'exact', head: true }),
+  ])
+  if (listRes.error) return NextResponse.json({ error: listRes.error.message }, { status: 500 })
+  return NextResponse.json({ people: listRes.data ?? [], total: countRes.count ?? 0 }, {
     headers: { 'Cache-Control': 'private, no-store' },
   })
 }

@@ -42,8 +42,12 @@ export default function PeopleClient() {
   const peopleKey = !authLoading && user
     ? `/api/people${debouncedSearch ? `?q=${encodeURIComponent(debouncedSearch)}` : ''}`
     : null
-  const { data, isLoading, mutate } = useSWR<{ people: PersonCardData[] }>(peopleKey, authedFetcher)
+  const { data, isLoading, mutate } = useSWR<{ people: PersonCardData[]; total?: number }>(peopleKey, authedFetcher)
   const people = useMemo<PersonCardData[]>(() => data?.people ?? [], [data])
+  // `total` = vrai count en DB (= compteur affiché en haut). Peut différer
+  // de people.length si la liste retournée par l'API est filtrée pour une
+  // raison subtile (cache, RLS, etc.).
+  const total = data?.total ?? 0
   const loading = (isLoading && !data) ? true : false
 
   // Realtime sur profiles : mutate() invalide la clé courante → refetch
@@ -102,7 +106,7 @@ export default function PeopleClient() {
               ? '…'
               : filter === 'friends'
                 ? `${visible.length} ami${visible.length > 1 ? 's' : ''}`
-                : `${people.length} membre${people.length > 1 ? 's' : ''}`}
+                : `${total} membre${total > 1 ? 's' : ''}`}
           </div>
         </div>
         <div className="h-10 w-10 shrink-0" /> {/* spacer pour centrer le titre */}
