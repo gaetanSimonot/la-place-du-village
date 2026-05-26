@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import Anthropic from '@anthropic-ai/sdk'
 import { getPrompt } from '@/lib/prompts-ia'
+import { safeJsonParse } from '@/lib/safeJsonParse'
 import { requireAdmin } from '@/lib/server-auth'
 
 export const maxDuration = 30
@@ -58,9 +59,8 @@ export async function POST(req: NextRequest) {
 Événement B : ${JSON.stringify({ titre: evtB.titre, description: evtB.description, date_debut: evtB.date_debut, date_fin: evtB.date_fin, heure: evtB.heure, prix: evtB.prix, contact: evtB.contact, organisateurs: evtB.organisateurs })}`,
           }],
         })
-        const raw    = response.content[0].type === 'text' ? response.content[0].text : '{}'
-        const clean  = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
-        merged = JSON.parse(clean)
+        const raw = response.content[0].type === 'text' ? response.content[0].text : '{}'
+        merged = safeJsonParse<Record<string, unknown>>(raw) ?? {}
       } catch {
         // Si Claude fail, on garde juste l'événement A
         merged = {}

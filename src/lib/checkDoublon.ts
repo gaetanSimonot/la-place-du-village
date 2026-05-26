@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from './supabase-admin'
 import { getPrompt } from './prompts-ia'
+import { safeJsonParse } from './safeJsonParse'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -86,18 +87,16 @@ ${JSON.stringify(candidates.map(e => ({ id: e.id, titre: e.titre, date: e.date_d
     return { doublon: false, doublon_id: null, publier: false, raison: 'Vérification indisponible — à vérifier manuellement', infos_manquantes: [] }
   }
 
-  try {
-    const raw   = response.content[0].type === 'text' ? response.content[0].text : '{}'
-    const clean = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
-    const result = JSON.parse(clean)
-    return {
-      doublon:          !!result.doublon,
-      doublon_id:       result.doublon_id ?? null,
-      publier:          result.doublon ? false : (result.publier ?? true),
-      raison:           result.raison ?? '',
-      infos_manquantes: Array.isArray(result.infos_manquantes) ? result.infos_manquantes : [],
-    }
-  } catch {
+  const raw = response.content[0].type === 'text' ? response.content[0].text : '{}'
+  const result = safeJsonParse<DoublonCheckResult & { doublon?: unknown; doublon_id?: unknown; publier?: unknown; raison?: unknown; infos_manquantes?: unknown }>(raw)
+  if (!result) {
     return { ...safe, raison: 'Réponse Claude non parseable — accepté par défaut' }
+  }
+  return {
+    doublon:          !!result.doublon,
+    doublon_id:       (result.doublon_id as string | null) ?? null,
+    publier:          result.doublon ? false : ((result.publier as boolean | undefined) ?? true),
+    raison:           (result.raison as string | undefined) ?? '',
+    infos_manquantes: Array.isArray(result.infos_manquantes) ? result.infos_manquantes : [],
   }
 }

@@ -77,6 +77,13 @@ export async function POST(req: NextRequest) {
 
     const extracted = await extractWithClaude(text || null, image, imageMimeType)
 
+    // Skip silencieux si Claude n'a pas trouvé de titre (message qui n'est pas
+    // vraiment un événement). Retour 200 "no_title" => le sender VM classe
+    // en processed (pas en retry) et n'encombre plus le retry_state.
+    if (!extracted.titre || !extracted.titre.trim()) {
+      return NextResponse.json({ success: false, reason: 'no_title' })
+    }
+
     // Déduplication : même titre (insensible casse) + même date → doublon
     if (extracted.titre && extracted.date_debut) {
       const { data: existing } = await supabaseAdmin

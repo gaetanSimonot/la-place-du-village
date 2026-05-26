@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import Anthropic from '@anthropic-ai/sdk'
 import { getPrompt } from '@/lib/prompts-ia'
+import { safeJsonParse } from '@/lib/safeJsonParse'
 import { requireAdmin } from '@/lib/server-auth'
 
 export const maxDuration = 60
@@ -71,10 +72,9 @@ export async function POST(req: NextRequest) {
       continue
     }
 
-    try {
-      const raw    = response.content[0].type === 'text' ? response.content[0].text : '{}'
-      const clean  = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
-      const result = JSON.parse(clean)
+    {
+      const raw = response.content[0].type === 'text' ? response.content[0].text : '{}'
+      const result = safeJsonParse<{ paires?: { id_a: string; id_b: string; raison?: string }[] }>(raw) ?? {}
 
       for (const p of (result.paires ?? [])) {
         const evtA = eventsFlat.find(e => e.id === p.id_a)
@@ -83,11 +83,9 @@ export async function POST(req: NextRequest) {
         paires.push({
           id_a: evtA.id, titre_a: evtA.titre, date_a: evtA.date, commune_a: evtA.commune, desc_a: evtA.desc,
           id_b: evtB.id, titre_b: evtB.titre, date_b: evtB.date, commune_b: evtB.commune, desc_b: evtB.desc,
-          raison: p.raison,
+          raison: p.raison ?? '',
         })
       }
-    } catch {
-      // Si Claude n'est pas parseable, on skip le batch
     }
   }
 

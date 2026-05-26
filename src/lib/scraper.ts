@@ -4,6 +4,7 @@ import { geocodeWithGoogle, calcStatut } from './extract'
 import { checkDoublon } from './checkDoublon'
 import { checkZone } from './checkZone'
 import { getPrompt } from './prompts-ia'
+import { safeJsonParse } from './safeJsonParse'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -93,11 +94,10 @@ async function extractEventsFromPage(pageText: string, sourceUrl: string): Promi
     }],
   })
 
-  const raw   = response.content[0].type === 'text' ? response.content[0].text : '[]'
-  const clean = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
-
-  const parsed = JSON.parse(clean)
-  return Array.isArray(parsed) ? parsed : []
+  const raw = response.content[0].type === 'text' ? response.content[0].text : '[]'
+  const parsed = safeJsonParse<unknown>(raw)
+  if (parsed == null) return []
+  return Array.isArray(parsed) ? parsed as ScrapedEvent[] : []
 }
 
 // ── Point d'entrée principal ──────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { getPrompt } from './prompts-ia'
+import { safeJsonParse } from './safeJsonParse'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -53,8 +54,9 @@ export async function extractWithClaude(text: string | null, imageBase64?: strin
   })
 
   const raw = response.content[0].type === 'text' ? response.content[0].text : ''
-  const clean = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
-  return JSON.parse(clean)
+  const parsed = safeJsonParse<ExtractedData>(raw)
+  if (!parsed) throw new Error('Réponse Claude JSON irréparable')
+  return parsed
 }
 
 export async function extractMultipleWithClaude(text: string | null, imageBase64?: string, imageMimeType?: string): Promise<ExtractedData[]> {
@@ -83,11 +85,22 @@ export async function extractMultipleWithClaude(text: string | null, imageBase64
   })
 
   const raw = response.content[0].type === 'text' ? response.content[0].text : '[]'
-  const clean = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
-  const parsed = JSON.parse(clean)
+  const parsed = safeJsonParse<unknown>(raw)
+  if (parsed == null) {
+    // jsonrepair n'a pas pu sauver la sortie → on retourne [] plutôt que throw,
+    // pour ne pas faire planter le batch entier (et le sender VM en 5xx).
+    return []
+  }
   const arr = Array.isArray(parsed) ? parsed : [parsed]
-  // Filtre les entrées nulles/undefined que Claude peut retourner
-  return arr.filter((e): e is ExtractedData => e != null && typeof e === 'object')
+  // Filtre : entrée valide ET titre non vide (Claude retourne parfois titre:null
+  // sur des messages qui ne sont pas vraiment des events → on ne tente pas
+  // l'insert pour éviter le crash NOT NULL constraint).
+  return arr.filter((e): e is ExtractedData =>
+    e != null
+    && typeof e === 'object'
+    && typeof (e as ExtractedData).titre === 'string'
+    && (e as ExtractedData).titre.trim().length > 0
+  )
 }
 
 const randOffset = () => Math.random() * 0.004 - 0.002
