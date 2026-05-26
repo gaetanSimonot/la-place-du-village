@@ -49,8 +49,9 @@ export async function POST(req: NextRequest) {
       source_groupe, source_auteur, source_telephone,
     } = body
 
-    // Auth : source whatsapp requiert la clé x-wa-key, sinon user authentifié + rate-limit
-    if (source === 'whatsapp') {
+    // Auth : sources webhook (whatsapp/signal) requièrent la clé x-wa-key,
+    // sinon user authentifié + rate-limit (formulaire admin).
+    if (source === 'whatsapp' || source === 'signal') {
       const waKey = req.headers.get('x-wa-key')
       if (!waKey || waKey !== process.env.WHATSAPP_API_KEY) {
         return NextResponse.json({ error: 'Clé API invalide' }, { status: 401 })
