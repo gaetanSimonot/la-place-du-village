@@ -25,7 +25,17 @@ const caveat = Caveat({
 export const metadata: Metadata = {
   title: 'La Place du Village',
   description: 'Événements locaux autour de Ganges (Hérault)',
+  applicationName: 'La Place du Village',
   manifest: '/manifest.json',
+  metadataBase: new URL('https://laplaceduvillage.app'),
+  openGraph: {
+    title: 'La Place du Village',
+    siteName: 'La Place du Village',
+    description: 'Événements locaux autour de Ganges (Hérault)',
+    url: 'https://laplaceduvillage.app',
+    locale: 'fr_FR',
+    type: 'website',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
