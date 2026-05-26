@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase-admin'
+import { createClient } from '@supabase/supabase-js'
 import { requireUser } from '@/lib/server-auth'
+
+// Client local créé à chaque request (pas le singleton supabaseAdmin partagé).
+// Diagnostic du 2026-05-26 : le singleton retournait 20 profils au lieu de 38
+// quand /api/people était appelé après requireUser → suspect de pollution
+// d'état interne par auth.getUser(token). Le client local fresh garantit un
+// service_role propre pour cette query.
+function freshAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  )
+}
 
 /**
  * GET /api/people — annuaire des profils (page /people).
@@ -28,7 +41,7 @@ export async function GET(req: NextRequest) {
   const q = (searchParams.get('q') ?? '').trim()
 
   if (q.length >= 2) {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await freshAdmin()
       .from('profiles_searchable')
       .select('user_id, display_name, avatar_url, ville')
       .or(`display_name.ilike.%${q}%,ville.ilike.%${q}%`)
@@ -41,7 +54,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Mode browse
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await freshAdmin()
     .from('profiles_public_listing')
     .select('user_id, display_name, avatar_url, ville, genre, is_verified')
     .order('display_name', { ascending: true, nullsFirst: false })
