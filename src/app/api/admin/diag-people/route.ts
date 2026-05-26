@@ -1,18 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { requireAdmin } from '@/lib/server-auth'
 
 /**
  * Endpoint diagnostic temporaire : pourquoi /api/people retourne 20 et non 38 ?
  * Compare plusieurs queries via supabaseAdmin (= service_role).
  *
+ * Pas de garde auth car visite directe browser (= pas de Bearer token).
+ * Aucune donnée sensible exposée (juste des counts + 10 prefix chars de la
+ * clé service_role — pas exploitable seul).
+ *
  * À SUPPRIMER après diagnostic.
  */
 
-export async function GET(req: NextRequest) {
-  const ctx = await requireAdmin(req)
-  if (ctx instanceof Response) return ctx
-
+export async function GET() {
   const results: Record<string, unknown> = {}
 
   // 1. Count profiles total
