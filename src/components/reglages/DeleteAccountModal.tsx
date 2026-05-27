@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/hooks/useAuth'
 import ClientPortal from '@/components/ClientPortal'
 
 interface Props {
@@ -10,6 +11,8 @@ interface Props {
   onClose:  () => void
 }
 
+const CONFIRM_WORD = 'SUPPRIMER'
+
 /**
  * Suppression définitive du compte de l'utilisateur authentifié.
  *
@@ -17,7 +20,10 @@ interface Props {
  * /api/profile/delete (DELETE, scope auth.uid()) puis signOut côté client.
  */
 export default function DeleteAccountModal({ email, signOut, onClose }: Props) {
+  const { isAdmin } = useAuth()
   const [deleting, setDeleting] = useState(false)
+  const [confirmInput, setConfirmInput] = useState('')
+  const canDelete = !isAdmin && confirmInput.trim().toUpperCase() === CONFIRM_WORD && !deleting
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !deleting) onClose() }
@@ -83,11 +89,40 @@ export default function DeleteAccountModal({ email, signOut, onClose }: Props) {
           Compte : <strong className="text-texte">{email}</strong>
         </div>
 
+        {isAdmin ? (
+          <div
+            className="mb-5 rounded-[12px] border px-3.5 py-3 text-[12px] leading-[1.5]"
+            style={{ borderColor: '#F0D4C8', background: '#FDF4F0', color: '#B53A22' }}
+          >
+            <strong>Impossible :</strong> les comptes administrateurs ne peuvent pas s&apos;auto-supprimer
+            depuis cette interface. Pour supprimer un compte admin, retire d&apos;abord son email
+            de la table <code>admin_emails</code> côté Supabase.
+          </div>
+        ) : (
+          <>
+            <label className="m-0 mb-1 block text-[12px] font-bold text-texte">
+              Pour confirmer, tape <span style={{ color: '#B53A22' }}>SUPPRIMER</span> ci-dessous :
+            </label>
+            <input
+              type="text"
+              value={confirmInput}
+              onChange={e => setConfirmInput(e.target.value)}
+              placeholder="SUPPRIMER"
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+              disabled={deleting}
+              className="mb-4 w-full rounded-[12px] border bg-white px-3 py-2.5 text-[14px] font-bold text-texte outline-none"
+              style={{ borderColor: canDelete ? '#B53A22' : '#E0D8CE', letterSpacing: '0.1em' }}
+            />
+          </>
+        )}
+
         <button
           type="button"
           onClick={handleDelete}
-          disabled={deleting}
-          className="w-full rounded-[14px] border-none py-3 text-[14px] font-extrabold text-white disabled:opacity-60"
+          disabled={!canDelete}
+          className="w-full rounded-[14px] border-none py-3 text-[14px] font-extrabold text-white disabled:opacity-40 disabled:cursor-not-allowed"
           style={{ background: '#B53A22' }}
         >
           {deleting ? 'Suppression…' : 'Oui, supprimer mon compte'}

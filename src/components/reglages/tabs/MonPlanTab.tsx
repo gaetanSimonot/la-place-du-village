@@ -251,15 +251,19 @@ export default function MonPlanTab({ plan, isAdmin, onOpenSub, onDeleteAccount }
         </div>
       </section>
 
-      {/* Supprimer mon compte */}
-      <button
-        type="button"
-        onClick={onDeleteAccount}
-        className="mt-2 flex w-full items-center justify-center gap-2 rounded-[14px] border bg-white py-3 text-[13px] font-extrabold"
-        style={{ borderColor: '#F0D4C8', color: '#B53A22' }}
-      >
-        {I.trash(16)} Supprimer mon compte
-      </button>
+      {/* Supprimer mon compte — masqué pour les admins (cf. /api/profile/delete
+          qui refuse aussi côté serveur). Pour réellement supprimer un compte
+          admin, retirer d'abord son email de admin_emails. */}
+      {!isAdmin && (
+        <button
+          type="button"
+          onClick={onDeleteAccount}
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-[14px] border bg-white py-3 text-[13px] font-extrabold"
+          style={{ borderColor: '#F0D4C8', color: '#B53A22' }}
+        >
+          {I.trash(16)} Supprimer mon compte
+        </button>
+      )}
 
       {showSub && (
         <SubscriptionModal
