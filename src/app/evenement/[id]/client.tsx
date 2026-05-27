@@ -99,8 +99,12 @@ export default function EvenementPageClient({ id }: { id: string }) {
 
   return (
     <div className="relative min-h-[100dvh] bg-creme pb-28 font-inter text-texte">
-      {/* ── Hero photo + floating actions ── */}
-      <div className="relative h-[300px] w-full overflow-hidden bg-[#F0EBE3]">
+      {/* ── Hero photo + floating actions ──
+          h-[220px] = même hauteur que ImageLightbox img height:220px. Avec
+          h-[300px] avant, l'image laissait 80px de vide en bas (fond
+          bg-[#F0EBE3] visible) où atterrissait le badge catégorie → effet
+          "bande grise" entre image et card blanche. */}
+      <div className="relative h-[220px] w-full overflow-hidden bg-[#F0EBE3]">
         {evt.image_url ? (
           <ImageLightbox src={evt.image_url} alt={evt.titre} objectPosition={evt.image_position ?? '50% 50%'} />
         ) : (
