@@ -72,6 +72,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 })
 
+  // Auto-hériter des promos orphelines de cette fiche : si l'ancien
+  // gestionnaire avait fait "Ne plus gérer", ses promotions sont restées en
+  // DB avec leur ancien user_id. Sans transfert, elles seraient invisibles
+  // publiquement à jamais (filtre p.user_id !== etab.user_id dans
+  // /api/promotions et /api/hub). On les transfère au repreneur pour qu'elles
+  // (ré)apparaissent dès qu'il est Pro/Partenaire Local.
+  // Fail-silent : si l'update foire, le claim reste valide.
+  await supabaseAdmin
+    .from('promotions')
+    .update({ user_id: ctx.userId })
+    .eq('etablissement_id', id)
+    .neq('user_id', ctx.userId)
+
   // Trace dans commerce_requests pour l'historique (auto-validée)
   await supabaseAdmin.from('commerce_requests').insert({
     nom: etab.nom,
