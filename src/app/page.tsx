@@ -53,11 +53,13 @@ export default function HomePage() {
   const [promoEventsData, setPromoEventsData] = useState<EvenementCard[]>([])
   const [splashFeaturedEvents, setSplashFeaturedEvents] = useState<EvenementCard[]>([])
   const [showWelcome, setShowWelcome]         = useState(false)
-  // Welcome modal une fois par session navigateur (au lieu d'attendre la fin
-  // d'un splash dédié, qui faisait doublon avec le splash natif PWA).
+  // Welcome modal une seule fois pour toujours (par device).
+  // localStorage persiste entre les sessions browser et survit aux relances
+  // de la PWA, contrairement à sessionStorage qui se vide à chaque nouvelle
+  // session — d'où le splash qui revenait sans cesse avant ce fix.
   useEffect(() => {
     if (typeof window === 'undefined') return
-    if (!sessionStorage.getItem('pdv-welcome-shown')) setShowWelcome(true)
+    if (!localStorage.getItem('pdv-welcome-shown')) setShowWelcome(true)
   }, [])
   const [appMode, setAppMode]                 = useState<'agenda' | 'annuaire'>('agenda')
   // Restore annuaire mode after returning from a producer page
@@ -1257,7 +1259,7 @@ export default function HomePage() {
 
       {showWelcome && <WelcomeModal onClose={() => {
         setShowWelcome(false)
-        sessionStorage.setItem('pdv-welcome-shown', '1')
+        localStorage.setItem('pdv-welcome-shown', '1')
       }} />}
 
       {commerceFormOpen && <CommerceRequestModal onClose={() => setCommerceFormOpen(false)} />}
