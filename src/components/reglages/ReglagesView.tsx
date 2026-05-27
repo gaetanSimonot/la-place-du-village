@@ -5,7 +5,12 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { PLANS_INFO, type Plan } from '@/lib/capabilities'
 import LoginView from '@/components/LoginView'
-import AdminAccess from '@/components/AdminAccess'
+// AdminAccess retiré le 2026-05-28 : bouton visible aux non-admins qui
+// router.push('/admin') sur N'IMPORTE QUEL code à 4 chiffres tapé.
+// /admin lui-même est protégé côté DB (admin_emails) donc pas d'élévation
+// réelle de privilège, mais surface d'attaque inutile + UX trompeuse.
+// L'accès admin se fait désormais uniquement par URL directe /admin
+// pour les comptes présents dans la table admin_emails.
 import BottomNavBar from '@/components/BottomNavBar'
 import MesAnnonces from '@/components/MesAnnonces'
 import AbonnementsView from '@/components/AbonnementsView'
@@ -222,10 +227,9 @@ export default function ReglagesView() {
         )}
       </div>
 
-      {/* Footer + AdminAccess discret pour les non-admin connaissant le PIN */}
+      {/* Footer simple (AdminAccess retiré pour sécurité — cf. commit notes) */}
       <div className="mt-4 flex flex-col items-center gap-2 px-4 pt-2 text-[10.5px] leading-[1.5] text-texte-tres-doux">
         <div className="text-center">La Place du Village · version 0.1.0</div>
-        {!isAdmin && <AdminAccess />}
       </div>
 
       {deleteOpen && (
