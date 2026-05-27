@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
+import { toast } from 'sonner'
 
 const T = {
   primary: '#2D5A3D',
@@ -144,7 +145,13 @@ export default function AppInfoModal({ onClose }: { onClose: () => void }) {
     setSending(true); setError(null)
     const { data: { session } } = await supabase.auth.getSession()
     const token = session?.access_token
-    if (!token) { setSending(false); return }
+    if (!token) {
+      // Session JWT expirée alors que user reste affiché loggé (cf. bug
+      // session zombie). On informe l'user au lieu d'un return silencieux.
+      setSending(false)
+      toast.error('Ta session a expiré. Reconnecte-toi et réessaie.')
+      return
+    }
     const res = await fetch('/api/support/conversations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -152,7 +159,9 @@ export default function AppInfoModal({ onClose }: { onClose: () => void }) {
     })
     if (!res.ok) {
       const d = await res.json().catch(() => ({}))
-      setError(d.error ?? 'Erreur envoi')
+      const msg = d.error ?? 'Erreur envoi — réessaie dans un instant.'
+      setError(msg)
+      toast.error(msg)
       setSending(false)
       return
     }
