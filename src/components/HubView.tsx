@@ -131,7 +131,7 @@ export default function HubView({
   onOpenNotifs, onOpenInfo, onOpenSearch, unreadCount = 0,
 }: Props) {
   const router = useRouter()
-  const { profile } = useAuth()
+  const { profile, isAdmin } = useAuth()
   const { favIds, toggle: toggleFav } = useFavorites()
 
   // ──────────────────────────────────────────────────────────────────────
@@ -255,15 +255,20 @@ export default function HubView({
           >
             Bonjour, {firstName}
           </h1>
-          <Link
-            href="/people"
-            className="flex shrink-0 items-center gap-1.5 rounded-full border border-bord bg-white px-3 py-1.5 text-[12px] font-bold text-texte no-underline"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
-            Les gens
-          </Link>
+          {/* Bouton "Les gens" — temporairement caché aux non-admins le temps
+              de décider de l'approche finale (compteur visites vs compteur
+              membres, etc.). Reste accessible aux admins pour test. */}
+          {isAdmin && (
+            <Link
+              href="/people"
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-bord bg-white px-3 py-1.5 text-[12px] font-bold text-texte no-underline"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+              Les gens
+            </Link>
+          )}
         </div>
         <p className="mt-1 flex items-center gap-2 text-[13px] text-texte-doux">
           <span><span className="font-semibold text-texte">{totalNear}</span> événement{totalNear > 1 ? 's' : ''} près de toi</span>
