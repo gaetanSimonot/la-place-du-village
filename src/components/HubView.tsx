@@ -160,10 +160,9 @@ export default function HubView({
 
   // ── Derive les states UI depuis hubData (SWR est la source de vérité) ──
   const zoneCounts = useMemo(() => ({
-    evt:    hubData?.zoneCounts?.evt    ?? 0,
-    etab:   hubData?.zoneCounts?.etab   ?? 0,
-    prod:   hubData?.zoneCounts?.prod   ?? 0,
-    people: hubData?.zoneCounts?.people ?? 0,
+    evt:  hubData?.zoneCounts?.evt  ?? 0,
+    etab: hubData?.zoneCounts?.etab ?? 0,
+    prod: hubData?.zoneCounts?.prod ?? 0,
   }), [hubData])
 
   // Hero items : prepend slide intro si admin a coché l'option
@@ -264,11 +263,6 @@ export default function HubView({
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
             </svg>
             Les gens
-            {zoneCounts.people > 0 && (
-              <span className="ml-0.5 inline-flex items-center justify-center rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-extrabold text-white">
-                {zoneCounts.people}
-              </span>
-            )}
           </Link>
         </div>
         <p className="mt-1 flex items-center gap-2 text-[13px] text-texte-doux">
