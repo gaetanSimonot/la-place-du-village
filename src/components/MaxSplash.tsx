@@ -72,6 +72,17 @@ export default function MaxSplash({ events, loading = false }: Props) {
     return () => clearTimeout(t)
   }, [])
 
+  // Marquer le splash comme "vu" dès le mount, sans attendre une interaction
+  // utilisateur. Le splash reste affiché cette session (phase est déjà 'logo'
+  // grâce au lazy init du useState ci-dessus, qui s'évalue AVANT ce useEffect)
+  // mais ne réapparaitra plus aux ouvertures suivantes. Évite que les users
+  // qui ferment l'app sans interagir le revoient à chaque relance.
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(SEEN_KEY, '1')
+    }
+  }, [])
+
   useEffect(() => {
     if (phase !== 'logo') return
     if (localStorage.getItem(SEEN_KEY)) return
