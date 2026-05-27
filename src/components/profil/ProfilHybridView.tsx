@@ -170,7 +170,7 @@ export default function ProfilHybridView() {
   const effectiveIsVerified    = inPublic && !settings.module_utile ? false : isVerified
 
   return (
-    <div className="min-h-full bg-creme pb-10 font-inter text-texte">
+    <div className="min-h-full bg-creme pb-28 font-inter text-texte">
       {/* Bandeau "Aperçu public" — visible quand viewMode='public', avec retour explicite */}
       {viewMode === 'public' && (
         <button

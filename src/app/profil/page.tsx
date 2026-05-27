@@ -1,5 +1,6 @@
 'use client'
 import ProfilHybridView from '@/components/profil/ProfilHybridView'
+import BottomNavBar from '@/components/BottomNavBar'
 
 /**
  * Page /profil — refonte V3 "profil hybride".
@@ -15,6 +16,7 @@ export default function ProfilPage() {
   return (
     <div style={{ minHeight: '100dvh', backgroundColor: 'var(--creme)' }}>
       <ProfilHybridView />
+      <BottomNavBar />
     </div>
   )
 }
