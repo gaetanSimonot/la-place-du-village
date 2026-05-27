@@ -184,14 +184,8 @@ export default function ProfilPublicView({ viewedUserId }: { viewedUserId: strin
         onToggleViewMode={() => router.back()}
         onContactClick={handleContact}
         onSubscribeClick={handleSubscribe}
+        isFollowing={following}
       />
-
-      {/* Indicateur de following pour l'user connecté */}
-      {!isOwn && user && following && (
-        <div className="px-4 pt-2 text-center text-[11px] text-texte-doux">
-          Tu suis ce profil
-        </div>
-      )}
 
       <ProfilTabSwitcher
         active={safeTab}

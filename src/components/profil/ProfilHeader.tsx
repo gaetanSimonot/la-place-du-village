@@ -38,6 +38,7 @@ interface Props {
   onToggleViewMode: () => void
   onContactClick?: () => void
   onSubscribeClick?: () => void
+  isFollowing?: boolean
 }
 
 export default function ProfilHeader({
@@ -54,6 +55,7 @@ export default function ProfilHeader({
   onToggleViewMode,
   onContactClick,
   onSubscribeClick,
+  isFollowing = false,
 }: Props) {
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const initial = displayName.trim().charAt(0).toUpperCase() || '·'
@@ -191,9 +193,21 @@ export default function ProfilHeader({
             </button>
             <button
               onClick={onSubscribeClick}
+              aria-pressed={isFollowing}
               className="inline-flex items-center gap-1.5 rounded-[11px] border border-bord bg-white px-3.5 py-2.5 text-[13px] font-bold text-texte"
             >
-              <IcUserPlus size={14} /> S&apos;abonner
+              {isFollowing ? (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  Abonné
+                </>
+              ) : (
+                <>
+                  <IcUserPlus size={14} /> S&apos;abonner
+                </>
+              )}
             </button>
           </div>
         )}
