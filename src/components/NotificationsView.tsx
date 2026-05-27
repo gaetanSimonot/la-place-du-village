@@ -6,6 +6,7 @@ import { useAdminSession } from '@/hooks/useAdminSession'
 import { useFriendships } from '@/hooks/useFriendships'
 import { PLANS_INFO, PLAN_ORDER, type Plan } from '@/lib/capabilities'
 import type { AppNotification, NotifType } from '@/lib/types'
+import { toast } from 'sonner'
 
 interface Props {
   notifications: AppNotification[]
@@ -151,19 +152,33 @@ type UserFilter = 'all' | 'annonces' | 'producteurs' | 'promos' | 'events'
 type AdminFilter = 'all' | 'unread' | 'demandes' | 'annonces' | 'events' | 'support' | 'boost'
 
 export default function NotificationsView({ notifications, loading, loaded, onOpen, onMarkRead, onMarkAllRead, onDelete, onOpenProducer, onBack }: Props) {
-  const { accept: acceptFriendship, cancel: cancelFriendship } = useFriendships()
+  const { friendships, accept: acceptFriendship, cancel: cancelFriendship } = useFriendships()
   const [busyFriendIds, setBusyFriendIds] = useState<Set<string>>(new Set())
+
+  // Status d'un friendship par id (source de vérité = hook useFriendships
+  // qui se refresh après chaque accept/cancel). Permet d'afficher "✓ Acceptée"
+  // au lieu des boutons Accepter/Refuser une fois la demande traitée, même
+  // après un refresh de la page. Si la friendship n'est pas trouvée en
+  // mémoire, on retombe sur 'pending' (= afficher les boutons par défaut).
+  function friendshipStatus(friendshipId: string): 'pending' | 'accepted' | 'unknown' {
+    const f = friendships.find(x => x.id === friendshipId)
+    if (!f) return 'unknown'
+    return f.status === 'accepted' ? 'accepted' : 'pending'
+  }
 
   async function handleFriendAccept(friendshipId: string, notifId: string) {
     if (busyFriendIds.has(friendshipId)) return
     setBusyFriendIds(prev => new Set(prev).add(friendshipId))
     try {
       await acceptFriendship(friendshipId)
-      // Une fois acceptée, la notif disparaît du feed (pas seulement marquée lue)
-      if (onDelete) onDelete(notifId)
-      else          onMarkRead(notifId)
-    } catch (e) { console.error('[notif accept]', e) }
-    finally {
+      // On garde la notif visible mais on la marque lue. Le bouton bascule
+      // automatiquement en "✓ Acceptée" grâce à friendshipStatus() qui voit
+      // le nouveau status après le refresh interne du hook useFriendships.
+      onMarkRead(notifId)
+    } catch (e) {
+      console.error('[notif accept]', e)
+      toast.error('Erreur en acceptant la demande. Réessaie.')
+    } finally {
       setBusyFriendIds(prev => { const next = new Set(prev); next.delete(friendshipId); return next })
     }
   }
@@ -173,11 +188,15 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
     setBusyFriendIds(prev => new Set(prev).add(friendshipId))
     try {
       await cancelFriendship(friendshipId)
-      // Une fois refusée, la notif disparaît aussi (pas de raison de la garder)
+      // Refus = la friendship est supprimée côté DB → friendshipStatus
+      // retournera 'unknown' au prochain render → on affiche un état figé.
+      // On supprime la notif côté UI pour ne pas garder un témoin orphelin.
       if (onDelete) onDelete(notifId)
       else          onMarkRead(notifId)
-    } catch (e) { console.error('[notif refuse]', e) }
-    finally {
+    } catch (e) {
+      console.error('[notif refuse]', e)
+      toast.error('Erreur en refusant la demande. Réessaie.')
+    } finally {
       setBusyFriendIds(prev => { const next = new Set(prev); next.delete(friendshipId); return next })
     }
   }
@@ -517,9 +536,12 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
                 {bucket.items.map(n => {
                   const cfg = NOTIF_VISUAL[n.type] ?? DEFAULT_NOTIF_VISUAL
                   const isUnread = !n.lu
-                  // Actions inline pour les demandes d'ami reçues
+                  // Actions inline pour les demandes d'ami reçues. Le `status`
+                  // vient de useFriendships → la notif passe automatiquement
+                  // en "✓ Acceptée" après accept, même au refresh page.
                   const friendActions = (n.type === 'friend_request_received' && n.target_id) ? {
-                    busy: busyFriendIds.has(n.target_id),
+                    busy:   busyFriendIds.has(n.target_id),
+                    status: friendshipStatus(n.target_id),
                     onAccept: () => handleFriendAccept(n.target_id!, n.id),
                     onRefuse: () => handleFriendRefuse(n.target_id!, n.id),
                   } : undefined
@@ -630,7 +652,7 @@ function NotifRow({
   onClick:() => void
   onMenu: () => void
   onDelete?: () => void
-  friendActions?: { busy: boolean; onAccept: () => void; onRefuse: () => void }
+  friendActions?: { busy: boolean; status: 'pending' | 'accepted' | 'unknown'; onAccept: () => void; onRefuse: () => void }
 }) {
   const lpTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const startX = useRef<number | null>(null)
@@ -741,30 +763,39 @@ function NotifRow({
           </div>
           <div className="mt-0.5 text-[11px] text-texte-doux">{when}</div>
           {friendActions && (
-            <div className="mt-2 flex gap-1.5" onClick={e => e.stopPropagation()}>
-              <button
-                type="button"
-                onClick={friendActions.onAccept}
-                disabled={friendActions.busy}
-                className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-white disabled:opacity-50"
-              >
+            friendActions.status === 'accepted' ? (
+              <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-[#E8F2EB] px-3 py-1.5 text-[11px] font-bold text-[#2D5A3D]">
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="20 6 9 17 4 12"/>
                 </svg>
-                {friendActions.busy ? '…' : 'Accepter'}
-              </button>
-              <button
-                type="button"
-                onClick={friendActions.onRefuse}
-                disabled={friendActions.busy}
-                className="inline-flex items-center gap-1 rounded-full border border-bord bg-white px-3 py-1.5 text-[11px] font-bold text-texte-doux disabled:opacity-50"
-              >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-                Refuser
-              </button>
-            </div>
+                Acceptée
+              </div>
+            ) : (
+              <div className="mt-2 flex gap-1.5" onClick={e => e.stopPropagation()}>
+                <button
+                  type="button"
+                  onClick={friendActions.onAccept}
+                  disabled={friendActions.busy}
+                  className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-white disabled:opacity-50"
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  {friendActions.busy ? '…' : 'Accepter'}
+                </button>
+                <button
+                  type="button"
+                  onClick={friendActions.onRefuse}
+                  disabled={friendActions.busy}
+                  className="inline-flex items-center gap-1 rounded-full border border-bord bg-white px-3 py-1.5 text-[11px] font-bold text-texte-doux disabled:opacity-50"
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                  Refuser
+                </button>
+              </div>
+            )
           )}
         </div>
         {unread && (
