@@ -52,9 +52,14 @@ export async function GET(
     .eq('sender_is_admin', !ctx.isAdmin)
     .is('lu_at', null)
 
-  // Charge le profil user (utile côté admin pour le header)
+  // Charge le profil user (utile côté admin pour le header).
+  // conv.user_id peut être NULL si le user original a supprimé son compte
+  // (FK ON DELETE SET NULL sur support_conversations.user_id) — dans ce cas
+  // on garde userInfo à null, le client affichera "Compte supprimé" ou
+  // équivalent. AVANT ce fix : auth.admin.getUserById(null) faisait planter
+  // l'API en 500 → conv apparaissait "introuvable" depuis /admin/support.
   let userInfo: { user_id: string; display_name: string | null; avatar_url: string | null; email: string | null } | null = null
-  if (ctx.isAdmin) {
+  if (ctx.isAdmin && conv.user_id) {
     const { data: profile } = await supabaseAdmin
       .from('profiles')
       .select('user_id, display_name, avatar_url')
@@ -123,13 +128,17 @@ export async function POST(
   const actorName = senderProfile?.display_name || ctx.email || (ctx.isAdmin ? 'Équipe La Place du Village' : 'Un utilisateur')
 
   if (ctx.isAdmin) {
-    // Admin → user
-    await notifyUser(conv.user_id, {
-      type:        'support_message',
-      actor_name:  'Équipe La Place du Village',
-      target_type: 'support_conversation',
-      target_id:   convId,
-    })
+    // Admin → user. Si conv.user_id est null (user supprimé), on skip
+    // silencieusement la notif — le message reste inséré et visible côté
+    // admin, c'est juste qu'il n'y a personne à notifier.
+    if (conv.user_id) {
+      await notifyUser(conv.user_id, {
+        type:        'support_message',
+        actor_name:  'Équipe La Place du Village',
+        target_type: 'support_conversation',
+        target_id:   convId,
+      })
+    }
   } else {
     // User → tous les admins
     await notifyAdmins({
