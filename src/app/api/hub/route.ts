@@ -74,6 +74,7 @@ export async function GET(req: NextRequest) {
     evtCountRes,
     etabCountRes,
     prodCountRes,
+    peopleCountRes,
     introCfgRes,
     introImgRes,
     heroSlotsRes,
@@ -87,6 +88,10 @@ export async function GET(req: NextRequest) {
     supabaseAdmin.from('evenements').select('*', { count: 'exact', head: true }).eq('statut', 'publie'),
     supabaseAdmin.from('etablissements').select('*', { count: 'exact', head: true }),
     supabaseAdmin.from('producers').select('*', { count: 'exact', head: true }),
+    // peopleCount = total des profiles (= /admin/membres). On affiche ce
+    // chiffre sur le bouton "Les gens" du Hub. Independant de is_public
+    // pour que le compteur reflete la vraie taille du village.
+    supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true }),
     supabaseAdmin.from('config').select('value').eq('key', 'hub_hero_intro_enabled').maybeSingle(),
     supabaseAdmin.from('config').select('value').eq('key', 'hub_hero_intro_image_url').maybeSingle(),
     supabaseAdmin
@@ -290,9 +295,10 @@ export async function GET(req: NextRequest) {
   // ── PAYLOAD ──
   const payload = {
     zoneCounts: {
-      evt:  evtCountRes.count ?? 0,
-      etab: etabCountRes.count ?? 0,
-      prod: prodCountRes.count ?? 0,
+      evt:    evtCountRes.count   ?? 0,
+      etab:   etabCountRes.count  ?? 0,
+      prod:   prodCountRes.count  ?? 0,
+      people: peopleCountRes.count ?? 0,
     },
     heroItems,
     introEnabled:  introCfgRes.data?.value === 'true',

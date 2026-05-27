@@ -40,8 +40,14 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const q = (searchParams.get('q') ?? '').trim()
 
+  // `total` = count des profiles total (= /admin/membres = bouton "Les gens"
+  // du Hub). Affiché comme "X membres" en haut de la page. On compte les
+  // profiles SANS filtre is_public (= peut différer du nombre de profils
+  // listés ci-dessous quand certains se sont masqués). Cohérence avec
+  // /api/hub.zoneCounts.people pour avoir UN seul chiffre dans toute l'app.
+  const admin = freshAdmin()
+
   if (q.length >= 2) {
-    const admin = freshAdmin()
     const [listRes, countRes] = await Promise.all([
       admin
         .from('profiles_searchable')
@@ -49,7 +55,7 @@ export async function GET(req: NextRequest) {
         .or(`display_name.ilike.%${q}%,ville.ilike.%${q}%`)
         .order('display_name', { ascending: true, nullsFirst: false })
         .limit(PAGE_LIMIT),
-      admin.from('profiles_searchable').select('*', { count: 'exact', head: true }),
+      admin.from('profiles').select('*', { count: 'exact', head: true }),
     ])
     if (listRes.error) return NextResponse.json({ error: listRes.error.message }, { status: 500 })
     return NextResponse.json({ people: listRes.data ?? [], total: countRes.count ?? 0 }, {
@@ -57,17 +63,14 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  // Mode browse : on retourne aussi `total` = vrai count de la vue, indépendant
-  // de ce que sort le SELECT (peut différer en cas de RLS/filtrage subtil).
-  // Le UI affiche `total` pour le compteur "X membres".
-  const admin = freshAdmin()
+  // Mode browse
   const [listRes, countRes] = await Promise.all([
     admin
       .from('profiles_public_listing')
       .select('user_id, display_name, avatar_url, ville, genre, is_verified')
       .order('display_name', { ascending: true, nullsFirst: false })
       .limit(PAGE_LIMIT),
-    admin.from('profiles_public_listing').select('*', { count: 'exact', head: true }),
+    admin.from('profiles').select('*', { count: 'exact', head: true }),
   ])
   if (listRes.error) return NextResponse.json({ error: listRes.error.message }, { status: 500 })
   return NextResponse.json({ people: listRes.data ?? [], total: countRes.count ?? 0 }, {
