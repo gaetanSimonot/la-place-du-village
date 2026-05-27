@@ -44,11 +44,27 @@ export default function PeopleClient() {
     : null
   const { data, isLoading, mutate } = useSWR<{ people: PersonCardData[]; total?: number }>(peopleKey, authedFetcher)
   const people = useMemo<PersonCardData[]>(() => data?.people ?? [], [data])
-  // `total` = vrai count en DB (= compteur affiché en haut). Peut différer
-  // de people.length si la liste retournée par l'API est filtrée pour une
-  // raison subtile (cache, RLS, etc.).
-  const total = data?.total ?? 0
+  const apiTotal = data?.total ?? 0
   const loading = (isLoading && !data) ? true : false
+
+  // Compteur "live" : fetch direct Supabase au mount pour bypass SWR et
+  // Service Worker. Source unique de vérité = count exact de la table
+  // profiles, identique à /admin/membres. Si la query échoue (RLS, réseau),
+  // on tombe back sur le `total` retourné par l'API. Aucun cache local.
+  const [liveTotal, setLiveTotal] = useState<number | null>(null)
+  useEffect(() => {
+    if (!user) return
+    let alive = true
+    supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+      .then(({ count, error }) => {
+        if (!alive) return
+        if (!error && typeof count === 'number') setLiveTotal(count)
+      })
+    return () => { alive = false }
+  }, [user])
+  const total = liveTotal ?? apiTotal
 
   // Realtime sur profiles : mutate() invalide la clé courante → refetch
   useEffect(() => {
