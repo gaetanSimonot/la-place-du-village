@@ -1068,6 +1068,10 @@ function ParametersSection(p: ParamProps) {
           href="/admin/prompts"
           className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-[#FBF7F0] text-gray-600 border border-[#E8E0D5] whitespace-nowrap"
         >🧠 Prompts IA</Link>
+        <Link
+          href="/admin/support"
+          className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-[#FBF7F0] text-gray-600 border border-[#E8E0D5] whitespace-nowrap"
+        >📨 Support</Link>
       </div>
 
       {/* Panels */}
