@@ -205,8 +205,42 @@ interface InitialData {
   titre?: string; description?: string; date_debut?: string; date_fin?: string
   heure?: string; categorie?: Categorie; lieu_nom?: string; commune?: string
   prix?: string; contact?: string; organisateurs?: string
+  // Champs additionnels (réhydratation d'un draft édité précédemment en
+  // mode onEditOnly — sinon vides en mode extraction initiale).
+  adresse?: string
+  lat?: number | null
+  lng?: number | null
+  place_id_google?: string | null
 }
 interface InitialImage { base64: string; mime: string; preview: string; position: string }
+
+/**
+ * Données complètes d'un event édité, telles qu'on les renverrait au POST
+ * /api/evenements. Utilisé en mode `onEditOnly` (édition pure in-memory)
+ * pour permettre à un parent de batcher plusieurs events avant submit.
+ */
+export interface EventDraft {
+  titre:          string
+  description:    string
+  date_debut:     string
+  date_fin:       string
+  heure:          string
+  categorie:      Categorie
+  lieu_nom:       string
+  commune:        string
+  adresse:        string
+  lat:            number | null
+  lng:            number | null
+  place_id_google: string | null
+  prix:           string
+  contact:        string
+  organisateurs:  string
+  image_base64:   string | null
+  image_mime:     string
+  image_preview:  string | null
+  image_position: string
+  image_from_extract: boolean
+}
 
 interface Props {
   evenementId?: string
@@ -214,9 +248,16 @@ interface Props {
   initialImage?: InitialImage | null
   onClose: () => void
   onSaved?: (result?: { statut?: string; message?: string; id?: string }) => void
+  /**
+   * Mode édition pure : si fourni, le drawer NE fait PAS le POST à
+   * /api/evenements et appelle onEditOnly(draft) à la place. Utilisé par
+   * /ajouter pour permettre à l'user d'éditer plusieurs events extraits
+   * avant un submit batch unique. onSaved est ignoré dans ce mode.
+   */
+  onEditOnly?: (draft: EventDraft) => void
 }
 
-export default function EventEditDrawer({ evenementId, initialData, initialImage, onClose, onSaved }: Props) {
+export default function EventEditDrawer({ evenementId, initialData, initialImage, onClose, onSaved, onEditOnly }: Props) {
   const [mode, setMode]       = useState<Mode>('edit')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving]   = useState(false)
@@ -274,6 +315,11 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
         setOrganisateurs(initialData.organisateurs ?? '')
         setLieuNom(initialData.lieu_nom ?? '')
         setCommune(initialData.commune ?? '')
+        // Réhydratation (mode multi-events, draft édité précédemment)
+        if (initialData.adresse) setAdresse(initialData.adresse)
+        if (initialData.lat != null) setLat(String(initialData.lat))
+        if (initialData.lng != null) setLng(String(initialData.lng))
+        if (initialData.place_id_google) setPlaceIdGoogle(initialData.place_id_google)
       }
       if (initialImage) {
         setNewBase64(initialImage.base64)
@@ -421,6 +467,27 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
 
   const save = async (statutOverride?: string) => {
     if (!validate()) return
+    // Mode édition pure (in-memory) : zéro API call, on renvoie le draft
+    // au parent qui le stocke. Utilisé par /ajouter en flow multi-events.
+    if (onEditOnly) {
+      onEditOnly({
+        titre, description,
+        date_debut: dateDebut, date_fin: dateFin, heure,
+        categorie,
+        lieu_nom: lieuNom, commune, adresse,
+        lat: lat ? parseFloat(lat) : null,
+        lng: lng ? parseFloat(lng) : null,
+        place_id_google: placeIdGoogle,
+        prix, contact, organisateurs,
+        image_base64: newBase64,
+        image_mime: newMime,
+        image_preview: newPreview,
+        image_position: imagePosition,
+        image_from_extract: imageFromExtract,
+      })
+      onClose()
+      return
+    }
     setSaving(true); setError(null)
     try {
       if (!evenementId) {
