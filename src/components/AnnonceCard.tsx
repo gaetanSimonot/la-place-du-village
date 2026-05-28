@@ -66,8 +66,20 @@ export default function AnnonceCard({ annonce }: Props) {
         >
           {p.label}{isEnchere && ' ↘'}
         </div>
-        {/* Actions overlay : Partager + Favori (en stack vertical) */}
-        <div className="absolute right-2 top-2 flex flex-col gap-1.5">
+        {/* Actions overlay : Favori (cœur) + Partager (3 cercles).
+            Même style que les boutons des EventListCard dans BottomSheet :
+            carrés 26x26 fond beige #EDE8DF, icône stroke 2. */}
+        <div className="absolute right-2 top-2 flex flex-col gap-1">
+          <button
+            type="button"
+            aria-label={favored ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+            onClick={ev => { ev.stopPropagation(); ev.preventDefault(); toggle(annonce.id) }}
+            style={{ width: 26, height: 26, borderRadius: 7, backgroundColor: '#EDE8DF', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill={favored ? '#EC407A' : 'none'} stroke={favored ? '#EC407A' : '#6B5E4E'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+          </button>
           <button
             type="button"
             aria-label="Partager cette annonce"
@@ -79,23 +91,11 @@ export default function AnnonceCard({ annonce }: Props) {
                 url:   `https://laplaceduvillage.app/annonces/${annonce.id}`,
               })
             }}
-            className="flex h-7 w-7 items-center justify-center rounded-full border-none bg-white/90 text-texte"
+            style={{ width: 26, height: 26, borderRadius: 7, backgroundColor: '#EDE8DF', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-              <polyline points="16 6 12 2 8 6" />
-              <line x1="12" y1="2" x2="12" y2="15" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            aria-label={favored ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-            onClick={ev => { ev.stopPropagation(); ev.preventDefault(); toggle(annonce.id) }}
-            className="flex h-7 w-7 items-center justify-center rounded-full border-none bg-white/90"
-            style={{ color: favored ? '#C84B2F' : '#1A1209' }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill={favored ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6B5E4E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
             </svg>
           </button>
         </div>

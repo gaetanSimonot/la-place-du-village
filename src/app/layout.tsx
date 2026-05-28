@@ -52,7 +52,7 @@ export const metadata: Metadata = {
       {
         url: '/og/home.jpg',
         width: 1200,
-        height: 536,
+        height: 630,
         alt: 'La Place du Village — Ganges et alentours',
       },
     ],
