@@ -3,7 +3,6 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { CATEGORIES } from '@/lib/categories'
 import { Categorie } from '@/lib/types'
 import { formatDate } from '@/lib/filters'
-import { ogTransform } from '@/lib/og-image'
 import EvenementPageClient from './client'
 
 type Props = { params: Promise<{ id: string }> }
@@ -35,9 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .filter(Boolean).join(' — ')
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://laplaceduvillage.app'
-  // Supabase Image Transformations → version 1200x630 compressée à la volée
-  // (WhatsApp/Messenger ne chargent pas l'image source 2-5 MB).
-  const imageUrl = evt.image_url ? ogTransform(evt.image_url) : `${appUrl}/og/home.jpg`
+  const imageUrl = evt.image_url ?? `${appUrl}/logo.png`
 
   return {
     title: `${cat.emoji} ${evt.titre} — La Place du Village`,

@@ -1,6 +1,5 @@
 import { Metadata } from 'next'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { ogTransform } from '@/lib/og-image'
 import EtablissementPageClient from './client'
 
 type Props = { params: Promise<{ id: string }> }
@@ -16,8 +15,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!data) return { title: 'Établissement — La Place du Village' }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://laplaceduvillage.app'
-  const rawPhoto = (data.photos ?? [])[0]
-  const imageUrl = rawPhoto ? ogTransform(rawPhoto) : `${appUrl}/og/home.jpg`
+  const imageUrl = (data.photos ?? [])[0] ?? `${appUrl}/logo.png`
   const commune = data.commune ? ` · ${data.commune}` : ''
 
   return {
