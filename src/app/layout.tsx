@@ -43,6 +43,23 @@ export const metadata: Metadata = {
     url: 'https://laplaceduvillage.app',
     locale: 'fr_FR',
     type: 'website',
+    // Image de partage par défaut (racine + pages d'index). Les fiches
+    // individuelles (annonces, événements, producteurs, etc.) overrident
+    // avec leur propre photo via leur generateMetadata.
+    images: [
+      {
+        url: '/village-illustration.png',
+        width: 1877,
+        height: 838,
+        alt: 'La Place du Village — Ganges et alentours',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'La Place du Village',
+    description: 'Événements locaux autour de Ganges (Hérault)',
+    images: ['/village-illustration.png'],
   },
   appleWebApp: {
     capable: true,
