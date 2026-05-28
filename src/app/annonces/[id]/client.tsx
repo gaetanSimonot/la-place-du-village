@@ -10,6 +10,7 @@ import AnnonceForm from '@/components/AnnonceForm'
 import AnnonceContactModal from '@/components/AnnonceContactModal'
 import BottomNavBar from '@/components/BottomNavBar'
 import FeatureButton, { FeatureModal } from '@/components/FeatureButton'
+import ImageLightbox from '@/components/ImageLightbox'
 import { useSmartBack } from '@/hooks/useSmartBack'
 import {
   getPrixAffiche,
@@ -89,6 +90,7 @@ export default function AnnoncePageClient({ id }: Props) {
   const [showBoostBanner, setShowBoostBanner] = useState(false)
   const [boostModalOpen, setBoostModalOpen]   = useState(false)
   const [contactModalOpen, setContactModalOpen] = useState(false)
+  const [lightboxOpen, setLightboxOpen]         = useState(false)
 
   // Détection ?just_created=1 (post-création → propose boost)
   useEffect(() => {
@@ -334,8 +336,20 @@ export default function AnnoncePageClient({ id }: Props) {
       {/* Photo hero */}
       <div style={{ position: 'relative', height: 290, backgroundColor: '#F0EBE3', overflow: 'hidden' }}>
         {photos.length > 0
-          ? <img src={photos[photoIdx]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ? <img
+              src={photos[photoIdx]}
+              alt=""
+              onClick={() => setLightboxOpen(true)}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in' }}
+            />
           : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 80 }}>{CATEGORIES_ICONS[annonce.categorie]}</div>}
+        {photos.length > 0 && (
+          <ImageLightbox
+            src={photos[photoIdx]}
+            alt={annonce.titre ?? ''}
+            controlled={{ open: lightboxOpen, onClose: () => setLightboxOpen(false) }}
+          />
+        )}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 25%, rgba(0,0,0,0.5) 100%)' }} />
 
         <div style={{ position: 'absolute', top: 12, left: 12, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -407,7 +421,10 @@ export default function AnnoncePageClient({ id }: Props) {
         {vendeur && (
           <div style={cardStyle}>
             <p style={cardLabel}>Vendeur</p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Link
+              href={`/profil/${annonce.user_id}`}
+              style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit' }}
+            >
               <Avatar name={vendeur.display_name || '?'} url={vendeur.avatar_url} size={48} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#2C1810' }}>{vendeur.display_name ?? 'Vendeur'}</p>
@@ -419,7 +436,8 @@ export default function AnnoncePageClient({ id }: Props) {
                   <p style={{ margin: '2px 0 0', fontSize: 11, color: '#A89B8C' }}>Pas encore d&apos;avis</p>
                 )}
               </div>
-            </div>
+              <span aria-hidden style={{ color: '#A89B8C', fontSize: 18, fontWeight: 700 }}>›</span>
+            </Link>
 
             {/* Badges annonce */}
             {annonce.remise_main_propre && (

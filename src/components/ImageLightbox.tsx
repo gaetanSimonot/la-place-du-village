@@ -6,10 +6,22 @@ interface Props {
   src: string
   alt: string
   objectPosition?: string
+  /**
+   * Mode controlled : si fourni, le composant ne rend PAS son wrapper <img>
+   * trigger, juste la modale lightbox pilotée de l'extérieur.
+   * Permet de réutiliser la même mécanique (pinch/zoom/close) sur des
+   * carrousels custom (ex : fiche annonce avec navigation multi-photos).
+   */
+  controlled?: { open: boolean; onClose: () => void }
 }
 
-export default function ImageLightbox({ src, alt, objectPosition = '50% 50%' }: Props) {
-  const [open, setOpen] = useState(false)
+export default function ImageLightbox({ src, alt, objectPosition = '50% 50%', controlled }: Props) {
+  const [internalOpen, setInternalOpen] = useState(false)
+  const open = controlled ? controlled.open : internalOpen
+  const setOpen = (v: boolean) => {
+    if (controlled) { if (!v) controlled.onClose() }
+    else setInternalOpen(v)
+  }
   const [scale, setScale]   = useState(1)
   const [offset, setOffset] = useState({ x: 0, y: 0 })
   const scaleRef  = useRef(1)
@@ -78,12 +90,14 @@ export default function ImageLightbox({ src, alt, objectPosition = '50% 50%' }: 
 
   return (
     <>
-      <img
-        src={src}
-        alt={alt}
-        onClick={() => setOpen(true)}
-        style={{ width: '100%', height: 220, objectFit: 'cover', objectPosition, display: 'block', cursor: 'zoom-in' }}
-      />
+      {!controlled && (
+        <img
+          src={src}
+          alt={alt}
+          onClick={() => setOpen(true)}
+          style={{ width: '100%', height: 220, objectFit: 'cover', objectPosition, display: 'block', cursor: 'zoom-in' }}
+        />
+      )}
 
       <AnimatePresence>
         {open && (
