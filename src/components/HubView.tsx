@@ -10,7 +10,7 @@ import type { EtablissementType, Evenement } from '@/lib/types'
 import { getPrixAffiche, type Annonce } from '@/lib/annonces'
 import HubTopBar from '@/components/HubTopBar'
 import HubSearchBar from '@/components/HubSearchBar'
-import { useFavorites } from '@/hooks/useFavorites'
+import { useAnnonceFavorites } from '@/hooks/useAnnonceFavorites'
 import { toast } from 'sonner'
 // Fetcher + config SWR héritent du provider global (cf. src/components/SWRProvider.tsx).
 
@@ -132,7 +132,10 @@ export default function HubView({
 }: Props) {
   const router = useRouter()
   const { profile, isAdmin } = useAuth()
-  const { favIds, toggle: toggleFav } = useFavorites()
+  // Favoris ANNONCES (séparés de useFavorites events). Assainit le bug
+  // antérieur : avant ce swap, toggleFav appelait /api/evenements/{id}/favorite
+  // avec un id d'annonce → INSERT silencieux invalide (FK).
+  const { favIds, toggle: toggleFav } = useAnnonceFavorites()
 
   // ──────────────────────────────────────────────────────────────────────
   // SWR sur /api/hub :

@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
 import { EvenementCard } from '@/lib/types'
@@ -7,9 +7,11 @@ import { CATEGORIES } from '@/lib/categories'
 import { formatEventDate } from '@/lib/filters'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
+import { useAnnonceFavorites } from '@/hooks/useAnnonceFavorites'
 import { authedFetcher } from '@/lib/swr-fetchers'
 import { PRODUIT_CATS_MAP } from '@/lib/produit-cats'
 import { ETAB_TYPES } from '@/lib/etablissement-types'
+import { getPrixAffiche, type Annonce } from '@/lib/annonces'
 
 interface ProducerMin {
   id: string; nom: string; commune: string | null; photos: string[]; produit_categories: string[]
@@ -83,7 +85,17 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
   const removeEtabFollow = (id: string) =>
     mutate(prev => prev ? { ...prev, etabFollows: prev.etabFollows.filter(x => x.id !== id) } : prev, false)
 
-  const likesCount = events.length + producerFavs.length + etabFavs.length
+  // Favoris annonces : hook hybride + fetch liste publique pour hydrater
+  const { favIds: annonceFavIds, toggle: toggleAnnonceFav } = useAnnonceFavorites()
+  const { data: annoncesData } = useSWR<{ annonces: Annonce[] }>(
+    user && annonceFavIds.length > 0 ? '/api/annonces/public' : null,
+  )
+  const annonceFavs = useMemo(
+    () => ((annoncesData?.annonces ?? []) as Annonce[]).filter(a => annonceFavIds.includes(a.id)),
+    [annoncesData, annonceFavIds],
+  )
+
+  const likesCount = events.length + producerFavs.length + etabFavs.length + annonceFavs.length
   const suivisCount = producerFollows.length + etabFollows.length
 
   return (
@@ -190,6 +202,15 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
                             await supabase.from('etablissement_favorites').delete().eq('etablissement_id', e.id).eq('user_id', user!.id)
                             removeEtabFav(e.id)
                           }} />
+                      ))}
+                    </div>
+                  </Section>
+                )}
+                {annonceFavs.length > 0 && (
+                  <Section title="Annonces" count={annonceFavs.length}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {annonceFavs.map(a => (
+                        <AnnonceFavCard key={a.id} a={a} onRemove={() => toggleAnnonceFav(a.id)} />
                       ))}
                     </div>
                   </Section>
@@ -353,6 +374,38 @@ function FollowCard({ type, name, meta, photo, onClick, onRemove }: { type: 'pro
         </svg>
       </button>
     </div>
+  )
+}
+
+function AnnonceFavCard({ a, onRemove }: { a: Annonce; onRemove: () => void }) {
+  const photo = a.photos?.[0]
+  const prix = getPrixAffiche(a)
+  const typeLabel =
+    a.type === 'vente'            ? 'Vente'   :
+    a.type === 'don'              ? 'Don'     :
+    a.type === 'troc'             ? 'Troc'    :
+    /* enchere_inversee */          'Enchère'
+  return (
+    <Link href={`/annonces/${a.id}`} style={{ display: 'block', position: 'relative', height: 120, borderRadius: 14, overflow: 'hidden', textDecoration: 'none', boxShadow: '0 1px 6px rgba(44,28,16,0.06)', border: `1px solid ${T.bordSoft}` }}>
+      {photo
+        ? <img src={photo} alt={a.titre} loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+        : <div style={{ position: 'absolute', inset: 0, backgroundColor: '#F0EBE3' }} />}
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.42) 50%, rgba(0,0,0,0.06) 82%)' }} />
+      <span style={{ position: 'absolute', top: 11, left: 12, display: 'inline-flex', alignItems: 'center', fontSize: 10, fontWeight: 800, backgroundColor: T.accent, color: '#fff', borderRadius: 999, padding: '3px 9px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+        {typeLabel}
+      </span>
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 48px 13px 14px' }}>
+        <h3 style={{ fontSize: 14, fontWeight: 700, color: '#fff', lineHeight: 1.3, margin: '0 0 3px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{a.titre}</h3>
+        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', margin: 0, fontWeight: 700 }}>
+          {prix}{a.ville ? ` • ${a.ville}` : ''}
+        </p>
+      </div>
+      <button onClick={e => { e.preventDefault(); e.stopPropagation(); onRemove() }}
+        aria-label="Retirer des favoris"
+        style={{ position: 'absolute', bottom: 11, right: 12, width: 30, height: 30, borderRadius: 9, backgroundColor: 'rgba(0,0,0,0.48)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)', color: T.accent }}>
+        <HeartFill size={14} />
+      </button>
+    </Link>
   )
 }
 

@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { useAnnonceFavorites } from '@/hooks/useAnnonceFavorites'
 import {
   getPrixAffiche,
   getNextDropDate,
@@ -28,6 +29,8 @@ export default function AnnonceCard({ annonce }: Props) {
   const isDon     = annonce.type === 'don'
   const isTroc    = annonce.type === 'troc'
   const photo = annonce.photos[0]
+  const { isFav, toggle } = useAnnonceFavorites()
+  const favored = isFav(annonce.id)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const prixVal = (annonce as any).prix as number | null | undefined
@@ -62,14 +65,15 @@ export default function AnnonceCard({ annonce }: Props) {
         >
           {p.label}{isEnchere && ' ↘'}
         </div>
-        {/* Heart (favori) — décoratif pour l'instant */}
+        {/* Heart (favori) — useAnnonceFavorites (hybride localStorage/DB) */}
         <button
           type="button"
-          aria-label="Favori"
-          onClick={ev => { ev.stopPropagation(); ev.preventDefault() }}
+          aria-label={favored ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+          onClick={ev => { ev.stopPropagation(); ev.preventDefault(); toggle(annonce.id) }}
           className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full border-none bg-white/90"
+          style={{ color: favored ? '#C84B2F' : '#1A1209' }}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-texte">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill={favored ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
           </svg>
         </button>
