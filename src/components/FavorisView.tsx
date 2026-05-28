@@ -37,6 +37,47 @@ const CAT_TAG = {
   commerce:   { label: 'COMMERCE',   bg: '#FDE8DF', color: '#C0440A' },
 } as const
 
+/* ── Icons SVG lineart (cohérents avec action bar évènement) ──────── */
+const IcHeart = ({ size = 16, filled = false }: { size?: number; filled?: boolean }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+  </svg>
+)
+const IcBell = ({ size = 16, filled = false }: { size?: number; filled?: boolean }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
+    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+  </svg>
+)
+const IcTag = ({ size = 22 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+    <line x1="7" y1="7" x2="7.01" y2="7"/>
+  </svg>
+)
+const IcCalendar = ({ size = 22 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+    <line x1="16" y1="2" x2="16" y2="6"/>
+    <line x1="8" y1="2" x2="8" y2="6"/>
+    <line x1="3" y1="10" x2="21" y2="10"/>
+  </svg>
+)
+const IcLeaf = ({ size = 22 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
+    <path d="M2 21c0-3 1.85-5.36 5.08-6"/>
+  </svg>
+)
+const IcStore = ({ size = 22 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 9l2-6h14l2 6"/>
+    <path d="M3 9v11a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9"/>
+    <path d="M3 9h18"/>
+    <path d="M9 21V13h6v8"/>
+  </svg>
+)
+
 export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpenEtablissement, onBack }: Props) {
   const { user, loading: authLoading } = useAuth()
 
@@ -178,8 +219,8 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
       <div className="px-4 pt-3.5">
         <div className="grid grid-cols-2 gap-1 rounded-[14px] p-1" style={{ background: '#F7F1E6' }}>
           {([
-            { id: 'favoris' as Section, label: 'Favoris',  icon: '♥', count: favoCounts.all },
-            { id: 'suivis'  as Section, label: 'Suivis',   icon: '🔔', count: suivisCounts.all },
+            { id: 'favoris' as Section, label: 'Favoris', color: '#C84B2F', count: favoCounts.all },
+            { id: 'suivis'  as Section, label: 'Suivis',  color: '#2D5A3D', count: suivisCounts.all },
           ]).map(s => {
             const active = section === s.id
             return (
@@ -196,10 +237,12 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
                   letterSpacing: '-0.005em',
                 }}
               >
-                <span style={{ color: s.id === 'favoris' ? '#C84B2F' : '#2D5A3D' }}>{s.icon}</span>
+                <span style={{ color: active ? s.color : '#7A6A5A', display: 'inline-flex' }}>
+                  {s.id === 'favoris' ? <IcHeart size={16} filled={active} /> : <IcBell size={16} filled={active} />}
+                </span>
                 <span>{s.label}</span>
                 {s.count > 0 && (
-                  <span className="ml-0.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-creme-deep px-1.5 text-[10px] font-extrabold"
+                  <span className="ml-0.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-extrabold"
                     style={{ background: active ? '#F7F1E6' : 'transparent', color: active ? '#7A6A5A' : '#A99B89' }}>
                     {s.count}
                   </span>
@@ -244,7 +287,7 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
             </p>
             <p className="m-0 text-[12px] text-texte-doux">
               {section === 'favoris'
-                ? 'Appuie sur ❤️ pour mettre en favori une annonce, un événement, un producteur ou un commerce.'
+                ? 'Appuie sur le cœur d\'une annonce, d\'un événement, d\'un producteur ou d\'un commerce pour le retrouver ici.'
                 : 'Suis des producteurs et commerces pour ne rien rater.'}
             </p>
           </div>
@@ -267,7 +310,10 @@ interface RowItem {
   removeKind: 'heart' | 'bell'
   imageUrl:  string | null
   imageBg:   string
-  fallbackEmoji: string
+  /** Icône SVG rendue dans le placeholder si pas d'imageUrl. */
+  fallbackIcon: React.ReactNode
+  /** Couleur de l'icône placeholder (assortie à la catégorie). */
+  fallbackColor: string
   tag:       { label: string; bg: string; color: string }
   title:     string
   subtitle:  string
@@ -280,8 +326,9 @@ function annonceToRow(a: Annonce, onRemove: () => void): RowItem {
     onRemove,
     removeKind: 'heart',
     imageUrl:  a.photos?.[0] ?? null,
-    imageBg:   '#F0EBE3',
-    fallbackEmoji: '🏷️',
+    imageBg:   '#FFF0E5',
+    fallbackIcon:  <IcTag size={22} />,
+    fallbackColor: '#C84B2F',
     tag:       CAT_TAG.annonce,
     title:     a.titre,
     subtitle:  `${getPrixAffiche(a)}${a.ville ? ' • ' + a.ville : ''}`,
@@ -298,7 +345,8 @@ function eventToRow(e: EvenementCard, onRemove: () => void): RowItem {
     removeKind: 'heart',
     imageUrl:  e.image_url ?? null,
     imageBg:   '#E8EEF7',
-    fallbackEmoji: '📅',
+    fallbackIcon:  <IcCalendar size={22} />,
+    fallbackColor: '#3A5D8C',
     tag:       CAT_TAG.event,
     title:     e.titre,
     subtitle:  [date, commune].filter(Boolean).join(' • '),
@@ -313,7 +361,8 @@ function producerFavToRow(p: ProducerMin, onClick: () => void, onRemove: () => v
     removeKind: 'heart',
     imageUrl:  p.photos?.[0] ?? null,
     imageBg:   '#E8F2EB',
-    fallbackEmoji: '🌿',
+    fallbackIcon:  <IcLeaf size={22} />,
+    fallbackColor: '#2D5A3D',
     tag:       CAT_TAG.producteur,
     title:     p.nom,
     subtitle:  p.commune ?? '',
@@ -328,7 +377,8 @@ function producerFollowToRow(p: ProducerMin, onClick: () => void, onRemove: () =
     removeKind: 'bell',
     imageUrl:  p.photos?.[0] ?? null,
     imageBg:   '#E8F2EB',
-    fallbackEmoji: '🌿',
+    fallbackIcon:  <IcLeaf size={22} />,
+    fallbackColor: '#2D5A3D',
     tag:       CAT_TAG.producteur,
     title:     p.nom,
     subtitle:  p.commune ?? '',
@@ -344,7 +394,8 @@ function etabFavToRow(e: EtabMin, onClick: () => void, onRemove: () => void): Ro
     removeKind: 'heart',
     imageUrl:  e.photos?.[0] ?? null,
     imageBg:   typeInfo?.bg ?? '#FDE8DF',
-    fallbackEmoji: typeInfo?.emoji ?? '🏪',
+    fallbackIcon:  <IcStore size={22} />,
+    fallbackColor: '#C0440A',
     tag:       CAT_TAG.commerce,
     title:     e.nom,
     subtitle:  `${typeInfo?.label ?? e.type}${e.commune ? ' · ' + e.commune : ''}`,
@@ -360,7 +411,8 @@ function etabFollowToRow(e: EtabMin, onClick: () => void, onRemove: () => void):
     removeKind: 'bell',
     imageUrl:  e.photos?.[0] ?? null,
     imageBg:   typeInfo?.bg ?? '#FDE8DF',
-    fallbackEmoji: typeInfo?.emoji ?? '🏪',
+    fallbackIcon:  <IcStore size={22} />,
+    fallbackColor: '#C0440A',
     tag:       CAT_TAG.commerce,
     title:     e.nom,
     subtitle:  `${typeInfo?.label ?? e.type}${e.commune ? ' · ' + e.commune : ''}`,
@@ -410,10 +462,10 @@ function Row({ row }: { row: RowItem }) {
         />
       ) : (
         <div
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[12px] text-[22px]"
-          style={{ background: row.imageBg, border: '2px solid #FDFAF5' }}
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[12px]"
+          style={{ background: row.imageBg, border: '2px solid #FDFAF5', color: row.fallbackColor }}
         >
-          {row.fallbackEmoji}
+          {row.fallbackIcon}
         </div>
       )}
 
@@ -447,16 +499,7 @@ function Row({ row }: { row: RowItem }) {
             color:      row.removeKind === 'heart' ? '#C84B2F' : '#2D5A3D',
           }}
         >
-          {row.removeKind === 'heart' ? (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.5">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-            </svg>
-          ) : (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.4">
-              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-              <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-            </svg>
-          )}
+          {row.removeKind === 'heart' ? <IcHeart size={16} filled /> : <IcBell size={16} filled />}
         </button>
       )}
     </div>
