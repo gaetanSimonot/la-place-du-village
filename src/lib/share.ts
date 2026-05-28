@@ -21,15 +21,7 @@ export interface ShareData {
 export async function shareLink(data: ShareData): Promise<void> {
   if (typeof navigator !== 'undefined' && navigator.share) {
     try {
-      // WhatsApp ne génère pas de LinkPreview quand l'URL est passée via
-      // la propriété `url` du Web Share API (il l'envoie telle quelle).
-      // Pour déclencher le scrape OG côté WhatsApp/Messenger, on met
-      // l'URL à la fin du `text` et on omet `url`. Le destinataire voit
-      // alors un message texte avec une URL → preview riche normale.
-      await navigator.share({
-        title: data.title,
-        text: `${data.text}\n${data.url}`,
-      })
+      await navigator.share(data)
     } catch {
       // L'utilisateur a fermé la feuille de partage → no-op silencieux
     }
