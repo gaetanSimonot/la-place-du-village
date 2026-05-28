@@ -6,6 +6,7 @@ import useSWR from 'swr'
 import AnnonceCard from '@/components/AnnonceCard'
 import AnnonceFilters, { type TriOption } from '@/components/AnnonceFilters'
 import BottomNavBar from '@/components/BottomNavBar'
+import { shareLink } from '@/lib/share'
 import type { Annonce, AnnonceType, AnnonceCategorie } from '@/lib/annonces'
 
 export default function AnnoncesPageClient() {
@@ -63,6 +64,22 @@ export default function AnnoncesPageClient() {
             <span>Près de chez vous</span>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={() => shareLink({
+            title: 'Annonces — La Place du Village',
+            text:  'Découvre les annonces du village autour de Ganges (ventes, dons, trocs, enchères inversées).',
+            url:   'https://laplaceduvillage.app/annonces',
+          })}
+          aria-label="Partager les annonces"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte shadow-[0_1px_2px_rgba(44,28,16,0.04)]"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+            <polyline points="16 6 12 2 8 6" />
+            <line x1="12" y1="2" x2="12" y2="15" />
+          </svg>
+        </button>
         <Link
           href="/annonces/messages"
           aria-label="Mes messages"

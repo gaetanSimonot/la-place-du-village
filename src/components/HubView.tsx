@@ -11,7 +11,7 @@ import { getPrixAffiche, type Annonce } from '@/lib/annonces'
 import HubTopBar from '@/components/HubTopBar'
 import HubSearchBar from '@/components/HubSearchBar'
 import { useAnnonceFavorites } from '@/hooks/useAnnonceFavorites'
-import { toast } from 'sonner'
+import { shareLink } from '@/lib/share'
 // Fetcher + config SWR héritent du provider global (cf. src/components/SWRProvider.tsx).
 
 interface Props {
@@ -221,29 +221,11 @@ export default function HubView({
         onOpenMenu={onOpenInfo}
         onOpenNotifs={onOpenNotifs}
         unreadCount={unreadCount}
-        onShareApp={async () => {
-          // Web Share API native (iOS/Android/desktop modernes) avec
-          // fallback clipboard + toast pour les navigateurs anciens.
-          const shareData = {
-            title: 'La Place du Village',
-            text: 'Le village vivant autour de Ganges : événements, commerces, producteurs, annonces.',
-            url:   'https://laplaceduvillage.app',
-          }
-          if (typeof navigator !== 'undefined' && navigator.share) {
-            try {
-              await navigator.share(shareData)
-            } catch {
-              // L'utilisateur a fermé la feuille de partage → no-op silencieux
-            }
-            return
-          }
-          try {
-            await navigator.clipboard.writeText(shareData.url)
-            toast.success('Lien copié — partage-le où tu veux !')
-          } catch {
-            toast.error('Impossible de copier le lien')
-          }
-        }}
+        onShareApp={() => shareLink({
+          title: 'La Place du Village',
+          text:  'Le village vivant autour de Ganges : événements, commerces, producteurs, annonces.',
+          url:   'https://laplaceduvillage.app',
+        })}
       />
 
       {/* ── 2. Search bar ─────────────────────────────────────────────── */}
