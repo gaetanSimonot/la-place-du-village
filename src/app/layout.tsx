@@ -43,14 +43,16 @@ export const metadata: Metadata = {
     url: 'https://laplaceduvillage.app',
     locale: 'fr_FR',
     type: 'website',
-    // Image de partage par défaut (racine + pages d'index). Les fiches
-    // individuelles (annonces, événements, producteurs, etc.) overrident
+    // Image de partage par défaut (racine + pages d'index). JPG compressé
+    // pour passer la limite ~300KB de WhatsApp/Messenger (le PNG d'origine
+    // 1.28MB n'était pas téléchargé par WhatsApp → fallback favicon).
+    // Les fiches individuelles (annonces, événements, etc.) overrident
     // avec leur propre photo via leur generateMetadata.
     images: [
       {
-        url: '/village-illustration.png',
-        width: 1877,
-        height: 838,
+        url: '/og/home.jpg',
+        width: 1200,
+        height: 536,
         alt: 'La Place du Village — Ganges et alentours',
       },
     ],
@@ -59,7 +61,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'La Place du Village',
     description: 'Événements locaux autour de Ganges (Hérault)',
-    images: ['/village-illustration.png'],
+    images: ['/og/home.jpg'],
   },
   appleWebApp: {
     capable: true,

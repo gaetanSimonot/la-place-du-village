@@ -13,9 +13,9 @@ export const metadata: Metadata = {
     type: 'website',
     images: [
       {
-        url: '/og/annonces.png',
-        width: 1536,
-        height: 1024,
+        url: '/og/annonces.jpg',
+        width: 1200,
+        height: 800,
         alt: 'Annonces — Tout ce dont tu as besoin, près de chez toi',
       },
     ],
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Annonces — La Place du Village',
     description: 'Tout ce dont tu as besoin, près de chez toi.',
-    images: ['/og/annonces.png'],
+    images: ['/og/annonces.jpg'],
   },
 }
 
