@@ -1,6 +1,5 @@
 import { Metadata } from 'next'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { ogTransform } from '@/lib/og-image'
 import AnnoncePageClient from './client'
 
 type Props = { params: Promise<{ id: string }> }
@@ -16,10 +15,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!data) return { title: 'Annonce — La Place du Village' }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://laplaceduvillage.app'
-  const rawPhoto = (data.photos ?? [])[0]
-  // Supabase Image Transformations → version 1200x630 compressée à la volée.
-  // Sans ça, WhatsApp/Messenger ne chargent pas l'image source 2-5 MB.
-  const imageUrl = rawPhoto ? ogTransform(rawPhoto) : `${appUrl}/og/home.jpg`
+  const imageUrl = (data.photos ?? [])[0] ?? `${appUrl}/logo.png`
   const ville = data.ville ? ` · ${data.ville}` : ''
 
   return {
