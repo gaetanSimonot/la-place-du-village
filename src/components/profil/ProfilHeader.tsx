@@ -1,14 +1,13 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import FriendButton from '@/components/FriendButton'
-import { useFriendships } from '@/hooks/useFriendships'
 import {
   IcMail,
   IcSettings,
   IcEdit,
   IcEye,
   IcChat,
+  IcUserPlus,
   IcPin,
   IcChev,
   IcLeaf,
@@ -38,8 +37,8 @@ interface Props {
   onModifyClick: () => void
   onToggleViewMode: () => void
   onContactClick?: () => void
-  /** User_id du profil visité (mode public uniquement, pour bouton ami). */
-  targetUserId?: string
+  onSubscribeClick?: () => void
+  isFollowing?: boolean
 }
 
 export default function ProfilHeader({
@@ -55,9 +54,9 @@ export default function ProfilHeader({
   onModifyClick,
   onToggleViewMode,
   onContactClick,
-  targetUserId,
+  onSubscribeClick,
+  isFollowing = false,
 }: Props) {
-  const { statusWith, sendRequest, accept, cancel } = useFriendships()
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const initial = displayName.trim().charAt(0).toUpperCase() || '·'
 
@@ -182,23 +181,33 @@ export default function ProfilHeader({
           <p className="m-0 mt-[10px] text-[13px] leading-[1.5] text-texte">{bio}</p>
         )}
 
-        {/* Boutons d'action — mode public uniquement (Ami / Contacter) */}
-        {viewMode === 'public' && targetUserId && (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <FriendButton
-              targetUserId={targetUserId}
-              state={statusWith(targetUserId)}
-              onSendRequest={sendRequest}
-              onAccept={accept}
-              onCancel={cancel}
-              size="md"
-              showChat={false}
-            />
+        {/* Boutons d'action — mode public uniquement (Contacter / S'abonner) */}
+        {viewMode === 'public' && (
+          <div className="mt-3 flex gap-2">
             <button
               onClick={onContactClick}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-bord bg-white px-3 py-2 text-[13px] font-bold text-texte"
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-[11px] bg-primary px-3.5 py-2.5 text-[13px] font-extrabold text-white"
+              style={{ letterSpacing: '-0.005em' }}
             >
               <IcChat size={14} /> Contacter
+            </button>
+            <button
+              onClick={onSubscribeClick}
+              aria-pressed={isFollowing}
+              className="inline-flex items-center gap-1.5 rounded-[11px] border border-bord bg-white px-3.5 py-2.5 text-[13px] font-bold text-texte"
+            >
+              {isFollowing ? (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  Abonné
+                </>
+              ) : (
+                <>
+                  <IcUserPlus size={14} /> S&apos;abonner
+                </>
+              )}
             </button>
           </div>
         )}

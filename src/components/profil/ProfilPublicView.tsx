@@ -34,6 +34,8 @@ export default function ProfilPublicView({ viewedUserId }: { viewedUserId: strin
   const [myProducers, setMyProducers] = useState<Producer[]>([])
   const [followersCount, setFollowersCount] = useState<number | null>(null)
   const [activeTab, setActiveTab]     = useState<ProfilTab>('mur')
+  const [following, setFollowing]     = useState(false)
+  const [followBusy, setFollowBusy]   = useState(false)
 
   const isOwn = user?.id === viewedUserId
 
@@ -76,10 +78,36 @@ export default function ProfilPublicView({ viewedUserId }: { viewedUserId: strin
         setMyProducers((pr as Producer[] | null) ?? [])
         setFollowersCount(fc ?? 0)
       }
+
+      if (user && !isOwn) {
+        const { data: f } = await supabase
+          .from('follows')
+          .select('follower_id')
+          .eq('follower_id', user.id)
+          .eq('followed_id', viewedUserId)
+          .maybeSingle()
+        if (!cancelled) setFollowing(!!f)
+      }
       setLoading(false)
     })()
     return () => { cancelled = true }
   }, [viewedUserId, user, isOwn])
+
+  async function handleSubscribe() {
+    if (!user) { router.push('/profil'); return }
+    if (followBusy) return
+    setFollowBusy(true)
+    if (following) {
+      await supabase.from('follows').delete().eq('follower_id', user.id).eq('followed_id', viewedUserId)
+      setFollowing(false)
+      setFollowersCount(c => Math.max(0, (c ?? 0) - 1))
+    } else {
+      await supabase.from('follows').insert({ follower_id: user.id, followed_id: viewedUserId })
+      setFollowing(true)
+      setFollowersCount(c => (c ?? 0) + 1)
+    }
+    setFollowBusy(false)
+  }
 
   async function handleContact() {
     if (!user) { router.push('/profil'); return }
@@ -155,7 +183,8 @@ export default function ProfilPublicView({ viewedUserId }: { viewedUserId: strin
         onModifyClick={() => { /* no-op en public */ }}
         onToggleViewMode={() => router.back()}
         onContactClick={handleContact}
-        targetUserId={viewedUserId}
+        onSubscribeClick={handleSubscribe}
+        isFollowing={following}
       />
 
       <ProfilTabSwitcher
