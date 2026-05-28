@@ -11,7 +11,8 @@ import { useAnnonceFavorites } from '@/hooks/useAnnonceFavorites'
 import { authedFetcher } from '@/lib/swr-fetchers'
 import { PRODUIT_CATS_MAP } from '@/lib/produit-cats'
 import { ETAB_TYPES } from '@/lib/etablissement-types'
-import { getPrixAffiche, type Annonce } from '@/lib/annonces'
+import AnnonceCard from '@/components/AnnonceCard'
+import type { Annonce } from '@/lib/annonces'
 
 interface ProducerMin {
   id: string; nom: string; commune: string | null; photos: string[]; produit_categories: string[]
@@ -28,7 +29,15 @@ interface Props {
   onBack?: () => void
 }
 
-type Tab = 'likes' | 'suivis'
+type Filter = 'annonces' | 'events' | 'producteurs' | 'commerces' | 'suivis'
+
+const FILTERS: { id: Filter; label: string }[] = [
+  { id: 'annonces',    label: 'Annonces' },
+  { id: 'events',      label: 'Événements' },
+  { id: 'producteurs', label: 'Producteurs' },
+  { id: 'commerces',   label: 'Commerces' },
+  { id: 'suivis',      label: 'Suivis' },
+]
 
 const T = {
   primary: '#2D5A3D',
@@ -58,7 +67,7 @@ const BellIcon = ({ size = 14 }: { size?: number }) => (
 
 export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpenEtablissement, onBack }: Props) {
   const { user, loading: authLoading } = useAuth()
-  const [tab, setTab] = useState<Tab>('likes')
+  const [filter, setFilter] = useState<Filter>('annonces')
 
   // SWR + authedFetcher — pattern validé sur MurTab. Clé null tant que la
   // session n'est pas prête → pas de race. 1 fetch HTTP regroupe les 4
@@ -85,8 +94,9 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
   const removeEtabFollow = (id: string) =>
     mutate(prev => prev ? { ...prev, etabFollows: prev.etabFollows.filter(x => x.id !== id) } : prev, false)
 
-  // Favoris annonces : hook hybride + fetch liste publique pour hydrater
-  const { favIds: annonceFavIds, toggle: toggleAnnonceFav } = useAnnonceFavorites()
+  // Favoris annonces : hook hybride + fetch liste publique pour hydrater.
+  // Le toggle (retrait) se fait via le cœur de AnnonceCard directement.
+  const { favIds: annonceFavIds } = useAnnonceFavorites()
   const { data: annoncesData } = useSWR<{ annonces: Annonce[] }>(
     user && annonceFavIds.length > 0 ? '/api/annonces/public' : null,
   )
@@ -95,8 +105,15 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
     [annoncesData, annonceFavIds],
   )
 
-  const likesCount = events.length + producerFavs.length + etabFavs.length + annonceFavs.length
-  const suivisCount = producerFollows.length + etabFollows.length
+  // Compteurs par filtre (affichés en pastille dans les pills)
+  const counts: Record<Filter, number> = {
+    annonces:    annonceFavs.length,
+    events:      events.length,
+    producteurs: producerFavs.length,
+    commerces:   etabFavs.length,
+    suivis:      producerFollows.length + etabFollows.length,
+  }
+  const totalCount = counts.annonces + counts.events + counts.producteurs + counts.commerces + counts.suivis
 
   return (
     <div style={{ minHeight: '100%', backgroundColor: T.creme, fontFamily: 'Inter, sans-serif', color: T.texte }}>
@@ -120,43 +137,48 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
         <div style={{ width: 40, flexShrink: 0 }} />
       </div>
 
-      {/* Tabs segmented */}
-      <div style={{ padding: '14px 16px 4px' }}>
-        <div style={{ display: 'flex', gap: 4, padding: 4, background: T.cremeDeep, borderRadius: 14 }}>
-          {([
-            { id: 'likes', label: 'Coups de cœur', icon: <HeartFill />, count: likesCount, color: T.accent },
-            { id: 'suivis', label: 'Suivis', icon: <BellIcon />, count: suivisCount, color: T.primary },
-          ] as { id: Tab; label: string; icon: React.ReactNode; count: number; color: string }[]).map(t => {
-            const active = tab === t.id
-            return (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                style={{
-                  flex: 1, padding: '10px 8px', border: 'none', cursor: 'pointer', borderRadius: 10,
-                  background: active ? T.white : 'transparent',
-                  color: active ? T.texte : T.texteDoux,
-                  fontFamily: 'Inter, sans-serif',
-                  fontSize: 13, fontWeight: active ? 800 : 700,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                  boxShadow: active ? '0 1px 3px rgba(44,28,16,0.08)' : 'none',
-                  transition: 'all 0.15s',
-                }}
-              >
-                <span style={{ color: active ? t.color : T.texteDoux }}>{t.icon}</span>
-                <span>{t.label}</span>
-                {t.count > 0 && (
-                  <span style={{
-                    fontSize: 11, fontWeight: 700,
-                    color: active ? T.texteDoux : T.texteTresDoux,
-                    background: active ? T.cremeDeep : 'transparent',
-                    padding: '1px 6px', borderRadius: 999,
-                  }}>{t.count}</span>
-                )}
-              </button>
-            )
-          })}
-        </div>
+      {/* Filter pills V3 — scrollable horizontalement (style page Annonces) */}
+      <style>{`.pdv-favoris-hscroll { scrollbar-width: none; -webkit-overflow-scrolling: touch; } .pdv-favoris-hscroll::-webkit-scrollbar { display: none; }`}</style>
+      <div
+        className="pdv-favoris-hscroll"
+        style={{
+          display: 'flex', gap: 6, padding: '14px 16px 4px',
+          overflowX: 'auto', scrollSnapType: 'x mandatory',
+        }}
+      >
+        {FILTERS.map(f => {
+          const active = filter === f.id
+          const c = counts[f.id]
+          return (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => setFilter(f.id)}
+              style={{
+                flexShrink: 0, whiteSpace: 'nowrap',
+                borderRadius: 999, padding: '8px 14px',
+                fontSize: 12, fontWeight: 700,
+                border: '1.5px solid',
+                background:  active ? T.texte : T.white,
+                borderColor: active ? T.texte : T.bord,
+                color:       active ? T.white : T.texteDoux,
+                scrollSnapAlign: 'center', cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+              }}
+            >
+              {f.label}
+              {c > 0 && (
+                <span style={{
+                  fontSize: 10, fontWeight: 800,
+                  padding: '1px 6px', borderRadius: 999,
+                  background: active ? 'rgba(255,255,255,0.18)' : T.cremeDeep,
+                  color:      active ? T.white : T.texteDoux,
+                  lineHeight: 1.4,
+                }}>{c}</span>
+              )}
+            </button>
+          )
+        })}
       </div>
 
       <div style={{ padding: '14px 14px 56px' }}>
@@ -164,118 +186,108 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
           <EmptyState icon="🔒" title="Connexion requise" sub="Connecte-toi pour voir tes favoris et suivis" />
         )}
 
-        {/* TAB COUPS DE CŒUR */}
-        {user && tab === 'likes' && (
-          <>
-            {loading ? <Spinner /> : likesCount === 0 ? (
-              <EmptyState icon="🤍" title="Aucun coup de cœur" sub="Appuie sur ❤️ sur un événement, un commerce ou un producteur" />
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {events.length > 0 && (
-                  <Section title="Événements" count={events.length}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {events.map(evt => <FavCard key={evt.id} evt={evt} onRemove={() => onToggleFav(evt.id)} />)}
-                    </div>
-                  </Section>
-                )}
-                {producerFavs.length > 0 && (
-                  <Section title="Producteurs" count={producerFavs.length}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {producerFavs.map(p => (
-                        <ProducerCard key={p.id} p={p}
-                          onClick={() => onOpenProducer?.(p.id)}
-                          onRemove={async () => {
-                            await supabase.from('producer_favorites').delete().eq('producer_id', p.id).eq('user_id', user!.id)
-                            removeProducerFav(p.id)
-                          }} />
-                      ))}
-                    </div>
-                  </Section>
-                )}
-                {etabFavs.length > 0 && (
-                  <Section title="Commerces & lieux" count={etabFavs.length}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {etabFavs.map(e => (
-                        <EtabCard key={e.id} e={e}
-                          onClick={() => onOpenEtablissement?.(e.id)}
-                          onRemove={async () => {
-                            await supabase.from('etablissement_favorites').delete().eq('etablissement_id', e.id).eq('user_id', user!.id)
-                            removeEtabFav(e.id)
-                          }} />
-                      ))}
-                    </div>
-                  </Section>
-                )}
-                {annonceFavs.length > 0 && (
-                  <Section title="Annonces" count={annonceFavs.length}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {annonceFavs.map(a => (
-                        <AnnonceFavCard key={a.id} a={a} onRemove={() => toggleAnnonceFav(a.id)} />
-                      ))}
-                    </div>
-                  </Section>
-                )}
-              </div>
-            )}
-          </>
+        {user && loading && <Spinner />}
+
+        {user && !loading && totalCount === 0 && (
+          <EmptyState
+            icon="🤍"
+            title="Aucun favori"
+            sub="Appuie sur ❤️ pour mettre en favori une annonce, un événement, un producteur ou un commerce."
+          />
         )}
 
-        {/* TAB SUIVIS */}
-        {user && tab === 'suivis' && (
+        {user && !loading && totalCount > 0 && (
           <>
-            {loading ? <Spinner /> : suivisCount === 0 ? (
-              <EmptyState icon="📭" title="Aucun abonnement" sub="Suis des producteurs et commerces pour ne rien rater" />
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {producerFollows.length > 0 && (
-                  <Section title="Producteurs" count={producerFollows.length}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {producerFollows.map(p => (
-                        <FollowCard key={p.id} type="producteur" name={p.nom} meta={p.commune ?? ''} photo={p.photos[0]}
-                          onClick={() => onOpenProducer?.(p.id)}
-                          onRemove={async () => {
-                            await supabase.from('producer_followers').delete().eq('producer_id', p.id).eq('user_id', user!.id)
-                            removeProducerFollow(p.id)
-                          }} />
-                      ))}
-                    </div>
-                  </Section>
-                )}
-                {etabFollows.length > 0 && (
-                  <Section title="Commerces & lieux" count={etabFollows.length}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {etabFollows.map(e => {
-                        const typeInfo = ETAB_TYPES[e.type as keyof typeof ETAB_TYPES]
-                        return (
-                          <FollowCard key={e.id} type="etab" name={e.nom} meta={`${typeInfo?.label ?? ''}${e.commune ? ' · ' + e.commune : ''}`} photo={e.photos[0]}
-                            onClick={() => onOpenEtablissement?.(e.id)}
-                            onRemove={async () => {
-                              await supabase.from('etablissement_followers').delete().eq('etablissement_id', e.id).eq('user_id', user!.id)
-                              removeEtabFollow(e.id)
-                            }} />
-                        )
-                      })}
-                    </div>
-                  </Section>
-                )}
-              </div>
+            {/* ── ANNONCES — grid 2-col, AnnonceCard (identique page annonces) ── */}
+            {filter === 'annonces' && (
+              annonceFavs.length === 0 ? (
+                <EmptyState icon="🤍" title="Aucune annonce favorite" sub="Appuie sur ❤️ sur une annonce pour la retrouver ici." />
+              ) : (
+                <div className="grid grid-cols-2 gap-2.5">
+                  {annonceFavs.map(a => <AnnonceCard key={a.id} annonce={a} />)}
+                </div>
+              )
+            )}
+
+            {/* ── ÉVÉNEMENTS — liste verticale ─────────────────────── */}
+            {filter === 'events' && (
+              events.length === 0 ? (
+                <EmptyState icon="🤍" title="Aucun événement favori" sub="Appuie sur ❤️ sur un événement pour le retrouver ici." />
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {events.map(evt => <FavCard key={evt.id} evt={evt} onRemove={() => onToggleFav(evt.id)} />)}
+                </div>
+              )
+            )}
+
+            {/* ── PRODUCTEURS — liste verticale ─────────────────────── */}
+            {filter === 'producteurs' && (
+              producerFavs.length === 0 ? (
+                <EmptyState icon="🤍" title="Aucun producteur favori" sub="Appuie sur ❤️ sur un producteur pour le retrouver ici." />
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {producerFavs.map(p => (
+                    <ProducerCard key={p.id} p={p}
+                      onClick={() => onOpenProducer?.(p.id)}
+                      onRemove={async () => {
+                        await supabase.from('producer_favorites').delete().eq('producer_id', p.id).eq('user_id', user!.id)
+                        removeProducerFav(p.id)
+                      }} />
+                  ))}
+                </div>
+              )
+            )}
+
+            {/* ── COMMERCES — liste verticale ────────────────────────── */}
+            {filter === 'commerces' && (
+              etabFavs.length === 0 ? (
+                <EmptyState icon="🤍" title="Aucun commerce favori" sub="Appuie sur ❤️ sur un commerce pour le retrouver ici." />
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {etabFavs.map(e => (
+                    <EtabCard key={e.id} e={e}
+                      onClick={() => onOpenEtablissement?.(e.id)}
+                      onRemove={async () => {
+                        await supabase.from('etablissement_favorites').delete().eq('etablissement_id', e.id).eq('user_id', user!.id)
+                        removeEtabFav(e.id)
+                      }} />
+                  ))}
+                </div>
+              )
+            )}
+
+            {/* ── SUIVIS — producers + etabs followers en liste mixte ─ */}
+            {filter === 'suivis' && (
+              counts.suivis === 0 ? (
+                <EmptyState icon="📭" title="Aucun abonnement" sub="Suis des producteurs et commerces pour ne rien rater." />
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {producerFollows.map(p => (
+                    <FollowCard key={p.id} type="producteur" name={p.nom} meta={p.commune ?? ''} photo={p.photos[0]}
+                      onClick={() => onOpenProducer?.(p.id)}
+                      onRemove={async () => {
+                        await supabase.from('producer_followers').delete().eq('producer_id', p.id).eq('user_id', user!.id)
+                        removeProducerFollow(p.id)
+                      }} />
+                  ))}
+                  {etabFollows.map(e => {
+                    const typeInfo = ETAB_TYPES[e.type as keyof typeof ETAB_TYPES]
+                    return (
+                      <FollowCard key={e.id} type="etab" name={e.nom} meta={`${typeInfo?.label ?? ''}${e.commune ? ' · ' + e.commune : ''}`} photo={e.photos[0]}
+                        onClick={() => onOpenEtablissement?.(e.id)}
+                        onRemove={async () => {
+                          await supabase.from('etablissement_followers').delete().eq('etablissement_id', e.id).eq('user_id', user!.id)
+                          removeEtabFollow(e.id)
+                        }} />
+                    )
+                  })}
+                </div>
+              )
             )}
           </>
         )}
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-    </div>
-  )
-}
-
-function Section({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
-  return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, padding: '0 2px' }}>
-        <div style={{ fontSize: 11, fontWeight: 800, color: T.texteDoux, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{title}</div>
-        <div style={{ fontSize: 11, fontWeight: 700, color: T.texteTresDoux }}>{count}</div>
-      </div>
-      {children}
     </div>
   )
 }
@@ -374,38 +386,6 @@ function FollowCard({ type, name, meta, photo, onClick, onRemove }: { type: 'pro
         </svg>
       </button>
     </div>
-  )
-}
-
-function AnnonceFavCard({ a, onRemove }: { a: Annonce; onRemove: () => void }) {
-  const photo = a.photos?.[0]
-  const prix = getPrixAffiche(a)
-  const typeLabel =
-    a.type === 'vente'            ? 'Vente'   :
-    a.type === 'don'              ? 'Don'     :
-    a.type === 'troc'             ? 'Troc'    :
-    /* enchere_inversee */          'Enchère'
-  return (
-    <Link href={`/annonces/${a.id}`} style={{ display: 'block', position: 'relative', height: 120, borderRadius: 14, overflow: 'hidden', textDecoration: 'none', boxShadow: '0 1px 6px rgba(44,28,16,0.06)', border: `1px solid ${T.bordSoft}` }}>
-      {photo
-        ? <img src={photo} alt={a.titre} loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-        : <div style={{ position: 'absolute', inset: 0, backgroundColor: '#F0EBE3' }} />}
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.42) 50%, rgba(0,0,0,0.06) 82%)' }} />
-      <span style={{ position: 'absolute', top: 11, left: 12, display: 'inline-flex', alignItems: 'center', fontSize: 10, fontWeight: 800, backgroundColor: T.accent, color: '#fff', borderRadius: 999, padding: '3px 9px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-        {typeLabel}
-      </span>
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 48px 13px 14px' }}>
-        <h3 style={{ fontSize: 14, fontWeight: 700, color: '#fff', lineHeight: 1.3, margin: '0 0 3px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{a.titre}</h3>
-        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', margin: 0, fontWeight: 700 }}>
-          {prix}{a.ville ? ` • ${a.ville}` : ''}
-        </p>
-      </div>
-      <button onClick={e => { e.preventDefault(); e.stopPropagation(); onRemove() }}
-        aria-label="Retirer des favoris"
-        style={{ position: 'absolute', bottom: 11, right: 12, width: 30, height: 30, borderRadius: 9, backgroundColor: 'rgba(0,0,0,0.48)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)', color: T.accent }}>
-        <HeartFill size={14} />
-      </button>
-    </Link>
   )
 }
 
