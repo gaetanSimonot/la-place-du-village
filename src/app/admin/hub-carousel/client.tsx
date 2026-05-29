@@ -389,6 +389,16 @@ export default function AdminHubCarousel() {
       <div style={{ padding: '14px 12px' }}>
         {FEATURED_SLOTS.map(slot => {
           const items = allSlots.filter(s => s.slot === slot.id)
+
+          // Slot 'homepage' : sous-grouper par content_type (events / promos /
+          // annonces). Sinon liste plate comme avant.
+          const isHomepage = slot.id === 'homepage'
+          const homepageGroups = isHomepage ? [
+            { type: 'evenement' as const, label: 'Events',     emoji: '📅' },
+            { type: 'promotion' as const, label: 'Promotions', emoji: '🏷️' },
+            { type: 'annonce'   as const, label: 'Annonces',   emoji: '📰' },
+          ] : []
+
           return (
             <section key={slot.id} style={{ marginBottom: 22 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10, padding: '0 4px' }}>
@@ -397,7 +407,47 @@ export default function AdminHubCarousel() {
                 <span style={{ fontSize: 11, color: '#8A7A6A' }}>· {items.length} item{items.length > 1 ? 's' : ''}</span>
               </div>
 
-              {items.length === 0 ? (
+              {isHomepage ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {homepageGroups.map(g => {
+                    const groupItems = items.filter(s => s.content_type === g.type)
+                    return (
+                      <div key={g.type}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, padding: '0 6px' }}>
+                          <span style={{ fontSize: 13 }}>{g.emoji}</span>
+                          <h3 style={{ margin: 0, fontSize: 11, fontWeight: 800, color: '#7A6A5A', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                            {g.label}
+                          </h3>
+                          <span style={{ fontSize: 10, color: '#A89B8C' }}>· {groupItems.length}</span>
+                        </div>
+                        {groupItems.length === 0 ? (
+                          <p style={{ padding: '10px 14px', backgroundColor: '#FDFAF6', borderRadius: 10, fontSize: 11.5, color: '#8A7A6A', fontStyle: 'italic', textAlign: 'center', margin: 0 }}>
+                            {g.type === 'evenement'
+                              ? 'Aucun event featured — fallback automatique events du jour.'
+                              : `Aucune ${g.label.toLowerCase().slice(0, -1)} featured.`}
+                          </p>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {groupItems.map((s, idx) => (
+                              <SlotCard
+                                key={s.id}
+                                slot={s}
+                                isFirst={idx === 0}
+                                isLast={idx === groupItems.length - 1}
+                                onUp={() => bumpPriority(s, +1)}
+                                onDown={() => bumpPriority(s, -1)}
+                                onExtend={h => extendDuration(s, h)}
+                                onDelete={() => deleteSlot(s.id)}
+                                onEditCrop={() => setCropping(s)}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : items.length === 0 ? (
                 <p style={{ padding: '14px 16px', backgroundColor: '#FDFAF6', borderRadius: 12, fontSize: 12, color: '#8A7A6A', fontStyle: 'italic', textAlign: 'center' }}>
                   Aucun contenu featured. Le hub utilise le fallback automatique.
                 </p>
