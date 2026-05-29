@@ -79,6 +79,7 @@ export async function GET(req: NextRequest) {
     heroSlotsRes,
     promoSlotsRes,
     venteSlotsRes,
+    eventSlotsRes,
     todayEventsRes,
     journalRes,
     covoitsRes,
@@ -111,6 +112,15 @@ export async function GET(req: NextRequest) {
       .select('content_id, priority')
       .eq('slot', 'homepage')
       .eq('content_type', 'annonce')
+      .lte('starts_at', nowISO)
+      .gt('ends_at', nowISO)
+      .order('priority', { ascending: false })
+      .order('created_at', { ascending: false }),
+    supabaseAdmin
+      .from('featured_slots')
+      .select('content_id, priority')
+      .eq('slot', 'homepage')
+      .eq('content_type', 'evenement')
       .lte('starts_at', nowISO)
       .gt('ends_at', nowISO)
       .order('priority', { ascending: false })
@@ -287,6 +297,28 @@ export async function GET(req: NextRequest) {
     })
   }
 
+  // ── EVENTS HOMEPAGE : si admin a featured des events sur slot=homepage,
+  // ils remplacent la sélection auto "events du jour". Sinon fallback events
+  // du jour (comportement historique). Disposition fixe (1 grosse + 1 ou 2
+  // mini selon position journal) → on récupère jusqu'à 8 max mais l'UI en
+  // affichera au max 3.
+  const eventSlotsIds = (eventSlotsRes.data ?? []).map(s => s.content_id as string)
+  let finalTodayEvents: Array<Record<string, unknown>> = (todayEventsRes.data ?? []) as Array<Record<string, unknown>>
+  if (eventSlotsIds.length > 0) {
+    const { data: featuredEvts } = await supabaseAdmin
+      .from('evenements')
+      .select('*, lieux(*)')
+      .in('id', eventSlotsIds)
+      .eq('statut', 'publie')
+    const featuredMap = Object.fromEntries(
+      ((featuredEvts ?? []) as Array<Record<string, unknown>>).map(e => [e.id as string, e]),
+    )
+    // Respecte l'ordre de priority des slots
+    finalTodayEvents = eventSlotsIds
+      .map(id => featuredMap[id])
+      .filter((e): e is Record<string, unknown> => Boolean(e))
+  }
+
   // ── PAYLOAD ──
   const payload = {
     zoneCounts: {
@@ -300,7 +332,10 @@ export async function GET(req: NextRequest) {
     heroItems,
     introEnabled:  introCfgRes.data?.value === 'true',
     introImageUrl: introImgRes.data?.value || null,
-    todayEvents: (todayEventsRes.data ?? []),
+    todayEvents: finalTodayEvents,
+    // todayTotal reste le compteur des events publiés du jour, indépendant
+    // du featured admin — ça sert le badge "X events aujourd'hui" qui doit
+    // refléter l'activité réelle, pas le choix éditorial.
     todayTotal:  todayEventsRes.count ?? 0,
     promos:      orderedPromos.slice(0, 8),
     ventes:      ordered.slice(0, 4),
