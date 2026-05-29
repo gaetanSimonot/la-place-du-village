@@ -33,7 +33,7 @@ export interface FeaturedSlotRow {
 export const FEATURED_SLOTS: { id: FeaturedSlot; label: string; description: string; emoji: string }[] = [
   { id: 'splash',    label: 'Splash screen',    emoji: '✨', description: 'Écran d\'accueil avant l\'app (visibilité maximale)' },
   { id: 'hub_hero',  label: 'Carousel hub',     emoji: '🌟', description: 'Grosse card en haut de l\'accueil (events + établissements)' },
-  { id: 'homepage',  label: 'Tuiles homepage',  emoji: '📢', description: 'Injection dans les tuiles de l\'accueil (events, promos, annonces)' },
+  { id: 'homepage',  label: 'Tuiles homepage',  emoji: '📢', description: 'Injection dans les tuiles de l\'accueil (promos & annonces)' },
 ]
 
 /** Types autorisés par slot. Le modal de placement filtre ce qui est proposé. */
@@ -41,9 +41,7 @@ export const SLOT_ALLOWED_TYPES: Record<FeaturedSlot, FeaturedContentType[]> = {
   splash:    ['evenement', 'promotion', 'annonce', 'etablissement', 'producteur'],
   hub_hero:  ['evenement', 'etablissement', 'producteur'],
   a_la_une:  [],  // déprécié — géré par les bandeaux de catégorie
-  // homepage : les events featured remplacent la sélection auto "Aujourd'hui"
-  // (cf. /api/hub). Si aucun event featured → fallback events du jour comme avant.
-  homepage:  ['evenement', 'promotion', 'annonce'],
+  homepage:  ['promotion', 'annonce'],
 }
 
 /** Inversion : pour un content_type donné, quels slots sont disponibles ? */
