@@ -3,7 +3,7 @@ import LegalPageLayout, { LegalSection, LegalP, LegalUL } from '@/components/leg
 
 export default function PolitiqueConfidentialitePage() {
   return (
-    <LegalPageLayout title="Politique de confidentialité" updated="22 mai 2026">
+    <LegalPageLayout title="Politique de confidentialité" updated="29 mai 2026">
       <LegalSection title="En résumé">
         <LegalP>
           <strong>Tes données ne sont jamais revendues à des tiers.</strong> Elles servent
@@ -86,6 +86,15 @@ export default function PolitiqueConfidentialitePage() {
         </LegalP>
       </LegalSection>
 
+      <LegalSection title="Notifications">
+        <LegalP>
+          L&apos;application utilise uniquement des <strong>notifications in-app</strong> (badge dans la cloche
+          de notifications quand tu ouvres l&apos;application). <strong>Aucune notification push système n&apos;est
+          envoyée</strong>, et <strong>aucun identifiant d&apos;appareil (device ID, token push) n&apos;est collecté
+          à cette fin</strong>.
+        </LegalP>
+      </LegalSection>
+
       <LegalSection title="Partage avec des tiers">
         <LegalP>
           Tes données ne sont partagées qu&apos;avec nos sous-traitants techniques nécessaires au
@@ -94,8 +103,11 @@ export default function PolitiqueConfidentialitePage() {
         <LegalUL items={[
           <><strong>Supabase</strong> (base de données + auth, conforme RGPD, hébergement UE).</>,
           <><strong>Vercel</strong> (hébergement applicatif).</>,
+          <><strong>Vercel Analytics</strong> (statistiques d&apos;utilisation anonymes : pages vues, temps de chargement). Ces données sont agrégées, non liées à un utilisateur identifiable, et ne sont jamais utilisées pour de la publicité.</>,
           <><strong>Stripe</strong> (paiements abonnements premium, conforme RGPD, données minimisées).</>,
           <><strong>Google Maps</strong> (affichage de la carte uniquement, aucune donnée perso transmise).</>,
+          <><strong>OpenAI Whisper</strong> (transcription audio lors de la dictée vocale d&apos;un événement). L&apos;audio transite uniquement et n&apos;est conservé ni chez nous, ni chez OpenAI (rétention 0 jour selon leur API standard). Aucune donnée d&apos;identification utilisateur n&apos;est transmise avec l&apos;audio.</>,
+          <><strong>Pexels</strong> (banque d&apos;images libres de droits, suggérée pour illustrer un événement ou un produit). Seul un mot-clé de recherche anonyme est transmis ; aucune donnée utilisateur.</>,
         ]} />
         <LegalP>
           <strong>Aucun revente ou transfert commercial à des tiers.</strong>
