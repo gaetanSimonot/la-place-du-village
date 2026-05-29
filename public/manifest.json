@@ -1,4 +1,7 @@
 {
+  "id": "/",
+  "lang": "fr",
+  "dir": "ltr",
   "name": "La Place du Village",
   "short_name": "La Place",
   "description": "Événements locaux autour de Ganges (Hérault)",
@@ -9,6 +12,26 @@
   "theme_color": "#FDFAF5",
   "orientation": "portrait",
   "categories": ["lifestyle", "social"],
+  "shortcuts": [
+    {
+      "name": "Agenda culturel",
+      "short_name": "Agenda",
+      "url": "/?mode=agenda",
+      "description": "Voir l'agenda culturel près de chez toi"
+    },
+    {
+      "name": "Annonces",
+      "short_name": "Annonces",
+      "url": "/annonces",
+      "description": "Petites annonces locales (ventes, dons, trocs)"
+    },
+    {
+      "name": "Publier un événement",
+      "short_name": "Publier",
+      "url": "/ajouter",
+      "description": "Ajouter un nouvel événement à l'agenda"
+    }
+  ],
   "share_target": {
     "action": "/share",
     "method": "POST",
