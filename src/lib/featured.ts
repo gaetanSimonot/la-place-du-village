@@ -23,6 +23,41 @@ export interface FeaturedSlotRow {
   created_by_admin: boolean
   created_at: string
   image_position: string | null
+  /**
+   * Position fixe 1, 2 ou 3 — utilisée UNIQUEMENT pour homepage+evenement.
+   * 1 = grosse tuile, 2 et 3 = mini tuiles. NULL pour les autres cas
+   * (homepage+annonce/promo, splash, hub_hero) qui gardent priority libre.
+   */
+  position: number | null
+}
+
+/**
+ * Retourne l'ISO du prochain minuit Europe/Paris.
+ * Utilisé pour `ends_at` quand on feature un event en homepage : le slot
+ * expire automatiquement au passage du jour, demain = fallback auto reprend.
+ */
+export function endOfTodayParisISO(): string {
+  // 1. Aujourd'hui en local Paris (YYYY-MM-DD)
+  const todayParis = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date())
+  const [y, m, d] = todayParis.split('-').map(Number)
+
+  // 2. Construit "demain 00:00 Paris" en partant de "demain 00:00 UTC" puis
+  //    en ajustant via l'offset Paris/UTC du moment (varie selon DST).
+  let candidate = new Date(Date.UTC(y, m - 1, d + 1, 0, 0, 0))
+  const parisH = Number(
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Paris', hour: '2-digit', hour12: false,
+    }).format(candidate),
+  )
+  // parisH = heure Paris à candidate-UTC. Si elle vaut H, candidate est en
+  // avance de H heures sur le minuit Paris cherché → on recule.
+  if (parisH > 0) {
+    candidate = new Date(candidate.getTime() - parisH * 3600 * 1000)
+  }
+  return candidate.toISOString()
 }
 
 /**

@@ -118,13 +118,13 @@ export async function GET(req: NextRequest) {
       .order('created_at', { ascending: false }),
     supabaseAdmin
       .from('featured_slots')
-      .select('content_id, priority')
+      .select('content_id, position')
       .eq('slot', 'homepage')
       .eq('content_type', 'evenement')
       .lte('starts_at', nowISO)
       .gt('ends_at', nowISO)
-      .order('priority', { ascending: false })
-      .order('created_at', { ascending: false }),
+      .not('position', 'is', null)
+      .order('position', { ascending: true }),
     supabaseAdmin
       .from('evenements')
       .select('*, lieux(*)', { count: 'exact' })
@@ -297,26 +297,49 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  // ── EVENTS HOMEPAGE : si admin a featured des events sur slot=homepage,
-  // ils remplacent la sélection auto "events du jour". Sinon fallback events
-  // du jour (comportement historique). Disposition fixe (1 grosse + 1 ou 2
-  // mini selon position journal) → on récupère jusqu'à 8 max mais l'UI en
-  // affichera au max 3.
-  const eventSlotsIds = (eventSlotsRes.data ?? []).map(s => s.content_id as string)
-  let finalTodayEvents: Array<Record<string, unknown>> = (todayEventsRes.data ?? []) as Array<Record<string, unknown>>
-  if (eventSlotsIds.length > 0) {
+  // ── EVENTS HOMEPAGE : positionnement explicite 1/2/3 par l'admin, complété
+  // par les events du jour sur les positions laissées vides. Section a 3
+  // emplacements (1 grosse + 2 mini), donc on construit un array de longueur 3
+  // dans l'ordre [pos1, pos2, pos3] et chaque slot vide est rempli avec un
+  // event du jour non déjà utilisé (par id).
+  type EventRow = Record<string, unknown>
+  const eventSlots = (eventSlotsRes.data ?? []) as Array<{ content_id: string; position: number }>
+  const fallbackToday = (todayEventsRes.data ?? []) as EventRow[]
+
+  let finalTodayEvents: EventRow[] = fallbackToday
+  if (eventSlots.length > 0) {
+    const featuredIds = eventSlots.map(s => s.content_id)
     const { data: featuredEvts } = await supabaseAdmin
       .from('evenements')
       .select('*, lieux(*)')
-      .in('id', eventSlotsIds)
+      .in('id', featuredIds)
       .eq('statut', 'publie')
     const featuredMap = Object.fromEntries(
-      ((featuredEvts ?? []) as Array<Record<string, unknown>>).map(e => [e.id as string, e]),
+      ((featuredEvts ?? []) as EventRow[]).map(e => [e.id as string, e]),
     )
-    // Respecte l'ordre de priority des slots
-    finalTodayEvents = eventSlotsIds
-      .map(id => featuredMap[id])
-      .filter((e): e is Record<string, unknown> => Boolean(e))
+
+    // 3 emplacements fixes [pos1, pos2, pos3]. Chaque slot featured occupe sa
+    // position. Les positions laissées vides sont comblées avec les events
+    // du jour, dans l'ordre, en sautant ceux déjà featured.
+    const usedIds = new Set<string>(featuredIds)
+    const fallbackQueue = fallbackToday.filter(e => !usedIds.has(e.id as string))
+    const slotsByPos = new Map<number, EventRow>()
+    for (const slot of eventSlots) {
+      const evt = featuredMap[slot.content_id]
+      if (evt) slotsByPos.set(slot.position, evt)
+    }
+
+    const result: EventRow[] = []
+    for (let pos = 1; pos <= 3; pos++) {
+      const featured = slotsByPos.get(pos)
+      if (featured) {
+        result.push(featured)
+      } else {
+        const next = fallbackQueue.shift()
+        if (next) result.push(next)
+      }
+    }
+    finalTodayEvents = result
   }
 
   // ── PAYLOAD ──

@@ -411,6 +411,42 @@ export default function AdminHubCarousel() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   {homepageGroups.map(g => {
                     const groupItems = items.filter(s => s.content_type === g.type)
+
+                    // EVENTS : 3 positions fixes (pas une liste). L'admin
+                    // assigne les positions depuis la fiche event.
+                    if (g.type === 'evenement') {
+                      const byPos = new Map<number, EnrichedSlot>()
+                      for (const it of groupItems) {
+                        if (typeof it.position === 'number') byPos.set(it.position, it)
+                      }
+                      return (
+                        <div key={g.type}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, padding: '0 6px' }}>
+                            <span style={{ fontSize: 13 }}>{g.emoji}</span>
+                            <h3 style={{ margin: 0, fontSize: 11, fontWeight: 800, color: '#7A6A5A', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                              {g.label}
+                            </h3>
+                            <span style={{ fontSize: 10, color: '#A89B8C' }}>· 3 positions · expire à minuit</span>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            {[1, 2, 3].map(pos => {
+                              const taken = byPos.get(pos) ?? null
+                              return (
+                                <PositionCell
+                                  key={pos}
+                                  position={pos}
+                                  slot={taken}
+                                  onDelete={taken ? () => deleteSlot(taken.id) : undefined}
+                                  onEditCrop={taken ? () => setCropping(taken) : undefined}
+                                />
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )
+                    }
+
+                    // PROMOS / ANNONCES : liste classique
                     return (
                       <div key={g.type}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, padding: '0 6px' }}>
@@ -422,9 +458,7 @@ export default function AdminHubCarousel() {
                         </div>
                         {groupItems.length === 0 ? (
                           <p style={{ padding: '10px 14px', backgroundColor: '#FDFAF6', borderRadius: 10, fontSize: 11.5, color: '#8A7A6A', fontStyle: 'italic', textAlign: 'center', margin: 0 }}>
-                            {g.type === 'evenement'
-                              ? 'Aucun event featured — fallback automatique events du jour.'
-                              : `Aucune ${g.label.toLowerCase().slice(0, -1)} featured.`}
+                            Aucune {g.label.toLowerCase().slice(0, -1)} featured.
                           </p>
                         ) : (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -485,6 +519,103 @@ export default function AdminHubCarousel() {
           }}
         />
       )}
+    </div>
+  )
+}
+
+/**
+ * Cellule fixe pour une position (1/2/3) du carrousel "Aujourd'hui".
+ * Affiche soit l'event choisi par l'admin, soit un placeholder "vide →
+ * fallback auto event du jour". Pas de bouton "Choisir" — l'admin assigne
+ * une position depuis la fiche event (via FeatureModal).
+ */
+function PositionCell({
+  position, slot, onDelete, onEditCrop,
+}: {
+  position: number
+  slot: EnrichedSlot | null
+  onDelete?: () => void
+  onEditCrop?: () => void
+}) {
+  const label = position === 1 ? 'Grosse tuile' : position === 2 ? 'Mini gauche' : 'Mini droite'
+  if (!slot) {
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '10px 12px', borderRadius: 12,
+        border: '1.5px dashed #D7CFC0', backgroundColor: '#FDFAF6',
+      }}>
+        <span style={{
+          width: 30, height: 30, borderRadius: 9,
+          backgroundColor: '#F0EAE0', color: '#7A6A5A',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 13, fontWeight: 900, flexShrink: 0,
+        }}>{position}</span>
+        <div style={{ flex: 1 }}>
+          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#7A6A5A' }}>Position {position} · {label}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 10.5, color: '#A89B8C', fontStyle: 'italic' }}>
+            Vide — sera comblée par un event du jour
+          </p>
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10,
+      padding: '10px 12px', borderRadius: 12,
+      border: '1.5px solid #2D5A3D', backgroundColor: '#FFF',
+    }}>
+      <span style={{
+        width: 30, height: 30, borderRadius: 9,
+        backgroundColor: '#E8F2EB', color: '#2D5A3D',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 13, fontWeight: 900, flexShrink: 0,
+      }}>{position}</span>
+      {slot.imageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={slot.imageUrl} alt="" style={{
+          width: 40, height: 40, borderRadius: 8, objectFit: 'cover',
+          objectPosition: slot.image_position ?? '50% 50%', flexShrink: 0,
+        }} />
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ margin: 0, fontSize: 10, fontWeight: 800, color: '#7A6A5A', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+          Position {position} · {label}
+        </p>
+        {slot.detailUrl ? (
+          <Link href={slot.detailUrl} style={{
+            display: 'block', margin: '2px 0 0', fontSize: 12.5, fontWeight: 700,
+            color: '#1A1209', overflow: 'hidden', textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap', textDecoration: 'none',
+          }}>{slot.title}</Link>
+        ) : (
+          <p style={{ margin: '2px 0 0', fontSize: 12.5, fontWeight: 700, color: '#1A1209', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{slot.title}</p>
+        )}
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+        {onEditCrop && slot.imageUrl && (
+          <button onClick={onEditCrop} aria-label="Cadrage" style={{
+            width: 30, height: 30, borderRadius: 8, border: '1px solid #E5DDD2',
+            background: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1A1209" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/>
+            </svg>
+          </button>
+        )}
+        {onDelete && (
+          <button onClick={onDelete} aria-label="Retirer" style={{
+            width: 30, height: 30, borderRadius: 8, border: '1px solid #F0D4C8',
+            background: '#FDF4F0', color: '#B53A22', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        )}
+      </div>
     </div>
   )
 }

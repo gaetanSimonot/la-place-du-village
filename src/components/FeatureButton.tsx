@@ -123,6 +123,34 @@ export function FeatureModal({ contentType, contentId, isAdmin, isOwner, plan, o
     toast.success('Mis en avant')
   }
 
+  /** Cas spécial homepage+evenement : pas de durée, juste choisir la position
+   *  (1 = grosse, 2 et 3 = mini). Le slot expire automatiquement à minuit Paris. */
+  async function doAdminFeatureHomepageEvent(position: 1 | 2 | 3) {
+    setSubmitting(true); setError(null)
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+    if (!token) { setSubmitting(false); return }
+
+    const res = await fetch('/api/featured-slots', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        slot: 'homepage', content_type: contentType, content_id: contentId,
+        position,
+        // ends_at calculé côté serveur (endOfTodayParisISO), peu importe ce
+        // qu'on envoie. On l'omet pour clarté.
+      }),
+    })
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}))
+      setError(d.error ?? 'Erreur')
+      setSubmitting(false)
+      return
+    }
+    onClose()
+    toast.success(`Mis en avant · Position ${position}`)
+  }
+
   async function doRedeem(slot: FeaturedSlot, hours: number) {
     setSubmitting(true); setError(null)
     const { data: { session } } = await supabase.auth.getSession()
@@ -194,16 +222,30 @@ export function FeatureModal({ contentType, contentId, isAdmin, isOwner, plan, o
         {isAdmin && (
           <Section title="🛡️ Mise en avant éditoriale" subtitle="Gratuit · admin">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {allowedSlots.map(s => (
-                <SlotPicker
-                  key={s.id}
-                  slot={s}
-                  onChoose={hours => doAdminFeature(s.id, hours)}
-                  disabled={submitting}
-                  hoursOptions={[24, 72, 168, 720]}
-                  hoursLabels={['1j', '3j', '1 sem', '1 mois']}
-                />
-              ))}
+              {allowedSlots.map(s => {
+                // Cas spécial homepage+evenement : 3 positions fixes au lieu
+                // d'un choix de durée. Le slot expire à minuit Paris.
+                if (s.id === 'homepage' && contentType === 'evenement') {
+                  return (
+                    <HomepageEventPositionPicker
+                      key={s.id}
+                      slot={s}
+                      onChoose={pos => doAdminFeatureHomepageEvent(pos)}
+                      disabled={submitting}
+                    />
+                  )
+                }
+                return (
+                  <SlotPicker
+                    key={s.id}
+                    slot={s}
+                    onChoose={hours => doAdminFeature(s.id, hours)}
+                    disabled={submitting}
+                    hoursOptions={[24, 72, 168, 720]}
+                    hoursLabels={['1j', '3j', '1 sem', '1 mois']}
+                  />
+                )
+              })}
             </div>
           </Section>
         )}
@@ -300,6 +342,85 @@ function Section({ title, subtitle, children }: { title: string; subtitle?: stri
       <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 900, color: '#1C1917' }}>{title}</p>
       {subtitle && <p style={{ margin: '0 0 10px', fontSize: 11, color: '#7A6A5A' }}>{subtitle}</p>}
       {children}
+    </div>
+  )
+}
+
+/**
+ * Picker spécifique homepage+evenement : 3 positions fixes au lieu d'un
+ * choix de durée. La durée est implicite (jusqu'à minuit Paris).
+ *  Position 1 = grosse tuile en haut.
+ *  Position 2 = mini tuile gauche.
+ *  Position 3 = mini tuile droite.
+ */
+function HomepageEventPositionPicker({
+  slot, onChoose, disabled,
+}: {
+  slot: { id: FeaturedSlot; label: string; description: string; emoji: string }
+  onChoose: (position: 1 | 2 | 3) => void
+  disabled: boolean
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const POSITIONS: { value: 1 | 2 | 3; label: string; sub: string }[] = [
+    { value: 1, label: 'Position 1', sub: 'Grosse tuile' },
+    { value: 2, label: 'Position 2', sub: 'Mini gauche' },
+    { value: 3, label: 'Position 3', sub: 'Mini droite' },
+  ]
+  return (
+    <div style={{
+      padding: '12px 14px', borderRadius: 14,
+      border: '1px solid #E5DDD2', backgroundColor: '#FDFAF6',
+    }}>
+      <button
+        onClick={() => setExpanded(v => !v)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          width: '100%', padding: 0, background: 'none', border: 'none',
+          cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+        }}
+      >
+        <span style={{ fontSize: 20 }}>{slot.emoji}</span>
+        <div style={{ flex: 1 }}>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#1A1209' }}>{slot.label}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#7A6A5A' }}>
+            Choisis la position dans la section &laquo;&nbsp;Aujourd&apos;hui&nbsp;&raquo; · expire à minuit
+          </p>
+        </div>
+        <span style={{ color: '#8A7A6A', fontSize: 14 }}>{expanded ? '▴' : '▾'}</span>
+      </button>
+
+      {expanded && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
+          {POSITIONS.map(p => (
+            <button
+              key={p.value}
+              onClick={() => onChoose(p.value)}
+              disabled={disabled}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 12px', borderRadius: 12,
+                border: '1.5px solid #2D5A3D', backgroundColor: '#fff',
+                cursor: disabled ? 'wait' : 'pointer',
+                opacity: disabled ? 0.6 : 1,
+                fontFamily: 'inherit', textAlign: 'left',
+              }}
+            >
+              <span style={{
+                width: 28, height: 28, borderRadius: 8,
+                backgroundColor: '#E8F2EB', color: '#2D5A3D',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 13, fontWeight: 900, flexShrink: 0,
+              }}>
+                {p.value}
+              </span>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#1A1209' }}>{p.label}</p>
+                <p style={{ margin: '2px 0 0', fontSize: 11, color: '#7A6A5A' }}>{p.sub}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

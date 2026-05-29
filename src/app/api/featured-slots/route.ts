@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/server-auth'
-import type { FeaturedSlot, FeaturedContentType } from '@/lib/featured'
+import { endOfTodayParisISO, type FeaturedSlot, type FeaturedContentType } from '@/lib/featured'
 
 const VALID_SLOTS: FeaturedSlot[] = ['splash', 'hub_hero', 'a_la_une', 'homepage']
 const VALID_TYPES: FeaturedContentType[] = ['evenement', 'etablissement', 'producteur', 'annonce', 'promotion']
@@ -50,14 +50,39 @@ export async function POST(req: NextRequest) {
   const slot         = body?.slot as FeaturedSlot
   const content_type = body?.content_type as FeaturedContentType
   const content_id   = body?.content_id as string
-  const ends_at      = body?.ends_at as string
+  let   ends_at      = body?.ends_at as string | undefined
   const starts_at    = (body?.starts_at as string) ?? new Date().toISOString()
-  const priority     = typeof body?.priority === 'number' ? body.priority : 0
+  let   priority     = typeof body?.priority === 'number' ? body.priority : 0
   const sponsored    = !!body?.sponsored
+  const rawPosition  = body?.position
+  const position     = typeof rawPosition === 'number' && [1, 2, 3].includes(rawPosition)
+    ? rawPosition : null
 
   if (!VALID_SLOTS.includes(slot))        return NextResponse.json({ error: 'slot invalide' }, { status: 400 })
   if (!VALID_TYPES.includes(content_type)) return NextResponse.json({ error: 'content_type invalide' }, { status: 400 })
   if (!content_id)                        return NextResponse.json({ error: 'content_id requis' }, { status: 400 })
+
+  // Cas spécial homepage+evenement : positionnement explicite 1/2/3, durée
+  // fixe = jusqu'à minuit Paris. Si une position est déjà prise aujourd'hui,
+  // on la remplace (l'admin "écrase" son ancien choix). Pas de priority libre.
+  const isHomepageEvent = slot === 'homepage' && content_type === 'evenement'
+  if (isHomepageEvent) {
+    if (position == null) {
+      return NextResponse.json({ error: 'position (1, 2 ou 3) requise pour homepage+evenement' }, { status: 400 })
+    }
+    ends_at = endOfTodayParisISO()
+    priority = 100 - position  // garde un ordre cohérent dans les listes admin (position 1 = priority 99)
+
+    // Remplace tout slot existant à cette position aujourd'hui
+    await supabaseAdmin
+      .from('featured_slots')
+      .delete()
+      .eq('slot', 'homepage')
+      .eq('content_type', 'evenement')
+      .eq('position', position)
+      .gt('ends_at', new Date().toISOString())
+  }
+
   if (!ends_at)                           return NextResponse.json({ error: 'ends_at requis' }, { status: 400 })
   if (new Date(ends_at) <= new Date(starts_at)) {
     return NextResponse.json({ error: 'ends_at doit être après starts_at' }, { status: 400 })
@@ -73,6 +98,7 @@ export async function POST(req: NextRequest) {
       ends_at,
       priority,
       sponsored,
+      position,
       source:           'admin',
       created_by:        ctx.userId,
       created_by_admin:  true,
