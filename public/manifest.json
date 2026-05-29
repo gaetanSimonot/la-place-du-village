@@ -43,6 +43,43 @@
       "files": [{ "name": "image", "accept": ["image/*"] }]
     }
   },
+  "screenshots": [
+    {
+      "src": "/screenshots/screenshot-1.jpg",
+      "sizes": "918x2048",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "La Place du Village — événements, annonces et lieux autour de Ganges"
+    },
+    {
+      "src": "/screenshots/screenshot-2.jpg",
+      "sizes": "918x2048",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "La Place du Village — événements, annonces et lieux autour de Ganges"
+    },
+    {
+      "src": "/screenshots/screenshot-3.jpg",
+      "sizes": "918x2048",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "La Place du Village — événements, annonces et lieux autour de Ganges"
+    },
+    {
+      "src": "/screenshots/screenshot-4.jpg",
+      "sizes": "918x2048",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "La Place du Village — événements, annonces et lieux autour de Ganges"
+    },
+    {
+      "src": "/screenshots/screenshot-5.jpg",
+      "sizes": "918x2048",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "La Place du Village — événements, annonces et lieux autour de Ganges"
+    }
+  ],
   "icons": [
     {
       "src": "/icons/icon-any.svg",
