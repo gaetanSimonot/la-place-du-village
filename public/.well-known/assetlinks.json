@@ -1,0 +1,11 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "app.laplaceduvillage",
+    "sha256_cert_fingerprints": [
+      "A8:55:F4:0D:3C:6B:00:8A:4E:E2:7B:A0:80:97:E3:F8:4D:AE:D0:CB:C6:B6:1A:D0:0A:EA:91:99:7E:8D:D4:0C",
+      "04:4A:93:6E:4D:50:AA:3B:11:43:00:F2:A6:61:D3:4B:5E:D3:DF:5D:C2:50:4D:5A:50:9F:07:6F:A2:C1:AF:66"
+    ]
+  }
+}]
