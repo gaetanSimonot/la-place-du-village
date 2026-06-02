@@ -17,7 +17,7 @@ import type { Plan } from './capabilities'
 // Types
 // ──────────────────────────────────────────────────────────────────────────
 
-export type AnnonceType = 'vente' | 'troc' | 'don' | 'enchere_inversee'
+export type AnnonceType = 'vente' | 'troc' | 'don' | 'service' | 'enchere_inversee'
 
 export type AnnonceStatut = 'active' | 'vendu' | 'expiree' | 'don_final'
 
@@ -163,7 +163,7 @@ export const CATEGORIES_ICONS: Record<AnnonceCategorie, string> = {
 // et sur l'accès anticipé aux enchères (capability `early_bid_access`).
 // ──────────────────────────────────────────────────────────────────────────
 
-const ALL_TYPES: AnnonceType[] = ['vente', 'troc', 'don', 'enchere_inversee']
+const ALL_TYPES: AnnonceType[] = ['vente', 'troc', 'don', 'service', 'enchere_inversee']
 
 const TYPES_BY_PLAN: Record<Plan, AnnonceType[]> = {
   basic:     ALL_TYPES,
@@ -232,6 +232,7 @@ export function canSponsor(plan: Plan): boolean {
 export function getPrixAffiche(a: Annonce): string {
   if (a.type === 'don' || a.statut === 'don_final') return 'Gratuit'
   if (a.type === 'troc') return 'À échanger'
+  if (a.type === 'service') return 'Service'
   if (a.type === 'enchere_inversee') {
     const p = a.prix_actuel ?? a.prix_initial
     return p != null ? `${formatEuros(p)} (enchère ↓)` : 'Enchère'
@@ -329,7 +330,7 @@ export function getJoursAvantSeuil(a: Annonce): number | null {
 // Validation côté API (les CHECK constraints PG sont silencieuses → on valide ici)
 // ──────────────────────────────────────────────────────────────────────────
 
-export const ANNONCE_TYPES: AnnonceType[] = ['vente', 'troc', 'don', 'enchere_inversee']
+export const ANNONCE_TYPES: AnnonceType[] = ['vente', 'troc', 'don', 'service', 'enchere_inversee']
 export const ANNONCE_STATUTS: AnnonceStatut[] = ['active', 'vendu', 'expiree', 'don_final']
 
 export function isAnnonceType(v: unknown): v is AnnonceType {

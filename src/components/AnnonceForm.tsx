@@ -41,6 +41,11 @@ const TYPE_INFO: Record<AnnonceType, { label: string; sub: string; color: string
     help: 'Échange contre autre chose.',
     icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3A5BC7" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>,
   },
+  service:          {
+    label: 'Service', sub: 'Coup de main, aide…',   color: '#2E7D74', bg: '#E6F2F0',
+    help: 'Un service proposé ou recherché (bricolage, jardin, garde…). Accessible à tous les plans.',
+    icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2E7D74" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>,
+  },
   enchere_inversee: {
     label: 'Enchère', sub: 'Le prix baisse / j',   color: '#C0392B', bg: '#FBE9E7',
     help: 'Le prix baisse chaque jour. Si personne ne prend avant le seuil, l\'annonce devient un don.',
@@ -200,7 +205,7 @@ export default function AnnonceForm({ initial, onSuccess }: Props) {
       {/* ─────────── TYPE D'ANNONCE 2x2 V3 ─────────── */}
       <Section title="Type d'annonce">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-          {(['vente', 'don', 'troc', 'enchere_inversee'] as AnnonceType[]).map(t => {
+          {(['vente', 'don', 'troc', 'service', 'enchere_inversee'] as AnnonceType[]).map(t => {
             const allowed = typesAutorises.includes(t)
             const ti = TYPE_INFO[t]
             const active = type === t
@@ -239,7 +244,7 @@ export default function AnnonceForm({ initial, onSuccess }: Props) {
         </div>
         {plan === 'basic' && type !== 'don' && (
           <p style={{ fontSize: 11, color: '#7A5614', margin: '6px 0 0', lineHeight: 1.5 }}>
-            Plan Villageois : 3 annonces vente/troc/enchère par mois.{' '}
+            Plan Villageois : 3 annonces vente/troc/service/enchère par mois (dons illimités).{' '}
             <button
               type="button"
               onClick={() => setShowUpgrade(true)}

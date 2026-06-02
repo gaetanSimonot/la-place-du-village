@@ -31,6 +31,7 @@ const TYPE_INFO: Record<Annonce['type'], { label: string; emoji: string; color: 
   vente:            { label: 'Vente',             emoji: '🏷️', color: '#3A5BC7', bg: '#EEF3FF' },
   troc:             { label: 'Troc',              emoji: '🔄', color: '#E8622A', bg: '#FFF0EB' },
   don:              { label: 'Don',               emoji: '🎁', color: '#2D5A3D', bg: '#E8F2EB' },
+  service:          { label: 'Service',           emoji: '🛠️', color: '#2E7D74', bg: '#E6F2F0' },
   enchere_inversee: { label: 'Enchère inversée',  emoji: '📉', color: '#C0392B', bg: '#FBE9E7' },
 }
 
@@ -551,7 +552,7 @@ export default function AnnoncePageClient({ id }: Props) {
             }}
           >
             <span>
-              {isEnchere ? `🔨 Acheter à ${getPrixAffiche(annonce)}` : `${info.emoji} ${annonce.type === 'don' ? 'Prendre ce don' : annonce.type === 'troc' ? 'Proposer un troc' : `Acheter à ${getPrixAffiche(annonce)}`}`}
+              {isEnchere ? `🔨 Acheter à ${getPrixAffiche(annonce)}` : `${info.emoji} ${annonce.type === 'don' ? 'Prendre ce don' : annonce.type === 'troc' ? 'Proposer un troc' : annonce.type === 'service' ? 'Contacter' : `Acheter à ${getPrixAffiche(annonce)}`}`}
             </span>
             {isEnchere && <span style={{ fontSize: 10, opacity: 0.85, fontWeight: 600 }}>avant la prochaine baisse</span>}
           </button>
