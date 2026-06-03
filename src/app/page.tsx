@@ -29,7 +29,7 @@ import { useFavorites } from '@/hooks/useFavorites'
 import { useProducerFavorites } from '@/hooks/useProducerFavorites'
 import { useNotifications } from '@/hooks/useNotifications'
 
-const MapView                   = dynamic(() => import('@/components/MapView'),                    { ssr: false })
+const MapView                   = dynamic(() => import('@/components/MapViewSwitch'),              { ssr: false })
 const BottomSheet               = dynamic(() => import('@/components/BottomSheet'),                { ssr: false })
 // ProducteurPageClient / EtablissementPageClient : retirés (sous-étape 5.2)
 // Les fiches sont maintenant rendues via les intercepting routes
@@ -88,6 +88,8 @@ export default function HomePage() {
   const [producerSearch, setProducerSearch] = useState('')
   const [loading, setLoading]       = useState(true)
   const [masquerPasses, setMasquerPasses] = useState(true)
+  // Fond de carte global (piloté par l'admin via config.map_provider) — défaut Google
+  const [mapProvider, setMapProvider] = useState<'google' | 'maplibre'>('google')
   const [zoneCentres, setZoneCentres]   = useState<{ lat: number; lng: number; nom: string }[]>([])
   const [rayonAffichage, setRayonAffichage] = useState<number | null>(null)
   const [zoneLoaded, setZoneLoaded]     = useState(false)
@@ -425,6 +427,8 @@ export default function HomePage() {
   useEffect(() => {
     supabase.from('config').select('value').eq('key', 'masquer_passes').single()
       .then(({ data, error }) => setMasquerPasses(error ? true : data?.value !== 'false'))
+    supabase.from('config').select('value').eq('key', 'map_provider').maybeSingle()
+      .then(({ data }) => setMapProvider(data?.value === 'maplibre' ? 'maplibre' : 'google'))
     fetchZoneConfig()
     // Cleanup silencieux : nécessite admin (la route est maintenant gardée).
     // Si l'user n'est pas admin → 403 silencieux, pas de souci.
@@ -751,6 +755,7 @@ export default function HomePage() {
         {/* Bande invisible en haut — laisse passer le geste "tirer pour rafraîchir" */}
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 40, zIndex: 5, pointerEvents: 'auto' }} />
         <MapView
+          provider={mapProvider}
           evenements={appMode === 'annuaire' ? [] : evenements}
           producers={appMode === 'annuaire' && annuaireTab === 0 ? filteredProducers : []}
           selectedProducerId={selectedProducerId}
