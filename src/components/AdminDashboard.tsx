@@ -151,6 +151,8 @@ export default function AdminDashboard() {
   const [togglingConfig, setTogglingConfig]     = useState(false)
   const [maintenanceMode, setMaintenanceMode]   = useState(false)
   const [togglingMaint, setTogglingMaint]       = useState(false)
+  const [mapProvider, setMapProvider]           = useState<'google' | 'maplibre'>('google')
+  const [togglingMap, setTogglingMap]           = useState(false)
   const [hubSubtitle, setHubSubtitle]           = useState('')
   const [hubSubtitleInput, setHubSubtitleInput] = useState('')
   const [savingSubtitle, setSavingSubtitle]     = useState(false)
@@ -218,13 +220,15 @@ export default function AdminDashboard() {
   }, [])
 
   const fetchConfig = useCallback(async () => {
-    const [{ data: cfg }, { data: subCfg }, { data: maintCfg }] = await Promise.all([
+    const [{ data: cfg }, { data: subCfg }, { data: maintCfg }, { data: mapCfg }] = await Promise.all([
       supabase.from('config').select('value').eq('key', 'masquer_passes').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'hub_subtitle').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'maintenance_mode').maybeSingle(),
+      supabase.from('config').select('value').eq('key', 'map_provider').maybeSingle(),
     ])
     setMasquerPasses(cfg?.value === 'true')
     setMaintenanceMode(maintCfg?.value === 'true')
+    setMapProvider(mapCfg?.value === 'maplibre' ? 'maplibre' : 'google')
     const sub = subCfg?.value ?? 'Tout le village, à portée de main'
     setHubSubtitle(sub)
     setHubSubtitleInput(sub)
@@ -370,6 +374,23 @@ export default function AdminDashboard() {
       toast.error('Échec sauvegarde')
     }
     setTogglingMaint(false)
+  }
+
+  const toggleMapProvider = async () => {
+    const next = mapProvider === 'maplibre' ? 'google' : 'maplibre'
+    const prev = mapProvider
+    setTogglingMap(true)
+    setMapProvider(next)  // optimistic
+    const res = await authedFetch('/api/admin/config', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'map_provider', value: next }),
+    })
+    if (!res.ok) {
+      setMapProvider(prev)  // rollback
+      toast.error('Échec sauvegarde')
+    }
+    setTogglingMap(false)
   }
 
   const saveHubSubtitle = async () => {
@@ -736,6 +757,9 @@ export default function AdminDashboard() {
           maintenanceMode={maintenanceMode}
           togglingMaint={togglingMaint}
           onToggleMaintenance={toggleMaintenance}
+          mapProvider={mapProvider}
+          togglingMap={togglingMap}
+          onToggleMapProvider={toggleMapProvider}
           hubSubtitle={hubSubtitle}
           hubSubtitleInput={hubSubtitleInput}
           savingSubtitle={savingSubtitle}
@@ -1006,6 +1030,9 @@ interface ParamProps {
   maintenanceMode: boolean
   togglingMaint: boolean
   onToggleMaintenance: () => void
+  mapProvider: 'google' | 'maplibre'
+  togglingMap: boolean
+  onToggleMapProvider: () => void
   hubSubtitle: string
   hubSubtitleInput: string
   savingSubtitle: boolean
@@ -1102,6 +1129,23 @@ function ParametersSection(p: ParamProps) {
                 {p.maintenanceMode ? 'Maintenance ACTIVE' : 'Maintenance désactivée'}
               </span>
               {p.togglingMaint && <span className="text-xs text-gray-400">…</span>}
+            </label>
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            <p className="font-bold text-[#2C1810] text-sm mb-1">🗺️ Fond de carte</p>
+            <p className="text-xs text-gray-500 mb-3">
+              Bascule la carte de TOUTE l&apos;app pour tous les visiteurs. « Carte libre »
+              (gratuite, sans filigrane) à utiliser si la facturation Google coince.
+            </p>
+            <label className="flex items-center gap-3 cursor-pointer select-none" onClick={p.onToggleMapProvider}>
+              <div className={`relative w-10 h-6 rounded-full transition-colors ${p.mapProvider === 'maplibre' ? 'bg-green-600' : 'bg-gray-300'}`}>
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${p.mapProvider === 'maplibre' ? 'left-5' : 'left-1'}`} />
+              </div>
+              <span className="text-sm font-semibold text-[#2C1810]">
+                {p.mapProvider === 'maplibre' ? 'Carte libre (gratuite)' : 'Google Maps'}
+              </span>
+              {p.togglingMap && <span className="text-xs text-gray-400">…</span>}
             </label>
           </div>
 

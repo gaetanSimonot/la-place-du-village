@@ -638,30 +638,6 @@ export default function ProfilView() {
                   )
                 })}
               </div>
-
-              <div className="mb-2 mt-4 text-[12px] font-bold text-texte">Fond de carte</div>
-              <div className="flex gap-2">
-                {([
-                  { id: 'google'   as const, name: 'Google Maps', desc: 'Détaillé (facturé Google)' },
-                  { id: 'maplibre' as const, name: 'Carte libre',  desc: 'Gratuit, sans filigrane' },
-                ]).map(opt => {
-                  const active = theme.mapProvider === opt.id
-                  return (
-                    <button
-                      key={opt.id}
-                      onClick={() => theme.setMapProvider(opt.id)}
-                      className="flex flex-1 flex-col gap-0.5 rounded-xl border-none px-3 py-2.5 text-left"
-                      style={{
-                        backgroundColor: active ? 'var(--primary-light)' : '#FDFAF5',
-                        outline: active ? '2px solid var(--primary)' : '1.5px solid transparent',
-                      }}
-                    >
-                      <span className="text-[12px] font-bold" style={{ color: active ? 'var(--primary)' : '#1A1209' }}>{opt.name}</span>
-                      <span className="text-[10px] text-texte-doux">{opt.desc}</span>
-                    </button>
-                  )
-                })}
-              </div>
             </div>
           </div>
 
