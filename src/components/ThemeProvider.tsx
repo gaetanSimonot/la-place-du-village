@@ -6,15 +6,19 @@ import {
   ColorTheme, MapStyleDef, SheetBg,
 } from '@/lib/themes'
 
+export type MapProvider = 'google' | 'maplibre'
+
 interface ThemeCtx {
   colorTheme: ColorTheme
   mapStyle: MapStyleDef
   sheetBg: SheetBg
   fixedMap: boolean
+  mapProvider: MapProvider
   setColorThemeId: (id: string) => void
   setMapStyleId: (id: string) => void
   setSheetBgId: (id: string) => void
   setFixedMap: (v: boolean) => void
+  setMapProvider: (v: MapProvider) => void
 }
 
 export const ThemeContext = createContext<ThemeCtx>({
@@ -22,10 +26,12 @@ export const ThemeContext = createContext<ThemeCtx>({
   mapStyle: MAP_STYLES[0],
   sheetBg: SHEET_BG_OPTIONS[0],
   fixedMap: false,
+  mapProvider: 'google',
   setColorThemeId: () => {},
   setMapStyleId: () => {},
   setSheetBgId: () => {},
   setFixedMap: () => {},
+  setMapProvider: () => {},
 })
 
 export function useTheme() { return useContext(ThemeContext) }
@@ -35,18 +41,21 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [mapId,     setMapId]     = useState(DEFAULT_MAP_STYLE)
   const [sheetBgId, setSheetBgIdState] = useState(DEFAULT_SHEET_BG)
   const [fixedMap,  setFixedMapState]  = useState(false)
+  const [mapProvider, setMapProviderState] = useState<MapProvider>('google')
 
   useEffect(() => {
     const c = localStorage.getItem('pdv-theme-color')
     const m = localStorage.getItem('pdv-theme-map')
     const s = localStorage.getItem('pdv-theme-sheetbg')
     const f = localStorage.getItem('pdv-theme-fixedmap')
+    const mp = localStorage.getItem('pdv-map-provider')
     // Migrate old default 'terrecuite' → new default 'foret'
     const colorToApply = c === 'terrecuite' ? DEFAULT_COLOR_THEME : c
     if (colorToApply && COLOR_THEMES.some(t => t.id === colorToApply)) setColorId(colorToApply)
     if (m && MAP_STYLES.some(s => s.id === m))          setMapId(m)
     if (s && SHEET_BG_OPTIONS.some(o => o.id === s))    setSheetBgIdState(s)
     if (f !== null) setFixedMapState(f === 'true')
+    if (mp === 'google' || mp === 'maplibre') setMapProviderState(mp)
   }, [])
 
   const colorTheme = COLOR_THEMES.find(t => t.id === colorId)         ?? COLOR_THEMES[0]
@@ -86,8 +95,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('pdv-theme-fixedmap', String(v))
   }, [])
 
+  const setMapProvider = useCallback((v: MapProvider) => {
+    setMapProviderState(v)
+    localStorage.setItem('pdv-map-provider', v)
+  }, [])
+
   return (
-    <ThemeContext.Provider value={{ colorTheme, mapStyle, sheetBg, fixedMap, setColorThemeId, setMapStyleId, setSheetBgId, setFixedMap }}>
+    <ThemeContext.Provider value={{ colorTheme, mapStyle, sheetBg, fixedMap, mapProvider, setColorThemeId, setMapStyleId, setSheetBgId, setFixedMap, setMapProvider }}>
       {children}
     </ThemeContext.Provider>
   )

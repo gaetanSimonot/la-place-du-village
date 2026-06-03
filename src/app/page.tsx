@@ -29,7 +29,7 @@ import { useFavorites } from '@/hooks/useFavorites'
 import { useProducerFavorites } from '@/hooks/useProducerFavorites'
 import { useNotifications } from '@/hooks/useNotifications'
 
-const MapView                   = dynamic(() => import('@/components/MapView'),                    { ssr: false })
+const MapView                   = dynamic(() => import('@/components/MapViewSwitch'),              { ssr: false })
 const BottomSheet               = dynamic(() => import('@/components/BottomSheet'),                { ssr: false })
 // ProducteurPageClient / EtablissementPageClient : retirés (sous-étape 5.2)
 // Les fiches sont maintenant rendues via les intercepting routes
