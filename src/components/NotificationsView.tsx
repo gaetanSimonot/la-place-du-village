@@ -7,6 +7,7 @@ import { useFriendships } from '@/hooks/useFriendships'
 import { PLANS_INFO, PLAN_ORDER, type Plan } from '@/lib/capabilities'
 import type { AppNotification, NotifType } from '@/lib/types'
 import { toast } from 'sonner'
+import PostNotifModal from '@/components/profil/PostNotifModal'
 
 interface Props {
   notifications: AppNotification[]
@@ -58,6 +59,7 @@ const ICONS = {
   eye:      I(<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>),
   bell:     I(<><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></>),
   car:      I(<><path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a1 1 0 0 0-.8-.4H5.24a2 2 0 0 0-1.8 1.1l-.8 1.63A6 6 0 0 0 2 12.42V16h2"/><circle cx="6.5" cy="16.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/></>),
+  megaphone:I(<><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></>),
 }
 
 // Fallback safe : si un nouveau type est inséré côté serveur avant que ce
@@ -100,6 +102,7 @@ const NOTIF_VISUAL: Record<NotifType, NotifVisual> = {
   friend_request_received:{ bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.star,     label: n => `${n.actor_name ?? 'Quelqu\'un'} t'a envoyé une demande d'ami` },
   friend_request_accepted:{ bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.check,    label: n => `${n.actor_name ?? 'Quelqu\'un'} a accepté ta demande d'ami` },
   friend_message:         { bg: '#E8EEF7', color: '#3A5BC7', icon: ICONS.chat,     label: n => `${n.actor_name ?? 'Un ami'} t'a envoyé un message` },
+  post_broadcast:         { bg: '#FFF0E5', color: '#C84B2F', icon: ICONS.megaphone, label: n => `📣 ${n.actor_name ?? 'La Place du Village'} a publié` },
 }
 
 function relativeDate(iso: string): string {
@@ -208,6 +211,7 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
   const [adminFilter, setAdminFilter] = useState<AdminFilter>('all')
   const [userFilter, setUserFilter] = useState<UserFilter>('all')
   const [actionModal, setActionModal] = useState<AppNotification | null>(null)
+  const [postModalId, setPostModalId] = useState<string | null>(null)
 
   useEffect(() => { onOpen() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -264,6 +268,12 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
   /** Routing par type — identique à V2, logique préservée. */
   function handleClick(n: AppNotification) {
     if (!n.lu) onMarkRead(n.id)
+
+    // Broadcast admin → pop-up qui affiche le post (pas de navigation).
+    if (n.type === 'post_broadcast' && n.target_id) {
+      setPostModalId(n.target_id)
+      return
+    }
 
     if (n.type === 'claim_pending' || n.target_type === 'claim') {
       router.push('/admin?section=demandes')
@@ -619,6 +629,11 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
             </div>
           )}
         </div>
+      )}
+
+      {/* Pop-up post (depuis une notif de broadcast) */}
+      {postModalId && (
+        <PostNotifModal postId={postModalId} onClose={() => setPostModalId(null)} />
       )}
 
       {/* Modale actions */}

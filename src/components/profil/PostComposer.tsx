@@ -2,10 +2,20 @@
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/hooks/useAuth'
 import ClientPortal from '@/components/ClientPortal'
 import EmbedPicker, { type EmbedItem } from '@/components/EmbedPicker'
 
 export type Visibility = 'public' | 'amis' | 'prive'
+
+type NotifyAudience = 'none' | 'all' | 'basic' | 'habitants' | 'pro'
+const NOTIFY_OPTIONS: Array<{ value: NotifyAudience; label: string }> = [
+  { value: 'none',      label: 'Personne' },
+  { value: 'all',       label: 'Tout le monde' },
+  { value: 'basic',     label: 'Villageois' },
+  { value: 'habitants', label: 'Habitants' },
+  { value: 'pro',       label: 'Pro' },
+]
 
 export interface CreatedPost {
   id: string; user_id: string; texte: string; visibility: Visibility;
@@ -33,6 +43,8 @@ export default function PostComposer({ authorName, authorAvatar, onClose, onPost
   const [posting, setPosting]       = useState(false)
   const [embed, setEmbed]           = useState<EmbedItem | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [notify, setNotify]         = useState<NotifyAudience>('none')
+  const { isAdmin } = useAuth()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
@@ -64,6 +76,8 @@ export default function PostComposer({ authorName, authorAvatar, onClose, onPost
           visibility,
           embed_kind:   embed?.kind ?? null,
           embed_ref_id: embed?.id ?? null,
+          // Broadcast admin (le serveur revérifie isAdmin). Omis si non-admin ou "Personne".
+          notify: isAdmin && notify !== 'none' ? notify : undefined,
         }),
       })
       const d = await res.json().catch(() => ({}))
@@ -173,6 +187,45 @@ export default function PostComposer({ authorName, authorAvatar, onClose, onPost
           </button>
           <div className="text-[11px] text-texte-tres-doux">{texte.length}/{MAX}</div>
         </div>
+
+        {/* Broadcast admin — visible seulement pour les admins */}
+        {isAdmin && (
+          <div className="mt-4 rounded-[14px] border bg-cremeDeep px-3 py-3" style={{ borderColor: '#E8E0D4' }}>
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.06em] text-primary">
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 11l18-5v12L3 14v-3z" /><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
+              </svg>
+              Notifier à la publication
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {NOTIFY_OPTIONS.map(o => {
+                const active = notify === o.value
+                return (
+                  <button
+                    key={o.value}
+                    type="button"
+                    onClick={() => setNotify(o.value)}
+                    className="rounded-full px-3 py-1.5 text-[12px] font-bold"
+                    style={{
+                      backgroundColor: active ? 'var(--primary)' : '#fff',
+                      color:           active ? '#fff' : '#7A6A5A',
+                      border:          active ? 'none' : '1px solid #E8E0D4',
+                    }}
+                  >
+                    {o.label}
+                  </button>
+                )
+              })}
+            </div>
+            {notify !== 'none' && (
+              <p className="m-0 mt-2 text-[10.5px] text-texte-doux">
+                Une notification sera envoyée {notify === 'all'
+                  ? 'à tout le village'
+                  : `aux « ${NOTIFY_OPTIONS.find(o => o.value === notify)?.label} »`} dès la publication.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {pickerOpen && (

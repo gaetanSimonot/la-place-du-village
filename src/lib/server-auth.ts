@@ -141,6 +141,50 @@ export async function notifyAllUsers(payload: {
 }
 
 /**
+ * Broadcast ciblé par audience (admin) — via `profiles` (pas de plafond 1000
+ * comme listUsers). audience: 'all' = tous, sinon filtre sur profiles.plan.
+ * Exclut optionnellement l'auteur (pour ne pas se notifier soi-même).
+ * Insert par lots de 500. Fail-silent. Retourne le nb de destinataires.
+ */
+export async function notifyByAudience(
+  audience: 'all' | 'basic' | 'habitants' | 'pro',
+  payload: {
+    type: string
+    actor_name: string
+    target_type?: string
+    target_id?: string
+    excludeUserId?: string
+  },
+): Promise<number> {
+  try {
+    let q = supabaseAdmin.from('profiles').select('user_id')
+    if (audience !== 'all') q = q.eq('plan', audience)
+    const { data } = await q
+    let ids = (data ?? [])
+      .map(r => (r as { user_id: string | null }).user_id)
+      .filter((id): id is string => !!id)
+    if (payload.excludeUserId) ids = ids.filter(id => id !== payload.excludeUserId)
+    if (!ids.length) return 0
+
+    const mkRow = (uid: string) => ({
+      user_id:     uid,
+      type:        payload.type,
+      actor_name:  payload.actor_name,
+      target_type: payload.target_type ?? null,
+      target_id:   payload.target_id ?? null,
+      lu:          false,
+    })
+    for (let i = 0; i < ids.length; i += 500) {
+      await supabaseAdmin.from('notifications').insert(ids.slice(i, i + 500).map(mkRow))
+    }
+    return ids.length
+  } catch (e) {
+    console.error('[notifyByAudience] failed', e)
+    return 0
+  }
+}
+
+/**
  * Insère une notification pour un user spécifique.
  * Fail-silent.
  */
