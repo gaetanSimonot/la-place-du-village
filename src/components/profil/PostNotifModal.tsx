@@ -5,6 +5,15 @@ import { supabase } from '@/lib/supabase'
 import ClientPortal from '@/components/ClientPortal'
 import { PostEmbedRender } from '@/components/profil/PostCard'
 
+const T = {
+  primary: '#2D5A3D',
+  accent:  '#C84B2F',
+  texte:   '#1A1209',
+  texteDoux: '#7A6A5A',
+  bordSoft: '#F0EAE0',
+  white:   '#FFFFFF',
+}
+
 interface PostRow {
   id: string; user_id: string; texte: string
   embed_kind: string | null; embed_ref_id: string | null; created_at: string
@@ -16,9 +25,9 @@ interface Props {
 }
 
 /**
- * Pop-up affichant un post (depuis une notification de broadcast admin).
- * Lecture directe Supabase (pas de route → pas de cache). Bouton vers le mur
- * de l'auteur en bas.
+ * Pop-up « communiqué » affichant un post de broadcast admin — emballage de
+ * marque (illustration village multiply, DM Serif, trait orange, Caveat),
+ * dans l'esprit du WelcomeModal. Lecture directe Supabase (pas de cache).
  */
 export default function PostNotifModal({ postId, onClose }: Props) {
   const router = useRouter()
@@ -26,12 +35,20 @@ export default function PostNotifModal({ postId, onClose }: Props) {
   const [author, setAuthor] = useState<{ name: string | null; avatar: string | null }>({ name: null, avatar: null })
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [visible, setVisible] = useState(false)
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const t = setTimeout(() => setVisible(true), 40)
+    return () => clearTimeout(t)
+  }, [])
+
+  const dismiss = () => { setVisible(false); setTimeout(onClose, 220) }
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') dismiss() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     let cancelled = false
@@ -57,7 +74,7 @@ export default function PostNotifModal({ postId, onClose }: Props) {
 
   const goToWall = () => {
     if (post) router.push(`/profil/${post.user_id}`)
-    onClose()
+    dismiss()
   }
 
   const initial = (author.name ?? '·').trim().charAt(0).toUpperCase() || '·'
@@ -65,79 +82,132 @@ export default function PostNotifModal({ postId, onClose }: Props) {
   return (
     <ClientPortal>
       <div
-        onClick={onClose}
-        className="fixed inset-0 z-[3600] flex items-center justify-center bg-black/55 px-4 backdrop-blur-[3px] font-inter"
+        onClick={dismiss}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 3600,
+          background: visible ? 'rgba(26,18,9,0.55)' : 'rgba(26,18,9,0)',
+          backdropFilter: visible ? 'blur(4px)' : 'none',
+          transition: 'background-color 0.22s, backdrop-filter 0.22s',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 16, fontFamily: 'Inter, sans-serif',
+        }}
         role="dialog"
         aria-modal="true"
       >
         <div
           onClick={e => e.stopPropagation()}
-          className="flex w-full max-w-[440px] flex-col overflow-hidden rounded-3xl bg-white"
-          style={{ maxHeight: '85dvh', boxShadow: '0 12px 40px rgba(0,0,0,0.25)' }}
+          style={{
+            position: 'relative', width: '100%', maxWidth: 420, maxHeight: '88%',
+            background: T.white, borderRadius: 22, overflow: 'hidden',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+            display: 'flex', flexDirection: 'column',
+            transform: visible ? 'translateY(0) scale(1)' : 'translateY(20px) scale(0.96)',
+            opacity: visible ? 1 : 0,
+            transition: 'transform 0.3s cubic-bezier(0.32,0.72,0,1), opacity 0.22s',
+          }}
         >
-          {/* Header */}
-          <div className="flex shrink-0 items-center justify-between gap-3 px-4 pb-3 pt-4" style={{ borderBottom: '1px solid #F0EAE0' }}>
-            <h2 className="m-0 font-serif text-[17px] text-texte" style={{ letterSpacing: '-0.005em' }}>Publication</h2>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Fermer"
-              className="flex h-9 w-9 items-center justify-center bg-transparent text-texte-doux"
-            >
-              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
+          {/* Fermer */}
+          <button
+            onClick={dismiss}
+            aria-label="Fermer"
+            style={{
+              position: 'absolute', top: 12, right: 12, zIndex: 10,
+              background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(6px)',
+              border: `1px solid ${T.bordSoft}`, width: 30, height: 30, borderRadius: 999,
+              cursor: 'pointer', color: T.texteDoux, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+
+          {/* ── Bandeau de marque ── */}
+          <div style={{
+            background: 'linear-gradient(135deg, #FBF3E6 0%, #F8EDD8 100%)',
+            padding: '22px 22px 16px', position: 'relative', overflow: 'hidden',
+          }}>
+            <span style={{
+              display: 'block', width: 'fit-content', margin: '0 auto 2px',
+              padding: '4px 11px', borderRadius: 999, background: '#FFF0E5', color: T.accent,
+              fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase',
+            }}>
+              📣 Annonce du village
+            </span>
+            <img
+              src="/village-illustration.png" alt=""
+              style={{ display: 'block', width: '44%', height: 'auto', margin: '6px auto 0', mixBlendMode: 'multiply', userSelect: 'none' }}
+            />
+            <h1 style={{
+              margin: '6px 0 0', textAlign: 'center',
+              fontFamily: 'var(--font-dm-serif), Georgia, serif',
+              fontSize: 23, color: T.texte, letterSpacing: '-0.015em', lineHeight: 1.05,
+            }}>
+              Un mot <span style={{ color: T.accent, fontStyle: 'italic' }}>pour vous</span>
+            </h1>
+            <div style={{ width: 42, height: 3, borderRadius: 999, backgroundColor: T.accent, margin: '11px auto 4px' }} />
+            <p style={{
+              margin: 0, textAlign: 'center',
+              fontFamily: 'var(--font-caveat), Caveat, cursive', fontWeight: 700,
+              fontSize: 17, color: T.primary, lineHeight: 1,
+            }}>
+              La Place du Village
+            </p>
           </div>
 
-          {/* Contenu scrollable */}
-          <div className="flex-1 overflow-y-auto px-4 py-4">
+          {/* ── Contenu du post ── */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px 4px' }}>
             {loading ? (
-              <div className="flex justify-center py-10">
-                <div className="h-7 w-7 animate-spin rounded-full border-4 border-bord border-t-primary" />
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
+                <div style={{ width: 26, height: 26, borderRadius: 999, border: `4px solid ${T.bordSoft}`, borderTopColor: T.primary, animation: 'spin 0.8s linear infinite' }} />
+                <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
               </div>
             ) : notFound || !post ? (
-              <p className="py-8 text-center text-[13px] text-texte-doux">Cette publication n&apos;existe plus.</p>
+              <p style={{ padding: '24px 0', textAlign: 'center', fontSize: 13, color: T.texteDoux }}>Cette publication n&apos;existe plus.</p>
             ) : (
               <>
-                <div className="mb-3 flex items-center gap-2.5">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                   {author.avatar ? (
-                    <img src={author.avatar} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+                    <img src={author.avatar} alt="" style={{ width: 38, height: 38, borderRadius: 999, objectFit: 'cover', flexShrink: 0 }} />
                   ) : (
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary font-serif text-[16px] text-white">{initial}</div>
+                    <div style={{ width: 38, height: 38, borderRadius: 999, background: T.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'var(--font-dm-serif), Georgia, serif', fontSize: 15 }}>{initial}</div>
                   )}
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13.5px] font-extrabold text-texte" style={{ letterSpacing: '-0.005em' }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 800, color: T.texte, letterSpacing: '-0.005em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {author.name ?? 'La Place du Village'}
                     </div>
-                    <div className="text-[11px] text-texte-doux">{formatDate(post.created_at)}</div>
+                    <div style={{ fontSize: 11, color: T.texteDoux }}>{formatDate(post.created_at)}</div>
                   </div>
                 </div>
 
-                <p className="m-0 whitespace-pre-wrap text-[14px] leading-[1.55] text-texte" style={{ wordBreak: 'break-word' }}>
+                <p style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 14.5, lineHeight: 1.6, color: T.texte }}>
                   {post.texte}
                 </p>
 
                 {post.embed_kind && post.embed_ref_id && (
-                  <div className="mt-3">
-                    <PostEmbedRender kind={post.embed_kind} refId={post.embed_ref_id} />
+                  <div style={{ marginTop: 14 }}>
+                    <PostEmbedRender kind={post.embed_kind} refId={post.embed_ref_id} variant="large" />
                   </div>
                 )}
               </>
             )}
           </div>
 
-          {/* Bouton vers le mur */}
+          {/* ── CTA vers le mur ── */}
           {!loading && post && (
-            <div className="shrink-0 px-4 pb-4 pt-2" style={{ borderTop: '1px solid #F0EAE0' }}>
+            <div style={{ padding: '14px 22px 20px', borderTop: `1px solid ${T.bordSoft}`, background: T.white }}>
               <button
-                type="button"
                 onClick={goToWall}
-                className="flex w-full items-center justify-center gap-2 rounded-[14px] bg-primary py-3 text-[14px] font-extrabold text-white"
+                style={{
+                  width: '100%', padding: 14, borderRadius: 14, border: 'none', cursor: 'pointer',
+                  background: T.primary, color: '#fff', fontSize: 14, fontWeight: 700,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  boxShadow: '0 3px 12px rgba(45,90,61,0.25)', fontFamily: 'Inter, sans-serif',
+                }}
               >
                 Aller vers le mur
-                <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
+                <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" />
                 </svg>
               </button>
             </div>

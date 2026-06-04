@@ -260,7 +260,7 @@ const EMBED_LABEL: Record<string, string> = {
   annonce: 'Annonce', promo: 'Promotion', covoit: 'Covoiturage',
 }
 
-export function PostEmbedRender({ kind, refId }: { kind: string; refId: string }) {
+export function PostEmbedRender({ kind, refId, variant = 'compact' }: { kind: string; refId: string; variant?: 'compact' | 'large' }) {
   const [details, setDetails] = useState<EmbedDetails | null>(null)
   const [notFound, setNotFound] = useState(false)
 
@@ -315,6 +315,17 @@ export function PostEmbedRender({ kind, refId }: { kind: string; refId: string }
   }
 
   if (!details) {
+    if (variant === 'large') {
+      return (
+        <div className="overflow-hidden rounded-[14px] border bg-cremeDeep" style={{ borderColor: '#E8E0D4' }}>
+          <div className="w-full animate-pulse bg-bord" style={{ aspectRatio: '16 / 9' }} />
+          <div className="space-y-1.5 px-3 py-2.5">
+            <div className="h-3 w-1/2 animate-pulse rounded bg-bord" />
+            <div className="h-2.5 w-1/3 animate-pulse rounded bg-bord" />
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="flex items-center gap-2.5 rounded-[12px] border bg-cremeDeep px-2.5 py-2" style={{ borderColor: '#E8E0D4' }}>
         <div className="h-10 w-10 shrink-0 animate-pulse rounded-[8px] bg-bord" />
@@ -323,6 +334,38 @@ export function PostEmbedRender({ kind, refId }: { kind: string; refId: string }
           <div className="h-2 w-1/3 animate-pulse rounded bg-bord" />
         </div>
       </div>
+    )
+  }
+
+  // Variante "large" — grande image en haut (style Facebook), carte cliquable
+  if (variant === 'large') {
+    return (
+      <Link
+        href={details.href}
+        onClick={e => e.stopPropagation()}
+        className="block overflow-hidden rounded-[14px] border bg-white text-inherit no-underline"
+        style={{ borderColor: '#E8E0D4', boxShadow: '0 1px 5px rgba(44,28,16,0.06)' }}
+      >
+        <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', background: '#EFE8DD' }}>
+          {details.photo
+            ? <img src={details.photo} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+            : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#C9BBA8' }}>
+                <svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              </div>}
+          <span style={{ position: 'absolute', top: 10, left: 10, padding: '4px 10px', borderRadius: 999, background: 'rgba(26,18,9,0.72)', color: '#fff', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            {EMBED_LABEL[kind] ?? kind}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px' }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: '#1A1209', letterSpacing: '-0.005em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{details.title}</div>
+            {details.subtitle && <div style={{ fontSize: 11.5, color: '#7A6A5A', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{details.subtitle}</div>}
+          </div>
+          <span style={{ color: '#C9BBA8', flexShrink: 0 }}>
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+          </span>
+        </div>
+      </Link>
     )
   }
 
