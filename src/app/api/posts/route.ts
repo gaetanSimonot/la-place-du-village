@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { requireUser, notifyByAudience } from '@/lib/server-auth'
+import { requireUser, notifyByAudience, notifyUser } from '@/lib/server-auth'
 
 const NOTIFY_AUDIENCES = ['all', 'basic', 'habitants', 'pro'] as const
 type NotifyAudience = (typeof NOTIFY_AUDIENCES)[number]
@@ -88,12 +88,21 @@ export async function POST(req: NextRequest) {
   ) {
     const { data: prof } = await supabaseAdmin
       .from('profiles').select('display_name').eq('user_id', ctx.userId).maybeSingle()
-    await notifyByAudience(notify as NotifyAudience, {
-      type:          'post_broadcast',
-      actor_name:    prof?.display_name ?? 'La Place du Village',
-      target_id:     data.id,
-      excludeUserId: ctx.userId,
-    })
+    const payload = {
+      type:       'post_broadcast' as const,
+      actor_name: prof?.display_name ?? 'La Place du Village',
+      target_id:  data.id,
+    }
+    // GARDE-FOU : le vrai broadcast à tous ne part qu'en PRODUCTION. Sur
+    // preview/dev (même DB Supabase partagée), on ne notifie QUE l'admin
+    // lui-même → on peut tester toute l'UX sans spammer les vrais users.
+    if (process.env.VERCEL_ENV === 'production') {
+      // Pas d'exclusion : l'admin fait partie de "tout le monde", il reçoit
+      // la notif lui aussi (demande explicite).
+      await notifyByAudience(notify as NotifyAudience, payload)
+    } else {
+      await notifyUser(ctx.userId, payload)
+    }
   }
 
   return NextResponse.json({ post: data }, { status: 201 })
