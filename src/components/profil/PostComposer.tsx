@@ -7,11 +7,16 @@ import EmbedPicker, { type EmbedItem } from '@/components/EmbedPicker'
 
 export type Visibility = 'public' | 'amis' | 'prive'
 
+export interface CreatedPost {
+  id: string; user_id: string; texte: string; visibility: Visibility;
+  embed_kind: string | null; embed_ref_id: string | null; created_at: string
+}
+
 interface Props {
   authorName:   string
   authorAvatar: string | null
   onClose:      () => void
-  onPosted:     () => void
+  onPosted:     (post: CreatedPost) => void
 }
 
 const VIS_OPTIONS: Array<{ value: Visibility; label: string; sub: string }> = [
@@ -61,11 +66,11 @@ export default function PostComposer({ authorName, authorAvatar, onClose, onPost
           embed_ref_id: embed?.id ?? null,
         }),
       })
+      const d = await res.json().catch(() => ({}))
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}))
         throw new Error(d.error || 'Erreur publication')
       }
-      onPosted()
+      if (d.post) onPosted(d.post as CreatedPost)
       onClose()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')

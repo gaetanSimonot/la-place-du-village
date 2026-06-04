@@ -1,10 +1,8 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import useSWR from 'swr'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
-import { authedFetcher, FetchError } from '@/lib/swr-fetchers'
 import PostComposer from '../PostComposer'
 import PostCard, { type PostData } from '../PostCard'
 import PostCommentsDrawer from '../PostCommentsDrawer'
@@ -31,67 +29,84 @@ export default function MurTab({ profileUserId, authorName, authorAvatar }: Prop
   const [commentsForPost, setCommentsForPost] = useState<PostWithLikes | null>(null)
 
   // ──────────────────────────────────────────────────────────────────────
-  // SWR + authedFetcher — PILOTE du fix course token.
+  // État local + Realtime — MÊME pattern que le chat (fiable & instantané).
   //
-  // Clé = null tant que :
-  //   - AuthContext est encore en train de résoudre la session (authLoading)
-  //   - ou tant qu'on n'a pas d'user (pas connecté)
-  // → SWR ne fetch pas → plus de race "load avant token prêt" qui faisait
-  //   silencieusement vide le mur (RLS rejette → liste vide).
+  // La liste vit dans un useState qu'on met à jour DIRECTEMENT :
+  //   - publier   → on ajoute le post en tête (instantané)
+  //   - supprimer → on retire le post (instantané)
+  //   - Realtime  → recharge quand ça change (autre appareil, like, comment)
   //
-  // Quand la session est prête, la clé devient l'URL et SWR fetch via
-  // authedFetcher qui attache le Bearer + retry sur 401 (refreshSession).
-  //
-  // Realtime : déclenche un mutate(key) qui invalide le cache et refetch.
+  // On ne charge qu'avec une session résolue (authReady) → évite la course
+  // "load avant token prêt" qui vidait le mur via RLS. Plus de SWR/mutate :
+  // la source de vérité est l'état local → re-render garanti (fini le bug
+  // "il faut recharger pour voir le post / la suppression").
   // ──────────────────────────────────────────────────────────────────────
-  const murKey = !authLoading && myId
-    ? `/api/posts/mur?userId=${profileUserId}`
-    : null
+  const [posts, setPosts]     = useState<PostWithLikes[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const { data, error, isLoading, mutate } = useSWR<{ posts: PostWithLikes[] }>(
-    murKey,
-    authedFetcher,
-  )
+  const authReady = !authLoading && !!myId
 
-  // Si SWR remonte une erreur 401 finale (après refresh) → on prévient l'user
-  useEffect(() => {
-    if (error instanceof FetchError && error.status === 401) {
-      toast.error('Session expirée, reconnecte-toi pour voir le mur')
-    } else if (error) {
-      // 4xx/5xx autres : notification douce, mais on n'efface pas l'UI
+  const loadPosts = useCallback(async () => {
+    if (!authReady) return
+    try {
+      // Lecture DIRECTE de la table (comme le chat) — aucune route serveur,
+      // donc aucun cache possible. La RLS posts_select filtre la visibilité
+      // (public / soi / amis). Pour son propre mur : tous ses posts.
+      const { data: rows, error } = await supabase
+        .from('posts')
+        .select('id, user_id, texte, visibility, embed_kind, embed_ref_id, created_at')
+        .eq('user_id', profileUserId)
+        .order('created_at', { ascending: false })
+        .limit(100)
+      if (error) throw error
+
+      const base = (rows ?? []) as PostData[]
+      if (base.length === 0) { setPosts([]); return }
+
+      // Agrège likes + commentaires pour ces posts (2 requêtes directes)
+      const ids = base.map(p => p.id)
+      const [likesRes, commentsRes] = await Promise.all([
+        supabase.from('post_likes').select('post_id, user_id').in('post_id', ids),
+        supabase.from('post_comments').select('post_id').in('post_id', ids),
+      ])
+      const likeCount = new Map<string, number>()
+      const commentCount = new Map<string, number>()
+      const liked = new Set<string>()
+      for (const l of (likesRes.data ?? []) as { post_id: string; user_id: string }[]) {
+        likeCount.set(l.post_id, (likeCount.get(l.post_id) ?? 0) + 1)
+        if (l.user_id === myId) liked.add(l.post_id)
+      }
+      for (const c of (commentsRes.data ?? []) as { post_id: string }[]) {
+        commentCount.set(c.post_id, (commentCount.get(c.post_id) ?? 0) + 1)
+      }
+
+      setPosts(base.map(p => ({
+        ...p,
+        likeCount:    likeCount.get(p.id) ?? 0,
+        commentCount: commentCount.get(p.id) ?? 0,
+        userHasLiked: liked.has(p.id),
+      })))
+    } catch {
       toast.error('Impossible de charger les publications')
+    } finally {
+      setLoading(false)
     }
-  }, [error])
+  }, [authReady, profileUserId, myId])
 
-  const posts: PostWithLikes[] = data?.posts ?? []
-  // loading : on attend le 1er payload SWR (cache vide). Au retour avec cache
-  // mémoire → data immédiate → pas de spinner.
-  const loading = (isLoading || (murKey && !data && !error)) ? true : false
+  // Chargement initial dès que l'auth est prête
+  useEffect(() => { loadPosts() }, [loadPosts])
 
-  // Realtime : refresh quand post/like/comment change pour ce mur.
-  // mutate() invalide le cache SWR et déclenche un refetch en background.
+  // Realtime : recharge quand post/like/comment change pour ce mur.
   useEffect(() => {
-    if (!murKey) return
+    if (!authReady) return
     const ch = supabase
       .channel(`mur-${profileUserId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts',         filter: `user_id=eq.${profileUserId}` }, () => mutate())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'post_likes'    }, () => mutate())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'post_comments' }, () => mutate())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts',         filter: `user_id=eq.${profileUserId}` }, () => loadPosts())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'post_likes'    }, () => loadPosts())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'post_comments' }, () => loadPosts())
       .subscribe()
     return () => { supabase.removeChannel(ch) }
-  }, [profileUserId, murKey, mutate])
-
-  // Helpers compatibles avec l'ancien code : appelle mutate() pour refetch.
-  const loadPosts = mutate
-  // setPosts conservé pour les optimistic updates ailleurs (like, delete) :
-  // on update directement le cache SWR via mutate(updaterFn, false).
-  const setPosts = (updater: PostWithLikes[] | ((prev: PostWithLikes[]) => PostWithLikes[])) => {
-    mutate(prev => {
-      const prevPosts = prev?.posts ?? []
-      const next = typeof updater === 'function' ? updater(prevPosts) : updater
-      return { posts: next }
-    }, false)  // false = pas de revalidation immédiate après l'optimistic
-  }
+  }, [profileUserId, authReady, loadPosts])
 
   async function handleToggleLike(post: PostWithLikes) {
     if (!myId) {
@@ -183,7 +198,10 @@ export default function MurTab({ profileUserId, authorName, authorAvatar }: Prop
           authorName={authorName}
           authorAvatar={authorAvatar}
           onClose={() => setComposerOpen(false)}
-          onPosted={loadPosts}
+          onPosted={newPost => setPosts(prev => [
+            { ...newPost, likeCount: 0, commentCount: 0, userHasLiked: false },
+            ...prev,
+          ])}
         />
       )}
 

@@ -109,17 +109,31 @@ export default function PostCommentsDrawer({ postId, postAuthorId, onClose, onCo
     const trimmed = texte.trim()
     if (trimmed.length === 0) return
     setSending(true)
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('post_comments')
       .insert({ post_id: postId, user_id: user.id, texte: trimmed })
-    if (error) {
-      toast.error(error.message)
+      .select('id, user_id, texte, created_at')
+      .single()
+    if (error || !data) {
+      toast.error(error?.message ?? 'Erreur')
       setSending(false)
       return
     }
+    // Optimiste : on ajoute le commentaire localement tout de suite (instantané
+    // garanti, sans dépendre du Realtime). Le Realtime rechargera derrière et
+    // réconciliera ; dédup par id au cas où il arrive avant.
+    setComments(prev => {
+      if (prev.some(c => c.id === data.id)) return prev
+      const next = [...prev, {
+        ...data,
+        author_name:   profile?.display_name ?? null,
+        author_avatar: profile?.avatar_url ?? null,
+      }]
+      onCountChangeRef.current?.(next.length)
+      return next
+    })
     setTexte('')
     setSending(false)
-    // Le Realtime channel rafraîchira la liste
   }
 
   async function handleDelete(commentId: string) {
@@ -129,7 +143,12 @@ export default function PostCommentsDrawer({ postId, postAuthorId, onClose, onCo
       toast.error(error.message)
       return
     }
-    // Realtime rafraîchira
+    // Optimiste : retire localement tout de suite (le Realtime confirmera).
+    setComments(prev => {
+      const next = prev.filter(c => c.id !== commentId)
+      onCountChangeRef.current?.(next.length)
+      return next
+    })
   }
 
   return (
