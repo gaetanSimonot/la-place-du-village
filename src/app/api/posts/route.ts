@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { requireUser } from '@/lib/server-auth'
+import { requireUser, notifyByAudience, notifyUser } from '@/lib/server-auth'
+
+const NOTIFY_AUDIENCES = ['all', 'basic', 'habitants', 'pro'] as const
+type NotifyAudience = (typeof NOTIFY_AUDIENCES)[number]
 
 const VISIBILITY = ['public', 'amis', 'prive'] as const
 type Visibility = (typeof VISIBILITY)[number]
@@ -21,9 +24,9 @@ export async function POST(req: NextRequest) {
   if (ctx instanceof Response) return ctx
 
   const body = await req.json().catch(() => ({}))
-  const { texte, visibility, embed_kind, embed_ref_id } = body as {
+  const { texte, visibility, embed_kind, embed_ref_id, notify } = body as {
     texte?: unknown; visibility?: unknown;
-    embed_kind?: unknown; embed_ref_id?: unknown
+    embed_kind?: unknown; embed_ref_id?: unknown; notify?: unknown
   }
 
   if (typeof texte !== 'string') {
@@ -73,5 +76,34 @@ export async function POST(req: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  // ── Broadcast notif (ADMIN uniquement) ──────────────────────────────────
+  // Sécurité : on ne fait confiance qu'à ctx.isAdmin côté serveur, jamais au
+  // body. Fail-silent : si la notif échoue, le post reste publié.
+  if (
+    data &&
+    ctx.isAdmin &&
+    typeof notify === 'string' &&
+    (NOTIFY_AUDIENCES as readonly string[]).includes(notify)
+  ) {
+    const { data: prof } = await supabaseAdmin
+      .from('profiles').select('display_name').eq('user_id', ctx.userId).maybeSingle()
+    const payload = {
+      type:       'post_broadcast' as const,
+      actor_name: prof?.display_name ?? 'La Place du Village',
+      target_id:  data.id,
+    }
+    // GARDE-FOU : le vrai broadcast à tous ne part qu'en PRODUCTION. Sur
+    // preview/dev (même DB Supabase partagée), on ne notifie QUE l'admin
+    // lui-même → on peut tester toute l'UX sans spammer les vrais users.
+    if (process.env.VERCEL_ENV === 'production') {
+      // Pas d'exclusion : l'admin fait partie de "tout le monde", il reçoit
+      // la notif lui aussi (demande explicite).
+      await notifyByAudience(notify as NotifyAudience, payload)
+    } else {
+      await notifyUser(ctx.userId, payload)
+    }
+  }
+
   return NextResponse.json({ post: data }, { status: 201 })
 }

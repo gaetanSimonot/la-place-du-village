@@ -260,7 +260,7 @@ const EMBED_LABEL: Record<string, string> = {
   annonce: 'Annonce', promo: 'Promotion', covoit: 'Covoiturage',
 }
 
-function PostEmbedRender({ kind, refId }: { kind: string; refId: string }) {
+export function PostEmbedRender({ kind, refId }: { kind: string; refId: string }) {
   const [details, setDetails] = useState<EmbedDetails | null>(null)
   const [notFound, setNotFound] = useState(false)
 
