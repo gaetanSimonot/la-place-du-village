@@ -186,7 +186,7 @@ export default function PostNotifModal({ postId, onClose }: Props) {
 
                 {post.embed_kind && post.embed_ref_id && (
                   <div style={{ marginTop: 14 }}>
-                    <PostEmbedRender kind={post.embed_kind} refId={post.embed_ref_id} />
+                    <PostEmbedRender kind={post.embed_kind} refId={post.embed_ref_id} variant="large" />
                   </div>
                 )}
               </>
