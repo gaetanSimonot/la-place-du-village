@@ -3,7 +3,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
-import { authedFetcher, FetchError } from '@/lib/swr-fetchers'
 import PostComposer from '../PostComposer'
 import PostCard, { type PostData } from '../PostCard'
 import PostCommentsDrawer from '../PostCommentsDrawer'
@@ -50,20 +49,49 @@ export default function MurTab({ profileUserId, authorName, authorAvatar }: Prop
   const loadPosts = useCallback(async () => {
     if (!authReady) return
     try {
-      const data = await authedFetcher<{ posts: PostWithLikes[] }>(
-        `/api/posts/mur?userId=${profileUserId}`,
-      )
-      setPosts(data.posts ?? [])
-    } catch (e) {
-      if (e instanceof FetchError && e.status === 401) {
-        toast.error('Session expirée, reconnecte-toi pour voir le mur')
-      } else {
-        toast.error('Impossible de charger les publications')
+      // Lecture DIRECTE de la table (comme le chat) — aucune route serveur,
+      // donc aucun cache possible. La RLS posts_select filtre la visibilité
+      // (public / soi / amis). Pour son propre mur : tous ses posts.
+      const { data: rows, error } = await supabase
+        .from('posts')
+        .select('id, user_id, texte, visibility, embed_kind, embed_ref_id, created_at')
+        .eq('user_id', profileUserId)
+        .order('created_at', { ascending: false })
+        .limit(100)
+      if (error) throw error
+
+      const base = (rows ?? []) as PostData[]
+      if (base.length === 0) { setPosts([]); return }
+
+      // Agrège likes + commentaires pour ces posts (2 requêtes directes)
+      const ids = base.map(p => p.id)
+      const [likesRes, commentsRes] = await Promise.all([
+        supabase.from('post_likes').select('post_id, user_id').in('post_id', ids),
+        supabase.from('post_comments').select('post_id').in('post_id', ids),
+      ])
+      const likeCount = new Map<string, number>()
+      const commentCount = new Map<string, number>()
+      const liked = new Set<string>()
+      for (const l of (likesRes.data ?? []) as { post_id: string; user_id: string }[]) {
+        likeCount.set(l.post_id, (likeCount.get(l.post_id) ?? 0) + 1)
+        if (l.user_id === myId) liked.add(l.post_id)
       }
+      for (const c of (commentsRes.data ?? []) as { post_id: string }[]) {
+        commentCount.set(c.post_id, (commentCount.get(c.post_id) ?? 0) + 1)
+      }
+
+      setPosts(base.map(p => ({
+        ...p,
+        likeCount:    likeCount.get(p.id) ?? 0,
+        commentCount: commentCount.get(p.id) ?? 0,
+        userHasLiked: liked.has(p.id),
+      })))
+    } catch {
+      toast.error('Impossible de charger les publications')
     } finally {
       setLoading(false)
     }
-  }, [authReady, profileUserId])
+  }, [authReady, profileUserId, myId])
 
   // Chargement initial dès que l'auth est prête
   useEffect(() => { loadPosts() }, [loadPosts])

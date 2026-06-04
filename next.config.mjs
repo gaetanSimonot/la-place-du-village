@@ -51,27 +51,17 @@ export default withPWA({
         urlPattern: /\/auth\/callback/,
         handler: 'NetworkOnly',
       },
+      // TOUTES les routes /api : JAMAIS de cache SW. Principe "cache le shell,
+      // jamais les données" (comme Facebook) : les API renvoient des données
+      // dynamiques — un cache SW les sert périmées, d'où des bugs récurrents
+      // (nouveaux inscrits /people le 2026-05-26, mur posts le 2026-06-04...).
+      // Cette règle globale rend tout nouvel endpoint safe par défaut : plus
+      // besoin de l'ajouter à la main. On cache toujours le shell (chunks,
+      // pages, images) plus bas, mais jamais les réponses API.
       {
-        urlPattern: /\/api\/producers/,
+        urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
         handler: 'NetworkOnly',
       },
-      {
-        urlPattern: /\/api\/mon-producteur/,
-        handler: 'NetworkOnly',
-      },
-      // Données dynamiques fréquentes — JAMAIS de cache SW, sinon les
-      // nouveaux inscrits / events / annonces n'apparaissent pas.
-      // (cf. incident 2026-05-26 : /people affichait 20 sur 38).
-      { urlPattern: /\/api\/people/,    handler: 'NetworkOnly' },
-      { urlPattern: /\/api\/agenda/,    handler: 'NetworkOnly' },
-      { urlPattern: /\/api\/hub/,       handler: 'NetworkOnly' },
-      { urlPattern: /\/api\/inbox/,     handler: 'NetworkOnly' },
-      { urlPattern: /\/api\/notifications/, handler: 'NetworkOnly' },
-      { urlPattern: /\/api\/maintenance/, handler: 'NetworkOnly' },
-      // Mur (posts/likes/comments) : temps réel, jamais de cache SW sinon
-      // les nouveaux posts n'apparaissent pas et les suppressions restent
-      // affichées (même classe de bug que /people le 2026-05-26).
-      { urlPattern: /\/api\/posts/,     handler: 'NetworkOnly' },
       // Chunks JS / CSS Next.js : content-hashed (immuables) -> CacheFirst
       // safe et economise la bande passante.
       {
