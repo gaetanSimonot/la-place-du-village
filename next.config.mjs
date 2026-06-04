@@ -68,6 +68,10 @@ export default withPWA({
       { urlPattern: /\/api\/inbox/,     handler: 'NetworkOnly' },
       { urlPattern: /\/api\/notifications/, handler: 'NetworkOnly' },
       { urlPattern: /\/api\/maintenance/, handler: 'NetworkOnly' },
+      // Mur (posts/likes/comments) : temps réel, jamais de cache SW sinon
+      // les nouveaux posts n'apparaissent pas et les suppressions restent
+      // affichées (même classe de bug que /people le 2026-05-26).
+      { urlPattern: /\/api\/posts/,     handler: 'NetworkOnly' },
       // Chunks JS / CSS Next.js : content-hashed (immuables) -> CacheFirst
       // safe et economise la bande passante.
       {
