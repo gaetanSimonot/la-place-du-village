@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import ClientPortal from '@/components/ClientPortal'
 import { type MediaItem, youtubeThumb, youtubeEmbed } from '@/lib/postMedia'
 
@@ -166,13 +167,18 @@ function YouTubeCard({ id }: { id: string }) {
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
         />
       ) : (
-        <button onClick={() => setPlay(true)} aria-label="Lire la vidéo"
-          style={{ position: 'absolute', inset: 0, border: 'none', padding: 0, cursor: 'pointer', background: '#000' }}>
-          <img src={youtubeThumb(id)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.92 }} />
-          <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 62, height: 44, borderRadius: 12, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width={26} height={26} viewBox="0 0 24 24" fill="#fff"><polygon points="8 5 19 12 8 19 8 5"/></svg>
-          </span>
-        </button>
+        <>
+          <button onClick={() => setPlay(true)} aria-label="Lire la vidéo"
+            style={{ position: 'absolute', inset: 0, border: 'none', padding: 0, cursor: 'pointer', background: '#000' }}>
+            <img src={youtubeThumb(id)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.92 }} />
+            <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 62, height: 44, borderRadius: 12, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width={26} height={26} viewBox="0 0 24 24" fill="#fff"><polygon points="8 5 19 12 8 19 8 5"/></svg>
+            </span>
+          </button>
+          <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}>
+            <ShareBtn url={youtubeWatchUrl(id)} overlay />
+          </div>
+        </>
       )}
     </div>
   )
@@ -182,20 +188,59 @@ function YouTubeCard({ id }: { id: string }) {
 function LinkCard({ item }: { item: Extract<MediaItem, { t: 'link' }> }) {
   let host = ''
   try { host = new URL(item.url).hostname.replace(/^www\./, '') } catch { host = item.url }
+  const open = () => { if (typeof window !== 'undefined') window.open(item.url, '_blank', 'noopener,noreferrer') }
   return (
-    <a href={item.url} target="_blank" rel="noopener noreferrer"
-      className="block overflow-hidden rounded-[12px] border bg-white text-inherit no-underline"
-      style={{ borderColor: '#E8E0D4' }}>
+    <div className="overflow-hidden rounded-[12px] border bg-white" style={{ borderColor: '#E8E0D4' }}>
       {item.image && (
-        <div style={{ width: '100%', aspectRatio: '1.91 / 1', background: '#EFE8DD', overflow: 'hidden' }}>
+        <div onClick={open} style={{ width: '100%', aspectRatio: '1.91 / 1', background: '#EFE8DD', overflow: 'hidden', cursor: 'pointer' }}>
           <img src={item.image} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
       )}
-      <div style={{ padding: '9px 12px' }}>
-        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#9A8A78' }}>{host}</div>
-        {item.title && <div style={{ fontSize: 13.5, fontWeight: 800, color: '#1A1209', marginTop: 2, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.title}</div>}
-        {item.description && <div style={{ fontSize: 11.5, color: '#7A6A5A', marginTop: 3, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.description}</div>}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px' }}>
+        <div onClick={open} style={{ minWidth: 0, flex: 1, cursor: 'pointer' }}>
+          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#9A8A78' }}>{host}</div>
+          {item.title && <div style={{ fontSize: 13.5, fontWeight: 800, color: '#1A1209', marginTop: 2, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.title}</div>}
+          {item.description && <div style={{ fontSize: 11.5, color: '#7A6A5A', marginTop: 3, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.description}</div>}
+        </div>
+        <ShareBtn url={item.url} />
       </div>
-    </a>
+    </div>
+  )
+}
+
+/* ── Partage d'un lien (Web Share API + fallback presse-papier) ────────── */
+function youtubeWatchUrl(id: string): string { return `https://youtu.be/${id}` }
+
+async function shareUrl(url: string) {
+  try {
+    if (typeof navigator !== 'undefined' && navigator.share) { await navigator.share({ url }); return }
+  } catch (e) {
+    if (e instanceof Error && e.name === 'AbortError') return
+  }
+  try {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      await navigator.clipboard.writeText(url)
+      toast.success('Lien copié dans le presse-papier')
+    }
+  } catch {
+    toast.error('Impossible de partager')
+  }
+}
+
+function ShareBtn({ url, overlay }: { url: string; overlay?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={e => { e.preventDefault(); e.stopPropagation(); shareUrl(url) }}
+      aria-label="Partager le lien"
+      className={overlay
+        ? 'flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white'
+        : 'flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cremeDeep text-primary'}
+    >
+      <svg width={overlay ? 15 : 16} height={overlay ? 15 : 16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+      </svg>
+    </button>
   )
 }
