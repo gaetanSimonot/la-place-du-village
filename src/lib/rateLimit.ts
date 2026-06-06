@@ -38,6 +38,7 @@ export type RateLimitAction =
   | 'places_autocomplete' // Google Places autocomplete (facturé par requête)
   | 'geocode'         // Google Geocoding (facturé par requête)
   | 'voice_edit'      // Édition vocale via Claude (tokens IA)
+  | 'link_preview'    // Fetch OG d'un lien externe (anti-abus)
 
 export interface RateLimitRule {
   limit: number
@@ -122,6 +123,13 @@ const RATE_LIMITS_BY_PLAN: Record<RateLimitAction, Record<Plan, RateLimitRule>> 
     basic:     { limit: 20, windowMs: DAY, message: 'Quota édition vocale atteint (20/jour). Réessaie demain.' },
     habitants: { limit: 20, windowMs: DAY, message: 'Quota édition vocale atteint (20/jour). Réessaie demain.' },
     pro:       { limit: 20, windowMs: DAY, message: 'Quota édition vocale atteint (20/jour). Réessaie demain.' },
+  },
+  // Preview de lien (fetch OG serveur) — anti-abus, confortable pour coller
+  // quelques liens par message.
+  link_preview: {
+    basic:     { limit: 120, windowMs: HOUR, message: 'Trop de liens en peu de temps. Réessaie dans 1 heure.' },
+    habitants: { limit: 120, windowMs: HOUR, message: 'Trop de liens en peu de temps. Réessaie dans 1 heure.' },
+    pro:       { limit: 120, windowMs: HOUR, message: 'Trop de liens en peu de temps. Réessaie dans 1 heure.' },
   },
 }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser, notifyByAudience, notifyUser } from '@/lib/server-auth'
+import { sanitizeMedia } from '@/lib/postMedia'
 
 const NOTIFY_AUDIENCES = ['all', 'basic', 'habitants', 'pro'] as const
 type NotifyAudience = (typeof NOTIFY_AUDIENCES)[number]
@@ -24,16 +25,19 @@ export async function POST(req: NextRequest) {
   if (ctx instanceof Response) return ctx
 
   const body = await req.json().catch(() => ({}))
-  const { texte, visibility, embed_kind, embed_ref_id, notify } = body as {
+  const { texte, visibility, embed_kind, embed_ref_id, notify, media } = body as {
     texte?: unknown; visibility?: unknown;
-    embed_kind?: unknown; embed_ref_id?: unknown; notify?: unknown
+    embed_kind?: unknown; embed_ref_id?: unknown; notify?: unknown; media?: unknown
   }
+
+  const cleanMedia = sanitizeMedia(media)
 
   if (typeof texte !== 'string') {
     return NextResponse.json({ error: 'Texte requis' }, { status: 400 })
   }
   const trimmed = texte.trim()
-  if (trimmed.length === 0) {
+  // Un post peut être vide en texte s'il porte au moins un média.
+  if (trimmed.length === 0 && cleanMedia.length === 0) {
     return NextResponse.json({ error: 'Texte vide' }, { status: 400 })
   }
   if (trimmed.length > MAX_LEN) {
@@ -69,8 +73,9 @@ export async function POST(req: NextRequest) {
       visibility: vis,
       embed_kind: validEmbedKind,
       embed_ref_id: validEmbedRefId,
+      media: cleanMedia.length > 0 ? cleanMedia : null,
     })
-    .select('id, user_id, texte, visibility, embed_kind, embed_ref_id, created_at')
+    .select('id, user_id, texte, visibility, embed_kind, embed_ref_id, media, created_at')
     .single()
 
   if (error) {
