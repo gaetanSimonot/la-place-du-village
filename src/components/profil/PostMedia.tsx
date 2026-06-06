@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import ClientPortal from '@/components/ClientPortal'
 import { type MediaItem, youtubeThumb, youtubeEmbed } from '@/lib/postMedia'
 
@@ -63,9 +63,20 @@ function PhotoGrid({ urls }: { urls: string[] }) {
       </div>
     )
   } else {
+    const extra = n - 4
     grid = (
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 3, height: 320, borderRadius: radius, overflow: 'hidden' }}>
-        {urls.slice(0, 4).map((u, i) => <div key={i}><Img url={u} idx={i} /></div>)}
+        {urls.slice(0, 4).map((u, i) => (
+          <div key={i} style={{ position: 'relative' }}>
+            <Img url={u} idx={i} />
+            {i === 3 && extra > 0 && (
+              <div onClick={() => setLightbox(3)}
+                style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 28, fontWeight: 800, cursor: 'pointer' }}>
+                +{extra}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     )
   }
@@ -93,6 +104,8 @@ function Lightbox({ urls, index, onClose, onIndex }: {
     return () => window.removeEventListener('keydown', onKey)
   }, [index, urls.length, onClose, onIndex])
 
+  const touchX = useRef<number | null>(null)
+
   return (
     <ClientPortal>
       <div onClick={onClose}
@@ -101,7 +114,18 @@ function Lightbox({ urls, index, onClose, onIndex }: {
           style={{ position: 'absolute', top: 14, right: 14, width: 40, height: 40, borderRadius: 999, background: 'rgba(255,255,255,0.12)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
-        <img src={urls[index]} alt="" onClick={e => e.stopPropagation()}
+        <img src={urls[index]} alt=""
+          onClick={e => e.stopPropagation()}
+          onTouchStart={e => { touchX.current = e.touches[0].clientX }}
+          onTouchEnd={e => {
+            if (touchX.current == null || urls.length < 2) return
+            const dx = e.changedTouches[0].clientX - touchX.current
+            touchX.current = null
+            if (Math.abs(dx) > 50) {
+              if (dx < 0) onIndex((index + 1) % urls.length)
+              else        onIndex((index - 1 + urls.length) % urls.length)
+            }
+          }}
           style={{ maxWidth: '94vw', maxHeight: '88vh', objectFit: 'contain', userSelect: 'none' }} />
         {urls.length > 1 && (
           <>

@@ -6,7 +6,7 @@ export type MediaItem =
   | { t: 'youtube'; id: string }
   | { t: 'link'; url: string; title?: string | null; description?: string | null; image?: string | null }
 
-export const MAX_PHOTOS = 4
+export const MAX_PHOTOS = 10
 
 /** Extrait l'ID vidéo YouTube d'une URL (watch, youtu.be, shorts, embed). */
 export function youtubeId(url: string): string | null {
@@ -70,7 +70,7 @@ export function sanitizeMedia(input: unknown): MediaItem[] {
         image:       typeof it.image === 'string' && /^https?:\/\//i.test(it.image) ? it.image.slice(0, 600) : null,
       })
     }
-    if (out.length >= 6) break
+    if (out.length >= 12) break
   }
   return out
 }
