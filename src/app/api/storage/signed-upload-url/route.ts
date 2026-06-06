@@ -22,7 +22,7 @@ import { requireUser } from '@/lib/server-auth'
  * Returns : { uploadUrl, token, publicUrl, path, bucket }
  */
 
-type UploadKind = 'event-image' | 'product-image' | 'admin-edit' | 'profile-banner' | 'profile-avatar' | 'hub-hero-intro'
+type UploadKind = 'event-image' | 'product-image' | 'admin-edit' | 'profile-banner' | 'profile-avatar' | 'hub-hero-intro' | 'post-media'
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const MAX_BYTES = 10 * 1024 * 1024 // 10 MB (max bucket configure)
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   const size = Number(body?.size ?? 0)
   const refId = body?.refId ? String(body.refId) : null
 
-  if (!kind || !['event-image', 'product-image', 'admin-edit', 'profile-banner', 'profile-avatar', 'hub-hero-intro'].includes(kind)) {
+  if (!kind || !['event-image', 'product-image', 'admin-edit', 'profile-banner', 'profile-avatar', 'hub-hero-intro', 'post-media'].includes(kind)) {
     return NextResponse.json({ error: 'kind invalide' }, { status: 400 })
   }
   if (!ALLOWED_MIME.has(mimeType)) {
@@ -126,6 +126,11 @@ export async function POST(req: NextRequest) {
     }
     bucket = 'avatars'
     path = `hub/hero-intro.${extFromMime(mimeType)}`
+  } else if (kind === 'post-media') {
+    // Média joint à un post (mur) ou un message (chat) — tout user authentifié.
+    // Path random sous son propre userId → pas d'écrasement, pas d'accès croisé.
+    bucket = 'reference-photos'
+    path = `posts/${ctx.userId}/${randomName()}.${extFromMime(mimeType)}`
   } else {
     return NextResponse.json({ error: 'kind non géré' }, { status: 400 })
   }

@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import ClientPortal from '@/components/ClientPortal'
 import EmbedPicker, { type EmbedItem } from '@/components/EmbedPicker'
+import { compressAndUpload } from '@/lib/clientUpload'
+import { type MediaItem, MAX_PHOTOS, youtubeId, youtubeThumb } from '@/lib/postMedia'
 
 export type Visibility = 'public' | 'amis' | 'prive'
 
@@ -19,7 +21,8 @@ const NOTIFY_OPTIONS: Array<{ value: NotifyAudience; label: string }> = [
 
 export interface CreatedPost {
   id: string; user_id: string; texte: string; visibility: Visibility;
-  embed_kind: string | null; embed_ref_id: string | null; created_at: string
+  embed_kind: string | null; embed_ref_id: string | null
+  media: MediaItem[] | null; created_at: string
 }
 
 interface Props {
@@ -44,8 +47,67 @@ export default function PostComposer({ authorName, authorAvatar, onClose, onPost
   const [embed, setEmbed]           = useState<EmbedItem | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [notify, setNotify]         = useState<NotifyAudience>('none')
+  const [media, setMedia]           = useState<MediaItem[]>([])
+  const [uploading, setUploading]   = useState(false)
+  const [linkOpen, setLinkOpen]     = useState(false)
+  const [linkInput, setLinkInput]   = useState('')
+  const [fetchingLink, setFetchingLink] = useState(false)
   const { isAdmin } = useAuth()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const photoCount = media.filter(m => m.t === 'photo').length
+
+  async function handlePickPhotos(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    if (files.length === 0) return
+    const slots = MAX_PHOTOS - photoCount
+    if (slots <= 0) { toast.error(`Maximum ${MAX_PHOTOS} photos`); return }
+    setUploading(true)
+    try {
+      for (const file of files.slice(0, slots)) {
+        const { publicUrl } = await compressAndUpload(file, { kind: 'post-media' })
+        setMedia(prev => [...prev, { t: 'photo', url: publicUrl }])
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Échec upload photo')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function handleAddLink() {
+    const url = linkInput.trim()
+    if (!url) return
+    const yt = youtubeId(url)
+    if (yt) {
+      setMedia(prev => [...prev, { t: 'youtube', id: yt }])
+      setLinkInput(''); setLinkOpen(false)
+      return
+    }
+    if (!/^https?:\/\//i.test(url)) { toast.error('Lien invalide (http/https)'); return }
+    setFetchingLink(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      const res = await fetch(`/api/link-preview?url=${encodeURIComponent(url)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      const d = await res.json().catch(() => ({}))
+      setMedia(prev => [...prev, { t: 'link', url, title: d.title ?? null, description: d.description ?? null, image: d.image ?? null }])
+      setLinkInput(''); setLinkOpen(false)
+    } catch {
+      setMedia(prev => [...prev, { t: 'link', url, title: null, description: null, image: null }])
+      setLinkInput(''); setLinkOpen(false)
+    } finally {
+      setFetchingLink(false)
+    }
+  }
+
+  function removeMedia(idx: number) {
+    setMedia(prev => prev.filter((_, i) => i !== idx))
+  }
 
   useEffect(() => {
     const t = setTimeout(() => textareaRef.current?.focus(), 80)
@@ -59,9 +121,9 @@ export default function PostComposer({ authorName, authorAvatar, onClose, onPost
   }, [onClose, posting])
 
   async function handlePublier() {
-    if (posting) return
+    if (posting || uploading) return
     const trimmed = texte.trim()
-    if (trimmed.length === 0) return
+    if (trimmed.length === 0 && media.length === 0) return
     setPosting(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -76,6 +138,7 @@ export default function PostComposer({ authorName, authorAvatar, onClose, onPost
           visibility,
           embed_kind:   embed?.kind ?? null,
           embed_ref_id: embed?.id ?? null,
+          media,
           // Broadcast admin (le serveur revérifie isAdmin). Omis si non-admin ou "Personne".
           notify: isAdmin && notify !== 'none' ? notify : undefined,
         }),
@@ -93,7 +156,7 @@ export default function PostComposer({ authorName, authorAvatar, onClose, onPost
   }
 
   const initial = (authorName || '·').trim().charAt(0).toUpperCase() || '·'
-  const canSend = texte.trim().length > 0 && !posting
+  const canSend = (texte.trim().length > 0 || media.length > 0) && !posting && !uploading
 
   return (
     <ClientPortal>
@@ -172,21 +235,79 @@ export default function PostComposer({ authorName, authorAvatar, onClose, onPost
         {/* Preview embed sélectionné */}
         {embed && <EmbedPreview embed={embed} onRemove={() => setEmbed(null)} />}
 
-        <div className="mt-2 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => setPickerOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-full bg-cremeDeep px-3 py-1.5 text-[11.5px] font-extrabold text-primary"
-            aria-label="Lier un élément du village"
-          >
-            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            {embed ? 'Changer le lien' : 'Lier un élément'}
-          </button>
-          <div className="text-[11px] text-texte-tres-doux">{texte.length}/{MAX}</div>
+        {/* Preview médias (photos / youtube / lien) */}
+        {media.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {media.map((m, i) => (
+              <div key={i} className="relative">
+                <button type="button" onClick={() => removeMedia(i)} aria-label="Retirer"
+                  className="absolute -right-2 -top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-[#DC2626] text-white"
+                  style={{ fontSize: 12, lineHeight: 1 }}>×</button>
+                {m.t === 'photo' && <img src={m.url} alt="" className="h-[72px] w-[72px] rounded-[10px] object-cover" />}
+                {m.t === 'youtube' && (
+                  <div className="relative h-[72px] w-[110px] overflow-hidden rounded-[10px] bg-black">
+                    <img src={youtubeThumb(m.id)} alt="" className="h-full w-full object-cover opacity-80" />
+                    <span className="absolute inset-0 flex items-center justify-center">
+                      <svg width={20} height={20} viewBox="0 0 24 24" fill="#fff"><polygon points="8 5 19 12 8 19 8 5" /></svg>
+                    </span>
+                  </div>
+                )}
+                {m.t === 'link' && (
+                  <div className="flex h-[72px] w-[170px] items-center gap-2 overflow-hidden rounded-[10px] border bg-cremeDeep px-2" style={{ borderColor: '#E8E0D4' }}>
+                    {m.image
+                      ? <img src={m.image} alt="" className="h-12 w-12 shrink-0 rounded object-cover" />
+                      : <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded bg-bord text-texte-doux">
+                          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+                        </div>}
+                    <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-texte">{m.title ?? m.url}</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Champ lien (toggle) */}
+        {linkOpen && (
+          <div className="mt-3 flex gap-2">
+            <input
+              type="url" value={linkInput} autoFocus
+              onChange={e => setLinkInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddLink() } }}
+              placeholder="Colle un lien (YouTube, article…)"
+              className="flex-1 rounded-[12px] border px-3 py-2 text-[13px] outline-none"
+              style={{ borderColor: '#E8E0D4', backgroundColor: '#FBF7F0', colorScheme: 'light' }}
+            />
+            <button type="button" onClick={handleAddLink} disabled={fetchingLink}
+              className="rounded-[12px] bg-primary px-3.5 text-[12px] font-bold text-white disabled:opacity-50">
+              {fetchingLink ? '…' : 'Ajouter'}
+            </button>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-1.5">
+            <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading || photoCount >= MAX_PHOTOS}
+              className="inline-flex items-center gap-1.5 rounded-full bg-cremeDeep px-3 py-1.5 text-[11.5px] font-extrabold text-primary disabled:opacity-50">
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
+              {uploading ? '…' : 'Photo'}
+            </button>
+            <button type="button" onClick={() => setLinkOpen(o => !o)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-cremeDeep px-3 py-1.5 text-[11.5px] font-extrabold text-primary">
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+              Lien
+            </button>
+            <button type="button" onClick={() => setPickerOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-cremeDeep px-3 py-1.5 text-[11.5px] font-extrabold text-primary">
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+              {embed ? 'Changer' : 'Élément'}
+            </button>
+          </div>
+          <div className="shrink-0 text-[11px] text-texte-tres-doux">{texte.length}/{MAX}</div>
         </div>
+
+        <input ref={fileRef} type="file" accept="image/*" multiple onChange={handlePickPhotos} style={{ display: 'none' }} />
 
         {/* Broadcast admin — visible seulement pour les admins */}
         {isAdmin && (

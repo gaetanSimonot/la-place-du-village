@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import ClientPortal from '@/components/ClientPortal'
 import { PostEmbedRender } from '@/components/profil/PostCard'
+import PostMedia from '@/components/profil/PostMedia'
+import type { MediaItem } from '@/lib/postMedia'
 
 const T = {
   primary: '#2D5A3D',
@@ -16,7 +18,8 @@ const T = {
 
 interface PostRow {
   id: string; user_id: string; texte: string
-  embed_kind: string | null; embed_ref_id: string | null; created_at: string
+  embed_kind: string | null; embed_ref_id: string | null
+  media: MediaItem[] | null; created_at: string
 }
 
 interface Props {
@@ -55,7 +58,7 @@ export default function PostNotifModal({ postId, onClose }: Props) {
     ;(async () => {
       const { data } = await supabase
         .from('posts')
-        .select('id, user_id, texte, embed_kind, embed_ref_id, created_at')
+        .select('id, user_id, texte, embed_kind, embed_ref_id, media, created_at')
         .eq('id', postId)
         .maybeSingle()
       if (cancelled) return
@@ -180,9 +183,17 @@ export default function PostNotifModal({ postId, onClose }: Props) {
                   </div>
                 </div>
 
-                <p style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 14.5, lineHeight: 1.6, color: T.texte }}>
-                  {post.texte}
-                </p>
+                {post.texte && (
+                  <p style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 14.5, lineHeight: 1.6, color: T.texte }}>
+                    {post.texte}
+                  </p>
+                )}
+
+                {post.media && post.media.length > 0 && (
+                  <div style={{ marginTop: post.texte ? 14 : 0 }}>
+                    <PostMedia media={post.media} />
+                  </div>
+                )}
 
                 {post.embed_kind && post.embed_ref_id && (
                   <div style={{ marginTop: 14 }}>

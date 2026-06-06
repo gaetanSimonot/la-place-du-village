@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
+import PostMedia from '@/components/profil/PostMedia'
+import type { MediaItem } from '@/lib/postMedia'
 
 export interface PostData {
   id:           string
@@ -12,6 +14,7 @@ export interface PostData {
   created_at:   string
   embed_kind?:  string | null
   embed_ref_id?: string | null
+  media?:       MediaItem[] | null
 }
 
 interface Props {
@@ -145,12 +148,21 @@ export default function PostCard({
       </div>
 
       {/* Texte */}
-      <p
-        className="m-0 whitespace-pre-wrap px-3.5 pb-3 pt-2 text-[14px] leading-[1.55] text-texte"
-        style={{ wordBreak: 'break-word' }}
-      >
-        {post.texte}
-      </p>
+      {post.texte && (
+        <p
+          className="m-0 whitespace-pre-wrap px-3.5 pb-3 pt-2 text-[14px] leading-[1.55] text-texte"
+          style={{ wordBreak: 'break-word' }}
+        >
+          {post.texte}
+        </p>
+      )}
+
+      {/* Médias (photos / vidéo YouTube / lien) */}
+      {post.media && post.media.length > 0 && (
+        <div className={`px-3.5 pb-3 ${post.texte ? '' : 'pt-2'}`}>
+          <PostMedia media={post.media} />
+        </div>
+      )}
 
       {/* Embed mini-card (élément du village lié) */}
       {post.embed_kind && post.embed_ref_id && (
