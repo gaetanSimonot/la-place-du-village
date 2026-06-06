@@ -50,9 +50,12 @@ export default function PostCard({
   }
 
   async function handleShare() {
-    const url = typeof window !== 'undefined'
-      ? `${window.location.origin}/profil/${post.user_id}`
-      : ''
+    // Si la publication porte un lien (carte filtrée, vidéo, article…), on
+    // partage CE lien plutôt que le profil de l'auteur.
+    const linkItem = post.media?.find(m => m.t === 'link' || m.t === 'youtube')
+    const url = linkItem
+      ? (linkItem.t === 'youtube' ? `https://youtu.be/${linkItem.id}` : linkItem.url)
+      : (typeof window !== 'undefined' ? `${window.location.origin}/profil/${post.user_id}` : '')
     const text = post.texte.length > 120 ? `${post.texte.slice(0, 120)}…` : post.texte
     const data: ShareData = { title: 'La Place du Village', text, url }
     try {
