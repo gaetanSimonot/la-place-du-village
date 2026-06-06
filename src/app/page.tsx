@@ -353,9 +353,11 @@ export default function HomePage() {
     } else if (mode === 'agenda') {
       setShowHub(false)
       setAppMode('agenda')
+      setNavTab('carte')  // sinon navTab reste 'accueil' → boutons du haut cachés
     } else if (mode === 'annuaire') {
       setShowHub(false)
       setAppMode('annuaire')
+      setNavTab('carte')  // idem : on arrive sur la carte via deep-link
     }
 
     // Filtres agenda
