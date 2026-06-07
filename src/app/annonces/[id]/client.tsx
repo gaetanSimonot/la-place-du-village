@@ -312,7 +312,7 @@ export default function AnnoncePageClient({ id }: Props) {
         </button>
         <div style={{ display: 'flex', gap: 8 }}>
           {isAdmin && <FeatureButton contentType="annonce" contentId={id} ownerUserId={annonce.user_id ?? null} />}
-          {isOwner && isActive && (
+          {isOwner && (
             <button
               onClick={() => setEditing(true)} aria-label="Modifier"
               style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2D5A3D', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
@@ -493,14 +493,17 @@ export default function AnnoncePageClient({ id }: Props) {
           </div>
         )}
 
-        {/* Actions owner */}
-        {isOwner && isActive && (
+        {/* Actions owner — toujours visible pour le propriétaire (même si don
+            ou expirée) : édition/suppression doivent rester accessibles. */}
+        {isOwner && (
           <div style={cardStyle}>
             <p style={cardLabel}>Mon annonce</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <ActionButton onClick={handleMarquerVendu} disabled={action === 'vendu'}>
-                {action === 'vendu' ? '...' : '✓ Marquer comme vendu'}
-              </ActionButton>
+              {isActive && (
+                <ActionButton onClick={handleMarquerVendu} disabled={action === 'vendu'}>
+                  {action === 'vendu' ? '...' : '✓ Marquer comme vendu'}
+                </ActionButton>
+              )}
               {peutSponsoriser && (
                 <ActionButton onClick={handleSponsoriser} disabled={action === 'sponsor'}>
                   {action === 'sponsor' ? '...' : `✦ Mettre en vedette (5 jours)`}

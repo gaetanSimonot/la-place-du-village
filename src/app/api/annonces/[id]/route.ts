@@ -88,8 +88,11 @@ export async function PATCH(
   if (existing.user_id !== ctx.userId && !ctx.isAdmin) {
     return NextResponse.json({ error: 'Interdit' }, { status: 403 })
   }
-  if (existing.statut !== 'active' && !ctx.isAdmin) {
-    return NextResponse.json({ error: 'Annonce non modifiable' }, { status: 409 })
+  // Le propriétaire peut éditer son annonce quel que soit le statut (active,
+  // don_final, expiree) SAUF une fois vendue. Le statut n'est pas éditable
+  // (allowlist EDITABLE_FIELDS), donc aucun risque de "dé-vendre".
+  if (existing.statut === 'vendu' && !ctx.isAdmin) {
+    return NextResponse.json({ error: 'Annonce vendue, non modifiable' }, { status: 409 })
   }
 
   const body = await req.json()
