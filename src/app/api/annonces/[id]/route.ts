@@ -97,8 +97,25 @@ export async function PATCH(
 
   const body = await req.json()
   const patch: Record<string, unknown> = {}
-  for (const k of EDITABLE_FIELDS) {
+  // L'admin peut aussi changer le TYPE (modération/reclassement). Le
+  // propriétaire normal ne le peut pas (anti-abus sur les enchères).
+  const fields = ctx.isAdmin ? [...EDITABLE_FIELDS, 'type'] : EDITABLE_FIELDS
+  for (const k of fields) {
     if (k in body) patch[k] = body[k] === '' ? null : body[k]
+  }
+
+  // Réactivation admin : si on repasse un don_final vers un type vendable
+  // (vente/troc/service/enchère), on le remet en 'active' avec un vrai prix
+  // courant — sinon l'annonce resterait affichée "Gratuit".
+  if (
+    ctx.isAdmin &&
+    typeof patch.type === 'string' &&
+    patch.type !== 'don' &&
+    existing.statut === 'don_final'
+  ) {
+    patch.statut = 'active'
+    const newPrix = patch.prix_initial ?? body.prix_initial
+    if (newPrix != null && newPrix !== '') patch.prix_actuel = Number(newPrix)
   }
 
   if (Object.keys(patch).length === 0) {
