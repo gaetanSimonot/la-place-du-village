@@ -238,7 +238,7 @@ export default function AnnoncePageClient({ id }: Props) {
         </div>
         <div style={{ padding: 16 }}>
           <div style={cardStyle}>
-            <AnnonceForm initial={annonce} onSuccess={async () => { await reload(); setEditing(false) }} />
+            <AnnonceForm initial={annonce} bottomOffset={64} onSuccess={async () => { await reload(); setEditing(false) }} />
           </div>
         </div>
         <BottomNavBar />

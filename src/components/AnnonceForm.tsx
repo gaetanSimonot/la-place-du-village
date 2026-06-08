@@ -23,6 +23,8 @@ import SubscriptionModal from '@/components/SubscriptionModal'
 interface Props {
   initial?: Annonce | null
   onSuccess?: (annonceId: string) => void
+  /** Décale la barre Sauvegarder (fixe) au-dessus d'une BottomNavBar (= 64). */
+  bottomOffset?: number
 }
 
 const TYPE_INFO: Record<AnnonceType, { label: string; sub: string; color: string; bg: string; help: string; icon: React.ReactNode }> = {
@@ -55,7 +57,7 @@ const TYPE_INFO: Record<AnnonceType, { label: string; sub: string; color: string
 
 const MAX_PHOTOS = 3
 
-export default function AnnonceForm({ initial, onSuccess }: Props) {
+export default function AnnonceForm({ initial, onSuccess, bottomOffset = 0 }: Props) {
   const router = useRouter()
   const { user, profile } = useAuth()
   const plan = (profile?.plan as Plan) ?? 'basic'
@@ -502,12 +504,15 @@ export default function AnnonceForm({ initial, onSuccess }: Props) {
       )}
 
       {/* Sticky CTA bottom V3 */}
+      {/* Espace en bas pour que le dernier champ ne soit pas masqué par la
+          barre fixe (qui est hors-flux). */}
+      <div aria-hidden style={{ height: 80 + bottomOffset }} />
       <div
         style={{
-          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 30,
+          position: 'fixed', bottom: bottomOffset, left: 0, right: 0, zIndex: 30,
           background: '#FFFFFF', borderTop: '1px solid #EDE8E0',
           padding: '12px 16px 16px',
-          paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))',
+          paddingBottom: bottomOffset > 0 ? 16 : 'max(16px, env(safe-area-inset-bottom, 16px))',
         }}
       >
         <button
