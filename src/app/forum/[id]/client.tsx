@@ -8,6 +8,7 @@ import { useAuthModal } from '@/contexts/AuthModalContext'
 import BottomNavBar from '@/components/BottomNavBar'
 import PostMedia from '@/components/profil/PostMedia'
 import PollView from '@/components/forum/PollView'
+import NewTopicModal from '@/components/forum/NewTopicModal'
 import { type ForumTopic, type ForumComment, forumRelativeDate } from '@/lib/forum'
 
 export default function TopicClient({ id }: { id: string }) {
@@ -23,7 +24,7 @@ export default function TopicClient({ id }: { id: string }) {
   const [text, setText]       = useState('')
   const [replyTo, setReplyTo] = useState<ForumComment | null>(null)
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null)
-  const [editingTopic, setEditingTopic] = useState<{ titre: string; corps: string } | null>(null)
+  const [editOpen, setEditOpen] = useState(false)
   const [sending, setSending] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
 
@@ -124,20 +125,6 @@ export default function TopicClient({ id }: { id: string }) {
     setComments(prev => prev.filter(x => x.id !== c.id))
   }
 
-  async function saveTopicEdit() {
-    if (!editingTopic || !topic) return
-    const titre = editingTopic.titre.trim()
-    if (!titre) { toast.error('Le titre est requis'); return }
-    const res = await fetch(`/api/forum/topics/${id}`, {
-      method: 'PATCH', headers: await authHeaders(),
-      body: JSON.stringify({ titre, corps: editingTopic.corps }),
-    })
-    if (!res.ok) { toast.error('Édition échouée'); return }
-    setTopic({ ...topic, titre, corps: editingTopic.corps.trim() || null })
-    setEditingTopic(null)
-    toast.success('Sujet modifié')
-  }
-
   async function togglePin() {
     if (!topic) return
     const res = await fetch(`/api/forum/topics/${id}`, { method: 'PATCH', headers: await authHeaders(), body: JSON.stringify({ pinned: !topic.pinned }) })
@@ -173,8 +160,8 @@ export default function TopicClient({ id }: { id: string }) {
               {topic.pinned ? '📌 Désépingler' : '📌 Épingler'}
             </button>
           )}
-          {(topicOwner || isAdmin) && topic && !editingTopic && (
-            <button onClick={() => setEditingTopic({ titre: topic.titre, corps: topic.corps ?? '' })} className="rounded-lg border border-bord bg-white px-2.5 py-1.5 text-[11px] font-bold text-texte">Éditer</button>
+          {(topicOwner || isAdmin) && topic && (
+            <button onClick={() => setEditOpen(true)} className="rounded-lg border border-bord bg-white px-2.5 py-1.5 text-[11px] font-bold text-texte">Éditer</button>
           )}
           {(topicOwner || isAdmin) && (
             <button onClick={deleteTopic} className="rounded-lg border border-accent bg-white px-2.5 py-1.5 text-[11px] font-bold text-accent">Suppr</button>
@@ -189,43 +176,16 @@ export default function TopicClient({ id }: { id: string }) {
           {/* ── Premier post ── */}
           <div className="px-4 pt-4">
             <div className="rounded-[16px] border bg-white p-4" style={{ borderColor: '#F0EAE0', boxShadow: '0 1px 4px rgba(44,28,16,0.04)' }}>
-              {editingTopic ? (
-                <div>
-                  <input
-                    value={editingTopic.titre}
-                    onChange={e => setEditingTopic({ ...editingTopic, titre: e.target.value.slice(0, 200) })}
-                    placeholder="Titre du sujet"
-                    className="block w-full rounded-[10px] border px-3 py-2 font-serif text-[18px] text-texte outline-none"
-                    style={{ borderColor: '#E8E0D4', background: '#FBF7F0', colorScheme: 'light' }}
-                  />
-                  <textarea
-                    value={editingTopic.corps}
-                    onChange={e => setEditingTopic({ ...editingTopic, corps: e.target.value.slice(0, 5000) })}
-                    placeholder="Développe ton sujet… (optionnel)"
-                    rows={5}
-                    className="mt-2 block w-full resize-none rounded-[10px] border px-3 py-2 text-[14px] leading-[1.5] text-texte outline-none"
-                    style={{ borderColor: '#E8E0D4', background: '#FBF7F0', colorScheme: 'light' }}
-                  />
-                  <div className="mt-2 flex gap-2">
-                    <button onClick={saveTopicEdit} className="rounded-lg bg-primary px-3 py-1.5 text-[12px] font-bold text-white">Enregistrer</button>
-                    <button onClick={() => setEditingTopic(null)} className="rounded-lg border border-bord bg-white px-3 py-1.5 text-[12px] font-bold text-texte-doux">Annuler</button>
-                  </div>
-                  <p className="mt-2 text-[10.5px] italic text-texte-doux">Les photos et le sondage ne sont pas modifiables ici.</p>
-                </div>
-              ) : (
-                <>
-                  {topic.pinned && <span className="mb-1.5 inline-block rounded-full bg-primary-light px-2 py-[2px] text-[9px] font-extrabold uppercase tracking-[0.06em] text-primary">📌 Épinglé</span>}
-                  <h1 className="m-0 font-serif text-[22px] leading-[1.15] text-texte" style={{ letterSpacing: '-0.01em' }}>{topic.titre}</h1>
-                  <div className="mt-1.5 flex items-center gap-2 text-[11px] text-texte-doux">
-                    <span className="font-bold text-texte">{topic.author_name ?? 'Quelqu\'un'}</span>
-                    <span aria-hidden>·</span>
-                    <span>{forumRelativeDate(topic.created_at)}</span>
-                  </div>
-                  {topic.corps && <p className="m-0 mt-3 whitespace-pre-wrap text-[14.5px] leading-[1.55] text-texte" style={{ wordBreak: 'break-word' }}>{topic.corps}</p>}
-                  {topic.media && topic.media.length > 0 && <div className="mt-3"><PostMedia media={topic.media} /></div>}
-                  {topic.poll && <div className="mt-3"><PollView topicId={id} poll={topic.poll} /></div>}
-                </>
-              )}
+              {topic.pinned && <span className="mb-1.5 inline-block rounded-full bg-primary-light px-2 py-[2px] text-[9px] font-extrabold uppercase tracking-[0.06em] text-primary">📌 Épinglé</span>}
+              <h1 className="m-0 font-serif text-[22px] leading-[1.15] text-texte" style={{ letterSpacing: '-0.01em' }}>{topic.titre}</h1>
+              <div className="mt-1.5 flex items-center gap-2 text-[11px] text-texte-doux">
+                <span className="font-bold text-texte">{topic.author_name ?? 'Quelqu\'un'}</span>
+                <span aria-hidden>·</span>
+                <span>{forumRelativeDate(topic.created_at)}</span>
+              </div>
+              {topic.corps && <p className="m-0 mt-3 whitespace-pre-wrap text-[14.5px] leading-[1.55] text-texte" style={{ wordBreak: 'break-word' }}>{topic.corps}</p>}
+              {topic.media && topic.media.length > 0 && <div className="mt-3"><PostMedia media={topic.media} /></div>}
+              {topic.poll && <div className="mt-3"><PollView topicId={id} poll={topic.poll} /></div>}
             </div>
           </div>
 
@@ -301,6 +261,17 @@ export default function TopicClient({ id }: { id: string }) {
           </button>
         </div>
       </div>
+
+      {editOpen && topic && (
+        <NewTopicModal
+          editTopic={{ id: topic.id, titre: topic.titre, corps: topic.corps, media: topic.media, poll: topic.poll }}
+          onClose={() => setEditOpen(false)}
+          onUpdated={patch => {
+            setTopic(t => t ? { ...t, titre: patch.titre, corps: patch.corps, media: patch.media.length ? patch.media : null, poll: patch.poll } : t)
+            toast.success('Sujet modifié')
+          }}
+        />
+      )}
 
       <BottomNavBar />
     </div>

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser } from '@/lib/server-auth'
+import { sanitizeMedia } from '@/lib/postMedia'
+import { sanitizePoll } from '@/lib/forum'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -30,6 +32,15 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
   if ('corps' in body && isOwnerOrAdmin) {
     patch.corps = typeof body.corps === 'string' ? (body.corps.trim().slice(0, 5000) || null) : null
+  }
+  // Médias : remplacement complet (ajout/changement/suppression de photos)
+  if ('media' in body && isOwnerOrAdmin) {
+    const m = sanitizeMedia(body.media)
+    patch.media = m.length ? m : null
+  }
+  // Sondage : éditer la question/les choix, ou retirer (null)
+  if ('poll' in body && isOwnerOrAdmin) {
+    patch.poll = body.poll == null ? null : sanitizePoll(body.poll)
   }
 
   if (Object.keys(patch).length === 0) {

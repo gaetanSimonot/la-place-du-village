@@ -5,20 +5,31 @@ import { supabase } from '@/lib/supabase'
 import ClientPortal from '@/components/ClientPortal'
 import { compressAndUpload } from '@/lib/clientUpload'
 import { type MediaItem, MAX_PHOTOS } from '@/lib/postMedia'
-import { MAX_POLL_OPTIONS } from '@/lib/forum'
+import { MAX_POLL_OPTIONS, type ForumPoll } from '@/lib/forum'
 
-export default function NewTopicModal({ onClose, onCreated }: {
+export interface EditTopicInit {
+  id: string
+  titre: string
+  corps: string | null
+  media: MediaItem[] | null
+  poll: ForumPoll | null
+}
+
+export default function NewTopicModal({ onClose, onCreated, editTopic, onUpdated }: {
   onClose: () => void
-  onCreated: (id: string) => void
+  onCreated?: (id: string) => void
+  editTopic?: EditTopicInit
+  onUpdated?: (patch: { titre: string; corps: string | null; media: MediaItem[]; poll: ForumPoll | null }) => void
 }) {
-  const [titre, setTitre]       = useState('')
-  const [corps, setCorps]       = useState('')
-  const [media, setMedia]       = useState<MediaItem[]>([])
+  const isEdit = !!editTopic
+  const [titre, setTitre]       = useState(editTopic?.titre ?? '')
+  const [corps, setCorps]       = useState(editTopic?.corps ?? '')
+  const [media, setMedia]       = useState<MediaItem[]>(editTopic?.media ?? [])
   const [uploading, setUploading] = useState(false)
   const [posting, setPosting]   = useState(false)
-  const [pollOpen, setPollOpen] = useState(false)
-  const [question, setQuestion] = useState('')
-  const [options, setOptions]   = useState<string[]>(['', ''])
+  const [pollOpen, setPollOpen] = useState(!!editTopic?.poll)
+  const [question, setQuestion] = useState(editTopic?.poll?.question ?? '')
+  const [options, setOptions]   = useState<string[]>(editTopic?.poll?.options?.length ? editTopic.poll.options : ['', ''])
   const fileRef = useRef<HTMLInputElement>(null)
   const photoCount = media.filter(m => m.t === 'photo').length
 
@@ -45,17 +56,23 @@ export default function NewTopicModal({ onClose, onCreated }: {
   async function publish() {
     if (!canPost) return
     setPosting(true)
-    const poll = pollValid ? { question: question.trim(), options: validOptions } : null
+    const poll: ForumPoll | null = pollValid ? { question: question.trim(), options: validOptions } : null
+    const payload = { titre: titre.trim(), corps: corps.trim() || null, media, poll }
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/forum/topics', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
-        body: JSON.stringify({ titre: titre.trim(), corps: corps.trim() || null, media, poll }),
-      })
-      const d = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(d.error || 'Erreur')
-      onCreated(d.id as string)
+      const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` }
+      if (isEdit && editTopic) {
+        const res = await fetch(`/api/forum/topics/${editTopic.id}`, { method: 'PATCH', headers, body: JSON.stringify(payload) })
+        const d = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(d.error || 'Erreur')
+        onUpdated?.(payload)
+        onClose()
+      } else {
+        const res = await fetch('/api/forum/topics', { method: 'POST', headers, body: JSON.stringify(payload) })
+        const d = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(d.error || 'Erreur')
+        onCreated?.(d.id as string)
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
       setPosting(false)
@@ -70,9 +87,9 @@ export default function NewTopicModal({ onClose, onCreated }: {
           <button type="button" onClick={onClose} disabled={posting} className="-ml-2 flex h-10 w-10 items-center justify-center bg-transparent text-texte disabled:opacity-60" aria-label="Fermer">
             <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
-          <div className="flex-1 truncate text-center font-serif text-[17px]" style={{ letterSpacing: '-0.005em' }}>Nouveau sujet</div>
+          <div className="flex-1 truncate text-center font-serif text-[17px]" style={{ letterSpacing: '-0.005em' }}>{isEdit ? 'Modifier le sujet' : 'Nouveau sujet'}</div>
           <button type="button" onClick={publish} disabled={!canPost} className="rounded-full bg-primary px-3.5 py-[7px] text-[12px] font-extrabold text-white disabled:opacity-50">
-            {posting ? '…' : 'Publier'}
+            {posting ? '…' : isEdit ? 'Enregistrer' : 'Publier'}
           </button>
         </div>
 
