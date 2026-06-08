@@ -60,7 +60,7 @@ export default function NouvelleAnnonceClient() {
       </div>
 
       <div className="px-4 pt-3">
-        <AnnonceForm onSuccess={id => router.push(`/annonces/${id}`)} />
+        <AnnonceForm bottomOffset={64} onSuccess={id => router.push(`/annonces/${id}`)} />
       </div>
     </div>
   )
