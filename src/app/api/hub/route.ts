@@ -84,6 +84,7 @@ export async function GET(req: NextRequest) {
     journalRes,
     covoitsRes,
     allPromosRes,
+    topForumRes,
   ] = await Promise.all([
     supabaseAdmin.from('evenements').select('*', { count: 'exact', head: true }).eq('statut', 'publie'),
     supabaseAdmin.from('etablissements').select('*', { count: 'exact', head: true }),
@@ -154,6 +155,15 @@ export async function GET(req: NextRequest) {
       .eq('active', true)
       .or(`valid_until.is.null,valid_until.gte.${nowISO}`)
       .order('created_at', { ascending: false }),
+    // Premier sujet du forum (même tri que la liste /forum)
+    supabaseAdmin
+      .from('forum_topics')
+      .select('id, user_id, titre, poll, comment_count, last_activity_at')
+      .order('pinned', { ascending: false })
+      .order('comment_count', { ascending: false })
+      .order('last_activity_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ])
 
   // ── HERO carousel : résoudre featured items + fallback today/week ──
@@ -358,6 +368,18 @@ export async function GET(req: NextRequest) {
     finalTodayEvents = result
   }
 
+  // ── FORUM : 1er sujet enrichi de l'auteur ──
+  let forumTop: Record<string, unknown> | null = null
+  const topRow = topForumRes.data as Record<string, unknown> | null
+  if (topRow) {
+    const { data: prof } = await supabaseAdmin
+      .from('profiles')
+      .select('display_name')
+      .eq('user_id', topRow.user_id as string)
+      .maybeSingle()
+    forumTop = { ...topRow, author_name: prof?.display_name ?? null }
+  }
+
   // ── PAYLOAD ──
   const payload = {
     zoneCounts: {
@@ -381,6 +403,7 @@ export async function GET(req: NextRequest) {
     ventesTotal: ordered.length,
     journal:     journalRes.data ?? null,
     covoits:     covoitsRes.data ?? [],
+    forumTop,
   }
 
   return NextResponse.json(payload, {

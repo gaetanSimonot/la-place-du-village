@@ -79,13 +79,24 @@ interface CovoitLite {
   statut: 'actif' | 'complet' | 'annule'
 }
 
+interface ForumTopLite {
+  id: string
+  titre: string
+  poll: unknown | null
+  comment_count: number
+  last_activity_at: string
+  author_name: string | null
+}
+
 const TILES: { id: string; label: string; iconSrc: string; click: (p: Props, router: ReturnType<typeof useRouter>) => void }[] = [
   { id: 'agenda',      label: 'Agenda',      iconSrc: '/icones-rondes/01_agenda_culturel.png',         click: p => p.onSelectAgenda() },
   { id: 'annuaire',    label: 'Annuaire',    iconSrc: '/icones-rondes/02_annuaire_professionnel.png',  click: p => p.onSelectAnnuaire() },
-  { id: 'producteurs', label: 'Producteurs', iconSrc: '/icones-rondes/05_producteurs_vente_libre.png', click: p => p.onSelectProducteurs() },
+  // Producteurs temporairement retiré du hub (à remettre plus tard) — remplacé
+  // par Discussions / La Place Publique. La prop onSelectProducteurs reste
+  // disponible pour la réintroduction.
+  { id: 'forum',       label: 'Discussions', iconSrc: '/icones-rondes/14_forum_max.png',               click: (_, r) => r.push('/forum') },
   { id: 'annonces',    label: 'Annonces',    iconSrc: '/icones-rondes/07_annonces_locales.png',        click: (_, r) => r.push('/annonces') },
   { id: 'promos',      label: 'Bons plans',  iconSrc: '/icones-rondes/11_promotions_locales.png',      click: (_, r) => r.push('/promotions') },
-  { id: 'forum',       label: 'Discussions', iconSrc: '/icones-rondes/14_forum_max.png',               click: (_, r) => r.push('/forum') },
 ]
 
 function dateLabel(iso: string | null): string {
@@ -186,6 +197,7 @@ export default function HubView({
   const ventesTotal: number      = hubData?.ventesTotal ?? 0
   const journal: JournalLite | null = (hubData?.journal ?? null) as JournalLite | null
   const covoits: CovoitLite[]    = (hubData?.covoits ?? []) as CovoitLite[]
+  const forumTop: ForumTopLite | null = (hubData?.forumTop ?? null) as ForumTopLite | null
 
   // Realtime : invalide le cache SWR sur changement DB
   // → mutate() refetch en arrière-plan, l'UI bascule automatiquement.
@@ -195,6 +207,8 @@ export default function HubView({
       .on('postgres_changes', { event: '*', schema: 'public', table: 'featured_slots' }, () => mutateHub())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'journaux_hebdo' }, () => mutateHub())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'covoiturages' }, () => mutateHub())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'forum_topics' }, () => mutateHub())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'forum_comments' }, () => mutateHub())
       .subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [mutateHub])
@@ -411,6 +425,20 @@ export default function HubView({
           </div>
         </>
       )}
+
+      {/* ── 8.5 Place publique — 1er sujet du forum ─────────────────────── */}
+      <SectionHeaderV3
+        title="Place publique"
+        subtitle="La discussion la plus animée du moment"
+        action="Voir tout"
+        onAction={() => router.push('/forum')}
+      />
+      <div className="px-4">
+        <PlacePubliqueTile
+          topic={forumTop}
+          onOpen={() => router.push(forumTop ? `/forum/${forumTop.id}` : '/forum')}
+        />
+      </div>
 
       {/* ── 9. Bottom bento — Covoit (+ Journal si position=bas) ── */}
       {(() => {
@@ -791,6 +819,67 @@ function CovoitTile({
               </div>
             </div>
           ))}
+        </div>
+      )}
+    </button>
+  )
+}
+
+/* ─── Place publique — PlacePubliqueTile (1er sujet du forum) ────────── */
+
+function PlacePubliqueTile({
+  topic, onOpen,
+}: {
+  topic: ForumTopLite | null
+  onOpen: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label="Ouvrir la Place Publique"
+      className="flex w-full cursor-pointer flex-col overflow-hidden rounded-[18px] border bg-white p-0 text-left text-texte"
+      style={{ borderColor: '#E8E0D4', boxShadow: '0 4px 14px rgba(26,18,9,0.08)' }}
+    >
+      {/* Header */}
+      <div className="flex items-end justify-between gap-2 border-b border-bordSoft px-4 py-3">
+        <div>
+          <div className="text-[9px] font-extrabold tracking-[0.12em] text-texte-doux">LE VILLAGE EN DÉBAT</div>
+          <div
+            className="mt-[3px] font-serif text-[18px] leading-[1.1] text-texte"
+            style={{ letterSpacing: '-0.01em' }}
+          >
+            Place publique
+          </div>
+        </div>
+        <IconArrow size={18} />
+      </div>
+
+      {/* 1er sujet */}
+      {topic ? (
+        <div className="flex items-center gap-3 px-4 py-3">
+          <div className="flex shrink-0 flex-col items-center rounded-[10px] bg-cremeDeep px-2.5 py-1.5">
+            <span className="text-[15px] font-extrabold leading-none text-primary">{topic.comment_count}</span>
+            <span className="text-[9px] text-texte-doux">rép.</span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <div
+              className="line-clamp-2 font-serif text-[15px] leading-[1.2] text-texte"
+              style={{ letterSpacing: '-0.005em' }}
+            >
+              {topic.titre}
+            </div>
+            <div className="mt-1 flex items-center gap-2 text-[11px] text-texte-doux">
+              <span className="truncate">{topic.author_name ?? 'Quelqu\'un'}</span>
+              {topic.poll != null && (
+                <span className="rounded-full bg-[#FFF7DC] px-1.5 text-[9px] font-extrabold text-[#A8770F]">SONDAGE</span>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="px-4 py-4 text-[12px] text-texte-doux">
+          Aucun sujet pour l&apos;instant — lance la première discussion.
         </div>
       )}
     </button>
