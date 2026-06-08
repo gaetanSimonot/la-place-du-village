@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
+import { shareLink } from '@/lib/share'
+import { toast } from 'sonner'
 import BottomNavBar from '@/components/BottomNavBar'
 import NewTopicModal from '@/components/forum/NewTopicModal'
 import { type ForumTopic, forumRelativeDate } from '@/lib/forum'
@@ -14,6 +16,7 @@ export default function ForumClient() {
   const { openAuthModal } = useAuthModal()
   const [topics, setTopics] = useState<ForumTopic[]>([])
   const [pollCounts, setPollCounts] = useState<Record<string, number[]>>({})
+  const [myLikes, setMyLikes] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [composerOpen, setComposerOpen] = useState(false)
 
@@ -33,6 +36,12 @@ export default function ForumClient() {
     setTopics(base.map(t => ({ ...t, author_name: pm.get(t.user_id)?.display_name ?? null, author_avatar: pm.get(t.user_id)?.avatar_url ?? null })))
     setLoading(false)
 
+    // Mes likes (pour l'état du bouton J'aime sur chaque miniature)
+    if (user) {
+      const { data: likes } = await supabase.from('forum_topic_likes').select('topic_id').eq('user_id', user.id).in('topic_id', base.map(t => t.id))
+      setMyLikes(new Set((likes ?? []).map((l: { topic_id: string }) => l.topic_id)))
+    } else setMyLikes(new Set())
+
     // Résultats des sondages (comptés par sujet) pour affichage dans la miniature
     const pollTopics = base.filter(t => t.poll)
     if (pollTopics.length === 0) { setPollCounts({}); return }
@@ -46,16 +55,37 @@ export default function ForumClient() {
       if (arr && v.option_index >= 0 && v.option_index < arr.length) arr[v.option_index]++
     }
     setPollCounts(Object.fromEntries(counts))
-  }, [])
+  }, [user])
 
   useEffect(() => { load() }, [load])
   useEffect(() => {
     const ch = supabase.channel('forum-list')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'forum_topics' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'forum_poll_votes' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'forum_topic_likes' }, () => load())
       .subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [load])
+
+  async function toggleLike(t: ForumTopic) {
+    if (!user) { openAuthModal('/forum'); return }
+    const liked = myLikes.has(t.id)
+    // optimiste
+    setMyLikes(prev => { const n = new Set(prev); if (liked) n.delete(t.id); else n.add(t.id); return n })
+    setTopics(prev => prev.map(x => x.id === t.id ? { ...x, like_count: Math.max(0, x.like_count + (liked ? -1 : 1)) } : x))
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch(`/api/forum/topics/${t.id}/like`, { method: 'POST', headers: { Authorization: `Bearer ${session?.access_token ?? ''}` } })
+    if (!res.ok) {
+      // revert
+      setMyLikes(prev => { const n = new Set(prev); if (liked) n.add(t.id); else n.delete(t.id); return n })
+      setTopics(prev => prev.map(x => x.id === t.id ? { ...x, like_count: Math.max(0, x.like_count + (liked ? 1 : -1)) } : x))
+      toast.error('Action échouée')
+    }
+  }
+
+  function shareTopic(t: ForumTopic) {
+    shareLink({ title: t.titre, text: 'Une discussion sur La Place du Village', url: `https://laplaceduvillage.app/forum/${t.id}` })
+  }
 
   function newTopic() {
     if (!user) { openAuthModal('/forum'); return }
@@ -94,11 +124,16 @@ export default function ForumClient() {
             <p className="m-0 mt-1 text-[12px] text-texte-doux">Sois le premier à lancer une discussion.</p>
           </div>
         )}
-        {topics.map(t => (
-          <button
+        {topics.map(t => {
+          const liked = myLikes.has(t.id)
+          return (
+          <div
             key={t.id}
+            role="button"
+            tabIndex={0}
             onClick={() => router.push(`/forum/${t.id}`)}
-            className="rounded-[14px] border bg-white px-3.5 py-3 text-left"
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/forum/${t.id}`) } }}
+            className="cursor-pointer rounded-[14px] border bg-white px-3.5 py-3 text-left"
             style={{ borderColor: t.pinned ? 'var(--primary)' : '#F0EAE0', boxShadow: '0 1px 4px rgba(44,28,16,0.04)' }}
           >
             <div className="flex items-start gap-2">
@@ -114,12 +149,6 @@ export default function ForumClient() {
                   <span className="truncate">{t.author_name ?? 'Quelqu\'un'}</span>
                   <span aria-hidden>·</span>
                   <span>{forumRelativeDate(t.last_activity_at)}</span>
-                  {t.like_count > 0 && (
-                    <span className="inline-flex items-center gap-0.5 text-accent">
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.8"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-                      {t.like_count}
-                    </span>
-                  )}
                   {t.poll && <span className="rounded-full bg-[#FFF7DC] px-1.5 text-[9px] font-extrabold text-[#A8770F]">SONDAGE</span>}
                 </div>
                 {t.poll && (() => {
@@ -156,8 +185,31 @@ export default function ForumClient() {
                 <span className="text-[9px] text-texte-doux">rép.</span>
               </div>
             </div>
-          </button>
-        ))}
+
+            {/* Actions : J'aime + Partager */}
+            <div className="mt-2.5 flex items-center gap-2 border-t pt-2.5" style={{ borderColor: '#F4EEE4' }}>
+              <button
+                type="button"
+                onClick={e => { e.stopPropagation(); toggleLike(t) }}
+                className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11.5px] font-bold"
+                style={{ borderColor: liked ? 'var(--primary)' : '#E8E0D4', background: liked ? 'var(--primary-light)' : '#fff', color: liked ? 'var(--primary)' : '#1A1209' }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                J&apos;aime{t.like_count > 0 ? ` · ${t.like_count}` : ''}
+              </button>
+              <button
+                type="button"
+                onClick={e => { e.stopPropagation(); shareTopic(t) }}
+                className="inline-flex items-center gap-1.5 rounded-full border bg-white px-2.5 py-1 text-[11.5px] font-bold text-texte"
+                style={{ borderColor: '#E8E0D4' }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                Partager
+              </button>
+            </div>
+          </div>
+          )
+        })}
       </div>
 
       {composerOpen && (

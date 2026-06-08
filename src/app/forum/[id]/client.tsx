@@ -56,9 +56,9 @@ export default function TopicClient({ id }: { id: string }) {
     } else setLiked(false)
     if (t.poll) {
       const { count } = await supabase.from('forum_poll_votes').select('*', { count: 'exact', head: true }).eq('topic_id', id)
-      setPollLocked((count ?? 0) > 0)
+      setPollLocked((count ?? 0) > 0 && !isAdmin)   // l'admin n'est jamais verrouillé
     } else setPollLocked(false)
-  }, [id, user])
+  }, [id, user, isAdmin])
 
   const loadComments = useCallback(async () => {
     const { data: rows } = await supabase

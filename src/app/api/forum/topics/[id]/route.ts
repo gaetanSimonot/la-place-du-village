@@ -49,8 +49,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       .select('*', { count: 'exact', head: true })
       .eq('topic_id', id)
     const existing = topic.poll as { question: string; options: string[] } | null
-    if ((count ?? 0) > 0 && existing) {
-      // Votes présents → on ne garde que la nouvelle question, options figées
+    // L'admin peut tout modifier même après des votes ; pour l'auteur, les
+    // choix sont figés dès qu'un vote existe (réalignement des option_index).
+    if ((count ?? 0) > 0 && existing && !ctx.isAdmin) {
       patch.poll = { question: newPoll?.question || existing.question, options: existing.options }
     } else {
       patch.poll = newPoll
