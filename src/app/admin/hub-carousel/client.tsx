@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { FEATURED_SLOTS, type FeaturedSlotRow } from '@/lib/featured'
 import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
+import { HUB_SECTIONS, normalizeHubOrder } from '@/lib/hubSections'
 
 interface EnrichedSlot extends FeaturedSlotRow {
   title?: string
@@ -40,6 +41,9 @@ export default function AdminHubCarousel() {
   const [introImageUrl, setIntroImageUrl] = useState<string | null>(null)
   const [introImgUploading, setIntroImgUploading] = useState(false)
   const introImgInput = useRef<HTMLInputElement>(null)
+  // Ordre des sections de contenu de l'accueil
+  const [sectionOrder, setSectionOrder] = useState<string[]>(() => normalizeHubOrder([]))
+  const [orderSaving, setOrderSaving] = useState(false)
 
   // Charge la config slide intro (toggle + image custom)
   useEffect(() => {
@@ -47,9 +51,13 @@ export default function AdminHubCarousel() {
     Promise.all([
       supabase.from('config').select('value').eq('key', 'hub_hero_intro_enabled').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'hub_hero_intro_image_url').maybeSingle(),
-    ]).then(([toggleRes, imgRes]) => {
+      supabase.from('config').select('value').eq('key', 'hub_section_order').maybeSingle(),
+    ]).then(([toggleRes, imgRes, orderRes]) => {
       setIntroEnabled(toggleRes.data?.value === 'true')
       setIntroImageUrl(imgRes.data?.value || null)
+      let parsed: unknown = []
+      try { parsed = JSON.parse(orderRes.data?.value ?? '[]') } catch {}
+      setSectionOrder(normalizeHubOrder(parsed))
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user, isAdmin])
@@ -112,6 +120,26 @@ export default function AdminHubCarousel() {
     })
     setIntroImageUrl(null)
     setIntroImgUploading(false)
+  }
+
+  async function moveSection(index: number, delta: number) {
+    const target = index + delta
+    if (target < 0 || target >= sectionOrder.length || orderSaving) return
+    const prev = sectionOrder
+    const next = [...sectionOrder]
+    ;[next[index], next[target]] = [next[target], next[index]]
+    setSectionOrder(next)
+    setOrderSaving(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+    if (!token) { setSectionOrder(prev); setOrderSaving(false); return }
+    const res = await fetch('/api/admin/config', {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body:    JSON.stringify({ key: 'hub_section_order', value: JSON.stringify(next) }),
+    })
+    if (!res.ok) setSectionOrder(prev)
+    setOrderSaving(false)
   }
 
   useEffect(() => {
@@ -383,6 +411,47 @@ export default function AdminHubCarousel() {
               </div>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Ordre des sections de contenu de l'accueil */}
+      <div style={{ padding: '14px 16px 0' }}>
+        <div style={{
+          padding: 14, borderRadius: 12, background: '#FFFFFF',
+          border: '1px solid #E5DDD2', boxShadow: '0 1px 4px rgba(44,28,16,0.04)',
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>
+            Ordre des sections de l&apos;accueil
+          </div>
+          <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2, marginBottom: 10 }}>
+            Réorganise les blocs de contenu de la page d&apos;accueil. Hero, tuiles et footer restent fixes. Une section sans contenu n&apos;apparaît pas mais garde sa place dans l&apos;ordre.
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {sectionOrder.map((id, i) => {
+              const label = HUB_SECTIONS.find(s => s.id === id)?.label ?? id
+              const isFirst = i === 0
+              const isLast = i === sectionOrder.length - 1
+              return (
+                <div key={id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '9px 12px', borderRadius: 10,
+                  background: '#FDFAF6', border: '1px solid #E5DDD2',
+                }}>
+                  <span style={{
+                    width: 24, height: 24, borderRadius: 7,
+                    background: '#F0EAE0', color: '#7A6A5A',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 12, fontWeight: 900, flexShrink: 0,
+                  }}>{i + 1}</span>
+                  <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: '#1A1209' }}>{label}</span>
+                  <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                    <button onClick={() => moveSection(i, -1)} disabled={isFirst || orderSaving} style={btnStyle(isFirst || orderSaving)}>▲</button>
+                    <button onClick={() => moveSection(i, +1)} disabled={isLast || orderSaving} style={btnStyle(isLast || orderSaving)}>▼</button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
 

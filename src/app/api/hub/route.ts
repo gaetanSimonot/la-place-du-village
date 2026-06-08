@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { normalizeHubOrder } from '@/lib/hubSections'
 
 /**
  * Valide une date YYYY-MM-DD venant du client. Retourne la date validée OU
@@ -76,6 +77,7 @@ export async function GET(req: NextRequest) {
     prodCountRes,
     introCfgRes,
     introImgRes,
+    sectionOrderRes,
     heroSlotsRes,
     promoSlotsRes,
     venteSlotsRes,
@@ -84,12 +86,14 @@ export async function GET(req: NextRequest) {
     journalRes,
     covoitsRes,
     allPromosRes,
+    topForumRes,
   ] = await Promise.all([
     supabaseAdmin.from('evenements').select('*', { count: 'exact', head: true }).eq('statut', 'publie'),
     supabaseAdmin.from('etablissements').select('*', { count: 'exact', head: true }),
     supabaseAdmin.from('producers').select('*', { count: 'exact', head: true }),
     supabaseAdmin.from('config').select('value').eq('key', 'hub_hero_intro_enabled').maybeSingle(),
     supabaseAdmin.from('config').select('value').eq('key', 'hub_hero_intro_image_url').maybeSingle(),
+    supabaseAdmin.from('config').select('value').eq('key', 'hub_section_order').maybeSingle(),
     supabaseAdmin
       .from('featured_slots')
       .select('content_type, content_id, priority, image_position')
@@ -154,6 +158,14 @@ export async function GET(req: NextRequest) {
       .eq('active', true)
       .or(`valid_until.is.null,valid_until.gte.${nowISO}`)
       .order('created_at', { ascending: false }),
+    // Top sujets du forum (même tri que la liste /forum) → bento Place publique
+    supabaseAdmin
+      .from('forum_topics')
+      .select('id, user_id, titre, media, poll, comment_count, like_count, last_activity_at')
+      .order('pinned', { ascending: false })
+      .order('comment_count', { ascending: false })
+      .order('last_activity_at', { ascending: false })
+      .limit(4),
   ])
 
   // ── HERO carousel : résoudre featured items + fallback today/week ──
@@ -358,6 +370,19 @@ export async function GET(req: NextRequest) {
     finalTodayEvents = result
   }
 
+  // ── FORUM : top sujets enrichis de l'auteur ──
+  const topRows = (topForumRes.data ?? []) as Record<string, unknown>[]
+  let forumTopics: Record<string, unknown>[] = []
+  if (topRows.length > 0) {
+    const uids = Array.from(new Set(topRows.map(t => t.user_id as string)))
+    const { data: profs } = await supabaseAdmin
+      .from('profiles')
+      .select('user_id, display_name')
+      .in('user_id', uids)
+    const pm = Object.fromEntries((profs ?? []).map(p => [p.user_id, p.display_name]))
+    forumTopics = topRows.map(t => ({ ...t, author_name: pm[t.user_id as string] ?? null }))
+  }
+
   // ── PAYLOAD ──
   const payload = {
     zoneCounts: {
@@ -381,6 +406,10 @@ export async function GET(req: NextRequest) {
     ventesTotal: ordered.length,
     journal:     journalRes.data ?? null,
     covoits:     covoitsRes.data ?? [],
+    forumTopics,
+    sectionOrder: normalizeHubOrder((() => {
+      try { return JSON.parse(sectionOrderRes.data?.value ?? '[]') } catch { return [] }
+    })()),
   }
 
   return NextResponse.json(payload, {

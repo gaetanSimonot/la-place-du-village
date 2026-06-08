@@ -1,5 +1,6 @@
 'use client'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -12,6 +13,7 @@ import HubTopBar from '@/components/HubTopBar'
 import HubSearchBar from '@/components/HubSearchBar'
 import { useAnnonceFavorites } from '@/hooks/useAnnonceFavorites'
 import { shareLink } from '@/lib/share'
+import { normalizeHubOrder } from '@/lib/hubSections'
 // Fetcher + config SWR héritent du provider global (cf. src/components/SWRProvider.tsx).
 
 interface Props {
@@ -79,10 +81,24 @@ interface CovoitLite {
   statut: 'actif' | 'complet' | 'annule'
 }
 
+interface ForumTopLite {
+  id: string
+  titre: string
+  media: { t: string; url: string }[] | null
+  poll: unknown | null
+  comment_count: number
+  like_count: number
+  last_activity_at: string
+  author_name: string | null
+}
+
 const TILES: { id: string; label: string; iconSrc: string; click: (p: Props, router: ReturnType<typeof useRouter>) => void }[] = [
   { id: 'agenda',      label: 'Agenda',      iconSrc: '/icones-rondes/01_agenda_culturel.png',         click: p => p.onSelectAgenda() },
   { id: 'annuaire',    label: 'Annuaire',    iconSrc: '/icones-rondes/02_annuaire_professionnel.png',  click: p => p.onSelectAnnuaire() },
-  { id: 'producteurs', label: 'Producteurs', iconSrc: '/icones-rondes/05_producteurs_vente_libre.png', click: p => p.onSelectProducteurs() },
+  // Producteurs temporairement retiré du hub (à remettre plus tard) — remplacé
+  // par Discussions / La Place Publique. La prop onSelectProducteurs reste
+  // disponible pour la réintroduction.
+  { id: 'forum',       label: 'Discussions', iconSrc: '/icones-rondes/14_forum_max.png',               click: (_, r) => r.push('/forum') },
   { id: 'annonces',    label: 'Annonces',    iconSrc: '/icones-rondes/07_annonces_locales.png',        click: (_, r) => r.push('/annonces') },
   { id: 'promos',      label: 'Bons plans',  iconSrc: '/icones-rondes/11_promotions_locales.png',      click: (_, r) => r.push('/promotions') },
 ]
@@ -185,6 +201,8 @@ export default function HubView({
   const ventesTotal: number      = hubData?.ventesTotal ?? 0
   const journal: JournalLite | null = (hubData?.journal ?? null) as JournalLite | null
   const covoits: CovoitLite[]    = (hubData?.covoits ?? []) as CovoitLite[]
+  const forumTopics: ForumTopLite[] = (hubData?.forumTopics ?? []) as ForumTopLite[]
+  const sectionOrder: string[] = normalizeHubOrder(hubData?.sectionOrder)
 
   // Realtime : invalide le cache SWR sur changement DB
   // → mutate() refetch en arrière-plan, l'UI bascule automatiquement.
@@ -194,6 +212,9 @@ export default function HubView({
       .on('postgres_changes', { event: '*', schema: 'public', table: 'featured_slots' }, () => mutateHub())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'journaux_hebdo' }, () => mutateHub())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'covoiturages' }, () => mutateHub())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'forum_topics' }, () => mutateHub())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'forum_comments' }, () => mutateHub())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'config' }, () => mutateHub())
       .subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [mutateHub])
@@ -208,6 +229,146 @@ export default function HubView({
 
   const [featuredEv, ...restEvents] = todayEvents
   const miniEvents = restEvents.slice(0, 2)
+
+  // Routage du journal : 'haut' → bento Aujourd'hui ; sinon (bas/null) → 3e
+  // tuile du bento Place publique s'il y a des sujets, à défaut bento du bas.
+  const journalInPlacePublique = !!journal && journal.position_hub !== 'haut' && forumTopics.length > 0
+
+  // Sections de contenu réordonnables (ordre piloté par l'admin via config).
+  // Les parties fixes (barre, recherche, hero, tuiles, footer) restent hors map.
+  const sectionNodes: Record<string, ReactNode> = {
+    // ── Aujourd'hui — bento featured + 2 mini (ou 1 mini + journal si haut) ──
+    aujourdhui: todayEvents.length > 0 ? (() => {
+      const journalInTop = journal?.position_hub === 'haut'
+      const visibleMinis = journalInTop ? miniEvents.slice(0, 1) : miniEvents
+      const shownEvents = (featuredEv ? 1 : 0) + visibleMinis.length
+      const remaining = Math.max(0, todayTotal - shownEvents)
+      const showMoreCard = !journalInTop && featuredEv && remaining > 0 && visibleMinis.length < 2
+      return (
+        <>
+          <SectionHeaderV3
+            title="Aujourd'hui"
+            kicker={`· ${todayTotal}`}
+            subtitle={`${todayTotal} événement${todayTotal > 1 ? 's' : ''} près de chez vous`}
+            action="Voir tout"
+            onAction={onSelectAgendaToday ?? onSelectAgenda}
+          />
+          <div
+            className="grid gap-2 px-4"
+            style={{
+              gridTemplateColumns: '1.25fr 1fr',
+              gridTemplateRows: (visibleMinis.length >= 1 || journalInTop) ? '1fr 1fr' : '1fr',
+            }}
+          >
+            {featuredEv && (
+              <FeaturedEventCard ev={featuredEv} onClick={() => router.push(`/evenement/${featuredEv.id}`)} />
+            )}
+            {visibleMinis.map(ev => (
+              <MiniEventCard key={ev.id} ev={ev} onClick={() => router.push(`/evenement/${ev.id}`)} />
+            ))}
+            {journalInTop && journal && (
+              <JournalTile journal={journal} onClick={() => router.push(`/journal/${journal.numero}`)} />
+            )}
+            {showMoreCard && (
+              <MoreEventsCard count={remaining} onClick={onSelectAgendaToday ?? onSelectAgenda} />
+            )}
+          </div>
+        </>
+      )
+    })() : null,
+
+    // ── Bons plans — 3 colonnes compactes ──
+    bonsplans: promos.length > 0 ? (
+      <>
+        <SectionHeaderV3
+          title="Bons plans"
+          kicker={`· ${promos.length}`}
+          subtitle="Chez vos commerçants partenaires"
+          action="Voir tout"
+          onAction={() => router.push('/promotions')}
+        />
+        <div className="grid grid-cols-3 gap-1.5 px-4">
+          {promos.slice(0, 3).map(p => (
+            <CompactPromoCard key={p.id} promo={p} onClick={() => router.push(`/promotions?id=${p.id}`)} />
+          ))}
+        </div>
+      </>
+    ) : null,
+
+    // ── Ventes — 2x2 ──
+    ventes: ventesAnnonces.length > 0 ? (
+      <>
+        <SectionHeaderV3
+          title="Ventes"
+          kicker={`· ${ventesTotal}`}
+          subtitle="Annonces en baisse cette semaine"
+          action="Annonces"
+          onAction={() => router.push('/annonces')}
+        />
+        <div className="grid grid-cols-2 gap-2 px-4">
+          {ventesAnnonces.map(a => (
+            <SaleAnnonceCard
+              key={a.id}
+              annonce={a}
+              favored={favIds.includes(a.id)}
+              onToggleFav={() => toggleFav(a.id)}
+              onClick={() => router.push(`/annonces/${a.id}`)}
+            />
+          ))}
+        </div>
+      </>
+    ) : null,
+
+    // ── Place publique — bento irrégulier (featured + minis + journal opt) ──
+    place_publique: forumTopics.length > 0 ? (() => {
+      const [featTopic, ...restTopics] = forumTopics
+      const miniTopics = restTopics.slice(0, 2)
+      const visibleMinis = journalInPlacePublique ? miniTopics.slice(0, 1) : miniTopics
+      return (
+        <>
+          <SectionHeaderV3
+            title="Place publique"
+            subtitle="Les discussions du moment"
+            action="Voir tout"
+            onAction={() => router.push('/forum')}
+          />
+          <div
+            className="grid gap-2 px-4"
+            style={{
+              gridTemplateColumns: '1.25fr 1fr',
+              gridTemplateRows: (visibleMinis.length >= 1 || journalInPlacePublique) ? '1fr 1fr' : '1fr',
+            }}
+          >
+            {featTopic && (
+              <FeaturedTopicCard topic={featTopic} onClick={() => router.push(`/forum/${featTopic.id}`)} />
+            )}
+            {visibleMinis.map(t => (
+              <MiniTopicCard key={t.id} topic={t} onClick={() => router.push(`/forum/${t.id}`)} />
+            ))}
+            {journalInPlacePublique && journal && (
+              <JournalTile journal={journal} onClick={() => router.push(`/journal/${journal.numero}`)} />
+            )}
+          </div>
+        </>
+      )
+    })() : null,
+
+    // ── Covoiturage (+ Journal si pas déjà placé) ──
+    covoiturage: (() => {
+      const showJournalBottom = !!journal && journal.position_hub !== 'haut' && !journalInPlacePublique
+      return (
+        <div
+          className="grid gap-2 px-4 pt-6"
+          style={{ gridTemplateColumns: showJournalBottom ? '1.5fr 1fr' : '1fr' }}
+        >
+          <CovoitTile covoits={covoits} onClick={() => router.push('/covoiturage')} />
+          {showJournalBottom && journal && (
+            <JournalTile journal={journal} onClick={() => router.push(`/journal/${journal.numero}`)} />
+          )}
+        </div>
+      )
+    })(),
+  }
 
   return (
     <div className="min-h-full bg-creme pb-6 font-inter">
@@ -308,130 +469,8 @@ export default function HubView({
         ))}
       </div>
 
-      {/* ── 6. Aujourd'hui — bento featured + 2 mini (ou 1 mini + journal si position=haut) ── */}
-      {todayEvents.length > 0 && (() => {
-        const journalInTop = journal?.position_hub === 'haut'
-        // Si journal en haut : il prend la place de la 2e mini → on garde max 1 mini event
-        const visibleMinis = journalInTop ? miniEvents.slice(0, 1) : miniEvents
-        // Compteur "+N" : nb d'events restants (total - featured - minis visibles)
-        const shownEvents = (featuredEv ? 1 : 0) + visibleMinis.length
-        const remaining = Math.max(0, todayTotal - shownEvents)
-        // En layout 'haut' : on n'affiche le +N que s'il n'y a pas déjà le journal qui occupe la cell bas-droite
-        const showMoreCard = !journalInTop && featuredEv && remaining > 0 && visibleMinis.length < 2
-        return (
-          <>
-            <SectionHeaderV3
-              title="Aujourd'hui"
-              kicker={`· ${todayTotal}`}
-              subtitle={`${todayTotal} événement${todayTotal > 1 ? 's' : ''} près de chez vous`}
-              action="Voir tout"
-              onAction={onSelectAgendaToday ?? onSelectAgenda}
-            />
-            <div
-              className="grid gap-2 px-4"
-              style={{
-                gridTemplateColumns: '1.25fr 1fr',
-                gridTemplateRows: (visibleMinis.length >= 1 || journalInTop) ? '1fr 1fr' : '1fr',
-              }}
-            >
-              {featuredEv && (
-                <FeaturedEventCard
-                  ev={featuredEv}
-                  onClick={() => router.push(`/evenement/${featuredEv.id}`)}
-                />
-              )}
-              {visibleMinis.map(ev => (
-                <MiniEventCard
-                  key={ev.id}
-                  ev={ev}
-                  onClick={() => router.push(`/evenement/${ev.id}`)}
-                />
-              ))}
-              {/* Journal en haut : prend la 2e cellule droite (col 2, row 2) */}
-              {journalInTop && journal && (
-                <JournalTile
-                  journal={journal}
-                  onClick={() => router.push(`/journal/${journal.numero}`)}
-                />
-              )}
-              {showMoreCard && (
-                <MoreEventsCard
-                  count={remaining}
-                  onClick={onSelectAgendaToday ?? onSelectAgenda}
-                />
-              )}
-            </div>
-          </>
-        )
-      })()}
-
-      {/* ── 7. Bons plans — 3 colonnes compactes ──────────────────────── */}
-      {promos.length > 0 && (
-        <>
-          <SectionHeaderV3
-            title="Bons plans"
-            kicker={`· ${promos.length}`}
-            subtitle="Chez vos commerçants partenaires"
-            action="Voir tout"
-            onAction={() => router.push('/promotions')}
-          />
-          <div className="grid grid-cols-3 gap-1.5 px-4">
-            {promos.slice(0, 3).map(p => (
-              <CompactPromoCard
-                key={p.id}
-                promo={p}
-                onClick={() => router.push(`/promotions?id=${p.id}`)}
-              />
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* ── 8. Ventes — 2x2 ───────────────────────────────────────────── */}
-      {ventesAnnonces.length > 0 && (
-        <>
-          <SectionHeaderV3
-            title="Ventes"
-            kicker={`· ${ventesTotal}`}
-            subtitle="Annonces en baisse cette semaine"
-            action="Annonces"
-            onAction={() => router.push('/annonces')}
-          />
-          <div className="grid grid-cols-2 gap-2 px-4">
-            {ventesAnnonces.map(a => (
-              <SaleAnnonceCard
-                key={a.id}
-                annonce={a}
-                favored={favIds.includes(a.id)}
-                onToggleFav={() => toggleFav(a.id)}
-                onClick={() => router.push(`/annonces/${a.id}`)}
-              />
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* ── 9. Bottom bento — Covoit (+ Journal si position=bas) ── */}
-      {(() => {
-        const showJournalBottom = journal && journal.position_hub !== 'haut'
-        return (
-          <div
-            className="grid gap-2 px-4 pt-6"
-            style={{ gridTemplateColumns: showJournalBottom ? '1.5fr 1fr' : '1fr' }}
-          >
-            <CovoitTile
-              covoits={covoits}
-              onClick={() => router.push('/covoiturage')}
-            />
-            {showJournalBottom && (
-              <JournalTile
-                journal={journal}
-                onClick={() => router.push(`/journal/${journal.numero}`)}
-              />
-            )}
-          </div>
-        )
-      })()}
+      {/* ── Sections de contenu — ordre piloté par l'admin (config) ──────── */}
+      {sectionOrder.map(id => <Fragment key={id}>{sectionNodes[id]}</Fragment>)}
 
       {/* ── 10. Footer légal (discret, requis Google OAuth + RGPD) ───────
           Présence d'un lien Privacy Policy/CGU depuis la home est attendue
@@ -793,6 +832,127 @@ function CovoitTile({
         </div>
       )}
     </button>
+  )
+}
+
+/* ─── Place publique — FeaturedTopicCard (grande tuile, span 2 rangées) ── */
+
+function FeaturedTopicCard({ topic, onClick }: { topic: ForumTopLite; onClick: () => void }) {
+  const photo = topic.media?.find(m => m.t === 'photo')?.url ?? null
+  const replies = topic.comment_count
+  const kicker = topic.poll != null ? 'SONDAGE' : 'DISCUSSION'
+  const author = topic.author_name ?? 'Quelqu\'un'
+
+  // Avec photo : image + bloc texte (comme FeaturedEventCard)
+  if (photo) {
+    return (
+      <div
+        onClick={onClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
+        style={{ gridColumn: 'span 1', gridRow: 'span 2', borderColor: '#F0EAE0' }}
+        className="flex cursor-pointer flex-col overflow-hidden rounded-[16px] border bg-white shadow-[0_6px_20px_rgba(44,28,16,0.10)]"
+      >
+        <div className="relative min-h-0 flex-1 bg-bord/40">
+          <img src={photo} alt="" className="h-full w-full object-cover" />
+          <div className="absolute left-2 top-2 rounded-[5px] bg-primary px-2 py-[3px] text-[10px] font-extrabold tracking-[0.08em] text-white">{kicker}</div>
+        </div>
+        <div className="shrink-0 px-3 pb-3 pt-2.5">
+          <div
+            className="font-serif text-[16px] leading-[1.15] text-texte"
+            style={{ letterSpacing: '-0.01em', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+          >
+            {topic.titre}
+          </div>
+          <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-texte-doux">
+            <span className="truncate">{author}</span>
+            <span aria-hidden>·</span>
+            <span className="shrink-0 font-bold text-primary">{replies} rép.</span>
+            {topic.like_count > 0 && (
+              <span className="inline-flex shrink-0 items-center gap-0.5 text-accent">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                {topic.like_count}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Sans photo : panneau couleur, titre en grand (les sujets sont souvent textuels)
+  return (
+    <div
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
+      style={{ gridColumn: 'span 1', gridRow: 'span 2', background: 'linear-gradient(160deg, var(--primary) 0%, #1A3A2A 100%)' }}
+      className="flex cursor-pointer flex-col justify-between overflow-hidden rounded-[16px] p-3.5 text-white shadow-[0_6px_20px_rgba(44,28,16,0.10)]"
+    >
+      <div className="text-[9px] font-extrabold tracking-[0.12em] text-white/75">{kicker}</div>
+      <div
+        className="my-2 flex-1 font-serif text-[19px] leading-[1.18]"
+        style={{ letterSpacing: '-0.01em', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+      >
+        {topic.titre}
+      </div>
+      <div className="flex items-center gap-1.5 text-[11px] text-white/85">
+        <span className="truncate">{author}</span>
+        <span aria-hidden>·</span>
+        <span className="shrink-0 font-bold">{replies} rép.</span>
+        {topic.like_count > 0 && (
+          <span className="inline-flex shrink-0 items-center gap-0.5">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            {topic.like_count}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ─── Place publique — MiniTopicCard (petite tuile) ──────────────────── */
+
+function MiniTopicCard({ topic, onClick }: { topic: ForumTopLite; onClick: () => void }) {
+  const photo = topic.media?.find(m => m.t === 'photo')?.url ?? null
+  const replies = topic.comment_count
+  return (
+    <div
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
+      style={{ borderColor: '#F0EAE0' }}
+      className="flex cursor-pointer overflow-hidden rounded-[14px] border bg-white shadow-[0_4px_14px_rgba(44,28,16,0.08)]"
+    >
+      {photo && (
+        <div className="relative w-[64px] shrink-0 bg-bord/40">
+          <img src={photo} alt="" className="h-full w-full object-cover" />
+        </div>
+      )}
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-[2px] px-2.5 py-2">
+        <div className="truncate text-[8px] font-extrabold tracking-[0.12em] text-primary">{topic.poll != null ? 'SONDAGE' : 'SUJET'}</div>
+        <div
+          className="line-clamp-2 text-[12px] font-bold leading-[1.15] text-texte"
+          style={{ letterSpacing: '-0.01em' }}
+        >
+          {topic.titre}
+        </div>
+        <div className="flex items-center gap-1.5 truncate text-[10px] text-texte-doux">
+          <span className="truncate">{topic.author_name ?? 'Quelqu\'un'}</span>
+          <span aria-hidden>·</span>
+          <span className="shrink-0 font-bold text-primary">{replies} rép.</span>
+          {topic.like_count > 0 && (
+            <span className="inline-flex shrink-0 items-center gap-0.5 text-accent">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+              {topic.like_count}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
 
