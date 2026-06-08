@@ -155,15 +155,14 @@ export async function GET(req: NextRequest) {
       .eq('active', true)
       .or(`valid_until.is.null,valid_until.gte.${nowISO}`)
       .order('created_at', { ascending: false }),
-    // Premier sujet du forum (même tri que la liste /forum)
+    // Top sujets du forum (même tri que la liste /forum) → bento Place publique
     supabaseAdmin
       .from('forum_topics')
-      .select('id, user_id, titre, poll, comment_count, last_activity_at')
+      .select('id, user_id, titre, media, poll, comment_count, like_count, last_activity_at')
       .order('pinned', { ascending: false })
       .order('comment_count', { ascending: false })
       .order('last_activity_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+      .limit(4),
   ])
 
   // ── HERO carousel : résoudre featured items + fallback today/week ──
@@ -368,16 +367,17 @@ export async function GET(req: NextRequest) {
     finalTodayEvents = result
   }
 
-  // ── FORUM : 1er sujet enrichi de l'auteur ──
-  let forumTop: Record<string, unknown> | null = null
-  const topRow = topForumRes.data as Record<string, unknown> | null
-  if (topRow) {
-    const { data: prof } = await supabaseAdmin
+  // ── FORUM : top sujets enrichis de l'auteur ──
+  const topRows = (topForumRes.data ?? []) as Record<string, unknown>[]
+  let forumTopics: Record<string, unknown>[] = []
+  if (topRows.length > 0) {
+    const uids = Array.from(new Set(topRows.map(t => t.user_id as string)))
+    const { data: profs } = await supabaseAdmin
       .from('profiles')
-      .select('display_name')
-      .eq('user_id', topRow.user_id as string)
-      .maybeSingle()
-    forumTop = { ...topRow, author_name: prof?.display_name ?? null }
+      .select('user_id, display_name')
+      .in('user_id', uids)
+    const pm = Object.fromEntries((profs ?? []).map(p => [p.user_id, p.display_name]))
+    forumTopics = topRows.map(t => ({ ...t, author_name: pm[t.user_id as string] ?? null }))
   }
 
   // ── PAYLOAD ──
@@ -403,7 +403,7 @@ export async function GET(req: NextRequest) {
     ventesTotal: ordered.length,
     journal:     journalRes.data ?? null,
     covoits:     covoitsRes.data ?? [],
-    forumTop,
+    forumTopics,
   }
 
   return NextResponse.json(payload, {

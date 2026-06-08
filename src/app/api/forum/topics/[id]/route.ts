@@ -13,7 +13,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const { id } = await params
 
   const { data: topic } = await supabaseAdmin
-    .from('forum_topics').select('user_id').eq('id', id).maybeSingle()
+    .from('forum_topics').select('user_id, poll').eq('id', id).maybeSingle()
   if (!topic) return NextResponse.json({ error: 'Sujet introuvable' }, { status: 404 })
 
   const body = await req.json().catch(() => ({}))
@@ -38,9 +38,23 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const m = sanitizeMedia(body.media)
     patch.media = m.length ? m : null
   }
-  // Sondage : éditer la question/les choix, ou retirer (null)
+  // Sondage : éditer la question/les choix, ou retirer (null).
+  // Verrou : dès qu'il y a des votes, les CHOIX sont figés (sinon les
+  // option_index déjà votés seraient désalignés). Seule la question reste
+  // modifiable, et le sondage ne peut plus être supprimé.
   if ('poll' in body && isOwnerOrAdmin) {
-    patch.poll = body.poll == null ? null : sanitizePoll(body.poll)
+    const newPoll = body.poll == null ? null : sanitizePoll(body.poll)
+    const { count } = await supabaseAdmin
+      .from('forum_poll_votes')
+      .select('*', { count: 'exact', head: true })
+      .eq('topic_id', id)
+    const existing = topic.poll as { question: string; options: string[] } | null
+    if ((count ?? 0) > 0 && existing) {
+      // Votes présents → on ne garde que la nouvelle question, options figées
+      patch.poll = { question: newPoll?.question || existing.question, options: existing.options }
+    } else {
+      patch.poll = newPoll
+    }
   }
 
   if (Object.keys(patch).length === 0) {

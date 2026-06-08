@@ -20,7 +20,7 @@ export default function ForumClient() {
   const load = useCallback(async () => {
     const { data: rows } = await supabase
       .from('forum_topics')
-      .select('id, user_id, titre, corps, media, poll, pinned, comment_count, last_activity_at, created_at')
+      .select('id, user_id, titre, corps, media, poll, pinned, comment_count, like_count, last_activity_at, created_at')
       .order('pinned', { ascending: false })
       .order('comment_count', { ascending: false })
       .order('last_activity_at', { ascending: false })
@@ -114,6 +114,12 @@ export default function ForumClient() {
                   <span className="truncate">{t.author_name ?? 'Quelqu\'un'}</span>
                   <span aria-hidden>·</span>
                   <span>{forumRelativeDate(t.last_activity_at)}</span>
+                  {t.like_count > 0 && (
+                    <span className="inline-flex items-center gap-0.5 text-accent">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.8"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                      {t.like_count}
+                    </span>
+                  )}
                   {t.poll && <span className="rounded-full bg-[#FFF7DC] px-1.5 text-[9px] font-extrabold text-[#A8770F]">SONDAGE</span>}
                 </div>
                 {t.poll && (() => {

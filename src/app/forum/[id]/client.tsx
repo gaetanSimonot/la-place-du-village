@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
+import { shareLink } from '@/lib/share'
 import BottomNavBar from '@/components/BottomNavBar'
 import PostMedia from '@/components/profil/PostMedia'
 import PollView from '@/components/forum/PollView'
@@ -25,6 +26,9 @@ export default function TopicClient({ id }: { id: string }) {
   const [replyTo, setReplyTo] = useState<ForumComment | null>(null)
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null)
   const [editOpen, setEditOpen] = useState(false)
+  const [pollLocked, setPollLocked] = useState(false)
+  const [likeCount, setLikeCount] = useState(0)
+  const [liked, setLiked] = useState(false)
   const [sending, setSending] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
 
@@ -36,15 +40,25 @@ export default function TopicClient({ id }: { id: string }) {
   const loadTopic = useCallback(async () => {
     const { data } = await supabase
       .from('forum_topics')
-      .select('id, user_id, titre, corps, media, poll, pinned, comment_count, last_activity_at, created_at')
+      .select('id, user_id, titre, corps, media, poll, pinned, comment_count, like_count, last_activity_at, created_at')
       .eq('id', id).maybeSingle()
     if (!data) { setNotFound(true); setLoading(false); return }
     const t = data as ForumTopic
     const { data: prof } = await supabase.from('profiles').select('display_name, avatar_url').eq('user_id', t.user_id).maybeSingle()
     const pr = prof as { display_name: string | null; avatar_url: string | null } | null
     setTopic({ ...t, author_name: pr?.display_name ?? null, author_avatar: pr?.avatar_url ?? null })
+    setLikeCount(t.like_count ?? 0)
     setLoading(false)
-  }, [id])
+    // Mon like + verrou sondage
+    if (user) {
+      const { data: myLike } = await supabase.from('forum_topic_likes').select('topic_id').eq('topic_id', id).eq('user_id', user.id).maybeSingle()
+      setLiked(!!myLike)
+    } else setLiked(false)
+    if (t.poll) {
+      const { count } = await supabase.from('forum_poll_votes').select('*', { count: 'exact', head: true }).eq('topic_id', id)
+      setPollLocked((count ?? 0) > 0)
+    } else setPollLocked(false)
+  }, [id, user])
 
   const loadComments = useCallback(async () => {
     const { data: rows } = await supabase
@@ -125,6 +139,25 @@ export default function TopicClient({ id }: { id: string }) {
     setComments(prev => prev.filter(x => x.id !== c.id))
   }
 
+  async function toggleLike() {
+    if (!user) { openAuthModal(`/forum/${id}`); return }
+    const next = !liked
+    setLiked(next); setLikeCount(c => Math.max(0, c + (next ? 1 : -1)))
+    const res = await fetch(`/api/forum/topics/${id}/like`, { method: 'POST', headers: await authHeaders() })
+    if (!res.ok) {
+      setLiked(!next); setLikeCount(c => Math.max(0, c + (next ? -1 : 1)))
+      toast.error('Action échouée')
+    }
+  }
+
+  function shareTopic() {
+    shareLink({
+      title: topic?.titre ?? 'La Place Publique',
+      text: 'Une discussion sur La Place du Village',
+      url: `https://laplaceduvillage.app/forum/${id}`,
+    })
+  }
+
   async function togglePin() {
     if (!topic) return
     const res = await fetch(`/api/forum/topics/${id}`, { method: 'PATCH', headers: await authHeaders(), body: JSON.stringify({ pinned: !topic.pinned }) })
@@ -154,7 +187,12 @@ export default function TopicClient({ id }: { id: string }) {
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
         </button>
         <div className="flex-1 truncate font-serif text-[15px] text-texte">La Place Publique</div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex shrink-0 items-center gap-2">
+          {topic && (
+            <button onClick={shareTopic} aria-label="Partager" className="flex h-[30px] w-[30px] items-center justify-center rounded-lg border border-bord bg-white text-texte">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            </button>
+          )}
           {isAdmin && topic && (
             <button onClick={togglePin} className="rounded-lg border border-bord bg-white px-2.5 py-1.5 text-[11px] font-bold text-texte" title="Épingler">
               {topic.pinned ? '📌 Désépingler' : '📌 Épingler'}
@@ -174,19 +212,72 @@ export default function TopicClient({ id }: { id: string }) {
       ) : topic ? (
         <>
           {/* ── Premier post ── */}
-          <div className="px-4 pt-4">
-            <div className="rounded-[16px] border bg-white p-4" style={{ borderColor: '#F0EAE0', boxShadow: '0 1px 4px rgba(44,28,16,0.04)' }}>
-              {topic.pinned && <span className="mb-1.5 inline-block rounded-full bg-primary-light px-2 py-[2px] text-[9px] font-extrabold uppercase tracking-[0.06em] text-primary">📌 Épinglé</span>}
-              <h1 className="m-0 font-serif text-[22px] leading-[1.15] text-texte" style={{ letterSpacing: '-0.01em' }}>{topic.titre}</h1>
-              <div className="mt-1.5 flex items-center gap-2 text-[11px] text-texte-doux">
-                <span className="font-bold text-texte">{topic.author_name ?? 'Quelqu\'un'}</span>
-                <span aria-hidden>·</span>
-                <span>{forumRelativeDate(topic.created_at)}</span>
+          {(() => {
+            const headerItem = topic.media?.find(m => m.t === 'photo') ?? null
+            const headerPhoto = headerItem && headerItem.t === 'photo' ? headerItem.url : null
+            const restMedia = topic.media ? topic.media.filter(m => m !== headerItem) : null
+            const hasBody = !!topic.corps || (restMedia != null && restMedia.length > 0) || !!topic.poll
+            return (
+              <div className="px-4 pt-4">
+                {headerPhoto ? (
+                  <>
+                    {/* Header : photo + gradient + titre lisible dessus (style carrousel) */}
+                    <div className="relative overflow-hidden rounded-[16px]" style={{ boxShadow: '0 6px 20px rgba(44,28,16,0.12)' }}>
+                      <img src={headerPhoto} alt="" className="h-[210px] w-full object-cover" />
+                      <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.12) 35%, rgba(0,0,0,0.82) 100%)' }} />
+                      {topic.pinned && <span className="absolute left-3 top-3 inline-block rounded-full bg-primary-light/95 px-2 py-[3px] text-[9px] font-extrabold uppercase tracking-[0.06em] text-primary">📌 Épinglé</span>}
+                      <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+                        <h1 className="m-0 font-serif text-[23px] leading-[1.12] text-white" style={{ letterSpacing: '-0.01em', textShadow: '0 1px 12px rgba(0,0,0,0.45)' }}>{topic.titre}</h1>
+                        <div className="mt-1.5 flex items-center gap-2 text-[11px] text-white/85">
+                          <span className="font-bold">{topic.author_name ?? 'Quelqu\'un'}</span>
+                          <span aria-hidden>·</span>
+                          <span>{forumRelativeDate(topic.created_at)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    {hasBody && (
+                      <div className="mt-3 rounded-[16px] border bg-white p-4" style={{ borderColor: '#F0EAE0', boxShadow: '0 1px 4px rgba(44,28,16,0.04)' }}>
+                        {topic.corps && <p className="m-0 whitespace-pre-wrap text-[14.5px] leading-[1.55] text-texte" style={{ wordBreak: 'break-word' }}>{topic.corps}</p>}
+                        {restMedia && restMedia.length > 0 && <div className={topic.corps ? 'mt-3' : ''}><PostMedia media={restMedia} /></div>}
+                        {topic.poll && <div className={topic.corps || (restMedia && restMedia.length > 0) ? 'mt-3' : ''}><PollView topicId={id} poll={topic.poll} /></div>}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="rounded-[16px] border bg-white p-4" style={{ borderColor: '#F0EAE0', boxShadow: '0 1px 4px rgba(44,28,16,0.04)' }}>
+                    {topic.pinned && <span className="mb-1.5 inline-block rounded-full bg-primary-light px-2 py-[2px] text-[9px] font-extrabold uppercase tracking-[0.06em] text-primary">📌 Épinglé</span>}
+                    <h1 className="m-0 font-serif text-[22px] leading-[1.15] text-texte" style={{ letterSpacing: '-0.01em' }}>{topic.titre}</h1>
+                    <div className="mt-1.5 flex items-center gap-2 text-[11px] text-texte-doux">
+                      <span className="font-bold text-texte">{topic.author_name ?? 'Quelqu\'un'}</span>
+                      <span aria-hidden>·</span>
+                      <span>{forumRelativeDate(topic.created_at)}</span>
+                    </div>
+                    {topic.corps && <p className="m-0 mt-3 whitespace-pre-wrap text-[14.5px] leading-[1.55] text-texte" style={{ wordBreak: 'break-word' }}>{topic.corps}</p>}
+                    {topic.poll && <div className="mt-3"><PollView topicId={id} poll={topic.poll} /></div>}
+                  </div>
+                )}
               </div>
-              {topic.corps && <p className="m-0 mt-3 whitespace-pre-wrap text-[14.5px] leading-[1.55] text-texte" style={{ wordBreak: 'break-word' }}>{topic.corps}</p>}
-              {topic.media && topic.media.length > 0 && <div className="mt-3"><PostMedia media={topic.media} /></div>}
-              {topic.poll && <div className="mt-3"><PollView topicId={id} poll={topic.poll} /></div>}
-            </div>
+            )
+          })()}
+
+          {/* ── J'aime + partage ── */}
+          <div className="flex items-center gap-2 px-4 pt-3">
+            <button
+              onClick={toggleLike}
+              className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[12.5px] font-bold"
+              style={{ borderColor: liked ? 'var(--primary)' : '#E8E0D4', background: liked ? 'var(--primary-light)' : '#fff', color: liked ? 'var(--primary)' : '#1A1209' }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+              J&apos;aime{likeCount > 0 ? ` · ${likeCount}` : ''}
+            </button>
+            <button
+              onClick={shareTopic}
+              className="inline-flex items-center gap-1.5 rounded-full border bg-white px-3.5 py-1.5 text-[12.5px] font-bold text-texte"
+              style={{ borderColor: '#E8E0D4' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+              Partager
+            </button>
           </div>
 
           {/* ── Fil de réponses ── */}
@@ -265,6 +356,7 @@ export default function TopicClient({ id }: { id: string }) {
       {editOpen && topic && (
         <NewTopicModal
           editTopic={{ id: topic.id, titre: topic.titre, corps: topic.corps, media: topic.media, poll: topic.poll }}
+          pollLocked={pollLocked}
           onClose={() => setEditOpen(false)}
           onUpdated={patch => {
             setTopic(t => t ? { ...t, titre: patch.titre, corps: patch.corps, media: patch.media.length ? patch.media : null, poll: patch.poll } : t)

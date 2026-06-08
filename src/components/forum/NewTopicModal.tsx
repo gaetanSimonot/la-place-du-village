@@ -15,11 +15,13 @@ export interface EditTopicInit {
   poll: ForumPoll | null
 }
 
-export default function NewTopicModal({ onClose, onCreated, editTopic, onUpdated }: {
+export default function NewTopicModal({ onClose, onCreated, editTopic, onUpdated, pollLocked = false }: {
   onClose: () => void
   onCreated?: (id: string) => void
   editTopic?: EditTopicInit
   onUpdated?: (patch: { titre: string; corps: string | null; media: MediaItem[]; poll: ForumPoll | null }) => void
+  /** Édition : sondage déjà voté → choix figés (question seule modifiable). */
+  pollLocked?: boolean
 }) {
   const isEdit = !!editTopic
   const [titre, setTitre]       = useState(editTopic?.titre ?? '')
@@ -128,15 +130,19 @@ export default function NewTopicModal({ onClose, onCreated, editTopic, onUpdated
             <div className="mt-4 rounded-[14px] border bg-cremeDeep p-3" style={{ borderColor: '#E8E0D4' }}>
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-[12px] font-extrabold text-primary">Sondage</span>
-                <button type="button" onClick={() => setPollOpen(false)} className="text-[11px] font-bold text-texte-doux underline">Retirer</button>
+                {!pollLocked && (
+                  <button type="button" onClick={() => setPollOpen(false)} className="text-[11px] font-bold text-texte-doux underline">Retirer</button>
+                )}
               </div>
               <input value={question} onChange={e => setQuestion(e.target.value.slice(0, 200))} placeholder="Ta question…" className="mb-2 block w-full rounded-[10px] border px-3 py-2 text-[13px] outline-none" style={{ borderColor: '#E8E0D4', background: '#fff', colorScheme: 'light' }} />
               <div className="flex flex-col gap-1.5">
                 {options.map((o, i) => (
-                  <input key={i} value={o} onChange={e => setOptions(prev => prev.map((x, j) => j === i ? e.target.value.slice(0, 100) : x))} placeholder={`Choix ${i + 1}`} className="block w-full rounded-[10px] border px-3 py-2 text-[13px] outline-none" style={{ borderColor: '#E8E0D4', background: '#fff', colorScheme: 'light' }} />
+                  <input key={i} value={o} disabled={pollLocked} readOnly={pollLocked} onChange={e => setOptions(prev => prev.map((x, j) => j === i ? e.target.value.slice(0, 100) : x))} placeholder={`Choix ${i + 1}`} className="block w-full rounded-[10px] border px-3 py-2 text-[13px] outline-none disabled:opacity-60" style={{ borderColor: '#E8E0D4', background: pollLocked ? '#F0EAE0' : '#fff', colorScheme: 'light' }} />
                 ))}
               </div>
-              {options.length < MAX_POLL_OPTIONS && (
+              {pollLocked ? (
+                <p className="mt-2 text-[11px] italic text-texte-doux">Des votes ont été enregistrés : les choix sont verrouillés (seule la question reste modifiable).</p>
+              ) : options.length < MAX_POLL_OPTIONS && (
                 <button type="button" onClick={() => setOptions(prev => [...prev, ''])} className="mt-2 text-[12px] font-bold text-primary">+ Ajouter un choix</button>
               )}
             </div>

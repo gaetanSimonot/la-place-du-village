@@ -82,8 +82,10 @@ interface CovoitLite {
 interface ForumTopLite {
   id: string
   titre: string
+  media: { t: string; url: string }[] | null
   poll: unknown | null
   comment_count: number
+  like_count: number
   last_activity_at: string
   author_name: string | null
 }
@@ -197,7 +199,7 @@ export default function HubView({
   const ventesTotal: number      = hubData?.ventesTotal ?? 0
   const journal: JournalLite | null = (hubData?.journal ?? null) as JournalLite | null
   const covoits: CovoitLite[]    = (hubData?.covoits ?? []) as CovoitLite[]
-  const forumTop: ForumTopLite | null = (hubData?.forumTop ?? null) as ForumTopLite | null
+  const forumTopics: ForumTopLite[] = (hubData?.forumTopics ?? []) as ForumTopLite[]
 
   // Realtime : invalide le cache SWR sur changement DB
   // → mutate() refetch en arrière-plan, l'UI bascule automatiquement.
@@ -223,6 +225,10 @@ export default function HubView({
 
   const [featuredEv, ...restEvents] = todayEvents
   const miniEvents = restEvents.slice(0, 2)
+
+  // Routage du journal : 'haut' → bento Aujourd'hui ; sinon (bas/null) → 3e
+  // tuile du bento Place publique s'il y a des sujets, à défaut bento du bas.
+  const journalInPlacePublique = !!journal && journal.position_hub !== 'haut' && forumTopics.length > 0
 
   return (
     <div className="min-h-full bg-creme pb-6 font-inter">
@@ -426,23 +432,45 @@ export default function HubView({
         </>
       )}
 
-      {/* ── 8.5 Place publique — 1er sujet du forum ─────────────────────── */}
-      <SectionHeaderV3
-        title="Place publique"
-        subtitle="La discussion la plus animée du moment"
-        action="Voir tout"
-        onAction={() => router.push('/forum')}
-      />
-      <div className="px-4">
-        <PlacePubliqueTile
-          topic={forumTop}
-          onOpen={() => router.push(forumTop ? `/forum/${forumTop.id}` : '/forum')}
-        />
-      </div>
+      {/* ── 8.5 Place publique — bento irrégulier (featured + minis + journal opt) ── */}
+      {forumTopics.length > 0 && (() => {
+        const [featTopic, ...restTopics] = forumTopics
+        const miniTopics = restTopics.slice(0, 2)
+        // Si le journal se glisse en tuile 3 : il prend la place de la 2e mini
+        const visibleMinis = journalInPlacePublique ? miniTopics.slice(0, 1) : miniTopics
+        return (
+          <>
+            <SectionHeaderV3
+              title="Place publique"
+              subtitle="Les discussions du moment"
+              action="Voir tout"
+              onAction={() => router.push('/forum')}
+            />
+            <div
+              className="grid gap-2 px-4"
+              style={{
+                gridTemplateColumns: '1.25fr 1fr',
+                gridTemplateRows: (visibleMinis.length >= 1 || journalInPlacePublique) ? '1fr 1fr' : '1fr',
+              }}
+            >
+              {featTopic && (
+                <FeaturedTopicCard topic={featTopic} onClick={() => router.push(`/forum/${featTopic.id}`)} />
+              )}
+              {visibleMinis.map(t => (
+                <MiniTopicCard key={t.id} topic={t} onClick={() => router.push(`/forum/${t.id}`)} />
+              ))}
+              {/* Journal en tuile 3 (col 2, row 2) si position=bas */}
+              {journalInPlacePublique && journal && (
+                <JournalTile journal={journal} onClick={() => router.push(`/journal/${journal.numero}`)} />
+              )}
+            </div>
+          </>
+        )
+      })()}
 
-      {/* ── 9. Bottom bento — Covoit (+ Journal si position=bas) ── */}
+      {/* ── 9. Bottom bento — Covoit (+ Journal si pas déjà placé) ── */}
       {(() => {
-        const showJournalBottom = journal && journal.position_hub !== 'haut'
+        const showJournalBottom = !!journal && journal.position_hub !== 'haut' && !journalInPlacePublique
         return (
           <div
             className="grid gap-2 px-4 pt-6"
@@ -825,64 +853,124 @@ function CovoitTile({
   )
 }
 
-/* ─── Place publique — PlacePubliqueTile (1er sujet du forum) ────────── */
+/* ─── Place publique — FeaturedTopicCard (grande tuile, span 2 rangées) ── */
 
-function PlacePubliqueTile({
-  topic, onOpen,
-}: {
-  topic: ForumTopLite | null
-  onOpen: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      aria-label="Ouvrir la Place Publique"
-      className="flex w-full cursor-pointer flex-col overflow-hidden rounded-[18px] border bg-white p-0 text-left text-texte"
-      style={{ borderColor: '#E8E0D4', boxShadow: '0 4px 14px rgba(26,18,9,0.08)' }}
-    >
-      {/* Header */}
-      <div className="flex items-end justify-between gap-2 border-b border-bordSoft px-4 py-3">
-        <div>
-          <div className="text-[9px] font-extrabold tracking-[0.12em] text-texte-doux">LE VILLAGE EN DÉBAT</div>
+function FeaturedTopicCard({ topic, onClick }: { topic: ForumTopLite; onClick: () => void }) {
+  const photo = topic.media?.find(m => m.t === 'photo')?.url ?? null
+  const replies = topic.comment_count
+  const kicker = topic.poll != null ? 'SONDAGE' : 'DISCUSSION'
+  const author = topic.author_name ?? 'Quelqu\'un'
+
+  // Avec photo : image + bloc texte (comme FeaturedEventCard)
+  if (photo) {
+    return (
+      <div
+        onClick={onClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
+        style={{ gridColumn: 'span 1', gridRow: 'span 2', borderColor: '#F0EAE0' }}
+        className="flex cursor-pointer flex-col overflow-hidden rounded-[16px] border bg-white shadow-[0_6px_20px_rgba(44,28,16,0.10)]"
+      >
+        <div className="relative min-h-0 flex-1 bg-bord/40">
+          <img src={photo} alt="" className="h-full w-full object-cover" />
+          <div className="absolute left-2 top-2 rounded-[5px] bg-primary px-2 py-[3px] text-[10px] font-extrabold tracking-[0.08em] text-white">{kicker}</div>
+        </div>
+        <div className="shrink-0 px-3 pb-3 pt-2.5">
           <div
-            className="mt-[3px] font-serif text-[18px] leading-[1.1] text-texte"
-            style={{ letterSpacing: '-0.01em' }}
+            className="font-serif text-[16px] leading-[1.15] text-texte"
+            style={{ letterSpacing: '-0.01em', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
           >
-            Place publique
+            {topic.titre}
+          </div>
+          <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-texte-doux">
+            <span className="truncate">{author}</span>
+            <span aria-hidden>·</span>
+            <span className="shrink-0 font-bold text-primary">{replies} rép.</span>
+            {topic.like_count > 0 && (
+              <span className="inline-flex shrink-0 items-center gap-0.5 text-accent">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                {topic.like_count}
+              </span>
+            )}
           </div>
         </div>
-        <IconArrow size={18} />
       </div>
+    )
+  }
 
-      {/* 1er sujet */}
-      {topic ? (
-        <div className="flex items-center gap-3 px-4 py-3">
-          <div className="flex shrink-0 flex-col items-center rounded-[10px] bg-cremeDeep px-2.5 py-1.5">
-            <span className="text-[15px] font-extrabold leading-none text-primary">{topic.comment_count}</span>
-            <span className="text-[9px] text-texte-doux">rép.</span>
-          </div>
-          <div className="min-w-0 flex-1">
-            <div
-              className="line-clamp-2 font-serif text-[15px] leading-[1.2] text-texte"
-              style={{ letterSpacing: '-0.005em' }}
-            >
-              {topic.titre}
-            </div>
-            <div className="mt-1 flex items-center gap-2 text-[11px] text-texte-doux">
-              <span className="truncate">{topic.author_name ?? 'Quelqu\'un'}</span>
-              {topic.poll != null && (
-                <span className="rounded-full bg-[#FFF7DC] px-1.5 text-[9px] font-extrabold text-[#A8770F]">SONDAGE</span>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="px-4 py-4 text-[12px] text-texte-doux">
-          Aucun sujet pour l&apos;instant — lance la première discussion.
+  // Sans photo : panneau couleur, titre en grand (les sujets sont souvent textuels)
+  return (
+    <div
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
+      style={{ gridColumn: 'span 1', gridRow: 'span 2', background: 'linear-gradient(160deg, var(--primary) 0%, #1A3A2A 100%)' }}
+      className="flex cursor-pointer flex-col justify-between overflow-hidden rounded-[16px] p-3.5 text-white shadow-[0_6px_20px_rgba(44,28,16,0.10)]"
+    >
+      <div className="text-[9px] font-extrabold tracking-[0.12em] text-white/75">{kicker}</div>
+      <div
+        className="my-2 flex-1 font-serif text-[19px] leading-[1.18]"
+        style={{ letterSpacing: '-0.01em', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+      >
+        {topic.titre}
+      </div>
+      <div className="flex items-center gap-1.5 text-[11px] text-white/85">
+        <span className="truncate">{author}</span>
+        <span aria-hidden>·</span>
+        <span className="shrink-0 font-bold">{replies} rép.</span>
+        {topic.like_count > 0 && (
+          <span className="inline-flex shrink-0 items-center gap-0.5">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            {topic.like_count}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ─── Place publique — MiniTopicCard (petite tuile) ──────────────────── */
+
+function MiniTopicCard({ topic, onClick }: { topic: ForumTopLite; onClick: () => void }) {
+  const photo = topic.media?.find(m => m.t === 'photo')?.url ?? null
+  const replies = topic.comment_count
+  return (
+    <div
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
+      style={{ borderColor: '#F0EAE0' }}
+      className="flex cursor-pointer overflow-hidden rounded-[14px] border bg-white shadow-[0_4px_14px_rgba(44,28,16,0.08)]"
+    >
+      {photo && (
+        <div className="relative w-[64px] shrink-0 bg-bord/40">
+          <img src={photo} alt="" className="h-full w-full object-cover" />
         </div>
       )}
-    </button>
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-[2px] px-2.5 py-2">
+        <div className="truncate text-[8px] font-extrabold tracking-[0.12em] text-primary">{topic.poll != null ? 'SONDAGE' : 'SUJET'}</div>
+        <div
+          className="line-clamp-2 text-[12px] font-bold leading-[1.15] text-texte"
+          style={{ letterSpacing: '-0.01em' }}
+        >
+          {topic.titre}
+        </div>
+        <div className="flex items-center gap-1.5 truncate text-[10px] text-texte-doux">
+          <span className="truncate">{topic.author_name ?? 'Quelqu\'un'}</span>
+          <span aria-hidden>·</span>
+          <span className="shrink-0 font-bold text-primary">{replies} rép.</span>
+          {topic.like_count > 0 && (
+            <span className="inline-flex shrink-0 items-center gap-0.5 text-accent">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+              {topic.like_count}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
 

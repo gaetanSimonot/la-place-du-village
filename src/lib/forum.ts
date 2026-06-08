@@ -15,6 +15,7 @@ export interface ForumTopic {
   poll: ForumPoll | null
   pinned: boolean
   comment_count: number
+  like_count: number
   last_activity_at: string
   created_at: string
   /* enrichis côté client */
