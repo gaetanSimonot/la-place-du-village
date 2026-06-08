@@ -14,7 +14,6 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { notifyAllUsers } from '@/lib/server-auth'
 
 const SONNET_MODEL = 'claude-sonnet-4-6'
 
@@ -85,13 +84,14 @@ interface ClaudeOutput {
 }
 
 function getSemaineCourante(): { du: Date; au: Date } {
-  const today = new Date()
-  const monday = new Date(today)
-  monday.setDate(today.getDate() - ((today.getDay() + 6) % 7))
-  monday.setHours(0, 0, 0, 0)
+  // Le serveur Vercel est en UTC : on ancre le calcul sur la date civile en
+  // Europe/Paris pour éviter un décalage d'un jour (lundi tôt → semaine d'avant).
+  const todayParis = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date()) // 'YYYY-MM-DD'
+  const monday = new Date(`${todayParis}T00:00:00Z`)
+  const dow = monday.getUTCDay() // 0=dim..6=sam (sur une date Z-minuit, pas de skew)
+  monday.setUTCDate(monday.getUTCDate() - ((dow + 6) % 7))
   const sunday = new Date(monday)
-  sunday.setDate(monday.getDate() + 6)
-  sunday.setHours(23, 59, 59, 999)
+  sunday.setUTCDate(monday.getUTCDate() + 6)
   return { du: monday, au: sunday }
 }
 
@@ -117,7 +117,7 @@ async function collectContext(spotlightOverride?: SpotlightOverride): Promise<Co
   // 2. Événements de la semaine (pin first, puis le reste)
   const [{ data: pinEvents }, { data: weekEvents }] = await Promise.all([
     pinEvtIds.length > 0
-      ? supabaseAdmin.from('evenements').select('id, titre, date_debut, heure, description, categorie, lieux(nom, commune)').in('id', pinEvtIds).eq('statut', 'publie')
+      ? supabaseAdmin.from('evenements').select('id, titre, date_debut, heure, description, categorie, lieux(nom, commune)').in('id', pinEvtIds).eq('statut', 'publie').gte('date_debut', duISO).lte('date_debut', auISO)
       : Promise.resolve({ data: [] as EvtRow[] }),
     supabaseAdmin.from('evenements').select('id, titre, date_debut, heure, description, categorie, lieux(nom, commune)').eq('statut', 'publie').gte('date_debut', duISO).lte('date_debut', auISO).limit(12),
   ])
@@ -169,10 +169,14 @@ async function collectContext(spotlightOverride?: SpotlightOverride): Promise<Co
   }
 
   // 6. Article validé en attente (oldest first → file FIFO)
+  // Article validé de la SEMAINE en cours (plus le plus vieux de la file, pour
+  // ne pas faire remonter un article d'il y a des semaines). Les anciens
+  // validés peuvent toujours être attachés à la main depuis l'admin.
   const { data: articleData } = await supabaseAdmin
     .from('articles_journal')
     .select('id, titre, corps, user_id')
     .eq('statut', 'valide')
+    .gte('created_at', duISO)
     .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle()
@@ -291,7 +295,6 @@ export async function generateJournalDraft(
     .maybeSingle()
   const numero = (last?.numero ?? 0) + 1
 
-  const nowISO = new Date().toISOString()
   const insert = {
     numero,
     date_parution:        du.toISOString().slice(0, 10),
@@ -310,10 +313,10 @@ export async function generateJournalDraft(
     spotlight_etab_id:    ctx.spotlight?.id ?? null,
     spotlight_kind:       ctx.spotlightKind,
     temps_lecture_min:    5,
-    // Auto-publication : seul l'humain (article) demande validation ;
-    // l'agrégat hebdo ne contient que des entités déjà publiées → safe à publier.
-    statut:               'publie',
-    publie_at:            nowISO,
+    // BROUILLON : l'admin relit puis publie depuis l'éditeur. C'est le PATCH
+    // /api/admin/journal/[id] (statut='publie') qui date publie_at, publie
+    // l'article lié et envoie la notif à tous. Rien de tout ça à la génération.
+    statut:               'brouillon',
   }
 
   const { data, error } = await supabaseAdmin
@@ -323,22 +326,6 @@ export async function generateJournalDraft(
     .single()
 
   if (error) throw new Error(`Insert journal: ${error.message}`)
-
-  // Si un article était attaché au numéro, on le passe en 'publie' + lien
-  if (ctx.article?.id) {
-    await supabaseAdmin
-      .from('articles_journal')
-      .update({ statut: 'publie', journal_id: data.id })
-      .eq('id', ctx.article.id)
-  }
-
-  // Notif broadcast à tous les users (fail-silent)
-  await notifyAllUsers({
-    type:        'journal_publie',
-    actor_name:  'Le Journal du Village',
-    target_type: 'journal',
-    target_id:   data.id,
-  })
 
   return { id: data.id, numero: data.numero }
 }
