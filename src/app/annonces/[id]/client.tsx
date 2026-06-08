@@ -229,7 +229,7 @@ export default function AnnoncePageClient({ id }: Props) {
   const quota = getQuotaSponsoring(plan)
   const peutSponsoriser = isOwner && isActive && !annonce.sponsored && quota > 0
 
-  if (editing && isOwner) {
+  if (editing && (isOwner || isAdmin)) {
     return (
       <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', fontFamily: 'Inter, sans-serif', paddingBottom: 80 }}>
         <div style={stickyHeaderStyle}>
@@ -312,7 +312,7 @@ export default function AnnoncePageClient({ id }: Props) {
         </button>
         <div style={{ display: 'flex', gap: 8 }}>
           {isAdmin && <FeatureButton contentType="annonce" contentId={id} ownerUserId={annonce.user_id ?? null} />}
-          {isOwner && (
+          {(isOwner || isAdmin) && (
             <button
               onClick={() => setEditing(true)} aria-label="Modifier"
               style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2D5A3D', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
@@ -493,13 +493,13 @@ export default function AnnoncePageClient({ id }: Props) {
           </div>
         )}
 
-        {/* Actions owner — toujours visible pour le propriétaire (même si don
-            ou expirée) : édition/suppression doivent rester accessibles. */}
-        {isOwner && (
+        {/* Actions propriétaire (ou admin : modération). Toujours visible même
+            si don/expirée → édition/suppression restent accessibles. */}
+        {(isOwner || isAdmin) && (
           <div style={cardStyle}>
-            <p style={cardLabel}>Mon annonce</p>
+            <p style={cardLabel}>{isOwner ? 'Mon annonce' : 'Modération (admin)'}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {isActive && (
+              {isOwner && isActive && (
                 <ActionButton onClick={handleMarquerVendu} disabled={action === 'vendu'}>
                   {action === 'vendu' ? '...' : '✓ Marquer comme vendu'}
                 </ActionButton>
