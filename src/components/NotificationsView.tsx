@@ -89,6 +89,7 @@ const NOTIF_VISUAL: Record<NotifType, NotifVisual> = {
   event_published:        { bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.calendar, label: n => `Événement publié${n.actor_name ? ` : ${n.actor_name}` : ''}` },
   support_message:        { bg: '#E8EEF7', color: '#3A5BC7', icon: ICONS.chat,     label: n => `${n.actor_name ?? 'Quelqu\'un'} — message support` },
   journal_publie:         { bg: '#1A1209', color: '#E8C58A', icon: ICONS.clipboard,label: () => 'Nouveau Journal du Village publié' },
+  journal_brouillon:      { bg: '#FFF7DC', color: '#A8770F', icon: ICONS.clipboard,label: n => `📝 Brouillon du journal prêt à relire${n.actor_name ? ` (${n.actor_name})` : ''}` },
   article_like:           { bg: '#FFF0E5', color: '#C84B2F', icon: ICONS.star,     label: n => `${n.actor_name ?? 'Un lecteur'} a aimé ton article` },
   article_comment:        { bg: '#E8EEF7', color: '#3A5BC7', icon: ICONS.chat,     label: n => `${n.actor_name ?? 'Un lecteur'} a commenté ton article` },
   covoit_candidat:        { bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.car,      label: n => `${n.actor_name ?? 'Un voyageur'} candidate à ton trajet` },
@@ -272,6 +273,12 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
     // Broadcast admin → pop-up qui affiche le post (pas de navigation).
     if (n.type === 'post_broadcast' && n.target_id) {
       setPostModalId(n.target_id)
+      return
+    }
+
+    // Brouillon de journal → l'éditeur admin (avant la règle target_type journal).
+    if (n.type === 'journal_brouillon') {
+      router.push('/admin/journal')
       return
     }
 

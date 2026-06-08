@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateJournalDraft } from '@/lib/journal-generator'
+import { notifyAdmins } from '@/lib/server-auth'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -33,6 +34,13 @@ export async function GET(req: NextRequest) {
 
   try {
     const { id, numero } = await generateJournalDraft()
+    // Prévient les admins qu'un brouillon est prêt à relire/publier.
+    await notifyAdmins({
+      type:        'journal_brouillon',
+      actor_name:  `Journal n°${numero}`,
+      target_type: 'journal',
+      target_id:   id,
+    })
     return NextResponse.json({ ok: true, id, numero })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
