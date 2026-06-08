@@ -13,6 +13,7 @@ export default function ForumClient() {
   const { user } = useAuth()
   const { openAuthModal } = useAuthModal()
   const [topics, setTopics] = useState<ForumTopic[]>([])
+  const [pollCounts, setPollCounts] = useState<Record<string, number[]>>({})
   const [loading, setLoading] = useState(true)
   const [composerOpen, setComposerOpen] = useState(false)
 
@@ -25,18 +26,33 @@ export default function ForumClient() {
       .order('last_activity_at', { ascending: false })
       .limit(60)
     const base = (rows ?? []) as ForumTopic[]
-    if (base.length === 0) { setTopics([]); setLoading(false); return }
+    if (base.length === 0) { setTopics([]); setPollCounts({}); setLoading(false); return }
     const ids = Array.from(new Set(base.map(t => t.user_id)))
     const { data: profs } = await supabase.from('profiles').select('user_id, display_name, avatar_url').in('user_id', ids)
     const pm = new Map((profs ?? []).map((p: { user_id: string; display_name: string | null; avatar_url: string | null }) => [p.user_id, p]))
     setTopics(base.map(t => ({ ...t, author_name: pm.get(t.user_id)?.display_name ?? null, author_avatar: pm.get(t.user_id)?.avatar_url ?? null })))
     setLoading(false)
+
+    // Résultats des sondages (comptés par sujet) pour affichage dans la miniature
+    const pollTopics = base.filter(t => t.poll)
+    if (pollTopics.length === 0) { setPollCounts({}); return }
+    const { data: votes } = await supabase
+      .from('forum_poll_votes')
+      .select('topic_id, option_index')
+      .in('topic_id', pollTopics.map(t => t.id))
+    const counts = new Map(pollTopics.map(t => [t.id, t.poll!.options.map(() => 0)]))
+    for (const v of (votes ?? []) as { topic_id: string; option_index: number }[]) {
+      const arr = counts.get(v.topic_id)
+      if (arr && v.option_index >= 0 && v.option_index < arr.length) arr[v.option_index]++
+    }
+    setPollCounts(Object.fromEntries(counts))
   }, [])
 
   useEffect(() => { load() }, [load])
   useEffect(() => {
     const ch = supabase.channel('forum-list')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'forum_topics' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'forum_poll_votes' }, () => load())
       .subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [load])
@@ -100,6 +116,34 @@ export default function ForumClient() {
                   <span>{forumRelativeDate(t.last_activity_at)}</span>
                   {t.poll && <span className="rounded-full bg-[#FFF7DC] px-1.5 text-[9px] font-extrabold text-[#A8770F]">SONDAGE</span>}
                 </div>
+                {t.poll && (() => {
+                  const counts = pollCounts[t.id] ?? t.poll.options.map(() => 0)
+                  const total = counts.reduce((a, b) => a + b, 0)
+                  return (
+                    <div className="mt-2 rounded-[10px] border bg-cremeDeep px-2.5 py-2" style={{ borderColor: '#E8E0D4' }}>
+                      <div className="mb-1.5 flex items-center gap-1.5 truncate text-[11px] font-extrabold text-texte">
+                        <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                        <span className="truncate">{t.poll.question}</span>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        {t.poll.options.map((opt, i) => {
+                          const c = counts[i] ?? 0
+                          const pct = total ? Math.round((c / total) * 100) : 0
+                          return (
+                            <div key={i} className="relative overflow-hidden rounded-[7px] border px-2 py-1" style={{ borderColor: '#E8E0D4', background: '#fff' }}>
+                              <div style={{ position: 'absolute', inset: 0, width: `${pct}%`, background: '#F0EAE0' }} />
+                              <div className="relative flex items-center justify-between gap-2">
+                                <span className="truncate text-[11.5px] font-bold text-texte">{opt}</span>
+                                {total > 0 && <span className="shrink-0 text-[10px] font-bold text-texte-doux">{pct}%</span>}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      <div className="mt-1 text-[10px] text-texte-doux">{total} vote{total > 1 ? 's' : ''}</div>
+                    </div>
+                  )
+                })()}
               </div>
               <div className="flex shrink-0 flex-col items-center rounded-[10px] bg-cremeDeep px-2.5 py-1.5">
                 <span className="text-[15px] font-extrabold leading-none text-primary">{t.comment_count}</span>
