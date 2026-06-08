@@ -51,13 +51,20 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 2. Récupère les enchères AVEC seuil devenues gratuites par erreur :
---    on les remet en enchère active, au prix de leur seuil.
+-- 2. Récupère les enchères AVEC seuil devenues gratuites par erreur : on les
+--    remet en enchère active, au PRIX DÉGRESSIF correct selon leur âge
+--    (prix_initial × (1-taux)^jours), clampé au plancher.
 UPDATE public.annonces
-SET statut = 'active', type = 'enchere_inversee', prix_actuel = prix_seuil
+SET statut = 'active',
+    type   = 'enchere_inversee',
+    prix_actuel = GREATEST(
+      prix_seuil,
+      round(prix_initial * power(1 - taux_baisse_pct / 100.0,
+            floor(extract(epoch from (now() - created_at)) / 86400)::int), 2)
+    )
 WHERE statut = 'don_final'
-  AND prix_seuil IS NOT NULL
-  AND prix_seuil > 0;
+  AND prix_seuil IS NOT NULL AND prix_seuil > 0
+  AND prix_initial IS NOT NULL AND taux_baisse_pct IS NOT NULL;
 
 -- Vérif (optionnel) :
 --   SELECT titre, type, statut, prix_seuil, prix_actuel FROM public.annonces
