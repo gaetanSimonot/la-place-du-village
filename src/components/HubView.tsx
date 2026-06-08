@@ -85,6 +85,7 @@ const TILES: { id: string; label: string; iconSrc: string; click: (p: Props, rou
   { id: 'producteurs', label: 'Producteurs', iconSrc: '/icones-rondes/05_producteurs_vente_libre.png', click: p => p.onSelectProducteurs() },
   { id: 'annonces',    label: 'Annonces',    iconSrc: '/icones-rondes/07_annonces_locales.png',        click: (_, r) => r.push('/annonces') },
   { id: 'promos',      label: 'Bons plans',  iconSrc: '/icones-rondes/11_promotions_locales.png',      click: (_, r) => r.push('/promotions') },
+  { id: 'forum',       label: 'Discussions', iconSrc: '/icones-rondes/14_forum_max.png',               click: (_, r) => r.push('/forum') },
 ]
 
 function dateLabel(iso: string | null): string {
