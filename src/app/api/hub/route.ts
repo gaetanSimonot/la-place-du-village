@@ -297,6 +297,22 @@ export async function GET(req: NextRequest) {
     })
   }
 
+  // Fallback : si toujours pas 4 (ni mise en avant, ni enchère en baisse), on
+  // complète avec les annonces actives les plus récentes (tout type) → la
+  // section homepage n'est jamais vide.
+  if (ordered.length < 4) {
+    const { data: recentes } = await supabaseAdmin
+      .from('annonces')
+      .select('*')
+      .in('statut', ['active', 'don_final'])
+      .order('created_at', { ascending: false })
+      .limit(12)
+    ;((recentes ?? []) as Array<Record<string, unknown>>).forEach(a => {
+      if (ordered.length >= 4 || seen.has(a.id as string)) return
+      ordered.push(a); seen.add(a.id as string)
+    })
+  }
+
   // ── EVENTS HOMEPAGE : positionnement explicite 1/2/3 par l'admin, complété
   // par les events du jour sur les positions laissées vides. Section a 3
   // emplacements (1 grosse + 2 mini), donc on construit un array de longueur 3
