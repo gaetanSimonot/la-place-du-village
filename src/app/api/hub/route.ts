@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { normalizeHubOrder } from '@/lib/hubSections'
 
 /**
  * Valide une date YYYY-MM-DD venant du client. Retourne la date validée OU
@@ -76,6 +77,7 @@ export async function GET(req: NextRequest) {
     prodCountRes,
     introCfgRes,
     introImgRes,
+    sectionOrderRes,
     heroSlotsRes,
     promoSlotsRes,
     venteSlotsRes,
@@ -91,6 +93,7 @@ export async function GET(req: NextRequest) {
     supabaseAdmin.from('producers').select('*', { count: 'exact', head: true }),
     supabaseAdmin.from('config').select('value').eq('key', 'hub_hero_intro_enabled').maybeSingle(),
     supabaseAdmin.from('config').select('value').eq('key', 'hub_hero_intro_image_url').maybeSingle(),
+    supabaseAdmin.from('config').select('value').eq('key', 'hub_section_order').maybeSingle(),
     supabaseAdmin
       .from('featured_slots')
       .select('content_type, content_id, priority, image_position')
@@ -404,6 +407,9 @@ export async function GET(req: NextRequest) {
     journal:     journalRes.data ?? null,
     covoits:     covoitsRes.data ?? [],
     forumTopics,
+    sectionOrder: normalizeHubOrder((() => {
+      try { return JSON.parse(sectionOrderRes.data?.value ?? '[]') } catch { return [] }
+    })()),
   }
 
   return NextResponse.json(payload, {

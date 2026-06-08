@@ -1,5 +1,6 @@
 'use client'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -12,6 +13,7 @@ import HubTopBar from '@/components/HubTopBar'
 import HubSearchBar from '@/components/HubSearchBar'
 import { useAnnonceFavorites } from '@/hooks/useAnnonceFavorites'
 import { shareLink } from '@/lib/share'
+import { normalizeHubOrder } from '@/lib/hubSections'
 // Fetcher + config SWR héritent du provider global (cf. src/components/SWRProvider.tsx).
 
 interface Props {
@@ -200,6 +202,7 @@ export default function HubView({
   const journal: JournalLite | null = (hubData?.journal ?? null) as JournalLite | null
   const covoits: CovoitLite[]    = (hubData?.covoits ?? []) as CovoitLite[]
   const forumTopics: ForumTopLite[] = (hubData?.forumTopics ?? []) as ForumTopLite[]
+  const sectionOrder: string[] = normalizeHubOrder(hubData?.sectionOrder)
 
   // Realtime : invalide le cache SWR sur changement DB
   // → mutate() refetch en arrière-plan, l'UI bascule automatiquement.
@@ -211,6 +214,7 @@ export default function HubView({
       .on('postgres_changes', { event: '*', schema: 'public', table: 'covoiturages' }, () => mutateHub())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'forum_topics' }, () => mutateHub())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'forum_comments' }, () => mutateHub())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'config' }, () => mutateHub())
       .subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [mutateHub])
@@ -229,6 +233,142 @@ export default function HubView({
   // Routage du journal : 'haut' → bento Aujourd'hui ; sinon (bas/null) → 3e
   // tuile du bento Place publique s'il y a des sujets, à défaut bento du bas.
   const journalInPlacePublique = !!journal && journal.position_hub !== 'haut' && forumTopics.length > 0
+
+  // Sections de contenu réordonnables (ordre piloté par l'admin via config).
+  // Les parties fixes (barre, recherche, hero, tuiles, footer) restent hors map.
+  const sectionNodes: Record<string, ReactNode> = {
+    // ── Aujourd'hui — bento featured + 2 mini (ou 1 mini + journal si haut) ──
+    aujourdhui: todayEvents.length > 0 ? (() => {
+      const journalInTop = journal?.position_hub === 'haut'
+      const visibleMinis = journalInTop ? miniEvents.slice(0, 1) : miniEvents
+      const shownEvents = (featuredEv ? 1 : 0) + visibleMinis.length
+      const remaining = Math.max(0, todayTotal - shownEvents)
+      const showMoreCard = !journalInTop && featuredEv && remaining > 0 && visibleMinis.length < 2
+      return (
+        <>
+          <SectionHeaderV3
+            title="Aujourd'hui"
+            kicker={`· ${todayTotal}`}
+            subtitle={`${todayTotal} événement${todayTotal > 1 ? 's' : ''} près de chez vous`}
+            action="Voir tout"
+            onAction={onSelectAgendaToday ?? onSelectAgenda}
+          />
+          <div
+            className="grid gap-2 px-4"
+            style={{
+              gridTemplateColumns: '1.25fr 1fr',
+              gridTemplateRows: (visibleMinis.length >= 1 || journalInTop) ? '1fr 1fr' : '1fr',
+            }}
+          >
+            {featuredEv && (
+              <FeaturedEventCard ev={featuredEv} onClick={() => router.push(`/evenement/${featuredEv.id}`)} />
+            )}
+            {visibleMinis.map(ev => (
+              <MiniEventCard key={ev.id} ev={ev} onClick={() => router.push(`/evenement/${ev.id}`)} />
+            ))}
+            {journalInTop && journal && (
+              <JournalTile journal={journal} onClick={() => router.push(`/journal/${journal.numero}`)} />
+            )}
+            {showMoreCard && (
+              <MoreEventsCard count={remaining} onClick={onSelectAgendaToday ?? onSelectAgenda} />
+            )}
+          </div>
+        </>
+      )
+    })() : null,
+
+    // ── Bons plans — 3 colonnes compactes ──
+    bonsplans: promos.length > 0 ? (
+      <>
+        <SectionHeaderV3
+          title="Bons plans"
+          kicker={`· ${promos.length}`}
+          subtitle="Chez vos commerçants partenaires"
+          action="Voir tout"
+          onAction={() => router.push('/promotions')}
+        />
+        <div className="grid grid-cols-3 gap-1.5 px-4">
+          {promos.slice(0, 3).map(p => (
+            <CompactPromoCard key={p.id} promo={p} onClick={() => router.push(`/promotions?id=${p.id}`)} />
+          ))}
+        </div>
+      </>
+    ) : null,
+
+    // ── Ventes — 2x2 ──
+    ventes: ventesAnnonces.length > 0 ? (
+      <>
+        <SectionHeaderV3
+          title="Ventes"
+          kicker={`· ${ventesTotal}`}
+          subtitle="Annonces en baisse cette semaine"
+          action="Annonces"
+          onAction={() => router.push('/annonces')}
+        />
+        <div className="grid grid-cols-2 gap-2 px-4">
+          {ventesAnnonces.map(a => (
+            <SaleAnnonceCard
+              key={a.id}
+              annonce={a}
+              favored={favIds.includes(a.id)}
+              onToggleFav={() => toggleFav(a.id)}
+              onClick={() => router.push(`/annonces/${a.id}`)}
+            />
+          ))}
+        </div>
+      </>
+    ) : null,
+
+    // ── Place publique — bento irrégulier (featured + minis + journal opt) ──
+    place_publique: forumTopics.length > 0 ? (() => {
+      const [featTopic, ...restTopics] = forumTopics
+      const miniTopics = restTopics.slice(0, 2)
+      const visibleMinis = journalInPlacePublique ? miniTopics.slice(0, 1) : miniTopics
+      return (
+        <>
+          <SectionHeaderV3
+            title="Place publique"
+            subtitle="Les discussions du moment"
+            action="Voir tout"
+            onAction={() => router.push('/forum')}
+          />
+          <div
+            className="grid gap-2 px-4"
+            style={{
+              gridTemplateColumns: '1.25fr 1fr',
+              gridTemplateRows: (visibleMinis.length >= 1 || journalInPlacePublique) ? '1fr 1fr' : '1fr',
+            }}
+          >
+            {featTopic && (
+              <FeaturedTopicCard topic={featTopic} onClick={() => router.push(`/forum/${featTopic.id}`)} />
+            )}
+            {visibleMinis.map(t => (
+              <MiniTopicCard key={t.id} topic={t} onClick={() => router.push(`/forum/${t.id}`)} />
+            ))}
+            {journalInPlacePublique && journal && (
+              <JournalTile journal={journal} onClick={() => router.push(`/journal/${journal.numero}`)} />
+            )}
+          </div>
+        </>
+      )
+    })() : null,
+
+    // ── Covoiturage (+ Journal si pas déjà placé) ──
+    covoiturage: (() => {
+      const showJournalBottom = !!journal && journal.position_hub !== 'haut' && !journalInPlacePublique
+      return (
+        <div
+          className="grid gap-2 px-4 pt-6"
+          style={{ gridTemplateColumns: showJournalBottom ? '1.5fr 1fr' : '1fr' }}
+        >
+          <CovoitTile covoits={covoits} onClick={() => router.push('/covoiturage')} />
+          {showJournalBottom && journal && (
+            <JournalTile journal={journal} onClick={() => router.push(`/journal/${journal.numero}`)} />
+          )}
+        </div>
+      )
+    })(),
+  }
 
   return (
     <div className="min-h-full bg-creme pb-6 font-inter">
@@ -329,166 +469,8 @@ export default function HubView({
         ))}
       </div>
 
-      {/* ── 6. Aujourd'hui — bento featured + 2 mini (ou 1 mini + journal si position=haut) ── */}
-      {todayEvents.length > 0 && (() => {
-        const journalInTop = journal?.position_hub === 'haut'
-        // Si journal en haut : il prend la place de la 2e mini → on garde max 1 mini event
-        const visibleMinis = journalInTop ? miniEvents.slice(0, 1) : miniEvents
-        // Compteur "+N" : nb d'events restants (total - featured - minis visibles)
-        const shownEvents = (featuredEv ? 1 : 0) + visibleMinis.length
-        const remaining = Math.max(0, todayTotal - shownEvents)
-        // En layout 'haut' : on n'affiche le +N que s'il n'y a pas déjà le journal qui occupe la cell bas-droite
-        const showMoreCard = !journalInTop && featuredEv && remaining > 0 && visibleMinis.length < 2
-        return (
-          <>
-            <SectionHeaderV3
-              title="Aujourd'hui"
-              kicker={`· ${todayTotal}`}
-              subtitle={`${todayTotal} événement${todayTotal > 1 ? 's' : ''} près de chez vous`}
-              action="Voir tout"
-              onAction={onSelectAgendaToday ?? onSelectAgenda}
-            />
-            <div
-              className="grid gap-2 px-4"
-              style={{
-                gridTemplateColumns: '1.25fr 1fr',
-                gridTemplateRows: (visibleMinis.length >= 1 || journalInTop) ? '1fr 1fr' : '1fr',
-              }}
-            >
-              {featuredEv && (
-                <FeaturedEventCard
-                  ev={featuredEv}
-                  onClick={() => router.push(`/evenement/${featuredEv.id}`)}
-                />
-              )}
-              {visibleMinis.map(ev => (
-                <MiniEventCard
-                  key={ev.id}
-                  ev={ev}
-                  onClick={() => router.push(`/evenement/${ev.id}`)}
-                />
-              ))}
-              {/* Journal en haut : prend la 2e cellule droite (col 2, row 2) */}
-              {journalInTop && journal && (
-                <JournalTile
-                  journal={journal}
-                  onClick={() => router.push(`/journal/${journal.numero}`)}
-                />
-              )}
-              {showMoreCard && (
-                <MoreEventsCard
-                  count={remaining}
-                  onClick={onSelectAgendaToday ?? onSelectAgenda}
-                />
-              )}
-            </div>
-          </>
-        )
-      })()}
-
-      {/* ── 7. Bons plans — 3 colonnes compactes ──────────────────────── */}
-      {promos.length > 0 && (
-        <>
-          <SectionHeaderV3
-            title="Bons plans"
-            kicker={`· ${promos.length}`}
-            subtitle="Chez vos commerçants partenaires"
-            action="Voir tout"
-            onAction={() => router.push('/promotions')}
-          />
-          <div className="grid grid-cols-3 gap-1.5 px-4">
-            {promos.slice(0, 3).map(p => (
-              <CompactPromoCard
-                key={p.id}
-                promo={p}
-                onClick={() => router.push(`/promotions?id=${p.id}`)}
-              />
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* ── 8. Ventes — 2x2 ───────────────────────────────────────────── */}
-      {ventesAnnonces.length > 0 && (
-        <>
-          <SectionHeaderV3
-            title="Ventes"
-            kicker={`· ${ventesTotal}`}
-            subtitle="Annonces en baisse cette semaine"
-            action="Annonces"
-            onAction={() => router.push('/annonces')}
-          />
-          <div className="grid grid-cols-2 gap-2 px-4">
-            {ventesAnnonces.map(a => (
-              <SaleAnnonceCard
-                key={a.id}
-                annonce={a}
-                favored={favIds.includes(a.id)}
-                onToggleFav={() => toggleFav(a.id)}
-                onClick={() => router.push(`/annonces/${a.id}`)}
-              />
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* ── 8.5 Place publique — bento irrégulier (featured + minis + journal opt) ── */}
-      {forumTopics.length > 0 && (() => {
-        const [featTopic, ...restTopics] = forumTopics
-        const miniTopics = restTopics.slice(0, 2)
-        // Si le journal se glisse en tuile 3 : il prend la place de la 2e mini
-        const visibleMinis = journalInPlacePublique ? miniTopics.slice(0, 1) : miniTopics
-        return (
-          <>
-            <SectionHeaderV3
-              title="Place publique"
-              subtitle="Les discussions du moment"
-              action="Voir tout"
-              onAction={() => router.push('/forum')}
-            />
-            <div
-              className="grid gap-2 px-4"
-              style={{
-                gridTemplateColumns: '1.25fr 1fr',
-                gridTemplateRows: (visibleMinis.length >= 1 || journalInPlacePublique) ? '1fr 1fr' : '1fr',
-              }}
-            >
-              {featTopic && (
-                <FeaturedTopicCard topic={featTopic} onClick={() => router.push(`/forum/${featTopic.id}`)} />
-              )}
-              {visibleMinis.map(t => (
-                <MiniTopicCard key={t.id} topic={t} onClick={() => router.push(`/forum/${t.id}`)} />
-              ))}
-              {/* Journal en tuile 3 (col 2, row 2) si position=bas */}
-              {journalInPlacePublique && journal && (
-                <JournalTile journal={journal} onClick={() => router.push(`/journal/${journal.numero}`)} />
-              )}
-            </div>
-          </>
-        )
-      })()}
-
-      {/* ── 9. Bottom bento — Covoit (+ Journal si pas déjà placé) ── */}
-      {(() => {
-        const showJournalBottom = !!journal && journal.position_hub !== 'haut' && !journalInPlacePublique
-        return (
-          <div
-            className="grid gap-2 px-4 pt-6"
-            style={{ gridTemplateColumns: showJournalBottom ? '1.5fr 1fr' : '1fr' }}
-          >
-            <CovoitTile
-              covoits={covoits}
-              onClick={() => router.push('/covoiturage')}
-            />
-            {showJournalBottom && (
-              <JournalTile
-                journal={journal}
-                onClick={() => router.push(`/journal/${journal.numero}`)}
-              />
-            )}
-          </div>
-        )
-      })()}
+      {/* ── Sections de contenu — ordre piloté par l'admin (config) ──────── */}
+      {sectionOrder.map(id => <Fragment key={id}>{sectionNodes[id]}</Fragment>)}
 
       {/* ── 10. Footer légal (discret, requis Google OAuth + RGPD) ───────
           Présence d'un lien Privacy Policy/CGU depuis la home est attendue
