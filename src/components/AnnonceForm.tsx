@@ -50,7 +50,7 @@ const TYPE_INFO: Record<AnnonceType, { label: string; sub: string; color: string
   },
   enchere_inversee: {
     label: 'Enchère', sub: 'Le prix baisse / j',   color: '#C0392B', bg: '#FBE9E7',
-    help: 'Le prix baisse chaque jour. Si personne ne prend avant le seuil, l\'annonce devient un don.',
+    help: 'Le prix baisse chaque jour. Avec un prix plancher, il s\'arrête à ce montant. Sans plancher, il descend jusqu\'à devenir un don gratuit.',
     icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C0392B" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>,
   },
 }
@@ -408,16 +408,16 @@ export default function AnnonceForm({ initial, onSuccess, bottomOffset = 0 }: Pr
                   Le prix actuel diminue de ce pourcentage chaque nuit à minuit.
                 </p>
               </Field>
-              <Field label="Seuil minimum (€) — optionnel">
+              <Field label="Prix plancher (€) — optionnel">
                 <input
                   type="number" step="0.01" min="0"
                   value={prixSeuil}
                   onChange={e => setPrixSeuil(e.target.value)}
-                  placeholder="Si vide : pas de seuil"
+                  placeholder="Vide : descend jusqu'au don"
                   style={inputStyle}
                 />
                 <p style={{ fontSize: 11, color: '#8A7A6A', margin: '4px 0 0' }}>
-                  Si le prix l&apos;atteint sans preneur, l&apos;annonce devient un Don.
+                  Le prix <strong>s&apos;arrête à ce montant</strong> (reste vendable). Sans plancher, l&apos;annonce finit en <strong>don gratuit</strong>.
                 </p>
               </Field>
             </>
