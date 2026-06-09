@@ -261,7 +261,7 @@ export default function HubView({
               // rangées en minmax(0,1fr) empêchent les mini-tuiles d'allonger
               // la grille (elles remplissent leur demi-hauteur, image croppée).
               gridTemplateRows: (visibleMinis.length >= 1 || journalInTop) ? 'minmax(0, 1fr) minmax(0, 1fr)' : '1fr',
-              height: (visibleMinis.length >= 1 || journalInTop) ? 200 : undefined,
+              height: (visibleMinis.length >= 1 || journalInTop) ? 240 : undefined,
             }}
           >
             {featuredEv && (
