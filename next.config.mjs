@@ -2,6 +2,18 @@ import withPWA from '@ducanh2912/next-pwa'
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Générateur d'affiches (route /api/poster/generate) :
+  // - modules natifs gardés hors du bundle webpack
+  // - polices + fonds embarqués dans la fonction serverless (lus via process.cwd())
+  experimental: {
+    serverComponentsExternalPackages: ['sharp', '@resvg/resvg-js'],
+    outputFileTracingIncludes: {
+      '/api/poster/generate': [
+        './src/lib/poster/fonts/**',
+        './src/lib/poster/backgrounds/**',
+      ],
+    },
+  },
   images: {
     remotePatterns: [
       {

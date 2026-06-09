@@ -5,6 +5,11 @@ import { Categorie, Evenement } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { uploadViaSignedUrl, base64ToBlob, compressImage } from '@/lib/clientUpload'
 import { authedFetch } from '@/lib/swr-fetchers'
+import { useAuth } from '@/hooks/useAuth'
+import { useAdminSession } from '@/hooks/useAdminSession'
+import { can, toUserContext } from '@/lib/capabilities'
+import SubscriptionModal from '@/components/SubscriptionModal'
+import PosterGeneratorModal from '@/components/PosterGeneratorModal'
 
 type Mode = 'edit' | 'crop' | 'fullscreen'
 interface Prediction { place_id: string; description: string; main: string; secondary: string }
@@ -264,6 +269,11 @@ interface Props {
 }
 
 export default function EventEditDrawer({ evenementId, initialData, initialImage, onClose, onSaved, onEditOnly, etablissementId }: Props) {
+  const { profile } = useAuth()
+  const isAdmin = useAdminSession()
+  const [posterOpen, setPosterOpen] = useState(false)
+  const [upsellOpen, setUpsellOpen] = useState(false)
+
   const [mode, setMode]       = useState<Mode>('edit')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving]   = useState(false)
@@ -299,7 +309,6 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
   const [newPreview, setNewPreview]       = useState<string | null>(null)
   // V3: track si l'image vient d'une extraction (pour badge "EXTRAIT DE L'AFFICHE")
   const [imageFromExtract, setImageFromExtract] = useState(false)
-  const [pexelsLoading, setPexelsLoading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
@@ -385,30 +394,32 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
     e.target.value = ''
   }
 
-  // V3: récupère une image depuis Pexels (Banque libre)
-  const loadFromPexels = async () => {
-    setPexelsLoading(true)
-    try {
-      const q = encodeURIComponent(titre || categorie || 'event')
-      const r = await fetch(`/api/pexels?nom=${q}`)
-      const d = await r.json()
-      if (d.url) {
-        // Récupère l'image en base64 pour pouvoir l'uploader comme les autres
-        const imgRes = await fetch(d.url)
-        const blob = await imgRes.blob()
-        const reader = new FileReader()
-        reader.onload = ev => {
-          const dataUrl = ev.target?.result as string
-          setNewBase64(dataUrl.split(',')[1])
-          setNewMime(blob.type || 'image/jpeg')
-          setNewPreview(dataUrl)
-          setImageUrl(null)
-          setImageFromExtract(false)
-        }
-        reader.readAsDataURL(blob)
-      }
-    } catch { /* ignore */ }
-    finally { setPexelsLoading(false) }
+  // Contrat événement pour le générateur d'affiche (cf. poster/contract.js)
+  const buildPosterEvent = () => ({
+    titre, description,
+    date_debut: dateDebut || null, date_fin: dateFin || null, heure: heure || null,
+    prix: prix || null, contact: contact || null, organisateurs: organisateurs || null,
+    lieu_nom: lieuNom || null, adresse: adresse || null, commune: commune || null,
+    categorie,
+    categorie_label:   CATEGORIES[categorie]?.label,
+    categorie_emoji:   CATEGORIES[categorie]?.emoji,
+    categorie_couleur: CATEGORIES[categorie]?.color,
+    etablissement: etablissementId ? { id: etablissementId } : null,
+  })
+
+  // Clic "Générer une affiche" : Pro/admin → modal ; gratuit → upsell abonnement.
+  const handleGeneratePoster = () => {
+    if (can(toUserContext(profile, isAdmin), 'promo_pro')) setPosterOpen(true)
+    else setUpsellOpen(true)
+  }
+
+  // Affiche générée (déjà uploadée en storage par le modal) → devient l'image.
+  const applyPoster = (publicUrl: string) => {
+    setImageUrl(publicUrl)
+    setNewBase64(null); setNewPreview(null)
+    setImageFromExtract(false)
+    setImagePosition('50% 50%')
+    setPosterOpen(false)
   }
 
   const geocodeManual = useCallback(async () => {
@@ -499,7 +510,9 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
       if (!evenementId) {
         // Mode création : pre-upload de l image via signed URL (zero transit
         // Vercel), puis POST a /api/evenements avec image_url.
-        let uploadedImageUrl: string | null = null
+        // Démarre sur imageUrl (cas affiche générée, déjà uploadée) ; un
+        // newBase64 (caméra/galerie) le remplace.
+        let uploadedImageUrl: string | null = imageUrl
         if (newBase64) {
           try {
             const blob = base64ToBlob(newBase64, newMime)
@@ -718,15 +731,14 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
               Galerie
             </button>
             <button
-              onClick={loadFromPexels}
-              disabled={pexelsLoading}
-              className="flex flex-1 flex-col items-center gap-1 rounded-xl py-2.5 text-[11px] font-bold text-primary disabled:opacity-55"
+              onClick={handleGeneratePoster}
+              className="flex flex-1 flex-col items-center gap-1 rounded-xl py-2.5 text-[11px] font-bold text-primary"
               style={{ background: '#E8F2EB', border: '1px solid #C5DCC9' }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/><circle cx="8.5" cy="8.5" r="1.5"/>
               </svg>
-              {pexelsLoading ? '…' : 'Banque libre'}
+              Générer une affiche
             </button>
           </div>
           {/* Inputs file cachés */}
@@ -967,6 +979,21 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
           )}
         </button>
       </div>
+
+      {posterOpen && (
+        <PosterGeneratorModal
+          event={buildPosterEvent()}
+          onClose={() => setPosterOpen(false)}
+          onApply={applyPoster}
+        />
+      )}
+      {upsellOpen && (
+        <SubscriptionModal
+          context={{ kind: 'feature', featureLabel: 'Générer une affiche', minPlan: 'pro' }}
+          currentPlan={(profile?.plan as 'basic' | 'habitants' | 'pro') ?? 'basic'}
+          onClose={() => setUpsellOpen(false)}
+        />
+      )}
     </div>
   )
 }
