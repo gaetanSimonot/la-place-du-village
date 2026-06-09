@@ -727,7 +727,7 @@ export default function AjouterPage() {
 
         <div className="px-4 pt-6">
           <p className="m-0 text-[13px] leading-[1.5] text-texte-doux">
-            Prends l&apos;affiche en photo (ou choisis dans ta galerie). L&apos;IA lit titre, date, lieu, prix…
+            Prends l&apos;affiche en photo (ou choisis dans ta galerie). La détection automatique lit titre, date, lieu, prix…
           </p>
         </div>
 
@@ -787,7 +787,7 @@ export default function AjouterPage() {
 
         <div className="px-4 pt-6">
           <p className="m-0 text-[13px] leading-[1.5] text-texte-doux">
-            Parle au micro, ou colle un SMS / message WhatsApp. L&apos;IA en extrait l&apos;événement.
+            Parle au micro, ou colle un SMS / message WhatsApp. La détection automatique en extrait l&apos;événement.
           </p>
         </div>
 
