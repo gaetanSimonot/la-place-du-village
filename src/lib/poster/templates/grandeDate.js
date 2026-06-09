@@ -44,6 +44,6 @@ export async function render({ d, W, H, fx, sources }) {
     Box({ position: 'absolute', left: M, bottom: M, display: 'flex', flexDirection: 'column', gap: 0.8 * u },
       Text({ fontFamily: 'Poppins', fontWeight: 700, fontSize: 3 * u, color: P.onAccent }, [d.time, d.place].filter(Boolean).join(' · ')),
       [d.price, d.organizer].filter(Boolean).length ? Text({ fontFamily: 'Poppins', fontWeight: 500, fontSize: 2.2 * u, color: 'rgba(251,239,217,0.82)', letterSpacing: 1 }, [d.price, d.organizer].filter(Boolean).join(' · ')) : null),
-    Box({ position: 'absolute', right: M, top: seam - 3.4 * u, display: 'flex', paddingTop: 1.9 * u, paddingBottom: 1.9 * u, paddingLeft: 3.4 * u, paddingRight: 3.4 * u, borderRadius: 999, background: P.accent, color: P.onAccent, fontFamily: 'Poppins', fontWeight: 800, fontSize: 2.8 * u }, d.cta)
+    d.cta ? Box({ position: 'absolute', right: M, top: seam - 3.4 * u, display: 'flex', paddingTop: 1.9 * u, paddingBottom: 1.9 * u, paddingLeft: 3.4 * u, paddingRight: 3.4 * u, borderRadius: 999, background: P.accent, color: P.onAccent, fontFamily: 'Poppins', fontWeight: 800, fontSize: 2.8 * u }, d.cta) : null
   );
 }

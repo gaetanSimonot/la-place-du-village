@@ -45,7 +45,7 @@ export function fromContract(e = {}) {
     catLabel: e.categorie_label || '',
     catEmoji: e.categorie_emoji || '',
     accent: e.categorie_couleur || '#E74C3C',
-    cta: 'Réserver',
+    cta: '', // pas de call-to-action : ce sont des visuels, pas des billetteries
     establishmentPhoto: (e.etablissement && e.etablissement.photo_url) || null,
   };
 }

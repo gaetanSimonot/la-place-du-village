@@ -42,7 +42,7 @@ export async function render({ d, W, H, fx, sources }) {
       d.description ? Text({ fontFamily: 'Poppins', fontWeight: 500, fontSize: 2.4 * u, lineHeight: 1.4, color: P.muted, marginTop: 2.2 * u, maxWidth: '88%' }, d.description) : null,
       Box({ display: 'flex', flexDirection: 'column', gap: 1.3 * u, marginTop: 2.6 * u }, d.when ? metaRow(d.when) : null, d.place ? metaRow(d.place) : null),
       Box({ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2.6 * u },
-        Box({ display: 'flex', paddingTop: 1.8 * u, paddingBottom: 1.8 * u, paddingLeft: 3.2 * u, paddingRight: 3.2 * u, borderRadius: 999, background: P.accent, color: P.onAccent, fontFamily: 'Poppins', fontWeight: 800, fontSize: 3 * u }, d.cta),
+        d.cta ? Box({ display: 'flex', paddingTop: 1.8 * u, paddingBottom: 1.8 * u, paddingLeft: 3.2 * u, paddingRight: 3.2 * u, borderRadius: 999, background: P.accent, color: P.onAccent, fontFamily: 'Poppins', fontWeight: 800, fontSize: 3 * u }, d.cta) : null,
         d.price ? Text({ fontFamily: 'Poppins', fontWeight: 600, fontSize: 2.2 * u, color: P.muted, letterSpacing: 1 }, d.price) : null))
   );
 }

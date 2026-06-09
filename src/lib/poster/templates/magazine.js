@@ -5,7 +5,11 @@ import { onColor } from '../contract.js';
 export const meta = { palette: { bg: '#0E0E12' }, needs: 'background' };
 
 export async function render({ d, W, H, fx, sources }) {
-  const u = W / 100, M = 0.067 * W, MH = Math.round(0.058 * H), titleSize = 0.076 * W;
+  const u = W / 100, M = 0.067 * W, MH = Math.round(0.058 * H);
+  // Échelle selon le ratio : titre plein en portrait, réduit en carré/paysage
+  // (évite que le titre remonte et chevauche le bandeau/catégorie).
+  const k = Math.min(1, (H / W) / 1.2);
+  const titleSize = 0.076 * W * k;
   const src = sources.bg || sources.photo;
   const bg = src ? await fx.prepBg(src, W, H) : null;
   const acc = d.accent, onAcc = onColor(acc);
@@ -26,6 +30,6 @@ export async function render({ d, W, H, fx, sources }) {
         Box({ display: 'flex', flexDirection: 'column', gap: 0.8 * u },
           d.place ? Text({ fontFamily: 'Poppins', fontWeight: 700, fontSize: 2.7 * u, color: '#FFFFFF' }, d.place) : null,
           d.price ? Text({ fontFamily: 'Poppins', fontWeight: 500, fontSize: 2.3 * u, color: 'rgba(255,255,255,0.7)', letterSpacing: 1 }, d.price) : null),
-        Box({ display: 'flex', paddingTop: 1.9 * u, paddingBottom: 1.9 * u, paddingLeft: 3.4 * u, paddingRight: 3.4 * u, borderRadius: 999, background: acc, color: onAcc, fontFamily: 'Poppins', fontWeight: 800, fontSize: 2.7 * u }, d.cta)))
+        d.cta ? Box({ display: 'flex', paddingTop: 1.9 * u, paddingBottom: 1.9 * u, paddingLeft: 3.4 * u, paddingRight: 3.4 * u, borderRadius: 999, background: acc, color: onAcc, fontFamily: 'Poppins', fontWeight: 800, fontSize: 2.7 * u }, d.cta) : null))
   );
 }

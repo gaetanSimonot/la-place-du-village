@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import sharp from 'sharp'
 import { requireUser } from '@/lib/server-auth'
 import { can } from '@/lib/capabilities'
 import { generatePoster } from '@/lib/poster/generate.js'
@@ -10,6 +11,11 @@ export const maxDuration = 30
 
 const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]
 const ACCENTS = ['#E74C3C', '#9B59B6', '#27AE60', '#F39C12', '#3498DB', '#E91E63', '#16A085', '#2D5A3D', '#C4622D']
+// Couleurs pleines pour l'option "Fond uni" (pas d'image de fond).
+const SOLIDS = ['#0E0E12', '#1B1C2B', '#241046', '#13212B', '#2D5A3D', '#3A1410', '#101A22', '#1A1209']
+
+const solidBg = (hex: string) =>
+  sharp({ create: { width: 32, height: 32, channels: 3, background: hex } }).png().toBuffer()
 
 /** data:…base64 → Buffer (le moteur gère aussi les chemins et URLs http). */
 function toSource(s?: string | null): Buffer | string | null {
@@ -51,8 +57,11 @@ export async function POST(req: NextRequest) {
     if (Math.random() < 0.6) event.categorie_couleur = pick(ACCENTS)
   }
 
-  // "Utiliser mes fonds d'ambiance" : pioche un fond dans la bibliothèque serveur.
-  if (opts.useBackgrounds) {
+  // Fond : "Fond uni" → couleur pleine ; sinon fonds d'ambiance (aléatoires
+  // par défaut) piochés dans la bibliothèque serveur.
+  if (opts.solidBg) {
+    o.background = await solidBg(pick(SOLIDS))
+  } else {
     o.background = pick(Object.values(BACKGROUNDS as Record<string, string>))
   }
 

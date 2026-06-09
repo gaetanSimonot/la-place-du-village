@@ -40,9 +40,12 @@ export default function PosterGeneratorModal({ event, onClose, onApply }: {
   onClose: () => void
   onApply: (publicUrl: string) => void
 }) {
+  // Snapshot de l'event au montage (les champs sont figés quand le modal s'ouvre).
+  const eventRef = useRef(event)
+
   const [format, setFormat]     = useState('a4-print')
   const [template, setTemplate] = useState('magazine')
-  const [useBackgrounds, setUseBackgrounds] = useState(false)
+  const [solidBg, setSolidBg]   = useState(false)
   const [photo, setPhoto]       = useState<string | null>(null)   // dataURL
   const [logo, setLogo]         = useState<string | null>(null)   // dataURL
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -52,37 +55,42 @@ export default function PosterGeneratorModal({ event, onClose, onApply }: {
   const [error, setError]       = useState<string | null>(null)
   const photoRef = useRef<HTMLInputElement>(null)
   const logoRef  = useRef<HTMLInputElement>(null)
+  const reqId    = useRef(0)   // ignore les réponses périmées
 
-  const hasPhoto = !!(photo || event.etablissement?.photo_url)
+  const hasPhoto = !!(photo || eventRef.current.etablissement?.photo_url)
 
   const generate = useCallback(async (random: boolean) => {
+    const id = ++reqId.current
     setLoading(true); setError(null)
     try {
       const res = await authedFetch('/api/poster/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          event,
-          opts: { template, format, random, useBackgrounds, image: photo, logo },
+          event: eventRef.current,
+          opts: { template, format, random, solidBg, image: photo, logo },
         }),
       })
+      if (id !== reqId.current) return            // une requête plus récente a pris le relais
       if (!res.ok) {
         const d = await res.json().catch(() => ({}))
         throw new Error(d.error ?? `Erreur ${res.status}`)
       }
       const b = await res.blob()
+      if (id !== reqId.current) return
       setBlob(b)
       setPreviewUrl(prev => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(b) })
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur')
+      if (id === reqId.current) setError(e instanceof Error ? e.message : 'Erreur')
     } finally {
-      setLoading(false)
+      if (id === reqId.current) setLoading(false)
     }
-  }, [event, template, format, useBackgrounds, photo, logo])
+  }, [template, format, solidBg, photo, logo])
 
-  // Première proposition au montage + à chaque changement de format.
-  useEffect(() => { generate(false) }, [format]) // eslint-disable-line react-hooks/exhaustive-deps
-  // Nettoyage de l'objectURL
+  // Régénère AUTOMATIQUEMENT à chaque changement de filtre (format, style,
+  // fond uni, photo, logo) + au montage. Plus besoin de re-cliquer.
+  useEffect(() => { generate(false) }, [generate])
+  // Nettoyage de l'objectURL au démontage
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const apply = async () => {
@@ -115,21 +123,20 @@ export default function PosterGeneratorModal({ event, onClose, onApply }: {
       </div>
 
       {/* Preview */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, overflow: 'hidden' }}>
-        {loading ? (
-          <div style={{ width: 36, height: 36, borderRadius: '50%', border: '4px solid rgba(255,255,255,0.2)', borderTopColor: '#fff', animation: 'spin 0.7s linear infinite' }} />
-        ) : previewUrl ? (
-          <img src={previewUrl} alt="aperçu" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 8, boxShadow: '0 8px 40px rgba(0,0,0,0.5)' }} />
-        ) : (
-          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Aucun aperçu</p>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, overflow: 'hidden', position: 'relative' }}>
+        {previewUrl && (
+          <img src={previewUrl} alt="aperçu" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 8, boxShadow: '0 8px 40px rgba(0,0,0,0.5)', opacity: loading ? 0.4 : 1, transition: 'opacity 0.2s' }} />
         )}
+        {loading && (
+          <div style={{ position: 'absolute', width: 36, height: 36, borderRadius: '50%', border: '4px solid rgba(255,255,255,0.25)', borderTopColor: '#fff', animation: 'spin 0.7s linear infinite' }} />
+        )}
+        {!previewUrl && !loading && <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Aucun aperçu</p>}
       </div>
 
       {error && <p style={{ margin: 0, padding: '0 16px 8px', color: '#FF9B7A', fontSize: 12, textAlign: 'center' }}>{error}</p>}
 
       {/* Panneau de contrôles */}
-      <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', padding: '16px 16px 20px', paddingBottom: 'max(20px, env(safe-area-inset-bottom, 20px))', maxHeight: '46dvh', overflowY: 'auto' }}>
-        {/* Aléatoire */}
+      <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', padding: '16px 16px 20px', paddingBottom: 'max(20px, env(safe-area-inset-bottom, 20px))', maxHeight: '48dvh', overflowY: 'auto' }}>
         <button onClick={() => generate(true)} disabled={loading}
           style={{ width: '100%', padding: '13px', borderRadius: 14, border: 'none', background: 'linear-gradient(90deg,#2D5A3D,#3A7A52)', color: '#fff', fontSize: 14, fontWeight: 800, cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.6 : 1, marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>
           🎲 Générer aléatoire
@@ -146,31 +153,33 @@ export default function PosterGeneratorModal({ event, onClose, onApply }: {
             const disabled = t.needsPhoto && !hasPhoto
             return (
               <Chip key={t.key} active={template === t.key} disabled={disabled}
-                onClick={() => { if (!disabled) { setTemplate(t.key); generate(false) } }}>
+                onClick={() => { if (!disabled) setTemplate(t.key) }}>
                 {t.label}{disabled ? ' · photo requise' : ''}
               </Chip>
             )
           })}
         </Group>
 
+        <Group label="Fond">
+          <Chip active={!solidBg} onClick={() => setSolidBg(false)}>Ambiance</Chip>
+          <Chip active={solidBg} onClick={() => setSolidBg(true)}>Fond uni</Chip>
+        </Group>
+
         <Group label="Éléments">
           <input ref={photoRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleFile(e.target.files?.[0], setPhoto)} />
           <input ref={logoRef}  type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleFile(e.target.files?.[0], setLogo)} />
-          <Chip active={!!photo} onClick={() => photoRef.current?.click()}>{photo ? '✓ Photo' : '+ Photo'}</Chip>
-          <Chip active={!!logo}  onClick={() => logoRef.current?.click()}>{logo ? '✓ Logo' : '+ Logo'}</Chip>
-          <Chip active={useBackgrounds} onClick={() => setUseBackgrounds(v => !v)}>{useBackgrounds ? '✓ Mes fonds' : 'Mes fonds'}</Chip>
+          {photo
+            ? <Chip active onClick={() => { setPhoto(null); if (photoRef.current) photoRef.current.value = '' }}>Photo ✕</Chip>
+            : <Chip onClick={() => photoRef.current?.click()}>+ Photo</Chip>}
+          {logo
+            ? <Chip active onClick={() => { setLogo(null); if (logoRef.current) logoRef.current.value = '' }}>Logo ✕</Chip>
+            : <Chip onClick={() => logoRef.current?.click()}>+ Logo</Chip>}
         </Group>
 
-        <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-          <button onClick={() => generate(false)} disabled={loading}
-            style={{ flex: 1, padding: '13px', borderRadius: 14, border: '1.5px solid #2D5A3D', background: '#fff', color: '#2D5A3D', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
-            Regénérer
-          </button>
-          <button onClick={apply} disabled={!blob || loading || applying}
-            style={{ flex: 1.4, padding: '13px', borderRadius: 14, border: 'none', background: '#2D5A3D', color: '#fff', fontSize: 14, fontWeight: 800, cursor: (!blob || applying) ? 'default' : 'pointer', opacity: (!blob || applying) ? 0.6 : 1, fontFamily: 'Inter, sans-serif' }}>
-            {applying ? 'Application…' : 'Utiliser cette affiche'}
-          </button>
-        </div>
+        <button onClick={apply} disabled={!blob || loading || applying}
+          style={{ width: '100%', marginTop: 6, padding: '14px', borderRadius: 14, border: 'none', background: '#2D5A3D', color: '#fff', fontSize: 14, fontWeight: 800, cursor: (!blob || applying) ? 'default' : 'pointer', opacity: (!blob || applying || loading) ? 0.6 : 1, fontFamily: 'Inter, sans-serif' }}>
+          {applying ? 'Application…' : 'Utiliser cette affiche'}
+        </button>
       </div>
     </div>,
     document.body
