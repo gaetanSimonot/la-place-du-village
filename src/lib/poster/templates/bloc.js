@@ -8,11 +8,19 @@ const SHADOW = { r: 14, g: 18, b: 34 }, HIGH = { r: 243, g: 233, b: 214 };
 export const meta = { palette: P, needs: 'photo' };
 
 export async function render({ d, W, H, fx, sources }) {
-  const u = W / 100, M = 0.075 * W, H1 = Math.round(0.52 * H);
+  // Adaptation au format : en paysage/carré on réduit la photo et le titre,
+  // et on limite les lignes → pas de débordement ni de chevauchement.
+  const ratio = H / W;
+  const compact = ratio < 0.85;
+  const u = W / 100, M = 0.075 * W, H1 = Math.round((compact ? 0.40 : 0.52) * H);
   const src = sources.photo || sources.bg;
   const photo = src ? await fx.duotone(src, W, H1, SHADOW, HIGH) : null;
   const logo = sources.logo ? await fx.prepLogo(sources.logo) : null;
-  const titleSize = fitBlock(d.title, W - 2 * M, { max: 0.125 * W, min: 0.05 * W, charRatio: 0.52, maxLines: 3 });
+  const maxLines = ratio >= 0.85 ? 3 : 2;
+  const titleMax = (ratio >= 0.85 ? 0.125 : 0.05) * W;
+  // charRatio plus élevé (Archivo Black est large) → estimation fidèle, le
+  // titre ne dépasse pas le nombre de lignes voulu.
+  const titleSize = fitBlock(d.title, W - 2 * M, { max: titleMax, min: 0.035 * W, charRatio: 0.62, maxLines });
 
   const corner = logo
     ? Box({ display: 'flex', width: 14 * u, height: 14 * u, borderRadius: 9999, background: P.cream, alignItems: 'center', justifyContent: 'center' },
@@ -37,9 +45,9 @@ export async function render({ d, W, H, fx, sources }) {
     // Contenu ancré en bas : s'empile vers le haut, jamais de collision
     Box({ position: 'absolute', left: M, right: M, bottom: M, display: 'flex', flexDirection: 'column' },
       Box({ display: 'flex', width: 7 * u, height: 0.55 * u, background: P.accent, marginBottom: 2 * u }),
-      d.catLabel ? Text({ fontFamily: 'Poppins', fontWeight: 700, fontSize: 2.4 * u, letterSpacing: 4, textTransform: 'uppercase', color: P.accent, marginBottom: 1.4 * u }, d.catLabel) : null,
+      (!compact && d.catLabel) ? Text({ fontFamily: 'Poppins', fontWeight: 700, fontSize: 2.4 * u, letterSpacing: 4, textTransform: 'uppercase', color: P.accent, marginBottom: 1.4 * u }, d.catLabel) : null,
       Text({ fontFamily: 'Archivo Black', fontSize: titleSize, lineHeight: 0.94, textTransform: 'uppercase', letterSpacing: -1, color: P.text, width: '100%' }, d.title),
-      d.description ? Text({ fontFamily: 'Poppins', fontWeight: 500, fontSize: 2.4 * u, lineHeight: 1.4, color: P.muted, marginTop: 2.2 * u, maxWidth: '88%' }, d.description) : null,
+      (!compact && d.description) ? Text({ fontFamily: 'Poppins', fontWeight: 500, fontSize: 2.4 * u, lineHeight: 1.4, color: P.muted, marginTop: 2.2 * u, maxWidth: '88%' }, d.description) : null,
       Box({ display: 'flex', flexDirection: 'column', gap: 1.3 * u, marginTop: 2.6 * u }, d.when ? metaRow(d.when) : null, d.place ? metaRow(d.place) : null),
       Box({ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2.6 * u },
         d.cta ? Box({ display: 'flex', paddingTop: 1.8 * u, paddingBottom: 1.8 * u, paddingLeft: 3.2 * u, paddingRight: 3.2 * u, borderRadius: 999, background: P.accent, color: P.onAccent, fontFamily: 'Poppins', fontWeight: 800, fontSize: 3 * u }, d.cta) : null,

@@ -9,7 +9,8 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAdminSession } from '@/hooks/useAdminSession'
 import { can, toUserContext } from '@/lib/capabilities'
 import SubscriptionModal from '@/components/SubscriptionModal'
-import PosterGeneratorModal from '@/components/PosterGeneratorModal'
+import PosterGeneratorModal, { type PosterParams } from '@/components/PosterGeneratorModal'
+import SocialsModal from '@/components/SocialsModal'
 
 type Mode = 'edit' | 'crop' | 'fullscreen'
 interface Prediction { place_id: string; description: string; main: string; secondary: string }
@@ -273,6 +274,9 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
   const isAdmin = useAdminSession()
   const [posterOpen, setPosterOpen] = useState(false)
   const [upsellOpen, setUpsellOpen] = useState(false)
+  const [socialsOpen, setSocialsOpen] = useState(false)
+  // Paramètres de la dernière affiche générée → permet l'export multi-formats.
+  const [posterParams, setPosterParams] = useState<PosterParams | null>(null)
 
   const [mode, setMode]       = useState<Mode>('edit')
   const [loading, setLoading] = useState(true)
@@ -414,11 +418,13 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
   }
 
   // Affiche générée (déjà uploadée en storage par le modal) → devient l'image.
-  const applyPoster = (publicUrl: string) => {
+  // On conserve les paramètres pour permettre l'export multi-formats (réseaux).
+  const applyPoster = (publicUrl: string, params: PosterParams) => {
     setImageUrl(publicUrl)
     setNewBase64(null); setNewPreview(null)
     setImageFromExtract(false)
     setImagePosition('50% 50%')
+    setPosterParams(params)
     setPosterOpen(false)
   }
 
@@ -741,6 +747,20 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
               Générer une affiche
             </button>
           </div>
+          {/* Export réseaux — visible une fois une affiche générée */}
+          {posterParams && (
+            <button
+              onClick={() => setSocialsOpen(true)}
+              className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-[12px] font-bold text-white"
+              style={{ background: '#2D5A3D' }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
+              </svg>
+              Exporter pour les réseaux
+            </button>
+          )}
+
           {/* Inputs file cachés */}
           <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handleFile} className="hidden" />
           <input ref={galleryRef} type="file" accept="image/*" onChange={handleFile} className="hidden" />
@@ -992,6 +1012,13 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
           context={{ kind: 'feature', featureLabel: 'Générer une affiche', minPlan: 'pro' }}
           currentPlan={(profile?.plan as 'basic' | 'habitants' | 'pro') ?? 'basic'}
           onClose={() => setUpsellOpen(false)}
+        />
+      )}
+      {socialsOpen && posterParams && (
+        <SocialsModal
+          event={buildPosterEvent()}
+          params={posterParams}
+          onClose={() => setSocialsOpen(false)}
         />
       )}
     </div>

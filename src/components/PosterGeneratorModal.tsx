@@ -14,6 +14,17 @@ export interface PosterEvent {
   etablissement?: { id: string; nom?: string; photo_url?: string | null } | null
 }
 
+/** Paramètres de génération, conservés pour reproduire l'affiche en plusieurs formats (export réseaux). */
+export interface PosterParams {
+  template: string
+  bgIndex: number
+  accent: string | null
+  solidColor: string
+  solidBg: boolean
+  photo: string | null
+  logo: string | null
+}
+
 const FORMATS = [
   { key: 'a4-print',       label: 'A4' },
   { key: 'social-story',   label: '9:16' },
@@ -43,7 +54,7 @@ function fileToDataUrl(file: File): Promise<string> {
 export default function PosterGeneratorModal({ event, onClose, onApply }: {
   event: PosterEvent
   onClose: () => void
-  onApply: (publicUrl: string) => void
+  onApply: (publicUrl: string, params: PosterParams) => void
 }) {
   // Snapshot de l'event au montage (les champs sont figés quand le modal s'ouvre).
   const eventRef = useRef(event)
@@ -116,7 +127,7 @@ export default function PosterGeneratorModal({ event, onClose, onApply }: {
     try {
       const compressed = await compressImage(blob, { maxDim: 1600, quality: 0.88 })
       const { publicUrl } = await uploadViaSignedUrl({ file: compressed, kind: 'event-image' })
-      onApply(publicUrl)
+      onApply(publicUrl, { template, bgIndex, accent, solidColor, solidBg, photo, logo })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur upload')
       setApplying(false)
