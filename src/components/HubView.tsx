@@ -586,18 +586,20 @@ function MiniEventCard({ ev, onClick }: { ev: Evenement; onClick: () => void }) 
       tabIndex={0}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
       style={{ borderColor: '#F0EAE0' }}
-      className="flex cursor-pointer overflow-hidden rounded-[14px] border bg-white shadow-[0_4px_14px_rgba(44,28,16,0.08)]"
+      className="flex cursor-pointer flex-col overflow-hidden rounded-[14px] border bg-white shadow-[0_4px_14px_rgba(44,28,16,0.08)]"
     >
-      <div className="relative w-[64px] shrink-0 bg-bord/40">
+      {/* Image en haut (pleine largeur) */}
+      <div className="relative min-h-0 flex-1 bg-bord/40">
         {ev.image_url
           ? <img src={ev.image_url} alt="" className="h-full w-full object-cover" />
           : <div className="h-full w-full bg-gradient-to-br from-[#A8C28E] to-[#5B8A4A]" />
         }
-        <div className="absolute bottom-[5px] left-[5px] rounded bg-white/95 px-1.5 py-[2px] text-[9px] font-extrabold text-texte">
+        <div className="absolute left-1.5 top-1.5 rounded bg-white/95 px-1.5 py-[2px] text-[9px] font-extrabold text-texte">
           {time}
         </div>
       </div>
-      <div className="flex min-w-0 flex-1 flex-col justify-center gap-[2px] px-2.5 py-2">
+      {/* Infos en bas */}
+      <div className="shrink-0 px-2.5 pb-2 pt-1.5">
         <div className="truncate text-[8px] font-extrabold tracking-[0.12em] text-primary">{kicker}</div>
         <div
           className="line-clamp-2 text-[12px] font-bold leading-[1.15] text-texte"
@@ -605,7 +607,7 @@ function MiniEventCard({ ev, onClick }: { ev: Evenement; onClick: () => void }) 
         >
           {ev.titre}
         </div>
-        <div className="flex items-center gap-1 truncate text-[10px] text-texte-doux">
+        <div className="mt-[2px] flex items-center gap-1 truncate text-[10px] text-texte-doux">
           <IconPin size={9} />
           <span className="truncate">{where}</span>
         </div>
