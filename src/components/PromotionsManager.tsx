@@ -85,17 +85,6 @@ export default function PromotionsManager({ etablissementId, etablissementPhotos
             Offres exclusives visibles par vos clients abonnés Pro
           </p>
         </div>
-        <button
-          onClick={() => setCreating(true)}
-          style={{
-            padding: '8px 14px', borderRadius: 10, border: 'none',
-            backgroundColor: '#C4622D', color: '#fff',
-            fontSize: 12, fontWeight: 700, cursor: 'pointer',
-            fontFamily: 'Inter, sans-serif',
-          }}
-        >
-          + Nouvelle
-        </button>
       </div>
 
       {loading ? (

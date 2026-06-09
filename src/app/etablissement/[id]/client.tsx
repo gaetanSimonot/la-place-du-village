@@ -49,15 +49,19 @@ function Avatar({ name, url, size = 32 }: { name: string; url?: string | null; s
   return <div style={{ width: size, height: size, borderRadius: '50%', backgroundColor: '#2D5A3D', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: size * 0.38, flexShrink: 0 }}>{(name || '?')[0].toUpperCase()}</div>
 }
 
-function AddMenuItem({ emoji, color, title, desc, onClick }: { emoji: string; color: string; title: string; desc: string; onClick: () => void }) {
+function AddTile({ emoji, color, title, desc, onClick }: { emoji: string; color: string; title: string; desc: string; onClick: () => void }) {
   return (
-    <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 14px', borderRadius: 14, border: '1px solid #F0EAE0', backgroundColor: '#fff', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif' }}>
-      <div style={{ width: 40, height: 40, borderRadius: 11, backgroundColor: color + '1A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{emoji}</div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#1A1209' }}>{title}</p>
-        <p style={{ margin: '2px 0 0', fontSize: 11.5, color: '#8A7A6A' }}>{desc}</p>
+    <button onClick={onClick} style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8,
+      width: '100%', minHeight: 110, padding: '14px', borderRadius: 16,
+      border: `1px solid ${color}33`, backgroundColor: color + '0F',
+      cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif',
+    }}>
+      <div style={{ width: 44, height: 44, borderRadius: 13, backgroundColor: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, boxShadow: '0 1px 3px rgba(44,28,16,0.08)' }}>{emoji}</div>
+      <div style={{ marginTop: 'auto' }}>
+        <p style={{ margin: 0, fontSize: 14.5, fontWeight: 800, color: '#1A1209' }}>{title}</p>
+        <p style={{ margin: '2px 0 0', fontSize: 11, color: '#8A7A6A', lineHeight: 1.3 }}>{desc}</p>
       </div>
-      <span style={{ color: '#C8BCA8', fontSize: 20, flexShrink: 0 }}>›</span>
     </button>
   )
 }
@@ -76,6 +80,10 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
   const [addMenuOpen, setAddMenuOpen]   = useState(false)
   const [promoFormOpen, setPromoFormOpen] = useState(false)
   const [postFormType, setPostFormType] = useState<'actu' | 'autre' | null>(null)
+  const [editingPost, setEditingPost]   = useState<EtabPost | null>(null)
+  // Aperçu "mode public" : masque les affordances d'édition pour voir la fiche
+  // telle que la voient les visiteurs.
+  const [publicPreview, setPublicPreview] = useState(false)
   const [loading, setLoading]       = useState(true)
   const [photoIdx, setPhotoIdx]     = useState(0)
   const [isFav, setIsFav]           = useState(false)
@@ -307,6 +315,11 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
   const photos = etab.photos ?? []
   const isOwner = !!user && etab.user_id === user.id
   const canEdit = isAdmin || isOwner
+  // En aperçu public, on masque toutes les affordances d'édition (l'œil et la
+  // bannière restent pour pouvoir en sortir).
+  const ownerUI = isOwner && !publicPreview
+  const editUI  = canEdit && !publicPreview
+  const adminUI = isAdmin && !publicPreview
   const horaires = etab.horaires ? DAY_KEYS.map((k, i) => ({ day: DAYS[i], val: (etab.horaires as Record<string, string>)[k] ?? null })) : []
   const mapsUrl = etab.lat && etab.lng ? `https://www.google.com/maps/dir/?api=1&destination=${etab.lat},${etab.lng}` : etab.adresse ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(etab.adresse)}` : null
   const commentCount = comments.length
@@ -318,6 +331,24 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
 
   return (
     <div style={{ minHeight: '100dvh', backgroundColor: '#FDFAF5', fontFamily: 'Inter, sans-serif' }}>
+
+      {/* Bannière aperçu public — masque l'édition, bouton pour en sortir */}
+      {publicPreview && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+          backgroundColor: '#2D5A3D', color: '#fff', padding: '8px 14px',
+          fontSize: 12.5, fontWeight: 700,
+        }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            Aperçu public
+          </span>
+          <button onClick={() => setPublicPreview(false)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', borderRadius: 8, padding: '4px 10px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+            Quitter
+          </button>
+        </div>
+      )}
 
       {/* Photo / Carousel swipable */}
       <div style={{ position: 'relative', height: 290, backgroundColor: typeInfo.bg, overflow: 'hidden' }}>
@@ -334,8 +365,27 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
             </svg>
           </button>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {isAdmin && <FeatureButton contentType="etablissement" contentId={etab.id} ownerUserId={etab.user_id ?? null} />}
-            {canEdit && (
+            {adminUI && <FeatureButton contentType="etablissement" contentId={etab.id} ownerUserId={etab.user_id ?? null} />}
+            {isOwner && (
+              <button onClick={() => setPublicPreview(p => !p)} aria-label={publicPreview ? 'Quitter l’aperçu public' : 'Voir en mode public'} style={{
+                width: 38, height: 38, borderRadius: '50%',
+                backgroundColor: publicPreview ? '#2D5A3D' : 'rgba(255,255,255,0.92)',
+                backdropFilter: 'blur(8px)', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: publicPreview ? '#fff' : '#1A1209', boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+              }}>
+                {publicPreview ? (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>
+                  </svg>
+                ) : (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                  </svg>
+                )}
+              </button>
+            )}
+            {editUI && (
               <button onClick={() => setEditing(true)} aria-label="Éditer" style={{
                 width: 38, height: 38, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.92)',
                 backdropFilter: 'blur(8px)', border: 'none', cursor: 'pointer',
@@ -566,7 +616,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
             </button>
           </div>
         )}
-        {isOwner && (() => {
+        {ownerUI && (() => {
           // Le plan affiche est celui du USER (profile.plan) sinon fallback sur etab.plan
           // pour absorber un éventuel décalage de sync.
           const userPlan = (profile?.plan ?? 'basic') as 'basic' | 'habitants' | 'pro'
@@ -606,7 +656,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
         })()}
 
         {/* + Ajouter — propriétaire de la fiche uniquement */}
-        {isOwner && (
+        {ownerUI && (
           <button
             onClick={() => setAddMenuOpen(true)}
             style={{
@@ -721,10 +771,15 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
                   <p style={{ margin: 0, fontSize: 13, color: '#4A3728', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{p.contenu}</p>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
                     <span style={{ fontSize: 10.5, color: '#AAA' }}>{timeAgo(p.created_at)}</span>
-                    {isOwner && (
-                      <button onClick={() => deletePost(p.id)} style={{ background: 'none', border: 'none', color: '#B53A22', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', textDecoration: 'underline', padding: 0 }}>
-                        Supprimer
-                      </button>
+                    {ownerUI && (
+                      <div style={{ display: 'flex', gap: 14 }}>
+                        <button onClick={() => setEditingPost(p)} style={{ background: 'none', border: 'none', color: '#2D5A3D', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', textDecoration: 'underline', padding: 0 }}>
+                          Modifier
+                        </button>
+                        <button onClick={() => deletePost(p.id)} style={{ background: 'none', border: 'none', color: '#B53A22', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', textDecoration: 'underline', padding: 0 }}>
+                          Supprimer
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -734,7 +789,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
         )}
 
         {/* Mes promotions — visible uniquement pour le Partenaire Local propriétaire */}
-        {isOwner && (() => {
+        {ownerUI && (() => {
           const userPlan = (profile?.plan ?? 'basic') as 'basic'|'habitants'|'pro'
           const canCreatePromo = userPlan === 'pro' || isAdmin
           if (!canCreatePromo) return null
@@ -793,7 +848,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
         </div>
 
         {/* Produits — Partenaire Local uniquement (anciennement Max) */}
-        {isOwner && etab.plan === 'pro' && (
+        {ownerUI && etab.plan === 'pro' && (
           <EtabProductsSection etabId={etab.id} />
         )}
 
@@ -846,16 +901,16 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
             <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, backgroundColor: '#fff', borderRadius: '24px 24px 0 0', padding: '18px 18px 24px', paddingBottom: 'max(24px, env(safe-area-inset-bottom, 24px))', fontFamily: 'Inter, sans-serif' }}>
               <div style={{ width: 38, height: 4, borderRadius: 2, backgroundColor: '#E0D8CE', margin: '0 auto 16px' }} />
               <p style={{ margin: '0 0 14px', fontSize: 16, fontWeight: 800, color: '#1A1209' }}>Que voulez-vous ajouter ?</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 {((profile?.plan === 'pro') || isAdmin) && (
-                  <AddMenuItem emoji="🎁" color="#C4622D" title="Promotion" desc="Une offre pour vos clients"
+                  <AddTile emoji="🎁" color="#C4622D" title="Promotion" desc="Une offre"
                     onClick={() => { setAddMenuOpen(false); setPromoFormOpen(true) }} />
                 )}
-                <AddMenuItem emoji="📅" color="#2D5A3D" title="Événement" desc="Photo d'affiche, dictée ou à la main"
+                <AddTile emoji="📅" color="#2D5A3D" title="Événement" desc="Affiche, dictée ou à la main"
                   onClick={() => { setAddMenuOpen(false); router.push(`/ajouter?etab=${id}`) }} />
-                <AddMenuItem emoji="📣" color="#3A5BC7" title="Actu" desc="Une actualité texte + photo"
+                <AddTile emoji="📣" color="#3A5BC7" title="Actu" desc="Texte + photo"
                   onClick={() => { setAddMenuOpen(false); setPostFormType('actu') }} />
-                <AddMenuItem emoji="✏️" color="#B8860B" title="Autre" desc="Menu, service, info libre"
+                <AddTile emoji="✏️" color="#B8860B" title="Autre" desc="Menu, service, info"
                   onClick={() => { setAddMenuOpen(false); setPostFormType('autre') }} />
               </div>
             </div>
@@ -880,6 +935,17 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
           type={postFormType}
           onClose={() => setPostFormType(null)}
           onSaved={() => { setPostFormType(null); refetchPosts() }}
+        />
+      )}
+
+      {editingPost && (
+        <EtabPostForm
+          etablissementId={etab.id}
+          etablissementPhotos={etab.photos ?? []}
+          type={editingPost.type === 'autre' ? 'autre' : 'actu'}
+          post={editingPost}
+          onClose={() => setEditingPost(null)}
+          onSaved={() => { setEditingPost(null); refetchPosts() }}
         />
       )}
 

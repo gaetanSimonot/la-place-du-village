@@ -8,16 +8,23 @@ import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
  * Formulaire de création d'une actu / autre publication sur une fiche
  * établissement. Calqué sur PromotionForm. Owner-only (l'API revérifie).
  */
-export default function EtabPostForm({ etablissementId, etablissementPhotos = [], type, onClose, onSaved }: {
+interface EditablePost {
+  id: string; type: string; titre: string | null; contenu: string
+  image_url: string | null; image_position: string
+}
+
+export default function EtabPostForm({ etablissementId, etablissementPhotos = [], type, post, onClose, onSaved }: {
   etablissementId: string
   etablissementPhotos?: string[]
   type: 'actu' | 'autre'
+  /** Si fourni, le formulaire édite ce post (PATCH) au lieu d'en créer un. */
+  post?: EditablePost | null
   onClose: () => void
   onSaved: () => void
 }) {
-  const [titre, setTitre]       = useState('')
-  const [contenu, setContenu]   = useState('')
-  const [imageUrl, setImageUrl] = useState('')
+  const [titre, setTitre]       = useState(post?.titre ?? '')
+  const [contenu, setContenu]   = useState(post?.contenu ?? '')
+  const [imageUrl, setImageUrl] = useState(post?.image_url ?? '')
   const [saving, setSaving]     = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError]       = useState<string | null>(null)
@@ -42,17 +49,27 @@ export default function EtabPostForm({ etablissementId, etablissementPhotos = []
     setSaving(true); setError(null)
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { setSaving(false); return }
-    const r = await fetch('/api/etablissement-posts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({
-        etablissement_id: etablissementId,
-        type,
-        titre: titre.trim() || null,
-        contenu: contenu.trim(),
-        image_url: imageUrl || null,
-      }),
-    })
+    const r = post
+      ? await fetch(`/api/etablissement-posts/${post.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({
+            titre: titre.trim() || null,
+            contenu: contenu.trim(),
+            image_url: imageUrl || null,
+          }),
+        })
+      : await fetch('/api/etablissement-posts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({
+            etablissement_id: etablissementId,
+            type,
+            titre: titre.trim() || null,
+            contenu: contenu.trim(),
+            image_url: imageUrl || null,
+          }),
+        })
     setSaving(false)
     if (r.ok) onSaved()
     else {
@@ -77,7 +94,7 @@ export default function EtabPostForm({ etablissementId, etablissementPhotos = []
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h2 style={{ fontSize: 18, fontWeight: 800, color: '#1A1209', margin: 0, letterSpacing: '-0.01em' }}>
-            {isAutre ? 'Nouvelle publication' : 'Nouvelle actu'}
+            {post ? 'Modifier' : (isAutre ? 'Nouvelle publication' : 'Nouvelle actu')}
           </h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#9CA3AF', fontSize: 20, cursor: 'pointer' }}>✕</button>
         </div>
@@ -151,7 +168,7 @@ export default function EtabPostForm({ etablissementId, etablissementPhotos = []
               cursor: saving || !contenu.trim() ? 'default' : 'pointer',
               opacity: saving || !contenu.trim() ? 0.5 : 1, fontFamily: 'Inter, sans-serif',
             }}>
-            {saving ? 'Publication…' : 'Publier'}
+            {saving ? 'Enregistrement…' : (post ? 'Enregistrer' : 'Publier')}
           </button>
         </div>
       </div>
