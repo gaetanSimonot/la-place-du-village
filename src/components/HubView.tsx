@@ -257,7 +257,11 @@ export default function HubView({
             className="grid gap-2 px-4"
             style={{
               gridTemplateColumns: '1.25fr 1fr',
-              gridTemplateRows: (visibleMinis.length >= 1 || journalInTop) ? '1fr 1fr' : '1fr',
+              // Hauteur de section fixée par la grande tuile de gauche ; les
+              // rangées en minmax(0,1fr) empêchent les mini-tuiles d'allonger
+              // la grille (elles remplissent leur demi-hauteur, image croppée).
+              gridTemplateRows: (visibleMinis.length >= 1 || journalInTop) ? 'minmax(0, 1fr) minmax(0, 1fr)' : '1fr',
+              height: (visibleMinis.length >= 1 || journalInTop) ? 200 : undefined,
             }}
           >
             {featuredEv && (
@@ -586,9 +590,9 @@ function MiniEventCard({ ev, onClick }: { ev: Evenement; onClick: () => void }) 
       tabIndex={0}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
       style={{ borderColor: '#F0EAE0' }}
-      className="flex cursor-pointer flex-col overflow-hidden rounded-[14px] border bg-white shadow-[0_4px_14px_rgba(44,28,16,0.08)]"
+      className="flex min-h-0 cursor-pointer flex-col overflow-hidden rounded-[14px] border bg-white shadow-[0_4px_14px_rgba(44,28,16,0.08)]"
     >
-      {/* Image en haut (pleine largeur) */}
+      {/* Image en haut (pleine largeur, croppée) */}
       <div className="relative min-h-0 flex-1 bg-bord/40">
         {ev.image_url
           ? <img src={ev.image_url} alt="" className="h-full w-full object-cover" />
@@ -598,16 +602,16 @@ function MiniEventCard({ ev, onClick }: { ev: Evenement; onClick: () => void }) 
           {time}
         </div>
       </div>
-      {/* Infos en bas */}
-      <div className="shrink-0 px-2.5 pb-2 pt-1.5">
+      {/* Infos en bas (hauteur fixe → l'image prend le reste) */}
+      <div className="shrink-0 px-2.5 pb-1.5 pt-1">
         <div className="truncate text-[8px] font-extrabold tracking-[0.12em] text-primary">{kicker}</div>
         <div
-          className="line-clamp-2 text-[12px] font-bold leading-[1.15] text-texte"
+          className="truncate text-[12px] font-bold leading-[1.15] text-texte"
           style={{ letterSpacing: '-0.01em' }}
         >
           {ev.titre}
         </div>
-        <div className="mt-[2px] flex items-center gap-1 truncate text-[10px] text-texte-doux">
+        <div className="flex items-center gap-1 truncate text-[10px] text-texte-doux">
           <IconPin size={9} />
           <span className="truncate">{where}</span>
         </div>
