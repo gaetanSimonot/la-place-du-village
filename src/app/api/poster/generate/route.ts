@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import sharp from 'sharp'
 import { requireUser } from '@/lib/server-auth'
 import { can } from '@/lib/capabilities'
+import { rateLimit } from '@/lib/rateLimit'
 import { generatePoster } from '@/lib/poster/generate.js'
 import { BACKGROUNDS, FORMATS } from '@/lib/poster/palettes.js'
 
@@ -11,15 +12,20 @@ export const maxDuration = 30
 
 // Couleur pleine par défaut si le client n'en fournit pas (option "Fond uni").
 const DEFAULT_SOLID = '#1B1C2B'
+const MAX_IMG_BYTES = 6 * 1024 * 1024   // cap anti image-bomb / payload
+const isHex = (s: unknown): s is string => typeof s === 'string' && /^#[0-9a-fA-F]{6}$/.test(s)
 
 const solidBg = (hex: string) =>
   sharp({ create: { width: 32, height: 32, channels: 3, background: hex } }).png().toBuffer()
 
-/** data:…base64 → Buffer (le moteur gère aussi les chemins et URLs http). */
-function toSource(s?: string | null): Buffer | string | null {
-  if (!s) return null
-  if (s.startsWith('data:')) return Buffer.from(s.split(',')[1] ?? '', 'base64')
-  return s
+/**
+ * data:…base64 → Buffer. On REFUSE toute autre chaîne (URL http) : sinon le
+ * moteur ferait un fetch côté serveur → SSRF. Cap de taille en prime.
+ */
+function toSource(s?: string | null): Buffer | null {
+  if (!s || typeof s !== 'string' || !s.startsWith('data:')) return null
+  const buf = Buffer.from(s.split(',')[1] ?? '', 'base64')
+  return buf.length > 0 && buf.length <= MAX_IMG_BYTES ? buf : null
 }
 
 /**
@@ -34,24 +40,34 @@ export async function POST(req: NextRequest) {
   if (!can(ctx, 'promo_pro')) {
     return NextResponse.json({ error: 'Réservé aux Partenaires Locaux' }, { status: 403 })
   }
+  const blocked = await rateLimit(ctx.userId, 'poster_generate', ctx.plan, ctx.isAdmin)
+  if (blocked) return blocked
 
   const body = await req.json().catch(() => ({}))
   const event = body.event ?? {}
   const opts = body.opts ?? {}
 
+  // Anti-SSRF : on ne laisse passer comme photo de fond QUE notre storage
+  // Supabase (le client n'envoie de toute façon pas ce champ).
+  const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+  const pu = event?.etablissement?.photo_url
+  if (pu && !(typeof pu === 'string' && pu.startsWith(supaUrl + '/storage/v1/object/public/'))) {
+    event.etablissement.photo_url = null
+  }
+
   const o: Record<string, unknown> = { output: 'png' }
   o.image = toSource(opts.image)
   o.logo = toSource(opts.logo)
   o.format = (opts.format && (FORMATS as Record<string, unknown>)[opts.format]) ? opts.format : 'social-portrait'
-  if (opts.template) o.template = opts.template
+  if (typeof opts.template === 'string') o.template = opts.template
 
   // Déterministe : tout le hasard est piloté par le CLIENT (template, bgIndex,
   // accent, solidColor). Un même jeu d'opts → même affiche. Changer un seul
   // paramètre n'altère donc pas les autres.
-  if (typeof opts.accent === 'string') event.categorie_couleur = opts.accent
+  if (isHex(opts.accent)) event.categorie_couleur = opts.accent
 
   if (opts.solidBg) {
-    o.background = await solidBg(typeof opts.solidColor === 'string' ? opts.solidColor : DEFAULT_SOLID)
+    o.background = await solidBg(isHex(opts.solidColor) ? opts.solidColor : DEFAULT_SOLID)
   } else {
     const pool = Object.values(BACKGROUNDS as Record<string, string>)
     const i = Number.isInteger(opts.bgIndex) ? ((opts.bgIndex % pool.length) + pool.length) % pool.length : 0

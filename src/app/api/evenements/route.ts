@@ -212,7 +212,10 @@ export async function POST(req: NextRequest) {
         categorie: (categorie as Categorie) ?? 'autre',
         statut: finalStatut,
         lieu_id: lieuId,
-        etablissement_id: etabIdToLink,
+        // Inclus UNIQUEMENT si rattaché (sinon clé absente) : ainsi la création
+        // d'événement standard ne casse pas si la migration etablissement_id
+        // n'a pas encore été jouée en base.
+        ...(etabIdToLink ? { etablissement_id: etabIdToLink } : {}),
         prix: prix || null,
         contact: contact || null,
         organisateurs: organisateurs || null,

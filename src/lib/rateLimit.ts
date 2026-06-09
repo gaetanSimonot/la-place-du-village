@@ -39,6 +39,8 @@ export type RateLimitAction =
   | 'geocode'         // Google Geocoding (facturé par requête)
   | 'voice_edit'      // Édition vocale via Claude (tokens IA)
   | 'link_preview'    // Fetch OG d'un lien externe (anti-abus)
+  | 'poster_generate' // Rendu d'affiche serveur (CPU sharp/resvg)
+  | 'poster_caption'  // Texte réseaux via Claude (tokens IA)
 
 export interface RateLimitRule {
   limit: number
@@ -130,6 +132,19 @@ const RATE_LIMITS_BY_PLAN: Record<RateLimitAction, Record<Plan, RateLimitRule>> 
     basic:     { limit: 120, windowMs: HOUR, message: 'Trop de liens en peu de temps. Réessaie dans 1 heure.' },
     habitants: { limit: 120, windowMs: HOUR, message: 'Trop de liens en peu de temps. Réessaie dans 1 heure.' },
     pro:       { limit: 120, windowMs: HOUR, message: 'Trop de liens en peu de temps. Réessaie dans 1 heure.' },
+  },
+  // Réservé Pro/admin (gating route). Plafond large pour l'édition fluide
+  // (régénération auto), mais coupe tout emballement CPU.
+  poster_generate: {
+    basic:     { limit: 150, windowMs: HOUR, message: 'Trop de générations d\'affiche. Réessaie dans 1 heure.' },
+    habitants: { limit: 150, windowMs: HOUR, message: 'Trop de générations d\'affiche. Réessaie dans 1 heure.' },
+    pro:       { limit: 150, windowMs: HOUR, message: 'Trop de générations d\'affiche. Réessaie dans 1 heure.' },
+  },
+  // Texte réseaux (Claude) : peu d'appels nécessaires (1 par export).
+  poster_caption: {
+    basic:     { limit: 30, windowMs: HOUR, message: 'Trop de textes générés. Réessaie dans 1 heure.' },
+    habitants: { limit: 30, windowMs: HOUR, message: 'Trop de textes générés. Réessaie dans 1 heure.' },
+    pro:       { limit: 30, windowMs: HOUR, message: 'Trop de textes générés. Réessaie dans 1 heure.' },
   },
 }
 
