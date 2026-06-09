@@ -51,6 +51,7 @@ function renderContact(contact: string): React.ReactNode {
 
 export default function EvenementPageClient({ id }: { id: string }) {
   const [evt, setEvt]           = useState<Evenement | null>(null)
+  const [linkedEtab, setLinkedEtab] = useState<{ id: string; nom: string; description_courte: string | null; photos: string[] | null; commune: string | null } | null>(null)
   const [loading, setLoading]   = useState(true)
   const [editing, setEditing]       = useState(false)
   const [commentsOpen, setCommentsOpen] = useState(false)
@@ -62,7 +63,18 @@ export default function EvenementPageClient({ id }: { id: string }) {
   useEffect(() => {
     supabase.from('evenements').select('*, lieux(*)').eq('id', id).single()
       .then(({ data }) => {
-        if (data) setEvt(data as Evenement)
+        if (data) {
+          setEvt(data as Evenement)
+          // Établissement lié → encart "L'endroit" (requête séparée : pas de
+          // jointure implicite PostgREST, cf. règle projet).
+          const etabId = (data as Evenement & { etablissement_id?: string | null }).etablissement_id
+          if (etabId) {
+            supabase.from('etablissements')
+              .select('id, nom, description_courte, photos, commune')
+              .eq('id', etabId).maybeSingle()
+              .then(({ data: e }) => { if (e) setLinkedEtab(e) })
+          }
+        }
         setLoading(false)
       })
     supabase.from('comments').select('id', { count: 'exact', head: true }).eq('evenement_id', id)
@@ -206,6 +218,37 @@ export default function EvenementPageClient({ id }: { id: string }) {
               <p className="m-0 whitespace-pre-wrap text-[14px] leading-[1.6] text-texte">
                 {linkify(evt.description)}
               </p>
+            </div>
+          </>
+        )}
+
+        {/* L'endroit — établissement lié à l'événement */}
+        {linkedEtab && (
+          <>
+            <div className="h-[22px]" />
+            <Divider />
+            <div className="px-4 pt-[18px]">
+              <div className="mb-2 text-[11px] font-extrabold tracking-[0.1em] text-texte-doux">L&apos;ENDROIT</div>
+              <Link
+                href={`/etablissement/${linkedEtab.id}`}
+                className="flex items-center gap-3 rounded-2xl border p-3 no-underline"
+                style={{ borderColor: '#E8E0D4', backgroundColor: '#FAF7F2', color: 'inherit' }}
+              >
+                {linkedEtab.photos?.[0] ? (
+                  <img src={linkedEtab.photos[0]} alt="" className="h-14 w-14 shrink-0 rounded-xl object-cover" />
+                ) : (
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#E8F2EB] text-primary">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21V12h6v9"/></svg>
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="m-0 truncate text-[14px] font-extrabold text-texte">{linkedEtab.nom}</p>
+                  {linkedEtab.description_courte && (
+                    <p className="m-0 mt-0.5 text-[12px] leading-[1.4] text-texte-doux" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{linkedEtab.description_courte}</p>
+                  )}
+                  <span className="mt-1 inline-block text-[11px] font-bold text-primary">Voir la fiche →</span>
+                </div>
+              </Link>
             </div>
           </>
         )}

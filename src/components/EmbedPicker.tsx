@@ -16,6 +16,9 @@ export interface EmbedItem {
 interface Props {
   onSelect: (embed: EmbedItem) => void
   onClose:  () => void
+  /** Verrouille le picker sur un seul type (ex: 'event') : pas de grille de
+   *  catégories, recherche directe dans ce type. */
+  lockKind?: EmbedKind
 }
 
 const KIND_LABEL: Record<EmbedKind, string> = {
@@ -56,9 +59,9 @@ function CatIcon({ kind, size = 36 }: { kind: EmbedKind; size?: number }) {
 
 const ORDERED_KINDS: EmbedKind[] = ['event', 'etab', 'producer', 'annonce', 'promo', 'covoit']
 
-export default function EmbedPicker({ onSelect, onClose }: Props) {
+export default function EmbedPicker({ onSelect, onClose, lockKind }: Props) {
   const [query, setQuery]             = useState('')
-  const [selectedKind, setSelectedKind] = useState<EmbedKind | null>(null)
+  const [selectedKind, setSelectedKind] = useState<EmbedKind | null>(lockKind ?? null)
   const [results, setResults]         = useState<EmbedItem[]>([])
   const [loading, setLoading]         = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -67,13 +70,13 @@ export default function EmbedPicker({ onSelect, onClose }: Props) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (selectedKind !== null) setSelectedKind(null)
+        if (selectedKind !== null && !lockKind) setSelectedKind(null)
         else onClose()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, selectedKind])
+  }, [onClose, selectedKind, lockKind])
 
   // Focus input quand on entre dans une catégorie ou que l'user veut taper
   useEffect(() => {
@@ -151,7 +154,7 @@ export default function EmbedPicker({ onSelect, onClose }: Props) {
             className="flex shrink-0 items-center gap-2 px-4 pb-3"
             style={{ borderBottom: '1px solid #F0EAE0' }}
           >
-            {selectedKind !== null && (
+            {selectedKind !== null && !lockKind && (
               <button
                 type="button"
                 onClick={() => { setSelectedKind(null); setQuery('') }}

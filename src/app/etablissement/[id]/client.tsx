@@ -17,6 +17,7 @@ import { QuotaReachedModal } from '@/components/HubModals'
 import PromotionsManager, { PromotionForm } from '@/components/PromotionsManager'
 import EtabPostForm from '@/components/EtabPostForm'
 import ClientPortal from '@/components/ClientPortal'
+import EmbedPicker, { type EmbedItem } from '@/components/EmbedPicker'
 import FeatureButton from '@/components/FeatureButton'
 import SubscriptionModal from '@/components/SubscriptionModal'
 import BottomNavBar from '@/components/BottomNavBar'
@@ -78,6 +79,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
   const [etabPosts, setEtabPosts]   = useState<EtabPost[]>([])
   // Menu "+ Ajouter" (propriétaire) et formulaires qu'il ouvre
   const [addMenuOpen, setAddMenuOpen]   = useState(false)
+  const [linkPickerOpen, setLinkPickerOpen] = useState(false)
   const [promoFormOpen, setPromoFormOpen] = useState(false)
   const [postFormType, setPostFormType] = useState<'actu' | 'autre' | null>(null)
   const [editingPost, setEditingPost]   = useState<EtabPost | null>(null)
@@ -193,15 +195,40 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
 
   // Événements à venir rattachés à cette fiche (publiés). Date locale pour
   // inclure aujourd'hui (cf. règle TZ : getFullYear/Month/Date côté client OK).
-  useEffect(() => {
+  const refetchEvents = () => {
     const now = new Date()
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-    supabase.from('evenements')
+    return supabase.from('evenements')
       .select('id, titre, date_debut, heure, image_url, categorie')
       .eq('etablissement_id', id).eq('statut', 'publie').gte('date_debut', todayStr)
       .order('date_debut', { ascending: true }).limit(20)
       .then(({ data }) => setEtabEvents((data as EtabEvent[]) ?? []))
-  }, [id])
+  }
+  useEffect(() => { refetchEvents() }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Lier / délier un événement existant à la fiche (propriétaire).
+  const handleLinkEvent = async (item: EmbedItem) => {
+    setLinkPickerOpen(false)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const r = await fetch(`/api/etablissements/${id}/link-event`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ eventId: item.id }),
+    })
+    if (r.ok) { toast.success('Événement lié à votre fiche'); refetchEvents() }
+    else { const d = await r.json().catch(() => ({})); toast.error(d.error ?? 'Erreur') }
+  }
+  const handleUnlinkEvent = async (eventId: string) => {
+    if (!confirm('Détacher cet événement de votre fiche ?')) return
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const r = await fetch(`/api/etablissements/${id}/link-event?eventId=${eventId}`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+    if (r.ok) { setEtabEvents(prev => prev.filter(e => e.id !== eventId)); toast.success('Détaché') }
+    else toast.error('Erreur')
+  }
 
   // Actus / publications de la fiche
   const refetchPosts = () => fetch(`/api/etablissement-posts?etab=${id}`)
@@ -655,24 +682,40 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
           )
         })()}
 
-        {/* + Ajouter — propriétaire de la fiche uniquement */}
+        {/* Ajouter / Lier du contenu — propriétaire de la fiche uniquement */}
         {ownerUI && (
-          <button
-            onClick={() => setAddMenuOpen(true)}
-            style={{
-              ...CARD, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer',
-              border: '1.5px dashed #2D5A3D', backgroundColor: '#F0F7F2', width: '100%', textAlign: 'left',
-            }}
-          >
-            <div style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#2D5A3D', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#2D5A3D' }}>Ajouter du contenu</p>
-              <p style={{ margin: '2px 0 0', fontSize: 11.5, color: '#5A7A64' }}>Promotion, événement, actu…</p>
-            </div>
-            <span style={{ color: '#2D5A3D', fontSize: 20, flexShrink: 0 }}>›</span>
-          </button>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              onClick={() => setAddMenuOpen(true)}
+              style={{
+                flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8, cursor: 'pointer',
+                padding: '14px', borderRadius: 16, border: '1.5px dashed #2D5A3D', backgroundColor: '#F0F7F2', textAlign: 'left', fontFamily: 'Inter, sans-serif',
+              }}
+            >
+              <div style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: '#2D5A3D', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </div>
+              <div>
+                <p style={{ margin: 0, fontSize: 13.5, fontWeight: 800, color: '#2D5A3D' }}>Ajouter du contenu</p>
+                <p style={{ margin: '2px 0 0', fontSize: 11, color: '#5A7A64' }}>Promotion, événement, actu…</p>
+              </div>
+            </button>
+            <button
+              onClick={() => setLinkPickerOpen(true)}
+              style={{
+                flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8, cursor: 'pointer',
+                padding: '14px', borderRadius: 16, border: '1.5px dashed #2D5A3D', backgroundColor: '#F0F7F2', textAlign: 'left', fontFamily: 'Inter, sans-serif',
+              }}
+            >
+              <div style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: '#2D5A3D', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              </div>
+              <div>
+                <p style={{ margin: 0, fontSize: 13.5, fontWeight: 800, color: '#2D5A3D' }}>Lier du contenu</p>
+                <p style={{ margin: '2px 0 0', fontSize: 11, color: '#5A7A64' }}>Un événement déjà en ligne</p>
+              </div>
+            </button>
+          </div>
         )}
 
         {/* Agenda — événements à venir rattachés à la fiche (tous visiteurs) */}
@@ -701,7 +744,17 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
                         </p>
                       )}
                     </div>
-                    <span style={{ color: '#2D5A3D', fontSize: 18, flexShrink: 0 }}>›</span>
+                    {ownerUI ? (
+                      <button
+                        onClick={e => { e.preventDefault(); e.stopPropagation(); handleUnlinkEvent(ev.id) }}
+                        aria-label="Détacher"
+                        style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 8, border: '1px solid #C5DCC9', background: '#fff', color: '#A0654E', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      </button>
+                    ) : (
+                      <span style={{ color: '#2D5A3D', fontSize: 18, flexShrink: 0 }}>›</span>
+                    )}
                   </Link>
                 )
               })}
@@ -925,6 +978,14 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
           promo={null}
           onClose={() => setPromoFormOpen(false)}
           onSaved={() => { setPromoFormOpen(false); refetchPromos() }}
+        />
+      )}
+
+      {linkPickerOpen && (
+        <EmbedPicker
+          lockKind="event"
+          onSelect={handleLinkEvent}
+          onClose={() => setLinkPickerOpen(false)}
         />
       )}
 
