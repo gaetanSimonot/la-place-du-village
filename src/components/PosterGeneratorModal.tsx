@@ -66,8 +66,6 @@ export default function PosterGeneratorModal({ event, onClose, onApply }: {
   const logoRef  = useRef<HTMLInputElement>(null)
   const reqId    = useRef(0)   // ignore les réponses périmées
 
-  const hasPhoto = !!(photo || eventRef.current.etablissement?.photo_url)
-
   const generate = useCallback(async () => {
     const id = ++reqId.current
     setLoading(true); setError(null)
@@ -102,10 +100,9 @@ export default function PosterGeneratorModal({ event, onClose, onApply }: {
   // modifié change.
   useEffect(() => { generate() }, [generate])
 
-  // "Générer aléatoire" : re-tire template (compatible) + fond + couleur.
+  // "Générer aléatoire" : re-tire template + fond + couleur.
   const randomize = () => {
-    const valid = hasPhoto ? ['magazine', 'bloc', 'grandeDate'] : ['magazine']
-    setTemplate(pick(valid))
+    setTemplate(pick(['magazine', 'bloc', 'grandeDate']))
     setBgIndex(Math.floor(Math.random() * BG_POOL))
     setAccent(Math.random() < 0.6 ? pick(ACCENTS) : null)
     setSolidColor(pick(SOLIDS))
@@ -169,15 +166,11 @@ export default function PosterGeneratorModal({ event, onClose, onApply }: {
         </Group>
 
         <Group label="Style">
-          {TEMPLATES.map(t => {
-            const disabled = t.needsPhoto && !hasPhoto
-            return (
-              <Chip key={t.key} active={template === t.key} disabled={disabled}
-                onClick={() => { if (!disabled) setTemplate(t.key) }}>
-                {t.label}{disabled ? ' · photo requise' : ''}
-              </Chip>
-            )
-          })}
+          {TEMPLATES.map(t => (
+            <Chip key={t.key} active={template === t.key} onClick={() => setTemplate(t.key)}>
+              {t.label}
+            </Chip>
+          ))}
         </Group>
 
         <Group label="Fond">
