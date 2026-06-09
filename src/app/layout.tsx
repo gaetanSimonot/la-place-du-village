@@ -48,22 +48,20 @@ export const metadata: Metadata = {
     // 1.28MB n'était pas téléchargé par WhatsApp → fallback favicon).
     // Les fiches individuelles (annonces, événements, etc.) overrident
     // avec leur propre photo via leur generateMetadata.
-    // Plusieurs images : la 1re (home.jpg) reste l'aperçu par défaut
-    // (Messenger/WhatsApp prennent celle-là). Les suivantes sont proposées
-    // en carrousel dans le composer Facebook quand on colle le lien, pour
-    // choisir le visuel à publier.
+    // La 1re image est l'aperçu de partage par défaut (Facebook/WhatsApp/
+    // Messenger prennent celle-là). « Tout est là » = visuel d'accroche.
     images: [
-      {
-        url: '/og/home.jpg',
-        width: 1200,
-        height: 630,
-        alt: 'La Place du Village — Ganges et alentours',
-      },
       {
         url: '/og/tout-est-la.jpg',
         width: 1200,
         height: 630,
         alt: 'La Place du Village — Tout est là, le bouche-à-oreille enfin organisé',
+      },
+      {
+        url: '/og/home.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'La Place du Village — Ganges et alentours',
       },
     ],
   },
@@ -71,7 +69,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'La Place du Village',
     description: 'Événements locaux autour de Ganges (Hérault)',
-    images: ['/og/home.jpg'],
+    images: ['/og/tout-est-la.jpg'],
   },
   appleWebApp: {
     capable: true,
