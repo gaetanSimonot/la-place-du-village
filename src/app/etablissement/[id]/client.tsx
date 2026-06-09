@@ -1,18 +1,22 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import { useAdminSession } from '@/hooks/useAdminSession'
 import { ETAB_TYPES } from '@/lib/etablissement-types'
+import { CATEGORIES } from '@/lib/categories'
 import EtabEditDrawer from '@/components/EtabEditDrawer'
 import EtabProductsSection from '@/components/EtabProductsSection'
 import type { Etablissement } from '@/lib/types'
 import { can, toUserContext } from '@/lib/capabilities'
 import { QuotaReachedModal } from '@/components/HubModals'
-import PromotionsManager from '@/components/PromotionsManager'
+import PromotionsManager, { PromotionForm } from '@/components/PromotionsManager'
+import EtabPostForm from '@/components/EtabPostForm'
+import ClientPortal from '@/components/ClientPortal'
 import FeatureButton from '@/components/FeatureButton'
 import SubscriptionModal from '@/components/SubscriptionModal'
 import BottomNavBar from '@/components/BottomNavBar'
@@ -26,6 +30,15 @@ interface Comment {
   profile: { user_id: string; display_name: string | null; avatar_url: string | null } | null
 }
 
+interface EtabEvent {
+  id: string; titre: string; date_debut: string | null; heure: string | null
+  image_url: string | null; categorie: string
+}
+interface EtabPost {
+  id: string; type: string; titre: string | null; contenu: string
+  image_url: string | null; image_position: string; created_at: string
+}
+
 function timeAgo(d: string) {
   const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000)
   if (m < 1) return 'à l\'instant'; if (m < 60) return `${m} min`
@@ -36,13 +49,33 @@ function Avatar({ name, url, size = 32 }: { name: string; url?: string | null; s
   return <div style={{ width: size, height: size, borderRadius: '50%', backgroundColor: '#2D5A3D', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: size * 0.38, flexShrink: 0 }}>{(name || '?')[0].toUpperCase()}</div>
 }
 
+function AddMenuItem({ emoji, color, title, desc, onClick }: { emoji: string; color: string; title: string; desc: string; onClick: () => void }) {
+  return (
+    <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 14px', borderRadius: 14, border: '1px solid #F0EAE0', backgroundColor: '#fff', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif' }}>
+      <div style={{ width: 40, height: 40, borderRadius: 11, backgroundColor: color + '1A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{emoji}</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#1A1209' }}>{title}</p>
+        <p style={{ margin: '2px 0 0', fontSize: 11.5, color: '#8A7A6A' }}>{desc}</p>
+      </div>
+      <span style={{ color: '#C8BCA8', fontSize: 20, flexShrink: 0 }}>›</span>
+    </button>
+  )
+}
+
 export default function EtablissementPageClient({ id, onBack }: { id: string; onBack?: () => void }) {
   const { user, profile } = useAuth()
   const { openAuthModal } = useAuthModal()
   const isAdmin = useAdminSession()
   const goBack = useSmartBack('/')
+  const router = useRouter()
   const [etab, setEtab]             = useState<Etablissement | null>(null)
   const [etabPromos, setEtabPromos] = useState<Array<{ id: string; title: string; description: string | null; image_url: string | null; conditions: string | null; valid_until: string | null }>>([])
+  const [etabEvents, setEtabEvents] = useState<EtabEvent[]>([])
+  const [etabPosts, setEtabPosts]   = useState<EtabPost[]>([])
+  // Menu "+ Ajouter" (propriétaire) et formulaires qu'il ouvre
+  const [addMenuOpen, setAddMenuOpen]   = useState(false)
+  const [promoFormOpen, setPromoFormOpen] = useState(false)
+  const [postFormType, setPostFormType] = useState<'actu' | 'autre' | null>(null)
   const [loading, setLoading]       = useState(true)
   const [photoIdx, setPhotoIdx]     = useState(0)
   const [isFav, setIsFav]           = useState(false)
@@ -80,6 +113,17 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
     const r = await fetch(`/api/etablissements/${id}`)
     const d = await r.json()
     if (d.etablissement) setEtab(d.etablissement)
+  }
+
+  const deletePost = async (postId: string) => {
+    if (!confirm('Supprimer cette actu ?')) return
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const r = await fetch(`/api/etablissement-posts/${postId}`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+    if (r.ok) { setEtabPosts(prev => prev.filter(p => p.id !== postId)); toast.success('Actu supprimée') }
+    else toast.error('Erreur')
   }
 
   // Routing 3-voies pour "Revendiquer cette fiche" :
@@ -135,12 +179,26 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
   }, [id])
 
   // Promotions actives de cette fiche (visibles par tous les visiteurs)
+  const refetchPromos = () => fetch(`/api/promotions?etab=${id}`)
+    .then(r => r.json()).then(d => setEtabPromos(d.promotions ?? [])).catch(() => {})
+  useEffect(() => { refetchPromos() }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Événements à venir rattachés à cette fiche (publiés). Date locale pour
+  // inclure aujourd'hui (cf. règle TZ : getFullYear/Month/Date côté client OK).
   useEffect(() => {
-    fetch(`/api/promotions?etab=${id}`)
-      .then(r => r.json())
-      .then(d => setEtabPromos(d.promotions ?? []))
-      .catch(() => {})
+    const now = new Date()
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    supabase.from('evenements')
+      .select('id, titre, date_debut, heure, image_url, categorie')
+      .eq('etablissement_id', id).eq('statut', 'publie').gte('date_debut', todayStr)
+      .order('date_debut', { ascending: true }).limit(20)
+      .then(({ data }) => setEtabEvents((data as EtabEvent[]) ?? []))
   }, [id])
+
+  // Actus / publications de la fiche
+  const refetchPosts = () => fetch(`/api/etablissement-posts?etab=${id}`)
+    .then(r => r.json()).then(d => setEtabPosts(d.posts ?? [])).catch(() => {})
+  useEffect(() => { refetchPosts() }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetch(`/api/etablissements/${id}/comments`)
@@ -547,6 +605,60 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
           )
         })()}
 
+        {/* + Ajouter — propriétaire de la fiche uniquement */}
+        {isOwner && (
+          <button
+            onClick={() => setAddMenuOpen(true)}
+            style={{
+              ...CARD, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer',
+              border: '1.5px dashed #2D5A3D', backgroundColor: '#F0F7F2', width: '100%', textAlign: 'left',
+            }}
+          >
+            <div style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#2D5A3D', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#2D5A3D' }}>Ajouter du contenu</p>
+              <p style={{ margin: '2px 0 0', fontSize: 11.5, color: '#5A7A64' }}>Promotion, événement, actu…</p>
+            </div>
+            <span style={{ color: '#2D5A3D', fontSize: 20, flexShrink: 0 }}>›</span>
+          </button>
+        )}
+
+        {/* Agenda — événements à venir rattachés à la fiche (tous visiteurs) */}
+        {etabEvents.length > 0 && (
+          <div style={CARD}>
+            <p style={{ fontSize: 11, fontWeight: 800, color: '#2D5A3D', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              📅 Agenda
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {etabEvents.map(ev => {
+                const cat = (CATEGORIES as Record<string, { label: string; emoji: string; color: string }>)[ev.categorie] ?? (CATEGORIES as Record<string, { label: string; emoji: string; color: string }>)['autre']
+                return (
+                  <Link key={ev.id} href={`/evenement/${ev.id}`}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 12, backgroundColor: '#F0F7F2', border: '1px solid #C5DCC9', textDecoration: 'none', color: 'inherit' }}>
+                    {ev.image_url ? (
+                      <img src={ev.image_url} alt="" style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
+                    ) : (
+                      <div style={{ width: 48, height: 48, borderRadius: 10, backgroundColor: cat.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>{cat.emoji}</div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#1A1209', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.titre}</p>
+                      {ev.date_debut && (
+                        <p style={{ margin: '3px 0 0', fontSize: 11, color: '#2D5A3D', fontWeight: 700 }}>
+                          {new Date(ev.date_debut + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}
+                          {ev.heure ? ` · ${ev.heure.slice(0, 5)}` : ''}
+                        </p>
+                      )}
+                    </div>
+                    <span style={{ color: '#2D5A3D', fontSize: 18, flexShrink: 0 }}>›</span>
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Bons plans actuels — visibles par tous les visiteurs */}
         {etabPromos.length > 0 && (
           <div style={CARD}>
@@ -588,6 +700,34 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
                   </div>
                   <span style={{ color: '#E8622A', fontSize: 18, flexShrink: 0 }}>›</span>
                 </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Actualités — publications de la fiche (tous visiteurs) */}
+        {etabPosts.length > 0 && (
+          <div style={CARD}>
+            <p style={{ fontSize: 11, fontWeight: 800, color: '#8A7A6A', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              📣 Actualités
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {etabPosts.map(p => (
+                <div key={p.id} style={{ padding: '12px 14px', borderRadius: 12, backgroundColor: '#FAF7F2', border: '1px solid #F0EAE0' }}>
+                  {p.image_url && (
+                    <img src={p.image_url} alt="" style={{ width: '100%', height: 150, objectFit: 'cover', objectPosition: p.image_position, borderRadius: 10, marginBottom: 10 }} />
+                  )}
+                  {p.titre && <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 800, color: '#1A1209' }}>{p.titre}</p>}
+                  <p style={{ margin: 0, fontSize: 13, color: '#4A3728', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{p.contenu}</p>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+                    <span style={{ fontSize: 10.5, color: '#AAA' }}>{timeAgo(p.created_at)}</span>
+                    {isOwner && (
+                      <button onClick={() => deletePost(p.id)} style={{ background: 'none', border: 'none', color: '#B53A22', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', textDecoration: 'underline', padding: 0 }}>
+                        Supprimer
+                      </button>
+                    )}
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -697,6 +837,50 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
             </a>
           )}
         </div>
+      )}
+
+      {/* Menu "+ Ajouter" — bottom sheet (portail pour passer au-dessus de la nav) */}
+      {addMenuOpen && (
+        <ClientPortal>
+          <div onClick={() => setAddMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 3000, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, backgroundColor: '#fff', borderRadius: '24px 24px 0 0', padding: '18px 18px 24px', paddingBottom: 'max(24px, env(safe-area-inset-bottom, 24px))', fontFamily: 'Inter, sans-serif' }}>
+              <div style={{ width: 38, height: 4, borderRadius: 2, backgroundColor: '#E0D8CE', margin: '0 auto 16px' }} />
+              <p style={{ margin: '0 0 14px', fontSize: 16, fontWeight: 800, color: '#1A1209' }}>Que voulez-vous ajouter ?</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {((profile?.plan === 'pro') || isAdmin) && (
+                  <AddMenuItem emoji="🎁" color="#C4622D" title="Promotion" desc="Une offre pour vos clients"
+                    onClick={() => { setAddMenuOpen(false); setPromoFormOpen(true) }} />
+                )}
+                <AddMenuItem emoji="📅" color="#2D5A3D" title="Événement" desc="Photo d'affiche, dictée ou à la main"
+                  onClick={() => { setAddMenuOpen(false); router.push(`/ajouter?etab=${id}`) }} />
+                <AddMenuItem emoji="📣" color="#3A5BC7" title="Actu" desc="Une actualité texte + photo"
+                  onClick={() => { setAddMenuOpen(false); setPostFormType('actu') }} />
+                <AddMenuItem emoji="✏️" color="#B8860B" title="Autre" desc="Menu, service, info libre"
+                  onClick={() => { setAddMenuOpen(false); setPostFormType('autre') }} />
+              </div>
+            </div>
+          </div>
+        </ClientPortal>
+      )}
+
+      {promoFormOpen && (
+        <PromotionForm
+          etablissementId={etab.id}
+          etablissementPhotos={etab.photos ?? []}
+          promo={null}
+          onClose={() => setPromoFormOpen(false)}
+          onSaved={() => { setPromoFormOpen(false); refetchPromos() }}
+        />
+      )}
+
+      {postFormType && (
+        <EtabPostForm
+          etablissementId={etab.id}
+          etablissementPhotos={etab.photos ?? []}
+          type={postFormType}
+          onClose={() => setPostFormType(null)}
+          onSaved={() => { setPostFormType(null); refetchPosts() }}
+        />
       )}
 
       {claimOpen && (

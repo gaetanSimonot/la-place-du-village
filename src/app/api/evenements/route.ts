@@ -38,6 +38,10 @@ export async function POST(req: NextRequest) {
       // client). Ancien flow conserve pour retro-compat : image base64 +
       // imageMimeType -> upload serveur via supabaseAdmin.
       image_url: bodyImageUrl, image, imageMimeType, image_position,
+      // Rattachement à une fiche établissement (création depuis la fiche par
+      // le partenaire local). Validé côté serveur : seul le propriétaire (ou
+      // un admin) peut lier + publier directement.
+      etablissement_id: bodyEtabId,
     } = body
 
     if (!titre?.trim()) {
@@ -81,6 +85,20 @@ export async function POST(req: NextRequest) {
           const blocked = await rateLimit(user.id, 'create_event', userPlan, false)
           if (blocked) return blocked
         }
+      }
+    }
+
+    // Rattachement fiche établissement : on ne lie (et ne publie directement)
+    // que si l'auteur est le propriétaire de la fiche, ou un admin. Sinon le
+    // champ est ignoré (anti-usurpation).
+    let etabIdToLink: string | null = null
+    let ownerPublishDirect = false
+    if (bodyEtabId && submittedBy) {
+      const { data: etab } = await supabaseAdmin
+        .from('etablissements').select('user_id').eq('id', bodyEtabId).maybeSingle()
+      if (etab && (etab.user_id === submittedBy || !isUserSubmission)) {
+        etabIdToLink = bodyEtabId
+        ownerPublishDirect = true
       }
     }
 
@@ -179,6 +197,10 @@ export async function POST(req: NextRequest) {
       finalStatut = check.doublon ? 'archive' : check.publier ? baseStatut : 'a_verifier'
     }
 
+    // Partenaire local propriétaire (ou admin) depuis sa fiche → publication
+    // directe, sans file de modération.
+    if (ownerPublishDirect) finalStatut = 'publie'
+
     const { data: evenement, error: evtErr } = await supabaseAdmin
       .from('evenements')
       .insert({
@@ -190,6 +212,7 @@ export async function POST(req: NextRequest) {
         categorie: (categorie as Categorie) ?? 'autre',
         statut: finalStatut,
         lieu_id: lieuId,
+        etablissement_id: etabIdToLink,
         prix: prix || null,
         contact: contact || null,
         organisateurs: organisateurs || null,
@@ -205,7 +228,9 @@ export async function POST(req: NextRequest) {
 
     if (evtErr) throw new Error(`Erreur insertion événement : ${evtErr.message}`)
 
-    const message = isUserSubmission ? 'submitted' : undefined
+    // 'submitted' = passe en modération (message "sera publié après vérif").
+    // Le partenaire publie directement → pas ce message.
+    const message = (isUserSubmission && !ownerPublishDirect) ? 'submitted' : undefined
     return NextResponse.json({ success: true, evenement, message })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erreur inconnue'

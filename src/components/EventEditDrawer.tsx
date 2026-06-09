@@ -255,9 +255,15 @@ interface Props {
    * avant un submit batch unique. onSaved est ignoré dans ce mode.
    */
   onEditOnly?: (draft: EventDraft) => void
+  /**
+   * Rattache l'event créé à une fiche établissement (création depuis la fiche
+   * par le partenaire local). Transmis au POST /api/evenements qui valide
+   * l'ownership et publie directement. Ignoré en mode édition.
+   */
+  etablissementId?: string | null
 }
 
-export default function EventEditDrawer({ evenementId, initialData, initialImage, onClose, onSaved, onEditOnly }: Props) {
+export default function EventEditDrawer({ evenementId, initialData, initialImage, onClose, onSaved, onEditOnly, etablissementId }: Props) {
   const [mode, setMode]       = useState<Mode>('edit')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving]   = useState(false)
@@ -523,6 +529,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
             // Nouveau : image_url deja uploadee. Plus de base64 = pas de
             // transit Vercel pour l image.
             image_url: uploadedImageUrl, image_position: imagePosition,
+            etablissement_id: etablissementId ?? undefined,
           }),
         })
         const d = await res.json()

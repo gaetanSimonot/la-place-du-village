@@ -85,6 +85,12 @@ export default function AjouterPage() {
   const [submitMessage, setSubmitMessage] = useState<string | undefined>()
   const [dicteeOpen, setDicteeOpen] = useState(false)
 
+  // Contexte fiche établissement : si on arrive depuis /ajouter?etab=<id>,
+  // l'event est rattaché à cette fiche (publication directe pour le
+  // propriétaire) et le lieu est pré-rempli avec l'établissement.
+  const [etabId, setEtabId] = useState<string | null>(null)
+  const [etabCtx, setEtabCtx] = useState<{ nom: string; commune: string; adresse: string; lat: number | null; lng: number | null } | null>(null)
+
   // ── Multi-events : liste de drafts éditables avec checkboxes ──────────────
   const [events, setEvents]         = useState<EventDraft[]>([])
   const [selected, setSelected]     = useState<Set<number>>(new Set())
@@ -108,6 +114,34 @@ export default function AjouterPage() {
   useEffect(() => {
     if (!authLoading && !user) openAuthModal()
   }, [authLoading, user, openAuthModal])
+
+  // Lecture du ?etab=<id> (window.location pour ne pas casser le prerender
+  // statique avec useSearchParams) + chargement des infos de la fiche pour
+  // pré-remplir le lieu.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('etab')
+    if (!id) return
+    setEtabId(id)
+    supabase.from('etablissements')
+      .select('nom, commune, adresse, lat, lng').eq('id', id).maybeSingle()
+      .then(({ data }) => {
+        if (data) setEtabCtx({
+          nom: data.nom ?? '', commune: data.commune ?? '', adresse: data.adresse ?? '',
+          lat: data.lat ?? null, lng: data.lng ?? null,
+        })
+      })
+  }, [])
+
+  // initialData du mode manuel : vide, ou pré-rempli avec le lieu de la fiche.
+  const manualInitial = etabCtx ? {
+    ...emptyForm,
+    lieu_nom: etabCtx.nom,
+    commune: etabCtx.commune,
+    adresse: etabCtx.adresse,
+    lat: etabCtx.lat,
+    lng: etabCtx.lng,
+    place_id_google: `etab:${etabId}`,
+  } : emptyForm
 
   // ─── Handlers ─────────────────────────────────────────────────────────
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -247,6 +281,7 @@ export default function AjouterPage() {
             image:        imgB64,
             imageMimeType: imgMime,
             image_position: evt.image_position,
+            etablissement_id: etabId ?? undefined,
           }),
         })
         const d = await res.json()
@@ -334,8 +369,9 @@ export default function AjouterPage() {
   if (step === 'manual') {
     return (
       <EventEditDrawer
-        initialData={emptyForm}
+        initialData={manualInitial}
         initialImage={null}
+        etablissementId={etabId}
         onClose={() => setStep('input')}
         onSaved={(result) => {
           setEventId(result?.id ?? null)
@@ -544,6 +580,7 @@ export default function AjouterPage() {
       <EventEditDrawer
         initialData={form}
         initialImage={image ? { base64: image, mime: imageMimeType, preview: imagePreviewUrl!, position: imagePosition } : null}
+        etablissementId={etabId}
         onClose={() => setStep('input')}
         onSaved={(result) => {
           setEventId(result?.id ?? null)
@@ -701,6 +738,14 @@ export default function AjouterPage() {
         <p className="mt-1.5 text-[13px] leading-[1.5] text-texte-doux">
           Choisis ta méthode. L&apos;IA extrait titre, date, lieu, prix… tu vérifies, tu publies.
         </p>
+        {etabCtx && (
+          <div className="mt-3 flex items-center gap-2 rounded-xl px-3 py-2" style={{ background: '#E8F2EB', border: '1px solid #C5DCC9' }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2D5A3D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>
+            <p className="m-0 text-[12px] leading-tight text-texte">
+              Publication pour <span className="font-bold">{etabCtx.nom}</span> — visible aussitôt sur votre fiche.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* File inputs cachés */}

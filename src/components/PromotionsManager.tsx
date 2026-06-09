@@ -166,7 +166,7 @@ export default function PromotionsManager({ etablissementId, etablissementPhotos
   )
 }
 
-function PromotionForm({ etablissementId, etablissementPhotos, promo, onClose, onSaved }: {
+export function PromotionForm({ etablissementId, etablissementPhotos, promo, onClose, onSaved }: {
   etablissementId: string
   etablissementPhotos: string[]
   promo: Promotion | null
