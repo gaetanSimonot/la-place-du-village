@@ -25,6 +25,11 @@ const TEMPLATES = [
   { key: 'bloc',       label: 'Blocs',    needsPhoto: true },
   { key: 'grandeDate', label: 'Grande date', needsPhoto: true },
 ]
+// Pilotage du hasard côté client (le serveur est déterministe).
+const BG_POOL = 8   // nb de fonds d'ambiance (1 par catégorie)
+const SOLIDS  = ['#0E0E12', '#1B1C2B', '#241046', '#13212B', '#2D5A3D', '#3A1410', '#101A22', '#1A1209']
+const ACCENTS = ['#E74C3C', '#9B59B6', '#27AE60', '#F39C12', '#3498DB', '#E91E63', '#16A085', '#2D5A3D', '#C4622D']
+const pick = <T,>(a: T[]): T => a[Math.floor(Math.random() * a.length)]
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((res, rej) => {
@@ -48,6 +53,10 @@ export default function PosterGeneratorModal({ event, onClose, onApply }: {
   const [solidBg, setSolidBg]   = useState(false)
   const [photo, setPhoto]       = useState<string | null>(null)   // dataURL
   const [logo, setLogo]         = useState<string | null>(null)   // dataURL
+  // Paramètres de hasard STABLES (re-tirés seulement via "Générer aléatoire")
+  const [bgIndex, setBgIndex]       = useState(() => Math.floor(Math.random() * BG_POOL))
+  const [accent, setAccent]         = useState<string | null>(null)
+  const [solidColor, setSolidColor] = useState(() => pick(SOLIDS))
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [blob, setBlob]         = useState<Blob | null>(null)
   const [loading, setLoading]   = useState(false)
@@ -59,7 +68,7 @@ export default function PosterGeneratorModal({ event, onClose, onApply }: {
 
   const hasPhoto = !!(photo || eventRef.current.etablissement?.photo_url)
 
-  const generate = useCallback(async (random: boolean) => {
+  const generate = useCallback(async () => {
     const id = ++reqId.current
     setLoading(true); setError(null)
     try {
@@ -68,7 +77,7 @@ export default function PosterGeneratorModal({ event, onClose, onApply }: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           event: eventRef.current,
-          opts: { template, format, random, solidBg, image: photo, logo },
+          opts: { template, format, solidBg, image: photo, logo, bgIndex, accent, solidColor },
         }),
       })
       if (id !== reqId.current) return            // une requête plus récente a pris le relais
@@ -85,11 +94,22 @@ export default function PosterGeneratorModal({ event, onClose, onApply }: {
     } finally {
       if (id === reqId.current) setLoading(false)
     }
-  }, [template, format, solidBg, photo, logo])
+  }, [template, format, solidBg, photo, logo, bgIndex, accent, solidColor])
 
-  // Régénère AUTOMATIQUEMENT à chaque changement de filtre (format, style,
-  // fond uni, photo, logo) + au montage. Plus besoin de re-cliquer.
-  useEffect(() => { generate(false) }, [generate])
+  // Régénère AUTOMATIQUEMENT à chaque changement de paramètre (format, style,
+  // fond, photo, logo, ou tirage aléatoire) + au montage. En gardant les
+  // paramètres de hasard inchangés → l'image reste stable, seul le param
+  // modifié change.
+  useEffect(() => { generate() }, [generate])
+
+  // "Générer aléatoire" : re-tire template (compatible) + fond + couleur.
+  const randomize = () => {
+    const valid = hasPhoto ? ['magazine', 'bloc', 'grandeDate'] : ['magazine']
+    setTemplate(pick(valid))
+    setBgIndex(Math.floor(Math.random() * BG_POOL))
+    setAccent(Math.random() < 0.6 ? pick(ACCENTS) : null)
+    setSolidColor(pick(SOLIDS))
+  }
   // Nettoyage de l'objectURL au démontage
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -137,7 +157,7 @@ export default function PosterGeneratorModal({ event, onClose, onApply }: {
 
       {/* Panneau de contrôles */}
       <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', padding: '16px 16px 20px', paddingBottom: 'max(20px, env(safe-area-inset-bottom, 20px))', maxHeight: '48dvh', overflowY: 'auto' }}>
-        <button onClick={() => generate(true)} disabled={loading}
+        <button onClick={randomize} disabled={loading}
           style={{ width: '100%', padding: '13px', borderRadius: 14, border: 'none', background: 'linear-gradient(90deg,#2D5A3D,#3A7A52)', color: '#fff', fontSize: 14, fontWeight: 800, cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.6 : 1, marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>
           🎲 Générer aléatoire
         </button>

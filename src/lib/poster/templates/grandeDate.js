@@ -10,7 +10,7 @@ export async function render({ d, W, H, fx, sources }) {
   const u = W / 100, M = 0.067 * W, HB = Math.round(0.40 * H), seam = H - HB;
   const src = sources.photo || sources.bg;
   const photo = src ? await fx.duotone(src, W, HB, SHADOW, HIGH) : null;
-  const logo = sources.logo ? await fx.keyBlack(sources.logo) : null;
+  const logo = sources.logo ? await fx.prepLogo(sources.logo) : null;
 
   const DNUM = 0.33 * W, colH = 0.72 * DNUM;
   const dateBlock = Box({ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 2.2 * u },

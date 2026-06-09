@@ -48,3 +48,12 @@ export async function keyBlack(src, thresh = 26) {
   const m = await sharp(buf).metadata();
   return { uri: toUri(buf), w: m.width, h: m.height };
 }
+
+// Logo utilisateur : garde sa transparence native (PAS de détourage du noir,
+// qui détruirait un logo foncé), recadre juste les bords transparents.
+export async function prepLogo(src) {
+  let buf = await sharp(src).ensureAlpha().png().toBuffer();
+  try { buf = await sharp(buf).trim().png().toBuffer(); } catch { /* logo uni : pas de trim */ }
+  const m = await sharp(buf).metadata();
+  return { uri: toUri(buf), w: m.width, h: m.height };
+}

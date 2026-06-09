@@ -1,17 +1,21 @@
 import { Box, Text, Img } from '../h.js';
 import { onColor } from '../contract.js';
+import { fitBlock } from '../util.js';
 
 // Template "couleur pleine" piloté par la couleur de catégorie (d.accent).
 export const meta = { palette: { bg: '#0E0E12' }, needs: 'background' };
 
 export async function render({ d, W, H, fx, sources }) {
   const u = W / 100, M = 0.067 * W, MH = Math.round(0.058 * H);
-  // Échelle selon le ratio : titre plein en portrait, réduit en carré/paysage
-  // (évite que le titre remonte et chevauche le bandeau/catégorie).
-  const k = Math.min(1, (H / W) / 1.2);
-  const titleSize = 0.076 * W * k;
+  // Taille de titre AUTO-AJUSTÉE : tient dans la largeur et limite le nombre
+  // de lignes selon le format (4 en portrait, 3 en carré, 2 en paysage) →
+  // jamais de débordement, plus de chevauchement catégorie/titre.
+  const ratio = H / W;
+  const maxLines = ratio >= 1.15 ? 4 : ratio >= 0.85 ? 3 : 2;
+  const titleSize = fitBlock(d.title, W - 2 * M, { max: 0.08 * W, min: 0.035 * W, charRatio: 0.5, maxLines });
   const src = sources.bg || sources.photo;
   const bg = src ? await fx.prepBg(src, W, H) : null;
+  const logo = sources.logo ? await fx.prepLogo(sources.logo) : null;
   const acc = d.accent, onAcc = onColor(acc);
 
   return Box(
@@ -22,6 +26,8 @@ export async function render({ d, W, H, fx, sources }) {
       Text({ fontFamily: 'Poppins', fontWeight: 800, fontSize: 1.9 * u, letterSpacing: 3, textTransform: 'uppercase' }, d.organizer || d.title),
       d.when ? Text({ fontFamily: 'Poppins', fontWeight: 600, fontSize: 1.9 * u, letterSpacing: 2, textTransform: 'uppercase' }, d.when) : null),
     d.catLabel ? Box({ position: 'absolute', top: MH + 0.03 * H, left: M, display: 'flex', paddingTop: 1 * u, paddingBottom: 1 * u, paddingLeft: 2 * u, paddingRight: 2 * u, borderRadius: 999, background: acc, color: onAcc, fontFamily: 'Poppins', fontWeight: 800, fontSize: 1.9 * u, letterSpacing: 3, textTransform: 'uppercase' }, d.catLabel) : null,
+    logo ? Box({ position: 'absolute', top: MH + 0.025 * H, right: M, display: 'flex', height: 11 * u, width: 11 * u * (logo.w / logo.h) },
+      Img(logo.uri, { height: 11 * u, width: 11 * u * (logo.w / logo.h), objectFit: 'contain' })) : null,
     Box({ position: 'absolute', left: M, right: M, bottom: M, display: 'flex', flexDirection: 'column' },
       Box({ display: 'flex', width: 7 * u, height: 0.55 * u, background: acc, marginBottom: 2.4 * u }),
       Text({ fontFamily: 'DM Serif Display', fontSize: titleSize, lineHeight: 1.04, color: '#FFF8EE' }, d.title),

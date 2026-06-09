@@ -9,10 +9,8 @@ import { BACKGROUNDS, FORMATS } from '@/lib/poster/palettes.js'
 export const runtime = 'nodejs'
 export const maxDuration = 30
 
-const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]
-const ACCENTS = ['#E74C3C', '#9B59B6', '#27AE60', '#F39C12', '#3498DB', '#E91E63', '#16A085', '#2D5A3D', '#C4622D']
-// Couleurs pleines pour l'option "Fond uni" (pas d'image de fond).
-const SOLIDS = ['#0E0E12', '#1B1C2B', '#241046', '#13212B', '#2D5A3D', '#3A1410', '#101A22', '#1A1209']
+// Couleur pleine par défaut si le client n'en fournit pas (option "Fond uni").
+const DEFAULT_SOLID = '#1B1C2B'
 
 const solidBg = (hex: string) =>
   sharp({ create: { width: 32, height: 32, channels: 3, background: hex } }).png().toBuffer()
@@ -47,22 +45,17 @@ export async function POST(req: NextRequest) {
   o.format = (opts.format && (FORMATS as Record<string, unknown>)[opts.format]) ? opts.format : 'social-portrait'
   if (opts.template) o.template = opts.template
 
-  const hasPhoto = !!(o.image || event?.etablissement?.photo_url)
+  // Déterministe : tout le hasard est piloté par le CLIENT (template, bgIndex,
+  // accent, solidColor). Un même jeu d'opts → même affiche. Changer un seul
+  // paramètre n'altère donc pas les autres.
+  if (typeof opts.accent === 'string') event.categorie_couleur = opts.accent
 
-  // "Générer aléatoire" : mélange template (compatible avec les sources dispo)
-  // + variation de couleur d'accent (thème).
-  if (opts.random) {
-    const templates = hasPhoto ? ['bloc', 'grandeDate', 'magazine'] : ['magazine']
-    o.template = pick(templates)
-    if (Math.random() < 0.6) event.categorie_couleur = pick(ACCENTS)
-  }
-
-  // Fond : "Fond uni" → couleur pleine ; sinon fonds d'ambiance (aléatoires
-  // par défaut) piochés dans la bibliothèque serveur.
   if (opts.solidBg) {
-    o.background = await solidBg(pick(SOLIDS))
+    o.background = await solidBg(typeof opts.solidColor === 'string' ? opts.solidColor : DEFAULT_SOLID)
   } else {
-    o.background = pick(Object.values(BACKGROUNDS as Record<string, string>))
+    const pool = Object.values(BACKGROUNDS as Record<string, string>)
+    const i = Number.isInteger(opts.bgIndex) ? ((opts.bgIndex % pool.length) + pool.length) % pool.length : 0
+    o.background = pool[i]
   }
 
   try {

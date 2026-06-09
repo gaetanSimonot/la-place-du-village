@@ -11,7 +11,7 @@ export async function render({ d, W, H, fx, sources }) {
   const u = W / 100, M = 0.075 * W, H1 = Math.round(0.52 * H);
   const src = sources.photo || sources.bg;
   const photo = src ? await fx.duotone(src, W, H1, SHADOW, HIGH) : null;
-  const logo = sources.logo ? await fx.keyBlack(sources.logo) : null;
+  const logo = sources.logo ? await fx.prepLogo(sources.logo) : null;
   const titleSize = fitBlock(d.title, W - 2 * M, { max: 0.125 * W, min: 0.05 * W, charRatio: 0.52, maxLines: 3 });
 
   const corner = logo
