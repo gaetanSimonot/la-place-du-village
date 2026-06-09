@@ -1,7 +1,9 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { PLANS_INFO, PLAN_ORDER, type Plan } from '@/lib/capabilities'
+
+const PAGE_SIZE = 25  // rendu progressif : lignes affichées par paliers de scroll
 
 const PRO_TYPES = [
   { id: 'producteur',  label: '🌿 Producteur local' },
@@ -34,6 +36,8 @@ export default function MembresAdmin() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [saving, setSaving]     = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  const sentinelRef = useRef<HTMLDivElement | null>(null)
 
   // Edit fields — reset on expand
   const [editName, setEditName]       = useState('')
@@ -149,16 +153,62 @@ export default function MembresAdmin() {
   const fmt = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: '2-digit' })
   const planCfg = (p: Plan) => PLANS_INFO[p] ?? PLANS_INFO.basic
 
-  const filtered = membres.filter(m =>
-    m.email.toLowerCase().includes(search.toLowerCase()) ||
-    m.name.toLowerCase().includes(search.toLowerCase()) ||
-    (m.producer?.nom ?? '').toLowerCase().includes(search.toLowerCase()) ||
-    m.etablissements.some(e => e.nom.toLowerCase().includes(search.toLowerCase()))
-  )
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase()
+    if (!q) return membres
+    return membres.filter(m =>
+      m.email.toLowerCase().includes(q) ||
+      m.name.toLowerCase().includes(q) ||
+      (m.producer?.nom ?? '').toLowerCase().includes(q) ||
+      m.etablissements.some(e => e.nom.toLowerCase().includes(q))
+    )
+  }, [membres, search])
+
+  // Stats globales (sur la liste complète, pas filtrée)
+  const stats = useMemo(() => ({
+    total:     membres.length,
+    pro:       membres.filter(m => m.plan === 'pro').length,
+    habitants: membres.filter(m => m.plan === 'habitants').length,
+    basic:     membres.filter(m => m.plan === 'basic').length,
+    fiches:    membres.filter(m => m.etablissements.length > 0).length,
+  }), [membres])
+
+  // Rendu progressif : on repart à PAGE_SIZE quand la recherche change
+  useEffect(() => { setVisibleCount(PAGE_SIZE) }, [search])
+
+  // Charge le palier suivant quand le sentinel entre dans le viewport (scroll)
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el) return
+    const io = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) setVisibleCount(c => Math.min(c + PAGE_SIZE, filtered.length))
+    }, { rootMargin: '400px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [filtered.length])
+
+  const visible = filtered.slice(0, visibleCount)
 
   if (loading) return (
-    <div style={{ padding: 32, textAlign: 'center', color: '#9A8A7A', fontFamily: 'Inter, sans-serif' }}>
-      Chargement des membres…
+    <div style={{ fontFamily: 'Inter, sans-serif' }}>
+      <div style={{ display: 'flex', gap: 8, padding: '12px 16px 8px' }}>
+        {[0, 1, 2, 3, 4].map(i => (
+          <div key={i} style={{ flex: 1, minWidth: 78, height: 56, borderRadius: 12, backgroundColor: '#F2EDE4' }} />
+        ))}
+      </div>
+      <div style={{ padding: '8px 16px 12px', borderBottom: '1px solid #F0EBE0' }}>
+        <div style={{ height: 36, borderRadius: 8, backgroundColor: '#F2EDE4' }} />
+      </div>
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderBottom: '1px solid #F5F0E8' }}>
+          <div style={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: '#F2EDE4', flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ width: '40%', height: 11, borderRadius: 4, backgroundColor: '#F2EDE4', marginBottom: 6 }} />
+            <div style={{ width: '65%', height: 9, borderRadius: 4, backgroundColor: '#F5F0E8' }} />
+          </div>
+          <div style={{ width: 64, height: 20, borderRadius: 999, backgroundColor: '#F2EDE4' }} />
+        </div>
+      ))}
     </div>
   )
 
@@ -184,8 +234,17 @@ export default function MembresAdmin() {
 
   return (
     <div style={{ fontFamily: 'Inter, sans-serif' }}>
-      {/* Search + stats + cleanup orphelins */}
-      <div style={{ padding: '12px 16px', borderBottom: '1px solid #F0EBE0', display: 'flex', gap: 10, alignItems: 'center' }}>
+      {/* Cartes de stats */}
+      <div style={{ display: 'flex', gap: 8, padding: '12px 16px 4px', overflowX: 'auto' }}>
+        <StatCard label="Membres"     value={stats.total}     color="#2C1810" bg="#F5F0E8" />
+        <StatCard label="Partenaires" value={stats.pro}       color="#3A5BC7" bg="#EEF3FF" />
+        <StatCard label="Habitants"   value={stats.habitants} color="#2D5A3D" bg="#E8F2EB" />
+        <StatCard label="Basic"       value={stats.basic}     color="#7A6A5A" bg="#F0EBE0" />
+        <StatCard label="Fiches pro"  value={stats.fiches}    color="#C4622D" bg="#FFF0E5" />
+      </div>
+
+      {/* Search + cleanup orphelins */}
+      <div style={{ padding: '8px 16px 12px', borderBottom: '1px solid #F0EBE0', display: 'flex', gap: 10, alignItems: 'center' }}>
         <input
           value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Rechercher par nom, email, boutique…"
@@ -199,13 +258,10 @@ export default function MembresAdmin() {
         >
           {saving === 'cleanup' ? 'Nettoyage…' : '🧹 Orphelins'}
         </button>
-        <span style={{ fontSize: 11, color: '#9A8A7A', whiteSpace: 'nowrap' }}>
-          {membres.filter(m => m.plan === 'pro').length} Partenaire · {membres.filter(m => m.plan === 'habitants').length} Habitants · {membres.filter(m => m.etablissements.length > 0).length} fiches
-        </span>
       </div>
 
       <div style={{ paddingBottom: 40 }}>
-        {filtered.map(m => {
+        {visible.map(m => {
           const isExpanded   = expandedId === m.id
           const plan         = planCfg(m.plan)
           const isSaving     = saving === m.id
@@ -449,12 +505,31 @@ export default function MembresAdmin() {
           )
         })}
 
+        {/* Sentinel : charge le palier suivant en scrollant */}
+        {visible.length < filtered.length && (
+          <div ref={sentinelRef} style={{ display: 'flex', justifyContent: 'center', padding: '18px 0', color: '#B0A898', fontSize: 12 }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid #E0D8CE', borderTopColor: '#2D5A3D', animation: 'spin 0.7s linear infinite' }} />
+              {visible.length} / {filtered.length}
+            </span>
+          </div>
+        )}
+
         {filtered.length === 0 && (
           <div style={{ textAlign: 'center', padding: '40px 0', color: '#9A8A7A', fontSize: 13 }}>
             Aucun membre trouvé.
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function StatCard({ label, value, color, bg }: { label: string; value: number; color: string; bg: string }) {
+  return (
+    <div style={{ flex: '1 0 auto', minWidth: 78, padding: '10px 12px', borderRadius: 12, backgroundColor: bg, textAlign: 'center' }}>
+      <div style={{ fontSize: 20, fontWeight: 800, color, lineHeight: 1.1 }}>{value}</div>
+      <div style={{ fontSize: 10, fontWeight: 700, color: '#7A6A5A', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>{label}</div>
     </div>
   )
 }
