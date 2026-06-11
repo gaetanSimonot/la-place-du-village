@@ -32,6 +32,20 @@ export default function ImageLightbox({ src, alt, objectPosition = '50% 50%', co
   const initDist   = useRef<number | null>(null)
   const initScale  = useRef(1)
   const dragStart  = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null)
+  const lastTap    = useRef({ t: 0, x: 0, y: 0 })
+
+  // Zoom centré sur un point écran (double-tap) ou reset si déjà zoomé.
+  const toggleZoomAt = useCallback((cx: number, cy: number) => {
+    if (scaleRef.current > 1) {
+      scaleRef.current = 1; setScale(1)
+      offsetRef.current = { x: 0, y: 0 }; setOffset({ x: 0, y: 0 })
+    } else {
+      const s = 2.5
+      const off = { x: -s * (cx - window.innerWidth / 2), y: -s * (cy - window.innerHeight / 2) }
+      scaleRef.current = s; setScale(s)
+      offsetRef.current = off; setOffset(off)
+    }
+  }, [])
 
   const dist = (a: { x: number; y: number }, b: { x: number; y: number }) =>
     Math.hypot(b.x - a.x, b.y - a.y)
@@ -46,9 +60,19 @@ export default function ImageLightbox({ src, alt, objectPosition = '50% 50%', co
       initScale.current = scaleRef.current
       dragStart.current = null
     } else if (ptrs.current.size === 1) {
+      // Double-tap / double-clic → zoom (couvre tactile ET souris).
+      const now = Date.now()
+      const lt = lastTap.current
+      if (now - lt.t < 300 && Math.hypot(e.clientX - lt.x, e.clientY - lt.y) < 30) {
+        lastTap.current = { t: 0, x: 0, y: 0 }
+        dragStart.current = null
+        toggleZoomAt(e.clientX, e.clientY)
+        return
+      }
+      lastTap.current = { t: now, x: e.clientX, y: e.clientY }
       dragStart.current = { x: e.clientX, y: e.clientY, ox: offsetRef.current.x, oy: offsetRef.current.y }
     }
-  }, [])
+  }, [toggleZoomAt])
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     ptrs.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
@@ -77,6 +101,14 @@ export default function ImageLightbox({ src, alt, objectPosition = '50% 50%', co
       }
     }
     if (ptrs.current.size === 0) dragStart.current = null
+  }, [])
+
+  // Molette souris → zoom (desktop).
+  const onWheel = useCallback((e: React.WheelEvent) => {
+    const next = Math.min(6, Math.max(1, scaleRef.current - e.deltaY * 0.0025))
+    scaleRef.current = next
+    setScale(next)
+    if (next <= 1) { offsetRef.current = { x: 0, y: 0 }; setOffset({ x: 0, y: 0 }) }
   }, [])
 
   const closeAndReset = () => {
@@ -120,6 +152,7 @@ export default function ImageLightbox({ src, alt, objectPosition = '50% 50%', co
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
               onPointerCancel={onPointerUp}
+              onWheel={onWheel}
               style={{
                 maxWidth: '100%', maxHeight: '90dvh',
                 borderRadius: 12, objectFit: 'contain',
@@ -157,6 +190,11 @@ export default function ImageLightbox({ src, alt, objectPosition = '50% 50%', co
               >
                 Réinitialiser zoom
               </button>
+            )}
+            {scale <= 1 && (
+              <div style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', color: 'rgba(255,255,255,0.65)', fontSize: 11, fontWeight: 600, pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+                Double-tape ou pince pour zoomer
+              </div>
             )}
           </motion.div>
         )}
