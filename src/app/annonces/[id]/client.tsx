@@ -351,7 +351,8 @@ export default function AnnoncePageClient({ id }: Props) {
             controlled={{ open: lightboxOpen, onClose: () => setLightboxOpen(false) }}
           />
         )}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 25%, rgba(0,0,0,0.5) 100%)' }} />
+        {/* pointerEvents:none → laisse le clic atteindre l'image (zoom lightbox) */}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 25%, rgba(0,0,0,0.5) 100%)', pointerEvents: 'none' }} />
 
         <div style={{ position: 'absolute', top: 12, left: 12, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <span style={{ backgroundColor: info.color, color: '#fff', borderRadius: 999, padding: '4px 11px', fontSize: 10, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{info.emoji} {info.label}</span>
