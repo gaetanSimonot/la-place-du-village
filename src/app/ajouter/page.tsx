@@ -7,6 +7,7 @@ import { CATEGORIES } from '@/lib/categories'
 import EventEditDrawer, { type EventDraft } from '@/components/EventEditDrawer'
 import CropRect from '@/components/CropRect'
 import DicteeModal from '@/components/DicteeModal'
+import SubscriptionModal from '@/components/SubscriptionModal'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import { supabase } from '@/lib/supabase'
@@ -69,10 +70,11 @@ function extractedToDraft(e: Record<string, string | null | undefined>): EventDr
 }
 
 export default function AjouterPage() {
-  const { user, loading: authLoading } = useAuth()
+  const { user, profile, loading: authLoading } = useAuth()
   const { openAuthModal } = useAuthModal()
   const router = useRouter()
   const [step, setStep] = useState<Step>('input')
+  const [subOpen, setSubOpen] = useState(false)  // quota IA atteint → upsell
 
   const [texte, setTexte] = useState('')
   const [image, setImage] = useState<string | null>(null)
@@ -201,6 +203,12 @@ export default function AjouterPage() {
         body: JSON.stringify({ text: texte, image }),
       })
       const data = await res.json()
+      // Quota IA atteint (Villageois = 5/h) → on propose l'abonnement au lieu
+      // d'un message sans issue.
+      if (res.status === 429 || data.rateLimitExceeded) {
+        setSubOpen(true)
+        return
+      }
       if (!res.ok) throw new Error(data.error)
 
       // L'API retourne { events: [...] }. On filtre les events avec titre +
@@ -351,6 +359,17 @@ export default function AjouterPage() {
     setSubmitProgress(0)
     setSubmitResults([])
   }
+
+  // Modal d'abonnement (quota IA atteint) — overlay réutilisé sur les écrans
+  // où l'extraction est lancée.
+  const plan = (profile?.plan ?? 'basic') as 'basic' | 'habitants' | 'pro'
+  const subModal = subOpen ? (
+    <SubscriptionModal
+      context={{ kind: 'feature', featureLabel: "Assistant IA — création d'événement", minPlan: 'habitants' }}
+      currentPlan={plan}
+      onClose={() => setSubOpen(false)}
+    />
+  ) : null
 
   // ── Cadrage photo (rectangle utile, plus de point focal) ───────────────────
   if (step === 'crop' && imagePreviewUrl) {
@@ -775,6 +794,7 @@ export default function AjouterPage() {
               : (<>Extraire les infos<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg></>)}
           </button>
         </div>
+        {subModal}
       </div>
     )
   }
@@ -836,6 +856,7 @@ export default function AjouterPage() {
             })}
           />
         )}
+        {subModal}
       </div>
     )
   }

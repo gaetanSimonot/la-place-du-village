@@ -135,6 +135,7 @@ import { Categorie } from '@/lib/types'
 import type { ExtractedData } from '@/lib/extract'
 import MicButton from '@/components/MicButton'
 import EventEditDrawer from '@/components/EventEditDrawer'
+import SubscriptionModal from '@/components/SubscriptionModal'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
@@ -204,10 +205,11 @@ function extractToForm(e: ExtractedData): FormData {
 }
 
 function CapturerInner() {
-  const { user, loading: authLoading } = useAuth()
+  const { user, profile, loading: authLoading } = useAuth()
   const { openAuthModal } = useAuthModal()
   const searchParams = useSearchParams()
   const [step, setStep]               = useState<Step>('input')
+  const [subOpen, setSubOpen]         = useState(false)  // quota IA → upsell
   const [texte, setTexte]             = useState('')
   const [imageBase64, setImageBase64] = useState<string | null>(null)
   const [imageMime, setImageMime]     = useState('image/jpeg')
@@ -291,6 +293,8 @@ function CapturerInner() {
         body: JSON.stringify({ text: texte || null, image: imageBase64, imageMimeType: imageMime }),
       })
       const data = await res.json()
+      // Quota IA atteint (Villageois = 5/h) → propose l'abonnement.
+      if (res.status === 429 || data.rateLimitExceeded) { setSubOpen(true); return }
       if (!res.ok) throw new Error(data.error)
 
       const raw: ExtractedData[] = data.events ?? []
@@ -680,6 +684,13 @@ function CapturerInner() {
           ) : 'Extraire →'}
         </button>
       </div>
+      {subOpen && (
+        <SubscriptionModal
+          context={{ kind: 'feature', featureLabel: "Assistant IA — création d'événement", minPlan: 'habitants' }}
+          currentPlan={(profile?.plan ?? 'basic') as 'basic' | 'habitants' | 'pro'}
+          onClose={() => setSubOpen(false)}
+        />
+      )}
     </div>
   )
 }

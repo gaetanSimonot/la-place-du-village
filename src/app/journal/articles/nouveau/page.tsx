@@ -1,11 +1,12 @@
 'use client'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import { canSubmitArticleJournal } from '@/lib/articles'
 import ArticleJournalForm from '@/components/ArticleJournalForm'
 import BottomNavBar from '@/components/BottomNavBar'
+import SubscriptionModal from '@/components/SubscriptionModal'
 import { useSmartBack } from '@/hooks/useSmartBack'
 
 export default function NouvelArticleJournalPage() {
@@ -13,6 +14,7 @@ export default function NouvelArticleJournalPage() {
   const goBack = useSmartBack('/journal/articles')
   const { user, profile, loading } = useAuth()
   const { openAuthModal } = useAuthModal()
+  const [showSub, setShowSub] = useState(false)
 
   useEffect(() => {
     if (!loading && !user) openAuthModal('/journal/articles/nouveau')
@@ -65,13 +67,27 @@ export default function NouvelArticleJournalPage() {
           <div className="rounded-[14px] border border-accent bg-[#FFF0E5] p-5 text-[13px] leading-[1.5] text-accent">
             <div className="font-bold">Réservé aux abonnés Habitants &amp; Pro</div>
             <p className="mt-1 text-[13px] text-texte">
-              Les articles du Journal du Village sont disponibles avec le premier abonnement payant.
-              Passe Habitants ou Pro pour participer.
+              Les articles du Journal du Village sont disponibles dès le premier abonnement.
+              Passe Habitant ou Partenaire Local pour participer.
             </p>
+            <button
+              onClick={() => setShowSub(true)}
+              className="mt-3 w-full rounded-xl border-none bg-accent py-2.5 text-[13px] font-bold text-white"
+            >
+              Voir les abonnements
+            </button>
           </div>
         )}
       </div>
       <BottomNavBar />
+
+      {showSub && (
+        <SubscriptionModal
+          context={{ kind: 'feature', featureLabel: 'Écrire dans le Journal du Village', minPlan: 'habitants' }}
+          currentPlan={plan}
+          onClose={() => setShowSub(false)}
+        />
+      )}
     </main>
   )
 }
