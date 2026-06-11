@@ -5,15 +5,12 @@ import { supabase } from '@/lib/supabase'
 /**
  * Modale d'abonnement RÉUTILISABLE — La Place du Village
  *
- * Un seul composant pour tous les cas d'upgrade Stripe :
- *  - context.kind === 'claim'   : revendication fiche → met en avant Partenaire (success_url = fiche)
- *  - context.kind === 'promo'   : quota promo basic atteint → met en avant Habitants
- *  - context.kind === 'feature' : feature payante bloquée → contextualisé
- *  - context.kind === 'generic' : upgrade simple → présente les 3 plans
- *
- * Design : 3 cards (Villageois gratuit / Avantages Habitants / Partenaire Local) en
- * colonne sur mobile, avec hero global + footer 4 piliers. La card du plan actuel
- * du user est marquée "TU ES ICI" et son CTA est désactivé.
+ * Un seul plan en focus à la fois : hero gradient + switcher segmenté + détail
+ * + CTA sticky. Logique Stripe et contextes inchangés.
+ *  - context.kind === 'claim'   : revendication fiche → recommande Partenaire
+ *  - context.kind === 'promo'   : quota promo atteint → recommande Habitant
+ *  - context.kind === 'feature' : feature bloquée → recommande minPlan
+ *  - context.kind === 'generic' : présentation des 3 plans
  */
 
 export type SubscriptionModalContext =
@@ -23,138 +20,125 @@ export type SubscriptionModalContext =
   | { kind: 'generic'; title?: string; subtitle?: string }
 
 type PayablePlan = 'habitants' | 'pro'
+type PlanId = 'basic' | 'habitants' | 'pro'
 
 interface Props {
   context: SubscriptionModalContext
   onClose: () => void
   /** Plan actuel du user pour marquer "Tu es ici". Si omis, basic par défaut. */
-  currentPlan?: 'basic' | 'habitants' | 'pro'
+  currentPlan?: PlanId
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Couleurs et données des plans (locales — alignées sur PLANS_INFO mais avec
-// les couleurs spécifiques du mockup ref/modal.png)
+// Données plans (textes fournis par le projet — pas d'emoji)
 // ────────────────────────────────────────────────────────────────────────────
 
-interface PlanSection { title?: string; items: readonly string[] }
+interface PerkSection { title?: string; items: readonly string[] }
 interface PlanInfo {
-  id: 'basic' | 'habitants' | 'pro'
-  label: string; icon: string; price: string
-  color: string; bgSoft: string; bgVeryLight: string; border: string
-  /** Accroche courte affichée carte repliée (1-2 lignes) */
-  pitch: readonly string[]
-  /** Libellé du bouton (payant) */
-  cta: string
-  detail: { intro: string; sections: readonly PlanSection[]; idealFor: string }
+  id: PlanId; label: string; price: string; period: string
+  color: string; soft: string; veryLight: string
+  tagline: string
+  highlight: string
+  perksLead?: string
+  perks: readonly PerkSection[]
+  idealFor?: string
 }
 
-const PLAN_DATA: Record<'basic' | 'habitants' | 'pro', PlanInfo> = {
+const PLAN_DATA: Record<PlanId, PlanInfo> = {
   basic: {
-    id: 'basic',
-    label: 'Villageois', icon: '🏡', price: 'GRATUIT',
-    color: '#4A8B5C', bgSoft: '#EEF7EF', bgVeryLight: '#F5FAF6', border: '#C8E0CE',
-    pitch: ['L’essentiel pour profiter de la vie locale, gratuitement.'],
-    cta: '',
-    detail: {
-      intro: 'Participez à la vie locale et découvrez tout ce qui se passe autour de vous.',
-      sections: [{
-        items: [
-          'Accès complet à l’agenda local',
-          '1 promotion locale utilisable chaque mois',
-          'Consultation des producteurs, commerces et établissements',
-          'Accès aux promotions, annonces, journal local et Place Publique',
-          'Participation aux discussions et sondages',
-          'Commentaires, favoris et suivi des contenus',
-          'Publication sur votre mur',
-          'Dépôt d’événements pour enrichir l’agenda local',
-          'Jusqu’à 3 annonces par mois (vente, troc ou enchère)',
-          'Dons illimités',
-          'Transformez une photo d’affiche ou un message vocal en événement prêt à publier',
-        ],
-      }],
-      idealFor: 'Les habitants qui souhaitent découvrir, suivre et participer à la vie du territoire.',
-    },
+    id: 'basic', label: 'Villageois', price: 'Gratuit', period: '',
+    color: '#2D5A3D', soft: '#E8F2EB', veryLight: '#F4FAF5',
+    tagline: 'Tout l’essentiel de la vie locale, gratuitement.',
+    highlight: 'Toujours gratuit',
+    perks: [{
+      items: [
+        'Accès complet à l’agenda local',
+        '1 promotion locale utilisable chaque mois',
+        'Consultation des producteurs, commerces et établissements',
+        'Accès aux promotions, annonces, journal local et Place Publique',
+        'Participation aux discussions et sondages',
+        'Commentaires, favoris et suivi des contenus',
+        'Publication sur votre mur',
+        'Dépôt d’événements pour enrichir l’agenda local',
+        'Jusqu’à 3 annonces par mois (vente, troc ou enchère)',
+        'Dons illimités',
+        'Transformez une photo d’affiche ou un message vocal en événement prêt à publier',
+      ],
+    }],
+    idealFor: 'Les habitants qui souhaitent découvrir, suivre et participer à la vie du territoire.',
   },
   habitants: {
-    id: 'habitants',
-    label: 'Habitant', icon: '🌿', price: '4,99 €/mois',
-    color: '#E8622A', bgSoft: '#FFF1E8', bgVeryLight: '#FFF8F3', border: '#F5C9A8',
-    pitch: ['💰 Rentabilisé dès les premières offres'],
-    cta: 'Choisir ce plan',
-    detail: {
-      intro: 'Profitez pleinement de la vie locale sans limites. L’abonnement est rentabilisé dès la première utilisation.',
-      sections: [{
-        title: 'Tout le plan Villageois, plus :',
-        items: [
-          'Accès illimité aux promotions locales',
-          'Accès anticipé aux enchères inversées dès leur publication',
-          'Annonces illimitées',
-          'Création d’événements accélérée grâce à l’assistance IA',
-          'Publication d’articles dans l’hebdo La Place du Village',
-        ],
-      }],
-      idealFor: 'Les habitants engagés qui publient régulièrement, profitent des bons plans locaux et souhaitent contribuer davantage à la vie du territoire.',
-    },
+    id: 'habitants', label: 'Habitant', price: '4,99 €', period: '/mois',
+    color: '#E8622A', soft: '#FFF1E8', veryLight: '#FFF8F3',
+    tagline: 'Profitez pleinement de la vie locale, sans limites.',
+    highlight: 'Rentabilisé dès la première utilisation',
+    perksLead: 'Tout le plan Villageois, plus :',
+    perks: [{
+      items: [
+        'Accès illimité aux promotions locales',
+        'Accès anticipé aux enchères inversées dès leur publication',
+        'Annonces illimitées',
+        'Création d’événements accélérée grâce à l’assistance IA',
+        'Publication d’articles dans l’hebdo La Place du Village',
+      ],
+    }],
+    idealFor: 'Les habitants engagés qui publient régulièrement, profitent des bons plans locaux et souhaitent contribuer davantage à la vie du territoire.',
   },
   pro: {
-    id: 'pro',
-    label: 'Partenaire Local', icon: '★', price: '9 €/mois',
-    color: '#3A5BC7', bgSoft: '#EEF3FF', bgVeryLight: '#F5F8FF', border: '#C7D5F5',
-    pitch: ['📈 Plus de visibilité.', '⏱️ Moins de temps passé à communiquer.'],
-    cta: 'Développer mon activité',
-    detail: {
-      intro: 'Soyez présent là où les habitants cherchent déjà quoi faire, où sortir et où consommer local. Votre établissement apparaît directement dans leur parcours.',
-      sections: [
-        {
-          title: '🚀 Attirez naturellement de nouveaux clients',
-          items: [
-            'Apparaissez dans l’annuaire local et sur la carte',
-            'Présentez vos produits, services et savoir-faire',
-            'Mettez en avant votre activité auprès d’une audience locale réelle',
-            'Créez vos propres promotions selon vos conditions',
-            'Vos offres visibles au moment où les habitants cherchent des bons plans',
-          ],
-        },
-        {
-          title: '📣 Toute votre communication en quelques secondes',
-          items: [
-            'Création automatique d’affiches professionnelles',
-            'Génération de bannières et visuels promotionnels',
-            'Publications Facebook prêtes à partager',
-            'Publications Instagram prêtes à publier',
-            'Textes promotionnels générés automatiquement',
-            'Diffusion immédiate de vos événements sur l’agenda et la carte',
-          ],
-        },
-        {
-          title: '📍 Votre présence locale complète',
-          items: [
-            'Votre fiche établissement',
-            'Vos produits et services',
-            'Vos promotions',
-            'Vos événements',
-            'Vos actualités',
-            'Votre agenda',
-          ],
-        },
-        {
-          title: '💰 Un investissement vite rentabilisé',
-          items: [
-            'Pour moins de 10 €/mois : une visibilité permanente auprès des habitants + des outils de communication qui vous font gagner un temps précieux',
-          ],
-        },
-      ],
-      idealFor: 'Les commerçants, artisans, producteurs, associations et professionnels qui veulent gagner en visibilité locale, attirer plus de visiteurs et consacrer moins de temps à leur communication.',
-    },
+    id: 'pro', label: 'Partenaire Local', price: '9 €', period: '/mois',
+    color: '#3A5BC7', soft: '#EEF3FF', veryLight: '#F5F8FF',
+    tagline: 'Soyez présent là où les habitants cherchent déjà.',
+    highlight: 'Plus de visibilité, moins de temps à communiquer',
+    perksLead: 'Tout le plan Habitant, plus :',
+    perks: [
+      {
+        title: 'Attirez de nouveaux clients',
+        items: [
+          'Apparaissez dans l’annuaire local et sur la carte',
+          'Présentez vos produits, services et savoir-faire',
+          'Mettez en avant votre activité auprès d’une audience locale réelle',
+          'Créez vos propres promotions selon vos conditions',
+          'Vos offres visibles au moment où les habitants cherchent des bons plans',
+        ],
+      },
+      {
+        title: 'Toute votre communication en quelques secondes',
+        items: [
+          'Création automatique d’affiches professionnelles',
+          'Génération de bannières et visuels promotionnels',
+          'Publications Facebook prêtes à partager',
+          'Publications Instagram prêtes à publier',
+          'Textes promotionnels générés automatiquement',
+          'Diffusion immédiate de vos événements sur l’agenda et la carte',
+        ],
+      },
+      {
+        title: 'Votre présence locale complète',
+        items: [
+          'Votre fiche établissement',
+          'Vos produits et services',
+          'Vos promotions',
+          'Vos événements',
+          'Vos actualités',
+          'Votre agenda',
+        ],
+      },
+    ],
+    idealFor: 'Les commerçants, artisans, producteurs, associations et professionnels qui veulent gagner en visibilité locale, attirer plus de visiteurs et consacrer moins de temps à leur communication.',
   },
 }
 
-const PILLARS = [
-  { emoji: '📍', title: '100% LOCAL',  text: 'Par et pour notre village' },
-  { emoji: '🛡️', title: 'SÉCURISÉ',    text: 'Annonces vérifiées' },
-  { emoji: '👥', title: 'SOLIDAIRE',   text: 'On soutient nos acteurs' },
-  { emoji: '❤️', title: 'VIVANT',     text: 'Événements, échanges, entraide' },
-]
+const ORDER: PlanId[] = ['basic', 'habitants', 'pro']
+const SERIF = 'var(--font-dm-serif), Georgia, serif'
+
+/** Éclaircit (amt > 0) ou assombrit (amt < 0) une couleur hex. */
+function shade(hex: string, amt: number): string {
+  const n = parseInt(hex.slice(1), 16)
+  const r = Math.max(0, Math.min(255, ((n >> 16) & 255) + amt))
+  const g = Math.max(0, Math.min(255, ((n >> 8) & 255) + amt))
+  const b = Math.max(0, Math.min(255, (n & 255) + amt))
+  return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('')
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 // Composant principal
@@ -163,13 +147,13 @@ const PILLARS = [
 export default function SubscriptionModal({ context, onClose, currentPlan = 'basic' }: Props) {
   const [loading, setLoading] = useState<PayablePlan | null>(null)
   const [error, setError]     = useState<string | null>(null)
+  const { hero, sub, recommended } = headerCopy(context)
+  const [selected, setSelected] = useState<PlanId>(recommended)
 
   async function selectPlan(plan: PayablePlan) {
     setLoading(plan); setError(null)
     try {
-      // Refresh forcé : si la session a vieilli (ex: après plusieurs heures
-      // sur la page, ou après que l'admin a touché le profile), on récupère
-      // un access_token frais avant de partir vers l'API.
+      // Refresh forcé : si la session a vieilli, on récupère un token frais.
       await supabase.auth.refreshSession()
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
@@ -178,10 +162,8 @@ export default function SubscriptionModal({ context, onClose, currentPlan = 'bas
         setLoading(null)
         return
       }
-
       const body: { plan: string; etabId?: string } = { plan }
       if (context.kind === 'claim') body.etabId = context.etabId
-
       const res = await fetch('/api/stripe/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -189,319 +171,281 @@ export default function SubscriptionModal({ context, onClose, currentPlan = 'bas
       })
       const data = await res.json()
       if (data.url) { window.location.href = data.url; return }
-      if (res.status === 401) {
-        setError('Session expirée. Recharge la page (F5) et réessaie.')
-      } else {
-        setError(data.error ?? 'Une erreur est survenue, réessaie.')
-      }
+      if (res.status === 401) setError('Session expirée. Recharge la page (F5) et réessaie.')
+      else setError(data.error ?? 'Une erreur est survenue, réessaie.')
     } catch {
       setError('Impossible de contacter le serveur.')
     }
     setLoading(null)
   }
 
-  const { hero, sub, recommended } = headerCopy(context)
-
-  // Cartes repliées par défaut ; le plan recommandé est déplié d'emblée.
-  const [expanded, setExpanded] = useState<Record<'basic' | 'habitants' | 'pro', boolean>>(
-    () => ({ basic: false, habitants: false, pro: false, [recommended]: true }),
-  )
-  const toggle = (k: 'basic' | 'habitants' | 'pro') => setExpanded(e => ({ ...e, [k]: !e[k] }))
+  const p             = PLAN_DATA[selected]
+  const isCurrent     = selected === currentPlan
+  const isRecommended = selected === recommended
+  const payable       = selected !== 'basic'
+  const isLoading     = loading === selected
 
   return (
     <>
-      <div
-        onClick={onClose}
-        style={{ position: 'fixed', inset: 0, zIndex: 2400, backgroundColor: 'rgba(15,10,5,0.65)', backdropFilter: 'blur(4px)' }}
-      />
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 2400, backgroundColor: 'rgba(15,10,5,0.65)', backdropFilter: 'blur(4px)' }} />
+
       <div style={{
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 2401,
-        backgroundColor: '#FBFAF7', borderRadius: '24px 24px 0 0',
-        maxHeight: '94dvh', overflowY: 'auto',
-        fontFamily: 'Inter, sans-serif',
-        paddingBottom: 'max(20px, env(safe-area-inset-bottom, 20px))',
-        boxShadow: '0 -8px 40px rgba(0,0,0,0.18)',
+        height: '94dvh', display: 'flex', flexDirection: 'column',
+        background: '#FBFAF7', borderRadius: '24px 24px 0 0', overflow: 'hidden',
+        boxShadow: '0 -8px 40px rgba(0,0,0,0.22)', fontFamily: 'Inter, sans-serif',
       }}>
-        {/* Drag handle */}
-        <div style={{ width: 44, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '12px auto 0' }} />
-
-        {/* Hero */}
-        <div style={{ padding: '18px 22px 8px', textAlign: 'center' }}>
-          <h2 style={{
-            fontSize: 18, fontWeight: 900, color: '#2D5A3D',
-            margin: '0 0 8px', letterSpacing: '-0.01em', lineHeight: 1.25,
-          }}>
-            {hero}
-          </h2>
-          <p style={{ fontSize: 13, color: '#7A6A5A', margin: 0, lineHeight: 1.5 }}>
-            {sub}
-          </p>
-        </div>
-
-        {/* 3 cards en colonne (repliables) */}
-        <div style={{ padding: '14px 16px 6px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <PlanCard
-            plan="basic" payable={false}
-            isCurrent={currentPlan === 'basic'} recommended={false}
-            expanded={expanded.basic} onToggle={() => toggle('basic')}
-            loading={false} disabled onSelect={() => {}}
-          />
-          <PlanCard
-            plan="habitants" payable
-            isCurrent={currentPlan === 'habitants'} recommended={recommended === 'habitants'}
-            expanded={expanded.habitants} onToggle={() => toggle('habitants')}
-            loading={loading === 'habitants'} disabled={!!loading || currentPlan === 'habitants'}
-            onSelect={() => selectPlan('habitants')}
-          />
-          <PlanCard
-            plan="pro" payable
-            isCurrent={currentPlan === 'pro'} recommended={recommended === 'pro'}
-            expanded={expanded.pro} onToggle={() => toggle('pro')}
-            loading={loading === 'pro'} disabled={!!loading || currentPlan === 'pro'}
-            onSelect={() => selectPlan('pro')}
-          />
-        </div>
-
-        {error && (
-          <p style={{
-            fontSize: 12, color: '#DC2626', textAlign: 'center',
-            margin: '6px 22px 0', padding: '10px 14px',
-            backgroundColor: '#FEF2F2', borderRadius: 12, lineHeight: 1.5,
-          }}>
-            {error}
-          </p>
-        )}
-
-        {/* Footer 4 piliers */}
+        {/* ─── Hero gradient (couleur du plan sélectionné) ─── */}
         <div style={{
-          margin: '12px 16px 6px', padding: '14px 12px',
-          backgroundColor: '#F4EEE3', borderRadius: 16,
-          display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12,
+          position: 'relative', flexShrink: 0, color: '#fff', padding: '14px 22px 20px',
+          background: `linear-gradient(135deg, ${shade(p.color, 24)} 0%, ${p.color} 60%, ${shade(p.color, -28)} 100%)`,
+          transition: 'background 0.3s',
         }}>
-          {PILLARS.map(p => (
-            <div key={p.title} style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 20, marginBottom: 2 }}>{p.emoji}</div>
-              <div style={{ fontSize: 10, fontWeight: 800, color: '#2D5A3D', letterSpacing: '0.06em' }}>{p.title}</div>
-              <div style={{ fontSize: 10, color: '#7A6A5A', lineHeight: 1.3, marginTop: 2 }}>{p.text}</div>
+          <HeroPattern />
+          <div style={{ position: 'relative' }}>
+            <div style={{ width: 44, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.4)', margin: '0 auto 16px' }} />
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.22em', opacity: 0.85, textTransform: 'uppercase' }}>
+                La Place du Village
+              </div>
+              <h2 style={{ margin: '8px 0 0', fontFamily: SERIF, fontSize: 24, lineHeight: 1.15, letterSpacing: '-0.01em' }}>
+                {hero}
+              </h2>
+              <p style={{ margin: '8px auto 0', fontSize: 12.5, opacity: 0.92, lineHeight: 1.5, maxWidth: 300, fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>
+                {sub}
+              </p>
             </div>
-          ))}
+          </div>
         </div>
 
-        <p style={{ fontSize: 10, color: '#9A8A7A', textAlign: 'center', margin: '8px 22px 0', lineHeight: 1.4 }}>
-          Paiement sécurisé par Stripe · Résiliable à tout moment
-        </p>
+        {/* ─── Switcher segmenté ─── */}
+        <div style={{ padding: '16px 16px 0', flexShrink: 0 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4, background: '#F0EAE0', borderRadius: 14, padding: 4 }}>
+            {ORDER.map(id => {
+              const pl = PLAN_DATA[id]
+              const active = selected === id
+              return (
+                <button key={id} type="button" onClick={() => setSelected(id)} style={{
+                  position: 'relative', padding: '9px 4px 8px', border: 'none', cursor: 'pointer', borderRadius: 11,
+                  background: active ? '#fff' : 'transparent',
+                  boxShadow: active ? `0 2px 8px ${pl.color}33` : 'none',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                  transition: 'all 0.18s', fontFamily: 'inherit',
+                }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 800, color: active ? pl.color : '#7A6A5A', letterSpacing: '-0.01em' }}>{pl.label}</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: active ? '#1A1209' : '#A99B89' }}>{pl.price}</span>
+                  {id === recommended && (
+                    <span style={{ position: 'absolute', top: -7, right: 6, fontSize: 7.5, fontWeight: 800, letterSpacing: '0.06em', background: pl.color, color: '#fff', padding: '2px 5px', borderRadius: 999 }}>★</span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
 
-        <button
-          onClick={onClose}
-          style={{
-            display: 'block', margin: '4px auto 0',
-            padding: '10px 18px', background: 'none', border: 'none',
-            fontSize: 13, color: '#9A8A7A', cursor: 'pointer',
-            fontFamily: 'Inter, sans-serif', fontWeight: 600,
-          }}
-        >
-          Plus tard
-        </button>
+        {/* ─── Détail du plan (scroll) ─── */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 0' }}>
+          <div style={{
+            background: p.veryLight, borderRadius: 18, padding: '18px 16px 16px', position: 'relative',
+            border: `2px solid ${isRecommended ? p.color : p.soft}`,
+            boxShadow: isRecommended ? `0 8px 28px ${p.color}22` : 'none',
+          }}>
+            {isCurrent && (
+              <div style={{ position: 'absolute', top: -11, left: 18, background: '#1A1209', color: '#fff', fontSize: 9, fontWeight: 800, borderRadius: 999, padding: '4px 11px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                ✓ Ton plan actuel
+              </div>
+            )}
+            {isRecommended && !isCurrent && (
+              <div style={{ position: 'absolute', top: -11, right: 18, background: p.color, color: '#fff', fontSize: 9, fontWeight: 800, borderRadius: 999, padding: '4px 11px', letterSpacing: '0.08em', textTransform: 'uppercase', boxShadow: `0 4px 14px ${p.color}55` }}>
+                ✦ Recommandé
+              </div>
+            )}
+
+            {/* Prix en grand */}
+            <div style={{ textAlign: 'center', paddingTop: 4 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: p.color, letterSpacing: '0.04em', textTransform: 'uppercase' }}>{p.label}</div>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 3, marginTop: 6 }}>
+                <span style={{ fontFamily: SERIF, fontSize: 46, lineHeight: 1, color: '#1A1209', letterSpacing: '-0.02em' }}>{p.price}</span>
+                {p.period && <span style={{ fontSize: 14, fontWeight: 700, color: '#7A6A5A' }}>{p.period}</span>}
+              </div>
+              <p style={{ margin: '8px auto 0', fontSize: 13, color: '#3C2C20', lineHeight: 1.4, maxWidth: 270, fontWeight: 600 }}>{p.tagline}</p>
+            </div>
+
+            {/* Bandeau highlight */}
+            <div style={{ margin: '14px 0 0', padding: '10px 12px', background: p.soft, borderRadius: 12, display: 'flex', alignItems: 'center', gap: 9 }}>
+              <span style={{ width: 26, height: 26, borderRadius: 8, flexShrink: 0, background: p.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <IconSpark />
+              </span>
+              <div style={{ fontSize: 12, fontWeight: 700, color: p.color, lineHeight: 1.35 }}>{p.highlight}</div>
+            </div>
+
+            {/* Perks */}
+            <div style={{ marginTop: 16 }}>
+              {p.perksLead && (
+                <div style={{ fontSize: 11.5, fontWeight: 800, color: '#1A1209', marginBottom: 10 }}>{p.perksLead}</div>
+              )}
+              {p.perks.map((sec, si) => (
+                <div key={si} style={{ marginBottom: si < p.perks.length - 1 ? 12 : 0 }}>
+                  {sec.title && (
+                    <div style={{ fontSize: 12, fontWeight: 800, color: '#1A1209', margin: '0 0 8px' }}>{sec.title}</div>
+                  )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {sec.items.map((perk, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 13, color: '#3C2C20', lineHeight: 1.4 }}>
+                        <Check color={p.color} />
+                        <span>{perk}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {p.idealFor && (
+              <div style={{ marginTop: 14, padding: '10px 12px', background: '#fff', border: `1px solid ${p.soft}`, borderRadius: 12, fontSize: 11.5, color: '#3C2C20', lineHeight: 1.5 }}>
+                <strong style={{ color: p.color }}>Idéal pour :</strong> {p.idealFor}
+              </div>
+            )}
+          </div>
+
+          {/* Réassurance */}
+          <div style={{ margin: '14px 0 4px', padding: '12px 14px', background: '#F4EEE3', borderRadius: 14, display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10 }}>
+            {REASSURANCE.map(r => (
+              <div key={r.t} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                <span style={{ flexShrink: 0, color: '#2D5A3D' }}>{r.icon}</span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 9.5, fontWeight: 800, color: '#2D5A3D', letterSpacing: '0.04em' }}>{r.t}</div>
+                  <div style={{ fontSize: 9.5, color: '#7A6A5A', lineHeight: 1.3 }}>{r.s}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {error && (
+            <p style={{ fontSize: 12, color: '#DC2626', textAlign: 'center', margin: '10px 4px 0', padding: '10px 14px', backgroundColor: '#FEF2F2', borderRadius: 12, lineHeight: 1.5 }}>
+              {error}
+            </p>
+          )}
+          <div style={{ height: 8 }} />
+        </div>
+
+        {/* ─── CTA sticky ─── */}
+        <div style={{ flexShrink: 0, padding: '12px 16px', paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))', borderTop: '1px solid #EDE6DA', background: '#FBFAF7' }}>
+          <button
+            type="button"
+            disabled={!payable || isCurrent || isLoading}
+            onClick={() => payable && !isCurrent && selectPlan(selected as PayablePlan)}
+            style={{
+              width: '100%', padding: '15px', borderRadius: 15, border: 'none',
+              background: (isCurrent || !payable) ? '#D1CCC4' : p.color, color: '#fff',
+              fontSize: 15, fontWeight: 800, fontFamily: 'inherit', letterSpacing: '0.01em',
+              cursor: (payable && !isCurrent && !isLoading) ? 'pointer' : 'not-allowed',
+              boxShadow: (isCurrent || !payable) ? 'none' : `0 8px 24px ${p.color}55`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}
+          >
+            {isCurrent
+              ? '✓ Ton plan actuel'
+              : !payable
+                ? 'Déjà offert à tous'
+                : isLoading
+                  ? '…'
+                  : <>Passer {p.label} · {p.price}{p.period} <span style={{ fontSize: 17 }}>→</span></>}
+          </button>
+          <button type="button" onClick={onClose} style={{ display: 'block', margin: '8px auto 0', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, color: '#9A8A7A', fontFamily: 'inherit' }}>
+            Plus tard
+          </button>
+        </div>
       </div>
     </>
   )
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Card Villageois (gratuit, jamais cliquable comme upgrade)
+// Sous-composants visuels (icônes SVG — pas d'emoji)
 // ────────────────────────────────────────────────────────────────────────────
 
-function PlanCard({ plan, payable, isCurrent, recommended, expanded, onToggle, loading, disabled, onSelect }: {
-  plan: 'basic' | 'habitants' | 'pro'
-  payable: boolean
-  isCurrent: boolean
-  recommended: boolean
-  expanded: boolean
-  onToggle: () => void
-  loading: boolean
-  disabled: boolean
-  onSelect: () => void
-}) {
-  const p = PLAN_DATA[plan]
+function HeroPattern() {
   return (
-    <div style={{
-      borderRadius: 18, padding: '18px 16px 16px',
-      border: `2px solid ${recommended ? p.color : p.border}`,
-      backgroundColor: p.bgVeryLight,
-      position: 'relative',
-      boxShadow: recommended ? `0 8px 28px ${p.color}33` : '0 2px 12px rgba(0,0,0,0.04)',
-    }}>
-      {isCurrent && <CurrentBadge color={p.color} />}
-      {recommended && !isCurrent && (
-        <div style={{
-          position: 'absolute', top: -11, right: 18,
-          backgroundColor: p.color, color: '#fff', fontSize: 9, fontWeight: 800,
-          borderRadius: 999, padding: '4px 11px', letterSpacing: '0.08em',
-          textTransform: 'uppercase', boxShadow: `0 4px 14px ${p.color}55`,
-        }}>
-          ✦ Recommandé
-        </div>
-      )}
-
-      <CardHeader icon={p.icon} label={p.label} price={p.price} color={p.color} priceBg={p.color} priceText="#fff" />
-
-      {/* Accroche courte */}
-      <div style={{ margin: '10px 0 14px', textAlign: 'center' }}>
-        {p.pitch.map((line, i) => (
-          <p key={i} style={{ margin: i ? '2px 0 0' : 0, fontSize: 13, fontWeight: 700, color: '#3C2C20', lineHeight: 1.4 }}>{line}</p>
-        ))}
-      </div>
-
-      {/* CTA (payant) ou état (gratuit) */}
-      {payable ? (
-        <button onClick={onSelect} disabled={disabled} style={{
-          width: '100%', padding: '13px', borderRadius: 14, border: 'none',
-          backgroundColor: isCurrent ? '#D1CCC4' : (loading ? '#aaa' : p.color),
-          color: '#fff', fontWeight: 800, fontSize: 13,
-          cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
-          letterSpacing: '0.02em', textTransform: 'uppercase', opacity: isCurrent ? 0.7 : 1,
-        }}>
-          {isCurrent ? '✓ Ton plan actuel' : loading ? '…' : p.cta}
-        </button>
-      ) : (
-        <div style={{ textAlign: 'center', padding: '11px', borderRadius: 14, backgroundColor: '#fff', border: `1.5px solid ${p.border}`, fontSize: 12.5, fontWeight: 800, color: p.color, letterSpacing: '0.02em', textTransform: 'uppercase' }}>
-          {isCurrent ? '✓ Ton plan actuel' : 'Offert à tous'}
-        </div>
-      )}
-
-      {/* Voir les avantages */}
-      <button onClick={onToggle} style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-        width: '100%', marginTop: 10, padding: '8px', background: 'none', border: 'none',
-        cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: p.color,
-      }}>
-        {expanded ? '▲ Masquer les avantages' : '▼ Voir les avantages'}
-      </button>
-
-      {expanded && <PlanDetail detail={p.detail} color={p.color} border={p.border} bgSoft={p.bgSoft} />}
-    </div>
+    <svg viewBox="0 0 390 130" preserveAspectRatio="xMidYMid slice" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.16 }}>
+      <defs>
+        <pattern id="smLeaf" x="0" y="0" width="56" height="56" patternUnits="userSpaceOnUse">
+          <path d="M28 9 Q39 20 28 46 Q17 20 28 9z" fill="#fff" opacity="0.55" />
+        </pattern>
+      </defs>
+      <rect width="390" height="130" fill="url(#smLeaf)" />
+    </svg>
   )
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// Sous-composants visuels
-// ────────────────────────────────────────────────────────────────────────────
-
-function CardHeader({
-  icon, label, price, color, priceBg, priceText,
-}: {
-  icon: string; label: string; price: string;
-  color: string; priceBg: string; priceText: string;
-}) {
+function Check({ color }: { color: string }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-      <div style={{
-        width: 56, height: 56, borderRadius: '50%',
-        backgroundColor: '#fff', border: `2px solid ${color}33`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 30,
-        boxShadow: `0 4px 14px ${color}22`,
-      }}>
-        {icon}
-      </div>
-      <h3 style={{
-        fontSize: 18, fontWeight: 900, color, margin: 0,
-        letterSpacing: '0.02em', textTransform: 'uppercase',
-      }}>
-        {label}
-      </h3>
-      <span style={{
-        fontSize: 12, fontWeight: 800, color: priceText,
-        backgroundColor: priceBg, borderRadius: 999, padding: '4px 14px',
-        letterSpacing: '0.04em',
-      }}>
-        {price}
-      </span>
-    </div>
+    <span style={{ flexShrink: 0, marginTop: 1, width: 18, height: 18, borderRadius: '50%', background: color, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+    </span>
   )
 }
 
-function PlanDetail({ detail, color, border, bgSoft }: {
-  detail: PlanInfo['detail']; color: string; border: string; bgSoft: string
-}) {
+/** Étincelle (remplace l'emoji du bandeau highlight). */
+function IconSpark() {
   return (
-    <div style={{ marginTop: 12, borderTop: `1px solid ${border}`, paddingTop: 12 }}>
-      <p style={{ fontSize: 12, color: '#5A4A3A', lineHeight: 1.5, margin: '0 0 12px' }}>{detail.intro}</p>
-      {detail.sections.map((s, i) => (
-        <div key={i} style={{ marginBottom: 12 }}>
-          {s.title && <p style={{ fontSize: 12.5, fontWeight: 800, color: '#1A1209', margin: '0 0 7px' }}>{s.title}</p>}
-          <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 7 }}>
-            {s.items.map((it, j) => (
-              <li key={j} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12.5, color: '#3C2C20', lineHeight: 1.45 }}>
-                <span style={{
-                  flexShrink: 0, marginTop: 2, width: 16, height: 16, borderRadius: '50%',
-                  backgroundColor: color, color: '#fff', display: 'inline-flex',
-                  alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 900,
-                }}>✓</span>
-                <span>{it}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
-      <div style={{ marginTop: 4, padding: '10px 12px', backgroundColor: bgSoft, borderRadius: 12, fontSize: 11.5, color: '#3C2C20', lineHeight: 1.5 }}>
-        <strong style={{ color }}>Idéal pour :</strong> {detail.idealFor}
-      </div>
-    </div>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8z" />
+    </svg>
   )
 }
 
-function CurrentBadge({ color }: { color: string }) {
-  return (
-    <div style={{
-      position: 'absolute', top: -11, left: 18,
-      backgroundColor: '#1A1209', color: '#fff',
-      fontSize: 9, fontWeight: 800,
-      borderRadius: 999, padding: '4px 11px',
-      letterSpacing: '0.08em', textTransform: 'uppercase',
-      boxShadow: `0 4px 14px ${color}55`,
-    }}>
-      ✓ Ton plan actuel
-    </div>
-  )
-}
+const SVG = { width: 17, height: 17, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+
+const REASSURANCE = [
+  { t: '100% LOCAL', s: 'par et pour le village', icon: (
+    <svg {...SVG}><path d="M12 21s-6-5.7-6-10a6 6 0 0 1 12 0c0 4.3-6 10-6 10z" /><circle cx="12" cy="11" r="2.2" /></svg>
+  ) },
+  { t: 'SÉCURISÉ', s: 'paiement via Stripe', icon: (
+    <svg {...SVG}><path d="M12 3l7 3v5c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6l7-3z" /><polyline points="9 12 11 14 15 10" /></svg>
+  ) },
+  { t: 'SANS ENGAGEMENT', s: 'résiliable à tout moment', icon: (
+    <svg {...SVG}><polyline points="3 4 3 9 8 9" /><path d="M4.5 14a8 8 0 1 0 1-8.3L3 9" /></svg>
+  ) },
+  { t: 'SOLIDAIRE', s: 'on soutient nos acteurs', icon: (
+    <svg {...SVG}><path d="M12 20s-7-4.6-9-9a4.5 4.5 0 0 1 9-2 4.5 4.5 0 0 1 9 2c-2 4.4-9 9-9 9z" /></svg>
+  ) },
+]
 
 // ────────────────────────────────────────────────────────────────────────────
-// Copy adaptée au contexte
+// Copy adaptée au contexte (contextualisation conservée, sans emoji)
 // ────────────────────────────────────────────────────────────────────────────
 
-function headerCopy(ctx: SubscriptionModalContext): {
-  hero: string
-  sub: string
-  recommended: PayablePlan
-} {
+function headerCopy(ctx: SubscriptionModalContext): { hero: string; sub: string; recommended: PayablePlan } {
   switch (ctx.kind) {
     case 'claim':
       return {
-        hero: `Gère « ${ctx.etabNom} » dans ton village 🏪`,
+        hero: `Gère « ${ctx.etabNom} »`,
         sub: 'Revendique cette fiche, mets-toi en valeur, gagne en visibilité locale.',
         recommended: 'pro',
       }
     case 'promo':
       return {
-        hero: 'Profite des promos sans limite 🎁',
+        hero: 'Les promos, sans limite',
         sub: ctx.promoTitle
-          ? `Tu as déjà profité d'une promo ce mois-ci. Passe Habitants pour en profiter sans limite, à commencer par « ${ctx.promoTitle} ».`
-          : 'Tu as déjà profité d\'une promo ce mois-ci. Passe Habitants pour en profiter sans limite.',
+          ? `Tu as déjà profité d'une promo ce mois-ci. Passe Habitant pour en profiter sans limite, à commencer par « ${ctx.promoTitle} ».`
+          : "Tu as déjà profité d'une promo ce mois-ci. Passe Habitant pour en profiter sans limite.",
         recommended: 'habitants',
       }
     case 'feature':
       return {
-        hero: `${ctx.featureLabel}`,
+        hero: ctx.featureLabel,
         sub: ctx.minPlan === 'pro'
-          ? 'Cette feature est réservée aux Partenaires Locaux (commerces, producteurs, artisans).'
-          : 'Débloque tous les avantages Habitants ou passe Partenaire Local.',
+          ? 'Réservé aux Partenaires Locaux — commerces, producteurs, artisans, associations.'
+          : 'Débloque tous les avantages Habitant, ou passe Partenaire Local.',
         recommended: ctx.minPlan ?? 'habitants',
       }
     case 'generic':
       return {
-        hero: ctx.title ?? '3 offres, 1 seul village ❤️',
-        sub: ctx.subtitle ?? 'Plus vivant ensemble — choisis ton niveau d\'engagement local.',
+        hero: ctx.title ?? 'Plus vivant ensemble.',
+        sub: ctx.subtitle ?? "Choisis ton niveau d'engagement local — chaque abonnement fait vivre le village.",
         recommended: 'habitants',
       }
   }
