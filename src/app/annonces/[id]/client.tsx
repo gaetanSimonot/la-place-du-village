@@ -260,7 +260,9 @@ export default function AnnoncePageClient({ id }: Props) {
           display: 'flex', alignItems: 'center', gap: 12,
           boxShadow: '0 4px 16px rgba(45,90,61,0.25)',
         }}>
-          <span style={{ fontSize: 26, flexShrink: 0 }}>🎉</span>
+          <span style={{ flexShrink: 0 }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+          </span>
           <div style={{ flex: 1 }}>
             <p style={{ margin: 0, fontSize: 13, fontWeight: 800 }}>Votre annonce est en ligne !</p>
             <p style={{ margin: '2px 0 0', fontSize: 11, opacity: 0.9, }}>
@@ -275,7 +277,7 @@ export default function AnnoncePageClient({ id }: Props) {
               border: 'none', fontSize: 11, fontWeight: 800,
               cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
             }}
-          >🚀 Booster</button>
+          >Mettre en avant</button>
           <button
             onClick={() => setShowBoostBanner(false)}
             aria-label="Fermer"
@@ -334,8 +336,8 @@ export default function AnnoncePageClient({ id }: Props) {
         </div>
       </div>
 
-      {/* Photo hero */}
-      <div style={{ position: 'relative', height: 290, backgroundColor: '#F0EBE3', overflow: 'hidden' }}>
+      {/* Photo hero — plus grand, dégradé double */}
+      <div style={{ position: 'relative', height: 340, backgroundColor: '#F0EBE3', overflow: 'hidden' }}>
         {photos.length > 0
           ? <img
               src={photos[photoIdx]}
@@ -352,25 +354,19 @@ export default function AnnoncePageClient({ id }: Props) {
           />
         )}
         {/* pointerEvents:none → laisse le clic atteindre l'image (zoom lightbox) */}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 25%, rgba(0,0,0,0.5) 100%)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'linear-gradient(180deg, rgba(0,0,0,0.18) 0%, transparent 28%, rgba(0,0,0,0.55) 100%)' }} />
 
         <div style={{ position: 'absolute', top: 12, left: 12, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          <span style={{ backgroundColor: info.color, color: '#fff', borderRadius: 999, padding: '4px 11px', fontSize: 10, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{info.emoji} {info.label}</span>
-          {annonce.sponsored && <span style={{ backgroundColor: '#E8622A', color: '#fff', borderRadius: 999, padding: '4px 10px', fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase' }}>✦ En vedette</span>}
-          {annonce.statut === 'vendu'     && <span style={{ backgroundColor: '#3A5BC7', color: '#fff', borderRadius: 999, padding: '4px 10px', fontSize: 10, fontWeight: 800 }}>VENDU</span>}
-          {annonce.statut === 'expiree'   && <span style={{ backgroundColor: '#8A7A6A', color: '#fff', borderRadius: 999, padding: '4px 10px', fontSize: 10, fontWeight: 800 }}>EXPIRÉE</span>}
-          {annonce.statut === 'don_final' && <span style={{ backgroundColor: '#2D5A3D', color: '#fff', borderRadius: 999, padding: '4px 10px', fontSize: 10, fontWeight: 800 }}>DON FINAL</span>}
+          <span style={{ backgroundColor: info.color, color: '#fff', borderRadius: 999, padding: '5px 12px', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', boxShadow: `0 2px 10px ${info.color}66` }}>{info.label}</span>
+          {annonce.sponsored && <span style={{ backgroundColor: '#E8622A', color: '#fff', borderRadius: 999, padding: '5px 11px', fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase' }}>✦ En vedette</span>}
+          {annonce.statut === 'vendu'     && <span style={{ backgroundColor: '#3A5BC7', color: '#fff', borderRadius: 999, padding: '5px 11px', fontSize: 10, fontWeight: 800 }}>VENDU</span>}
+          {annonce.statut === 'expiree'   && <span style={{ backgroundColor: '#8A7A6A', color: '#fff', borderRadius: 999, padding: '5px 11px', fontSize: 10, fontWeight: 800 }}>EXPIRÉE</span>}
+          {annonce.statut === 'don_final' && <span style={{ backgroundColor: '#2D5A3D', color: '#fff', borderRadius: 999, padding: '5px 11px', fontSize: 10, fontWeight: 800 }}>DON FINAL</span>}
         </div>
 
         {isEnchere && isActive && (
-          <div style={{
-            position: 'absolute', top: 12, right: 12,
-            padding: '8px 12px', borderRadius: 12,
-            backgroundColor: 'rgba(255,255,255,0.9)',
-            backdropFilter: 'blur(8px)',
-            display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2,
-          }}>
-            <span style={{ fontSize: 9, fontWeight: 700, color: '#8A7A6A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Prochaine baisse</span>
+          <div style={{ position: 'absolute', top: 12, right: 14, background: 'rgba(26,18,9,0.78)', backdropFilter: 'blur(8px)', borderRadius: 12, padding: '7px 11px', textAlign: 'right' }}>
+            <div style={{ fontSize: 8.5, fontWeight: 700, color: 'rgba(255,255,255,0.7)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Prochaine baisse</div>
             <CountdownInline />
           </div>
         )}
@@ -379,7 +375,7 @@ export default function AnnoncePageClient({ id }: Props) {
           <>
             <button onClick={() => setPhotoIdx(i => (i - 1 + photos.length) % photos.length)} style={photoNavBtn('left')}>‹</button>
             <button onClick={() => setPhotoIdx(i => (i + 1) % photos.length)} style={photoNavBtn('right')}>›</button>
-            <div style={{ position: 'absolute', bottom: 18, left: 16, display: 'flex', gap: 5 }}>
+            <div style={{ position: 'absolute', bottom: 38, left: 16, display: 'flex', gap: 5 }}>
               {photos.map((_, i) => (
                 <span key={i} style={{ width: i === photoIdx ? 18 : 5, height: 5, borderRadius: 3, backgroundColor: i === photoIdx ? '#fff' : 'rgba(255,255,255,0.5)', transition: 'width 0.2s' }} />
               ))}
@@ -388,98 +384,98 @@ export default function AnnoncePageClient({ id }: Props) {
         )}
       </div>
 
-      <div style={{ background: '#FFFFFF', borderRadius: '24px 24px 0 0', marginTop: -20, position: 'relative', zIndex: 4, padding: '20px 12px 12px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Sheet crème éditorial */}
+      <div style={{ background: '#FDFAF5', borderRadius: '26px 26px 0 0', marginTop: -26, position: 'relative', zIndex: 4, padding: '22px 18px 0', display: 'flex', flexDirection: 'column' }}>
 
-        {/* Card prix */}
-        <div style={cardStyle}>
-          <h1 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 900, color: '#2C1810', lineHeight: 1.2 }}>{annonce.titre}</h1>
-          <p style={{ margin: '0 0 12px', fontSize: 12, color: '#8A7A6A' }}>
-            {CATEGORIES_ICONS[annonce.categorie]} {CATEGORIES_LABELS[annonce.categorie]}
-            {annonce.ville && <> · 📍 {annonce.ville}</>}
-          </p>
-
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-            <p style={{ margin: 0, fontSize: 30, fontWeight: 900, color: info.color, fontVariantNumeric: 'tabular-nums' }}>
-              {getPrixAffiche(annonce)}
-            </p>
-            {isEnchere && annonce.statut === 'active' && (
-              <span style={{ fontSize: 12, color: '#C0392B', fontWeight: 700 }}>
-                ↘ −{getProchaineBaisse(annonce)} € / jour
-              </span>
-            )}
-          </div>
-          {isEnchere && <p style={{ margin: '2px 0 0', fontSize: 11, color: '#8A7A6A' }}>Prix actuel — baisse chaque jour à minuit</p>}
+        {/* Méta chips */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+          <MetaChip>{CATEGORIES_LABELS[annonce.categorie]}</MetaChip>
+          {annonce.ville && <MetaChip icon={<IcoPin />}>{annonce.ville}</MetaChip>}
+          {(annonce as { created_at?: string }).created_at && <MetaChip>il y a {timeAgo((annonce as { created_at: string }).created_at)}</MetaChip>}
         </div>
 
-        {/* Évolution prix (enchère active) */}
+        {/* Titre + prix éditoriaux */}
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14 }}>
+          <h1 style={{ margin: 0, fontFamily: SERIF, fontSize: 25, lineHeight: 1.1, color: '#1A1209', letterSpacing: '-0.02em', flex: 1 }}>{annonce.titre}</h1>
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div style={{ fontFamily: SERIF, fontSize: 30, lineHeight: 1, color: info.color, letterSpacing: '-0.01em' }}>{getPrixAffiche(annonce)}</div>
+            {isEnchere && annonce.statut === 'active' && (
+              <div style={{ fontSize: 10.5, color: '#C0392B', fontWeight: 700, marginTop: 3, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                <IcoTrend /> −{getProchaineBaisse(annonce)} €/jour
+              </div>
+            )}
+          </div>
+        </div>
+        {isEnchere && <div style={{ fontSize: 11, color: '#8A7A6A', marginTop: 4 }}>Prix actuel — baisse chaque jour à minuit</div>}
+
+        {/* Timeline prix (enchère active) */}
         {isEnchere && annonce.statut === 'active' && annonce.prix_actuel != null && (
-          <div style={cardStyle}>
-            <p style={cardLabel}>Évolution du prix</p>
+          <div style={{ marginTop: 16, padding: '14px 14px 12px', background: '#fff', borderRadius: 14, border: '1px solid #F0E8DC' }}>
+            <div style={LABEL}>Évolution du prix</div>
             <PrixTimelineFull annonce={annonce} />
           </div>
         )}
 
-        {/* Vendeur */}
-        {vendeur && (
-          <div style={cardStyle}>
-            <p style={cardLabel}>Vendeur</p>
-            <Link
-              href={`/profil/${annonce.user_id}`}
-              style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit' }}
-            >
-              <Avatar name={vendeur.display_name || '?'} url={vendeur.avatar_url} size={48} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#2C1810' }}>{vendeur.display_name ?? 'Vendeur'}</p>
-                {vendeur.notes_count > 0 && vendeur.note_moyenne != null ? (
-                  <p style={{ margin: '2px 0 0', fontSize: 12, color: '#8A7A6A' }}>
-                    ⭐ {vendeur.note_moyenne.toFixed(1)} <span style={{ color: '#A89B8C' }}>({vendeur.notes_count} avis)</span>
-                  </p>
-                ) : (
-                  <p style={{ margin: '2px 0 0', fontSize: 11, color: '#A89B8C' }}>Pas encore d&apos;avis</p>
-                )}
-              </div>
-              <span aria-hidden style={{ color: '#A89B8C', fontSize: 18, fontWeight: 700 }}>›</span>
-            </Link>
-
-            {/* Badges annonce */}
+        {/* Description — texte fluide */}
+        {annonce.description && (
+          <div style={{ marginTop: 20 }}>
+            <div style={LABEL}>La description</div>
+            <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.65, color: '#3C2C20', fontFamily: BODY_SERIF, whiteSpace: 'pre-wrap' }}>{annonce.description}</p>
             {annonce.remise_main_propre && (
-              <div style={{ marginTop: 12 }}>
-                <Badge>🤝 Remise en main propre</Badge>
+              <div style={{ marginTop: 12, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <SoftBadge icon={<IcoHand />}>Remise en main propre</SoftBadge>
               </div>
             )}
           </div>
         )}
 
-        {/* Description */}
-        {annonce.description && (
-          <div style={cardStyle}>
-            <p style={cardLabel}>À propos</p>
-            <p style={{ fontSize: 14, color: '#4A3728', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>{annonce.description}</p>
+        {error && (
+          <p style={{ margin: '16px 0 0', padding: 10, borderRadius: 10, backgroundColor: '#FFEBE6', color: '#C0392B', fontSize: 13, fontWeight: 600 }}>{error}</p>
+        )}
+
+        {/* Vendeur — strip inline */}
+        {vendeur && (
+          <div style={{ marginTop: 22, paddingTop: 18, borderTop: '1px solid #EDE6DA' }}>
+            <div style={LABEL}>Proposé par</div>
+            <Link href={`/profil/${annonce.user_id}`} style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit' }}>
+              {vendeur.avatar_url
+                ? <img src={vendeur.avatar_url} alt="" style={{ width: 50, height: 50, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                : <div style={{ width: 50, height: 50, borderRadius: '50%', flexShrink: 0, background: 'linear-gradient(135deg, #4A7A5A, #2D5A3D)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: SERIF, fontSize: 22, boxShadow: '0 3px 10px rgba(45,90,61,0.25)' }}>{(vendeur.display_name || '?')[0].toUpperCase()}</div>}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#1A1209', letterSpacing: '-0.01em' }}>{vendeur.display_name ?? 'Vendeur'}</div>
+                <div style={{ fontSize: 12, color: '#8A7A6A', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {vendeur.notes_count > 0 && vendeur.note_moyenne != null ? (
+                    <><IcoStar /> {vendeur.note_moyenne.toFixed(1)} <span style={{ color: '#A89B8C' }}>· {vendeur.notes_count} avis{vendeur.ville ? ` · ${vendeur.ville}` : ''}</span></>
+                  ) : (
+                    <span style={{ color: '#A89B8C' }}>Pas encore d&apos;avis{vendeur.ville ? ` · ${vendeur.ville}` : ''}</span>
+                  )}
+                </div>
+              </div>
+              <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#F0EAE0', color: '#7A6A5A', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><IcoChev /></div>
+            </Link>
           </div>
         )}
 
-        {error && (
-          <p style={{ margin: 0, padding: 10, borderRadius: 10, backgroundColor: '#FFEBE6', color: '#C0392B', fontSize: 13, fontWeight: 600 }}>{error}</p>
-        )}
+        {/* Réassurance */}
+        <div style={{ marginTop: 18, padding: '12px 14px', background: '#F4EEE3', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ color: '#2D5A3D', flexShrink: 0 }}><IcoShield /></span>
+          <div style={{ fontSize: 11.5, color: '#5A4A3A', lineHeight: 1.4 }}>Transaction entre voisins — rencontrez-vous dans un lieu public, payez à la remise.</div>
+        </div>
 
         {/* Conversations entrantes (owner) */}
         {isOwner && convs.length > 0 && (
-          <div style={cardStyle}>
-            <p style={cardLabel}>Conversations ({convs.length})</p>
+          <div style={{ marginTop: 22, paddingTop: 18, borderTop: '1px solid #EDE6DA' }}>
+            <div style={LABEL}>Conversations ({convs.length})</div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {convs.map(c => (
-                <Link key={c.id} href={`/annonces/conversations/${c.id}`} style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '10px 0', borderBottom: '1px solid #F0E8DC',
-                  textDecoration: 'none', color: 'inherit',
-                }}>
+                <Link key={c.id} href={`/annonces/conversations/${c.id}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid #EDE6DA', textDecoration: 'none', color: 'inherit' }}>
                   <Avatar name={c.acheteur?.display_name || '?'} url={c.acheteur?.avatar_url} size={36} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#2C1810', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.acheteur?.display_name ?? 'Acheteur'}</p>
                     <p style={{ margin: 0, fontSize: 12, color: '#8A7A6A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {c.last_message
-                        ? (c.last_message.kind === 'system_contact' ? '📞 coordonnées partagées' :
-                           c.last_message.kind === 'system_closed'  ? '✓ vente conclue' :
+                        ? (c.last_message.kind === 'system_contact' ? 'Coordonnées partagées' :
+                           c.last_message.kind === 'system_closed'  ? 'Vente conclue' :
                            c.last_message.content)
                         : 'Pas de message'}
                     </p>
@@ -494,69 +490,61 @@ export default function AnnoncePageClient({ id }: Props) {
           </div>
         )}
 
-        {/* Actions propriétaire (ou admin : modération). Toujours visible même
-            si don/expirée → édition/suppression restent accessibles. */}
+        {/* Mon annonce / modération (owner ou admin) */}
         {(isOwner || isAdmin) && (
-          <div style={cardStyle}>
-            <p style={cardLabel}>{isOwner ? 'Mon annonce' : 'Modération (admin)'}</p>
+          <div style={{ marginTop: 22, paddingTop: 18, borderTop: '1px solid #EDE6DA' }}>
+            <div style={LABEL}>{isOwner ? 'Mon annonce' : 'Modération (admin)'}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {isOwner && isActive && (
                 <ActionButton onClick={handleMarquerVendu} disabled={action === 'vendu'}>
-                  {action === 'vendu' ? '...' : '✓ Marquer comme vendu'}
+                  {action === 'vendu' ? '…' : 'Marquer comme vendu'}
                 </ActionButton>
               )}
               {peutSponsoriser && (
                 <ActionButton onClick={handleSponsoriser} disabled={action === 'sponsor'}>
-                  {action === 'sponsor' ? '...' : `✦ Mettre en vedette (5 jours)`}
+                  {action === 'sponsor' ? '…' : 'Mettre en vedette (5 jours)'}
                 </ActionButton>
               )}
               <ActionButton danger onClick={handleSupprimer} disabled={action === 'delete'}>
-                {action === 'delete' ? '...' : '🗑 Supprimer'}
+                {action === 'delete' ? '…' : 'Supprimer'}
               </ActionButton>
             </div>
           </div>
         )}
 
+        <div style={{ height: 24 }} />
       </div>
 
-      {/* Bottom bar fixe — acheteur sur annonce active */}
+      {/* Bottom bar fixe — acheteur sur annonce active (couleur du type) */}
       {!isOwner && isActive && (
         <div style={{
-          position: 'fixed',
-          bottom: 64, left: 0, right: 0,
-          padding: '10px 12px',
-          backgroundColor: 'rgba(253,250,246,0.95)',
-          backdropFilter: 'blur(10px)',
-          borderTop: '1px solid #E5DDD2',
-          display: 'flex', gap: 8,
-          zIndex: 40,
+          position: 'fixed', bottom: 64, left: 0, right: 0,
+          padding: '12px 14px',
+          backgroundColor: 'rgba(253,250,245,0.96)', backdropFilter: 'blur(12px)',
+          borderTop: '1px solid #EDE6DA', display: 'flex', gap: 10, zIndex: 40,
         }}>
           <button
-            onClick={() => router.push(`/annonces/${id}#contact`)}
-            style={{
-              padding: '12px 16px', borderRadius: 12,
-              border: '1.5px solid #2D5A3D',
-              backgroundColor: '#fff', color: '#2D5A3D',
-              fontSize: 13, fontWeight: 800, fontFamily: 'inherit',
-              cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: 6,
-            }}
-            onClickCapture={e => { e.preventDefault(); handleContacter() }}
-          >💬 Intéressé</button>
+            type="button"
+            onClick={handleContacter}
+            aria-label="Contacter"
+            style={{ width: 54, padding: '13px 0', borderRadius: 14, border: '1.5px solid #E5DDD2', background: '#fff', color: '#2D5A3D', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <IcoChat />
+          </button>
           <button
             onClick={isEnchere ? handlePrendreEnchere : handleContacter}
             disabled={action !== null}
             style={{
-              flex: 1, padding: '12px 16px', borderRadius: 12, border: 'none',
+              flex: 1, padding: '14px', borderRadius: 14, border: 'none',
               backgroundColor: info.color, color: '#fff',
-              fontSize: 14, fontWeight: 800, fontFamily: 'inherit',
+              fontSize: 15, fontWeight: 800, fontFamily: 'inherit',
               cursor: action ? 'wait' : 'pointer', opacity: action ? 0.7 : 1,
-              boxShadow: `0 4px 14px ${info.color}40`,
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1,
+              boxShadow: `0 6px 20px ${info.color}55`,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
             }}
           >
             <span>
-              {isEnchere ? `🔨 Acheter à ${getPrixAffiche(annonce)}` : `${info.emoji} ${annonce.type === 'don' ? 'Prendre ce don' : annonce.type === 'troc' ? 'Proposer un troc' : annonce.type === 'service' ? 'Contacter' : `Acheter à ${getPrixAffiche(annonce)}`}`}
+              {isEnchere ? `Acheter à ${getPrixAffiche(annonce)}` : annonce.type === 'don' ? 'Prendre ce don' : annonce.type === 'troc' ? 'Proposer un troc' : annonce.type === 'service' ? 'Contacter' : `Acheter à ${getPrixAffiche(annonce)}`}
             </span>
             {isEnchere && <span style={{ fontSize: 10, opacity: 0.85, fontWeight: 600 }}>avant la prochaine baisse</span>}
           </button>
@@ -587,8 +575,41 @@ function CountdownInline() {
   }, [])
   const ms = getNextDropDate(now).getTime() - now.getTime()
   return (
-    <span style={{ fontSize: 16, fontWeight: 800, color: '#C0392B', fontVariantNumeric: 'tabular-nums' }}>
+    <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 700, color: '#FFB23F', marginTop: 1 }}>
       {formatCountdown(ms)}
+    </span>
+  )
+}
+
+// ───────────── Refonte éditoriale — tokens & helpers ─────────────
+const SERIF = 'var(--font-dm-serif), Georgia, serif'
+const BODY_SERIF = 'Georgia, "Times New Roman", serif'
+const MONO = 'ui-monospace, SFMono-Regular, Menlo, monospace'
+const LABEL: React.CSSProperties = {
+  fontSize: 11, fontWeight: 800, color: '#8A7A6A',
+  letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10,
+}
+
+const SVG_BASE = { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+const IcoPin   = ({ s = 11 }: { s?: number }) => <svg width={s} height={s} {...SVG_BASE}><path d="M12 22s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z" /><circle cx="12" cy="10" r="2.5" /></svg>
+const IcoTrend = ({ s = 11 }: { s?: number }) => <svg width={s} height={s} {...SVG_BASE}><polyline points="23 18 13.5 8.5 8.5 13.5 1 6" /><polyline points="17 18 23 18 23 12" /></svg>
+const IcoHand  = ({ s = 13 }: { s?: number }) => <svg width={s} height={s} {...SVG_BASE}><path d="M18 11V6a2 2 0 0 0-4 0v0M14 10V4a2 2 0 0 0-4 0v2M10 10.5V6a2 2 0 0 0-4 0v8" /><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-6-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" /></svg>
+const IcoChev  = ({ s = 16 }: { s?: number }) => <svg width={s} height={s} {...SVG_BASE}><polyline points="9 6 15 12 9 18" /></svg>
+const IcoChat  = ({ s = 20 }: { s?: number }) => <svg width={s} height={s} {...SVG_BASE}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
+const IcoShield = ({ s = 18 }: { s?: number }) => <svg width={s} height={s} {...SVG_BASE}><path d="M12 3l7 3v5c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6l7-3z" /></svg>
+const IcoStar  = ({ s = 12 }: { s?: number }) => <svg width={s} height={s} viewBox="0 0 24 24" fill="#D4A93C"><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9" /></svg>
+
+function MetaChip({ children, icon }: { children: React.ReactNode; icon?: React.ReactNode }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', borderRadius: 999, background: '#F0EAE0', fontSize: 11, fontWeight: 600, color: '#7A6A5A' }}>
+      {icon}{children}
+    </span>
+  )
+}
+function SoftBadge({ children, icon }: { children: React.ReactNode; icon?: React.ReactNode }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 999, background: '#F5F1EB', color: '#3C2C20', fontSize: 11.5, fontWeight: 700 }}>
+      {icon}{children}
     </span>
   )
 }
@@ -632,17 +653,6 @@ function PrixTimelineFull({ annonce }: { annonce: Annonce }) {
         </p>
       )}
     </div>
-  )
-}
-
-function Badge({ children }: { children: React.ReactNode }) {
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 4,
-      padding: '6px 10px', borderRadius: 999,
-      backgroundColor: '#F5F1EB', color: '#3C2C20',
-      fontSize: 11, fontWeight: 700,
-    }}>{children}</span>
   )
 }
 
@@ -690,11 +700,6 @@ const cardStyle: React.CSSProperties = {
   borderRadius: 16,
   padding: '16px 18px',
   boxShadow: '0 1px 8px rgba(44,28,16,0.08)',
-}
-
-const cardLabel: React.CSSProperties = {
-  fontSize: 11, fontWeight: 800, color: '#8A7A6A',
-  margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '0.06em',
 }
 
 function photoNavBtn(side: 'left' | 'right'): React.CSSProperties {
