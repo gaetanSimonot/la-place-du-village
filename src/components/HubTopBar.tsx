@@ -1,4 +1,5 @@
 'use client'
+import InstallOrShareButton from '@/components/InstallOrShareButton'
 
 interface Props {
   onOpenMenu?:    () => void
@@ -53,22 +54,11 @@ export default function HubTopBar({
         </button>
       </div>
 
-      {/* Bouton Partager l'app à droite (Web Share API + fallback clipboard,
-          géré dans HubView via onShareApp). Si non fourni, on retombe sur
-          un spacer pour préserver la symétrie. */}
+      {/* Bouton dynamique à droite : Partager OU Installer l'app selon le
+          contexte (PWA / Safari iOS / Chrome Android / desktop). Le partage
+          reste celui de HubView via onShareApp. Spacer si non fourni. */}
       {onShareApp ? (
-        <button
-          type="button"
-          onClick={onShareApp}
-          aria-label="Partager l'app"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte shadow-[0_1px_2px_rgba(44,28,16,0.04)]"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-            <polyline points="16 6 12 2 8 6" />
-            <line x1="12" y1="2" x2="12" y2="15" />
-          </svg>
-        </button>
+        <InstallOrShareButton onShare={onShareApp} />
       ) : (
         <div className="h-10 w-10 shrink-0" aria-hidden />
       )}
