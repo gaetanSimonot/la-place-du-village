@@ -7,6 +7,7 @@ export interface HubSectionDef { id: string; label: string }
 
 export const HUB_SECTIONS: HubSectionDef[] = [
   { id: 'aujourdhui',     label: "Aujourd'hui" },
+  { id: 'plans_card',     label: 'Carte abonnement' },
   { id: 'bonsplans',      label: 'Bons plans' },
   { id: 'ventes',         label: 'Ventes' },
   { id: 'place_publique', label: 'Place publique' },

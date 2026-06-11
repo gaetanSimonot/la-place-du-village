@@ -78,6 +78,7 @@ export async function GET(req: NextRequest) {
     introCfgRes,
     introImgRes,
     sectionOrderRes,
+    sectionHiddenRes,
     heroSlotsRes,
     promoSlotsRes,
     venteSlotsRes,
@@ -94,6 +95,7 @@ export async function GET(req: NextRequest) {
     supabaseAdmin.from('config').select('value').eq('key', 'hub_hero_intro_enabled').maybeSingle(),
     supabaseAdmin.from('config').select('value').eq('key', 'hub_hero_intro_image_url').maybeSingle(),
     supabaseAdmin.from('config').select('value').eq('key', 'hub_section_order').maybeSingle(),
+    supabaseAdmin.from('config').select('value').eq('key', 'hub_section_hidden').maybeSingle(),
     supabaseAdmin
       .from('featured_slots')
       .select('content_type, content_id, priority, image_position')
@@ -410,6 +412,12 @@ export async function GET(req: NextRequest) {
     sectionOrder: normalizeHubOrder((() => {
       try { return JSON.parse(sectionOrderRes.data?.value ?? '[]') } catch { return [] }
     })()),
+    sectionHidden: (() => {
+      try {
+        const v = JSON.parse(sectionHiddenRes.data?.value ?? '[]')
+        return Array.isArray(v) ? v.filter((x: unknown): x is string => typeof x === 'string') : []
+      } catch { return [] }
+    })(),
   }
 
   return NextResponse.json(payload, {

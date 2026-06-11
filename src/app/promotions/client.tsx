@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import useSWR from 'swr'
@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import SubscriptionModal from '@/components/SubscriptionModal'
+import QuotaPromoModal from '@/components/QuotaPromoModal'
 import FeatureButton from '@/components/FeatureButton'
 import type { Plan } from '@/lib/capabilities'
 import { ETAB_TYPES } from '@/lib/etablissement-types'
@@ -103,6 +104,27 @@ export default function PromotionsClient() {
       }, 2000)
     }
   }, [loading, promos.length])
+
+  // Checkout direct plan Habitant (CTA de la modal quota promo).
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
+  async function goCheckoutHabitants() {
+    setCheckoutLoading(true)
+    try {
+      await supabase.auth.refreshSession()
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      if (!token) { openAuthModal('/promotions'); setCheckoutLoading(false); return }
+      const res = await fetch('/api/stripe/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ plan: 'habitants' }),
+      })
+      const data = await res.json()
+      if (data.url) { window.location.href = data.url; return }
+      toast.error(data.error ?? 'Une erreur est survenue, réessaie.')
+    } catch { toast.error('Impossible de contacter le serveur.') }
+    setCheckoutLoading(false)
+  }
 
   // Étape 1 : clic "J'en profite" → ouvre la modale de confirmation position.
   const openUseConfirm = (promo: Promotion) => {
@@ -339,11 +361,26 @@ export default function PromotionsClient() {
       )}
 
       {upgradePromo && (
-        <SubscriptionModal
-          context={{ kind: 'promo', promoTitle: upgradePromo.title }}
-          onClose={() => setUpgradePromo(null)}
-          currentPlan={currentPlan}
-        />
+        currentPlan === 'basic' ? (
+          <QuotaPromoModal
+            promoTitle={upgradePromo.title}
+            promoWhere={upgradePromo.etablissement?.nom ?? ''}
+            others={promos
+              .filter(p => p.id !== upgradePromo.id)
+              .slice(0, 8)
+              .map(p => ({ title: p.title, where: p.etablissement?.nom ?? '', imageUrl: p.display_image_url ?? p.image_url ?? null }))}
+            otherCount={promos.filter(p => p.id !== upgradePromo.id).length}
+            loading={checkoutLoading}
+            onSubscribe={goCheckoutHabitants}
+            onClose={() => setUpgradePromo(null)}
+          />
+        ) : (
+          <SubscriptionModal
+            context={{ kind: 'promo', promoTitle: upgradePromo.title }}
+            onClose={() => setUpgradePromo(null)}
+            currentPlan={currentPlan}
+          />
+        )
       )}
 
       {showQuotaUpgrade && (
@@ -669,29 +706,52 @@ function ConfirmPositionModal({ promo, onClose, onConfirm, loading }: {
   )
 }
 
-// ─── Featured carousel V3 (À ne pas manquer) ───
+// ─── Featured carousel V3 (À ne pas manquer) — défilement infini ───
 function FeaturedPromoCarousel({ promos, onUse }: { promos: Promotion[]; onUse: (p: Promotion) => void }) {
+  const N = promos.length
+  const loop = N > 1
+  // 3 copies pour une boucle fluide (on reste centré sur la copie du milieu).
+  const display = loop ? [...promos, ...promos, ...promos] : promos
   const [activeIdx, setActiveIdx] = useState(0)
+  const scrollerRef = useRef<HTMLDivElement | null>(null)
+
+  // Démarre au début de la copie du milieu → on peut scroller des deux côtés.
+  useEffect(() => {
+    const el = scrollerRef.current
+    if (el && loop) el.scrollLeft = el.scrollWidth / 3
+  }, [loop, N])
+
   return (
     <div className="pt-[18px]">
       <div className="flex items-center justify-between gap-2 px-4 pb-2.5">
         <h3 className="m-0 text-[15px] font-extrabold tracking-tight2 text-texte">À ne pas manquer</h3>
-        <span className="text-[11px] font-bold text-texte-doux">{activeIdx + 1}/{promos.length}</span>
+        <span className="text-[11px] font-bold text-texte-doux">{activeIdx + 1}/{N}</span>
       </div>
       <div
+        ref={scrollerRef}
         className="pdv-hscroll flex gap-3 overflow-x-auto px-4 pb-1"
         style={{ scrollSnapType: 'x mandatory', scrollPaddingLeft: 16, scrollPaddingRight: 16 }}
         onScroll={e => {
           const el = e.currentTarget
-          const idx = Math.round(el.scrollLeft / (el.clientWidth - 32))
-          if (idx !== activeIdx && idx >= 0 && idx < promos.length) setActiveIdx(idx)
+          if (loop) {
+            const setW = el.scrollWidth / 3
+            // Recentrage seamless sur la copie du milieu (contenu identique).
+            if (el.scrollLeft < setW * 0.5) el.scrollLeft += setW
+            else if (el.scrollLeft > setW * 1.5) el.scrollLeft -= setW
+            const step = setW / N
+            setActiveIdx(((Math.round(el.scrollLeft / step)) % N + N) % N)
+          } else {
+            const step = el.scrollWidth / Math.max(1, N)
+            setActiveIdx(Math.min(N - 1, Math.max(0, Math.round(el.scrollLeft / step))))
+          }
         }}
       >
-        {promos.map((p, i) => {
+        {display.map((p, i) => {
+          const realIdx = i % N
           const img = p.display_image_url ?? p.image_url ?? p.etablissement?.photos?.[0]
           return (
             <button
-              key={p.id}
+              key={`${p.id}-${i}`}
               onClick={() => onUse(p)}
               className="relative shrink-0 overflow-hidden rounded-[18px] border border-bordSoft bg-white shadow-card text-left"
               style={{ width: 'calc(100vw - 64px)', maxWidth: 380, height: 200, scrollSnapAlign: 'start' }}
@@ -708,7 +768,7 @@ function FeaturedPromoCarousel({ promos, onUse }: { promos: Promotion[]; onUse: 
                 <span className="inline-flex items-center rounded-full bg-accent px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-[0.06em] text-white">
                   BON PLAN
                 </span>
-                {i === 0 && (
+                {realIdx === 0 && (
                   <span className="inline-flex items-center rounded-full bg-white/95 px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-[0.06em] text-accent backdrop-blur-sm">
                     ★ Coup de cœur
                   </span>

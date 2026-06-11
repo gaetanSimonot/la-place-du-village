@@ -43,6 +43,7 @@ export default function AdminHubCarousel() {
   const introImgInput = useRef<HTMLInputElement>(null)
   // Ordre des sections de contenu de l'accueil
   const [sectionOrder, setSectionOrder] = useState<string[]>(() => normalizeHubOrder([]))
+  const [hiddenSections, setHiddenSections] = useState<string[]>([])
   const [orderSaving, setOrderSaving] = useState(false)
 
   // Charge la config slide intro (toggle + image custom)
@@ -52,12 +53,17 @@ export default function AdminHubCarousel() {
       supabase.from('config').select('value').eq('key', 'hub_hero_intro_enabled').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'hub_hero_intro_image_url').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'hub_section_order').maybeSingle(),
-    ]).then(([toggleRes, imgRes, orderRes]) => {
+      supabase.from('config').select('value').eq('key', 'hub_section_hidden').maybeSingle(),
+    ]).then(([toggleRes, imgRes, orderRes, hiddenRes]) => {
       setIntroEnabled(toggleRes.data?.value === 'true')
       setIntroImageUrl(imgRes.data?.value || null)
       let parsed: unknown = []
       try { parsed = JSON.parse(orderRes.data?.value ?? '[]') } catch {}
       setSectionOrder(normalizeHubOrder(parsed))
+      try {
+        const h = JSON.parse(hiddenRes.data?.value ?? '[]')
+        setHiddenSections(Array.isArray(h) ? h.filter((x: unknown): x is string => typeof x === 'string') : [])
+      } catch { setHiddenSections([]) }
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user, isAdmin])
@@ -139,6 +145,24 @@ export default function AdminHubCarousel() {
       body:    JSON.stringify({ key: 'hub_section_order', value: JSON.stringify(next) }),
     })
     if (!res.ok) setSectionOrder(prev)
+    setOrderSaving(false)
+  }
+
+  async function toggleHide(id: string) {
+    if (orderSaving) return
+    const prev = hiddenSections
+    const next = hiddenSections.includes(id) ? hiddenSections.filter(x => x !== id) : [...hiddenSections, id]
+    setHiddenSections(next)
+    setOrderSaving(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+    if (!token) { setHiddenSections(prev); setOrderSaving(false); return }
+    const res = await fetch('/api/admin/config', {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body:    JSON.stringify({ key: 'hub_section_hidden', value: JSON.stringify(next) }),
+    })
+    if (!res.ok) setHiddenSections(prev)
     setOrderSaving(false)
   }
 
@@ -431,11 +455,13 @@ export default function AdminHubCarousel() {
               const label = HUB_SECTIONS.find(s => s.id === id)?.label ?? id
               const isFirst = i === 0
               const isLast = i === sectionOrder.length - 1
+              const isHidden = hiddenSections.includes(id)
               return (
                 <div key={id} style={{
                   display: 'flex', alignItems: 'center', gap: 10,
                   padding: '9px 12px', borderRadius: 10,
-                  background: '#FDFAF6', border: '1px solid #E5DDD2',
+                  background: isHidden ? '#F4EFE7' : '#FDFAF6',
+                  border: '1px solid #E5DDD2', opacity: isHidden ? 0.62 : 1,
                 }}>
                   <span style={{
                     width: 24, height: 24, borderRadius: 7,
@@ -443,8 +469,17 @@ export default function AdminHubCarousel() {
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 12, fontWeight: 900, flexShrink: 0,
                   }}>{i + 1}</span>
-                  <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: '#1A1209' }}>{label}</span>
+                  <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: '#1A1209', textDecoration: isHidden ? 'line-through' : 'none' }}>{label}</span>
                   <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                    <button
+                      onClick={() => toggleHide(id)} disabled={orderSaving}
+                      title={isHidden ? 'Afficher' : 'Masquer'}
+                      style={{ ...btnStyle(orderSaving), color: isHidden ? '#B53A22' : '#2D5A3D', width: 30 }}
+                    >
+                      {isHidden
+                        ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10 10 0 0 1 12 20C5 20 1 12 1 12a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9 9 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
+                        : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>}
+                    </button>
                     <button onClick={() => moveSection(i, -1)} disabled={isFirst || orderSaving} style={btnStyle(isFirst || orderSaving)}>▲</button>
                     <button onClick={() => moveSection(i, +1)} disabled={isLast || orderSaving} style={btnStyle(isLast || orderSaving)}>▼</button>
                   </div>

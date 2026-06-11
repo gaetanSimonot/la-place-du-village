@@ -11,6 +11,7 @@ import type { EtablissementType, Evenement } from '@/lib/types'
 import { getPrixAffiche, type Annonce } from '@/lib/annonces'
 import HubTopBar from '@/components/HubTopBar'
 import HubSearchBar from '@/components/HubSearchBar'
+import PlansCardFinal from '@/components/PlansCardFinal'
 import { useAnnonceFavorites } from '@/hooks/useAnnonceFavorites'
 import { shareLink } from '@/lib/share'
 import { normalizeHubOrder } from '@/lib/hubSections'
@@ -148,6 +149,12 @@ export default function HubView({
 }: Props) {
   const router = useRouter()
   const { profile, isAdmin } = useAuth()
+  // Carte d'abonnement sur l'accueil : masquée si déjà dismissée (par user) ou
+  // si le plan est déjà payant.
+  const [plansCardDismissed, setPlansCardDismissed] = useState(false)
+  useEffect(() => {
+    try { if (localStorage.getItem('pdv-plans-card-dismissed') === '1') setPlansCardDismissed(true) } catch { /* ignore */ }
+  }, [])
   // Favoris ANNONCES (séparés de useFavorites events). Assainit le bug
   // antérieur : avant ce swap, toggleFav appelait /api/evenements/{id}/favorite
   // avec un id d'annonce → INSERT silencieux invalide (FK).
@@ -203,6 +210,7 @@ export default function HubView({
   const covoits: CovoitLite[]    = (hubData?.covoits ?? []) as CovoitLite[]
   const forumTopics: ForumTopLite[] = (hubData?.forumTopics ?? []) as ForumTopLite[]
   const sectionOrder: string[] = normalizeHubOrder(hubData?.sectionOrder)
+  const hubHidden = new Set<string>((hubData?.sectionHidden as string[] | undefined) ?? [])
 
   // Realtime : invalide le cache SWR sur changement DB
   // → mutate() refetch en arrière-plan, l'UI bascule automatiquement.
@@ -237,6 +245,13 @@ export default function HubView({
   // Sections de contenu réordonnables (ordre piloté par l'admin via config).
   // Les parties fixes (barre, recherche, hero, tuiles, footer) restent hors map.
   const sectionNodes: Record<string, ReactNode> = {
+    // ── Carte abonnement (membres gratuits non-dismissés uniquement) ──────────
+    plans_card: ((profile?.plan ?? 'basic') === 'basic' && !plansCardDismissed) ? (
+      <PlansCardFinal
+        onClick={() => onUpgradePrompt('habitants', 'Promotions illimitées')}
+        onDismiss={() => { try { localStorage.setItem('pdv-plans-card-dismissed', '1') } catch { /* ignore */ }; setPlansCardDismissed(true) }}
+      />
+    ) : null,
     // ── Aujourd'hui — bento featured + 2 mini (ou 1 mini + journal si haut) ──
     aujourdhui: todayEvents.length > 0 ? (() => {
       const journalInTop = journal?.position_hub === 'haut'
@@ -473,8 +488,8 @@ export default function HubView({
         ))}
       </div>
 
-      {/* ── Sections de contenu — ordre piloté par l'admin (config) ──────── */}
-      {sectionOrder.map(id => <Fragment key={id}>{sectionNodes[id]}</Fragment>)}
+      {/* ── Sections de contenu — ordre piloté par l'admin, sections masquées exclues ── */}
+      {sectionOrder.filter(id => !hubHidden.has(id)).map(id => <Fragment key={id}>{sectionNodes[id]}</Fragment>)}
 
       {/* ── 10. Footer légal (discret, requis Google OAuth + RGPD) ───────
           Présence d'un lien Privacy Policy/CGU depuis la home est attendue
