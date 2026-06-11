@@ -148,12 +148,16 @@ export default function HubView({
   onOpenNotifs, onOpenInfo, onOpenSearch, unreadCount = 0,
 }: Props) {
   const router = useRouter()
-  const { profile, isAdmin } = useAuth()
+  const { profile, isAdmin, loading: authLoading } = useAuth()
   // Carte d'abonnement sur l'accueil : masquée si déjà dismissée (par user) ou
-  // si le plan est déjà payant.
+  // si le plan est déjà payant. On ne la rend qu'une fois l'auth chargée ET le
+  // localStorage lu (plansCardReady) → évite le flash au chargement (le plan
+  // retombe sur 'basic' tant que profile n'est pas chargé).
   const [plansCardDismissed, setPlansCardDismissed] = useState(false)
+  const [plansCardReady, setPlansCardReady] = useState(false)
   useEffect(() => {
     try { if (localStorage.getItem('pdv-plans-card-dismissed') === '1') setPlansCardDismissed(true) } catch { /* ignore */ }
+    setPlansCardReady(true)
   }, [])
   // Favoris ANNONCES (séparés de useFavorites events). Assainit le bug
   // antérieur : avant ce swap, toggleFav appelait /api/evenements/{id}/favorite
@@ -246,7 +250,7 @@ export default function HubView({
   // Les parties fixes (barre, recherche, hero, tuiles, footer) restent hors map.
   const sectionNodes: Record<string, ReactNode> = {
     // ── Carte abonnement (membres gratuits non-dismissés uniquement) ──────────
-    plans_card: ((profile?.plan ?? 'basic') === 'basic' && !plansCardDismissed) ? (
+    plans_card: (!authLoading && plansCardReady && (profile?.plan ?? 'basic') === 'basic' && !plansCardDismissed) ? (
       <PlansCardFinal
         onClick={() => onUpgradePrompt('habitants', 'Promotions illimitées')}
         onDismiss={() => { try { localStorage.setItem('pdv-plans-card-dismissed', '1') } catch { /* ignore */ }; setPlansCardDismissed(true) }}
