@@ -295,6 +295,9 @@ export default function JournalPageClient({
         </section>
       )}
 
+      {/* Article position 0 : entre la une et le billet */}
+      {articlePos === 0 && articleSection}
+
       {/* ── Le Billet (éditorial dropcap) ──────────────────────────────── */}
       {row.billet_corps && (
         <section className="px-4 pt-8">

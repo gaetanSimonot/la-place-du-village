@@ -231,9 +231,10 @@ export default function AdminJournalEditPage() {
                 <span className="text-[11px] font-bold uppercase tracking-[0.04em] text-texte-doux">
                   Position de la section &laquo;&nbsp;Vous avez la parole&nbsp;&raquo;
                 </span>
-                <div className="mt-1 grid grid-cols-5 gap-1.5">
+                <div className="mt-1 grid grid-cols-3 gap-1.5">
                   {([
-                    [1, 'Tout en haut'],
+                    [0, 'Entre la une et le billet'],
+                    [1, 'Après le billet'],
                     [2, 'Après spotlight'],
                     [3, 'Après agenda (défaut)'],
                     [4, 'Après bons plans'],
