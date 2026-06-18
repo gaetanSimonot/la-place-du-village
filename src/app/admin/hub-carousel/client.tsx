@@ -242,6 +242,17 @@ export default function AdminHubCarousel() {
         .in('id', byType.promotion)
       ;(data ?? []).forEach(d => { titleMap[`promotion:${d.id}`] = { title: d.title, imageUrl: d.image_url, detailUrl: `/promotions?id=${d.id}` } })
     }
+    if (byType.forum_topic) {
+      const { data } = await supabase
+        .from('forum_topics')
+        .select('id, titre, media')
+        .in('id', byType.forum_topic)
+      ;(data ?? []).forEach(d => {
+        const media = d.media as Array<{ t?: string; url?: string }> | null
+        const photo = Array.isArray(media) ? (media.find(m => m?.t === 'photo')?.url ?? null) : null
+        titleMap[`forum_topic:${d.id}`] = { title: d.titre, imageUrl: photo, detailUrl: `/forum/${d.id}` }
+      })
+    }
 
     return slots.map(s => ({
       ...s,
