@@ -100,6 +100,9 @@ const NOTIF_VISUAL: Record<NotifType, NotifVisual> = {
   covoit_note_recue:      { bg: '#FFF7DC', color: '#A8770F', icon: ICONS.star,     label: n => `${n.actor_name ?? 'Un passager'} t'a noté sur ton trajet` },
   covoit_rate_invitation: { bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.star,     label: n => `Trajet effectué${n.actor_name ? ` avec ${n.actor_name}` : ''} — note le conducteur` },
   feedback_new:           { bg: '#FFF0E5', color: '#C84B2F', icon: ICONS.chat,     label: n => `${n.actor_name ?? 'Un utilisateur'} a signalé un événement` },
+  correction_proposee:    { bg: '#FFF3E8', color: '#C4622D', icon: ICONS.clipboard,label: n => `${n.actor_name ?? 'Un utilisateur'} a proposé une correction` },
+  correction_validee:     { bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.check,    label: n => `Ta correction${n.actor_name ? ` sur « ${n.actor_name} »` : ''} a été validée 🙏` },
+  correction_rejetee:     { bg: '#F0EBE3', color: '#A0654E', icon: ICONS.cross,    label: n => `Ta correction${n.actor_name ? ` sur « ${n.actor_name} »` : ''} n'a pas été retenue` },
   friend_request_received:{ bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.star,     label: n => `${n.actor_name ?? 'Quelqu\'un'} t'a envoyé une demande d'ami` },
   friend_request_accepted:{ bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.check,    label: n => `${n.actor_name ?? 'Quelqu\'un'} a accepté ta demande d'ami` },
   friend_message:         { bg: '#E8EEF7', color: '#3A5BC7', icon: ICONS.chat,     label: n => `${n.actor_name ?? 'Un ami'} t'a envoyé un message` },
@@ -308,6 +311,11 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
       router.push(`/annonces/${n.target_id}`)
       return
     }
+    // Correction proposée → ouvre la fiche event en mode revue admin
+    if (n.type === 'correction_proposee' && n.target_id) {
+      router.push(`/evenement/${n.target_id}?correction=1`)
+      return
+    }
     if (n.target_type === 'event' && n.target_id) {
       router.push(`/evenement/${n.target_id}`)
       return
@@ -343,7 +351,7 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
     if (userFilter === 'annonces')    return notifications.filter(n => n.type.startsWith('annonce_'))
     if (userFilter === 'producteurs') return notifications.filter(n => n.type === 'disponibilite' || n.type === 'nouveau_produit' || n.type === 'suivi_producteur' || n.type === 'commentaire')
     if (userFilter === 'promos')      return notifications.filter(n => n.type === 'promo_used')
-    if (userFilter === 'events')      return notifications.filter(n => n.type === 'event_published')
+    if (userFilter === 'events')      return notifications.filter(n => n.type === 'event_published' || n.type === 'correction_validee' || n.type === 'correction_rejetee')
     return notifications
   }, [notifications, userFilter])
 
@@ -352,7 +360,7 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
     if (adminFilter === 'unread')   return notifications.filter(n => !n.lu)
     if (adminFilter === 'demandes') return notifications.filter(n => n.type === 'claim_pending' || n.type === 'claim_approved' || n.type === 'claim_rejected')
     if (adminFilter === 'annonces') return notifications.filter(n => n.type.startsWith('annonce_'))
-    if (adminFilter === 'events')   return notifications.filter(n => n.type === 'event_published' || n.type === 'disponibilite' || n.type === 'nouveau_produit' || n.type === 'suivi_producteur' || n.type === 'commentaire')
+    if (adminFilter === 'events')   return notifications.filter(n => n.type === 'event_published' || n.type === 'correction_proposee' || n.type === 'feedback_new' || n.type === 'disponibilite' || n.type === 'nouveau_produit' || n.type === 'suivi_producteur' || n.type === 'commentaire')
     if (adminFilter === 'support')  return notifications.filter(n => n.type === 'support_message')
     if (adminFilter === 'boost')    return notifications.filter(n => n.type === 'promo_used' || n.actor_name?.includes('Boost') || n.actor_name?.includes('boost'))
     return notifications

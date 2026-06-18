@@ -16,6 +16,8 @@ import FeatureButton from '@/components/FeatureButton'
 import BottomNavBar from '@/components/BottomNavBar'
 import FeedbackButton from '@/components/FeedbackButton'
 import { useSmartBack } from '@/hooks/useSmartBack'
+import { authedFetch } from '@/lib/swr-fetchers'
+import type { CorrectionField } from '@/lib/types'
 
 const LINK_STYLE = { color: '#C84B2F', textDecoration: 'underline', wordBreak: 'break-all' } as const
 
@@ -57,8 +59,32 @@ export default function EvenementPageClient({ id }: { id: string }) {
   const [commentsOpen, setCommentsOpen] = useState(false)
   const [commentCount, setCommentCount] = useState(0)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
+  const [proposing, setProposing]   = useState(false)   // user propose une correction
+  const [thanksOpen, setThanksOpen] = useState(false)   // confirmation après envoi
+  const [reviewCorrection, setReviewCorrection] = useState<
+    { id: string; changes: Record<string, unknown>; changedFields: CorrectionField[]; proposeurNom: string | null } | null
+  >(null)
   const isAdmin = useAdminSession()
+  const { user } = useAuth()
+  const { openAuthModal } = useAuthModal()
   const goBack = useSmartBack('/')
+
+  // Admin arrivant depuis une notif "correction proposée" (?correction=…) :
+  // on charge la première correction en attente et on ouvre le modal en revue.
+  useEffect(() => {
+    if (!isAdmin) return
+    const hasParam = new URLSearchParams(window.location.search).has('correction')
+    if (!hasParam) return
+    let cancelled = false
+    ;(async () => {
+      const r = await authedFetch(`/api/admin/evenements/${id}/corrections`).catch(() => null)
+      if (!r || !r.ok || cancelled) return
+      const d = await r.json().catch(() => ({}))
+      const c = (d.corrections ?? [])[0]
+      if (c) setReviewCorrection({ id: c.id, changes: c.changes, changedFields: c.changed_fields, proposeurNom: c.proposeur_nom })
+    })()
+    return () => { cancelled = true }
+  }, [isAdmin, id])
 
   useEffect(() => {
     supabase.from('evenements').select('*, lieux(*)').eq('id', id).single()
@@ -306,13 +332,19 @@ export default function EvenementPageClient({ id }: { id: string }) {
         onCountChange={setCommentCount}
       />
 
-      {/* Proposer une correction (discret, en bas) */}
-      <div className="flex justify-center px-6 pb-6 pt-2">
+      {/* Proposer une correction (édite la fiche) + signalement texte secondaire */}
+      <div className="flex flex-col items-center gap-1.5 px-6 pb-6 pt-2">
         <button
-          onClick={() => setFeedbackOpen(true)}
-          className="border-none bg-transparent text-[12px] text-texte-doux underline"
+          onClick={() => { if (!user) { openAuthModal(); return } setProposing(true) }}
+          className="border-none bg-transparent text-[12px] font-semibold text-primary underline"
         >
           Proposer une correction
+        </button>
+        <button
+          onClick={() => setFeedbackOpen(true)}
+          className="border-none bg-transparent text-[11px] text-texte-doux underline"
+        >
+          Signaler un autre problème
         </button>
       </div>
 
@@ -322,6 +354,49 @@ export default function EvenementPageClient({ id }: { id: string }) {
         open={feedbackOpen}
         onClose={() => setFeedbackOpen(false)}
       />
+
+      {/* Modal d'édition — proposition de correction par l'utilisateur */}
+      {proposing && (
+        <EventEditDrawer
+          evenementId={evt.id}
+          proposalMode
+          onClose={() => setProposing(false)}
+          onSaved={() => { setProposing(false); setThanksOpen(true) }}
+        />
+      )}
+
+      {/* Modal d'édition — revue admin d'une correction proposée */}
+      {reviewCorrection && (
+        <EventEditDrawer
+          evenementId={evt.id}
+          reviewProposal={reviewCorrection}
+          onClose={() => setReviewCorrection(null)}
+          onSaved={() => {
+            setReviewCorrection(null)
+            supabase.from('evenements').select('*, lieux(*)').eq('id', id).single()
+              .then(({ data }) => { if (data) setEvt(data as Evenement) })
+          }}
+        />
+      )}
+
+      {/* Confirmation après envoi d'une correction */}
+      {thanksOpen && (
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={() => setThanksOpen(false)}>
+          <div className="w-full max-w-xs rounded-2xl bg-white p-6 text-center" onClick={e => e.stopPropagation()}>
+            <p className="m-0 text-[34px] leading-none">🙏</p>
+            <h3 className="mt-2.5 mb-1.5 font-serif text-[18px] text-texte">Merci !</h3>
+            <p className="m-0 text-[13px] leading-[1.5] text-texte-doux">
+              Ta correction a bien été envoyée. Un modérateur la valide au plus vite.
+            </p>
+            <button
+              onClick={() => setThanksOpen(false)}
+              className="mt-4 w-full rounded-xl border-none bg-primary py-3 text-[14px] font-bold text-white"
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
 
       {editing && (
         <EventEditDrawer

@@ -103,7 +103,7 @@ export default function FeedbackButton({ evenementId, evenementTitre, open: exte
               ) : (
                 <>
                   <h3 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 17, color: '#2C1810', marginBottom: 4 }}>
-                    Proposer une correction
+                    Signaler un problème
                   </h3>
                   <p style={{ fontSize: 12, color: '#9A8E82', marginBottom: 16 }}>
                     {evenementTitre}

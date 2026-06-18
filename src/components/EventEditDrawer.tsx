@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Categorie, Evenement } from '@/lib/types'
+import { Categorie, Evenement, type CorrectionField } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { uploadViaSignedUrl, base64ToBlob, compressImage } from '@/lib/clientUpload'
 import { authedFetch } from '@/lib/swr-fetchers'
@@ -268,9 +268,28 @@ interface Props {
    * l'ownership et publie directement. Ignoré en mode édition.
    */
   etablissementId?: string | null
+  /**
+   * Mode PROPOSITION (utilisateur non-admin) : le drawer charge l'event
+   * existant, l'user édite les champs, et au submit on POST une correction
+   * (/api/evenements/[id]/corrections) au lieu du PATCH admin. Les sections
+   * admin (statut/promo/suppression) sont masquées.
+   */
+  proposalMode?: boolean
+  /**
+   * Mode REVUE (admin) : pré-charge l'event PUIS superpose les valeurs
+   * proposées par un user, en surlignant les champs modifiés. Au submit,
+   * applique (PATCH) puis clôt la correction (resolve validee). Un bouton
+   * "Rejeter" permet de la décliner.
+   */
+  reviewProposal?: {
+    id: string
+    changes: Record<string, unknown>
+    changedFields: CorrectionField[]
+    proposeurNom?: string | null
+  } | null
 }
 
-export default function EventEditDrawer({ evenementId, initialData, initialImage, onClose, onSaved, onEditOnly, etablissementId }: Props) {
+export default function EventEditDrawer({ evenementId, initialData, initialImage, onClose, onSaved, onEditOnly, etablissementId, proposalMode, reviewProposal }: Props) {
   const { profile } = useAuth()
   const isAdmin = useAdminSession()
   const [posterOpen, setPosterOpen] = useState(false)
@@ -294,6 +313,18 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
   const categorie = categories[0] ?? 'autre'   // principale = [0] (contrat affiche, etc.)
   const toggleCat = (key: Categorie) =>
     setCategories(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key])
+
+  // ── Revue de correction (admin) : surlignage des champs modifiés ──────────
+  const HL_BORDER = '#E8843D'
+  const changed = (field: CorrectionField) => !!reviewProposal?.changedFields?.includes(field)
+  /** Bordure d'un champ : orange si modifié dans la correction en revue. */
+  const fieldBorder = (field: CorrectionField, base = '#F0EAE0') => (changed(field) ? HL_BORDER : base)
+  const ChangedPill = () => (
+    <span className="ml-1.5 inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide align-middle"
+      style={{ background: '#FCE8D8', color: '#C4622D' }}>
+      modifié
+    </span>
+  )
   const [prix, setPrix]                 = useState('')
   const [contact, setContact]           = useState('')
   const [organisateurs, setOrganisateurs] = useState('')
@@ -380,6 +411,27 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
           setLat(e.lieux.lat?.toString() ?? '')
           setLng(e.lieux.lng?.toString() ?? '')
           setPlaceIdGoogle(e.lieux.place_id_google ?? null)
+        }
+        // Mode revue : superpose les valeurs proposées par l'utilisateur.
+        if (reviewProposal?.changes) {
+          const c = reviewProposal.changes as Record<string, unknown>
+          if (c.titre !== undefined) setTitre(String(c.titre ?? ''))
+          if (c.description !== undefined) setDescription(c.description == null ? '' : String(c.description))
+          if (c.date_debut !== undefined) setDateDebut(c.date_debut == null ? '' : String(c.date_debut))
+          if (c.date_fin !== undefined) setDateFin(c.date_fin == null ? '' : String(c.date_fin))
+          if (c.heure !== undefined) setHeure(c.heure == null ? '' : String(c.heure).slice(0, 5))
+          if (Array.isArray(c.categories) && c.categories.length) setCategories(c.categories as Categorie[])
+          if (c.lieu_nom !== undefined) setLieuNom(c.lieu_nom == null ? '' : String(c.lieu_nom))
+          if (c.commune !== undefined) setCommune(c.commune == null ? '' : String(c.commune))
+          if (c.adresse !== undefined) setAdresse(c.adresse == null ? '' : String(c.adresse))
+          if (c.lat !== undefined && c.lat !== null) setLat(String(c.lat))
+          if (c.lng !== undefined && c.lng !== null) setLng(String(c.lng))
+          if (c.place_id_google !== undefined) setPlaceIdGoogle(c.place_id_google == null ? null : String(c.place_id_google))
+          if (c.prix !== undefined) setPrix(c.prix == null ? '' : String(c.prix))
+          if (c.contact !== undefined) setContact(c.contact == null ? '' : String(c.contact))
+          if (c.organisateurs !== undefined) setOrganisateurs(c.organisateurs == null ? '' : String(c.organisateurs))
+          if (c.image_url !== undefined) setImageUrl(c.image_url == null ? null : String(c.image_url))
+          if (c.image_position !== undefined) setImagePosition(c.image_position == null ? '50% 50%' : String(c.image_position))
         }
         setLoading(false)
       })
@@ -515,6 +567,50 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
       onClose()
       return
     }
+
+    // Mode proposition (user) : POST une correction, aucune écriture directe
+    // sur l'event. L'image éventuelle est uploadée en kind 'event-image'
+    // (autorisé aux users authentifiés, comme la création).
+    if (proposalMode && evenementId) {
+      setSaving(true); setError(null)
+      try {
+        let uploadedImageUrl: string | null = imageUrl
+        if (newBase64) {
+          try {
+            const blob = base64ToBlob(newBase64, newMime)
+            const compressed = await compressImage(blob, { maxDim: 1600, quality: 0.85 })
+            const up = await uploadViaSignedUrl({ file: compressed, kind: 'event-image' })
+            uploadedImageUrl = up.publicUrl
+          } catch (upErr) {
+            throw new Error(`Image refusée : ${upErr instanceof Error ? upErr.message : 'erreur'}`)
+          }
+        }
+        const { data: { session } } = await supabase.auth.getSession()
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+        if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
+        const res = await fetch(`/api/evenements/${evenementId}/corrections`, {
+          method: 'POST', headers,
+          body: JSON.stringify({
+            titre, description,
+            date_debut: dateDebut || null, date_fin: dateFin || null, heure: heure || null,
+            categorie, categories,
+            lieu_nom: lieuNom || null, commune: commune || null, adresse: adresse || null,
+            lat: lat ? parseFloat(lat) : null, lng: lng ? parseFloat(lng) : null,
+            place_id_google: placeIdGoogle || null,
+            prix: prix || null, contact: contact || null, organisateurs: organisateurs || null,
+            image_url: uploadedImageUrl, image_position: imagePosition,
+          }),
+        })
+        const d = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(d.error || 'Erreur lors de l\'envoi')
+        onSaved?.({ message: 'correction' })
+        onClose()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Erreur')
+      } finally { setSaving(false) }
+      return
+    }
+
     setSaving(true); setError(null)
     try {
       if (!evenementId) {
@@ -601,6 +697,30 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
       })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(d.error || `Erreur HTTP ${r.status}`)
+      // Revue : la modif est appliquée → on clôt la correction (notif user).
+      if (reviewProposal) {
+        await authedFetch(`/api/admin/corrections/${reviewProposal.id}/resolve`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ statut: 'validee' }),
+        }).catch(() => {})
+      }
+      onSaved?.(); onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur')
+    } finally { setSaving(false) }
+  }
+
+  /** Revue admin : décline la correction sans modifier l'event (notif user). */
+  const rejectCorrection = async () => {
+    if (!reviewProposal) return
+    if (!confirm('Rejeter cette correction ? Le proposeur sera notifié qu\'elle n\'a pas été retenue.')) return
+    setSaving(true); setError(null)
+    try {
+      const r = await authedFetch(`/api/admin/corrections/${reviewProposal.id}/resolve`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ statut: 'rejetee' }),
+      })
+      if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'Erreur') }
       onSaved?.(); onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur')
@@ -652,7 +772,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
         </button>
         <div className="min-w-0 flex-1 text-center">
           <div className="font-serif text-[17px] leading-none text-texte" style={{ letterSpacing: '-0.01em' }}>
-            {evenementId ? 'Modifier l’événement' : 'Vérifier les infos'}
+            {reviewProposal ? 'Revoir la correction' : proposalMode ? 'Proposer une correction' : evenementId ? 'Modifier l’événement' : 'Vérifier les infos'}
           </div>
         </div>
         <button
@@ -676,12 +796,32 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
           </div>
         )}
 
+        {/* Notice mode proposition (user) */}
+        {proposalMode && (
+          <div className="flex items-start gap-3 rounded-xl p-3" style={{ background: '#FFF3E8', border: '1px solid #F3D9C2' }}>
+            <span className="text-[18px] leading-none">✏️</span>
+            <p className="m-0 flex-1 text-[12px] leading-[1.5] text-texte">
+              Corrige ce qui ne va pas (horaire, lieu, prix…). Ta proposition sera relue par un modérateur avant d’être appliquée. Merci&nbsp;!
+            </p>
+          </div>
+        )}
+
+        {/* Bandeau mode revue (admin) */}
+        {reviewProposal && (
+          <div className="flex items-start gap-3 rounded-xl p-3" style={{ background: '#FFF3E8', border: '1px solid #F3D9C2' }}>
+            <span className="text-[18px] leading-none">📝</span>
+            <p className="m-0 flex-1 text-[12px] leading-[1.5] text-texte">
+              Correction proposée par <strong>{reviewProposal.proposeurNom ?? 'un utilisateur'}</strong>. Les champs modifiés sont <span style={{ color: '#C4622D', fontWeight: 700 }}>surlignés en orange</span>. Valide pour appliquer, ou rejette.
+            </p>
+          </div>
+        )}
+
         {error && <div className="bg-red-50 text-red-600 text-sm px-3 py-2 rounded-xl">{error}</div>}
 
         {/* V3 Section PHOTO */}
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <p className="m-0 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Photo</p>
+            <p className="m-0 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Photo{changed('image') && <ChangedPill />}</p>
             {activeSrc && (
               <button
                 onClick={() => fileRef.current?.click()}
@@ -771,8 +911,8 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
           <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} className="hidden" />
         </div>
 
-        {/* Statut rapide — édition uniquement */}
-        {evenementId && (
+        {/* Statut rapide — édition admin uniquement */}
+        {evenementId && !proposalMode && (
           <div className="flex gap-2">
             {statut !== 'publie' && (
               <button onClick={() => save('publie')} disabled={saving}
@@ -797,20 +937,20 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
 
         {/* V3 TITRE */}
         <div>
-          <p className="m-0 mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Titre</p>
+          <p className="m-0 mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Titre{changed('titre') && <ChangedPill />}</p>
           <input
             type="text" value={titre}
             onChange={e => { setTitre(e.target.value); if (fieldErrors.titre) setFieldErrors(p => ({ ...p, titre: '' })) }}
             placeholder="Titre de l'événement"
             className="w-full rounded-xl bg-white px-3.5 py-2.5 text-[14px] text-texte outline-none focus:border-primary"
-            style={{ border: `1px solid ${fieldErrors.titre ? '#E53935' : '#F0EAE0'}` }}
+            style={{ border: `1px solid ${fieldErrors.titre ? '#E53935' : fieldBorder('titre')}` }}
           />
           {fieldErrors.titre && <p className="m-0 mt-1 text-[11px] text-[#E53935]">{fieldErrors.titre}</p>}
         </div>
 
         {/* V3 CATÉGORIE pills colorées */}
         <div>
-          <p className="m-0 mb-2 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Catégories <span className="font-semibold lowercase tracking-normal text-[10px]">(plusieurs possibles)</span></p>
+          <p className="m-0 mb-2 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Catégories <span className="font-semibold lowercase tracking-normal text-[10px]">(plusieurs possibles)</span>{changed('categories') && <ChangedPill />}</p>
           <div className="flex flex-wrap gap-1.5">
             {Object.entries(CATEGORIES).map(([key, cat]) => {
               const active = categories.includes(key as Categorie)
@@ -836,8 +976,8 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
         {/* V3 DATE | HEURE 2-col */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <p className="m-0 mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Date</p>
-            <div className="flex items-center gap-2 rounded-xl bg-white px-3.5 py-2.5" style={{ border: `1px solid ${fieldErrors.dateDebut ? '#E53935' : '#F0EAE0'}` }}>
+            <p className="m-0 mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Date{changed('date_debut') && <ChangedPill />}</p>
+            <div className="flex items-center gap-2 rounded-xl bg-white px-3.5 py-2.5" style={{ border: `1px solid ${fieldErrors.dateDebut ? '#E53935' : fieldBorder('date_debut')}` }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-texte-doux"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
               <input type="date" value={dateDebut}
                 onChange={e => { setDateDebut(e.target.value); if (fieldErrors.dateDebut) setFieldErrors(p => ({ ...p, dateDebut: '', lieu: '' })) }}
@@ -846,8 +986,8 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
             {fieldErrors.dateDebut && <p className="m-0 mt-1 text-[11px] text-[#E53935]">{fieldErrors.dateDebut}</p>}
           </div>
           <div>
-            <p className="m-0 mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Heure</p>
-            <div className="flex items-center gap-2 rounded-xl bg-white px-3.5 py-2.5" style={{ border: '1px solid #F0EAE0' }}>
+            <p className="m-0 mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Heure{changed('heure') && <ChangedPill />}</p>
+            <div className="flex items-center gap-2 rounded-xl bg-white px-3.5 py-2.5" style={{ border: `1px solid ${fieldBorder('heure')}` }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-texte-doux"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               <input type="time" value={heure} onChange={e => setHeure(e.target.value)} className="w-full border-none bg-transparent text-[13px] text-texte outline-none" />
             </div>
@@ -857,12 +997,12 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
         {/* V3 LIEU */}
         <div>
           <div className="mb-1.5 flex items-center justify-between">
-            <p className="m-0 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Lieu</p>
+            <p className="m-0 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Lieu{changed('lieu') && <ChangedPill />}</p>
             <button onClick={geocodeManual} className="bg-transparent text-[11px] font-semibold text-primary underline">
               Changer
             </button>
           </div>
-          <div className="rounded-xl bg-white p-3" style={{ border: `1px solid ${fieldErrors.lieu ? '#E53935' : '#F0EAE0'}` }}>
+          <div className="rounded-xl bg-white p-3" style={{ border: `1px solid ${fieldErrors.lieu ? '#E53935' : fieldBorder('lieu')}` }}>
             <div className="flex items-start gap-2">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0 text-primary"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
               <div className="flex-1">
@@ -889,27 +1029,27 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
 
         {/* V3 DESCRIPTION */}
         <div>
-          <p className="m-0 mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Description</p>
+          <p className="m-0 mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Description{changed('description') && <ChangedPill />}</p>
           <textarea
             value={description} onChange={e => setDescription(e.target.value)} rows={4}
             placeholder="Décris l'événement…"
             className="block w-full resize-none rounded-xl bg-white px-3.5 py-2.5 text-[13px] leading-[1.5] text-texte outline-none focus:border-primary"
-            style={{ border: '1px solid #F0EAE0' }}
+            style={{ border: `1px solid ${fieldBorder('description')}` }}
           />
         </div>
 
         {/* V3 PRIX | CONTACT 2-col */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <p className="m-0 mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Prix</p>
-            <div className="flex items-center gap-2 rounded-xl bg-white px-3.5 py-2.5" style={{ border: '1px solid #F0EAE0' }}>
+            <p className="m-0 mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Prix{changed('prix') && <ChangedPill />}</p>
+            <div className="flex items-center gap-2 rounded-xl bg-white px-3.5 py-2.5" style={{ border: `1px solid ${fieldBorder('prix')}` }}>
               <span className="text-[14px] text-texte-doux">€</span>
               <input type="text" value={prix} onChange={e => setPrix(e.target.value)} placeholder="Gratuit, 5…" className="w-full border-none bg-transparent text-[13px] text-texte outline-none" />
             </div>
           </div>
           <div>
-            <p className="m-0 mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Contact</p>
-            <div className="flex items-center gap-2 rounded-xl bg-white px-3.5 py-2.5" style={{ border: '1px solid #F0EAE0' }}>
+            <p className="m-0 mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Contact{changed('contact') && <ChangedPill />}</p>
+            <div className="flex items-center gap-2 rounded-xl bg-white px-3.5 py-2.5" style={{ border: `1px solid ${fieldBorder('contact')}` }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-texte-doux"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
               <input type="text" value={contact} onChange={e => setContact(e.target.value)} placeholder="06 12…" className="w-full border-none bg-transparent text-[13px] text-texte outline-none" />
             </div>
@@ -918,17 +1058,17 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
 
         {/* V3 ORGANISATEURS */}
         <div>
-          <p className="m-0 mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Organisateurs</p>
+          <p className="m-0 mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Organisateurs{changed('organisateurs') && <ChangedPill />}</p>
           <input
             type="text" value={organisateurs} onChange={e => setOrganisateurs(e.target.value)}
             placeholder="Association, mairie…"
             className="w-full rounded-xl bg-white px-3.5 py-2.5 text-[14px] text-texte outline-none focus:border-primary"
-            style={{ border: '1px solid #F0EAE0' }}
+            style={{ border: `1px solid ${fieldBorder('organisateurs')}` }}
           />
         </div>
 
-        {/* Promotion — édition uniquement */}
-        {evenementId && (
+        {/* Promotion — édition admin uniquement */}
+        {evenementId && !proposalMode && (
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Promotion</label>
             <div className="flex gap-2">
@@ -950,8 +1090,8 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
           </div>
         )}
 
-        {/* Ordre carrousel splash — uniquement plan max, édition uniquement */}
-        {evenementId && promotion === 'max' && (
+        {/* Ordre carrousel splash — uniquement plan max, édition admin uniquement */}
+        {evenementId && !proposalMode && promotion === 'max' && (
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
               Ordre dans le splash <span style={{ color: '#7C3AED' }}>⚡</span>
@@ -969,8 +1109,8 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
 
         {/* Vedette du hub : déprécié — utiliser le bouton ⭐ Mettre en avant sur la fiche */}
 
-        {/* Supprimer — édition uniquement */}
-        {evenementId && (
+        {/* Supprimer — édition admin uniquement */}
+        {evenementId && !proposalMode && (
           <button onClick={deleteEvent}
             className="w-full py-3 bg-red-50 text-red-500 font-bold text-sm rounded-xl border border-red-100">
             🗑️ Supprimer cet événement
@@ -983,25 +1123,38 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
         className="fixed bottom-0 left-0 right-0 z-20"
         style={{ background: '#FFFFFF', borderTop: '1px solid #EDE8E0', padding: '12px 16px 16px', paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))' }}
       >
-        <button
-          onClick={() => save()}
-          disabled={saving}
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border-none bg-primary text-[14px] font-bold text-white disabled:opacity-55"
-        >
-          {saving ? (
-            <>
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              Publication en cours…
-            </>
-          ) : (
-            <>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-              {evenementId ? 'Sauvegarder' : 'Publier l\'événement'}
-            </>
+        <div className="flex gap-2">
+          {/* Revue admin : Rejeter à côté du Valider */}
+          {reviewProposal && (
+            <button
+              onClick={rejectCorrection}
+              disabled={saving}
+              className="flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-2xl border px-4 text-[14px] font-bold disabled:opacity-55"
+              style={{ background: '#FFF', borderColor: '#E5DDD2', color: '#B0483A' }}
+            >
+              Rejeter
+            </button>
           )}
-        </button>
+          <button
+            onClick={() => save()}
+            disabled={saving}
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border-none bg-primary text-[14px] font-bold text-white disabled:opacity-55"
+          >
+            {saving ? (
+              <>
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                {proposalMode ? 'Envoi…' : reviewProposal ? 'Validation…' : 'Publication en cours…'}
+              </>
+            ) : (
+              <>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                {proposalMode ? 'Envoyer ma correction' : reviewProposal ? 'Valider la correction' : evenementId ? 'Sauvegarder' : 'Publier l\'événement'}
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {posterOpen && (
