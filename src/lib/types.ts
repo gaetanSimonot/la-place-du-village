@@ -18,6 +18,9 @@ export interface Evenement {
   date_fin: string | null
   heure: string | null
   categorie: Categorie
+  // Multi-catégories (migration 2026-06-18). categorie reste la principale
+  // (= categories[0]) ; categories peut être absent sur d'anciens select.
+  categories?: Categorie[]
   statut: 'publie' | 'en_attente' | 'rejete' | 'archive' | 'a_verifier'
   doublon_verifie: boolean
   lieu_id: string | null
@@ -56,6 +59,7 @@ export interface EvenementCard {
   id: string
   titre: string
   categorie: Categorie
+  categories?: Categorie[]
   date_debut: string | null
   date_fin: string | null
   heure: string | null

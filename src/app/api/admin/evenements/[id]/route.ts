@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { notifyUser, requireAdmin } from '@/lib/server-auth'
+import { mergeCategories } from '@/lib/categories'
 
 // Convertit les chaînes vides en null pour les champs date/heure
 function nullIfEmpty(v: unknown) {
@@ -38,6 +39,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     textFields.forEach(f => { if (body[f] !== undefined) eventUpdate[f] = body[f] })
     dateFields.forEach(f => { if (body[f] !== undefined) eventUpdate[f] = nullIfEmpty(body[f]) })
     if (body.promo_ordre !== undefined) eventUpdate.promo_ordre = body.promo_ordre
+
+    // Multi-catégories : si un tableau `categories` est fourni, on le normalise
+    // et on resynchronise `categorie` (= principale = categories[0]) pour la
+    // rétro-compat avec tout le code qui lit encore le champ unique.
+    if (body.categories !== undefined) {
+      const cats = mergeCategories(Array.isArray(body.categories) ? body.categories : null)
+      eventUpdate.categories = cats
+      eventUpdate.categorie = cats[0]
+    }
 
     // Charge l'ancien statut pour détecter la transition → 'publie'
     let previousStatut: string | null = null

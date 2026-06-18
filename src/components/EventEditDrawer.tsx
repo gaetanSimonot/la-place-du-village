@@ -209,7 +209,7 @@ function CropStep({ src, position, onChange, onConfirm, onBack }: {
 // ── Composant principal ───────────────────────────────────────────────────────
 interface InitialData {
   titre?: string; description?: string; date_debut?: string; date_fin?: string
-  heure?: string; categorie?: Categorie; lieu_nom?: string; commune?: string
+  heure?: string; categorie?: Categorie; categories?: Categorie[]; lieu_nom?: string; commune?: string
   prix?: string; contact?: string; organisateurs?: string
   // Champs additionnels (réhydratation d'un draft édité précédemment en
   // mode onEditOnly — sinon vides en mode extraction initiale).
@@ -232,6 +232,7 @@ export interface EventDraft {
   date_fin:       string
   heure:          string
   categorie:      Categorie
+  categories:     Categorie[]
   lieu_nom:       string
   commune:        string
   adresse:        string
@@ -289,7 +290,10 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
   const [dateDebut, setDateDebut]       = useState('')
   const [dateFin, setDateFin]           = useState('')
   const [heure, setHeure]               = useState('')
-  const [categorie, setCategorie]       = useState<Categorie>('autre')
+  const [categories, setCategories]     = useState<Categorie[]>(['autre'])
+  const categorie = categories[0] ?? 'autre'   // principale = [0] (contrat affiche, etc.)
+  const toggleCat = (key: Categorie) =>
+    setCategories(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key])
   const [prix, setPrix]                 = useState('')
   const [contact, setContact]           = useState('')
   const [organisateurs, setOrganisateurs] = useState('')
@@ -328,7 +332,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
         setDateDebut(initialData.date_debut ?? '')
         setDateFin(initialData.date_fin ?? '')
         setHeure(initialData.heure?.slice(0, 5) ?? '')
-        setCategorie(initialData.categorie ?? 'autre')
+        setCategories(initialData.categories?.length ? initialData.categories : [initialData.categorie ?? 'autre'])
         setPrix(initialData.prix ?? '')
         setContact(initialData.contact ?? '')
         setOrganisateurs(initialData.organisateurs ?? '')
@@ -359,7 +363,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
         setDateDebut(e.date_debut ?? '')
         setDateFin(e.date_fin ?? '')
         setHeure(e.heure?.slice(0, 5) ?? '')
-        setCategorie(e.categorie)
+        setCategories(e.categories?.length ? e.categories : [e.categorie])
         setStatut(e.statut)
         setPrix(e.prix ?? '')
         setContact(e.contact ?? '')
@@ -496,7 +500,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
       onEditOnly({
         titre, description,
         date_debut: dateDebut, date_fin: dateFin, heure,
-        categorie,
+        categorie, categories,
         lieu_nom: lieuNom, commune, adresse,
         lat: lat ? parseFloat(lat) : null,
         lng: lng ? parseFloat(lng) : null,
@@ -539,7 +543,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
           body: JSON.stringify({
             titre, description,
             date_debut: dateDebut || null, date_fin: dateFin || null, heure: heure || null,
-            categorie,
+            categorie, categories,
             lieu_nom: lieuNom || null, commune: commune || null, adresse: adresse || null,
             lat: lat ? parseFloat(lat) : undefined,
             lng: lng ? parseFloat(lng) : undefined,
@@ -574,7 +578,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
       const body: Record<string, unknown> = {
         titre, description,
         date_debut: dateDebut || null, date_fin: dateFin || null, heure: heure || null,
-        categorie, statut: statutOverride ?? statut,
+        categorie, categories, statut: statutOverride ?? statut,
         prix: prix || null, contact: contact || null, organisateurs: organisateurs || null,
         image_url: finalUrl, image_position: imagePosition,
         promotion,
@@ -806,14 +810,14 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
 
         {/* V3 CATÉGORIE pills colorées */}
         <div>
-          <p className="m-0 mb-2 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Catégorie</p>
+          <p className="m-0 mb-2 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Catégories <span className="font-semibold lowercase tracking-normal text-[10px]">(plusieurs possibles)</span></p>
           <div className="flex flex-wrap gap-1.5">
             {Object.entries(CATEGORIES).map(([key, cat]) => {
-              const active = categorie === key
+              const active = categories.includes(key as Categorie)
               return (
                 <button
                   key={key}
-                  onClick={() => setCategorie(key as Categorie)}
+                  onClick={() => toggleCat(key as Categorie)}
                   className="rounded-full px-3 py-1.5 text-[12px] font-bold transition-colors"
                   style={
                     active

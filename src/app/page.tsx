@@ -477,7 +477,7 @@ export default function HomePage() {
     return `/api/agenda?${params.toString()}`
   }, [filtres, masquerPasses, zoneLoaded])
 
-  const { data: agendaData, isLoading: agendaLoadingRaw } = useSWR(agendaKey)
+  const { data: agendaData, isLoading: agendaLoadingRaw, mutate: mutateAgenda } = useSWR(agendaKey)
 
   // Sync des states existants depuis agendaData (le rendu utilise les states
   // legacy → minimisation du diff dans la grosse page.tsx).
@@ -1210,6 +1210,8 @@ export default function HomePage() {
         annuaireTab={annuaireTab}
         onAnnuaireTabChange={setAnnuaireTab}
         topBarV3
+        isAdmin={isAdmin}
+        onAdminMutated={() => mutateAgenda()}
       />}
 
       {/* Favoris — panneau inline au-dessus de la carte */}

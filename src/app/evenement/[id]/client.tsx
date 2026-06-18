@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Evenement, isApproxLocation } from '@/lib/types'
-import { CATEGORIES } from '@/lib/categories'
+import { CATEGORIES, eventCategories } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
 import ImageLightbox from '@/components/ImageLightbox'
 import CommentSheet from '@/components/CommentSheet'
@@ -92,7 +92,8 @@ export default function EvenementPageClient({ id }: { id: string }) {
     </div>
   )
 
-  const cat   = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
+  const cats  = eventCategories(evt)
+  const cat   = CATEGORIES[cats[0]] ?? CATEGORIES.autre
   const lieu  = evt.lieux
   const mapsUrl = lieu?.lat && lieu?.lng
     ? `https://www.google.com/maps/dir/?api=1&destination=${lieu.lat},${lieu.lng}`
@@ -149,13 +150,18 @@ export default function EvenementPageClient({ id }: { id: string }) {
             </div>
           ) : null}
         />
-        {/* Type badge bottom-left — montée un peu pour ne pas coller la coupe */}
-        <span
-          className="absolute bottom-7 left-3.5 z-[3] inline-flex items-center gap-1 rounded-full bg-primary-light/95 px-2.5 py-[5px] text-[10px] font-extrabold uppercase tracking-[0.08em] text-primary"
-          style={{ backdropFilter: 'blur(4px)' }}
-        >
-          {cat.label}
-        </span>
+        {/* Type badge(s) bottom-left — montée un peu pour ne pas coller la coupe */}
+        <div className="absolute bottom-7 left-3.5 z-[3] flex flex-wrap gap-1">
+          {cats.map(c => (
+            <span
+              key={c}
+              className="inline-flex items-center gap-1 rounded-full bg-primary-light/95 px-2.5 py-[5px] text-[10px] font-extrabold uppercase tracking-[0.08em] text-primary"
+              style={{ backdropFilter: 'blur(4px)' }}
+            >
+              {(CATEGORIES[c] ?? CATEGORIES.autre).label}
+            </span>
+          ))}
+        </div>
       </div>
 
       {/* ── ContentCard sliding up ── */}

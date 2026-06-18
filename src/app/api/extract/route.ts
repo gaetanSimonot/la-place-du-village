@@ -148,6 +148,7 @@ async function processOneEvent(
       date_fin: extracted.date_fin,
       heure: extracted.heure,
       categorie: extracted.categorie ?? 'autre',
+      categories: [extracted.categorie ?? 'autre'],
       statut,
       lieu_id: lieuId,
       prix: extracted.prix,

@@ -24,7 +24,7 @@ import type { FiltreQuand } from '@/lib/types'
 
 export const revalidate = 60
 
-const SELECT = 'id, titre, categorie, date_debut, date_fin, heure, image_url, image_position, promotion, promo_ordre, lieux(id, nom, commune, lat, lng, place_id_google)'
+const SELECT = 'id, titre, categorie, categories, date_debut, date_fin, heure, image_url, image_position, promotion, promo_ordre, lieux(id, nom, commune, lat, lng, place_id_google)'
 
 const QUAND_VALUES: FiltreQuand[] = ['toujours', 'aujourd_hui', 'cette_semaine', 'ce_week_end', 'ce_mois']
 
@@ -45,7 +45,10 @@ export async function GET(req: NextRequest) {
     .eq('statut', 'publie')
     .order('date_debut', { ascending: true })
     .limit(300)
-  if (cats.length > 0) q = q.in('categorie', cats)
+  // Filtre par recouvrement : l'event matche si UNE de ses catégories est
+  // sélectionnée (multi-catégories). `categories` est backfillé pour toutes
+  // les lignes par la migration 2026-06-18.
+  if (cats.length > 0) q = q.overlaps('categories', cats)
   const range = getDateRange(quand)
   if (range) q = q.gte('date_debut', range.from).lte('date_debut', range.to)
   if (masquerPasses) {
@@ -91,7 +94,7 @@ export async function GET(req: NextRequest) {
   if (splashIds.length > 0) {
     const { data: events } = await supabaseAdmin
       .from('evenements')
-      .select('id, titre, categorie, date_debut, date_fin, heure, image_url, image_position, promotion, promo_ordre, vote_count, submitted_by_name, lieux(id, nom, commune, lat, lng, place_id_google)')
+      .select('id, titre, categorie, categories, date_debut, date_fin, heure, image_url, image_position, promotion, promo_ordre, vote_count, submitted_by_name, lieux(id, nom, commune, lat, lng, place_id_google)')
       .in('id', splashIds)
       .eq('statut', 'publie')
     const eventMap = Object.fromEntries(((events ?? []) as Array<Record<string, unknown>>).map(e => [e.id as string, e]))

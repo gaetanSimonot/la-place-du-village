@@ -96,7 +96,7 @@ export async function processMessage(
     const { data: evenement } = await supabaseAdmin.from('evenements').insert({
       titre: evt.titre, description: evt.description,
       date_debut: evt.date_debut || null, date_fin: evt.date_fin || null, heure: evt.heure || null,
-      categorie: evt.categorie ?? 'autre', statut: finalStatut,
+      categorie: evt.categorie ?? 'autre', categories: [evt.categorie ?? 'autre'], statut: finalStatut,
       lieu_id: lieuId, prix: evt.prix || null, contact: evt.contact || null,
       organisateurs: evt.organisateurs || null, image_url: imageUrl, source,
       message_entrant_id: messageId, raison_statut: raisonStatut || null,

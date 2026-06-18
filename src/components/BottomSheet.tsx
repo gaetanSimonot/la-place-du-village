@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, useMotionValue, animate, useDragControls } from 'framer-motion'
 import { EvenementCard, Filtres, AppMode, ProducerCard, ProduitCategorie, EtablissementCard, EtablissementType } from '@/lib/types'
-import { CATEGORIES } from '@/lib/categories'
+import { CATEGORIES, eventCategories } from '@/lib/categories'
 import { PRODUIT_CATS } from '@/lib/produit-cats'
 import { ETAB_TYPE_LIST } from '@/lib/etablissement-types'
 import { formatEventDate } from '@/lib/filters'
@@ -18,6 +18,7 @@ import ProBandeau from '@/components/ProBandeau'
 import AgendaFilterWheel from '@/components/AgendaFilterWheel'
 import CategoryPicker from '@/components/CategoryPicker'
 import { supabase } from '@/lib/supabase'
+import { authedFetch } from '@/lib/swr-fetchers'
 
 const BATCH = 20
 
@@ -68,6 +69,10 @@ interface Props {
   onAnnuaireTabChange?: (idx: number) => void
   /** V3: hide Agenda/Annuaire segmented + in annuaire mode show only the active mode's button (no toggle) */
   topBarV3?: boolean
+  /** Admin connecté → active le clic long de sélection multiple sur l'agenda. */
+  isAdmin?: boolean
+  /** Appelé après une mutation admin (suppression/fusion) pour rafraîchir la liste. */
+  onAdminMutated?: () => void
 }
 
 export default function BottomSheet({
@@ -86,11 +91,47 @@ export default function BottomSheet({
   selectedEtabType = null, onEtabTypeChange, onOpenEtablissement,
   annuaireTab: annuaireTabProp, onAnnuaireTabChange,
   topBarV3 = false,
+  isAdmin = false, onAdminMutated,
 }: Props) {
   const { sheetBg } = useTheme()
   const [peekH, setPeekH]         = useState(130) // hauteur mesurée du header
   const [visibleCount, setVisibleCount] = useState(BATCH)
   const [visibleEtabCount, setVisibleEtabCount] = useState(BATCH)
+
+  // ── Sélection multiple admin (clic long sur l'agenda) ──
+  const [selectMode, setSelectMode] = useState(false)
+  const [picked, setPicked]         = useState<Set<string>>(new Set())
+  const [adminBusy, setAdminBusy]   = useState(false)
+  const enterSelect = (id: string) => { setSelectMode(true); setPicked(new Set([id])) }
+  const togglePick = (id: string) => setPicked(prev => {
+    const n = new Set(prev)
+    if (n.has(id)) n.delete(id); else n.add(id)
+    if (n.size === 0) setSelectMode(false)
+    return n
+  })
+  const exitSelect = () => { setSelectMode(false); setPicked(new Set()) }
+  const deleteSelected = async () => {
+    if (picked.size === 0) return
+    if (!confirm(`Supprimer définitivement ${picked.size} événement(s) ?`)) return
+    setAdminBusy(true)
+    const ids = Array.from(picked)
+    await Promise.all(ids.map(id => authedFetch(`/api/admin/evenements/${id}`, { method: 'DELETE' }).catch(() => null)))
+    setAdminBusy(false); exitSelect(); onAdminMutated?.()
+  }
+  const mergeSelected = async () => {
+    if (picked.size < 2) return
+    if (!confirm(`Fusionner ces ${picked.size} événements en un seul ?\n\nLe premier sélectionné est gardé comme fiche principale ; les autres deviennent son programme (description) et leurs catégories sont cumulées. Les fiches absorbées sont archivées.`)) return
+    setAdminBusy(true)
+    const ids = Array.from(picked)
+    const r = await authedFetch('/api/admin/evenements/merge', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    }).catch(() => null)
+    setAdminBusy(false)
+    if (!r || !r.ok) { alert('Échec de la fusion.'); return }
+    exitSelect(); onAdminMutated?.()
+  }
+
   const headerRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const obsRef = useRef<IntersectionObserver | null>(null)
@@ -701,6 +742,10 @@ export default function BottomSheet({
                 onOpenEvent={onOpenEvent ? () => onOpenEvent(evt.id) : undefined}
                 isFav={favIds.includes(evt.id)}
                 onToggleFav={onToggleFav ? () => onToggleFav(evt.id) : undefined}
+                selectMode={selectMode}
+                isPicked={picked.has(evt.id)}
+                onLongPress={isAdmin ? () => enterSelect(evt.id) : undefined}
+                onTogglePick={() => togglePick(evt.id)}
               />
             ))}
             {visibleCount < sortedEvents.length && (
@@ -713,27 +758,101 @@ export default function BottomSheet({
       </div>
     </motion.div>
 
+    {/* ── Barre flottante de sélection multiple (admin) ── */}
+    {selectMode && picked.size > 0 && (
+      <div style={{
+        position: 'fixed', left: 12, right: 12, bottom: navHeight + 12, zIndex: 60,
+        background: '#2C1810', color: '#fff', borderRadius: 16,
+        padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8,
+        boxShadow: '0 8px 28px rgba(0,0,0,0.35)',
+      }}>
+        <span style={{ flex: 1, fontSize: 13, fontWeight: 700 }}>
+          {picked.size} sélectionné{picked.size > 1 ? 's' : ''}
+        </span>
+        <button onClick={exitSelect} disabled={adminBusy}
+          style={{ background: 'transparent', color: '#C9BCAD', border: 'none', fontSize: 13, padding: '6px 8px', cursor: 'pointer', opacity: 0.8 }}>
+          Annuler
+        </button>
+        {picked.size >= 2 && (
+          <button onClick={mergeSelected} disabled={adminBusy}
+            style={{ background: 'var(--vert, #2D5A3D)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 800, padding: '8px 12px', cursor: 'pointer', opacity: adminBusy ? 0.5 : 1 }}>
+            {adminBusy ? '…' : `Fusionner (${picked.size})`}
+          </button>
+        )}
+        <button onClick={deleteSelected} disabled={adminBusy}
+          style={{ background: '#D64545', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 800, padding: '8px 12px', cursor: 'pointer', opacity: adminBusy ? 0.5 : 1 }}>
+          {adminBusy ? '…' : 'Supprimer'}
+        </button>
+      </div>
+    )}
+
   </>
   )
 }
 
 /* ── Card événement — layout horizontal : image gauche, texte droite ── */
-function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, isFav, onToggleFav }: {
+function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, isFav, onToggleFav,
+  selectMode, isPicked, onLongPress, onTogglePick }: {
   evt: EvenementCard; isSelected: boolean; onSelect: () => void; onViewOnMap: () => void
   onOpenEvent?: () => void; isFav?: boolean; onToggleFav?: () => void
+  // Sélection multiple admin (clic long sur l'agenda)
+  selectMode?: boolean; isPicked?: boolean
+  onLongPress?: () => void; onTogglePick?: () => void
 }) {
-  const cat  = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
+  const cats = eventCategories(evt)
+  const cat  = CATEGORIES[cats[0]] ?? CATEGORIES.autre
   const lieu = evt.lieux
 
+  // Détection clic long (touch + souris) sans déclencher la navigation.
+  const lpTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lpFired = useRef(false)
+  const startLongPress = () => {
+    if (!onLongPress) return
+    lpFired.current = false
+    lpTimer.current = setTimeout(() => { lpFired.current = true; onLongPress() }, 450)
+  }
+  const cancelLongPress = () => { if (lpTimer.current) { clearTimeout(lpTimer.current); lpTimer.current = null } }
+
   return (
-    <Link href={`/evenement/${evt.id}`} onClick={() => { onSelect(); onOpenEvent?.() }} style={{
-      display: 'flex', height: 86, flexShrink: 0,
+    <Link href={`/evenement/${evt.id}`}
+      onClick={e => {
+        // Si un clic long vient de se déclencher → on avale le clic (pas de nav).
+        if (lpFired.current) { e.preventDefault(); lpFired.current = false; return }
+        if (selectMode) { e.preventDefault(); onTogglePick?.(); return }
+        onSelect(); onOpenEvent?.()
+      }}
+      onPointerDown={startLongPress}
+      onPointerUp={cancelLongPress}
+      onPointerMove={cancelLongPress}
+      onPointerLeave={cancelLongPress}
+      onContextMenu={e => { if (onLongPress) e.preventDefault() }}
+      style={{
+      display: 'flex', height: 86, flexShrink: 0, position: 'relative',
       borderRadius: 14, overflow: 'hidden', textDecoration: 'none',
       backgroundColor: '#fff',
-      boxShadow: isSelected
+      boxShadow: isPicked
+        ? `0 0 0 2.5px var(--vert, #2D5A3D), 0 4px 18px rgba(0,0,0,0.18)`
+        : isSelected
         ? `0 0 0 2.5px var(--primary), 0 4px 18px rgba(0,0,0,0.14)`
         : '0 1px 6px rgba(44,44,44,0.09)',
     }}>
+      {/* Pastille de sélection (mode sélection admin) */}
+      {selectMode && (
+        <div style={{
+          position: 'absolute', top: 6, left: 6, zIndex: 2,
+          width: 22, height: 22, borderRadius: 999,
+          background: isPicked ? 'var(--vert, #2D5A3D)' : 'rgba(255,255,255,0.92)',
+          border: isPicked ? 'none' : '2px solid #B8AFA2',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+        }}>
+          {isPicked && (
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          )}
+        </div>
+      )}
       {/* Image gauche */}
       <div style={{ width: 86, flexShrink: 0, position: 'relative', overflow: 'hidden', backgroundColor: cat.color + '22' }}>
         {evt.image_url
@@ -744,15 +863,26 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
 
       {/* Contenu droite */}
       <div style={{ flex: 1, padding: '8px 10px 8px 12px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minWidth: 0 }}>
-        {/* Haut : badge + titre */}
+        {/* Haut : badge(s) + titre */}
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3, flexWrap: 'nowrap', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3, flexWrap: 'nowrap', overflow: 'hidden' }}>
             <span style={{
               display: 'inline-flex', alignItems: 'center', flexShrink: 0,
               fontSize: 9, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase',
               color: '#fff', backgroundColor: cat.color,
               borderRadius: 999, padding: '2px 7px',
             }}>{cat.label}</span>
+            {/* Catégories additionnelles → pastilles colorées compactes */}
+            {cats.slice(1).map(c => {
+              const extra = CATEGORIES[c] ?? CATEGORIES.autre
+              return (
+                <span key={c} title={extra.label} style={{
+                  flexShrink: 0, width: 9, height: 9, borderRadius: 999,
+                  backgroundColor: extra.color, border: '1.5px solid #fff',
+                  boxShadow: '0 0 0 0.5px rgba(0,0,0,0.08)',
+                }} />
+              )
+            })}
             {lieu?.commune && (
               <span style={{ fontSize: 10, color: '#6B5E4E', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {lieu.commune}

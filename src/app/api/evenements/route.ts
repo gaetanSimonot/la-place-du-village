@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { geocodeWithGoogle, calcStatut } from '@/lib/extract'
-import { Categorie } from '@/lib/types'
+import { mergeCategories } from '@/lib/categories'
 import { checkDoublon } from '@/lib/checkDoublon'
 import { checkZone } from '@/lib/checkZone'
 import { rateLimit } from '@/lib/rateLimit'
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const {
       titre, description, date_debut, date_fin, heure,
-      categorie, lieu_nom, lieu_adresse, commune, code_postal,
+      categorie, categories: bodyCategories, lieu_nom, lieu_adresse, commune, code_postal,
       lat: bodyLat, lng: bodyLng, place_id_google: bodyPlaceId, adresse: bodyAdresse,
       prix, contact, organisateurs,
       // Nouveau flow : image_url (upload deja fait via signed URL cote
@@ -161,8 +161,16 @@ export async function POST(req: NextRequest) {
       }, { status: 422 })
     }
 
+    // Multi-catégories : tableau normalisé + catégorie principale (= [0]).
+    // mergeCategories garantit au moins ['autre'] et filtre l'inconnu.
+    const cats = mergeCategories(
+      Array.isArray(bodyCategories) ? bodyCategories : null,
+      categorie ? [categorie] : null,
+    )
+    const primaryCat = cats[0]
+
     const baseStatut = calcStatut({
-      categorie,
+      categorie: primaryCat,
       date_debut: date_debut || null,
       description: description || null,
       hasGeo: !!geo.lat,
@@ -209,7 +217,8 @@ export async function POST(req: NextRequest) {
         date_debut: date_debut || null,
         date_fin: date_fin || null,
         heure: heure || null,
-        categorie: (categorie as Categorie) ?? 'autre',
+        categorie: primaryCat,
+        categories: cats,
         statut: finalStatut,
         lieu_id: lieuId,
         // Inclus UNIQUEMENT si rattaché (sinon clé absente) : ainsi la création

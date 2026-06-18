@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Evenement, isApproxLocation } from '@/lib/types'
-import { CATEGORIES } from '@/lib/categories'
+import { CATEGORIES, eventCategories } from '@/lib/categories'
 import { formatEventDate } from '@/lib/filters'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -15,7 +15,7 @@ interface Props {
 }
 
 export default function EventCard({ evenement, isSelected, onClick }: Props) {
-  const cat = CATEGORIES[evenement.categorie] ?? CATEGORIES.autre
+  const cats = eventCategories(evenement)
   const lieu = evenement.lieux
   const isAdmin = useAdminSession()
   const [editing, setEditing] = useState(false)
@@ -46,11 +46,19 @@ export default function EventCard({ evenement, isSelected, onClick }: Props) {
             </div>
           )}
           <div className="p-3">
-            <span
-              className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full text-white mb-2"
-              style={{ backgroundColor: cat.color }}
-            >
-              {cat.emoji} {cat.label}
+            <span className="mb-2 flex flex-wrap gap-1">
+              {cats.map(c => {
+                const cat = CATEGORIES[c] ?? CATEGORIES.autre
+                return (
+                  <span
+                    key={c}
+                    className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full text-white"
+                    style={{ backgroundColor: cat.color }}
+                  >
+                    {cat.emoji} {cat.label}
+                  </span>
+                )
+              })}
             </span>
 
             <h3
