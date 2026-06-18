@@ -14,6 +14,23 @@ const nextConfig = {
       ],
     },
   },
+  // Anti-clickjacking : interdit que le site soit embarqué en iframe par un
+  // autre domaine. `frame-ancestors 'self'` (CSP moderne) + X-Frame-Options
+  // SAMEORIGIN (vieux navigateurs). On ne déclare QUE frame-ancestors → ça
+  // n'active pas une CSP complète, donc aucun impact sur scripts/styles/Maps.
+  // Phase 2 (vente d'embed agenda/carte) : les routes /embed seront servies
+  // avec une `frame-ancestors` élargie via middleware, en override de celui-ci.
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'self'" },
+        ],
+      },
+    ]
+  },
   images: {
     remotePatterns: [
       {
