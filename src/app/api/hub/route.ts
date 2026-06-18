@@ -49,6 +49,7 @@ type HeroItem =
   | { kind: 'evenement';     data: Record<string, unknown>; imagePosition: string | null }
   | { kind: 'etablissement'; data: Record<string, unknown>; imagePosition: string | null }
   | { kind: 'producteur';    data: Record<string, unknown>; imagePosition: string | null }
+  | { kind: 'forum_topic';   data: Record<string, unknown>; imagePosition: string | null }
 
 interface PromoCard {
   id: string
@@ -178,16 +179,19 @@ export async function GET(req: NextRequest) {
     const evIds   = heroSlots.filter(s => s.content_type === 'evenement').map(s => s.content_id)
     const etabIds = heroSlots.filter(s => s.content_type === 'etablissement').map(s => s.content_id)
     const prodIds = heroSlots.filter(s => s.content_type === 'producteur').map(s => s.content_id)
+    const topicIds = heroSlots.filter(s => s.content_type === 'forum_topic').map(s => s.content_id)
 
-    const [evRes, etabRes, prodRes] = await Promise.all([
+    const [evRes, etabRes, prodRes, topicRes] = await Promise.all([
       evIds.length   ? supabaseAdmin.from('evenements').select('*, lieux(*)').in('id', evIds).eq('statut', 'publie') : Promise.resolve({ data: [] }),
       etabIds.length ? supabaseAdmin.from('etablissements').select('id, nom, commune, photos, type').in('id', etabIds) : Promise.resolve({ data: [] }),
       prodIds.length ? supabaseAdmin.from('producers').select('id, nom, commune, photos').in('id', prodIds) : Promise.resolve({ data: [] }),
+      topicIds.length ? supabaseAdmin.from('forum_topics').select('id, titre, media').in('id', topicIds) : Promise.resolve({ data: [] }),
     ])
 
     const evMap   = Object.fromEntries(((evRes.data ?? []) as Record<string, unknown>[]).map(e => [e.id as string, e]))
     const etabMap = Object.fromEntries(((etabRes.data ?? []) as Record<string, unknown>[]).map(e => [e.id as string, e]))
     const prodMap = Object.fromEntries(((prodRes.data ?? []) as Record<string, unknown>[]).map(p => [p.id as string, p]))
+    const topicMap = Object.fromEntries(((topicRes.data ?? []) as Record<string, unknown>[]).map(t => [t.id as string, t]))
 
     heroSlots.forEach(s => {
       const pos = (s.image_position as string | null) ?? null
@@ -197,6 +201,8 @@ export async function GET(req: NextRequest) {
         heroItems.push({ kind: 'etablissement', data: etabMap[s.content_id], imagePosition: pos })
       } else if (s.content_type === 'producteur' && prodMap[s.content_id]) {
         heroItems.push({ kind: 'producteur', data: prodMap[s.content_id], imagePosition: pos })
+      } else if (s.content_type === 'forum_topic' && topicMap[s.content_id]) {
+        heroItems.push({ kind: 'forum_topic', data: topicMap[s.content_id], imagePosition: pos })
       }
     })
   }

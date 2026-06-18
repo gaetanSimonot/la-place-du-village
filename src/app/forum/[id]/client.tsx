@@ -10,6 +10,7 @@ import BottomNavBar from '@/components/BottomNavBar'
 import PostMedia from '@/components/profil/PostMedia'
 import PollView from '@/components/forum/PollView'
 import NewTopicModal from '@/components/forum/NewTopicModal'
+import FeatureButton from '@/components/FeatureButton'
 import { type ForumTopic, type ForumComment, forumRelativeDate } from '@/lib/forum'
 
 export default function TopicClient({ id }: { id: string }) {
@@ -192,6 +193,9 @@ export default function TopicClient({ id }: { id: string }) {
             <button onClick={shareTopic} aria-label="Partager" className="flex h-[30px] w-[30px] items-center justify-center rounded-lg border border-bord bg-white text-texte">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
             </button>
+          )}
+          {isAdmin && topic && (
+            <FeatureButton contentType="forum_topic" contentId={topic.id} ownerUserId={topic.user_id} />
           )}
           {isAdmin && topic && (
             <button onClick={togglePin} className="rounded-lg border border-bord bg-white px-2.5 py-1.5 text-[11px] font-bold text-texte" title="Épingler">

@@ -5,7 +5,7 @@
 
 export type FeaturedSlot = 'splash' | 'hub_hero' | 'a_la_une' | 'homepage'
 
-export type FeaturedContentType = 'evenement' | 'etablissement' | 'producteur' | 'annonce' | 'promotion'
+export type FeaturedContentType = 'evenement' | 'etablissement' | 'producteur' | 'annonce' | 'promotion' | 'forum_topic'
 
 export type FeaturedSource = 'admin' | 'pro_credit' | 'boost_purchase' | 'editorial'
 
@@ -67,14 +67,14 @@ export function endOfTodayParisISO(): string {
  */
 export const FEATURED_SLOTS: { id: FeaturedSlot; label: string; description: string; emoji: string }[] = [
   { id: 'splash',    label: 'Splash screen',    emoji: '✨', description: 'Écran d\'accueil avant l\'app (visibilité maximale)' },
-  { id: 'hub_hero',  label: 'Carousel hub',     emoji: '🌟', description: 'Grosse card en haut de l\'accueil (events + établissements)' },
+  { id: 'hub_hero',  label: 'Carousel hub',     emoji: '🌟', description: 'Grosse card en haut de l\'accueil (events, établissements, sujets)' },
   { id: 'homepage',  label: 'Tuiles homepage',  emoji: '📢', description: 'Injection dans les tuiles de l\'accueil (events, promos, annonces)' },
 ]
 
 /** Types autorisés par slot. Le modal de placement filtre ce qui est proposé. */
 export const SLOT_ALLOWED_TYPES: Record<FeaturedSlot, FeaturedContentType[]> = {
   splash:    ['evenement', 'promotion', 'annonce', 'etablissement', 'producteur'],
-  hub_hero:  ['evenement', 'etablissement', 'producteur'],
+  hub_hero:  ['evenement', 'etablissement', 'producteur', 'forum_topic'],
   a_la_une:  [],  // déprécié — géré par les bandeaux de catégorie
   // homepage : les events featured remplacent la sélection auto "Aujourd'hui"
   // (cf. /api/hub). Si aucun event featured → fallback events du jour comme avant.

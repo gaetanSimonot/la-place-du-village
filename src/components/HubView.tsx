@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import type { EtablissementType, Evenement } from '@/lib/types'
 import { getPrixAffiche, type Annonce } from '@/lib/annonces'
+import type { MediaItem } from '@/lib/postMedia'
 import HubTopBar from '@/components/HubTopBar'
 import HubSearchBar from '@/components/HubSearchBar'
 import PlansCardFinal from '@/components/PlansCardFinal'
@@ -54,11 +55,18 @@ interface HeroProducteur {
   photos: string[] | null
 }
 
+interface HeroTopic {
+  id: string
+  titre: string
+  media: MediaItem[] | null
+}
+
 type HeroItem =
   | { kind: 'intro';         data: { imageUrl: string | null }; imagePosition: null }
   | { kind: 'evenement';     data: Evenement;        imagePosition: string | null }
   | { kind: 'etablissement'; data: HeroEtab;         imagePosition: string | null }
   | { kind: 'producteur';    data: HeroProducteur;   imagePosition: string | null }
+  | { kind: 'forum_topic';   data: HeroTopic;        imagePosition: string | null }
 
 interface JournalLite {
   id: string
@@ -460,6 +468,7 @@ export default function HubView({
             if      (item.kind === 'intro')         onOpenInfo?.()
             else if (item.kind === 'evenement')     router.push(`/evenement/${item.data.id}`)
             else if (item.kind === 'etablissement') router.push(`/etablissement/${item.data.id}`)
+            else if (item.kind === 'forum_topic')   router.push(`/forum/${item.data.id}`)
             else                                    router.push(`/producteur/${item.data.id}`)
           }}
         />
@@ -1204,6 +1213,23 @@ function HeroSlide({ item, onClick }: { item: HeroItem; onClick: () => void }) {
         metaLeft={etab.commune ?? null}
         metaRight={null}
         metaLeftIcon="pin"
+      />
+    )
+  }
+  if (item.kind === 'forum_topic') {
+    const topic = item.data
+    // Photo de couverture = 1ère image du média si présente, sinon dégradé.
+    const photoItem = topic.media?.find(m => m.t === 'photo')
+    const photo = photoItem && photoItem.t === 'photo' ? photoItem.url : null
+    return (
+      <HeroCardShell
+        photo={photo}
+        imagePosition={imagePosition}
+        onClick={onClick}
+        kicker="PLACE PUBLIQUE"
+        title={topic.titre}
+        metaLeft={null}
+        metaRight={null}
       />
     )
   }

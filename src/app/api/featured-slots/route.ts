@@ -4,7 +4,7 @@ import { requireAdmin } from '@/lib/server-auth'
 import { endOfTodayParisISO, type FeaturedSlot, type FeaturedContentType } from '@/lib/featured'
 
 const VALID_SLOTS: FeaturedSlot[] = ['splash', 'hub_hero', 'a_la_une', 'homepage']
-const VALID_TYPES: FeaturedContentType[] = ['evenement', 'etablissement', 'producteur', 'annonce', 'promotion']
+const VALID_TYPES: FeaturedContentType[] = ['evenement', 'etablissement', 'producteur', 'annonce', 'promotion', 'forum_topic']
 
 /**
  * GET — liste les slots actifs.
