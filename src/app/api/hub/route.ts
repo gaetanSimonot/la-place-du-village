@@ -327,6 +327,14 @@ export async function GET(req: NextRequest) {
     })
   }
 
+  // Total réel d'annonces visibles (toutes catégories) pour le compteur "· N"
+  // de la section, indépendant des 4 cartes affichées. Aligné sur la liste
+  // publique /annonces (statut active|don_final).
+  const { count: annoncesTotal } = await supabaseAdmin
+    .from('annonces')
+    .select('id', { count: 'exact', head: true })
+    .in('statut', ['active', 'don_final'])
+
   // ── EVENTS HOMEPAGE : positionnement explicite 1/2/3 par l'admin, complété
   // par les events du jour sur les positions laissées vides. Section a 3
   // emplacements (1 grosse + 2 mini), donc on construit un array de longueur 3
@@ -405,7 +413,7 @@ export async function GET(req: NextRequest) {
     todayTotal:  todayEventsRes.count ?? 0,
     promos:      orderedPromos.slice(0, 8),
     ventes:      ordered.slice(0, 4),
-    ventesTotal: ordered.length,
+    ventesTotal: annoncesTotal ?? ordered.length,
     journal:     journalRes.data ?? null,
     covoits:     covoitsRes.data ?? [],
     forumTopics,

@@ -318,10 +318,10 @@ export default function HubView({
     ventes: ventesAnnonces.length > 0 ? (
       <>
         <SectionHeaderV3
-          title="Ventes"
+          title="Annonces"
           kicker={`· ${ventesTotal}`}
           subtitle="Annonces en baisse cette semaine"
-          action="Annonces"
+          action="Voir tout"
           onAction={() => router.push('/annonces')}
         />
         <div className="grid grid-cols-2 gap-2 px-4">
