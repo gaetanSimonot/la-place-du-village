@@ -19,6 +19,7 @@ import AgendaFilterWheel from '@/components/AgendaFilterWheel'
 import CategoryPicker from '@/components/CategoryPicker'
 import { supabase } from '@/lib/supabase'
 import { authedFetch } from '@/lib/swr-fetchers'
+import MergeEventsModal from '@/components/MergeEventsModal'
 
 const BATCH = 20
 
@@ -102,6 +103,11 @@ export default function BottomSheet({
   const [selectMode, setSelectMode] = useState(false)
   const [picked, setPicked]         = useState<Set<string>>(new Set())
   const [adminBusy, setAdminBusy]   = useState(false)
+  const [mergeOpen, setMergeOpen]   = useState(false)
+  // Retrait optimiste : fiches masquées immédiatement après suppression/fusion
+  // (avant que la revalidation SWR/CDN ne rattrape — l'agenda est caché 60s).
+  const [hiddenIds, setHiddenIds]   = useState<Set<string>>(new Set())
+  const hideIds = (ids: string[]) => setHiddenIds(prev => new Set([...Array.from(prev), ...ids]))
   const enterSelect = (id: string) => { setSelectMode(true); setPicked(new Set([id])) }
   const togglePick = (id: string) => setPicked(prev => {
     const n = new Set(prev)
@@ -116,20 +122,14 @@ export default function BottomSheet({
     setAdminBusy(true)
     const ids = Array.from(picked)
     await Promise.all(ids.map(id => authedFetch(`/api/admin/evenements/${id}`, { method: 'DELETE' }).catch(() => null)))
-    setAdminBusy(false); exitSelect(); onAdminMutated?.()
+    setAdminBusy(false); hideIds(ids); exitSelect(); onAdminMutated?.()
   }
-  const mergeSelected = async () => {
-    if (picked.size < 2) return
-    if (!confirm(`Fusionner ces ${picked.size} événements en un seul ?\n\nLe premier sélectionné est gardé comme fiche principale ; les autres deviennent son programme (description) et leurs catégories sont cumulées. Les fiches absorbées sont archivées.`)) return
-    setAdminBusy(true)
-    const ids = Array.from(picked)
-    const r = await authedFetch('/api/admin/evenements/merge', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids }),
-    }).catch(() => null)
-    setAdminBusy(false)
-    if (!r || !r.ok) { alert('Échec de la fusion.'); return }
-    exitSelect(); onAdminMutated?.()
+  const openMerge = () => { if (picked.size >= 2) setMergeOpen(true) }
+  const handleMerged = (absorbedIds: string[]) => {
+    hideIds(absorbedIds)   // retrait immédiat des fiches absorbées
+    setMergeOpen(false)
+    exitSelect()
+    onAdminMutated?.()
   }
 
   const headerRef = useRef<HTMLDivElement>(null)
@@ -347,9 +347,10 @@ export default function BottomSheet({
     return Array.from(names).slice(0, 6)
   }, [producers, producerSearch])
 
+  const visibleSource = hiddenIds.size > 0 ? evenements.filter(e => !hiddenIds.has(e.id)) : evenements
   const sortedEvents = selectedId
-    ? [...evenements.filter(e => e.id === selectedId), ...evenements.filter(e => e.id !== selectedId)]
-    : evenements
+    ? [...visibleSource.filter(e => e.id === selectedId), ...visibleSource.filter(e => e.id !== selectedId)]
+    : visibleSource
 
   const visibleEvents = sortedEvents.slice(0, visibleCount)
 
@@ -774,9 +775,9 @@ export default function BottomSheet({
           Annuler
         </button>
         {picked.size >= 2 && (
-          <button onClick={mergeSelected} disabled={adminBusy}
+          <button onClick={openMerge} disabled={adminBusy}
             style={{ background: 'var(--vert, #2D5A3D)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 800, padding: '8px 12px', cursor: 'pointer', opacity: adminBusy ? 0.5 : 1 }}>
-            {adminBusy ? '…' : `Fusionner (${picked.size})`}
+            Fusionner ({picked.size})
           </button>
         )}
         <button onClick={deleteSelected} disabled={adminBusy}
@@ -784,6 +785,15 @@ export default function BottomSheet({
           {adminBusy ? '…' : 'Supprimer'}
         </button>
       </div>
+    )}
+
+    {/* Aperçu de fusion (admin) */}
+    {mergeOpen && picked.size >= 2 && (
+      <MergeEventsModal
+        ids={Array.from(picked)}
+        onClose={() => setMergeOpen(false)}
+        onMerged={handleMerged}
+      />
     )}
 
   </>
