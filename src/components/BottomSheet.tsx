@@ -804,14 +804,16 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
   const lieu = evt.lieux
 
   // Détection clic long (touch + souris) sans déclencher la navigation.
+  // Seuil de mouvement 10px : on n'annule QUE si le doigt bouge vraiment
+  // (un scroll), pas au micro-jitter — sinon le long-press ne se déclenche
+  // jamais sur tactile (pointermove émis en continu doigt immobile).
   const lpTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lpFired = useRef(false)
-  const startLongPress = () => {
-    if (!onLongPress) return
-    lpFired.current = false
-    lpTimer.current = setTimeout(() => { lpFired.current = true; onLongPress() }, 450)
+  const lpStart = useRef<{ x: number; y: number } | null>(null)
+  const cancelLongPress = () => {
+    if (lpTimer.current) { clearTimeout(lpTimer.current); lpTimer.current = null }
+    lpStart.current = null
   }
-  const cancelLongPress = () => { if (lpTimer.current) { clearTimeout(lpTimer.current); lpTimer.current = null } }
 
   return (
     <Link href={`/evenement/${evt.id}`}
@@ -821,13 +823,22 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
         if (selectMode) { e.preventDefault(); onTogglePick?.(); return }
         onSelect(); onOpenEvent?.()
       }}
-      onPointerDown={startLongPress}
+      onPointerDown={e => {
+        if (!onLongPress) return
+        lpFired.current = false
+        lpStart.current = { x: e.clientX, y: e.clientY }
+        lpTimer.current = setTimeout(() => { lpFired.current = true; onLongPress() }, 450)
+      }}
+      onPointerMove={e => {
+        if (lpStart.current && (Math.abs(e.clientX - lpStart.current.x) > 10 || Math.abs(e.clientY - lpStart.current.y) > 10)) cancelLongPress()
+      }}
       onPointerUp={cancelLongPress}
-      onPointerMove={cancelLongPress}
+      onPointerCancel={cancelLongPress}
       onPointerLeave={cancelLongPress}
       onContextMenu={e => { if (onLongPress) e.preventDefault() }}
       style={{
       display: 'flex', height: 86, flexShrink: 0, position: 'relative',
+      WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none',
       borderRadius: 14, overflow: 'hidden', textDecoration: 'none',
       backgroundColor: '#fff',
       boxShadow: isPicked
