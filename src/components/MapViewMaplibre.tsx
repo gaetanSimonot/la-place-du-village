@@ -26,9 +26,11 @@ type ClusterFeature = {
     | { cluster?: false; id: string }
 }
 
-function useClusters(points: ClusterPoint[], viewport: Viewport, radius = 60) {
+// radius 40 / maxZoom 14 : clustering moins agressif (aligné sur MapView Google)
+// → les marqueurs se séparent à un zoom moins poussé. Avant : 60/16.
+function useClusters(points: ClusterPoint[], viewport: Viewport, radius = 40) {
   const index = useMemo(() => {
-    const sc = new Supercluster<{ id: string }>({ radius, maxZoom: 16 })
+    const sc = new Supercluster<{ id: string }>({ radius, maxZoom: 14 })
     sc.load(points.map(p => ({
       type: 'Feature' as const,
       properties: { id: p.id },

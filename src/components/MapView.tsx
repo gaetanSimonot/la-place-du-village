@@ -1,7 +1,13 @@
 'use client'
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { APIProvider, Map, InfoWindow, useMap } from '@vis.gl/react-google-maps'
-import { MarkerClusterer } from '@googlemaps/markerclusterer'
+import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer'
+
+// Clustering moins agressif : radius en px plus petit (les marqueurs ne se
+// regroupent que s'ils sont vraiment proches à l'écran) + maxZoom plus bas
+// (les marqueurs se séparent à un zoom moins poussé). Avant : défaut 60/16,
+// d'où des clusters qui ne se cassaient qu'en zoomant très près.
+const CLUSTER_OPTS = { radius: 40, maxZoom: 14 }
 import { EvenementCard, ProducerCard, isApproxLocation, EtablissementCard } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { formatEventDate } from '@/lib/filters'
@@ -144,7 +150,7 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, centerOn }: 
     markersRef.current = allNewMarkers
 
     if (!clustererRef.current) {
-      clustererRef.current = new MarkerClusterer({ map, markers: regularMarkers })
+      clustererRef.current = new MarkerClusterer({ map, markers: regularMarkers, algorithm: new SuperClusterAlgorithm(CLUSTER_OPTS) })
     } else {
       clustererRef.current.addMarkers(regularMarkers)
     }
@@ -237,7 +243,7 @@ function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab }: 
     markersRef.current = newMarkers
 
     if (!clustererRef.current) {
-      clustererRef.current = new MarkerClusterer({ map, markers: regularMarkers })
+      clustererRef.current = new MarkerClusterer({ map, markers: regularMarkers, algorithm: new SuperClusterAlgorithm(CLUSTER_OPTS) })
     } else {
       clustererRef.current.addMarkers(regularMarkers)
     }
