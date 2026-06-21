@@ -139,6 +139,7 @@ import SubscriptionModal from '@/components/SubscriptionModal'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
+import { base64ToBlob, uploadViaSignedUrl } from '@/lib/clientUpload'
 
 interface FormData {
   titre: string
@@ -329,6 +330,19 @@ function CapturerInner() {
     setError(null)
     setSubmitProgress(0)
     const { data: { session } } = await supabase.auth.getSession()
+
+    // Upload l'affiche UNE seule fois → toutes les fiches extraites partagent
+    // la même image (au lieu de ne la garder que sur la 1ère). Si l'upload
+    // échoue, on publie sans image plutôt que de tout bloquer.
+    let posterUrl: string | null = null
+    if (imageBase64) {
+      try {
+        const blob = base64ToBlob(imageBase64, imageMime)
+        const up = await uploadViaSignedUrl({ file: blob, kind: 'event-image' })
+        posterUrl = up.publicUrl
+      } catch { /* publication sans image */ }
+    }
+
     const results: SubmitResult[] = []
     for (let i = 0; i < toSubmit.length; i++) {
       const evt = toSubmit[i]
@@ -338,7 +352,7 @@ function CapturerInner() {
         const res  = await fetch('/api/evenements', {
           method: 'POST',
           headers,
-          body: JSON.stringify({ ...extractToForm(evt), image: i === 0 ? imageBase64 : null, imageMimeType: imageMime }),
+          body: JSON.stringify({ ...extractToForm(evt), image_url: posterUrl, image_position: imagePosition }),
         })
         const data = await res.json()
         results.push({ titre: evt.titre ?? '(sans titre)', ok: res.ok && !data.error, statut: data.statut })
