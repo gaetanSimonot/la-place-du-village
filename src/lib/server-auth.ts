@@ -185,6 +185,33 @@ export async function notifyByAudience(
 }
 
 /**
+ * Insère une notification pour une LISTE de users (ex : les amis d'un auteur).
+ * Insert par lots de 500. Fail-silent.
+ */
+export async function notifyUsers(
+  userIds: string[],
+  payload: { type: string; actor_name: string; target_type?: string; target_id?: string },
+): Promise<void> {
+  const ids = Array.from(new Set(userIds)).filter(Boolean)
+  if (!ids.length) return
+  const mkRow = (uid: string) => ({
+    user_id:     uid,
+    type:        payload.type,
+    actor_name:  payload.actor_name,
+    target_type: payload.target_type ?? null,
+    target_id:   payload.target_id ?? null,
+    lu:          false,
+  })
+  try {
+    for (let i = 0; i < ids.length; i += 500) {
+      await supabaseAdmin.from('notifications').insert(ids.slice(i, i + 500).map(mkRow))
+    }
+  } catch (e) {
+    console.error('[notifyUsers] failed', e)
+  }
+}
+
+/**
  * Insère une notification pour un user spécifique.
  * Fail-silent.
  */

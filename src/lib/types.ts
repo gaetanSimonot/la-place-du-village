@@ -91,7 +91,7 @@ export type ProduitCategorie =
   | 'pain' | 'miel' | 'panier' | 'plantes' | 'huiles' | 'boissons'
   | 'artisanat' | 'autre'
 
-export type NotifType = 'disponibilite' | 'nouveau_produit' | 'suivi_producteur' | 'commentaire' | 'claim_approved' | 'claim_rejected' | 'claim_pending' | 'promo_used' | 'annonce_interet_recu' | 'annonce_enchere_prise' | 'annonce_expire_bientot' | 'annonce_devient_don' | 'annonce_message' | 'annonce_contact_partage' | 'annonce_vente_close' | 'annonce_note_recue' | 'event_published' | 'support_message' | 'journal_publie' | 'article_like' | 'article_comment' | 'covoit_candidat' | 'covoit_message' | 'covoit_validee' | 'covoit_refusee' | 'covoit_closed' | 'covoit_note_recue' | 'covoit_rate_invitation' | 'feedback_new' | 'friend_request_received' | 'friend_request_accepted' | 'friend_message' | 'post_broadcast' | 'journal_brouillon' | 'correction_proposee' | 'correction_validee' | 'correction_rejetee'
+export type NotifType = 'disponibilite' | 'nouveau_produit' | 'suivi_producteur' | 'commentaire' | 'claim_approved' | 'claim_rejected' | 'claim_pending' | 'promo_used' | 'annonce_interet_recu' | 'annonce_enchere_prise' | 'annonce_expire_bientot' | 'annonce_devient_don' | 'annonce_message' | 'annonce_contact_partage' | 'annonce_vente_close' | 'annonce_note_recue' | 'event_published' | 'support_message' | 'journal_publie' | 'article_like' | 'article_comment' | 'covoit_candidat' | 'covoit_message' | 'covoit_validee' | 'covoit_refusee' | 'covoit_closed' | 'covoit_note_recue' | 'covoit_rate_invitation' | 'feedback_new' | 'friend_request_received' | 'friend_request_accepted' | 'friend_message' | 'post_broadcast' | 'journal_brouillon' | 'correction_proposee' | 'correction_validee' | 'correction_rejetee' | 'moment_nouveau'
 
 export interface AppNotification {
   id: string
@@ -100,7 +100,7 @@ export interface AppNotification {
   actor_id: string | null
   actor_name: string | null
   target_id: string | null
-  target_type: 'producer' | 'event' | 'etablissement' | 'claim' | 'promotion' | 'annonce' | 'conversation' | 'support_conversation' | 'journal' | 'article' | 'friendship' | 'conversation_unified' | null
+  target_type: 'producer' | 'event' | 'etablissement' | 'claim' | 'promotion' | 'annonce' | 'conversation' | 'support_conversation' | 'journal' | 'article' | 'friendship' | 'conversation_unified' | 'moment' | null
   lu: boolean
   created_at: string
 }

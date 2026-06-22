@@ -103,6 +103,7 @@ const NOTIF_VISUAL: Record<NotifType, NotifVisual> = {
   correction_proposee:    { bg: '#FFF3E8', color: '#C4622D', icon: ICONS.clipboard,label: n => `${n.actor_name ?? 'Un utilisateur'} a proposé une correction` },
   correction_validee:     { bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.check,    label: n => `Ta correction${n.actor_name ? ` sur « ${n.actor_name} »` : ''} a été validée 🙏` },
   correction_rejetee:     { bg: '#F0EBE3', color: '#A0654E', icon: ICONS.cross,    label: n => `Ta correction${n.actor_name ? ` sur « ${n.actor_name} »` : ''} n'a pas été retenue` },
+  moment_nouveau:         { bg: '#FFF0E5', color: '#E8622A', icon: ICONS.star,     label: n => `${n.actor_name ?? 'Quelqu\'un'} a partagé un moment « En ce moment »` },
   friend_request_received:{ bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.star,     label: n => `${n.actor_name ?? 'Quelqu\'un'} t'a envoyé une demande d'ami` },
   friend_request_accepted:{ bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.check,    label: n => `${n.actor_name ?? 'Quelqu\'un'} a accepté ta demande d'ami` },
   friend_message:         { bg: '#E8EEF7', color: '#3A5BC7', icon: ICONS.chat,     label: n => `${n.actor_name ?? 'Un ami'} t'a envoyé un message` },
@@ -314,6 +315,11 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
     // Correction proposée → ouvre la fiche event en mode revue admin
     if (n.type === 'correction_proposee' && n.target_id) {
       router.push(`/evenement/${n.target_id}?correction=1`)
+      return
+    }
+    // Nouveau moment « En ce moment » → ouvre le viewer sur ce moment
+    if (n.type === 'moment_nouveau' && n.target_id) {
+      router.push(`/en-ce-moment?m=${n.target_id}`)
       return
     }
     if (n.target_type === 'event' && n.target_id) {

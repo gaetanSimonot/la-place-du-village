@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { getUserContextFromRequest, requireUser } from '@/lib/server-auth'
+import { getUserContextFromRequest, requireUser, notifyByAudience, notifyUsers } from '@/lib/server-auth'
 import { can } from '@/lib/capabilities'
 import type { Moment, MomentCible, MomentKind } from '@/lib/moments'
 
@@ -141,6 +141,28 @@ export async function POST(req: NextRequest) {
       .select('id')
       .single()
     if (error) throw new Error(error.message)
+
+    // ── Notifications (best-effort) ────────────────────────────────────────
+    // Admin → tout le monde (compte officiel). Sinon → seulement ses amis.
+    // Pas de double pour un ami de l'admin : le chemin admin est exclusif.
+    const actorName = prof?.display_name ?? 'Un membre'
+    if (ctx.isAdmin) {
+      await notifyByAudience('all', {
+        type: 'moment_nouveau', actor_name: actorName,
+        target_type: 'moment', target_id: moment.id, excludeUserId: ctx.userId,
+      }).catch(() => {})
+    } else {
+      const { data: friends } = await supabaseAdmin
+        .from('friendships')
+        .select('user1_id, user2_id')
+        .eq('status', 'accepted')
+        .or(`user1_id.eq.${ctx.userId},user2_id.eq.${ctx.userId}`)
+      const friendIds = (friends ?? []).map(f => f.user1_id === ctx.userId ? f.user2_id : f.user1_id)
+      await notifyUsers(friendIds, {
+        type: 'moment_nouveau', actor_name: actorName,
+        target_type: 'moment', target_id: moment.id,
+      }).catch(() => {})
+    }
 
     return NextResponse.json({ success: true, id: moment.id })
   } catch (err: unknown) {
