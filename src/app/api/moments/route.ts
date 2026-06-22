@@ -150,7 +150,9 @@ export async function POST(req: NextRequest) {
       // Réplique exacte de post_broadcast (mur admin) : broadcast à TOUT le
       // monde (admin inclus), uniquement en PRODUCTION. Sur preview/dev (DB
       // partagée) on ne notifie que l'admin → test sans spammer les users.
-      const payload = { type: 'moment_nouveau', actor_name: actorName, target_type: 'moment', target_id: moment.id }
+      // PAS de target_type (contrainte CHECK notifications.target_type ne
+      // connaît pas 'moment') → null accepté ; la nav se fait via le type.
+      const payload = { type: 'moment_nouveau', actor_name: actorName, target_id: moment.id }
       if (process.env.VERCEL_ENV === 'production') {
         await notifyByAudience('all', payload).catch(() => {})
       } else {
@@ -165,7 +167,7 @@ export async function POST(req: NextRequest) {
       const friendIds = (friends ?? []).map(f => f.user1_id === ctx.userId ? f.user2_id : f.user1_id)
       await notifyUsers(friendIds, {
         type: 'moment_nouveau', actor_name: actorName,
-        target_type: 'moment', target_id: moment.id,
+        target_id: moment.id,   // pas de target_type (cf. contrainte CHECK)
       }).catch(() => {})
     }
 
