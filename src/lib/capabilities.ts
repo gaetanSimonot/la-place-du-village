@@ -44,6 +44,7 @@ export type Feature =
   | 'voice_edit'            // Édition vocale assistée par IA — accessible à tous, mais quota gradué (voir rateLimit.ts)
   | 'detailed_stats'        // Stats détaillées (vues, intéressés…)
   | 'multi_etablissement'   // Posséder plusieurs établissements (sur demande admin)
+  | 'publish_moment'        // Publier un « moment » (En ce moment / reel 24h)
 
 export interface UserContext {
   /** Plan d'abonnement du user (null si pas connecté → traité comme basic) */
@@ -68,6 +69,7 @@ const FEATURE_PLANS: Record<Feature, Plan[]> = {
   early_bid_access:    ['habitants', 'pro'],
   voice_edit:          ['basic', 'habitants', 'pro'],  // accessible à tous, quota gradué côté rateLimit
   multi_etablissement: [],                              // jamais débloqué par plan — admin override only
+  publish_moment:      ['habitants', 'pro'],            // + admin via override can()
 }
 
 // ──────────────────────────────────────────────────────────────────────────

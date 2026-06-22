@@ -1,4 +1,5 @@
 'use client'
+import type { ReactNode } from 'react'
 import InstallOrShareButton from '@/components/InstallOrShareButton'
 
 interface Props {
@@ -10,27 +11,33 @@ interface Props {
   zoneLabel?:     string
   /** @deprecated le badge notif est maintenant sur la bottom nav */
   unreadCount?:   number
+  /** Élément affiché à droite (pastille « En ce moment »). Spacer si absent. */
+  rightSlot?:     ReactNode
 }
 
 export default function HubTopBar({
   onOpenMenu, onOpenZone, onShareApp,
   zoneLabel = 'Ganges et alentours',
+  rightSlot,
 }: Props) {
   return (
     <div className="flex items-center justify-between gap-2.5 px-4 pt-3.5">
-      {/* Burger gauche */}
-      <button
-        type="button"
-        onClick={onOpenMenu}
-        aria-label="Menu"
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte shadow-[0_1px_2px_rgba(44,28,16,0.04)]"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="4" y1="7" x2="20" y2="7"/>
-          <line x1="4" y1="12" x2="20" y2="12"/>
-          <line x1="4" y1="17" x2="14" y2="17"/>
-        </svg>
-      </button>
+      {/* Gauche : "La Place du Village c'est quoi" (burger) + Partager */}
+      <div className="flex shrink-0 items-center gap-2">
+        <button
+          type="button"
+          onClick={onOpenMenu}
+          aria-label="Menu"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte shadow-[0_1px_2px_rgba(44,28,16,0.04)]"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="4" y1="7" x2="20" y2="7"/>
+            <line x1="4" y1="12" x2="20" y2="12"/>
+            <line x1="4" y1="17" x2="14" y2="17"/>
+          </svg>
+        </button>
+        {onShareApp && <InstallOrShareButton onShare={onShareApp} />}
+      </div>
 
       {/* Wordmark + commune */}
       <div className="flex min-w-0 flex-1 flex-col items-center gap-0.5">
@@ -54,14 +61,8 @@ export default function HubTopBar({
         </button>
       </div>
 
-      {/* Bouton dynamique à droite : Partager OU Installer l'app selon le
-          contexte (PWA / Safari iOS / Chrome Android / desktop). Le partage
-          reste celui de HubView via onShareApp. Spacer si non fourni. */}
-      {onShareApp ? (
-        <InstallOrShareButton onShare={onShareApp} />
-      ) : (
-        <div className="h-10 w-10 shrink-0" aria-hidden />
-      )}
+      {/* Droite : pastille « En ce moment » (ou spacer) */}
+      {rightSlot ?? <div className="h-10 w-10 shrink-0" aria-hidden />}
     </div>
   )
 }

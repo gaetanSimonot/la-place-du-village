@@ -11,6 +11,7 @@ import type { EtablissementType, Evenement } from '@/lib/types'
 import { getPrixAffiche, type Annonce } from '@/lib/annonces'
 import type { MediaItem } from '@/lib/postMedia'
 import HubTopBar from '@/components/HubTopBar'
+import MomentsPastille from '@/components/moments/MomentsPastille'
 import HubSearchBar from '@/components/HubSearchBar'
 import PlansCardFinal from '@/components/PlansCardFinal'
 import { useAnnonceFavorites } from '@/hooks/useAnnonceFavorites'
@@ -414,6 +415,7 @@ export default function HubView({
           text:  'Le village vivant autour de Ganges : événements, commerces, producteurs, annonces.',
           url:   'https://laplaceduvillage.app',
         })}
+        rightSlot={<MomentsPastille />}
       />
 
       {/* ── 2. Search bar ─────────────────────────────────────────────── */}

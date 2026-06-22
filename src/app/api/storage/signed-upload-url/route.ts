@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser } from '@/lib/server-auth'
+import { can } from '@/lib/capabilities'
 
 /**
  * POST /api/storage/signed-upload-url
@@ -22,14 +23,19 @@ import { requireUser } from '@/lib/server-auth'
  * Returns : { uploadUrl, token, publicUrl, path, bucket }
  */
 
-type UploadKind = 'event-image' | 'product-image' | 'admin-edit' | 'profile-banner' | 'profile-avatar' | 'hub-hero-intro' | 'post-media'
+type UploadKind = 'event-image' | 'product-image' | 'admin-edit' | 'profile-banner' | 'profile-avatar' | 'hub-hero-intro' | 'post-media' | 'moment-image' | 'moment-video'
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp'])
-const MAX_BYTES = 10 * 1024 * 1024 // 10 MB (max bucket configure)
+const VIDEO_MIME = new Set(['video/mp4', 'video/quicktime', 'video/webm'])
+const MAX_BYTES = 10 * 1024 * 1024       // 10 MB (images, max bucket par défaut)
+const MAX_VIDEO_BYTES = 50 * 1024 * 1024 // 50 MB (moment vidéo ≤ 60s)
 
-function extFromMime(mime: string): 'jpg' | 'png' | 'webp' {
+function extFromMime(mime: string): 'jpg' | 'png' | 'webp' | 'mp4' | 'mov' | 'webm' {
   if (mime === 'image/png') return 'png'
   if (mime === 'image/webp') return 'webp'
+  if (mime === 'video/mp4') return 'mp4'
+  if (mime === 'video/quicktime') return 'mov'
+  if (mime === 'video/webm') return 'webm'
   return 'jpg'
 }
 
@@ -47,14 +53,19 @@ export async function POST(req: NextRequest) {
   const size = Number(body?.size ?? 0)
   const refId = body?.refId ? String(body.refId) : null
 
-  if (!kind || !['event-image', 'product-image', 'admin-edit', 'profile-banner', 'profile-avatar', 'hub-hero-intro', 'post-media'].includes(kind)) {
+  if (!kind || !['event-image', 'product-image', 'admin-edit', 'profile-banner', 'profile-avatar', 'hub-hero-intro', 'post-media', 'moment-image', 'moment-video'].includes(kind)) {
     return NextResponse.json({ error: 'kind invalide' }, { status: 400 })
   }
-  if (!ALLOWED_MIME.has(mimeType)) {
-    return NextResponse.json({ error: 'MIME non autorisé (JPEG/PNG/WebP uniquement)' }, { status: 400 })
+
+  // Validation MIME + taille selon le kind (vidéo = MIME vidéo + 50 Mo).
+  const isVideo = kind === 'moment-video'
+  const allowedMime = isVideo ? VIDEO_MIME : ALLOWED_MIME
+  const maxBytes = isVideo ? MAX_VIDEO_BYTES : MAX_BYTES
+  if (!allowedMime.has(mimeType)) {
+    return NextResponse.json({ error: isVideo ? 'MIME vidéo non autorisé (MP4/MOV/WebM)' : 'MIME non autorisé (JPEG/PNG/WebP uniquement)' }, { status: 400 })
   }
-  if (!Number.isFinite(size) || size <= 0 || size > MAX_BYTES) {
-    return NextResponse.json({ error: 'Taille invalide' }, { status: 400 })
+  if (!Number.isFinite(size) || size <= 0 || size > maxBytes) {
+    return NextResponse.json({ error: isVideo ? 'Vidéo trop lourde (50 Mo max)' : 'Taille invalide' }, { status: 400 })
   }
 
   // Calcul du bucket + path selon kind (server-side, jamais user-controlled)
@@ -131,6 +142,13 @@ export async function POST(req: NextRequest) {
     // Path random sous son propre userId → pas d'écrasement, pas d'accès croisé.
     bucket = 'reference-photos'
     path = `posts/${ctx.userId}/${randomName()}.${extFromMime(mimeType)}`
+  } else if (kind === 'moment-image' || kind === 'moment-video') {
+    // « En ce moment » : publication réservée habitants / pro / admin.
+    if (!can(ctx, 'publish_moment')) {
+      return NextResponse.json({ error: 'Réservé aux membres Habitants ou Partenaires' }, { status: 403 })
+    }
+    bucket = 'moments'
+    path = `${ctx.userId}/${randomName()}.${extFromMime(mimeType)}`
   } else {
     return NextResponse.json({ error: 'kind non géré' }, { status: 400 })
   }
