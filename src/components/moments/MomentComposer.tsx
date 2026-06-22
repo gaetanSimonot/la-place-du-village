@@ -17,12 +17,22 @@ interface Picked { file: File; kind: 'photo' | 'video'; url: string; duree: numb
 interface EtabLite { id: string; nom: string }
 interface EvtLite { id: string; titre: string }
 
+// Lecture robuste de la durée : certaines vidéos capturées renvoient
+// duration=Infinity tant qu'on n'a pas "seeké" → on force le calcul.
+// Renvoie 0 si vraiment illisible (la publication n'est alors pas bloquée).
 function getVideoDuration(file: File): Promise<number> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const v = document.createElement('video')
     v.preload = 'metadata'
-    v.onloadedmetadata = () => resolve(v.duration)
-    v.onerror = () => reject(new Error('Vidéo illisible'))
+    let settled = false
+    const done = (d: number) => { if (settled) return; settled = true; try { URL.revokeObjectURL(v.src) } catch { /* noop */ } resolve(Number.isFinite(d) ? d : 0) }
+    v.onloadedmetadata = () => {
+      if (v.duration === Infinity || isNaN(v.duration)) {
+        v.currentTime = 1e101   // force le navigateur à parcourir → durée réelle
+        v.ontimeupdate = () => { v.ontimeupdate = null; done(v.duration) }
+      } else done(v.duration)
+    }
+    v.onerror = () => done(0)
     v.src = URL.createObjectURL(file)
   })
 }
@@ -33,6 +43,7 @@ export default function MomentComposer({ onClose, onPublished }: Props) {
   const [picked, setPicked] = useState<Picked | null>(null)
   const [legende, setLegende] = useState('')
   const [busy, setBusy] = useState(false)
+  const [progress, setProgress] = useState<number | null>(null)  // 0→100 upload, null = idle
   const [error, setError] = useState<string | null>(null)
 
   // Liens optionnels
@@ -57,13 +68,15 @@ export default function MomentComposer({ onClose, onPublished }: Props) {
     setError(null)
     const isVideo = file.type.startsWith('video/')
     if (isVideo) {
-      let duree = 0
-      try { duree = await getVideoDuration(file) } catch { setError('Vidéo illisible'); return }
+      const duree = await getVideoDuration(file)
       if (duree > MOMENT_VIDEO_MAX_SEC + 0.5) {
         setError(`Vidéo trop longue (${Math.round(duree)}s) — 60s maximum.`)
         return
       }
-      setPicked({ file, kind: 'video', url: URL.createObjectURL(file), duree: Math.max(1, Math.round(duree)) })
+      // Durée illisible (0) → fallback 60 : la fiche passe la validation serveur,
+      // et le viewer avance de toute façon à la fin réelle de la vidéo (onEnded).
+      const finalDuree = duree > 0 ? Math.max(1, Math.round(duree)) : 60
+      setPicked({ file, kind: 'video', url: URL.createObjectURL(file), duree: finalDuree })
     } else if (file.type.startsWith('image/')) {
       setPicked({ file, kind: 'photo', url: URL.createObjectURL(file), duree: null })
     } else {
@@ -75,17 +88,18 @@ export default function MomentComposer({ onClose, onPublished }: Props) {
 
   const publish = async () => {
     if (!picked) return
-    setBusy(true); setError(null)
+    setBusy(true); setError(null); setProgress(0)
     try {
       let mediaUrl: string
       if (picked.kind === 'photo') {
         const compressed = await compressImage(picked.file, { maxDim: 1280, quality: 0.85 })
-        const up = await uploadViaSignedUrl({ file: compressed, kind: 'moment-image' })
+        const up = await uploadViaSignedUrl({ file: compressed, kind: 'moment-image', onProgress: setProgress })
         mediaUrl = up.publicUrl
       } else {
-        const up = await uploadViaSignedUrl({ file: picked.file, kind: 'moment-video' })
+        const up = await uploadViaSignedUrl({ file: picked.file, kind: 'moment-video', onProgress: setProgress })
         mediaUrl = up.publicUrl
       }
+      setProgress(100)   // upload fini → finalisation côté serveur
 
       const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch('/api/moments', {
@@ -106,7 +120,7 @@ export default function MomentComposer({ onClose, onPublished }: Props) {
       onPublished()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur')
-    } finally { setBusy(false) }
+    } finally { setBusy(false); setProgress(null) }
   }
 
   if (typeof document === 'undefined') return null
@@ -147,9 +161,21 @@ export default function MomentComposer({ onClose, onPublished }: Props) {
             {linkedEvt && <button onClick={() => setLinkedEvt(null)} style={chipStyle(false)}>✕</button>}
           </div>
           {error && <p style={{ margin: '10px 0 0', padding: '8px 12px', borderRadius: 10, background: 'rgba(192,57,43,0.92)', color: '#fff', fontSize: 12 }}>{error}</p>}
-          <button onClick={publish} disabled={busy} style={{ width: '100%', marginTop: 14, padding: 15, borderRadius: 15, border: 'none', background: '#E8622A', color: '#fff', fontSize: 15, fontWeight: 800, cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            {busy ? 'Publication…' : <>Publier mon moment →</>}
-          </button>
+          {busy && progress !== null && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ height: 7, borderRadius: 999, background: 'rgba(255,255,255,0.25)', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${progress}%`, background: '#E8622A', borderRadius: 999, transition: 'width 0.2s ease' }} />
+              </div>
+              <p style={{ margin: '7px 0 0', fontSize: 12, fontWeight: 700, color: '#fff', textAlign: 'center' }}>
+                {progress < 100 ? `Envoi… ${progress}%` : 'Finalisation…'}
+              </p>
+            </div>
+          )}
+          {!(busy && progress !== null) && (
+            <button onClick={publish} disabled={busy} style={{ width: '100%', marginTop: 14, padding: 15, borderRadius: 15, border: 'none', background: '#E8622A', color: '#fff', fontSize: 15, fontWeight: 800, cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              {busy ? 'Préparation…' : <>Publier mon moment →</>}
+            </button>
+          )}
         </div>
 
         {evtPickerOpen && <EventPicker onPick={e => { setLinkedEvt(e); setEvtPickerOpen(false) }} onClose={() => setEvtPickerOpen(false)} />}

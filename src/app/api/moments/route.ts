@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { getUserContextFromRequest, requireUser, notifyByAudience, notifyUsers } from '@/lib/server-auth'
+import { getUserContextFromRequest, requireUser, notifyByAudience, notifyUsers, notifyUser } from '@/lib/server-auth'
 import { can } from '@/lib/capabilities'
 import type { Moment, MomentCible, MomentKind } from '@/lib/moments'
 
@@ -147,10 +147,15 @@ export async function POST(req: NextRequest) {
     // Pas de double pour un ami de l'admin : le chemin admin est exclusif.
     const actorName = prof?.display_name ?? 'Un membre'
     if (ctx.isAdmin) {
-      await notifyByAudience('all', {
-        type: 'moment_nouveau', actor_name: actorName,
-        target_type: 'moment', target_id: moment.id, excludeUserId: ctx.userId,
-      }).catch(() => {})
+      // Réplique exacte de post_broadcast (mur admin) : broadcast à TOUT le
+      // monde (admin inclus), uniquement en PRODUCTION. Sur preview/dev (DB
+      // partagée) on ne notifie que l'admin → test sans spammer les users.
+      const payload = { type: 'moment_nouveau', actor_name: actorName, target_type: 'moment', target_id: moment.id }
+      if (process.env.VERCEL_ENV === 'production') {
+        await notifyByAudience('all', payload).catch(() => {})
+      } else {
+        await notifyUser(ctx.userId, payload).catch(() => {})
+      }
     } else {
       const { data: friends } = await supabaseAdmin
         .from('friendships')

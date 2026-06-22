@@ -26,6 +26,22 @@ interface UploadOptions {
   kind: UploadKind
   /** Pour 'product-image' : id du product (ownership check serveur) */
   refId?: string
+  /** Callback de progression d'upload (0→100). Si fourni, le PUT passe par
+   *  XHR (fetch n'expose pas la progression). Utile pour les gros médias. */
+  onProgress?: (pct: number) => void
+}
+
+/** PUT via XHR pour exposer la progression d'upload (fetch ne le permet pas). */
+function putWithProgress(url: string, file: Blob | File, onProgress: (pct: number) => void): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('PUT', url)
+    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+    xhr.upload.onprogress = e => { if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100)) }
+    xhr.onload = () => { if (xhr.status >= 200 && xhr.status < 300) resolve(); else reject(new Error(`Upload Supabase échoué (${xhr.status})`)) }
+    xhr.onerror = () => reject(new Error('Upload réseau échoué'))
+    xhr.send(file)
+  })
 }
 
 interface UploadResult {
@@ -39,7 +55,7 @@ interface UploadResult {
  * Throw en cas d echec (erreur reseau, 4xx, 5xx).
  */
 export async function uploadViaSignedUrl({
-  file, kind, refId,
+  file, kind, refId, onProgress,
 }: UploadOptions): Promise<UploadResult> {
   // 1. Demande la signed URL a notre API (auth via token user).
   // Récupère la session avec fallback refresh — évite le "Non authentifié"
@@ -89,15 +105,20 @@ export async function uploadViaSignedUrl({
     bucket: string
   }
 
-  // 2. PUT direct chez Supabase Storage (pas via Vercel)
-  const put = await fetch(uploadUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': file.type || 'image/jpeg' },
-    body: file,
-  })
-  if (!put.ok) {
-    const txt = await put.text().catch(() => '')
-    throw new Error(`Upload Supabase échoué (${put.status}) ${txt.slice(0, 100)}`)
+  // 2. PUT direct chez Supabase Storage (pas via Vercel).
+  // Avec onProgress → XHR (progression) ; sinon fetch (plus simple).
+  if (onProgress) {
+    await putWithProgress(uploadUrl, file, onProgress)
+  } else {
+    const put = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type || 'image/jpeg' },
+      body: file,
+    })
+    if (!put.ok) {
+      const txt = await put.text().catch(() => '')
+      throw new Error(`Upload Supabase échoué (${put.status}) ${txt.slice(0, 100)}`)
+    }
   }
 
   return { publicUrl, path, bucket }
