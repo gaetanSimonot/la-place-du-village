@@ -9,6 +9,7 @@ import { momentAge, type Moment } from '@/lib/moments'
 import MomentViewer from '@/components/moments/MomentViewer'
 import MomentComposer from '@/components/moments/MomentComposer'
 import SubscriptionModal from '@/components/SubscriptionModal'
+import BottomNavBar from '@/components/BottomNavBar'
 
 export default function EnCeMomentClient() {
   const router = useRouter()
@@ -56,7 +57,7 @@ export default function EnCeMomentClient() {
   const unseenCount = moments.filter(m => !m.vu).length
 
   return (
-    <div className="min-h-[100dvh] bg-creme font-inter" style={{ paddingBottom: 40 }}>
+    <div className="min-h-[100dvh] bg-creme font-inter" style={{ paddingBottom: 96 }}>
       {/* header */}
       <div className="flex items-center gap-3 px-4" style={{ paddingTop: 'max(16px,env(safe-area-inset-top,16px))' }}>
         <button onClick={() => router.push('/')} aria-label="Retour"
@@ -141,6 +142,8 @@ export default function EnCeMomentClient() {
           onClose={() => setUpsellOpen(false)}
         />
       )}
+
+      <BottomNavBar />
     </div>
   )
 }
