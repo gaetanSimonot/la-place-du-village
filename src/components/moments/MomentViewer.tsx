@@ -81,10 +81,16 @@ export default function MomentViewer({ moments, startIndex, onClose, onDeleted, 
 
   const canDelete = isAdmin || (user && user.id === m.auteur_id)
 
-  // Gestes
-  const onTouchStart = (e: React.TouchEvent) => { touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY } }
+  // Gestes — on ignore les taps qui partent d'un contrôle (boutons ⋯/✕/like/
+  // commentaire/partage/fiche) ou quand une feuille (menu/commentaires) est
+  // ouverte, sinon la zone tactile "suivant/précédent" mange le clic.
+  const isInteractive = (t: EventTarget | null) => !!(t as HTMLElement | null)?.closest?.('button, a, input, textarea')
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (menuOpen || commentsOpen || isInteractive(e.target)) { touchStart.current = null; return }
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+  }
   const onTouchEnd = (e: React.TouchEvent) => {
-    if (!touchStart.current) return
+    if (!touchStart.current || isInteractive(e.target)) { touchStart.current = null; return }
     const dx = e.changedTouches[0].clientX - touchStart.current.x
     const dy = e.changedTouches[0].clientY - touchStart.current.y
     touchStart.current = null
