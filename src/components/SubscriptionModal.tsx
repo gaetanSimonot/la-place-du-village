@@ -78,6 +78,7 @@ const PLAN_DATA: Record<PlanId, PlanInfo> = {
         'Accès illimité aux promotions locales',
         'Accès anticipé aux enchères inversées dès leur publication',
         'Annonces illimitées',
+        'Partagez vos moments « En ce moment » en page d’accueil (vidéo ou photo, 24h)',
         'Création d’événements accélérée grâce à l’assistance IA',
         'Publication d’articles dans l’hebdo La Place du Village',
       ],
