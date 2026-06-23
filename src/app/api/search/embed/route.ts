@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser } from '@/lib/server-auth'
 
-export type EmbedKind = 'event' | 'etab' | 'producer' | 'annonce' | 'promo' | 'covoit'
+export type EmbedKind = 'event' | 'etab' | 'producer' | 'annonce' | 'promo' | 'covoit' | 'article'
+
+function articleExcerpt(t: string | null, n = 90): string | null {
+  if (!t) return null
+  const s = String(t).replace(/<[^>]+>/g, ' ').replace(/[#*_>`]/g, ' ').replace(/\s+/g, ' ').trim()
+  return s ? (s.length > n ? s.slice(0, n).trimEnd() + '…' : s) : null
+}
 
 /**
  * GET /api/search/embed?q=...&kinds=event,etab,...
@@ -21,8 +27,8 @@ export async function GET(req: NextRequest) {
   const q = (url.searchParams.get('q') ?? '').trim()
   const kindsParam = url.searchParams.get('kinds') ?? ''
   const requested: EmbedKind[] = kindsParam
-    ? (kindsParam.split(',').filter(k => ['event','etab','producer','annonce','promo','covoit'].includes(k)) as EmbedKind[])
-    : ['event','etab','producer','annonce','promo','covoit']
+    ? (kindsParam.split(',').filter(k => ['event','etab','producer','annonce','promo','covoit','article'].includes(k)) as EmbedKind[])
+    : ['event','etab','producer','annonce','promo','covoit','article']
 
   // Mode "browse" : pas de query mais 1 seul kind demandé → liste les
   // items récents de ce kind (pour le picker en mode "j'entre dans une
@@ -188,6 +194,23 @@ export async function GET(req: NextRequest) {
           title: `${c.depart} → ${c.destination}`,
           subtitle: c.date_trajet ? new Date(c.date_trajet as string).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : null,
           photo: null,
+        })),
+      }
+    })())
+  }
+
+  if (requested.includes('article')) {
+    tasks.push((async () => {
+      let qb = supabaseAdmin.from('articles_journal').select('id, titre, corps, photo_url').eq('statut', 'publie')
+      if (ilike) qb = qb.ilike('titre', ilike)
+      const { data } = await qb.order('created_at', { ascending: false }).limit(LIMIT)
+      return {
+        kind: 'article' as const,
+        rows: (data ?? []).map(a => ({
+          id: a.id as string,
+          title: (a.titre as string) ?? 'Article',
+          subtitle: articleExcerpt(a.corps as string | null),
+          photo: (a.photo_url as string | null) ?? null,
         })),
       }
     })())
