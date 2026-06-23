@@ -6,15 +6,18 @@
 
 export type ContentKind = 'events' | 'promos' | 'annonces' | 'journal' | 'partenaires'
 
+/** Bloc liste (events/promos/annonces) : auto = N plus récents, manuel = choisis. */
+interface ListBlockBase { titre: string; mode: 'auto' | 'manual'; count: number; ids: string[] }
+
 export type NewsletterBlock =
   | { id: string; type: 'header'; titre: string; sousTitre: string; imageUrl?: string | null }
   | { id: string; type: 'text'; texte: string }
   | { id: string; type: 'button'; label: string; href: string }
   | { id: string; type: 'image'; url: string }
   | { id: string; type: 'separator' }
-  | { id: string; type: 'events'; titre: string; count: number }
-  | { id: string; type: 'promos'; titre: string; count: number }
-  | { id: string; type: 'annonces'; titre: string; count: number }
+  | ({ id: string; type: 'events' } & ListBlockBase)
+  | ({ id: string; type: 'promos' } & ListBlockBase)
+  | ({ id: string; type: 'annonces' } & ListBlockBase)
   | { id: string; type: 'journal'; titre: string }
   | { id: string; type: 'partenaires'; titre: string; ids: string[] }   // "etab:<id>" | "prod:<id>"
 
@@ -43,9 +46,9 @@ export function makeBlock(type: BlockType): NewsletterBlock {
     case 'button':      return { id, type, label: 'Découvrir', href: SITE }
     case 'image':       return { id, type, url: '' }
     case 'separator':   return { id, type }
-    case 'events':      return { id, type, titre: 'À ne pas manquer', count: 3 }
-    case 'promos':      return { id, type, titre: 'Les bons plans', count: 3 }
-    case 'annonces':    return { id, type, titre: 'Dans les annonces', count: 3 }
+    case 'events':      return { id, type, titre: 'À ne pas manquer', mode: 'auto', count: 4, ids: [] }
+    case 'promos':      return { id, type, titre: 'Les bons plans', mode: 'auto', count: 4, ids: [] }
+    case 'annonces':    return { id, type, titre: 'Dans les annonces', mode: 'auto', count: 4, ids: [] }
     case 'journal':     return { id, type, titre: 'Le Journal du Village' }
     case 'partenaires': return { id, type, titre: 'Nos coups de cœur', ids: [] }
   }
