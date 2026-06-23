@@ -26,6 +26,7 @@ export default function AuthForm({ returnTo = '/', title = 'Connexion', compact 
   const [magicLoading, setMagicLoading]   = useState(false)
   const [error, setError]                 = useState<string | null>(null)
   const [magicSent, setMagicSent]         = useState(false)
+  const [newsletter, setNewsletter]       = useState(true)   // opt-in newsletter (signup)
 
   // Sanitize a chaque action (defense en profondeur — meme si le parent
   // a deja sanitize, on re-valide cote envoi reel a Supabase).
@@ -62,7 +63,10 @@ export default function AuthForm({ returnTo = '/', title = 'Connexion', compact 
       const { error: err } = await supabase.auth.signUp({
         email: e,
         password,
-        options: { emailRedirectTo: buildOAuthCallbackUrl(safeReturnTo) },
+        options: {
+          emailRedirectTo: buildOAuthCallbackUrl(safeReturnTo),
+          data: { newsletter_optin: newsletter },   // copié dans le profil par handle_new_user
+        },
       })
       if (err) setError(err.message)
     } else {
@@ -186,6 +190,34 @@ export default function AuthForm({ returnTo = '/', title = 'Connexion', compact 
         autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
         style={{ ...inputStyle, marginBottom: 10 }}
       />
+
+      {/* Opt-in newsletter — création de compte uniquement */}
+      {mode === 'signup' && (
+        <button
+          type="button"
+          onClick={() => setNewsletter(v => !v)}
+          style={{
+            width: '100%', display: 'flex', alignItems: 'flex-start', gap: 10,
+            padding: '11px 12px', marginBottom: 10, borderRadius: 12,
+            border: `1.5px solid ${newsletter ? 'var(--primary)' : '#E0D8CE'}`,
+            background: newsletter ? 'rgba(45,90,61,0.06)' : '#fff',
+            cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif',
+          }}
+        >
+          <span style={{
+            width: 20, height: 20, flexShrink: 0, marginTop: 1, borderRadius: 6,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: newsletter ? 'var(--primary)' : '#fff',
+            border: newsletter ? 'none' : '1.5px solid #C4B9A8',
+          }}>
+            {newsletter && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+          </span>
+          <span>
+            <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#2C1810' }}>Ne ratez plus rien autour de chez vous</span>
+            <span style={{ display: 'block', fontSize: 11.5, color: '#8A8A8A', lineHeight: 1.45, marginTop: 2 }}>Une fois par semaine, le meilleur de La Place du Village : nouveaux events, annonces à ne pas manquer, actus du village.</span>
+          </span>
+        </button>
+      )}
 
       {/* Bouton principal */}
       <button

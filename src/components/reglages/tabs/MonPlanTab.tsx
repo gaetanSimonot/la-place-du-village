@@ -176,6 +176,7 @@ export default function MonPlanTab({ plan, isAdmin, onOpenSub, onDeleteAccount }
           <NavRow icon={I.shield(16)}  label="Tableau de bord"   sub="Membres, demandes, scraping, inbox" href="/admin" />
           <NavRow icon={I.spark(16)}   label="Hub carousel"      sub="Mise en avant éditoriale"           href="/admin/hub-carousel" />
           <NavRow icon={I.journal(16)} label="Journal du Village" sub="Numéros hebdo, modération"         href="/admin/journal" />
+          <NavRow icon={I.mail(16)}    label="Newsletter"        sub="Abonnés et envois"                  href="/admin/newsletter" />
           <NavRow icon={I.chat(16)}    label="Tickets support"   sub="Messages des utilisateurs"          href="/admin/support" isLast />
         </GroupCard>
       )}
