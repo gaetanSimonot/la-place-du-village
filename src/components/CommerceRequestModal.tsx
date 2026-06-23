@@ -221,6 +221,7 @@ function ReferenceForm({
   onClose: () => void
   onDone: (data: { auto_published?: boolean; already_exists?: boolean; etablissement_id?: string; producer_id?: string }) => void
 }) {
+  const { isAdmin } = useAuth()
   const [nom, setNom]                 = useState('')
   const [type, setType]               = useState<string>('')
   const [producerCats, setProducerCats] = useState<string[]>([])
@@ -238,6 +239,8 @@ function ReferenceForm({
 
   const [searchQuery, setSearchQuery] = useState('')
   const [dbMatches, setDbMatches]     = useState<DbMatch[]>([])
+  // Prédictions Google (commerce) sur la recherche de nom — ADMIN UNIQUEMENT
+  const [googlePredictions, setGooglePredictions] = useState<Prediction[]>([])
   // Predictions pour le champ Adresse du form (Google addresses-only)
   const [addressPredictions, setAddressPredictions] = useState<Prediction[]>([])
   const [searching, setSearching]     = useState(false)
@@ -251,24 +254,51 @@ function ReferenceForm({
   // en 1 session facturée (Autocomplete devient gratuit, seul le Details payé).
   const sessionTokenRef = useRef<string>(crypto.randomUUID())
 
-  // Top search: DB only (cherche dans etablissements + producteurs, ZERO Google)
+  // Top search :
+  //  - user normal → DB only (dbonly=1), ZERO Google (économie facturation)
+  //  - ADMIN → DB + recherche Google Places (commerces) pour préremplir une fiche
   useEffect(() => {
-    if (!searchQuery || searchQuery.length < 2) { setDbMatches([]); return }
+    if (!searchQuery || searchQuery.length < 2) { setDbMatches([]); setGooglePredictions([]); return }
     const t = setTimeout(async () => {
       setSearching(true)
       const { data: { session } } = await supabase.auth.getSession()
       const tk = session?.access_token
-      const r = await fetch(`/api/admin/autocomplete?q=${encodeURIComponent(searchQuery)}&dbonly=1`, {
-        headers: tk ? { Authorization: `Bearer ${tk}` } : {},
-      }).catch(() => null)
+      const url = isAdmin
+        ? `/api/admin/autocomplete?q=${encodeURIComponent(searchQuery)}&sessiontoken=${sessionTokenRef.current}`
+        : `/api/admin/autocomplete?q=${encodeURIComponent(searchQuery)}&dbonly=1`
+      const r = await fetch(url, { headers: tk ? { Authorization: `Bearer ${tk}` } : {} }).catch(() => null)
       if (r && r.ok) {
         const d = await r.json()
         setDbMatches((d.db ?? []).slice(0, 5))
+        setGooglePredictions(isAdmin ? (d.predictions ?? []).slice(0, 5) : [])
       }
       setSearching(false)
     }, 280)
     return () => clearTimeout(t)
-  }, [searchQuery])
+  }, [searchQuery, isAdmin])
+
+  // ADMIN : clic sur un résultat Google → Place Details (full) → préremplit la fiche
+  async function selectGooglePlace(p: Prediction) {
+    setSearchQuery(''); setDbMatches([]); setGooglePredictions([])
+    const { data: { session } } = await supabase.auth.getSession()
+    const tk = session?.access_token
+    const r = await fetch(`/api/admin/geocode?place_id=${encodeURIComponent(p.place_id)}&mode=full&sessiontoken=${sessionTokenRef.current}`, {
+      headers: tk ? { Authorization: `Bearer ${tk}` } : {},
+    }).catch(() => null)
+    sessionTokenRef.current = crypto.randomUUID()
+    if (!r || !r.ok) return
+    const d = await r.json()
+    if (d.nom)        setNom(d.nom)
+    if (d.adresse)    setAdresse(d.adresse)
+    if (d.commune)    setCommune(d.commune)
+    if (d.lat != null) setLat(d.lat)
+    if (d.lng != null) setLng(d.lng)
+    setPlaceId(p.place_id)
+    if (kind === 'commerce' && d.type_guess) setType(d.type_guess)
+    if (d.phone)    setContact(d.phone)
+    if (d.website)  setSiteWeb(d.website)
+    if (d.horaires) setHoraires(d.horaires)
+  }
 
   // Address autocomplete (form, Google addresses-only) — fixe lat/lng
   useEffect(() => {
@@ -515,6 +545,36 @@ function ReferenceForm({
             <p className="mt-1.5 text-[10px] text-texte-doux">
               Si la fiche existe déjà, clique pour la voir — pas besoin de la créer à nouveau.
             </p>
+          </div>
+        )}
+
+        {/* === Résultats Google (ADMIN) — préremplit la fiche === */}
+        {isAdmin && googlePredictions.length > 0 && (
+          <div>
+            <div className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.1em]" style={{ color: '#A8770F' }}>
+              🔎 Trouvé sur Google ({googlePredictions.length})
+            </div>
+            <div className="overflow-hidden rounded-2xl border shadow-[0_1px_4px_rgba(44,28,16,0.04)]" style={{ borderColor: '#ECD9AE', background: '#FBF6EC' }}>
+              {googlePredictions.map((p, i) => (
+                <button
+                  key={p.place_id}
+                  type="button"
+                  onClick={() => selectGooglePlace(p)}
+                  className="flex w-full cursor-pointer items-center gap-3 px-3.5 py-3 text-left"
+                  style={{ background: 'transparent', border: 'none', borderBottom: i < googlePredictions.length - 1 ? '1px solid #ECD9AE' : 'none', WebkitTextFillColor: '#1A1209' }}
+                >
+                  <div className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] text-base" style={{ background: '#F3E6C8', color: '#A8770F' }}>📍</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[14px] font-bold" style={{ color: '#1A1209', WebkitTextFillColor: '#1A1209' }}>{p.main || p.description}</div>
+                    <div className="mt-0.5 truncate text-[11px]" style={{ color: '#7A6A5A', WebkitTextFillColor: '#7A6A5A' }}>{p.secondary || ''}</div>
+                  </div>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C9A23F" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                    <polyline points="9 6 15 12 9 18"/>
+                  </svg>
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[10px] text-texte-doux">Clique pour préremplir la fiche depuis Google (nom, adresse, GPS, catégorie, contact…).</p>
           </div>
         )}
 
