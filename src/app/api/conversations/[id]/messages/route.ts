@@ -80,7 +80,7 @@ export async function POST(
   const embedRefIdRaw = body?.embed_ref_id
 
   // Validation embed optionnel (mêmes kinds que posts)
-  const ALLOWED_KINDS = ['event','etab','producer','annonce','promo','covoit']
+  const ALLOWED_KINDS = ['event','etab','producer','annonce','promo','covoit','article']
   let validEmbedKind: string | null = null
   let validEmbedRefId: string | null = null
   if (embedKindRaw != null && embedRefIdRaw != null) {

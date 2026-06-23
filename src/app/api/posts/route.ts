@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Validation embed optionnel
-  const ALLOWED_KINDS = ['event','etab','producer','annonce','promo','covoit']
+  const ALLOWED_KINDS = ['event','etab','producer','annonce','promo','covoit','article']
   let validEmbedKind: string | null = null
   let validEmbedRefId: string | null = null
   if (embed_kind != null && embed_ref_id != null) {
