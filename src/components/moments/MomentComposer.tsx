@@ -120,7 +120,8 @@ export default function MomentComposer({ onClose, onPublished }: Props) {
       })
       const d = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(d.error || 'Échec de la publication')
-      toast.success('Ton moment est en ligne !')
+      if (surAccueil && !d.sur_accueil) toast('Publié sur ton mur — accueil plein (2 reels max)')
+      else toast.success(d.sur_accueil ? 'Publié sur l’accueil (24h) !' : 'Ton reel est en ligne !')
       onPublished()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur')

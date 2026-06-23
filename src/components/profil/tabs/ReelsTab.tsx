@@ -67,6 +67,11 @@ export default function ReelsTab({ profileUserId }: Props) {
               {m.media_kind === 'video' && (
                 <span className="absolute right-1.5 top-1.5 text-white"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg></span>
               )}
+              {isOwn && m.sur_accueil && (
+                <span className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-black/45 px-1.5 py-0.5 text-[7.5px] font-bold text-white backdrop-blur-sm">
+                  <span className="h-1 w-1 rounded-full bg-[#E8622A]" /> Accueil
+                </span>
+              )}
               <span className="absolute bottom-1.5 left-1.5 text-[8.5px] font-bold text-white opacity-90">il y a {momentAge(m.created_at)}</span>
             </button>
           ))}

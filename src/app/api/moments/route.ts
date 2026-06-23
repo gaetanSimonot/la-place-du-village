@@ -132,16 +132,21 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Promotion accueil du village : réservée aux payants/admin, un seul à la fois.
-    const onHome = !!body.sur_accueil && canPromote
+    // Promotion accueil du village : payants/admin. Plafond de reels actifs en
+    // accueil : admin illimité, payants 2 max (au-delà → reste sur le mur).
+    let onHome = !!body.sur_accueil && canPromote
+    if (onHome && !ctx.isAdmin) {
+      const { count } = await supabaseAdmin
+        .from('moments')
+        .select('id', { count: 'exact', head: true })
+        .eq('auteur_id', ctx.userId)
+        .eq('sur_accueil', true)
+        .gt('expires_at', new Date().toISOString())
+      if ((count ?? 0) >= 2) onHome = false
+    }
 
     const { data: prof } = await supabaseAdmin
       .from('profiles').select('display_name').eq('user_id', ctx.userId).maybeSingle()
-
-    // « Un seul à la fois » : on retire l'éventuel reel déjà en accueil du user.
-    if (onHome) {
-      await supabaseAdmin.from('moments').update({ sur_accueil: false }).eq('auteur_id', ctx.userId).eq('sur_accueil', true)
-    }
 
     const expires = new Date(Date.now() + 24 * 3600 * 1000).toISOString()
     const { data: moment, error } = await supabaseAdmin

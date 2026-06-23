@@ -150,21 +150,22 @@ function ReelSlide({
   const [editVal, setEditVal] = useState(m.legende ?? '')
   const scrubHideT = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const patchMoment = async (body: Record<string, unknown>) => {
+  const patchMoment = async (body: Record<string, unknown>): Promise<{ ok: boolean; error?: string }> => {
     const { data: { session } } = await supabase.auth.getSession()
     const r = await fetch(`/api/moments/${m.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` }, body: JSON.stringify(body) })
-    return r.ok
+    const d = await r.json().catch(() => ({}))
+    return { ok: r.ok, error: d.error as string | undefined }
   }
   const saveLegende = async () => {
-    const ok = await patchMoment({ legende: editVal })
-    if (!ok) { toast.error('Échec'); return }
+    const res = await patchMoment({ legende: editVal })
+    if (!res.ok) { toast.error(res.error || 'Échec'); return }
     setLegende(editVal.trim() || null); setEditOpen(false); toast.success('Légende mise à jour')
   }
   const togglePromote = async () => {
     setMenuOpen(false)
     const next = !surHome
-    const ok = await patchMoment({ sur_accueil: next })
-    if (!ok) { toast.error(next ? 'Promotion refusée' : 'Échec'); return }
+    const res = await patchMoment({ sur_accueil: next })
+    if (!res.ok) { toast.error(res.error || (next ? 'Promotion refusée' : 'Échec')); return }
     setSurHome(next); toast.success(next ? 'Publié sur l’accueil (24h)' : 'Retiré de l’accueil')
   }
 
@@ -329,7 +330,12 @@ function ReelSlide({
           </button>
           <FollowButton targetUserId={m.auteur_id} dark />
         </div>
-        {surHome && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 8, fontSize: 10, fontWeight: 800, color: '#fff', background: 'rgba(232,98,42,0.9)', padding: '2px 7px', borderRadius: 999 }}>EN ACCUEIL · 24h</span>}
+        {/* Indicateur discret « sur l'accueil » — visible UNIQUEMENT par le propriétaire */}
+        {surHome && user?.id === m.auteur_id && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 8, fontSize: 9.5, fontWeight: 700, color: 'rgba(255,255,255,0.9)', background: 'rgba(255,255,255,0.16)', backdropFilter: 'blur(4px)', padding: '2px 8px', borderRadius: 999 }}>
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#E8622A' }} /> Sur l’accueil
+          </span>
+        )}
         {legende && <div style={{ marginTop: 10, fontSize: 13.5, lineHeight: 1.4, maxHeight: 60, overflow: 'hidden' }}>{legende}</div>}
         <button onClick={onOpenComments} style={{ marginTop: 8, background: 'none', border: 'none', padding: 0, color: 'rgba(255,255,255,0.85)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
           {m.comments > 0 ? `Voir les ${m.comments} commentaire${m.comments > 1 ? 's' : ''}` : 'Ajouter un commentaire…'}

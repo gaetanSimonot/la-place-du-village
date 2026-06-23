@@ -31,10 +31,19 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (!can(ctx, 'publish_moment')) {
       return NextResponse.json({ error: 'Promotion accueil réservée aux comptes Habitants/Partenaires' }, { status: 403 })
     }
-    // Un seul à la fois pour l'AUTEUR du reel : on retire ses autres reels en accueil.
-    await supabaseAdmin.from('moments')
-      .update({ sur_accueil: false })
-      .eq('auteur_id', moment.auteur_id).eq('sur_accueil', true).neq('id', params.id)
+    // Plafond accueil : admin illimité, payants 2 reels actifs à la fois.
+    if (!ctx.isAdmin && moment.sur_accueil !== true) {
+      const { count } = await supabaseAdmin
+        .from('moments')
+        .select('id', { count: 'exact', head: true })
+        .eq('auteur_id', moment.auteur_id)
+        .eq('sur_accueil', true)
+        .gt('expires_at', new Date().toISOString())
+        .neq('id', params.id)
+      if ((count ?? 0) >= 2) {
+        return NextResponse.json({ error: 'Tu as déjà 2 reels sur l’accueil. Retires-en un d’abord.' }, { status: 409 })
+      }
+    }
     patch.sur_accueil = true
     patch.expires_at = new Date(Date.now() + 24 * 3600 * 1000).toISOString()  // relance la fenêtre 24h
   } else if (body.sur_accueil === false) {
