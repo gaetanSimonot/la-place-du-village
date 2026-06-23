@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
+import { can, toUserContext } from '@/lib/capabilities'
 import { shareLink } from '@/lib/share'
 import FollowButton from '@/components/FollowButton'
 import { momentAge, type Moment, type MomentCommentaire } from '@/lib/moments'
@@ -131,7 +132,8 @@ function ReelSlide({
   onDeleted: () => void
 }) {
   const router = useRouter()
-  const { user, isAdmin } = useAuth()
+  const { user, isAdmin, profile } = useAuth()
+  const canPromote = can(toUserContext(profile, isAdmin), 'publish_moment')
   const rootRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const photoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -142,7 +144,29 @@ function ReelSlide({
   const [menuOpen, setMenuOpen] = useState(false)
   const [liked, setLiked] = useState(m.liked)
   const [likes, setLikes] = useState(m.likes)
+  const [legende, setLegende] = useState(m.legende)
+  const [surHome, setSurHome] = useState(m.sur_accueil)
+  const [editOpen, setEditOpen] = useState(false)
+  const [editVal, setEditVal] = useState(m.legende ?? '')
   const scrubHideT = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const patchMoment = async (body: Record<string, unknown>) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const r = await fetch(`/api/moments/${m.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` }, body: JSON.stringify(body) })
+    return r.ok
+  }
+  const saveLegende = async () => {
+    const ok = await patchMoment({ legende: editVal })
+    if (!ok) { toast.error('Échec'); return }
+    setLegende(editVal.trim() || null); setEditOpen(false); toast.success('Légende mise à jour')
+  }
+  const togglePromote = async () => {
+    setMenuOpen(false)
+    const next = !surHome
+    const ok = await patchMoment({ sur_accueil: next })
+    if (!ok) { toast.error(next ? 'Promotion refusée' : 'Échec'); return }
+    setSurHome(next); toast.success(next ? 'Publié sur l’accueil (24h)' : 'Retiré de l’accueil')
+  }
 
   // Détecte quand la slide est visible (≥60%) → devient active
   useEffect(() => {
@@ -279,8 +303,12 @@ function ReelSlide({
         )}
       </div>
       {menuOpen && canDelete && (
-        <div style={{ position: 'absolute', right: 12, bottom: 110, zIndex: 9, background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.3)' }}>
-          <button onClick={del} style={{ display: 'block', padding: '11px 18px', background: 'none', border: 'none', color: '#C0392B', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Supprimer</button>
+        <div style={{ position: 'absolute', right: 12, bottom: 110, zIndex: 9, background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', minWidth: 180 }}>
+          <button onClick={() => { setEditVal(legende ?? ''); setEditOpen(true); setMenuOpen(false) }} style={menuItem}>Éditer la légende</button>
+          {canPromote && (
+            <button onClick={togglePromote} style={menuItem}>{surHome ? 'Retirer de l’accueil' : 'Publier sur l’accueil'}</button>
+          )}
+          <button onClick={del} style={{ ...menuItem, color: '#C0392B' }}>Supprimer</button>
         </div>
       )}
 
@@ -301,7 +329,8 @@ function ReelSlide({
           </button>
           <FollowButton targetUserId={m.auteur_id} dark />
         </div>
-        {m.legende && <div style={{ marginTop: 10, fontSize: 13.5, lineHeight: 1.4, maxHeight: 60, overflow: 'hidden' }}>{m.legende}</div>}
+        {surHome && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 8, fontSize: 10, fontWeight: 800, color: '#fff', background: 'rgba(232,98,42,0.9)', padding: '2px 7px', borderRadius: 999 }}>EN ACCUEIL · 24h</span>}
+        {legende && <div style={{ marginTop: 10, fontSize: 13.5, lineHeight: 1.4, maxHeight: 60, overflow: 'hidden' }}>{legende}</div>}
         <button onClick={onOpenComments} style={{ marginTop: 8, background: 'none', border: 'none', padding: 0, color: 'rgba(255,255,255,0.85)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
           {m.comments > 0 ? `Voir les ${m.comments} commentaire${m.comments > 1 ? 's' : ''}` : 'Ajouter un commentaire…'}
         </button>
@@ -312,6 +341,21 @@ function ReelSlide({
           </button>
         )}
       </div>
+
+      {/* feuille édition de la légende */}
+      {editOpen && (
+        <div onClick={() => setEditOpen(false)} style={{ position: 'absolute', inset: 0, zIndex: 20, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-end' }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: '#FBFAF7', borderRadius: '18px 18px 0 0', padding: '16px 16px max(16px,env(safe-area-inset-bottom,16px))' }}>
+            <p style={{ margin: '0 0 10px', fontWeight: 800, fontSize: 14, color: '#1A1209' }}>Éditer la légende</p>
+            <textarea value={editVal} onChange={e => setEditVal(e.target.value)} rows={3} maxLength={500} autoFocus
+              style={{ width: '100%', boxSizing: 'border-box', padding: '11px 13px', borderRadius: 12, border: '1px solid #E5DDD2', fontSize: 14, outline: 'none', resize: 'none', fontFamily: 'inherit' }} />
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <button onClick={() => setEditOpen(false)} style={{ flex: 1, padding: '11px', borderRadius: 12, border: '1px solid #E5DDD2', background: '#fff', fontWeight: 700, fontSize: 13, color: '#7A6A5A', cursor: 'pointer' }}>Annuler</button>
+              <button onClick={saveLegende} style={{ flex: 1, padding: '11px', borderRadius: 12, border: 'none', background: '#E8622A', color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>Enregistrer</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* timeline / scrubber (vidéo) */}
       {m.media_kind === 'video' && (
@@ -336,6 +380,7 @@ function ReelSlide({
 
 const iconBtn: React.CSSProperties = { background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, color: '#fff', padding: 0 }
 const iconLbl: React.CSSProperties = { fontSize: 11, fontWeight: 700 }
+const menuItem: React.CSSProperties = { display: 'block', width: '100%', textAlign: 'left', padding: '11px 18px', background: 'none', border: 'none', borderBottom: '1px solid #F0EAE0', color: '#1A1209', fontSize: 13, fontWeight: 700, cursor: 'pointer' }
 
 // ── Feuille commentaires (façon Facebook, glisse du bas) ────────────────────
 function MomentComments({ momentId, onClose }: { momentId: string; onClose: () => void }) {

@@ -22,6 +22,8 @@ export interface Moment {
   duree_sec: number | null
   legende: string | null
   created_at: string
+  /** Le reel est-il actuellement poussé sur le fil d'accueil du village. */
+  sur_accueil: boolean
   cible: MomentCible | null
   likes: number
   comments: number

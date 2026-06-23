@@ -87,6 +87,7 @@ export async function GET(req: NextRequest) {
       duree_sec: (m.duree_sec as number | null) ?? null,
       legende: (m.legende as string | null) ?? null,
       created_at: m.created_at as string,
+      sur_accueil: !!m.sur_accueil,
       cible,
       likes: likeCount[id] ?? 0,
       comments: commCount[id] ?? 0,
