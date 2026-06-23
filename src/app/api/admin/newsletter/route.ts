@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/server-auth'
+import { welcomeProfile, welcomeExtra } from '@/lib/newsletterWelcome'
 
 /**
  * GET    /api/admin/newsletter           — compteurs + emails ajoutés à la main
@@ -41,11 +42,13 @@ export async function POST(req: NextRequest) {
   const { data: prof } = await supabaseAdmin.from('profiles').select('user_id').eq('email', e).maybeSingle()
   if (prof) {
     await supabaseAdmin.from('profiles').update({ newsletter_optin: true }).eq('user_id', prof.user_id)
+    await welcomeProfile(prof.user_id as string).catch(() => {})   // édition active auto
     return NextResponse.json({ success: true, type: 'profile' })
   }
   // Sinon → email externe.
   const { error } = await supabaseAdmin.from('newsletter_extra_emails').upsert({ email: e }, { onConflict: 'email', ignoreDuplicates: true })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  await welcomeExtra(e).catch(() => {})   // édition active auto
   return NextResponse.json({ success: true, type: 'extra' })
 }
 

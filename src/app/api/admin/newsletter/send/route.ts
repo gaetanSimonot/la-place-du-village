@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/server-auth'
 import { sendBatch } from '@/lib/email'
 import { renderNewsletterBody, renderInviteBody, wrapNewsletter } from '@/lib/newsletterRender'
+import { setCurrentEdition } from '@/lib/newsletterWelcome'
 import type { NewsletterBlock } from '@/lib/newsletterBlocks'
 
 const SITE = 'https://laplaceduvillage.app'
@@ -69,7 +70,14 @@ export async function POST(req: NextRequest) {
   const { sent, error } = await sendBatch(mails)
   if (error) return NextResponse.json({ error }, { status: 500 })
 
-  if (!optin) {
+  if (optin) {
+    // Édition active : les nouveaux abonnés la recevront automatiquement.
+    // Les abonnés du moment viennent de la recevoir → marqués comme à jour.
+    await setCurrentEdition(subject, body)
+    const now = new Date().toISOString()
+    await supabaseAdmin.from('profiles').update({ newsletter_welcomed_at: now }).eq('newsletter_optin', true).not('email', 'is', null)
+    await supabaseAdmin.from('newsletter_extra_emails').update({ welcomed_at: now }).not('email', 'is', null)
+  } else {
     await supabaseAdmin.from('profiles').update({ newsletter_invited_at: new Date().toISOString() }).eq('newsletter_optin', false).not('email', 'is', null)
   }
   return NextResponse.json({ sent, total: mails.length })

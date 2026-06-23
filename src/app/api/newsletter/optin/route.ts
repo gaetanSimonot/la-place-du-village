@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { welcomeProfile } from '@/lib/newsletterWelcome'
 
 /**
  * POST /api/newsletter/optin — abonnement / désabonnement par jeton (liens des
@@ -16,10 +17,13 @@ export async function POST(req: NextRequest) {
     .from('profiles')
     .update({ newsletter_optin: optin })
     .eq('newsletter_token', token)
-    .select('display_name')
+    .select('user_id, display_name')
     .maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (data) return NextResponse.json({ success: true, name: data.display_name ?? null })
+  if (data) {
+    if (optin) await welcomeProfile(data.user_id as string).catch(() => {})   // édition active auto
+    return NextResponse.json({ success: true, name: data.display_name ?? null })
+  }
 
   // 2) Email externe (ajouté à la main) → le désabonnement = suppression
   const { data: extra } = await supabaseAdmin

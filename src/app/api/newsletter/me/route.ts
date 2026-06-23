@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser } from '@/lib/server-auth'
+import { welcomeProfile } from '@/lib/newsletterWelcome'
 
 /**
  * GET  /api/newsletter/me        — état d'abonnement de l'utilisateur courant.
@@ -20,5 +21,6 @@ export async function POST(req: NextRequest) {
   if (typeof optin !== 'boolean') return NextResponse.json({ error: 'optin requis' }, { status: 400 })
   const { error } = await supabaseAdmin.from('profiles').update({ newsletter_optin: optin }).eq('user_id', ctx.userId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (optin) await welcomeProfile(ctx.userId).catch(() => {})   // édition active auto
   return NextResponse.json({ success: true, optin })
 }
