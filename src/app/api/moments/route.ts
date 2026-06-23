@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getUserContextFromRequest, requireUser, notifyByAudience, notifyUsers, notifyUser } from '@/lib/server-auth'
 import { can } from '@/lib/capabilities'
+import { countRecentInTable } from '@/lib/rateLimit'
 import type { Moment, MomentCible, MomentKind } from '@/lib/moments'
 
 /**
@@ -19,14 +20,16 @@ export async function GET(req: NextRequest) {
   const nowISO = new Date().toISOString()
   const auteur = new URL(req.url).searchParams.get('auteur')
 
-  // ?auteur=<id> → tous les reels de ce user (actifs ET expirés) pour son mur.
-  // Sinon → fil d'accueil = uniquement les moments actifs (< 24h).
+  // ?auteur=<id> → tous les reels de ce user (mur, actifs ET expirés).
+  // Sinon → fil d'accueil = uniquement les reels PROMUS encore actifs (< 24h).
   let query = supabaseAdmin
     .from('moments')
     .select('*')
     .order('created_at', { ascending: false })
     .limit(100)
-  query = auteur ? query.eq('auteur_id', auteur) : query.gt('expires_at', nowISO)
+  query = auteur
+    ? query.eq('auteur_id', auteur)
+    : query.eq('sur_accueil', true).gt('expires_at', nowISO)
   const { data: rows, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
@@ -98,9 +101,6 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const ctx = await requireUser(req)
   if (ctx instanceof Response) return ctx
-  if (!can(ctx, 'publish_moment')) {
-    return NextResponse.json({ error: 'Réservé aux membres Habitants ou Partenaires' }, { status: 403 })
-  }
 
   try {
     const body = await req.json()
@@ -122,9 +122,25 @@ export async function POST(req: NextRequest) {
       duree = d
     }
 
-    // Nom auteur depuis le profil
+    // Quota : gratuit = 1 reel / mois. Habitants / Partenaires / admin = illimité.
+    const canPromote = can(ctx, 'publish_moment')   // payants + admin
+    if (ctx.plan === 'basic' && !ctx.isAdmin) {
+      const used = await countRecentInTable('moments', 'auteur_id', ctx.userId, 30 * 24 * 3600 * 1000)
+      if (used >= 1) {
+        return NextResponse.json({ error: 'Un reel par mois en gratuit. Passe Habitants pour publier sans limite.', rateLimitExceeded: true }, { status: 429 })
+      }
+    }
+
+    // Promotion accueil du village : réservée aux payants/admin, un seul à la fois.
+    const onHome = !!body.sur_accueil && canPromote
+
     const { data: prof } = await supabaseAdmin
       .from('profiles').select('display_name').eq('user_id', ctx.userId).maybeSingle()
+
+    // « Un seul à la fois » : on retire l'éventuel reel déjà en accueil du user.
+    if (onHome) {
+      await supabaseAdmin.from('moments').update({ sur_accueil: false }).eq('auteur_id', ctx.userId).eq('sur_accueil', true)
+    }
 
     const expires = new Date(Date.now() + 24 * 3600 * 1000).toISOString()
     const { data: moment, error } = await supabaseAdmin
@@ -141,21 +157,19 @@ export async function POST(req: NextRequest) {
         duree_sec:        duree,
         legende:          body.legende ? String(body.legende).slice(0, 500) : null,
         expires_at:       expires,
+        sur_accueil:      onHome,
       })
       .select('id')
       .single()
     if (error) throw new Error(error.message)
 
     // ── Notifications (best-effort) ────────────────────────────────────────
-    // Admin → tout le monde (compte officiel). Sinon → seulement ses amis.
-    // Pas de double pour un ami de l'admin : le chemin admin est exclusif.
+    // Reel promu sur l'accueil par l'ADMIN → broadcast village (compte officiel).
+    // Sinon (mur, ou non-admin) → seulement les amis de l'auteur.
     const actorName = prof?.display_name ?? 'Un membre'
-    if (ctx.isAdmin) {
-      // Réplique exacte de post_broadcast (mur admin) : broadcast à TOUT le
-      // monde (admin inclus), uniquement en PRODUCTION. Sur preview/dev (DB
-      // partagée) on ne notifie que l'admin → test sans spammer les users.
-      // PAS de target_type (contrainte CHECK notifications.target_type ne
-      // connaît pas 'moment') → null accepté ; la nav se fait via le type.
+    if (ctx.isAdmin && onHome) {
+      // PAS de target_type (contrainte CHECK ne connaît pas 'moment') ; en prod
+      // uniquement (preview/dev → admin seul, cf. post_broadcast).
       const payload = { type: 'moment_nouveau', actor_name: actorName, target_id: moment.id }
       if (process.env.VERCEL_ENV === 'production') {
         await notifyByAudience('all', payload).catch(() => {})
@@ -169,13 +183,10 @@ export async function POST(req: NextRequest) {
         .eq('status', 'accepted')
         .or(`user1_id.eq.${ctx.userId},user2_id.eq.${ctx.userId}`)
       const friendIds = (friends ?? []).map(f => f.user1_id === ctx.userId ? f.user2_id : f.user1_id)
-      await notifyUsers(friendIds, {
-        type: 'moment_nouveau', actor_name: actorName,
-        target_id: moment.id,   // pas de target_type (cf. contrainte CHECK)
-      }).catch(() => {})
+      await notifyUsers(friendIds, { type: 'moment_nouveau', actor_name: actorName, target_id: moment.id }).catch(() => {})
     }
 
-    return NextResponse.json({ success: true, id: moment.id })
+    return NextResponse.json({ success: true, id: moment.id, sur_accueil: onHome })
   } catch (err: unknown) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Erreur' }, { status: 500 })
   }

@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
+import { can, toUserContext } from '@/lib/capabilities'
 import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
 import { MOMENT_VIDEO_MAX_SEC } from '@/lib/moments'
 
@@ -38,7 +39,9 @@ function getVideoDuration(file: File): Promise<number> {
 }
 
 export default function MomentComposer({ onClose, onPublished }: Props) {
-  const { user } = useAuth()
+  const { user, profile, isAdmin } = useAuth()
+  const canPromote = can(toUserContext(profile, isAdmin), 'publish_moment')   // payants + admin
+  const [surAccueil, setSurAccueil] = useState(false)
   const [step, setStep] = useState<Step>('source')
   const [picked, setPicked] = useState<Picked | null>(null)
   const [legende, setLegende] = useState('')
@@ -112,6 +115,7 @@ export default function MomentComposer({ onClose, onPublished }: Props) {
           legende: legende.trim() || null,
           etablissement_id: linkEtab && ownedEtab ? ownedEtab.id : null,
           evenement_id: linkedEvt?.id ?? null,
+          sur_accueil: surAccueil,
         }),
       })
       const d = await res.json().catch(() => ({}))
@@ -160,6 +164,21 @@ export default function MomentComposer({ onClose, onPublished }: Props) {
             <button onClick={() => setEvtPickerOpen(true)} style={chipStyle(!!linkedEvt)}>🎟️ {linkedEvt ? linkedEvt.titre.slice(0, 22) : 'Un événement'}</button>
             {linkedEvt && <button onClick={() => setLinkedEvt(null)} style={chipStyle(false)}>✕</button>}
           </div>
+          {/* Promotion accueil du village (24h) — comptes payants */}
+          {canPromote && (
+            <button onClick={() => setSurAccueil(v => !v)}
+              style={{ width: '100%', marginTop: 12, display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px', borderRadius: 14, cursor: 'pointer', textAlign: 'left',
+                background: surAccueil ? 'rgba(232,98,42,0.18)' : 'rgba(255,255,255,0.12)',
+                border: `1.5px solid ${surAccueil ? '#E8622A' : 'rgba(255,255,255,0.25)'}` }}>
+              <span style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: surAccueil ? '#E8622A' : 'transparent', border: surAccueil ? 'none' : '1.5px solid rgba(255,255,255,0.5)' }}>
+                {surAccueil && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+              </span>
+              <span style={{ flex: 1 }}>
+                <span style={{ display: 'block', fontSize: 13, fontWeight: 800, color: '#fff' }}>Aussi sur l’accueil du village (24h)</span>
+                <span style={{ display: 'block', fontSize: 11, color: 'rgba(255,255,255,0.75)', marginTop: 1 }}>Visible par tout le village · remplace ton reel en cours sur l’accueil</span>
+              </span>
+            </button>
+          )}
           {error && <p style={{ margin: '10px 0 0', padding: '8px 12px', borderRadius: 10, background: 'rgba(192,57,43,0.92)', color: '#fff', fontSize: 12 }}>{error}</p>}
           {busy && progress !== null && (
             <div style={{ marginTop: 14 }}>

@@ -15,6 +15,9 @@ interface Props {
   onClose: () => void
   onDeleted?: (id: string) => void
   onViewed?: (id: string) => void
+  /** Si fourni, le bouton haut-gauche affiche « ‹ <backLabel> » (ex: « Voir tout »)
+   *  au lieu de la croix. Dans les deux cas l'action est onClose. */
+  backLabel?: string
 }
 
 const PHOTO_SEC = 5
@@ -24,7 +27,7 @@ const PHOTO_SEC = 5
  * autoplay de la slide visible, avance auto à la fin, tap = pause/play +
  * timeline, ✕ en haut à gauche, infos auteur + commentaires en bas.
  */
-export default function MomentViewer({ moments, startIndex, onClose, onDeleted, onViewed }: Props) {
+export default function MomentViewer({ moments, startIndex, onClose, onDeleted, onViewed, backLabel }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const slideRefs = useRef<(HTMLDivElement | null)[]>([])
   const [items, setItems] = useState(moments)
@@ -54,11 +57,19 @@ export default function MomentViewer({ moments, startIndex, onClose, onDeleted, 
     <div style={{ position: 'fixed', inset: 0, zIndex: 1300, background: '#000', fontFamily: 'Inter, sans-serif' }}>
       <style>{`.reel-scroll::-webkit-scrollbar{display:none}`}</style>
 
-      {/* ✕ fermer (seul élément en haut à gauche) */}
-      <button onClick={onClose} aria-label="Fermer"
-        style={{ position: 'absolute', top: 'max(14px,env(safe-area-inset-top,14px))', left: 12, zIndex: 30, width: 38, height: 38, borderRadius: '50%', background: 'rgba(0,0,0,0.4)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
+      {/* Haut-gauche : « ‹ Voir tout » (depuis l'accueil) ou la croix (ailleurs) */}
+      {backLabel ? (
+        <button onClick={onClose} aria-label={backLabel}
+          style={{ position: 'absolute', top: 'max(14px,env(safe-area-inset-top,14px))', left: 12, zIndex: 30, display: 'inline-flex', alignItems: 'center', gap: 5, height: 38, padding: '0 14px 0 11px', borderRadius: 999, background: 'rgba(0,0,0,0.45)', border: 'none', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          {backLabel}
+        </button>
+      ) : (
+        <button onClick={onClose} aria-label="Fermer"
+          style={{ position: 'absolute', top: 'max(14px,env(safe-area-inset-top,14px))', left: 12, zIndex: 30, width: 38, height: 38, borderRadius: '50%', background: 'rgba(0,0,0,0.4)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      )}
 
       <div ref={containerRef} className="reel-scroll"
         style={{ height: '100dvh', overflowY: 'scroll', scrollSnapType: 'y mandatory', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
@@ -75,6 +86,8 @@ export default function MomentViewer({ moments, startIndex, onClose, onDeleted, 
             />
           </div>
         ))}
+        {/* Sentinelle : scroller en bas du dernier reel → fermeture (retour) */}
+        <SentinelSlide containerRef={containerRef} onReach={onClose} label={backLabel ? `‹ ${backLabel}` : 'Fin'} />
       </div>
 
       {commentsFor && (
@@ -85,6 +98,24 @@ export default function MomentViewer({ moments, startIndex, onClose, onDeleted, 
       )}
     </div>,
     document.body,
+  )
+}
+
+// ── Sentinelle de fin de fil ────────────────────────────────────────────────
+function SentinelSlide({ containerRef, onReach, label }: { containerRef: React.RefObject<HTMLDivElement>; onReach: () => void; label: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = ref.current, root = containerRef.current
+    if (!el || !root) return
+    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting && e.intersectionRatio >= 0.6) onReach() }, { root, threshold: [0, 0.6, 1] })
+    obs.observe(el)
+    return () => obs.disconnect()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [containerRef])
+  return (
+    <div ref={ref} style={{ height: '100dvh', scrollSnapAlign: 'start', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.45)', fontSize: 13, fontWeight: 700 }}>
+      {label}
+    </div>
   )
 }
 

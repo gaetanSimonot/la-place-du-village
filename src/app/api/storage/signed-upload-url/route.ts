@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser } from '@/lib/server-auth'
-import { can } from '@/lib/capabilities'
 
 /**
  * POST /api/storage/signed-upload-url
@@ -143,10 +142,8 @@ export async function POST(req: NextRequest) {
     bucket = 'reference-photos'
     path = `posts/${ctx.userId}/${randomName()}.${extFromMime(mimeType)}`
   } else if (kind === 'moment-image' || kind === 'moment-video') {
-    // « En ce moment » : publication réservée habitants / pro / admin.
-    if (!can(ctx, 'publish_moment')) {
-      return NextResponse.json({ error: 'Réservé aux membres Habitants ou Partenaires' }, { status: 403 })
-    }
+    // Reel : ouvert à tout user connecté (le quota gratuit 1/mois et la
+    // promotion accueil sont gérés à la création POST /api/moments).
     bucket = 'moments'
     path = `${ctx.userId}/${randomName()}.${extFromMime(mimeType)}`
   } else {

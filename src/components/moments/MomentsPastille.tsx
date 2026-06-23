@@ -39,7 +39,9 @@ export default function MomentsPastille() {
     if (avatars.length >= 3) break
   }
 
-  const go = () => router.push('/en-ce-moment')
+  // Plein écran direct sur le reel le plus récent (?view=1). Le bouton
+  // « ‹ Voir tout » du viewer ramène ensuite à la grille.
+  const go = () => router.push('/en-ce-moment?view=1')
 
   if (moments.length === 0) {
     return (

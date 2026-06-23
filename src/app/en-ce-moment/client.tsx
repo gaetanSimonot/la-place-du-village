@@ -4,27 +4,22 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
-import { can, toUserContext } from '@/lib/capabilities'
 import { momentAge, type Moment } from '@/lib/moments'
 import MomentViewer from '@/components/moments/MomentViewer'
 import MomentComposer from '@/components/moments/MomentComposer'
-import SubscriptionModal from '@/components/SubscriptionModal'
 import BottomNavBar from '@/components/BottomNavBar'
 
 export default function EnCeMomentClient() {
   const router = useRouter()
-  const { user, profile, isAdmin } = useAuth()
+  const { user } = useAuth()
   const { openAuthModal } = useAuthModal()
 
   const [moments, setMoments] = useState<Moment[]>([])
   const [loading, setLoading] = useState(true)
   const [viewerIndex, setViewerIndex] = useState<number | null>(null)
   const [composerOpen, setComposerOpen] = useState(false)
-  const [upsellOpen, setUpsellOpen] = useState(false)
 
-  const canPublish = can(toUserContext(profile, isAdmin), 'publish_moment')
-
-  const load = async (openMomentId?: string | null) => {
+  const load = async (openMomentId?: string | null, openFirst?: boolean) => {
     const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch('/api/moments', {
       headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
@@ -35,19 +30,21 @@ export default function EnCeMomentClient() {
     if (openMomentId) {
       const i = list.findIndex(m => m.id === openMomentId)
       if (i >= 0) setViewerIndex(i)
+    } else if (openFirst && list.length > 0) {
+      setViewerIndex(0)   // pastille accueil → plein écran direct sur le + récent
     }
   }
 
   useEffect(() => {
-    // Deep-link ?m=<id> (window.location pour ne pas casser le prerender)
-    const m = new URLSearchParams(window.location.search).get('m')
-    load(m)
+    // Deep-link ?m=<id> ou ?view=1 (ouvre direct le viewer sur le + récent).
+    const p = new URLSearchParams(window.location.search)
+    load(p.get('m'), p.get('view') === '1')
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Publication ouverte à tous (quota 1/mois gratuit géré côté serveur).
   const onShare = () => {
     if (!user) { openAuthModal(); return }
-    if (!canPublish) { setUpsellOpen(true); return }
     setComposerOpen(true)
   }
 
@@ -80,9 +77,6 @@ export default function EnCeMomentClient() {
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
           Partager ce qui se passe
         </button>
-        {!canPublish && user && (
-          <p className="mt-2 text-center text-[11px] text-texte-doux">Réservé aux membres Habitants et Partenaires</p>
-        )}
       </div>
 
       {/* grille */}
@@ -127,6 +121,7 @@ export default function EnCeMomentClient() {
         <MomentViewer
           moments={moments}
           startIndex={viewerIndex}
+          backLabel="Voir tout"
           onClose={() => setViewerIndex(null)}
           onViewed={markViewedLocal}
           onDeleted={removeLocal}
@@ -134,13 +129,6 @@ export default function EnCeMomentClient() {
       )}
       {composerOpen && (
         <MomentComposer onClose={() => setComposerOpen(false)} onPublished={() => { setComposerOpen(false); setLoading(true); load() }} />
-      )}
-      {upsellOpen && (
-        <SubscriptionModal
-          context={{ kind: 'feature', featureLabel: 'Partager un moment', minPlan: 'habitants' }}
-          currentPlan={(profile?.plan ?? 'basic') as 'basic' | 'habitants' | 'pro'}
-          onClose={() => setUpsellOpen(false)}
-        />
       )}
 
       <BottomNavBar />
