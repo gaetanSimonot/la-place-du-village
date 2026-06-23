@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/server-auth'
-import { getContent, search } from '@/lib/newsletterContent'
+import { getContent, search, browseList } from '@/lib/newsletterContent'
 
 /**
  * GET /api/admin/newsletter/content
@@ -12,6 +12,9 @@ export async function GET(req: NextRequest) {
   if (ctx instanceof Response) return ctx
 
   const sp = new URL(req.url).searchParams
+  const browseKind = sp.get('browse')
+  if (browseKind) return NextResponse.json({ results: await browseList(browseKind) })
+
   const searchKind = sp.get('search')
   if (searchKind) {
     const q = (sp.get('q') ?? '').trim()

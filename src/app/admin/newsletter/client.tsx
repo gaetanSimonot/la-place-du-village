@@ -1,5 +1,6 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
@@ -206,31 +207,103 @@ function BlockEditor({ block: b, patch }: { block: NewsletterBlock; patch: (p: P
         <button onClick={() => patch({ mode: 'manual' } as Partial<NewsletterBlock>)} className="rounded-full px-3 py-1 text-[12px] font-bold" style={{ background: b.mode === 'manual' ? 'var(--primary)' : '#F0EAE0', color: b.mode === 'manual' ? '#fff' : '#7A6A5A' }}>Choisir</button>
       </div>
       {b.mode === 'auto'
-        ? <label className="flex items-center gap-2 text-[12px] text-texte-doux">Nombre : <input type="number" min={1} max={12} value={b.count} onChange={e => patch({ count: Math.max(1, Math.min(12, parseInt(e.target.value) || 1)) } as Partial<NewsletterBlock>)} className="w-16 rounded-lg border px-2 py-1 text-[13px]" style={{ borderColor: '#EDE6DA' }} /></label>
+        ? <label className="flex items-center gap-2 text-[12px] text-texte-doux">Nombre : <CountInput value={b.count} onCommit={n => patch({ count: n } as Partial<NewsletterBlock>)} /></label>
         : <ItemPicker kind={b.type} ids={b.ids} onChange={ids => patch({ ids } as Partial<NewsletterBlock>)} />}
     </div>
   )
 }
 
-// ── Picker générique (recherche + sélection) ────────────────────────────────
+// ── Champ nombre robuste (autorise l'effacement avant de retaper) ───────────
+function CountInput({ value, onCommit }: { value: number; onCommit: (n: number) => void }) {
+  const [v, setV] = useState(String(value))
+  useEffect(() => { setV(String(value)) }, [value])
+  const commit = () => { const n = Math.max(1, Math.min(12, parseInt(v, 10) || value)); onCommit(n); setV(String(n)) }
+  return <input type="number" min={1} max={12} value={v} onChange={e => setV(e.target.value)} onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} className="w-16 rounded-lg border px-2 py-1 text-[13px]" style={{ borderColor: '#EDE6DA' }} />
+}
+
+interface Pick { value: string; label: string; sub: string | null; image: string | null }
+
+// ── Picker : bouton + modal (parcourir tout + rechercher + cocher) ──────────
 function ItemPicker({ kind, ids, onChange }: { kind: string; ids: string[]; onChange: (ids: string[]) => void }) {
-  const [q, setQ] = useState('')
-  const [results, setResults] = useState<{ value: string; label: string; sub: string | null }[]>([])
+  const [open, setOpen] = useState(false)
   const [labels, setLabels] = useState<Record<string, string>>({})
 
+  useEffect(() => {
+    if (ids.length === 0) return
+    authedFetch(`/api/admin/newsletter/content?type=${kind}&ids=${ids.join(',')}`).then(async r => {
+      if (!r.ok) return
+      const items = (await r.json()).items ?? []
+      setLabels(l => { const n = { ...l }; ids.forEach((id, i) => { if (items[i]?.title) n[id] = items[i].title }); return n })
+    }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  return (
+    <div className="flex flex-col gap-2">
+      <button onClick={() => setOpen(true)} className="rounded-xl border-2 border-dashed py-2 text-[12.5px] font-bold text-texte-doux" style={{ borderColor: '#D8CFC2' }}>
+        {ids.length ? `Modifier la sélection (${ids.length})` : 'Choisir les éléments…'}
+      </button>
+      {ids.length > 0 && <div className="flex flex-wrap gap-1.5">{ids.map(v => <span key={v} className="inline-flex items-center gap-1.5 rounded-full border border-bord bg-white px-2.5 py-1 text-[11px] text-texte">{labels[v] ?? '…'}<button onClick={() => onChange(ids.filter(x => x !== v))} className="font-bold text-texte-doux">✕</button></span>)}</div>}
+      {open && <SectionPicker kind={kind} ids={ids} onSave={(newIds, newLabels) => { onChange(newIds); setLabels(l => ({ ...l, ...newLabels })); setOpen(false) }} onClose={() => setOpen(false)} />}
+    </div>
+  )
+}
+
+function SectionPicker({ kind, ids, onSave, onClose }: { kind: string; ids: string[]; onSave: (ids: string[], labels: Record<string, string>) => void; onClose: () => void }) {
+  const [candidates, setCandidates] = useState<Pick[] | null>(null)
+  const [q, setQ] = useState('')
+  const [results, setResults] = useState<Pick[]>([])
+  const [sel, setSel] = useState<string[]>(ids)
+  const [labels, setLabels] = useState<Record<string, string>>({})
+
+  useEffect(() => { authedFetch(`/api/admin/newsletter/content?browse=${kind}`).then(async r => setCandidates(r.ok ? ((await r.json()).results ?? []) : [])).catch(() => setCandidates([])) }, [kind])
   useEffect(() => {
     if (q.trim().length < 2) { setResults([]); return }
     const t = setTimeout(() => { authedFetch(`/api/admin/newsletter/content?search=${kind}&q=${encodeURIComponent(q.trim())}`).then(async r => { if (r.ok) setResults((await r.json()).results ?? []) }).catch(() => {}) }, 250)
     return () => clearTimeout(t)
   }, [q, kind])
 
-  const add = (v: string, label: string) => { if (!ids.includes(v)) onChange([...ids, v]); setLabels(l => ({ ...l, [v]: label })); setQ(''); setResults([]) }
-  return (
-    <div className="flex flex-col gap-2">
-      <input value={q} onChange={e => setQ(e.target.value)} placeholder="Rechercher et ajouter…" className={fieldCls} />
-      {results.length > 0 && <div className="overflow-hidden rounded-lg border" style={{ borderColor: '#EDE6DA' }}>{results.map(r => <button key={r.value} onClick={() => add(r.value, r.label)} className="block w-full border-b px-3 py-2 text-left text-[12.5px] text-texte" style={{ borderColor: '#F2ECE2' }}>{r.label}{r.sub ? ` · ${r.sub}` : ''}</button>)}</div>}
-      {ids.length > 0 && <div className="flex flex-wrap gap-1.5">{ids.map(v => <span key={v} className="inline-flex items-center gap-1.5 rounded-full border border-bord bg-white px-2.5 py-1 text-[11px] text-texte">{labels[v] ?? v}<button onClick={() => onChange(ids.filter(x => x !== v))} className="font-bold text-texte-doux">✕</button></span>)}</div>}
-    </div>
+  const list = q.trim().length >= 2 ? results : (candidates ?? [])
+  const toggle = (it: Pick) => { setSel(s => s.includes(it.value) ? s.filter(x => x !== it.value) : [...s, it.value]); setLabels(l => ({ ...l, [it.value]: it.label })) }
+
+  if (typeof document === 'undefined') return null
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1300, fontFamily: 'Inter, sans-serif' }}>
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight: '85vh', background: '#FBFAF7', borderRadius: '20px 20px 0 0', display: 'flex', flexDirection: 'column', paddingBottom: 'max(12px,env(safe-area-inset-bottom,12px))' }}>
+        <div style={{ width: 40, height: 4, borderRadius: 2, background: '#D1CCC4', margin: '12px auto 8px' }} />
+        <div style={{ padding: '0 16px' }}>
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Rechercher dans cette section…" style={{ width: '100%', boxSizing: 'border-box', padding: '11px 14px', borderRadius: 12, border: '1px solid #E5DDD2', fontSize: 14, outline: 'none' }} />
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {candidates === null && <p style={{ textAlign: 'center', color: '#9A8A7A', fontSize: 13, padding: 16 }}>Chargement…</p>}
+          {candidates !== null && list.length === 0 && <p style={{ textAlign: 'center', color: '#9A8A7A', fontSize: 13, padding: 16 }}>Aucun élément.</p>}
+          {list.map(it => {
+            const on = sel.includes(it.value)
+            return (
+              <button key={it.value} onClick={() => toggle(it)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 8, borderRadius: 12, border: `1.5px solid ${on ? 'var(--primary)' : '#EDE6DA'}`, background: on ? 'rgba(45,90,61,0.06)' : '#fff', cursor: 'pointer', textAlign: 'left' }}>
+                {it.image
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={it.image} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+                  : <span style={{ width: 44, height: 44, borderRadius: 8, background: '#EDE6DA', flexShrink: 0 }} />}
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#1A1209', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.label}</span>
+                  {it.sub && <span style={{ display: 'block', fontSize: 11, color: '#7A6A5A' }}>{it.sub}</span>}
+                </span>
+                <span style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: on ? 'var(--primary)' : '#fff', border: on ? 'none' : '1.5px solid #C4B9A8' }}>
+                  {on && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+        <div style={{ display: 'flex', gap: 8, padding: '8px 16px 0' }}>
+          <button onClick={onClose} style={{ flex: 1, padding: 12, borderRadius: 12, border: '1px solid #E5DDD2', background: '#fff', fontWeight: 700, fontSize: 13, color: '#7A6A5A', cursor: 'pointer' }}>Annuler</button>
+          <button onClick={() => onSave(sel, labels)} style={{ flex: 2, padding: 12, borderRadius: 12, border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>Valider ({sel.length})</button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   )
 }
 

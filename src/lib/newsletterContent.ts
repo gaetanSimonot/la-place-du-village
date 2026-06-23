@@ -110,6 +110,33 @@ export async function getContent(kind: string, count: number, ids: string[]): Pr
 // ── Recherche (pickers manuels) ─────────────────────────────────────────────
 export interface SearchResult { value: string; label: string; sub: string | null; image: string | null }
 
+/** Liste des candidats d'une section (pour le modal « choisir »). */
+export async function browseList(kind: string): Promise<SearchResult[]> {
+  if (kind === 'events') {
+    const { data } = await supabaseAdmin.from('evenements').select('id, titre, image_url, date_debut').eq('statut', 'publie').gte('date_debut', todayISO()).order('date_debut', { ascending: true }).limit(50)
+    return (data ?? []).map(e => ({ value: e.id as string, label: e.titre as string, sub: dateFr(e.date_debut as string | null), image: (e.image_url as string | null) ?? null }))
+  }
+  if (kind === 'promos') {
+    const { data } = await supabaseAdmin.from('promotions').select('id, title, image_url').eq('active', true).or('valid_until.is.null,valid_until.gte.' + new Date().toISOString()).order('created_at', { ascending: false }).limit(50)
+    return (data ?? []).map(p => ({ value: p.id as string, label: p.title as string, sub: null, image: (p.image_url as string | null) ?? null }))
+  }
+  if (kind === 'annonces') {
+    const { data } = await supabaseAdmin.from('annonces').select('id, titre, photos, ville').in('statut', ['active', 'don_final']).order('created_at', { ascending: false }).limit(50)
+    return (data ?? []).map(a => ({ value: a.id as string, label: a.titre as string, sub: (a.ville as string) ?? null, image: (a.photos as string[] | null)?.[0] ?? null }))
+  }
+  if (kind === 'partenaires') {
+    const [etabs, prods] = await Promise.all([
+      supabaseAdmin.from('etablissements').select('id, nom, photos, commune').order('nom', { ascending: true }).limit(30),
+      supabaseAdmin.from('producers').select('id, nom, photos, commune').order('nom', { ascending: true }).limit(30),
+    ])
+    return [
+      ...(etabs.data ?? []).map(e => ({ value: `etab:${e.id}`, label: e.nom as string, sub: (e.commune as string) ?? null, image: (e.photos as string[] | null)?.[0] ?? null })),
+      ...(prods.data ?? []).map(p => ({ value: `prod:${p.id}`, label: p.nom as string, sub: (p.commune as string) ?? null, image: (p.photos as string[] | null)?.[0] ?? null })),
+    ]
+  }
+  return []
+}
+
 export async function search(kind: string, q: string): Promise<SearchResult[]> {
   const like = `%${q}%`
   if (kind === 'events') {
