@@ -11,6 +11,7 @@ export async function POST(req: NextRequest) {
   if (!token || typeof optin !== 'boolean') {
     return NextResponse.json({ error: 'Requête invalide' }, { status: 400 })
   }
+  // 1) Profil avec compte
   const { data, error } = await supabaseAdmin
     .from('profiles')
     .update({ newsletter_optin: optin })
@@ -18,6 +19,15 @@ export async function POST(req: NextRequest) {
     .select('display_name')
     .maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (!data) return NextResponse.json({ error: 'Lien invalide ou expiré' }, { status: 404 })
-  return NextResponse.json({ success: true, name: data.display_name ?? null })
+  if (data) return NextResponse.json({ success: true, name: data.display_name ?? null })
+
+  // 2) Email externe (ajouté à la main) → le désabonnement = suppression
+  const { data: extra } = await supabaseAdmin
+    .from('newsletter_extra_emails').select('id').eq('token', token).maybeSingle()
+  if (extra) {
+    if (!optin) await supabaseAdmin.from('newsletter_extra_emails').delete().eq('id', extra.id)
+    return NextResponse.json({ success: true, name: null })
+  }
+
+  return NextResponse.json({ error: 'Lien invalide ou expiré' }, { status: 404 })
 }

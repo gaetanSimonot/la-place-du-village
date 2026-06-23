@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { PLANS_INFO, PLAN_ORDER, type Plan } from '@/lib/capabilities'
 import SubscriptionModal from '@/components/SubscriptionModal'
 import { GroupCard, NavRow, I } from '../shared'
+import NewsletterToggleCard from '../NewsletterToggleCard'
 import type { ReglagesSubView } from '../ReglagesView'
 
 interface Props {
@@ -169,6 +170,9 @@ export default function MonPlanTab({ plan, isAdmin, onOpenSub, onDeleteAccount }
           isLast
         />
       </GroupCard>
+
+      {/* Newsletter (tous les users) */}
+      <NewsletterToggleCard />
 
       {/* Administration (admin only) */}
       {isAdmin && (

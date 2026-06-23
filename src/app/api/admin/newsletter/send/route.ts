@@ -54,6 +54,15 @@ export async function POST(req: NextRequest) {
       }
     })
 
+  // Abonnés ajoutés à la main (sans compte) → inclus dans la liste "abonnés".
+  if (optin) {
+    const { data: extra } = await supabaseAdmin.from('newsletter_extra_emails').select('email, token')
+    ;(extra ?? []).forEach(x => {
+      const unsub = `${SITE}/newsletter?token=${x.token}&a=unsubscribe`
+      mails.push({ to: x.email as string, subject, html: renderEmail({ titre: subject, bodyHtml: body, footerHtml: `Tu reçois cet email car tu es abonné·e à la newsletter de La Place du Village.<br/><a href="${unsub}" style="color:#9A8A7A">Se désabonner en un clic</a>` }) })
+    })
+  }
+
   if (mails.length === 0) return NextResponse.json({ sent: 0, total: 0 })
 
   const { sent, error } = await sendBatch(mails)

@@ -19,6 +19,8 @@ export default function NewsletterAdminClient() {
   const { user, isAdmin, loading: authLoading } = useAuth()
 
   const [counts, setCounts] = useState<{ subscribers: number; nonSubscribers: number } | null>(null)
+  const [extra, setExtra] = useState<{ id: string; email: string }[]>([])
+  const [newEmail, setNewEmail] = useState('')
   const [audience, setAudience] = useState<Audience>('subscribers')
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
@@ -30,13 +32,27 @@ export default function NewsletterAdminClient() {
     if (!user || !isAdmin) router.replace('/')
   }, [authLoading, user, isAdmin, router])
 
-  // Compteurs
+  const load = async () => {
+    const r = await authedFetch('/api/admin/newsletter').catch(() => null)
+    if (r && r.ok) { const d = await r.json(); setCounts({ subscribers: d.subscribers, nonSubscribers: d.nonSubscribers }); setExtra(d.extra ?? []) }
+  }
   useEffect(() => {
     if (authLoading || !isAdmin) return
-    authedFetch('/api/admin/newsletter').then(async r => {
-      if (r.ok) setCounts(await r.json())
-    }).catch(() => {})
+    load()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, isAdmin])
+
+  const addEmail = async () => {
+    const e = newEmail.trim()
+    if (!e) return
+    const r = await authedFetch('/api/admin/newsletter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: e }) })
+    if (!r.ok) { const d = await r.json().catch(() => ({})); toast.error(d.error || 'Échec'); return }
+    setNewEmail(''); toast.success('Ajouté aux abonnés'); load()
+  }
+  const removeEmail = async (email: string) => {
+    const r = await authedFetch(`/api/admin/newsletter?email=${encodeURIComponent(email)}`, { method: 'DELETE' })
+    if (r.ok) { toast.success('Retiré'); load() }
+  }
 
   const pickAudience = (a: Audience) => {
     setAudience(a)
@@ -99,8 +115,29 @@ export default function NewsletterAdminClient() {
           : 'Envoi d’une invitation à s’abonner aux personnes pas encore abonnées (avec bouton « Je m’abonne »).'}
       </p>
 
+      {/* Ajout manuel d'abonnés (test / hors-ligne) */}
+      <div className="px-4 pt-3">
+        <label className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Ajouter un email aux abonnés</label>
+        <div className="flex gap-2">
+          <input value={newEmail} onChange={e => setNewEmail(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addEmail() }} type="email" placeholder="ton-email@gmail.com (pour tester)"
+            className="min-w-0 flex-1 rounded-xl border bg-white px-3.5 py-2.5 text-[14px] outline-none" style={{ borderColor: '#EDE6DA' }} />
+          <button onClick={addEmail} className="shrink-0 rounded-xl bg-primary px-4 text-[13px] font-bold text-white">Ajouter</button>
+        </div>
+        {extra.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {extra.map(x => (
+              <span key={x.id} className="inline-flex items-center gap-1.5 rounded-full border border-bord bg-white px-2.5 py-1 text-[11px] text-texte">
+                {x.email}
+                <button onClick={() => removeEmail(x.email)} className="font-bold text-texte-doux">✕</button>
+              </span>
+            ))}
+          </div>
+        )}
+        <p className="mt-1.5 text-[11px] text-texte-doux">Astuce test : ajoute ton email ici, sélectionne « Abonnés », puis envoie.</p>
+      </div>
+
       {/* Compose */}
-      <div className="px-4 pt-2">
+      <div className="px-4 pt-4">
         <label className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">Sujet</label>
         <input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Objet de l’email"
           className="w-full rounded-xl border bg-white px-3.5 py-2.5 text-[14px] text-texte outline-none" style={{ borderColor: '#EDE6DA' }} />
