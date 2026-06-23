@@ -106,13 +106,24 @@ export default function NewsletterAdminClient() {
     const subj = (audience === 'subscribers' ? subject : inviteSubject).trim()
     if (!subj) { toast.error('Objet requis'); return }
     if (recipientCount === 0) { toast.error('Aucun destinataire'); return }
-    if (!confirm(`Envoyer à ${recipientCount} personne${recipientCount > 1 ? 's' : ''} ?`)) return
+    const stagger = audience === 'subscribers' && recipientCount > 90
+    const confirmMsg = stagger
+      ? `Envoyer à ${recipientCount} abonnés ? L’envoi sera étalé sur ~${Math.ceil(recipientCount / 90)} jours (90/jour, limite Resend).`
+      : `Envoyer à ${recipientCount} personne${recipientCount > 1 ? 's' : ''} ?`
+    if (!confirm(confirmMsg)) return
     setSending(true)
     try {
       const r = await authedFetch('/api/admin/newsletter/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ audience, subject: subj, blocks, invite }) })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(d.error || 'Échec')
-      toast.success(`Envoyé à ${d.sent}/${d.total}`)
+      if (d.queued) {
+        const remaining = Math.max(0, (d.total ?? 0) - (d.sent ?? 0))
+        toast.success(remaining > 0
+          ? `${d.sent} envoyés aujourd’hui · ${remaining} restants étalés (~${d.perDay}/jour)`
+          : `Envoyé à ${d.sent} abonné${d.sent > 1 ? 's' : ''}`)
+      } else {
+        toast.success(`Envoyé à ${d.sent}/${d.total}`)
+      }
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Erreur') } finally { setSending(false) }
   }
 

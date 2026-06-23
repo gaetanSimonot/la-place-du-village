@@ -13,6 +13,10 @@ import { sendEmail } from '@/lib/email'
 const SITE = 'https://laplaceduvillage.app'
 const KEY = 'newsletter_current'
 
+/** Plafond d'envois par passage (Resend gratuit = 100/jour ; on garde du mou
+ *  pour les abonnements instantanés). Le cron quotidien draine le reste. */
+export const DAILY_LIMIT = 90
+
 export interface CurrentEdition { subject: string; body: string; sentAt: string }
 
 export async function getCurrentEdition(): Promise<CurrentEdition | null> {
@@ -57,7 +61,7 @@ export async function welcomeExtra(email: string): Promise<void> {
 }
 
 /** Rattrapage (cron) : envoie l'édition active à tous les abonnés en retard. */
-export async function welcomeBacklog(limit = 80): Promise<number> {
+export async function welcomeBacklog(limit = DAILY_LIMIT): Promise<number> {
   const ed = await getCurrentEdition()
   if (!ed) return 0
   let sent = 0

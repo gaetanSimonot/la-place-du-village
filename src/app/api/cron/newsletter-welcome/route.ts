@@ -16,6 +16,6 @@ export async function GET(req: NextRequest) {
   const ok = secret ? auth === `Bearer ${secret}` : ua.toLowerCase().includes('vercel-cron')
   if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const sent = await welcomeBacklog(100)
+  const sent = await welcomeBacklog()   // plafond DAILY_LIMIT (Resend 100/jour)
   return NextResponse.json({ sent })
 }
