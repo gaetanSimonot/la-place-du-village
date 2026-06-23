@@ -31,6 +31,8 @@ export default function NewsletterAdminClient() {
   const [addOpen, setAddOpen] = useState(false)
   const [sending, setSending] = useState(false)
   const [previewHtml, setPreviewHtml] = useState('')
+  const [loaded, setLoaded] = useState(false)         // brouillon serveur chargé
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const dragIdx = useRef<number | null>(null)
 
   useEffect(() => { if (!authLoading && (!user || !isAdmin)) router.replace('/') }, [authLoading, user, isAdmin, router])
@@ -39,6 +41,34 @@ export default function NewsletterAdminClient() {
     try { const raw = localStorage.getItem(LS_KEY); if (raw) { const d = JSON.parse(raw); if (Array.isArray(d.blocks)) setBlocks(d.blocks); if (d.subject) setSubject(d.subject); if (d.invite) setInvite(d.invite); if (d.inviteSubject) setInviteSubject(d.inviteSubject) } } catch { /* noop */ }
   }, [])
   useEffect(() => { try { localStorage.setItem(LS_KEY, JSON.stringify({ blocks, subject, invite, inviteSubject })) } catch { /* noop */ } }, [blocks, subject, invite, inviteSubject])
+
+  // Chargement du brouillon SERVEUR (prioritaire sur localStorage). Une fois
+  // chargé, l'autosave serveur s'active.
+  useEffect(() => {
+    if (authLoading || !isAdmin) return
+    authedFetch('/api/admin/newsletter/draft').then(async r => {
+      if (r.ok) {
+        const d = (await r.json()).draft
+        if (d) {
+          if (Array.isArray(d.blocks) && d.blocks.length) setBlocks(d.blocks)
+          if (typeof d.subject === 'string') setSubject(d.subject)
+          if (typeof d.inviteSubject === 'string' && d.inviteSubject) setInviteSubject(d.inviteSubject)
+          if (d.invite) setInvite(d.invite)
+        }
+      }
+    }).catch(() => {}).finally(() => setLoaded(true))
+  }, [authLoading, isAdmin])
+
+  // Autosave SERVEUR (continu, débounce) — actif après le 1er chargement.
+  useEffect(() => {
+    if (!loaded) return
+    setSaveState('saving')
+    const t = setTimeout(async () => {
+      const r = await authedFetch('/api/admin/newsletter/draft', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subject, inviteSubject, blocks, invite }) }).catch(() => null)
+      setSaveState(r && r.ok ? 'saved' : 'idle')
+    }, 800)
+    return () => clearTimeout(t)
+  }, [loaded, blocks, subject, invite, inviteSubject])
 
   const load = useCallback(async () => {
     const r = await authedFetch('/api/admin/newsletter').catch(() => null)
@@ -167,7 +197,7 @@ export default function NewsletterAdminClient() {
       {/* Envoi */}
       <div className="px-4 pt-5">
         <button onClick={send} disabled={sending} className="flex w-full items-center justify-center rounded-2xl border-none bg-primary py-3.5 text-[14px] font-extrabold text-white disabled:opacity-60">{sending ? 'Envoi…' : `Envoyer à ${recipientCount} destinataire${recipientCount > 1 ? 's' : ''}`}</button>
-        <p className="mt-2 text-center text-[11px] text-texte-doux">Depuis lettre@laplaceduvillage.app · brouillon sauvegardé</p>
+        <p className="mt-2 text-center text-[11px] text-texte-doux">Depuis lettre@laplaceduvillage.app · {saveState === 'saving' ? 'enregistrement…' : 'enregistré sur le serveur ✓'}</p>
       </div>
     </div>
   )
