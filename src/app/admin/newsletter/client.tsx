@@ -10,7 +10,7 @@ import { makeBlock, starterBlocks, BLOCK_LABELS, type NewsletterBlock, type Bloc
 
 type Audience = 'subscribers' | 'non_subscribers'
 const LS_KEY = 'newsletter_draft_v2'
-const ADD_TYPES: BlockType[] = ['header', 'text', 'events', 'promos', 'annonces', 'partenaires', 'journal', 'button', 'image', 'separator']
+const ADD_TYPES: BlockType[] = ['header', 'text', 'events', 'promos', 'annonces', 'partenaires', 'journal', 'article', 'button', 'image', 'separator']
 interface Invite { titre: string; message: string; imageUrl: string }
 
 function reorder<T>(arr: T[], from: number, to: number): T[] { const a = arr.slice(); const [x] = a.splice(from, 1); a.splice(to, 0, x); return a }
@@ -276,6 +276,12 @@ function BlockEditor({ block: b, patch }: { block: NewsletterBlock; patch: (p: P
   if (b.type === 'image') return <ImageField label="Image" url={b.url} onChange={url => patch({ url } as Partial<NewsletterBlock>)} />
   if (b.type === 'separator') return <p className="text-center text-[12px] text-texte-doux">— ligne de séparation —</p>
   if (b.type === 'journal') return <input value={b.titre} onChange={e => patch({ titre: e.target.value } as Partial<NewsletterBlock>)} placeholder="Titre de la section" className={fieldCls} />
+  if (b.type === 'article') return (
+    <div className="flex flex-col gap-2">
+      <input value={b.titre} onChange={e => patch({ titre: e.target.value } as Partial<NewsletterBlock>)} placeholder="Titre de la section" className={fieldCls} />
+      <ItemPicker kind="article" ids={b.ids} onChange={ids => patch({ ids } as Partial<NewsletterBlock>)} />
+    </div>
+  )
   if (b.type === 'partenaires') return (
     <div className="flex flex-col gap-2">
       <input value={b.titre} onChange={e => patch({ titre: e.target.value } as Partial<NewsletterBlock>)} placeholder="Titre de la section" className={fieldCls} />

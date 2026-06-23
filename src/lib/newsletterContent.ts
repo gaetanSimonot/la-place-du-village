@@ -82,6 +82,19 @@ export async function getJournal(): Promise<ContentItem[]> {
   return [{ title: (j.cover_titre as string) || `Journal du Village n°${j.numero}`, sub: `Numéro ${j.numero}`, image: (j.cover_image_url as string | null) ?? null, href: `${SITE}/journal/${j.numero}` }]
 }
 
+// ── Articles du Journal ─────────────────────────────────────────────────────
+function excerpt(t: string | null, n = 120): string | null {
+  if (!t) return null
+  const s = String(t).replace(/<[^>]+>/g, ' ').replace(/[#*_>`]/g, ' ').replace(/\s+/g, ' ').trim()
+  return s ? (s.length > n ? s.slice(0, n).trimEnd() + '…' : s) : null
+}
+export async function getArticles(ids: string[]): Promise<ContentItem[]> {
+  if (!ids.length) return []
+  const { data } = await supabaseAdmin.from('articles_journal').select('id, titre, corps, photo_url').in('id', ids)
+  const rows = orderByIds((data ?? []) as { id: string }[], ids) as Record<string, unknown>[]
+  return rows.map(a => ({ title: (a.titre as string) ?? 'Article', sub: excerpt(a.corps as string | null), image: (a.photo_url as string | null) ?? null, href: `${SITE}/journal/articles/${a.id}/view` }))
+}
+
 // ── Partenaires ─────────────────────────────────────────────────────────────
 export async function getPartenaires(ids: string[]): Promise<ContentItem[]> {
   const etabIds = ids.filter(i => i.startsWith('etab:')).map(i => i.slice(5))
@@ -102,6 +115,7 @@ export async function getContent(kind: string, count: number, ids: string[]): Pr
     case 'promos':      return getPromos(count, ids)
     case 'annonces':    return getAnnonces(count, ids)
     case 'journal':     return getJournal()
+    case 'article':     return getArticles(ids)
     case 'partenaires': return getPartenaires(ids)
     default:            return []
   }
@@ -123,6 +137,10 @@ export async function browseList(kind: string): Promise<SearchResult[]> {
   if (kind === 'annonces') {
     const { data } = await supabaseAdmin.from('annonces').select('id, titre, photos, ville').in('statut', ['active', 'don_final']).order('created_at', { ascending: false }).limit(50)
     return (data ?? []).map(a => ({ value: a.id as string, label: a.titre as string, sub: (a.ville as string) ?? null, image: (a.photos as string[] | null)?.[0] ?? null }))
+  }
+  if (kind === 'article') {
+    const { data } = await supabaseAdmin.from('articles_journal').select('id, titre, photo_url').eq('statut', 'publie').order('created_at', { ascending: false }).limit(50)
+    return (data ?? []).map(a => ({ value: a.id as string, label: a.titre as string, sub: null, image: (a.photo_url as string | null) ?? null }))
   }
   if (kind === 'partenaires') {
     const [etabs, prods] = await Promise.all([
@@ -150,6 +168,10 @@ export async function search(kind: string, q: string): Promise<SearchResult[]> {
   if (kind === 'annonces') {
     const { data } = await supabaseAdmin.from('annonces').select('id, titre, photos, ville').in('statut', ['active', 'don_final']).ilike('titre', like).limit(10)
     return (data ?? []).map(a => ({ value: a.id as string, label: a.titre as string, sub: (a.ville as string) ?? null, image: (a.photos as string[] | null)?.[0] ?? null }))
+  }
+  if (kind === 'article') {
+    const { data } = await supabaseAdmin.from('articles_journal').select('id, titre, photo_url').eq('statut', 'publie').ilike('titre', like).limit(10)
+    return (data ?? []).map(a => ({ value: a.id as string, label: a.titre as string, sub: null, image: (a.photo_url as string | null) ?? null }))
   }
   if (kind === 'partenaires') {
     const [etabs, prods] = await Promise.all([

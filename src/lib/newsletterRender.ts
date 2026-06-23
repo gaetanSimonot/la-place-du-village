@@ -10,7 +10,18 @@ const esc = (s: string) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'
 const textHtml = (t: string) => t.split(/\n{2,}/).map(p => `<p style="margin:0 0 12px;line-height:1.6;font-size:15px;color:#2C1810">${esc(p).replace(/\n/g, '<br/>')}</p>`).join('')
 
 const SEE_ALL: Record<string, string> = {
-  events: `${SITE}/agenda`, promos: `${SITE}/promotions`, annonces: `${SITE}/annonces`, partenaires: `${SITE}/annuaire`,
+  events: `${SITE}/agenda`, promos: `${SITE}/promotions`, annonces: `${SITE}/annonces`, partenaires: `${SITE}/annuaire`, article: `${SITE}/journal/articles`,
+}
+
+function articleCard(it: ContentItem): string {
+  return `<a href="${esc(it.href)}" style="display:block;text-decoration:none;color:#1A1209;border:1px solid #EAE2D6;border-radius:12px;overflow:hidden;margin:0 0 10px">
+    ${it.image ? `<img src="${esc(it.image)}" alt="" width="528" style="display:block;width:100%;max-height:180px;object-fit:cover"/>` : ''}
+    <div style="padding:14px 16px">
+      <div style="font-weight:800;font-size:17px;color:#1A1209;line-height:1.25">${esc(it.title)}</div>
+      ${it.sub ? `<div style="font-size:13px;color:#7A6A5A;margin-top:6px;line-height:1.55">${esc(it.sub)}</div>` : ''}
+      <div style="margin-top:10px;font-size:13px;font-weight:800;color:#2D5A3D">Lire l’article →</div>
+    </div>
+  </a>`
 }
 
 function sectionHeader(titre: string, seeAllHref?: string): string {
@@ -69,6 +80,11 @@ async function renderBlock(b: NewsletterBlock): Promise<string> {
       const items = await getContent('journal', 1, [])
       if (!items.length) return ''
       return `<div style="margin:14px 0">${sectionHeader(b.titre)}${journalCard(items[0])}</div>`
+    }
+    case 'article': {
+      const items = await getContent('article', 0, b.ids)
+      if (!items.length) return ''
+      return `<div style="margin:14px 0">${sectionHeader(b.titre, SEE_ALL.article)}${items.map(articleCard).join('')}</div>`
     }
     case 'events':
     case 'promos':

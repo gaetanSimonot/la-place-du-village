@@ -19,6 +19,7 @@ export type NewsletterBlock =
   | ({ id: string; type: 'promos' } & ListBlockBase)
   | ({ id: string; type: 'annonces' } & ListBlockBase)
   | { id: string; type: 'journal'; titre: string }
+  | { id: string; type: 'article'; titre: string; ids: string[] }       // articles_journal choisis
   | { id: string; type: 'partenaires'; titre: string; ids: string[] }   // "etab:<id>" | "prod:<id>"
 
 export type BlockType = NewsletterBlock['type']
@@ -50,6 +51,7 @@ export function makeBlock(type: BlockType): NewsletterBlock {
     case 'promos':      return { id, type, titre: 'Les bons plans', mode: 'auto', count: 4, ids: [] }
     case 'annonces':    return { id, type, titre: 'Dans les annonces', mode: 'auto', count: 4, ids: [] }
     case 'journal':     return { id, type, titre: 'Le Journal du Village' }
+    case 'article':     return { id, type, titre: 'À lire dans le Journal', ids: [] }
     case 'partenaires': return { id, type, titre: 'Nos coups de cœur', ids: [] }
   }
 }
@@ -73,5 +75,6 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   promos: 'Bons plans / Promos',
   annonces: 'Annonces',
   journal: 'Le Journal',
+  article: 'Article du Journal',
   partenaires: 'Coups de cœur partenaires',
 }
