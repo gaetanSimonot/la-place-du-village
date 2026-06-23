@@ -7,7 +7,7 @@
 const FROM = process.env.NEWSLETTER_FROM ?? 'La Place du Village <lettre@laplaceduvillage.app>'
 const SITE = 'https://laplaceduvillage.app'
 
-interface Mail { to: string; subject: string; html: string }
+interface Mail { to: string; subject: string; html: string; headers?: Record<string, string> }
 
 /** Envoie un email unique. Retourne { ok, error? }. */
 export async function sendEmail(mail: Mail): Promise<{ ok: boolean; error?: string }> {
@@ -17,7 +17,7 @@ export async function sendEmail(mail: Mail): Promise<{ ok: boolean; error?: stri
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: FROM, to: mail.to, subject: mail.subject, html: mail.html }),
+      body: JSON.stringify({ from: FROM, to: mail.to, subject: mail.subject, html: mail.html, ...(mail.headers ? { headers: mail.headers } : {}) }),
     })
     if (!r.ok) return { ok: false, error: (await r.text().catch(() => '')).slice(0, 200) }
     return { ok: true }
@@ -35,7 +35,7 @@ export async function sendBatch(mails: Mail[]): Promise<{ sent: number; error?: 
   if (!key) return { sent: 0, error: 'RESEND_API_KEY manquante' }
   let sent = 0
   for (let i = 0; i < mails.length; i += 100) {
-    const chunk = mails.slice(i, i + 100).map(m => ({ from: FROM, to: m.to, subject: m.subject, html: m.html }))
+    const chunk = mails.slice(i, i + 100).map(m => ({ from: FROM, to: m.to, subject: m.subject, html: m.html, ...(m.headers ? { headers: m.headers } : {}) }))
     try {
       const r = await fetch('https://api.resend.com/emails/batch', {
         method: 'POST',

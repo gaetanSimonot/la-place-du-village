@@ -34,6 +34,15 @@ function editionHtml(body: string, token: string): string {
   return wrapNewsletter(body, `Tu reçois cet email car tu es abonné·e à la newsletter de La Place du Village.<br/><a href="${unsub}" style="color:#9A8A7A">Se désabonner en un clic</a>`)
 }
 
+/** En-têtes RFC 8058 : désabonnement « 1 clic » natif (Gmail/Outlook/Apple). */
+function unsubHeaders(token: string): Record<string, string> {
+  const url = `${SITE}/api/newsletter/unsubscribe?token=${token}`
+  return {
+    'List-Unsubscribe': `<${url}>, <mailto:lettre@laplaceduvillage.app?subject=unsubscribe>`,
+    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+  }
+}
+
 const needsSend = (welcomedAt: string | null | undefined, sentAt: string) => !welcomedAt || welcomedAt < sentAt
 
 /** Envoie l'édition active à un profil s'il ne l'a pas déjà reçue. */
@@ -43,7 +52,7 @@ export async function welcomeProfile(userId: string): Promise<void> {
   const { data } = await supabaseAdmin.from('profiles').select('email, newsletter_token, newsletter_welcomed_at').eq('user_id', userId).maybeSingle()
   if (!data?.email) return
   if (!needsSend(data.newsletter_welcomed_at as string | null, ed.sentAt)) return
-  const r = await sendEmail({ to: data.email as string, subject: ed.subject, html: editionHtml(ed.body, String(data.newsletter_token)) })
+  const r = await sendEmail({ to: data.email as string, subject: ed.subject, html: editionHtml(ed.body, String(data.newsletter_token)), headers: unsubHeaders(String(data.newsletter_token)) })
   if (!r.ok) return   // échec (ex. quota) → on ne marque PAS → le cron réessaiera
   await supabaseAdmin.from('profiles').update({ newsletter_welcomed_at: new Date().toISOString() }).eq('user_id', userId)
 }
@@ -55,7 +64,7 @@ export async function welcomeExtra(email: string): Promise<void> {
   const { data } = await supabaseAdmin.from('newsletter_extra_emails').select('token, welcomed_at').eq('email', email).maybeSingle()
   if (!data) return
   if (!needsSend(data.welcomed_at as string | null, ed.sentAt)) return
-  const r = await sendEmail({ to: email, subject: ed.subject, html: editionHtml(ed.body, String(data.token)) })
+  const r = await sendEmail({ to: email, subject: ed.subject, html: editionHtml(ed.body, String(data.token)), headers: unsubHeaders(String(data.token)) })
   if (!r.ok) return   // échec (ex. quota) → on ne marque PAS → le cron réessaiera
   await supabaseAdmin.from('newsletter_extra_emails').update({ welcomed_at: new Date().toISOString() }).eq('email', email)
 }
@@ -72,7 +81,7 @@ export async function welcomeBacklog(limit = DAILY_LIMIT): Promise<number> {
     .or(`newsletter_welcomed_at.is.null,newsletter_welcomed_at.lt.${ed.sentAt}`)
     .limit(limit)
   for (const p of profs ?? []) {
-    const r = await sendEmail({ to: p.email as string, subject: ed.subject, html: editionHtml(ed.body, String(p.newsletter_token)) })
+    const r = await sendEmail({ to: p.email as string, subject: ed.subject, html: editionHtml(ed.body, String(p.newsletter_token)), headers: unsubHeaders(String(p.newsletter_token)) })
     if (!r.ok) return sent   // quota/erreur → on s'arrête, le prochain cron reprendra
     await supabaseAdmin.from('profiles').update({ newsletter_welcomed_at: new Date().toISOString() }).eq('user_id', p.user_id)
     sent++
@@ -83,7 +92,7 @@ export async function welcomeBacklog(limit = DAILY_LIMIT): Promise<number> {
     .or(`welcomed_at.is.null,welcomed_at.lt.${ed.sentAt}`)
     .limit(limit)
   for (const x of extras ?? []) {
-    const r = await sendEmail({ to: x.email as string, subject: ed.subject, html: editionHtml(ed.body, String(x.token)) })
+    const r = await sendEmail({ to: x.email as string, subject: ed.subject, html: editionHtml(ed.body, String(x.token)), headers: unsubHeaders(String(x.token)) })
     if (!r.ok) return sent
     await supabaseAdmin.from('newsletter_extra_emails').update({ welcomed_at: new Date().toISOString() }).eq('email', x.email)
     sent++
