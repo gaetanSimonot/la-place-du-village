@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { shareLink } from '@/lib/share'
+import FollowButton from '@/components/FollowButton'
 import { momentAge, type Moment, type MomentCommentaire } from '@/lib/moments'
 
 interface Props {
@@ -18,197 +19,68 @@ interface Props {
 
 const PHOTO_SEC = 5
 
+/**
+ * Fil vertical type TikTok : une vidéo par "page", scroll-snap vertical,
+ * autoplay de la slide visible, avance auto à la fin, tap = pause/play +
+ * timeline, ✕ en haut à gauche, infos auteur + commentaires en bas.
+ */
 export default function MomentViewer({ moments, startIndex, onClose, onDeleted, onViewed }: Props) {
-  const router = useRouter()
-  const { user, isAdmin } = useAuth()
-  const [idx, setIdx] = useState(startIndex)
-  const [paused, setPaused] = useState(false)
-  const [commentsOpen, setCommentsOpen] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
-  // État like/compteurs local (copie mutable du moment courant)
-  const [likeState, setLikeState] = useState<Record<string, { liked: boolean; likes: number; comments: number }>>({})
+  const containerRef = useRef<HTMLDivElement>(null)
+  const slideRefs = useRef<(HTMLDivElement | null)[]>([])
+  const [items, setItems] = useState(moments)
+  const [commentsFor, setCommentsFor] = useState<string | null>(null)
 
-  const touchStart = useRef<{ x: number; y: number } | null>(null)
-
-  const m = moments[idx]
-  const live = m ? (likeState[m.id] ?? { liked: m.liked, likes: m.likes, comments: m.comments }) : { liked: false, likes: 0, comments: 0 }
-
-  const next = () => { if (idx < moments.length - 1) setIdx(i => i + 1); else onClose() }
-  const prev = () => { if (idx > 0) setIdx(i => i - 1) }
-
-  // Marquer "vu" à chaque ouverture de moment
+  // Positionne sur la slide de départ au montage (sans animation)
   useEffect(() => {
-    if (!m || !user) return
-    onViewed?.(m.id)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session?.access_token) return
-      fetch(`/api/moments/${m.id}/vue`, { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` } }).catch(() => {})
-    })
+    const el = slideRefs.current[startIndex]
+    if (el) el.scrollIntoView({ behavior: 'auto' })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idx])
+  }, [])
 
-  if (typeof document === 'undefined' || !m) return null
-
-  const dur = m.media_kind === 'video' ? (m.duree_sec ?? 8) : PHOTO_SEC
-
-  const toggleLike = async () => {
-    if (!user) { toast('Connecte-toi pour réagir'); return }
-    const cur = likeState[m.id] ?? { liked: m.liked, likes: m.likes, comments: m.comments }
-    const optimistic = { ...cur, liked: !cur.liked, likes: cur.likes + (cur.liked ? -1 : 1) }
-    setLikeState(s => ({ ...s, [m.id]: optimistic }))
-    const { data: { session } } = await supabase.auth.getSession()
-    const r = await fetch(`/api/moments/${m.id}/like`, { method: 'POST', headers: { Authorization: `Bearer ${session?.access_token}` } }).catch(() => null)
-    if (r && r.ok) { const d = await r.json(); setLikeState(s => ({ ...s, [m.id]: { ...optimistic, liked: d.liked, likes: d.likes } })) }
+  const goToIndex = (i: number) => {
+    const el = slideRefs.current[i]
+    if (el) el.scrollIntoView({ behavior: 'smooth' })
   }
 
-  const share = () => shareLink({ title: 'En ce moment', text: m.legende ?? 'Un moment sur La Place du Village', url: `${typeof window !== 'undefined' ? window.location.origin : ''}/en-ce-moment?m=${m.id}` })
-
-  const openCible = () => {
-    if (!m.cible) return
-    if (m.cible.type === 'evenement') router.push(`/evenement/${m.cible.id}`)
-    else if (m.cible.type === 'etablissement') router.push(`/etablissement/${m.cible.id}`)
+  const removeLocal = (id: string) => {
+    setItems(list => list.filter(m => m.id !== id))
+    onDeleted?.(id)
   }
 
-  const del = async () => {
-    if (!confirm('Supprimer ce moment ?')) return
-    const { data: { session } } = await supabase.auth.getSession()
-    const r = await fetch(`/api/moments/${m.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${session?.access_token}` } })
-    if (!r.ok) { toast.error('Suppression échouée'); return }
-    toast.success('Moment supprimé')
-    onDeleted?.(m.id)
-    onClose()
-  }
-
-  const canDelete = isAdmin || (user && user.id === m.auteur_id)
-
-  // Gestes — on ignore les taps qui partent d'un contrôle (boutons ⋯/✕/like/
-  // commentaire/partage/fiche) ou quand une feuille (menu/commentaires) est
-  // ouverte, sinon la zone tactile "suivant/précédent" mange le clic.
-  const isInteractive = (t: EventTarget | null) => !!(t as HTMLElement | null)?.closest?.('button, a, input, textarea')
-  const onTouchStart = (e: React.TouchEvent) => {
-    if (menuOpen || commentsOpen || isInteractive(e.target)) { touchStart.current = null; return }
-    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
-  }
-  const onTouchEnd = (e: React.TouchEvent) => {
-    if (!touchStart.current || isInteractive(e.target)) { touchStart.current = null; return }
-    const dx = e.changedTouches[0].clientX - touchStart.current.x
-    const dy = e.changedTouches[0].clientY - touchStart.current.y
-    touchStart.current = null
-    if (Math.abs(dy) > 80 && Math.abs(dy) > Math.abs(dx)) {
-      if (dy > 0) onClose()              // swipe bas → fermer
-      else openCible()                   // swipe haut → ouvrir la fiche
-      return
-    }
-    // tap zones (si pas un swipe horizontal franc)
-    if (Math.abs(dx) < 40 && Math.abs(dy) < 40) {
-      const x = e.changedTouches[0].clientX
-      if (x < window.innerWidth * 0.32) prev(); else next()
-    }
-  }
+  if (typeof document === 'undefined') return null
+  if (items.length === 0) { onClose(); return null }
 
   return createPortal(
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1300, background: '#0D0906', fontFamily: 'Inter, sans-serif', overflow: 'hidden' }}
-      onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-      <style>{`@keyframes momentfill { from { width: 0% } to { width: 100% } }`}</style>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1300, background: '#000', fontFamily: 'Inter, sans-serif' }}>
+      <style>{`.reel-scroll::-webkit-scrollbar{display:none}`}</style>
 
-      {/* média */}
-      {m.media_kind === 'video' ? (
-        <video
-          key={m.id} src={m.media_url} autoPlay playsInline onEnded={next}
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-          ref={el => {
-            if (!el) return
-            el.muted = false
-            if (paused) { el.pause(); return }
-            el.play().catch(() => { el.muted = true; el.play().catch(() => {}) })
-          }}
-        />
-      ) : (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={m.media_url} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-      )}
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.5) 0%, transparent 22%, transparent 55%, rgba(0,0,0,0.85) 100%)' }} />
+      {/* ✕ fermer (seul élément en haut à gauche) */}
+      <button onClick={onClose} aria-label="Fermer"
+        style={{ position: 'absolute', top: 'max(14px,env(safe-area-inset-top,14px))', left: 12, zIndex: 30, width: 38, height: 38, borderRadius: '50%', background: 'rgba(0,0,0,0.4)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
 
-      {/* progress bars */}
-      <div style={{ position: 'absolute', top: 'max(12px,env(safe-area-inset-top,12px))', left: 12, right: 12, display: 'flex', gap: 4, zIndex: 5 }}>
-        {moments.map((_, i) => (
-          <div key={i} style={{ flex: 1, height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.3)', overflow: 'hidden' }}>
-            <div style={{ height: '100%', borderRadius: 2, background: '#fff',
-              width: i < idx ? '100%' : i === idx ? undefined : '0%',
-              animation: i === idx ? `momentfill ${dur}s linear forwards` : undefined,
-              animationPlayState: paused ? 'paused' : 'running' }}
-              onAnimationEnd={i === idx ? next : undefined} />
+      <div ref={containerRef} className="reel-scroll"
+        style={{ height: '100dvh', overflowY: 'scroll', scrollSnapType: 'y mandatory', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
+        {items.map((m, i) => (
+          <div key={m.id} ref={el => { slideRefs.current[i] = el }}
+            style={{ height: '100dvh', scrollSnapAlign: 'start', position: 'relative' }}>
+            <ReelSlide
+              moment={m}
+              containerRef={containerRef}
+              onEnded={() => goToIndex(i + 1)}
+              onActive={() => onViewed?.(m.id)}
+              onOpenComments={() => setCommentsFor(m.id)}
+              onDeleted={() => removeLocal(m.id)}
+            />
           </div>
         ))}
       </div>
 
-      {/* header */}
-      <div style={{ position: 'absolute', top: 'calc(max(12px,env(safe-area-inset-top,12px)) + 14px)', left: 12, right: 12, display: 'flex', alignItems: 'center', gap: 10, zIndex: 6 }}>
-        <div style={{ width: 34, height: 34, borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(255,255,255,0.9)', background: '#A85138', flexShrink: 0 }}>
-          {m.auteur_avatar && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={m.auteur_avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          )}
-        </div>
-        <div style={{ flex: 1, color: '#fff', minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.auteur_nom}</div>
-          <div style={{ fontSize: 10.5, opacity: 0.8 }}>il y a {momentAge(m.created_at)}</div>
-        </div>
-        {canDelete && (
-          <button onClick={() => setMenuOpen(o => !o)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
-          </button>
-        )}
-        <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </div>
-
-      {menuOpen && canDelete && (
-        <div style={{ position: 'absolute', top: 90, right: 14, zIndex: 8, background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.3)' }}>
-          <button onClick={del} style={{ display: 'block', padding: '11px 18px', background: 'none', border: 'none', color: '#C0392B', fontSize: 13, fontWeight: 700, cursor: 'pointer', width: '100%', textAlign: 'left' }}>Supprimer</button>
-        </div>
-      )}
-
-      {/* pause au centre (tap simple via bouton) */}
-      <button onClick={() => setPaused(p => !p)} aria-label="Pause/Play"
-        style={{ position: 'absolute', top: '44%', left: '50%', transform: 'translate(-50%,-50%)', width: 64, height: 64, borderRadius: '50%', background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(6px)', border: '1px solid rgba(255,255,255,0.22)', color: '#fff', display: paused ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', zIndex: 4, cursor: 'pointer' }}>
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="#fff"><polygon points="6 4 20 12 6 20 6 4"/></svg>
-      </button>
-
-      {/* caption + actions */}
-      <div style={{ position: 'absolute', left: 14, right: 14, bottom: 'max(24px,env(safe-area-inset-bottom,24px))', zIndex: 5, display: 'flex', alignItems: 'flex-end', gap: 14 }}>
-        <div style={{ flex: 1, color: '#fff', minWidth: 0 }}>
-          {m.cible && (
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginBottom: 8, fontSize: 10, fontWeight: 700, color: '#fff', background: 'rgba(255,255,255,0.16)', backdropFilter: 'blur(6px)', padding: '3px 8px', borderRadius: 999 }}>📍 {m.cible.nom}</div>
-          )}
-          {m.legende && <div style={{ fontFamily: '"DM Serif Display", Georgia, serif', fontSize: 19, lineHeight: 1.25 }}>{m.legende}</div>}
-          {m.cible && (m.cible.type === 'evenement' || m.cible.type === 'etablissement') && (
-            <button onClick={openCible} style={{ marginTop: 12, padding: '10px 16px', borderRadius: 999, background: 'rgba(255,255,255,0.16)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              Voir la fiche <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg>
-            </button>
-          )}
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, color: '#fff' }}>
-          <button onClick={toggleLike} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-            <svg width="26" height="26" viewBox="0 0 24 24" fill={live.liked ? '#E8622A' : 'none'} stroke={live.liked ? '#E8622A' : '#fff'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-            <span style={{ fontSize: 11, fontWeight: 700 }}>{live.likes}</span>
-          </button>
-          <button onClick={() => setCommentsOpen(true)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-            <span style={{ fontSize: 11, fontWeight: 700 }}>{live.comments}</span>
-          </button>
-          <button onClick={share} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-          </button>
-        </div>
-      </div>
-
-      {commentsOpen && (
+      {commentsFor && (
         <MomentComments
-          momentId={m.id}
-          onClose={() => setCommentsOpen(false)}
-          onAdded={() => setLikeState(s => ({ ...s, [m.id]: { ...(s[m.id] ?? { liked: m.liked, likes: m.likes, comments: m.comments }), comments: (s[m.id]?.comments ?? m.comments) + 1 } }))}
+          momentId={commentsFor}
+          onClose={() => setCommentsFor(null)}
         />
       )}
     </div>,
@@ -216,8 +88,226 @@ export default function MomentViewer({ moments, startIndex, onClose, onDeleted, 
   )
 }
 
-// ── Feuille commentaires ────────────────────────────────────────────────────
-function MomentComments({ momentId, onClose, onAdded }: { momentId: string; onClose: () => void; onAdded: () => void }) {
+// ── Une slide ───────────────────────────────────────────────────────────────
+function ReelSlide({
+  moment: m, containerRef, onEnded, onActive, onOpenComments, onDeleted,
+}: {
+  moment: Moment
+  containerRef: React.RefObject<HTMLDivElement>
+  onEnded: () => void
+  onActive: () => void
+  onOpenComments: () => void
+  onDeleted: () => void
+}) {
+  const router = useRouter()
+  const { user, isAdmin } = useAuth()
+  const rootRef = useRef<HTMLDivElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const photoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [active, setActive] = useState(false)
+  const [paused, setPaused] = useState(false)
+  const [progress, setProgress] = useState(0)   // 0→1
+  const [scrubVisible, setScrubVisible] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [liked, setLiked] = useState(m.liked)
+  const [likes, setLikes] = useState(m.likes)
+  const scrubHideT = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Détecte quand la slide est visible (≥60%) → devient active
+  useEffect(() => {
+    const el = rootRef.current
+    const root = containerRef.current
+    if (!el || !root) return
+    const obs = new IntersectionObserver(
+      ([e]) => setActive(e.isIntersecting && e.intersectionRatio >= 0.6),
+      { root, threshold: [0, 0.6, 1] },
+    )
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [containerRef])
+
+  // Pilote la lecture selon active/paused
+  useEffect(() => {
+    const v = videoRef.current
+    if (active) {
+      onActive()
+      // marque "vu" côté serveur (best-effort)
+      if (user) supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.access_token) fetch(`/api/moments/${m.id}/vue`, { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` } }).catch(() => {})
+      })
+      setPaused(false)
+      if (m.media_kind === 'video' && v) {
+        v.currentTime = 0
+        v.muted = false
+        v.play().catch(() => { v.muted = true; v.play().catch(() => {}) })
+      } else {
+        // photo : avance auto après PHOTO_SEC
+        setProgress(0)
+        const start = Date.now()
+        const tick = () => { setProgress(Math.min(1, (Date.now() - start) / (PHOTO_SEC * 1000))) }
+        const iv = setInterval(tick, 100)
+        photoTimer.current = setTimeout(() => { clearInterval(iv); onEnded() }, PHOTO_SEC * 1000)
+        return () => { clearInterval(iv); if (photoTimer.current) clearTimeout(photoTimer.current) }
+      }
+    } else {
+      if (v) v.pause()
+      if (photoTimer.current) clearTimeout(photoTimer.current)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active])
+
+  const onTimeUpdate = () => {
+    const v = videoRef.current
+    if (v && v.duration) setProgress(v.currentTime / v.duration)
+  }
+
+  const togglePlay = () => {
+    const v = videoRef.current
+    if (m.media_kind === 'video' && v) {
+      if (v.paused) { v.play().catch(() => {}); setPaused(false) }
+      else { v.pause(); setPaused(true) }
+    } else {
+      setPaused(p => !p)   // photo : fige la barre (purement visuel)
+    }
+    // montre la timeline un instant
+    setScrubVisible(true)
+    if (scrubHideT.current) clearTimeout(scrubHideT.current)
+    scrubHideT.current = setTimeout(() => setScrubVisible(false), 2500)
+  }
+
+  const seek = (clientX: number, el: HTMLDivElement) => {
+    const v = videoRef.current
+    if (!v || !v.duration) return
+    const rect = el.getBoundingClientRect()
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+    v.currentTime = ratio * v.duration
+    setProgress(ratio)
+    setScrubVisible(true)
+  }
+
+  const toggleLike = async () => {
+    if (!user) { toast('Connecte-toi pour réagir'); return }
+    const next = !liked
+    setLiked(next); setLikes(n => n + (next ? 1 : -1))
+    const { data: { session } } = await supabase.auth.getSession()
+    const r = await fetch(`/api/moments/${m.id}/like`, { method: 'POST', headers: { Authorization: `Bearer ${session?.access_token}` } }).catch(() => null)
+    if (r && r.ok) { const d = await r.json(); setLiked(d.liked); setLikes(d.likes) }
+  }
+
+  const share = () => shareLink({ title: 'En ce moment', text: m.legende ?? 'Un moment sur La Place du Village', url: `${typeof window !== 'undefined' ? window.location.origin : ''}/en-ce-moment?m=${m.id}` })
+
+  const openAuthor = () => router.push(`/profil/${m.auteur_id}?tab=reels`)
+
+  const del = async () => {
+    if (!confirm('Supprimer ce moment ?')) return
+    const { data: { session } } = await supabase.auth.getSession()
+    const r = await fetch(`/api/moments/${m.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${session?.access_token}` } })
+    if (!r.ok) { toast.error('Suppression échouée'); return }
+    toast.success('Supprimé'); onDeleted()
+  }
+
+  const canDelete = isAdmin || (user && user.id === m.auteur_id)
+
+  return (
+    <div ref={rootRef} style={{ position: 'absolute', inset: 0, background: '#0D0906' }}>
+      {/* média */}
+      {m.media_kind === 'video' ? (
+        <video ref={videoRef} src={m.media_url} playsInline loop={false} onEnded={onEnded} onTimeUpdate={onTimeUpdate}
+          onClick={togglePlay}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={m.media_url} alt="" onClick={togglePlay} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+      )}
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, transparent 18%, transparent 52%, rgba(0,0,0,0.85) 100%)' }} />
+
+      {/* play au centre si en pause */}
+      {paused && (
+        <div onClick={togglePlay} style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 70, height: 70, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(6px)', border: '1px solid rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 6 }}>
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="#fff"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+        </div>
+      )}
+
+      {/* actions verticales droite */}
+      <div style={{ position: 'absolute', right: 12, bottom: 150, zIndex: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, color: '#fff' }}>
+        <button onClick={toggleLike} style={iconBtn}>
+          <svg width="30" height="30" viewBox="0 0 24 24" fill={liked ? '#E8622A' : 'none'} stroke={liked ? '#E8622A' : '#fff'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          <span style={iconLbl}>{likes}</span>
+        </button>
+        <button onClick={onOpenComments} style={iconBtn}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          <span style={iconLbl}>{m.comments}</span>
+        </button>
+        <button onClick={share} style={iconBtn}>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        </button>
+        {canDelete && (
+          <button onClick={() => setMenuOpen(o => !o)} style={iconBtn}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
+          </button>
+        )}
+      </div>
+      {menuOpen && canDelete && (
+        <div style={{ position: 'absolute', right: 12, bottom: 110, zIndex: 9, background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.3)' }}>
+          <button onClick={del} style={{ display: 'block', padding: '11px 18px', background: 'none', border: 'none', color: '#C0392B', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Supprimer</button>
+        </div>
+      )}
+
+      {/* bas : auteur + suivre + légende + commentaires */}
+      <div style={{ position: 'absolute', left: 14, right: 76, bottom: 'max(20px,env(safe-area-inset-bottom,20px))', zIndex: 8, color: '#fff' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button onClick={openAuthor} style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'none', border: 'none', padding: 0, cursor: 'pointer', minWidth: 0 }}>
+            <span style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', border: '2px solid #fff', background: '#A85138', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#fff' }}>
+              {m.auteur_avatar
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={m.auteur_avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : (m.auteur_nom?.[0]?.toUpperCase() ?? '?')}
+            </span>
+            <span style={{ minWidth: 0 }}>
+              <span style={{ display: 'block', fontSize: 14, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.auteur_nom}</span>
+              <span style={{ display: 'block', fontSize: 10.5, opacity: 0.8 }}>il y a {momentAge(m.created_at)}{m.cible ? ` · 📍 ${m.cible.nom}` : ''}</span>
+            </span>
+          </button>
+          <FollowButton targetUserId={m.auteur_id} dark />
+        </div>
+        {m.legende && <div style={{ marginTop: 10, fontSize: 13.5, lineHeight: 1.4, maxHeight: 60, overflow: 'hidden' }}>{m.legende}</div>}
+        <button onClick={onOpenComments} style={{ marginTop: 8, background: 'none', border: 'none', padding: 0, color: 'rgba(255,255,255,0.85)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
+          {m.comments > 0 ? `Voir les ${m.comments} commentaire${m.comments > 1 ? 's' : ''}` : 'Ajouter un commentaire…'}
+        </button>
+        {(m.cible?.type === 'evenement' || m.cible?.type === 'etablissement') && (
+          <button onClick={() => router.push(m.cible!.type === 'evenement' ? `/evenement/${m.cible!.id}` : `/etablissement/${m.cible!.id}`)}
+            style={{ marginTop: 10, padding: '8px 14px', borderRadius: 999, background: 'rgba(255,255,255,0.16)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+            Voir la fiche →
+          </button>
+        )}
+      </div>
+
+      {/* timeline / scrubber (vidéo) */}
+      {m.media_kind === 'video' && (
+        <div
+          onClick={e => { e.stopPropagation(); seek(e.clientX, e.currentTarget) }}
+          onTouchStart={e => e.stopPropagation()}
+          onTouchMove={e => { e.stopPropagation(); seek(e.touches[0].clientX, e.currentTarget) }}
+          style={{ position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 9, padding: scrubVisible ? '14px 12px' : '0', cursor: 'pointer' }}>
+          <div style={{ height: scrubVisible ? 5 : 2.5, borderRadius: 3, background: 'rgba(255,255,255,0.3)', transition: 'height 0.15s' }}>
+            <div style={{ height: '100%', width: `${progress * 100}%`, background: '#fff', borderRadius: 3 }} />
+          </div>
+        </div>
+      )}
+      {m.media_kind === 'photo' && (
+        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 2.5, background: 'rgba(255,255,255,0.3)', zIndex: 9 }}>
+          <div style={{ height: '100%', width: `${progress * 100}%`, background: '#fff' }} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+const iconBtn: React.CSSProperties = { background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, color: '#fff', padding: 0 }
+const iconLbl: React.CSSProperties = { fontSize: 11, fontWeight: 700 }
+
+// ── Feuille commentaires (façon Facebook, glisse du bas) ────────────────────
+function MomentComments({ momentId, onClose }: { momentId: string; onClose: () => void }) {
   const { user } = useAuth()
   const [list, setList] = useState<MomentCommentaire[]>([])
   const [texte, setTexte] = useState('')
@@ -229,18 +319,19 @@ function MomentComments({ momentId, onClose, onAdded }: { momentId: string; onCl
 
   const submit = async () => {
     const t = texte.trim()
-    if (!t || !user) { if (!user) toast('Connecte-toi pour commenter'); return }
+    if (!t) return
+    if (!user) { toast('Connecte-toi pour commenter'); return }
     setBusy(true)
     const { data: { session } } = await supabase.auth.getSession()
     const r = await fetch(`/api/moments/${momentId}/commentaires`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` }, body: JSON.stringify({ texte: t }) })
     setBusy(false)
     if (!r.ok) { toast.error('Échec'); return }
     const d = await r.json()
-    setList(l => [...l, d.commentaire]); setTexte(''); onAdded()
+    setList(l => [...l, d.commentaire]); setTexte('')
   }
 
-  return (
-    <div style={{ position: 'absolute', inset: 0, zIndex: 9, fontFamily: 'Inter, sans-serif' }}>
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1400, fontFamily: 'Inter, sans-serif' }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight: '72vh', background: '#FBFAF7', borderRadius: '20px 20px 0 0', display: 'flex', flexDirection: 'column', paddingBottom: 'max(12px,env(safe-area-inset-bottom,12px))' }}>
         <div style={{ width: 40, height: 4, borderRadius: 2, background: '#D1CCC4', margin: '12px auto 8px' }} />
@@ -259,6 +350,7 @@ function MomentComments({ momentId, onClose, onAdded }: { momentId: string; onCl
           <button onClick={submit} disabled={busy || !texte.trim()} style={{ padding: '0 18px', borderRadius: 999, border: 'none', background: '#E8622A', color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer', opacity: busy || !texte.trim() ? 0.5 : 1 }}>Envoyer</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

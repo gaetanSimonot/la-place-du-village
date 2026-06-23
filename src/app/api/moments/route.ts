@@ -17,13 +17,17 @@ const MOMENTS_BUCKET_PREFIX = `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''}/sto
 export async function GET(req: NextRequest) {
   const ctx = await getUserContextFromRequest(req)   // null si non connecté
   const nowISO = new Date().toISOString()
+  const auteur = new URL(req.url).searchParams.get('auteur')
 
-  const { data: rows, error } = await supabaseAdmin
+  // ?auteur=<id> → tous les reels de ce user (actifs ET expirés) pour son mur.
+  // Sinon → fil d'accueil = uniquement les moments actifs (< 24h).
+  let query = supabaseAdmin
     .from('moments')
     .select('*')
-    .gt('expires_at', nowISO)
     .order('created_at', { ascending: false })
     .limit(100)
+  query = auteur ? query.eq('auteur_id', auteur) : query.gt('expires_at', nowISO)
+  const { data: rows, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const moments = (rows ?? []) as Record<string, unknown>[]

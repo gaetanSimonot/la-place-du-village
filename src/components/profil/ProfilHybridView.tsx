@@ -9,6 +9,7 @@ import ProfilHeader, { type FicheProMini, type ViewMode } from './ProfilHeader'
 import ProfilTabSwitcher, { type ProfilTab } from './ProfilTabSwitcher'
 import AmisTab from './tabs/AmisTab'
 import MurTab from './tabs/MurTab'
+import ReelsTab from './tabs/ReelsTab'
 import UtileTabPlaceholder from './tabs/UtileTabPlaceholder'
 
 interface Etab {
@@ -24,7 +25,7 @@ interface Producer {
 }
 
 function isProfilTab(v: string | null): v is ProfilTab {
-  return v === 'mur' || v === 'amis' || v === 'utile'
+  return v === 'mur' || v === 'reels' || v === 'amis' || v === 'utile'
 }
 
 export default function ProfilHybridView() {
@@ -99,11 +100,12 @@ export default function ProfilHybridView() {
   const inPublic = viewMode === 'public'
 
   const visibleTabs: ProfilTab[] = inPublic
-    ? (['mur', 'amis', 'utile'] as const).filter(t =>
+    ? (['mur', 'reels', 'amis', 'utile'] as const).filter(t =>
         (t === 'mur'   ? settings.publications  : true)
+        && (t === 'reels' ? settings.publications : true)
         && (t === 'utile' ? settings.module_utile : true),
       )
-    : ['mur', 'amis', 'utile']
+    : ['mur', 'reels', 'amis', 'utile']
 
   // Si l'activeTab disparaît du visibleTabs (passage en public avec toggle off),
   // bascule sur le premier tab visible (Amis dans le pire cas).
@@ -218,6 +220,7 @@ export default function ProfilHybridView() {
           authorAvatar={profile?.avatar_url ?? null}
         />
       )}
+      {activeTab === 'reels' && <ReelsTab profileUserId={user.id} />}
       {activeTab === 'amis'  && <AmisTab friends={friends} />}
       {activeTab === 'utile' && <UtileTabPlaceholder />}
 

@@ -1,7 +1,7 @@
 'use client'
-import { IcChat, IcUsers, IcSpark } from './icons'
+import { IcChat, IcUsers, IcSpark, IcVideo } from './icons'
 
-export type ProfilTab = 'mur' | 'amis' | 'utile'
+export type ProfilTab = 'mur' | 'reels' | 'amis' | 'utile'
 
 interface Props {
   active: ProfilTab
@@ -13,6 +13,7 @@ interface Props {
 
 const ALL_TABS: Array<{ id: ProfilTab; label: string; Icon: typeof IcChat }> = [
   { id: 'mur',   label: 'Mur',   Icon: IcChat  },
+  { id: 'reels', label: 'Reels', Icon: IcVideo },
   { id: 'amis',  label: 'Amis',  Icon: IcUsers },
   { id: 'utile', label: 'Utile', Icon: IcSpark },
 ]
@@ -22,7 +23,7 @@ export default function ProfilTabSwitcher({ active, onChange, amisAlert = false,
     ? ALL_TABS.filter(t => visibleTabs.includes(t.id))
     : ALL_TABS
   if (tabs.length === 0) return null
-  const gridCols = tabs.length === 3 ? 'grid-cols-3' : tabs.length === 2 ? 'grid-cols-2' : 'grid-cols-1'
+  const gridCols = tabs.length >= 4 ? 'grid-cols-4' : tabs.length === 3 ? 'grid-cols-3' : tabs.length === 2 ? 'grid-cols-2' : 'grid-cols-1'
   return (
     <div className="px-4 pt-[18px]">
       <div

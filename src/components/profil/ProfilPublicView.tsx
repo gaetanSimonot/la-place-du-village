@@ -11,12 +11,13 @@ import BottomNavBar from '@/components/BottomNavBar'
 import ProfilHeader, { type FicheProMini } from './ProfilHeader'
 import ProfilTabSwitcher, { type ProfilTab } from './ProfilTabSwitcher'
 import MurTab from './tabs/MurTab'
+import ReelsTab from './tabs/ReelsTab'
 
 interface Etab { id: string; nom: string; photos: string[] | null }
 interface Producer { id: string; nom: string; photos: string[] | null; commune: string | null }
 
 function isProfilTab(v: string | null): v is ProfilTab {
-  return v === 'mur' || v === 'amis' || v === 'utile'
+  return v === 'mur' || v === 'reels' || v === 'amis' || v === 'utile'
 }
 
 /**
@@ -137,8 +138,9 @@ export default function ProfilPublicView({ viewedUserId }: { viewedUserId: strin
   ] : []
 
   // Tabs visibles selon display_settings
-  const visibleTabs: ProfilTab[] = (['mur', 'amis', 'utile'] as const).filter(t =>
+  const visibleTabs: ProfilTab[] = (['mur', 'reels', 'amis', 'utile'] as const).filter(t =>
     (t === 'mur'   ? ds.publications  : true)
+    && (t === 'reels' ? ds.publications : true)
     && (t === 'utile' ? ds.module_utile : true),
   )
 
@@ -182,6 +184,7 @@ export default function ProfilPublicView({ viewedUserId }: { viewedUserId: strin
           authorAvatar={profile.avatar_url ?? null}
         />
       )}
+      {safeTab === 'reels' && <ReelsTab profileUserId={viewedUserId} />}
       {safeTab === 'amis' && <AmisLecturePlaceholder name={displayName} />}
       {safeTab === 'utile' && (
         <div className="px-6 py-12 text-center">
