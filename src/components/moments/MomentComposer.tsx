@@ -146,7 +146,7 @@ export default function MomentComposer({ onClose, onPublished }: Props) {
           </button>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(0,0,0,0.45)', color: '#fff', padding: '5px 11px', borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            visible 24h{picked.duree ? ` · ${picked.duree}s` : ''}
+            {surAccueil ? '24h sur l’accueil' : 'Sur ton mur'}{picked.duree ? ` · ${picked.duree}s` : ''}
           </span>
         </div>
 
@@ -223,7 +223,7 @@ export default function MomentComposer({ onClose, onPublished }: Props) {
         </div>
         <div style={{ margin: '18px 16px 0', padding: '11px 14px', background: '#F4EEE3', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 9 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5A4A3A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          <div style={{ fontSize: 11.5, color: '#5A4A3A', lineHeight: 1.4 }}>Ton moment reste visible <b style={{ color: '#1A1209' }}>24h</b>, puis disparaît automatiquement.</div>
+          <div style={{ fontSize: 11.5, color: '#5A4A3A', lineHeight: 1.4 }}>Ton reel reste sur <b style={{ color: '#1A1209' }}>ton mur</b>. Tu pourras le pousser <b style={{ color: '#1A1209' }}>24h sur l’accueil</b> du village (compte Habitants).</div>
         </div>
         {error && <p style={{ margin: '12px 16px 0', padding: '8px 12px', borderRadius: 10, background: '#FDECEA', color: '#C0392B', fontSize: 12 }}>{error}</p>}
         <button onClick={onClose} style={{ display: 'block', margin: '14px auto 0', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#9A8A7A' }}>Annuler</button>
