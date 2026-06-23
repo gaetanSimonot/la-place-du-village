@@ -33,6 +33,7 @@ export default function NewsletterAdminClient() {
   const [previewHtml, setPreviewHtml] = useState('')
   const [loaded, setLoaded] = useState(false)         // brouillon serveur chargé
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [listOpen, setListOpen] = useState<Audience | null>(null)
   const dragIdx = useRef<number | null>(null)
 
   useEffect(() => { if (!authLoading && (!user || !isAdmin)) router.replace('/') }, [authLoading, user, isAdmin, router])
@@ -133,6 +134,10 @@ export default function NewsletterAdminClient() {
           </button>
         ))}
       </div>
+      <div className="flex justify-between px-4 pt-1.5">
+        <button onClick={() => setListOpen('subscribers')} className="text-[11px] font-semibold text-primary underline">Voir les abonnés</button>
+        <button onClick={() => setListOpen('non_subscribers')} className="text-[11px] font-semibold text-primary underline">Voir les non-abonnés</button>
+      </div>
 
       {/* Ajout manuel */}
       <div className="px-4 pt-3">
@@ -199,7 +204,56 @@ export default function NewsletterAdminClient() {
         <button onClick={send} disabled={sending} className="flex w-full items-center justify-center rounded-2xl border-none bg-primary py-3.5 text-[14px] font-extrabold text-white disabled:opacity-60">{sending ? 'Envoi…' : `Envoyer à ${recipientCount} destinataire${recipientCount > 1 ? 's' : ''}`}</button>
         <p className="mt-2 text-center text-[11px] text-texte-doux">Depuis lettre@laplaceduvillage.app · {saveState === 'saving' ? 'enregistrement…' : 'enregistré sur le serveur ✓'}</p>
       </div>
+
+      {listOpen && <ListModal audience={listOpen} onClose={() => setListOpen(null)} onChanged={load} />}
     </div>
+  )
+}
+
+// ── Liste des abonnés / non-abonnés (consultation + abonner/désabonner) ─────
+function ListModal({ audience, onClose, onChanged }: { audience: Audience; onClose: () => void; onChanged: () => void }) {
+  const [people, setPeople] = useState<{ email: string; name: string | null; extra?: boolean }[] | null>(null)
+  const [q, setQ] = useState('')
+  const isSub = audience === 'subscribers'
+
+  const load = useCallback(() => {
+    authedFetch(`/api/admin/newsletter/list?audience=${audience}`).then(async r => setPeople(r.ok ? ((await r.json()).people ?? []) : [])).catch(() => setPeople([]))
+  }, [audience])
+  useEffect(() => { load() }, [load])
+
+  const toggle = async (email: string) => {
+    if (isSub) await authedFetch(`/api/admin/newsletter?email=${encodeURIComponent(email)}`, { method: 'DELETE' })
+    else await authedFetch('/api/admin/newsletter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) })
+    load(); onChanged()
+  }
+
+  const filtered = (people ?? []).filter(p => { const s = q.trim().toLowerCase(); return !s || (p.name ?? '').toLowerCase().includes(s) || p.email.toLowerCase().includes(s) })
+  if (typeof document === 'undefined') return null
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1300, fontFamily: 'Inter, sans-serif' }}>
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight: '85vh', background: '#FBFAF7', borderRadius: '20px 20px 0 0', display: 'flex', flexDirection: 'column', paddingBottom: 'max(12px,env(safe-area-inset-bottom,12px))' }}>
+        <div style={{ width: 40, height: 4, borderRadius: 2, background: '#D1CCC4', margin: '12px auto 8px' }} />
+        <p style={{ margin: '0 0 8px', textAlign: 'center', fontWeight: 800, fontSize: 14, color: '#1A1209' }}>{isSub ? 'Abonnés' : 'Non-abonnés'} ({people?.length ?? '…'})</p>
+        <div style={{ padding: '0 16px' }}>
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Rechercher un nom / email…" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 13px', borderRadius: 12, border: '1px solid #E5DDD2', fontSize: 14, outline: 'none' }} />
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {people === null && <p style={{ textAlign: 'center', color: '#9A8A7A', fontSize: 13, padding: 16 }}>Chargement…</p>}
+          {people !== null && filtered.length === 0 && <p style={{ textAlign: 'center', color: '#9A8A7A', fontSize: 13, padding: 16 }}>Personne dans cette liste.</p>}
+          {filtered.map(p => (
+            <div key={p.email} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid #F2ECE2', background: '#fff' }}>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#1A1209', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name ?? p.email}{p.extra ? ' · ajouté' : ''}</span>
+                {p.name && <span style={{ display: 'block', fontSize: 11, color: '#7A6A5A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.email}</span>}
+              </span>
+              <button onClick={() => toggle(p.email)} style={{ flexShrink: 0, padding: '6px 12px', borderRadius: 999, border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', background: isSub ? '#F0EAE0' : 'var(--primary)', color: isSub ? '#B0483A' : '#fff' }}>{isSub ? 'Désabonner' : 'Abonner'}</button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>,
+    document.body,
   )
 }
 
