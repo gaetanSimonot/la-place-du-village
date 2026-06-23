@@ -436,7 +436,7 @@ export default function PostComposer({ authorName, authorAvatar, onClose, onPost
 function EmbedPreview({ embed, onRemove }: { embed: EmbedItem; onRemove: () => void }) {
   const labels: Record<EmbedItem['kind'], string> = {
     event: 'Événement', etab: 'Établissement', producer: 'Producteur',
-    annonce: 'Annonce', promo: 'Promotion', covoit: 'Covoiturage',
+    annonce: 'Annonce', promo: 'Promotion', covoit: 'Covoiturage', article: 'Article du Journal',
   }
   return (
     <div

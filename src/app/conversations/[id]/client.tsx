@@ -706,7 +706,7 @@ function DateSeparator({ iso }: { iso: string }) {
 function ChatEmbedPreview({ embed, onRemove }: { embed: EmbedItem; onRemove: () => void }) {
   const labels: Record<EmbedItem['kind'], string> = {
     event: 'Événement', etab: 'Établissement', producer: 'Producteur',
-    annonce: 'Annonce', promo: 'Promotion', covoit: 'Covoiturage',
+    annonce: 'Annonce', promo: 'Promotion', covoit: 'Covoiturage', article: 'Article du Journal',
   }
   return (
     <div
@@ -776,6 +776,11 @@ function MessageEmbedRender({ kind, refId, mine }: { kind: string; refId: string
           if (!data) { if (!cancelled) setNotFound(true); return }
           const sub = data.date_trajet ? new Date(data.date_trajet as string).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : null
           if (!cancelled) setDetails({ title: `${data.depart} → ${data.destination}`, subtitle: sub, photo: null, href: `/covoiturage/${refId}` })
+        } else if (kind === 'article') {
+          const { data } = await supabase.from('articles_journal').select('titre, corps, photo_url').eq('id', refId).maybeSingle()
+          if (!data) { if (!cancelled) setNotFound(true); return }
+          const corps = String((data.corps as string | null) ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+          if (!cancelled) setDetails({ title: data.titre as string, subtitle: corps ? (corps.length > 70 ? corps.slice(0, 70).trimEnd() + '…' : corps) : null, photo: (data.photo_url as string | null) ?? null, href: `/journal/articles/${refId}/view` })
         }
       } catch {
         if (!cancelled) setNotFound(true)
@@ -786,7 +791,7 @@ function MessageEmbedRender({ kind, refId, mine }: { kind: string; refId: string
 
   const labels: Record<string, string> = {
     event: 'Événement', etab: 'Établissement', producer: 'Producteur',
-    annonce: 'Annonce', promo: 'Promotion', covoit: 'Covoiturage',
+    annonce: 'Annonce', promo: 'Promotion', covoit: 'Covoiturage', article: 'Article du Journal',
   }
 
   if (notFound) {

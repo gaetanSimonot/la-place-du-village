@@ -25,6 +25,7 @@ const KIND_LABEL: Record<EmbedKind, string> = {
   annonce:  'Annonces',
   promo:    'Promotions',
   covoit:   'Covoiturages',
+  article:  'Journal',
 }
 
 const KIND_COLOR: Record<EmbedKind, { bg: string; color: string; tile: string }> = {
@@ -34,9 +35,10 @@ const KIND_COLOR: Record<EmbedKind, { bg: string; color: string; tile: string }>
   annonce:  { bg: '#FFF0E5', color: '#C84B2F', tile: 'linear-gradient(135deg, #FFE9DA 0%, #FFD0AE 100%)' },
   promo:    { bg: '#FFF0E5', color: '#E8622A', tile: 'linear-gradient(135deg, #FFE6CC 0%, #FFC79A 100%)' },
   covoit:   { bg: '#E8EEF7', color: '#3A5D8C', tile: 'linear-gradient(135deg, #E8EEF7 0%, #BFD0EC 100%)' },
+  article:  { bg: '#FBF3E6', color: '#A8770F', tile: 'linear-gradient(135deg, #FBF3E6 0%, #ECD9AE 100%)' },
 }
 
-const ORDERED_KINDS: EmbedKind[] = ['event', 'etab', 'producer', 'annonce', 'promo', 'covoit']
+const ORDERED_KINDS: EmbedKind[] = ['event', 'etab', 'producer', 'annonce', 'promo', 'covoit', 'article']
 
 function CatIcon({ kind, size = 22 }: { kind: EmbedKind; size?: number }) {
   const props = {
@@ -51,6 +53,7 @@ function CatIcon({ kind, size = 22 }: { kind: EmbedKind; size?: number }) {
     case 'annonce':  return <svg {...props}><path d="M16 6l-4-4-4 4"/><path d="M12 2v14"/><rect x="4" y="14" width="16" height="8" rx="2"/></svg>
     case 'promo':    return <svg {...props}><path d="M20 12V8H4v4"/><path d="M20 12v8H4v-8"/><line x1="12" y1="8" x2="12" y2="20"/><path d="M8 8a2 2 0 0 1 2-4c1.5 0 2 2 2 4-2 0-4 0-4-2 0-2 2-2 2-2"/></svg>
     case 'covoit':   return <svg {...props}><circle cx="6" cy="17" r="2"/><circle cx="18" cy="17" r="2"/><path d="M3 17h2m12 0h2M5 17l1-5h12l2 5"/><path d="M7 12l1-3h8l1 3"/></svg>
+    case 'article':  return <svg {...props}><path d="M4 4h12a2 2 0 0 1 2 2v13a1 1 0 0 1-1 1H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M18 8h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2"/><line x1="6" y1="8" x2="14" y2="8"/><line x1="6" y1="12" x2="14" y2="12"/><line x1="6" y1="16" x2="11" y2="16"/></svg>
   }
 }
 
