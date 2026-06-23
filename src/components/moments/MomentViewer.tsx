@@ -136,7 +136,7 @@ function ReelSlide({
   const canPromote = can(toUserContext(profile, isAdmin), 'publish_moment')
   const rootRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
-  const photoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const photoElapsed = useRef(0)   // ms écoulées sur la photo (gèle en pause)
   const [active, setActive] = useState(false)
   const [paused, setPaused] = useState(false)
   const [progress, setProgress] = useState(0)   // 0→1
@@ -182,35 +182,42 @@ function ReelSlide({
     return () => obs.disconnect()
   }, [containerRef])
 
-  // Pilote la lecture selon active/paused
+  // Vidéo : joue quand active, pause sinon. Marque "vu" à l'activation.
   useEffect(() => {
     const v = videoRef.current
     if (active) {
       onActive()
-      // marque "vu" côté serveur (best-effort)
       if (user) supabase.auth.getSession().then(({ data: { session } }) => {
         if (session?.access_token) fetch(`/api/moments/${m.id}/vue`, { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` } }).catch(() => {})
       })
       setPaused(false)
+      photoElapsed.current = 0
       if (m.media_kind === 'video' && v) {
         v.currentTime = 0
         v.muted = false
         v.play().catch(() => { v.muted = true; v.play().catch(() => {}) })
-      } else {
-        // photo : avance auto après PHOTO_SEC
-        setProgress(0)
-        const start = Date.now()
-        const tick = () => { setProgress(Math.min(1, (Date.now() - start) / (PHOTO_SEC * 1000))) }
-        const iv = setInterval(tick, 100)
-        photoTimer.current = setTimeout(() => { clearInterval(iv); onEnded() }, PHOTO_SEC * 1000)
-        return () => { clearInterval(iv); if (photoTimer.current) clearTimeout(photoTimer.current) }
       }
-    } else {
-      if (v) v.pause()
-      if (photoTimer.current) clearTimeout(photoTimer.current)
+    } else if (v) {
+      v.pause()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active])
+
+  // Photo : avance auto (~5s) qui RESPECTE la pause (play/pause au tap).
+  useEffect(() => {
+    if (m.media_kind !== 'photo') return
+    if (!active) { photoElapsed.current = 0; setProgress(0); return }
+    if (paused) return   // figé : on garde photoElapsed pour reprendre
+    const startedAt = Date.now() - photoElapsed.current
+    const iv = setInterval(() => {
+      const el = Date.now() - startedAt
+      photoElapsed.current = el
+      setProgress(Math.min(1, el / (PHOTO_SEC * 1000)))
+      if (el >= PHOTO_SEC * 1000) { clearInterval(iv); onEnded() }
+    }, 80)
+    return () => clearInterval(iv)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, paused])
 
   const onTimeUpdate = () => {
     const v = videoRef.current
@@ -223,7 +230,7 @@ function ReelSlide({
       if (v.paused) { v.play().catch(() => {}); setPaused(false) }
       else { v.pause(); setPaused(true) }
     } else {
-      setPaused(p => !p)   // photo : fige la barre (purement visuel)
+      setPaused(p => !p)   // photo : gèle / reprend l'avance auto (cf. effet photo)
     }
     // montre la timeline un instant
     setScrubVisible(true)
