@@ -16,7 +16,7 @@ import { requireUser } from '@/lib/server-auth'
  * Body : { kind, mimeType, size, refId? }
  *   - kind 'event-image'    : event en cours de creation (random path)
  *   - kind 'product-image'  : product image, refId = product id (ownership check)
- *   - kind 'admin-edit'     : admin uniquement, edits hero/carousel
+ *   - kind 'admin-edit'     : images d'édition (fiche/actu/promo/hero), authentifié
  *   - kind 'profile-banner' : banniere du profil de l user authentifie (path fixe par userId)
  *
  * Returns : { uploadUrl, token, publicUrl, path, bucket }
@@ -76,9 +76,11 @@ export async function POST(req: NextRequest) {
     bucket = 'event-images'
     path = `formulaire/${randomName()}.${extFromMime(mimeType)}`
   } else if (kind === 'admin-edit') {
-    if (!ctx.isAdmin) {
-      return NextResponse.json({ error: 'Admin uniquement' }, { status: 403 })
-    }
+    // Upload d'image pour les flux d'édition (fiche établissement, actu, promo,
+    // hero admin…). PAS réservé admin : un pro propriétaire doit pouvoir
+    // illustrer son actu / sa fiche. Le path est random (pas d'écrasement) et
+    // l'association du média (enregistrement de l'actu/fiche/promo) est, elle,
+    // contrôlée par ownership dans les endpoints POST/PATCH dédiés.
     bucket = 'event-images'
     path = `edits/${randomName()}.${extFromMime(mimeType)}`
   } else if (kind === 'product-image') {
