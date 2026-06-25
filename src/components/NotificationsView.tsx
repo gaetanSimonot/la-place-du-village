@@ -8,6 +8,7 @@ import { PLANS_INFO, PLAN_ORDER, type Plan } from '@/lib/capabilities'
 import type { AppNotification, NotifType } from '@/lib/types'
 import { toast } from 'sonner'
 import PostNotifModal from '@/components/profil/PostNotifModal'
+import PromoStatsPanel from '@/components/PromoStatsPanel'
 
 interface Props {
   notifications: AppNotification[]
@@ -513,7 +514,7 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
               { id: 'all',         label: 'Toutes' },
               { id: 'annonces',    label: 'Annonces' },
               { id: 'producteurs', label: 'Producteurs' },
-              { id: 'promos',      label: 'Bons plans' },
+              { id: 'promos',      label: 'Promotions' },
               { id: 'events',      label: 'Événements' },
             ] as const).map(f => {
               const active = userFilter === f.id
@@ -535,6 +536,9 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
         )
       )}
 
+      {/* Espace Promotions (pro) — stats : qui a profité de mes promos */}
+      {!isAdmin && userFilter === 'promos' && <PromoStatsPanel />}
+
       {/* Content */}
       <div className="mt-2">
         {loading && !loaded ? (
@@ -542,6 +546,7 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
             <div className="h-7 w-7 animate-spin rounded-full border-4 border-bord border-t-primary" />
           </div>
         ) : visibleNotifs.length === 0 ? (
+          userFilter === 'promos' && !isAdmin ? null : (
           <div className="px-4 py-16 text-center">
             <div
               className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-cremeDeep text-texte-doux"
@@ -557,6 +562,7 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
                 : 'Aucune notification dans cette catégorie.'}
             </p>
           </div>
+          )
         ) : (
           <div className="bg-white">
             {buckets.map(bucket => (
