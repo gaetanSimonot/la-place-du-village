@@ -24,16 +24,22 @@ export function useNotifications() {
       : Math.random().toString(36).slice(2),
   )
 
-  // Live unread count via Supabase direct (not fetch() — PWA SW may intercept)
+  // Compteur unread : non-lus PARMI les 50 notifs les plus récentes (même
+  // fenêtre que la liste affichée). Le badge correspond à ce que l'utilisateur
+  // voit réellement, pas aux vieux non-lus hors fenêtre. (Supabase direct, pas
+  // fetch() — le SW PWA pourrait l'intercepter.)
   useEffect(() => {
     if (!user) { setUnreadCount(0); return }
-
-    supabase
-      .from('notifications')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('lu', false)
-      .then(({ count }) => setUnreadCount(count ?? 0))
+    const refresh = () => {
+      supabase
+        .from('notifications')
+        .select('lu')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50)
+        .then(({ data }) => setUnreadCount((data ?? []).filter(r => !r.lu).length))
+    }
+    refresh()
 
     const channel = supabase
       .channel(`notifs-${user.id}-${instanceIdRef.current}`)
@@ -42,14 +48,7 @@ export function useNotifications() {
         schema: 'public',
         table: 'notifications',
         filter: `user_id=eq.${user.id}`,
-      }, () => {
-        supabase
-          .from('notifications')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id)
-          .eq('lu', false)
-          .then(({ count }) => setUnreadCount(count ?? 0))
-      })
+      }, refresh)
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }

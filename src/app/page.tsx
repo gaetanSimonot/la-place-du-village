@@ -1257,7 +1257,7 @@ export default function HomePage() {
         }}>
           <ProfilHybridView
             onOpenNotifs={() => handleNavTab('notifs')}
-            notifUnread={notifications.filter(n => !n.lu).length}
+            notifUnread={notifCount}
           />
         </div>
       )}

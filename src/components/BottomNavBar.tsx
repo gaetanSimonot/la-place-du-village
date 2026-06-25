@@ -39,14 +39,21 @@ export default function BottomNavBar({ onNavigate, activeTab }: Props = {}) {
       : Math.random().toString(36).slice(2),
   )
 
-  // Compteur unread temps réel pour le badge cloche
+  // Compteur unread pour le badge. On compte les non-lus PARMI les 50 notifs
+  // les plus récentes (même fenêtre que la liste affichée dans le profil) →
+  // le badge correspond exactement à ce que l'utilisateur voit, pas aux vieux
+  // non-lus hors fenêtre.
   useEffect(() => {
     if (!user) { setNotifCount(0); return }
-
-    supabase.from('notifications')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id).eq('lu', false)
-      .then(({ count }) => setNotifCount(count ?? 0))
+    const refresh = () => {
+      supabase.from('notifications')
+        .select('lu')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50)
+        .then(({ data }) => setNotifCount((data ?? []).filter(r => !r.lu).length))
+    }
+    refresh()
 
     const ch = supabase
       .channel(`bn-notifs-${user.id}-${instanceIdRef.current}`)
@@ -55,12 +62,7 @@ export default function BottomNavBar({ onNavigate, activeTab }: Props = {}) {
         schema: 'public',
         table: 'notifications',
         filter: `user_id=eq.${user.id}`,
-      }, () => {
-        supabase.from('notifications')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id).eq('lu', false)
-          .then(({ count }) => setNotifCount(count ?? 0))
-      })
+      }, refresh)
       .subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [user])
@@ -177,7 +179,10 @@ export default function BottomNavBar({ onNavigate, activeTab }: Props = {}) {
         >
           <div style={{ position: 'relative', display: 'inline-flex' }}>
             <t.Icon />
-            {t.badge && t.badge > 0 ? (
+            {/* On masque le badge sur l'onglet Profil quand on EST déjà sur le
+                profil : sinon il s'afficherait deux fois à l'écran (ici + la
+                cloche dans l'en-tête du profil). */}
+            {t.badge && t.badge > 0 && !(t.id === 'profil' && isActive) ? (
               <span style={{
                 position: 'absolute', top: -4, right: -5,
                 minWidth: 16, height: 16, borderRadius: 8,
