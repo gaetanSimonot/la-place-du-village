@@ -54,6 +54,9 @@ interface Props {
   onContactClick?: () => void
   /** Mode public uniquement : si fourni, rend le bouton ami à côté de Contacter. */
   friend?: FriendActions
+  /** Mode own : ouvre les notifications (la cloche est dans la barre d'actions). */
+  onOpenNotifs?: () => void
+  notifUnread?: number
 }
 
 export default function ProfilHeader({
@@ -70,6 +73,8 @@ export default function ProfilHeader({
   onToggleViewMode,
   onContactClick,
   friend,
+  onOpenNotifs,
+  notifUnread,
 }: Props) {
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const initial = displayName.trim().charAt(0).toUpperCase() || '·'
@@ -184,6 +189,14 @@ export default function ProfilHeader({
               <ActionIconBtn href="/messages" ariaLabel="Messagerie">
                 <IcMail size={16} />
               </ActionIconBtn>
+              {onOpenNotifs && (
+                <ActionIconBtn onClick={onOpenNotifs} ariaLabel="Notifications" badge={notifUnread}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                  </svg>
+                </ActionIconBtn>
+              )}
               <ActionIconBtn href="/reglages" ariaLabel="Réglages">
                 <IcSettings size={16} />
               </ActionIconBtn>
@@ -300,28 +313,38 @@ export default function ProfilHeader({
 
 /* ── Bouton icon-only à droite du nom (mode own) ─────────────────────── */
 function ActionIconBtn({
-  children, onClick, href, ariaLabel, primary,
+  children, onClick, href, ariaLabel, primary, badge,
 }: {
   children: React.ReactNode
   onClick?: () => void
   href?: string
   ariaLabel: string
   primary?: boolean
+  badge?: number
 }) {
-  const className = 'flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]'
+  const className = 'relative flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]'
   const style: React.CSSProperties = primary
     ? { background: '#2D5A3D', color: '#FFFFFF', boxShadow: '0 2px 6px rgba(45,90,61,0.25)' }
     : { background: '#FFFFFF', color: '#1A1209', border: '1px solid #E8E0D4', boxShadow: '0 1px 2px rgba(44,28,16,0.04)' }
+  const badgeEl = badge && badge > 0 ? (
+    <span style={{
+      position: 'absolute', top: -5, right: -5,
+      minWidth: 16, height: 16, borderRadius: 8,
+      background: '#E53935', color: '#fff', fontSize: 9, fontWeight: 800,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '0 3px', border: '1.5px solid #fff',
+    }}>{badge > 99 ? '99+' : badge}</span>
+  ) : null
   if (href) {
     return (
       <Link href={href} aria-label={ariaLabel} title={ariaLabel} className={className} style={style}>
-        {children}
+        {children}{badgeEl}
       </Link>
     )
   }
   return (
     <button type="button" onClick={onClick} aria-label={ariaLabel} title={ariaLabel} className={className} style={style}>
-      {children}
+      {children}{badgeEl}
     </button>
   )
 }

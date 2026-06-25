@@ -28,7 +28,7 @@ function isProfilTab(v: string | null): v is ProfilTab {
   return v === 'mur' || v === 'reels' || v === 'amis' || v === 'utile'
 }
 
-export default function ProfilHybridView() {
+export default function ProfilHybridView({ onOpenNotifs, notifUnread }: { onOpenNotifs?: () => void; notifUnread?: number } = {}) {
   const { user, profile, loading, updateProfile } = useAuth()
   // Un seul consumer du hook useFriendships dans tout l'arbre /profil pour
   // éviter le double subscribe Realtime sur friendships-<userId>.
@@ -204,6 +204,8 @@ export default function ProfilHybridView() {
         isVerified={effectiveIsVerified}
         onModifyClick={() => setEditOpen(true)}
         onToggleViewMode={() => setViewMode(m => (m === 'own' ? 'public' : 'own'))}
+        onOpenNotifs={onOpenNotifs}
+        notifUnread={notifUnread}
       />
 
       <ProfilTabSwitcher

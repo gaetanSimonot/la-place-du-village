@@ -1255,7 +1255,10 @@ export default function HomePage() {
           position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H,
           zIndex: 25, overflowY: 'auto', backgroundColor: 'var(--creme)',
         }}>
-          <ProfilHybridView />
+          <ProfilHybridView
+            onOpenNotifs={() => handleNavTab('notifs')}
+            notifUnread={notifications.filter(n => !n.lu).length}
+          />
         </div>
       )}
 
