@@ -1295,6 +1295,7 @@ export default function HomePage() {
       <BottomNavBar
         activeTab={navTab}
         onNavigate={(id) => handleNavTab(id as NavTab)}
+        onPlus={handlePublierClick}
       />
 
     </div>
