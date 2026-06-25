@@ -93,8 +93,9 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
 
   const isAnnonces = pathname?.startsWith('/annonces') ?? false
   const onProfil = activeTab === 'profil'
-  // Onglet « + » au milieu : sur la carte (hub) ou les annonces.
-  const isPlus = activeTab === 'carte' || isAnnonces
+  // Onglet « + » au milieu : sur la carte (hub) ou la section annonces — SAUF
+  // sur la page de création elle-même (sinon le + se pointerait sur lui-même).
+  const isPlus = activeTab === 'carte' || (isAnnonces && pathname !== '/annonces/nouvelle')
   const profilBadge = !onProfil ? notifCount : 0
 
   const go = (href: string, id?: string) => {
