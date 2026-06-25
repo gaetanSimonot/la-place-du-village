@@ -250,6 +250,9 @@ export function FeatureModal({ contentType, contentId, isAdmin, isOwner, plan, o
           </Section>
         )}
 
+        {/* — ADMIN : attribuer la fiche établissement à un utilisateur — */}
+        {isAdmin && contentType === 'etablissement' && <AssignEtabSection etabId={contentId} />}
+
         {/* — PRO AVEC CRÉDIT — 1 crédit = boost Hub 48h */}
         {!isAdmin && isOwner && creditsLoaded && plan === 'pro' && remaining > 0 && (
           <Section title="💙 Crédit Partenaire" subtitle={`${remaining} crédit Partenaire ce mois-ci · 1 crédit = Hub pendant 48h`}>
@@ -343,6 +346,84 @@ function Section({ title, subtitle, children }: { title: string; subtitle?: stri
       {subtitle && <p style={{ margin: '0 0 10px', fontSize: 11, color: '#7A6A5A' }}>{subtitle}</p>}
       {children}
     </div>
+  )
+}
+
+interface MemberLite { id: string; name: string; email: string; plan: string }
+
+const assignBtnStyle: React.CSSProperties = {
+  width: '100%', padding: '12px 14px', borderRadius: 14,
+  border: '1.5px dashed #C9A23F', background: '#FBF6EC',
+  color: '#A8770F', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
+}
+
+/** ADMIN : attribuer la gestion d'une fiche établissement à un membre. */
+function AssignEtabSection({ etabId }: { etabId: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const [members, setMembers]   = useState<MemberLite[] | null>(null)
+  const [q, setQ]               = useState('')
+  const [busy, setBusy]         = useState(false)
+
+  async function load() {
+    setExpanded(true)
+    if (members) return
+    const { data: { session } } = await supabase.auth.getSession()
+    const tk = session?.access_token
+    const r = await fetch('/api/admin/membres', { headers: tk ? { Authorization: `Bearer ${tk}` } : {} }).catch(() => null)
+    if (r && r.ok) {
+      const d = await r.json()
+      setMembers((d.membres ?? []).map((m: { id: string; name?: string; display_name?: string; email?: string; plan?: string }) => ({
+        id: m.id, name: m.name || m.display_name || '(sans nom)', email: m.email ?? '', plan: m.plan ?? 'basic',
+      })))
+    } else setMembers([])
+  }
+
+  async function assign(m: MemberLite) {
+    if (!window.confirm(`Attribuer cette fiche à ${m.name || m.email} ?\nIl pourra la gérer, avec les avantages de son plan (${m.plan}).`)) return
+    setBusy(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const tk = session?.access_token
+    const r = await fetch(`/api/admin/etablissements/${etabId}/assign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
+      body: JSON.stringify({ user_id: m.id }),
+    }).catch(() => null)
+    setBusy(false)
+    if (r && r.ok) { toast.success(`Fiche attribuée à ${m.name || m.email}`); setTimeout(() => window.location.reload(), 700) }
+    else { const d = r ? await r.json().catch(() => ({})) : {}; toast.error((d as { error?: string }).error || 'Échec de l’attribution') }
+  }
+
+  const s = q.trim().toLowerCase()
+  const filtered = (members ?? []).filter(m => !s || m.name.toLowerCase().includes(s) || m.email.toLowerCase().includes(s)).slice(0, 15)
+
+  return (
+    <Section title="👤 Attribuer à un utilisateur" subtitle="Donne la gestion de cette fiche à un membre (avantages selon son plan)">
+      {!expanded ? (
+        <button onClick={load} style={assignBtnStyle}>Choisir un utilisateur…</button>
+      ) : (
+        <>
+          <input
+            value={q} onChange={e => setQ(e.target.value)} autoFocus
+            placeholder="Rechercher un membre (nom ou email)…"
+            style={{ width: '100%', boxSizing: 'border-box', padding: '11px 13px', borderRadius: 12, border: '1.5px solid #E5DDD2', fontSize: 13, outline: 'none', marginBottom: 8, color: '#1A1209', WebkitTextFillColor: '#1A1209', backgroundColor: '#FDFAF6' }}
+          />
+          {members === null && <p style={{ fontSize: 12, color: '#7A6A5A', textAlign: 'center', padding: 8 }}>Chargement…</p>}
+          {members !== null && filtered.length === 0 && <p style={{ fontSize: 12, color: '#7A6A5A', textAlign: 'center', padding: 8 }}>Aucun membre.</p>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto' }}>
+            {filtered.map(m => (
+              <button key={m.id} onClick={() => assign(m)} disabled={busy}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12, border: '1px solid #E5DDD2', background: '#fff', cursor: busy ? 'wait' : 'pointer', textAlign: 'left', fontFamily: 'inherit', opacity: busy ? 0.6 : 1 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', WebkitTextFillColor: '#1A1209' }}>{m.name}</div>
+                  <div style={{ fontSize: 11, color: '#7A6A5A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', WebkitTextFillColor: '#7A6A5A' }}>{m.email}</div>
+                </div>
+                <span style={{ flexShrink: 0, padding: '3px 9px', borderRadius: 999, fontSize: 10, fontWeight: 800, background: m.plan === 'pro' ? '#E8F2EB' : '#F0EAE0', color: m.plan === 'pro' ? '#2D5A3D' : '#7A6A5A', textTransform: 'uppercase' }}>{m.plan}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </Section>
   )
 }
 
