@@ -27,14 +27,17 @@ interface Props {
 }
 
 type Section = 'favoris' | 'suivis'
-type FavoSub = 'all' | 'annonces' | 'events' | 'producteurs' | 'commerces'
+type FavoSub = 'all' | 'annonces' | 'events' | 'producteurs' | 'commerces' | 'promos'
 type SuivisSub = 'all' | 'producteurs' | 'commerces'
+
+interface PromoMin { id: string; title: string; image: string | null; etabNom: string | null }
 
 const CAT_TAG = {
   annonce:    { label: 'ANNONCE',    bg: '#FFF0E5', color: '#C84B2F' },
   event:      { label: 'ÉVÉNEMENT',  bg: '#E8EEF7', color: '#3A5D8C' },
   producteur: { label: 'PRODUCTEUR', bg: '#E8F2EB', color: '#2D5A3D' },
   commerce:   { label: 'COMMERCE',   bg: '#FDE8DF', color: '#C0440A' },
+  promo:      { label: 'PROMO',      bg: '#FFF0E5', color: '#E8622A' },
 } as const
 
 /* ── Icons SVG lineart (cohérents avec action bar évènement) ──────── */
@@ -88,12 +91,13 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
   const favKey = !authLoading && user ? '/api/favoris' : null
   const { data, isLoading, mutate } = useSWR<{
     producerFavs: ProducerMin[]; producerFollows: ProducerMin[];
-    etabFavs: EtabMin[]; etabFollows: EtabMin[];
+    etabFavs: EtabMin[]; etabFollows: EtabMin[]; promoFavs: PromoMin[];
   }>(favKey, authedFetcher)
   const producerFavs    = data?.producerFavs    ?? []
   const producerFollows = data?.producerFollows ?? []
   const etabFavs        = data?.etabFavs        ?? []
   const etabFollows     = data?.etabFollows     ?? []
+  const promoFavs       = data?.promoFavs       ?? []
   const loading = isLoading && !data
 
   const removeProducerFav = (id: string) =>
@@ -104,6 +108,8 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
     mutate(prev => prev ? { ...prev, producerFollows: prev.producerFollows.filter(x => x.id !== id) } : prev, false)
   const removeEtabFollow = (id: string) =>
     mutate(prev => prev ? { ...prev, etabFollows: prev.etabFollows.filter(x => x.id !== id) } : prev, false)
+  const removePromoFav = (id: string) =>
+    mutate(prev => prev ? { ...prev, promoFavs: prev.promoFavs.filter(x => x.id !== id) } : prev, false)
 
   const { favIds: annonceFavIds, toggle: toggleAnnonceFav } = useAnnonceFavorites()
   const { data: annoncesData } = useSWR<{ annonces: Annonce[] }>(
@@ -116,11 +122,12 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
 
   // ── Compteurs ────────────────────────────────────────────────────────
   const favoCounts = {
-    all:          annonceFavs.length + events.length + producerFavs.length + etabFavs.length,
+    all:          annonceFavs.length + events.length + producerFavs.length + etabFavs.length + promoFavs.length,
     annonces:     annonceFavs.length,
     events:       events.length,
     producteurs:  producerFavs.length,
     commerces:    etabFavs.length,
+    promos:       promoFavs.length,
   }
   const suivisCounts = {
     all:          producerFollows.length + etabFollows.length,
@@ -160,6 +167,18 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
           ))
         }
       }
+      if (favoSub === 'all' || favoSub === 'promos') {
+        for (const p of promoFavs) {
+          out.push(promoFavToRow(p,
+            () => { if (typeof window !== 'undefined') window.location.href = `/promotions?id=${p.id}` },
+            async () => {
+              const { data: { session } } = await supabase.auth.getSession()
+              await fetch(`/api/promotions/${p.id}/favorite`, { method: 'POST', headers: session ? { Authorization: `Bearer ${session.access_token}` } : {} })
+              removePromoFav(p.id)
+            },
+          ))
+        }
+      }
       return out
     }
     // section === 'suivis'
@@ -188,7 +207,7 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
     }
     return out
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [section, favoSub, suivisSub, annonceFavs, events, producerFavs, etabFavs, producerFollows, etabFollows])
+  }, [section, favoSub, suivisSub, annonceFavs, events, producerFavs, etabFavs, promoFavs, producerFollows, etabFollows])
 
   return (
     <main className="min-h-[100dvh] bg-creme pb-28 font-inter text-texte">
@@ -261,6 +280,7 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
           <CatPill active={favoSub === 'events'}      onClick={() => setFavoSub('events')}      label="Événements"  count={favoCounts.events} />
           <CatPill active={favoSub === 'producteurs'} onClick={() => setFavoSub('producteurs')} label="Producteurs" count={favoCounts.producteurs} />
           <CatPill active={favoSub === 'commerces'}   onClick={() => setFavoSub('commerces')}   label="Commerces"   count={favoCounts.commerces} />
+          <CatPill active={favoSub === 'promos'}      onClick={() => setFavoSub('promos')}      label="Promotions"  count={favoCounts.promos} />
         </div>
       )}
       {section === 'suivis' && (
@@ -382,6 +402,22 @@ function producerFollowToRow(p: ProducerMin, onClick: () => void, onRemove: () =
     tag:       CAT_TAG.producteur,
     title:     p.nom,
     subtitle:  p.commune ?? '',
+  }
+}
+
+function promoFavToRow(p: PromoMin, onClick: () => void, onRemove: () => void): RowItem {
+  return {
+    key:       `promo-fav-${p.id}`,
+    onClick,
+    onRemove,
+    removeKind: 'heart',
+    imageUrl:  p.image ?? null,
+    imageBg:   '#FFF0E5',
+    fallbackIcon:  <IcTag size={22} />,
+    fallbackColor: '#E8622A',
+    tag:       CAT_TAG.promo,
+    title:     p.title,
+    subtitle:  p.etabNom ?? 'Bon plan',
   }
 }
 
