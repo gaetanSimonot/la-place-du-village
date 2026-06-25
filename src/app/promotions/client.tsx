@@ -59,6 +59,30 @@ export default function PromotionsClient() {
   const [editPromo, setEditPromo] = useState<Promotion | null>(null)   // admin : édition depuis Découvrir
   const [usedThisMonth, setUsedThisMonth] = useState<number>(0)
   const [showQuotaUpgrade, setShowQuotaUpgrade] = useState(false)
+  const [favIds, setFavIds] = useState<Set<string>>(new Set())
+
+  // Favoris promos de l'user (cœur)
+  useEffect(() => {
+    if (!user) { setFavIds(new Set()); return }
+    ;(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const r = await fetch('/api/profile/promo-favorites', { headers: { Authorization: `Bearer ${session.access_token}` } }).catch(() => null)
+      if (r && r.ok) { const d = await r.json(); setFavIds(new Set(d.ids ?? [])) }
+    })()
+  }, [user])
+
+  const toggleFav = useCallback(async (promoId: string) => {
+    if (!user) { openAuthModal('/promotions'); return }
+    const wasFav = favIds.has(promoId)
+    setFavIds(prev => { const n = new Set(prev); if (wasFav) n.delete(promoId); else n.add(promoId); return n })
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const r = await fetch(`/api/promotions/${promoId}/favorite`, { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` } }).catch(() => null)
+    if (!r || !r.ok) {
+      setFavIds(prev => { const n = new Set(prev); if (wasFav) n.add(promoId); else n.delete(promoId); return n })  // revert
+    }
+  }, [user, openAuthModal, favIds])
 
   // Compteur de promos utilisées sur le mois calendaire en cours
   const refreshUsedThisMonth = useCallback(async () => {
@@ -336,6 +360,8 @@ export default function PromotionsClient() {
                   onUse={() => openUseConfirm(p)}
                   onDiscover={() => setDiscoverModal(p)}
                   disabled={using === p.id}
+                  favorited={favIds.has(p.id)}
+                  onToggleFav={() => toggleFav(p.id)}
                 />
               </div>
             ))}
@@ -359,6 +385,8 @@ export default function PromotionsClient() {
           promo={discoverModal}
           isAdmin={isAdmin}
           onEdit={() => { setEditPromo(discoverModal); setDiscoverModal(null) }}
+          favorited={favIds.has(discoverModal.id)}
+          onToggleFav={() => toggleFav(discoverModal.id)}
           onClose={() => setDiscoverModal(null)}
           onUse={() => { setDiscoverModal(null); openUseConfirm(discoverModal) }}
         />
@@ -494,11 +522,13 @@ function QuotaBanner({
   )
 }
 
-function PromoCard({ promo, onUse, onDiscover, disabled }: {
+function PromoCard({ promo, onUse, onDiscover, disabled, favorited, onToggleFav }: {
   promo: Promotion
   onUse: () => void
   onDiscover: () => void
   disabled: boolean
+  favorited: boolean
+  onToggleFav: () => void
 }) {
   return (
     <div
@@ -542,11 +572,11 @@ function PromoCard({ promo, onUse, onDiscover, disabled }: {
           </button>
           <button
             type="button"
-            aria-label="Favori"
-            onClick={ev => { ev.stopPropagation(); ev.preventDefault() }}
+            aria-label={favorited ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+            onClick={ev => { ev.stopPropagation(); ev.preventDefault(); onToggleFav() }}
             className="flex h-7 w-7 items-center justify-center rounded-full border-none bg-white/90"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-texte">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill={favorited ? '#E8622A' : 'none'} stroke={favorited ? '#E8622A' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={favorited ? '' : 'text-texte'}>
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
             </svg>
           </button>
@@ -574,11 +604,10 @@ function PromoCard({ promo, onUse, onDiscover, disabled }: {
         )}
 
         {promo.conditions && (
-          <div className="mt-0.5 flex items-start gap-1 rounded-md bg-[#FFF0E5] px-1.5 py-1">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-px shrink-0 text-accent">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="8" x2="12" y2="12"/>
-              <line x1="12" y1="16" x2="12.01" y2="16"/>
+          <div className="mt-0.5 flex items-start gap-1 rounded-md bg-[#E8F2EB] px-1.5 py-1">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="mt-px shrink-0 text-primary">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
             </svg>
             <p className="m-0 line-clamp-2 text-[10px] font-semibold leading-[1.3] text-[#8A4A1F]">
               {promo.conditions}
@@ -668,11 +697,10 @@ function ConfirmPositionModal({ promo, onClose, onConfirm, loading }: {
         )}
 
         {promo.conditions && (
-          <div className="mb-3 flex items-start gap-2 rounded-xl border border-[#F5C9A8] bg-[#FFF1E8] px-3 py-2.5">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="mt-px shrink-0 text-accent">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="8" x2="12" y2="12"/>
-              <line x1="12" y1="16" x2="12.01" y2="16"/>
+          <div className="mb-3 flex items-start gap-2 rounded-xl border border-[#C5DCC9] bg-[#E8F2EB] px-3 py-2.5">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-px shrink-0 text-primary">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
             </svg>
             <p className="m-0 text-[11.5px] leading-[1.45] text-[#8A4A1F]">
               <strong>Conditions&nbsp;:</strong> {promo.conditions}
@@ -821,13 +849,15 @@ function FeaturedPromoCarousel({ promos, onUse }: { promos: Promotion[]; onUse: 
 
 // ─── Modal Découvrir : encart promo + mini fiche etab ───
 function DiscoverPromoModal({
-  promo, onClose, onUse, isAdmin = false, onEdit,
+  promo, onClose, onUse, isAdmin = false, onEdit, favorited = false, onToggleFav,
 }: {
   promo: Promotion
   onClose: () => void
   onUse: () => void
   isAdmin?: boolean
   onEdit?: () => void
+  favorited?: boolean
+  onToggleFav?: () => void
 }) {
   const [showEtabQuickView, setShowEtabQuickView] = useState(false)
   const etabPhoto = promo.etablissement?.photos?.[0]
@@ -847,9 +877,39 @@ function DiscoverPromoModal({
           paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))',
         }}
       >
-        {/* Grabber + close */}
+        {/* Grabber + actions (partage, favori, fermer) */}
         <div className="relative">
           <div className="mx-auto mt-2 h-[5px] w-11 rounded-[3px] bg-[#E4DED2]" />
+          <div className="absolute left-3 top-2 flex gap-1.5">
+            <button
+              type="button"
+              aria-label="Partager ce bon plan"
+              onClick={() => shareLink({
+                title: `${promo.title} — La Place du Village`,
+                text:  `${promo.title}${promo.etablissement ? ' chez ' + promo.etablissement.nom : ''}`,
+                url:   'https://laplaceduvillage.app/promotions',
+              })}
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-bord bg-white text-texte"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                <polyline points="16 6 12 2 8 6" />
+                <line x1="12" y1="2" x2="12" y2="15" />
+              </svg>
+            </button>
+            {onToggleFav && (
+              <button
+                type="button"
+                aria-label={favorited ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                onClick={onToggleFav}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-bord bg-white"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill={favorited ? '#E8622A' : 'none'} stroke={favorited ? '#E8622A' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={favorited ? '' : 'text-texte'}>
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                </svg>
+              </button>
+            )}
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -887,11 +947,10 @@ function DiscoverPromoModal({
                 </p>
               )}
               {promo.conditions && (
-                <div className="mt-3 flex items-start gap-1.5 rounded-md bg-[#FFF0E5] px-2 py-1.5">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0 text-accent">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="12" y1="8" x2="12" y2="12"/>
-                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                <div className="mt-3 flex items-start gap-1.5 rounded-md bg-[#E8F2EB] px-2 py-1.5">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0 text-primary">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
                   </svg>
                   <p className="text-[11px] font-semibold leading-[1.4] text-[#8A4A1F]">
                     {promo.conditions}
