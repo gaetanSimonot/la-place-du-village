@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import SubscriptionModal from '@/components/SubscriptionModal'
 import QuotaPromoModal from '@/components/QuotaPromoModal'
+import { PromotionForm } from '@/components/PromotionsManager'
 import FeatureButton from '@/components/FeatureButton'
 import type { Plan } from '@/lib/capabilities'
 import { ETAB_TYPES } from '@/lib/etablissement-types'
@@ -55,6 +56,7 @@ export default function PromotionsClient() {
   const [typeFilter, setTypeFilter] = useState<EtablissementType | null>(null)
   const [confirmModal, setConfirmModal] = useState<Promotion | null>(null)
   const [discoverModal, setDiscoverModal] = useState<Promotion | null>(null)
+  const [editPromo, setEditPromo] = useState<Promotion | null>(null)   // admin : édition depuis Découvrir
   const [usedThisMonth, setUsedThisMonth] = useState<number>(0)
   const [showQuotaUpgrade, setShowQuotaUpgrade] = useState(false)
 
@@ -355,8 +357,21 @@ export default function PromotionsClient() {
       {discoverModal && (
         <DiscoverPromoModal
           promo={discoverModal}
+          isAdmin={isAdmin}
+          onEdit={() => { setEditPromo(discoverModal); setDiscoverModal(null) }}
           onClose={() => setDiscoverModal(null)}
           onUse={() => { setDiscoverModal(null); openUseConfirm(discoverModal) }}
+        />
+      )}
+
+      {/* Admin : édition d'une promo depuis « Découvrir » */}
+      {editPromo && (
+        <PromotionForm
+          etablissementId={editPromo.etablissement?.id ?? ''}
+          etablissementPhotos={editPromo.etablissement?.photos ?? []}
+          promo={editPromo as unknown as Parameters<typeof PromotionForm>[0]['promo']}
+          onClose={() => setEditPromo(null)}
+          onSaved={() => { setEditPromo(null); fetchPromos() }}
         />
       )}
 
@@ -806,11 +821,13 @@ function FeaturedPromoCarousel({ promos, onUse }: { promos: Promotion[]; onUse: 
 
 // ─── Modal Découvrir : encart promo + mini fiche etab ───
 function DiscoverPromoModal({
-  promo, onClose, onUse,
+  promo, onClose, onUse, isAdmin = false, onEdit,
 }: {
   promo: Promotion
   onClose: () => void
   onUse: () => void
+  isAdmin?: boolean
+  onEdit?: () => void
 }) {
   const [showEtabQuickView, setShowEtabQuickView] = useState(false)
   const etabPhoto = promo.etablissement?.photos?.[0]
@@ -924,8 +941,17 @@ function DiscoverPromoModal({
           )}
         </div>
 
-        {/* CTA J'en profite sticky */}
+        {/* CTA J'en profite sticky (+ Modifier admin) */}
         <div className="border-t border-bord bg-white px-4 py-3">
+          {isAdmin && onEdit && (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="mb-2 w-full rounded-[12px] border-[1.5px] border-[#E8A627] bg-[#FFF8E8] py-2.5 text-[13px] font-extrabold text-[#B07E1F]"
+            >
+              ✏️ Modifier la promotion (admin)
+            </button>
+          )}
           <button
             type="button"
             onClick={onUse}
