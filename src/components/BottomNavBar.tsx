@@ -1,6 +1,6 @@
 'use client'
 import { useRouter, usePathname } from 'next/navigation'
-import { useEffect, useRef, useState, Fragment } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useInterceptModal } from '@/contexts/InterceptModalContext'
@@ -17,17 +17,18 @@ interface Props {
 }
 
 /**
- * Bottom nav contextuelle. Deux dispositions :
- *  - PLATE (accueil / profil / favoris / autres) : Accueil · Carte · Annonces ·
+ * Bottom nav PLATE, contextuelle. Deux jeux d'onglets :
+ *  - défaut (accueil / profil / favoris / autres) : Accueil · Carte · Annonces ·
  *    Favoris · Profil.
- *  - À BOSSE (carte / annonces) : Accueil · Carte · ➕(central) · Annonces ·
- *    Profil. Le « + » appelle onPlus (carte = menu Publier ; annonces =
- *    /annonces/nouvelle par défaut). Silhouette SVG à bosse (handoff design).
- * Le badge non-lu (parmi les 50 notifs récentes) est porté par l'onglet Profil,
- * masqué quand on EST déjà sur le profil (la cloche de l'en-tête l'affiche).
+ *  - carte / annonces : Accueil · Carte · ➕ · Annonces · Profil (le ➕ remplace
+ *    la place du milieu, Favoris cède sa place à Annonces). Le ➕ est un onglet
+ *    normal (rond vert inline, PAS de bosse flottante). Action : carte → onPlus
+ *    (menu Publier) ; annonces → /annonces/nouvelle par défaut.
+ * Badge non-lu (parmi les 50 notifs récentes) porté par Profil, masqué quand on
+ * est déjà sur le profil (la cloche de l'en-tête l'affiche).
  */
 
-type TabDef = { id: string; label: string; href: string; active: boolean; badge?: number; Icon: () => React.JSX.Element }
+type TabDef = { id: string; label: string; href: string; active: boolean; badge?: number; plus?: boolean; Icon: () => React.JSX.Element }
 
 const Icons = {
   accueil: () => (
@@ -92,9 +93,8 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
 
   const isAnnonces = pathname?.startsWith('/annonces') ?? false
   const onProfil = activeTab === 'profil'
-  // Variante « à bosse » avec + central : sur la carte (hub) ou les annonces.
+  // Onglet « + » au milieu : sur la carte (hub) ou les annonces.
   const isPlus = activeTab === 'carte' || isAnnonces
-  // Badge profil : masqué quand on est déjà sur le profil (doublon avec la cloche).
   const profilBadge = !onProfil ? notifCount : 0
 
   const go = (href: string, id?: string) => {
@@ -109,109 +109,21 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
     router.push('/ajouter')
   }
 
-  function TabButton({ t }: { t: TabDef }) {
-    const isActive = activeTab ? activeTab === t.id : t.active
-    return (
-      <button
-        onClick={() => go(t.href, t.id)}
-        style={{
-          flex: 1, display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center', gap: 3,
-          border: 'none', backgroundColor: 'transparent', cursor: 'pointer',
-          borderTop: isActive ? '2.5px solid #2D5A3D' : '2.5px solid transparent',
-          paddingBottom: 4,
-          color: isActive ? '#2D5A3D' : '#8A8A8A',
-          WebkitTapHighlightColor: 'transparent',
-        }}
-      >
-        <div style={{ position: 'relative', display: 'inline-flex' }}>
-          <t.Icon />
-          {t.badge && t.badge > 0 ? (
-            <span style={{
-              position: 'absolute', top: -4, right: -5,
-              minWidth: 16, height: 16, borderRadius: 8,
-              backgroundColor: '#E53935', color: '#fff', fontSize: 9, fontWeight: 800,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              padding: '0 3px', border: '1.5px solid #fff',
-            }}>{t.badge > 99 ? '99+' : t.badge}</span>
-          ) : null}
-        </div>
-        <span style={{ fontSize: 10, fontWeight: 700 }}>{t.label}</span>
-      </button>
-    )
-  }
-
-  // ── Variante à BOSSE (carte / annonces) ───────────────────────────────────
-  if (isPlus) {
-    const BAR = 64, BUMP = 34, BW = 66, VW = 390, cx = VW / 2
-    const bumpPath =
-      `M0,${BUMP} L${cx - BW},${BUMP}` +
-      ` C${cx - BW + 24},${BUMP} ${cx - 44},4 ${cx},4` +
-      ` C${cx + 44},4 ${cx + BW - 24},${BUMP} ${cx + BW},${BUMP}` +
-      ` L${VW},${BUMP} L${VW},${BAR + BUMP} L0,${BAR + BUMP} Z`
-
-    const tabs: TabDef[] = [
-      { id: 'accueil',  label: 'Accueil',  href: '/',           active: false,      Icon: Icons.accueil },
-      { id: 'carte',    label: 'Carte',    href: '/?tab=carte', active: false,      Icon: Icons.carte },
-      { id: 'annonces', label: 'Annonces', href: '/annonces',   active: isAnnonces, Icon: Icons.annonces },
-      { id: 'profil',   label: 'Profil',   href: '/?tab=profil', active: false, badge: profilBadge, Icon: Icons.profil },
-    ]
-
-    return (
-      <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: BAR + BUMP, zIndex: 50, paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        {/* Silhouette plat → bosse → plat */}
-        <svg
-          viewBox={`0 0 ${VW} ${BAR + BUMP}`} width="100%" height={BAR + BUMP}
-          preserveAspectRatio="xMidYMax meet"
-          style={{ position: 'absolute', inset: 0, width: '100%', filter: 'drop-shadow(0 -2px 10px rgba(26,18,9,0.06))' }}
-        >
-          <path d={bumpPath} fill="#fff" stroke="#EDE8E0" strokeWidth="1" />
-        </svg>
-
-        {/* Bouton central « + » niché dans la bosse */}
-        <button
-          onClick={handlePlus}
-          aria-label="Ajouter"
-          style={{
-            position: 'absolute', left: '50%', top: -10, transform: 'translateX(-50%)', zIndex: 2,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-            border: 'none', background: 'transparent', cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
-          }}
-        >
-          <span style={{
-            width: 52, height: 52, borderRadius: '50%',
-            background: 'linear-gradient(135deg, #3C7A50, #2D5A3D)', color: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 6px 16px rgba(45,90,61,0.42)',
-          }}>
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-          </span>
-          <span style={{ fontSize: 10, fontWeight: 700, color: '#2D5A3D' }}>Ajouter</span>
-        </button>
-
-        {/* Onglets : la barre réelle commence sous la bosse */}
-        <div style={{ position: 'absolute', inset: 0, paddingTop: BUMP, display: 'flex', alignItems: 'stretch' }}>
-          {tabs.map((t, i) => (
-            <Fragment key={t.id}>
-              {i === 2 && <div style={{ width: 64, flexShrink: 0 }} aria-hidden />}
-              <TabButton t={t} />
-            </Fragment>
-          ))}
-        </div>
-      </nav>
-    )
-  }
-
-  // ── Variante PLATE (accueil / profil / favoris / autres) ───────────────────
-  const tabs: TabDef[] = [
-    { id: 'accueil',  label: 'Accueil',  href: '/',            active: false,      Icon: Icons.accueil },
-    { id: 'carte',    label: 'Carte',    href: '/?tab=carte',  active: false,      Icon: Icons.carte },
-    { id: 'annonces', label: 'Annonces', href: '/annonces',    active: isAnnonces, Icon: Icons.annonces },
-    { id: 'favoris',  label: 'Favoris',  href: '/?tab=favoris', active: false,     Icon: Icons.favoris },
-    { id: 'profil',   label: 'Profil',   href: '/?tab=profil',  active: false, badge: profilBadge, Icon: Icons.profil },
-  ]
+  const tabs: TabDef[] = isPlus
+    ? [
+        { id: 'accueil',  label: 'Accueil',  href: '/',            active: false,      Icon: Icons.accueil },
+        { id: 'carte',    label: 'Carte',    href: '/?tab=carte',  active: false,      Icon: Icons.carte },
+        { id: 'plus',     label: 'Ajouter',  href: '',             active: false, plus: true, Icon: Icons.accueil },
+        { id: 'annonces', label: 'Annonces', href: '/annonces',    active: isAnnonces, Icon: Icons.annonces },
+        { id: 'profil',   label: 'Profil',   href: '/?tab=profil', active: false, badge: profilBadge, Icon: Icons.profil },
+      ]
+    : [
+        { id: 'accueil',  label: 'Accueil',  href: '/',            active: false,      Icon: Icons.accueil },
+        { id: 'carte',    label: 'Carte',    href: '/?tab=carte',  active: false,      Icon: Icons.carte },
+        { id: 'annonces', label: 'Annonces', href: '/annonces',    active: isAnnonces, Icon: Icons.annonces },
+        { id: 'favoris',  label: 'Favoris',  href: '/?tab=favoris', active: false,     Icon: Icons.favoris },
+        { id: 'profil',   label: 'Profil',   href: '/?tab=profil',  active: false, badge: profilBadge, Icon: Icons.profil },
+      ]
 
   return (
     <nav style={{
@@ -219,7 +131,68 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
       backgroundColor: '#fff', borderTop: '1px solid #EDE8E0',
       display: 'flex', zIndex: 50, paddingBottom: 'env(safe-area-inset-bottom)',
     }}>
-      {tabs.map(t => <TabButton key={t.id} t={t} />)}
+      {tabs.map(t => {
+        // ── Onglet « + » (rond vert inline) ──
+        if (t.plus) {
+          return (
+            <button
+              key="plus"
+              onClick={handlePlus}
+              aria-label="Ajouter"
+              style={{
+                flex: 1, display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center', gap: 2,
+                border: 'none', backgroundColor: 'transparent', cursor: 'pointer',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              <span style={{
+                width: 38, height: 38, borderRadius: '50%',
+                background: 'linear-gradient(135deg, #3C7A50, #2D5A3D)', color: '#fff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 2px 6px rgba(45,90,61,0.30)',
+              }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+              </span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#2D5A3D' }}>Ajouter</span>
+            </button>
+          )
+        }
+
+        // ── Onglet normal ──
+        const isActive = activeTab ? activeTab === t.id : t.active
+        return (
+          <button
+            key={t.id}
+            onClick={() => go(t.href, t.id)}
+            style={{
+              flex: 1, display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', gap: 3,
+              border: 'none', backgroundColor: 'transparent', cursor: 'pointer',
+              borderTop: isActive ? '2.5px solid #2D5A3D' : '2.5px solid transparent',
+              paddingBottom: 4,
+              color: isActive ? '#2D5A3D' : '#8A8A8A',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            <div style={{ position: 'relative', display: 'inline-flex' }}>
+              <t.Icon />
+              {t.badge && t.badge > 0 ? (
+                <span style={{
+                  position: 'absolute', top: -4, right: -5,
+                  minWidth: 16, height: 16, borderRadius: 8,
+                  backgroundColor: '#E53935', color: '#fff', fontSize: 9, fontWeight: 800,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '0 3px', border: '1.5px solid #fff',
+                }}>{t.badge > 99 ? '99+' : t.badge}</span>
+              ) : null}
+            </div>
+            <span style={{ fontSize: 10, fontWeight: 700 }}>{t.label}</span>
+          </button>
+        )
+      })}
     </nav>
   )
 }
