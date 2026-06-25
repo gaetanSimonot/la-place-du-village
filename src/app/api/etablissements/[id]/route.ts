@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser } from '@/lib/server-auth'
-import { mergeDraft, pickDraftableFields, shouldApplyDraft } from '@/lib/etab-drafts'
+import { mergeDraft, pickDraftableFields, shouldApplyDraft, DRAFT_EDITABLE_FIELDS } from '@/lib/etab-drafts'
 
 /**
  * GET — retourne la fiche fusionnée avec le draft du propriétaire si applicable.
@@ -75,6 +75,26 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const patch = Object.fromEntries(Object.entries(body).filter(([k]) => allowed.includes(k)))
     const { error } = await supabaseAdmin.from('etablissements').update(patch).eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // Purge du brouillon du propriétaire pour les champs draftables que l'admin
+    // vient d'écrire : sinon le draft (ex. anciennes photos Google) continuerait
+    // de masquer l'édition admin sur la fiche publique (mergeDraft), alors que
+    // le carrousel/hub lit l'officiel directement → incohérence.
+    if (etab.user_id) {
+      const purgeKeys = DRAFT_EDITABLE_FIELDS.filter(k => k in patch)
+      if (purgeKeys.length) {
+        const { data: d } = await supabaseAdmin
+          .from('etablissement_drafts').select('fields')
+          .eq('etablissement_id', id).eq('user_id', etab.user_id).maybeSingle()
+        const fields = { ...(d?.fields as Record<string, unknown> ?? {}) }
+        let changed = false
+        for (const k of purgeKeys) { if (k in fields) { delete fields[k]; changed = true } }
+        if (changed) {
+          await supabaseAdmin.from('etablissement_drafts')
+            .update({ fields }).eq('etablissement_id', id).eq('user_id', etab.user_id)
+        }
+      }
+    }
     return NextResponse.json({ success: true })
   }
 
