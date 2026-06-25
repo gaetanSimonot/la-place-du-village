@@ -375,6 +375,9 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
 
   const visibleNotifs = isAdmin ? filteredAdmin : filteredUser
   const buckets = bucketByDay(visibleNotifs)
+  // Espace stats « Promotions » : onglet Promotions côté user, filtre Promotions
+  // (ex-Boost) côté admin.
+  const showPromoPanel = isAdmin ? adminFilter === 'boost' : userFilter === 'promos'
 
   return (
     <div className="min-h-full bg-creme pb-14 font-inter text-texte">
@@ -485,7 +488,7 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
               { id: 'annonces', label: 'Annonces' },
               { id: 'events',   label: 'Events' },
               { id: 'support',  label: 'Support' },
-              { id: 'boost',    label: 'Boost' },
+              { id: 'boost',    label: 'Promotions' },
             ] as const).map(f => {
               const active = adminFilter === f.id
               return (
@@ -536,8 +539,8 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
         )
       )}
 
-      {/* Espace Promotions (pro) — stats : qui a profité de mes promos */}
-      {!isAdmin && userFilter === 'promos' && <PromoStatsPanel />}
+      {/* Espace Promotions — stats : qui a profité de mes promos (pro + admin) */}
+      {showPromoPanel && <PromoStatsPanel />}
 
       {/* Content */}
       <div className="mt-2">
@@ -546,7 +549,7 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
             <div className="h-7 w-7 animate-spin rounded-full border-4 border-bord border-t-primary" />
           </div>
         ) : visibleNotifs.length === 0 ? (
-          userFilter === 'promos' && !isAdmin ? null : (
+          showPromoPanel ? null : (
           <div className="px-4 py-16 text-center">
             <div
               className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-cremeDeep text-texte-doux"
