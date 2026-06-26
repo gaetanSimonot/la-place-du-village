@@ -398,7 +398,7 @@ export default function AppInfoModal({ onClose }: { onClose: () => void }) {
         position: 'fixed', inset: 0, zIndex: 400,
         background: 'rgba(26,18,9,0.55)', backdropFilter: 'blur(4px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 16, fontFamily: 'Inter, sans-serif',
+        padding: 16, fontFamily: 'var(--font-body), sans-serif',
       }}
     >
       <div
@@ -443,7 +443,7 @@ export default function AppInfoModal({ onClose }: { onClose: () => void }) {
           />
           <h2 style={{
             margin: 0, textAlign: 'center',
-            fontFamily: 'var(--font-dm-serif), Georgia, serif',
+            fontFamily: 'var(--font-display), Georgia, serif',
             fontSize: 24, color: T.primary, letterSpacing: '-0.01em', lineHeight: 1.0,
           }}>
             La Place du Village
@@ -451,7 +451,7 @@ export default function AppInfoModal({ onClose }: { onClose: () => void }) {
           <div style={{ width: 36, height: 3, borderRadius: 999, backgroundColor: T.accent, margin: '8px auto 8px' }} />
           <p style={{
             margin: 0, textAlign: 'center',
-            fontFamily: 'var(--font-caveat), Caveat, cursive', fontWeight: 500,
+            fontFamily: 'var(--font-hand), Caveat, cursive', fontWeight: 500,
             fontSize: 17, color: T.texteDoux, lineHeight: 1.05,
           }}>
             L&apos;application dont vous êtes le hérault
@@ -573,7 +573,7 @@ export default function AppInfoModal({ onClose }: { onClose: () => void }) {
         <div style={{ padding: '12px 16px 16px', borderTop: `1px solid ${T.bordSoft}`, background: T.white, flexShrink: 0 }}>
           <button
             onClick={onClose}
-            style={{ width: '100%', padding: 14, borderRadius: 14, background: T.primary, color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'Inter, sans-serif' }}
+            style={{ width: '100%', padding: 14, borderRadius: 14, background: T.primary, color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'var(--font-body), sans-serif' }}
           >
             <IconCheck /> C&apos;est compris !
           </button>

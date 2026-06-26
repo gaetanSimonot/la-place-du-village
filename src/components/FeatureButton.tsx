@@ -40,7 +40,7 @@ export default function FeatureButton({ contentType, contentId, ownerUserId }: P
           padding: '5px 11px', borderRadius: 10,
           border: '1.5px solid #E8A627', backgroundColor: '#FFF8E8',
           color: '#B07E1F',
-          fontFamily: 'Inter, sans-serif',
+          fontFamily: 'var(--font-body), sans-serif',
           fontSize: 11, fontWeight: 800,
           cursor: 'pointer',
           display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -206,7 +206,7 @@ export function FeatureModal({ contentType, contentId, isAdmin, isOwner, plan, o
       <div style={{
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 501,
         backgroundColor: '#fff', borderRadius: '20px 20px 0 0',
-        padding: '24px 22px 40px', fontFamily: 'Inter, sans-serif',
+        padding: '24px 22px 40px', fontFamily: 'var(--font-body), sans-serif',
         maxHeight: '90dvh', overflowY: 'auto',
       }}>
         <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '0 auto 18px' }} />

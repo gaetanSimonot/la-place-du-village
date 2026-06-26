@@ -205,7 +205,7 @@ export default function AnnuaireFilterWheel({
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 4,
-                fontFamily: 'Inter, sans-serif',
+                fontFamily: 'var(--font-body), sans-serif',
                 fontSize: 12.5,
                 fontWeight: isInSlot ? 700 : 600,
                 scrollSnapAlign: 'center',

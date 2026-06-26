@@ -101,7 +101,7 @@ const css = `
     min-height: 100vh;
     display: flex; align-items: center; justify-content: center;
     padding: 32px 20px;
-    font-family: var(--font-inter), Inter, system-ui, sans-serif;
+    font-family: var(--font-body), Inter, system-ui, sans-serif;
     color: #1A1209;
     background:
       radial-gradient(ellipse at 20% 0%, #FDF7EA 0%, transparent 55%),
@@ -143,7 +143,7 @@ const css = `
   }
   .pdv-maint-h1 {
     margin: 18px 0 0;
-    font-family: var(--font-dm-serif), "DM Serif Display", Georgia, serif;
+    font-family: var(--font-display), "DM Serif Display", Georgia, serif;
     font-size: 38px; line-height: 1.04;
     letter-spacing: -0.025em;
     color: #1A1209;
@@ -155,7 +155,7 @@ const css = `
   }
   .pdv-maint-rule .l { width: 32px; height: 1px; background: #1A1209; opacity: 0.35; }
   .pdv-maint-rule .dot {
-    font-family: var(--font-dm-serif), Georgia, serif;
+    font-family: var(--font-display), Georgia, serif;
     font-size: 14px; color: #C84B2F; line-height: 1;
   }
   .pdv-maint-caveat {
@@ -202,7 +202,7 @@ const css = `
     display: flex; align-items: center; justify-content: center;
   }
   .pdv-maint-foot .brand {
-    font-family: var(--font-dm-serif), Georgia, serif;
+    font-family: var(--font-display), Georgia, serif;
     font-size: 18px; color: #2D5A3D; letter-spacing: -0.01em;
     display: inline-flex; align-items: center; gap: 8px;
   }

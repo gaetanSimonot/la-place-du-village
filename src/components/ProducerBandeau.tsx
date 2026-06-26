@@ -92,14 +92,14 @@ export default function ProducerBandeau({ producers, onDiscover }: Props) {
             display: 'inline-flex', alignItems: 'center', gap: 4,
             fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase',
             color: '#fff', backgroundColor: '#2D5A3D', borderRadius: 999, padding: '3px 9px',
-            fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+            fontFamily: 'var(--font-body), sans-serif', whiteSpace: 'nowrap', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
           }}>🌿 À la une</span>
           <button onClick={e => { e.stopPropagation(); setDismissed(true) }}
             style={{ width: 22, height: 22, borderRadius: '50%', backgroundColor: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.8)', fontSize: 9, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, flexShrink: 0 }}>✕</button>
         </div>
 
         <div>
-          <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 16, lineHeight: 1.3, letterSpacing: '-0.01em', color: '#fff', margin: '0 0 4px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', textShadow: '0 1px 8px rgba(0,0,0,0.5)' }}>{p.nom}</p>
+          <p style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 16, lineHeight: 1.3, letterSpacing: '-0.01em', color: '#fff', margin: '0 0 4px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', textShadow: '0 1px 8px rgba(0,0,0,0.5)' }}>{p.nom}</p>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {firstCat ? `${firstCat.emoji} ${firstCat.label}` : ''}

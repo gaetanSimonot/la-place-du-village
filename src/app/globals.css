@@ -26,6 +26,21 @@
   --carte:         #4A90D9;
 }
 
+/* ═══════════ POLICES — change une famille PARTOUT en 1 ligne ═══════════
+   Tout le site pointe sur ces 3 variables sémantiques.
+   Familles disponibles (chargées dans layout.tsx) :
+     var(--font-inter)    · Inter              (sans)
+     var(--font-jakarta)  · Plus Jakarta Sans  (sans — police du splash)
+     var(--font-dm-serif) · DM Serif Display   (serif)
+     var(--font-caveat)   · Caveat             (manuscrit)
+   Pour tout passer en Jakarta : mets --font-body: var(--font-jakarta);
+   ──────────────────────────────────────────────────────────────────────── */
+:root {
+  --font-body:    var(--font-inter);     /* texte courant + UI  (= tout le site) */
+  --font-display: var(--font-dm-serif);  /* gros titres décoratifs */
+  --font-hand:    var(--font-caveat);    /* accents manuscrits */
+}
+
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
@@ -36,8 +51,8 @@ html, body {
   overscroll-behavior: none;
   background-color: var(--creme);
   color: var(--texte);
-  /* Utilise next/font Inter via CSS variable. Fallback: Inter local, puis system-ui. */
-  font-family: var(--font-inter), "Inter", system-ui, -apple-system, sans-serif;
+  /* Police pilotée par --font-body (voir bloc POLICES ci-dessus). */
+  font-family: var(--font-body), "Inter", system-ui, -apple-system, sans-serif;
   font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -95,7 +110,7 @@ textarea:-webkit-autofill {
 }
 .pdv-wp-item {
   color: var(--primary) !important;
-  font-family: var(--font-inter), Inter, sans-serif !important;
+  font-family: var(--font-body), Inter, sans-serif !important;
   font-size: 12.5px !important;
   font-weight: 600 !important;
   letter-spacing: -0.005em !important;

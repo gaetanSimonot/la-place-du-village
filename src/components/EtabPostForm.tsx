@@ -90,7 +90,7 @@ export default function EtabPostForm({ etablissementId, etablissementPhotos = []
         width: '100%', maxWidth: 480, backgroundColor: '#fff',
         borderRadius: '24px 24px 0 0', padding: '20px 20px 28px',
         paddingBottom: 'max(28px, env(safe-area-inset-bottom, 28px))',
-        maxHeight: '92dvh', overflowY: 'auto', fontFamily: 'Inter, sans-serif',
+        maxHeight: '92dvh', overflowY: 'auto', fontFamily: 'var(--font-body), sans-serif',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h2 style={{ fontSize: 18, fontWeight: 800, color: '#1A1209', margin: 0, letterSpacing: '-0.01em' }}>
@@ -122,7 +122,7 @@ export default function EtabPostForm({ etablissementId, etablissementPhotos = []
             {imageUrl ? (
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <img src={imageUrl} alt="" style={{ width: 60, height: 60, borderRadius: 8, objectFit: 'cover' }} />
-                <button onClick={() => setImageUrl('')} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #FBDADA', backgroundColor: '#FEF2F2', color: '#DC2626', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                <button onClick={() => setImageUrl('')} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #FBDADA', backgroundColor: '#FEF2F2', color: '#DC2626', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif' }}>
                   Retirer
                 </button>
               </div>
@@ -132,7 +132,7 @@ export default function EtabPostForm({ etablissementId, etablissementPhotos = []
                   <input ref={fileRef} type="file" accept="image/*"
                     onChange={e => e.target.files?.[0] && handleUpload(e.target.files[0])}
                     style={{ display: 'none' }} />
-                  <button onClick={() => fileRef.current?.click()} disabled={uploading} style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid #E0D8CE', backgroundColor: '#fff', color: '#3C2C20', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                  <button onClick={() => fileRef.current?.click()} disabled={uploading} style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid #E0D8CE', backgroundColor: '#fff', color: '#3C2C20', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif' }}>
                     {uploading ? 'Upload…' : '📷 Uploader une image'}
                   </button>
                 </div>
@@ -166,7 +166,7 @@ export default function EtabPostForm({ etablissementId, etablissementPhotos = []
               backgroundColor: '#2D5A3D', color: '#fff', border: 'none', borderRadius: 12,
               fontSize: 14, fontWeight: 700,
               cursor: saving || !contenu.trim() ? 'default' : 'pointer',
-              opacity: saving || !contenu.trim() ? 0.5 : 1, fontFamily: 'Inter, sans-serif',
+              opacity: saving || !contenu.trim() ? 0.5 : 1, fontFamily: 'var(--font-body), sans-serif',
             }}>
             {saving ? 'Enregistrement…' : (post ? 'Enregistrer' : 'Publier')}
           </button>
@@ -181,7 +181,7 @@ const inp: React.CSSProperties = {
   width: '100%', padding: '10px 12px', borderRadius: 10,
   border: '1.5px solid #E0D8CE', fontSize: 13, outline: 'none',
   backgroundColor: '#FBF7F0', color: '#2C1810',
-  boxSizing: 'border-box', fontFamily: 'Inter, sans-serif',
+  boxSizing: 'border-box', fontFamily: 'var(--font-body), sans-serif',
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

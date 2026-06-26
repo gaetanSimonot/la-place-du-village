@@ -79,7 +79,7 @@ export default function FeedbackButton({ evenementId, evenementTitre, open: exte
                 backgroundColor: '#fff',
                 borderRadius: '20px 20px 0 0',
                 padding: '20px 20px 40px',
-                fontFamily: 'Inter, sans-serif',
+                fontFamily: 'var(--font-body), sans-serif',
               }}
             >
               {/* Poignée */}
@@ -88,7 +88,7 @@ export default function FeedbackButton({ evenementId, evenementTitre, open: exte
               {state === 'done' ? (
                 <div style={{ textAlign: 'center', padding: '16px 0 8px' }}>
                   <p style={{ fontSize: 36, marginBottom: 10 }}>🙏</p>
-                  <h3 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 18, color: '#2C1810', marginBottom: 6 }}>
+                  <h3 style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 18, color: '#2C1810', marginBottom: 6 }}>
                     Merci !
                   </h3>
                   <p style={{ fontSize: 13, color: '#8A8A8A', lineHeight: 1.5 }}>
@@ -97,12 +97,12 @@ export default function FeedbackButton({ evenementId, evenementTitre, open: exte
                   <button onClick={close} style={{
                     marginTop: 20, padding: '12px 32px', borderRadius: 14, border: 'none',
                     backgroundColor: 'var(--primary)', color: '#fff',
-                    fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+                    fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif',
                   }}>Fermer</button>
                 </div>
               ) : (
                 <>
-                  <h3 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 17, color: '#2C1810', marginBottom: 4 }}>
+                  <h3 style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 17, color: '#2C1810', marginBottom: 4 }}>
                     Signaler un problème
                   </h3>
                   <p style={{ fontSize: 12, color: '#9A8E82', marginBottom: 16 }}>
@@ -118,7 +118,7 @@ export default function FeedbackButton({ evenementId, evenementTitre, open: exte
                     style={{
                       width: '100%', padding: '12px 14px', borderRadius: 12,
                       border: '1.5px solid #E0D8CE', fontSize: 14, lineHeight: 1.5,
-                      fontFamily: 'Inter, sans-serif', color: '#2C2C2C',
+                      fontFamily: 'var(--font-body), sans-serif', color: '#2C2C2C',
                       resize: 'none', outline: 'none', boxSizing: 'border-box',
                       backgroundColor: state === 'sending' ? '#F5F1EC' : '#fff',
                     }}
@@ -132,7 +132,7 @@ export default function FeedbackButton({ evenementId, evenementTitre, open: exte
                     style={{
                       width: '100%', marginTop: 10, padding: '12px 14px', borderRadius: 12,
                       border: '1.5px solid #E0D8CE', fontSize: 14,
-                      fontFamily: 'Inter, sans-serif', color: '#2C2C2C',
+                      fontFamily: 'var(--font-body), sans-serif', color: '#2C2C2C',
                       outline: 'none', boxSizing: 'border-box',
                       backgroundColor: state === 'sending' ? '#F5F1EC' : '#fff',
                     }}
@@ -154,7 +154,7 @@ export default function FeedbackButton({ evenementId, evenementTitre, open: exte
                       backgroundColor: message.trim() ? 'var(--primary)' : '#E0D8CE',
                       color: message.trim() ? '#fff' : '#9A8E82',
                       fontWeight: 700, fontSize: 15, cursor: message.trim() ? 'pointer' : 'default',
-                      fontFamily: 'Inter, sans-serif', transition: 'all 0.15s',
+                      fontFamily: 'var(--font-body), sans-serif', transition: 'all 0.15s',
                     }}
                   >
                     {state === 'sending' ? 'Envoi…' : 'Envoyer'}

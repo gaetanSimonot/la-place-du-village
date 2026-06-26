@@ -203,13 +203,13 @@ export default function ProduceurAdmin({ embedded }: { embedded?: boolean }) {
     width: '100%', padding: '9px 12px', borderRadius: 8,
     border: '1.5px solid #E0D8CE', fontSize: 13, outline: 'none',
     backgroundColor: '#FBF7F0', color: '#2C1810', boxSizing: 'border-box',
-    fontFamily: 'Inter, sans-serif',
+    fontFamily: 'var(--font-body), sans-serif',
   }
-  const labelStyle: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: '#7A6A5A', textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'Inter, sans-serif', display: 'block', marginBottom: 4 }
+  const labelStyle: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: '#7A6A5A', textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'var(--font-body), sans-serif', display: 'block', marginBottom: 4 }
   const sectionStyle: React.CSSProperties = { marginBottom: 14 }
 
   return (
-    <div style={{ backgroundColor: '#FBF7F0', fontFamily: 'Inter, sans-serif', minHeight: embedded ? undefined : '100dvh' }}>
+    <div style={{ backgroundColor: '#FBF7F0', fontFamily: 'var(--font-body), sans-serif', minHeight: embedded ? undefined : '100dvh' }}>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
 
       {/* Header — standalone only */}

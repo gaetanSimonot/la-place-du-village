@@ -92,7 +92,7 @@ export default function CropRect({
         backgroundColor: '#000',
         display: 'flex', flexDirection: 'column',
         userSelect: 'none',
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: 'var(--font-body), sans-serif',
       }}
     >
       {/* Header */}

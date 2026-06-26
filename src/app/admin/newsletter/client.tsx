@@ -241,7 +241,7 @@ function ListModal({ audience, onClose, onChanged }: { audience: Audience; onClo
   const filtered = (people ?? []).filter(p => { const s = q.trim().toLowerCase(); return !s || (p.name ?? '').toLowerCase().includes(s) || p.email.toLowerCase().includes(s) })
   if (typeof document === 'undefined') return null
   return createPortal(
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1300, fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1300, fontFamily: 'var(--font-body), sans-serif' }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight: '85vh', background: '#FBFAF7', borderRadius: '20px 20px 0 0', display: 'flex', flexDirection: 'column', paddingBottom: 'max(12px,env(safe-area-inset-bottom,12px))' }}>
         <div style={{ width: 40, height: 4, borderRadius: 2, background: '#D1CCC4', margin: '12px auto 8px' }} />
@@ -369,7 +369,7 @@ function SectionPicker({ kind, ids, onSave, onClose }: { kind: string; ids: stri
 
   if (typeof document === 'undefined') return null
   return createPortal(
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1300, fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1300, fontFamily: 'var(--font-body), sans-serif' }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight: '85vh', background: '#FBFAF7', borderRadius: '20px 20px 0 0', display: 'flex', flexDirection: 'column', paddingBottom: 'max(12px,env(safe-area-inset-bottom,12px))' }}>
         <div style={{ width: 40, height: 4, borderRadius: 2, background: '#D1CCC4', margin: '12px auto 8px' }} />

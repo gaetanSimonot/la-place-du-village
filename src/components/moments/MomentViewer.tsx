@@ -55,7 +55,7 @@ export default function MomentViewer({ moments, startIndex, onClose, onDeleted, 
   if (items.length === 0) { onClose(); return null }
 
   return createPortal(
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1300, background: '#000', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1300, background: '#000', fontFamily: 'var(--font-body), sans-serif' }}>
       <style>{`.reel-scroll::-webkit-scrollbar{display:none}`}</style>
 
       {/* Haut-gauche : « ‹ Voir tout » (depuis l'accueil) ou la croix (ailleurs) */}
@@ -420,7 +420,7 @@ function MomentComments({ momentId, onClose }: { momentId: string; onClose: () =
   }
 
   return createPortal(
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1400, fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1400, fontFamily: 'var(--font-body), sans-serif' }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight: '72vh', background: '#FBFAF7', borderRadius: '20px 20px 0 0', display: 'flex', flexDirection: 'column', paddingBottom: 'max(12px,env(safe-area-inset-bottom,12px))' }}>
         <div style={{ width: 40, height: 4, borderRadius: 2, background: '#D1CCC4', margin: '12px auto 8px' }} />

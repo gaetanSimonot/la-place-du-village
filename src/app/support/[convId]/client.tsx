@@ -139,7 +139,7 @@ export default function SupportConversationClient({ convId, mode }: Props) {
 
   if (error && !conv) {
     return (
-      <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', padding: 40, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>
+      <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', padding: 40, textAlign: 'center', fontFamily: 'var(--font-body), sans-serif' }}>
         <p style={{ color: '#8A7A6A' }}>{error}</p>
         <Link href={mode === 'admin' ? '/admin/support' : '/'} style={{ color: '#2D5A3D', fontWeight: 700 }}>← Retour</Link>
       </div>
@@ -162,7 +162,7 @@ export default function SupportConversationClient({ convId, mode }: Props) {
     <div style={{
       minHeight: '100dvh',
       backgroundColor: '#F2EBE0',
-      fontFamily: 'Inter, sans-serif',
+      fontFamily: 'var(--font-body), sans-serif',
       display: 'flex',
       flexDirection: 'column',
       paddingBottom: mode === 'user' ? 64 : 0,

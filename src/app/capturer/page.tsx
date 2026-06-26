@@ -390,13 +390,13 @@ function CapturerInner() {
   // ── Mur de connexion ─────────────────────────────────────────────────────────
   if (!authLoading && !user) {
     return (
-      <div style={{ minHeight: '100dvh', backgroundColor: '#FDFAF5', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>
+      <div style={{ minHeight: '100dvh', backgroundColor: '#FDFAF5', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', textAlign: 'center', fontFamily: 'var(--font-body), sans-serif' }}>
         <div style={{ width: 72, height: 72, borderRadius: '50%', backgroundColor: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
           </svg>
         </div>
-        <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 22, color: '#1A1209', margin: '0 0 10px', letterSpacing: '-0.02em' }}>
+        <h2 style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 800, fontSize: 22, color: '#1A1209', margin: '0 0 10px', letterSpacing: '-0.02em' }}>
           Connexion requise
         </h2>
         <p style={{ fontSize: 14, color: '#6B5E4E', lineHeight: 1.6, margin: '0 0 28px', maxWidth: 280 }}>
@@ -404,7 +404,7 @@ function CapturerInner() {
         </p>
         <button
           onClick={() => openAuthModal()}
-          style={{ width: '100%', maxWidth: 320, padding: '16px', borderRadius: 999, backgroundColor: 'var(--primary)', color: '#fff', fontWeight: 700, fontSize: 16, border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', marginBottom: 14 }}
+          style={{ width: '100%', maxWidth: 320, padding: '16px', borderRadius: 999, backgroundColor: 'var(--primary)', color: '#fff', fontWeight: 700, fontSize: 16, border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif', marginBottom: 14 }}
         >
           Se connecter
         </button>

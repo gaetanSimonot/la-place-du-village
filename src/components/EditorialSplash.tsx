@@ -146,7 +146,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onSearch, onSha
           style={{ marginTop: 6, width: '100%', display: 'flex', alignItems: 'center', gap: 14, background: '#234A30', border: 'none', borderRadius: 18, padding: '16px 18px', cursor: 'pointer', textAlign: 'left' }}
         >
           <span style={{ flex: 1, minWidth: 0 }}>
-            <span style={{ display: 'block', fontFamily: 'var(--font-dm-serif), Georgia, serif', fontSize: 23, fontWeight: 700, color: '#fff', lineHeight: 1.1 }}>Explorer le village</span>
+            <span style={{ display: 'block', fontFamily: 'var(--font-display), Georgia, serif', fontSize: 23, fontWeight: 700, color: '#fff', lineHeight: 1.1 }}>Explorer le village</span>
             <span style={{ display: 'block', marginTop: 2, fontSize: 13, color: 'rgba(255,255,255,0.82)' }}>Voir tous les événements, annonces, articles…</span>
           </span>
           <span style={{ width: 42, height: 42, flexShrink: 0, borderRadius: 21, background: '#fff', color: '#234A30', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

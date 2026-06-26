@@ -394,7 +394,7 @@ export default function BottomSheet({
             <div style={{
               padding: '2px 16px 8px',
               textAlign: 'center',
-              fontFamily: 'Inter, sans-serif',
+              fontFamily: 'var(--font-body), sans-serif',
               fontSize: 13, color: '#7A6A5A',
             }}>
               <span style={{ fontWeight: 800, fontSize: 15, color: '#1A1209' }}>
@@ -429,7 +429,7 @@ export default function BottomSheet({
         {appMode !== 'agenda' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 16px 10px' }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 18, color: '#1C1917', margin: 0, lineHeight: 1.1 }}>
+              <p style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 800, fontSize: 18, color: '#1C1917', margin: 0, lineHeight: 1.1 }}>
                 {annuaireTabIdx === 0
                   ? `${displayedProducers.length} producteur${displayedProducers.length !== 1 ? 's' : ''}`
                   : `${displayedEtabs.length} commerce${displayedEtabs.length !== 1 ? 's' : ''}`
@@ -449,14 +449,14 @@ export default function BottomSheet({
                   padding: '5px 13px', borderRadius: 999, border: 'none',
                   backgroundColor: 'transparent',
                   color: '#2D5A3D',
-                  fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 11,
+                  fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 11,
                   cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background-color 0.15s, color 0.15s',
                 }}>Agenda</button>
                 <button onClick={() => onAppModeChange?.('annuaire')} style={{
                   padding: '5px 13px', borderRadius: 999, border: 'none',
                   backgroundColor: '#2D5A3D',
                   color: '#fff',
-                  fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 11,
+                  fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 11,
                   cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background-color 0.15s, color 0.15s',
                 }}>Annuaire</button>
               </div>
@@ -474,14 +474,14 @@ export default function BottomSheet({
                   padding: '5px 13px', borderRadius: 999, border: 'none',
                   backgroundColor: annuaireTabIdx === 0 ? '#2D5A3D' : 'transparent',
                   color: annuaireTabIdx === 0 ? '#fff' : '#2D5A3D',
-                  fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 11,
+                  fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 11,
                   cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background-color 0.15s, color 0.15s',
                 }}>Producteurs</button>
                 <button onClick={() => setAnnuaireTabIdx(1)} style={{
                   padding: '5px 13px', borderRadius: 999, border: 'none',
                   backgroundColor: annuaireTabIdx === 1 ? '#2D5A3D' : 'transparent',
                   color: annuaireTabIdx === 1 ? '#fff' : '#2D5A3D',
-                  fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 11,
+                  fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 11,
                   cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background-color 0.15s, color 0.15s',
                 }}>Commerces</button>
               </div>
@@ -525,7 +525,7 @@ export default function BottomSheet({
                 </svg>
                 <input type="text" value={producerSearch} onChange={e => onProducerSearchChange?.(e.target.value)}
                   placeholder="Producteur, produit, commune…"
-                  style={{ width: '100%', padding: '10px 36px 10px 34px', borderRadius: producerSearch && suggestions.length > 0 ? '12px 12px 0 0' : 12, border: `1.5px solid ${sheetBg.border}`, borderBottom: producerSearch && suggestions.length > 0 ? 'none' : `1.5px solid ${sheetBg.border}`, fontSize: 13, fontFamily: 'Inter, sans-serif', color: '#2C1810', backgroundColor: sheetBg.bg, outline: 'none', boxSizing: 'border-box' }} />
+                  style={{ width: '100%', padding: '10px 36px 10px 34px', borderRadius: producerSearch && suggestions.length > 0 ? '12px 12px 0 0' : 12, border: `1.5px solid ${sheetBg.border}`, borderBottom: producerSearch && suggestions.length > 0 ? 'none' : `1.5px solid ${sheetBg.border}`, fontSize: 13, fontFamily: 'var(--font-body), sans-serif', color: '#2C1810', backgroundColor: sheetBg.bg, outline: 'none', boxSizing: 'border-box' }} />
                 {producerSearch && (
                   <button onClick={() => onProducerSearchChange?.('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', cursor: 'pointer', color: '#AAA', fontSize: 15, padding: 2, display: 'flex' }}>✕</button>
                 )}
@@ -534,7 +534,7 @@ export default function BottomSheet({
                 <div style={{ position: 'absolute', left: 16, right: 16, zIndex: 50, backgroundColor: sheetBg.bg, border: `1.5px solid ${sheetBg.border}`, borderTop: 'none', borderRadius: '0 0 12px 12px', overflow: 'hidden', boxShadow: '0 6px 16px rgba(0,0,0,0.10)' }}>
                   {suggestions.map((s, i) => (
                     <button key={s} onPointerDown={e => { e.preventDefault(); e.stopPropagation(); onProducerSearchChange?.(s) }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 14px', border: 'none', borderTop: i > 0 ? `1px solid ${sheetBg.border}` : 'none', backgroundColor: 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 13, color: '#2C1810', fontFamily: 'Inter, sans-serif' }}>
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 14px', border: 'none', borderTop: i > 0 ? `1px solid ${sheetBg.border}` : 'none', backgroundColor: 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 13, color: '#2C1810', fontFamily: 'var(--font-body), sans-serif' }}>
                       <span style={{ color: '#8A8A8A', fontSize: 12 }}>🛒</span>
                       <span style={{ flex: 1 }}>{s}</span>
                       <span style={{ fontSize: 10, color: '#AAA', fontWeight: 600 }}>produit</span>
@@ -560,7 +560,7 @@ export default function BottomSheet({
                     onChange={e => onEtabSearchChange?.(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur() }}
                     placeholder="Commerce, commune…"
-                    style={{ width: '100%', padding: '10px 34px 10px 34px', borderRadius: 12, border: `1.5px solid ${sheetBg.border}`, fontSize: 13, fontFamily: 'Inter, sans-serif', color: '#2C1810', backgroundColor: sheetBg.bg, outline: 'none', boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '10px 34px 10px 34px', borderRadius: 12, border: `1.5px solid ${sheetBg.border}`, fontSize: 13, fontFamily: 'var(--font-body), sans-serif', color: '#2C1810', backgroundColor: sheetBg.bg, outline: 'none', boxSizing: 'border-box' }}
                   />
                   {etabSearch && (
                     <button onClick={() => onEtabSearchChange?.('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', cursor: 'pointer', color: '#AAA', fontSize: 15, padding: 2, display: 'flex' }}>✕</button>
@@ -581,7 +581,7 @@ export default function BottomSheet({
 
                   {/* Note minimum — 5 étoiles interactives */}
                   <div>
-                    <p style={{ margin: '0 0 6px', fontSize: 11, fontWeight: 700, color: sheetBg.sub, textTransform: 'uppercase' as const, letterSpacing: '0.05em', fontFamily: 'Inter, sans-serif' }}>Note minimum</p>
+                    <p style={{ margin: '0 0 6px', fontSize: 11, fontWeight: 700, color: sheetBg.sub, textTransform: 'uppercase' as const, letterSpacing: '0.05em', fontFamily: 'var(--font-body), sans-serif' }}>Note minimum</p>
                     <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                       {[1,2,3,4,5].map(s => (
                         <button key={s} onClick={() => setEtabMinNote(s === etabMinNote ? 0 : s)}
@@ -596,7 +596,7 @@ export default function BottomSheet({
                       ))}
                       {etabMinNote > 0 && (
                         <button onClick={() => setEtabMinNote(0)}
-                          style={{ marginLeft: 4, background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: sheetBg.sub, fontFamily: 'Inter, sans-serif', padding: '2px 4px' }}>
+                          style={{ marginLeft: 4, background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: sheetBg.sub, fontFamily: 'var(--font-body), sans-serif', padding: '2px 4px' }}>
                           ✕
                         </button>
                       )}
@@ -608,7 +608,7 @@ export default function BottomSheet({
 
                   {/* Ville + Rayon */}
                   <div>
-                    <p style={{ margin: '0 0 6px', fontSize: 11, fontWeight: 700, color: sheetBg.sub, textTransform: 'uppercase' as const, letterSpacing: '0.05em', fontFamily: 'Inter, sans-serif' }}>Ville & Rayon</p>
+                    <p style={{ margin: '0 0 6px', fontSize: 11, fontWeight: 700, color: sheetBg.sub, textTransform: 'uppercase' as const, letterSpacing: '0.05em', fontFamily: 'var(--font-body), sans-serif' }}>Ville & Rayon</p>
                     <div style={{ position: 'relative', marginBottom: 8 }}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#AAA" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
                         style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
@@ -616,12 +616,12 @@ export default function BottomSheet({
                       </svg>
                       <input type="text" value={etabVille} onChange={e => setEtabVille(e.target.value)}
                         placeholder="Commune…"
-                        style={{ width: '100%', padding: '9px 10px 9px 30px', borderRadius: 10, border: `1.5px solid ${etabVille ? 'var(--primary)' : sheetBg.border}`, fontSize: 13, fontFamily: 'Inter, sans-serif', color: '#2C1810', background: sheetBg.bg, outline: 'none', boxSizing: 'border-box' as const }} />
+                        style={{ width: '100%', padding: '9px 10px 9px 30px', borderRadius: 10, border: `1.5px solid ${etabVille ? 'var(--primary)' : sheetBg.border}`, fontSize: 13, fontFamily: 'var(--font-body), sans-serif', color: '#2C1810', background: sheetBg.bg, outline: 'none', boxSizing: 'border-box' as const }} />
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>
                       {([null, 5, 10, 20, 50] as const).map(r => (
                         <button key={String(r)} onClick={() => setEtabRayon(r)}
-                          style={{ flex: 1, padding: '7px 0', borderRadius: 10, border: `1.5px solid ${etabRayon === r ? 'var(--primary)' : sheetBg.border}`, background: etabRayon === r ? 'var(--primary)' : sheetBg.pill, color: etabRayon === r ? '#fff' : sheetBg.sub, fontWeight: 700, fontSize: 11, cursor: 'pointer', fontFamily: 'Inter, sans-serif', transition: 'all 0.12s' }}>
+                          style={{ flex: 1, padding: '7px 0', borderRadius: 10, border: `1.5px solid ${etabRayon === r ? 'var(--primary)' : sheetBg.border}`, background: etabRayon === r ? 'var(--primary)' : sheetBg.pill, color: etabRayon === r ? '#fff' : sheetBg.sub, fontWeight: 700, fontSize: 11, cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif', transition: 'all 0.12s' }}>
                           {r === null ? 'Tout' : `${r}km`}
                         </button>
                       ))}
@@ -653,8 +653,8 @@ export default function BottomSheet({
           etablissements.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: sheetBg.sub }}>
               <p style={{ fontSize: 48, marginBottom: 10 }}>🏪</p>
-              <p style={{ fontWeight: 700, fontSize: 16, fontFamily: 'Inter, sans-serif', color: sheetBg.text }}>Commerces locaux</p>
-              <p style={{ fontSize: 13, marginTop: 6, lineHeight: 1.5, fontFamily: 'Inter, sans-serif' }}>Les fiches arrivent bientôt.</p>
+              <p style={{ fontWeight: 700, fontSize: 16, fontFamily: 'var(--font-body), sans-serif', color: sheetBg.text }}>Commerces locaux</p>
+              <p style={{ fontSize: 13, marginTop: 6, lineHeight: 1.5, fontFamily: 'var(--font-body), sans-serif' }}>Les fiches arrivent bientôt.</p>
             </div>
           ) : (
             <>
@@ -690,8 +690,8 @@ export default function BottomSheet({
           displayedProducers.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: sheetBg.sub }}>
               <p style={{ fontSize: 48, marginBottom: 10 }}>🌿</p>
-              <p style={{ fontWeight: 700, fontSize: 16, fontFamily: 'Inter, sans-serif', color: sheetBg.text }}>Producteurs locaux</p>
-              <p style={{ fontSize: 13, marginTop: 6, lineHeight: 1.5, fontFamily: 'Inter, sans-serif' }}>Les fiches arrivent bientôt.</p>
+              <p style={{ fontWeight: 700, fontSize: 16, fontFamily: 'var(--font-body), sans-serif', color: sheetBg.text }}>Producteurs locaux</p>
+              <p style={{ fontSize: 13, marginTop: 6, lineHeight: 1.5, fontFamily: 'var(--font-body), sans-serif' }}>Les fiches arrivent bientôt.</p>
             </div>
           ) : (
             <>
@@ -717,7 +717,7 @@ export default function BottomSheet({
         ) : sortedEvents.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 0', color: sheetBg.sub }}>
             <p style={{ fontSize: 48, marginBottom: 10 }}>🏡</p>
-            <p style={{ fontWeight: 700, fontSize: 16, fontFamily: 'Inter, sans-serif', color: sheetBg.text }}>Aucun événement</p>
+            <p style={{ fontWeight: 700, fontSize: 16, fontFamily: 'var(--font-body), sans-serif', color: sheetBg.text }}>Aucun événement</p>
             <p style={{ fontSize: 13, marginTop: 6 }}>Modifie les filtres ou ajoute quelque chose !</p>
           </div>
         ) : (
@@ -911,7 +911,7 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
             )}
           </div>
           <h3 style={{
-            fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14,
+            fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 14,
             color: '#1C1917', margin: 0, lineHeight: 1.3,
             overflow: 'hidden', display: '-webkit-box',
             WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
@@ -988,13 +988,13 @@ function ProducerListCard({ producer, isSelected, onSelect, onViewOnMap, onOpenP
       </div>
       <div style={{ flex: 1, padding: '8px 10px 8px 12px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minWidth: 0 }}>
         <div>
-          <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14, color: '#1C1917', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{producer.nom}</p>
+          <p style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 14, color: '#1C1917', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{producer.nom}</p>
           {producer.commune && <p style={{ fontSize: 11, color: '#6B5E4E', margin: 0, }}>📍 {producer.commune}</p>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', gap: 4, flexWrap: 'nowrap', overflow: 'hidden', flex: 1, minWidth: 0 }}>
             {cats.map(c => c && (
-              <span key={c.id} style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, backgroundColor: '#E8F2EB', color: '#2D5A3D', fontWeight: 700, fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap' }}>
+              <span key={c.id} style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, backgroundColor: '#E8F2EB', color: '#2D5A3D', fontWeight: 700, fontFamily: 'var(--font-body), sans-serif', whiteSpace: 'nowrap' }}>
                 {c.emoji} {c.label}
               </span>
             ))}
@@ -1058,7 +1058,7 @@ function EtablissementListCard({ etab, onOpen }: { etab: EtablissementCard; onOp
             </span>
             {etab.is_featured && <span style={{ fontSize: 9, color: '#B45309', fontWeight: 700 }}>★</span>}
           </div>
-          <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14, color: '#1C1917', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{etab.nom}</p>
+          <p style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 14, color: '#1C1917', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{etab.nom}</p>
           {etab.commune && <p style={{ fontSize: 11, color: '#6B5E4E', margin: 0, }}>📍 {etab.commune}</p>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

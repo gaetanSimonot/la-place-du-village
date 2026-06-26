@@ -307,7 +307,7 @@ export default function MapViewMaplibre({
             <Popup longitude={selectedEtab.lng} latitude={selectedEtab.lat} anchor="bottom"
               offset={[0, promoted ? -47 : -36]} closeButton={false} closeOnClick={false}
               onClose={() => setSelectedEtabId(null)} maxWidth="230px">
-              <div style={{ position: 'relative', width: 210, overflow: 'visible', fontFamily: 'Inter, sans-serif' }}>
+              <div style={{ position: 'relative', width: 210, overflow: 'visible', fontFamily: 'var(--font-body), sans-serif' }}>
                 <button onClick={() => setSelectedEtabId(null)}
                   style={{ position: 'absolute', top: -10, right: -10, zIndex: 10, width: 22, height: 22, borderRadius: '50%', backgroundColor: '#fff', border: '1.5px solid #ddd', boxShadow: '0 1px 5px rgba(0,0,0,0.22)', cursor: 'pointer', color: '#666', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, padding: 0 }}>✕</button>
                 <div onClick={() => { onOpenEtablissement?.(selectedEtab.id); setSelectedEtabId(null) }}
@@ -342,7 +342,7 @@ export default function MapViewMaplibre({
           <Popup longitude={selectedProducer.lng} latitude={selectedProducer.lat} anchor="bottom"
             offset={[0, -38]} closeButton={false} closeOnClick={false}
             onClose={() => onSelectProducer?.(null)} maxWidth="220px">
-            <div style={{ position: 'relative', width: 200, overflow: 'visible', fontFamily: 'Inter, sans-serif' }}>
+            <div style={{ position: 'relative', width: 200, overflow: 'visible', fontFamily: 'var(--font-body), sans-serif' }}>
               <button onClick={() => onSelectProducer?.(null)}
                 style={{ position: 'absolute', top: -10, right: -10, zIndex: 10, width: 22, height: 22, borderRadius: '50%', backgroundColor: '#fff', border: '1.5px solid #ddd', boxShadow: '0 1px 5px rgba(0,0,0,0.22)', cursor: 'pointer', color: '#666', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, padding: 0 }}>✕</button>
               <div style={{ borderRadius: 12, overflow: 'hidden', backgroundColor: '#fff' }}>
@@ -376,7 +376,7 @@ export default function MapViewMaplibre({
               <button onClick={e => { e.stopPropagation(); onDeselect() }}
                 style={{ position: 'absolute', top: -10, right: -10, zIndex: 10, width: 22, height: 22, borderRadius: '50%', backgroundColor: '#fff', border: '1.5px solid #ddd', boxShadow: '0 1px 5px rgba(0,0,0,0.22)', cursor: 'pointer', color: '#666', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, padding: 0, lineHeight: 1 }}>✕</button>
               <div onClick={() => onOpenEvent(selectedEvent.id)}
-                style={{ fontFamily: 'Inter, sans-serif', borderRadius: 12, overflow: 'hidden', fontSize: 13, cursor: 'pointer', backgroundColor: '#fff', border: `2.5px solid ${sheetBg.bg}` }}>
+                style={{ fontFamily: 'var(--font-body), sans-serif', borderRadius: 12, overflow: 'hidden', fontSize: 13, cursor: 'pointer', backgroundColor: '#fff', border: `2.5px solid ${sheetBg.bg}` }}>
                 {selectedEvent.image_url && (
                   <img src={selectedEvent.image_url} alt={selectedEvent.titre} loading="lazy"
                     style={{ width: '100%', height: 100, objectFit: 'cover', objectPosition: selectedEvent.image_position ?? '50% 50%', display: 'block' }} />

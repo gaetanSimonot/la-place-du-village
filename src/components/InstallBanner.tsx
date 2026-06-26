@@ -64,7 +64,7 @@ export default function InstallBanner() {
       backgroundColor: '#fff', borderRadius: 20,
       boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
       padding: '16px 18px',
-      fontFamily: 'Inter, sans-serif',
+      fontFamily: 'var(--font-body), sans-serif',
       animation: 'slideUp 0.35s cubic-bezier(0.34,1.56,0.64,1) both',
     }}>
       <style>{`@keyframes slideUp { from { opacity:0; transform:translateY(24px) } to { opacity:1; transform:none } }`}</style>
@@ -78,7 +78,7 @@ export default function InstallBanner() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
         <img src="/logo.png" alt="" width={44} height={44} style={{ borderRadius: 10, flexShrink: 0 }} />
         <div>
-          <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 15, color: '#1A1209', letterSpacing: '-0.01em', margin: '0 0 2px' }}>
+          <p style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 800, fontSize: 15, color: '#1A1209', letterSpacing: '-0.01em', margin: '0 0 2px' }}>
             La Place du Village
           </p>
           <p style={{ fontSize: 12, color: '#8A8A8A', margin: 0 }}>
@@ -96,7 +96,7 @@ export default function InstallBanner() {
           width: '100%', padding: '12px',
           backgroundColor: '#C4622D', color: '#fff',
           border: 'none', borderRadius: 12, cursor: 'pointer',
-          fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14,
+          fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 14,
         }}>
           Installer l&apos;app
         </button>

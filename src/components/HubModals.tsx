@@ -18,7 +18,7 @@ function Modal({ children, onClose }: { children: React.ReactNode; onClose: () =
         position: 'fixed', inset: 0, zIndex: 3000,
         backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
         display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: 'var(--font-body), sans-serif',
       }}
     >
       <div
@@ -53,7 +53,7 @@ export function ComingSoonModal({ label, onClose }: { label: string; onClose: ()
             backgroundColor: 'var(--primary)', color: '#fff',
             border: 'none', borderRadius: 14,
             fontSize: 14, fontWeight: 700,
-            cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+            cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif',
           }}
         >
           OK
@@ -122,7 +122,7 @@ export function QuotaReachedModal({
               backgroundColor: 'var(--primary)', color: '#fff',
               border: 'none', borderRadius: 14,
               fontSize: 14, fontWeight: 700, cursor: 'pointer',
-              fontFamily: 'Inter, sans-serif',
+              fontFamily: 'var(--font-body), sans-serif',
             }}
           >
             OK
@@ -166,7 +166,7 @@ export function QuotaReachedModal({
             borderRadius: 12, border: '1.5px solid #E0D8CE',
             fontSize: 14, color: '#2C1810', outline: 'none',
             backgroundColor: '#FBF7F0',
-            boxSizing: 'border-box', fontFamily: 'Inter, sans-serif',
+            boxSizing: 'border-box', fontFamily: 'var(--font-body), sans-serif',
             resize: 'none', lineHeight: 1.5,
             marginBottom: 8,
           }}
@@ -186,7 +186,7 @@ export function QuotaReachedModal({
             fontSize: 14, fontWeight: 700,
             cursor: sending || !message.trim() ? 'default' : 'pointer',
             opacity: sending || !message.trim() ? 0.5 : 1,
-            fontFamily: 'Inter, sans-serif',
+            fontFamily: 'var(--font-body), sans-serif',
             marginBottom: 8,
           }}
         >
@@ -199,7 +199,7 @@ export function QuotaReachedModal({
             width: '100%', padding: '10px',
             background: 'none', border: 'none',
             fontSize: 12, color: '#9A8A7A',
-            cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+            cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif',
           }}
         >
           Annuler

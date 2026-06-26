@@ -13,7 +13,7 @@ interface Product {
 
 const inp: React.CSSProperties = {
   width: '100%', boxSizing: 'border-box', padding: '8px 10px',
-  borderRadius: 8, border: '1px solid #DDD', fontFamily: 'Inter, sans-serif',
+  borderRadius: 8, border: '1px solid #DDD', fontFamily: 'var(--font-body), sans-serif',
   fontSize: 13, color: '#2C1810', outline: 'none', backgroundColor: '#FAFAFA',
 }
 
@@ -169,10 +169,10 @@ export default function ProductsEditSection({ producerId }: { producerId: string
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-        <h3 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15, color: '#2C1810', margin: 0 }}>Mes produits</h3>
+        <h3 style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 15, color: '#2C1810', margin: 0 }}>Mes produits</h3>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => setCaptureOpen(true)} style={{ padding: '7px 12px', borderRadius: 8, border: '1.5px solid #2D5A3D', backgroundColor: 'transparent', color: '#2D5A3D', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>🎤 Dicter</button>
-          <button onClick={() => setAddingProduct(true)} style={{ padding: '7px 14px', borderRadius: 8, border: 'none', backgroundColor: 'var(--primary)', color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>+ Ajouter</button>
+          <button onClick={() => setCaptureOpen(true)} style={{ padding: '7px 12px', borderRadius: 8, border: '1.5px solid #2D5A3D', backgroundColor: 'transparent', color: '#2D5A3D', fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>🎤 Dicter</button>
+          <button onClick={() => setAddingProduct(true)} style={{ padding: '7px 14px', borderRadius: 8, border: 'none', backgroundColor: 'var(--primary)', color: '#fff', fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>+ Ajouter</button>
         </div>
       </div>
 
@@ -186,7 +186,7 @@ export default function ProductsEditSection({ producerId }: { producerId: string
             </select>
             <input style={inp} placeholder="Prix indicatif (ex: 3€/kg)" value={newProduct.prix_indicatif} onChange={e => setNewProduct(p => ({ ...p, prix_indicatif: e.target.value }))} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 13, fontFamily: 'Inter, sans-serif', color: '#2C1810' }}>Disponible</span>
+              <span style={{ fontSize: 13, fontFamily: 'var(--font-body), sans-serif', color: '#2C1810' }}>Disponible</span>
               <button onClick={() => setNewProduct(p => ({ ...p, disponible: !p.disponible }))} style={{ width: 42, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer', backgroundColor: newProduct.disponible ? 'var(--primary)' : '#CCC', position: 'relative' }}>
                 <span style={{ position: 'absolute', top: 2, width: 20, height: 20, borderRadius: '50%', backgroundColor: '#fff', transition: 'left 0.15s', left: newProduct.disponible ? 20 : 2 }} />
               </button>
@@ -204,8 +204,8 @@ export default function ProductsEditSection({ producerId }: { producerId: string
             )}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => setAddingProduct(false)} style={{ flex: 1, padding: '9px', borderRadius: 8, border: '1px solid #DDD', background: 'none', fontFamily: 'Inter, sans-serif', fontSize: 14, cursor: 'pointer', color: '#6B6B6B' }}>Annuler</button>
-            <button onClick={addProduct} disabled={saving || !newProduct.nom.trim()} style={{ flex: 2, padding: '9px', borderRadius: 8, border: 'none', backgroundColor: saving || !newProduct.nom.trim() ? '#CCC' : 'var(--primary)', color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+            <button onClick={() => setAddingProduct(false)} style={{ flex: 1, padding: '9px', borderRadius: 8, border: '1px solid #DDD', background: 'none', fontFamily: 'var(--font-body), sans-serif', fontSize: 14, cursor: 'pointer', color: '#6B6B6B' }}>Annuler</button>
+            <button onClick={addProduct} disabled={saving || !newProduct.nom.trim()} style={{ flex: 2, padding: '9px', borderRadius: 8, border: 'none', backgroundColor: saving || !newProduct.nom.trim() ? '#CCC' : 'var(--primary)', color: '#fff', fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
               {saving ? '...' : 'Ajouter'}
             </button>
           </div>
@@ -281,19 +281,19 @@ export default function ProductsEditSection({ producerId }: { producerId: string
                             <button onClick={() => toggleDisponible(p)} style={{ width: 38, height: 22, borderRadius: 11, border: 'none', cursor: 'pointer', backgroundColor: p.disponible ? 'var(--primary)' : '#CCC', position: 'relative', flexShrink: 0 }}>
                               <span style={{ position: 'absolute', top: 2, width: 18, height: 18, borderRadius: '50%', backgroundColor: '#fff', transition: 'left 0.15s', left: p.disponible ? 18 : 2 }} />
                             </button>
-                            <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14, color: '#2C1810', margin: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nom}</p>
+                            <p style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 14, color: '#2C1810', margin: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nom}</p>
                           </div>
                           {p.prix_indicatif && <p style={{ fontSize: 12, color: '#8A8A8A', margin: '0 0 6px' }}>{p.prix_indicatif}</p>}
 
                           {/* Boutons actions */}
                           <div style={{ display: 'flex', gap: 5 }}>
                             <button onClick={() => { setEditingId(p.id); setEditDraft({ nom: p.nom, categorie: normalizeProduitCat(p.categorie), prix_indicatif: p.prix_indicatif ?? '' }) }}
-                              title="Modifier" style={{ padding: '3px 9px', borderRadius: 6, border: '1px solid #DDD', background: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer', color: '#2D5A3D', fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', gap: 3 }}>
+                              title="Modifier" style={{ padding: '3px 9px', borderRadius: 6, border: '1px solid #DDD', background: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer', color: '#2D5A3D', fontFamily: 'var(--font-body), sans-serif', display: 'flex', alignItems: 'center', gap: 3 }}>
                               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                               Éditer
                             </button>
                             <button onClick={() => deleteProduct(p.id)} disabled={isDeleting} title="Supprimer"
-                              style={{ padding: '3px 9px', borderRadius: 6, border: '1px solid #FCD5C8', background: '#FEF2EF', fontSize: 11, cursor: isDeleting ? 'default' : 'pointer', color: '#C84B2F', fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', gap: 3 }}>
+                              style={{ padding: '3px 9px', borderRadius: 6, border: '1px solid #FCD5C8', background: '#FEF2EF', fontSize: 11, cursor: isDeleting ? 'default' : 'pointer', color: '#C84B2F', fontFamily: 'var(--font-body), sans-serif', display: 'flex', alignItems: 'center', gap: 3 }}>
                               {isDeleting
                                 ? <div style={{ width: 11, height: 11, borderRadius: '50%', border: '1.5px solid #FCD5C8', borderTopColor: '#C84B2F', animation: 'spin 0.7s linear infinite' }} />
                                 : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">

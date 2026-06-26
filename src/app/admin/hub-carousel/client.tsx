@@ -305,7 +305,7 @@ export default function AdminHubCarousel() {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', fontFamily: 'Inter, sans-serif', paddingBottom: 60 }}>
+    <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', fontFamily: 'var(--font-body), sans-serif', paddingBottom: 60 }}>
       {/* Header */}
       <div style={{
         padding: '14px 16px',
@@ -835,7 +835,7 @@ function btnStyle(disabled: boolean): React.CSSProperties {
     color: '#2D5A3D', fontSize: 11, fontWeight: 800,
     cursor: disabled ? 'not-allowed' : 'pointer',
     opacity: disabled ? 0.4 : 1,
-    fontFamily: 'Inter, sans-serif',
+    fontFamily: 'var(--font-body), sans-serif',
   }
 }
 
@@ -916,7 +916,7 @@ function CropOverlay({
       backgroundColor: '#000',
       display: 'flex', flexDirection: 'column',
       userSelect: 'none',
-      fontFamily: 'Inter, sans-serif',
+      fontFamily: 'var(--font-body), sans-serif',
     }}>
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',

@@ -343,7 +343,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
               onCloseClick={() => setSelectedEtabId(null)}
               pixelOffset={[0, promoted ? -47 : -36]}
             >
-              <div style={{ position: 'relative', width: 210, overflow: 'visible', fontFamily: 'Inter, sans-serif' }}>
+              <div style={{ position: 'relative', width: 210, overflow: 'visible', fontFamily: 'var(--font-body), sans-serif' }}>
                 <button onClick={() => setSelectedEtabId(null)}
                   style={{ position: 'absolute', top: -10, right: -10, zIndex: 10, width: 22, height: 22, borderRadius: '50%', backgroundColor: '#fff', border: '1.5px solid #ddd', boxShadow: '0 1px 5px rgba(0,0,0,0.22)', cursor: 'pointer', color: '#666', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, padding: 0 }}>✕</button>
                 <div onClick={() => { onOpenEtablissement?.(selectedEtab.id); setSelectedEtabId(null) }}
@@ -383,7 +383,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
             onCloseClick={() => onSelectProducer?.(null)}
             pixelOffset={[0, -38]}
           >
-            <div style={{ position: 'relative', width: 200, overflow: 'visible', fontFamily: 'Inter, sans-serif' }}>
+            <div style={{ position: 'relative', width: 200, overflow: 'visible', fontFamily: 'var(--font-body), sans-serif' }}>
               <button onClick={() => onSelectProducer?.(null)}
                 style={{ position: 'absolute', top: -10, right: -10, zIndex: 10, width: 22, height: 22, borderRadius: '50%', backgroundColor: '#fff', border: '1.5px solid #ddd', boxShadow: '0 1px 5px rgba(0,0,0,0.22)', cursor: 'pointer', color: '#666', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, padding: 0 }}>✕</button>
               <div style={{ borderRadius: 12, overflow: 'hidden', backgroundColor: '#fff' }}>
@@ -436,7 +436,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
               <div
                 onClick={() => onOpenEvent(selectedEvent.id)}
                 style={{
-                  fontFamily: 'Inter, sans-serif',
+                  fontFamily: 'var(--font-body), sans-serif',
                   borderRadius: 12, overflow: 'hidden',
                   fontSize: 13, cursor: 'pointer',
                   backgroundColor: '#fff',

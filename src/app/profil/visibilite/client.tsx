@@ -75,7 +75,7 @@ export default function VisibiliteView() {
   const pct = credits && credits.slots_total > 0 ? Math.round((credits.slots_used / credits.slots_total) * 100) : 0
 
   return (
-    <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', fontFamily: 'Inter, sans-serif', paddingBottom: 80 }}>
+    <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', fontFamily: 'var(--font-body), sans-serif', paddingBottom: 80 }}>
       {/* Header */}
       <div style={{
         padding: '14px 16px',

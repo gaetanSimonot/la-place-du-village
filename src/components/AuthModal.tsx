@@ -15,7 +15,7 @@ export default function AuthModal() {
         position: 'fixed', inset: 0, zIndex: 2000,
         backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
         display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: 'var(--font-body), sans-serif',
       }}
       onClick={closeAuthModal}
     >
@@ -29,7 +29,7 @@ export default function AuthModal() {
         onClick={e => e.stopPropagation()}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 800, color: '#2C1810', fontFamily: 'Inter, sans-serif', margin: 0 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 800, color: '#2C1810', fontFamily: 'var(--font-body), sans-serif', margin: 0 }}>
             Connexion
           </h2>
           <button onClick={closeAuthModal} style={{ background: 'none', border: 'none', color: '#9CA3AF', fontSize: 20, cursor: 'pointer' }}>✕</button>

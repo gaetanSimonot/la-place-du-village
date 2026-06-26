@@ -357,7 +357,7 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
   }
 
   if (loading) return <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: T.creme }}><div style={{ width: 32, height: 32, borderRadius: '50%', border: `4px solid ${T.bord}`, borderTopColor: T.primary, animation: 'spin 0.7s linear infinite' }} /></div>
-  if (!producer) return <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: T.creme }}><p style={{ color: T.texteDoux, fontFamily: 'Inter, sans-serif' }}>Producteur introuvable</p></div>
+  if (!producer) return <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: T.creme }}><p style={{ color: T.texteDoux, fontFamily: 'var(--font-body), sans-serif' }}>Producteur introuvable</p></div>
 
   const photos = producer.photos ?? []
   const mapsUrl = producer.lat && producer.lng
@@ -374,7 +374,7 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
   ]
 
   return (
-    <div style={{ minHeight: '100dvh', backgroundColor: T.creme, fontFamily: 'Inter, sans-serif', color: T.texte }}>
+    <div style={{ minHeight: '100dvh', backgroundColor: T.creme, fontFamily: 'var(--font-body), sans-serif', color: T.texte }}>
 
       {/* Floating top actions */}
       <div style={{ position: 'absolute', top: 14, left: 0, right: 0, padding: '0 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 20 }}>
@@ -483,7 +483,7 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
         {/* Title block */}
         <div style={{ padding: '20px 16px 0' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-            <h1 style={{ margin: 0, fontFamily: 'var(--font-dm-serif), Georgia, serif', fontSize: 28, lineHeight: 1.1, color: T.texte, letterSpacing: '-0.02em', fontWeight: 400 }}>
+            <h1 style={{ margin: 0, fontFamily: 'var(--font-display), Georgia, serif', fontSize: 28, lineHeight: 1.1, color: T.texte, letterSpacing: '-0.02em', fontWeight: 400 }}>
               {producer.nom}
             </h1>
             {favoriteCount > 0 && (
@@ -628,7 +628,7 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
                     fontSize: 13, fontWeight: active ? 800 : 600,
                     color: active ? T.primary : T.texteDoux,
                     letterSpacing: '0.02em',
-                    fontFamily: 'Inter, sans-serif',
+                    fontFamily: 'var(--font-body), sans-serif',
                     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5,
                   }}
                 >

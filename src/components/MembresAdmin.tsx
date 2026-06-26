@@ -26,7 +26,7 @@ interface Membre {
   etablissements: Etab[]
 }
 
-const inp: React.CSSProperties = { padding: '7px 10px', borderRadius: 8, border: '1.5px solid #E0D8CE', fontSize: 12, outline: 'none', backgroundColor: '#fff', color: '#2C1810', width: '100%', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }
+const inp: React.CSSProperties = { padding: '7px 10px', borderRadius: 8, border: '1.5px solid #E0D8CE', fontSize: 12, outline: 'none', backgroundColor: '#fff', color: '#2C1810', width: '100%', boxSizing: 'border-box', fontFamily: 'var(--font-body), sans-serif' }
 const secLabel: React.CSSProperties = { margin: '0 0 8px', fontSize: 10, fontWeight: 700, color: '#9A8A7A', textTransform: 'uppercase', letterSpacing: '0.06em' }
 
 export default function MembresAdmin() {
@@ -215,7 +215,7 @@ export default function MembresAdmin() {
   const visible = filtered.slice(0, visibleCount)
 
   if (loading) return (
-    <div style={{ fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ fontFamily: 'var(--font-body), sans-serif' }}>
       <div style={{ display: 'flex', gap: 8, padding: '12px 16px 8px' }}>
         {[0, 1, 2, 3, 4].map(i => (
           <div key={i} style={{ flex: 1, minWidth: 78, height: 56, borderRadius: 12, backgroundColor: '#F2EDE4' }} />
@@ -258,7 +258,7 @@ export default function MembresAdmin() {
   }
 
   return (
-    <div style={{ fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ fontFamily: 'var(--font-body), sans-serif' }}>
       {/* Cartes de stats */}
       <div style={{ display: 'flex', gap: 8, padding: '12px 16px 4px', overflowX: 'auto' }}>
         <StatCard label="Membres"     value={stats.total}     color="#2C1810" bg="#F5F0E8" />
@@ -438,7 +438,7 @@ export default function MembresAdmin() {
                       <button
                         onClick={e => deleteMember(e, m)}
                         disabled={saving === `del-${m.id}`}
-                        style={{ width: '100%', padding: '9px', borderRadius: 9, border: '1px solid #F0D4C8', backgroundColor: '#FFF5F1', color: '#B53A22', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', opacity: saving === `del-${m.id}` ? 0.6 : 1, fontFamily: 'Inter, sans-serif' }}
+                        style={{ width: '100%', padding: '9px', borderRadius: 9, border: '1px solid #F0D4C8', backgroundColor: '#FFF5F1', color: '#B53A22', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', opacity: saving === `del-${m.id}` ? 0.6 : 1, fontFamily: 'var(--font-body), sans-serif' }}
                       >
                         {saving === `del-${m.id}` ? 'Suppression…' : 'Supprimer définitivement ce compte'}
                       </button>

@@ -834,7 +834,7 @@ export default function HomePage() {
                           flex: 1, padding: '7px 4px', borderRadius: 10, border: 'none', cursor: 'pointer',
                           background: active ? '#2D5A3D' : 'transparent',
                           color: active ? '#fff' : '#7A6A5A',
-                          fontFamily: 'Inter, sans-serif', fontWeight: active ? 800 : 700, fontSize: 11,
+                          fontFamily: 'var(--font-body), sans-serif', fontWeight: active ? 800 : 700, fontSize: 11,
                           whiteSpace: 'nowrap', transition: 'all 0.15s',
                         }}
                       >
@@ -929,7 +929,7 @@ export default function HomePage() {
             backgroundColor: '#fff', borderRadius: '22px 22px 0 0',
             display: 'flex', flexDirection: 'column',
             maxHeight: '88dvh',
-            fontFamily: 'Inter, sans-serif',
+            fontFamily: 'var(--font-body), sans-serif',
           }}>
             {/* Grabber */}
             <div style={{ width: 40, height: 4, borderRadius: 999, background: '#E4DED2', margin: '10px auto 6px', flexShrink: 0 }} />
@@ -937,7 +937,7 @@ export default function HomePage() {
             {/* Header DM Serif + reset link */}
             <div style={{ padding: '8px 20px 14px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, flexShrink: 0 }}>
               <h2 style={{
-                margin: 0, fontFamily: 'var(--font-dm-serif), Georgia, serif',
+                margin: 0, fontFamily: 'var(--font-display), Georgia, serif',
                 fontSize: 22, color: '#1A1209', letterSpacing: '-0.01em', lineHeight: 1.1,
               }}>
                 Réglages de la carte
@@ -1006,7 +1006,7 @@ export default function HomePage() {
               <p style={{ fontSize: 11, fontWeight: 800, color: '#7A6A5A', textTransform: 'uppercase', letterSpacing: 1, margin: '14px 4px 8px' }}>Rayon de recherche</p>
               <div style={{ background: '#FDFAF5', border: '1px solid #F0EAE0', borderRadius: 14, padding: '14px 14px 16px', marginBottom: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 6, marginBottom: 12 }}>
-                  <span style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif', fontSize: 32, color: '#2D5A3D', lineHeight: 1 }}>{userRayon}</span>
+                  <span style={{ fontFamily: 'var(--font-display), Georgia, serif', fontSize: 32, color: '#2D5A3D', lineHeight: 1 }}>{userRayon}</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: '#2D5A3D' }}>km</span>
                 </div>
                 <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginBottom: 12, flexWrap: 'wrap' }}>

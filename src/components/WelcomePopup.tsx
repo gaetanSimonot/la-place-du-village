@@ -24,7 +24,7 @@ export default function WelcomePopup({ onClose }: { onClose: () => void }) {
         backdropFilter: visible ? 'blur(3px)' : 'none',
         transition: 'background-color 0.3s, backdrop-filter 0.3s',
         display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: 'var(--font-body), sans-serif',
       }}
     >
       <div
@@ -61,21 +61,21 @@ export default function WelcomePopup({ onClose }: { onClose: () => void }) {
         </div>
 
         <h2 style={{
-          fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 24,
+          fontFamily: 'var(--font-body), sans-serif', fontWeight: 800, fontSize: 24,
           color: '#1A1209', margin: '0 0 12px', letterSpacing: '-0.02em', lineHeight: 1.2,
         }}>
           Bienvenue sur la Place.
         </h2>
 
         <p style={{
-          fontFamily: 'Inter, sans-serif', fontSize: 15, color: '#4A3728',
+          fontFamily: 'var(--font-body), sans-serif', fontSize: 15, color: '#4A3728',
           lineHeight: 1.6, margin: '0 0 6px',
         }}>
           Découvrez et nourrissez l&apos;agenda de votre territoire.
         </p>
 
         <p style={{
-          fontFamily: 'Inter, sans-serif', fontSize: 14, color: '#7A6A5A',
+          fontFamily: 'var(--font-body), sans-serif', fontSize: 14, color: '#7A6A5A',
           lineHeight: 1.6, margin: '0 0 32px', fontWeight: 500,
         }}>
           Gratuit. Local. Par et pour les gens d&apos;ici.
@@ -88,7 +88,7 @@ export default function WelcomePopup({ onClose }: { onClose: () => void }) {
             backgroundColor: '#2D5A3D', color: '#fff',
             border: 'none', borderRadius: 14,
             fontSize: 15, fontWeight: 700,
-            fontFamily: 'Inter, sans-serif',
+            fontFamily: 'var(--font-body), sans-serif',
             cursor: 'pointer', letterSpacing: '-0.01em',
             marginBottom: 14,
           }}
@@ -102,7 +102,7 @@ export default function WelcomePopup({ onClose }: { onClose: () => void }) {
             display: 'block', width: '100%',
             background: 'none', border: 'none',
             fontSize: 13, color: '#9A8A7A',
-            fontFamily: 'Inter, sans-serif',
+            fontFamily: 'var(--font-body), sans-serif',
             cursor: 'pointer', textAlign: 'center',
             padding: '4px 0',
           }}

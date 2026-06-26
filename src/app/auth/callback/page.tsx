@@ -76,7 +76,7 @@ function CallbackHandler() {
         animation: 'spin 0.7s linear infinite',
       }} />
       {hint && (
-        <p style={{ fontSize: 12, color: '#7A6A5A', fontFamily: 'Inter, sans-serif', margin: 0 }}>
+        <p style={{ fontSize: 12, color: '#7A6A5A', fontFamily: 'var(--font-body), sans-serif', margin: 0 }}>
           {hint}
         </p>
       )}

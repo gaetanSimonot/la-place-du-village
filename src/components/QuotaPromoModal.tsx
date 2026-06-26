@@ -52,7 +52,7 @@ export default function QuotaPromoModal({ promoTitle, promoWhere, others, otherC
 }) {
   if (typeof document === 'undefined') return null
   return createPortal(
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(15,10,5,0.62)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', fontFamily: 'Inter, sans-serif' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(15,10,5,0.62)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', fontFamily: 'var(--font-body), sans-serif' }}>
       <div onClick={e => e.stopPropagation()} style={{ position: 'relative', width: '100%', maxWidth: 480, background: '#FBFAF7', borderRadius: '24px 24px 0 0', paddingBottom: 'max(18px, env(safe-area-inset-bottom, 18px))', boxShadow: '0 -8px 40px rgba(0,0,0,0.22)' }}>
         <div style={{ width: 44, height: 4, borderRadius: 2, background: '#D1CCC4', margin: '12px auto 0' }} />
         <button aria-label="Fermer" onClick={onClose} style={{ position: 'absolute', top: 14, right: 16, width: 30, height: 30, borderRadius: '50%', background: '#F0EAE0', border: 'none', cursor: 'pointer', color: '#7A6A5A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -61,7 +61,7 @@ export default function QuotaPromoModal({ promoTitle, promoWhere, others, otherC
 
         <div style={{ padding: '16px 24px 0', textAlign: 'center' }}>
           <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.14em', color: '#C0440A' }}>PROMO GRATUITE DU MOIS DÉJÀ UTILISÉE</div>
-          <h2 style={{ margin: '8px 0 0', fontFamily: 'var(--font-dm-serif), Georgia, serif', fontSize: 24, lineHeight: 1.12, color: '#1A1209', letterSpacing: '-0.02em' }}>
+          <h2 style={{ margin: '8px 0 0', fontFamily: 'var(--font-display), Georgia, serif', fontSize: 24, lineHeight: 1.12, color: '#1A1209', letterSpacing: '-0.02em' }}>
             Débloque cette promo<br /><span style={{ color: '#E8622A' }}>et toutes les autres&nbsp;!</span>
           </h2>
           <p style={{ margin: '8px auto 0', fontSize: 13, color: '#5B4A3A', lineHeight: 1.5, maxWidth: 300 }}>

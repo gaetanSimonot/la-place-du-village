@@ -24,11 +24,11 @@ const PRO_TYPES = [
 
 const inputStyle: React.CSSProperties = {
   width: '100%', boxSizing: 'border-box', padding: '10px 12px',
-  borderRadius: 10, border: '1px solid #DDD', fontFamily: 'Inter, sans-serif',
+  borderRadius: 10, border: '1px solid #DDD', fontFamily: 'var(--font-body), sans-serif',
   fontSize: 14, color: '#2C1810', outline: 'none', backgroundColor: '#FAFAFA',
 }
 const labelStyle: React.CSSProperties = {
-  fontSize: 12, fontWeight: 700, color: '#6B6B6B', fontFamily: 'Inter, sans-serif',
+  fontSize: 12, fontWeight: 700, color: '#6B6B6B', fontFamily: 'var(--font-body), sans-serif',
   display: 'block', marginBottom: 4,
 }
 
@@ -156,12 +156,12 @@ export default function MonEspaceProducteur() {
     if (res.ok) { setProducer(null) }
   }
 
-  if (loading) return <div style={{ padding: 32, textAlign: 'center', color: '#8A8A8A', fontFamily: 'Inter, sans-serif' }}>Chargement...</div>
+  if (loading) return <div style={{ padding: 32, textAlign: 'center', color: '#8A8A8A', fontFamily: 'var(--font-body), sans-serif' }}>Chargement...</div>
 
   if (plan !== 'pro') return (
     <div style={{ padding: '32px 16px', textAlign: 'center' }}>
       <div style={{ fontSize: 36, marginBottom: 12 }}>★</div>
-      <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 18, color: '#2C1810', marginBottom: 8 }}>Plan Partenaire Local requis</h2>
+      <h2 style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 18, color: '#2C1810', marginBottom: 8 }}>Plan Partenaire Local requis</h2>
       <p style={{ fontSize: 14, color: '#8A8A8A', lineHeight: 1.6, margin: 0 }}>L&apos;espace producteur est réservé aux Partenaires Locaux. Contactez l&apos;administrateur ou passe Partenaire pour accéder à cette fonctionnalité.</p>
     </div>
   )
@@ -171,7 +171,7 @@ export default function MonEspaceProducteur() {
     <div style={{ padding: '0 0 40px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
         <button onClick={() => { setEditing(false); setCreating(false) }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#6B6B6B' }}>←</button>
-        <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 17, color: '#2C1810', margin: 0 }}>
+        <h2 style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 17, color: '#2C1810', margin: 0 }}>
           {creating ? 'Créer ma fiche' : 'Modifier ma fiche'}
         </h2>
       </div>
@@ -183,7 +183,7 @@ export default function MonEspaceProducteur() {
           {PRO_TYPES.map(t => (
             <button key={t.id} onClick={() => setProType(t.id)} style={{
               padding: '8px 14px', borderRadius: 999, border: 'none', cursor: 'pointer',
-              fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 600,
+              fontFamily: 'var(--font-body), sans-serif', fontSize: 13, fontWeight: 600,
               backgroundColor: proType === t.id ? 'var(--primary)' : '#EDE8E0',
               color: proType === t.id ? '#fff' : '#555',
               transition: 'all 0.15s',
@@ -240,8 +240,8 @@ export default function MonEspaceProducteur() {
                 <button key={s.place_id} onMouseDown={() => selectAddress(s)} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, width: '100%', padding: '10px 14px', textAlign: 'left', border: 'none', background: 'none', cursor: 'pointer', borderBottom: '1px solid #F0F0F0' }}>
                   <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>📍</span>
                   <div>
-                    <p style={{ margin: 0, fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif', color: '#2C1810' }}>{s.main || s.description}</p>
-                    {s.secondary && <p style={{ margin: 0, fontSize: 11, color: '#8A8A8A', fontFamily: 'Inter, sans-serif' }}>{s.secondary}</p>}
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-body), sans-serif', color: '#2C1810' }}>{s.main || s.description}</p>
+                    {s.secondary && <p style={{ margin: 0, fontSize: 11, color: '#8A8A8A', fontFamily: 'var(--font-body), sans-serif' }}>{s.secondary}</p>}
                   </div>
                 </button>
               ))}
@@ -276,7 +276,7 @@ export default function MonEspaceProducteur() {
               const val = editData[key] !== false
               return (
                 <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 10, backgroundColor: '#F0EDE8' }}>
-                  <span style={{ fontSize: 13, fontFamily: 'Inter, sans-serif', color: '#2C1810' }}>{label}</span>
+                  <span style={{ fontSize: 13, fontFamily: 'var(--font-body), sans-serif', color: '#2C1810' }}>{label}</span>
                   <button onClick={() => setEditData(p => ({ ...p, [key]: !val }))}
                     style={{ width: 42, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer', backgroundColor: val ? 'var(--primary)' : '#CCC', position: 'relative', flexShrink: 0 }}>
                     <span style={{ position: 'absolute', top: 2, width: 20, height: 20, borderRadius: '50%', backgroundColor: '#fff', transition: 'left 0.15s', left: val ? 20 : 2 }} />
@@ -291,7 +291,7 @@ export default function MonEspaceProducteur() {
       <button onClick={saveProfile} disabled={saving || !editData.nom?.trim() || !proType} style={{
         marginTop: 24, width: '100%', padding: '14px', borderRadius: 12, border: 'none',
         backgroundColor: saving || !editData.nom?.trim() || !proType ? '#CCC' : 'var(--primary)',
-        color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15, cursor: saving ? 'default' : 'pointer',
+        color: '#fff', fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 15, cursor: saving ? 'default' : 'pointer',
       }}>
         {saving ? 'Enregistrement...' : 'Enregistrer ma fiche'}
       </button>
@@ -301,14 +301,14 @@ export default function MonEspaceProducteur() {
   // No producer yet
   if (!producer) return (
     <div style={{ padding: '24px 0 40px' }}>
-      <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 18, color: '#2C1810', marginBottom: 4 }}>Créez votre fiche</h2>
+      <h2 style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 18, color: '#2C1810', marginBottom: 4 }}>Créez votre fiche</h2>
       <p style={{ fontSize: 14, color: '#8A8A8A', lineHeight: 1.6, marginBottom: 20, margin: '0 0 20px' }}>Votre plan MAX vous permet d&apos;apparaître dans l&apos;annuaire. Commencez par choisir votre activité.</p>
-      <p style={{ fontSize: 12, fontWeight: 700, color: '#6B6B6B', fontFamily: 'Inter, sans-serif', marginBottom: 10 }}>Je suis…</p>
+      <p style={{ fontSize: 12, fontWeight: 700, color: '#6B6B6B', fontFamily: 'var(--font-body), sans-serif', marginBottom: 10 }}>Je suis…</p>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
         {PRO_TYPES.map(t => (
           <button key={t.id} onClick={() => setProType(t.id)} style={{
             padding: '10px 16px', borderRadius: 999, border: 'none', cursor: 'pointer',
-            fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 600,
+            fontFamily: 'var(--font-body), sans-serif', fontSize: 14, fontWeight: 600,
             backgroundColor: proType === t.id ? 'var(--primary)' : '#EDE8E0',
             color: proType === t.id ? '#fff' : '#555',
             transition: 'all 0.15s',
@@ -318,7 +318,7 @@ export default function MonEspaceProducteur() {
       <button onClick={() => startCreate()} disabled={!proType} style={{
         width: '100%', padding: '14px', borderRadius: 12, border: 'none',
         backgroundColor: proType ? 'var(--primary)' : '#CCC',
-        color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15,
+        color: '#fff', fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 15,
         cursor: proType ? 'pointer' : 'default',
       }}>
         Créer ma fiche →
@@ -337,7 +337,7 @@ export default function MonEspaceProducteur() {
             : <div style={{ width: 64, height: 64, borderRadius: 12, backgroundColor: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, flexShrink: 0 }}>🌿</div>
           }
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 17, color: '#2C1810', margin: '0 0 2px' }}>{producer.nom}</p>
+            <p style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 17, color: '#2C1810', margin: '0 0 2px' }}>{producer.nom}</p>
             {producer.commune && <p style={{ fontSize: 12, color: '#8A8A8A', margin: '0 0 4px' }}>📍 {producer.commune}</p>}
             {producer.description_courte && <p style={{ fontSize: 13, color: '#555', margin: 0, lineHeight: 1.4 }}>{producer.description_courte}</p>}
           </div>
@@ -345,10 +345,10 @@ export default function MonEspaceProducteur() {
         {producer.contact_tel && <p style={{ fontSize: 12, color: '#8A8A8A', margin: '0 0 2px' }}>📞 {producer.contact_tel}</p>}
         {producer.contact_whatsapp && <p style={{ fontSize: 12, color: '#8A8A8A', margin: '0 0 2px' }}>💬 {producer.contact_whatsapp}</p>}
         {producer.site_web && <p style={{ fontSize: 12, color: '#8A8A8A', margin: 0 }}>🔗 {producer.site_web}</p>}
-        <button onClick={startEdit} style={{ marginTop: 12, width: '100%', padding: '10px', borderRadius: 10, border: '1px solid var(--primary)', backgroundColor: 'transparent', color: 'var(--primary)', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+        <button onClick={startEdit} style={{ marginTop: 12, width: '100%', padding: '10px', borderRadius: 10, border: '1px solid var(--primary)', backgroundColor: 'transparent', color: 'var(--primary)', fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
           Modifier ma fiche
         </button>
-        <button onClick={deleteProducer} style={{ marginTop: 8, width: '100%', padding: '10px', borderRadius: 10, border: '1px solid #E8622A', backgroundColor: 'transparent', color: '#E8622A', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+        <button onClick={deleteProducer} style={{ marginTop: 8, width: '100%', padding: '10px', borderRadius: 10, border: '1px solid #E8622A', backgroundColor: 'transparent', color: '#E8622A', fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
           Supprimer ma fiche
         </button>
       </div>

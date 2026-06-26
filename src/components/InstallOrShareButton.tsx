@@ -131,7 +131,7 @@ function IosInstallModal({ onClose, onAlreadyInstalled }: { onClose: () => void;
   return createPortal(
     <div
       onClick={onClose}
-      style={{ position: 'fixed', inset: 0, zIndex: 3800, backgroundColor: 'rgba(15,10,5,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', fontFamily: 'Inter, sans-serif' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 3800, backgroundColor: 'rgba(15,10,5,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', fontFamily: 'var(--font-body), sans-serif' }}
     >
       <div
         onClick={e => e.stopPropagation()}

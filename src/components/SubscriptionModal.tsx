@@ -130,7 +130,7 @@ const PLAN_DATA: Record<PlanId, PlanInfo> = {
 }
 
 const ORDER: PlanId[] = ['basic', 'habitants', 'pro']
-const SERIF = 'var(--font-dm-serif), Georgia, serif'
+const SERIF = 'var(--font-display), Georgia, serif'
 
 /** Éclaircit (amt > 0) ou assombrit (amt < 0) une couleur hex. */
 function shade(hex: string, amt: number): string {
@@ -194,7 +194,7 @@ export default function SubscriptionModal({ context, onClose, currentPlan = 'bas
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 2401,
         height: '94dvh', display: 'flex', flexDirection: 'column',
         background: '#FBFAF7', borderRadius: '24px 24px 0 0', overflow: 'hidden',
-        boxShadow: '0 -8px 40px rgba(0,0,0,0.22)', fontFamily: 'Inter, sans-serif',
+        boxShadow: '0 -8px 40px rgba(0,0,0,0.22)', fontFamily: 'var(--font-body), sans-serif',
       }}>
         {/* ─── Hero gradient (couleur du plan sélectionné) ─── */}
         <div style={{

@@ -214,7 +214,7 @@ export default function AnnoncePageClient({ id }: Props) {
   }
   if (!annonce) {
     return (
-      <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', padding: 40, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>
+      <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', padding: 40, textAlign: 'center', fontFamily: 'var(--font-body), sans-serif' }}>
         <p style={{ color: '#8A7A6A' }}>Annonce introuvable.</p>
         <Link href="/annonces" style={{ color: '#2D5A3D', fontWeight: 700 }}>← Retour aux annonces</Link>
       </div>
@@ -231,7 +231,7 @@ export default function AnnoncePageClient({ id }: Props) {
 
   if (editing && (isOwner || isAdmin)) {
     return (
-      <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', fontFamily: 'Inter, sans-serif', paddingBottom: 80 }}>
+      <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', fontFamily: 'var(--font-body), sans-serif', paddingBottom: 80 }}>
         <div style={stickyHeaderStyle}>
           <button onClick={() => setEditing(false)} style={backBtnStyle}>←</button>
           <p style={{ flex: 1, fontWeight: 700, fontSize: 15, color: '#2C1810', margin: 0 }}>Modifier l&apos;annonce</p>
@@ -247,7 +247,7 @@ export default function AnnoncePageClient({ id }: Props) {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', position: 'relative', backgroundColor: '#FDFAF5', fontFamily: 'Inter, sans-serif', paddingBottom: isActive && !isOwner ? 144 : 80 }}>
+    <div style={{ minHeight: '100dvh', position: 'relative', backgroundColor: '#FDFAF5', fontFamily: 'var(--font-body), sans-serif', paddingBottom: isActive && !isOwner ? 144 : 80 }}>
 
       {/* Bannière post-création */}
       {showBoostBanner && isOwner && (
@@ -582,7 +582,7 @@ function CountdownInline() {
 }
 
 // ───────────── Refonte éditoriale — tokens & helpers ─────────────
-const SERIF = 'var(--font-dm-serif), Georgia, serif'
+const SERIF = 'var(--font-display), Georgia, serif'
 const BODY_SERIF = 'Georgia, "Times New Roman", serif'
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, monospace'
 const LABEL: React.CSSProperties = {

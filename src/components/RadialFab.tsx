@@ -124,7 +124,7 @@ export default function RadialFab({ open, onOpenChange }: Props) {
                 transition: 'background-color 0.1s, border-color 0.1s',
               }}>
                 <span style={{ fontSize: 26 }}>{opt.icon}</span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: isActive ? '#fff' : '#2C2C2C', fontFamily: 'Inter, sans-serif' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: isActive ? '#fff' : '#2C2C2C', fontFamily: 'var(--font-body), sans-serif' }}>
                   {opt.label}
                 </span>
               </div>

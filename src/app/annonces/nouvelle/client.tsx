@@ -27,7 +27,7 @@ export default function NouvelleAnnonceClient() {
   }
   if (!user) {
     return (
-      <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', padding: 40, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>
+      <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', padding: 40, textAlign: 'center', fontFamily: 'var(--font-body), sans-serif' }}>
         <p style={{ color: '#8A7A6A' }}>Connectez-vous pour publier une annonce.</p>
       </div>
     )

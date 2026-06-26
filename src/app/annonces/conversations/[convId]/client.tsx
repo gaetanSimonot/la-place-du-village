@@ -208,7 +208,7 @@ export default function ConversationPageClient({ convId }: Props) {
 
   if (error && !conv) {
     return (
-      <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', padding: 40, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>
+      <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', padding: 40, textAlign: 'center', fontFamily: 'var(--font-body), sans-serif' }}>
         <p style={{ color: '#8A7A6A' }}>{error}</p>
         <Link href="/annonces" style={{ color: '#2D5A3D', fontWeight: 700 }}>← Retour aux annonces</Link>
       </div>
@@ -227,7 +227,7 @@ export default function ConversationPageClient({ convId }: Props) {
     <div style={{
       minHeight: '100dvh',
       backgroundColor: '#F2EBE0',
-      fontFamily: 'Inter, sans-serif',
+      fontFamily: 'var(--font-body), sans-serif',
       display: 'flex',
       flexDirection: 'column',
       paddingBottom: 64, // espace pour BottomNavBar
@@ -444,7 +444,7 @@ function RatingModal({
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 101,
         backgroundColor: '#FDFAF6', borderRadius: '20px 20px 0 0',
         padding: '20px 20px 30px',
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: 'var(--font-body), sans-serif',
         boxShadow: '0 -8px 30px rgba(0,0,0,0.2)',
       }}>
         <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '0 auto 16px' }} />

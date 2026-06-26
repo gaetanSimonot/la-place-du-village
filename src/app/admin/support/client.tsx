@@ -57,7 +57,7 @@ export default function AdminSupportList() {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', fontFamily: 'var(--font-body), sans-serif' }}>
       {/* Header */}
       <div style={{
         padding: '14px 16px',

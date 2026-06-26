@@ -173,7 +173,7 @@ export default function JournalPageClient({
       {isDraft && (
         <div
           className="sticky top-0 z-40 flex items-center justify-center gap-2 bg-accent px-4 py-2 text-white"
-          style={{ fontFamily: 'Inter, sans-serif' }}
+          style={{ fontFamily: 'var(--font-body), sans-serif' }}
         >
           <span className="text-[11px] font-extrabold tracking-[0.12em]">
             BROUILLON · NUMÉRO NON PUBLIÉ

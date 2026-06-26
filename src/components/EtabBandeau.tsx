@@ -85,10 +85,10 @@ export default function EtabBandeau({ etablissements, onDiscover, compact = fals
               <button onClick={ev => { ev.stopPropagation(); setDismissed(true) }}
                 style={{ position: 'absolute', top: 5, right: 6, width: 18, height: 18, borderRadius: '50%', backgroundColor: '#F0EBE4', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#8A8A8A', padding: 0 }}>✕</button>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-                <span style={{ fontSize: 8, fontWeight: 800, color: '#fff', backgroundColor: typeInfo?.color ?? '#555', borderRadius: 999, padding: '2px 6px', letterSpacing: '0.06em', fontFamily: 'Inter, sans-serif', flexShrink: 0 }}>✦ À LA UNE</span>
-                {e.commune && <span style={{ fontSize: 10, color: '#6B5E4E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'Inter, sans-serif' }}>{e.commune}</span>}
+                <span style={{ fontSize: 8, fontWeight: 800, color: '#fff', backgroundColor: typeInfo?.color ?? '#555', borderRadius: 999, padding: '2px 6px', letterSpacing: '0.06em', fontFamily: 'var(--font-body), sans-serif', flexShrink: 0 }}>✦ À LA UNE</span>
+                {e.commune && <span style={{ fontSize: 10, color: '#6B5E4E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body), sans-serif' }}>{e.commune}</span>}
               </div>
-              <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 12, color: '#1C1917', margin: 0, lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', paddingRight: 18 }}>{e.nom}</p>
+              <p style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 12, color: '#1C1917', margin: 0, lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', paddingRight: 18 }}>{e.nom}</p>
             </div>
           </div>
         </div>
@@ -124,14 +124,14 @@ export default function EtabBandeau({ etablissements, onDiscover, compact = fals
             display: 'inline-flex', alignItems: 'center', gap: 4,
             fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase',
             color: '#fff', backgroundColor: typeInfo?.color ?? '#555', borderRadius: 999, padding: '3px 9px',
-            fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+            fontFamily: 'var(--font-body), sans-serif', whiteSpace: 'nowrap', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
           }}>{typeInfo?.emoji} À la une</span>
           <button onClick={ev => { ev.stopPropagation(); setDismissed(true) }}
             style={{ width: 22, height: 22, borderRadius: '50%', backgroundColor: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.8)', fontSize: 9, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, flexShrink: 0 }}>✕</button>
         </div>
 
         <div>
-          <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 16, lineHeight: 1.3, letterSpacing: '-0.01em', color: '#fff', margin: '0 0 4px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', textShadow: '0 1px 8px rgba(0,0,0,0.5)' }}>{e.nom}</p>
+          <p style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 16, lineHeight: 1.3, letterSpacing: '-0.01em', color: '#fff', margin: '0 0 4px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', textShadow: '0 1px 8px rgba(0,0,0,0.5)' }}>{e.nom}</p>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {typeInfo?.label ?? ''}

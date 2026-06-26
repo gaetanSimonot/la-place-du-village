@@ -63,7 +63,7 @@ export default function SupportList() {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', fontFamily: 'Inter, sans-serif', paddingBottom: 80 }}>
+    <div style={{ minHeight: '100dvh', backgroundColor: '#F2EBE0', fontFamily: 'var(--font-body), sans-serif', paddingBottom: 80 }}>
       {/* Header */}
       <div style={{
         padding: '14px 16px',

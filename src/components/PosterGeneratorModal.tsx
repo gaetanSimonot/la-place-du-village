@@ -142,7 +142,7 @@ export default function PosterGeneratorModal({ event, onClose, onApply }: {
   if (typeof document === 'undefined') return null
 
   return createPortal(
-    <div style={{ position: 'fixed', inset: 0, zIndex: 4000, background: '#1A1209', display: 'flex', flexDirection: 'column', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 4000, background: '#1A1209', display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-body), sans-serif' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
         <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>← Annuler</button>
@@ -166,7 +166,7 @@ export default function PosterGeneratorModal({ event, onClose, onApply }: {
       {/* Panneau de contrôles */}
       <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', padding: '16px 16px 20px', paddingBottom: 'max(20px, env(safe-area-inset-bottom, 20px))', maxHeight: '48dvh', overflowY: 'auto' }}>
         <button onClick={randomize} disabled={loading}
-          style={{ width: '100%', padding: '13px', borderRadius: 14, border: 'none', background: 'linear-gradient(90deg,#2D5A3D,#3A7A52)', color: '#fff', fontSize: 14, fontWeight: 800, cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.6 : 1, marginBottom: 14, fontFamily: 'Inter, sans-serif' }}>
+          style={{ width: '100%', padding: '13px', borderRadius: 14, border: 'none', background: 'linear-gradient(90deg,#2D5A3D,#3A7A52)', color: '#fff', fontSize: 14, fontWeight: 800, cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.6 : 1, marginBottom: 14, fontFamily: 'var(--font-body), sans-serif' }}>
           🎲 Générer aléatoire
         </button>
 
@@ -201,7 +201,7 @@ export default function PosterGeneratorModal({ event, onClose, onApply }: {
         </Group>
 
         <button onClick={apply} disabled={!blob || loading || applying}
-          style={{ width: '100%', marginTop: 6, padding: '14px', borderRadius: 14, border: 'none', background: '#2D5A3D', color: '#fff', fontSize: 14, fontWeight: 800, cursor: (!blob || applying) ? 'default' : 'pointer', opacity: (!blob || applying || loading) ? 0.6 : 1, fontFamily: 'Inter, sans-serif' }}>
+          style={{ width: '100%', marginTop: 6, padding: '14px', borderRadius: 14, border: 'none', background: '#2D5A3D', color: '#fff', fontSize: 14, fontWeight: 800, cursor: (!blob || applying) ? 'default' : 'pointer', opacity: (!blob || applying || loading) ? 0.6 : 1, fontFamily: 'var(--font-body), sans-serif' }}>
           {applying ? 'Application…' : 'Utiliser cette affiche'}
         </button>
       </div>
@@ -223,7 +223,7 @@ function Chip({ active, disabled, onClick, children }: { active?: boolean; disab
   return (
     <button onClick={onClick} disabled={disabled}
       style={{
-        padding: '8px 13px', borderRadius: 10, fontSize: 12.5, fontWeight: 700, fontFamily: 'Inter, sans-serif',
+        padding: '8px 13px', borderRadius: 10, fontSize: 12.5, fontWeight: 700, fontFamily: 'var(--font-body), sans-serif',
         cursor: disabled ? 'not-allowed' : 'pointer',
         border: active ? '1.5px solid #2D5A3D' : '1.5px solid #E0D8CE',
         background: active ? '#E8F2EB' : '#fff',

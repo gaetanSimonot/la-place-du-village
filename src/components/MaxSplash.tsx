@@ -159,7 +159,7 @@ export default function MaxSplash({ events, loading = false }: Props) {
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
-      style={{ position: 'fixed', inset: 0, zIndex: 500, overflow: 'hidden', fontFamily: 'Inter, sans-serif' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 500, overflow: 'hidden', fontFamily: 'var(--font-body), sans-serif' }}
     >
       <style>{STYLES}</style>
 
@@ -207,7 +207,7 @@ export default function MaxSplash({ events, loading = false }: Props) {
           <span style={{
             fontSize: 10, fontWeight: 800, color: '#fff', backgroundColor: '#EC407A',
             padding: '4px 11px', borderRadius: 999, letterSpacing: '0.07em',
-            textTransform: 'uppercase', fontFamily: 'Inter, sans-serif',
+            textTransform: 'uppercase', fontFamily: 'var(--font-body), sans-serif',
           }}>✦ Événement à la une</span>
         </div>
 
@@ -237,7 +237,7 @@ export default function MaxSplash({ events, loading = false }: Props) {
           <h2 style={{
             fontSize: 32, fontWeight: 800, color: '#fff',
             lineHeight: 1.2, letterSpacing: '-0.01em', margin: '0 0 10px',
-            fontFamily: 'Inter, sans-serif',
+            fontFamily: 'var(--font-body), sans-serif',
             textShadow: '0 2px 20px rgba(0,0,0,0.6)',
           }}>{evt.titre}</h2>
 
@@ -261,7 +261,7 @@ export default function MaxSplash({ events, loading = false }: Props) {
             width: '100%', padding: '17px', borderRadius: 999,
             backgroundColor: 'var(--primary)', color: '#fff',
             fontSize: 16, fontWeight: 700, border: 'none', cursor: 'pointer',
-            fontFamily: 'Inter, sans-serif', letterSpacing: '0.02em',
+            fontFamily: 'var(--font-body), sans-serif', letterSpacing: '0.02em',
             boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
           }}>Aller sur la carte</button>
         </div>

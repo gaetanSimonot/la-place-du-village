@@ -101,7 +101,7 @@ export default function CommerceRequestModal({ onClose }: { onClose: () => void 
         style={{
           position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 401,
           backgroundColor: '#fff', borderRadius: '24px 24px 0 0',
-          padding: '14px 20px 32px', fontFamily: 'Inter, sans-serif',
+          padding: '14px 20px 32px', fontFamily: 'var(--font-body), sans-serif',
           maxHeight: '92dvh', overflowY: 'auto',
         }}>
         <div style={{ width: 44, height: 5, borderRadius: 3, backgroundColor: '#E4DED2', margin: '0 auto 14px' }} />
@@ -435,7 +435,7 @@ function ReferenceForm({
         </button>
         <div style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
           <div style={{
-            fontFamily: 'var(--font-dm-serif), Georgia, serif',
+            fontFamily: 'var(--font-display), Georgia, serif',
             fontSize: 17, color: '#1A1209', letterSpacing: '-0.01em', lineHeight: 1.1,
           }}>
             {kind === 'commerce' ? 'Référencer un commerce' : 'Référencer un producteur'}
@@ -458,7 +458,7 @@ function ReferenceForm({
       <div style={{ marginBottom: 18 }}>
         <h1 style={{
           margin: 0,
-          fontFamily: 'var(--font-dm-serif), Georgia, serif',
+          fontFamily: 'var(--font-display), Georgia, serif',
           fontSize: 28, lineHeight: 1.05, color: '#1A1209',
           letterSpacing: '-0.02em', fontWeight: 700,
         }}>
@@ -850,7 +850,7 @@ const INPUT: React.CSSProperties = {
   display: 'block', width: '100%',
   padding: '10px 14px', borderRadius: 12,
   border: '1.5px solid #E0D8CE',
-  fontSize: 14, fontFamily: 'Inter, sans-serif',
+  fontSize: 14, fontFamily: 'var(--font-body), sans-serif',
   outline: 'none', boxSizing: 'border-box',
   color: '#2C1810', backgroundColor: '#FDFAF6',
   // Force la couleur du texte sur iOS/Safari/Chrome autofill et dans le PWA
@@ -867,7 +867,7 @@ function catBtnStyle(active: boolean): React.CSSProperties {
     backgroundColor: active ? '#E8F2EB' : '#fff',
     color: active ? '#2D5A3D' : '#1A1209',
     fontSize: 11, fontWeight: active ? 800 : 600,
-    cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+    cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif',
     textAlign: 'left',
   }
 }

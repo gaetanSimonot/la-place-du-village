@@ -92,7 +92,7 @@ export default function PostNotifModal({ postId, onClose }: Props) {
           backdropFilter: visible ? 'blur(4px)' : 'none',
           transition: 'background-color 0.22s, backdrop-filter 0.22s',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: 16, fontFamily: 'Inter, sans-serif',
+          padding: 16, fontFamily: 'var(--font-body), sans-serif',
         }}
         role="dialog"
         aria-modal="true"
@@ -143,7 +143,7 @@ export default function PostNotifModal({ postId, onClose }: Props) {
             />
             <h1 style={{
               margin: '6px 0 0', textAlign: 'center',
-              fontFamily: 'var(--font-dm-serif), Georgia, serif',
+              fontFamily: 'var(--font-display), Georgia, serif',
               fontSize: 23, color: T.texte, letterSpacing: '-0.015em', lineHeight: 1.05,
             }}>
               Un mot <span style={{ color: T.accent, fontStyle: 'italic' }}>pour vous</span>
@@ -151,7 +151,7 @@ export default function PostNotifModal({ postId, onClose }: Props) {
             <div style={{ width: 42, height: 3, borderRadius: 999, backgroundColor: T.accent, margin: '11px auto 4px' }} />
             <p style={{
               margin: 0, textAlign: 'center',
-              fontFamily: 'var(--font-caveat), Caveat, cursive', fontWeight: 700,
+              fontFamily: 'var(--font-hand), Caveat, cursive', fontWeight: 700,
               fontSize: 17, color: T.primary, lineHeight: 1,
             }}>
               La Place du Village
@@ -173,7 +173,7 @@ export default function PostNotifModal({ postId, onClose }: Props) {
                   {author.avatar ? (
                     <img src={author.avatar} alt="" style={{ width: 38, height: 38, borderRadius: 999, objectFit: 'cover', flexShrink: 0 }} />
                   ) : (
-                    <div style={{ width: 38, height: 38, borderRadius: 999, background: T.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'var(--font-dm-serif), Georgia, serif', fontSize: 15 }}>{initial}</div>
+                    <div style={{ width: 38, height: 38, borderRadius: 999, background: T.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'var(--font-display), Georgia, serif', fontSize: 15 }}>{initial}</div>
                   )}
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 800, color: T.texte, letterSpacing: '-0.005em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -213,7 +213,7 @@ export default function PostNotifModal({ postId, onClose }: Props) {
                   width: '100%', padding: 14, borderRadius: 14, border: 'none', cursor: 'pointer',
                   background: T.primary, color: '#fff', fontSize: 14, fontWeight: 700,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  boxShadow: '0 3px 12px rgba(45,90,61,0.25)', fontFamily: 'Inter, sans-serif',
+                  boxShadow: '0 3px 12px rgba(45,90,61,0.25)', fontFamily: 'var(--font-body), sans-serif',
                 }}
               >
                 Aller vers le mur

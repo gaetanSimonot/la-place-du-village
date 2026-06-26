@@ -53,7 +53,7 @@ function Avatar({ name, url, size = 34 }: { name: string; url?: string | null; s
       width: size, height: size, borderRadius: '50%', flexShrink: 0,
       backgroundColor: 'var(--primary-light)', color: 'var(--primary)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontWeight: 800, fontSize: Math.round(size * 0.38), fontFamily: 'Inter, sans-serif',
+      fontWeight: 800, fontSize: Math.round(size * 0.38), fontFamily: 'var(--font-body), sans-serif',
     }}>{(name[0] ?? '?').toUpperCase()}</div>
   )
 }
@@ -75,7 +75,7 @@ function CommentBubble({ c, parentAuthor, onReply, isOwn, onMenuOpen, isEditing,
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
             <div>
               <Link href={`/profil/${c.user_id}`} style={{ textDecoration: 'none' }}>
-                <span style={{ fontWeight: 700, fontSize: 13, color: '#2C1810', fontFamily: 'Inter, sans-serif' }}>{name}</span>
+                <span style={{ fontWeight: 700, fontSize: 13, color: '#2C1810', fontFamily: 'var(--font-body), sans-serif' }}>{name}</span>
               </Link>
               {parentAuthor && (
                 <span style={{ fontSize: 11, color: '#9CA3AF', marginLeft: 6, fontStyle: 'italic' }}>→ {parentAuthor}</span>
@@ -98,7 +98,7 @@ function CommentBubble({ c, parentAuthor, onReply, isOwn, onMenuOpen, isEditing,
                 style={{
                   width: '100%', border: '1.5px solid var(--primary)', borderRadius: 8,
                   padding: '6px 8px', fontSize: 14, lineHeight: 1.4, resize: 'none',
-                  fontFamily: 'Inter, sans-serif', color: '#2C1810', backgroundColor: '#fff',
+                  fontFamily: 'var(--font-body), sans-serif', color: '#2C1810', backgroundColor: '#fff',
                   outline: 'none', boxSizing: 'border-box',
                 }}
               />
@@ -106,12 +106,12 @@ function CommentBubble({ c, parentAuthor, onReply, isOwn, onMenuOpen, isEditing,
                 <button onClick={onSaveEdit} style={{
                   flex: 1, padding: '7px', borderRadius: 8, border: 'none',
                   backgroundColor: 'var(--primary)', color: '#fff',
-                  fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+                  fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif',
                 }}>Enregistrer</button>
                 <button onClick={onCancelEdit} style={{
                   flex: 1, padding: '7px', borderRadius: 8, border: 'none',
                   backgroundColor: '#E8E4DE', color: '#6B7280',
-                  fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+                  fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif',
                 }}>Annuler</button>
               </div>
             </div>
@@ -280,7 +280,7 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
               position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 301,
               backgroundColor: '#fff', borderRadius: '20px 20px 0 0',
               height: '88dvh', display: 'flex', flexDirection: 'column',
-              fontFamily: 'Inter, sans-serif',
+              fontFamily: 'var(--font-body), sans-serif',
             }}
           >
             {/* Handle */}
@@ -293,7 +293,7 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '4px 16px 10px', flexShrink: 0, borderBottom: '1px solid #EDE8E0',
             }}>
-              <h3 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 16, color: '#2C1810', margin: 0 }}>
+              <h3 style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 16, color: '#2C1810', margin: 0 }}>
                 Commentaires{comments.length > 0 ? ` · ${comments.length}` : ''}
               </h3>
               <button onClick={onClose} style={{ border: 'none', background: 'none', fontSize: 20, color: '#9CA3AF', cursor: 'pointer' }}>✕</button>
@@ -308,7 +308,7 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
               ) : comments.length === 0 ? (
                 <div style={{ textAlign: 'center', paddingTop: 48 }}>
                   <p style={{ fontSize: 40, marginBottom: 10 }}>💬</p>
-                  <p style={{ fontWeight: 700, fontSize: 15, fontFamily: 'Inter, sans-serif', color: '#2C1810', marginBottom: 4 }}>Aucun commentaire</p>
+                  <p style={{ fontWeight: 700, fontSize: 15, fontFamily: 'var(--font-body), sans-serif', color: '#2C1810', marginBottom: 4 }}>Aucun commentaire</p>
                   <p style={{ fontSize: 13, color: '#9CA3AF' }}>Sois le premier à réagir</p>
                 </div>
               ) : (
@@ -380,9 +380,9 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
                           style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left' }}>
                           {p.avatar_url
                             ? <img src={p.avatar_url} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} />
-                            : <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11, fontFamily: 'Inter, sans-serif' }}>{name[0].toUpperCase()}</div>
+                            : <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11, fontFamily: 'var(--font-body), sans-serif' }}>{name[0].toUpperCase()}</div>
                           }
-                          <span style={{ fontSize: 14, fontWeight: 600, color: '#2C1810', fontFamily: 'Inter, sans-serif' }}>{name}</span>
+                          <span style={{ fontSize: 14, fontWeight: 600, color: '#2C1810', fontFamily: 'var(--font-body), sans-serif' }}>{name}</span>
                         </button>
                       )
                     })}
@@ -401,7 +401,7 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
                     style={{
                       flex: 1, border: 'none', outline: 'none', backgroundColor: 'transparent',
                       fontSize: 14, color: '#2C1810', resize: 'none', lineHeight: 1.4,
-                      fontFamily: 'Inter, sans-serif', maxHeight: 100, overflowY: 'auto',
+                      fontFamily: 'var(--font-body), sans-serif', maxHeight: 100, overflowY: 'auto',
                     }}
                   />
                   <AnimatePresence>
@@ -438,7 +438,7 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
                 backgroundColor: '#fff', borderRadius: '20px 20px 0 0',
                 padding: '14px 16px',
                 paddingBottom: 'max(28px, env(safe-area-inset-bottom, 28px))',
-                fontFamily: 'Inter, sans-serif',
+                fontFamily: 'var(--font-body), sans-serif',
               }}>
                 <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1CCC4', margin: '0 auto 18px' }} />
                 <button

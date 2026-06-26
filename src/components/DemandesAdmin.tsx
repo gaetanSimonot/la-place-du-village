@@ -144,20 +144,20 @@ export default function DemandesAdmin() {
   }
 
   if (loading) return (
-    <div style={{ padding: 32, textAlign: 'center', color: '#9A8A7A', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ padding: 32, textAlign: 'center', color: '#9A8A7A', fontFamily: 'var(--font-body), sans-serif' }}>
       Chargement des demandes…
     </div>
   )
 
   if (!demandes.length && !producerDemandes.length) return (
-    <div style={{ padding: 60, textAlign: 'center', color: '#9A8A7A', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ padding: 60, textAlign: 'center', color: '#9A8A7A', fontFamily: 'var(--font-body), sans-serif' }}>
       <p style={{ fontSize: 40, margin: '0 0 12px' }}>📭</p>
       <p style={{ fontSize: 14, fontWeight: 700, color: '#7A6A5A', margin: 0 }}>Aucune demande en attente</p>
     </div>
   )
 
   return (
-    <div style={{ fontFamily: 'Inter, sans-serif', paddingBottom: 40 }}>
+    <div style={{ fontFamily: 'var(--font-body), sans-serif', paddingBottom: 40 }}>
       {error && (
         <div style={{ margin: '12px 16px', padding: '10px 14px', borderRadius: 10, backgroundColor: '#FEF2F2', color: '#C4622D', fontSize: 12 }}>
           ⚠ {error}

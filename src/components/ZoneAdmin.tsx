@@ -256,7 +256,7 @@ export default function ZoneAdmin() {
 
             {/* Bouton confirmer */}
             <button onClick={confirmPosition}
-              style={{ position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)', backgroundColor: '#2D5A3D', color: 'white', border: 'none', borderRadius: 20, padding: '8px 18px', fontWeight: 700, fontSize: 13, cursor: 'pointer', boxShadow: '0 2px 10px rgba(0,0,0,0.2)', whiteSpace: 'nowrap', fontFamily: 'Inter, sans-serif' }}>
+              style={{ position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)', backgroundColor: '#2D5A3D', color: 'white', border: 'none', borderRadius: 20, padding: '8px 18px', fontWeight: 700, fontSize: 13, cursor: 'pointer', boxShadow: '0 2px 10px rgba(0,0,0,0.2)', whiteSpace: 'nowrap', fontFamily: 'var(--font-body), sans-serif' }}>
               ✓ Confirmer cette position
             </button>
           </div>

@@ -15,7 +15,7 @@ interface ProductDraft {
 
 const inp: React.CSSProperties = {
   width: '100%', boxSizing: 'border-box', padding: '8px 12px',
-  borderRadius: 10, border: '1px solid #DDD', fontFamily: 'Inter, sans-serif',
+  borderRadius: 10, border: '1px solid #DDD', fontFamily: 'var(--font-body), sans-serif',
   fontSize: 13, color: '#2C1810', outline: 'none', backgroundColor: '#FAFAFA',
 }
 
@@ -169,7 +169,7 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
           {step === 'review' && (
             <button onClick={() => setStep('capture')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#8A8A8A', padding: 0, lineHeight: 1 }}>←</button>
           )}
-          <h2 style={{ flex: 1, margin: 0, fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 16, color: '#2C1810' }}>
+          <h2 style={{ flex: 1, margin: 0, fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 16, color: '#2C1810' }}>
             {step === 'capture' ? '🎤 Dicter vos produits' : '✅ Vérifier les produits'}
           </h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#8A8A8A', padding: 0, lineHeight: 1 }}>✕</button>
@@ -181,7 +181,7 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
           {noProducer && (
             <div style={{ textAlign: 'center', padding: '32px 0' }}>
               <p style={{ fontSize: 32, margin: '0 0 12px' }}>🌿</p>
-              <p style={{ fontFamily: 'Inter, sans-serif', fontSize: 14, color: '#8A8A8A', lineHeight: 1.6 }}>
+              <p style={{ fontFamily: 'var(--font-body), sans-serif', fontSize: 14, color: '#8A8A8A', lineHeight: 1.6 }}>
                 Créez d&apos;abord votre fiche dans <strong>Mon espace → Ma fiche</strong>.
               </p>
             </div>
@@ -191,7 +191,7 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
           {publishedCount > 0 && (
             <div style={{ textAlign: 'center', padding: '32px 0' }}>
               <p style={{ fontSize: 40, margin: '0 0 12px' }}>🎉</p>
-              <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 16, color: '#2C1810' }}>
+              <p style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 16, color: '#2C1810' }}>
                 {publishedCount} produit{publishedCount > 1 ? 's' : ''} publié{publishedCount > 1 ? 's' : ''} !
               </p>
             </div>
@@ -201,7 +201,7 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
           {!noProducer && publishedCount === 0 && step === 'capture' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-              <p style={{ margin: 0, fontSize: 13, color: '#8A8A8A', fontFamily: 'Inter, sans-serif' }}>
+              <p style={{ margin: 0, fontSize: 13, color: '#8A8A8A', fontFamily: 'var(--font-body), sans-serif' }}>
                 Dictez ou tapez vos produits : noms, prix, disponibilité…
               </p>
 
@@ -235,7 +235,7 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
               </div>
 
               {listening && (
-                <p style={{ margin: 0, fontSize: 12, color: '#E8622A', fontFamily: 'Inter, sans-serif', textAlign: 'center' }}>
+                <p style={{ margin: 0, fontSize: 12, color: '#E8622A', fontFamily: 'var(--font-body), sans-serif', textAlign: 'center' }}>
                   🔴 Écoute en cours — appuyez sur ⬛ pour arrêter
                 </p>
               )}
@@ -244,7 +244,7 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
                 padding: '14px', borderRadius: 12, border: 'none',
                 cursor: text.trim() && !scanning && !listening ? 'pointer' : 'default',
                 backgroundColor: text.trim() && !scanning && !listening ? 'var(--primary)' : '#CCC',
-                color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15,
+                color: '#fff', fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 15,
               }}>
                 {scanning ? '⏳ Analyse en cours…' : '→ Créer les produits'}
               </button>
@@ -264,8 +264,8 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
               {products.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '24px 0' }}>
                   <p style={{ fontSize: 32, margin: '0 0 8px' }}>🤔</p>
-                  <p style={{ fontSize: 14, color: '#8A8A8A', fontFamily: 'Inter, sans-serif' }}>Aucun produit détecté. Essayez une description plus précise.</p>
-                  <button onClick={() => setStep('capture')} style={{ marginTop: 12, padding: '10px 24px', borderRadius: 999, border: 'none', backgroundColor: 'var(--primary)', color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 700, cursor: 'pointer' }}>Réessayer</button>
+                  <p style={{ fontSize: 14, color: '#8A8A8A', fontFamily: 'var(--font-body), sans-serif' }}>Aucun produit détecté. Essayez une description plus précise.</p>
+                  <button onClick={() => setStep('capture')} style={{ marginTop: 12, padding: '10px 24px', borderRadius: 999, border: 'none', backgroundColor: 'var(--primary)', color: '#fff', fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, cursor: 'pointer' }}>Réessayer</button>
                 </div>
               )}
 
@@ -297,7 +297,7 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
                       <option value="weekend">Ce weekend</option>
                     </select>
                     <button onClick={() => setProducts(pp => pp.map((x, j) => j === i ? { ...x, disponible: !x.disponible } : x))}
-                      style={{ padding: '6px 10px', borderRadius: 8, border: `1.5px solid ${p.disponible ? 'var(--primary)' : '#CCC'}`, backgroundColor: p.disponible ? 'var(--primary-light)' : 'transparent', color: p.disponible ? 'var(--primary)' : '#8A8A8A', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                      style={{ padding: '6px 10px', borderRadius: 8, border: `1.5px solid ${p.disponible ? 'var(--primary)' : '#CCC'}`, backgroundColor: p.disponible ? 'var(--primary-light)' : 'transparent', color: p.disponible ? 'var(--primary)' : '#8A8A8A', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif' }}>
                       {p.disponible ? '✓ Disponible' : 'Indisponible'}
                     </button>
                   </div>
@@ -308,7 +308,7 @@ export default function CaptureProducteur({ onClose }: { onClose: () => void }) 
                 <button onClick={publish} disabled={publishing || products.filter(p => p.selected).length === 0} style={{
                   marginTop: 8, padding: '14px', borderRadius: 12, border: 'none',
                   backgroundColor: publishing || products.filter(p => p.selected).length === 0 ? '#CCC' : 'var(--primary)',
-                  color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15,
+                  color: '#fff', fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 15,
                   cursor: publishing ? 'default' : 'pointer',
                 }}>
                   {publishing ? 'Publication…' : `Publier ${products.filter(p => p.selected).length} produit${products.filter(p => p.selected).length > 1 ? 's' : ''} →`}

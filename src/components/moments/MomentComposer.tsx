@@ -133,7 +133,7 @@ export default function MomentComposer({ onClose, onPublished }: Props) {
   // ── Aperçu + légende + publier ──────────────────────────────────────────
   if (step === 'preview' && picked) {
     return createPortal(
-      <div style={{ position: 'fixed', inset: 0, zIndex: 1300, background: '#0D0906', fontFamily: 'Inter, sans-serif' }}>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 1300, background: '#0D0906', fontFamily: 'var(--font-body), sans-serif' }}>
         {picked.kind === 'video'
           ? <video src={picked.url} autoPlay muted loop playsInline style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
           // eslint-disable-next-line @next/next/no-img-element
@@ -206,7 +206,7 @@ export default function MomentComposer({ onClose, onPublished }: Props) {
 
   // ── Source (bottom sheet) ─────────────────────────────────────────────────
   return createPortal(
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1300, fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1300, fontFamily: 'var(--font-body), sans-serif' }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(15,10,5,0.6)', backdropFilter: 'blur(4px)' }} />
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: '#FBFAF7', borderRadius: '24px 24px 0 0', paddingBottom: 'max(20px,env(safe-area-inset-bottom,20px))', boxShadow: '0 -8px 40px rgba(0,0,0,0.22)' }}>
         <div style={{ width: 44, height: 4, borderRadius: 2, background: '#D1CCC4', margin: '12px auto 0' }} />
@@ -274,7 +274,7 @@ function EventPicker({ onPick, onClose }: { onPick: (e: EvtLite) => void; onClos
   }, [])
   const filtered = q.trim() ? items.filter(e => e.titre.toLowerCase().includes(q.toLowerCase())) : items
   return (
-    <div style={{ position: 'absolute', inset: 0, zIndex: 10, fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ position: 'absolute', inset: 0, zIndex: 10, fontFamily: 'var(--font-body), sans-serif' }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)' }} />
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight: '70vh', background: '#FBFAF7', borderRadius: '20px 20px 0 0', padding: '14px 16px max(20px,env(safe-area-inset-bottom,20px))', display: 'flex', flexDirection: 'column' }}>
         <div style={{ width: 40, height: 4, borderRadius: 2, background: '#D1CCC4', margin: '0 auto 12px' }} />

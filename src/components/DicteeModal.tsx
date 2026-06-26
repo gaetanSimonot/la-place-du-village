@@ -122,7 +122,7 @@ export default function DicteeModal({ onClose, onTranscript }: Props) {
         <h2
           style={{
             margin: '0 0 6px',
-            fontFamily: 'var(--font-dm-serif), Georgia, serif',
+            fontFamily: 'var(--font-display), Georgia, serif',
             fontSize: 24, fontWeight: 700, color: '#1A1209', letterSpacing: '-0.01em', lineHeight: 1.1,
           }}
         >
@@ -178,7 +178,7 @@ export default function DicteeModal({ onClose, onTranscript }: Props) {
           {state === 'recording' && (
             <>
               <div style={{
-                fontFamily: 'var(--font-dm-serif), Georgia, serif',
+                fontFamily: 'var(--font-display), Georgia, serif',
                 fontSize: 32, fontWeight: 700, color: '#C84B2F',
                 fontVariantNumeric: 'tabular-nums', lineHeight: 1,
               }}>

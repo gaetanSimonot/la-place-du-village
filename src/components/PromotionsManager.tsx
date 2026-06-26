@@ -75,7 +75,7 @@ export default function PromotionsManager({ etablissementId, etablissementPhotos
   }
 
   return (
-    <div style={{ fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ fontFamily: 'var(--font-body), sans-serif' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <div>
           <p style={{ fontSize: 13, fontWeight: 800, color: '#C4622D', margin: '0 0 2px', letterSpacing: '-0.01em' }}>
@@ -127,13 +127,13 @@ export default function PromotionsManager({ etablissementId, etablissementPhotos
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={() => setEditing(p)} style={{ flex: 1, padding: '6px', borderRadius: 8, border: '1px solid #E0D8CE', backgroundColor: '#fff', color: '#3C2C20', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                <button onClick={() => setEditing(p)} style={{ flex: 1, padding: '6px', borderRadius: 8, border: '1px solid #E0D8CE', backgroundColor: '#fff', color: '#3C2C20', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif' }}>
                   ✏️ Modifier
                 </button>
-                <button onClick={() => handleToggleActive(p)} style={{ flex: 1, padding: '6px', borderRadius: 8, border: '1px solid #E0D8CE', backgroundColor: '#fff', color: p.active ? '#A0654E' : '#2D5A3D', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                <button onClick={() => handleToggleActive(p)} style={{ flex: 1, padding: '6px', borderRadius: 8, border: '1px solid #E0D8CE', backgroundColor: '#fff', color: p.active ? '#A0654E' : '#2D5A3D', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif' }}>
                   {p.active ? '⏸ Désactiver' : '▶️ Activer'}
                 </button>
-                <button onClick={() => handleDelete(p.id)} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #FBDADA', backgroundColor: '#FEF2F2', color: '#DC2626', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                <button onClick={() => handleDelete(p.id)} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #FBDADA', backgroundColor: '#FEF2F2', color: '#DC2626', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif' }}>
                   🗑
                 </button>
               </div>
@@ -227,7 +227,7 @@ export function PromotionForm({ etablissementId, etablissementPhotos, promo, onC
         width: '100%', maxWidth: 480, backgroundColor: '#fff',
         borderRadius: '24px 24px 0 0', padding: '20px 20px 28px',
         paddingBottom: 'max(28px, env(safe-area-inset-bottom, 28px))',
-        maxHeight: '92dvh', overflowY: 'auto', fontFamily: 'Inter, sans-serif',
+        maxHeight: '92dvh', overflowY: 'auto', fontFamily: 'var(--font-body), sans-serif',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h2 style={{ fontSize: 18, fontWeight: 800, color: '#1A1209', margin: 0, letterSpacing: '-0.01em' }}>
@@ -271,7 +271,7 @@ export function PromotionForm({ etablissementId, etablissementPhotos, promo, onC
                   border: frequency === opt.value ? '2px solid #C4622D' : '1.5px solid #E0D8CE',
                   backgroundColor: frequency === opt.value ? '#FFF0E5' : '#fff',
                   color: frequency === opt.value ? '#C4622D' : '#7A6A5A',
-                  fontSize: 11, fontWeight: 700, fontFamily: 'Inter, sans-serif',
+                  fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-body), sans-serif',
                 }}>
                   {opt.label}
                 </button>
@@ -290,7 +290,7 @@ export function PromotionForm({ etablissementId, etablissementPhotos, promo, onC
             {imageUrl ? (
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <img src={imageUrl} alt="" style={{ width: 60, height: 60, borderRadius: 8, objectFit: 'cover' }} />
-                <button onClick={() => setImageUrl('')} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #FBDADA', backgroundColor: '#FEF2F2', color: '#DC2626', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                <button onClick={() => setImageUrl('')} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #FBDADA', backgroundColor: '#FEF2F2', color: '#DC2626', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif' }}>
                   Retirer
                 </button>
               </div>
@@ -304,7 +304,7 @@ export function PromotionForm({ etablissementId, etablissementPhotos, promo, onC
                     onChange={e => e.target.files?.[0] && handleUpload(e.target.files[0])}
                     style={{ display: 'none' }}
                   />
-                  <button onClick={() => fileRef.current?.click()} disabled={uploading} style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid #E0D8CE', backgroundColor: '#fff', color: '#3C2C20', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                  <button onClick={() => fileRef.current?.click()} disabled={uploading} style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid #E0D8CE', backgroundColor: '#fff', color: '#3C2C20', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif' }}>
                     {uploading ? 'Upload…' : '📷 Uploader une image'}
                   </button>
                 </div>
@@ -356,7 +356,7 @@ export function PromotionForm({ etablissementId, etablissementPhotos, promo, onC
               fontSize: 14, fontWeight: 700,
               cursor: saving || !title.trim() ? 'default' : 'pointer',
               opacity: saving || !title.trim() ? 0.5 : 1,
-              fontFamily: 'Inter, sans-serif',
+              fontFamily: 'var(--font-body), sans-serif',
             }}
           >
             {saving ? 'Enregistrement…' : (promo ? 'Mettre à jour' : 'Créer la promotion')}
@@ -372,7 +372,7 @@ const inp: React.CSSProperties = {
   width: '100%', padding: '10px 12px', borderRadius: 10,
   border: '1.5px solid #E0D8CE', fontSize: 13, outline: 'none',
   backgroundColor: '#FBF7F0', color: '#2C1810',
-  boxSizing: 'border-box', fontFamily: 'Inter, sans-serif',
+  boxSizing: 'border-box', fontFamily: 'var(--font-body), sans-serif',
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

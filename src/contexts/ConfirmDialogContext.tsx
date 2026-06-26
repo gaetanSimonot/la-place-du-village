@@ -90,7 +90,7 @@ function ConfirmDialog({
           borderRadius: 20,
           padding: '20px 20px 16px',
           boxShadow: '0 -8px 30px rgba(26,18,9,0.35)',
-          fontFamily: 'Inter, sans-serif',
+          fontFamily: 'var(--font-body), sans-serif',
           animation: 'pdv-confirm-up 180ms cubic-bezier(0.2, 0.9, 0.3, 1.05)',
         }}
       >
@@ -98,7 +98,7 @@ function ConfirmDialog({
           id="pdv-confirm-title"
           style={{
             margin: 0,
-            fontFamily: 'var(--font-dm-serif), Georgia, serif',
+            fontFamily: 'var(--font-display), Georgia, serif',
             fontSize: 20, color: '#1A1209',
             letterSpacing: '-0.01em', lineHeight: 1.2,
           }}

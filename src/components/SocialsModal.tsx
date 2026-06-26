@@ -93,7 +93,7 @@ export default function SocialsModal({ event, params, onClose }: {
   if (typeof document === 'undefined') return null
 
   return createPortal(
-    <div style={{ position: 'fixed', inset: 0, zIndex: 4100, background: '#FDFAF5', display: 'flex', flexDirection: 'column', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 4100, background: '#FDFAF5', display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-body), sans-serif' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid #EDE8E0', background: '#fff' }}>
         <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#1A1209' }}>Partager sur les réseaux</p>
         <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#8A7A6A', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>✕</button>
@@ -118,11 +118,11 @@ export default function SocialsModal({ event, params, onClose }: {
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => download(f.key, f.slug)} disabled={!it}
-                  style={{ flex: 1, padding: '10px', borderRadius: 11, border: 'none', background: '#2D5A3D', color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: it ? 'pointer' : 'default', opacity: it ? 1 : 0.5, fontFamily: 'Inter, sans-serif' }}>
+                  style={{ flex: 1, padding: '10px', borderRadius: 11, border: 'none', background: '#2D5A3D', color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: it ? 'pointer' : 'default', opacity: it ? 1 : 0.5, fontFamily: 'var(--font-body), sans-serif' }}>
                   ⬇ Télécharger
                 </button>
                 <button onClick={() => copyImage(f.key)} disabled={!it}
-                  style={{ flex: 1, padding: '10px', borderRadius: 11, border: '1.5px solid #2D5A3D', background: '#fff', color: '#2D5A3D', fontSize: 12.5, fontWeight: 700, cursor: it ? 'pointer' : 'default', opacity: it ? 1 : 0.5, fontFamily: 'Inter, sans-serif' }}>
+                  style={{ flex: 1, padding: '10px', borderRadius: 11, border: '1.5px solid #2D5A3D', background: '#fff', color: '#2D5A3D', fontSize: 12.5, fontWeight: 700, cursor: it ? 'pointer' : 'default', opacity: it ? 1 : 0.5, fontFamily: 'var(--font-body), sans-serif' }}>
                   ⧉ Copier
                 </button>
               </div>
@@ -135,7 +135,7 @@ export default function SocialsModal({ event, params, onClose }: {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#1A1209' }}>Texte pour la publication</p>
             <button onClick={copyText} disabled={!text}
-              style={{ padding: '6px 12px', borderRadius: 9, border: '1.5px solid #2D5A3D', background: '#fff', color: '#2D5A3D', fontSize: 12, fontWeight: 700, cursor: text ? 'pointer' : 'default', opacity: text ? 1 : 0.5, fontFamily: 'Inter, sans-serif' }}>
+              style={{ padding: '6px 12px', borderRadius: 9, border: '1.5px solid #2D5A3D', background: '#fff', color: '#2D5A3D', fontSize: 12, fontWeight: 700, cursor: text ? 'pointer' : 'default', opacity: text ? 1 : 0.5, fontFamily: 'var(--font-body), sans-serif' }}>
               ⧉ Copier
             </button>
           </div>
@@ -144,13 +144,13 @@ export default function SocialsModal({ event, params, onClose }: {
           ) : (
             <textarea value={text} onChange={e => setText(e.target.value)} rows={6}
               placeholder="Texte de la publication…"
-              style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', borderRadius: 10, border: '1.5px solid #E0D8CE', background: '#FBF7F0', padding: '10px 12px', fontSize: 13, lineHeight: 1.5, color: '#2C1810', outline: 'none', fontFamily: 'Inter, sans-serif' }} />
+              style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', borderRadius: 10, border: '1.5px solid #E0D8CE', background: '#FBF7F0', padding: '10px 12px', fontSize: 13, lineHeight: 1.5, color: '#2C1810', outline: 'none', fontFamily: 'var(--font-body), sans-serif' }} />
           )}
         </div>
       </div>
 
       <div style={{ padding: '12px 16px', paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))', borderTop: '1px solid #EDE8E0', background: '#fff' }}>
-        <button onClick={onClose} style={{ width: '100%', padding: '13px', borderRadius: 13, border: 'none', background: '#2D5A3D', color: '#fff', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+        <button onClick={onClose} style={{ width: '100%', padding: '13px', borderRadius: 13, border: 'none', background: '#2D5A3D', color: '#fff', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif' }}>
           Fermer
         </button>
       </div>

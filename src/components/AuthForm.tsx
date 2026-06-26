@@ -91,7 +91,7 @@ export default function AuthForm({ returnTo = '/', title = 'Connexion', compact 
     return (
       <div style={{ padding: '32px 20px', textAlign: 'center' }}>
         <p style={{ fontSize: 44, marginBottom: 14 }}>📬</p>
-        <h3 style={{ fontWeight: 800, fontSize: 20, color: '#1A1209', marginBottom: 8, fontFamily: 'Inter, sans-serif', letterSpacing: '-0.02em' }}>
+        <h3 style={{ fontWeight: 800, fontSize: 20, color: '#1A1209', marginBottom: 8, fontFamily: 'var(--font-body), sans-serif', letterSpacing: '-0.02em' }}>
           Vérifie tes emails
         </h3>
         <p style={{ fontSize: 14, color: '#8A8A8A', lineHeight: 1.6, margin: '0 0 20px' }}>
@@ -111,7 +111,7 @@ export default function AuthForm({ returnTo = '/', title = 'Connexion', compact 
     width: '100%', padding: '14px 16px', borderRadius: 14,
     border: '1.5px solid #E0D8CE', fontSize: 15, outline: 'none',
     backgroundColor: '#FBF7F0', color: '#2C1810', boxSizing: 'border-box',
-    fontFamily: 'Inter, sans-serif',
+    fontFamily: 'var(--font-body), sans-serif',
   }
 
   return (
@@ -132,7 +132,7 @@ export default function AuthForm({ returnTo = '/', title = 'Connexion', compact 
               <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
             </svg>
           </div>
-          <h3 style={{ fontWeight: 800, fontSize: 22, color: '#1A1209', margin: '0 0 6px', fontFamily: 'Inter, sans-serif', letterSpacing: '-0.02em' }}>
+          <h3 style={{ fontWeight: 800, fontSize: 22, color: '#1A1209', margin: '0 0 6px', fontFamily: 'var(--font-body), sans-serif', letterSpacing: '-0.02em' }}>
             {title}
           </h3>
           <p style={{ fontSize: 13, color: '#8A8A8A', margin: 0, lineHeight: 1.5 }}>
@@ -147,7 +147,7 @@ export default function AuthForm({ returnTo = '/', title = 'Connexion', compact 
         backgroundColor: '#fff', border: '1.5px solid #E0D8CE',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
         fontSize: 15, fontWeight: 700, cursor: googleLoading ? 'default' : 'pointer', color: '#2C1810',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.06)', fontFamily: 'Inter, sans-serif',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.06)', fontFamily: 'var(--font-body), sans-serif',
         opacity: googleLoading ? 0.7 : 1, transition: 'opacity 0.15s',
       }}>
         {googleLoading
@@ -158,7 +158,7 @@ export default function AuthForm({ returnTo = '/', title = 'Connexion', compact 
       {/* Divider */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 14px' }}>
         <div style={{ flex: 1, height: 1, backgroundColor: '#E8E0D5' }} />
-        <span style={{ fontSize: 12, color: '#B0A898', fontFamily: 'Inter, sans-serif' }}>ou par email</span>
+        <span style={{ fontSize: 12, color: '#B0A898', fontFamily: 'var(--font-body), sans-serif' }}>ou par email</span>
         <div style={{ flex: 1, height: 1, backgroundColor: '#E8E0D5' }} />
       </div>
 
@@ -181,7 +181,7 @@ export default function AuthForm({ returnTo = '/', title = 'Connexion', compact 
           padding: '11px 12px', marginBottom: 10, borderRadius: 12,
           border: `1.5px solid ${newsletter ? 'var(--primary)' : '#E0D8CE'}`,
           background: newsletter ? 'rgba(45,90,61,0.06)' : '#fff',
-          cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif',
+          cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-body), sans-serif',
         }}
       >
         <span style={{
@@ -208,7 +208,7 @@ export default function AuthForm({ returnTo = '/', title = 'Connexion', compact 
           fontSize: 15, fontWeight: 700, border: 'none',
           cursor: magicLoading || !email.trim() ? 'default' : 'pointer',
           opacity: magicLoading || !email.trim() ? 0.5 : 1,
-          fontFamily: 'Inter, sans-serif', transition: 'opacity 0.15s',
+          fontFamily: 'var(--font-body), sans-serif', transition: 'opacity 0.15s',
         }}
       >
         {magicLoading ? 'Envoi du lien…' : 'Recevoir mon lien de connexion'}
@@ -216,12 +216,12 @@ export default function AuthForm({ returnTo = '/', title = 'Connexion', compact 
 
       {/* Erreur */}
       {error && (
-        <p style={{ fontSize: 12, color: '#E53935', marginTop: 10, textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>
+        <p style={{ fontSize: 12, color: '#E53935', marginTop: 10, textAlign: 'center', fontFamily: 'var(--font-body), sans-serif' }}>
           {error}
         </p>
       )}
 
-      <p style={{ fontSize: 11, color: '#A89C8C', marginTop: 14, textAlign: 'center', lineHeight: 1.5, fontFamily: 'Inter, sans-serif' }}>
+      <p style={{ fontSize: 11, color: '#A89C8C', marginTop: 14, textAlign: 'center', lineHeight: 1.5, fontFamily: 'var(--font-body), sans-serif' }}>
         On t’envoie un lien : un clic et tu es connecté·e. Pas de mot de passe à retenir.
       </p>
     </div>

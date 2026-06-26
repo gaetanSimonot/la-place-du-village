@@ -159,7 +159,7 @@ export default function MurTab({ profileUserId, authorName, authorAvatar }: Prop
           ) : (
             <div
               className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-primary text-[15px] font-extrabold text-white"
-              style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif' }}
+              style={{ fontFamily: 'var(--font-display), Georgia, serif' }}
             >
               {(authorName || '·').trim().charAt(0).toUpperCase() || '·'}
             </div>

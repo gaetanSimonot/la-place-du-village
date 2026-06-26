@@ -27,10 +27,10 @@ const config: Config = {
         vert:          "#2D5A3D",
       },
       fontFamily: {
-        inter:   ["var(--font-inter)", "Inter", "system-ui", "-apple-system", "sans-serif"],
-        sans:    ["var(--font-inter)", "Inter", "system-ui", "-apple-system", "sans-serif"],
-        serif:   ["var(--font-dm-serif)", "Georgia", "serif"],
-        caveat:  ["var(--font-caveat)", "Caveat", "cursive"],
+        inter:   ["var(--font-body)", "Inter", "system-ui", "-apple-system", "sans-serif"],
+        sans:    ["var(--font-body)", "Inter", "system-ui", "-apple-system", "sans-serif"],
+        serif:   ["var(--font-display)", "Georgia", "serif"],
+        caveat:  ["var(--font-hand)", "Caveat", "cursive"],
       },
       borderRadius: {
         card:  "16px",

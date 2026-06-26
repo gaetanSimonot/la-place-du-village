@@ -152,7 +152,7 @@ export default function RootLayout({
                         // Style aligné sur la charte (cards Inter, radius 16,
                         // couleurs primary/accent/texte du theme Tailwind)
                         style: {
-                          fontFamily: 'var(--font-inter), Inter, sans-serif',
+                          fontFamily: 'var(--font-body), Inter, sans-serif',
                           fontSize: '13px',
                           fontWeight: 600,
                           borderRadius: '14px',

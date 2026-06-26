@@ -19,7 +19,7 @@ function MiniAvatar({ name, url }: { name: string; url?: string | null }) {
       border: '1.5px solid #fff',
       backgroundColor: 'var(--primary-light)', color: 'var(--primary)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontWeight: 800, fontSize: 9, fontFamily: 'Inter, sans-serif',
+      fontWeight: 800, fontSize: 9, fontFamily: 'var(--font-body), sans-serif',
     }}>{(name[0] ?? '?').toUpperCase()}</div>
   )
 }
@@ -47,7 +47,7 @@ function FeedCard({ evt }: { evt: StarredEvent }) {
           </span>
         </div>
         <div style={{ padding: '10px 12px 12px' }}>
-          <h3 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 15, color: '#2C1810', margin: '0 0 3px', lineHeight: 1.3 }}>
+          <h3 style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 15, color: '#2C1810', margin: '0 0 3px', lineHeight: 1.3 }}>
             {evt.titre}
           </h3>
           {evt.date_debut && (
@@ -137,9 +137,9 @@ export default function AbonnementsView({ mode = 'feed' }: { mode?: 'feed' | 'mi
   const headerTitle = mode === 'mine' ? 'Événements suivis' : 'Abonnements'
 
   return (
-    <div style={{ minHeight: '100%', backgroundColor: 'var(--creme)', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ minHeight: '100%', backgroundColor: 'var(--creme)', fontFamily: 'var(--font-body), sans-serif' }}>
       <div style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: '#fff', borderBottom: '1px solid #EDE8E0', padding: '12px 16px' }}>
-        <h1 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 18, color: '#2C1810', margin: 0 }}>{headerTitle}</h1>
+        <h1 style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 18, color: '#2C1810', margin: 0 }}>{headerTitle}</h1>
       </div>
 
       <div style={{ padding: '16px 16px 40px', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -171,7 +171,7 @@ function EmptyState({ emoji, title, sub }: { emoji: string; title: string; sub: 
   return (
     <div style={{ textAlign: 'center', paddingTop: 60 }}>
       <p style={{ fontSize: 48, marginBottom: 12 }}>{emoji}</p>
-      <p style={{ fontWeight: 700, fontSize: 16, fontFamily: 'Inter, sans-serif', color: '#2C1810', marginBottom: 6 }}>{title}</p>
+      <p style={{ fontWeight: 700, fontSize: 16, fontFamily: 'var(--font-body), sans-serif', color: '#2C1810', marginBottom: 6 }}>{title}</p>
       <p style={{ fontSize: 13, color: '#8A8A8A' }}>{sub}</p>
     </div>
   )

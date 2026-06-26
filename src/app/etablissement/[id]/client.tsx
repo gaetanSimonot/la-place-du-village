@@ -56,7 +56,7 @@ function AddTile({ emoji, color, title, desc, onClick }: { emoji: string; color:
       display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8,
       width: '100%', minHeight: 110, padding: '14px', borderRadius: 16,
       border: `1px solid ${color}33`, backgroundColor: color + '0F',
-      cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif',
+      cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-body), sans-serif',
     }}>
       <div style={{ width: 44, height: 44, borderRadius: 13, backgroundColor: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, boxShadow: '0 1px 3px rgba(44,28,16,0.08)' }}>{emoji}</div>
       <div style={{ marginTop: 'auto' }}>
@@ -336,7 +336,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
   }
 
   if (loading) return <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5F0E8' }}><div style={{ width: 32, height: 32, borderRadius: '50%', border: '4px solid #E0D8CE', borderTopColor: '#2D5A3D', animation: 'spin 0.7s linear infinite' }} /></div>
-  if (!etab) return <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5F0E8' }}><p style={{ color: '#8A8A8A', fontFamily: 'Inter, sans-serif' }}>Établissement introuvable</p></div>
+  if (!etab) return <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5F0E8' }}><p style={{ color: '#8A8A8A', fontFamily: 'var(--font-body), sans-serif' }}>Établissement introuvable</p></div>
 
   const typeInfo = ETAB_TYPES[etab.type]
   const photos = etab.photos ?? []
@@ -352,12 +352,12 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
   const commentCount = comments.length
 
   const BTN: React.CSSProperties = { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '12px 4px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', WebkitTapHighlightColor: 'transparent', minWidth: 0 }
-  const LBL: React.CSSProperties = { fontSize: 10, fontWeight: 600, fontFamily: 'Inter, sans-serif', lineHeight: 1 }
+  const LBL: React.CSSProperties = { fontSize: 10, fontWeight: 600, fontFamily: 'var(--font-body), sans-serif', lineHeight: 1 }
   // V3 — card unifiée
   const CARD: React.CSSProperties = { backgroundColor: '#fff', borderRadius: 16, padding: '16px 18px', border: '1px solid #F0EAE0', boxShadow: '0 1px 4px rgba(44,28,16,0.04)' }
 
   return (
-    <div style={{ minHeight: '100dvh', backgroundColor: '#FDFAF5', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ minHeight: '100dvh', backgroundColor: '#FDFAF5', fontFamily: 'var(--font-body), sans-serif' }}>
 
       {/* Bannière aperçu public — masque l'édition, bouton pour en sortir */}
       {publicPreview && (
@@ -371,7 +371,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             Aperçu public
           </span>
-          <button onClick={() => setPublicPreview(false)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', borderRadius: 8, padding: '4px 10px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+          <button onClick={() => setPublicPreview(false)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', borderRadius: 8, padding: '4px 10px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif' }}>
             Quitter
           </button>
         </div>
@@ -638,7 +638,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
             <p style={{ fontSize: 13, fontWeight: 700, color: '#3C2C20', margin: '0 0 4px' }}>Vous gérez cet établissement ?</p>
             <p style={{ fontSize: 12, color: '#8A8A8A', lineHeight: 1.5, margin: '0 0 12px' }}>Revendiquez cette fiche pour la compléter et la gérer.</p>
             <button onClick={handleClaimClick}
-              style={{ padding: '10px 20px', borderRadius: 999, backgroundColor: '#2D5A3D', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+              style={{ padding: '10px 20px', borderRadius: 999, backgroundColor: '#2D5A3D', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif' }}>
               Revendiquer cette fiche
             </button>
           </div>
@@ -663,18 +663,18 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
                   }}>{effectivePlan === 'pro' ? 'Partenaire' : effectivePlan === 'habitants' ? 'Habitants' : 'Basic'}</span>
                 </div>
                 {isPaid ? (
-                  <button onClick={openManage} disabled={manageLoading} style={{ padding: '9px 14px', borderRadius: 10, border: '1.5px solid #2D5A3D', backgroundColor: 'transparent', color: '#2D5A3D', fontSize: 12, fontWeight: 700, cursor: manageLoading ? 'default' : 'pointer', opacity: manageLoading ? 0.6 : 1, fontFamily: 'Inter, sans-serif' }}>
+                  <button onClick={openManage} disabled={manageLoading} style={{ padding: '9px 14px', borderRadius: 10, border: '1.5px solid #2D5A3D', backgroundColor: 'transparent', color: '#2D5A3D', fontSize: 12, fontWeight: 700, cursor: manageLoading ? 'default' : 'pointer', opacity: manageLoading ? 0.6 : 1, fontFamily: 'var(--font-body), sans-serif' }}>
                     {manageLoading ? '…' : 'Gérer l\'abonnement'}
                   </button>
                 ) : (
-                  <button onClick={() => setClaimOpen(true)} style={{ padding: '9px 14px', borderRadius: 10, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                  <button onClick={() => setClaimOpen(true)} style={{ padding: '9px 14px', borderRadius: 10, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif' }}>
                     Passer à Pro / Max
                   </button>
                 )}
               </div>
               <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #D0E0D5', textAlign: 'right' }}>
                 <button onClick={handleRelease}
-                  style={{ background: 'none', border: 'none', color: '#A0654E', fontSize: 11, cursor: 'pointer', textDecoration: 'underline', fontFamily: 'Inter, sans-serif', padding: 0 }}>
+                  style={{ background: 'none', border: 'none', color: '#A0654E', fontSize: 11, cursor: 'pointer', textDecoration: 'underline', fontFamily: 'var(--font-body), sans-serif', padding: 0 }}>
                   Ne plus gérer cette fiche
                 </button>
               </div>
@@ -689,7 +689,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
               onClick={() => setAddMenuOpen(true)}
               style={{
                 flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8, cursor: 'pointer',
-                padding: '14px', borderRadius: 16, border: '1.5px dashed #2D5A3D', backgroundColor: '#F0F7F2', textAlign: 'left', fontFamily: 'Inter, sans-serif',
+                padding: '14px', borderRadius: 16, border: '1.5px dashed #2D5A3D', backgroundColor: '#F0F7F2', textAlign: 'left', fontFamily: 'var(--font-body), sans-serif',
               }}
             >
               <div style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: '#2D5A3D', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -704,7 +704,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
               onClick={() => setLinkPickerOpen(true)}
               style={{
                 flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8, cursor: 'pointer',
-                padding: '14px', borderRadius: 16, border: '1.5px dashed #2D5A3D', backgroundColor: '#F0F7F2', textAlign: 'left', fontFamily: 'Inter, sans-serif',
+                padding: '14px', borderRadius: 16, border: '1.5px dashed #2D5A3D', backgroundColor: '#F0F7F2', textAlign: 'left', fontFamily: 'var(--font-body), sans-serif',
               }}
             >
               <div style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: '#2D5A3D', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -826,10 +826,10 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
                     <span style={{ fontSize: 10.5, color: '#AAA' }}>{timeAgo(p.created_at)}</span>
                     {ownerUI && (
                       <div style={{ display: 'flex', gap: 14 }}>
-                        <button onClick={() => setEditingPost(p)} style={{ background: 'none', border: 'none', color: '#2D5A3D', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', textDecoration: 'underline', padding: 0 }}>
+                        <button onClick={() => setEditingPost(p)} style={{ background: 'none', border: 'none', color: '#2D5A3D', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif', textDecoration: 'underline', padding: 0 }}>
                           Modifier
                         </button>
-                        <button onClick={() => deletePost(p.id)} style={{ background: 'none', border: 'none', color: '#B53A22', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif', textDecoration: 'underline', padding: 0 }}>
+                        <button onClick={() => deletePost(p.id)} style={{ background: 'none', border: 'none', color: '#B53A22', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif', textDecoration: 'underline', padding: 0 }}>
                           Supprimer
                         </button>
                       </div>
@@ -861,7 +861,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
             <div style={{ flex: 1, display: 'flex', gap: 8 }}>
               <input value={commentText} onChange={e => setCommentText(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendComment()}
                 placeholder={user ? 'Votre avis…' : 'Connectez-vous pour commenter'}
-                style={{ flex: 1, padding: '9px 13px', borderRadius: 12, border: '1.5px solid #E8E0D5', fontSize: 13, fontFamily: 'Inter, sans-serif', outline: 'none', color: '#2C1810', backgroundColor: '#FAF7F2' }}
+                style={{ flex: 1, padding: '9px 13px', borderRadius: 12, border: '1.5px solid #E8E0D5', fontSize: 13, fontFamily: 'var(--font-body), sans-serif', outline: 'none', color: '#2C1810', backgroundColor: '#FAF7F2' }}
                 onClick={() => { if (!user) openAuthModal() }} />
               <button onClick={sendComment} disabled={!commentText.trim()}
                 style={{ padding: '9px 16px', borderRadius: 12, border: 'none', backgroundColor: commentText.trim() ? '#2D5A3D' : '#D8D0C8', color: '#fff', fontWeight: 700, fontSize: 13, cursor: commentText.trim() ? 'pointer' : 'default' }}>→</button>
@@ -880,9 +880,9 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
                       <button onClick={() => setOpenMenuId(openMenuId === c.id ? null : c.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8A7A6A', fontSize: 18 }}>⋮</button>
                       {openMenuId === c.id && (
                         <div style={{ position: 'absolute', right: 0, top: '110%', backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 4px 24px rgba(0,0,0,0.13)', zIndex: 20, minWidth: 150, overflow: 'hidden' }}>
-                          <button onClick={() => { setEditingCommentId(c.id); setEditCommentText(c.content); setOpenMenuId(null) }} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#2C1810', fontFamily: 'Inter, sans-serif' }}>✏️ Modifier</button>
+                          <button onClick={() => { setEditingCommentId(c.id); setEditCommentText(c.content); setOpenMenuId(null) }} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#2C1810', fontFamily: 'var(--font-body), sans-serif' }}>✏️ Modifier</button>
                           <div style={{ height: 1, backgroundColor: '#F0EDE8', margin: '0 14px' }} />
-                          <button onClick={() => { deleteComment(c.id); setOpenMenuId(null) }} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#E8622A', fontFamily: 'Inter, sans-serif' }}>🗑️ Supprimer</button>
+                          <button onClick={() => { deleteComment(c.id); setOpenMenuId(null) }} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#E8622A', fontFamily: 'var(--font-body), sans-serif' }}>🗑️ Supprimer</button>
                         </div>
                       )}
                     </div>
@@ -890,7 +890,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
                 </div>
                 {editingCommentId === c.id ? (
                   <div style={{ display: 'flex', gap: 6 }}>
-                    <input value={editCommentText} onChange={e => setEditCommentText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveEditComment(c.id); if (e.key === 'Escape') setEditingCommentId(null) }} autoFocus style={{ flex: 1, padding: '6px 10px', borderRadius: 8, border: '1.5px solid #2D5A3D', fontSize: 13, fontFamily: 'Inter, sans-serif', outline: 'none', backgroundColor: '#fff' }} />
+                    <input value={editCommentText} onChange={e => setEditCommentText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveEditComment(c.id); if (e.key === 'Escape') setEditingCommentId(null) }} autoFocus style={{ flex: 1, padding: '6px 10px', borderRadius: 8, border: '1.5px solid #2D5A3D', fontSize: 13, fontFamily: 'var(--font-body), sans-serif', outline: 'none', backgroundColor: '#fff' }} />
                     <button onClick={() => saveEditComment(c.id)} style={{ padding: '6px 12px', borderRadius: 8, border: 'none', backgroundColor: '#2D5A3D', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>✓</button>
                     <button onClick={() => setEditingCommentId(null)} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #DDD', backgroundColor: 'transparent', fontSize: 12, cursor: 'pointer' }}>✕</button>
                   </div>
@@ -951,7 +951,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
       {addMenuOpen && (
         <ClientPortal>
           <div onClick={() => setAddMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 3000, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-            <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, backgroundColor: '#fff', borderRadius: '24px 24px 0 0', padding: '18px 18px 24px', paddingBottom: 'max(24px, env(safe-area-inset-bottom, 24px))', fontFamily: 'Inter, sans-serif' }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, backgroundColor: '#fff', borderRadius: '24px 24px 0 0', padding: '18px 18px 24px', paddingBottom: 'max(24px, env(safe-area-inset-bottom, 24px))', fontFamily: 'var(--font-body), sans-serif' }}>
               <div style={{ width: 38, height: 4, borderRadius: 2, backgroundColor: '#E0D8CE', margin: '0 auto 16px' }} />
               <p style={{ margin: '0 0 14px', fontSize: 16, fontWeight: 800, color: '#1A1209' }}>Que voulez-vous ajouter ?</p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>

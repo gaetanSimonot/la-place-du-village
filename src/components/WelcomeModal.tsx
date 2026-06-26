@@ -28,7 +28,7 @@ function Slide1() {
         />
         <h1 style={{
           margin: '14px 0 0', textAlign: 'center',
-          fontFamily: 'var(--font-dm-serif), Georgia, serif',
+          fontFamily: 'var(--font-display), Georgia, serif',
           fontSize: 26, color: T.texte, letterSpacing: '-0.02em', lineHeight: 1.05,
         }}>
           Le bouche-à-oreille<br />
@@ -37,7 +37,7 @@ function Slide1() {
         <div style={{ width: 42, height: 3, borderRadius: 999, backgroundColor: T.accent, margin: '12px auto 6px' }} />
         <p style={{
           margin: 0, textAlign: 'center',
-          fontFamily: 'var(--font-caveat), Caveat, cursive', fontWeight: 500,
+          fontFamily: 'var(--font-hand), Caveat, cursive', fontWeight: 500,
           fontSize: 18, color: T.primary, lineHeight: 1.1,
         }}>
           Bienvenue chez vous.
@@ -105,7 +105,7 @@ function Slide2() {
     <div style={{ padding: '30px 22px 24px', display: 'flex', flexDirection: 'column' }}>
       <h2 style={{
         margin: '0 0 8px', textAlign: 'center',
-        fontFamily: 'var(--font-dm-serif), Georgia, serif',
+        fontFamily: 'var(--font-display), Georgia, serif',
         fontSize: 26, color: T.texte, letterSpacing: '-0.01em', lineHeight: 1.05,
       }}>Ce que tu peux faire</h2>
       <div style={{ width: 42, height: 3, borderRadius: 999, backgroundColor: T.accent, margin: '4px auto 22px' }} />
@@ -147,7 +147,7 @@ function Slide3() {
       </div>
       <h2 style={{
         margin: '0 0 14px',
-        fontFamily: 'var(--font-dm-serif), Georgia, serif',
+        fontFamily: 'var(--font-display), Georgia, serif',
         fontSize: 30, color: T.texte, letterSpacing: '-0.02em', lineHeight: 1.05,
       }}>Tout le monde<br />peut participer.</h2>
       <p style={{ margin: '0 0 14px', fontSize: 14, color: T.texteDoux, lineHeight: 1.6, maxWidth: 320 }}>
@@ -157,7 +157,7 @@ function Slide3() {
       </p>
       <p style={{
         margin: 0,
-        fontFamily: 'var(--font-caveat), Caveat, cursive', fontWeight: 500,
+        fontFamily: 'var(--font-hand), Caveat, cursive', fontWeight: 500,
         fontSize: 20, color: T.primary, lineHeight: 1.1,
       }}>
         L&apos;application dont vous êtes<br />le hérault.
@@ -204,7 +204,7 @@ export default function WelcomeModal({ onClose }: Props) {
         backdropFilter: visible ? 'blur(4px)' : 'none',
         transition: 'background-color 0.25s, backdrop-filter 0.25s',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 16, fontFamily: 'Inter, sans-serif',
+        padding: 16, fontFamily: 'var(--font-body), sans-serif',
       }}
       onClick={dismiss}
     >
@@ -267,7 +267,7 @@ export default function WelcomeModal({ onClose }: Props) {
               fontSize: 14, fontWeight: 700, cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               boxShadow: '0 3px 12px rgba(45,90,61,0.25)',
-              fontFamily: 'Inter, sans-serif',
+              fontFamily: 'var(--font-body), sans-serif',
             }}
           >
             {isLast ? "C'est parti !" : 'Suivant'}
@@ -285,7 +285,7 @@ export default function WelcomeModal({ onClose }: Props) {
                 width: '100%', marginTop: 6, padding: '10px',
                 background: 'none', border: 'none', cursor: 'pointer',
                 fontSize: 13, fontWeight: 700, color: T.texteDoux,
-                fontFamily: 'Inter, sans-serif',
+                fontFamily: 'var(--font-body), sans-serif',
               }}
             >
               ← Retour
