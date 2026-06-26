@@ -14,7 +14,7 @@ interface SplashData {
 const NAV_H = 62
 
 /* Icônes RÉUTILISÉES du site (EmbedPicker / moments / messagerie), recolorées */
-const SVG = { width: 26, height: 26, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+const SVG = { width: 30, height: 30, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
 const Icons = {
   calendar: <svg {...SVG}><rect x="3" y="5" width="18" height="16" rx="2" /><line x1="3" y1="10" x2="21" y2="10" /><line x1="8" y1="3" x2="8" y2="7" /><line x1="16" y1="3" x2="16" y2="7" /></svg>,
   chat: <svg {...SVG}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z" /><line x1="8" y1="11.5" x2="8.01" y2="11.5" /><line x1="12" y1="11.5" x2="12.01" y2="11.5" /><line x1="16" y1="11.5" x2="16.01" y2="11.5" /></svg>,
@@ -33,26 +33,26 @@ function Rubrique({ kicker, color, iconBg, icon, title, subParts, thumb, onClick
     <button
       onClick={onClick}
       style={{
-        width: '100%', display: 'flex', alignItems: 'center', gap: 14,
-        background: '#fff', border: 'none', borderRadius: 16,
-        padding: '14px 16px', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-jakarta), sans-serif',
+        width: '100%', display: 'flex', alignItems: 'center', gap: 16,
+        background: '#fff', border: 'none', borderRadius: 20,
+        padding: '17px 18px', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-jakarta), sans-serif',
       }}
     >
-      <span style={{ width: 50, height: 50, flexShrink: 0, borderRadius: 14, background: iconBg, color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</span>
+      <span style={{ width: 64, height: 64, flexShrink: 0, borderRadius: 17, background: iconBg, color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</span>
       <span style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ display: 'block', fontSize: 10, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color }}>{kicker}</span>
-        <span style={{ display: 'block', marginTop: 3, fontSize: 16, fontWeight: 600, letterSpacing: '-0.01em', color: '#241C14', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
+        <span style={{ display: 'block', fontSize: 12, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color }}>{kicker}</span>
+        <span style={{ display: 'block', marginTop: 4, fontSize: 18, fontWeight: 700, letterSpacing: '-0.01em', color: '#1A1209', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
         {parts.length > 0 && (
-          <span style={{ display: 'block', marginTop: 3, fontSize: 12.5, fontWeight: 500, color: '#9A8A78', lineHeight: 1.4 }}>
+          <span style={{ display: 'block', marginTop: 5, fontSize: 14, fontWeight: 500, color: '#7A6A5A', lineHeight: 1.4 }}>
             {parts.map((p, i) => (
-              <span key={i}>{i > 0 && <span style={{ color, fontWeight: 700, margin: '0 6px' }}>•</span>}{p}</span>
+              <span key={i}>{i > 0 && <span style={{ color: '#B3A492', fontWeight: 700, margin: '0 7px' }}>•</span>}{p}</span>
             ))}
           </span>
         )}
       </span>
       {thumb && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={thumb} alt="" style={{ width: 64, height: 64, flexShrink: 0, borderRadius: 14, objectFit: 'cover' }} />
+        <img src={thumb} alt="" style={{ width: 68, height: 68, flexShrink: 0, borderRadius: 16, objectFit: 'cover' }} />
       )}
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#A99B89" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><polyline points="9 6 15 12 9 18" /></svg>
     </button>
@@ -92,7 +92,7 @@ export default function EditorialSplash({ onExplore, onRubrique }: { onExplore: 
         </div>
 
         {/* Rubriques */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
           <Rubrique
             kicker="Aujourd'hui" color="#E8622A" iconBg="#FFF0E5" icon={Icons.calendar}
             title={auj ? `${auj.today} événement${auj.today > 1 ? 's' : ''} aujourd'hui` : "L'agenda du village"}
