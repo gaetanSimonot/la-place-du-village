@@ -99,6 +99,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onSearch, onSha
 
   // Admin : enregistre l'élément « À découvrir » choisi via l'EmbedPicker
   const savePick = async (item: EmbedItem | null) => {
+    await supabase.auth.refreshSession().catch(() => {})
     const { data: { session } } = await supabase.auth.getSession()
     const tk = session?.access_token
     await fetch('/api/splash/decouvrir', {

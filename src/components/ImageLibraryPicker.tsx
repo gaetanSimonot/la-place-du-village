@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { compressImage, uploadViaSignedUrl } from '@/lib/clientUpload'
 
@@ -19,7 +20,10 @@ export default function ImageLibraryPicker({ onSelect, onClose, currentUrl }: {
   const load = () => fetch('/api/image-library').then(r => (r.ok ? r.json() : { images: [] })).then(d => setImages(d.images ?? [])).catch(() => {})
   useEffect(() => { load() }, [])
 
-  const token = async () => (await supabase.auth.getSession()).data.session?.access_token
+  const token = async () => {
+    await supabase.auth.refreshSession().catch(() => {})   // token frais (sinon POST admin échoue en silence)
+    return (await supabase.auth.getSession()).data.session?.access_token
+  }
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -48,8 +52,9 @@ export default function ImageLibraryPicker({ onSelect, onClose, currentUrl }: {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
       body: JSON.stringify({ url, remove: true }),
-    })
-    if (r.ok) { const d = await r.json(); setImages(d.images ?? []) }
+    }).catch(() => null)
+    if (r && r.ok) { const d = await r.json(); setImages(d.images ?? []) }
+    else toast.error('Suppression non enregistrée — réessaie')
   }
 
   return (
