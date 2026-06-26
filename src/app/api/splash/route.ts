@@ -37,8 +37,9 @@ export async function GET() {
     supabaseAdmin.from('config').select('value').eq('key', 'hub_hero_intro_image_url').maybeSingle(),
   ])
 
-  // Image héro = celle du « hub hero intro » choisie par l'admin (sinon fallback côté client)
-  const hero = (heroRes.data?.value as string | undefined) || null
+  // Image héro = exactement celle du slide intro du hub : URL custom de l'admin
+  // (config.hub_hero_intro_image_url) sinon l'image par défaut /hub-intro-slide.webp.
+  const hero = (heroRes.data?.value as string | undefined) || '/hub-intro-slide.webp'
 
   // ── Aujourd'hui ─────────────────────────────────────────────────────────
   const aujourdhui = {

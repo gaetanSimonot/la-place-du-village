@@ -88,7 +88,7 @@ export default function EditorialSplash({ onExplore, onRubrique }: { onExplore: 
         {/* Héro */}
         <div style={{ borderRadius: 20, overflow: 'hidden', height: 210, background: '#E6DECE' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={d?.hero || '/og/home.jpg'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          <img src={d?.hero || '/hub-intro-slide.webp'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         </div>
 
         {/* Rubriques */}
