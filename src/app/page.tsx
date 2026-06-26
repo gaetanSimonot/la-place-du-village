@@ -1280,7 +1280,7 @@ export default function HomePage() {
           })}
           onNotifs={() => handleNavTab('notifs')}
           onInfo={() => setInfoOpen(true)}
-          onToday={() => { setSplashOpen(false); enterAgendaToday() }}
+          onToday={() => { setSplashOpen(false); enterAgendaToday(); setSheetMode('half') }}
           isAdmin={isAdmin}
           notifUnread={notifCount}
         />
