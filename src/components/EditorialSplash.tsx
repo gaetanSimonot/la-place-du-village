@@ -1,5 +1,7 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import EmbedPicker, { type EmbedItem } from '@/components/EmbedPicker'
 
 /* Données réelles renvoyées par /api/splash */
 interface SplashData {
@@ -9,6 +11,21 @@ interface SplashData {
   journal?: { numero: number; titre: string; deck: string } | null
   bonPlan?: { id: string; titre: string; sous: string | null; image: string | null; etab: string | null } | null
   vuAujourdhui?: { id: string; titre: string; auteur: string; image: string | null } | null
+  decouvrir?: { kind: string; id: string; title: string; subtitle: string | null; photo: string | null } | null
+}
+
+/* Lien vers la page d'un élément « À découvrir » selon son type */
+function decouvrirHref(kind: string, id: string): string {
+  switch (kind) {
+    case 'event':    return `/evenement/${id}`
+    case 'etab':     return `/etablissement/${id}`
+    case 'producer': return `/producteur/${id}`
+    case 'annonce':  return `/annonces/${id}`
+    case 'promo':    return `/promotions?id=${id}`
+    case 'covoit':   return `/covoiturage/${id}`
+    case 'article':  return `/journal`
+    default:         return '/'
+  }
 }
 
 const NAV_H = 62
@@ -21,6 +38,7 @@ const Icons = {
   book: <svg {...SVG}><path d="M4 4h12a2 2 0 0 1 2 2v13a1 1 0 0 1-1 1H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" /><path d="M18 8h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2" /><line x1="6" y1="8" x2="14" y2="8" /><line x1="6" y1="12" x2="14" y2="12" /><line x1="6" y1="16" x2="11" y2="16" /></svg>,
   tag: <svg {...SVG}><path d="M20 12V8H4v4" /><path d="M20 12v8H4v-8" /><line x1="12" y1="8" x2="12" y2="20" /><path d="M8 8a2 2 0 0 1 2-4c1.5 0 2 2 2 4-2 0-4 0-4-2 0-2 2-2 2-2" /></svg>,
   camera: <svg {...SVG}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>,
+  discover: <svg {...SVG}><circle cx="12" cy="12" r="10" /><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" /></svg>,
 }
 
 type RubProps = {
@@ -59,20 +77,39 @@ function Rubrique({ kicker, color, iconBg, icon, title, subParts, thumb, onClick
   )
 }
 
-export default function EditorialSplash({ onExplore, onRubrique, onSearch, onShare, onInfo, onNotifs }: {
+export default function EditorialSplash({ onExplore, onRubrique, onSearch, onShare, onInfo, onNotifs, onToday, isAdmin = false, notifUnread = 0 }: {
   onExplore: () => void
   onRubrique: (href: string) => void
   onSearch?: () => void
   onShare?: () => void
   onInfo?: () => void
   onNotifs?: () => void
+  onToday?: () => void
+  isAdmin?: boolean
+  notifUnread?: number
 }) {
   const [d, setD] = useState<SplashData | null>(null)
-  useEffect(() => {
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const load = useCallback(() => {
     fetch('/api/splash').then(r => (r.ok ? r.json() : null)).then(data => { if (data) setD(data) }).catch(() => {})
   }, [])
+  useEffect(() => { load() }, [load])
+
+  // Admin : enregistre l'élément « À découvrir » choisi via l'EmbedPicker
+  const savePick = async (item: EmbedItem | null) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const tk = session?.access_token
+    await fetch('/api/splash/decouvrir', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
+      body: JSON.stringify(item),
+    }).catch(() => {})
+    setPickerOpen(false)
+    load()
+  }
 
   const auj = d?.aujourdhui
+  const dec = d?.decouvrir
 
   return (
     <div className="pdv-hscroll" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 250, backgroundColor: '#FDFAF5', overflowY: 'auto', WebkitOverflowScrolling: 'touch', fontFamily: 'var(--font-jakarta), sans-serif' }}>
@@ -91,7 +128,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onSearch, onSha
           </button>
           <button aria-label="Notifications" onClick={onNotifs} style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', color: '#1A1209', padding: 5 }}>
             <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
-            <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: 4, background: '#E8622A' }} />
+            {notifUnread > 0 && <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: 4, background: '#E8622A' }} />}
           </button>
           <button aria-label="À propos" onClick={onInfo} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1A1209', padding: 5 }}>
             <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="14" y2="17" /></svg>
@@ -110,7 +147,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onSearch, onSha
             kicker="Aujourd'hui" color="#E8622A" iconBg="#FFF0E5" icon={Icons.calendar}
             title={auj ? `${auj.today} événement${auj.today > 1 ? 's' : ''} aujourd'hui` : "L'agenda du village"}
             subParts={auj ? [auj.weekend ? `${auj.weekend} ce week-end` : null, auj.debates ? `${auj.debates} débat${auj.debates > 1 ? 's' : ''} actif${auj.debates > 1 ? 's' : ''}` : null] : []}
-            onClick={() => onRubrique('/?tab=carte')}
+            onClick={() => (onToday ? onToday() : onRubrique('/?tab=carte'))}
           />
           <Rubrique
             kicker="Ça fait parler" color="#7C3AED" iconBg="#F3EEFB" icon={Icons.chat}
@@ -131,13 +168,33 @@ export default function EditorialSplash({ onExplore, onRubrique, onSearch, onSha
             thumb={d?.bonPlan?.image ?? null}
             onClick={() => onRubrique(d?.bonPlan ? `/promotions?id=${d.bonPlan.id}` : '/promotions')}
           />
-          <Rubrique
-            kicker="Vu aujourd'hui" color="#D99100" iconBg="#FEF6E0" icon={Icons.camera}
-            title={d?.vuAujourdhui?.titre ?? 'En ce moment au village'}
-            subParts={[d?.vuAujourdhui ? `Photo de ${d.vuAujourdhui.auteur}` : 'Les moments partagés par les habitants']}
-            thumb={d?.vuAujourdhui?.image ?? null}
-            onClick={() => onRubrique('/')}
-          />
+          {d?.vuAujourdhui ? (
+            <Rubrique
+              kicker="Vu aujourd'hui" color="#D99100" iconBg="#FEF6E0" icon={Icons.camera}
+              title={d.vuAujourdhui.titre}
+              subParts={[`Photo de ${d.vuAujourdhui.auteur}`]}
+              thumb={d.vuAujourdhui.image}
+              onClick={() => onRubrique('/')}
+            />
+          ) : (
+            <>
+              <Rubrique
+                kicker="À découvrir" color="#0E8A7A" iconBg="#E2F2EF" icon={Icons.discover}
+                title={dec?.title || (isAdmin ? 'Choisir une mise en avant' : 'Explore le village')}
+                subParts={[dec?.subtitle ?? (isAdmin ? 'Sélectionne un élément à mettre en avant' : 'Commerces, producteurs, événements…')]}
+                thumb={dec?.photo ?? null}
+                onClick={() => { if (dec) onRubrique(decouvrirHref(dec.kind, dec.id)); else if (isAdmin) setPickerOpen(true); else onExplore() }}
+              />
+              {isAdmin && (
+                <button
+                  onClick={() => setPickerOpen(true)}
+                  style={{ alignSelf: 'flex-start', marginLeft: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#0E8A7A', fontSize: 12, fontWeight: 700, padding: '1px 0', fontFamily: 'var(--font-body), sans-serif' }}
+                >
+                  ✎ {dec ? 'Changer la mise en avant' : 'Choisir la mise en avant'}
+                </button>
+              )}
+            </>
+          )}
         </div>
 
         {/* Explorer le village → accueil */}
@@ -155,6 +212,9 @@ export default function EditorialSplash({ onExplore, onRubrique, onSearch, onSha
         </button>
 
       </div>
+
+      {/* Admin : sélection de l'élément « À découvrir » (fouille toute l'app) */}
+      {pickerOpen && <EmbedPicker onSelect={savePick} onClose={() => setPickerOpen(false)} />}
     </div>
   )
 }

@@ -516,10 +516,10 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
 
         {/* Title + meta */}
         <div style={{ padding: '18px 16px 0' }}>
-          <h1 style={{
-            margin: 0, fontFamily: '"DM Serif Display", Georgia, serif',
+          <h1 className="font-title" style={{
+            margin: 0,
             fontSize: 28, lineHeight: 1.1, color: '#1A1209',
-            letterSpacing: '-0.02em', fontWeight: 400,
+            letterSpacing: '-0.02em',
           }}>{etab.nom}</h1>
           {(etab.note_google || etab.commune) && (
             <div style={{ marginTop: 6, fontSize: 13, color: '#7A6A5A', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>

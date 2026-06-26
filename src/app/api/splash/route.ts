@@ -4,10 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 export const dynamic = 'force-dynamic'
 
 /**
- * GET /api/splash — données des rubriques du splash éditorial.
- * Pour l'instant : valeurs par défaut tirées des sources réelles (no-mock).
- * Le système de SÉLECTION (mettre en avant tel pro / telle tuile) viendra
- * dans une étape ultérieure.
+ * GET /api/splash — données des rubriques du splash éditorial (sources réelles).
  */
 function parisDate(d: Date): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d)
@@ -26,44 +23,52 @@ export async function GET() {
   const today = parisDate(new Date())
   const [sat, sun] = weekendDates()
 
-  const [todayCntRes, weekendCntRes, debatesRes, topicRes, journalRes, promoCfgRes, momentRes, heroRes] = await Promise.all([
+  const [todayCntRes, weekendCntRes, topicsCntRes, commentsRes, journalRes, promoCfgRes, momentRes, heroRes, decouvrirRes] = await Promise.all([
     supabaseAdmin.from('evenements').select('id', { count: 'exact', head: true }).eq('statut', 'publie').eq('date_debut', today),
     supabaseAdmin.from('evenements').select('id', { count: 'exact', head: true }).eq('statut', 'publie').in('date_debut', [sat, sun]),
-    supabaseAdmin.from('forum_topics').select('id', { count: 'exact', head: true }).not('poll', 'is', null),
-    supabaseAdmin.from('forum_topics').select('id, titre').order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    supabaseAdmin.from('forum_topics').select('id', { count: 'exact', head: true }),
+    supabaseAdmin.from('forum_comments').select('topic_id'),
     supabaseAdmin.from('journaux_hebdo').select('numero, cover_titre, cover_kicker').eq('statut', 'publie').order('numero', { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from('config').select('value').eq('key', 'promo_carousel').maybeSingle(),
     supabaseAdmin.from('moments').select('id, auteur_id, media_kind, media_url, poster_url, legende').eq('sur_accueil', true).gt('expires_at', new Date().toISOString()).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from('config').select('value').eq('key', 'hub_hero_intro_image_url').maybeSingle(),
+    supabaseAdmin.from('config').select('value').eq('key', 'splash_decouvrir').maybeSingle(),
   ])
 
-  // Image héro = exactement celle du slide intro du hub : URL custom de l'admin
-  // (config.hub_hero_intro_image_url) sinon l'image par défaut /hub-intro-slide.webp.
   const hero = (heroRes.data?.value as string | undefined) || '/hub-intro-slide.webp'
 
-  // ── Aujourd'hui ─────────────────────────────────────────────────────────
   const aujourdhui = {
     today: todayCntRes.count ?? 0,
     weekend: weekendCntRes.count ?? 0,
-    debates: debatesRes.count ?? 0,
+    debates: topicsCntRes.count ?? 0,   // nb de sujets de la place publique
   }
 
-  // ── Ça fait parler (forum) ──────────────────────────────────────────────
+  // ── Ça fait parler : sujet le plus commenté (sinon le plus récent) ──────
+  const tally: Record<string, number> = {}
+  for (const c of (commentsRes.data ?? []) as { topic_id: string }[]) {
+    if (c.topic_id) tally[c.topic_id] = (tally[c.topic_id] ?? 0) + 1
+  }
+  const ranked = Object.entries(tally).sort((a, b) => b[1] - a[1])
+  const topId = ranked[0]?.[0] ?? null
+  let topComments = topId ? ranked[0][1] : 0
+  let topRow = topId
+    ? (await supabaseAdmin.from('forum_topics').select('id, titre').eq('id', topId).maybeSingle()).data as { id: string; titre: string } | null
+    : null
+  if (!topRow) {
+    topRow = (await supabaseAdmin.from('forum_topics').select('id, titre').order('created_at', { ascending: false }).limit(1).maybeSingle()).data as { id: string; titre: string } | null
+    topComments = topRow ? (tally[topRow.id] ?? 0) : 0
+  }
   let caFaitParler: { id: string; titre: string; comments: number; votes: number } | null = null
-  const topic = topicRes.data as { id: string; titre: string } | null
-  if (topic) {
-    const [cRes, vRes] = await Promise.all([
-      supabaseAdmin.from('forum_comments').select('id', { count: 'exact', head: true }).eq('topic_id', topic.id),
-      supabaseAdmin.from('forum_poll_votes').select('id', { count: 'exact', head: true }).eq('topic_id', topic.id),
-    ])
-    caFaitParler = { id: topic.id, titre: topic.titre, comments: cRes.count ?? 0, votes: vRes.count ?? 0 }
+  if (topRow) {
+    const { count: votes } = await supabaseAdmin.from('forum_poll_votes').select('*', { count: 'exact', head: true }).eq('topic_id', topRow.id)
+    caFaitParler = { id: topRow.id, titre: topRow.titre, comments: topComments, votes: votes ?? 0 }
   }
 
   // ── Journal ─────────────────────────────────────────────────────────────
   const j = journalRes.data as { numero: number; cover_titre: string | null; cover_kicker: string | null } | null
   const journal = j ? { numero: j.numero, titre: j.cover_titre ?? `Journal n°${j.numero}`, deck: j.cover_kicker ?? '' } : null
 
-  // ── Bon plan du jour (coup de cœur, sinon dernière promo active) ─────────
+  // ── Bon plan : coup de cœur (sinon dernière promo active) ────────────────
   let coupId: string | null = null
   try { coupId = promoCfgRes.data?.value ? JSON.parse(promoCfgRes.data.value).coupDeCoeur ?? null : null } catch { /* noop */ }
   const promoQ = supabaseAdmin.from('promotions').select('id, title, description, image_url, etablissement_id').eq('active', true)
@@ -84,7 +89,7 @@ export async function GET() {
     }
   }
 
-  // ── Vu aujourd'hui (moment) ─────────────────────────────────────────────
+  // ── Vu aujourd'hui (moment) — sinon À découvrir (item admin) ─────────────
   const m = momentRes.data as { id: string; auteur_id: string; media_kind: string; media_url: string; poster_url: string | null; legende: string | null } | null
   let vuAujourdhui: { id: string; titre: string; auteur: string; image: string | null } | null = null
   if (m) {
@@ -96,6 +101,8 @@ export async function GET() {
       image: m.media_kind === 'video' ? (m.poster_url ?? null) : m.media_url,
     }
   }
+  let decouvrir: { kind: string; id: string; title: string; subtitle: string | null; photo: string | null } | null = null
+  try { if (decouvrirRes.data?.value) decouvrir = JSON.parse(decouvrirRes.data.value) } catch { /* noop */ }
 
-  return NextResponse.json({ hero, aujourdhui, caFaitParler, journal, bonPlan, vuAujourdhui })
+  return NextResponse.json({ hero, aujourdhui, caFaitParler, journal, bonPlan, vuAujourdhui, decouvrir })
 }

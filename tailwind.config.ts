@@ -30,6 +30,7 @@ const config: Config = {
         inter:   ["var(--font-body)", "Inter", "system-ui", "-apple-system", "sans-serif"],
         sans:    ["var(--font-body)", "Inter", "system-ui", "-apple-system", "sans-serif"],
         serif:   ["var(--font-display)", "Georgia", "serif"],
+        title:   ["var(--font-title)", "system-ui", "sans-serif"],
         caveat:  ["var(--font-hand)", "Caveat", "cursive"],
       },
       borderRadius: {

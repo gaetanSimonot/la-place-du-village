@@ -195,7 +195,7 @@ export default function EvenementPageClient({ id }: { id: string }) {
         {/* Title block */}
         <div className="px-4 pt-[18px]">
           <h1
-            className="m-0 font-serif text-[30px] font-normal leading-[1.05] text-texte"
+            className="m-0 font-title text-[28px] leading-[1.05] text-texte"
             style={{ letterSpacing: '-0.02em' }}
           >
             {evt.titre}

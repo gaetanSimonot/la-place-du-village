@@ -577,7 +577,7 @@ function FeaturedEventCard({ ev, onClick }: { ev: Evenement; onClick: () => void
       <div className="shrink-0 px-3 pb-3 pt-2.5">
         <div className="text-[9px] font-extrabold tracking-[0.12em] text-accent">{kicker}</div>
         <div
-          className="mt-0.5 font-serif text-[16px] leading-[1.15] text-texte"
+          className="mt-0.5 font-title text-[16px] leading-[1.15] text-texte"
           style={{ letterSpacing: '-0.01em', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
         >
           {ev.titre}
@@ -620,7 +620,7 @@ function MiniEventCard({ ev, onClick }: { ev: Evenement; onClick: () => void }) 
       <div className="shrink-0 px-2.5 pb-1.5 pt-1">
         <div className="truncate text-[8px] font-extrabold tracking-[0.12em] text-primary">{kicker}</div>
         <div
-          className="truncate text-[12px] font-bold leading-[1.15] text-texte"
+          className="truncate font-title text-[12px] leading-[1.15] text-texte"
           style={{ letterSpacing: '-0.01em' }}
         >
           {ev.titre}

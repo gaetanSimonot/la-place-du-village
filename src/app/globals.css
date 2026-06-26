@@ -37,7 +37,8 @@
    ──────────────────────────────────────────────────────────────────────── */
 :root {
   --font-body:    var(--font-inter);     /* texte courant + UI  (= tout le site) */
-  --font-display: var(--font-dm-serif);  /* gros titres décoratifs */
+  --font-display: var(--font-jakarta);  /* gros titres décoratifs — TEST Jakarta (reviens à var(--font-dm-serif) pour annuler) */
+  --font-title:   var(--font-jakarta);   /* titres de FICHES : nom d'établissement + titres d'événements */
   --font-hand:    var(--font-caveat);    /* accents manuscrits */
 }
 
@@ -163,3 +164,9 @@ textarea:-webkit-autofill {
   height: 0 !important;
   display: none !important;
 }
+
+/* TEST — titres « display » (font-serif = Jakarta) en gras */
+.font-serif { font-weight: 700; }
+
+/* Titres de FICHES (font-title = Jakarta) : poids commun events + établissements */
+.font-title { font-weight: 500; }
