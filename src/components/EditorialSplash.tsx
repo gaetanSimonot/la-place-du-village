@@ -68,13 +68,13 @@ export default function EditorialSplash({ onExplore, onRubrique }: { onExplore: 
   const auj = d?.aujourdhui
 
   return (
-    <div className="pdv-hscroll" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 60, backgroundColor: '#F1E4C3', backgroundImage: "url('/splash-bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center top', backgroundRepeat: 'no-repeat', overflowY: 'auto', WebkitOverflowScrolling: 'touch', fontFamily: 'var(--font-jakarta), sans-serif' }}>
+    <div className="pdv-hscroll" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 60, backgroundColor: '#FBF7F0', backgroundImage: "linear-gradient(rgba(251,247,240,0.5), rgba(251,247,240,0.5)), url('/splash-bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center top', backgroundRepeat: 'no-repeat', overflowY: 'auto', WebkitOverflowScrolling: 'touch', fontFamily: 'var(--font-jakarta), sans-serif' }}>
       <div style={{ maxWidth: 560, margin: '0 auto', padding: 'max(12px, env(safe-area-inset-top, 12px)) 16px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
 
         {/* En-tête : logo (multiply) + recherche + cloche */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 2 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/splash-logo-v3.png" alt="La Place du Village" style={{ height: 56, width: 'auto', maxWidth: '66%', objectFit: 'contain', display: 'block' }} />
+          <img src="/splash-logo-v3.png" alt="La Place du Village" style={{ height: 112, width: 'auto', maxWidth: '78%', objectFit: 'contain', display: 'block' }} />
           <div style={{ flex: 1 }} />
           <button aria-label="Rechercher" onClick={() => onRubrique('/?tab=carte')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1A1209', padding: 4 }}>
             <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><line x1="16.5" y1="16.5" x2="21" y2="21" /></svg>
