@@ -75,7 +75,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onSearch, onSha
   const auj = d?.aujourdhui
 
   return (
-    <div className="pdv-hscroll" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 60, backgroundColor: '#FDFAF5', overflowY: 'auto', WebkitOverflowScrolling: 'touch', fontFamily: 'var(--font-jakarta), sans-serif' }}>
+    <div className="pdv-hscroll" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 250, backgroundColor: '#FDFAF5', overflowY: 'auto', WebkitOverflowScrolling: 'touch', fontFamily: 'var(--font-jakarta), sans-serif' }}>
       <div style={{ maxWidth: 560, margin: '0 auto', padding: 'max(10px, env(safe-area-inset-top, 10px)) 11px 20px', display: 'flex', flexDirection: 'column', gap: 11 }}>
 
         {/* En-tête unifié avec le hub : logo (gauche) + loupe + partager + cloche + menu */}
