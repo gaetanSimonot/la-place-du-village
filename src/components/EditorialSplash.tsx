@@ -34,18 +34,18 @@ function Rubrique({ kicker, color, iconBg, icon, title, subParts, thumb, onClick
       onClick={onClick}
       style={{
         width: '100%', display: 'flex', alignItems: 'center', gap: 14,
-        background: '#fff', border: 'none', borderRadius: 18,
-        padding: '16px 18px', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif',
+        background: '#fff', border: 'none', borderRadius: 16,
+        padding: '14px 16px', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-jakarta), sans-serif',
       }}
     >
       <span style={{ width: 50, height: 50, flexShrink: 0, borderRadius: 14, background: iconBg, color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</span>
       <span style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ display: 'block', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color }}>{kicker}</span>
-        <span style={{ display: 'block', marginTop: 4, fontSize: 15.5, fontWeight: 700, color: '#1A1209', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
+        <span style={{ display: 'block', fontSize: 10, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color }}>{kicker}</span>
+        <span style={{ display: 'block', marginTop: 3, fontSize: 16, fontWeight: 600, letterSpacing: '-0.01em', color: '#241C14', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
         {parts.length > 0 && (
-          <span style={{ display: 'block', marginTop: 4, fontSize: 12.5, color: '#7A6A5A', lineHeight: 1.4 }}>
+          <span style={{ display: 'block', marginTop: 3, fontSize: 12.5, fontWeight: 500, color: '#9A8A78', lineHeight: 1.4 }}>
             {parts.map((p, i) => (
-              <span key={i}>{i > 0 && <span style={{ color, fontWeight: 800, margin: '0 6px' }}>•</span>}{p}</span>
+              <span key={i}>{i > 0 && <span style={{ color, fontWeight: 700, margin: '0 6px' }}>•</span>}{p}</span>
             ))}
           </span>
         )}
@@ -68,7 +68,7 @@ export default function EditorialSplash({ onExplore, onRubrique }: { onExplore: 
   const auj = d?.aujourdhui
 
   return (
-    <div className="pdv-hscroll" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 60, background: '#FBF7F0', overflowY: 'auto', WebkitOverflowScrolling: 'touch', fontFamily: 'Inter, sans-serif' }}>
+    <div className="pdv-hscroll" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 60, background: '#FBF7F0', overflowY: 'auto', WebkitOverflowScrolling: 'touch', fontFamily: 'var(--font-jakarta), sans-serif' }}>
       <div style={{ maxWidth: 560, margin: '0 auto', padding: 'max(12px, env(safe-area-inset-top, 12px)) 16px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
 
         {/* En-tête : logo (multiply) + recherche + cloche */}
@@ -92,7 +92,7 @@ export default function EditorialSplash({ onExplore, onRubrique }: { onExplore: 
         </div>
 
         {/* Rubriques */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <Rubrique
             kicker="Aujourd'hui" color="#E8622A" iconBg="#FFF0E5" icon={Icons.calendar}
             title={auj ? `${auj.today} événement${auj.today > 1 ? 's' : ''} aujourd'hui` : "L'agenda du village"}
@@ -107,7 +107,7 @@ export default function EditorialSplash({ onExplore, onRubrique }: { onExplore: 
           />
           <Rubrique
             kicker="Dans le journal" color="#3A5BC7" iconBg="#EEF2FE" icon={Icons.book}
-            title={d?.journal ? 'Le Journal Hebdo est sorti' : 'Le Journal du Village'}
+            title={d?.journal ? `Le Journal Hebdo n°${d.journal.numero} est sorti` : 'Le Journal du Village'}
             subParts={[d?.journal?.deck || (d?.journal ? d.journal.titre : 'Le meilleur du village, chaque semaine')]}
             onClick={() => onRubrique('/journal')}
           />

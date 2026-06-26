@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter, DM_Serif_Display, Caveat } from 'next/font/google'
+import { Inter, DM_Serif_Display, Caveat, Plus_Jakarta_Sans } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import InstallBanner from '@/components/InstallBanner'
@@ -22,6 +22,9 @@ const dmSerif = DM_Serif_Display({
 })
 const caveat = Caveat({
   weight: ['500', '700'], subsets: ['latin'], variable: '--font-caveat', display: 'swap',
+})
+const jakarta = Plus_Jakarta_Sans({
+  weight: ['400', '500', '600', '700', '800'], subsets: ['latin'], variable: '--font-jakarta', display: 'swap',
 })
 
 export const metadata: Metadata = {
@@ -112,7 +115,7 @@ export default function RootLayout({
   modal: React.ReactNode
 }) {
   return (
-    <html lang="fr" className={`${inter.variable} ${dmSerif.variable} ${caveat.variable}`}>
+    <html lang="fr" className={`${inter.variable} ${dmSerif.variable} ${caveat.variable} ${jakarta.variable}`}>
       <head>
         {/* Capture beforeinstallprompt before React mounts */}
         <script dangerouslySetInnerHTML={{ __html: `
