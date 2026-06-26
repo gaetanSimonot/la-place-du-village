@@ -3,8 +3,6 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { buildOAuthCallbackUrl, sanitizeNext } from '@/lib/authRedirect'
 
-type Mode = 'signin' | 'signup'
-
 /** Valide l'email côté serveur (format + jetable + MX) avant de créer un compte.
  *  Fail-open : si l'API tombe, on ne bloque pas un vrai utilisateur. */
 async function checkEmail(email: string): Promise<{ valid: boolean; reason?: string }> {
@@ -34,15 +32,12 @@ interface AuthFormProps {
 }
 
 export default function AuthForm({ returnTo = '/', title = 'Connexion', compact = false }: AuthFormProps) {
-  const [mode, setMode]                   = useState<Mode>('signin')
   const [email, setEmail]                 = useState('')
-  const [password, setPassword]           = useState('')
-  const [loading, setLoading]             = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [magicLoading, setMagicLoading]   = useState(false)
   const [error, setError]                 = useState<string | null>(null)
   const [magicSent, setMagicSent]         = useState(false)
-  const [newsletter, setNewsletter]       = useState(true)   // opt-in newsletter (signup)
+  const [newsletter, setNewsletter]       = useState(true)   // opt-in newsletter (à la création)
 
   // Sanitize a chaque action (defense en profondeur — meme si le parent
   // a deja sanitize, on re-valide cote envoi reel a Supabase).
@@ -66,35 +61,6 @@ export default function AuthForm({ returnTo = '/', title = 'Connexion', compact 
     })
   }
 
-  const handlePassword = async () => {
-    const e = email.trim()
-    if (!e || !password) return
-    if (mode === 'signup' && password.length < 6) {
-      setError('Mot de passe : 6 caractères minimum')
-      return
-    }
-    storeFallbackReturnTo()
-    setLoading(true); setError(null)
-    if (mode === 'signup') {
-      // Filtre anti-junk (format + jetable + domaine inexistant), invisible.
-      const v = await checkEmail(e)
-      if (!v.valid) { setError(v.reason ?? 'Adresse email invalide.'); setLoading(false); return }
-      const { error: err } = await supabase.auth.signUp({
-        email: e,
-        password,
-        options: {
-          emailRedirectTo: buildOAuthCallbackUrl(safeReturnTo),
-          data: { newsletter_optin: newsletter },   // copié dans le profil par handle_new_user
-        },
-      })
-      if (err) setError(err.message)
-    } else {
-      const { error: err } = await supabase.auth.signInWithPassword({ email: e, password })
-      if (err) setError(err.message)
-    }
-    setLoading(false)
-  }
-
   const handleMagicLink = async () => {
     const e = email.trim()
     if (!e) {
@@ -107,7 +73,13 @@ export default function AuthForm({ returnTo = '/', title = 'Connexion', compact 
     if (!v.valid) { setError(v.reason ?? 'Adresse email invalide.'); setMagicLoading(false); return }
     const { error: err } = await supabase.auth.signInWithOtp({
       email: e,
-      options: { emailRedirectTo: buildOAuthCallbackUrl(safeReturnTo), shouldCreateUser: true },
+      options: {
+        emailRedirectTo: buildOAuthCallbackUrl(safeReturnTo),
+        shouldCreateUser: true,
+        // opt-in newsletter, utilisé par handle_new_user à la CRÉATION du compte
+        // (sans effet pour un compte existant).
+        data: { newsletter_optin: newsletter },
+      },
     })
     setMagicLoading(false)
     if (err) { setError(err.message); return }
@@ -126,7 +98,7 @@ export default function AuthForm({ returnTo = '/', title = 'Connexion', compact 
           Un lien de connexion a été envoyé à <br />
           <strong style={{ color: '#2C1810' }}>{email}</strong>
         </p>
-        <button onClick={() => { setMagicSent(false); setEmail(''); setPassword('') }}
+        <button onClick={() => { setMagicSent(false); setEmail('') }}
           style={{ color: '#C4622D', background: 'none', border: 'none', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>
           Utiliser une autre adresse
         </button>
@@ -164,9 +136,7 @@ export default function AuthForm({ returnTo = '/', title = 'Connexion', compact 
             {title}
           </h3>
           <p style={{ fontSize: 13, color: '#8A8A8A', margin: 0, lineHeight: 1.5 }}>
-            {mode === 'signup'
-              ? 'Crée ton compte en 30 secondes.'
-              : 'Suis tes événements favoris et personnalise ton expérience.'}
+            Connexion sans mot de passe : Google ou un lien envoyé par email.
           </p>
         </div>
       )}
@@ -197,65 +167,51 @@ export default function AuthForm({ returnTo = '/', title = 'Connexion', compact 
         type="email"
         value={email}
         onChange={e => setEmail(e.target.value)}
+        onKeyDown={e => e.key === 'Enter' && handleMagicLink()}
         placeholder="ton@email.com"
         style={{ ...inputStyle, marginBottom: 10 }}
       />
 
-      {/* Password */}
-      <input
-        type="password"
-        value={password}
-        onChange={e => setPassword(e.target.value)}
-        onKeyDown={e => e.key === 'Enter' && handlePassword()}
-        placeholder={mode === 'signup' ? 'Mot de passe (6 caractères min)' : 'Mot de passe'}
-        autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-        style={{ ...inputStyle, marginBottom: 10 }}
-      />
-
-      {/* Opt-in newsletter — création de compte uniquement */}
-      {mode === 'signup' && (
-        <button
-          type="button"
-          onClick={() => setNewsletter(v => !v)}
-          style={{
-            width: '100%', display: 'flex', alignItems: 'flex-start', gap: 10,
-            padding: '11px 12px', marginBottom: 10, borderRadius: 12,
-            border: `1.5px solid ${newsletter ? 'var(--primary)' : '#E0D8CE'}`,
-            background: newsletter ? 'rgba(45,90,61,0.06)' : '#fff',
-            cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif',
-          }}
-        >
-          <span style={{
-            width: 20, height: 20, flexShrink: 0, marginTop: 1, borderRadius: 6,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: newsletter ? 'var(--primary)' : '#fff',
-            border: newsletter ? 'none' : '1.5px solid #C4B9A8',
-          }}>
-            {newsletter && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
-          </span>
-          <span>
-            <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#2C1810' }}>Ne ratez plus rien autour de chez vous</span>
-            <span style={{ display: 'block', fontSize: 11.5, color: '#8A8A8A', lineHeight: 1.45, marginTop: 2 }}>Une fois par semaine, le meilleur de La Place du Village : nouveaux events, annonces à ne pas manquer, actus du village.</span>
-          </span>
-        </button>
-      )}
-
-      {/* Bouton principal */}
+      {/* Opt-in newsletter (appliqué à la création du compte) */}
       <button
-        onClick={handlePassword}
-        disabled={loading || !email.trim() || !password}
+        type="button"
+        onClick={() => setNewsletter(v => !v)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'flex-start', gap: 10,
+          padding: '11px 12px', marginBottom: 10, borderRadius: 12,
+          border: `1.5px solid ${newsletter ? 'var(--primary)' : '#E0D8CE'}`,
+          background: newsletter ? 'rgba(45,90,61,0.06)' : '#fff',
+          cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif',
+        }}
+      >
+        <span style={{
+          width: 20, height: 20, flexShrink: 0, marginTop: 1, borderRadius: 6,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: newsletter ? 'var(--primary)' : '#fff',
+          border: newsletter ? 'none' : '1.5px solid #C4B9A8',
+        }}>
+          {newsletter && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+        </span>
+        <span>
+          <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#2C1810' }}>Ne ratez plus rien autour de chez vous</span>
+          <span style={{ display: 'block', fontSize: 11.5, color: '#8A8A8A', lineHeight: 1.45, marginTop: 2 }}>Une fois par semaine, le meilleur de La Place du Village : nouveaux events, annonces à ne pas manquer, actus du village.</span>
+        </span>
+      </button>
+
+      {/* Bouton principal — lien magique (crée le compte si nouveau, connecte si existant) */}
+      <button
+        onClick={handleMagicLink}
+        disabled={magicLoading || !email.trim()}
         style={{
           width: '100%', padding: '14px', borderRadius: 14,
           backgroundColor: 'var(--primary)', color: '#fff',
           fontSize: 15, fontWeight: 700, border: 'none',
-          cursor: loading || !email.trim() || !password ? 'default' : 'pointer',
-          opacity: loading || !email.trim() || !password ? 0.5 : 1,
+          cursor: magicLoading || !email.trim() ? 'default' : 'pointer',
+          opacity: magicLoading || !email.trim() ? 0.5 : 1,
           fontFamily: 'Inter, sans-serif', transition: 'opacity 0.15s',
         }}
       >
-        {loading
-          ? (mode === 'signup' ? 'Création…' : 'Connexion…')
-          : (mode === 'signup' ? 'Créer mon compte' : 'Se connecter')}
+        {magicLoading ? 'Envoi du lien…' : 'Recevoir mon lien de connexion'}
       </button>
 
       {/* Erreur */}
@@ -265,20 +221,9 @@ export default function AuthForm({ returnTo = '/', title = 'Connexion', compact 
         </p>
       )}
 
-      {/* Toggle signin/signup */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, gap: 8 }}>
-        <button onClick={() => { setMode(m => m === 'signin' ? 'signup' : 'signin'); setError(null) }}
-          style={{ background: 'none', border: 'none', color: '#7A6A5A', fontSize: 12, cursor: 'pointer', fontFamily: 'Inter, sans-serif', padding: 0 }}>
-          {mode === 'signin' ? 'Pas de compte ? Créer un compte' : 'Déjà inscrit ? Se connecter'}
-        </button>
-
-        <button
-          onClick={handleMagicLink}
-          disabled={magicLoading}
-          style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: 12, cursor: magicLoading ? 'default' : 'pointer', fontFamily: 'Inter, sans-serif', padding: 0, textDecoration: 'underline', opacity: magicLoading ? 0.6 : 1 }}>
-          {magicLoading ? 'Envoi…' : (mode === 'signin' ? 'Mot de passe oublié ?' : 'Lien magique')}
-        </button>
-      </div>
+      <p style={{ fontSize: 11, color: '#A89C8C', marginTop: 14, textAlign: 'center', lineHeight: 1.5, fontFamily: 'Inter, sans-serif' }}>
+        On t’envoie un lien : un clic et tu es connecté·e. Pas de mot de passe à retenir.
+      </p>
     </div>
   )
 }
