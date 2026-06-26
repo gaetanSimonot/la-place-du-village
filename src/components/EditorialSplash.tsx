@@ -152,10 +152,11 @@ export default function EditorialSplash({ onExplore, onRubrique, onSearch, onSha
           </button>
         </div>
 
-        {/* Héro (slot admin, indépendant du hub) */}
-        <div style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', height: 210, background: '#E6DECE' }}>
+        {/* Héro — image entière, pleine largeur, hauteur auto (jamais croppée,
+            s'adapte au ratio : horizontale courte / verticale haute) */}
+        <div style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', lineHeight: 0 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={d?.hero || '/hub-intro-slide.webp'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          <img src={d?.hero || '/hub-intro-slide.webp'} alt="" style={{ width: '100%', height: 'auto', display: 'block' }} />
           {isAdmin && (
             <button
               onClick={() => setLibOpen(true)}
