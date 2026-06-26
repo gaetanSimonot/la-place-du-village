@@ -74,7 +74,7 @@ export default function EditorialSplash({ onExplore, onRubrique }: { onExplore: 
         {/* En-tête : logo (multiply) + recherche + cloche */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 2 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/splash-logo-v3.png" alt="La Place du Village" style={{ height: 112, width: 'auto', maxWidth: '78%', objectFit: 'contain', display: 'block' }} />
+          <img src="/splash-logo-v4.png" alt="La Place du Village" style={{ height: 96, width: 'auto', maxWidth: '70%', objectFit: 'contain', display: 'block' }} />
           <div style={{ flex: 1 }} />
           <button aria-label="Rechercher" onClick={() => onRubrique('/?tab=carte')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1A1209', padding: 4 }}>
             <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><line x1="16.5" y1="16.5" x2="21" y2="21" /></svg>
