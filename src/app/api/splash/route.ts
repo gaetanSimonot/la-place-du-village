@@ -106,5 +106,8 @@ export async function GET() {
   let decouvrir: { kind: string; id: string; title: string; subtitle: string | null; photo: string | null } | null = null
   try { if (decouvrirRes.data?.value) decouvrir = JSON.parse(decouvrirRes.data.value) } catch { /* noop */ }
 
-  return NextResponse.json({ hero, aujourdhui, caFaitParler, journal, bonPlan, vuAujourdhui, decouvrir })
+  return NextResponse.json(
+    { hero, aujourdhui, caFaitParler, journal, bonPlan, vuAujourdhui, decouvrir },
+    { headers: { 'Cache-Control': 'no-store' } },
+  )
 }

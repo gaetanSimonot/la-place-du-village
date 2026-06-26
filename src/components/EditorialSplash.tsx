@@ -92,7 +92,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onSearch, onSha
   const [d, setD] = useState<SplashData | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const load = useCallback(() => {
-    fetch('/api/splash', { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).then(data => { if (data) setD(data) }).catch(() => {})
+    fetch(`/api/splash?_=${Date.now()}`, { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).then(data => { if (data) setD(data) }).catch(() => {})
   }, [])
   useEffect(() => { load() }, [load])
 
@@ -112,15 +112,17 @@ export default function EditorialSplash({ onExplore, onRubrique, onSearch, onSha
   // Admin : choix de l'image héro via la bibliothèque
   const [libOpen, setLibOpen] = useState(false)
   const setHero = async (url: string) => {
-    setD(prev => (prev ? { ...prev, hero: url } : prev))   // optimiste : le héro change tout de suite
+    setD(prev => (prev ? { ...prev, hero: url } : prev))   // le héro change et RESTE (pas de refetch qui ramènerait l'ancien)
     const { data: { session } } = await supabase.auth.getSession()
     const tk = session?.access_token
-    const r = await fetch('/api/splash/hero', {
+    await fetch('/api/splash/hero', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
       body: JSON.stringify({ url }),
     }).catch(() => null)
-    if (r && r.ok) load()   // confirme depuis le serveur ; si échec, on garde l'optimiste
+    // Pas de load() ici : le POST persiste la config pour le prochain montage ;
+    // l'optimiste affiche déjà la bonne image. (Un refetch immédiat renvoyait
+    // parfois l'ancienne valeur en cache → bug du « ça revient à l'ancienne ».)
   }
 
   const auj = d?.aujourdhui
