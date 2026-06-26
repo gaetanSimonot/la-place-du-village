@@ -54,6 +54,7 @@ export default function HomePage() {
   const [promoEventsData, setPromoEventsData] = useState<EvenementCard[]>([])
   const [splashFeaturedEvents, setSplashFeaturedEvents] = useState<EvenementCard[]>([])
   const [showWelcome, setShowWelcome]         = useState(false)
+  const [splashOpen, setSplashOpen]           = useState(true)   // splash éditorial (obligatoire pour l'instant)
   // Welcome modal une seule fois pour toujours (par device).
   // localStorage persiste entre les sessions browser et survit aux relances
   // de la PWA, contrairement à sessionStorage qui se vide à chaque nouvelle
@@ -555,6 +556,7 @@ export default function HomePage() {
   const splashEvents = splashFeaturedEvents.length > 0 ? splashFeaturedEvents : maxEventsLegacy
 
   const handleNavTab = (tab: NavTab) => {
+    setSplashOpen(false)   // toute navigation ferme le splash éditorial
     // Note : si une intercepting route (.)producteur/[id] ou (.)etablissement/[id]
     // est ouverte, la nav vers la home est gérée par Next.js. Pas besoin de
     // close manuel comme avant.
@@ -1265,7 +1267,12 @@ export default function HomePage() {
       <MaxSplash events={splashEvents} loading={loading} />
 
       {/* Splash éditorial — « salon » d'entrée (obligatoire pour l'instant) */}
-      <EditorialSplash />
+      {splashOpen && (
+        <EditorialSplash
+          onExplore={() => { setShowHub(true); setNavTab('accueil'); setSplashOpen(false) }}
+          onRubrique={(href) => { setSplashOpen(false); router.push(href) }}
+        />
+      )}
 
       {showWelcome && <WelcomeModal onClose={() => {
         setShowWelcome(false)
