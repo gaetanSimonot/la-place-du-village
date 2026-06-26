@@ -31,10 +31,12 @@ export async function GET() {
     supabaseAdmin.from('journaux_hebdo').select('numero, cover_titre, cover_kicker').eq('statut', 'publie').order('numero', { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from('config').select('value').eq('key', 'promo_carousel').maybeSingle(),
     supabaseAdmin.from('moments').select('id, auteur_id, media_kind, media_url, poster_url, legende').eq('sur_accueil', true).gt('expires_at', new Date().toISOString()).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-    supabaseAdmin.from('config').select('value').eq('key', 'hub_hero_intro_image_url').maybeSingle(),
+    supabaseAdmin.from('config').select('value').eq('key', 'splash_hero_image_url').maybeSingle(),
     supabaseAdmin.from('config').select('value').eq('key', 'splash_decouvrir').maybeSingle(),
   ])
 
+  // Image héro = slot dédié du splash (config 'splash_hero_image_url'), indépendant
+  // du carrousel/hub. Fallback sur l'image d'intro par défaut si non réglé.
   const hero = (heroRes.data?.value as string | undefined) || '/hub-intro-slide.webp'
 
   const aujourdhui = {
