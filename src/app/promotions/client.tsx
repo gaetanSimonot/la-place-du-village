@@ -112,6 +112,12 @@ export default function PromotionsClient() {
   const loading = promoLoading && !promoData
   const fetchPromos = mutatePromos  // alias pour rester compat avec les callers existants
 
+  // Réglage carrousel (ordre admin + coup de cœur)
+  const { data: carouselCfg, mutate: mutateCarousel } = useSWR<{ order: string[]; coupDeCoeur: string | null }>('/api/promo-carousel')
+  const [orderModalOpen, setOrderModalOpen] = useState(false)
+  const carouselOrder = useMemo(() => carouselCfg?.order ?? [], [carouselCfg])
+  const coupDeCoeur = carouselCfg?.coupDeCoeur ?? null
+
   // Scroll vers la promo ciblée si on arrive depuis le hub avec ?id=...
   useEffect(() => {
     if (loading || promos.length === 0) return
@@ -305,13 +311,22 @@ export default function PromotionsClient() {
         </div>
       )}
 
-      {/* Featured carousel — À ne pas manquer (top 3 promos) */}
-      {!loading && filteredPromos.length > 0 && (
-        <FeaturedPromoCarousel
-          promos={filteredPromos.slice(0, Math.min(5, filteredPromos.length))}
-          onUse={openUseConfirm}
-        />
-      )}
+      {/* Featured carousel — À ne pas manquer (ordre admin + coup de cœur) */}
+      {!loading && filteredPromos.length > 0 && (() => {
+        // Ordre admin : les promos rangées en premier (dans l'ordre choisi),
+        // puis le reste par date (ordre actuel de filteredPromos).
+        const idxOf = (id: string) => { const i = carouselOrder.indexOf(id); return i === -1 ? Infinity : i }
+        const ordered = [...filteredPromos].sort((a, b) => idxOf(a.id) - idxOf(b.id))
+        return (
+          <FeaturedPromoCarousel
+            promos={ordered.slice(0, Math.min(5, ordered.length))}
+            coupDeCoeur={coupDeCoeur}
+            isAdmin={isAdmin}
+            onEditOrder={() => setOrderModalOpen(true)}
+            onUse={openUseConfirm}
+          />
+        )
+      })()}
 
       {/* Section header */}
       <div className="flex items-center justify-between gap-2.5 px-4 pb-2.5 pt-[22px]">
@@ -400,6 +415,17 @@ export default function PromotionsClient() {
           promo={editPromo as unknown as Parameters<typeof PromotionForm>[0]['promo']}
           onClose={() => setEditPromo(null)}
           onSaved={() => { setEditPromo(null); fetchPromos() }}
+        />
+      )}
+
+      {/* Admin : ordre du carrousel + coup de cœur */}
+      {orderModalOpen && (
+        <CarouselOrderModal
+          promos={promos}
+          initialOrder={carouselOrder}
+          initialCoupDeCoeur={coupDeCoeur}
+          onClose={() => setOrderModalOpen(false)}
+          onSaved={() => { setOrderModalOpen(false); mutateCarousel() }}
         />
       )}
 
@@ -750,7 +776,13 @@ function ConfirmPositionModal({ promo, onClose, onConfirm, loading }: {
 }
 
 // ─── Featured carousel V3 (À ne pas manquer) — défilement infini ───
-function FeaturedPromoCarousel({ promos, onUse }: { promos: Promotion[]; onUse: (p: Promotion) => void }) {
+function FeaturedPromoCarousel({ promos, onUse, coupDeCoeur = null, isAdmin = false, onEditOrder }: {
+  promos: Promotion[]
+  onUse: (p: Promotion) => void
+  coupDeCoeur?: string | null
+  isAdmin?: boolean
+  onEditOrder?: () => void
+}) {
   const N = promos.length
   const loop = N > 1
   // 3 copies pour une boucle fluide (on reste centré sur la copie du milieu).
@@ -767,7 +799,20 @@ function FeaturedPromoCarousel({ promos, onUse }: { promos: Promotion[]; onUse: 
   return (
     <div className="pt-[18px]">
       <div className="flex items-center justify-between gap-2 px-4 pb-2.5">
-        <h3 className="m-0 text-[15px] font-extrabold tracking-tight2 text-texte">À ne pas manquer</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="m-0 text-[15px] font-extrabold tracking-tight2 text-texte">À ne pas manquer</h3>
+          {isAdmin && onEditOrder && (
+            <button
+              type="button"
+              onClick={onEditOrder}
+              aria-label="Ordre & coup de cœur (admin)"
+              className="flex h-6 items-center gap-1 rounded-full border-[1.5px] px-2 text-[10px] font-extrabold"
+              style={{ borderColor: '#E8A627', background: '#FFF8E8', color: '#B07E1F' }}
+            >
+              ⚙ Ordre
+            </button>
+          )}
+        </div>
         <span className="text-[11px] font-bold text-texte-doux">{activeIdx + 1}/{N}</span>
       </div>
       <div
@@ -790,7 +835,6 @@ function FeaturedPromoCarousel({ promos, onUse }: { promos: Promotion[]; onUse: 
         }}
       >
         {display.map((p, i) => {
-          const realIdx = i % N
           const img = p.display_image_url ?? p.image_url ?? p.etablissement?.photos?.[0]
           return (
             <button
@@ -811,7 +855,7 @@ function FeaturedPromoCarousel({ promos, onUse }: { promos: Promotion[]; onUse: 
                 <span className="inline-flex items-center rounded-full bg-accent px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-[0.06em] text-white">
                   BON PLAN
                 </span>
-                {realIdx === 0 && (
+                {coupDeCoeur && p.id === coupDeCoeur && (
                   <span className="inline-flex items-center rounded-full bg-white/95 px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-[0.06em] text-accent backdrop-blur-sm">
                     ★ Coup de cœur
                   </span>
@@ -1030,6 +1074,92 @@ function DiscoverPromoModal({
           onClose={() => setShowEtabQuickView(false)}
         />
       )}
+    </div>
+  )
+}
+
+// ─── Admin : ordre du carrousel + coup de cœur ───────────────────────────────
+function CarouselOrderModal({ promos, initialOrder, initialCoupDeCoeur, onClose, onSaved }: {
+  promos: Promotion[]
+  initialOrder: string[]
+  initialCoupDeCoeur: string | null
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const initial = useMemo(() => {
+    const idxOf = (id: string) => { const i = initialOrder.indexOf(id); return i === -1 ? Infinity : i }
+    return [...promos].sort((a, b) => idxOf(a.id) - idxOf(b.id))
+  }, [promos, initialOrder])
+  const [list, setList] = useState<Promotion[]>(initial)
+  const [coup, setCoup] = useState<string | null>(initialCoupDeCoeur)
+  const [saving, setSaving] = useState(false)
+  const dragIdx = useRef<number | null>(null)
+
+  const move = (from: number, to: number) => setList(prev => { const a = prev.slice(); const [x] = a.splice(from, 1); a.splice(to, 0, x); return a })
+
+  const save = async () => {
+    setSaving(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const tk = session?.access_token
+    const r = await fetch('/api/promo-carousel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
+      body: JSON.stringify({ order: list.map(p => p.id), coupDeCoeur: coup }),
+    }).catch(() => null)
+    setSaving(false)
+    if (r && r.ok) { toast.success('Carrousel mis à jour'); onSaved() }
+    else toast.error('Échec de l’enregistrement')
+  }
+
+  return (
+    <div role="dialog" aria-modal="true" onClick={onClose} className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/55 backdrop-blur-[4px] font-inter">
+      <div onClick={e => e.stopPropagation()} className="flex w-full max-w-[480px] flex-col rounded-t-3xl bg-creme" style={{ maxHeight: 'calc(100dvh - 40px)', paddingBottom: 'max(16px,env(safe-area-inset-bottom,16px))' }}>
+        <div className="mx-auto mt-2 h-[5px] w-11 rounded-[3px] bg-[#E4DED2]" />
+        <div className="px-4 pb-2 pt-3">
+          <h2 className="m-0 font-serif text-[18px] text-texte" style={{ letterSpacing: '-0.01em' }}>Ordre du carrousel</h2>
+          <p className="m-0 mt-0.5 text-[12px] text-texte-doux">Glisse ⠿ pour réordonner (les 5 premières s’affichent). L’étoile ★ = coup de cœur (une seule, ou aucune).</p>
+        </div>
+        <div className="flex-1 overflow-y-auto px-3 py-1" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {list.map((p, i) => {
+            const img = p.display_image_url ?? p.image_url ?? p.etablissement?.photos?.[0] ?? null
+            const isCoup = coup === p.id
+            return (
+              <div
+                key={p.id}
+                draggable
+                onDragStart={() => { dragIdx.current = i }}
+                onDragOver={e => e.preventDefault()}
+                onDrop={() => { if (dragIdx.current !== null && dragIdx.current !== i) move(dragIdx.current, i); dragIdx.current = null }}
+                className="flex items-center gap-2.5 rounded-xl border bg-white px-2.5 py-2"
+                style={{ borderColor: isCoup ? '#E8A627' : '#EDE6DA' }}
+              >
+                <span className="cursor-grab text-[16px] text-texte-doux">⠿</span>
+                <span className="w-4 text-center text-[11px] font-bold text-texte-doux">{i + 1}</span>
+                {img
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={img} alt="" className="h-11 w-11 shrink-0 rounded-lg object-cover" />
+                  : <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#FFF0E5] text-[18px]">🎁</span>}
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[13px] font-bold text-texte">{p.title}</div>
+                  {p.etablissement?.nom && <div className="truncate text-[11px] text-texte-doux">{p.etablissement.nom}</div>}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCoup(c => c === p.id ? null : p.id)}
+                  aria-label="Coup de cœur"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[16px]"
+                  style={{ background: isCoup ? '#E8A627' : '#F0EAE0', color: isCoup ? '#fff' : '#B0A493' }}
+                >★</button>
+              </div>
+            )
+          })}
+          {list.length === 0 && <p className="py-8 text-center text-[12px] text-texte-doux">Aucune promotion.</p>}
+        </div>
+        <div className="flex gap-2 px-4 pt-2">
+          <button onClick={onClose} className="flex-1 rounded-xl border bg-white py-3 text-[13px] font-bold text-texte-doux" style={{ borderColor: '#E5DDD2' }}>Annuler</button>
+          <button onClick={save} disabled={saving} className="flex-[2] rounded-xl border-none bg-primary py-3 text-[13px] font-extrabold text-white disabled:opacity-60">{saving ? 'Enregistrement…' : 'Enregistrer'}</button>
+        </div>
+      </div>
     </div>
   )
 }
