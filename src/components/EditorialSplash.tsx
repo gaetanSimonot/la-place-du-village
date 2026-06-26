@@ -92,7 +92,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onSearch, onSha
   const [d, setD] = useState<SplashData | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const load = useCallback(() => {
-    fetch('/api/splash').then(r => (r.ok ? r.json() : null)).then(data => { if (data) setD(data) }).catch(() => {})
+    fetch('/api/splash', { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).then(data => { if (data) setD(data) }).catch(() => {})
   }, [])
   useEffect(() => { load() }, [load])
 
@@ -112,14 +112,15 @@ export default function EditorialSplash({ onExplore, onRubrique, onSearch, onSha
   // Admin : choix de l'image héro via la bibliothèque
   const [libOpen, setLibOpen] = useState(false)
   const setHero = async (url: string) => {
+    setD(prev => (prev ? { ...prev, hero: url } : prev))   // optimiste : le héro change tout de suite
     const { data: { session } } = await supabase.auth.getSession()
     const tk = session?.access_token
-    await fetch('/api/splash/hero', {
+    const r = await fetch('/api/splash/hero', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
       body: JSON.stringify({ url }),
-    }).catch(() => {})
-    load()
+    }).catch(() => null)
+    if (r && r.ok) load()   // confirme depuis le serveur ; si échec, on garde l'optimiste
   }
 
   const auj = d?.aujourdhui
