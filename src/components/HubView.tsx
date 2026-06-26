@@ -12,10 +12,8 @@ import { getPrixAffiche, type Annonce } from '@/lib/annonces'
 import type { MediaItem } from '@/lib/postMedia'
 import HubTopBar from '@/components/HubTopBar'
 import MomentsPastille from '@/components/moments/MomentsPastille'
-import HubSearchBar from '@/components/HubSearchBar'
 import PlansCardFinal from '@/components/PlansCardFinal'
 import { useAnnonceFavorites } from '@/hooks/useAnnonceFavorites'
-import { shareLink } from '@/lib/share'
 import { normalizeHubOrder } from '@/lib/hubSections'
 // Fetcher + config SWR héritent du provider global (cf. src/components/SWRProvider.tsx).
 
@@ -154,7 +152,7 @@ function categorieKicker(c: string | null | undefined): string {
 export default function HubView({
   onSelectAgenda, onSelectAgendaToday, onSelectAnnuaire, onSelectProducteurs,
   onComingSoon, onUpgradePrompt,
-  onOpenNotifs, onOpenInfo, onOpenSearch, unreadCount = 0,
+  onOpenInfo, onOpenSearch,
 }: Props) {
   const router = useRouter()
   const { profile, isAdmin } = useAuth()
@@ -407,19 +405,9 @@ export default function HubView({
 
       {/* ── 1. Top bar ─────────────────────────────────────────────────── */}
       <HubTopBar
-        onOpenMenu={onOpenInfo}
-        onOpenNotifs={onOpenNotifs}
-        unreadCount={unreadCount}
-        onShareApp={() => shareLink({
-          title: 'La Place du Village',
-          text:  'Le village vivant autour de Ganges : événements, commerces, producteurs, annonces.',
-          url:   'https://laplaceduvillage.app',
-        })}
+        onOpenSearch={onOpenSearch}
         rightSlot={<MomentsPastille />}
       />
-
-      {/* ── 2. Search bar ─────────────────────────────────────────────── */}
-      <HubSearchBar onClick={onOpenSearch} />
 
       {/* ── 3. Greeting + bouton "Les gens" + compteur events + EN DIRECT ─ */}
       <div className="px-4 pt-[18px]">

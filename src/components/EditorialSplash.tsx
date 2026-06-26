@@ -59,7 +59,14 @@ function Rubrique({ kicker, color, iconBg, icon, title, subParts, thumb, onClick
   )
 }
 
-export default function EditorialSplash({ onExplore, onRubrique }: { onExplore: () => void; onRubrique: (href: string) => void }) {
+export default function EditorialSplash({ onExplore, onRubrique, onSearch, onShare, onInfo, onNotifs }: {
+  onExplore: () => void
+  onRubrique: (href: string) => void
+  onSearch?: () => void
+  onShare?: () => void
+  onInfo?: () => void
+  onNotifs?: () => void
+}) {
   const [d, setD] = useState<SplashData | null>(null)
   useEffect(() => {
     fetch('/api/splash').then(r => (r.ok ? r.json() : null)).then(data => { if (data) setD(data) }).catch(() => {})
@@ -68,20 +75,26 @@ export default function EditorialSplash({ onExplore, onRubrique }: { onExplore: 
   const auj = d?.aujourdhui
 
   return (
-    <div className="pdv-hscroll" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 60, backgroundColor: '#FDFAF5', backgroundImage: "linear-gradient(rgba(253,250,245,0.7), rgba(253,250,245,0.7)), url('/splash-bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center top', backgroundRepeat: 'no-repeat', overflowY: 'auto', WebkitOverflowScrolling: 'touch', fontFamily: 'var(--font-jakarta), sans-serif' }}>
+    <div className="pdv-hscroll" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 60, backgroundColor: '#FDFAF5', overflowY: 'auto', WebkitOverflowScrolling: 'touch', fontFamily: 'var(--font-jakarta), sans-serif' }}>
       <div style={{ maxWidth: 560, margin: '0 auto', padding: 'max(10px, env(safe-area-inset-top, 10px)) 11px 20px', display: 'flex', flexDirection: 'column', gap: 11 }}>
 
-        {/* En-tête : logo (multiply) + recherche + cloche */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 2 }}>
+        {/* En-tête unifié avec le hub : logo (gauche) + loupe + partager + cloche + menu */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2, paddingTop: 2 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/splash-logo-v4.png" alt="La Place du Village" style={{ height: 96, width: 'auto', maxWidth: '70%', objectFit: 'contain', display: 'block' }} />
+          <img src="/splash-logo-v4.png" alt="La Place du Village" style={{ height: 52, width: 'auto', maxWidth: '46%', objectFit: 'contain', display: 'block' }} />
           <div style={{ flex: 1 }} />
-          <button aria-label="Rechercher" onClick={() => onRubrique('/?tab=carte')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1A1209', padding: 4 }}>
-            <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><line x1="16.5" y1="16.5" x2="21" y2="21" /></svg>
+          <button aria-label="Rechercher" onClick={onSearch} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1A1209', padding: 5 }}>
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><line x1="16.5" y1="16.5" x2="21" y2="21" /></svg>
           </button>
-          <button aria-label="Notifications" onClick={() => onRubrique('/?tab=profil')} style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', color: '#1A1209', padding: 4 }}>
-            <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
-            <span style={{ position: 'absolute', top: 3, right: 3, width: 8, height: 8, borderRadius: 4, background: '#E8622A', border: '1.5px solid #FBF7F0' }} />
+          <button aria-label="Partager" onClick={onShare} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1A1209', padding: 5 }}>
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.6" y1="13.5" x2="15.4" y2="17.5" /><line x1="15.4" y1="6.5" x2="8.6" y2="10.5" /></svg>
+          </button>
+          <button aria-label="Notifications" onClick={onNotifs} style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', color: '#1A1209', padding: 5 }}>
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+            <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: 4, background: '#E8622A' }} />
+          </button>
+          <button aria-label="À propos" onClick={onInfo} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1A1209', padding: 5 }}>
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="14" y2="17" /></svg>
           </button>
         </div>
 
