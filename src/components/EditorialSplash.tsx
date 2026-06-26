@@ -68,7 +68,7 @@ export default function EditorialSplash({ onExplore, onRubrique }: { onExplore: 
   const auj = d?.aujourdhui
 
   return (
-    <div className="pdv-hscroll" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 60, backgroundColor: '#FBF7F0', backgroundImage: "linear-gradient(rgba(251,247,240,0.7), rgba(251,247,240,0.7)), url('/splash-bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center top', backgroundRepeat: 'no-repeat', overflowY: 'auto', WebkitOverflowScrolling: 'touch', fontFamily: 'var(--font-jakarta), sans-serif' }}>
+    <div className="pdv-hscroll" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 60, backgroundColor: '#FDFAF5', backgroundImage: "linear-gradient(rgba(253,250,245,0.7), rgba(253,250,245,0.7)), url('/splash-bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center top', backgroundRepeat: 'no-repeat', overflowY: 'auto', WebkitOverflowScrolling: 'touch', fontFamily: 'var(--font-jakarta), sans-serif' }}>
       <div style={{ maxWidth: 560, margin: '0 auto', padding: 'max(10px, env(safe-area-inset-top, 10px)) 11px 20px', display: 'flex', flexDirection: 'column', gap: 11 }}>
 
         {/* En-tête : logo (multiply) + recherche + cloche */}
