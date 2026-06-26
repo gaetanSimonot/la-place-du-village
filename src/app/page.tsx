@@ -747,6 +747,7 @@ export default function HomePage() {
             onOpenNotifs={() => handleNavTab('notifs')}
             onOpenInfo={() => setInfoOpen(true)}
             onOpenSearch={() => setSearchOpen(true)}
+            onOpenSplash={() => setSplashOpen(true)}
             unreadCount={notifCount}
           />
         </div>

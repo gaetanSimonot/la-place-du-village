@@ -27,6 +27,7 @@ interface Props {
   onOpenNotifs?:         () => void
   onOpenInfo?:           () => void
   onOpenSearch?:         () => void
+  onOpenSplash?:         () => void
   unreadCount?:          number
 }
 
@@ -152,7 +153,7 @@ function categorieKicker(c: string | null | undefined): string {
 export default function HubView({
   onSelectAgenda, onSelectAgendaToday, onSelectAnnuaire, onSelectProducteurs,
   onComingSoon, onUpgradePrompt,
-  onOpenInfo, onOpenSearch,
+  onOpenInfo, onOpenSearch, onOpenSplash,
 }: Props) {
   const router = useRouter()
   const { profile, isAdmin } = useAuth()
@@ -406,6 +407,7 @@ export default function HubView({
       {/* ── 1. Top bar ─────────────────────────────────────────────────── */}
       <HubTopBar
         onOpenSearch={onOpenSearch}
+        onOpenSplash={onOpenSplash}
         rightSlot={<MomentsPastille />}
       />
 
@@ -413,7 +415,7 @@ export default function HubView({
       <div className="px-4 pt-[18px]">
         <div className="flex items-start justify-between gap-3">
           <h1
-            className="m-0 min-w-0 flex-1 truncate font-serif text-[24px] leading-[1.1] text-texte"
+            className="m-0 min-w-0 flex-1 truncate font-serif text-[19px] leading-[1.1] text-texte"
             style={{ letterSpacing: '-0.01em' }}
           >
             Bonjour, {firstName}
