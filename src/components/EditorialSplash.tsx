@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 
 /* Données réelles renvoyées par /api/splash */
 interface SplashData {
+  hero?: string | null
   aujourdhui?: { today: number; weekend: number; debates: number } | null
   caFaitParler?: { id: string; titre: string; comments: number; votes: number } | null
   journal?: { numero: number; titre: string; deck: string } | null
@@ -33,7 +34,7 @@ function Rubrique({ kicker, color, iconBg, icon, title, subParts, thumb, onClick
       onClick={onClick}
       style={{
         width: '100%', display: 'flex', alignItems: 'center', gap: 13,
-        background: '#fff', border: '1px solid #F0EAE0', borderRadius: 18,
+        background: '#fff', border: 'none', borderRadius: 18,
         padding: '13px 15px', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif',
       }}
     >
@@ -73,7 +74,7 @@ export default function EditorialSplash({ onExplore, onRubrique }: { onExplore: 
         {/* En-tête : logo (multiply) + recherche + cloche */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 2 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/splash-logo.png" alt="La Place du Village" style={{ height: 46, width: 'auto', maxWidth: '62%', objectFit: 'contain', mixBlendMode: 'multiply' }} />
+          <img src="/splash-logo.png" alt="La Place du Village" style={{ height: 50, width: 'auto', maxWidth: '64%', objectFit: 'contain', display: 'block' }} />
           <div style={{ flex: 1 }} />
           <button aria-label="Rechercher" onClick={() => onRubrique('/?tab=carte')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1A1209', padding: 4 }}>
             <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><line x1="16.5" y1="16.5" x2="21" y2="21" /></svg>
@@ -87,7 +88,7 @@ export default function EditorialSplash({ onExplore, onRubrique }: { onExplore: 
         {/* Héro */}
         <div style={{ borderRadius: 20, overflow: 'hidden', height: 210, background: '#E6DECE' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/og/home.jpg" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          <img src={d?.hero || '/og/home.jpg'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         </div>
 
         {/* Rubriques */}

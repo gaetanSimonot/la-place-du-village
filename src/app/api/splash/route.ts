@@ -26,7 +26,7 @@ export async function GET() {
   const today = parisDate(new Date())
   const [sat, sun] = weekendDates()
 
-  const [todayCntRes, weekendCntRes, debatesRes, topicRes, journalRes, promoCfgRes, momentRes] = await Promise.all([
+  const [todayCntRes, weekendCntRes, debatesRes, topicRes, journalRes, promoCfgRes, momentRes, heroRes] = await Promise.all([
     supabaseAdmin.from('evenements').select('id', { count: 'exact', head: true }).eq('statut', 'publie').eq('date_debut', today),
     supabaseAdmin.from('evenements').select('id', { count: 'exact', head: true }).eq('statut', 'publie').in('date_debut', [sat, sun]),
     supabaseAdmin.from('forum_topics').select('id', { count: 'exact', head: true }).not('poll', 'is', null),
@@ -34,7 +34,11 @@ export async function GET() {
     supabaseAdmin.from('journaux_hebdo').select('numero, cover_titre, cover_kicker').eq('statut', 'publie').order('numero', { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from('config').select('value').eq('key', 'promo_carousel').maybeSingle(),
     supabaseAdmin.from('moments').select('id, auteur_id, media_kind, media_url, poster_url, legende').eq('sur_accueil', true).gt('expires_at', new Date().toISOString()).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    supabaseAdmin.from('config').select('value').eq('key', 'hub_hero_intro_image_url').maybeSingle(),
   ])
+
+  // Image héro = celle du « hub hero intro » choisie par l'admin (sinon fallback côté client)
+  const hero = (heroRes.data?.value as string | undefined) || null
 
   // ── Aujourd'hui ─────────────────────────────────────────────────────────
   const aujourdhui = {
@@ -92,5 +96,5 @@ export async function GET() {
     }
   }
 
-  return NextResponse.json({ aujourdhui, caFaitParler, journal, bonPlan, vuAujourdhui })
+  return NextResponse.json({ hero, aujourdhui, caFaitParler, journal, bonPlan, vuAujourdhui })
 }
