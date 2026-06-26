@@ -55,7 +55,7 @@ export default function HomePage() {
   const [promoEventsData, setPromoEventsData] = useState<EvenementCard[]>([])
   const [splashFeaturedEvents, setSplashFeaturedEvents] = useState<EvenementCard[]>([])
   const [showWelcome, setShowWelcome]         = useState(false)
-  const [splashOpen, setSplashOpen]           = useState(true)   // splash éditorial (obligatoire pour l'instant)
+  const [splashOpen, setSplashOpen]           = useState(false)  // splash éditorial — affiché 1× par session (ouverture de l'app)
   // Welcome modal une seule fois pour toujours (par device).
   // localStorage persiste entre les sessions browser et survit aux relances
   // de la PWA, contrairement à sessionStorage qui se vide à chaque nouvelle
@@ -63,6 +63,16 @@ export default function HomePage() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     if (!localStorage.getItem('pdv-welcome-shown')) setShowWelcome(true)
+  }, [])
+  // Splash éditorial : 1× par session (= ouverture de l'app). sessionStorage se
+  // vide quand l'app est fermée → réapparaît au prochain lancement, mais PAS lors
+  // des navigations internes (qui remontent la home et le faisaient revenir).
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (sessionStorage.getItem('pdv-splash-seen') !== '1') {
+      setSplashOpen(true)
+      sessionStorage.setItem('pdv-splash-seen', '1')
+    }
   }, [])
   const [appMode, setAppMode]                 = useState<'agenda' | 'annuaire'>('agenda')
   // Restore annuaire mode after returning from a producer page
