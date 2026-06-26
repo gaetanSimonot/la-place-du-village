@@ -140,6 +140,31 @@ export default function MembresAdmin() {
     setExpandedId(null)
   }
 
+  const changeEmail = async (e: React.MouseEvent, membre: Membre) => {
+    e.stopPropagation()
+    const next = window.prompt(`Nouvelle adresse email pour ${membre.email} :`, membre.email)
+    if (next == null) return
+    const email = next.trim().toLowerCase()
+    if (!email || email === membre.email.toLowerCase()) return
+    if (!confirm(`Changer l'email de ce membre en :\n${email}\n\n(override admin, sans confirmation par mail — auth + profil + Stripe)`)) return
+    setSaving(`mail-${membre.id}`)
+    setSaveError(null)
+    const t = await token()
+    const res = await fetch('/api/admin/membres/change-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+      body: JSON.stringify({ user_id: membre.id, email }),
+    })
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}))
+      setSaveError(d.error ?? `Erreur ${res.status}`)
+      setSaving(null)
+      return
+    }
+    await fetchAll()
+    setSaving(null)
+  }
+
   const removeProducer = async (e: React.MouseEvent, producerId: string) => {
     e.stopPropagation()
     if (!confirm('Retirer la fiche de l\'annuaire ?')) return
@@ -326,8 +351,15 @@ export default function MembresAdmin() {
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                         {m.avatar && <img src={m.avatar} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />}
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ margin: 0, fontSize: 11, color: '#9A8A7A' }}>{m.email}</p>
+                          <p style={{ margin: 0, fontSize: 11, color: '#9A8A7A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.email}</p>
                         </div>
+                        <button
+                          onClick={e => changeEmail(e, m)}
+                          disabled={saving === `mail-${m.id}`}
+                          style={{ flexShrink: 0, padding: '5px 9px', borderRadius: 8, border: '1px solid #E0D8CE', background: '#fff', color: '#7A6A5A', fontSize: 10.5, fontWeight: 700, cursor: 'pointer', opacity: saving === `mail-${m.id}` ? 0.6 : 1 }}
+                        >
+                          {saving === `mail-${m.id}` ? '…' : '✎ Email'}
+                        </button>
                       </div>
                       <input
                         value={editName}
