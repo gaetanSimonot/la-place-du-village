@@ -14,6 +14,8 @@ interface Props {
   /** Action du bouton central « + » (variante carte/annonces). Si absent, défaut
    *  contextuel (annonces → /annonces/nouvelle). */
   onPlus?: () => void
+  /** Force la variante « + » (ex. quand le splash est affiché). */
+  forcePlus?: boolean
 }
 
 /**
@@ -60,7 +62,7 @@ const Icons = {
   ),
 }
 
-export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = {}) {
+export default function BottomNavBar({ onNavigate, activeTab, onPlus, forcePlus }: Props = {}) {
   const router = useRouter()
   const pathname = usePathname()
   const { user } = useAuth()
@@ -95,7 +97,7 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
   const onProfil = activeTab === 'profil'
   // Onglet « + » au milieu : sur la carte (hub) ou la section annonces — SAUF
   // sur la page de création elle-même (sinon le + se pointerait sur lui-même).
-  const isPlus = activeTab === 'carte' || (isAnnonces && pathname !== '/annonces/nouvelle')
+  const isPlus = forcePlus || activeTab === 'carte' || (isAnnonces && pathname !== '/annonces/nouvelle')
   const profilBadge = !onProfil ? notifCount : 0
 
   const go = (href: string, id?: string) => {

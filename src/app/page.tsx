@@ -1312,7 +1312,8 @@ export default function HomePage() {
       <BottomNavBar
         activeTab={navTab}
         onNavigate={(id) => handleNavTab(id as NavTab)}
-        onPlus={handlePublierClick}
+        onPlus={() => { setSplashOpen(false); handlePublierClick() }}
+        forcePlus={splashOpen}
       />
 
     </div>

@@ -1,8 +1,8 @@
 'use client'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { compressImage, uploadViaSignedUrl } from '@/lib/clientUpload'
 import EmbedPicker, { type EmbedItem } from '@/components/EmbedPicker'
+import ImageLibraryPicker from '@/components/ImageLibraryPicker'
 
 /* Données réelles renvoyées par /api/splash */
 interface SplashData {
@@ -109,27 +109,17 @@ export default function EditorialSplash({ onExplore, onRubrique, onSearch, onSha
     load()
   }
 
-  // Admin : upload de l'image héro (slot dédié du splash)
-  const heroInputRef = useRef<HTMLInputElement>(null)
-  const [heroUploading, setHeroUploading] = useState(false)
-  const onHeroFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
-    setHeroUploading(true)
-    try {
-      const compressed = await compressImage(file)
-      const { publicUrl } = await uploadViaSignedUrl({ file: compressed, kind: 'hub-hero-intro' })
-      const { data: { session } } = await supabase.auth.getSession()
-      const tk = session?.access_token
-      await fetch('/api/splash/hero', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
-        body: JSON.stringify({ url: publicUrl }),
-      })
-      load()
-    } catch { /* noop */ }
-    setHeroUploading(false)
+  // Admin : choix de l'image héro via la bibliothèque
+  const [libOpen, setLibOpen] = useState(false)
+  const setHero = async (url: string) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const tk = session?.access_token
+    await fetch('/api/splash/hero', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
+      body: JSON.stringify({ url }),
+    }).catch(() => {})
+    load()
   }
 
   const auj = d?.aujourdhui
@@ -164,16 +154,12 @@ export default function EditorialSplash({ onExplore, onRubrique, onSearch, onSha
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={d?.hero || '/hub-intro-slide.webp'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           {isAdmin && (
-            <>
-              <input ref={heroInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onHeroFile} />
-              <button
-                onClick={() => heroInputRef.current?.click()}
-                disabled={heroUploading}
-                style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(0,0,0,0.55)', color: '#fff', border: 'none', borderRadius: 999, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', backdropFilter: 'blur(4px)', fontFamily: 'var(--font-body), sans-serif' }}
-              >
-                {heroUploading ? 'Envoi…' : '✎ Image'}
-              </button>
-            </>
+            <button
+              onClick={() => setLibOpen(true)}
+              style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(0,0,0,0.55)', color: '#fff', border: 'none', borderRadius: 999, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', backdropFilter: 'blur(4px)', fontFamily: 'var(--font-body), sans-serif' }}
+            >
+              ✎ Image
+            </button>
           )}
         </div>
 
@@ -251,6 +237,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onSearch, onSha
 
       {/* Admin : sélection de l'élément « À découvrir » (fouille toute l'app) */}
       {pickerOpen && <EmbedPicker onSelect={savePick} onClose={() => setPickerOpen(false)} />}
+      {libOpen && <ImageLibraryPicker currentUrl={d?.hero} onSelect={u => { setLibOpen(false); setHero(u) }} onClose={() => setLibOpen(false)} />}
     </div>
   )
 }
