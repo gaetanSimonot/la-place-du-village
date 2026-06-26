@@ -5,6 +5,22 @@ import { buildOAuthCallbackUrl, sanitizeNext } from '@/lib/authRedirect'
 
 type Mode = 'signin' | 'signup'
 
+/** Valide l'email côté serveur (format + jetable + MX) avant de créer un compte.
+ *  Fail-open : si l'API tombe, on ne bloque pas un vrai utilisateur. */
+async function checkEmail(email: string): Promise<{ valid: boolean; reason?: string }> {
+  try {
+    const r = await fetch('/api/auth/validate-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+    if (!r.ok) return { valid: true }
+    return await r.json()
+  } catch {
+    return { valid: true }
+  }
+}
+
 interface AuthFormProps {
   /** Page sur laquelle retourner après login. Sanitize cote consumer (cf
    *  AuthModalContext). Default '/'. Sera encode dans `redirectTo?next=...`
@@ -60,6 +76,9 @@ export default function AuthForm({ returnTo = '/', title = 'Connexion', compact 
     storeFallbackReturnTo()
     setLoading(true); setError(null)
     if (mode === 'signup') {
+      // Filtre anti-junk (format + jetable + domaine inexistant), invisible.
+      const v = await checkEmail(e)
+      if (!v.valid) { setError(v.reason ?? 'Adresse email invalide.'); setLoading(false); return }
       const { error: err } = await supabase.auth.signUp({
         email: e,
         password,
@@ -84,6 +103,8 @@ export default function AuthForm({ returnTo = '/', title = 'Connexion', compact 
     }
     storeFallbackReturnTo()
     setMagicLoading(true); setError(null)
+    const v = await checkEmail(e)
+    if (!v.valid) { setError(v.reason ?? 'Adresse email invalide.'); setMagicLoading(false); return }
     const { error: err } = await supabase.auth.signInWithOtp({
       email: e,
       options: { emailRedirectTo: buildOAuthCallbackUrl(safeReturnTo), shouldCreateUser: true },
