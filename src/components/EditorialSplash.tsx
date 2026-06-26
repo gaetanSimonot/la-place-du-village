@@ -33,17 +33,17 @@ function Rubrique({ kicker, color, iconBg, icon, title, subParts, thumb, onClick
     <button
       onClick={onClick}
       style={{
-        width: '100%', display: 'flex', alignItems: 'center', gap: 13,
+        width: '100%', display: 'flex', alignItems: 'center', gap: 14,
         background: '#fff', border: 'none', borderRadius: 18,
-        padding: '13px 15px', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif',
+        padding: '16px 18px', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif',
       }}
     >
-      <span style={{ width: 54, height: 54, flexShrink: 0, borderRadius: 15, background: iconBg, color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</span>
+      <span style={{ width: 50, height: 50, flexShrink: 0, borderRadius: 14, background: iconBg, color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</span>
       <span style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ display: 'block', fontSize: 11.5, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', color }}>{kicker}</span>
-        <span style={{ display: 'block', marginTop: 3, fontSize: 17.5, fontWeight: 800, color: '#1A1209', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
+        <span style={{ display: 'block', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color }}>{kicker}</span>
+        <span style={{ display: 'block', marginTop: 4, fontSize: 15.5, fontWeight: 700, color: '#1A1209', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
         {parts.length > 0 && (
-          <span style={{ display: 'block', marginTop: 3, fontSize: 13.5, color: '#7A6A5A', lineHeight: 1.4 }}>
+          <span style={{ display: 'block', marginTop: 4, fontSize: 12.5, color: '#7A6A5A', lineHeight: 1.4 }}>
             {parts.map((p, i) => (
               <span key={i}>{i > 0 && <span style={{ color, fontWeight: 800, margin: '0 6px' }}>•</span>}{p}</span>
             ))}
@@ -74,7 +74,7 @@ export default function EditorialSplash({ onExplore, onRubrique }: { onExplore: 
         {/* En-tête : logo (multiply) + recherche + cloche */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 2 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/splash-logo.png" alt="La Place du Village" style={{ height: 50, width: 'auto', maxWidth: '64%', objectFit: 'contain', display: 'block' }} />
+          <img src="/splash-logo-v2.png" alt="La Place du Village" style={{ height: 50, width: 'auto', maxWidth: '64%', objectFit: 'contain', display: 'block' }} />
           <div style={{ flex: 1 }} />
           <button aria-label="Rechercher" onClick={() => onRubrique('/?tab=carte')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1A1209', padding: 4 }}>
             <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><line x1="16.5" y1="16.5" x2="21" y2="21" /></svg>
