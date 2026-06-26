@@ -1,5 +1,6 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import EmbedPicker, { type EmbedItem } from '@/components/EmbedPicker'
 import ImageLibraryPicker from '@/components/ImageLibraryPicker'
@@ -111,22 +112,25 @@ export default function EditorialSplash({ onExplore, onRubrique, onSearch, onSha
 
   // Admin : choix de l'image héro via la bibliothèque
   const [libOpen, setLibOpen] = useState(false)
+  // Override local : l'image choisie a la priorité absolue à l'écran et n'est
+  // JAMAIS écrasée par un refetch (fini le « ça revient à l'ancienne »).
+  const [heroOverride, setHeroOverride] = useState<string | null>(null)
   const setHero = async (url: string) => {
-    setD(prev => (prev ? { ...prev, hero: url } : prev))   // le héro change et RESTE (pas de refetch qui ramènerait l'ancien)
+    setHeroOverride(url)   // affichage immédiat et persistant côté écran
+    await supabase.auth.refreshSession().catch(() => {})   // token frais (évite l'échec silencieux du POST admin)
     const { data: { session } } = await supabase.auth.getSession()
     const tk = session?.access_token
-    await fetch('/api/splash/hero', {
+    const r = await fetch('/api/splash/hero', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
       body: JSON.stringify({ url }),
     }).catch(() => null)
-    // Pas de load() ici : le POST persiste la config pour le prochain montage ;
-    // l'optimiste affiche déjà la bonne image. (Un refetch immédiat renvoyait
-    // parfois l'ancienne valeur en cache → bug du « ça revient à l'ancienne ».)
+    if (!r || !r.ok) toast.error("Image affichée mais pas enregistrée — réessaie")
   }
 
   const auj = d?.aujourdhui
   const dec = d?.decouvrir
+  const heroSrc = heroOverride || d?.hero || null
 
   return (
     <div className="pdv-hscroll" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 250, backgroundColor: '#FDFAF5', overflowY: 'auto', WebkitOverflowScrolling: 'touch', fontFamily: 'var(--font-jakarta), sans-serif' }}>
@@ -153,10 +157,11 @@ export default function EditorialSplash({ onExplore, onRubrique, onSearch, onSha
         </div>
 
         {/* Héro — image entière, pleine largeur, hauteur auto (jamais croppée,
-            s'adapte au ratio : horizontale courte / verticale haute) */}
-        <div style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', lineHeight: 0 }}>
+            s'adapte au ratio). Placeholder neutre pendant le chargement (pas de
+            flash de l'image du hub). */}
+        <div style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', lineHeight: 0, background: '#EAE4D8', minHeight: heroSrc ? undefined : 160 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={d?.hero || '/hub-intro-slide.webp'} alt="" style={{ width: '100%', height: 'auto', display: 'block' }} />
+          {heroSrc && <img src={heroSrc} alt="" style={{ width: '100%', height: 'auto', display: 'block' }} />}
           {isAdmin && (
             <button
               onClick={() => setLibOpen(true)}
