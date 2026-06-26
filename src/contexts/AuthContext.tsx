@@ -136,6 +136,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try { localStorage.removeItem('pdv-admin-ok') } catch {}
     await supabase.auth.signOut()
+    // Retour à l'accueil (qui porte la bottom bar) plutôt que de rester bloqué
+    // sur une page sans nav (ex. /reglages) transformée en écran de connexion.
+    if (typeof window !== 'undefined') window.location.href = '/'
   }
 
   const updateDisplayName = async (name: string) => {
