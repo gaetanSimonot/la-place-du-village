@@ -101,13 +101,13 @@ interface JournalProps {
   events?: EventEntry[]
   annonces?: AnnonceEntry[]
   promos?: PromoEntry[]
-  article?: ArticleEntry | null
+  articles?: ArticleEntry[]
   spotlight?: SpotlightEntry | null
 }
 
 export default function JournalPageClient({
   row, archives,
-  events = [], annonces = [], promos = [], article = null, spotlight = null,
+  events = [], annonces = [], promos = [], articles = [], spotlight = null,
 }: JournalProps) {
   const router = useRouter()
   const goBack = useSmartBack('/journal')
@@ -125,41 +125,46 @@ export default function JournalPageClient({
   const isDraft = row.statut !== 'publie'
   const articlePos = row.article_position ?? 3
 
-  // Section article — rendue à la position choisie par l'admin (1 à 5)
-  const articleSection = article ? (
+  // Section article(s) — rendue à la position choisie par l'admin. Un numéro
+  // peut contenir PLUSIEURS articles : on liste tous les articles du numéro.
+  const articleSection = articles.length > 0 ? (
     <section className="px-4 pt-10">
       <div className="text-[10px] font-extrabold tracking-[0.18em] text-primary">
         VOUS AVEZ LA PAROLE
       </div>
-      <h2
-        className="mt-1 font-serif leading-[1.1] text-texte"
-        style={{ fontSize: 24, letterSpacing: '-0.02em' }}
-      >
-        {article.titre}
-      </h2>
-      {article.user_id && (
-        <Link
-          href={`/profil/${article.user_id}`}
-          className="mt-1 inline-block text-[12px] text-primary"
-        >
-          Écrit par un habitant →
-        </Link>
-      )}
-      {article.photo_url && (
-        <div
-          className="mt-3 overflow-hidden rounded-[14px] bg-bord/40"
-          style={{ height: 200, boxShadow: '0 4px 16px rgba(44,28,16,0.12)' }}
-        >
-          <img src={article.photo_url} alt={article.titre} className="h-full w-full object-cover" />
+      {articles.map((article, i) => (
+        <div key={article.id} className={i > 0 ? 'mt-10 border-t border-bord pt-8' : ''}>
+          <h2
+            className="mt-1 font-serif leading-[1.1] text-texte"
+            style={{ fontSize: 24, letterSpacing: '-0.02em' }}
+          >
+            {article.titre}
+          </h2>
+          {article.user_id && (
+            <Link
+              href={`/profil/${article.user_id}`}
+              className="mt-1 inline-block text-[12px] text-primary"
+            >
+              Écrit par un habitant →
+            </Link>
+          )}
+          {article.photo_url && (
+            <div
+              className="mt-3 overflow-hidden rounded-[14px] bg-bord/40"
+              style={{ height: 200, boxShadow: '0 4px 16px rgba(44,28,16,0.12)' }}
+            >
+              <img src={article.photo_url} alt={article.titre} className="h-full w-full object-cover" />
+            </div>
+          )}
+          <div
+            className="mt-3 whitespace-pre-wrap text-[15px] leading-[1.65] text-texte"
+            style={{ fontFamily: 'Georgia, "Crimson Pro", serif' }}
+          >
+            {article.corps}
+          </div>
+          <ArticleSocial articleId={article.id} />
         </div>
-      )}
-      <div
-        className="mt-3 whitespace-pre-wrap text-[15px] leading-[1.65] text-texte"
-        style={{ fontFamily: 'Georgia, "Crimson Pro", serif' }}
-      >
-        {article.corps}
-      </div>
-      <ArticleSocial articleId={article.id} />
+      ))}
     </section>
   ) : null
 

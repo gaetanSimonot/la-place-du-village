@@ -50,29 +50,18 @@ export default function JournalAttachPicker({
   const attach = async (journal: JournalRow) => {
     setBusy(journal.id); setError(null)
     try {
-      // 1. Si le journal a déjà un article différent → on libère l'ancien
-      if (journal.selection_article_id && journal.selection_article_id !== articleId) {
-        await fetch(`/api/admin/articles/${journal.selection_article_id}`, {
+      // Un numéro peut contenir PLUSIEURS articles (relation articles_journal.journal_id).
+      // On n'écrase donc plus l'article existant : on attache en plus.
+      // selection_article_id reste juste la « une » → posée seulement si le
+      // numéro n'en a pas encore.
+      if (!journal.selection_article_id) {
+        await fetch(`/api/admin/journal/${journal.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
-          body: JSON.stringify({ statut: 'valide' }),
+          body: JSON.stringify({ selection_article_id: articleId }),
         })
       }
-      // 2. Si l'article était attaché à un autre journal → on dé-réfère
-      if (currentJournalId && currentJournalId !== journal.id) {
-        await fetch(`/api/admin/journal/${currentJournalId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
-          body: JSON.stringify({ selection_article_id: null }),
-        })
-      }
-      // 3. Update journal cible
-      await fetch(`/api/admin/journal/${journal.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
-        body: JSON.stringify({ selection_article_id: articleId }),
-      })
-      // 4. Update article : statut + journal_id
+      // Update article : statut + journal_id (le rattache à CE numéro)
       const newStatut = journal.statut === 'publie' ? 'publie' : 'valide'
       await fetch(`/api/admin/articles/${articleId}`, {
         method: 'PATCH',
@@ -173,7 +162,7 @@ export default function JournalAttachPicker({
           <ul className="space-y-1.5">
             {journals.map(j => {
               const isCurrent = j.id === currentJournalId
-              const hasOtherArticle = j.selection_article_id && j.selection_article_id !== articleId
+              const hasOtherArticle = !!j.selection_article_id && j.selection_article_id !== articleId
               return (
                 <li key={j.id}>
                   <button
@@ -192,7 +181,7 @@ export default function JournalAttachPicker({
                           {j.statut === 'publie' ? '✓ PUBLIÉ' : 'BROUILLON'}
                         </span>
                         {hasOtherArticle && (
-                          <span className="text-accent">⚠ remplace article actuel</span>
+                          <span className="text-primary">+ s’ajoute aux articles du numéro</span>
                         )}
                       </div>
                     </div>

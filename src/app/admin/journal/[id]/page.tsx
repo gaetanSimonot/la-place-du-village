@@ -205,22 +205,16 @@ export default function AdminJournalEditPage() {
                 value={journal.selection_article_id}
                 journalId={id}
                 onChange={async newId => {
-                  // Si on retire/change, on relâche l'ancien article attaché
-                  // pour qu'il puisse repartir en file d'attente.
-                  if (journal.selection_article_id && journal.selection_article_id !== newId) {
-                    await fetch(`/api/admin/articles/${journal.selection_article_id}`, {
-                      method: 'PATCH',
-                      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
-                      body: JSON.stringify({ statut: 'valide' }),
-                    })
-                  }
-                  // Update journal + publie le nouvel article
+                  // « Article du numéro » = la UNE (selection_article_id). Un numéro
+                  // peut contenir plusieurs articles (cf. picker « Attacher à un
+                  // numéro »), donc on NE relâche PLUS l'ancien : on change juste la
+                  // une, et on rattache le nouvel article au numéro (journal_id).
                   await patch({ selection_article_id: newId })
                   if (newId) {
                     await fetch(`/api/admin/articles/${newId}`, {
                       method: 'PATCH',
                       headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
-                      body: JSON.stringify({ statut: 'publie' }),
+                      body: JSON.stringify({ statut: 'publie', journal_id: id }),
                     })
                   }
                 }}

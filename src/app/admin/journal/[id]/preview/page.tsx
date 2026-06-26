@@ -21,7 +21,7 @@ export default function JournalPreviewPage() {
   const [events, setEvents] = useState<EventEntry[]>([])
   const [annonces, setAnnonces] = useState<AnnonceEntry[]>([])
   const [promos, setPromos] = useState<PromoEntry[]>([])
-  const [article, setArticle] = useState<ArticleEntry | null>(null)
+  const [articles, setArticles] = useState<ArticleEntry[]>([])
   const [spotlight, setSpotlight] = useState<SpotlightEntry | null>(null)
   const [archives, setArchives] = useState<ArchiveEntry[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -55,9 +55,12 @@ export default function JournalPreviewPage() {
           proIds.length > 0
             ? supabase.from('promotions').select('id, title, description, image_url, etablissement_id, etablissements(nom, commune)').in('id', proIds)
             : Promise.resolve({ data: [] }),
-          j.selection_article_id
-            ? supabase.from('articles_journal').select('id, titre, corps, photo_url, user_id').eq('id', j.selection_article_id).maybeSingle()
-            : Promise.resolve({ data: null }),
+          // Tous les articles du numéro (relation journal_id)
+          supabase.from('articles_journal')
+            .select('id, titre, corps, photo_url, user_id, created_at')
+            .eq('journal_id', id)
+            .in('statut', ['publie', 'valide'])
+            .order('created_at', { ascending: true }),
           j.spotlight_etab_id
             ? (j.spotlight_kind === 'producteur'
                 ? supabase.from('producers').select('id, nom, commune, photos, description_courte').eq('id', j.spotlight_etab_id).maybeSingle()
@@ -83,7 +86,12 @@ export default function JournalPreviewPage() {
         setEvents(order((eventsRes.data ?? []) as unknown as EventEntry[], evIds))
         setAnnonces(order((annoncesRes.data ?? []) as AnnonceEntry[], annIds))
         setPromos(order((promosRes.data ?? []) as unknown as PromoEntry[], proIds))
-        setArticle((articleRes.data as ArticleEntry | null) ?? null)
+        {
+          const arr = (articleRes.data as ArticleEntry[] | null) ?? []
+          setArticles([...arr].sort((a, b) =>
+            a.id === j.selection_article_id ? -1 : b.id === j.selection_article_id ? 1 : 0,
+          ))
+        }
         const spotRaw = spotRes.data as Omit<SpotlightEntry, 'kind' | 'type'> & { type?: string | null } | null
         setSpotlight(spotRaw ? {
           id: spotRaw.id,
@@ -143,7 +151,7 @@ export default function JournalPreviewPage() {
         events={events}
         annonces={annonces}
         promos={promos}
-        article={article}
+        articles={articles}
         spotlight={spotlight}
       />
     </>

@@ -51,16 +51,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     update[k] = v
   }
 
-  // Si on bascule en publié, on tague l'article sélectionné comme publié
-  // et on date publie_at.
+  // Si on bascule en publié : on publie TOUS les articles rattachés à ce numéro
+  // (un numéro peut en contenir plusieurs) + on date publie_at.
   if (body.statut === 'publie') {
     update.publie_at = new Date().toISOString()
-    if (body.selection_article_id) {
-      await supabaseAdmin
-        .from('articles_journal')
-        .update({ statut: 'publie', journal_id: id })
-        .eq('id', body.selection_article_id)
-    }
+    await supabaseAdmin
+      .from('articles_journal')
+      .update({ statut: 'publie' })
+      .eq('journal_id', id)
   }
 
   const { data, error } = await supabaseAdmin

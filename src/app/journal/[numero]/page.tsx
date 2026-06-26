@@ -73,9 +73,13 @@ export default async function JournalNumeroPage({ params }: Props) {
     proIds.length > 0
       ? supabaseAdmin.from('promotions').select('id, title, description, image_url, etablissement_id, etablissements(nom, commune)').in('id', proIds)
       : Promise.resolve({ data: [] }),
-    row.selection_article_id
-      ? supabaseAdmin.from('articles_journal').select('id, titre, corps, photo_url, user_id').eq('id', row.selection_article_id).maybeSingle()
-      : Promise.resolve({ data: null }),
+    // TOUS les articles rattachés à ce numéro (relation journal_id) — un numéro
+    // peut en contenir plusieurs.
+    supabaseAdmin.from('articles_journal')
+      .select('id, titre, corps, photo_url, user_id, created_at')
+      .eq('journal_id', row.id)
+      .in('statut', ['publie', 'valide'])
+      .order('created_at', { ascending: true }),
     row.spotlight_etab_id
       ? (row.spotlight_kind === 'producteur'
           ? supabaseAdmin.from('producers').select('id, nom, commune, photos, description_courte').eq('id', row.spotlight_etab_id).maybeSingle()
@@ -100,7 +104,11 @@ export default async function JournalNumeroPage({ params }: Props) {
   const events    = orderById(((eventsRes.data ?? []) as unknown as EventEntry[]), evIds)
   const annonces  = orderById(((annoncesRes.data ?? []) as AnnonceEntry[]), annIds)
   const promos    = orderById(((promosRes.data ?? []) as unknown as PromoEntry[]), proIds)
-  const article   = (articleRes.data as ArticleEntry | null) ?? null
+  // Articles du numéro : la « une » (selection_article_id) d'abord, puis les autres.
+  const articlesRaw = (articleRes.data as ArticleEntry[] | null) ?? []
+  const articles = [...articlesRaw].sort((a, b) =>
+    a.id === row.selection_article_id ? -1 : b.id === row.selection_article_id ? 1 : 0,
+  )
   const spotlightRaw = spotlightRes.data as Omit<SpotlightEntry, 'kind' | 'type'> & { type?: string | null } | null
   const spotlight: SpotlightEntry | null = spotlightRaw
     ? {
@@ -122,7 +130,7 @@ export default async function JournalNumeroPage({ params }: Props) {
       events={events}
       annonces={annonces}
       promos={promos}
-      article={article}
+      articles={articles}
       spotlight={spotlight}
     />
   )
