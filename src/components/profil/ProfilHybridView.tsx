@@ -42,6 +42,22 @@ export default function ProfilHybridView({ onOpenNotifs, notifUnread }: { onOpen
   const [myEtabs, setMyEtabs] = useState<Etab[]>([])
   const [myProducers, setMyProducers] = useState<Producer[]>([])
   const [followersCount, setFollowersCount] = useState<number | null>(null)
+  const [msgUnread, setMsgUnread] = useState(0)   // messages non-lus (toutes sources) → badge enveloppe
+
+  // Total des messages non-lus (annonce + covoit + ami + support) pour le badge
+  // de la messagerie dans l'en-tête.
+  useEffect(() => {
+    if (!user) { setMsgUnread(0); return }
+    ;(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const r = await fetch('/api/messages', { headers: { Authorization: `Bearer ${session.access_token}` } }).catch(() => null)
+      if (r && r.ok) {
+        const d = await r.json()
+        setMsgUnread((d.conversations ?? []).reduce((s: number, c: { unread_count?: number }) => s + (c.unread_count || 0), 0))
+      }
+    })()
+  }, [user])
 
   // Initialise activeTab depuis ?tab= (window.location pour éviter le bailout CSR
   // que useSearchParams provoque sur le prerender static).
@@ -206,6 +222,7 @@ export default function ProfilHybridView({ onOpenNotifs, notifUnread }: { onOpen
         onToggleViewMode={() => setViewMode(m => (m === 'own' ? 'public' : 'own'))}
         onOpenNotifs={onOpenNotifs}
         notifUnread={notifUnread}
+        msgUnread={msgUnread}
       />
 
       <ProfilTabSwitcher

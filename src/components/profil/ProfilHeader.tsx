@@ -57,6 +57,8 @@ interface Props {
   /** Mode own : ouvre les notifications (la cloche est dans la barre d'actions). */
   onOpenNotifs?: () => void
   notifUnread?: number
+  /** Mode own : messages non-lus → badge sur l'enveloppe (Messagerie). */
+  msgUnread?: number
 }
 
 export default function ProfilHeader({
@@ -75,6 +77,7 @@ export default function ProfilHeader({
   friend,
   onOpenNotifs,
   notifUnread,
+  msgUnread,
 }: Props) {
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const initial = displayName.trim().charAt(0).toUpperCase() || '·'
@@ -186,7 +189,7 @@ export default function ProfilHeader({
               <ActionIconBtn onClick={onModifyClick} ariaLabel="Modifier mon profil" primary>
                 <IcEdit size={15} />
               </ActionIconBtn>
-              <ActionIconBtn href="/messages" ariaLabel="Messagerie">
+              <ActionIconBtn href="/messages" ariaLabel="Messagerie" badge={msgUnread}>
                 <IcMail size={16} />
               </ActionIconBtn>
               {onOpenNotifs && (
