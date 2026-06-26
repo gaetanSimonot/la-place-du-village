@@ -14,6 +14,7 @@ import { useAuthModal } from '@/contexts/AuthModalContext'
 
 import ProBandeau from '@/components/ProBandeau'
 import MaxSplash from '@/components/MaxSplash'
+import EditorialSplash from '@/components/EditorialSplash'
 import FavorisView from '@/components/FavorisView'
 import NotificationsView from '@/components/NotificationsView'
 import CommerceRequestModal from '@/components/CommerceRequestModal'
@@ -1262,6 +1263,9 @@ export default function HomePage() {
           carte ouvre la fiche par-dessus children sans démonter la home. */}
 
       <MaxSplash events={splashEvents} loading={loading} />
+
+      {/* Splash éditorial — « salon » d'entrée (obligatoire pour l'instant) */}
+      <EditorialSplash />
 
       {showWelcome && <WelcomeModal onClose={() => {
         setShowWelcome(false)
