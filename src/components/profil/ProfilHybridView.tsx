@@ -54,7 +54,7 @@ export default function ProfilHybridView({ onOpenNotifs, notifUnread }: { onOpen
       const r = await fetch('/api/messages', { headers: { Authorization: `Bearer ${session.access_token}` } }).catch(() => null)
       if (r && r.ok) {
         const d = await r.json()
-        setMsgUnread((d.conversations ?? []).reduce((s: number, c: { unread_count?: number }) => s + (c.unread_count || 0), 0))
+        setMsgUnread((d.conversations ?? []).reduce((s: number, c: { unreadCount?: number }) => s + (c.unreadCount || 0), 0))
       }
     })()
   }, [user])

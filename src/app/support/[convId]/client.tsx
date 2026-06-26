@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { mutate } from 'swr'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
@@ -71,6 +72,9 @@ export default function SupportConversationClient({ convId, mode }: Props) {
     setMessages(data.messages ?? [])
     setOther(data.user ?? null)
     setLoading(false)
+    // Le GET ci-dessus a marqué les messages de l'autre côté comme lus → on
+    // revalide la boîte unifiée pour que le badge non-lu y disparaisse.
+    mutate('/api/messages')
   }
 
   useEffect(() => {
