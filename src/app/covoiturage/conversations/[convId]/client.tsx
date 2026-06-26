@@ -1,5 +1,6 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { mutate } from 'swr'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
@@ -51,6 +52,9 @@ export default function CovoitConversationClient({ convId }: { convId: string })
     setCovoit(data.covoiturage)
     setMessages(data.messages ?? [])
     setLoading(false)
+    // Le GET ci-dessus a marqué les messages de l'autre comme lus → revalide la
+    // boîte unifiée pour que le badge non-lu disparaisse (liste + icône messagerie).
+    mutate('/api/messages')
   }, [convId])
 
   useEffect(() => { if (user) load() }, [load, user])

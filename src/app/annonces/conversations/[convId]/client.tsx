@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { mutate } from 'swr'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
@@ -78,6 +79,9 @@ export default function ConversationPageClient({ convId }: Props) {
     setConv(data.conversation)
     setMessages(data.messages ?? [])
     setAnnonce(data.annonce)
+    // Le GET a marqué les messages de l'autre comme lus → revalide la boîte
+    // unifiée (badge non-lu de la liste + icône messagerie).
+    mutate('/api/messages')
 
     // Charge l'autre membre
     if (user && data.conversation) {

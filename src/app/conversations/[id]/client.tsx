@@ -1,7 +1,7 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import useSWR from 'swr'
+import useSWR, { mutate } from 'swr'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
@@ -156,11 +156,11 @@ export default function ConversationClient({ convId }: Props) {
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
       if (!token || cancelled) return
-      // Marque comme lu
+      // Marque comme lu + revalide la boîte unifiée (badge non-lu liste + icône)
       fetch(`/api/conversations/${convId}/read`, {
         method:  'POST',
         headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => {})
+      }).then(() => mutate('/api/messages')).catch(() => {})
       // Profil de l'autre membre
       fetch('/api/conversations', { headers: { Authorization: `Bearer ${token}` } })
         .then(r => r.json())

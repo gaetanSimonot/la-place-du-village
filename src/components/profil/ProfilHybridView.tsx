@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import useSWR from 'swr'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useFriendships } from '@/hooks/useFriendships'
@@ -42,22 +43,12 @@ export default function ProfilHybridView({ onOpenNotifs, notifUnread }: { onOpen
   const [myEtabs, setMyEtabs] = useState<Etab[]>([])
   const [myProducers, setMyProducers] = useState<Producer[]>([])
   const [followersCount, setFollowersCount] = useState<number | null>(null)
-  const [msgUnread, setMsgUnread] = useState(0)   // messages non-lus (toutes sources) → badge enveloppe
 
-  // Total des messages non-lus (annonce + covoit + ami + support) pour le badge
-  // de la messagerie dans l'en-tête.
-  useEffect(() => {
-    if (!user) { setMsgUnread(0); return }
-    ;(async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-      const r = await fetch('/api/messages', { headers: { Authorization: `Bearer ${session.access_token}` } }).catch(() => null)
-      if (r && r.ok) {
-        const d = await r.json()
-        setMsgUnread((d.conversations ?? []).reduce((s: number, c: { unreadCount?: number }) => s + (c.unreadCount || 0), 0))
-      }
-    })()
-  }, [user])
+  // Messages non-lus (annonce + covoit + ami + support) → badge enveloppe.
+  // SWR sur la même clé que la boîte unifiée : se met à jour en direct quand une
+  // conversation est lue (les clients de conv appellent mutate('/api/messages')).
+  const { data: msgData } = useSWR<{ conversations?: { unreadCount?: number }[] }>(user ? '/api/messages' : null)
+  const msgUnread = (msgData?.conversations ?? []).reduce((s, c) => s + (c.unreadCount || 0), 0)
 
   // Initialise activeTab depuis ?tab= (window.location pour éviter le bailout CSR
   // que useSearchParams provoque sur le prerender static).
