@@ -820,8 +820,8 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
                   {p.image_url && (
                     <img src={p.image_url} alt="" style={{ width: '100%', height: 150, objectFit: 'cover', objectPosition: p.image_position, borderRadius: 10, marginBottom: 10 }} />
                   )}
-                  {p.titre && <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 800, color: '#1A1209' }}>{p.titre}</p>}
-                  <p style={{ margin: 0, fontSize: 13, color: '#4A3728', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{p.contenu}</p>
+                  {p.titre && <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 800, color: '#1A1209', overflowWrap: 'break-word' }}>{p.titre}</p>}
+                  <p style={{ margin: 0, fontSize: 13, color: '#4A3728', lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'break-word', wordBreak: 'break-word' }}>{p.contenu}</p>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
                     <span style={{ fontSize: 10.5, color: '#AAA' }}>{timeAgo(p.created_at)}</span>
                     {ownerUI && (
