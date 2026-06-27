@@ -33,12 +33,23 @@ const ARROW = (
   </svg>
 )
 
-/* Badge coloré en haut d'une tuile */
-function Badge({ color, bg, label, light }: { color: string; bg: string; label: string; light?: boolean }) {
+/* Petites icônes des rubriques (réutilisées du site) */
+const bi = { width: 13, height: 13, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+const BIcons = {
+  calendar: <svg {...bi}><rect x="3" y="5" width="18" height="16" rx="2" /><line x1="3" y1="10" x2="21" y2="10" /><line x1="8" y1="3" x2="8" y2="7" /><line x1="16" y1="3" x2="16" y2="7" /></svg>,
+  chat: <svg {...bi}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z" /></svg>,
+  book: <svg {...bi}><path d="M4 4h12a2 2 0 0 1 2 2v13a1 1 0 0 1-1 1H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" /><path d="M18 8h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2" /></svg>,
+  tag: <svg {...bi}><path d="M20 12V8H4v4" /><path d="M20 12v8H4v-8" /><line x1="12" y1="8" x2="12" y2="20" /></svg>,
+  compass: <svg {...bi}><circle cx="12" cy="12" r="10" /><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" /></svg>,
+}
+
+/* Badge : "filled" = rect à peine arrondi coloré (tuiles sombres) ; sinon plat sans capsule (tuiles claires) */
+function Badge({ color, label, icon, filled }: { color: string; label: string; icon: React.ReactNode; filled?: boolean }) {
+  if (filled) return (
+    <span style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 5, background: color, color: '#fff', borderRadius: 6, padding: '4px 9px', fontSize: 9.5, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{icon}{label}</span>
+  )
   return (
-    <span style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 5, background: bg, color, borderRadius: 999, padding: '4px 10px', fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', boxShadow: light ? 'none' : '0 1px 3px rgba(0,0,0,0.25)' }}>
-      {label}
-    </span>
+    <span style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 5, color, fontSize: 10, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{icon}{label}</span>
   )
 }
 
@@ -78,8 +89,8 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
 
   // Dégradés
   const darkGrad = 'linear-gradient(95deg, rgba(18,14,9,0.93) 0%, rgba(18,14,9,0.60) 56%, rgba(18,14,9,0.34) 100%)'
-  const lightFromBottom = 'linear-gradient(to top, rgba(253,250,245,0.97) 32%, rgba(253,250,245,0.68) 66%, rgba(253,250,245,0.18) 100%)'
-  const lightFromLeft = 'linear-gradient(95deg, rgba(253,250,245,0.97) 36%, rgba(253,250,245,0.70) 70%, rgba(253,250,245,0.12) 100%)'
+  const lightJournal = 'linear-gradient(to bottom right, rgba(253,250,245,0.98) 0%, rgba(253,250,245,0.90) 42%, rgba(253,250,245,0.50) 100%)'
+  const lightRight = 'linear-gradient(to right, rgba(253,250,245,0.98) 0%, rgba(253,250,245,0.90) 44%, rgba(253,250,245,0.45) 100%)'
 
   const linkRow = (label: string, color: string) => (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color, fontSize: 12.5, fontWeight: 800, marginTop: 'auto' }}>{label} {ARROW}</span>
@@ -108,7 +119,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
             style={{ position: 'relative', minHeight: 230, borderRadius: 18, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundImage: `${darkGrad}, url('/splash-bg-aujourdhui.jpg')`, backgroundSize: 'cover', backgroundPosition: 'center', fontFamily: 'var(--font-jakarta), sans-serif' }}
           >
             <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 13, gap: 7 }}>
-              <Badge color="#fff" bg="#E8622A" label="📅 Aujourd'hui" />
+              <Badge color="#E8622A" filled icon={BIcons.calendar} label="Aujourd'hui" />
               <span style={{ lineHeight: 1.05 }}>
                 <span style={{ display: 'block', color: '#fff', fontSize: 20, fontWeight: 800 }}>{auj?.today ?? 0} événements</span>
                 <span style={{ display: 'block', color: '#F4A24A', fontSize: 19, fontWeight: 800 }}>aujourd'hui</span>
@@ -134,7 +145,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
             style={{ position: 'relative', minHeight: 230, borderRadius: 18, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundImage: `${darkGrad}, url('${cfp?.image || '/splash-bg-journal.jpg'}')`, backgroundSize: 'cover', backgroundPosition: 'center', fontFamily: 'var(--font-jakarta), sans-serif' }}
           >
             <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 13, gap: 8 }}>
-              <Badge color="#fff" bg="#7C3AED" label="💬 Ça fait parler" />
+              <Badge color="#7C3AED" filled icon={BIcons.chat} label="Ça fait parler" />
               <span style={{ color: '#fff', fontSize: 17, fontWeight: 800, lineHeight: 1.2, marginTop: 2 }}>{cfp?.titre ?? 'La place publique'}</span>
               {cfp && <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: 500 }}>{cfp.votes} votes · {cfp.comments} commentaires</span>}
               <span style={{ marginTop: 'auto', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.16)', backdropFilter: 'blur(4px)', color: '#fff', borderRadius: 999, padding: '7px 13px', fontSize: 12, fontWeight: 800 }}>Voir le débat {ARROW}</span>
@@ -147,10 +158,10 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
           {/* Journal */}
           <button
             onClick={() => onRubrique('/journal')}
-            style={{ position: 'relative', minHeight: 158, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundImage: `${lightFromBottom}, url('/splash-bg-journal.jpg')`, backgroundSize: 'cover', backgroundPosition: 'center', fontFamily: 'var(--font-jakarta), sans-serif' }}
+            style={{ position: 'relative', minHeight: 158, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundImage: `${lightJournal}, url('/splash-bg-journal.jpg')`, backgroundSize: 'cover', backgroundPosition: 'center', fontFamily: 'var(--font-jakarta), sans-serif' }}
           >
             <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 11, gap: 6 }}>
-              <Badge color="#3A5BC7" bg="#E6ECFB" label="📖 Le journal" light />
+              <Badge color="#3A5BC7" icon={BIcons.book} label="Le journal" />
               <span style={{ color: '#1A1209', fontSize: 12.5, fontWeight: 700, lineHeight: 1.2 }}>{jrn?.titre ?? 'Le Journal du Village'}</span>
               {linkRow("Lire l'article", '#3A5BC7')}
             </span>
@@ -159,10 +170,10 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
           {/* Bon plan du jour */}
           <button
             onClick={() => onRubrique(bp ? `/promotions?id=${bp.id}` : '/promotions')}
-            style={{ position: 'relative', minHeight: 158, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundImage: `${lightFromLeft}, url('${bp?.image || '/splash-bg-journal.jpg'}')`, backgroundSize: 'cover', backgroundPosition: 'center', fontFamily: 'var(--font-jakarta), sans-serif' }}
+            style={{ position: 'relative', minHeight: 158, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundImage: `${lightRight}, url('${bp?.image || '/splash-bg-journal.jpg'}')`, backgroundSize: 'cover', backgroundPosition: 'center', fontFamily: 'var(--font-jakarta), sans-serif' }}
           >
             <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 11, gap: 5 }}>
-              <Badge color="#2D5A3D" bg="#E3F0E8" label="🎁 Bon plan du jour" light />
+              <Badge color="#2D5A3D" icon={BIcons.tag} label="Bon plan du jour" />
               <span style={{ color: '#1A1209', fontSize: 13, fontWeight: 800, lineHeight: 1.2 }}>{bp?.titre ?? 'Les bons plans'}</span>
               {bp?.sous && <span style={{ color: '#6B5E4E', fontSize: 11, fontStyle: 'italic', lineHeight: 1.25 }}>{bp.sous}</span>}
               {linkRow("Profiter de l'offre", '#2D5A3D')}
@@ -173,10 +184,10 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => { if (dec) onRubrique(decouvrirHref(dec.kind, dec.id)); else if (isAdmin) setPickerOpen(true); else onExplore() }}
-              style={{ position: 'relative', width: '100%', minHeight: 158, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundImage: `${lightFromLeft}, url('${dec?.photo || '/splash-bg-aujourdhui.jpg'}')`, backgroundSize: 'cover', backgroundPosition: 'center', fontFamily: 'var(--font-jakarta), sans-serif', display: 'block' }}
+              style={{ position: 'relative', width: '100%', minHeight: 158, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundImage: `${lightRight}, url('${dec?.photo || '/splash-bg-aujourdhui.jpg'}')`, backgroundSize: 'cover', backgroundPosition: 'center', fontFamily: 'var(--font-jakarta), sans-serif', display: 'block' }}
             >
               <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 11, gap: 5 }}>
-                <Badge color="#C84B2F" bg="#FBE6DF" label="🧭 À découvrir" light />
+                <Badge color="#C84B2F" icon={BIcons.compass} label="À découvrir" />
                 <span style={{ color: '#1A1209', fontSize: 12.5, fontWeight: 800, lineHeight: 1.2 }}>{dec?.title || (isAdmin ? 'Choisir une mise en avant' : 'À découvrir au village')}</span>
                 {linkRow('En savoir plus', '#C84B2F')}
               </span>
