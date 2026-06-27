@@ -44,7 +44,7 @@ const BIcons = {
 }
 
 /* Badge : "filled" = rect à peine arrondi coloré (tuiles sombres) ; sinon plat sans capsule (tuiles claires) */
-function Badge({ color, label, icon, filled }: { color: string; label: string; icon: React.ReactNode; filled?: boolean }) {
+function Badge({ color, label, icon, filled }: { color: string; label: React.ReactNode; icon: React.ReactNode; filled?: boolean }) {
   if (filled) return (
     <span style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 5, background: color, color: '#fff', borderRadius: 6, padding: '4px 9px', fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{icon}{label}</span>
   )
@@ -89,8 +89,8 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
 
   // Dégradés — transition franche sur la ligne de séparation (gauche net, image pure à droite)
   const darkGrad = 'linear-gradient(to right, rgba(18,14,9,0.92) 0%, rgba(18,14,9,0.88) 48%, rgba(18,14,9,0) 86%)'
-  const lightJournal = 'linear-gradient(to bottom right, rgba(253,250,245,1) 0%, rgba(253,250,245,1) 40%, rgba(253,250,245,0) 80%)'
-  const lightRight = 'linear-gradient(to right, rgba(253,250,245,1) 0%, rgba(253,250,245,1) 44%, rgba(253,250,245,0) 76%)'
+  // Même dégradé pour les 3 petites tuiles : net haut-gauche → image pure bas-droite, avancé vers la droite
+  const lightTile = 'linear-gradient(to bottom right, rgba(253,250,245,1) 0%, rgba(253,250,245,1) 54%, rgba(253,250,245,0) 92%)'
   const serif = 'var(--font-dm-serif), Georgia, serif'   // typo des titres de tuiles (proche de la réf)
 
   const linkRow = (label: string, color: string) => (
@@ -159,7 +159,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
           {/* Journal */}
           <button
             onClick={() => onRubrique('/journal')}
-            style={{ position: 'relative', minHeight: 158, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundImage: `${lightJournal}, url('/splash-bg-journal.jpg')`, backgroundSize: 'cover', backgroundPosition: 'center', fontFamily: 'var(--font-jakarta), sans-serif' }}
+            style={{ position: 'relative', minHeight: 158, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundImage: `${lightTile}, url('/splash-bg-journal.jpg')`, backgroundSize: 'cover', backgroundPosition: 'center', fontFamily: 'var(--font-jakarta), sans-serif' }}
           >
             <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 11, gap: 6 }}>
               <Badge color="#3A5BC7" icon={BIcons.book} label="Le journal" />
@@ -171,10 +171,10 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
           {/* Bon plan du jour */}
           <button
             onClick={() => onRubrique(bp ? `/promotions?id=${bp.id}` : '/promotions')}
-            style={{ position: 'relative', minHeight: 158, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundImage: `${lightRight}, url('${bp?.image || '/splash-bg-journal.jpg'}')`, backgroundSize: 'cover', backgroundPosition: 'center', fontFamily: 'var(--font-jakarta), sans-serif' }}
+            style={{ position: 'relative', minHeight: 158, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundImage: `${lightTile}, url('${bp?.image || '/splash-bg-journal.jpg'}')`, backgroundSize: 'cover', backgroundPosition: 'center', fontFamily: 'var(--font-jakarta), sans-serif' }}
           >
             <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 11, gap: 5 }}>
-              <Badge color="#2D5A3D" icon={BIcons.tag} label="Bon plan du jour" />
+              <Badge color="#2D5A3D" icon={BIcons.tag} label={<span style={{ lineHeight: 1.1 }}>Bon plan<br />du jour</span>} />
               <span style={{ color: '#1A1209', fontSize: 14, fontFamily: serif, lineHeight: 1.2 }}>{bp?.titre ?? 'Les bons plans'}</span>
               {bp?.sous && <span style={{ color: '#6B5E4E', fontSize: 11, fontStyle: 'italic', lineHeight: 1.25 }}>{bp.sous}</span>}
               {linkRow("Profiter de l'offre", '#2D5A3D')}
@@ -185,7 +185,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => { if (dec) onRubrique(decouvrirHref(dec.kind, dec.id)); else if (isAdmin) setPickerOpen(true); else onExplore() }}
-              style={{ position: 'relative', width: '100%', minHeight: 158, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundImage: `${lightRight}, url('${dec?.photo || '/splash-bg-aujourdhui.jpg'}')`, backgroundSize: 'cover', backgroundPosition: 'center', fontFamily: 'var(--font-jakarta), sans-serif', display: 'block' }}
+              style={{ position: 'relative', width: '100%', minHeight: 158, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundImage: `${lightTile}, url('${dec?.photo || '/splash-bg-aujourdhui.jpg'}')`, backgroundSize: 'cover', backgroundPosition: 'center', fontFamily: 'var(--font-jakarta), sans-serif', display: 'block' }}
             >
               <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 11, gap: 5 }}>
                 <Badge color="#C84B2F" icon={BIcons.compass} label="À découvrir" />
