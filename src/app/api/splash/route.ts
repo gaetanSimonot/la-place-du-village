@@ -9,15 +9,6 @@ export const dynamic = 'force-dynamic'
 function parisDate(d: Date): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d)
 }
-function weekendDates(): [string, string] {
-  const wd = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', weekday: 'short' }).format(new Date())
-  const map: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
-  const day = map[wd] ?? 0
-  const toSat = (6 - day + 7) % 7
-  const sat = new Date(Date.now() + toSat * 86_400_000)
-  const sun = new Date(sat.getTime() + 86_400_000)
-  return [parisDate(sat), parisDate(sun)]
-}
 function weekRange(): [string, string] {
   const wd = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', weekday: 'short' }).format(new Date())
   const map: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }

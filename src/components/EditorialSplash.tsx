@@ -122,7 +122,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
         {/* Titre de section — aligné à gauche, texte vert, chevrons orange */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#2D5A3D', fontSize: 13, fontWeight: 800, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E8622A" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 6 9 12 15 18" /></svg>
-          À la une aujourd'hui
+          {"À la une aujourd'hui"}
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E8622A" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18" /></svg>
         </div>
 
@@ -138,7 +138,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
               <span style={{ lineHeight: 1.22, fontFamily: serif }}>
                 <span style={{ display: 'block', color: '#fff', fontSize: 30 }}>{auj?.today ?? 0}</span>
                 <span style={{ display: 'block', color: '#fff', fontSize: 18 }}>événements</span>
-                <span style={{ display: 'block', color: '#F4A24A', fontSize: 18 }}>aujourd'hui</span>
+                <span style={{ display: 'block', color: '#F4A24A', fontSize: 18 }}>{"aujourd'hui"}</span>
               </span>
               <span style={{ color: 'rgba(255,255,255,0.88)', fontSize: 13, fontWeight: 600, marginTop: 1 }}>{auj?.week ?? 0} cette semaine</span>
               <span style={{ marginTop: 'auto', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(4px)', color: '#fff', borderRadius: 6, padding: '7px 12px', fontSize: 12, fontWeight: 800 }}>Explorer {ARROW}</span>
