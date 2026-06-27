@@ -90,7 +90,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
   // ── Premium : overlay VERT qui recouvre l'image (plus foncé à gauche) ──
   const greenOverlay = 'linear-gradient(to right, rgba(17,38,24,0.95) 0%, rgba(17,38,24,0.78) 52%, rgba(17,38,24,0.56) 100%)'
   // À découvrir : pas de teinte verte → overlay neutre (image naturelle, texte lisible)
-  const neutralOverlay = 'linear-gradient(to bottom, rgba(20,14,9,0.50) 0%, rgba(20,14,9,0.26) 40%, rgba(20,14,9,0.82) 100%)'
+  const neutralOverlay = 'linear-gradient(to bottom, rgba(18,12,8,0.66) 0%, rgba(18,12,8,0.52) 42%, rgba(18,12,8,0.90) 100%)'
   const tileBg = '#13291B'   // fond vert foncé sous l'image (évite tout liseré au bord arrondi)
   const tileShadow = '0 3px 14px rgba(20,30,18,0.20)'
   const serif = 'var(--font-dm-serif), Georgia, serif'
