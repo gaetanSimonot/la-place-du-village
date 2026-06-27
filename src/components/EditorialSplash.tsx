@@ -89,6 +89,8 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
 
   // ── Premium : overlay VERT qui recouvre l'image (plus foncé à gauche) ──
   const greenOverlay = 'linear-gradient(to right, rgba(17,38,24,0.95) 0%, rgba(17,38,24,0.78) 52%, rgba(17,38,24,0.56) 100%)'
+  // À découvrir : pas de teinte verte → overlay neutre (image naturelle, texte lisible)
+  const neutralOverlay = 'linear-gradient(to bottom, rgba(20,14,9,0.50) 0%, rgba(20,14,9,0.26) 40%, rgba(20,14,9,0.82) 100%)'
   const tileBg = '#13291B'   // fond vert foncé sous l'image (évite tout liseré au bord arrondi)
   const tileShadow = '0 3px 14px rgba(20,30,18,0.20)'
   const serif = 'var(--font-dm-serif), Georgia, serif'
@@ -109,9 +111,11 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
     </svg>
   )
 
-  // Bouton vert unique (toutes les tuiles). small → bas de tuile + plus compact.
-  const greenBtn = (label: string, small?: boolean) => (
-    <span style={{ alignSelf: 'flex-start', marginTop: small ? 'auto' : 8, maxWidth: '100%', display: 'inline-flex', alignItems: 'center', gap: 7, background: 'linear-gradient(180deg, #2b6044 0%, #1b4730 100%)', color: '#fff', borderRadius: 11, padding: small ? '8px 13px' : '11px 17px', fontSize: small ? 12 : 14, fontWeight: 800, boxShadow: '0 2px 6px rgba(12,28,18,0.35)' }}>
+  const greenBg = 'linear-gradient(180deg, #2b6044 0%, #1b4730 100%)'
+  const grayBg = 'linear-gradient(180deg, #6b6862 0%, #4d4a45 100%)'
+  // Bouton de tuile. small → bas de tuile (auto) + compact ; sinon grande tuile (space-between gère la position).
+  const tileBtn = (label: string, small?: boolean, bg: string = greenBg) => (
+    <span style={{ alignSelf: 'flex-start', marginTop: small ? 'auto' : 0, maxWidth: '100%', display: 'inline-flex', alignItems: 'center', gap: 7, background: bg, color: '#fff', borderRadius: 11, padding: small ? '8px 13px' : '11px 17px', fontSize: small ? 12 : 14, fontWeight: 800, boxShadow: '0 2px 6px rgba(12,28,18,0.35)' }}>
       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
       {ARROW(small)}
     </span>
@@ -139,15 +143,17 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
             onClick={() => (onToday ? onToday() : onRubrique('/?tab=carte'))}
             style={{ position: 'relative', minHeight: 244, borderRadius: 18, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundColor: tileBg, backgroundImage: `${greenOverlay}, url('/splash-bg-aujourdhui.jpg')`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: tileShadow, fontFamily: 'var(--font-jakarta), sans-serif' }}
           >
-            <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '16px 15px', gap: 10 }}>
+            <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '16px 15px' }}>
               <Badge color="#E8622A" filled icon={BIcons.calendar} label="Aujourd'hui" />
-              <span style={{ fontFamily: serif, lineHeight: 1.16, color: '#fff' }}>
-                <span style={{ display: 'block', fontSize: 34 }}>{auj?.today ?? 0}</span>
-                <span style={{ display: 'block', fontSize: 19 }}>événements</span>
-                <span style={{ display: 'block', fontSize: 19 }}>{"aujourd'hui"}</span>
+              <span style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                <span style={{ fontFamily: serif, lineHeight: 1.16, color: '#fff' }}>
+                  <span style={{ display: 'block', fontSize: 34 }}>{auj?.today ?? 0}</span>
+                  <span style={{ display: 'block', fontSize: 19 }}>événements</span>
+                  <span style={{ display: 'block', fontSize: 19 }}>{"aujourd'hui"}</span>
+                </span>
+                <span style={{ color: 'rgba(255,255,255,0.82)', fontSize: 14, fontWeight: 600 }}>{auj?.week ?? 0} cette semaine</span>
               </span>
-              <span style={{ color: 'rgba(255,255,255,0.82)', fontSize: 14, fontWeight: 600 }}>{auj?.week ?? 0} cette semaine</span>
-              {greenBtn('Explorer')}
+              {tileBtn('Explorer')}
             </span>
           </button>
 
@@ -156,11 +162,13 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
             onClick={() => onRubrique(cfp ? `/forum/${cfp.id}` : '/forum')}
             style={{ position: 'relative', minHeight: 244, borderRadius: 18, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundColor: tileBg, backgroundImage: `${greenOverlay}, url('${cfp?.image || '/splash-bg-journal.jpg'}')`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: tileShadow, fontFamily: 'var(--font-jakarta), sans-serif' }}
           >
-            <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '16px 15px', gap: 9 }}>
+            <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '16px 15px' }}>
               <Badge color="#7C3AED" filled icon={BIcons.chat} label="Ça fait parler" />
-              <span style={{ color: '#fff', fontSize: 20, fontFamily: serif, lineHeight: 1.24, display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{cfp?.titre ?? 'La place publique'}</span>
-              {cfp && <span style={{ color: 'rgba(255,255,255,0.82)', fontSize: 13, fontWeight: 500 }}>{cfp.votes} votes · {cfp.comments} commentaires</span>}
-              {greenBtn('Voir le débat')}
+              <span style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ color: '#fff', fontSize: 20, fontFamily: serif, lineHeight: 1.24, display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{cfp?.titre ?? 'La place publique'}</span>
+                {cfp && <span style={{ color: 'rgba(255,255,255,0.82)', fontSize: 13, fontWeight: 500 }}>{cfp.votes} votes · {cfp.comments} commentaires</span>}
+              </span>
+              {tileBtn('Voir le débat')}
             </span>
           </button>
         </div>
@@ -175,7 +183,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
             <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 11, gap: 6 }}>
               <Badge color="rgba(255,255,255,0.88)" icon={BIcons.book} label="Le journal" />
               <span style={{ color: '#fff', fontSize: tileTitleSize(jrn?.titre ?? 'Le Journal du Village'), fontFamily: serif, lineHeight: 1.22 }}>{jrn?.titre ?? 'Le Journal du Village'}</span>
-              {greenBtn("Lire l'article", true)}
+              {tileBtn('Lire', true)}
             </span>
           </button>
 
@@ -188,7 +196,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
               <Badge color="rgba(255,255,255,0.88)" icon={BIcons.tag} label={<span style={{ lineHeight: 1.1 }}>Bon plan<br />du jour</span>} />
               <span style={{ color: '#fff', fontSize: tileTitleSize(bp?.titre ?? 'Les bons plans'), fontFamily: serif, lineHeight: 1.22 }}>{bp?.titre ?? 'Les bons plans'}</span>
               {bp?.sous && <span style={{ color: 'rgba(255,255,255,0.72)', fontSize: 11, fontStyle: 'italic', lineHeight: 1.25 }}>{bp.sous}</span>}
-              {greenBtn('En profiter', true)}
+              {tileBtn('Découvrir', true)}
             </span>
           </button>
 
@@ -196,12 +204,12 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => { if (dec) onRubrique(decouvrirHref(dec.kind, dec.id)); else if (isAdmin) setPickerOpen(true); else onExplore() }}
-              style={{ position: 'relative', width: '100%', minHeight: 162, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundColor: tileBg, backgroundImage: `${greenOverlay}, url('${dec?.photo || '/splash-bg-aujourdhui.jpg'}')`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: tileShadow, fontFamily: 'var(--font-jakarta), sans-serif', display: 'block' }}
+              style={{ position: 'relative', width: '100%', minHeight: 162, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundColor: '#1A130D', backgroundImage: `${neutralOverlay}, url('${dec?.photo || '/splash-bg-aujourdhui.jpg'}')`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: tileShadow, fontFamily: 'var(--font-jakarta), sans-serif', display: 'block' }}
             >
               <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 11, gap: 5 }}>
                 <Badge color="#EE8A3E" icon={BIcons.compass} label="À découvrir" />
                 <span style={{ color: '#fff', fontSize: tileTitleSize(dec?.title || (isAdmin ? 'Choisir une mise en avant' : 'À découvrir au village')), fontFamily: serif, lineHeight: 1.22 }}>{dec?.title || (isAdmin ? 'Choisir une mise en avant' : 'À découvrir au village')}</span>
-                {greenBtn('En savoir plus', true)}
+                {tileBtn('Voir', true, grayBg)}
               </span>
             </button>
             {isAdmin && (
@@ -213,7 +221,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
         {/* Explorer la Place */}
         <button
           onClick={onExplore}
-          style={{ marginTop: 4, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: '#234A30', border: 'none', borderRadius: 999, padding: '15px 18px', cursor: 'pointer', color: '#fff', fontSize: 16, fontWeight: 800, fontFamily: 'var(--font-jakarta), sans-serif' }}
+          style={{ marginTop: 4, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: '#E8622A', border: 'none', borderRadius: 999, padding: '15px 18px', cursor: 'pointer', color: '#fff', fontSize: 16, fontWeight: 800, fontFamily: 'var(--font-jakarta), sans-serif' }}
         >
           Explorer la Place
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
