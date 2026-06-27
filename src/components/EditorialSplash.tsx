@@ -46,10 +46,10 @@ const BIcons = {
 /* Badge : "filled" = rect à peine arrondi coloré (tuiles sombres) ; sinon plat sans capsule (tuiles claires) */
 function Badge({ color, label, icon, filled }: { color: string; label: React.ReactNode; icon: React.ReactNode; filled?: boolean }) {
   if (filled) return (
-    <span style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 5, background: color, color: '#fff', borderRadius: 6, padding: '4px 9px', fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{icon}{label}</span>
+    <span style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 5, background: color, color: '#fff', borderRadius: 6, padding: '4px 8px', fontSize: 8, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{icon}{label}</span>
   )
   return (
-    <span style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 5, color, fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{icon}{label}</span>
+    <span style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 5, color, fontSize: 8, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{icon}{label}</span>
   )
 }
 
@@ -173,8 +173,11 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
           {/* Bon plan du jour */}
           <button
             onClick={() => onRubrique(bp ? `/promotions?id=${bp.id}` : '/promotions')}
-            style={{ position: 'relative', minHeight: 158, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundImage: `${lightTile}, url('${bp?.image || '/splash-bg-journal.jpg'}')`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: tileShadow, fontFamily: 'var(--font-jakarta), sans-serif' }}
+            style={{ position: 'relative', minHeight: 158, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundColor: '#FDFAF5', boxShadow: tileShadow, fontFamily: 'var(--font-jakarta), sans-serif' }}
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={bp?.image || '/splash-bg-journal.jpg'} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.06)' }} />
+            <span style={{ position: 'absolute', inset: 0, background: lightTile }} />
             <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 11, gap: 5 }}>
               <Badge color="#2D5A3D" icon={BIcons.tag} label={<span style={{ lineHeight: 1.1 }}>Bon plan<br />du jour</span>} />
               <span style={{ color: '#1A1209', fontSize: 15, fontFamily: serif, lineHeight: 1.35 }}>{bp?.titre ?? 'Les bons plans'}</span>
@@ -187,8 +190,11 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => { if (dec) onRubrique(decouvrirHref(dec.kind, dec.id)); else if (isAdmin) setPickerOpen(true); else onExplore() }}
-              style={{ position: 'relative', width: '100%', minHeight: 158, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundImage: `${lightTile}, url('${dec?.photo || '/splash-bg-aujourdhui.jpg'}')`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: tileShadow, fontFamily: 'var(--font-jakarta), sans-serif', display: 'block' }}
+              style={{ position: 'relative', width: '100%', minHeight: 158, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundColor: '#FDFAF5', boxShadow: tileShadow, fontFamily: 'var(--font-jakarta), sans-serif', display: 'block' }}
             >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={dec?.photo || '/splash-bg-aujourdhui.jpg'} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.06)' }} />
+              <span style={{ position: 'absolute', inset: 0, background: lightTile }} />
               <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 11, gap: 5 }}>
                 <Badge color="#C84B2F" icon={BIcons.compass} label="À découvrir" />
                 <span style={{ color: '#1A1209', fontSize: 15, fontFamily: serif, lineHeight: 1.35 }}>{dec?.title || (isAdmin ? 'Choisir une mise en avant' : 'À découvrir au village')}</span>
