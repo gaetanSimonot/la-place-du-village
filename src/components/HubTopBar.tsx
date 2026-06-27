@@ -1,6 +1,5 @@
 'use client'
 import type { ReactNode } from 'react'
-import InstallOrShareButton from '@/components/InstallOrShareButton'
 
 interface Props {
   /** Ouvre la recherche globale (la loupe). */
@@ -46,7 +45,20 @@ export default function HubTopBar({ onOpenSearch, onOpenSplash, onShareApp, onOp
 
       {/* Icônes : partager · menu · loupe · photos */}
       <div className="flex shrink-0 items-center gap-0.5">
-        {onShareApp && <InstallOrShareButton onShare={onShareApp} />}
+        {onShareApp && (
+          <button
+            type="button"
+            onClick={onShareApp}
+            aria-label="Partager l'app"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-texte"
+          >
+            {/* Flèche « partager / transférer » orientée vers la droite */}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="13 6 19 12 13 18" />
+              <path d="M19 12H8a4 4 0 0 0-4 4v2" />
+            </svg>
+          </button>
+        )}
         {onOpenMenu && (
           <button
             type="button"

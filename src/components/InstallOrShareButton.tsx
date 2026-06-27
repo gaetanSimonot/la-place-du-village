@@ -17,9 +17,8 @@ type DeferredPrompt = { prompt: () => Promise<void>; userChoice: Promise<{ outco
 type Mode = 'share' | 'install-ios' | 'install-android'
 
 const DISMISS_KEY = 'pwa_install_dismissed'
-// Partage = icône plate (comme loupe/menu) ; Installer = pastille encadrée verte qui ressort.
-const BTN_PLAIN = 'flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-texte'
-const BTN_INSTALL = 'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#2D5A3D] bg-white text-[#2D5A3D] shadow-[0_1px_2px_rgba(44,28,16,0.04)]'
+const BTN_CLASS =
+  'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte shadow-[0_1px_2px_rgba(44,28,16,0.04)]'
 
 function isStandalone(): boolean {
   if (typeof window === 'undefined') return false
@@ -86,7 +85,8 @@ export default function InstallOrShareButton({ onShare }: { onShare: () => void 
         type="button"
         onClick={handleClick}
         aria-label={installing ? "Installer l'app" : "Partager l'app"}
-        className={installing ? BTN_INSTALL : BTN_PLAIN}
+        className={BTN_CLASS}
+        style={installing ? { borderColor: '#2D5A3D', color: '#2D5A3D' } : undefined}
       >
         {installing ? <IconInstall /> : <IconShare />}
       </button>
@@ -96,11 +96,11 @@ export default function InstallOrShareButton({ onShare }: { onShare: () => void 
 }
 
 function IconShare() {
-  // Flèche horizontale orientée vers la DROITE (partager / transférer, ≠ télécharger).
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="4" y1="12" x2="19" y2="12" />
-      <polyline points="13 6 19 12 13 18" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+      <polyline points="16 6 12 2 8 6" />
+      <line x1="12" y1="2" x2="12" y2="15" />
     </svg>
   )
 }
