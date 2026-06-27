@@ -2,7 +2,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import Image from 'next/image'
 import useSWR from 'swr'
 import { supabase } from '@/lib/supabase'
@@ -157,7 +156,7 @@ export default function HubView({
   onOpenInfo, onOpenSearch, onOpenSplash,
 }: Props) {
   const router = useRouter()
-  const { profile, isAdmin } = useAuth()
+  const { profile } = useAuth()
   // Carte d'abonnement sur l'accueil : masquée si déjà dismissée (par user) ou
   // si le plan est déjà payant.
   const [plansCardDismissed, setPlansCardDismissed] = useState(false)
@@ -405,7 +404,7 @@ export default function HubView({
         .pdv-hscroll::-webkit-scrollbar { display: none; }
       `}</style>
 
-      {/* ── 1. Top bar ─────────────────────────────────────────────────── */}
+      {/* ── 1. Top bar (logo + salutation + compteur + EN DIRECT + icônes) ── */}
       <HubTopBar
         onOpenSearch={onOpenSearch}
         onOpenSplash={onOpenSplash}
@@ -416,43 +415,21 @@ export default function HubView({
           url:   'https://laplaceduvillage.app',
         })}
         rightSlot={<MomentsPastille />}
+        greeting={
+          <>
+            <div className="truncate font-serif text-[17px] leading-[1.1] text-texte" style={{ letterSpacing: '-0.01em' }}>
+              Bonjour, {firstName}
+            </div>
+            <div className="mt-0.5 flex items-center gap-1.5 text-[11.5px] text-texte-doux">
+              <span className="truncate"><span className="font-semibold text-texte">{totalNear}</span> événement{totalNear > 1 ? 's' : ''} près de toi</span>
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#E8F2EB] px-1.5 py-[2px] text-[9px] font-extrabold tracking-[0.06em] text-primary">
+                <span className="inline-block h-[5px] w-[5px] rounded-full bg-[#5BC85B]" style={{ boxShadow: '0 0 0 2px rgba(91,200,91,0.30)' }} />
+                EN DIRECT
+              </span>
+            </div>
+          </>
+        }
       />
-
-      {/* ── 3. Greeting + bouton "Les gens" + compteur events + EN DIRECT ─ */}
-      <div className="px-4 pt-[18px]">
-        <div className="flex items-start justify-between gap-3">
-          <h1
-            className="m-0 min-w-0 flex-1 truncate font-serif text-[19px] leading-[1.1] text-texte"
-            style={{ letterSpacing: '-0.01em' }}
-          >
-            Bonjour, {firstName}
-          </h1>
-          {/* Bouton "Les gens" — temporairement caché aux non-admins le temps
-              de décider de l'approche finale (compteur visites vs compteur
-              membres, etc.). Reste accessible aux admins pour test. */}
-          {isAdmin && (
-            <Link
-              href="/people"
-              className="flex shrink-0 items-center gap-1.5 rounded-full border border-bord bg-white px-3 py-1.5 text-[12px] font-bold text-texte no-underline"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-              </svg>
-              Les gens
-            </Link>
-          )}
-        </div>
-        <p className="mt-1 flex items-center gap-2 text-[13px] text-texte-doux">
-          <span><span className="font-semibold text-texte">{totalNear}</span> événement{totalNear > 1 ? 's' : ''} près de toi</span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-[#E8F2EB] px-1.5 py-[2px] text-[9px] font-extrabold tracking-[0.06em] text-primary">
-            <span
-              className="inline-block h-[5px] w-[5px] rounded-full bg-[#5BC85B]"
-              style={{ boxShadow: '0 0 0 2px rgba(91,200,91,0.30)' }}
-            />
-            EN DIRECT
-          </span>
-        </p>
-      </div>
 
       {/* ── 4. Hero carousel À LA UNE ─────────────────────────────────── */}
       {!heroLoaded ? (

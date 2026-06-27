@@ -17,8 +17,9 @@ type DeferredPrompt = { prompt: () => Promise<void>; userChoice: Promise<{ outco
 type Mode = 'share' | 'install-ios' | 'install-android'
 
 const DISMISS_KEY = 'pwa_install_dismissed'
-const BTN_CLASS =
-  'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte shadow-[0_1px_2px_rgba(44,28,16,0.04)]'
+// Partage = icône plate (comme loupe/menu) ; Installer = pastille encadrée verte qui ressort.
+const BTN_PLAIN = 'flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-texte'
+const BTN_INSTALL = 'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#2D5A3D] bg-white text-[#2D5A3D] shadow-[0_1px_2px_rgba(44,28,16,0.04)]'
 
 function isStandalone(): boolean {
   if (typeof window === 'undefined') return false
@@ -85,8 +86,7 @@ export default function InstallOrShareButton({ onShare }: { onShare: () => void 
         type="button"
         onClick={handleClick}
         aria-label={installing ? "Installer l'app" : "Partager l'app"}
-        className={BTN_CLASS}
-        style={installing ? { borderColor: '#2D5A3D', color: '#2D5A3D' } : undefined}
+        className={installing ? BTN_INSTALL : BTN_PLAIN}
       >
         {installing ? <IconInstall /> : <IconShare />}
       </button>
@@ -96,11 +96,11 @@ export default function InstallOrShareButton({ onShare }: { onShare: () => void 
 }
 
 function IconShare() {
+  // Flèche « partager / transférer » orientée vers la droite (≠ télécharger).
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-      <polyline points="16 6 12 2 8 6" />
-      <line x1="12" y1="2" x2="12" y2="15" />
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="15 17 20 12 15 7" />
+      <path d="M4 18v-1a5 5 0 0 1 5-5h11" />
     </svg>
   )
 }
