@@ -131,7 +131,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
                 <span style={{ display: 'block', color: '#F4A24A', fontSize: 18 }}>aujourd'hui</span>
               </span>
               <span style={{ color: 'rgba(255,255,255,0.88)', fontSize: 13, fontWeight: 600, marginTop: 1 }}>{auj?.week ?? 0} cette semaine</span>
-              {linkRow('Explorer', '#F4A24A')}
+              <span style={{ marginTop: 'auto', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(4px)', color: '#fff', borderRadius: 6, padding: '7px 12px', fontSize: 12, fontWeight: 800 }}>Explorer {ARROW}</span>
             </span>
           </button>
 
