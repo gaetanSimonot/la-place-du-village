@@ -9,23 +9,23 @@ export const dynamic = 'force-dynamic'
 function parisDate(d: Date): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d)
 }
-function weekendDates(): [string, string] {
+function weekRange(): [string, string] {
   const wd = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', weekday: 'short' }).format(new Date())
   const map: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
   const day = map[wd] ?? 0
-  const toSat = (6 - day + 7) % 7
-  const sat = new Date(Date.now() + toSat * 86_400_000)
-  const sun = new Date(sat.getTime() + 86_400_000)
-  return [parisDate(sat), parisDate(sun)]
+  const toMon = day === 0 ? 6 : day - 1
+  const mon = new Date(Date.now() - toMon * 86_400_000)
+  const sun = new Date(mon.getTime() + 6 * 86_400_000)
+  return [parisDate(mon), parisDate(sun)]
 }
 
 export async function GET() {
   const today = parisDate(new Date())
-  const [sat, sun] = weekendDates()
+  const [mon, sun] = weekRange()
 
-  const [todayCntRes, weekendCntRes, topicsCntRes, commentsRes, journalRes, promoCfgRes, momentRes, heroRes, decouvrirRes] = await Promise.all([
+  const [todayCntRes, weekCntRes, topicsCntRes, commentsRes, journalRes, promoCfgRes, momentRes, heroRes, decouvrirRes] = await Promise.all([
     supabaseAdmin.from('evenements').select('id', { count: 'exact', head: true }).eq('statut', 'publie').eq('date_debut', today),
-    supabaseAdmin.from('evenements').select('id', { count: 'exact', head: true }).eq('statut', 'publie').in('date_debut', [sat, sun]),
+    supabaseAdmin.from('evenements').select('id', { count: 'exact', head: true }).eq('statut', 'publie').gte('date_debut', mon).lte('date_debut', sun),
     supabaseAdmin.from('forum_topics').select('id', { count: 'exact', head: true }),
     supabaseAdmin.from('forum_comments').select('topic_id'),
     supabaseAdmin.from('journaux_hebdo').select('numero, cover_titre, cover_kicker').eq('statut', 'publie').order('numero', { ascending: false }).limit(1).maybeSingle(),
@@ -41,7 +41,7 @@ export async function GET() {
 
   const aujourdhui = {
     today: todayCntRes.count ?? 0,
-    weekend: weekendCntRes.count ?? 0,
+    week: weekCntRes.count ?? 0,        // nb d'événements cette semaine (lun→dim)
     debates: topicsCntRes.count ?? 0,   // nb de sujets de la place publique
   }
 
@@ -53,17 +53,19 @@ export async function GET() {
   const ranked = Object.entries(tally).sort((a, b) => b[1] - a[1])
   const topId = ranked[0]?.[0] ?? null
   let topComments = topId ? ranked[0][1] : 0
+  type TopicRow = { id: string; titre: string; media: { url?: string }[] | null }
   let topRow = topId
-    ? (await supabaseAdmin.from('forum_topics').select('id, titre').eq('id', topId).maybeSingle()).data as { id: string; titre: string } | null
+    ? (await supabaseAdmin.from('forum_topics').select('id, titre, media').eq('id', topId).maybeSingle()).data as TopicRow | null
     : null
   if (!topRow) {
-    topRow = (await supabaseAdmin.from('forum_topics').select('id, titre').order('created_at', { ascending: false }).limit(1).maybeSingle()).data as { id: string; titre: string } | null
+    topRow = (await supabaseAdmin.from('forum_topics').select('id, titre, media').order('created_at', { ascending: false }).limit(1).maybeSingle()).data as TopicRow | null
     topComments = topRow ? (tally[topRow.id] ?? 0) : 0
   }
-  let caFaitParler: { id: string; titre: string; comments: number; votes: number } | null = null
+  let caFaitParler: { id: string; titre: string; comments: number; votes: number; image: string | null } | null = null
   if (topRow) {
     const { count: votes } = await supabaseAdmin.from('forum_poll_votes').select('*', { count: 'exact', head: true }).eq('topic_id', topRow.id)
-    caFaitParler = { id: topRow.id, titre: topRow.titre, comments: topComments, votes: votes ?? 0 }
+    const image = Array.isArray(topRow.media) ? (topRow.media.find(m => m?.url)?.url ?? null) : null
+    caFaitParler = { id: topRow.id, titre: topRow.titre, comments: topComments, votes: votes ?? 0, image }
   }
 
   // ── Journal ─────────────────────────────────────────────────────────────

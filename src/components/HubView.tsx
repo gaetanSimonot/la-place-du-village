@@ -409,6 +409,7 @@ export default function HubView({
       <HubTopBar
         onOpenSearch={onOpenSearch}
         onOpenSplash={onOpenSplash}
+        onOpenMenu={onOpenInfo}
         onShareApp={() => shareLink({
           title: 'La Place du Village',
           text:  'Le village vivant autour de Ganges : événements, commerces, producteurs, annonces.',

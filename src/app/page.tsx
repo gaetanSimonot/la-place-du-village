@@ -1282,7 +1282,6 @@ export default function HomePage() {
         <EditorialSplash
           onExplore={() => { setShowHub(true); setNavTab('accueil'); setSplashOpen(false) }}
           onRubrique={(href) => { setSplashOpen(false); router.push(href) }}
-          onInfo={() => setInfoOpen(true)}
           onToday={() => { setSplashOpen(false); enterAgendaToday(); setSheetMode('half') }}
           isAdmin={isAdmin}
         />
