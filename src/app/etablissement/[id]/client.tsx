@@ -46,11 +46,33 @@ function timeAgo(d: string) {
   const h = Math.floor(m / 60); if (h < 24) return `${h}h`; return `${Math.floor(h / 24)}j`
 }
 
-/** Transforme les URLs d'un texte en liens cliquables (le reste en texte brut). */
+/** Libellé lisible selon le service (affiché à la place de l'URL brute). */
+function linkLabel(url: string): string {
+  let host = ''
+  try { host = new URL(url).hostname.replace(/^www\./, '') } catch { return 'Ouvrir le lien' }
+  if (host.includes('chat.whatsapp.com')) return 'Rejoindre le groupe WhatsApp'
+  if (host === 'wa.me' || host.includes('whatsapp'))    return 'Écrire sur WhatsApp'
+  if (host.includes('signal.group'))                    return 'Rejoindre le groupe Signal'
+  if (host.includes('signal.'))                         return 'Contacter sur Signal'
+  if (host === 't.me' || host.includes('telegram'))     return 'Rejoindre sur Telegram'
+  if (host.includes('facebook') || host.startsWith('fb.')) return 'Voir sur Facebook'
+  if (host.includes('instagram'))                       return 'Voir sur Instagram'
+  if (host.includes('youtu'))                           return 'Voir la vidéo'
+  if (host.includes('google') && url.includes('map'))   return 'Voir sur la carte'
+  return host   // sinon : le domaine, propre (ex. exemple.com)
+}
+
+/** Transforme les URLs d'un texte en boutons-liens cliquables (libellé lisible). */
 function linkify(text: string): React.ReactNode {
   return text.split(/(https?:\/\/[^\s]+)/g).map((part, i) =>
     /^https?:\/\//.test(part)
-      ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ color: '#2D5A3D', fontWeight: 700, textDecoration: 'underline', overflowWrap: 'anywhere' }}>{part}</a>
+      ? (
+        <a key={i} href={part} target="_blank" rel="noopener noreferrer"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#E8F2EB', color: '#2D5A3D', fontWeight: 700, fontSize: 12.5, padding: '3px 9px', borderRadius: 8, textDecoration: 'none', verticalAlign: 'middle', overflowWrap: 'anywhere' }}>
+          {linkLabel(part)}
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M7 17 17 7" /><path d="M8 7h9v9" /></svg>
+        </a>
+      )
       : part,
   )
 }
