@@ -1,9 +1,9 @@
 'use client'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
+import { compressImage, uploadViaSignedUrl } from '@/lib/clientUpload'
 import EmbedPicker, { type EmbedItem } from '@/components/EmbedPicker'
-import ImageLibraryPicker from '@/components/ImageLibraryPicker'
 
 /* Données réelles renvoyées par /api/splash */
 interface SplashData {
@@ -111,22 +111,33 @@ export default function EditorialSplash({ onExplore, onRubrique, onSearch, onSha
     load()
   }
 
-  // Admin : choix de l'image héro via la bibliothèque
-  const [libOpen, setLibOpen] = useState(false)
-  // Override local : l'image choisie a la priorité absolue à l'écran et n'est
-  // JAMAIS écrasée par un refetch (fini le « ça revient à l'ancienne »).
+  // Admin : changer l'image héro — loader direct (pas de bibliothèque).
+  // heroOverride : priorité absolue à l'écran, jamais écrasé par un refetch.
   const [heroOverride, setHeroOverride] = useState<string | null>(null)
-  const setHero = async (url: string) => {
-    setHeroOverride(url)   // affichage immédiat et persistant côté écran
-    await supabase.auth.refreshSession().catch(() => {})   // token frais (évite l'échec silencieux du POST admin)
-    const { data: { session } } = await supabase.auth.getSession()
-    const tk = session?.access_token
-    const r = await fetch('/api/splash/hero', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
-      body: JSON.stringify({ url }),
-    }).catch(() => null)
-    if (!r || !r.ok) toast.error("Image affichée mais pas enregistrée — réessaie")
+  const [heroBusy, setHeroBusy] = useState(false)
+  const heroInputRef = useRef<HTMLInputElement>(null)
+  const onHeroFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setHeroBusy(true)
+    try {
+      await supabase.auth.refreshSession().catch(() => {})   // token frais avant upload + POST
+      const compressed = await compressImage(file)
+      const { publicUrl } = await uploadViaSignedUrl({ file: compressed, kind: 'hub-hero-intro' })
+      setHeroOverride(publicUrl)   // change tout de suite et reste affiché
+      const { data: { session } } = await supabase.auth.getSession()
+      const tk = session?.access_token
+      const r = await fetch('/api/splash/hero', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
+        body: JSON.stringify({ url: publicUrl }),
+      }).catch(() => null)
+      if (!r || !r.ok) toast.error('Image affichée mais pas enregistrée — réessaie')
+    } catch (err) {
+      toast.error('Chargement échoué : ' + (err instanceof Error ? err.message : 'erreur'))
+    }
+    setHeroBusy(false)
   }
 
   const auj = d?.aujourdhui
@@ -164,12 +175,16 @@ export default function EditorialSplash({ onExplore, onRubrique, onSearch, onSha
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {heroSrc && <img src={heroSrc} alt="" style={{ width: '100%', height: 'auto', display: 'block' }} />}
           {isAdmin && (
-            <button
-              onClick={() => setLibOpen(true)}
-              style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(0,0,0,0.55)', color: '#fff', border: 'none', borderRadius: 999, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', backdropFilter: 'blur(4px)', fontFamily: 'var(--font-body), sans-serif' }}
-            >
-              ✎ Image
-            </button>
+            <>
+              <input ref={heroInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onHeroFile} />
+              <button
+                onClick={() => heroInputRef.current?.click()}
+                disabled={heroBusy}
+                style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(0,0,0,0.55)', color: '#fff', border: 'none', borderRadius: 999, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', backdropFilter: 'blur(4px)', fontFamily: 'var(--font-body), sans-serif' }}
+              >
+                {heroBusy ? 'Envoi…' : '✎ Image'}
+              </button>
+            </>
           )}
         </div>
 
@@ -247,7 +262,6 @@ export default function EditorialSplash({ onExplore, onRubrique, onSearch, onSha
 
       {/* Admin : sélection de l'élément « À découvrir » (fouille toute l'app) */}
       {pickerOpen && <EmbedPicker onSelect={savePick} onClose={() => setPickerOpen(false)} />}
-      {libOpen && <ImageLibraryPicker currentUrl={d?.hero} onSelect={u => { setLibOpen(false); setHero(u) }} onClose={() => setLibOpen(false)} />}
     </div>
   )
 }
