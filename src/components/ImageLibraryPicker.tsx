@@ -31,9 +31,10 @@ export default function ImageLibraryPicker({ onSelect, onClose, currentUrl }: {
     if (!file) return
     setBusy(true)
     try {
+      await supabase.auth.refreshSession().catch(() => {})   // token frais AVANT l'upload (sinon « Non authentifié »)
       const compressed = await compressImage(file)
       const { publicUrl } = await uploadViaSignedUrl({ file: compressed, kind: 'hub-hero-intro' })
-      const tk = await token()
+      const tk = (await supabase.auth.getSession()).data.session?.access_token
       const r = await fetch('/api/image-library', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
@@ -42,7 +43,9 @@ export default function ImageLibraryPicker({ onSelect, onClose, currentUrl }: {
       if (r.ok) { const d = await r.json(); setImages(d.images ?? []) }
       onSelect(publicUrl)   // sélectionne directement la nouvelle image
       onClose()
-    } catch { /* noop */ }
+    } catch (err) {
+      toast.error('Import échoué : ' + (err instanceof Error ? err.message : 'erreur'))
+    }
     setBusy(false)
   }
 
