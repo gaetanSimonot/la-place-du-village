@@ -33,10 +33,10 @@ export async function GET() {
     supabaseAdmin.from('moments').select('id, auteur_id, media_kind, media_url, poster_url, legende').eq('sur_accueil', true).gt('expires_at', new Date().toISOString()).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from('config').select('value').eq('key', 'splash_hero_image_url').maybeSingle(),
     supabaseAdmin.from('config').select('value').eq('key', 'splash_decouvrir').maybeSingle(),
-    supabaseAdmin.from('evenements').select('id, titre, commune, date_debut').eq('statut', 'publie').gte('date_debut', today).order('date_debut', { ascending: true }).limit(3),
+    supabaseAdmin.from('evenements').select('id, titre, commune, heure').eq('statut', 'publie').eq('date_debut', today).order('heure', { ascending: true, nullsFirst: false }).limit(3),
   ])
 
-  // 3 prochains événements (bloc « Aujourd'hui »)
+  // 3 événements du jour (mêmes que les tuiles « Aujourd'hui » du hub)
   const events = ((eventsRes.data ?? []) as { id: string; titre: string; commune: string | null }[])
     .map(e => ({ id: e.id, titre: e.titre, commune: e.commune }))
 
