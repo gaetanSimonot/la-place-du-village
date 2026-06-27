@@ -125,7 +125,10 @@ export default function EditorialSplash({ onExplore, onRubrique, onSearch, onSha
     try {
       await supabase.auth.refreshSession().catch(() => {})   // token frais avant upload + POST
       const compressed = await compressImage(file)
-      const { publicUrl } = await uploadViaSignedUrl({ file: compressed, kind: 'hub-hero-intro' })
+      // kind 'admin-edit' = chemin UNIQUE par upload (edits/{aléatoire}.jpg) →
+      // URL différente à chaque fois → jamais d'image en cache (comme une photo
+      // d'événement). 'hub-hero-intro' écrivait toujours hero-intro.jpg (cache).
+      const { publicUrl } = await uploadViaSignedUrl({ file: compressed, kind: 'admin-edit' })
       setHeroOverride(publicUrl)   // change tout de suite et reste affiché
       const { data: { session } } = await supabase.auth.getSession()
       const tk = session?.access_token
