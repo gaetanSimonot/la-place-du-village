@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import useSWR from 'swr'
+import { authedFetcher } from '@/lib/swr-fetchers'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useFriendships } from '@/hooks/useFriendships'
@@ -47,7 +48,7 @@ export default function ProfilHybridView({ onOpenNotifs, notifUnread }: { onOpen
   // Messages non-lus (annonce + covoit + ami + support) → badge enveloppe.
   // SWR sur la même clé que la boîte unifiée : se met à jour en direct quand une
   // conversation est lue (les clients de conv appellent mutate('/api/messages')).
-  const { data: msgData } = useSWR<{ conversations?: { unreadCount?: number }[] }>(user ? '/api/messages' : null)
+  const { data: msgData } = useSWR<{ conversations?: { unreadCount?: number }[] }>(user ? '/api/messages' : null, authedFetcher)
   const msgUnread = (msgData?.conversations ?? []).reduce((s, c) => s + (c.unreadCount || 0), 0)
 
   // Initialise activeTab depuis ?tab= (window.location pour éviter le bailout CSR
