@@ -127,13 +127,13 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
                 <span style={{ display: 'block', color: '#fff', fontSize: 19 }}>événements</span>
                 <span style={{ display: 'block', color: '#F4A24A', fontSize: 19 }}>aujourd'hui</span>
               </span>
-              <span style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 2 }}>
+              <span style={{ display: 'flex', flexDirection: 'column', gap: 11, marginTop: 4 }}>
                 {events.slice(0, 3).map(ev => (
-                  <span key={ev.id} style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F4A24A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><rect x="3" y="5" width="18" height="16" rx="2" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                  <span key={ev.id} style={{ display: 'flex', gap: 7, alignItems: 'flex-start' }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F4A24A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}><rect x="3" y="5" width="18" height="16" rx="2" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
                     <span style={{ minWidth: 0 }}>
-                      <span style={{ display: 'block', color: '#fff', fontSize: 12, fontWeight: 700, lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.titre}</span>
-                      {ev.commune && <span style={{ display: 'block', color: 'rgba(255,255,255,0.7)', fontSize: 10.5, lineHeight: 1.2 }}>{ev.commune}</span>}
+                      <span style={{ display: 'block', color: '#fff', fontSize: 12.5, fontWeight: 600, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.titre}</span>
+                      {ev.commune && <span style={{ display: 'block', color: 'rgba(255,255,255,0.68)', fontSize: 10.5, fontWeight: 400, lineHeight: 1.25 }}>{ev.commune}</span>}
                     </span>
                   </span>
                 ))}
