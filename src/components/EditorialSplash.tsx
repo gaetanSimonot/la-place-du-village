@@ -101,6 +101,15 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
   const tileShadow = '0 2px 12px rgba(60,40,20,0.10)'
   // + liseré interne ivoire 1px : masque le hairline noir des coins arrondis sur les tuiles <img>
   const tileShadowEdge = '0 2px 12px rgba(60,40,20,0.10), inset 0 0 0 1px #FDFAF5'
+  // Titre des petites tuiles : plus c'est court, plus c'est gros (occupe mieux l'espace)
+  const tileTitleSize = (t?: string | null) => {
+    const n = (t ?? '').trim().length
+    if (n <= 14) return 20
+    if (n <= 22) return 17
+    if (n <= 34) return 15
+    if (n <= 50) return 13
+    return 12
+  }
 
   const linkRow = (label: string, color: string, chip?: boolean) => chip ? (
     <span style={{ marginTop: 'auto', alignSelf: 'flex-start', maxWidth: '100%', display: 'inline-flex', alignItems: 'center', gap: 4, color, fontSize: 11, fontWeight: 800, background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(3px)', borderRadius: 6, padding: '3px 8px' }}>
@@ -168,7 +177,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
           >
             <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 11, gap: 6 }}>
               <Badge color="#3A5BC7" icon={BIcons.book} label="Le journal" />
-              <span style={{ color: '#1A1209', fontSize: 13, fontFamily: serif, lineHeight: 1.3 }}>{jrn?.titre ?? 'Le Journal du Village'}</span>
+              <span style={{ color: '#1A1209', fontSize: tileTitleSize(jrn?.titre ?? 'Le Journal du Village'), fontFamily: serif, lineHeight: 1.25 }}>{jrn?.titre ?? 'Le Journal du Village'}</span>
               {linkRow("Lire l'article", '#3A5BC7', true)}
             </span>
           </button>
@@ -183,7 +192,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
             <span style={{ position: 'absolute', inset: 0, background: lightTile }} />
             <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 11, gap: 5 }}>
               <Badge color="#2D5A3D" icon={BIcons.tag} label={<span style={{ lineHeight: 1.1 }}>Bon plan<br />du jour</span>} />
-              <span style={{ color: '#1A1209', fontSize: 13, fontFamily: serif, lineHeight: 1.3 }}>{bp?.titre ?? 'Les bons plans'}</span>
+              <span style={{ color: '#1A1209', fontSize: tileTitleSize(bp?.titre ?? 'Les bons plans'), fontFamily: serif, lineHeight: 1.25 }}>{bp?.titre ?? 'Les bons plans'}</span>
               {bp?.sous && <span style={{ color: '#6B5E4E', fontSize: 11, fontStyle: 'italic', lineHeight: 1.25 }}>{bp.sous}</span>}
               {linkRow('En profiter', '#2D5A3D', true)}
             </span>
@@ -200,7 +209,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
               <span style={{ position: 'absolute', inset: 0, background: lightTile }} />
               <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 11, gap: 5 }}>
                 <Badge color="#C84B2F" icon={BIcons.compass} label="À découvrir" />
-                <span style={{ color: '#1A1209', fontSize: 13, fontFamily: serif, lineHeight: 1.3 }}>{dec?.title || (isAdmin ? 'Choisir une mise en avant' : 'À découvrir au village')}</span>
+                <span style={{ color: '#1A1209', fontSize: tileTitleSize(dec?.title || (isAdmin ? 'Choisir une mise en avant' : 'À découvrir au village')), fontFamily: serif, lineHeight: 1.25 }}>{dec?.title || (isAdmin ? 'Choisir une mise en avant' : 'À découvrir au village')}</span>
                 {linkRow('En savoir plus', '#C84B2F', true)}
               </span>
             </button>
