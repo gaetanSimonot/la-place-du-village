@@ -30,8 +30,6 @@ function decouvrirHref(kind: string, id: string): string {
   }
 }
 
-const NAV_H = 62
-
 /* Icônes RÉUTILISÉES du site (EmbedPicker / moments / messagerie), recolorées */
 const SVG = { width: 25, height: 25, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
 const Icons = {
@@ -79,16 +77,12 @@ function Rubrique({ kicker, color, iconBg, icon, title, subParts, thumb, onClick
   )
 }
 
-export default function EditorialSplash({ onExplore, onRubrique, onSearch, onShare, onInfo, onNotifs, onToday, isAdmin = false, notifUnread = 0 }: {
+export default function EditorialSplash({ onExplore, onRubrique, onInfo, onToday, isAdmin = false }: {
   onExplore: () => void
   onRubrique: (href: string) => void
-  onSearch?: () => void
-  onShare?: () => void
   onInfo?: () => void
-  onNotifs?: () => void
   onToday?: () => void
   isAdmin?: boolean
-  notifUnread?: number
 }) {
   const [d, setD] = useState<SplashData | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -149,24 +143,14 @@ export default function EditorialSplash({ onExplore, onRubrique, onSearch, onSha
   const heroSrc = heroOverride || d?.hero || null
 
   return (
-    <div className="pdv-hscroll" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 250, backgroundColor: '#FDFAF5', overflowY: 'auto', WebkitOverflowScrolling: 'touch', fontFamily: 'var(--font-jakarta), sans-serif' }}>
+    <div className="pdv-hscroll" style={{ position: 'fixed', inset: 0, zIndex: 250, backgroundColor: '#FDFAF5', overflowY: 'auto', WebkitOverflowScrolling: 'touch', fontFamily: 'var(--font-jakarta), sans-serif' }}>
       <div style={{ maxWidth: 560, margin: '0 auto', padding: 'max(10px, env(safe-area-inset-top, 10px)) 11px 20px', display: 'flex', flexDirection: 'column', gap: 11 }}>
 
-        {/* En-tête unifié avec le hub : logo (gauche) + loupe + partager + cloche + menu */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 2, paddingTop: 2 }}>
+        {/* En-tête épuré (teaser) : logo + menu infos */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 2 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/splash-logo-v4.png" alt="La Place du Village" style={{ height: 52, width: 'auto', maxWidth: '46%', objectFit: 'contain', display: 'block' }} />
+          <img src="/splash-logo-v4.png" alt="La Place du Village" style={{ height: 52, width: 'auto', maxWidth: '70%', objectFit: 'contain', display: 'block' }} />
           <div style={{ flex: 1 }} />
-          <button aria-label="Rechercher" onClick={onSearch} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1A1209', padding: 5 }}>
-            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><line x1="16.5" y1="16.5" x2="21" y2="21" /></svg>
-          </button>
-          <button aria-label="Partager" onClick={onShare} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1A1209', padding: 5 }}>
-            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.6" y1="13.5" x2="15.4" y2="17.5" /><line x1="15.4" y1="6.5" x2="8.6" y2="10.5" /></svg>
-          </button>
-          <button aria-label="Notifications" onClick={onNotifs} style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', color: '#1A1209', padding: 5 }}>
-            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
-            {notifUnread > 0 && <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: 4, background: '#E8622A' }} />}
-          </button>
           <button aria-label="À propos" onClick={onInfo} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1A1209', padding: 5 }}>
             <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="14" y2="17" /></svg>
           </button>

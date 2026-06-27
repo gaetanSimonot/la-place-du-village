@@ -14,6 +14,7 @@ import HubTopBar from '@/components/HubTopBar'
 import MomentsPastille from '@/components/moments/MomentsPastille'
 import PlansCardFinal from '@/components/PlansCardFinal'
 import { useAnnonceFavorites } from '@/hooks/useAnnonceFavorites'
+import { shareLink } from '@/lib/share'
 import { normalizeHubOrder } from '@/lib/hubSections'
 // Fetcher + config SWR héritent du provider global (cf. src/components/SWRProvider.tsx).
 
@@ -408,6 +409,11 @@ export default function HubView({
       <HubTopBar
         onOpenSearch={onOpenSearch}
         onOpenSplash={onOpenSplash}
+        onShareApp={() => shareLink({
+          title: 'La Place du Village',
+          text:  'Le village vivant autour de Ganges : événements, commerces, producteurs, annonces.',
+          url:   'https://laplaceduvillage.app',
+        })}
         rightSlot={<MomentsPastille />}
       />
 

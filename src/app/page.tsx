@@ -19,7 +19,6 @@ import FavorisView from '@/components/FavorisView'
 import NotificationsView from '@/components/NotificationsView'
 import CommerceRequestModal from '@/components/CommerceRequestModal'
 import AppInfoModal from '@/components/AppInfoModal'
-import { shareLink } from '@/lib/share'
 import WelcomeModal from '@/components/WelcomeModal'
 import HubView from '@/components/HubView'
 import HubSearchModal, { type SearchKind } from '@/components/HubSearchModal'
@@ -1283,17 +1282,9 @@ export default function HomePage() {
         <EditorialSplash
           onExplore={() => { setShowHub(true); setNavTab('accueil'); setSplashOpen(false) }}
           onRubrique={(href) => { setSplashOpen(false); router.push(href) }}
-          onSearch={() => { setSplashOpen(false); setSearchOpen(true) }}
-          onShare={() => shareLink({
-            title: 'La Place du Village',
-            text:  'Le village vivant autour de Ganges : événements, commerces, producteurs, annonces.',
-            url:   'https://laplaceduvillage.app',
-          })}
-          onNotifs={() => handleNavTab('notifs')}
           onInfo={() => setInfoOpen(true)}
           onToday={() => { setSplashOpen(false); enterAgendaToday(); setSheetMode('half') }}
           isAdmin={isAdmin}
-          notifUnread={notifCount}
         />
       )}
 
@@ -1323,8 +1314,7 @@ export default function HomePage() {
       <BottomNavBar
         activeTab={navTab}
         onNavigate={(id) => handleNavTab(id as NavTab)}
-        onPlus={() => { setSplashOpen(false); handlePublierClick() }}
-        forcePlus={splashOpen}
+        onPlus={handlePublierClick}
       />
 
     </div>
