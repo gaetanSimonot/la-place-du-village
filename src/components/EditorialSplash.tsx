@@ -27,12 +27,6 @@ function decouvrirHref(kind: string, id: string): string {
   }
 }
 
-const ARROW = (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-    <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
-  </svg>
-)
-
 /* Petites icônes des rubriques (réutilisées du site) */
 const bi = { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
 const BIcons = {
@@ -43,13 +37,13 @@ const BIcons = {
   compass: <svg {...bi}><circle cx="12" cy="12" r="10" /><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" /></svg>,
 }
 
-/* Badge : "filled" = rect à peine arrondi coloré (tuiles sombres) ; sinon plat sans capsule (tuiles claires) */
+/* Badge : "filled" = pill colorée (tuiles haut) ; sinon plat (tuiles bas) */
 function Badge({ color, label, icon, filled }: { color: string; label: React.ReactNode; icon: React.ReactNode; filled?: boolean }) {
   if (filled) return (
-    <span style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 5, background: color, color: '#fff', borderRadius: 6, padding: '4px 8px', fontSize: 8, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{icon}{label}</span>
+    <span style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 5, background: color, color: '#fff', borderRadius: 7, padding: '5px 10px', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', whiteSpace: 'nowrap', boxShadow: '0 1px 4px rgba(0,0,0,0.25)' }}>{icon}{label}</span>
   )
   return (
-    <span style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 5, color, fontSize: 8, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{icon}{label}</span>
+    <span style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 5, color, fontSize: 9.5, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{icon}{label}</span>
   )
 }
 
@@ -71,7 +65,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
     setPickerOpen(false)
     setD(prev => (prev ? { ...prev, decouvrir: item } : prev))   // affichage instantané (optimiste)
     try {
-      await supabase.auth.refreshSession().catch(() => {})        // token frais (sinon POST admin échoue en silence)
+      await supabase.auth.refreshSession().catch(() => {})
       const { data: { session } } = await supabase.auth.getSession()
       const tk = session?.access_token
       const r = await fetch('/api/splash/decouvrir', {
@@ -81,7 +75,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
       })
       if (!r.ok) throw new Error('HTTP ' + r.status)
       toast.success(item ? 'Mise en avant enregistrée' : 'Mise en avant retirée')
-      load()   // refetch de l'état persistant → confirme la prise en compte (comme le home)
+      load()
     } catch {
       toast.error("Échec de l'enregistrement — réessaie")
     }
@@ -93,31 +87,34 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
   const bp = d?.bonPlan
   const dec = d?.decouvrir
 
-  // Dégradés — transition franche sur la ligne de séparation (gauche net, image pure à droite)
-  const darkGrad = 'linear-gradient(to right, rgba(18,14,9,0.92) 0%, rgba(18,14,9,0.88) 48%, rgba(18,14,9,0) 86%)'
-  // Même dégradé pour les 3 petites tuiles : net haut-gauche → image pure bas-droite, avancé vers la droite
-  const lightTile = 'linear-gradient(to bottom right, rgba(253,250,245,1) 0%, rgba(253,250,245,1) 54%, rgba(253,250,245,0) 92%)'
-  const serif = 'var(--font-dm-serif), Georgia, serif'   // typo des titres de tuiles (proche de la réf)
-  const tileShadow = '0 2px 12px rgba(60,40,20,0.10)'
-  // + liseré interne ivoire 1px : masque le hairline noir des coins arrondis sur les tuiles <img>
-  const tileShadowEdge = '0 2px 12px rgba(60,40,20,0.10), inset 0 0 0 1px #FDFAF5'
-  // Titre des petites tuiles : plus c'est court, plus c'est gros (occupe mieux l'espace)
+  // ── Premium : overlay VERT qui recouvre l'image (plus foncé à gauche) ──
+  const greenOverlay = 'linear-gradient(to right, rgba(17,38,24,0.95) 0%, rgba(17,38,24,0.78) 52%, rgba(17,38,24,0.56) 100%)'
+  const tileBg = '#13291B'   // fond vert foncé sous l'image (évite tout liseré au bord arrondi)
+  const tileShadow = '0 3px 14px rgba(20,30,18,0.20)'
+  const serif = 'var(--font-dm-serif), Georgia, serif'
+
+  // Titre des petites tuiles : plus c'est court, plus c'est gros
   const tileTitleSize = (t?: string | null) => {
     const n = (t ?? '').trim().length
-    if (n <= 14) return 20
-    if (n <= 22) return 17
-    if (n <= 34) return 15
-    if (n <= 50) return 13
-    return 12
+    if (n <= 14) return 21
+    if (n <= 24) return 18
+    if (n <= 38) return 15.5
+    if (n <= 54) return 13.5
+    return 12.5
   }
 
-  const linkRow = (label: string, color: string, chip?: boolean) => chip ? (
-    <span style={{ marginTop: 'auto', alignSelf: 'flex-start', maxWidth: '100%', display: 'inline-flex', alignItems: 'center', gap: 4, color, fontSize: 11, fontWeight: 800, background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(3px)', borderRadius: 6, padding: '3px 8px' }}>
+  const ARROW = (small?: boolean) => (
+    <svg width={small ? 13 : 16} height={small ? 13 : 16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
+    </svg>
+  )
+
+  // Bouton vert unique (toutes les tuiles). small → bas de tuile + plus compact.
+  const greenBtn = (label: string, small?: boolean) => (
+    <span style={{ alignSelf: 'flex-start', marginTop: small ? 'auto' : 8, maxWidth: '100%', display: 'inline-flex', alignItems: 'center', gap: 7, background: 'linear-gradient(180deg, #2b6044 0%, #1b4730 100%)', color: '#fff', borderRadius: 11, padding: small ? '8px 13px' : '11px 17px', fontSize: small ? 12 : 14, fontWeight: 800, boxShadow: '0 2px 6px rgba(12,28,18,0.35)' }}>
       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
+      {ARROW(small)}
     </span>
-  ) : (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color, fontSize: 12, fontWeight: 800, marginTop: 'auto', whiteSpace: 'nowrap' }}>{label} {ARROW}</span>
   )
 
   return (
@@ -140,61 +137,58 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
           {/* Aujourd'hui */}
           <button
             onClick={() => (onToday ? onToday() : onRubrique('/?tab=carte'))}
-            style={{ position: 'relative', minHeight: 230, borderRadius: 18, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundImage: `${darkGrad}, url('/splash-bg-aujourdhui.jpg')`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: tileShadow, fontFamily: 'var(--font-jakarta), sans-serif' }}
+            style={{ position: 'relative', minHeight: 244, borderRadius: 18, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundColor: tileBg, backgroundImage: `${greenOverlay}, url('/splash-bg-aujourdhui.jpg')`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: tileShadow, fontFamily: 'var(--font-jakarta), sans-serif' }}
           >
-            <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 13, gap: 7 }}>
+            <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '16px 15px', gap: 10 }}>
               <Badge color="#E8622A" filled icon={BIcons.calendar} label="Aujourd'hui" />
-              <span style={{ lineHeight: 1.22, fontFamily: serif }}>
-                <span style={{ display: 'block', color: '#fff', fontSize: 30 }}>{auj?.today ?? 0}</span>
-                <span style={{ display: 'block', color: '#fff', fontSize: 18 }}>événements</span>
-                <span style={{ display: 'block', color: '#F4A24A', fontSize: 18 }}>{"aujourd'hui"}</span>
+              <span style={{ fontFamily: serif, lineHeight: 1.16, color: '#fff' }}>
+                <span style={{ display: 'block', fontSize: 34 }}>{auj?.today ?? 0}</span>
+                <span style={{ display: 'block', fontSize: 19 }}>événements</span>
+                <span style={{ display: 'block', fontSize: 19 }}>{"aujourd'hui"}</span>
               </span>
-              <span style={{ color: 'rgba(255,255,255,0.88)', fontSize: 13, fontWeight: 600, marginTop: 1 }}>{auj?.week ?? 0} cette semaine</span>
-              <span style={{ marginTop: 'auto', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(4px)', color: '#fff', borderRadius: 6, padding: '7px 12px', fontSize: 12, fontWeight: 800 }}>Explorer {ARROW}</span>
+              <span style={{ color: 'rgba(255,255,255,0.82)', fontSize: 14, fontWeight: 600 }}>{auj?.week ?? 0} cette semaine</span>
+              {greenBtn('Explorer')}
             </span>
           </button>
 
           {/* Ça fait parler */}
           <button
             onClick={() => onRubrique(cfp ? `/forum/${cfp.id}` : '/forum')}
-            style={{ position: 'relative', minHeight: 230, borderRadius: 18, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundImage: `${darkGrad}, url('${cfp?.image || '/splash-bg-journal.jpg'}')`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: tileShadow, fontFamily: 'var(--font-jakarta), sans-serif' }}
+            style={{ position: 'relative', minHeight: 244, borderRadius: 18, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundColor: tileBg, backgroundImage: `${greenOverlay}, url('${cfp?.image || '/splash-bg-journal.jpg'}')`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: tileShadow, fontFamily: 'var(--font-jakarta), sans-serif' }}
           >
-            <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 13, gap: 8 }}>
+            <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '16px 15px', gap: 9 }}>
               <Badge color="#7C3AED" filled icon={BIcons.chat} label="Ça fait parler" />
-              <span style={{ color: '#fff', fontSize: 16, fontFamily: serif, lineHeight: 1.25, marginTop: 2, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{cfp?.titre ?? 'La place publique'}</span>
-              {cfp && <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: 500 }}>{cfp.votes} votes · {cfp.comments} commentaires</span>}
-              <span style={{ marginTop: 'auto', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(4px)', color: '#fff', borderRadius: 6, padding: '7px 12px', fontSize: 12, fontWeight: 800 }}>Voir le débat {ARROW}</span>
+              <span style={{ color: '#fff', fontSize: 20, fontFamily: serif, lineHeight: 1.24, display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{cfp?.titre ?? 'La place publique'}</span>
+              {cfp && <span style={{ color: 'rgba(255,255,255,0.82)', fontSize: 13, fontWeight: 500 }}>{cfp.votes} votes · {cfp.comments} commentaires</span>}
+              {greenBtn('Voir le débat')}
             </span>
           </button>
         </div>
 
-        {/* ── 3 tuiles claires (Journal + Bon plan + À découvrir) ── */}
+        {/* ── 3 petites tuiles (Journal + Bon plan + À découvrir) ── */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 9 }}>
           {/* Journal */}
           <button
             onClick={() => onRubrique('/journal')}
-            style={{ position: 'relative', minHeight: 158, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundImage: `${lightTile}, url('/splash-bg-journal.jpg')`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: tileShadow, fontFamily: 'var(--font-jakarta), sans-serif' }}
+            style={{ position: 'relative', minHeight: 162, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundColor: tileBg, backgroundImage: `${greenOverlay}, url('/splash-bg-journal.jpg')`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: tileShadow, fontFamily: 'var(--font-jakarta), sans-serif' }}
           >
             <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 11, gap: 6 }}>
-              <Badge color="#3A5BC7" icon={BIcons.book} label="Le journal" />
-              <span style={{ color: '#1A1209', fontSize: tileTitleSize(jrn?.titre ?? 'Le Journal du Village'), fontFamily: serif, lineHeight: 1.25 }}>{jrn?.titre ?? 'Le Journal du Village'}</span>
-              {linkRow("Lire l'article", '#3A5BC7', true)}
+              <Badge color="rgba(255,255,255,0.88)" icon={BIcons.book} label="Le journal" />
+              <span style={{ color: '#fff', fontSize: tileTitleSize(jrn?.titre ?? 'Le Journal du Village'), fontFamily: serif, lineHeight: 1.22 }}>{jrn?.titre ?? 'Le Journal du Village'}</span>
+              {greenBtn("Lire l'article", true)}
             </span>
           </button>
 
           {/* Bon plan du jour */}
           <button
             onClick={() => onRubrique(bp ? `/promotions?id=${bp.id}` : '/promotions')}
-            style={{ position: 'relative', minHeight: 158, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundColor: '#FDFAF5', boxShadow: tileShadowEdge, fontFamily: 'var(--font-jakarta), sans-serif' }}
+            style={{ position: 'relative', minHeight: 162, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundColor: tileBg, backgroundImage: `${greenOverlay}, url('${bp?.image || '/splash-bg-journal.jpg'}')`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: tileShadow, fontFamily: 'var(--font-jakarta), sans-serif' }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={bp?.image || '/splash-bg-journal.jpg'} alt="" style={{ position: 'absolute', top: -2, left: -2, width: 'calc(100% + 4px)', height: 'calc(100% + 4px)', objectFit: 'cover', transform: 'scale(1.06)' }} />
-            <span style={{ position: 'absolute', inset: 0, background: lightTile }} />
             <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 11, gap: 5 }}>
-              <Badge color="#2D5A3D" icon={BIcons.tag} label={<span style={{ lineHeight: 1.1 }}>Bon plan<br />du jour</span>} />
-              <span style={{ color: '#1A1209', fontSize: tileTitleSize(bp?.titre ?? 'Les bons plans'), fontFamily: serif, lineHeight: 1.25 }}>{bp?.titre ?? 'Les bons plans'}</span>
-              {bp?.sous && <span style={{ color: '#6B5E4E', fontSize: 11, fontStyle: 'italic', lineHeight: 1.25 }}>{bp.sous}</span>}
-              {linkRow('En profiter', '#2D5A3D', true)}
+              <Badge color="rgba(255,255,255,0.88)" icon={BIcons.tag} label={<span style={{ lineHeight: 1.1 }}>Bon plan<br />du jour</span>} />
+              <span style={{ color: '#fff', fontSize: tileTitleSize(bp?.titre ?? 'Les bons plans'), fontFamily: serif, lineHeight: 1.22 }}>{bp?.titre ?? 'Les bons plans'}</span>
+              {bp?.sous && <span style={{ color: 'rgba(255,255,255,0.72)', fontSize: 11, fontStyle: 'italic', lineHeight: 1.25 }}>{bp.sous}</span>}
+              {greenBtn('En profiter', true)}
             </span>
           </button>
 
@@ -202,15 +196,12 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => { if (dec) onRubrique(decouvrirHref(dec.kind, dec.id)); else if (isAdmin) setPickerOpen(true); else onExplore() }}
-              style={{ position: 'relative', width: '100%', minHeight: 158, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundColor: '#FDFAF5', boxShadow: tileShadowEdge, fontFamily: 'var(--font-jakarta), sans-serif', display: 'block' }}
+              style={{ position: 'relative', width: '100%', minHeight: 162, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundColor: tileBg, backgroundImage: `${greenOverlay}, url('${dec?.photo || '/splash-bg-aujourdhui.jpg'}')`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: tileShadow, fontFamily: 'var(--font-jakarta), sans-serif', display: 'block' }}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={dec?.photo || '/splash-bg-aujourdhui.jpg'} alt="" style={{ position: 'absolute', top: -2, left: -2, width: 'calc(100% + 4px)', height: 'calc(100% + 4px)', objectFit: 'cover', transform: 'scale(1.06)' }} />
-              <span style={{ position: 'absolute', inset: 0, background: lightTile }} />
               <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 11, gap: 5 }}>
-                <Badge color="#C84B2F" icon={BIcons.compass} label="À découvrir" />
-                <span style={{ color: '#1A1209', fontSize: tileTitleSize(dec?.title || (isAdmin ? 'Choisir une mise en avant' : 'À découvrir au village')), fontFamily: serif, lineHeight: 1.25 }}>{dec?.title || (isAdmin ? 'Choisir une mise en avant' : 'À découvrir au village')}</span>
-                {linkRow('En savoir plus', '#C84B2F', true)}
+                <Badge color="#EE8A3E" icon={BIcons.compass} label="À découvrir" />
+                <span style={{ color: '#fff', fontSize: tileTitleSize(dec?.title || (isAdmin ? 'Choisir une mise en avant' : 'À découvrir au village')), fontFamily: serif, lineHeight: 1.22 }}>{dec?.title || (isAdmin ? 'Choisir une mise en avant' : 'À découvrir au village')}</span>
+                {greenBtn('En savoir plus', true)}
               </span>
             </button>
             {isAdmin && (
