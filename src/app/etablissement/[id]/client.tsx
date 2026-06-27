@@ -45,6 +45,15 @@ function timeAgo(d: string) {
   if (m < 1) return 'à l\'instant'; if (m < 60) return `${m} min`
   const h = Math.floor(m / 60); if (h < 24) return `${h}h`; return `${Math.floor(h / 24)}j`
 }
+
+/** Transforme les URLs d'un texte en liens cliquables (le reste en texte brut). */
+function linkify(text: string): React.ReactNode {
+  return text.split(/(https?:\/\/[^\s]+)/g).map((part, i) =>
+    /^https?:\/\//.test(part)
+      ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ color: '#2D5A3D', fontWeight: 700, textDecoration: 'underline', overflowWrap: 'anywhere' }}>{part}</a>
+      : part,
+  )
+}
 function Avatar({ name, url, size = 32 }: { name: string; url?: string | null; size?: number }) {
   if (url) return <img src={url} alt="" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
   return <div style={{ width: size, height: size, borderRadius: '50%', backgroundColor: '#2D5A3D', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: size * 0.38, flexShrink: 0 }}>{(name || '?')[0].toUpperCase()}</div>
@@ -818,10 +827,10 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
               {etabPosts.map(p => (
                 <div key={p.id} style={{ padding: '12px 14px', borderRadius: 12, backgroundColor: '#FAF7F2', border: '1px solid #F0EAE0' }}>
                   {p.image_url && (
-                    <img src={p.image_url} alt="" style={{ width: '100%', height: 150, objectFit: 'cover', objectPosition: p.image_position, borderRadius: 10, marginBottom: 10 }} />
+                    <img src={p.image_url} alt="" style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 10, marginBottom: 10 }} />
                   )}
                   {p.titre && <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 800, color: '#1A1209', overflowWrap: 'break-word' }}>{p.titre}</p>}
-                  <p style={{ margin: 0, fontSize: 13, color: '#4A3728', lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'break-word', wordBreak: 'break-word' }}>{p.contenu}</p>
+                  <p style={{ margin: 0, fontSize: 13, color: '#4A3728', lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'break-word', wordBreak: 'break-word' }}>{linkify(p.contenu)}</p>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
                     <span style={{ fontSize: 10.5, color: '#AAA' }}>{timeAgo(p.created_at)}</span>
                     {ownerUI && (
