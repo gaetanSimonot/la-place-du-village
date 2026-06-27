@@ -91,6 +91,8 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
   const lightTile = 'linear-gradient(to bottom right, rgba(253,250,245,1) 0%, rgba(253,250,245,1) 54%, rgba(253,250,245,0) 92%)'
   const serif = 'var(--font-dm-serif), Georgia, serif'   // typo des titres de tuiles (proche de la réf)
   const tileShadow = '0 2px 12px rgba(60,40,20,0.10)'
+  // + liseré interne ivoire 1px : masque le hairline noir des coins arrondis sur les tuiles <img>
+  const tileShadowEdge = '0 2px 12px rgba(60,40,20,0.10), inset 0 0 0 1px #FDFAF5'
 
   const linkRow = (label: string, color: string, chip?: boolean) => chip ? (
     <span style={{ marginTop: 'auto', alignSelf: 'flex-start', maxWidth: '100%', display: 'inline-flex', alignItems: 'center', gap: 4, color, fontSize: 11, fontWeight: 800, background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(3px)', borderRadius: 6, padding: '3px 8px' }}>
@@ -125,7 +127,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
           >
             <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 13, gap: 7 }}>
               <Badge color="#E8622A" filled icon={BIcons.calendar} label="Aujourd'hui" />
-              <span style={{ lineHeight: 1.04, fontFamily: serif }}>
+              <span style={{ lineHeight: 1.22, fontFamily: serif }}>
                 <span style={{ display: 'block', color: '#fff', fontSize: 30 }}>{auj?.today ?? 0}</span>
                 <span style={{ display: 'block', color: '#fff', fontSize: 18 }}>événements</span>
                 <span style={{ display: 'block', color: '#F4A24A', fontSize: 18 }}>aujourd'hui</span>
@@ -166,7 +168,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
           {/* Bon plan du jour */}
           <button
             onClick={() => onRubrique(bp ? `/promotions?id=${bp.id}` : '/promotions')}
-            style={{ position: 'relative', minHeight: 158, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundColor: '#FDFAF5', boxShadow: tileShadow, fontFamily: 'var(--font-jakarta), sans-serif' }}
+            style={{ position: 'relative', minHeight: 158, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundColor: '#FDFAF5', boxShadow: tileShadowEdge, fontFamily: 'var(--font-jakarta), sans-serif' }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={bp?.image || '/splash-bg-journal.jpg'} alt="" style={{ position: 'absolute', top: -2, left: -2, width: 'calc(100% + 4px)', height: 'calc(100% + 4px)', objectFit: 'cover', transform: 'scale(1.06)' }} />
@@ -183,7 +185,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => { if (dec) onRubrique(decouvrirHref(dec.kind, dec.id)); else if (isAdmin) setPickerOpen(true); else onExplore() }}
-              style={{ position: 'relative', width: '100%', minHeight: 158, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundColor: '#FDFAF5', boxShadow: tileShadow, fontFamily: 'var(--font-jakarta), sans-serif', display: 'block' }}
+              style={{ position: 'relative', width: '100%', minHeight: 158, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundColor: '#FDFAF5', boxShadow: tileShadowEdge, fontFamily: 'var(--font-jakarta), sans-serif', display: 'block' }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={dec?.photo || '/splash-bg-aujourdhui.jpg'} alt="" style={{ position: 'absolute', top: -2, left: -2, width: 'calc(100% + 4px)', height: 'calc(100% + 4px)', objectFit: 'cover', transform: 'scale(1.06)' }} />
