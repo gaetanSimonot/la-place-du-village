@@ -93,7 +93,10 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
   const tileShadow = '0 2px 12px rgba(60,40,20,0.10)'
 
   const linkRow = (label: string, color: string, chip?: boolean) => chip ? (
-    <span style={{ marginTop: 'auto', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 5, color, fontSize: 11.5, fontWeight: 800, whiteSpace: 'nowrap', background: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(3px)', borderRadius: 6, padding: '4px 9px' }}>{label} {ARROW}</span>
+    <span style={{ marginTop: 'auto', alignSelf: 'flex-start', maxWidth: '100%', display: 'inline-flex', alignItems: 'center', gap: 4, color, fontSize: 11, fontWeight: 800, background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(3px)', borderRadius: 6, padding: '3px 8px' }}>
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
+    </span>
   ) : (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color, fontSize: 12, fontWeight: 800, marginTop: 'auto', whiteSpace: 'nowrap' }}>{label} {ARROW}</span>
   )
@@ -102,7 +105,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
     <div className="pdv-hscroll" style={{ position: 'fixed', inset: 0, zIndex: 250, backgroundColor: '#F7F2E6', overflowY: 'auto', WebkitOverflowScrolling: 'touch', fontFamily: 'var(--font-jakarta), sans-serif' }}>
       {/* Header illustré (image directe, pleine largeur) */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/splash-header.jpg" alt="La Place du Village — Explorez, découvrez, profitez" style={{ width: '100%', height: 'auto', display: 'block', mixBlendMode: 'multiply' }} />
+      <img src="/splash-header.jpg" alt="La Place du Village — Explorez, découvrez, profitez" style={{ width: '100%', height: 'auto', display: 'block' }} />
 
       <div style={{ maxWidth: 560, margin: '0 auto', padding: '14px 13px max(18px, env(safe-area-inset-bottom, 18px))', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
@@ -166,7 +169,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
             style={{ position: 'relative', minHeight: 158, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundColor: '#FDFAF5', boxShadow: tileShadow, fontFamily: 'var(--font-jakarta), sans-serif' }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={bp?.image || '/splash-bg-journal.jpg'} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.08)' }} />
+            <img src={bp?.image || '/splash-bg-journal.jpg'} alt="" style={{ position: 'absolute', top: -2, left: -2, width: 'calc(100% + 4px)', height: 'calc(100% + 4px)', objectFit: 'cover', transform: 'scale(1.06)' }} />
             <span style={{ position: 'absolute', inset: 0, background: lightTile }} />
             <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 11, gap: 5 }}>
               <Badge color="#2D5A3D" icon={BIcons.tag} label={<span style={{ lineHeight: 1.1 }}>Bon plan<br />du jour</span>} />
@@ -183,7 +186,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
               style={{ position: 'relative', width: '100%', minHeight: 158, borderRadius: 16, overflow: 'hidden', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, backgroundColor: '#FDFAF5', boxShadow: tileShadow, fontFamily: 'var(--font-jakarta), sans-serif', display: 'block' }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={dec?.photo || '/splash-bg-aujourdhui.jpg'} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.08)' }} />
+              <img src={dec?.photo || '/splash-bg-aujourdhui.jpg'} alt="" style={{ position: 'absolute', top: -2, left: -2, width: 'calc(100% + 4px)', height: 'calc(100% + 4px)', objectFit: 'cover', transform: 'scale(1.06)' }} />
               <span style={{ position: 'absolute', inset: 0, background: lightTile }} />
               <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 11, gap: 5 }}>
                 <Badge color="#C84B2F" icon={BIcons.compass} label="À découvrir" />
