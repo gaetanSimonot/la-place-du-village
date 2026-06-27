@@ -196,7 +196,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
               <Badge color="rgba(255,255,255,0.88)" icon={BIcons.tag} label={<span style={{ lineHeight: 1.1 }}>Bon plan<br />du jour</span>} />
               <span style={{ color: '#fff', fontSize: tileTitleSize(bp?.titre ?? 'Les bons plans'), fontFamily: serif, lineHeight: 1.22 }}>{bp?.titre ?? 'Les bons plans'}</span>
               {bp?.sous && <span style={{ color: 'rgba(255,255,255,0.72)', fontSize: 11, fontStyle: 'italic', lineHeight: 1.25 }}>{bp.sous}</span>}
-              {tileBtn('Découvrir', true)}
+              {tileBtn('Go !', true)}
             </span>
           </button>
 
