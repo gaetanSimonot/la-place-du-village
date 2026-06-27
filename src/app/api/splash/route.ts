@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const fetchCache = 'force-no-store'   // lectures supabase TOUJOURS fraîches (sinon config 'à découvrir' servie en cache → tuile bloquée sur l'ancien)
 
 /**
  * GET /api/splash — données des rubriques du splash éditorial (sources réelles).
