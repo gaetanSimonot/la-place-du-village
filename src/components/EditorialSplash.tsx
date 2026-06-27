@@ -1,5 +1,6 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import EmbedPicker, { type EmbedItem } from '@/components/EmbedPicker'
 
@@ -68,15 +69,22 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
   // Admin : élément mis en avant dans « À découvrir »
   const savePick = async (item: EmbedItem | null) => {
     setPickerOpen(false)
-    setD(prev => (prev ? { ...prev, decouvrir: item } : prev))
-    await supabase.auth.refreshSession().catch(() => {})
-    const { data: { session } } = await supabase.auth.getSession()
-    const tk = session?.access_token
-    await fetch('/api/splash/decouvrir', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
-      body: JSON.stringify(item),
-    }).catch(() => null)
+    setD(prev => (prev ? { ...prev, decouvrir: item } : prev))   // affichage instantané (optimiste)
+    try {
+      await supabase.auth.refreshSession().catch(() => {})        // token frais (sinon POST admin échoue en silence)
+      const { data: { session } } = await supabase.auth.getSession()
+      const tk = session?.access_token
+      const r = await fetch('/api/splash/decouvrir', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
+        body: JSON.stringify(item),
+      })
+      if (!r.ok) throw new Error('HTTP ' + r.status)
+      toast.success(item ? 'Mise en avant enregistrée' : 'Mise en avant retirée')
+      load()   // refetch de l'état persistant → confirme la prise en compte (comme le home)
+    } catch {
+      toast.error("Échec de l'enregistrement — réessaie")
+    }
   }
 
   const auj = d?.aujourdhui
