@@ -5,8 +5,7 @@ import EmbedPicker, { type EmbedItem } from '@/components/EmbedPicker'
 
 /* Données réelles renvoyées par /api/splash */
 interface SplashData {
-  aujourdhui?: { today: number; weekend: number; debates: number } | null
-  events?: { id: string; titre: string; commune: string | null }[]
+  aujourdhui?: { today: number; week: number; debates: number } | null
   caFaitParler?: { id: string; titre: string; comments: number; votes: number; image: string | null } | null
   journal?: { numero: number; titre: string; deck: string } | null
   bonPlan?: { id: string; titre: string; sous: string | null; image: string | null; etab: string | null } | null
@@ -81,7 +80,6 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
   }
 
   const auj = d?.aujourdhui
-  const events = d?.events ?? []
   const cfp = d?.caFaitParler
   const jrn = d?.journal
   const bp = d?.bonPlan
@@ -94,7 +92,9 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
   const serif = 'var(--font-dm-serif), Georgia, serif'   // typo des titres de tuiles (proche de la réf)
   const tileShadow = '0 2px 12px rgba(60,40,20,0.10)'
 
-  const linkRow = (label: string, color: string) => (
+  const linkRow = (label: string, color: string, chip?: boolean) => chip ? (
+    <span style={{ marginTop: 'auto', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 5, color, fontSize: 11.5, fontWeight: 800, whiteSpace: 'nowrap', background: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(3px)', borderRadius: 6, padding: '4px 9px' }}>{label} {ARROW}</span>
+  ) : (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color, fontSize: 12, fontWeight: 800, marginTop: 'auto', whiteSpace: 'nowrap' }}>{label} {ARROW}</span>
   )
 
@@ -102,7 +102,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
     <div className="pdv-hscroll" style={{ position: 'fixed', inset: 0, zIndex: 250, backgroundColor: '#F7F2E6', overflowY: 'auto', WebkitOverflowScrolling: 'touch', fontFamily: 'var(--font-jakarta), sans-serif' }}>
       {/* Header illustré (image directe, pleine largeur) */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/splash-header.jpg" alt="La Place du Village — Explorez, découvrez, profitez" style={{ width: '100%', height: 'auto', display: 'block' }} />
+      <img src="/splash-header.jpg" alt="La Place du Village — Explorez, découvrez, profitez" style={{ width: '100%', height: 'auto', display: 'block', mixBlendMode: 'multiply' }} />
 
       <div style={{ maxWidth: 560, margin: '0 auto', padding: '14px 13px max(18px, env(safe-area-inset-bottom, 18px))', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
@@ -122,22 +122,12 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
           >
             <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 13, gap: 7 }}>
               <Badge color="#E8622A" filled icon={BIcons.calendar} label="Aujourd'hui" />
-              <span style={{ lineHeight: 1.05, fontFamily: serif }}>
-                <span style={{ display: 'block', color: '#fff', fontSize: 26 }}>{auj?.today ?? 0}</span>
-                <span style={{ display: 'block', color: '#fff', fontSize: 16 }}>événements</span>
-                <span style={{ display: 'block', color: '#F4A24A', fontSize: 16 }}>aujourd'hui</span>
+              <span style={{ lineHeight: 1.04, fontFamily: serif }}>
+                <span style={{ display: 'block', color: '#fff', fontSize: 30 }}>{auj?.today ?? 0}</span>
+                <span style={{ display: 'block', color: '#fff', fontSize: 18 }}>événements</span>
+                <span style={{ display: 'block', color: '#F4A24A', fontSize: 18 }}>aujourd'hui</span>
               </span>
-              <span style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 3 }}>
-                {events.slice(0, 3).map(ev => (
-                  <span key={ev.id} style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F4A24A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}><rect x="3" y="5" width="18" height="16" rx="2" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
-                    <span style={{ minWidth: 0 }}>
-                      <span style={{ display: 'block', color: '#fff', fontSize: 11.5, fontWeight: 600, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.titre}</span>
-                      {ev.commune && <span style={{ display: 'block', color: 'rgba(255,255,255,0.68)', fontSize: 10, fontWeight: 400, lineHeight: 1.2 }}>{ev.commune}</span>}
-                    </span>
-                  </span>
-                ))}
-              </span>
+              <span style={{ color: 'rgba(255,255,255,0.88)', fontSize: 13, fontWeight: 600, marginTop: 1 }}>{auj?.week ?? 0} cette semaine</span>
               {linkRow('Explorer', '#F4A24A')}
             </span>
           </button>
@@ -166,7 +156,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
             <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 11, gap: 6 }}>
               <Badge color="#3A5BC7" icon={BIcons.book} label="Le journal" />
               <span style={{ color: '#1A1209', fontSize: 13, fontFamily: serif, lineHeight: 1.3 }}>{jrn?.titre ?? 'Le Journal du Village'}</span>
-              {linkRow("Lire l'article", '#3A5BC7')}
+              {linkRow("Lire l'article", '#3A5BC7', true)}
             </span>
           </button>
 
@@ -182,7 +172,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
               <Badge color="#2D5A3D" icon={BIcons.tag} label={<span style={{ lineHeight: 1.1 }}>Bon plan<br />du jour</span>} />
               <span style={{ color: '#1A1209', fontSize: 13, fontFamily: serif, lineHeight: 1.3 }}>{bp?.titre ?? 'Les bons plans'}</span>
               {bp?.sous && <span style={{ color: '#6B5E4E', fontSize: 11, fontStyle: 'italic', lineHeight: 1.25 }}>{bp.sous}</span>}
-              {linkRow('En profiter', '#2D5A3D')}
+              {linkRow('En profiter', '#2D5A3D', true)}
             </span>
           </button>
 
@@ -198,7 +188,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
               <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: 11, gap: 5 }}>
                 <Badge color="#C84B2F" icon={BIcons.compass} label="À découvrir" />
                 <span style={{ color: '#1A1209', fontSize: 13, fontFamily: serif, lineHeight: 1.3 }}>{dec?.title || (isAdmin ? 'Choisir une mise en avant' : 'À découvrir au village')}</span>
-                {linkRow('En savoir plus', '#C84B2F')}
+                {linkRow('En savoir plus', '#C84B2F', true)}
               </span>
             </button>
             {isAdmin && (
@@ -207,12 +197,12 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
           </div>
         </div>
 
-        {/* Explorer le village */}
+        {/* Explorer la Place */}
         <button
           onClick={onExplore}
           style={{ marginTop: 4, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: '#234A30', border: 'none', borderRadius: 999, padding: '15px 18px', cursor: 'pointer', color: '#fff', fontSize: 16, fontWeight: 800, fontFamily: 'var(--font-jakarta), sans-serif' }}
         >
-          Explorer le village
+          Explorer la Place
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
         </button>
 

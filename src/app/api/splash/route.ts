@@ -18,14 +18,23 @@ function weekendDates(): [string, string] {
   const sun = new Date(sat.getTime() + 86_400_000)
   return [parisDate(sat), parisDate(sun)]
 }
+function weekRange(): [string, string] {
+  const wd = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', weekday: 'short' }).format(new Date())
+  const map: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
+  const day = map[wd] ?? 0
+  const toMon = day === 0 ? 6 : day - 1
+  const mon = new Date(Date.now() - toMon * 86_400_000)
+  const sun = new Date(mon.getTime() + 6 * 86_400_000)
+  return [parisDate(mon), parisDate(sun)]
+}
 
 export async function GET() {
   const today = parisDate(new Date())
-  const [sat, sun] = weekendDates()
+  const [mon, sun] = weekRange()
 
-  const [todayCntRes, weekendCntRes, topicsCntRes, commentsRes, journalRes, promoCfgRes, momentRes, heroRes, decouvrirRes, eventsRes] = await Promise.all([
+  const [todayCntRes, weekCntRes, topicsCntRes, commentsRes, journalRes, promoCfgRes, momentRes, heroRes, decouvrirRes] = await Promise.all([
     supabaseAdmin.from('evenements').select('id', { count: 'exact', head: true }).eq('statut', 'publie').eq('date_debut', today),
-    supabaseAdmin.from('evenements').select('id', { count: 'exact', head: true }).eq('statut', 'publie').in('date_debut', [sat, sun]),
+    supabaseAdmin.from('evenements').select('id', { count: 'exact', head: true }).eq('statut', 'publie').gte('date_debut', mon).lte('date_debut', sun),
     supabaseAdmin.from('forum_topics').select('id', { count: 'exact', head: true }),
     supabaseAdmin.from('forum_comments').select('topic_id'),
     supabaseAdmin.from('journaux_hebdo').select('numero, cover_titre, cover_kicker').eq('statut', 'publie').order('numero', { ascending: false }).limit(1).maybeSingle(),
@@ -33,16 +42,7 @@ export async function GET() {
     supabaseAdmin.from('moments').select('id, auteur_id, media_kind, media_url, poster_url, legende').eq('sur_accueil', true).gt('expires_at', new Date().toISOString()).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from('config').select('value').eq('key', 'splash_hero_image_url').maybeSingle(),
     supabaseAdmin.from('config').select('value').eq('key', 'splash_decouvrir').maybeSingle(),
-    supabaseAdmin.from('evenements').select('id, titre, heure, lieux(commune)').eq('statut', 'publie').eq('date_debut', today).order('heure', { ascending: true, nullsFirst: false }).limit(3),
   ])
-
-  // 3 événements du jour (mêmes que les tuiles « Aujourd'hui » du hub).
-  // La commune vient de la jointure lieux (pas de colonne commune sur evenements).
-  const events = ((eventsRes.data ?? []) as unknown as { id: string; titre: string; lieux: { commune: string | null } | { commune: string | null }[] | null }[])
-    .map(e => {
-      const lieu = Array.isArray(e.lieux) ? e.lieux[0] : e.lieux
-      return { id: e.id, titre: e.titre, commune: lieu?.commune ?? null }
-    })
 
   // Image héro = slot dédié du splash (config 'splash_hero_image_url'), indépendant
   // du carrousel/hub. Fallback sur l'image d'intro par défaut si non réglé.
@@ -50,7 +50,7 @@ export async function GET() {
 
   const aujourdhui = {
     today: todayCntRes.count ?? 0,
-    weekend: weekendCntRes.count ?? 0,
+    week: weekCntRes.count ?? 0,        // nb d'événements cette semaine (lun→dim)
     debates: topicsCntRes.count ?? 0,   // nb de sujets de la place publique
   }
 
@@ -118,7 +118,7 @@ export async function GET() {
   try { if (decouvrirRes.data?.value) decouvrir = JSON.parse(decouvrirRes.data.value) } catch { /* noop */ }
 
   return NextResponse.json(
-    { hero, aujourdhui, events, caFaitParler, journal, bonPlan, vuAujourdhui, decouvrir },
+    { hero, aujourdhui, caFaitParler, journal, bonPlan, vuAujourdhui, decouvrir },
     { headers: { 'Cache-Control': 'no-store' } },
   )
 }
