@@ -415,21 +415,21 @@ export default function HubView({
           url:   'https://laplaceduvillage.app',
         })}
         rightSlot={<MomentsPastille />}
-        greeting={
-          <>
-            <div className="truncate font-serif text-[17px] leading-[1.1] text-texte" style={{ letterSpacing: '-0.01em' }}>
-              Bonjour, {firstName}
-            </div>
-            <div className="mt-0.5 flex items-center gap-1.5 text-[11.5px] text-texte-doux">
-              <span className="truncate"><span className="font-semibold text-texte">{totalNear}</span> événement{totalNear > 1 ? 's' : ''} près de toi</span>
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#E8F2EB] px-1.5 py-[2px] text-[9px] font-extrabold tracking-[0.06em] text-primary">
-                <span className="inline-block h-[5px] w-[5px] rounded-full bg-[#5BC85B]" style={{ boxShadow: '0 0 0 2px rgba(91,200,91,0.30)' }} />
-                EN DIRECT
-              </span>
-            </div>
-          </>
-        }
       />
+
+      {/* ── Greeting (ligne du dessous) : Bonjour + compteur + EN DIRECT ─── */}
+      <div className="px-4 pt-[18px]">
+        <h1 className="m-0 truncate font-serif text-[19px] leading-[1.1] text-texte" style={{ letterSpacing: '-0.01em' }}>
+          Bonjour, {firstName}
+        </h1>
+        <p className="mt-1 flex items-center gap-2 text-[13px] text-texte-doux">
+          <span><span className="font-semibold text-texte">{totalNear}</span> événement{totalNear > 1 ? 's' : ''} près de toi</span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#E8F2EB] px-1.5 py-[2px] text-[9px] font-extrabold tracking-[0.06em] text-primary">
+            <span className="inline-block h-[5px] w-[5px] rounded-full bg-[#5BC85B]" style={{ boxShadow: '0 0 0 2px rgba(91,200,91,0.30)' }} />
+            EN DIRECT
+          </span>
+        </p>
+      </div>
 
       {/* ── 4. Hero carousel À LA UNE ─────────────────────────────────── */}
       {!heroLoaded ? (

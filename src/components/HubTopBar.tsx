@@ -27,7 +27,7 @@ interface Props {
  */
 export default function HubTopBar({ onOpenSearch, onOpenSplash, onShareApp, onOpenMenu, greeting, rightSlot }: Props) {
   return (
-    <div className="flex items-center gap-2.5 px-3.5 pt-3">
+    <div className="flex items-center justify-between gap-2.5 px-3.5 pt-3">
       {/* Logo (cliquable → splash) */}
       <button
         type="button"
