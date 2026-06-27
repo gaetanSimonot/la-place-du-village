@@ -23,7 +23,7 @@ export async function GET() {
   const today = parisDate(new Date())
   const [sat, sun] = weekendDates()
 
-  const [todayCntRes, weekendCntRes, topicsCntRes, commentsRes, journalRes, promoCfgRes, momentRes, heroRes, decouvrirRes] = await Promise.all([
+  const [todayCntRes, weekendCntRes, topicsCntRes, commentsRes, journalRes, promoCfgRes, momentRes, heroRes, decouvrirRes, eventsRes] = await Promise.all([
     supabaseAdmin.from('evenements').select('id', { count: 'exact', head: true }).eq('statut', 'publie').eq('date_debut', today),
     supabaseAdmin.from('evenements').select('id', { count: 'exact', head: true }).eq('statut', 'publie').in('date_debut', [sat, sun]),
     supabaseAdmin.from('forum_topics').select('id', { count: 'exact', head: true }),
@@ -33,7 +33,12 @@ export async function GET() {
     supabaseAdmin.from('moments').select('id, auteur_id, media_kind, media_url, poster_url, legende').eq('sur_accueil', true).gt('expires_at', new Date().toISOString()).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from('config').select('value').eq('key', 'splash_hero_image_url').maybeSingle(),
     supabaseAdmin.from('config').select('value').eq('key', 'splash_decouvrir').maybeSingle(),
+    supabaseAdmin.from('evenements').select('id, titre, commune, date_debut').eq('statut', 'publie').gte('date_debut', today).order('date_debut', { ascending: true }).limit(3),
   ])
+
+  // 3 prochains événements (bloc « Aujourd'hui »)
+  const events = ((eventsRes.data ?? []) as { id: string; titre: string; commune: string | null }[])
+    .map(e => ({ id: e.id, titre: e.titre, commune: e.commune }))
 
   // Image héro = slot dédié du splash (config 'splash_hero_image_url'), indépendant
   // du carrousel/hub. Fallback sur l'image d'intro par défaut si non réglé.
@@ -53,17 +58,19 @@ export async function GET() {
   const ranked = Object.entries(tally).sort((a, b) => b[1] - a[1])
   const topId = ranked[0]?.[0] ?? null
   let topComments = topId ? ranked[0][1] : 0
+  type TopicRow = { id: string; titre: string; media: { url?: string }[] | null }
   let topRow = topId
-    ? (await supabaseAdmin.from('forum_topics').select('id, titre').eq('id', topId).maybeSingle()).data as { id: string; titre: string } | null
+    ? (await supabaseAdmin.from('forum_topics').select('id, titre, media').eq('id', topId).maybeSingle()).data as TopicRow | null
     : null
   if (!topRow) {
-    topRow = (await supabaseAdmin.from('forum_topics').select('id, titre').order('created_at', { ascending: false }).limit(1).maybeSingle()).data as { id: string; titre: string } | null
+    topRow = (await supabaseAdmin.from('forum_topics').select('id, titre, media').order('created_at', { ascending: false }).limit(1).maybeSingle()).data as TopicRow | null
     topComments = topRow ? (tally[topRow.id] ?? 0) : 0
   }
-  let caFaitParler: { id: string; titre: string; comments: number; votes: number } | null = null
+  let caFaitParler: { id: string; titre: string; comments: number; votes: number; image: string | null } | null = null
   if (topRow) {
     const { count: votes } = await supabaseAdmin.from('forum_poll_votes').select('*', { count: 'exact', head: true }).eq('topic_id', topRow.id)
-    caFaitParler = { id: topRow.id, titre: topRow.titre, comments: topComments, votes: votes ?? 0 }
+    const image = Array.isArray(topRow.media) ? (topRow.media.find(m => m?.url)?.url ?? null) : null
+    caFaitParler = { id: topRow.id, titre: topRow.titre, comments: topComments, votes: votes ?? 0, image }
   }
 
   // ── Journal ─────────────────────────────────────────────────────────────
@@ -107,7 +114,7 @@ export async function GET() {
   try { if (decouvrirRes.data?.value) decouvrir = JSON.parse(decouvrirRes.data.value) } catch { /* noop */ }
 
   return NextResponse.json(
-    { hero, aujourdhui, caFaitParler, journal, bonPlan, vuAujourdhui, decouvrir },
+    { hero, aujourdhui, events, caFaitParler, journal, bonPlan, vuAujourdhui, decouvrir },
     { headers: { 'Cache-Control': 'no-store' } },
   )
 }

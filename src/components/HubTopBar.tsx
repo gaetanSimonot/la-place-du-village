@@ -22,7 +22,7 @@ interface Props {
 /**
  * Header du hub : logo (cliquable → splash) + partager | loupe + photos.
  */
-export default function HubTopBar({ onOpenSearch, onOpenSplash, onShareApp, rightSlot }: Props) {
+export default function HubTopBar({ onOpenSearch, onOpenSplash, onShareApp, onOpenMenu, rightSlot }: Props) {
   return (
     <div className="flex items-center justify-between gap-2 px-3.5 pt-3">
       {/* Gauche : logo cliquable (→ splash) + partager */}
@@ -42,6 +42,18 @@ export default function HubTopBar({ onOpenSearch, onOpenSplash, onShareApp, righ
           />
         </button>
         {onShareApp && <InstallOrShareButton onShare={onShareApp} />}
+        {onOpenMenu && (
+          <button
+            type="button"
+            onClick={onOpenMenu}
+            aria-label="À propos de La Place du Village"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-texte"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="14" y2="17" />
+            </svg>
+          </button>
+        )}
       </div>
       {/* Droite : loupe + photos */}
       <div className="flex shrink-0 items-center gap-1.5">
