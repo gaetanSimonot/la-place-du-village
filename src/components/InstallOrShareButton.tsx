@@ -96,11 +96,11 @@ export default function InstallOrShareButton({ onShare }: { onShare: () => void 
 }
 
 function IconShare() {
-  // Flèche « partager / transférer » orientée vers la droite (≠ télécharger).
+  // Flèche horizontale orientée vers la DROITE (partager / transférer, ≠ télécharger).
   return (
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="15 17 20 12 15 7" />
-      <path d="M4 18v-1a5 5 0 0 1 5-5h11" />
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="4" y1="12" x2="19" y2="12" />
+      <polyline points="13 6 19 12 13 18" />
     </svg>
   )
 }
