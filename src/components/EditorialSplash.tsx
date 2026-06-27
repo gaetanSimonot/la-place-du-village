@@ -99,16 +99,17 @@ export default function EditorialSplash({ onExplore, onRubrique, onSearch, onSha
 
   // Admin : enregistre l'élément « À découvrir » choisi via l'EmbedPicker
   const savePick = async (item: EmbedItem | null) => {
+    setPickerOpen(false)
+    setD(prev => (prev ? { ...prev, decouvrir: item } : prev))   // change tout de suite et reste (pas de refetch qui ramènerait l'ancien)
     await supabase.auth.refreshSession().catch(() => {})
     const { data: { session } } = await supabase.auth.getSession()
     const tk = session?.access_token
-    await fetch('/api/splash/decouvrir', {
+    const r = await fetch('/api/splash/decouvrir', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
       body: JSON.stringify(item),
-    }).catch(() => {})
-    setPickerOpen(false)
-    load()
+    }).catch(() => null)
+    if (!r || !r.ok) toast.error('Mise en avant affichée mais pas enregistrée — réessaie')
   }
 
   // Admin : changer l'image héro — loader direct (pas de bibliothèque).
