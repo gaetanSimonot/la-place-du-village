@@ -38,8 +38,8 @@ export async function GET() {
   ])
 
   // Image héro = slot dédié du splash (config 'splash_hero_image_url'), indépendant
-  // du carrousel/hub. Fallback sur l'image d'intro par défaut si non réglé.
-  const hero = (heroRes.data?.value as string | undefined) || '/hub-intro-slide.webp'
+  // du carrousel/hub. Fallback sur l'image d'entrée par défaut si non réglé.
+  const hero = (heroRes.data?.value as string | undefined) || '/splash-header.jpg'
 
   const aujourdhui = {
     today: todayCntRes.count ?? 0,

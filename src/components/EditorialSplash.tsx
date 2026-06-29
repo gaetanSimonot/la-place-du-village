@@ -3,9 +3,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import EmbedPicker, { type EmbedItem } from '@/components/EmbedPicker'
+import ImageLibraryPicker from '@/components/ImageLibraryPicker'
 
 /* Données réelles renvoyées par /api/splash */
 interface SplashData {
+  hero?: string | null
   aujourdhui?: { today: number; week: number; debates: number } | null
   caFaitParler?: { id: string; titre: string; comments: number; votes: number; image: string | null } | null
   journal?: { numero: number; titre: string; deck: string } | null
@@ -55,6 +57,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
 }) {
   const [d, setD] = useState<SplashData | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [heroPickerOpen, setHeroPickerOpen] = useState(false)
   const load = useCallback(() => {
     fetch(`/api/splash?_=${Date.now()}`, { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).then(data => { if (data) setD(data) }).catch(() => {})
   }, [])
@@ -75,6 +78,27 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
       })
       if (!r.ok) throw new Error('HTTP ' + r.status)
       toast.success(item ? 'Mise en avant enregistrée' : 'Mise en avant retirée')
+      load()
+    } catch {
+      toast.error("Échec de l'enregistrement — réessaie")
+    }
+  }
+
+  // Admin : image d'entrée (header) du splash
+  const saveHero = async (url: string) => {
+    setHeroPickerOpen(false)
+    setD(prev => (prev ? { ...prev, hero: url } : prev))   // affichage instantané (optimiste)
+    try {
+      await supabase.auth.refreshSession().catch(() => {})
+      const { data: { session } } = await supabase.auth.getSession()
+      const tk = session?.access_token
+      const r = await fetch('/api/splash/hero', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
+        body: JSON.stringify({ url }),
+      })
+      if (!r.ok) throw new Error('HTTP ' + r.status)
+      toast.success("Image d'entrée enregistrée")
       load()
     } catch {
       toast.error("Échec de l'enregistrement — réessaie")
@@ -123,9 +147,14 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
 
   return (
     <div className="pdv-hscroll" style={{ position: 'fixed', inset: 0, zIndex: 250, backgroundColor: '#F7F2E6', overflowY: 'auto', WebkitOverflowScrolling: 'touch', fontFamily: 'var(--font-jakarta), sans-serif' }}>
-      {/* Header illustré (image directe, pleine largeur) */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/splash-header.jpg" alt="La Place du Village — Explorez, découvrez, profitez" style={{ width: '100%', height: 'auto', display: 'block' }} />
+      {/* Header illustré (image directe, pleine largeur) — éditable par l'admin */}
+      <div style={{ position: 'relative' }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={d?.hero || '/splash-header.jpg'} alt="La Place du Village — Explorez, découvrez, profitez" style={{ width: '100%', height: 'auto', display: 'block' }} />
+        {isAdmin && (
+          <button onClick={() => setHeroPickerOpen(true)} aria-label="Changer l'image d'entrée" style={{ position: 'absolute', top: 'max(10px, env(safe-area-inset-top, 10px))', right: 10, display: 'inline-flex', alignItems: 'center', gap: 6, height: 30, padding: '0 11px', borderRadius: 15, background: 'rgba(0,0,0,0.55)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, backdropFilter: 'blur(3px)' }}>✎ Image</button>
+        )}
+      </div>
 
       <div style={{ maxWidth: 560, margin: '0 auto', padding: '14px 13px max(18px, env(safe-area-inset-bottom, 18px))', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
@@ -234,6 +263,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
       </div>
 
       {pickerOpen && <EmbedPicker onSelect={savePick} onClose={() => setPickerOpen(false)} />}
+      {heroPickerOpen && <ImageLibraryPicker onSelect={saveHero} onClose={() => setHeroPickerOpen(false)} currentUrl={d?.hero} />}
     </div>
   )
 }
