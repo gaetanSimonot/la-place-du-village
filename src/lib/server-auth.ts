@@ -136,6 +136,8 @@ export async function notifyAllUsers(payload: {
       lu:          false,
     }))
     await supabaseAdmin.from('notifications').insert(rows)
+    // Push web à tout le monde (broadcast). Fail-safe, concurrence bornée.
+    await sendPushToUsers(users.map(u => u.id), payload)
   } catch (e) {
     console.error('[notifyAllUsers] failed', e)
   }
@@ -178,6 +180,8 @@ export async function notifyByAudience(
     for (let i = 0; i < ids.length; i += 500) {
       await supabaseAdmin.from('notifications').insert(ids.slice(i, i + 500).map(mkRow))
     }
+    // Push web à l'audience ciblée (broadcast). Fail-safe, concurrence bornée.
+    await sendPushToUsers(ids, payload)
     return ids.length
   } catch (e) {
     console.error('[notifyByAudience] failed', e)

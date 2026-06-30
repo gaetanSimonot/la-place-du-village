@@ -67,7 +67,7 @@ function pushContentFor(p: NotifPayload): PushContent {
   }
 
   // Dictionnaire des phrases par type connu (fallback générique sinon).
-  const map: Record<string, string> = {
+  const PHRASES: Record<string, string> = {
     suivi_producteur: 'suit votre page',
     commentaire:      'a commenté votre page',
     nouveau_produit:  'propose un nouveau produit',
@@ -76,17 +76,47 @@ function pushContentFor(p: NotifPayload): PushContent {
     friend_accept:    "a accepté votre demande d'ami",
     forum_comment:    'a répondu à votre sujet',
     like:             'a aimé votre publication',
+    post_broadcast:   'a publié une nouveauté',
+    journal_publie:   'vient de paraître',
+    moment_nouveau:   'a publié un moment',
   }
-  const phrase = map[t]
+  // Lien par type (broadcasts : pas de target_type fiable).
+  const URLS: Record<string, string> = {
+    friend_request: '/people',
+    friend_accept:  '/people',
+    forum_comment:  '/forum',
+    post_broadcast: '/',
+    journal_publie: '/journal',
+    moment_nouveau: '/en-ce-moment',
+  }
+  const phrase = PHRASES[t]
   return {
     title: 'La Place du Village',
     body: phrase ? `${name} ${phrase}` : name,
-    url: deepLink(p, t === 'friend_request' || t === 'friend_accept' ? '/people' : '/'),
+    url: URLS[t] ?? deepLink(p, '/'),
     tag: p.target_id ? `${t}-${p.target_id}` : undefined,
   }
 }
 
 interface SubRow { id: string; endpoint: string; p256dh: string; auth: string }
+
+/** Envoie un payload (déjà sérialisé) à un abonnement. Purge si mort (404/410). */
+async function deliver(s: SubRow, body: string): Promise<void> {
+  try {
+    await webpush.sendNotification(
+      { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+      body,
+    )
+  } catch (err) {
+    const code = (err as { statusCode?: number })?.statusCode
+    // 404 / 410 = abonnement mort (app désinstallée, permission retirée) → purge.
+    if (code === 404 || code === 410) {
+      await supabaseAdmin.from('push_subscriptions').delete().eq('id', s.id)
+    } else {
+      console.error('[push] send failed', code, (err as Error)?.message)
+    }
+  }
+}
 
 /** Envoie un push à tous les appareils abonnés d'un user. Fail-safe. */
 export async function sendPushToUser(userId: string, payload: NotifPayload): Promise<void> {
@@ -97,33 +127,40 @@ export async function sendPushToUser(userId: string, payload: NotifPayload): Pro
       .select('id, endpoint, p256dh, auth')
       .eq('user_id', userId)
     if (!subs?.length) return
-
-    const content = pushContentFor(payload)
-    const body = JSON.stringify(content)
-
-    await Promise.all((subs as SubRow[]).map(async (s) => {
-      try {
-        await webpush.sendNotification(
-          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-          body,
-        )
-      } catch (err) {
-        const code = (err as { statusCode?: number })?.statusCode
-        // 404 / 410 = abonnement mort (app désinstallée, permission retirée) → purge.
-        if (code === 404 || code === 410) {
-          await supabaseAdmin.from('push_subscriptions').delete().eq('id', s.id)
-        } else {
-          console.error('[push] send failed', code, (err as Error)?.message)
-        }
-      }
-    }))
+    const body = JSON.stringify(pushContentFor(payload))
+    await Promise.all((subs as SubRow[]).map(s => deliver(s, body)))
   } catch (e) {
     console.error('[push] sendPushToUser failed', e)
   }
 }
 
-/** Variante liste (ex. notifyUsers). Fail-safe, séquentiel léger par user. */
+/**
+ * Variante liste / broadcast (notifyUsers, notifyByAudience, notifyAllUsers).
+ * Récupère tous les abonnements en lots, puis envoie avec une concurrence
+ * bornée (évite 1000 connexions simultanées sur un gros broadcast). Fail-safe.
+ */
 export async function sendPushToUsers(userIds: string[], payload: NotifPayload): Promise<void> {
-  const ids = Array.from(new Set(userIds)).filter(Boolean)
-  await Promise.all(ids.map(id => sendPushToUser(id, payload)))
+  try {
+    if (!ensureConfigured()) return
+    const ids = Array.from(new Set(userIds)).filter(Boolean)
+    if (!ids.length) return
+
+    const subs: SubRow[] = []
+    for (let i = 0; i < ids.length; i += 300) {   // chunk le IN(...) pour les grosses listes
+      const { data } = await supabaseAdmin
+        .from('push_subscriptions')
+        .select('id, endpoint, p256dh, auth')
+        .in('user_id', ids.slice(i, i + 300))
+      if (data) subs.push(...(data as SubRow[]))
+    }
+    if (!subs.length) return
+
+    const body = JSON.stringify(pushContentFor(payload))
+    const CONCURRENCY = 20
+    for (let i = 0; i < subs.length; i += CONCURRENCY) {
+      await Promise.all(subs.slice(i, i + CONCURRENCY).map(s => deliver(s, body)))
+    }
+  } catch (e) {
+    console.error('[push] sendPushToUsers failed', e)
+  }
 }
