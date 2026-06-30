@@ -4,8 +4,9 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import type { DisplaySettings, Profile } from '@/contexts/AuthContext'
+import PushToggle from '../PushToggle'
 import {
-  GroupCard,
+  Accordion,
   ToggleRow,
   RadioRow,
   I,
@@ -75,47 +76,55 @@ export default function ProfilTab({ profile }: Props) {
 
   return (
     <div className="flex flex-col gap-3.5">
-      <GenreRow profile={profile} />
+      {/* Notifications push — directement en haut, toujours visible */}
+      <PushToggle />
 
-      <GroupCard kicker="★ Affichage de mon profil" kickerColor="#3A5D8C" icon={I.grid(12)}>
-        <ToggleRow icon={I.image(16)}  label="Bannière"             sub="Photo de couverture visible"  checked={settings.banner}        onChange={v => patchDisplay('banner', v)} />
-        <ToggleRow icon={I.text(16)}   label="Bio"                  sub="Présentation visible"         checked={settings.bio}           onChange={v => patchDisplay('bio', v)} />
-        <ToggleRow icon={I.leaf(16)}   label="Ma fiche producteur"  sub="Vitrine pro visible"          checked={settings.fiche_pro}     onChange={v => patchDisplay('fiche_pro', v)} />
-        <ToggleRow icon={I.spark(16)}  label="Module Profil utile"  sub="Offres, besoins, suggestions" checked={settings.module_utile}  onChange={v => patchDisplay('module_utile', v)} />
-        <ToggleRow icon={I.heart(16)}  label="Pages suivies"        sub="Lieux & profils que tu suis"  checked={settings.pages_suivies} onChange={v => patchDisplay('pages_suivies', v)} />
-        <ToggleRow icon={I.chat(16)}   label="Mes publications"     sub="Mur visible des autres"       checked={settings.publications}  onChange={v => patchDisplay('publications', v)} isLast />
-      </GroupCard>
+      {/* Accordéon « Mon profil » (niveau 1) — sous-sections repliables (niveau 2) */}
+      <Accordion title="Mon profil" icon={I.user(18)} iconColor="#2D5A3D" defaultOpen>
+        <Accordion title="Genre" icon={I.user(15)} variant="inner">
+          <GenrePills profile={profile} />
+        </Accordion>
 
-      <GroupCard kicker="Qui peut voir mon profil" kickerColor="#7C5C3B" icon={I.lock(12)}>
-        <RadioRow
-          icon={I.globe(16)}
-          label="Public"
-          sub="Visible dans l'annuaire et la recherche"
-          selected={privacy === 'public'}
-          onClick={() => patchPrivacy('public')}
-        />
-        <RadioRow
-          icon={I.eye(16)}
-          label="Visible en recherche seulement"
-          sub="Masqué de l'annuaire, trouvable par recherche"
-          selected={privacy === 'search_only'}
-          onClick={() => patchPrivacy('search_only')}
-        />
-        <RadioRow
-          icon={I.eyeOff(16)}
-          label="Masqué"
-          sub="N'apparaît ni dans l'annuaire ni dans la recherche"
-          selected={privacy === 'masque'}
-          onClick={() => patchPrivacy('masque')}
-          isLast
-        />
-      </GroupCard>
+        <Accordion title="Affichage de mon profil" icon={I.grid(15)} iconColor="#3A5D8C" variant="inner">
+          <ToggleRow icon={I.image(16)}  label="Bannière"             sub="Photo de couverture visible"  checked={settings.banner}        onChange={v => patchDisplay('banner', v)} />
+          <ToggleRow icon={I.text(16)}   label="Bio"                  sub="Présentation visible"         checked={settings.bio}           onChange={v => patchDisplay('bio', v)} />
+          <ToggleRow icon={I.leaf(16)}   label="Ma fiche producteur"  sub="Vitrine pro visible"          checked={settings.fiche_pro}     onChange={v => patchDisplay('fiche_pro', v)} />
+          <ToggleRow icon={I.spark(16)}  label="Module Profil utile"  sub="Offres, besoins, suggestions" checked={settings.module_utile}  onChange={v => patchDisplay('module_utile', v)} />
+          <ToggleRow icon={I.heart(16)}  label="Pages suivies"        sub="Lieux & profils que tu suis"  checked={settings.pages_suivies} onChange={v => patchDisplay('pages_suivies', v)} />
+          <ToggleRow icon={I.chat(16)}   label="Mes publications"     sub="Mur visible des autres"       checked={settings.publications}  onChange={v => patchDisplay('publications', v)} isLast />
+        </Accordion>
+
+        <Accordion title="Qui peut voir mon profil" icon={I.lock(15)} iconColor="#7C5C3B" variant="inner" isLast>
+          <RadioRow
+            icon={I.globe(16)}
+            label="Public"
+            sub="Visible dans l'annuaire et la recherche"
+            selected={privacy === 'public'}
+            onClick={() => patchPrivacy('public')}
+          />
+          <RadioRow
+            icon={I.eye(16)}
+            label="Visible en recherche seulement"
+            sub="Masqué de l'annuaire, trouvable par recherche"
+            selected={privacy === 'search_only'}
+            onClick={() => patchPrivacy('search_only')}
+          />
+          <RadioRow
+            icon={I.eyeOff(16)}
+            label="Masqué"
+            sub="N'apparaît ni dans l'annuaire ni dans la recherche"
+            selected={privacy === 'masque'}
+            onClick={() => patchPrivacy('masque')}
+            isLast
+          />
+        </Accordion>
+      </Accordion>
     </div>
   )
 }
 
-/* ── Genre row : pills inline ─────────────────────────────────────── */
-function GenreRow({ profile }: { profile: Profile }) {
+/* ── Genre : pills inline (contenu d'une sous-section) ─────────────── */
+function GenrePills({ profile }: { profile: Profile }) {
   const { patchProfileLocal } = useAuth()
   const [current, setCurrent] = useState<'homme' | 'femme' | 'autre' | null>(profile.genre ?? null)
   const [saving, setSaving]   = useState(false)
@@ -151,31 +160,29 @@ function GenreRow({ profile }: { profile: Profile }) {
   }
 
   return (
-    <GroupCard kicker="Genre" kickerColor="#7A6A5A" icon={I.user(12)}>
-      <div className="flex flex-col gap-2 px-3.5 py-3">
-        <div className="text-[11px] text-texte-doux">Optionnel — utilisé pour l&apos;affichage uniquement.</div>
-        <div className="flex flex-wrap gap-1.5">
-          {OPTIONS.map(opt => {
-            const active = current === opt.value
-            return (
-              <button
-                key={opt.label}
-                type="button"
-                onClick={() => update(opt.value)}
-                disabled={saving}
-                className="rounded-full border px-3 py-1.5 text-[12px] font-bold disabled:opacity-60"
-                style={{
-                  borderColor: active ? '#2D5A3D' : '#E8E0D4',
-                  background:  active ? '#E8F2EB' : '#FFFFFF',
-                  color:       active ? '#2D5A3D' : '#1A1209',
-                }}
-              >
-                {opt.label}
-              </button>
-            )
-          })}
-        </div>
+    <div className="flex flex-col gap-2 px-3.5 py-3">
+      <div className="text-[11px] text-texte-doux">Optionnel — utilisé pour l&apos;affichage uniquement.</div>
+      <div className="flex flex-wrap gap-1.5">
+        {OPTIONS.map(opt => {
+          const active = current === opt.value
+          return (
+            <button
+              key={opt.label}
+              type="button"
+              onClick={() => update(opt.value)}
+              disabled={saving}
+              className="rounded-full border px-3 py-1.5 text-[12px] font-bold disabled:opacity-60"
+              style={{
+                borderColor: active ? '#2D5A3D' : '#E8E0D4',
+                background:  active ? '#E8F2EB' : '#FFFFFF',
+                color:       active ? '#2D5A3D' : '#1A1209',
+              }}
+            >
+              {opt.label}
+            </button>
+          )
+        })}
       </div>
-    </GroupCard>
+    </div>
   )
 }

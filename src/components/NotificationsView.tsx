@@ -9,6 +9,7 @@ import type { AppNotification, NotifType } from '@/lib/types'
 import { toast } from 'sonner'
 import PostNotifModal from '@/components/profil/PostNotifModal'
 import PromoStatsPanel from '@/components/PromoStatsPanel'
+import PushPromptModal from '@/components/PushPromptModal'
 
 interface Props {
   notifications: AppNotification[]
@@ -665,6 +666,9 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
       {postModalId && (
         <PostNotifModal postId={postModalId} onClose={() => setPostModalId(null)} />
       )}
+
+      {/* Incitation à activer les notifications push (à l'ouverture des notifs) */}
+      <PushPromptModal />
 
       {/* Modale actions */}
       {actionModal && (

@@ -1,4 +1,5 @@
 'use client'
+import { useState } from 'react'
 import Link from 'next/link'
 import type { DisplaySettings } from '@/contexts/AuthContext'
 
@@ -89,6 +90,62 @@ export function GroupCard({
         {children}
       </div>
     </section>
+  )
+}
+
+/* ── Accordion ──────────────────────────────────────────────────────
+ * variant 'card'  → section repliable en carte blanche (niveau 1).
+ * variant 'inner' → sous-section repliable, sans carte (niveau 2), séparée
+ *                   par un trait. À placer DANS le body d'un accordion 'card'.
+ */
+export function Accordion({
+  title, icon, iconColor, defaultOpen, variant = 'card', isLast, children,
+}: {
+  title: string
+  icon?: React.ReactNode
+  iconColor?: string
+  defaultOpen?: boolean
+  variant?: 'card' | 'inner'
+  isLast?: boolean
+  children: React.ReactNode
+}) {
+  const [open, setOpen] = useState(!!defaultOpen)
+
+  if (variant === 'card') {
+    return (
+      <section
+        className="overflow-hidden rounded-[16px] border bg-white"
+        style={{ borderColor: '#F0EAE0', boxShadow: '0 1px 4px rgba(44,28,16,0.04)' }}
+      >
+        <button
+          type="button"
+          onClick={() => setOpen(o => !o)}
+          aria-expanded={open}
+          className="flex w-full items-center gap-2.5 px-4 py-3.5 text-left"
+        >
+          {icon && <span className="flex shrink-0" style={{ color: iconColor ?? '#2D5A3D' }}>{icon}</span>}
+          <span className="flex-1 text-[14px] font-extrabold text-texte" style={{ letterSpacing: '-0.005em' }}>{title}</span>
+          <span className="flex shrink-0 text-texte-tres-doux transition-transform duration-200" style={{ transform: open ? 'rotate(90deg)' : 'none' }}>{I.chev(18)}</span>
+        </button>
+        {open && <div style={{ borderTop: '1px solid #F4EEE3' }}>{children}</div>}
+      </section>
+    )
+  }
+
+  return (
+    <div style={{ borderBottom: isLast ? 'none' : '1px solid #F0EAE0' }}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2.5 px-3.5 py-3 text-left"
+      >
+        {icon && <span className="flex shrink-0" style={{ color: iconColor ?? '#7A6A5A' }}>{icon}</span>}
+        <span className="flex-1 text-[13px] font-extrabold text-texte" style={{ letterSpacing: '-0.005em' }}>{title}</span>
+        <span className="flex shrink-0 text-texte-tres-doux transition-transform duration-200" style={{ transform: open ? 'rotate(90deg)' : 'none' }}>{I.chev(15)}</span>
+      </button>
+      {open && <div style={{ background: '#FCFAF6' }}>{children}</div>}
+    </div>
   )
 }
 

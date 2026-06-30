@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useFriendships } from '@/hooks/useFriendships'
 import LoginView from '@/components/LoginView'
 import EditProfileModal from '@/components/EditProfileModal'
+import PushPromptModal from '@/components/PushPromptModal'
 import ProfilHeader, { type FicheProMini, type ViewMode } from './ProfilHeader'
 import ProfilTabSwitcher, { type ProfilTab } from './ProfilTabSwitcher'
 import AmisTab from './tabs/AmisTab'
@@ -234,6 +235,9 @@ export default function ProfilHybridView({ onOpenNotifs, notifUnread }: { onOpen
       {activeTab === 'reels' && <ReelsTab profileUserId={user.id} />}
       {activeTab === 'amis'  && <AmisTab friends={friends} />}
       {activeTab === 'utile' && <UtileTabPlaceholder />}
+
+      {/* Incitation à activer les notifications (sur sa propre vue uniquement) */}
+      {viewMode === 'own' && <PushPromptModal />}
 
       {editOpen && (
         <EditProfileModal

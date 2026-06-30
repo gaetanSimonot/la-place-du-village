@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import type { Profile } from '@/contexts/AuthContext'
 import { GroupCard, NavRow, I } from '../shared'
-import PushToggle from '../PushToggle'
 import type { ReglagesSubView } from '../ReglagesView'
 
 interface Etab {
@@ -50,9 +49,6 @@ export default function MonEspaceTab({ profile, onOpenSub }: Props) {
 
   return (
     <div className="flex flex-col gap-3.5">
-      {/* Notifications push */}
-      <PushToggle />
-
       {/* Contenus & publications */}
       <GroupCard kicker="Contenus & publications" kickerColor="#2D5A3D">
         <NavRow icon={I.cal(16)}     label="Mes événements"     sub="Publiés, brouillons"          onClick={() => onOpenSub('events')} />
