@@ -32,7 +32,7 @@ self.addEventListener('push', (event: PushEvent) => {
     self.registration.showNotification(title, {
       body: payload.body || '',
       icon: '/icons/icon-192.png',
-      badge: '/icons/icon-192.png',
+      badge: '/icons/badge-mono.png',   // silhouette monochrome (Android masque le badge en blanc)
       tag: payload.tag,            // même tag = la notif remplace la précédente
       renotify: !!payload.tag,
       data: { url },
