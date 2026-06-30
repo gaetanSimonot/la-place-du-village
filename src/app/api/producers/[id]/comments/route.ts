@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { sendPushToUser } from '@/lib/push'
 
 async function verifyUser(req: NextRequest) {
   const token = req.headers.get('Authorization')?.replace('Bearer ', '')
@@ -69,6 +70,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       target_id: id,
       target_type: 'producer',
       lu: false,
+    })
+    await sendPushToUser(producer.user_id, {
+      type: 'commentaire',
+      actor_name: profile?.display_name ?? 'Quelqu\'un',
+      target_type: 'producer',
+      target_id: id,
     })
   }
 

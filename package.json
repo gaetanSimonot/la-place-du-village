@@ -20,6 +20,7 @@
     "@resvg/resvg-js": "^2.6.2",
     "@supabase/ssr": "^0.10.0",
     "@supabase/supabase-js": "^2.101.1",
+    "@types/web-push": "^3.6.4",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "@vis.gl/react-google-maps": "^1.8.2",
@@ -34,7 +35,8 @@
     "sonner": "^2.0.7",
     "stripe": "^22.1.0",
     "supercluster": "^8.0.1",
-    "swr": "^2.4.1"
+    "swr": "^2.4.1",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@types/google.maps": "^3.58.1",

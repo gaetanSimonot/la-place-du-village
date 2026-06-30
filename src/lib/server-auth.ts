@@ -17,6 +17,7 @@ import type { NextRequest } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import type { Plan, UserContext } from '@/lib/capabilities'
 import { escapeLikePattern } from '@/lib/escape-like'
+import { sendPushToUser, sendPushToUsers } from '@/lib/push'
 
 export interface ServerUserContext extends UserContext {
   userId: string
@@ -209,6 +210,8 @@ export async function notifyUsers(
   } catch (e) {
     console.error('[notifyUsers] failed', e)
   }
+  // Push web à toute la liste (fail-safe).
+  await sendPushToUsers(ids, payload)
 }
 
 /**
@@ -245,6 +248,8 @@ export async function notifyUser(
     target_id:   payload.target_id ?? null,
     lu:          false,
   })
+  // Push web (fait sonner le téléphone). Fail-safe : n'interrompt jamais le flux.
+  await sendPushToUser(userId, payload)
 }
 
 export async function notifyAdmins(payload: {
@@ -281,4 +286,6 @@ export async function notifyAdmins(payload: {
   }))
 
   await supabaseAdmin.from('notifications').insert(rows)
+  // Push web aux admins (fail-safe).
+  await sendPushToUsers(adminUserIds, payload)
 }

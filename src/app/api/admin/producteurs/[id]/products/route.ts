@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/server-auth'
+import { sendPushToUsers } from '@/lib/push'
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const ctx = await requireAdmin(req)
@@ -40,6 +41,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             lu: false,
           }))
         )
+        await sendPushToUsers(followers.map(f => f.user_id), {
+          type: 'nouveau_produit',
+          actor_name: producerFull.nom,
+          target_type: 'producer',
+          target_id: producerFull.id,
+        })
       }
     }
   }

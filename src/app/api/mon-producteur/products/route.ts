@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { sendPushToUsers } from '@/lib/push'
 
 async function verifyUser(req: NextRequest) {
   const token = req.headers.get('Authorization')?.replace('Bearer ', '')
@@ -100,6 +101,12 @@ export async function POST(req: NextRequest) {
       } else {
         notifiedCount = followers.length
       }
+      await sendPushToUsers(followers.map(f => f.user_id), {
+        type: 'nouveau_produit',
+        actor_name: producerFull.nom,
+        target_type: 'producer',
+        target_id: producerFull.id,
+      })
     }
   }
 

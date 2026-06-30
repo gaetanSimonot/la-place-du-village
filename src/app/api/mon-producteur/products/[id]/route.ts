@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { sendPushToUsers } from '@/lib/push'
 
 async function verifyUser(req: NextRequest) {
   const token = req.headers.get('Authorization')?.replace('Bearer ', '')
@@ -53,6 +54,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           lu: false,
         }))
       )
+      await sendPushToUsers(followers.map(f => f.user_id), {
+        type: 'disponibilite',
+        actor_name: item.producer.nom,
+        target_type: 'producer',
+        target_id: item.producer.id,
+      })
     }
   }
 
