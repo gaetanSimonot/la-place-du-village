@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 // ── URLs & assets (faciles à modifier) ───────────────────────────────────
 const PLAY_URL = 'https://play.google.com/store/apps/details?id=app.laplaceduvillage'
 const SITE_URL = '/'                          // site normal (même origine)
-const IOS_TUTO_IMG = '/app-ios-tutorial.png'  // image tuto 3 étapes (public/)
+const IOS_TUTO_IMG = '/app-ios-tutorial.webp'  // image tuto 3 étapes (public/), WebP optimisé
 
 // ── Couleurs marque ───────────────────────────────────────────────────────
 const CREAM = '#FBF1DD'
