@@ -161,7 +161,10 @@ export default function AppRedirect() {
                 ))}
               </ol>
 
-              {fallbackButtons}
+              {/* iOS : pas de bouton Google Play (inutile sur iPhone) — seulement le site */}
+              <div style={{ marginTop: 18 }}>
+                <a href={SITE_URL} style={btnGhost}>Ouvrir le site</a>
+              </div>
             </>
           )}
         </div>
