@@ -28,27 +28,32 @@ export default function AppRedirect() {
   useEffect(() => {
     const nav = navigator
     const ua = nav.userAgent || ''
+    const touch = nav.maxTouchPoints || 0
+    // Sur iOS, TOUS les navigateurs sont des WebKit Apple → vendor = "Apple Computer, Inc.".
+    // Signal fiable même quand l'UA est exotique (navigateurs in-app, UA spoofé…).
+    const appleVendor = nav.vendor === 'Apple Computer, Inc.'
 
     // 1. Déjà dans l'app (TWA / PWA installée) → contenu normal, jamais le Play Store.
     const standalone = window.matchMedia('(display-mode: standalone)').matches
       || (nav as { standalone?: boolean }).standalone === true
     if (standalone) { window.location.replace(SITE_URL); return }
 
-    // 2. iOS (iPhone/iPad, dont iPadOS 13+ qui se présente comme un Mac).
-    const isIOS = /iphone|ipad|ipod/i.test(ua)
-      || (/Macintosh/i.test(ua) && nav.maxTouchPoints > 1)
+    // 2. Appareil Apple tactile = iPhone / iPad (y compris iPadOS « Macintosh »,
+    //    mode bureau, et webviews in-app). Le Mac de bureau est exclu (tactile 0).
+    const isIOSDevice = /iphone|ipad|ipod/i.test(ua) || (appleVendor && touch > 1)
     const inApp = /FBAN|FBAV|FB_IAB|Instagram|Line\/|Snapchat|Twitter|TikTok|musical_ly|Pinterest|LinkedInApp|WhatsApp/i.test(ua)
 
-    if (isIOS) {
-      // PAS de redirection : on reste sur la page pour que l'utilisateur lise le tuto.
+    if (isIOSDevice) {
+      // JAMAIS de redirection Play Store : on reste sur la page pour lire le tuto.
       setPhase(inApp ? 'ios-inapp' : 'ios')
       return
     }
 
-    // 3. Android → Play Store (la TWA).
-    if (/android/i.test(ua)) { setPhase('redirect'); window.location.href = PLAY_URL; return }
+    // 3. Android CERTAIN (et surtout PAS un appareil Apple) → Play Store (la TWA).
+    if (/android/i.test(ua) && !appleVendor) { setPhase('redirect'); window.location.href = PLAY_URL; return }
 
-    // 4. Desktop / autre → site normal.
+    // 4. Tout le reste (desktop Mac/PC, appareil inconnu) → site normal.
+    //    Par sécurité on ne redirige JAMAIS vers le Play Store par défaut.
     setPhase('redirect')
     window.location.replace(SITE_URL)
   }, [])
