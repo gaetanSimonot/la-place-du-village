@@ -25,9 +25,10 @@ export async function POST(req: NextRequest) {
   if (ctx instanceof Response) return ctx
 
   const body = await req.json().catch(() => ({}))
-  const { texte, visibility, embed_kind, embed_ref_id, notify, media } = body as {
+  const { texte, visibility, embed_kind, embed_ref_id, notify, media, sur_village } = body as {
     texte?: unknown; visibility?: unknown;
     embed_kind?: unknown; embed_ref_id?: unknown; notify?: unknown; media?: unknown
+    sur_village?: unknown
   }
 
   const cleanMedia = sanitizeMedia(media)
@@ -74,8 +75,10 @@ export async function POST(req: NextRequest) {
       embed_kind: validEmbedKind,
       embed_ref_id: validEmbedRefId,
       media: cleanMedia.length > 0 ? cleanMedia : null,
+      // Posté sur le fil du village (groupe) → visible aussi dans le feed village.
+      sur_village: sur_village === true,
     })
-    .select('id, user_id, texte, visibility, embed_kind, embed_ref_id, media, created_at')
+    .select('id, user_id, texte, visibility, embed_kind, embed_ref_id, media, created_at, sur_village')
     .single()
 
   if (error) {

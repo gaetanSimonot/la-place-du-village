@@ -21,6 +21,7 @@ import CommerceRequestModal from '@/components/CommerceRequestModal'
 import AppInfoModal from '@/components/AppInfoModal'
 import WelcomeModal from '@/components/WelcomeModal'
 import HubView from '@/components/HubView'
+import VillageView from '@/components/VillageView'
 import HubSearchModal, { type SearchKind } from '@/components/HubSearchModal'
 import PublishMenuModal from '@/components/PublishMenuModal'
 import BottomNavBar from '@/components/BottomNavBar'
@@ -39,7 +40,7 @@ const BottomSheet               = dynamic(() => import('@/components/BottomSheet
 const defaultFiltres: Filtres = { categories: [], quand: 'toujours' }
 const NAV_H = 62
 
-type NavTab = 'accueil' | 'carte' | 'annonces' | 'favoris' | 'profil' | 'notifs'
+type NavTab = 'accueil' | 'carte' | 'annonces' | 'favoris' | 'profil' | 'notifs' | 'village' | 'bonsplans'
 
 export default function HomePage() {
   const { fixedMap, setFixedMap } = useTheme()
@@ -164,9 +165,9 @@ export default function HomePage() {
   const [sheetPeekH, setSheetPeekH] = useState(130)
   const [screenH, setScreenH]       = useState(812)
   const [navTab, setNavTab]         = useState<NavTab>(() => {
-    if (typeof window === 'undefined') return 'accueil'
+    if (typeof window === 'undefined') return 'carte'
     const saved = sessionStorage.getItem('pdv-nav-tab') as NavTab | null
-    return saved ?? 'accueil'
+    return saved ?? 'carte'
   })
   // Persiste navTab pour survivre aux navigations (ex: retour depuis /ajouter,
   // /capturer, /covoiturage/[id], etc.). Sans ça, navTab repart à 'accueil'
@@ -177,10 +178,9 @@ export default function HomePage() {
   }, [navTab])
   // Hub : écran d'accueil avec tuiles. Par défaut au lancement.
   // Restauré false si l'user était dans un module avant un refresh.
-  const [showHub, setShowHub] = useState(() => {
-    if (typeof window === 'undefined') return true
-    return sessionStorage.getItem('pdv-show-hub') !== '0'
-  })
+  // Refonte « app simple » : plus de hub d'accueil. showHub reste dans le code
+  // (overlay HubView conservé) mais n'est jamais activé dans ce flux.
+  const [showHub, setShowHub] = useState(false)
   useEffect(() => {
     try { sessionStorage.setItem('pdv-show-hub', showHub ? '1' : '0') } catch {}
   }, [showHub])
@@ -219,9 +219,9 @@ export default function HomePage() {
   // pour éviter le bailout static de useSearchParams().
   useEffect(() => {
     const tabParam = new URLSearchParams(window.location.search).get('tab')
-    if (tabParam === 'favoris' || tabParam === 'notifs' || tabParam === 'profil') {
+    if (tabParam === 'carte' || tabParam === 'village' || tabParam === 'favoris' || tabParam === 'notifs' || tabParam === 'profil') {
       setShowHub(false)
-      setNavTab(tabParam)
+      setNavTab(tabParam as NavTab)
       window.history.replaceState({}, '', '/')
     }
   }, [])
@@ -512,7 +512,7 @@ export default function HomePage() {
   useEffect(() => {
     if (showHub) return
     if (sheetMode !== 'full') {
-      setNavTab(prev => (prev === 'profil' || prev === 'favoris' || prev === 'notifs' || prev === 'accueil') ? prev : 'carte')
+      setNavTab(prev => (prev === 'profil' || prev === 'favoris' || prev === 'notifs' || prev === 'accueil' || prev === 'village') ? prev : 'carte')
     }
   }, [sheetMode, showHub])
 
@@ -567,17 +567,14 @@ export default function HomePage() {
 
   const handleNavTab = (tab: NavTab) => {
     setSplashOpen(false)   // toute navigation ferme le splash éditorial
-    // Note : si une intercepting route (.)producteur/[id] ou (.)etablissement/[id]
-    // est ouverte, la nav vers la home est gérée par Next.js. Pas besoin de
-    // close manuel comme avant.
-    if (tab === 'accueil') { setShowHub(true); setNavTab('accueil'); return }
-    if (tab === 'annonces') { router.push('/annonces'); return }
-    // Pour tous les autres onglets, on quitte le hub si on y était
+    if (tab === 'bonsplans') { router.push('/promotions'); return }
+    if (tab === 'annonces')  { router.push('/annonces'); return }
     if (showHub) setShowHub(false)
     if (tab === 'profil')  { setNavTab('profil');  return }
     if (tab === 'favoris') { setNavTab('favoris'); return }
     if (tab === 'notifs')  { setNavTab('notifs');  return }
-    setNavTab(tab)
+    if (tab === 'village') { setNavTab('village'); return }
+    setNavTab(tab)   // carte
     if (tab === 'carte') setSheetMode('half')
   }
 
@@ -825,8 +822,8 @@ export default function HomePage() {
             {showBtns && (
               <div style={{ position: 'absolute', top: 14, left: 12, right: 12, zIndex: 200, display: 'flex', gap: 8, alignItems: 'center' }}>
                 <button
-                  onClick={() => { setShowHub(true); setNavTab('accueil') }}
-                  aria-label="Retour au hub"
+                  onClick={() => setSplashOpen(true)}
+                  aria-label="Retour à l'accueil"
                   style={{ width: 42, height: 42, borderRadius: 14, background: '#fff', border: '1px solid #E8E0D4', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1A1209', cursor: 'pointer', flexShrink: 0, boxShadow: '0 3px 12px rgba(0,0,0,0.12)' }}
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -880,6 +877,19 @@ export default function HomePage() {
                   </svg>
                 </button>
               </div>
+            )}
+
+            {/* Bouton Publier « + » — haut droite (sorti de la bottom bar) */}
+            {showBtns && (
+              <button
+                onClick={handlePublierClick}
+                aria-label="Publier"
+                style={{ position: 'absolute', top: 70, right: 14, zIndex: 200, width: 44, height: 44, borderRadius: '50%', background: 'linear-gradient(135deg,#3C7A50,#2D5A3D)', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 3px 12px rgba(45,90,61,0.35)' }}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+              </button>
             )}
 
             {/* Chip filtre texte actif — vient de la recherche du hub, retirable */}
@@ -1160,7 +1170,7 @@ export default function HomePage() {
       {/* FAB haut centre — mode-aware */}
 
       {/* ProBandeau flottant sur la carte — 2/3 largeur, se fait avaler par le sheet (zIndex 19 < 20) */}
-      {!showHub && proEvents.length > 0 && appMode === 'agenda' && navTab !== 'profil' && navTab !== 'favoris' && navTab !== 'notifs' && (
+      {!showHub && proEvents.length > 0 && appMode === 'agenda' && navTab !== 'profil' && navTab !== 'favoris' && navTab !== 'notifs' && navTab !== 'village' && (
         <div style={{
           position: 'absolute', left: 0, right: '33%',
           bottom: NAV_H + sheetPeekH,
@@ -1270,6 +1280,16 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* Village — mur du village (refonte app simple) */}
+      {navTab === 'village' && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H,
+          zIndex: 25, overflowY: 'auto', backgroundColor: 'var(--creme)',
+        }}>
+          <VillageView onOpenProfil={() => setNavTab('profil')} />
+        </div>
+      )}
+
       {/* Fiches producteur/établissement : sous-étape 5.2 — rendues via
           intercepting routes Next.js dans le slot @modal du root layout.
           Plus de rendu local : router.push('/producteur/[id]') depuis la
@@ -1280,7 +1300,7 @@ export default function HomePage() {
       {/* Splash éditorial — « salon » d'entrée (obligatoire pour l'instant) */}
       {splashOpen && (
         <EditorialSplash
-          onExplore={() => { setShowHub(true); setNavTab('accueil'); setSplashOpen(false) }}
+          onExplore={() => { setSplashOpen(false); enterAgenda() }}
           onRubrique={(href) => { setSplashOpen(false); router.push(href) }}
           onToday={() => { setSplashOpen(false); enterAgendaToday(); setSheetMode('half') }}
           isAdmin={isAdmin}
@@ -1313,7 +1333,6 @@ export default function HomePage() {
       <BottomNavBar
         activeTab={navTab}
         onNavigate={(id) => handleNavTab(id as NavTab)}
-        onPlus={handlePublierClick}
       />
 
     </div>

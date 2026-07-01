@@ -22,7 +22,7 @@ const NOTIFY_OPTIONS: Array<{ value: NotifyAudience; label: string }> = [
 export interface CreatedPost {
   id: string; user_id: string; texte: string; visibility: Visibility;
   embed_kind: string | null; embed_ref_id: string | null
-  media: MediaItem[] | null; created_at: string
+  media: MediaItem[] | null; created_at: string; sur_village?: boolean
 }
 
 interface Props {
@@ -30,6 +30,8 @@ interface Props {
   authorAvatar: string | null
   onClose:      () => void
   onPosted:     (post: CreatedPost) => void
+  /** Publier sur le fil du village (groupe) → visible groupe + mur perso. */
+  toVillage?:   boolean
 }
 
 const VIS_OPTIONS: Array<{ value: Visibility; label: string; sub: string }> = [
@@ -40,7 +42,7 @@ const VIS_OPTIONS: Array<{ value: Visibility; label: string; sub: string }> = [
 
 const MAX = 2000
 
-export default function PostComposer({ authorName, authorAvatar, onClose, onPosted }: Props) {
+export default function PostComposer({ authorName, authorAvatar, onClose, onPosted, toVillage = false }: Props) {
   const [texte, setTexte]           = useState('')
   const [visibility, setVisibility] = useState<Visibility>('public')
   const [posting, setPosting]       = useState(false)
@@ -182,6 +184,7 @@ export default function PostComposer({ authorName, authorAvatar, onClose, onPost
           embed_kind:   embed?.kind ?? null,
           embed_ref_id: embed?.id ?? null,
           media,
+          sur_village: toVillage,
           // Broadcast admin (le serveur revérifie isAdmin). Omis si non-admin ou "Personne".
           notify: isAdmin && notify !== 'none' ? notify : undefined,
         }),
@@ -232,7 +235,7 @@ export default function PostComposer({ authorName, authorAvatar, onClose, onPost
           className="flex-1 truncate text-center font-serif text-[17px] text-texte"
           style={{ letterSpacing: '-0.005em' }}
         >
-          Nouvelle publication
+          {toVillage ? 'Publier sur le village' : 'Nouvelle publication'}
         </div>
         <button
           type="button"
