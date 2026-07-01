@@ -8,8 +8,8 @@ type RelatedApp = { platform?: string; id?: string; url?: string }
 const INSTALL_DISMISSED_KEY = 'pdv-install-dismissed'
 const PLAY_URL = 'https://play.google.com/store/apps/details?id=app.laplaceduvillage'
 
-/** ios = instructions Safari · android = fiche Play Store · chrome = prompt PWA natif (desktop) */
-type Mode = 'ios' | 'android' | 'chrome' | null
+/** ios = instructions Safari · ios-inapp = ouvrir dans Safari d'abord · android = Play Store · chrome = prompt PWA natif */
+type Mode = 'ios' | 'ios-inapp' | 'android' | 'chrome' | null
 
 export default function InstallBanner() {
   const pathname = usePathname()
@@ -23,12 +23,16 @@ export default function InstallBanner() {
     if (sessionStorage.getItem(INSTALL_DISMISSED_KEY)) return
 
     const ua = navigator.userAgent
-    const ios = /iphone|ipad|ipod/i.test(ua) && !(window.navigator as { standalone?: boolean }).standalone
-    const android = /android/i.test(ua)
+    // Vendor Apple = fiable sur tous les WebKit iOS (même in-app / UA exotique).
+    const appleVendor = (navigator as { vendor?: string }).vendor === 'Apple Computer, Inc.'
+    const ios = /iphone|ipad|ipod/i.test(ua) || (appleVendor && navigator.maxTouchPoints > 1)
+    const inApp = /FBAN|FBAV|FB_IAB|Instagram|Line\/|Snapchat|Twitter|TikTok|musical_ly|Pinterest|LinkedInApp|WhatsApp/i.test(ua)
+    const android = /android/i.test(ua) && !appleVendor
 
-    // iOS : pas de prompt natif possible → instructions « Sur l'écran d'accueil » (seul chemin d'install Apple).
+    // iOS : pas de prompt natif. En navigateur in-app, l'« Ajouter à l'écran d'accueil »
+    // n'existe pas → on invite à ouvrir dans Safari. Sinon, instructions Partager.
     if (ios) {
-      setMode('ios')
+      setMode(inApp ? 'ios-inapp' : 'ios')
       const t = setTimeout(() => setShow(true), 3000)
       return () => clearTimeout(t)
     }
@@ -118,6 +122,12 @@ export default function InstallBanner() {
       {mode === 'ios' && (
         <p style={{ fontSize: 12, color: '#5A5A5A', margin: 0, lineHeight: 1.5, backgroundColor: '#FAF7F2', borderRadius: 10, padding: '10px 12px' }}>
           Appuie sur <strong>↑ Partager</strong> en bas de Safari, puis <strong>&ldquo;Sur l&apos;écran d&apos;accueil&rdquo;</strong>
+        </p>
+      )}
+
+      {mode === 'ios-inapp' && (
+        <p style={{ fontSize: 12, color: '#5A5A5A', margin: 0, lineHeight: 1.5, backgroundColor: '#FCF0EA', borderRadius: 10, padding: '10px 12px' }}>
+          Pour installer, ouvre d&apos;abord ce site dans <strong>Safari</strong> : menu <strong>•••</strong> (ou <strong>Partager</strong>) → <strong>&ldquo;Ouvrir dans Safari&rdquo;</strong>, puis <strong>Partager → &ldquo;Sur l&apos;écran d&apos;accueil&rdquo;</strong>.
         </p>
       )}
 
