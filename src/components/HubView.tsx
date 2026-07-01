@@ -411,8 +411,8 @@ export default function HubView({
         onOpenMenu={onOpenInfo}
         onShareApp={() => shareLink({
           title: 'La Place du Village',
-          text:  'Le village vivant autour de Ganges : événements, commerces, producteurs, annonces.',
-          url:   'https://laplaceduvillage.app',
+          text:  'Installe La Place du Village : événements, commerces, producteurs, annonces autour de Ganges.',
+          url:   'https://laplaceduvillage.app/app',
         })}
         rightSlot={<MomentsPastille />}
       />
