@@ -15,6 +15,17 @@ CREATE INDEX IF NOT EXISTS posts_sur_village_idx
   ON public.posts (created_at DESC)
   WHERE sur_village = true;
 
+-- Backfill : TOUS les posts existants des comptes admin (= « La Place du
+-- Village », le compte officiel) passent sur le fil du village.
+UPDATE public.posts p
+SET sur_village = true
+WHERE p.sur_village = false
+  AND p.user_id IN (
+    SELECT u.id
+    FROM auth.users u
+    JOIN public.admin_emails a ON lower(u.email) = lower(a.email)
+  );
+
 -- ============================================================================
 -- RLS : inchangé. La policy posts_select existante autorise déjà la lecture des
 -- posts publics par tout le monde → les posts village publics sont lisibles.

@@ -76,7 +76,8 @@ export async function POST(req: NextRequest) {
       embed_ref_id: validEmbedRefId,
       media: cleanMedia.length > 0 ? cleanMedia : null,
       // Posté sur le fil du village (groupe) → visible aussi dans le feed village.
-      sur_village: sur_village === true,
+      // Les posts admin (compte « La Place du Village ») y vont TOUJOURS.
+      sur_village: sur_village === true || ctx.isAdmin,
     })
     .select('id, user_id, texte, visibility, embed_kind, embed_ref_id, media, created_at, sur_village')
     .single()
