@@ -208,7 +208,7 @@ export default function PromotionsClient() {
         style={{ padding: '8px 12px', paddingTop: 'max(8px, env(safe-area-inset-top, 8px))', borderBottom: '1px solid #EDE8E0', boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}
       >
         <button
-          onClick={() => router.push('/')}
+          onClick={() => router.push('/?splash=1')}
           aria-label="Accueil La Place du Village"
           className="shrink-0 border-none bg-transparent p-0"
           style={{ lineHeight: 0, cursor: 'pointer' }}

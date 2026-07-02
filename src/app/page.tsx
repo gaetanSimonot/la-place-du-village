@@ -218,10 +218,16 @@ export default function HomePage() {
   // restaure le bon onglet et quitte le hub. Lecture client-side directe
   // pour éviter le bailout static de useSearchParams().
   useEffect(() => {
-    const tabParam = new URLSearchParams(window.location.search).get('tab')
+    const sp0 = new URLSearchParams(window.location.search)
+    const tabParam = sp0.get('tab')
     if (tabParam === 'carte' || tabParam === 'village' || tabParam === 'favoris' || tabParam === 'notifs' || tabParam === 'profil') {
       setShowHub(false)
       setNavTab(tabParam as NavTab)
+      window.history.replaceState({}, '', '/')
+    }
+    // ?splash=1 : le logo des autres pages ramène sur le splash d'accueil.
+    if (sp0.get('splash') === '1') {
+      setSplashOpen(true)
       window.history.replaceState({}, '', '/')
     }
   }, [])
@@ -1287,7 +1293,7 @@ export default function HomePage() {
           position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H,
           zIndex: 25, overflowY: 'auto', backgroundColor: 'var(--creme)',
         }}>
-          <VillageView onOpenProfil={() => setNavTab('profil')} />
+          <VillageView onOpenProfil={() => setNavTab('profil')} onOpenSplash={() => setSplashOpen(true)} />
         </div>
       )}
 

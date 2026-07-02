@@ -3,7 +3,6 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import BottomNavBar from '@/components/BottomNavBar'
 import ArticleSocial from '@/components/ArticleSocial'
-import { useSmartBack } from '@/hooks/useSmartBack'
 
 export interface JournalRow {
   id: string
@@ -110,7 +109,9 @@ export default function JournalPageClient({
   events = [], annonces = [], promos = [], articles = [], spotlight = null,
 }: JournalProps) {
   const router = useRouter()
-  const goBack = useSmartBack('/journal')
+  // Refonte : le retour du journal ramène TOUJOURS sur le Village (le miroir
+  // d'URL de la home força sinon l'onglet carte au retour arrière).
+  const goBack = () => router.push('/?tab=village')
 
   function handleShare() {
     const url = typeof window !== 'undefined' ? window.location.href : ''

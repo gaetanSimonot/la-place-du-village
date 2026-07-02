@@ -77,15 +77,28 @@ export default function AnnoncesPageClient() {
           <div className="text-[12px] font-semibold text-texte-doux">Le coin du village</div>
         </div>
 
-        <Link
-          href="/annonces/messages"
-          aria-label="Mes messages"
-          className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte no-underline shadow-[0_1px_2px_rgba(44,28,16,0.04)]"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-          </svg>
-        </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          <Link
+            href="/annonces/messages"
+            aria-label="Mes messages"
+            className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte no-underline shadow-[0_1px_2px_rgba(44,28,16,0.04)]"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+            </svg>
+          </Link>
+          {/* + Publier une annonce (déplacé depuis la bottom nav) */}
+          <Link
+            href="/annonces/nouvelle"
+            aria-label="Publier une annonce"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white no-underline"
+            style={{ background: 'linear-gradient(135deg, #3C7A50, #2D5A3D)', boxShadow: '0 2px 6px rgba(45,90,61,0.30)' }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </Link>
+        </div>
       </div>
 
       {/* ─────────── Barre de recherche + bouton Filtres ─────────── */}

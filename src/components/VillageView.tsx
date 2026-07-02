@@ -18,7 +18,7 @@ interface VillagePost extends PostData {
 }
 
 /** Le « mur du village » : logo + Profil, titre, 4 raccourcis + le fil du village (groupe). */
-export default function VillageView({ onOpenProfil }: { onOpenProfil: () => void }) {
+export default function VillageView({ onOpenProfil, onOpenSplash }: { onOpenProfil: () => void; onOpenSplash?: () => void }) {
   const { user, profile } = useAuth()
   const avatar = profile?.avatar_url ?? null
 
@@ -29,8 +29,16 @@ export default function VillageView({ onOpenProfil }: { onOpenProfil: () => void
         className="flex items-center justify-between gap-2.5 bg-white"
         style={{ padding: '8px 12px', paddingTop: 'max(8px, env(safe-area-inset-top, 8px))', borderBottom: '1px solid #EDE8E0', boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo-topbar.webp" alt="La Place du Village" style={{ height: 38, width: 'auto', objectFit: 'contain', display: 'block' }} />
+        <button
+          type="button"
+          onClick={onOpenSplash}
+          aria-label="Accueil La Place du Village"
+          className="shrink-0 border-none bg-transparent p-0"
+          style={{ lineHeight: 0, cursor: 'pointer' }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-topbar.webp" alt="La Place du Village" style={{ height: 38, width: 'auto', objectFit: 'contain', display: 'block' }} />
+        </button>
         <button
           type="button"
           onClick={onOpenProfil}
@@ -72,15 +80,15 @@ export default function VillageView({ onOpenProfil }: { onOpenProfil: () => void
 /* ── 4 raccourcis — cartes photo verticales (façon mockup) ──────────── */
 function Tiles() {
   const router = useRouter()
-  const [counts, setCounts] = useState<{ reels: number; debats: number; journal: number; annonces: number } | null>(null)
+  const [counts, setCounts] = useState<{ reels: number; debats: number; journal: number; annonces: number; debatPhoto?: string | null } | null>(null)
 
   useEffect(() => {
     fetch('/api/village/counts').then(r => (r.ok ? r.json() : null)).then(d => { if (d) setCounts(d) }).catch(() => {})
   }, [])
 
-  const TILES: { key: keyof NonNullable<typeof counts>; label: string; href: string; color: string; photo: string; icon: React.ReactNode }[] = [
+  const TILES: { key: 'reels' | 'debats' | 'journal' | 'annonces'; label: string; href: string; color: string; photo: string; icon: React.ReactNode }[] = [
     { key: 'reels', label: 'Reels', href: '/en-ce-moment', color: '#E8622A', photo: '/splash-bg-aujourdhui.jpg', icon: <><polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" /></> },
-    { key: 'debats', label: 'Débats', href: '/forum', color: '#7C3AED', photo: '/hub-intro-slide.webp', icon: <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z" /> },
+    { key: 'debats', label: 'Débats', href: '/forum', color: '#7C3AED', photo: counts?.debatPhoto || '/hub-intro-slide.webp', icon: <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z" /> },
     { key: 'journal', label: 'Journal', href: '/journal', color: '#7C5C3B', photo: '/og/journal.jpg', icon: <><rect x="2" y="4" width="20" height="16" rx="2" ry="2" /><line x1="6" y1="8" x2="18" y2="8" /><line x1="6" y1="12" x2="18" y2="12" /><line x1="6" y1="16" x2="14" y2="16" /></> },
     { key: 'annonces', label: 'Annonces', href: '/annonces', color: '#2D5A3D', photo: '/og/annonces.jpg', icon: <><path d="M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></> },
   ]
@@ -95,23 +103,29 @@ function Tiles() {
             className="flex flex-col items-center border-none bg-transparent p-0 text-center"
             style={{ cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
           >
-            {/* Carte photo verticale + pastille icône en bas */}
+            {/* Carte photo verticale : gradient noir bas + pastille icône + badge count */}
             <div className="relative w-full overflow-hidden rounded-[16px]" style={{ aspectRatio: '0.68', background: '#E4DACA', boxShadow: '0 2px 8px rgba(44,28,16,0.10)' }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={t.photo} alt="" className="h-full w-full object-cover" />
+              {/* Gradient noir depuis le bas → détache la pastille icône */}
+              <span className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.18) 38%, rgba(0,0,0,0) 60%)' }} />
               <span
                 className="absolute bottom-2 left-1/2 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full"
                 style={{ background: t.color, color: '#fff', border: '3px solid rgba(251,244,232,0.95)' }}
               >
                 <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">{t.icon}</svg>
               </span>
+              {/* Badge compteur en haut à droite (style notif) — masqué si 0 */}
+              {n > 0 && (
+                <span
+                  className="absolute right-1.5 top-1.5 inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full px-1 text-[10.5px] font-extrabold text-white"
+                  style={{ background: t.color, border: '1.5px solid #fff' }}
+                >
+                  {n > 99 ? '99+' : n}
+                </span>
+              )}
             </div>
             <span className="mt-1.5 text-[12.5px] font-extrabold text-texte" style={{ letterSpacing: '-0.005em' }}>{t.label}</span>
-            {n > 0 && (
-              <span className="mt-1 inline-flex min-w-[22px] items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-extrabold text-white" style={{ background: t.color }}>
-                {n > 99 ? '99+' : n}
-              </span>
-            )}
           </button>
         )
       })}
