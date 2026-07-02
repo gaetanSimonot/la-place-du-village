@@ -52,7 +52,7 @@ const Icons = {
   ),
 }
 
-export default function BottomNavBar({ onNavigate, activeTab }: Props = {}) {
+export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = {}) {
   const router = useRouter()
   const pathname = usePathname()
   const { user } = useAuth()
