@@ -202,8 +202,11 @@ export default function PromotionsClient() {
     <div className="min-h-[100dvh] bg-creme pb-20 font-inter text-texte">
       <style>{`.pdv-hscroll { scrollbar-width: none; -webkit-overflow-scrolling: touch; } .pdv-hscroll::-webkit-scrollbar { display: none; }`}</style>
 
-      {/* Top bar : logo + partager */}
-      <div className="flex items-center justify-between gap-2.5 px-3.5 pt-[max(12px,env(safe-area-inset-top,12px))]">
+      {/* Top bar bande blanche (identique carte) : logo + partager */}
+      <div
+        className="flex items-center justify-between gap-2.5 bg-white"
+        style={{ padding: '8px 12px', paddingTop: 'max(8px, env(safe-area-inset-top, 8px))', borderBottom: '1px solid #EDE8E0', boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}
+      >
         <button
           onClick={() => router.push('/')}
           aria-label="Accueil La Place du Village"
@@ -211,7 +214,7 @@ export default function PromotionsClient() {
           style={{ lineHeight: 0, cursor: 'pointer' }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/splash-logo-v4.png" alt="La Place du Village" style={{ height: 40, width: 'auto', objectFit: 'contain', display: 'block' }} />
+          <img src="/splash-logo-v4.png" alt="La Place du Village" style={{ height: 38, width: 'auto', objectFit: 'contain', display: 'block' }} />
         </button>
         <button
           type="button"
@@ -221,7 +224,7 @@ export default function PromotionsClient() {
             url:   'https://laplaceduvillage.app/promotions',
           })}
           aria-label="Partager les bons plans"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte shadow-[0_1px_2px_rgba(44,28,16,0.04)]"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-texte"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
@@ -231,17 +234,18 @@ export default function PromotionsClient() {
         </button>
       </div>
 
-      {/* Titre */}
-      <div className="px-4 pt-3.5">
-        <h1 className="m-0 font-serif text-[23px] leading-tight text-texte" style={{ letterSpacing: '-0.01em' }}>
-          Les bons plans du moment
-        </h1>
-        <p className="m-0 mt-1 text-[13px] text-texte-doux">Des offres exclusives près de chez vous.</p>
-      </div>
-
-      {/* Intro strip : compteur + En direct */}
-      <div className="flex items-baseline justify-between gap-2.5 px-4 pt-2.5">
-        <p className="m-0 flex-1 text-[13px] text-texte-doux">
+      {/* Titre + compteur */}
+      <div className="px-4 pt-4">
+        <div className="flex items-baseline justify-between gap-2.5">
+          <h1 className="m-0 font-serif text-[23px] leading-tight text-texte" style={{ letterSpacing: '-0.01em' }}>
+            Les bons plans du moment
+          </h1>
+          <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-[#FFF0E5] px-[9px] py-1 text-[11px] font-bold text-accent">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+            En direct
+          </span>
+        </div>
+        <p className="m-0 mt-1 text-[13px] text-texte-doux">
           {loading ? (
             'Chargement des offres…'
           ) : (
@@ -251,10 +255,6 @@ export default function PromotionsClient() {
             </>
           )}
         </p>
-        <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-[#FFF0E5] px-[9px] py-1 text-[11px] font-bold text-accent">
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-          En direct
-        </span>
       </div>
 
       {/* Bandeau quota / rappel plan */}
@@ -624,17 +624,7 @@ function PromoCard({ promo, onUse, onDiscover, disabled, favorited, onToggleFav 
           </p>
         )}
 
-        {promo.conditions && (
-          <div className="mt-0.5 flex items-start gap-1 rounded-md bg-[#E8F2EB] px-1.5 py-1">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="mt-px shrink-0 text-primary">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-              <polyline points="22 4 12 14.01 9 11.01"/>
-            </svg>
-            <p className="m-0 line-clamp-2 text-[10px] font-semibold leading-[1.3] text-[#8A4A1F]">
-              {promo.conditions}
-            </p>
-          </div>
-        )}
+        {/* Conditions : volontairement PAS sur la tuile — visibles dans « Découvrir ». */}
 
         <p className="m-0 flex items-center gap-1 truncate text-[10.5px] text-texte-doux">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">

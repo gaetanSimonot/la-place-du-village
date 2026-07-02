@@ -24,16 +24,19 @@ export default function VillageView({ onOpenProfil }: { onOpenProfil: () => void
 
   return (
     <div className="min-h-full bg-creme pb-6">
-      {/* Top bar : logo + bouton Profil */}
-      <div className="flex items-center justify-between gap-2.5 px-3.5 pt-[max(12px,env(safe-area-inset-top,12px))]">
+      {/* Top bar bande blanche (identique carte) : logo + bouton Profil */}
+      <div
+        className="flex items-center justify-between gap-2.5 bg-white"
+        style={{ padding: '8px 12px', paddingTop: 'max(8px, env(safe-area-inset-top, 8px))', borderBottom: '1px solid #EDE8E0', boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/splash-logo-v4.png" alt="La Place du Village" style={{ height: 40, width: 'auto', objectFit: 'contain', display: 'block' }} />
+        <img src="/splash-logo-v4.png" alt="La Place du Village" style={{ height: 38, width: 'auto', objectFit: 'contain', display: 'block' }} />
         <button
           type="button"
           onClick={onOpenProfil}
           aria-label="Mon profil"
-          className="flex h-10 shrink-0 items-center gap-1.5 rounded-full border bg-white px-3.5 text-[13px] font-extrabold text-texte"
-          style={{ borderColor: '#E8E0D4', boxShadow: '0 1px 3px rgba(44,28,16,0.06)' }}
+          className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border bg-white px-3.5 text-[13px] font-extrabold text-texte"
+          style={{ borderColor: '#E8E0D4' }}
         >
           <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
