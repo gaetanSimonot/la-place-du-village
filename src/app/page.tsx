@@ -1297,6 +1297,7 @@ export default function HomePage() {
             onOpenProfil={() => setNavTab('profil')}
             onOpenSplash={() => setSplashOpen(true)}
             onOpenAgendaToday={() => { enterAgendaToday(); setSheetMode('half') }}
+            onUpgradePrompt={(plan, label) => setUpgradePrompt({ plan, label })}
           />
         </div>
       )}

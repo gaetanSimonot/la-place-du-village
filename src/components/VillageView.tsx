@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import type { Evenement } from '@/lib/types'
 import { SectionHeaderV3, FeaturedEventCard, MiniEventCard, MoreEventsCard } from '@/components/HubView'
+import PlansCardFinal from '@/components/PlansCardFinal'
 import PostComposer from '@/components/profil/PostComposer'
 import PostCard, { type PostData } from '@/components/profil/PostCard'
 import PostCommentsDrawer from '@/components/profil/PostCommentsDrawer'
@@ -21,14 +22,23 @@ interface VillagePost extends PostData {
 }
 
 /** Le « mur du village » : logo + Profil, titre, 4 raccourcis, Aujourd'hui + le fil du village (groupe). */
-export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaToday }: {
+export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaToday, onUpgradePrompt }: {
   onOpenProfil: () => void
   onOpenSplash?: () => void
   /** « Voir tout » de la section Aujourd'hui → carte agenda du jour. */
   onOpenAgendaToday?: () => void
+  /** CTA abonnement (comptes gratuits) → SubscriptionModal du shell. */
+  onUpgradePrompt?: (plan: 'habitants' | 'pro', label: string) => void
 }) {
   const { user, profile } = useAuth()
   const avatar = profile?.avatar_url ?? null
+
+  // CTA plans (comptes gratuits) — même dismiss persistant que sur l'ancien hub.
+  const [plansCardDismissed, setPlansCardDismissed] = useState(false)
+  useEffect(() => {
+    try { if (localStorage.getItem('pdv-plans-card-dismissed') === '1') setPlansCardDismissed(true) } catch { /* noop */ }
+  }, [])
+  const showPlansCard = (profile?.plan ?? 'basic') === 'basic' && !plansCardDismissed && !!onUpgradePrompt
 
   return (
     <div className="min-h-full bg-creme pb-6">
@@ -70,6 +80,14 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
 
       {/* 4 tuiles */}
       <Tiles />
+
+      {/* CTA abonnement (comptes gratuits, dismissable) — repris du hub */}
+      {showPlansCard && (
+        <PlansCardFinal
+          onClick={() => onUpgradePrompt?.('habitants', 'Promotions illimitées')}
+          onDismiss={() => { try { localStorage.setItem('pdv-plans-card-dismissed', '1') } catch { /* noop */ }; setPlansCardDismissed(true) }}
+        />
+      )}
 
       {/* Aujourd'hui — bento du hub (featured + minis), Voir tout → carte */}
       <TodaySection onVoirTout={onOpenAgendaToday} />
