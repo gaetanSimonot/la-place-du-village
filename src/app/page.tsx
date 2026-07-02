@@ -166,8 +166,11 @@ export default function HomePage() {
   const [screenH, setScreenH]       = useState(812)
   const [navTab, setNavTab]         = useState<NavTab>(() => {
     if (typeof window === 'undefined') return 'carte'
-    const saved = sessionStorage.getItem('pdv-nav-tab') as NavTab | null
-    return saved ?? 'carte'
+    const saved = sessionStorage.getItem('pdv-nav-tab')
+    // Sanitize : les anciennes sessions peuvent porter 'accueil'/'annonces'
+    // (onglets disparus de la refonte) → retomber sur la carte.
+    const valid: NavTab[] = ['carte', 'village', 'profil', 'favoris', 'notifs']
+    return (valid as string[]).includes(saved ?? '') ? (saved as NavTab) : 'carte'
   })
   // Persiste navTab pour survivre aux navigations (ex: retour depuis /ajouter,
   // /capturer, /covoiturage/[id], etc.). Sans ça, navTab repart à 'accueil'
@@ -575,6 +578,7 @@ export default function HomePage() {
     setSplashOpen(false)   // toute navigation ferme le splash éditorial
     if (tab === 'bonsplans') { router.push('/promotions'); return }
     if (tab === 'annonces')  { router.push('/annonces'); return }
+    if (tab === 'accueil')   { setNavTab('village'); return }   // legacy (retour notifs…) → Village
     if (showHub) setShowHub(false)
     if (tab === 'profil')  { setNavTab('profil');  return }
     if (tab === 'favoris') { setNavTab('favoris'); return }
