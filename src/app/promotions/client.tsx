@@ -202,30 +202,17 @@ export default function PromotionsClient() {
     <div className="min-h-[100dvh] bg-creme pb-20 font-inter text-texte">
       <style>{`.pdv-hscroll { scrollbar-width: none; -webkit-overflow-scrolling: touch; } .pdv-hscroll::-webkit-scrollbar { display: none; }`}</style>
 
-      {/* Top bar V3 */}
-      <div className="flex items-center justify-between gap-2.5 px-4 pt-3.5">
+      {/* Top bar : logo + partager */}
+      <div className="flex items-center justify-between gap-2.5 px-3.5 pt-[max(12px,env(safe-area-inset-top,12px))]">
         <button
           onClick={() => router.push('/')}
-          aria-label="Retour"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte shadow-[0_1px_2px_rgba(44,28,16,0.04)]"
+          aria-label="Accueil La Place du Village"
+          className="shrink-0 border-none bg-transparent p-0"
+          style={{ lineHeight: 0, cursor: 'pointer' }}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="19" y1="12" x2="5" y2="12"/>
-            <polyline points="12 19 5 12 12 5"/>
-          </svg>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/splash-logo-v4.png" alt="La Place du Village" style={{ height: 40, width: 'auto', objectFit: 'contain', display: 'block' }} />
         </button>
-        <div className="flex min-w-0 flex-1 flex-col items-center gap-px">
-          <div className="font-serif text-[18px] leading-none text-texte" style={{ letterSpacing: '-0.01em' }}>
-            Bons plans
-          </div>
-          <div className="flex items-center gap-[3px] text-[11px] font-semibold text-texte-doux">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 22s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/>
-              <circle cx="12" cy="10" r="2.5"/>
-            </svg>
-            <span>Près de chez vous</span>
-          </div>
-        </div>
         <button
           type="button"
           onClick={() => shareLink({
@@ -244,8 +231,16 @@ export default function PromotionsClient() {
         </button>
       </div>
 
-      {/* Intro strip */}
-      <div className="flex items-baseline justify-between gap-2.5 px-4 pt-3.5">
+      {/* Titre */}
+      <div className="px-4 pt-3.5">
+        <h1 className="m-0 font-serif text-[23px] leading-tight text-texte" style={{ letterSpacing: '-0.01em' }}>
+          Les bons plans du moment
+        </h1>
+        <p className="m-0 mt-1 text-[13px] text-texte-doux">Des offres exclusives près de chez vous.</p>
+      </div>
+
+      {/* Intro strip : compteur + En direct */}
+      <div className="flex items-baseline justify-between gap-2.5 px-4 pt-2.5">
         <p className="m-0 flex-1 text-[13px] text-texte-doux">
           {loading ? (
             'Chargement des offres…'

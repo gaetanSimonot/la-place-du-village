@@ -17,34 +17,22 @@ interface VillagePost extends PostData {
   authorAvatar: string | null
 }
 
-/** Le « mur du village » : entête perso + 4 raccourcis + le fil du village (groupe). */
+/** Le « mur du village » : logo + Profil, titre, 4 raccourcis + le fil du village (groupe). */
 export default function VillageView({ onOpenProfil }: { onOpenProfil: () => void }) {
   const { user, profile } = useAuth()
-  const firstName = (profile?.display_name || '').trim().split(' ')[0] || 'toi'
   const avatar = profile?.avatar_url ?? null
 
   return (
     <div className="min-h-full bg-creme pb-6">
-      {/* Entête : avatar + Salut + bouton Profil */}
-      <div className="flex items-center gap-3 px-4 pt-[max(14px,env(safe-area-inset-top,14px))] pb-3">
-        {avatar ? (
-          <img src={avatar} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" />
-        ) : (
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary font-serif text-[18px] text-white">
-            {(firstName || '·').charAt(0).toUpperCase()}
-          </div>
-        )}
-        <div className="min-w-0 flex-1">
-          <div className="text-[11px] text-texte-doux">Bienvenue</div>
-          <div className="truncate font-serif text-[19px] text-texte" style={{ letterSpacing: '-0.01em' }}>
-            Salut {firstName}
-          </div>
-        </div>
+      {/* Top bar : logo + bouton Profil */}
+      <div className="flex items-center justify-between gap-2.5 px-3.5 pt-[max(12px,env(safe-area-inset-top,12px))]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/splash-logo-v4.png" alt="La Place du Village" style={{ height: 40, width: 'auto', objectFit: 'contain', display: 'block' }} />
         <button
           type="button"
           onClick={onOpenProfil}
           aria-label="Mon profil"
-          className="flex h-10 items-center gap-1.5 rounded-full border bg-white px-3.5 text-[13px] font-extrabold text-texte"
+          className="flex h-10 shrink-0 items-center gap-1.5 rounded-full border bg-white px-3.5 text-[13px] font-extrabold text-texte"
           style={{ borderColor: '#E8E0D4', boxShadow: '0 1px 3px rgba(44,28,16,0.06)' }}
         >
           <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
@@ -52,6 +40,13 @@ export default function VillageView({ onOpenProfil }: { onOpenProfil: () => void
           </svg>
           Profil
         </button>
+      </div>
+
+      {/* Titre */}
+      <div className="px-4 pb-3 pt-3">
+        <h1 className="m-0 font-serif text-[22px] text-texte" style={{ letterSpacing: '-0.01em' }}>
+          Aujourd&apos;hui dans le village
+        </h1>
       </div>
 
       {/* 4 tuiles */}
@@ -76,9 +71,9 @@ function Tiles() {
   const router = useRouter()
   const TILES: { key: string; label: string; href: string; color: string; icon: React.ReactNode }[] = [
     { key: 'reels', label: 'Reels', href: '/en-ce-moment', color: '#E8622A', icon: <><polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" /></> },
-    { key: 'forum', label: 'Place publique', href: '/forum', color: '#7C3AED', icon: <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z" /> },
+    { key: 'journal', label: 'Le journal', href: '/journal', color: '#7C5C3B', icon: <><rect x="2" y="4" width="20" height="16" rx="2" ry="2" /><line x1="6" y1="8" x2="18" y2="8" /><line x1="6" y1="12" x2="18" y2="12" /><line x1="6" y1="16" x2="14" y2="16" /></> },
     { key: 'annonces', label: 'Annonces', href: '/annonces', color: '#2D5A3D', icon: <><path d="M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></> },
-    { key: 'covoit', label: 'Covoiturage', href: '/covoiturage', color: '#3A5D8C', icon: <><path d="M5 17H3v-6l2-5h12l2 5v6h-2" /><circle cx="7.5" cy="17.5" r="1.5" /><circle cx="16.5" cy="17.5" r="1.5" /></> },
+    { key: 'forum', label: 'Place publique', href: '/forum', color: '#7C3AED', icon: <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z" /> },
   ]
   return (
     <div className="grid grid-cols-2 gap-2.5 px-4">
