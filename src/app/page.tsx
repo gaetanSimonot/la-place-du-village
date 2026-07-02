@@ -818,18 +818,29 @@ export default function HomePage() {
         }
         return (
           <>
-            {/* Top bar bande blanche : logo | segmented 3-mode | infos */}
+            {/* Top bar bande blanche : rangée 1 = logo + infos · rangée 2 = filtres */}
             {showBtns && (
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 200, display: 'flex', gap: 8, alignItems: 'center', background: '#fff', padding: '8px 12px', paddingTop: 'max(8px, env(safe-area-inset-top, 8px))', borderBottom: '1px solid #EDE8E0', boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}>
-                <button
-                  onClick={() => setSplashOpen(true)}
-                  aria-label="Accueil La Place du Village"
-                  style={{ border: 'none', background: 'none', padding: 0, lineHeight: 0, cursor: 'pointer', flexShrink: 0 }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/splash-logo-v4.png" alt="La Place du Village" style={{ height: 38, width: 'auto', objectFit: 'contain', display: 'block' }} />
-                </button>
-                <div style={{ flex: 1, display: 'flex', background: '#F7F1E6', borderRadius: 14, padding: 4, gap: 2 }}>
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 200, display: 'flex', flexDirection: 'column', gap: 8, background: '#fff', padding: '8px 12px 10px', paddingTop: 'max(8px, env(safe-area-inset-top, 8px))', borderBottom: '1px solid #EDE8E0', boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <button
+                    onClick={() => setSplashOpen(true)}
+                    aria-label="Accueil La Place du Village"
+                    style={{ border: 'none', background: 'none', padding: 0, lineHeight: 0, cursor: 'pointer', flexShrink: 0 }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/logo-topbar.webp" alt="La Place du Village" style={{ height: 38, width: 'auto', objectFit: 'contain', display: 'block' }} />
+                  </button>
+                  <button
+                    onClick={() => setInfoOpen(true)}
+                    aria-label="Infos / FAQ"
+                    style={{ width: 38, height: 38, borderRadius: '50%', background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1A1209', cursor: 'pointer', flexShrink: 0 }}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+                    </svg>
+                  </button>
+                </div>
+                <div style={{ display: 'flex', background: '#F7F1E6', borderRadius: 14, padding: 4, gap: 2 }}>
                   {MODES.map(m => {
                     const active = mapMode === m.id
                     return (
@@ -837,10 +848,10 @@ export default function HomePage() {
                         key={m.id}
                         onClick={() => setMapMode(m.id)}
                         style={{
-                          flex: 1, padding: '7px 4px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                          flex: 1, padding: '8px 4px', borderRadius: 10, border: 'none', cursor: 'pointer',
                           background: active ? '#2D5A3D' : 'transparent',
                           color: active ? '#fff' : '#7A6A5A',
-                          fontFamily: 'var(--font-body), sans-serif', fontWeight: active ? 800 : 700, fontSize: 11,
+                          fontFamily: 'var(--font-body), sans-serif', fontWeight: active ? 800 : 700, fontSize: 12,
                           whiteSpace: 'nowrap', transition: 'all 0.15s',
                         }}
                       >
@@ -849,26 +860,12 @@ export default function HomePage() {
                     )
                   })}
                 </div>
-                <button
-                  onClick={() => setInfoOpen(true)}
-                  aria-label="Infos / FAQ"
-                  style={{ width: 38, height: 38, borderRadius: '50%', background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1A1209', cursor: 'pointer', flexShrink: 0 }}
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
-                  </svg>
-                </button>
               </div>
             )}
 
-            {/* Stack boutons flottants à gauche (sous la top bar) : retour · réglages · loupe */}
+            {/* Stack boutons flottants à gauche (sous la top bar) : réglages · loupe */}
             {showBtns && (
-              <div style={{ position: 'absolute', top: 'calc(env(safe-area-inset-top, 0px) + 66px)', left: 14, zIndex: 200, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <button onClick={() => setSplashOpen(true)} style={FBTN} aria-label="Retour à l'accueil">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
-                  </svg>
-                </button>
+              <div style={{ position: 'absolute', top: 'calc(env(safe-area-inset-top, 0px) + 116px)', left: 14, zIndex: 200, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <button onClick={() => setZonePopup(true)} style={FBTN} aria-label="Réglages de la carte">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="12" cy="12" r="3"/>
@@ -888,7 +885,7 @@ export default function HomePage() {
               <button
                 onClick={handlePublierClick}
                 aria-label="Publier"
-                style={{ position: 'absolute', top: 'calc(env(safe-area-inset-top, 0px) + 66px)', right: 14, zIndex: 200, width: 44, height: 44, borderRadius: '50%', background: 'linear-gradient(135deg,#3C7A50,#2D5A3D)', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 3px 12px rgba(45,90,61,0.35)' }}
+                style={{ position: 'absolute', top: 'calc(env(safe-area-inset-top, 0px) + 116px)', right: 14, zIndex: 200, width: 44, height: 44, borderRadius: '50%', background: 'linear-gradient(135deg,#3C7A50,#2D5A3D)', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 3px 12px rgba(45,90,61,0.35)' }}
               >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -899,7 +896,7 @@ export default function HomePage() {
             {/* Chip filtre texte actif — vient de la recherche du hub, retirable */}
             {showBtns && activeSearch.trim() && (
               <div style={{
-                position: 'absolute', top: 'calc(env(safe-area-inset-top, 0px) + 66px)', left: 64, right: 68, zIndex: 200,
+                position: 'absolute', top: 'calc(env(safe-area-inset-top, 0px) + 116px)', left: 64, right: 68, zIndex: 200,
                 display: 'flex', justifyContent: 'flex-start',
               }}>
                 <div style={{

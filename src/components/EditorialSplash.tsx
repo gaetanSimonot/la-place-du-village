@@ -58,8 +58,21 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
   const [d, setD] = useState<SplashData | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [heroPickerOpen, setHeroPickerOpen] = useState(false)
+  // Image d'entrée : dernière URL connue mise en cache localement → affichée
+  // IMMÉDIATEMENT (pas de flash "ancienne image par défaut → la bonne" pendant
+  // le fetch de /api/splash). Mise à jour à chaque réponse API.
+  const [hero, setHero] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null
+    try { return localStorage.getItem('pdv-splash-hero') } catch { return null }
+  })
   const load = useCallback(() => {
-    fetch(`/api/splash?_=${Date.now()}`, { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).then(data => { if (data) setD(data) }).catch(() => {})
+    fetch(`/api/splash?_=${Date.now()}`, { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).then(data => {
+      if (!data) return
+      setD(data)
+      const h = (data.hero as string | undefined) || '/splash-header.jpg'
+      setHero(h)
+      try { localStorage.setItem('pdv-splash-hero', h) } catch { /* noop */ }
+    }).catch(() => {})
   }, [])
   useEffect(() => { load() }, [load])
 
@@ -87,7 +100,9 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
   // Admin : image d'entrée (header) du splash
   const saveHero = async (url: string) => {
     setHeroPickerOpen(false)
-    setD(prev => (prev ? { ...prev, hero: url } : prev))   // affichage instantané (optimiste)
+    setHero(url)                                            // affichage instantané (optimiste)
+    try { localStorage.setItem('pdv-splash-hero', url) } catch { /* noop */ }
+    setD(prev => (prev ? { ...prev, hero: url } : prev))
     try {
       await supabase.auth.refreshSession().catch(() => {})
       const { data: { session } } = await supabase.auth.getSession()
@@ -149,8 +164,13 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
     <div className="pdv-hscroll" style={{ position: 'fixed', inset: 0, zIndex: 250, backgroundColor: '#F7F2E6', overflowY: 'auto', WebkitOverflowScrolling: 'touch', fontFamily: 'var(--font-jakarta), sans-serif' }}>
       {/* Header illustré (image directe, pleine largeur) — éditable par l'admin */}
       <div style={{ position: 'relative' }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={d?.hero || '/splash-header.jpg'} alt="La Place du Village — Explorez, découvrez, profitez" style={{ width: '100%', height: 'auto', display: 'block' }} />
+        {hero ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img src={hero} alt="La Place du Village — Explorez, découvrez, profitez" style={{ width: '100%', height: 'auto', display: 'block' }} />
+        ) : (
+          /* Toute 1re ouverture (pas encore de cache) : placeholder neutre, pas d'image périmée */
+          <div style={{ width: '100%', aspectRatio: '16 / 10', background: '#EFE7D6' }} />
+        )}
         {isAdmin && (
           <button onClick={() => setHeroPickerOpen(true)} aria-label="Changer l'image d'entrée" style={{ position: 'absolute', top: 'max(10px, env(safe-area-inset-top, 10px))', right: 10, display: 'inline-flex', alignItems: 'center', gap: 6, height: 30, padding: '0 11px', borderRadius: 15, background: 'rgba(0,0,0,0.55)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, backdropFilter: 'blur(3px)' }}>✎ Image</button>
         )}
@@ -263,7 +283,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
       </div>
 
       {pickerOpen && <EmbedPicker onSelect={savePick} onClose={() => setPickerOpen(false)} />}
-      {heroPickerOpen && <ImageLibraryPicker onSelect={saveHero} onClose={() => setHeroPickerOpen(false)} currentUrl={d?.hero} />}
+      {heroPickerOpen && <ImageLibraryPicker onSelect={saveHero} onClose={() => setHeroPickerOpen(false)} currentUrl={hero} />}
     </div>
   )
 }

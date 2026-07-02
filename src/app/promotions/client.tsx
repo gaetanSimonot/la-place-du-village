@@ -214,7 +214,7 @@ export default function PromotionsClient() {
           style={{ lineHeight: 0, cursor: 'pointer' }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/splash-logo-v4.png" alt="La Place du Village" style={{ height: 38, width: 'auto', objectFit: 'contain', display: 'block' }} />
+          <img src="/logo-topbar.webp" alt="La Place du Village" style={{ height: 38, width: 'auto', objectFit: 'contain', display: 'block' }} />
         </button>
         <button
           type="button"

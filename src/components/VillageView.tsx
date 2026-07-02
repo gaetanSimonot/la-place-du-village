@@ -30,7 +30,7 @@ export default function VillageView({ onOpenProfil }: { onOpenProfil: () => void
         style={{ padding: '8px 12px', paddingTop: 'max(8px, env(safe-area-inset-top, 8px))', borderBottom: '1px solid #EDE8E0', boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/splash-logo-v4.png" alt="La Place du Village" style={{ height: 38, width: 'auto', objectFit: 'contain', display: 'block' }} />
+        <img src="/logo-topbar.webp" alt="La Place du Village" style={{ height: 38, width: 'auto', objectFit: 'contain', display: 'block' }} />
         <button
           type="button"
           onClick={onOpenProfil}
@@ -45,10 +45,10 @@ export default function VillageView({ onOpenProfil }: { onOpenProfil: () => void
         </button>
       </div>
 
-      {/* Titre */}
-      <div className="px-4 pb-3 pt-3">
-        <h1 className="m-0 font-serif text-[22px] text-texte" style={{ letterSpacing: '-0.01em' }}>
-          Aujourd&apos;hui dans le village
+      {/* Titre — 2 lignes, gros et gras (façon mockup) */}
+      <div className="px-4 pb-4 pt-4">
+        <h1 className="m-0 text-[27px] font-extrabold leading-[1.12] text-texte" style={{ letterSpacing: '-0.02em' }}>
+          Aujourd&apos;hui<br />dans le village
         </h1>
       </div>
 
@@ -69,30 +69,52 @@ export default function VillageView({ onOpenProfil }: { onOpenProfil: () => void
   )
 }
 
-/* ── 4 raccourcis ─────────────────────────────────────────────────────── */
+/* ── 4 raccourcis — cartes photo verticales (façon mockup) ──────────── */
 function Tiles() {
   const router = useRouter()
-  const TILES: { key: string; label: string; href: string; color: string; icon: React.ReactNode }[] = [
-    { key: 'reels', label: 'Reels', href: '/en-ce-moment', color: '#E8622A', icon: <><polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" /></> },
-    { key: 'journal', label: 'Le journal', href: '/journal', color: '#7C5C3B', icon: <><rect x="2" y="4" width="20" height="16" rx="2" ry="2" /><line x1="6" y1="8" x2="18" y2="8" /><line x1="6" y1="12" x2="18" y2="12" /><line x1="6" y1="16" x2="14" y2="16" /></> },
-    { key: 'annonces', label: 'Annonces', href: '/annonces', color: '#2D5A3D', icon: <><path d="M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></> },
-    { key: 'forum', label: 'Place publique', href: '/forum', color: '#7C3AED', icon: <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z" /> },
+  const [counts, setCounts] = useState<{ reels: number; debats: number; journal: number; annonces: number } | null>(null)
+
+  useEffect(() => {
+    fetch('/api/village/counts').then(r => (r.ok ? r.json() : null)).then(d => { if (d) setCounts(d) }).catch(() => {})
+  }, [])
+
+  const TILES: { key: keyof NonNullable<typeof counts>; label: string; href: string; color: string; photo: string; icon: React.ReactNode }[] = [
+    { key: 'reels', label: 'Reels', href: '/en-ce-moment', color: '#E8622A', photo: '/splash-bg-aujourdhui.jpg', icon: <><polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" /></> },
+    { key: 'debats', label: 'Débats', href: '/forum', color: '#7C3AED', photo: '/hub-intro-slide.webp', icon: <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z" /> },
+    { key: 'journal', label: 'Journal', href: '/journal', color: '#7C5C3B', photo: '/og/journal.jpg', icon: <><rect x="2" y="4" width="20" height="16" rx="2" ry="2" /><line x1="6" y1="8" x2="18" y2="8" /><line x1="6" y1="12" x2="18" y2="12" /><line x1="6" y1="16" x2="14" y2="16" /></> },
+    { key: 'annonces', label: 'Annonces', href: '/annonces', color: '#2D5A3D', photo: '/og/annonces.jpg', icon: <><path d="M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></> },
   ]
   return (
-    <div className="grid grid-cols-2 gap-2.5 px-4">
-      {TILES.map(t => (
-        <button
-          key={t.key}
-          onClick={() => router.push(t.href)}
-          className="flex items-center gap-2.5 rounded-[16px] border bg-white p-3.5 text-left"
-          style={{ borderColor: '#F0EAE0', boxShadow: '0 1px 4px rgba(44,28,16,0.04)' }}
-        >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]" style={{ background: `${t.color}1A`, color: t.color }}>
-            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">{t.icon}</svg>
-          </span>
-          <span className="text-[13.5px] font-extrabold text-texte" style={{ letterSpacing: '-0.005em' }}>{t.label}</span>
-        </button>
-      ))}
+    <div className="grid grid-cols-4 gap-2 px-4">
+      {TILES.map(t => {
+        const n = counts?.[t.key] ?? 0
+        return (
+          <button
+            key={t.key}
+            onClick={() => router.push(t.href)}
+            className="flex flex-col items-center border-none bg-transparent p-0 text-center"
+            style={{ cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+          >
+            {/* Carte photo verticale + pastille icône en bas */}
+            <div className="relative w-full overflow-hidden rounded-[16px]" style={{ aspectRatio: '0.68', background: '#E4DACA', boxShadow: '0 2px 8px rgba(44,28,16,0.10)' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={t.photo} alt="" className="h-full w-full object-cover" />
+              <span
+                className="absolute bottom-2 left-1/2 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full"
+                style={{ background: t.color, color: '#fff', border: '3px solid rgba(251,244,232,0.95)' }}
+              >
+                <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">{t.icon}</svg>
+              </span>
+            </div>
+            <span className="mt-1.5 text-[12.5px] font-extrabold text-texte" style={{ letterSpacing: '-0.005em' }}>{t.label}</span>
+            {n > 0 && (
+              <span className="mt-1 inline-flex min-w-[22px] items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-extrabold text-white" style={{ background: t.color }}>
+                {n > 99 ? '99+' : n}
+              </span>
+            )}
+          </button>
+        )
+      })}
     </div>
   )
 }
