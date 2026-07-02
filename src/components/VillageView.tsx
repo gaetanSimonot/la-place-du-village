@@ -116,7 +116,7 @@ function Tiles() {
   }, [])
 
   const TILES: { key: 'reels' | 'debats' | 'journal' | 'annonces'; label: string; href: string; color: string; photo: string; icon: React.ReactNode }[] = [
-    { key: 'reels', label: 'Reels', href: '/en-ce-moment', color: '#E8622A', photo: '/splash-bg-aujourdhui.jpg', icon: <><polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" /></> },
+    { key: 'reels', label: 'Reels', href: '/en-ce-moment?view=1', color: '#E8622A', photo: '/splash-bg-aujourdhui.jpg', icon: <><polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" /></> },
     { key: 'debats', label: 'Débats', href: '/forum', color: '#7C3AED', photo: counts?.debatPhoto || '/hub-intro-slide.webp', icon: <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z" /> },
     { key: 'journal', label: 'Journal', href: '/journal', color: '#7C5C3B', photo: '/og/journal.jpg', icon: <><rect x="2" y="4" width="20" height="16" rx="2" ry="2" /><line x1="6" y1="8" x2="18" y2="8" /><line x1="6" y1="12" x2="18" y2="12" /><line x1="6" y1="16" x2="14" y2="16" /></> },
     { key: 'annonces', label: 'Annonces', href: '/annonces', color: '#2D5A3D', photo: '/og/annonces.jpg', icon: <><path d="M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></> },
