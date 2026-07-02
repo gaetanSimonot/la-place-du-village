@@ -886,18 +886,7 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* Bouton Publier « + » — haut droite (sorti de la bottom bar) */}
-            {showBtns && (
-              <button
-                onClick={handlePublierClick}
-                aria-label="Publier"
-                style={{ position: 'absolute', top: 'calc(env(safe-area-inset-top, 0px) + 116px)', right: 14, zIndex: 200, width: 44, height: 44, borderRadius: '50%', background: 'linear-gradient(135deg,#3C7A50,#2D5A3D)', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 3px 12px rgba(45,90,61,0.35)' }}
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
-              </button>
-            )}
+            {/* (Le « + » Publier est revenu dans la bottom nav — plus de bouton flottant ici) */}
 
             {/* Chip filtre texte actif — vient de la recherche du hub, retirable */}
             {showBtns && activeSearch.trim() && (
@@ -1345,6 +1334,7 @@ export default function HomePage() {
       <BottomNavBar
         activeTab={navTab}
         onNavigate={(id) => handleNavTab(id as NavTab)}
+        onPlus={handlePublierClick}
       />
 
     </div>

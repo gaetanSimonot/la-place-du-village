@@ -59,6 +59,7 @@ export default function PromotionsClient() {
   const [editPromo, setEditPromo] = useState<Promotion | null>(null)   // admin : édition depuis Découvrir
   const [usedThisMonth, setUsedThisMonth] = useState<number>(0)
   const [showQuotaUpgrade, setShowQuotaUpgrade] = useState(false)
+  const [showProPitch, setShowProPitch] = useState(false)
   const [favIds, setFavIds] = useState<Set<string>>(new Set())
 
   // Favoris promos de l'user (cœur)
@@ -102,6 +103,23 @@ export default function PromotionsClient() {
   }, [user])
 
   useEffect(() => { refreshUsedThisMonth() }, [refreshUsedThisMonth])
+
+  // « + » de la bottom nav sur cette page : pro/admin → sa fiche (créer une
+  // promo) ; compte gratuit → pitch compte pro ; non connecté → login.
+  useEffect(() => {
+    const onPlus = async () => {
+      if (!user) { openAuthModal('/promotions'); return }
+      if (isAdmin || currentPlan === 'pro') {
+        const { data } = await supabase.from('etablissements').select('id').eq('user_id', user.id).limit(1).maybeSingle()
+        if (data?.id) router.push(`/etablissement/${data.id}`)
+        else toast.error('Aucune fiche établissement liée à ton compte')
+        return
+      }
+      setShowProPitch(true)
+    }
+    window.addEventListener('pdv-plus-promos', onPlus)
+    return () => window.removeEventListener('pdv-plus-promos', onPlus)
+  }, [user, isAdmin, currentPlan, openAuthModal, router])
 
   // SWR sur /api/promotions (mode public, sans mine ni etab) → cache CDN 60s
   // + mémoire client. Retour sur la page = instantané. Le refetch après
@@ -451,6 +469,15 @@ export default function PromotionsClient() {
         <SubscriptionModal
           context={{ kind: 'promo' }}
           onClose={() => setShowQuotaUpgrade(false)}
+          currentPlan={currentPlan}
+        />
+      )}
+
+      {/* Pitch compte pro (le « + » de la bottom nav pour un compte gratuit) */}
+      {showProPitch && (
+        <SubscriptionModal
+          context={{ kind: 'feature', featureLabel: 'Publier des bons plans', minPlan: 'pro' }}
+          onClose={() => setShowProPitch(false)}
           currentPlan={currentPlan}
         />
       )}

@@ -10,19 +10,20 @@ interface Props {
   onNavigate?: (tabId: string) => void
   /** Force le highlight d'un onglet (sinon basé sur le pathname). */
   activeTab?: string
-  /** @deprecated — le « + » est désormais sur la carte (refonte app simple). */
+  /** Action du « + » fournie par le shell home (menu Publier). Sinon, action
+   *  CONTEXTUELLE selon la page : annonces → nouvelle annonce, bons plans →
+   *  flux pro (event 'pdv-plus-promos'), défaut → /ajouter. */
   onPlus?: () => void
   forcePlus?: boolean
 }
 
 /**
- * Bottom nav SIMPLE — 3 onglets : Carte · Bons plans · Village.
- * (Refonte « app simple » : plus de Hub/Accueil, plus de « + » — publier se fait
- *  depuis la carte. Favoris / notifs / réglages sont dans le Profil, accessible
- *  depuis le Village.)
+ * Bottom nav — 5 onglets : Carte · Bons plans · ➕ · Favoris · Village.
+ * Le ➕ est contextuel (lié à l'écran courant). Notifs/réglages via le Profil
+ * (bouton en haut du Village).
  */
 
-type TabDef = { id: string; label: string; href: string; active: boolean; badge?: number; Icon: () => React.JSX.Element }
+type TabDef = { id: string; label: string; href: string; active: boolean; badge?: number; plus?: boolean; Icon: () => React.JSX.Element }
 
 const Icons = {
   carte: () => (
@@ -42,6 +43,11 @@ const Icons = {
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
       <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>
+  ),
+  favoris: () => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
     </svg>
   ),
 }
@@ -73,7 +79,8 @@ export default function BottomNavBar({ onNavigate, activeTab }: Props = {}) {
   }, [user])
 
   const isPromotions = pathname?.startsWith('/promotions') ?? false
-  const onVillageish = activeTab === 'village' || activeTab === 'profil' || activeTab === 'notifs' || activeTab === 'favoris'
+  const isAnnonces = pathname?.startsWith('/annonces') ?? false
+  const onVillageish = activeTab === 'village' || activeTab === 'profil' || activeTab === 'notifs'
 
   const go = (href: string, id: string) => {
     if (onNavigate) { onNavigate(id); return }
@@ -81,9 +88,19 @@ export default function BottomNavBar({ onNavigate, activeTab }: Props = {}) {
     router.push(href)
   }
 
+  // « + » CONTEXTUEL : lié à ce qui est à l'écran.
+  const handlePlus = () => {
+    if (onPlus) { onPlus(); return }                                   // shell home → menu Publier
+    if (isAnnonces && pathname !== '/annonces/nouvelle') { router.push('/annonces/nouvelle'); return }
+    if (isPromotions) { window.dispatchEvent(new Event('pdv-plus-promos')); return }  // géré par la page (pro → fiche, sinon pitch pro)
+    router.push('/ajouter')
+  }
+
   const tabs: TabDef[] = [
-    { id: 'carte',     label: 'Carte',      href: '/?tab=carte',   active: false,        Icon: Icons.carte },
-    { id: 'bonsplans', label: 'Bons plans', href: '/promotions',   active: isPromotions, Icon: Icons.gift },
+    { id: 'carte',     label: 'Carte',      href: '/?tab=carte',    active: false,        Icon: Icons.carte },
+    { id: 'bonsplans', label: 'Bons plans', href: '/promotions',    active: isPromotions, Icon: Icons.gift },
+    { id: 'plus',      label: 'Ajouter',    href: '',               active: false, plus: true, Icon: Icons.carte },
+    { id: 'favoris',   label: 'Favoris',    href: '/?tab=favoris',  active: false,        Icon: Icons.favoris },
     { id: 'village',   label: 'Village',    href: '/?tab=village',  active: false, badge: onVillageish ? 0 : notifCount, Icon: Icons.village },
   ]
 
@@ -94,6 +111,35 @@ export default function BottomNavBar({ onNavigate, activeTab }: Props = {}) {
       display: 'flex', zIndex: 50, paddingBottom: 'env(safe-area-inset-bottom)',
     }}>
       {tabs.map(t => {
+        // ── Onglet « + » (rond vert inline, action contextuelle) ──
+        if (t.plus) {
+          return (
+            <button
+              key="plus"
+              onClick={handlePlus}
+              aria-label="Ajouter"
+              style={{
+                flex: 1, display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center', gap: 2,
+                border: 'none', backgroundColor: 'transparent', cursor: 'pointer',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              <span style={{
+                width: 38, height: 38, borderRadius: '50%',
+                background: 'linear-gradient(135deg, #3C7A50, #2D5A3D)', color: '#fff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 2px 6px rgba(45,90,61,0.30)',
+              }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+              </span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#2D5A3D' }}>Ajouter</span>
+            </button>
+          )
+        }
+
         const isActive = activeTab ? activeTab === t.id : t.active
         return (
           <button
