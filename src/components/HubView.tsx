@@ -493,7 +493,7 @@ export default function HubView({
 
 /* ─── SectionHeader V3 ───────────────────────────────────────────────── */
 
-function SectionHeaderV3({
+export function SectionHeaderV3({
   title, kicker, subtitle, action, onAction,
 }: {
   title: string
@@ -536,7 +536,7 @@ function SectionHeaderV3({
 
 /* ─── Aujourd'hui — FeaturedEventCard ────────────────────────────────── */
 
-function FeaturedEventCard({ ev, onClick }: { ev: Evenement; onClick: () => void }) {
+export function FeaturedEventCard({ ev, onClick }: { ev: Evenement; onClick: () => void }) {
   const time = eventWhenLabel(ev.date_debut, ev.date_fin, ev.heure)
   const kicker = `${categorieKicker(ev.categorie)} · À LA UNE`
   const where = ev.lieux?.nom ?? ev.lieux?.commune ?? '—'
@@ -579,7 +579,7 @@ function FeaturedEventCard({ ev, onClick }: { ev: Evenement; onClick: () => void
 
 /* ─── Aujourd'hui — MiniEventCard ────────────────────────────────────── */
 
-function MiniEventCard({ ev, onClick }: { ev: Evenement; onClick: () => void }) {
+export function MiniEventCard({ ev, onClick }: { ev: Evenement; onClick: () => void }) {
   const time = eventWhenLabel(ev.date_debut, ev.date_fin, ev.heure)
   const kicker = categorieKicker(ev.categorie)
   const where = ev.lieux?.nom ?? ev.lieux?.commune ?? '—'
@@ -622,7 +622,7 @@ function MiniEventCard({ ev, onClick }: { ev: Evenement; onClick: () => void }) 
 
 /* ─── Aujourd'hui — placeholder "+N" si bento incomplet ──────────────── */
 
-function MoreEventsCard({ count, onClick }: { count: number; onClick: () => void }) {
+export function MoreEventsCard({ count, onClick }: { count: number; onClick: () => void }) {
   return (
     <button
       type="button"

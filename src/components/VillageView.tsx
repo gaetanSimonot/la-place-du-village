@@ -1,10 +1,13 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import useSWR from 'swr'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
+import type { Evenement } from '@/lib/types'
+import { SectionHeaderV3, FeaturedEventCard, MiniEventCard, MoreEventsCard } from '@/components/HubView'
 import PostComposer from '@/components/profil/PostComposer'
 import PostCard, { type PostData } from '@/components/profil/PostCard'
 import PostCommentsDrawer from '@/components/profil/PostCommentsDrawer'
@@ -17,8 +20,13 @@ interface VillagePost extends PostData {
   authorAvatar: string | null
 }
 
-/** Le « mur du village » : logo + Profil, titre, 4 raccourcis + le fil du village (groupe). */
-export default function VillageView({ onOpenProfil, onOpenSplash }: { onOpenProfil: () => void; onOpenSplash?: () => void }) {
+/** Le « mur du village » : logo + Profil, titre, 4 raccourcis, Aujourd'hui + le fil du village (groupe). */
+export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaToday }: {
+  onOpenProfil: () => void
+  onOpenSplash?: () => void
+  /** « Voir tout » de la section Aujourd'hui → carte agenda du jour. */
+  onOpenAgendaToday?: () => void
+}) {
   const { user, profile } = useAuth()
   const avatar = profile?.avatar_url ?? null
 
@@ -62,6 +70,9 @@ export default function VillageView({ onOpenProfil, onOpenSplash }: { onOpenProf
 
       {/* 4 tuiles */}
       <Tiles />
+
+      {/* Aujourd'hui — bento du hub (featured + minis), Voir tout → carte */}
+      <TodaySection onVoirTout={onOpenAgendaToday} />
 
       {/* Fil du village */}
       <div className="mt-4 px-4">
@@ -129,6 +140,55 @@ function Tiles() {
           </button>
         )
       })}
+    </div>
+  )
+}
+
+/* ── Aujourd'hui — bento repris du hub (featured + 2 minis + « +N ») ──── */
+function TodaySection({ onVoirTout }: { onVoirTout?: () => void }) {
+  const router = useRouter()
+  // Date LOCALE (pas toISOString → décalage UTC), même logique que le hub.
+  const _d = new Date()
+  const todayYMD = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`
+  const { data: hubData } = useSWR(`/api/hub?d=${todayYMD}`)
+
+  const todayEvents: Evenement[] = (hubData?.todayEvents ?? []) as Evenement[]
+  const todayTotal: number = hubData?.todayTotal ?? 0
+  if (todayEvents.length === 0) return null
+
+  const [featuredEv, ...restEvents] = todayEvents
+  const miniEvents = restEvents.slice(0, 2)
+  const shownEvents = (featuredEv ? 1 : 0) + miniEvents.length
+  const remaining = Math.max(0, todayTotal - shownEvents)
+  const showMoreCard = featuredEv && remaining > 0 && miniEvents.length < 2
+
+  return (
+    <div className="mt-5">
+      <SectionHeaderV3
+        title="Aujourd'hui"
+        kicker={`· ${todayTotal}`}
+        subtitle={`${todayTotal} événement${todayTotal > 1 ? 's' : ''} près de chez vous`}
+        action="Voir tout"
+        onAction={onVoirTout ?? (() => router.push('/?tab=carte'))}
+      />
+      <div
+        className="grid gap-2 px-4"
+        style={{
+          gridTemplateColumns: '1.25fr 1fr',
+          gridTemplateRows: miniEvents.length >= 1 ? 'minmax(0, 1fr) minmax(0, 1fr)' : '1fr',
+          height: miniEvents.length >= 1 ? 240 : undefined,
+        }}
+      >
+        {featuredEv && (
+          <FeaturedEventCard ev={featuredEv} onClick={() => router.push(`/evenement/${featuredEv.id}`)} />
+        )}
+        {miniEvents.map(ev => (
+          <MiniEventCard key={ev.id} ev={ev} onClick={() => router.push(`/evenement/${ev.id}`)} />
+        ))}
+        {showMoreCard && (
+          <MoreEventsCard count={remaining} onClick={onVoirTout ?? (() => router.push('/?tab=carte'))} />
+        )}
+      </div>
     </div>
   )
 }

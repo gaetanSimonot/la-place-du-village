@@ -1293,7 +1293,11 @@ export default function HomePage() {
           position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H,
           zIndex: 25, overflowY: 'auto', backgroundColor: 'var(--creme)',
         }}>
-          <VillageView onOpenProfil={() => setNavTab('profil')} onOpenSplash={() => setSplashOpen(true)} />
+          <VillageView
+            onOpenProfil={() => setNavTab('profil')}
+            onOpenSplash={() => setSplashOpen(true)}
+            onOpenAgendaToday={() => { enterAgendaToday(); setSheetMode('half') }}
+          />
         </div>
       )}
 
