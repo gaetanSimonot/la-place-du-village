@@ -48,7 +48,30 @@ export default function EnCeMomentClient() {
     setComposerOpen(true)
   }
 
-  const markViewedLocal = (id: string) => setMoments(ms => ms.map(m => m.id === id ? { ...m, vu: true } : m))
+  const markViewedLocal = (id: string) => {
+    setMoments(ms => ms.map(m => m.id === id ? { ...m, vu: true } : m))
+    // Reel consulté → sa notification est LUE : efface le badge in-app (le
+    // Realtime notifications rafraîchit les compteurs) + ferme la notif push
+    // du téléphone (ce qui retire aussi le « 1 » sur l'icône de l'app).
+    ;(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const tk = session?.access_token
+        if (tk) {
+          fetch('/api/notifications/seen', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}` },
+            body: JSON.stringify({ type: 'moment_nouveau', target_id: id }),
+          }).catch(() => {})
+        }
+        if ('serviceWorker' in navigator) {
+          const reg = await navigator.serviceWorker.ready
+          const ns = await reg.getNotifications({ tag: `moment_nouveau-${id}` })
+          ns.forEach(n => n.close())
+        }
+      } catch { /* fail-safe : jamais bloquant pour le viewer */ }
+    })()
+  }
   const removeLocal = (id: string) => setMoments(ms => ms.filter(m => m.id !== id))
 
   const unseenCount = moments.filter(m => !m.vu).length
