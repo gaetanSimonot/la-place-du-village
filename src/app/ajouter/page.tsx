@@ -253,8 +253,10 @@ export default function AjouterPage() {
     }
   }
 
-  /** Submit séquentiel des events sélectionnés. L'image source est attachée
-   *  au 1er event seulement (économie payload — c'est l'affiche unique). */
+  /** Submit séquentiel des events sélectionnés. Quand plusieurs events viennent
+   *  d'une même affiche, TOUS reçoivent l'image : elle est uploadée une seule
+   *  fois (1er event) puis réutilisée par URL pour les suivants (pas de copies
+   *  multiples dans le storage). Un event édité avec sa propre image la garde. */
   const handleSubmitBatch = async () => {
     const toSubmit = Array.from(selected).sort((a, b) => a - b).map(i => events[i])
     if (toSubmit.length === 0) return
@@ -263,13 +265,28 @@ export default function AjouterPage() {
     setSubmitProgress(0)
     const { data: { session } } = await supabase.auth.getSession()
     const results: SubmitResult[] = []
+    let sharedImageUrl: string | null = null   // URL de l'affiche source après le 1er upload
     for (let i = 0; i < toSubmit.length; i++) {
       const evt = toSubmit[i]
       try {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' }
         if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
-        const imgB64  = evt.image_base64 ?? (i === 0 ? image : null)
-        const imgMime = evt.image_base64 ? evt.image_mime : imageMimeType
+
+        // Choix de l'image : image propre de l'event > affiche source (URL
+        // déjà uploadée, sinon base64 à uploader) > aucune.
+        const imgFields: Record<string, unknown> = { image_position: evt.image_position }
+        let usingSharedFromB64 = false
+        if (evt.image_base64) {
+          imgFields.image = evt.image_base64
+          imgFields.imageMimeType = evt.image_mime
+        } else if (sharedImageUrl) {
+          imgFields.image_url = sharedImageUrl
+        } else if (image) {
+          imgFields.image = image
+          imgFields.imageMimeType = imageMimeType
+          usingSharedFromB64 = true
+        }
+
         const res = await fetch('/api/evenements', {
           method: 'POST',
           headers,
@@ -290,13 +307,16 @@ export default function AjouterPage() {
             prix:         evt.prix          || null,
             contact:      evt.contact       || null,
             organisateurs: evt.organisateurs || null,
-            image:        imgB64,
-            imageMimeType: imgMime,
-            image_position: evt.image_position,
+            ...imgFields,
             etablissement_id: etabId ?? undefined,
           }),
         })
         const d = await res.json()
+        // Après le 1er upload de l'affiche source → mémorise son URL pour les
+        // events suivants (réutilisée telle quelle, aucun re-upload).
+        if (usingSharedFromB64 && !sharedImageUrl && d.evenement?.image_url) {
+          sharedImageUrl = d.evenement.image_url as string
+        }
         results.push({
           titre:  evt.titre || '(sans titre)',
           ok:     res.ok && !d.error,
