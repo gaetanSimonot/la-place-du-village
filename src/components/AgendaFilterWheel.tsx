@@ -57,26 +57,6 @@ export default function AgendaFilterWheel({ filtres, onFiltresChange, onChange }
   const quandValue: QuandOuTout    = filtres.quand
   const dateActive = filtres.date ?? null
 
-  const [calOpen, setCalOpen]     = useState(false)
-  const [viewMonth, setViewMonth] = useState<Date>(() => new Date())
-
-  // Ouverture : on affiche le mois de la date active, sinon le mois courant.
-  // onChange() remonte le sheet de peek à half — sinon le panneau se déplierait
-  // dans la zone hors écran et on ne verrait que sa première ligne.
-  function openCal() {
-    setViewMonth(fromISO(dateActive ?? toISO(new Date())))
-    setCalOpen(true)
-    onChange?.()
-  }
-
-  // Un tap sur un jour applique tout de suite et referme : pas d'étape de
-  // validation, le filtre est reversible d'un tap sur "Quand".
-  function choisirJour(iso: string) {
-    onFiltresChange({ ...filtres, date: iso })
-    onChange?.()
-    setCalOpen(false)
-  }
-
   function cycleQuoi() {
     const idx = quoiOptions.findIndex(o => o.value === quoiValue)
     const next = quoiOptions[(idx + 1) % quoiOptions.length].value
@@ -108,21 +88,84 @@ export default function AgendaFilterWheel({ filtres, onFiltresChange, onChange }
     : (QUAND_OPTIONS.find(o => o.value === quandValue)?.label ?? 'Tout')
 
   return (
-    <div className="w-full" style={{ position: 'relative' }}>
-      <div className="flex w-full gap-2">
-        <CycleBtn kicker="Que faire" label={quoiLabel}  onClick={cycleQuoi} />
-        <CycleBtn kicker="Quand"     label={quandLabel} onClick={cycleQuand} />
-        <CalendarBtn active={!!dateActive} onClick={() => (calOpen ? setCalOpen(false) : openCal())} />
+    <div className="flex w-full gap-2">
+      <CycleBtn kicker="Que faire" label={quoiLabel}  onClick={cycleQuoi} />
+      <CycleBtn kicker="Quand"     label={quandLabel} onClick={cycleQuand} />
+    </div>
+  )
+}
+
+/**
+ * Bouton calendrier rond, flottant en haut à droite du BottomSheet, + son
+ * panneau. Volontairement SÉPARÉ de la rangée de filtres : tant qu'il en
+ * faisait partie, il rognait la largeur des deux boutons cycle et leur
+ * largeur se mettait à dépendre du libellé affiché.
+ *
+ * À monter comme enfant direct du sheet (qui est `position: absolute`), donc
+ * positionné par rapport à lui : le bouton suit le haut du sheet quelle que
+ * soit sa position de snap, sans rien savoir de sa géométrie.
+ *
+ * `pointerEvents: none` sur le conteneur, `auto` sur le bouton et le
+ * panneau : la zone vide laisse passer le drag du sheet en dessous.
+ */
+export function AgendaDateButton({ filtres, onFiltresChange, onChange }: Props) {
+  const dateActive = filtres.date ?? null
+  const [calOpen, setCalOpen]     = useState(false)
+  const [pressed, setPressed]     = useState(false)
+  const [viewMonth, setViewMonth] = useState<Date>(() => new Date())
+
+  function toggle() {
+    setPressed(true)
+    window.setTimeout(() => setPressed(false), 180)
+    if (calOpen) { setCalOpen(false); return }
+    setViewMonth(fromISO(dateActive ?? toISO(new Date())))
+    setCalOpen(true)
+    onChange?.()   // remonte le sheet de peek à half, sinon le panneau s'ouvre hors écran
+  }
+
+  // Un tap sur un jour applique tout de suite et referme : pas d'étape de
+  // validation, le filtre reste réversible d'un tap sur "Quand".
+  function choisirJour(iso: string) {
+    onFiltresChange({ ...filtres, date: iso })
+    onChange?.()
+    setCalOpen(false)
+  }
+
+  return (
+    <div
+      onPointerDown={e => e.stopPropagation()}
+      onTouchStart={e => e.stopPropagation()}
+      style={{ position: 'absolute', top: 8, left: 16, right: 16, zIndex: 30, pointerEvents: 'none' }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button
+          type="button"
+          aria-label="Choisir une date précise"
+          onClick={toggle}
+          style={{
+            pointerEvents: 'auto',
+            width: 52, height: 52, borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: '#2D5A3D', border: 'none', color: '#fff', cursor: 'pointer',
+            boxShadow: pressed ? '0 1px 4px rgba(26,18,9,0.18)' : '0 3px 12px rgba(26,18,9,0.22)',
+            transform: pressed ? 'scale(0.94)' : 'scale(1)',
+            transition: 'transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <rect x="3" y="5" width="18" height="16" rx="2.5" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+            <line x1="8" y1="3" x2="8" y2="6.5" />
+            <line x1="16" y1="3" x2="16" y2="6.5" />
+            <circle cx="8.5" cy="14.5" r="1.15" fill="currentColor" stroke="none" />
+            <circle cx="15.5" cy="14.5" r="1.15" fill="currentColor" stroke="none" />
+          </svg>
+        </button>
       </div>
 
-      {/* Panneau en position absolue, JAMAIS dans le flux : cette rangée vit
-          dans le header mesuré du BottomSheet (headerRef), qui sert de source
-          à peekH. Un panneau en flux ferait gonfler peekH, ce qui déplace les
-          snaps du sheet ET propulse le ProBandeau — ancré en
-          `bottom: NAV_H + sheetPeekH` — en haut de l'écran. En absolu il se
-          superpose simplement à la liste. */}
       {calOpen && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 40 }}>
+        <div style={{ pointerEvents: 'auto', marginTop: 8 }}>
           <DatePanel
             selected={dateActive}
             viewMonth={viewMonth}
@@ -133,38 +176,6 @@ export default function AgendaFilterWheel({ filtres, onFiltresChange, onChange }
         </div>
       )}
     </div>
-  )
-}
-
-/* ── Bouton calendrier — 3e bouton de la rangée ──────────────────────── */
-function CalendarBtn({ active, onClick }: { active: boolean; onClick: () => void }) {
-  const [pressed, setPressed] = useState(false)
-  return (
-    <button
-      type="button"
-      aria-label="Choisir une date précise"
-      onClick={() => { setPressed(true); onClick(); window.setTimeout(() => setPressed(false), 180) }}
-      className="inline-flex shrink-0 items-center justify-center rounded-2xl"
-      style={{
-        width: 56,
-        background: active ? '#2D5A3D' : '#E8F2EB',
-        border: `1px solid ${active ? '#2D5A3D' : '#C8DEC0'}`,
-        color: active ? '#fff' : '#2D5A3D',
-        boxShadow: pressed ? '0 1px 2px rgba(45,90,61,0.06)' : '0 2px 8px rgba(45,90,61,0.10)',
-        transform: pressed ? 'scale(0.96)' : 'scale(1)',
-        transition: 'transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease',
-        WebkitTapHighlightColor: 'transparent',
-      }}
-    >
-      <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <rect x="3" y="5" width="18" height="16" rx="2.5" />
-        <line x1="3" y1="10" x2="21" y2="10" />
-        <line x1="8" y1="3" x2="8" y2="6.5" />
-        <line x1="16" y1="3" x2="16" y2="6.5" />
-        <circle cx="8.5" cy="14.5" r="1.15" fill="currentColor" stroke="none" />
-        <circle cx="15.5" cy="14.5" r="1.15" fill="currentColor" stroke="none" />
-      </svg>
-    </button>
   )
 }
 
@@ -273,12 +284,7 @@ function NavArrow({ dir, onClick }: { dir: 'prev' | 'next'; onClick: () => void 
   )
 }
 
-/* ── Bouton cycle on tap avec chevrons haut/bas + bounce ───────────────
-   `min-w-0` est indispensable : sans lui un flex item conserve
-   min-width:auto et ne peut pas descendre sous la largeur de son texte. Le
-   bouton s'élargissait donc selon le libellé courant ("Cette semaine" vs
-   "Tout") et décalait toute la rangée vers la droite. Avec min-w-0 les deux
-   boutons sont strictement égaux et c'est le texte qui tronque. */
+/* ── Bouton cycle on tap avec chevrons haut/bas + bounce ─────────────── */
 function CycleBtn({
   kicker, label, onClick,
 }: { kicker: string; label: string; onClick: () => void }) {
@@ -295,7 +301,7 @@ function CycleBtn({
     <button
       type="button"
       onClick={handleClick}
-      className="inline-flex min-w-0 flex-1 items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left"
+      className="inline-flex flex-1 items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left"
       style={{
         background: '#E8F2EB',
         border: '1px solid #C8DEC0',

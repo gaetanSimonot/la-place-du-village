@@ -15,7 +15,7 @@ const FULL_TOP = 60   // espace laissé en haut quand sheet pleine
 
 import { useTheme } from '@/components/ThemeProvider'
 import ProBandeau from '@/components/ProBandeau'
-import AgendaFilterWheel from '@/components/AgendaFilterWheel'
+import AgendaFilterWheel, { AgendaDateButton } from '@/components/AgendaFilterWheel'
 import CategoryPicker from '@/components/CategoryPicker'
 import { supabase } from '@/lib/supabase'
 import { authedFetch } from '@/lib/swr-fetchers'
@@ -367,6 +367,17 @@ export default function BottomSheet({
         transition: 'background-color 0.2s',
       }}
     >
+      {/* Bouton calendrier flottant — enfant DIRECT du sheet, donc hors du
+          header mesuré : il ne peut pas influer sur peekH (et donc ni sur les
+          snaps, ni sur la position du ProBandeau qui s'y accroche). */}
+      {appMode === 'agenda' && (
+        <AgendaDateButton
+          filtres={filtres}
+          onFiltresChange={onFiltresChange}
+          onChange={handleAgendaFilterChange}
+        />
+      )}
+
       {/* ── Header mesuré (peek height source) ── */}
       <div ref={headerRef} style={{ flexShrink: 0 }}>
       {/* ── Zone de drag : handle + compteur + boutons filtres ── */}
@@ -383,7 +394,9 @@ export default function BottomSheet({
         {appMode === 'agenda' && (
           <>
             <div style={{
-              padding: '2px 16px 8px',
+              // Réserve à droite pour le bouton calendrier flottant (52px +
+              // marge), sinon la fin de la ligne passe dessous sur écran étroit.
+              padding: '2px 76px 8px 16px',
               textAlign: 'center',
               fontFamily: 'var(--font-body), sans-serif',
               fontSize: 13, color: '#7A6A5A',
@@ -405,10 +418,7 @@ export default function BottomSheet({
               <div
                 onPointerDown={e => e.stopPropagation()}
                 onTouchStart={e => e.stopPropagation()}
-                // maxWidth relevé de 300 à 420 : à 300 les deux boutons se
-                // partageaient ~118px une fois le calendrier posé, et les
-                // libellés longs ("Cette semaine") tronquaient.
-                style={{ touchAction: 'pan-y', width: '100%', maxWidth: 420 }}
+                style={{ touchAction: 'pan-y', width: '100%', maxWidth: 300 }}
               >
                 <AgendaFilterWheel
                   filtres={filtres}
