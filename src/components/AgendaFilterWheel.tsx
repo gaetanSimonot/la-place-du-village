@@ -284,7 +284,14 @@ function NavArrow({ dir, onClick }: { dir: 'prev' | 'next'; onClick: () => void 
   )
 }
 
-/* ── Bouton cycle on tap avec chevrons haut/bas + bounce ─────────────── */
+/* ── Bouton cycle on tap avec chevrons haut/bas + bounce ───────────────
+   `flex-auto` (flex: 1 1 auto) + minWidth : chaque bouton part de sa
+   largeur naturelle avec un plancher à 140px. Combiné au conteneur en
+   fit-content centré, la rangée s'élargit symétriquement quand un libellé
+   est long ("Santé & bien-être") au lieu de déborder vers la droite : elle
+   gagne autant de place à gauche qu'à droite et reste centrée.
+   `flex-1` (basis 0) donnait au contraire deux moitiés strictes, ce qui
+   forçait le libellé long à tronquer. */
 function CycleBtn({
   kicker, label, onClick,
 }: { kicker: string; label: string; onClick: () => void }) {
@@ -301,8 +308,9 @@ function CycleBtn({
     <button
       type="button"
       onClick={handleClick}
-      className="inline-flex flex-1 items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left"
+      className="inline-flex flex-auto items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left"
       style={{
+        minWidth: 140,
         background: '#E8F2EB',
         border: '1px solid #C8DEC0',
         boxShadow: pressed

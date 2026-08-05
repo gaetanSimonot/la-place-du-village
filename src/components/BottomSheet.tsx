@@ -418,7 +418,13 @@ export default function BottomSheet({
               <div
                 onPointerDown={e => e.stopPropagation()}
                 onTouchStart={e => e.stopPropagation()}
-                style={{ touchAction: 'pan-y', width: '100%', maxWidth: 300 }}
+                // fit-content (et non width:100% + maxWidth:300) : la rangée
+                // prend exactement la largeur de ses deux boutons, et le
+                // parent en justifyContent:center la recentre. Un libellé long
+                // l'élargit donc à gauche autant qu'à droite au lieu de la
+                // faire déborder d'un seul côté. maxWidth:100% garde le
+                // plafond de l'écran.
+                style={{ touchAction: 'pan-y', width: 'fit-content', maxWidth: '100%' }}
               >
                 <AgendaFilterWheel
                   filtres={filtres}
