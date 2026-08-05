@@ -5,7 +5,7 @@ import { EvenementCard, Filtres, AppMode, ProducerCard, ProduitCategorie, Etabli
 import { CATEGORIES, eventCategories } from '@/lib/categories'
 import { PRODUIT_CATS } from '@/lib/produit-cats'
 import { ETAB_TYPE_LIST } from '@/lib/etablissement-types'
-import { formatEventDate } from '@/lib/filters'
+import { formatEventDate, normSearch } from '@/lib/filters'
 import { haversineKm } from '@/lib/distance'
 import Link from 'next/link'
 import ProducerBandeau from '@/components/ProducerBandeau'
@@ -54,6 +54,8 @@ interface Props {
   selectedCats?: ProduitCategorie[]
   onSelectedCatsChange?: (cats: ProduitCategorie[]) => void
   availableProducerCats?: Set<ProduitCategorie>
+  /** Produits en dispo chez au moins un producteur (liste brute, déjà comptée/triée). */
+  availableProducts?: { nom: string; count: number }[]
   producerSearch?: string
   onProducerSearchChange?: (q: string) => void
   etabSearch?: string
@@ -84,6 +86,7 @@ export default function BottomSheet({
   appMode, onAppModeChange, producers = [], producerLoading = false,
   selectedProducerId = null, onSelectProducer, onViewProducerOnMap,
   selectedCats = [], onSelectedCatsChange,
+  availableProducts = [],
   producerSearch = '', onProducerSearchChange,
   etabSearch = '', onEtabSearchChange,
   producerFavIds = [], onToggleProducerFav,
@@ -194,25 +197,12 @@ export default function BottomSheet({
     return () => { cancelled = true; clearTimeout(t) }
   }, [etabSearch, selectedEtabType])
 
-  const [producerSearchHits, setProducerSearchHits] = useState<ProducerCard[] | null>(null)
-  useEffect(() => {
-    const q = producerSearch.trim()
-    if (q.length < 2) { setProducerSearchHits(null); return }
-    let cancelled = false
-    const t = setTimeout(async () => {
-      const escaped = q.replace(/,/g, '\\,').replace(/\)/g, '\\)').replace(/\(/g, '\\(')
-      const like = `%${escaped}%`
-      const { data, error } = await supabase
-        .from('producers')
-        .select('*')
-        .or(`nom.ilike.${like},commune.ilike.${like}`)
-        .limit(50)
-      if (cancelled) return
-      if (error) console.warn('[producer search]', error)
-      setProducerSearchHits((data ?? []) as ProducerCard[])
-    }, 200)
-    return () => { cancelled = true; clearTimeout(t) }
-  }, [producerSearch])
+  // Pas d'équivalent producteur ici : contrairement aux établissements, les
+  // producteurs sont TOUS déjà chargés côté page (/api/producers ne pagine
+  // pas) et `producers` arrive déjà filtré par la recherche. Une requête
+  // directe `select('*')` renverrait des lignes brutes SANS les champs
+  // dérivés (produit_categories, produits_disponibles, photo_url sont
+  // calculés par l'API depuis la relation products) → crash au rendu.
 
   // ResizeObserver sur le header pour mesurer sa hauteur réelle
   useEffect(() => {
@@ -313,8 +303,9 @@ export default function BottomSheet({
 
   const etabFilterActive = etabMinNote > 0 || !!etabVille.trim() || etabRayon !== null
 
-  // Producteurs affichés : recherche live override la liste locale
-  const displayedProducers: ProducerCard[] = producerSearchHits ?? producers
+  // Producteurs affichés : `producers` est déjà filtré par la recherche et les
+  // catégories côté page (filteredProducers), donc rien à refaire ici.
+  const displayedProducers: ProducerCard[] = producers
 
   // Reset state quand on change de mode
   useEffect(() => {
@@ -336,12 +327,12 @@ export default function BottomSheet({
 
   // Suggestions de produits basées sur les producers filtrés par catégorie
   const suggestions = useMemo(() => {
-    if (!producerSearch || producerSearch.length < 1) return []
-    const q = producerSearch.toLowerCase()
+    const q = normSearch(producerSearch.trim())
+    if (!q) return []
     const names = new Set<string>()
     producers.forEach(p => {
       p.produits_disponibles?.forEach(pr => {
-        if (pr.nom.toLowerCase().includes(q)) names.add(pr.nom)
+        if (normSearch(pr.nom).includes(q)) names.add(pr.nom)
       })
     })
     return Array.from(names).slice(0, 6)
@@ -542,6 +533,36 @@ export default function BottomSheet({
                   ))}
                 </div>
               )}
+
+              {/* Pastilles produits — raccourcis vers la recherche : cliquer
+                  revient à taper le nom du produit, donc tout le reste (liste,
+                  punaises de la carte, URL ?q=, chip d'effacement) suit sans
+                  logique dupliquée. Rien ne s'affiche tant qu'aucun producteur
+                  n'a mis de produit en disponibilité. */}
+              {availableProducts.length > 0 && (
+                <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginTop: 8, paddingBottom: 2, scrollbarWidth: 'none' }}>
+                  {availableProducts.map(p => {
+                    const active = normSearch(producerSearch.trim()) === normSearch(p.nom)
+                    return (
+                      <button
+                        key={p.nom}
+                        onClick={() => onProducerSearchChange?.(active ? '' : p.nom)}
+                        style={{
+                          flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5,
+                          padding: '6px 11px', borderRadius: 999, cursor: 'pointer',
+                          border: `1.5px solid ${active ? '#2D5A3D' : sheetBg.border}`,
+                          backgroundColor: active ? '#2D5A3D' : 'transparent',
+                          color: active ? '#fff' : sheetBg.text,
+                          fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-body), sans-serif',
+                          whiteSpace: 'nowrap',
+                        }}>
+                        <span>{p.nom}</span>
+                        <span style={{ fontSize: 10, fontWeight: 600, opacity: 0.65 }}>{p.count}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           ) : (
             <div style={{ padding: '0 16px 10px' }} onPointerDown={e => e.stopPropagation()}>
@@ -688,11 +709,30 @@ export default function BottomSheet({
         ) : appMode === 'annuaire' ? (
           producerLoading ? [1,2,3].map(i => <SkeletonCard key={i} />) :
           displayedProducers.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px 0', color: sheetBg.sub }}>
-              <p style={{ fontSize: 48, marginBottom: 10 }}>🌿</p>
-              <p style={{ fontWeight: 700, fontSize: 16, fontFamily: 'var(--font-body), sans-serif', color: sheetBg.text }}>Producteurs locaux</p>
-              <p style={{ fontSize: 13, marginTop: 6, lineHeight: 1.5, fontFamily: 'var(--font-body), sans-serif' }}>Les fiches arrivent bientôt.</p>
-            </div>
+            // Deux cas distincts : filtre trop restrictif (on le dit et on
+            // propose de l'effacer) vs base réellement vide.
+            producerSearch.trim() || selectedCats.length > 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: sheetBg.sub }}>
+                <p style={{ fontSize: 48, marginBottom: 10 }}>🔍</p>
+                <p style={{ fontWeight: 700, fontSize: 16, fontFamily: 'var(--font-body), sans-serif', color: sheetBg.text }}>
+                  {producerSearch.trim() ? `Aucun producteur pour « ${producerSearch.trim()} »` : 'Aucun producteur dans ces catégories'}
+                </p>
+                <p style={{ fontSize: 13, marginTop: 6, lineHeight: 1.5, fontFamily: 'var(--font-body), sans-serif' }}>
+                  Essaie un autre mot, ou élargis les filtres.
+                </p>
+                <button
+                  onClick={() => { onProducerSearchChange?.(''); onSelectedCatsChange?.([]) }}
+                  style={{ marginTop: 14, padding: '8px 16px', borderRadius: 999, border: `1.5px solid ${sheetBg.border}`, backgroundColor: 'transparent', color: sheetBg.text, fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-body), sans-serif', cursor: 'pointer' }}>
+                  Effacer les filtres
+                </button>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: sheetBg.sub }}>
+                <p style={{ fontSize: 48, marginBottom: 10 }}>🌿</p>
+                <p style={{ fontWeight: 700, fontSize: 16, fontFamily: 'var(--font-body), sans-serif', color: sheetBg.text }}>Producteurs locaux</p>
+                <p style={{ fontSize: 13, marginTop: 6, lineHeight: 1.5, fontFamily: 'var(--font-body), sans-serif' }}>Les fiches arrivent bientôt.</p>
+              </div>
+            )
           ) : (
             <>
               {featuredProducers.length > 0 && mode !== 'peek' && (

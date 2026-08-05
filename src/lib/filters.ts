@@ -69,6 +69,15 @@ export function formatDate(dateStr: string, style: 'court' | 'long' = 'court'): 
 }
 
 /**
+ * Normalise une chaîne pour la recherche texte : minuscules + accents retirés.
+ * `Épinard` et `epinard` produisent la même clé, donc la saisie sans accent
+ * (le cas courant au clavier mobile) trouve quand même la fiche.
+ */
+export function normSearch(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+}
+
+/**
  * Label pour vignettes d'événement gérant les multi-jours (expos…).
  * Si l'event a une date_fin différente, on affiche "Jusqu'au DD mois"
  * plutôt que la date de début qui peut être passée et tromper l'utilisateur.

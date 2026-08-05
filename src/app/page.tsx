@@ -9,6 +9,7 @@ import ProfilHybridView from '@/components/profil/ProfilHybridView'
 import { EvenementCard, Filtres, ProduitCategorie, EtablissementCard, EtablissementType } from '@/lib/types'
 import { useTheme } from '@/components/ThemeProvider'
 import { haversineKm, GANGES } from '@/lib/distance'
+import { normSearch } from '@/lib/filters'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 
@@ -645,27 +646,60 @@ export default function HomePage() {
     }
   }, [])
 
+  // Produits réellement en dispo chez au moins un producteur — source des
+  // pastilles de filtrage rapide sous la recherche. Calculé sur la liste BRUTE
+  // (`producers`, pas `filteredProducers`) : sinon les pastilles s'effaceraient
+  // au fur et à mesure qu'on filtre, et on ne pourrait plus en changer.
+  // Regroupement sur la forme normalisée (« Tomates » et « tomates » = 1 seule
+  // pastille), en gardant la première orthographe rencontrée pour l'affichage.
+  const availableProducts = useMemo(() => {
+    const counts = new Map<string, { nom: string; count: number }>()
+    producers.forEach(p => {
+      const seen = new Set<string>()   // un producteur ne compte qu'une fois par produit
+      ;(p.produits_disponibles ?? []).forEach(pr => {
+        const label = pr.nom?.trim()
+        if (!label) return
+        const key = normSearch(label)
+        if (seen.has(key)) return
+        seen.add(key)
+        const cur = counts.get(key)
+        if (cur) cur.count++
+        else counts.set(key, { nom: label, count: 1 })
+      })
+    })
+    return Array.from(counts.values())
+      .sort((a, b) => b.count - a.count || a.nom.localeCompare(b.nom, 'fr'))
+      .slice(0, 12)
+  }, [producers])
+
   const availableProducerCats = useMemo(() => {
     const s = new Set<ProduitCategorie>()
     producers.forEach(p => p.produit_categories.forEach(c => s.add(c)))
     return s
   }, [producers])
 
+  // Recherche producteurs : nom + commune + noms des produits DISPONIBLES.
+  // normSearch → insensible à la casse ET aux accents (`epinard` trouve
+  // `Épinards`). C'est la seule source de vérité du filtre : la liste du
+  // BottomSheet et les punaises de la carte consomment toutes deux ce tableau,
+  // donc elles ne peuvent plus diverger.
   const filteredProducers = useMemo(() => {
     return producers
       .filter(p => selectedCats.length === 0 || selectedCats.some(c => p.produit_categories.includes(c)))
       .filter(p => {
-        if (!producerSearch) return true
-        const q = producerSearch.toLowerCase()
+        const q = normSearch(producerSearch.trim())
+        if (!q) return true
         return (
-          p.nom.toLowerCase().includes(q) ||
-          (p.commune ?? '').toLowerCase().includes(q) ||
-          p.produits_disponibles.some(pr => pr.nom.toLowerCase().includes(q))
+          normSearch(p.nom).includes(q) ||
+          normSearch(p.commune ?? '').includes(q) ||
+          (p.produits_disponibles ?? []).some(pr => normSearch(pr.nom).includes(q))
         )
       })
   }, [producers, selectedCats, producerSearch])
 
-  const featuredProducers = useMemo(() => producers.filter(p => p.is_featured), [producers])
+  // Bandeau "à la une" dérivé de la liste FILTRÉE : sinon il continue de
+  // pousser des producteurs hors recherche/catégorie pendant qu'on cherche.
+  const featuredProducers = useMemo(() => filteredProducers.filter(p => p.is_featured), [filteredProducers])
 
   const filteredEtablissements = useMemo(() => {
     const rayon   = userZoneActive ? userRayon : (rayonAffichage ?? 0)
@@ -1212,6 +1246,7 @@ export default function HomePage() {
         selectedCats={selectedCats}
         onSelectedCatsChange={setSelectedCats}
         availableProducerCats={availableProducerCats}
+        availableProducts={availableProducts}
         producerSearch={producerSearch}
         onProducerSearchChange={setProducerSearch}
         producerFavIds={producerFavIds}
