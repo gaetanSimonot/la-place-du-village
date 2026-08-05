@@ -108,27 +108,37 @@ export default function AgendaFilterWheel({ filtres, onFiltresChange, onChange }
  * `pointerEvents: none` sur le conteneur, `auto` sur le bouton et le
  * panneau : la zone vide laisse passer le drag du sheet en dessous.
  */
-export function AgendaDateButton({ filtres, onFiltresChange, onChange }: Props) {
+export function AgendaDateButton({
+  filtres, onFiltresChange, onOpenChange,
+}: Omit<Props, 'onChange'> & {
+  /** Prévient le sheet de l'ouverture/fermeture pour qu'il se déploie puis
+   *  revienne à sa position précédente. */
+  onOpenChange?: (open: boolean) => void
+}) {
   const dateActive = filtres.date ?? null
   const [calOpen, setCalOpen]     = useState(false)
   const [pressed, setPressed]     = useState(false)
   const [viewMonth, setViewMonth] = useState<Date>(() => new Date())
 
+  function fermer() {
+    setCalOpen(false)
+    onOpenChange?.(false)
+  }
+
   function toggle() {
     setPressed(true)
     window.setTimeout(() => setPressed(false), 180)
-    if (calOpen) { setCalOpen(false); return }
+    if (calOpen) { fermer(); return }
     setViewMonth(fromISO(dateActive ?? toISO(new Date())))
     setCalOpen(true)
-    onChange?.()   // remonte le sheet de peek à half, sinon le panneau s'ouvre hors écran
+    onOpenChange?.(true)
   }
 
   // Un tap sur un jour applique tout de suite et referme : pas d'étape de
   // validation, le filtre reste réversible d'un tap sur "Quand".
   function choisirJour(iso: string) {
     onFiltresChange({ ...filtres, date: iso })
-    onChange?.()
-    setCalOpen(false)
+    fermer()
   }
 
   return (
@@ -171,7 +181,7 @@ export function AgendaDateButton({ filtres, onFiltresChange, onChange }: Props) 
             viewMonth={viewMonth}
             onViewMonthChange={setViewMonth}
             onPick={choisirJour}
-            onCancel={() => setCalOpen(false)}
+            onCancel={fermer}
           />
         </div>
       )}

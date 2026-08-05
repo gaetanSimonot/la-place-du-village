@@ -268,6 +268,19 @@ export default function BottomSheet({
     if (mode === 'peek') snapTo('half')
   }
 
+  // Calendrier : on déploie en plein écran le temps de choisir (à half le
+  // panneau serait coupé en bas sur la plupart des téléphones), puis on
+  // restaure la position d'avant dès qu'une date est prise ou qu'on annule.
+  const modeAvantCalendrier = useRef<'peek' | 'half' | 'full'>('half')
+  const handleCalendarOpenChange = useCallback((open: boolean) => {
+    if (open) {
+      modeAvantCalendrier.current = mode
+      snapTo('full')
+    } else {
+      snapTo(modeAvantCalendrier.current)
+    }
+  }, [mode, snapTo])
+
   // Centre de la ville saisie (lat/lng du premier établissement correspondant)
   const villeCenter = useMemo(() => {
     const q = etabVille.trim().toLowerCase()
@@ -374,7 +387,7 @@ export default function BottomSheet({
         <AgendaDateButton
           filtres={filtres}
           onFiltresChange={onFiltresChange}
-          onChange={handleAgendaFilterChange}
+          onOpenChange={handleCalendarOpenChange}
         />
       )}
 
