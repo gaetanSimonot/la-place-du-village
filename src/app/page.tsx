@@ -385,12 +385,14 @@ export default function HomePage() {
     // Filtres agenda
     const cat   = sp.get('cat')
     const quand = sp.get('quand')
-    if (cat || quand) {
+    const date  = sp.get('date')
+    if (cat || quand || date) {
       setFiltres(prev => ({
         categories: cat
           ? (cat.split(',').filter(Boolean) as import('@/lib/types').Categorie[])
           : prev.categories,
         quand: (quand as import('@/lib/types').FiltreQuand) ?? prev.quand,
+        date: /^\d{4}-\d{2}-\d{2}$/.test(date ?? '') ? date : prev.date ?? null,
       }))
     }
 
@@ -423,6 +425,7 @@ export default function HomePage() {
     if (mode === 'agenda') {
       if (filtres.categories.length > 0) sp.set('cat', filtres.categories.join(','))
       if (filtres.quand !== 'toujours')  sp.set('quand', filtres.quand)
+      if (filtres.date)                  sp.set('date', filtres.date)
     } else if (mode === 'annuaire') {
       // Commerces = défaut → on omet ?ann pour garder l'URL propre.
       // Producteurs = non-défaut → on l'annote explicitement.
@@ -495,6 +498,9 @@ export default function HomePage() {
     const params = new URLSearchParams()
     if (filtres.categories.length > 0) params.set('cat', filtres.categories.join(','))
     params.set('quand', filtres.quand)
+    // Date précise du calendrier : prime sur `quand` côté API, et donne sa
+    // propre entrée de cache CDN.
+    if (filtres.date) params.set('date', filtres.date)
     if (masquerPasses) params.set('masquerPasses', '1')
     return `/api/agenda?${params.toString()}`
   }, [filtres, masquerPasses, zoneLoaded])
@@ -599,7 +605,9 @@ export default function HomePage() {
   const enterAgendaToday = () => {
     setShowHub(false)
     setAppMode('agenda')
-    setFiltres(f => ({ ...f, quand: 'aujourd_hui' }))
+    // `date: null` indispensable : une date précise restée active primerait
+    // sur `quand` et la tuile "Aujourd'hui" n'afficherait pas aujourd'hui.
+    setFiltres(f => ({ ...f, quand: 'aujourd_hui', date: null }))
     setNavTab('carte')
     setSheetMode('full') // sheet plein pour voir la liste filtrée
   }

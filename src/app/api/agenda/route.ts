@@ -36,6 +36,11 @@ export async function GET(req: NextRequest) {
 
   const cats = catCsv ? catCsv.split(',').map(s => s.trim()).filter(Boolean) : []
   const quand: FiltreQuand = QUAND_VALUES.includes(quandRaw as FiltreQuand) ? (quandRaw as FiltreQuand) : 'toujours'
+  // Date précise venant du calendrier. Validée strictement (YYYY-MM-DD) : elle
+  // part directement dans un filtre PostgREST, on ne laisse pas passer de
+  // chaîne arbitraire depuis le client.
+  const dateRaw = (searchParams.get('date') ?? '').trim()
+  const dateExacte = /^\d{4}-\d{2}-\d{2}$/.test(dateRaw) ? dateRaw : null
   const nowISO = new Date().toISOString()
 
   // ── PARALLÈLE : events filtrés + promo events + splash featured + config ──
@@ -49,15 +54,28 @@ export async function GET(req: NextRequest) {
   // sélectionnée (multi-catégories). `categories` est backfillé pour toutes
   // les lignes par la migration 2026-06-18.
   if (cats.length > 0) q = q.overlaps('categories', cats)
-  const range = getDateRange(quand)
-  if (range) q = q.gte('date_debut', range.from).lte('date_debut', range.to)
-  if (masquerPasses) {
-    // Force Europe/Paris (Vercel = UTC par défaut, peu importe la région).
-    const today = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Europe/Paris',
-      year: 'numeric', month: '2-digit', day: '2-digit',
-    }).format(new Date())
-    q = q.or(`date_fin.gte.${today},and(date_fin.is.null,date_debut.gte.${today})`)
+
+  // Date précise (calendrier) : prime sur `quand`. Contrairement aux filtres
+  // de période qui bornent `date_debut`, on veut ici "ce qui se passe CE
+  // jour-là" — donc un événement multi-jours (expo du 1er au 20) doit sortir
+  // le 5. D'où le recouvrement : date_debut <= d ET (date_fin >= d OU
+  // événement d'un seul jour tombant pile ce jour).
+  // masquerPasses est volontairement ignoré dans ce cas : l'utilisateur a
+  // explicitement demandé une date, même passée.
+  if (dateExacte) {
+    q = q.lte('date_debut', dateExacte)
+         .or(`date_fin.gte.${dateExacte},and(date_fin.is.null,date_debut.eq.${dateExacte})`)
+  } else {
+    const range = getDateRange(quand)
+    if (range) q = q.gte('date_debut', range.from).lte('date_debut', range.to)
+    if (masquerPasses) {
+      // Force Europe/Paris (Vercel = UTC par défaut, peu importe la région).
+      const today = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Europe/Paris',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(new Date())
+      q = q.or(`date_fin.gte.${today},and(date_fin.is.null,date_debut.gte.${today})`)
+    }
   }
 
   // Promo events (pro/max), avec même filtre masquerPasses mais SANS cat / quand

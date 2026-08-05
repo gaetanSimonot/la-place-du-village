@@ -82,6 +82,12 @@ export type FiltreQuand = 'toujours' | 'aujourd_hui' | 'ce_week_end' | 'cette_se
 export interface Filtres {
   categories: Categorie[]
   quand: FiltreQuand
+  /**
+   * Date précise choisie au calendrier, format YYYY-MM-DD.
+   * Quand elle est renseignée, elle PRIME sur `quand` (côté /api/agenda).
+   * null / absent = pas de date précise, c'est `quand` qui filtre.
+   */
+  date?: string | null
 }
 
 export type AppMode = 'agenda' | 'annuaire'
