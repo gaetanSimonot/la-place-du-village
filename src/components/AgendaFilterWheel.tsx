@@ -58,23 +58,22 @@ export default function AgendaFilterWheel({ filtres, onFiltresChange, onChange }
   const dateActive = filtres.date ?? null
 
   const [calOpen, setCalOpen]     = useState(false)
-  const [draft, setDraft]         = useState<string | null>(null)
   const [viewMonth, setViewMonth] = useState<Date>(() => new Date())
 
-  // Ouverture : on repart de la date active si elle existe, sinon d'aujourd'hui.
-  // `draft` est un brouillon — rien n'est filtré tant qu'on n'a pas validé.
+  // Ouverture : on affiche le mois de la date active, sinon le mois courant.
+  // onChange() remonte le sheet de peek à half — sinon le panneau se déplierait
+  // dans la zone hors écran et on ne verrait que sa première ligne.
   function openCal() {
-    const base = dateActive ?? toISO(new Date())
-    setDraft(base)
-    setViewMonth(fromISO(base))
+    setViewMonth(fromISO(dateActive ?? toISO(new Date())))
     setCalOpen(true)
+    onChange?.()
   }
 
-  function valider() {
-    if (draft) {
-      onFiltresChange({ ...filtres, date: draft })
-      onChange?.()
-    }
+  // Un tap sur un jour applique tout de suite et referme : pas d'étape de
+  // validation, le filtre est reversible d'un tap sur "Quand".
+  function choisirJour(iso: string) {
+    onFiltresChange({ ...filtres, date: iso })
+    onChange?.()
     setCalOpen(false)
   }
 
@@ -109,22 +108,29 @@ export default function AgendaFilterWheel({ filtres, onFiltresChange, onChange }
     : (QUAND_OPTIONS.find(o => o.value === quandValue)?.label ?? 'Tout')
 
   return (
-    <div className="w-full">
+    <div className="w-full" style={{ position: 'relative' }}>
       <div className="flex w-full gap-2">
         <CycleBtn kicker="Que faire" label={quoiLabel}  onClick={cycleQuoi} />
         <CycleBtn kicker="Quand"     label={quandLabel} onClick={cycleQuand} />
         <CalendarBtn active={!!dateActive} onClick={() => (calOpen ? setCalOpen(false) : openCal())} />
       </div>
 
+      {/* Panneau en position absolue, JAMAIS dans le flux : cette rangée vit
+          dans le header mesuré du BottomSheet (headerRef), qui sert de source
+          à peekH. Un panneau en flux ferait gonfler peekH, ce qui déplace les
+          snaps du sheet ET propulse le ProBandeau — ancré en
+          `bottom: NAV_H + sheetPeekH` — en haut de l'écran. En absolu il se
+          superpose simplement à la liste. */}
       {calOpen && (
-        <DatePanel
-          draft={draft}
-          viewMonth={viewMonth}
-          onViewMonthChange={setViewMonth}
-          onDraftChange={setDraft}
-          onCancel={() => setCalOpen(false)}
-          onValidate={valider}
-        />
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 40 }}>
+          <DatePanel
+            selected={dateActive}
+            viewMonth={viewMonth}
+            onViewMonthChange={setViewMonth}
+            onPick={choisirJour}
+            onCancel={() => setCalOpen(false)}
+          />
+        </div>
       )}
     </div>
   )
@@ -164,14 +170,13 @@ function CalendarBtn({ active, onClick }: { active: boolean; onClick: () => void
 
 /* ── Panneau calendrier dépliant ─────────────────────────────────────── */
 function DatePanel({
-  draft, viewMonth, onViewMonthChange, onDraftChange, onCancel, onValidate,
+  selected, viewMonth, onViewMonthChange, onPick, onCancel,
 }: {
-  draft: string | null
+  selected: string | null
   viewMonth: Date
   onViewMonthChange: (d: Date) => void
-  onDraftChange: (iso: string) => void
+  onPick: (iso: string) => void
   onCancel: () => void
-  onValidate: () => void
 }) {
   const todayISO = toISO(new Date())
 
@@ -198,17 +203,16 @@ function DatePanel({
         boxShadow: '0 6px 20px rgba(45,90,61,0.10)',
       }}
     >
-      {/* Barre Annuler / titre / Valider */}
+      {/* Barre Annuler / titre. Pas de "Valider" : le tap sur un jour applique
+          directement. Le bloc de droite est un fantôme de même largeur que
+          "Annuler" pour que le titre reste optiquement centré. */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid #EDE8DF' }}>
         <button type="button" onClick={onCancel}
           style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer', color: '#5B8A4A', fontSize: 14, fontFamily: 'var(--font-body), sans-serif' }}>
           Annuler
         </button>
         <span style={{ fontWeight: 700, fontSize: 15, color: '#1A1209' }}>Choisir une date</span>
-        <button type="button" onClick={onValidate} disabled={!draft}
-          style={{ border: 'none', background: 'none', padding: 0, cursor: draft ? 'pointer' : 'default', color: draft ? '#2D5A3D' : '#B9B2A8', fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-body), sans-serif' }}>
-          Valider
-        </button>
+        <span aria-hidden style={{ fontSize: 14, visibility: 'hidden', fontFamily: 'var(--font-body), sans-serif' }}>Annuler</span>
       </div>
 
       {/* Navigation mois */}
@@ -231,20 +235,20 @@ function DatePanel({
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, padding: '2px 10px 14px' }}>
         {cells.map((iso, i) => {
           if (!iso) return <div key={`v${i}`} />
-          const selected = iso === draft
-          const isToday  = iso === todayISO
+          const isSelected = iso === selected
+          const isToday    = iso === todayISO
           return (
             <button
               key={iso}
               type="button"
-              onClick={() => onDraftChange(iso)}
+              onClick={() => onPick(iso)}
               style={{
                 aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 margin: '0 auto', width: 36, borderRadius: '50%', cursor: 'pointer',
-                border: !selected && isToday ? '1.5px solid #C8DEC0' : '1.5px solid transparent',
-                background: selected ? '#2D5A3D' : 'transparent',
-                color: selected ? '#fff' : '#1A1209',
-                fontSize: 15, fontWeight: selected || isToday ? 700 : 400,
+                border: !isSelected && isToday ? '1.5px solid #C8DEC0' : '1.5px solid transparent',
+                background: isSelected ? '#2D5A3D' : 'transparent',
+                color: isSelected ? '#fff' : '#1A1209',
+                fontSize: 15, fontWeight: isSelected || isToday ? 700 : 400,
                 fontFamily: 'var(--font-body), sans-serif',
                 WebkitTapHighlightColor: 'transparent',
               }}
@@ -269,7 +273,12 @@ function NavArrow({ dir, onClick }: { dir: 'prev' | 'next'; onClick: () => void 
   )
 }
 
-/* ── Bouton cycle on tap avec chevrons haut/bas + bounce ─────────────── */
+/* ── Bouton cycle on tap avec chevrons haut/bas + bounce ───────────────
+   `min-w-0` est indispensable : sans lui un flex item conserve
+   min-width:auto et ne peut pas descendre sous la largeur de son texte. Le
+   bouton s'élargissait donc selon le libellé courant ("Cette semaine" vs
+   "Tout") et décalait toute la rangée vers la droite. Avec min-w-0 les deux
+   boutons sont strictement égaux et c'est le texte qui tronque. */
 function CycleBtn({
   kicker, label, onClick,
 }: { kicker: string; label: string; onClick: () => void }) {
@@ -286,7 +295,7 @@ function CycleBtn({
     <button
       type="button"
       onClick={handleClick}
-      className="inline-flex flex-1 items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left"
+      className="inline-flex min-w-0 flex-1 items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left"
       style={{
         background: '#E8F2EB',
         border: '1px solid #C8DEC0',

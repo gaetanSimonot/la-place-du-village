@@ -405,7 +405,10 @@ export default function BottomSheet({
               <div
                 onPointerDown={e => e.stopPropagation()}
                 onTouchStart={e => e.stopPropagation()}
-                style={{ touchAction: 'pan-y', width: '100%', maxWidth: 300 }}
+                // maxWidth relevé de 300 à 420 : à 300 les deux boutons se
+                // partageaient ~118px une fois le calendrier posé, et les
+                // libellés longs ("Cette semaine") tronquaient.
+                style={{ touchAction: 'pan-y', width: '100%', maxWidth: 420 }}
               >
                 <AgendaFilterWheel
                   filtres={filtres}
