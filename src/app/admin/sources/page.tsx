@@ -475,15 +475,19 @@ export default function SourcesPage() {
                 </div>
               )}
 
-              {/* Actions */}
+              {/* Actions — l'aperçu n'existe que pour les sources récurrentes :
+                  le pipeline classique écrit au fil de l'eau, il n'a pas de
+                  mode « calcule mais n'écris rien ». */}
               <div className="flex gap-2">
-                <button
-                  onClick={() => lancer(src.id, src.nom, true)}
-                  disabled={!!scraping}
-                  className="flex-1 py-2 bg-[#FBF7F0] text-[#2C1810] text-xs font-bold rounded-xl disabled:opacity-50 border border-[#E8E0D5]"
-                >
-                  {isScraping ? '...' : '👁 Aperçu'}
-                </button>
+                {recurrent && (
+                  <button
+                    onClick={() => lancer(src.id, src.nom, true)}
+                    disabled={!!scraping}
+                    className="flex-1 py-2 bg-[#FBF7F0] text-[#2C1810] text-xs font-bold rounded-xl disabled:opacity-50 border border-[#E8E0D5]"
+                  >
+                    {isScraping ? '...' : '👁 Aperçu'}
+                  </button>
+                )}
                 <button
                   onClick={() => lancer(src.id, src.nom, false)}
                   disabled={!!scraping}

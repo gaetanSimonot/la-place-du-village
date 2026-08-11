@@ -124,6 +124,17 @@ export async function scrapeSource(
     return scrapeRecurrentSource(source, opts)
   }
 
+  // 1ter. Le pipeline classique ci-dessous écrit au fil de l'eau : il n'a pas
+  // de mode aperçu. On refuse explicitement plutôt que d'ignorer le drapeau et
+  // d'écrire alors que l'appelant croyait ne rien risquer.
+  if (opts.dryRun) {
+    return {
+      sourceId, sourceName: source.nom, trouves: 0, doublons: 0, inseres: 0,
+      erreur: 'L\'aperçu n\'existe que pour les sources récurrentes. Cette source écrit directement en base.',
+      evenements: [],
+    }
+  }
+
   let trouves  = 0
   let doublons = 0
   let inseres  = 0
