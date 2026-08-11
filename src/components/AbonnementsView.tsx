@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { EvenementCard } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { formatEventDate } from '@/lib/filters'
+import { imageEvenement } from '@/lib/imageEvenement'
 
 type StarredEvent = EvenementCard & {
   starred_by: Array<{ id: string; display_name: string | null; avatar_url: string | null }>
@@ -37,8 +38,8 @@ function FeedCard({ evt }: { evt: StarredEvent }) {
     <Link href={`/evenement/${evt.id}`} style={{ display: 'block', textDecoration: 'none' }}>
       <div style={{ backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 10px rgba(44,44,44,0.08)' }}>
         <div style={{ position: 'relative', height: 120 }}>
-          {evt.image_url
-            ? <img src={evt.image_url} alt={evt.titre} loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: evt.image_position ?? '50% 50%' }} />
+          {imageEvenement(evt)
+            ? <img src={imageEvenement(evt)!} alt={evt.titre} loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: evt.image_url ? (evt.image_position ?? '50% 50%') : '50% 50%' }} />
             : <div style={{ position: 'absolute', inset: 0, backgroundColor: cat.color }} />
           }
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 60%)' }} />

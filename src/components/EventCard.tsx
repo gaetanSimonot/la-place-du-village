@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Evenement, isApproxLocation } from '@/lib/types'
 import { CATEGORIES, eventCategories } from '@/lib/categories'
 import { formatEventDate } from '@/lib/filters'
+import { imageEvenement } from '@/lib/imageEvenement'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useAdminSession } from '@/hooks/useAdminSession'
@@ -16,6 +17,7 @@ interface Props {
 
 export default function EventCard({ evenement, isSelected, onClick }: Props) {
   const cats = eventCategories(evenement)
+  const image = imageEvenement(evenement)
   const lieu = evenement.lieux
   const isAdmin = useAdminSession()
   const [editing, setEditing] = useState(false)
@@ -33,15 +35,15 @@ export default function EventCard({ evenement, isSelected, onClick }: Props) {
               : '0 2px 12px rgba(44,44,44,0.08)',
           }}
         >
-          {evenement.image_url && (
+          {image && (
             <div className="w-full h-36 overflow-hidden relative" style={{ backgroundColor: '#f0ece6' }}>
               <Image
-                src={evenement.image_url}
+                src={image}
                 alt={evenement.titre}
                 fill
                 sizes="(max-width: 768px) 100vw, 600px"
                 className="object-cover"
-                style={{ objectPosition: evenement.image_position ?? '50% 50%' }}
+                style={{ objectPosition: evenement.image_url ? (evenement.image_position ?? '50% 50%') : '50% 50%' }}
               />
             </div>
           )}

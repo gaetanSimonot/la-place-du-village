@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { Evenement, isApproxLocation } from '@/lib/types'
 import { CATEGORIES, eventCategories } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
+import { imageEvenement } from '@/lib/imageEvenement'
 import ImageLightbox from '@/components/ImageLightbox'
 import CommentSheet from '@/components/CommentSheet'
 import EventEditDrawer from '@/components/EventEditDrawer'
@@ -120,6 +121,7 @@ export default function EvenementPageClient({ id }: { id: string }) {
 
   const cats  = eventCategories(evt)
   const cat   = CATEGORIES[cats[0]] ?? CATEGORIES.autre
+  const imageDeRepli = imageEvenement(evt)   // null si l'événement a sa propre image
   const lieu  = evt.lieux
   const mapsUrl = lieu?.lat && lieu?.lng
     ? `https://www.google.com/maps/dir/?api=1&destination=${lieu.lat},${lieu.lng}`
@@ -146,6 +148,11 @@ export default function EvenementPageClient({ id }: { id: string }) {
       <div className="relative h-[220px] w-full overflow-hidden bg-[#F0EBE3]">
         {evt.image_url ? (
           <ImageLightbox src={evt.image_url} alt={evt.titre} objectPosition={evt.image_position ?? '50% 50%'} />
+        ) : imageDeRepli ? (
+          /* Illustration générique de la catégorie : pas de lightbox, ce n'est
+             pas une photo de CET événement — l'agrandir n'apprendrait rien. */
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={imageDeRepli} alt="" className="h-full w-full object-cover" />
         ) : (
           <div
             className="h-full w-full"

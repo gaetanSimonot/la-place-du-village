@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import type { EtablissementType, Evenement } from '@/lib/types'
 import { getPrixAffiche, type Annonce } from '@/lib/annonces'
+import { imageEvenement } from '@/lib/imageEvenement'
 import type { MediaItem } from '@/lib/postMedia'
 import HubTopBar from '@/components/HubTopBar'
 import MomentsPastille from '@/components/moments/MomentsPastille'
@@ -551,8 +552,8 @@ export function FeaturedEventCard({ ev, onClick }: { ev: Evenement; onClick: () 
     >
       {/* Affiche : remplit toute la hauteur dispo de la tuile (2 rangées) */}
       <div className="relative min-h-0 flex-1 bg-bord/40">
-        {ev.image_url
-          ? <img src={ev.image_url} alt="" className="h-full w-full object-cover" />
+        {imageEvenement(ev)
+          ? <img src={imageEvenement(ev)!} alt="" className="h-full w-full object-cover" />
           : <div className="h-full w-full bg-gradient-to-br from-[#A85138] to-[#6E2E1E]" />
         }
         <div className="absolute left-2 top-2 rounded-[5px] bg-accent px-2 py-[3px] text-[10px] font-extrabold tracking-[0.08em] text-white">
@@ -594,8 +595,8 @@ export function MiniEventCard({ ev, onClick }: { ev: Evenement; onClick: () => v
     >
       {/* Image en haut (pleine largeur, croppée) */}
       <div className="relative min-h-0 flex-1 bg-bord/40">
-        {ev.image_url
-          ? <img src={ev.image_url} alt="" className="h-full w-full object-cover" />
+        {imageEvenement(ev)
+          ? <img src={imageEvenement(ev)!} alt="" className="h-full w-full object-cover" />
           : <div className="h-full w-full bg-gradient-to-br from-[#A8C28E] to-[#5B8A4A]" />
         }
         <div className="absolute left-1.5 top-1.5 rounded bg-white/95 px-1.5 py-[2px] text-[9px] font-extrabold text-texte">
