@@ -148,7 +148,30 @@ async function lookupLieuxCache(lieuNom: string, commune?: string | null): Promi
   }
 }
 
-export async function geocodeWithGoogle(lieuNom: string | null, commune?: string | null): Promise<GeoResult> {
+/**
+ * `indiceGeo` : le contexte géographique ajouté à la requête Google, à la place
+ * du simple "France".
+ *
+ * Google Places Text Search ignore les paramètres de biais géographique
+ * (`locationbias`, `location`+`radius`) — vérifié, aucun effet. Le seul levier
+ * qui fonctionne est l'indice dans la chaîne de recherche elle-même. Sans lui,
+ * une commune au nom répandu part au hasard : "Bréau" (à 12 km) tombe sur son
+ * homonyme de Seine-et-Marne, à 518 km, et le filtre de zone écarte alors un
+ * lieu parfaitement local.
+ *
+ * Mesuré sur 12 communes du secteur : "Cévennes, France" corrige 4 erreurs
+ * (Bréau 518→12, Saint-Martial 113→12, Rochegude 96→58, Ste Claire 434→0) sans
+ * dégrader un seul cas qui marchait déjà.
+ *
+ * Défaut "France" = comportement historique inchangé pour les appelants
+ * existants (WhatsApp, Signal, formulaire).
+ */
+export async function geocodeWithGoogle(
+  lieuNom: string | null,
+  commune?: string | null,
+  opts: { indiceGeo?: string | null } = {},
+): Promise<GeoResult> {
+  const indice = opts.indiceGeo?.trim() || 'France'
   // 1. Lieu précis + commune → DB-first puis Google
   if (lieuNom) {
     // Cache hit dans table lieux → ZERO appel Google
@@ -156,7 +179,7 @@ export async function geocodeWithGoogle(lieuNom: string | null, commune?: string
     if (cached && cached.lat != null) return { ...cached, approx: false }
 
     // Sinon Google textsearch
-    const q = [lieuNom, commune, 'France'].filter(Boolean).join(', ')
+    const q = [lieuNom, commune, indice].filter(Boolean).join(', ')
     const result = await textsearch(q)
     if (result) return { ...result, approx: false }
   }
@@ -175,7 +198,7 @@ export async function geocodeWithGoogle(lieuNom: string | null, commune?: string
       }
     }
     // Sinon Google
-    const result = await textsearch(commune + ', France')
+    const result = await textsearch(commune + ', ' + indice)
     if (result) return {
       place_id_google: null,
       lat: result.lat! + randOffset(),

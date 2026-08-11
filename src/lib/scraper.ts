@@ -5,6 +5,7 @@ import { checkDoublon } from './checkDoublon'
 import { checkZone } from './checkZone'
 import { getPrompt } from './prompts-ia'
 import { safeJsonParse } from './safeJsonParse'
+import { scrapeRecurrentSource, type ScrapeRecurrentResult } from './scraper-recurrent'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -102,7 +103,10 @@ async function extractEventsFromPage(pageText: string, sourceUrl: string): Promi
 
 // ── Point d'entrée principal ──────────────────────────────────────────────────
 
-export async function scrapeSource(sourceId: string): Promise<ScrapeResult> {
+export async function scrapeSource(
+  sourceId: string,
+  opts: { dryRun?: boolean } = {},
+): Promise<ScrapeResult | ScrapeRecurrentResult> {
   // 1. Charger la source
   const { data: source, error: srcErr } = await supabaseAdmin
     .from('sources')
@@ -112,6 +116,12 @@ export async function scrapeSource(sourceId: string): Promise<ScrapeResult> {
 
   if (srcErr || !source) {
     return { sourceId, sourceName: '?', trouves: 0, doublons: 0, inseres: 0, erreur: 'Source introuvable', evenements: [] }
+  }
+
+  // 1bis. Aiguillage : une source « récurrente » (page de marchés…) ne contient
+  // pas d'événements datés mais une table de récurrences. Pipeline dédié.
+  if (source.type === 'recurrent') {
+    return scrapeRecurrentSource(source, opts)
   }
 
   let trouves  = 0

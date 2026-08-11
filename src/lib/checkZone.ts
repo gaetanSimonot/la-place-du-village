@@ -22,14 +22,24 @@ export interface ZoneCheckResult {
 
 /** Vérifie si des coordonnées sont dans la zone d'INSERTION.
  *  Si pas de coords → within:true (on ne peut pas rejeter sans coords).
+ *
+ *  `rayonOverride` permet à une source de définir son propre rayon sans
+ *  toucher au réglage global : une page « marchés des Cévennes » doit être
+ *  filtrée plus serré (50 km) qu'une source d'événements locale (100 km).
  */
-export async function checkZone(lat: number | null, lng: number | null): Promise<ZoneCheckResult> {
+export async function checkZone(
+  lat: number | null,
+  lng: number | null,
+  rayonOverride?: number | null,
+): Promise<ZoneCheckResult> {
   const [rayonRes, centresRes] = await Promise.all([
     supabaseAdmin.from('config').select('value').eq('key', 'rayon_insertion_km').single(),
     supabaseAdmin.from('zone_centres').select('id, nom, lat, lng'),
   ])
 
-  const rayon   = parseInt(rayonRes.data?.value ?? '100', 10)
+  const rayon = rayonOverride != null && rayonOverride > 0
+    ? rayonOverride
+    : parseInt(rayonRes.data?.value ?? '100', 10)
   const centres: ZoneCentre[] = centresRes.data?.length
     ? centresRes.data
     : [{ id: 'default', nom: 'Ganges', lat: GANGES.lat, lng: GANGES.lng }]
