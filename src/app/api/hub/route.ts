@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { normalizeHubOrder } from '@/lib/hubSections'
+import { choisirTuilesDuJour, type EvenementTuile } from '@/lib/hubTodayPicker'
 
 /**
  * Valide une date YYYY-MM-DD venant du client. Retourne la date validée OU
@@ -132,13 +133,17 @@ export async function GET(req: NextRequest) {
       .gt('ends_at', nowISO)
       .not('position', 'is', null)
       .order('position', { ascending: true }),
+    // limit 40 (et non 8) : depuis les marchés, une dizaine d'événements du
+    // jour sont à 07:00-08:00. Avec une fenêtre de 8, un concert à 20h30
+    // n'était même pas CANDIDAT au choix des tuiles — pas mal classé, absent.
+    // Le tri par intérêt se fait ensuite dans choisirTuilesDuJour().
     supabaseAdmin
       .from('evenements')
       .select('*, lieux(*)', { count: 'exact' })
       .eq('statut', 'publie')
       .eq('date_debut', todayISO)
       .order('heure', { ascending: true, nullsFirst: false })
-      .limit(8),
+      .limit(40),
     supabaseAdmin
       .from('journaux_hebdo')
       .select('id, numero, cover_titre, cover_image_url, temps_lecture_min, publie_at, position_hub')
@@ -348,9 +353,11 @@ export async function GET(req: NextRequest) {
   // event du jour non déjà utilisé (par id).
   type EventRow = Record<string, unknown>
   const eventSlots = (eventSlotsRes.data ?? []) as Array<{ content_id: string; position: number }>
-  const fallbackToday = (todayEventsRes.data ?? []) as EventRow[]
+  const candidatsDuJour = (todayEventsRes.data ?? []) as EventRow[]
 
-  let finalTodayEvents: EventRow[] = fallbackToday
+  // Positions forcées par l'admin (bouton « mettre en avant »). Elles gagnent
+  // toujours : aucune règle de tri ne s'applique à elles.
+  const imposes = new Map<number, EventRow>()
   if (eventSlots.length > 0) {
     const featuredIds = eventSlots.map(s => s.content_id)
     const { data: featuredEvts } = await supabaseAdmin
@@ -361,30 +368,20 @@ export async function GET(req: NextRequest) {
     const featuredMap = Object.fromEntries(
       ((featuredEvts ?? []) as EventRow[]).map(e => [e.id as string, e]),
     )
-
-    // 3 emplacements fixes [pos1, pos2, pos3]. Chaque slot featured occupe sa
-    // position. Les positions laissées vides sont comblées avec les events
-    // du jour, dans l'ordre, en sautant ceux déjà featured.
-    const usedIds = new Set<string>(featuredIds)
-    const fallbackQueue = fallbackToday.filter(e => !usedIds.has(e.id as string))
-    const slotsByPos = new Map<number, EventRow>()
     for (const slot of eventSlots) {
       const evt = featuredMap[slot.content_id]
-      if (evt) slotsByPos.set(slot.position, evt)
+      if (evt) imposes.set(slot.position, evt)
     }
-
-    const result: EventRow[] = []
-    for (let pos = 1; pos <= 3; pos++) {
-      const featured = slotsByPos.get(pos)
-      if (featured) {
-        result.push(featured)
-      } else {
-        const next = fallbackQueue.shift()
-        if (next) result.push(next)
-      }
-    }
-    finalTodayEvents = result
   }
+
+  // Remplissage automatique des positions libres : tuile 1 jamais un marché,
+  // un marché maximum sur les trois, pas deux fois la même catégorie.
+  // Cf. src/lib/hubTodayPicker.ts pour les règles complètes.
+  const finalTodayEvents = choisirTuilesDuJour(
+    candidatsDuJour as unknown as EvenementTuile[],
+    imposes as unknown as Map<number, EvenementTuile>,
+    3,
+  ) as unknown as EventRow[]
 
   // ── FORUM : top sujets enrichis de l'auteur ──
   const topRows = (topForumRes.data ?? []) as Record<string, unknown>[]
