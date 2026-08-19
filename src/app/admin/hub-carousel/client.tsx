@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { markHubDirty } from '@/lib/hubFresh'
 import { useAuth } from '@/hooks/useAuth'
 import { FEATURED_SLOTS, type FeaturedSlotRow } from '@/lib/featured'
 import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
@@ -24,6 +25,18 @@ function fmtRemaining(endsAt: string): string {
   if (h < 24) return `${h}h`
   const d = Math.floor(h / 24)
   return `${d}j`
+}
+
+/**
+ * fetch pour les écritures de cette page. Chaque écriture change l'accueil
+ * (mise en avant, ordre des sections, slide intro) alors que /api/hub est
+ * caché 60s par le CDN : on pose un drapeau pour que le prochain affichage
+ * de l'accueil aille chercher une copie fraîche au lieu de la périmée.
+ */
+async function writeJson(url: string, init: RequestInit): Promise<Response> {
+  const res = await fetch(url, init)
+  if (res.ok) markHubDirty()
+  return res
 }
 
 export default function AdminHubCarousel() {
@@ -76,7 +89,7 @@ export default function AdminHubCarousel() {
     const { data: { session } } = await supabase.auth.getSession()
     const token = session?.access_token
     if (!token) { setIntroEnabled(prev); setIntroSaving(false); return }
-    const res = await fetch('/api/admin/config', {
+    const res = await writeJson('/api/admin/config', {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body:    JSON.stringify({ key: 'hub_hero_intro_enabled', value: next ? 'true' : 'false' }),
@@ -98,7 +111,7 @@ export default function AdminHubCarousel() {
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
       if (!token) { setIntroImgUploading(false); return }
-      const res = await fetch('/api/admin/config', {
+      const res = await writeJson('/api/admin/config', {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body:    JSON.stringify({ key: 'hub_hero_intro_image_url', value: newUrl }),
@@ -119,7 +132,7 @@ export default function AdminHubCarousel() {
     const token = session?.access_token
     if (!token) { setIntroImgUploading(false); return }
     // Vide la config → HubView retombera sur /hub-intro-slide.png
-    await fetch('/api/admin/config', {
+    await writeJson('/api/admin/config', {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body:    JSON.stringify({ key: 'hub_hero_intro_image_url', value: '' }),
@@ -139,7 +152,7 @@ export default function AdminHubCarousel() {
     const { data: { session } } = await supabase.auth.getSession()
     const token = session?.access_token
     if (!token) { setSectionOrder(prev); setOrderSaving(false); return }
-    const res = await fetch('/api/admin/config', {
+    const res = await writeJson('/api/admin/config', {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body:    JSON.stringify({ key: 'hub_section_order', value: JSON.stringify(next) }),
@@ -157,7 +170,7 @@ export default function AdminHubCarousel() {
     const { data: { session } } = await supabase.auth.getSession()
     const token = session?.access_token
     if (!token) { setHiddenSections(prev); setOrderSaving(false); return }
-    const res = await fetch('/api/admin/config', {
+    const res = await writeJson('/api/admin/config', {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body:    JSON.stringify({ key: 'hub_section_hidden', value: JSON.stringify(next) }),
@@ -266,7 +279,7 @@ export default function AdminHubCarousel() {
     const { data: { session } } = await supabase.auth.getSession()
     const token = session?.access_token
     if (!token) return
-    const res = await fetch('/api/featured-slots', {
+    const res = await writeJson('/api/featured-slots', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ id, ...patch }),
@@ -279,7 +292,7 @@ export default function AdminHubCarousel() {
     const { data: { session } } = await supabase.auth.getSession()
     const token = session?.access_token
     if (!token) return
-    const res = await fetch(`/api/featured-slots?id=${id}`, {
+    const res = await writeJson(`/api/featured-slots?id=${id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     })

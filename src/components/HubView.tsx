@@ -1,10 +1,11 @@
 'use client'
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import useSWR from 'swr'
 import { supabase } from '@/lib/supabase'
+import { hubBustParam, takeHubDirty } from '@/lib/hubFresh'
 import { useAuth } from '@/hooks/useAuth'
 import type { EtablissementType, Evenement } from '@/lib/types'
 import { getPrixAffiche, type Annonce } from '@/lib/annonces'
@@ -193,6 +194,29 @@ export default function HubView({
   // fetcher viennent du SWRProvider global → on n'a plus à les répéter ici.
   const { data: hubData, mutate: mutateHub } = useSWR(`/api/hub?d=${todayLocalYMD}`)
 
+  // Refetch qui CONTOURNE le cache CDN de /api/hub (60s + 120s de stale).
+  // Un mutateHub() nu retape sur la copie périmée : c'est ce qui faisait
+  // qu'une mise en avant n'apparaissait qu'au bout d'1 à 3 minutes. Ici on
+  // va chercher l'origine et on injecte le résultat dans le cache SWR sans
+  // déclencher de second fetch.
+  // todayLocalYMD est recalculé à chaque render : on le lit via une ref pour
+  // que refreshHubFresh garde une identité stable (sinon le canal Realtime
+  // ci-dessous se réabonnerait à chaque render).
+  const todayRef = useRef(todayLocalYMD)
+  todayRef.current = todayLocalYMD
+  const refreshHubFresh = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/hub?d=${todayRef.current}${hubBustParam()}`)
+      if (!res.ok) { mutateHub(); return }
+      mutateHub(await res.json(), { revalidate: false })
+    } catch { mutateHub() }
+  }, [mutateHub])
+
+  // Une mise en avant faite depuis l'admin ou une fiche ne passe pas par le
+  // Realtime de cet écran (l'accueil n'était pas monté) : le drapeau posé à
+  // l'écriture force un fetch frais au premier affichage qui suit.
+  useEffect(() => { if (takeHubDirty()) refreshHubFresh() }, [refreshHubFresh])
+
   // ── Derive les states UI depuis hubData (SWR est la source de vérité) ──
   const zoneCounts = useMemo(() => ({
     evt:  hubData?.zoneCounts?.evt  ?? 0,
@@ -226,15 +250,15 @@ export default function HubView({
   useEffect(() => {
     const ch = supabase
       .channel('hub-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'featured_slots' }, () => mutateHub())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'journaux_hebdo' }, () => mutateHub())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'covoiturages' }, () => mutateHub())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'forum_topics' }, () => mutateHub())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'forum_comments' }, () => mutateHub())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'config' }, () => mutateHub())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'featured_slots' }, () => refreshHubFresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'journaux_hebdo' }, () => refreshHubFresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'covoiturages' }, () => refreshHubFresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'forum_topics' }, () => refreshHubFresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'forum_comments' }, () => refreshHubFresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'config' }, () => refreshHubFresh())
       .subscribe()
     return () => { supabase.removeChannel(ch) }
-  }, [mutateHub])
+  }, [refreshHubFresh])
 
   // Note : revalidateOnFocus de SWR gère déjà focus + visibilitychange,
   // pas besoin de listener manuel comme avant.

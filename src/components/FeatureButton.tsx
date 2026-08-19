@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
+import { markHubDirty } from '@/lib/hubFresh'
 import { useAuth } from '@/hooks/useAuth'
 import { FEATURED_SLOTS, SLOT_ALLOWED_TYPES, type FeaturedSlot, type FeaturedContentType, type FeatureCredits, creditsRemaining } from '@/lib/featured'
 import { BOOST_OFFERS, priceLabel } from '@/lib/boost'
@@ -119,6 +120,7 @@ export function FeatureModal({ contentType, contentId, isAdmin, isOwner, plan, o
       setSubmitting(false)
       return
     }
+    markHubDirty()
     onClose()
     toast.success('Mis en avant')
   }
@@ -147,6 +149,7 @@ export function FeatureModal({ contentType, contentId, isAdmin, isOwner, plan, o
       setSubmitting(false)
       return
     }
+    markHubDirty()
     onClose()
     toast.success(`Mis en avant · Position ${position}`)
   }
@@ -168,6 +171,7 @@ export function FeatureModal({ contentType, contentId, isAdmin, isOwner, plan, o
       setSubmitting(false)
       return
     }
+    markHubDirty()
     onClose()
     toast.success('Contenu mis en avant')
   }
