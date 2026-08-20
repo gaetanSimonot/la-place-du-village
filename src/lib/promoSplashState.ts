@@ -114,6 +114,23 @@ function addDays(iso: string, days: number): number {
   return new Date(iso).getTime() + days * 86_400_000
 }
 
+/** Rotation du mode test admin, séparée pour ne jamais polluer l'état réel. */
+const TEST_KEY = 'pdv-promo-splash-test'
+
+/**
+ * Variante suivante en mode test admin : tourne sur les trois à chaque
+ * affichage, sans toucher `pdv-promo-splash`. On peut donc tester autant qu'on
+ * veut sans consommer le cycle qu'on verra ensuite en conditions réelles.
+ */
+export function nextTestVariant(): SplashPromoVariantId {
+  let i = 0
+  try {
+    i = Number(localStorage.getItem(TEST_KEY)) || 0
+    localStorage.setItem(TEST_KEY, String((i + 1) % SPLASH_PROMO_VARIANTS.length))
+  } catch { /* mode privé : on reste sur la première */ }
+  return SPLASH_PROMO_VARIANTS[i % SPLASH_PROMO_VARIANTS.length].id
+}
+
 /**
  * Quelle variante afficher maintenant, ou `null` si aucune.
  *

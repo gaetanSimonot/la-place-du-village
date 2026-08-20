@@ -52,6 +52,16 @@ export interface SplashPromoConfig {
    * reste juste quelle que soit la date à laquelle on décide d'activer.
    */
   activatedAt: string | null
+  /**
+   * Mode test réservé aux comptes ADMIN : le splash s'affiche à chaque visite,
+   * en tournant sur les trois variantes, même si les splashs sont globalement
+   * désactivés. Sert à vérifier le comportement réel sur son propre téléphone
+   * avant d'ouvrir aux habitants.
+   *
+   * Sans effet sur un compte non-admin : quelqu'un qui n'est pas admin ne verra
+   * jamais rien à cause de ce réglage.
+   */
+  adminTestMode: boolean
 }
 
 /**
@@ -65,6 +75,7 @@ export const SPLASH_PROMO_DEFAULTS: SplashPromoConfig = {
   cycleResetDays: 30,
   displayDelaySeconds: 6,
   activatedAt: null,
+  adminTestMode: false,
 }
 
 /** Bornes de saisie, partagées par l'admin (inputs) et l'API (validation). */
@@ -104,6 +115,7 @@ export function normalizeSplashPromo(input: unknown): SplashPromoConfig {
     cycleResetDays:          clampInt(o.cycleResetDays,          b.cycleResetDays.min,          b.cycleResetDays.max,          SPLASH_PROMO_DEFAULTS.cycleResetDays),
     displayDelaySeconds:     clampInt(o.displayDelaySeconds,     b.displayDelaySeconds.min,     b.displayDelaySeconds.max,     SPLASH_PROMO_DEFAULTS.displayDelaySeconds),
     activatedAt: cleanIsoDate(o.activatedAt),
+    adminTestMode: typeof o.adminTestMode === 'boolean' ? o.adminTestMode : SPLASH_PROMO_DEFAULTS.adminTestMode,
   }
 }
 

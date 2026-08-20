@@ -680,6 +680,37 @@ export default function AdminHubCarousel() {
             </div>
           </div>
 
+          {/* Mode test admin — hors du bloc grisé : il sert surtout AVANT
+              l'activation, pour vérifier le comportement en conditions réelles. */}
+          <div style={{
+            marginTop: 14, padding: 12, borderRadius: 10,
+            background: splash.adminTestMode ? '#FFF1E8' : '#FDFAF6',
+            border: `1px solid ${splash.adminTestMode ? '#F0D4C8' : '#E5DDD2'}`,
+          }}>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: splashSaving ? 'default' : 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={splash.adminTestMode}
+                disabled={splashSaving}
+                onChange={e => { const v = e.target.checked; setSplash(s => ({ ...s, adminTestMode: v })); setSplashSaved(false) }}
+                style={{ accentColor: '#C0440A', cursor: 'pointer', marginTop: 2 }}
+              />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#1A1209' }}>
+                  Me montrer les splashs (mode test)
+                </div>
+                <div style={{ fontSize: 10, color: '#8A7A6A', marginTop: 2, lineHeight: 1.45 }}>
+                  Sur les comptes <b>admin uniquement</b>, le splash s&apos;affiche à chaque
+                  visite en tournant sur les trois variantes — même si les splashs sont
+                  désactivés ci-dessus. Le délai d&apos;affichage est respecté, mais rien
+                  n&apos;est compté ni enregistré : ça ne consomme pas le cycle que tu
+                  verras ensuite en vrai, et ça n&apos;envoie aucune statistique.
+                  Les habitants ne sont pas concernés.
+                </div>
+              </div>
+            </label>
+          </div>
+
           {/* Variantes : aperçu à la demande. Volontairement HORS du bloc grisé —
               c'est précisément quand les splashs sont désactivés qu'on veut
               vérifier leur design. */}
