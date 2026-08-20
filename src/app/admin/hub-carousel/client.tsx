@@ -8,6 +8,11 @@ import { useAuth } from '@/hooks/useAuth'
 import { FEATURED_SLOTS, type FeaturedSlotRow } from '@/lib/featured'
 import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
 import { HUB_SECTIONS, normalizeHubOrder } from '@/lib/hubSections'
+import {
+  SPLASH_PROMO_BOUNDS, SPLASH_PROMO_DEFAULTS, SPLASH_PROMO_VARIANTS, parseSplashPromo,
+  type SplashPromoConfig, type SplashPromoVariantId,
+} from '@/lib/splashPromo'
+import SplashPromoView from '@/components/SplashPromoView'
 
 interface EnrichedSlot extends FeaturedSlotRow {
   title?: string
@@ -58,6 +63,14 @@ export default function AdminHubCarousel() {
   const [sectionOrder, setSectionOrder] = useState<string[]>(() => normalizeHubOrder([]))
   const [hiddenSections, setHiddenSections] = useState<string[]>([])
   const [orderSaving, setOrderSaving] = useState(false)
+  // Splashs promotionnels de l'offre Habitant (config('splash_promo'))
+  const [splash, setSplash] = useState<SplashPromoConfig>(SPLASH_PROMO_DEFAULTS)
+  const [splashSaving, setSplashSaving] = useState(false)
+  const [splashSaved, setSplashSaved]   = useState(false)
+  const [splashError, setSplashError]   = useState<string | null>(null)
+  // Aperçu admin d'une variante : purement local, n'écrit rien et n'affecte
+  // pas ce que voient les habitants.
+  const [previewVariant, setPreviewVariant] = useState<SplashPromoVariantId | null>(null)
 
   // Charge la config slide intro (toggle + image custom)
   useEffect(() => {
@@ -67,7 +80,8 @@ export default function AdminHubCarousel() {
       supabase.from('config').select('value').eq('key', 'hub_hero_intro_image_url').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'hub_section_order').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'hub_section_hidden').maybeSingle(),
-    ]).then(([toggleRes, imgRes, orderRes, hiddenRes]) => {
+      supabase.from('config').select('value').eq('key', 'splash_promo').maybeSingle(),
+    ]).then(([toggleRes, imgRes, orderRes, hiddenRes, splashRes]) => {
       setIntroEnabled(toggleRes.data?.value === 'true')
       setIntroImageUrl(imgRes.data?.value || null)
       let parsed: unknown = []
@@ -77,6 +91,7 @@ export default function AdminHubCarousel() {
         const h = JSON.parse(hiddenRes.data?.value ?? '[]')
         setHiddenSections(Array.isArray(h) ? h.filter((x: unknown): x is string => typeof x === 'string') : [])
       } catch { setHiddenSections([]) }
+      setSplash(parseSplashPromo(splashRes.data?.value))
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user, isAdmin])
@@ -177,6 +192,45 @@ export default function AdminHubCarousel() {
     })
     if (!res.ok) setHiddenSections(prev)
     setOrderSaving(false)
+  }
+
+  /**
+   * Splashs promo : un seul bouton pour tout le bloc (toggle + 4 nombres).
+   * Pas de markHubDirty ici — ce réglage ne change pas /api/hub, il est lu par
+   * /api/splash-promo qui n'est pas caché.
+   */
+  async function saveSplash() {
+    if (splashSaving) return
+    setSplashSaving(true)
+    setSplashError(null)
+    setSplashSaved(false)
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+    if (!token) { setSplashError('Session expirée, recharge la page.'); setSplashSaving(false); return }
+    const res = await fetch('/api/splash-promo', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body:    JSON.stringify(splash),
+    })
+    if (res.ok) {
+      // On réaffiche la config telle qu'enregistrée (valeurs bornées côté serveur).
+      const body = await res.json().catch(() => null)
+      if (body?.config) setSplash(body.config)
+      setSplashSaved(true)
+      setTimeout(() => setSplashSaved(false), 2500)
+    } else {
+      setSplashError('Enregistrement impossible.')
+    }
+    setSplashSaving(false)
+  }
+
+  /** Saisie d'un champ numérique : on laisse le champ vide devenir 0. */
+  function setSplashNum(key: keyof typeof SPLASH_PROMO_BOUNDS, raw: string) {
+    const n = raw === '' ? 0 : Number(raw)
+    if (!Number.isFinite(n)) return
+    const { min, max } = SPLASH_PROMO_BOUNDS[key]
+    setSplash(s => ({ ...s, [key]: Math.min(max, Math.max(min, Math.round(n))) }))
+    setSplashSaved(false)
   }
 
   useEffect(() => {
@@ -513,6 +567,158 @@ export default function AdminHubCarousel() {
           </div>
         </div>
       </div>
+
+      {/* Splashs promotionnels de l'offre Habitant */}
+      <div style={{ padding: '14px 16px 0' }}>
+        <div style={{
+          padding: 14, borderRadius: 12,
+          background: splash.enabled ? '#E8F2EB' : '#FFFFFF',
+          border: `1px solid ${splash.enabled ? '#C8DEC0' : '#E5DDD2'}`,
+          boxShadow: '0 1px 4px rgba(44,28,16,0.04)',
+        }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: splashSaving ? 'default' : 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={splash.enabled}
+              disabled={splashSaving}
+              onChange={e => { const v = e.target.checked; setSplash(s => ({ ...s, enabled: v })); setSplashSaved(false) }}
+              style={{ accentColor: '#2D5A3D', cursor: 'pointer' }}
+            />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>
+                Splashs promotionnels
+              </div>
+              <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2 }}>
+                Interstitiels de mise en avant de l&apos;offre Habitant. Décoché, aucun splash
+                promo ne peut s&apos;afficher, quels que soient les réglages ci-dessous.
+              </div>
+            </div>
+          </label>
+
+          <div style={{
+            marginTop: 12, paddingTop: 12,
+            borderTop: `1px dashed ${splash.enabled ? '#C8DEC0' : '#E5DDD2'}`,
+            opacity: splash.enabled ? 1 : 0.55,
+          }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#5B8A4A', marginBottom: 10, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+              Diffusion
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {([
+                { key: 'firstDisplayAfterVisits', label: 'Avant le premier splash', unit: 'visites',
+                  hint: 'Surtout pour les nouveaux visiteurs. 0 = dès la première visite.' },
+                { key: 'cooldownDays', label: 'Entre deux splashs', unit: 'jours',
+                  hint: 'Délai après qu’un splash a été fermé ou ignoré.' },
+                { key: 'cycleResetDays', label: 'Après les 3 variantes', unit: 'jours',
+                  hint: 'Pause une fois les trois splashs présentés, avant de recommencer.' },
+                { key: 'displayDelaySeconds', label: 'Avant affichage à l’écran', unit: 'secondes',
+                  hint: 'Évite que le splash surgisse au chargement de l’app.' },
+              ] as const).map(f => (
+                <div key={f.key} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '9px 12px', borderRadius: 10,
+                  background: '#FDFAF6', border: '1px solid #E5DDD2',
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#1A1209' }}>{f.label}</div>
+                    <div style={{ fontSize: 10, color: '#8A7A6A', marginTop: 1 }}>{f.hint}</div>
+                  </div>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={SPLASH_PROMO_BOUNDS[f.key].min}
+                    max={SPLASH_PROMO_BOUNDS[f.key].max}
+                    step={1}
+                    value={splash[f.key]}
+                    disabled={splashSaving}
+                    onChange={e => setSplashNum(f.key, e.target.value)}
+                    style={{
+                      width: 62, padding: '6px 8px', borderRadius: 8,
+                      border: '1px solid #E5DDD2', backgroundColor: '#FFFFFF',
+                      color: '#1A1209', fontSize: 13, fontWeight: 800, textAlign: 'right',
+                      fontFamily: 'var(--font-body), sans-serif',
+                    }}
+                  />
+                  <span style={{ fontSize: 11, color: '#7A6A5A', width: 58, flexShrink: 0 }}>{f.unit}</span>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
+              <button
+                onClick={saveSplash}
+                disabled={splashSaving}
+                style={{
+                  padding: '9px 16px', borderRadius: 10, border: 'none',
+                  backgroundColor: '#2D5A3D', color: '#FFFFFF',
+                  fontSize: 12, fontWeight: 800,
+                  cursor: splashSaving ? 'not-allowed' : 'pointer',
+                  opacity: splashSaving ? 0.5 : 1,
+                  fontFamily: 'var(--font-body), sans-serif',
+                }}
+              >
+                {splashSaving ? 'Enregistrement…' : 'Enregistrer'}
+              </button>
+              {splashSaved && (
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#2D5A3D' }}>✓ Enregistré</span>
+              )}
+              {splashError && (
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#C0392B' }}>{splashError}</span>
+              )}
+            </div>
+          </div>
+
+          {/* Variantes : aperçu à la demande. Volontairement HORS du bloc grisé —
+              c'est précisément quand les splashs sont désactivés qu'on veut
+              vérifier leur design. */}
+          <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px dashed ${splash.enabled ? '#C8DEC0' : '#E5DDD2'}` }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#5B8A4A', marginBottom: 4, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+              Variantes
+            </div>
+            <div style={{ fontSize: 10, color: '#8A7A6A', marginBottom: 8 }}>
+              L&apos;œil ouvre le splash ici même, pour vérifier son design. Rien n&apos;est
+              envoyé aux habitants, aucun compteur n&apos;est touché, et ça marche même
+              splashs désactivés.
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {SPLASH_PROMO_VARIANTS.map((v, i) => (
+                <div key={v.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '9px 12px', borderRadius: 10,
+                  background: '#FDFAF6', border: '1px solid #E5DDD2',
+                }}>
+                  <span style={{
+                    width: 24, height: 24, borderRadius: 7,
+                    background: '#F0EAE0', color: '#7A6A5A',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 12, fontWeight: 900, flexShrink: 0,
+                  }}>{i + 1}</span>
+                  <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: '#1A1209' }}>{v.label}</span>
+                  <button
+                    onClick={() => setPreviewVariant(v.id)}
+                    title={`Voir ${v.label}`}
+                    aria-label={`Voir ${v.label}`}
+                    style={{ ...btnStyle(false), color: '#2D5A3D' }}
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {previewVariant && (
+        <SplashPromoView
+          variant={previewVariant}
+          preview
+          onClose={() => setPreviewVariant(null)}
+          // En aperçu, le CTA ne doit pas ouvrir la modale d'abonnement
+          // par-dessus l'admin : on vérifie le design, pas le parcours d'achat.
+          onDiscover={() => setPreviewVariant(null)}
+        />
+      )}
 
       <div style={{ padding: '14px 12px' }}>
         {FEATURED_SLOTS.map(slot => {

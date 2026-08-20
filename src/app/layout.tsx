@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter, DM_Serif_Display, Caveat, Plus_Jakarta_Sans } from 'next/font/google'
+import { Inter, DM_Serif_Display, Caveat, Plus_Jakarta_Sans, Archivo, Nunito } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import InstallBanner from '@/components/InstallBanner'
@@ -12,6 +12,7 @@ import SWRProvider from '@/components/SWRProvider'
 import AuthModal from '@/components/AuthModal'
 import PhoneFrame from '@/components/PhoneFrame'
 import MaintenanceGate from '@/components/MaintenanceGate'
+import PromoSplashGate from '@/components/PromoSplashGate'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import { Toaster } from 'sonner'
@@ -25,6 +26,16 @@ const caveat = Caveat({
 })
 const jakarta = Plus_Jakarta_Sans({
   weight: ['400', '500', '600', '700', '800'], subsets: ['latin'], variable: '--font-jakarta', display: 'swap',
+})
+// Polices propres au splash promo Habitant (maquette de handoff).
+// preload: false volontaire — elles ne servent qu'à cette modale, rare et
+// tardive : les précharger sur chaque page ferait payer deux fichiers de plus
+// à tout le monde, pour rien.
+const archivo = Archivo({
+  weight: ['700', '800', '900'], subsets: ['latin'], variable: '--font-archivo', display: 'swap', preload: false,
+})
+const nunito = Nunito({
+  weight: ['400', '600', '700', '800'], subsets: ['latin'], variable: '--font-nunito', display: 'swap', preload: false,
 })
 
 export const metadata: Metadata = {
@@ -115,7 +126,7 @@ export default function RootLayout({
   modal: React.ReactNode
 }) {
   return (
-    <html lang="fr" className={`${inter.variable} ${dmSerif.variable} ${caveat.variable} ${jakarta.variable}`}>
+    <html lang="fr" className={`${inter.variable} ${dmSerif.variable} ${caveat.variable} ${jakarta.variable} ${archivo.variable} ${nunito.variable}`}>
       <head>
         {/* Capture beforeinstallprompt before React mounts */}
         <script dangerouslySetInnerHTML={{ __html: `
@@ -140,6 +151,7 @@ export default function RootLayout({
                         s'affichent ici par-dessus children. La home + sa carte
                         restent montées dessous → pas de remount carte. */}
                     {modal}
+                    <PromoSplashGate />
                     <InstallBanner />
                     <AuthModal />
                     <Toaster
