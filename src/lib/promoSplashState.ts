@@ -18,13 +18,6 @@ const KEY = 'pdv-promo-splash'
 const SESSION_KEY = 'pdv-promo-splash-session'
 
 /**
- * Date de mise en production de la fonctionnalité. Sert uniquement à
- * distinguer un nouveau venu d'un habitant déjà présent avant — ce dernier
- * n'a pas à attendre 3 nouvelles visites.
- */
-const DEPLOY_DATE = '2026-08-20'
-
-/**
  * Traces laissées par une utilisation antérieure de l'app. Si l'une d'elles
  * existe déjà au moment où on crée l'état, c'est un navigateur qui connaît
  * déjà La Place du Village.
@@ -44,7 +37,7 @@ export interface PromoSplashState {
   lastShownAt: string | null
   /** Fin du cycle des 3 variantes (ISO). Ancre de la pause longue. */
   cycleDoneAt: string | null
-  /** Navigateur déjà utilisateur avant le déploiement → pas d'attente initiale. */
+  /** Navigateur déjà utilisateur avant l'activation → pas d'attente initiale. */
   veteran: boolean
 }
 
@@ -58,11 +51,17 @@ function hasPriorUse(): boolean {
 }
 
 /**
- * Lit l'état, en le créant au premier passage. `accountCreatedAt` vient de
- * l'utilisateur Supabase quand il est connecté : un compte antérieur au
- * déploiement est un vétéran, même sur un navigateur tout neuf.
+ * Lit l'état, en le créant au premier passage.
+ *
+ * `accountCreatedAt` vient de l'utilisateur Supabase quand il est connecté, et
+ * `activatedAt` de la config admin : un compte créé AVANT la première
+ * activation du système est un vétéran, même sur un navigateur tout neuf. La
+ * frontière suit donc la date réelle de lancement, pas une date écrite en dur.
  */
-export function readPromoSplashState(accountCreatedAt?: string | null): PromoSplashState {
+export function readPromoSplashState(
+  accountCreatedAt?: string | null,
+  activatedAt?: string | null,
+): PromoSplashState {
   if (typeof window === 'undefined') return emptyState(false)
   let state: PromoSplashState
   try {
@@ -71,9 +70,10 @@ export function readPromoSplashState(accountCreatedAt?: string | null): PromoSpl
   } catch {
     state = emptyState(hasPriorUse())
   }
-  // Un compte créé avant le déploiement suffit à faire un vétéran, même si le
+  // Un compte créé avant l'activation suffit à faire un vétéran, même si le
   // navigateur est vierge (nouveau téléphone, mode privé, cache effacé).
-  if (!state.veteran && accountCreatedAt && accountCreatedAt.slice(0, 10) < DEPLOY_DATE) {
+  if (!state.veteran && accountCreatedAt && activatedAt
+      && Date.parse(accountCreatedAt) < Date.parse(activatedAt)) {
     state = { ...state, veteran: true }
     writePromoSplashState(state)
   }

@@ -35,7 +35,19 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}))
   // On re-normalise côté serveur : le client peut envoyer n'importe quoi.
-  const cfg = normalizeSplashPromo(body)
+  const incoming = normalizeSplashPromo(body)
+
+  // `activatedAt` n'est JAMAIS pris dans le corps de la requête — sinon
+  // n'importe quel admin pourrait déplacer la frontière vétérans/nouveaux,
+  // volontairement ou par un copier-coller malheureux. Elle est posée une
+  // seule fois, à la première bascule off → on, et conservée ensuite : le
+  // système peut être éteint puis rallumé sans que la frontière ne bouge.
+  const { data: current } = await supabaseAdmin
+    .from('config').select('value').eq('key', SPLASH_PROMO_KEY).maybeSingle()
+  const stored = parseSplashPromo(current?.value)
+  const activatedAt = stored.activatedAt ?? (incoming.enabled ? new Date().toISOString() : null)
+
+  const cfg = { ...incoming, activatedAt }
 
   const { error } = await supabaseAdmin
     .from('config')

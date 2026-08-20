@@ -42,6 +42,16 @@ export interface SplashPromoConfig {
   cycleResetDays: number
   /** Secondes après l'arrivée sur l'app avant de faire surgir le splash. */
   displayDelaySeconds: number
+  /**
+   * Date ISO de la toute première activation du système (première bascule
+   * off → on), posée automatiquement par l'API et jamais remise à zéro.
+   *
+   * C'est elle qui sépare les vétérans des nouveaux venus : un compte créé
+   * avant cette date n'a pas à attendre trois nouvelles visites. Elle est
+   * volontairement en base et non en dur dans le code, pour que la frontière
+   * reste juste quelle que soit la date à laquelle on décide d'activer.
+   */
+  activatedAt: string | null
 }
 
 /**
@@ -54,6 +64,7 @@ export const SPLASH_PROMO_DEFAULTS: SplashPromoConfig = {
   cooldownDays: 14,
   cycleResetDays: 30,
   displayDelaySeconds: 6,
+  activatedAt: null,
 }
 
 /** Bornes de saisie, partagées par l'admin (inputs) et l'API (validation). */
@@ -63,6 +74,13 @@ export const SPLASH_PROMO_BOUNDS = {
   cycleResetDays:          { min: 0, max: 365 },
   displayDelaySeconds:     { min: 0, max: 120 },
 } as const
+
+/** Date ISO valide, ou null. Refuse tout ce qui n'est pas une vraie date. */
+function cleanIsoDate(raw: unknown): string | null {
+  if (typeof raw !== 'string' || !raw) return null
+  const t = Date.parse(raw)
+  return Number.isNaN(t) ? null : new Date(t).toISOString()
+}
 
 /** Entier borné, avec repli sur le défaut si la valeur est inexploitable. */
 function clampInt(raw: unknown, min: number, max: number, fallback: number): number {
@@ -85,6 +103,7 @@ export function normalizeSplashPromo(input: unknown): SplashPromoConfig {
     cooldownDays:            clampInt(o.cooldownDays,            b.cooldownDays.min,            b.cooldownDays.max,            SPLASH_PROMO_DEFAULTS.cooldownDays),
     cycleResetDays:          clampInt(o.cycleResetDays,          b.cycleResetDays.min,          b.cycleResetDays.max,          SPLASH_PROMO_DEFAULTS.cycleResetDays),
     displayDelaySeconds:     clampInt(o.displayDelaySeconds,     b.displayDelaySeconds.min,     b.displayDelaySeconds.max,     SPLASH_PROMO_DEFAULTS.displayDelaySeconds),
+    activatedAt: cleanIsoDate(o.activatedAt),
   }
 }
 

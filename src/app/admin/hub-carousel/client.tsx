@@ -592,6 +592,18 @@ export default function AdminHubCarousel() {
                 Interstitiels de mise en avant de l&apos;offre Habitant. Décoché, aucun splash
                 promo ne peut s&apos;afficher, quels que soient les réglages ci-dessous.
               </div>
+              {splash.activatedAt ? (
+                <div style={{ fontSize: 10, color: '#8A7A6A', marginTop: 4 }}>
+                  Lancé le {new Date(splash.activatedAt).toLocaleDateString('fr-FR')}. Les
+                  habitants inscrits avant cette date voient le premier splash sans attendre ;
+                  ceux arrivés après patientent le nombre de visites ci-dessous.
+                </div>
+              ) : (
+                <div style={{ fontSize: 10, color: '#8A7A6A', marginTop: 4 }}>
+                  Jamais activé. La date de lancement sera enregistrée au premier
+                  enregistrement avec la case cochée, et ne bougera plus ensuite.
+                </div>
+              )}
             </div>
           </label>
 

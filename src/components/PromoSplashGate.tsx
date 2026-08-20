@@ -66,13 +66,13 @@ export default function PromoSplashGate() {
     armed.current = true
 
     // Compter la visite d'abord : elle compte même si rien ne s'affiche.
-    const state = countSessionOnce(readPromoSplashState(user?.created_at ?? null))
+    const state = countSessionOnce(readPromoSplashState(user?.created_at ?? null, cfg.activatedAt))
     if (!nextVariant(state, cfg)) return
 
     const timer = setTimeout(() => {
       // Re-vérification au moment de montrer : l'utilisateur a pu s'abonner,
       // ou un autre onglet a pu afficher le splash pendant l'attente.
-      const fresh = readPromoSplashState(user?.created_at ?? null)
+      const fresh = readPromoSplashState(user?.created_at ?? null, cfg.activatedAt)
       const v = nextVariant(fresh, cfg)
       if (!v) return
       recordShown(fresh)
