@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useAuthModal } from '@/contexts/AuthModalContext'
 
 /**
  * Modale d'abonnement RÉUTILISABLE — La Place du Village
@@ -150,10 +151,23 @@ export default function SubscriptionModal({ context, onClose, currentPlan = 'bas
   const [error, setError]     = useState<string | null>(null)
   const { hero, sub, recommended } = headerCopy(context)
   const [selected, setSelected] = useState<PlanId>(recommended)
+  const { openAuthModal } = useAuthModal()
 
   async function selectPlan(plan: PayablePlan) {
     setLoading(plan); setError(null)
     try {
+      // Visiteur sans compte : Stripe ne peut de toute façon pas rattacher un
+      // abonnement à personne, et /api/stripe/create-checkout exige un token.
+      // On l'envoie donc créer son compte plutôt que de lui annoncer une
+      // session expirée qu'il n'a jamais eue. getSession() lit le stockage
+      // local, sans appel réseau : c'est le bon test AVANT refreshSession().
+      const { data: { session: existing } } = await supabase.auth.getSession()
+      if (!existing) {
+        setLoading(null)
+        onClose()
+        openAuthModal()
+        return
+      }
       // Refresh forcé : si la session a vieilli, on récupère un token frais.
       await supabase.auth.refreshSession()
       const { data: { session } } = await supabase.auth.getSession()
@@ -322,16 +336,18 @@ export default function SubscriptionModal({ context, onClose, currentPlan = 'bas
             ))}
           </div>
 
-          {error && (
-            <p style={{ fontSize: 12, color: '#DC2626', textAlign: 'center', margin: '10px 4px 0', padding: '10px 14px', backgroundColor: '#FEF2F2', borderRadius: 12, lineHeight: 1.5 }}>
-              {error}
-            </p>
-          )}
           <div style={{ height: 8 }} />
         </div>
 
         {/* ─── CTA sticky ─── */}
         <div style={{ flexShrink: 0, padding: '12px 16px', paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))', borderTop: '1px solid #EDE6DA', background: '#FBFAF7' }}>
+          {/* L'erreur est collée au bouton : dans la zone qui défile, elle
+              s'affichait hors champ pendant que l'utilisateur fixait le CTA. */}
+          {error && (
+            <p style={{ fontSize: 12, color: '#DC2626', textAlign: 'center', margin: '0 0 10px', padding: '10px 14px', backgroundColor: '#FEF2F2', borderRadius: 12, lineHeight: 1.5 }}>
+              {error}
+            </p>
+          )}
           <button
             type="button"
             disabled={!payable || isCurrent || isLoading}
