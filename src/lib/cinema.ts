@@ -1,7 +1,10 @@
-import { supabaseAdmin } from '@/lib/supabase-admin'
-
 /**
- * MODULE CINÉMA — types et garde d'accès.
+ * MODULE CINÉMA — types et helpers PARTAGÉS.
+ *
+ * Ce fichier est importé par des composants client : il ne doit contenir
+ * aucun accès base. Les fonctions serveur (garde d'accès, requêtes) vivent
+ * dans cinema-server.ts — `supabase-admin` porte la clé service et son
+ * import côté client fait planter la page au montage.
  *
  * Un cinéma n'est pas une entité : c'est une fiche établissement à laquelle
  * trois conditions cumulatives ouvrent le module.
@@ -79,35 +82,4 @@ export function dateParis(offsetJours = 0): string {
 export function formatHeure(heure: string): string {
   const [h, m] = heure.split(':')
   return m && m !== '00' ? `${Number(h)}h${m}` : `${Number(h)}h`
-}
-
-/**
- * La fiche est-elle un cinéma actif, et cette personne peut-elle l'administrer ?
- *
- * À appeler CÔTÉ SERVEUR avant toute écriture : masquer un bouton dans l'UI
- * n'est pas une garde. L'admin de l'app passe partout.
- */
-export async function peutAdministrerCinema(
-  etablissementId: string,
-  userId: string,
-  isAdmin: boolean,
-): Promise<boolean> {
-  const { data } = await supabaseAdmin
-    .from('etablissements')
-    .select('user_id, plan, module_cinema')
-    .eq('id', etablissementId)
-    .maybeSingle()
-  if (!data?.module_cinema) return false
-  if (isAdmin) return true
-  return data.user_id === userId && data.plan === 'pro'
-}
-
-/** Les fiches ayant le module accordé. Vide tant que rien n'est accordé. */
-export async function listerCinemas(): Promise<Cinema[]> {
-  const { data } = await supabaseAdmin
-    .from('etablissements')
-    .select(CINEMA_FIELDS)
-    .eq('module_cinema', true)
-    .order('nom')
-  return (data ?? []) as Cinema[]
 }

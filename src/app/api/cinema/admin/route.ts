@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser } from '@/lib/server-auth'
-import { peutAdministrerCinema, listerCinemas, dateParis, type VersionFilm } from '@/lib/cinema'
+import { dateParis, type VersionFilm } from '@/lib/cinema'
+import { peutAdministrerCinema, listerCinemas } from '@/lib/cinema-server'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0

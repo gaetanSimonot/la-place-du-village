@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { listerCinemas, dateParis, type Film, type Seance } from '@/lib/cinema'
+import { dateParis, type Film, type Seance } from '@/lib/cinema'
+import { listerCinemas } from '@/lib/cinema-server'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
