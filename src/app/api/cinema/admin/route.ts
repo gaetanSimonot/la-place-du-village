@@ -16,6 +16,7 @@ export const revalidate = 0
  *  GET    ?cinema=<id>            → films du cinéma + séances à venir
  *  POST   { cinema, film }        → crée ou réutilise un film
  *  POST   { cinema, seances[] }   → crée des séances (import ou saisie)
+ *  PATCH  { cinema, film }        → met à jour une fiche film
  *  DELETE ?seance=<id>            → supprime une séance
  */
 
@@ -145,6 +146,38 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ error: 'Rien à enregistrer' }, { status: 400 })
+}
+
+/** Met à jour une fiche film (affiche, synopsis, distribution…). */
+export async function PATCH(req: NextRequest) {
+  const body = await req.json().catch(() => ({}))
+  const g = await garde(req, body?.cinema ?? null)
+  if (g.erreur) return g.erreur
+
+  const f = body?.film
+  if (!f?.id) return NextResponse.json({ error: 'film.id manquant' }, { status: 400 })
+
+  // Liste blanche : on n'écrit que les champs éditables. `cree_par` et les
+  // dates ne doivent jamais venir du client.
+  const maj: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  if (typeof f.titre === 'string' && f.titre.trim()) maj.titre = f.titre.trim()
+  for (const champ of ['titre_original', 'realisateur', 'casting', 'synopsis', 'affiche_url', 'bande_annonce_url', 'avertissement'] as const) {
+    if (champ in f) maj[champ] = f[champ] || null
+  }
+  for (const champ of ['annee', 'duree_min'] as const) {
+    if (champ in f) maj[champ] = Number.isFinite(Number(f[champ])) && f[champ] !== '' ? Number(f[champ]) : null
+  }
+  if ('genres' in f) {
+    maj.genres = Array.isArray(f.genres)
+      ? f.genres
+      : String(f.genres || '').split(',').map((x: string) => x.trim()).filter(Boolean)
+    if (!(maj.genres as string[]).length) maj.genres = null
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('films').update(maj).eq('id', f.id).select('*').single()
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ film: data })
 }
 
 export async function DELETE(req: NextRequest) {

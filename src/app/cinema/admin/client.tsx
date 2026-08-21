@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import { toast } from 'sonner'
@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import BottomNavBar from '@/components/BottomNavBar'
 import ClientPortal from '@/components/ClientPortal'
+import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
 import { VERSIONS, dateParis, formatHeure, type Film, type VersionFilm } from '@/lib/cinema'
 
 /**
@@ -63,6 +64,8 @@ export default function MonCinemaClient() {
   const [ajoutOuvert, setAjoutOuvert] = useState(false)
   /** Filtre de la liste, piloté par les quatre entrées de programmation. */
   const [vue, setVue] = useState<'affiche' | 'semaine' | 'prochainement'>('affiche')
+  /** Film en cours d'édition (affiche, synopsis, distribution…). */
+  const [filmEdite, setFilmEdite] = useState<Film | null>(null)
 
   useEffect(() => {
     try { setCinemaId(new URLSearchParams(window.location.search).get('cinema')) } catch { /* noop */ }
@@ -190,6 +193,35 @@ export default function MonCinemaClient() {
         </a>
       </div>
 
+      {/* Les films — c'est ici qu'on complète une fiche et qu'on met l'affiche */}
+      {data.films.length > 0 && (
+        <div className="px-4 pt-4">
+          <h2 className="m-0 mb-2 font-title text-[20px] leading-tight">Mes films</h2>
+          <div className="flex gap-2.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+            {data.films.map(f => (
+              <button key={f.id} onClick={() => setFilmEdite(f)}
+                className="w-[92px] shrink-0 border-none bg-transparent p-0 text-left">
+                <div className="relative overflow-hidden rounded-[10px]"
+                  style={{ width: 92, aspectRatio: '2 / 3', background: 'linear-gradient(160deg,#2A2320,#0F0D0C)' }}>
+                  {f.affiche_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={f.affiche_url} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full flex-col items-center justify-center gap-1" style={{ color: '#B9A98C' }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
+                      </svg>
+                      <span style={{ fontSize: 9, fontWeight: 800 }}>Ajouter</span>
+                    </div>
+                  )}
+                </div>
+                <div className="line-clamp-2 text-texte" style={{ marginTop: 6, fontSize: 11.5, fontWeight: 700, lineHeight: 1.2 }}>{f.titre}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* La programmation */}
       <div className="px-4 pt-4">
         <h2 className="m-0 mb-2 font-title text-[20px] leading-tight">Programmation</h2>
@@ -227,6 +259,15 @@ export default function MonCinemaClient() {
           </div>
         ))}
       </div>
+
+      {filmEdite && (
+        <EditionFilm
+          cinemaId={data.cinema.id}
+          film={filmEdite}
+          onClose={() => setFilmEdite(null)}
+          onEnregistre={() => { setFilmEdite(null); void mutate() }}
+        />
+      )}
 
       {ajoutOuvert && (
         <AjoutSeance
@@ -408,5 +449,118 @@ function Coquille({ titre, sousTitre, onRetour, children }: {
       {children}
       <BottomNavBar />
     </div>
+  )
+}
+
+/* ─── Édition d'un film ──────────────────────────────────────────────── */
+
+/**
+ * Complète une fiche film : affiche, durée, année, distribution, synopsis.
+ *
+ * L'affiche passe par le même chemin d'upload que le reste de l'app (URL
+ * signée, compression côté client) — pas de voie parallèle. Elle est
+ * compressée à 800px : une affiche s'affiche au plus sur 122 points, inutile
+ * de faire porter 3 Mo à quelqu'un sur le réseau de la vallée.
+ */
+function EditionFilm({ cinemaId, film, onClose, onEnregistre }: {
+  cinemaId: string
+  film: Film
+  onClose: () => void
+  onEnregistre: () => void
+}) {
+  const [f, setF] = useState({
+    titre: film.titre,
+    duree_min: film.duree_min ? String(film.duree_min) : '',
+    annee: film.annee ? String(film.annee) : '',
+    realisateur: film.realisateur ?? '',
+    casting: film.casting ?? '',
+    genres: film.genres?.join(', ') ?? '',
+    synopsis: film.synopsis ?? '',
+    bande_annonce_url: film.bande_annonce_url ?? '',
+    avertissement: film.avertissement ?? '',
+  })
+  const [affiche, setAffiche] = useState<string | null>(film.affiche_url)
+  const [envoi, setEnvoi] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const input = useRef<HTMLInputElement>(null)
+
+  async function choisirAffiche(file: File) {
+    if (envoi) return
+    setEnvoi(true)
+    try {
+      const compresse = await compressImage(file, { maxDim: 800, quality: 0.85 })
+      const r = await uploadViaSignedUrl({ file: compresse, kind: 'film-affiche' })
+      setAffiche(`${r.publicUrl}?v=${Date.now()}`)
+    } catch {
+      toast.error('Envoi de l’affiche impossible.')
+    } finally { setEnvoi(false) }
+  }
+
+  async function enregistrer() {
+    if (busy) return
+    setBusy(true)
+    const res = await authedFetch('/api/cinema/admin', {
+      method: 'PATCH',
+      body: JSON.stringify({ cinema: cinemaId, film: { id: film.id, ...f, affiche_url: affiche } }),
+    }).catch(() => null)
+    setBusy(false)
+    if (!res?.ok) { toast.error('Enregistrement impossible.'); return }
+    toast.success('Fiche mise à jour.')
+    onEnregistre()
+  }
+
+  return (
+    <ClientPortal>
+      <div onClick={onClose} className="fixed inset-0 z-[3400] flex items-end justify-center" style={{ background: 'rgba(26,18,9,0.5)' }}>
+        <div onClick={e => e.stopPropagation()} className="w-full max-w-[460px] rounded-t-[22px] bg-white px-4 pb-8 pt-4"
+          style={{ maxHeight: '92dvh', overflowY: 'auto' }}>
+          <div className="mx-auto mb-3 h-1 w-9 rounded-full" style={{ background: '#D1CCC4' }} />
+          <p className="m-0 mb-3 text-center text-[15px] font-extrabold text-texte">Fiche du film</p>
+
+          <div className="mb-3 flex gap-3">
+            <button type="button" onClick={() => input.current?.click()} disabled={envoi}
+              className="relative w-[104px] flex-none overflow-hidden rounded-[10px] border-none p-0"
+              style={{ aspectRatio: '2 / 3', background: 'linear-gradient(160deg,#2A2320,#0F0D0C)' }}>
+              {affiche ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={affiche} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full flex-col items-center justify-center gap-1.5" style={{ color: '#B9A98C' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
+                  </svg>
+                  <span style={{ fontSize: 10, fontWeight: 800 }}>{envoi ? '…' : 'Affiche'}</span>
+                </div>
+              )}
+            </button>
+            <input ref={input} type="file" accept="image/*" hidden
+              onChange={e => { const file = e.target.files?.[0]; if (file) void choisirAffiche(file); e.target.value = '' }} />
+            <div className="min-w-0 flex-1">
+              <Champ label="Titre"><input value={f.titre} onChange={e => setF({ ...f, titre: e.target.value })} style={inputStyle} /></Champ>
+              <div className="flex gap-2">
+                <div className="flex-1"><Champ label="Durée (min)"><input value={f.duree_min} inputMode="numeric" onChange={e => setF({ ...f, duree_min: e.target.value.replace(/\D/g, '') })} style={inputStyle} /></Champ></div>
+                <div className="flex-1"><Champ label="Année"><input value={f.annee} inputMode="numeric" onChange={e => setF({ ...f, annee: e.target.value.replace(/\D/g, '').slice(0, 4) })} style={inputStyle} /></Champ></div>
+              </div>
+            </div>
+          </div>
+
+          <Champ label="Réalisateur"><input value={f.realisateur} onChange={e => setF({ ...f, realisateur: e.target.value })} style={inputStyle} /></Champ>
+          <Champ label="Avec"><input value={f.casting} onChange={e => setF({ ...f, casting: e.target.value })} placeholder="Séparés par des virgules" style={inputStyle} /></Champ>
+          <Champ label="Genres"><input value={f.genres} onChange={e => setF({ ...f, genres: e.target.value })} placeholder="Comédie, Drame" style={inputStyle} /></Champ>
+          <Champ label="Synopsis">
+            <textarea value={f.synopsis} onChange={e => setF({ ...f, synopsis: e.target.value })} rows={4}
+              style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }} />
+          </Champ>
+          <Champ label="Bande-annonce (lien)"><input value={f.bande_annonce_url} onChange={e => setF({ ...f, bande_annonce_url: e.target.value })} placeholder="https://…" style={inputStyle} /></Champ>
+          <Champ label="Avertissement"><input value={f.avertissement} onChange={e => setF({ ...f, avertissement: e.target.value })} placeholder="Interdit aux moins de 12 ans" style={inputStyle} /></Champ>
+
+          <button onClick={enregistrer} disabled={busy || envoi}
+            className="mt-2 w-full border-none text-white"
+            style={{ borderRadius: 14, background: '#2D5A3D', padding: 14, fontSize: 14, fontWeight: 800, opacity: busy || envoi ? 0.6 : 1 }}>
+            {busy ? '…' : 'Enregistrer'}
+          </button>
+        </div>
+      </div>
+    </ClientPortal>
   )
 }
