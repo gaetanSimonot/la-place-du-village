@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAdminSession } from '@/hooks/useAdminSession'
 import { useFriendships } from '@/hooks/useFriendships'
-import { notifUrl, NOTIFS_URL } from '@/lib/notifRouting'
+import { notifPhrase, notifUrl, NOTIFS_URL } from '@/lib/notifRouting'
 import { PLANS_INFO, PLAN_ORDER, type Plan } from '@/lib/capabilities'
 import type { AppNotification, NotifType } from '@/lib/types'
 import { toast } from 'sonner'
@@ -94,6 +94,9 @@ const NOTIF_VISUAL: Record<NotifType, NotifVisual> = {
   annonce_vente_close:    { bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.check,    label: n => `${n.actor_name ?? 'L\'autre partie'} a conclu la vente` },
   annonce_note_recue:     { bg: '#FFF7DC', color: '#A8770F', icon: ICONS.star,     label: n => `${n.actor_name ?? 'Un acheteur'} vous a noté` },
   event_published:        { bg: '#E8F2EB', color: '#2D5A3D', icon: ICONS.calendar, label: n => `Événement publié${n.actor_name ? ` : ${n.actor_name}` : ''}` },
+  // Phrase reprise de notifRouting : le rappel doit dire la même chose dans
+  // l'app et sur le téléphone.
+  event_rappel:           { bg: '#FFF0E5', color: '#C84B2F', icon: ICONS.bell,     label: n => notifPhrase({ type: 'event_rappel', actor_name: n.actor_name }) },
   support_message:        { bg: '#E8EEF7', color: '#3A5BC7', icon: ICONS.chat,     label: n => `${n.actor_name ?? 'Quelqu\'un'} — message support` },
   journal_publie:         { bg: '#1A1209', color: '#E8C58A', icon: ICONS.clipboard,label: () => 'Nouveau Journal du Village publié' },
   journal_brouillon:      { bg: '#FFF7DC', color: '#A8770F', icon: ICONS.clipboard,label: n => `📝 Brouillon du journal prêt à relire${n.actor_name ? ` (${n.actor_name})` : ''}` },

@@ -44,6 +44,7 @@ const PHRASES: Record<string, (n: NotifLike) => string> = {
   annonce_devient_don:    () => 'Votre enchère a atteint le seuil — devenue un don',
   // Événements
   event_published:        n => `Événement publié${n.actor_name ? ` : ${n.actor_name}` : ''}`,
+  event_rappel:           n => `C’est demain : ${n.actor_name ?? 'un événement de vos favoris'}`,
   correction_proposee:    n => `${n.actor_name ?? 'Un utilisateur'} a proposé une correction`,
   correction_validee:     n => `Ta correction${n.actor_name ? ` sur « ${n.actor_name} »` : ''} a été validée 🙏`,
   correction_rejetee:     n => `Ta correction${n.actor_name ? ` sur « ${n.actor_name} »` : ''} n’a pas été retenue`,

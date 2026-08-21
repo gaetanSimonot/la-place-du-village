@@ -5,17 +5,30 @@ import { usePushNotifications } from '@/hooks/usePushNotifications'
 
 /**
  * Pop-up d'incitation à activer les notifications push.
- * Monté sur /profil (ProfilHybridView) ET à l'ouverture des notifs
- * (NotificationsView). S'auto-affiche si éligible :
+ * Monté sur /profil (ProfilHybridView), à l'ouverture des notifs
+ * (NotificationsView) et sur la fiche d'un événement. S'auto-affiche si :
  *   - push supporté mais pas activé ('off'), ou iOS à installer ('ios-needs-install')
- *   - jamais activé auparavant + pas en période de snooze
- * « Plus tard » (ou ✕) ré-arme pour ~2 semaines ; l'activation le clôt pour de bon.
+ *   - jamais activé auparavant + pas en période de report
+ * « Plus tard » (ou ✕) reporte de 12 jours ; l'activation le clôt pour de bon.
+ *
+ * `reason` adapte le texte au lieu d'où on demande. Sur une fiche événement on
+ * échange un service contre une permission — c'est beaucoup plus efficace que
+ * de demander à froid.
  */
 const DONE_KEY = 'pdv-push-prompt-done'
-const SNOOZE_KEY = 'pdv-push-prompt-snooze'
-const SNOOZE_MS = 14 * 24 * 60 * 60 * 1000
+// v2 : le renommage de la clé remet tous les reports en cours à zéro. Voulu —
+// on relance tout le monde à partir d'aujourd'hui. DONE_KEY, lui, ne change
+// PAS : quelqu'un qui a déjà activé n'a aucune raison d'être relancé.
+const SNOOZE_KEY = 'pdv-push-prompt-snooze-v2'
+const SNOOZE_MS = 12 * 24 * 60 * 60 * 1000
 
-export default function PushPromptModal() {
+export type PushPromptReason = 'general' | 'event'
+
+export default function PushPromptModal({ reason = 'general', delayMs = 0 }: {
+  reason?: PushPromptReason
+  /** Laisse le temps de voir la page avant de l'interrompre. */
+  delayMs?: number
+} = {}) {
   const { state, busy, enable } = usePushNotifications()
   const [open, setOpen] = useState(false)
 
@@ -27,8 +40,10 @@ export default function PushPromptModal() {
       const snooze = Number(localStorage.getItem(SNOOZE_KEY) || 0)
       if (Date.now() < snooze) return
     } catch { /* localStorage indispo → on n'insiste pas */ return }
-    setOpen(true)
-  }, [state])
+    if (!delayMs) { setOpen(true); return }
+    const t = setTimeout(() => setOpen(true), delayMs)
+    return () => clearTimeout(t)
+  }, [state, delayMs])
 
   if (!open) return null
 
@@ -67,12 +82,16 @@ export default function PushPromptModal() {
           </div>
 
           <h2 style={{ margin: '0 0 8px', fontFamily: 'var(--font-dm-serif), Georgia, serif', fontSize: 21, color: '#2E211A', lineHeight: 1.2 }}>
-            {iosInstall ? "Installez l'app" : 'Activez les notifications'}
+            {iosInstall
+              ? "Installez l'app"
+              : reason === 'event' ? 'Ne ratez plus une sortie' : 'Activez les notifications'}
           </h2>
           <p style={{ margin: '0 0 18px', fontSize: 13.5, lineHeight: 1.5, color: '#6E6256' }}>
             {iosInstall
-              ? "La Place du Village est sur le store ! Ajoutez l'app à votre écran d'accueil pour recevoir vos messages et notifications."
-              : "L'app est maintenant sur le store ! Activez les notifications pour profiter pleinement des messages et discussions — votre téléphone vous prévient en direct."}
+              ? "La Place du Village est sur le store ! Ajoutez l'app à votre écran d'accueil pour être prévenu de vos sorties."
+              : reason === 'event'
+                ? "Mettez un événement en favori et votre téléphone vous le rappelle la veille. Rien d'autre, promis."
+                : "L'app est maintenant sur le store ! Activez les notifications pour profiter pleinement des messages et discussions — votre téléphone vous prévient en direct."}
           </p>
 
           <button

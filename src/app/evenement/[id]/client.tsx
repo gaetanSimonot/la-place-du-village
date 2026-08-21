@@ -13,6 +13,7 @@ import { useAdminSession } from '@/hooks/useAdminSession'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import { useFavorites } from '@/hooks/useFavorites'
+import PushPromptModal from '@/components/PushPromptModal'
 import FeatureButton from '@/components/FeatureButton'
 import BottomNavBar from '@/components/BottomNavBar'
 import FeedbackButton from '@/components/FeedbackButton'
@@ -416,6 +417,10 @@ export default function EvenementPageClient({ id }: { id: string }) {
           }}
         />
       )}
+      {/* Demande d'activation des notifications, posée là où elle a du sens :
+          on consulte une sortie, on peut se la faire rappeler la veille.
+          Le délai laisse le temps de voir l'événement avant d'interrompre. */}
+      <PushPromptModal reason="event" delayMs={3000} />
       <BottomNavBar />
     </div>
   )
@@ -652,11 +657,28 @@ function ActionBar({
           <ActionBtn
             label="Favori"
             active={fav}
+            activeColor="#D93B3B"
             onClick={() => toggleFav(evt.id)}
             icon={(active) => (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-              </svg>
+              // En favori : cœur plein rouge + une petite cloche, pour dire
+              // d'un coup d'œil que l'événement sera rappelé la veille.
+              <span className="relative inline-flex">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                </svg>
+                {active && (
+                  <span
+                    className="absolute flex items-center justify-center rounded-full"
+                    style={{ top: -4, right: -6, width: 13, height: 13, background: '#fff' }}
+                    aria-hidden
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#D93B3B" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
+                      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+                    </svg>
+                  </span>
+                )}
+              </span>
             )}
           />
         </div>
@@ -708,7 +730,7 @@ function ActionBar({
 }
 
 function ActionBtn({
-  label, count, active, disabled, onClick, icon,
+  label, count, active, disabled, onClick, icon, activeColor,
 }: {
   label:    string
   count?:   number
@@ -716,19 +738,23 @@ function ActionBtn({
   disabled?:boolean
   onClick:  () => void
   icon:     (active: boolean) => React.ReactNode
+  /** Couleur quand actif. Par défaut le vert primaire du reste de la barre. */
+  activeColor?: string
 }) {
+  const activeStyle = active && activeColor ? { color: activeColor } : undefined
   return (
     <button
       onClick={onClick}
       disabled={disabled}
+      style={activeStyle}
       className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 border-none bg-transparent px-1 py-3 ${
-        active ? 'text-primary' : 'text-texte'
+        active ? (activeColor ? '' : 'text-primary') : 'text-texte'
       }`}
     >
       {icon(!!active)}
-      <span className={`text-[10px] font-semibold leading-none ${active ? 'text-primary' : 'text-texte-doux'}`}>{label}</span>
+      <span style={activeStyle} className={`text-[10px] font-semibold leading-none ${active ? (activeColor ? '' : 'text-primary') : 'text-texte-doux'}`}>{label}</span>
       {typeof count === 'number' && count > 0 && (
-        <span className={`text-[10px] font-bold leading-none ${active ? 'text-primary' : 'text-texte'}`}>{count}</span>
+        <span style={activeStyle} className={`text-[10px] font-bold leading-none ${active ? (activeColor ? '' : 'text-primary') : 'text-texte'}`}>{count}</span>
       )}
     </button>
   )

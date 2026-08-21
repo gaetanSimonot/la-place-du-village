@@ -34,7 +34,9 @@ import {
  */
 
 /** Pages où un interstitiel commercial serait déplacé ou nuisible. */
-const BLOCKED_PREFIXES = ['/admin', '/auth', '/reglages', '/cgu', '/mentions-legales', '/politique-confidentialite', '/newsletter']
+// '/evenement' : la fiche porte déjà la demande d'activation des
+// notifications. Deux interstitiels coup sur coup, c'est un de trop.
+const BLOCKED_PREFIXES = ['/admin', '/auth', '/reglages', '/cgu', '/mentions-legales', '/politique-confidentialite', '/newsletter', '/evenement']
 
 export default function PromoSplashGate() {
   const { user, profile, isAdmin, loading: authLoading } = useAuth()

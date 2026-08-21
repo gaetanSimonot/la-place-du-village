@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/newsletter-welcome",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/event-reminder",
+      "schedule": "0 8 * * *"
     }
   ]
 }
