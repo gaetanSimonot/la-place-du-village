@@ -61,6 +61,8 @@ export default function MonCinemaClient() {
   const { openAuthModal } = useAuthModal()
   const [cinemaId, setCinemaId] = useState<string | null>(null)
   const [ajoutOuvert, setAjoutOuvert] = useState(false)
+  /** Filtre de la liste, piloté par les quatre entrées de programmation. */
+  const [vue, setVue] = useState<'affiche' | 'semaine' | 'prochainement'>('affiche')
 
   useEffect(() => {
     try { setCinemaId(new URLSearchParams(window.location.search).get('cinema')) } catch { /* noop */ }
@@ -88,12 +90,16 @@ export default function MonCinemaClient() {
   }, [seances, aujourdhui, dans7])
 
   const parJour = useMemo(() => {
+    const retenues = seances.filter(x => {
+      if (x.date < aujourdhui) return false
+      if (vue === 'semaine')       return x.date <= dans7
+      if (vue === 'prochainement') return x.date > dans7
+      return true
+    })
     const m = new Map<string, SeanceAdmin[]>()
-    for (const s of seances.filter(x => x.date >= aujourdhui)) {
-      const l = m.get(s.date) ?? []; l.push(s); m.set(s.date, l)
-    }
+    for (const s of retenues) { const l = m.get(s.date) ?? []; l.push(s); m.set(s.date, l) }
     return Array.from(m.entries())
-  }, [seances, aujourdhui])
+  }, [seances, aujourdhui, dans7, vue])
 
   async function supprimer(id: string) {
     const res = await authedFetch(`/api/cinema/admin?seance=${id}`, { method: 'DELETE' }).catch(() => null)
@@ -121,19 +127,19 @@ export default function MonCinemaClient() {
   return (
     <Coquille titre={data.cinema.nom} sousTitre={data.cinema.commune ?? undefined} onRetour={() => router.back()}>
       {/* Trois compteurs — l'état de la programmation en un coup d'œil */}
-      <div className="flex gap-2 px-4 pt-4">
+      <div className="grid grid-cols-3 gap-2 px-4 pt-3.5">
         <Compteur n={compteurs.films}   label="films à l’affiche" />
         <Compteur n={compteurs.semaine} label="séances cette semaine" />
-        <Compteur n={compteurs.total}   label="séances à venir" />
+        <Compteur n={compteurs.total}   label="événements à venir" />
       </div>
 
       <div className="px-4 pt-4">
         <button
           onClick={() => setAjoutOuvert(true)}
-          className="w-full rounded-[14px] border-none py-[15px] text-[14.5px] font-extrabold text-white"
-          style={{ background: '#C84B2F' }}
+          className="block w-full border-none text-white"
+          style={{ borderRadius: 14, background: '#2D5A3D', padding: 14, fontSize: 14, fontWeight: 800, boxShadow: '0 6px 18px rgba(45,90,61,.25)' }}
         >
-          + Ajouter une séance
+          Ajouter / importer un programme
         </button>
         <p className="mx-1 mt-2 mb-0 text-[11px] leading-snug text-texte-doux">
           L’import d’un programme par photo ou par dictée arrivera ici. Rien n’est
@@ -141,33 +147,75 @@ export default function MonCinemaClient() {
         </p>
       </div>
 
+      {/* Quatre entrées de programmation — filtres, pas décor */}
+      <div className="pt-3.5">
+        {([
+          { id: 'affiche',       titre: "À l'affiche",     sous: `${compteurs.films} film${compteurs.films > 1 ? 's' : ''}` },
+          { id: 'semaine',       titre: 'Cette semaine',   sous: `${compteurs.semaine} séance${compteurs.semaine > 1 ? 's' : ''}` },
+          { id: 'prochainement', titre: 'Prochainement',   sous: `${Math.max(0, compteurs.total - compteurs.semaine)} séance${compteurs.total - compteurs.semaine > 1 ? 's' : ''}` },
+        ] as const).map(e => {
+          const actif = vue === e.id
+          return (
+            <button key={e.id} onClick={() => setVue(e.id)}
+              className="flex w-full items-center gap-3 bg-white text-left"
+              style={{ border: `1px solid ${actif ? '#C8DEC0' : '#F0EAE0'}`, background: actif ? '#F4FAF5' : '#fff', borderRadius: 14, padding: 12, margin: '0 16px 8px', width: 'calc(100% - 32px)' }}>
+              <span className="flex flex-none items-center justify-center"
+                style={{ width: 32, height: 32, borderRadius: 9, background: '#E8F2EB', color: '#2D5A3D' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+              </span>
+              <div className="min-w-0 flex-1">
+                <div style={{ fontSize: 13.5, fontWeight: 800, letterSpacing: '-.01em' }}>{e.titre}</div>
+                <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2 }}>{e.sous}</div>
+              </div>
+            </button>
+          )
+        })}
+        {/* Les événements spéciaux ne vivent pas ici : ce sont des événements
+            du village, avec l'écran de publication existant. */}
+        <a href={`/ajouter?etab=${data.cinema.id}`}
+          className="flex items-center gap-3 bg-white no-underline"
+          style={{ border: '1px solid #F0EAE0', borderRadius: 14, padding: 12, margin: '0 16px 8px', width: 'calc(100% - 32px)' }}>
+          <span className="flex flex-none items-center justify-center"
+            style={{ width: 32, height: 32, borderRadius: 9, background: '#FFF0E5', color: '#C84B2F' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 8h18v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" /><path d="M3 8l2.5-4 4 2M9 6l4.5-2.5 4 2M15 4l4.5-1.5L21 6" />
+            </svg>
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-texte" style={{ fontSize: 13.5, fontWeight: 800, letterSpacing: '-.01em' }}>Événements spéciaux</div>
+            <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2 }}>Avant-première, ciné-débat — visibles aussi dans l’agenda du village</div>
+          </div>
+        </a>
+      </div>
+
       {/* La programmation */}
-      <div className="px-4 pt-5">
+      <div className="px-4 pt-4">
         <h2 className="m-0 mb-2 font-title text-[20px] leading-tight">Programmation</h2>
         {parJour.length === 0 ? (
           <Message titre="Aucune séance" texte="Ajoutez votre première séance pour qu’elle apparaisse sur La Place du Village." />
         ) : parJour.map(([date, liste]) => (
           <div key={date} className="mb-3">
-            <div className="rounded-t-[12px] px-3 py-2 text-[11px] font-extrabold uppercase tracking-[0.05em]"
-              style={{ background: '#F7F1E6', color: '#7A6A5A' }}>
+            <div style={{ padding: '11px 14px', fontSize: 12.5, fontWeight: 700, color: '#1A1209', background: '#F7F1E6', borderBottom: '1px solid #F0EAE0', borderRadius: '12px 12px 0 0' }}>
               {jourLisible(date)}
             </div>
             <div style={{ border: '1px solid #F0EAE0', borderTop: 'none', borderRadius: '0 0 12px 12px', background: '#fff' }}>
               {liste.map((s, i) => (
-                <div key={s.id} className="flex items-center gap-2.5 px-3 py-2.5"
-                  style={{ borderTop: i === 0 ? 'none' : '1px solid #F7F1E6' }}>
-                  <span className="w-[46px] shrink-0 font-title text-[15px] tabular-nums">{formatHeure(s.heure)}</span>
+                <div key={s.id} className="flex items-center gap-3"
+                  style={{ padding: '10px 14px', borderTop: i === 0 ? 'none' : '1px solid #F0EAE0' }}>
+                  <span className="flex-none font-title tabular-nums" style={{ fontSize: 14, width: 44 }}>{formatHeure(s.heure)}</span>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13.5px] font-bold text-texte">{films.get(s.film_id)?.titre ?? 'Film'}</div>
-                    <div className="text-[11px] text-texte-doux">
+                    <div className="truncate text-texte" style={{ fontSize: 13, fontWeight: 700 }}>{films.get(s.film_id)?.titre ?? 'Film'}</div>
+                    <div style={{ fontSize: 10.5, color: '#7A6A5A', marginTop: 2 }}>
                       {s.version.toUpperCase()}{s.salle ? ` · ${s.salle}` : ''}{s.note ? ` · ${s.note}` : ''}
                     </div>
                   </div>
                   <button
                     onClick={() => supprimer(s.id)}
                     aria-label="Supprimer la séance"
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-none"
-                    style={{ background: '#FFF0E5', color: '#C84B2F' }}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center border-none bg-transparent"
+                    style={{ color: '#A99B89' }}
                   >
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                       <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -319,9 +367,9 @@ function Champ({ label, children }: { label: string; children: React.ReactNode }
 
 function Compteur({ n, label }: { n: number; label: string }) {
   return (
-    <div className="flex-1 rounded-[12px] bg-white px-2 py-3 text-center" style={{ border: '1px solid #F0EAE0' }}>
-      <div className="font-title text-[22px] leading-none text-texte">{n}</div>
-      <div className="mt-1 text-[10px] font-bold leading-tight text-texte-doux">{label}</div>
+    <div className="bg-white" style={{ border: '1px solid #F0EAE0', borderRadius: 14, padding: 11 }}>
+      <div className="font-title text-texte" style={{ fontSize: 24, lineHeight: 1 }}>{n}</div>
+      <div style={{ fontSize: 10.5, color: '#7A6A5A', marginTop: 4, lineHeight: 1.3 }}>{label}</div>
     </div>
   )
 }

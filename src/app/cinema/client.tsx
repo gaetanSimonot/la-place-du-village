@@ -46,15 +46,17 @@ function jourLisible(date: string): string {
 function Affiche({ film, largeur = 104 }: { film: Film; largeur?: number }) {
   return (
     <div
-      className="relative shrink-0 overflow-hidden rounded-[11px]"
-      style={{ width: largeur, aspectRatio: '2 / 3', background: '#241C15' }}
+      className="relative shrink-0 overflow-hidden rounded-[10px]"
+      style={{ width: largeur, aspectRatio: '2 / 3', background: 'linear-gradient(160deg,#2A2320,#0F0D0C)' }}
     >
       {film.affiche_url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={film.affiche_url} alt="" className="h-full w-full object-cover" loading="lazy" />
       ) : (
         <div className="flex h-full w-full items-end p-2">
-          <span className="text-[11px] font-extrabold leading-tight text-[#E8C58A]">{film.titre}</span>
+          <span style={{ fontSize: 10.5, fontWeight: 800, lineHeight: 1.15, color: '#F4E7CE', textShadow: '0 1px 3px rgba(0,0,0,.6)' }}>
+            {film.titre}
+          </span>
         </div>
       )}
     </div>
@@ -165,10 +167,14 @@ export default function CinemaClient() {
             <button
               key={o.id}
               onClick={() => setOnglet(o.id)}
-              className="shrink-0 whitespace-nowrap border-none bg-transparent px-0 py-3 text-[13.5px] font-extrabold"
+              className="shrink-0 whitespace-nowrap bg-transparent px-0"
               style={{
+                padding: '11px 0',
+                fontSize: 13,
+                fontWeight: actif ? 700 : 600,
                 color: actif ? '#C84B2F' : '#7A6A5A',
-                boxShadow: actif ? 'inset 0 -2.5px 0 #C84B2F' : 'none',
+                border: 'none',
+                borderBottom: `2.5px solid ${actif ? '#C84B2F' : 'transparent'}`,
               }}
             >
               {o.label}
@@ -203,8 +209,8 @@ export default function CinemaClient() {
                 {filmsVisibles.map(f => (
                   <Link key={f.id} href={`/cinema/film/${f.id}`} className="w-[104px] shrink-0 no-underline">
                     <Affiche film={f} />
-                    <div className="mt-1.5 line-clamp-2 text-[12px] font-bold leading-tight text-texte">{f.titre}</div>
-                    {f.duree_min ? <div className="text-[10.5px] text-texte-doux">{f.duree_min} min</div> : null}
+                    <div className="line-clamp-2 text-texte" style={{ marginTop: 8, fontSize: 12.5, fontWeight: 700, lineHeight: 1.25, letterSpacing: '-.01em' }}>{f.titre}</div>
+                    {f.duree_min ? <div className="mt-1 text-[11px] text-texte-doux">{f.duree_min} min</div> : null}
                   </Link>
                 ))}
               </div>
@@ -220,50 +226,44 @@ export default function CinemaClient() {
                 : 'Le programme n’est pas encore publié.'}
             />
           ) : (
-            <div className="px-4 pt-4">
+            /* Encadré unique, bandeaux de jour à l'intérieur — .sBox de la maquette */
+            <div className="overflow-hidden rounded-[16px] bg-white" style={{ margin: '16px 16px 0', border: '1px solid #F0EAE0' }}>
               {parJour.map(([date, liste]) => (
-                <div key={date} className="mb-3">
-                  <div
-                    className="rounded-t-[12px] px-3 py-2 text-[11px] font-extrabold uppercase tracking-[0.05em]"
-                    style={{ background: '#F7F1E6', color: '#7A6A5A' }}
-                  >
+                <div key={date}>
+                  <div style={{ padding: '11px 14px', fontSize: 12.5, fontWeight: 700, color: '#1A1209', background: '#F7F1E6', borderBottom: '1px solid #F0EAE0' }}>
                     {jourLisible(date)}
                   </div>
-                  <div style={{ border: '1px solid #F0EAE0', borderTop: 'none', borderRadius: '0 0 12px 12px', background: '#fff' }}>
-                    {liste.map((s, i) => {
-                      const f = films.get(s.film_id)
-                      const lien = s.billetterie_url || cinema.billetterie_url
-                      return (
-                        <div
-                          key={s.id}
-                          className="flex items-center gap-2.5 px-3 py-2.5"
-                          style={{ borderTop: i === 0 ? 'none' : '1px solid #F7F1E6' }}
-                        >
-                          <span className="w-[46px] shrink-0 font-title text-[15px] tabular-nums">{formatHeure(s.heure)}</span>
-                          <div className="min-w-0 flex-1">
-                            <Link href={`/cinema/film/${s.film_id}`} className="block truncate text-[13.5px] font-bold text-texte no-underline">
-                              {f?.titre ?? 'Film'}
-                            </Link>
-                            <div className="text-[11px] text-texte-doux">
-                              {s.version.toUpperCase()}{f?.duree_min ? ` · ${f.duree_min} min` : ''}{s.salle ? ` · ${s.salle}` : ''}
-                              {s.note ? ` · ${s.note}` : ''}
-                            </div>
+                  {liste.map(s => {
+                    const f = films.get(s.film_id)
+                    const lien = s.billetterie_url || cinema.billetterie_url
+                    return (
+                      <div key={s.id} className="flex items-center gap-[11px]" style={{ padding: '12px 14px', borderBottom: '1px solid #F0EAE0' }}>
+                        {/* Billet — repère visuel de la maquette */}
+                        <span className="flex-none" style={{ color: '#C84B2F', opacity: 0.85 }}>
+                          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2 2 2 0 0 0 0 4 2 2 0 0 1-2 2H5a2 2 0 0 1-2-2 2 2 0 0 0 0-4z" />
+                            <line x1="9" y1="7" x2="9" y2="17" strokeDasharray="2 2" />
+                          </svg>
+                        </span>
+                        <span className="flex-none font-title tabular-nums" style={{ fontSize: 15 }}>{formatHeure(s.heure)}</span>
+                        <div className="min-w-0 flex-1">
+                          <Link href={`/cinema/film/${s.film_id}`} className="block truncate text-texte no-underline" style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-.01em' }}>
+                            {f?.titre ?? 'Film'}
+                          </Link>
+                          <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2 }}>
+                            {s.version.toUpperCase()}{f?.duree_min ? ` · ${f.duree_min} min` : ''}{s.salle ? ` · ${s.salle}` : ''}
+                            {s.note ? ` · ${s.note}` : ''}
                           </div>
-                          {lien && (
-                            <a
-                              href={lien}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="shrink-0 rounded-full px-3 py-[7px] text-[11.5px] font-extrabold text-white no-underline"
-                              style={{ background: '#2D5A3D' }}
-                            >
-                              Réserver
-                            </a>
-                          )}
                         </div>
-                      )
-                    })}
-                  </div>
+                        {lien && (
+                          <a href={lien} target="_blank" rel="noopener noreferrer" className="flex-none no-underline"
+                            style={{ border: '1px solid #CFE3D5', background: '#F4FAF5', borderRadius: 9, padding: '7px 12px', fontSize: 12, fontWeight: 700, color: '#2D5A3D' }}>
+                            Réserver
+                          </a>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               ))}
             </div>

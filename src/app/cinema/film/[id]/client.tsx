@@ -87,25 +87,25 @@ export default function FilmClient({ id }: { id: string }) {
       ) : (
         <>
           {/* Affiche + informations */}
-          <div className="flex gap-3.5 px-4 pt-4">
-            <div className="relative w-[118px] shrink-0 overflow-hidden rounded-[12px]"
-              style={{ aspectRatio: '2 / 3', background: '#241C15', boxShadow: '0 6px 18px rgba(26,18,9,0.22)' }}>
+          <div className="flex gap-4 px-4 pt-4">
+            <div className="relative w-[122px] shrink-0 overflow-hidden rounded-[12px]"
+              style={{ aspectRatio: '2 / 3', background: 'linear-gradient(160deg,#2A2320,#0F0D0C)', boxShadow: '0 6px 18px rgba(26,18,9,.18)' }}>
               {film.affiche_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={film.affiche_url} alt="" className="h-full w-full object-cover" />
               ) : (
                 <div className="flex h-full w-full items-end p-2">
-                  <span className="text-[12px] font-extrabold leading-tight text-[#E8C58A]">{film.titre}</span>
+                  <span style={{ fontSize: 10.5, fontWeight: 800, lineHeight: 1.15, color: '#F4E7CE', textShadow: '0 1px 3px rgba(0,0,0,.6)' }}>{film.titre}</span>
                 </div>
               )}
             </div>
 
             <div className="min-w-0 flex-1">
-              <h1 className="m-0 font-title text-[21px] leading-[1.15] text-texte">{film.titre}</h1>
+              <h1 className="m-0 font-title text-texte" style={{ fontSize: 23, lineHeight: 1.15, letterSpacing: '-.02em' }}>{film.titre}</h1>
               {film.titre_original && film.titre_original !== film.titre && (
                 <div className="mt-0.5 text-[11.5px] italic text-texte-doux">{film.titre_original}</div>
               )}
-              <div className="mt-2 text-[12px] leading-relaxed text-texte-doux">
+              <div style={{ marginTop: 9, fontSize: 12.5, color: '#7A6A5A', lineHeight: 1.6 }}>
                 {[
                   film.duree_min ? `${film.duree_min} min` : null,
                   film.annee ? String(film.annee) : null,
@@ -130,8 +130,8 @@ export default function FilmClient({ id }: { id: string }) {
               )}
               {film.bande_annonce_url && (
                 <a href={film.bande_annonce_url} target="_blank" rel="noopener noreferrer"
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12px] font-extrabold text-white no-underline"
-                  style={{ background: '#1A1209' }}>
+                  className="inline-flex items-center no-underline"
+                  style={{ marginTop: 12, gap: 7, border: '1px solid #E8E0D4', background: '#fff', borderRadius: 9, padding: '8px 12px', fontSize: 12.5, fontWeight: 700, color: '#1A1209' }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20" /></svg>
                   Bande-annonce
                 </a>
@@ -142,7 +142,7 @@ export default function FilmClient({ id }: { id: string }) {
           {film.synopsis && (
             <div className="px-4 pt-5">
               <h2 className="m-0 mb-1.5 font-title text-[17px] leading-tight">Synopsis</h2>
-              <p className="m-0 whitespace-pre-line text-[13.5px] leading-relaxed text-texte">{film.synopsis}</p>
+              <p className="m-0 whitespace-pre-line text-texte" style={{ fontSize: 13.5, lineHeight: 1.62 }}>{film.synopsis}</p>
             </div>
           )}
 
@@ -157,26 +157,31 @@ export default function FilmClient({ id }: { id: string }) {
               <div className="overflow-hidden rounded-[14px] bg-white" style={{ border: '1px solid #F0EAE0' }}>
                 {joursAffiches.map(([date, liste]) => (
                   <div key={date}>
-                    <div className="px-3 py-2 text-[11px] font-extrabold uppercase tracking-[0.05em]"
-                      style={{ background: '#F7F1E6', color: '#7A6A5A' }}>
+                    <div style={{ padding: '11px 14px', fontSize: 12.5, fontWeight: 700, color: '#1A1209', background: '#F7F1E6', borderBottom: '1px solid #F0EAE0' }}>
                       {jourLisible(date)}
                     </div>
                     {liste.map(s => {
                       const salle = cinemas.get(s.etablissement_id)
                       const lien = s.billetterie_url || salle?.billetterie_url
                       return (
-                        <div key={s.id} className="flex items-center gap-2.5 px-3 py-2.5" style={{ borderTop: '1px solid #F7F1E6' }}>
-                          <span className="w-[46px] shrink-0 font-title text-[15px] tabular-nums">{formatHeure(s.heure)}</span>
+                        <div key={s.id} className="flex items-center gap-[11px]" style={{ padding: '12px 14px', borderBottom: '1px solid #F0EAE0' }}>
+                          <span className="flex-none" style={{ color: '#C84B2F', opacity: 0.85 }}>
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2 2 2 0 0 0 0 4 2 2 0 0 1-2 2H5a2 2 0 0 1-2-2 2 2 0 0 0 0-4z" />
+                              <line x1="9" y1="7" x2="9" y2="17" strokeDasharray="2 2" />
+                            </svg>
+                          </span>
+                          <span className="flex-none font-title tabular-nums" style={{ fontSize: 15 }}>{formatHeure(s.heure)}</span>
                           <div className="min-w-0 flex-1">
-                            <div className="truncate text-[12.5px] font-bold text-texte">{salle?.nom ?? 'Cinéma'}</div>
-                            <div className="text-[11px] text-texte-doux">
+                            <div className="truncate text-texte" style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-.01em' }}>{salle?.nom ?? 'Cinéma'}</div>
+                            <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2 }}>
                               {s.version.toUpperCase()}{s.salle ? ` · ${s.salle}` : ''}{s.note ? ` · ${s.note}` : ''}
                             </div>
                           </div>
                           {lien && (
                             <a href={lien} target="_blank" rel="noopener noreferrer"
-                              className="shrink-0 rounded-full px-3 py-[7px] text-[11.5px] font-extrabold text-white no-underline"
-                              style={{ background: '#2D5A3D' }}>
+                              className="flex-none no-underline"
+                              style={{ border: '1px solid #CFE3D5', background: '#F4FAF5', borderRadius: 9, padding: '7px 12px', fontSize: 12, fontWeight: 700, color: '#2D5A3D' }}>
                               Réserver
                             </a>
                           )}
@@ -187,8 +192,8 @@ export default function FilmClient({ id }: { id: string }) {
                 ))}
                 {!tout && parJour.length > JOURS_REPLIES && (
                   <button onClick={() => setTout(true)}
-                    className="w-full border-none bg-white py-3 text-[12.5px] font-extrabold text-primary"
-                    style={{ borderTop: '1px solid #F0EAE0' }}>
+                    className="block w-full border-none"
+                    style={{ borderTop: '1px solid #F0EAE0', background: '#FBFAF7', padding: 13, fontSize: 13, fontWeight: 700, color: '#1A1209' }}>
                     Voir toutes les séances ({parJour.length} jours)
                   </button>
                 )}
