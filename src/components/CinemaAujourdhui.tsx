@@ -11,9 +11,10 @@ import { formatHeure, type Cinema, type Film, type Seance } from '@/lib/cinema'
  * entièrement** s'il n'y a aucune séance aujourd'hui. Un cinéma fermé le mardi
  * ne doit pas laisser un bloc vide sur la page d'accueil.
  *
- * ⚠️ Tant que le module est en rodage, l'appelant ne monte ce composant que
- * pour les comptes admin. Le jour de l'ouverture au public, il suffira de
- * retirer cette condition — rien ici n'est conditionné au rôle.
+ * Visibilité : ouvert à tout le monde si config('cinema_village_public') vaut
+ * true, sinon réservé aux comptes admin. Le réglage se change depuis l'admin,
+ * sans déploiement — c'est le composant qui décide, pas son appelant, pour
+ * qu'il n'y ait qu'un seul endroit à regarder.
  */
 
 interface Payload {
@@ -21,11 +22,12 @@ interface Payload {
   films: Film[]
   seances: Seance[]
   aujourdhui: string
+  villagePublic: boolean
 }
 
 const fetcher = (u: string) => fetch(u).then(r => r.json())
 
-export default function CinemaAujourdhui() {
+export default function CinemaAujourdhui({ isAdmin = false }: { isAdmin?: boolean }) {
   const { data } = useSWR<Payload>('/api/cinema', fetcher, { revalidateOnFocus: false })
 
   const aujourdhui = data?.aujourdhui ?? ''
@@ -49,7 +51,9 @@ export default function CinemaAujourdhui() {
     return out
   }, [seancesDuJour, data])
 
-  // Le bloc n'existe pas s'il n'y a rien à annoncer.
+  // Pas encore ouvert au public : seuls les admins le voient.
+  if (data && !data.villagePublic && !isAdmin) return null
+  // Et le bloc n'existe pas s'il n'y a rien à annoncer aujourd'hui.
   if (!data?.cinema || films.length === 0) return null
 
   // Heure courante à Paris, pour distinguer la prochaine séance de celles

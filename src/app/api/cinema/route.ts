@@ -26,9 +26,15 @@ const JOURS_AFFICHES = 21
 export async function GET(req: NextRequest) {
   const demande = new URL(req.url).searchParams.get('cinema')
 
+  // Le bloc du Village est-il ouvert à tout le monde, ou réservé aux admins
+  // le temps du rodage ? Réglage unique, piloté depuis l'admin.
+  const { data: cfg } = await supabaseAdmin
+    .from('config').select('value').eq('key', 'cinema_village_public').maybeSingle()
+  const villagePublic = cfg?.value === 'true'
+
   const cinemas = await listerCinemas()
   if (!cinemas.length) {
-    return NextResponse.json({ cinemas: [], cinema: null, films: [], seances: [], evenements: [] })
+    return NextResponse.json({ cinemas: [], cinema: null, films: [], seances: [], evenements: [], villagePublic })
   }
 
   // ?cinema= accepte le slug (lisible, pour les QR) ou l'id.
@@ -75,5 +81,6 @@ export async function GET(req: NextRequest) {
     seances,
     evenements: evenements ?? [],
     aujourdhui,
+    villagePublic,
   }, { headers: { 'Cache-Control': 'no-store' } })
 }

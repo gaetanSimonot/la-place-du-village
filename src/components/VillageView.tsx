@@ -142,11 +142,10 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
       {/* 4 tuiles */}
       <Tiles />
 
-      {/* Au cinéma aujourd'hui — RÉSERVÉ AUX ADMINS le temps du rodage.
-          Le composant lui-même ne connaît aucun rôle : le jour de l'ouverture
-          au public, il suffit de retirer `isAdmin &&` ci-dessous. Il disparaît
-          déjà tout seul quand il n'y a aucune séance du jour. */}
-      {isAdmin && <CinemaAujourdhui />}
+      {/* Au cinéma aujourd'hui — le composant décide seul s'il s'affiche :
+          réglage d'ouverture au public, ou compte admin, et rien à annoncer
+          aujourd'hui = pas de bloc du tout. */}
+      <CinemaAujourdhui isAdmin={isAdmin} />
 
       {/* CTA abonnement (comptes gratuits, dismissable) — repris du hub */}
       {showPlansCard && (

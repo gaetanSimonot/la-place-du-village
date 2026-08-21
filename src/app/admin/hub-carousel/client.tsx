@@ -68,6 +68,9 @@ export default function AdminHubCarousel() {
   const [splashSaving, setSplashSaving] = useState(false)
   const [splashSaved, setSplashSaved]   = useState(false)
   const [splashError, setSplashError]   = useState<string | null>(null)
+  /** Bloc « Au cinéma aujourd'hui » ouvert à tout le monde, ou admins seuls. */
+  const [cinemaPublic, setCinemaPublic] = useState(false)
+  const [cinemaSaving, setCinemaSaving] = useState(false)
   /** Double clic requis avant de relancer le cycle de tout le monde. */
   const [resetAsked, setResetAsked] = useState(false)
   // Aperçu admin d'une variante : purement local, n'écrit rien et n'affecte
@@ -83,7 +86,8 @@ export default function AdminHubCarousel() {
       supabase.from('config').select('value').eq('key', 'hub_section_order').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'hub_section_hidden').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'splash_promo').maybeSingle(),
-    ]).then(([toggleRes, imgRes, orderRes, hiddenRes, splashRes]) => {
+      supabase.from('config').select('value').eq('key', 'cinema_village_public').maybeSingle(),
+    ]).then(([toggleRes, imgRes, orderRes, hiddenRes, splashRes, cineRes]) => {
       setIntroEnabled(toggleRes.data?.value === 'true')
       setIntroImageUrl(imgRes.data?.value || null)
       let parsed: unknown = []
@@ -94,6 +98,7 @@ export default function AdminHubCarousel() {
         setHiddenSections(Array.isArray(h) ? h.filter((x: unknown): x is string => typeof x === 'string') : [])
       } catch { setHiddenSections([]) }
       setSplash(parseSplashPromo(splashRes.data?.value))
+      setCinemaPublic(cineRes.data?.value === 'true')
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user, isAdmin])
@@ -176,6 +181,20 @@ export default function AdminHubCarousel() {
     })
     if (!res.ok) setSectionOrder(prev)
     setOrderSaving(false)
+  }
+
+  async function toggleCinemaPublic(next: boolean) {
+    if (cinemaSaving) return
+    const avant = cinemaPublic
+    setCinemaPublic(next); setCinemaSaving(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/config', {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body:    JSON.stringify({ key: 'cinema_village_public', value: next ? 'true' : 'false' }),
+    }).catch(() => null)
+    if (!res?.ok) setCinemaPublic(avant)
+    setCinemaSaving(false)
   }
 
   async function toggleHide(id: string) {
@@ -568,6 +587,32 @@ export default function AdminHubCarousel() {
               )
             })}
           </div>
+        </div>
+      </div>
+
+      {/* Bloc cinéma sur la page Village */}
+      <div style={{ padding: '14px 16px 0' }}>
+        <div style={{
+          padding: 14, borderRadius: 12,
+          background: cinemaPublic ? '#FFF8F3' : '#FFFFFF',
+          border: `1px solid ${cinemaPublic ? '#F0B08A' : '#E5DDD2'}`,
+          boxShadow: '0 1px 4px rgba(44,28,16,0.04)',
+        }}>
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: cinemaSaving ? 'default' : 'pointer' }}>
+            <input type="checkbox" checked={cinemaPublic} disabled={cinemaSaving}
+              onChange={e => toggleCinemaPublic(e.target.checked)}
+              style={{ accentColor: '#C84B2F', cursor: 'pointer', marginTop: 2 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>
+                « Au cinéma aujourd&apos;hui » visible par tout le monde
+              </div>
+              <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2, lineHeight: 1.45 }}>
+                Décoché, le bloc n&apos;apparaît que sur les comptes admin — c&apos;est le
+                temps du rodage. Dans tous les cas il disparaît de lui-même les jours
+                sans séance : un cinéma fermé le mardi ne laisse pas de cadre vide.
+              </div>
+            </div>
+          </label>
         </div>
       </div>
 
