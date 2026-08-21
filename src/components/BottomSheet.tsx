@@ -803,7 +803,15 @@ export default function BottomSheet({
         ref={listRef}
         onScroll={e => { if (listStateRef) listStateRef.current = { top: (e.currentTarget as HTMLDivElement).scrollTop, count: visibleCount } }}
         className="pdv-list-noscroll"
-        style={{ flex: 1, overflowY: 'auto', padding: '4px 16px 24px', display: 'flex', flexDirection: 'column', gap: 10 }}
+        style={{
+          flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10,
+          padding: '4px 16px 0',
+          // La feuille fait toute la hauteur de l'écran mais elle est décalée
+          // vers le bas : en 'half' comme en 'peek', sa partie basse est hors
+          // champ. Sans cette marge, les dernières cartes tombent dans la zone
+          // invisible et rien ne permet d'aller les chercher.
+          paddingBottom: 24 + (mode === 'full' ? 0 : snaps[mode]),
+        }}
         onPointerDown={e => e.stopPropagation()}
       >
         {appMode === 'annuaire' && annuaireTabIdx === 1 ? (
