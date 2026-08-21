@@ -165,7 +165,12 @@ export default function SubscriptionModal({ context, onClose, currentPlan = 'bas
       if (!existing) {
         setLoading(null)
         onClose()
-        openAuthModal()
+        // On le ramène après connexion sur /abonnements : l'écran qu'il avait
+        // sous les yeux, mais qui a une adresse. Il reclique et part sur
+        // Stripe. Exception pour 'claim' : la revendication porte un etabId
+        // que cette page ne connaît pas, on le renvoie donc sur la fiche pour
+        // qu'il reprenne son parcours là où il l'avait laissé.
+        openAuthModal(context.kind === 'claim' ? undefined : '/abonnements')
         return
       }
       // Refresh forcé : si la session a vieilli, on récupère un token frais.
