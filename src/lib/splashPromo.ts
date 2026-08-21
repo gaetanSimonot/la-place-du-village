@@ -53,15 +53,24 @@ export interface SplashPromoConfig {
    */
   activatedAt: string | null
   /**
-   * Mode test réservé aux comptes ADMIN : le splash s'affiche à chaque visite,
-   * en tournant sur les trois variantes, même si les splashs sont globalement
-   * désactivés. Sert à vérifier le comportement réel sur son propre téléphone
-   * avant d'ouvrir aux habitants.
+   * Réservé aux comptes ADMIN : lève la seule règle qui empêchait Gaëtan de
+   * voir les splashs — son propre abonnement (son compte est en plan `pro`, et
+   * un abonné payant est exclu par principe).
    *
-   * Sans effet sur un compte non-admin : quelqu'un qui n'est pas admin ne verra
-   * jamais rien à cause de ce réglage.
+   * Toutes les AUTRES règles continuent de s'appliquer normalement : visites
+   * avant le premier, cooldown, rotation des variantes, pause de fin de cycle,
+   * délai d'affichage. L'admin vit donc exactement la cadence d'un habitant.
+   *
+   * Sans effet sur un compte non-admin.
    */
   adminTestMode: boolean
+  /**
+   * Date ISO du dernier « relancer le cycle ». Quand elle change, chaque
+   * navigateur remet sa rotation à zéro à sa prochaine visite : tout le monde
+   * repart sur la variante 1. Sert à relancer proprement une campagne ratée
+   * sans avoir à toucher au stockage local de 253 personnes.
+   */
+  cycleEpoch: string | null
 }
 
 /**
@@ -76,6 +85,7 @@ export const SPLASH_PROMO_DEFAULTS: SplashPromoConfig = {
   displayDelaySeconds: 6,
   activatedAt: null,
   adminTestMode: false,
+  cycleEpoch: null,
 }
 
 /** Bornes de saisie, partagées par l'admin (inputs) et l'API (validation). */
@@ -116,6 +126,7 @@ export function normalizeSplashPromo(input: unknown): SplashPromoConfig {
     displayDelaySeconds:     clampInt(o.displayDelaySeconds,     b.displayDelaySeconds.min,     b.displayDelaySeconds.max,     SPLASH_PROMO_DEFAULTS.displayDelaySeconds),
     activatedAt: cleanIsoDate(o.activatedAt),
     adminTestMode: typeof o.adminTestMode === 'boolean' ? o.adminTestMode : SPLASH_PROMO_DEFAULTS.adminTestMode,
+    cycleEpoch: cleanIsoDate(o.cycleEpoch),
   }
 }
 

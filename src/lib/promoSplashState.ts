@@ -39,10 +39,12 @@ export interface PromoSplashState {
   cycleDoneAt: string | null
   /** Navigateur déjà utilisateur avant l'activation → pas d'attente initiale. */
   veteran: boolean
+  /** Epoch de campagne vue par ce navigateur. Différente = rotation remise à zéro. */
+  epoch: string | null
 }
 
 function emptyState(veteran: boolean): PromoSplashState {
-  return { v: 1, sessions: 0, nextIndex: 0, lastShownAt: null, cycleDoneAt: null, veteran }
+  return { v: 1, sessions: 0, nextIndex: 0, lastShownAt: null, cycleDoneAt: null, veteran, epoch: null }
 }
 
 function hasPriorUse(): boolean {
@@ -58,10 +60,12 @@ function hasPriorUse(): boolean {
  * activation du système est un vétéran, même sur un navigateur tout neuf. La
  * frontière suit donc la date réelle de lancement, pas une date écrite en dur.
  */
-export function readPromoSplashState(
-  accountCreatedAt?: string | null,
-  activatedAt?: string | null,
-): PromoSplashState {
+export function readPromoSplashState(opts: {
+  accountCreatedAt?: string | null
+  activatedAt?: string | null
+  cycleEpoch?: string | null
+} = {}): PromoSplashState {
+  const { accountCreatedAt, activatedAt, cycleEpoch = null } = opts
   if (typeof window === 'undefined') return emptyState(false)
   let state: PromoSplashState
   try {
@@ -75,6 +79,13 @@ export function readPromoSplashState(
   if (!state.veteran && accountCreatedAt && activatedAt
       && Date.parse(accountCreatedAt) < Date.parse(activatedAt)) {
     state = { ...state, veteran: true }
+    writePromoSplashState(state)
+  }
+  // Campagne relancée depuis l'admin : ce navigateur repart sur la variante 1.
+  // On garde `sessions` et `veteran`, qui disent QUI est cette personne — seule
+  // la rotation, qui dit OÙ elle en est, est remise à zéro.
+  if ((state.epoch ?? null) !== cycleEpoch) {
+    state = { ...state, epoch: cycleEpoch, nextIndex: 0, lastShownAt: null, cycleDoneAt: null }
     writePromoSplashState(state)
   }
   return state
@@ -114,22 +125,6 @@ function addDays(iso: string, days: number): number {
   return new Date(iso).getTime() + days * 86_400_000
 }
 
-/** Rotation du mode test admin, séparée pour ne jamais polluer l'état réel. */
-const TEST_KEY = 'pdv-promo-splash-test'
-
-/**
- * Variante suivante en mode test admin : tourne sur les trois à chaque
- * affichage, sans toucher `pdv-promo-splash`. On peut donc tester autant qu'on
- * veut sans consommer le cycle qu'on verra ensuite en conditions réelles.
- */
-export function nextTestVariant(): SplashPromoVariantId {
-  let i = 0
-  try {
-    i = Number(localStorage.getItem(TEST_KEY)) || 0
-    localStorage.setItem(TEST_KEY, String((i + 1) % SPLASH_PROMO_VARIANTS.length))
-  } catch { /* mode privé : on reste sur la première */ }
-  return SPLASH_PROMO_VARIANTS[i % SPLASH_PROMO_VARIANTS.length].id
-}
 
 /**
  * Quelle variante afficher maintenant, ou `null` si aucune.

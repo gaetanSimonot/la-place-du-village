@@ -47,7 +47,15 @@ export async function POST(req: NextRequest) {
   const stored = parseSplashPromo(current?.value)
   const activatedAt = stored.activatedAt ?? (incoming.enabled ? new Date().toISOString() : null)
 
-  const cfg = { ...incoming, activatedAt }
+  // « Relancer le cycle » : action explicite (body.resetCycle), pas un champ de
+  // formulaire. Comme activatedAt, la valeur est posée par le serveur et jamais
+  // reprise du corps de la requête — sinon un enregistrement ordinaire pourrait
+  // relancer la campagne de 253 personnes par accident.
+  const cycleEpoch = body?.resetCycle === true
+    ? new Date().toISOString()
+    : stored.cycleEpoch
+
+  const cfg = { ...incoming, activatedAt, cycleEpoch }
 
   const { error } = await supabaseAdmin
     .from('config')

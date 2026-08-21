@@ -68,6 +68,8 @@ export default function AdminHubCarousel() {
   const [splashSaving, setSplashSaving] = useState(false)
   const [splashSaved, setSplashSaved]   = useState(false)
   const [splashError, setSplashError]   = useState<string | null>(null)
+  /** Double clic requis avant de relancer le cycle de tout le monde. */
+  const [resetAsked, setResetAsked] = useState(false)
   // Aperçu admin d'une variante : purement local, n'écrit rien et n'affecte
   // pas ce que voient les habitants.
   const [previewVariant, setPreviewVariant] = useState<SplashPromoVariantId | null>(null)
@@ -199,7 +201,7 @@ export default function AdminHubCarousel() {
    * Pas de markHubDirty ici — ce réglage ne change pas /api/hub, il est lu par
    * /api/splash-promo qui n'est pas caché.
    */
-  async function saveSplash() {
+  async function saveSplash(resetCycle = false) {
     if (splashSaving) return
     setSplashSaving(true)
     setSplashError(null)
@@ -210,13 +212,14 @@ export default function AdminHubCarousel() {
     const res = await fetch('/api/splash-promo', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body:    JSON.stringify(splash),
+      body:    JSON.stringify(resetCycle ? { ...splash, resetCycle: true } : splash),
     })
     if (res.ok) {
       // On réaffiche la config telle qu'enregistrée (valeurs bornées côté serveur).
       const body = await res.json().catch(() => null)
       if (body?.config) setSplash(body.config)
       setSplashSaved(true)
+      setResetAsked(false)
       setTimeout(() => setSplashSaved(false), 2500)
     } else {
       setSplashError('Enregistrement impossible.')
@@ -658,7 +661,7 @@ export default function AdminHubCarousel() {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
               <button
-                onClick={saveSplash}
+                onClick={() => saveSplash()}
                 disabled={splashSaving}
                 style={{
                   padding: '9px 16px', borderRadius: 10, border: 'none',
@@ -680,6 +683,48 @@ export default function AdminHubCarousel() {
             </div>
           </div>
 
+          {/* Relancer le cycle — geste rare et global, donc confirmation en deux temps */}
+          {splash.activatedAt && (
+            <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed #E5DDD2' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#5B8A4A', marginBottom: 4, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                Relancer
+              </div>
+              <div style={{ fontSize: 10, color: '#8A7A6A', marginBottom: 8, lineHeight: 1.45 }}>
+                Remet <b>tout le monde</b> sur la variante 1, comme si la campagne
+                démarrait aujourd&apos;hui. Les cooldowns en cours sont effacés : chacun
+                reverra un splash dès sa prochaine visite. À utiliser pour repartir
+                proprement, pas pour insister.
+              </div>
+              {!resetAsked ? (
+                <button
+                  onClick={() => setResetAsked(true)}
+                  disabled={splashSaving}
+                  style={{ ...btnStyle(splashSaving), width: 'auto', padding: '0 14px', height: 30, color: '#B53A22' }}
+                >
+                  Relancer le cycle
+                </button>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    onClick={() => saveSplash(true)}
+                    disabled={splashSaving}
+                    style={{
+                      padding: '7px 14px', borderRadius: 9, border: 'none',
+                      backgroundColor: '#B53A22', color: '#fff', fontSize: 12, fontWeight: 800,
+                      cursor: splashSaving ? 'not-allowed' : 'pointer',
+                      fontFamily: 'var(--font-body), sans-serif',
+                    }}
+                  >
+                    Oui, relancer pour tout le monde
+                  </button>
+                  <button onClick={() => setResetAsked(false)} style={{ ...btnStyle(false), width: 'auto', padding: '0 12px', height: 30 }}>
+                    Annuler
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Mode test admin — hors du bloc grisé : il sert surtout AVANT
               l'activation, pour vérifier le comportement en conditions réelles. */}
           <div style={{
@@ -697,15 +742,14 @@ export default function AdminHubCarousel() {
               />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 800, color: '#1A1209' }}>
-                  Me montrer les splashs (mode test)
+                  M&apos;inclure dans les splashs malgré mon abonnement
                 </div>
                 <div style={{ fontSize: 10, color: '#8A7A6A', marginTop: 2, lineHeight: 1.45 }}>
-                  Sur les comptes <b>admin uniquement</b>, le splash s&apos;affiche à chaque
-                  visite en tournant sur les trois variantes — même si les splashs sont
-                  désactivés ci-dessus. Le délai d&apos;affichage est respecté, mais rien
-                  n&apos;est compté ni enregistré : ça ne consomme pas le cycle que tu
-                  verras ensuite en vrai, et ça n&apos;envoie aucune statistique.
-                  Les habitants ne sont pas concernés.
+                  Un abonné payant ne voit jamais de splash — et ton compte est en plan
+                  Partenaire. Coché, cette règle est levée <b>pour les comptes admin
+                  uniquement</b> : tu reçois les splashs exactement comme un habitant,
+                  avec les mêmes visites d&apos;attente, le même cooldown et la même
+                  rotation. Ce n&apos;est pas un aperçu, c&apos;est la vraie cadence.
                 </div>
               </div>
             </label>

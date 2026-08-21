@@ -10,7 +10,7 @@ import {
   type SplashPromoConfig, type SplashPromoVariantId,
 } from '@/lib/splashPromo'
 import {
-  countSessionOnce, nextTestVariant, nextVariant, readPromoSplashState, recordShown,
+  countSessionOnce, nextVariant, readPromoSplashState, recordShown,
 } from '@/lib/promoSplashState'
 
 /**
@@ -20,13 +20,14 @@ import {
  * fois, quelle que soit la navigation. Le composant visuel (SplashPromoView)
  * ne connaît aucune de ces règles.
  *
- * Un compte ADMIN avec le mode test activé court-circuite tout : le splash
- * s'affiche à chaque visite en tournant sur les trois variantes, sans toucher
- * l'état réel ni envoyer d'analytics. Voir `adminTestMode` dans la config.
+ * `adminTestMode` lève UNE seule règle, pour les comptes admin : l'exclusion
+ * des abonnés payants. Le compte de Gaëtan est en plan `pro`, il ne pourrait
+ * donc jamais voir un splash. Toutes les autres règles s'appliquent : il vit
+ * la cadence exacte d'un habitant.
  *
  * Ordre des refus, du moins cher au plus cher :
  *   1. splashs désactivés en admin ;
- *   2. abonné payant (Habitant ou Partenaire) ;
+ *   2. abonné payant (Habitant ou Partenaire), sauf admin en mode test ;
  *   3. déjà montré dans cette session ;
  *   4. cooldown / pause de fin de cycle non écoulés ;
  *   5. nouveau venu qui n'a pas encore assez de visites.
@@ -60,34 +61,32 @@ export default function PromoSplashGate() {
   // ailleurs dans l'app (SubscriptionModal, ProBandeau, quotas promo).
   const isPayingSubscriber = plan === 'habitants' || plan === 'pro'
   const blockedPage = BLOCKED_PREFIXES.some(p => pathname?.startsWith(p))
-  // Mode test : admin uniquement, et jamais sur les pages où le splash est
-  // proscrit (surtout pas /admin — il surgirait pendant qu'on le règle).
-  const testMode = Boolean(isAdmin && cfg?.adminTestMode)
+  // Admin qui a demandé à recevoir les splashs malgré son abonnement.
+  const adminSeesThem = Boolean(isAdmin && cfg?.adminTestMode)
 
   useEffect(() => {
     // On attend que l'auth soit résolue : sinon un abonné verrait le splash
     // pendant la fraction de seconde où son profil n'est pas encore chargé.
     if (authLoading || !cfg || blockedPage) return
-    if (!testMode && (!cfg.enabled || isPayingSubscriber)) return
+    if (!cfg.enabled) return
+    if (isPayingSubscriber && !adminSeesThem) return
     if (armed.current) return
     armed.current = true
 
-    if (testMode) {
-      // Aucune règle, aucun état consommé, aucun analytics : on regarde.
-      // Le délai d'affichage est conservé, il fait partie du comportement
-      // qu'on veut vérifier.
-      const timer = setTimeout(() => setVariant(nextTestVariant()), cfg.displayDelaySeconds * 1000)
-      return () => clearTimeout(timer)
+    const readOpts = {
+      accountCreatedAt: user?.created_at ?? null,
+      activatedAt: cfg.activatedAt,
+      cycleEpoch: cfg.cycleEpoch,
     }
 
     // Compter la visite d'abord : elle compte même si rien ne s'affiche.
-    const state = countSessionOnce(readPromoSplashState(user?.created_at ?? null, cfg.activatedAt))
+    const state = countSessionOnce(readPromoSplashState(readOpts))
     if (!nextVariant(state, cfg)) return
 
     const timer = setTimeout(() => {
       // Re-vérification au moment de montrer : l'utilisateur a pu s'abonner,
       // ou un autre onglet a pu afficher le splash pendant l'attente.
-      const fresh = readPromoSplashState(user?.created_at ?? null, cfg.activatedAt)
+      const fresh = readPromoSplashState(readOpts)
       const v = nextVariant(fresh, cfg)
       if (!v) return
       recordShown(fresh)
@@ -102,15 +101,15 @@ export default function PromoSplashGate() {
     // `pathname` volontairement absent : la minuterie ne doit pas redémarrer à
     // chaque navigation, sinon elle ne se déclenche jamais chez qui navigue.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, cfg, isPayingSubscriber, blockedPage, testMode])
+  }, [authLoading, cfg, isPayingSubscriber, blockedPage, adminSeesThem])
 
   // Un abonnement souscrit pendant que le splash est ouvert le referme net.
   useEffect(() => {
-    if (isPayingSubscriber && variant && !testMode) setVariant(null)
-  }, [isPayingSubscriber, variant, testMode])
+    if (isPayingSubscriber && variant && !adminSeesThem) setVariant(null)
+  }, [isPayingSubscriber, variant, adminSeesThem])
 
   function handleClose() {
-    if (variant && !testMode) {
+    if (variant) {
       trackEvent('promo_splash_dismiss', {
         variant: variantTrackName(variant),
         auth: user ? 'connecte' : 'anonyme',
@@ -120,7 +119,7 @@ export default function PromoSplashGate() {
   }
 
   function handleDiscover() {
-    if (variant && !testMode) {
+    if (variant) {
       trackEvent('promo_splash_click', {
         variant: variantTrackName(variant),
         auth: user ? 'connecte' : 'anonyme',
