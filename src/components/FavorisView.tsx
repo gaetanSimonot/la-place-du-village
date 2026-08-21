@@ -482,13 +482,18 @@ function annonceToRow(a: Annonce, onRemove: () => void): RowItem {
   }
 }
 
-/** Délais de rappel proposés, en jours avant l'événement. */
-export const RAPPEL_OPTIONS: { jours: number; label: string }[] = [
-  { jours: 0, label: 'Le jour même' },
-  { jours: 1, label: 'La veille' },
-  { jours: 2, label: '2 jours avant' },
-  { jours: 3, label: '3 jours avant' },
-  { jours: 7, label: 'Une semaine avant' },
+/**
+ * Délais de rappel proposés. La valeur est un nombre de jours avant
+ * l'événement, sauf -1 qui vaut « 2 h avant » — le seul réglage qui ne
+ * s'exprime pas en jours (voir le cron, qui tourne à l'heure pour lui).
+ */
+export const RAPPEL_2H = -1
+export const RAPPEL_OPTIONS: { jours: number; label: string; court: string }[] = [
+  { jours: RAPPEL_2H, label: '2 h avant',         court: '2 h avant' },
+  { jours: 1,         label: 'La veille',         court: 'la veille' },
+  { jours: 2,         label: '2 jours avant',     court: '2 j avant' },
+  { jours: 3,         label: '3 jours avant',     court: '3 j avant' },
+  { jours: 7,         label: 'Une semaine avant', court: '1 sem. avant' },
 ]
 
 /**
@@ -501,6 +506,14 @@ export const RAPPEL_OPTIONS: { jours: number; label: string }[] = [
  *
  * Le rappel part la veille : c'est ce que la pastille annonce.
  */
+/**
+ * Pastille de rappel d'un événement en favori.
+ *
+ * Elle affiche LE RÉGLAGE, pas un compte à rebours. C'est un bouton qui ouvre
+ * le choix : un contrôle doit montrer sa propre valeur. Afficher l'échéance
+ * calculée (« rappel dans 3 j ») était exact mais illisible — on ne
+ * reconnaissait pas ce qu'on venait de choisir.
+ */
 function rappelBadge(dateDebut?: string | null, rappelJours = 1): RowItem['badge'] {
   if (!dateDebut) return undefined
   const auj = new Intl.DateTimeFormat('en-CA', {
@@ -511,22 +524,14 @@ function rappelBadge(dateDebut?: string | null, rappelJours = 1): RowItem['badge
   )
   if (jours < 0) return undefined   // passé : plus rien à rappeler
 
-  const VERT   = { bg: '#E8F2EB', color: '#2D5A3D' }
-  const ORANGE = { bg: '#FFF0E5', color: '#C84B2F' }
-
-  // Le rappel part `rappelJours` avant l'événement. C'est SON échéance qu'on
-  // affiche : sans ça, un événement d'aujourd'hui ou de demain montrerait
-  // toujours la même chose et changer le réglage n'aurait aucun effet visible.
-  const avantRappel = jours - rappelJours
-  if (avantRappel > 1)   return { label: `rappel dans ${avantRappel} j`, ...VERT }
-  if (avantRappel === 1) return { label: 'rappel demain',                ...VERT }
-  if (avantRappel === 0) return { label: "rappel aujourd'hui",           ...ORANGE }
-
-  // Réglage plus lointain que l'événement lui-même, ou rappel déjà parti :
-  // on retombe sur la proximité de l'événement, qui reste l'info utile.
-  if (jours === 0) return { label: "c'est aujourd'hui", ...ORANGE }
-  if (jours === 1) return { label: "c'est demain",      ...ORANGE }
-  return { label: `dans ${jours} j`, ...ORANGE }
+  const opt = RAPPEL_OPTIONS.find(o => o.jours === rappelJours)
+  const label = opt?.court ?? `${rappelJours} j avant`
+  // Orange quand le rappel tombe aujourd'hui ou est déjà passé : c'est
+  // imminent. Vert sinon.
+  const imminent = rappelJours === RAPPEL_2H ? jours === 0 : jours - rappelJours <= 0
+  return imminent
+    ? { label, bg: '#FFF0E5', color: '#C84B2F' }
+    : { label, bg: '#E8F2EB', color: '#2D5A3D' }
 }
 
 function eventToRow(e: EvenementCard, onRemove: () => void, rappelJours = 1, onEditRappel?: () => void): RowItem {

@@ -7,15 +7,27 @@ export const maxDuration = 60
 
 /** Doit rester aligné sur la contrainte CHECK de event_favorites.rappel_jours. */
 const MAX_RAPPEL_JOURS = 7
+/** Sentinelle « 2 h avant » — le seul réglage qui ne s'exprime pas en jours. */
+const RAPPEL_2H = -1
+/** Heure de Paris à laquelle partent les rappels exprimés en jours. */
+const HEURE_ENVOI_PARIS = 10
 
 /**
  * Cron Vercel — rappel des événements mis en favori.
  *
- * Tourne une fois par jour et prévient chaque habitant des événements qu'il a
- * mis en favori, au délai QU'IL A CHOISI (`event_favorites.rappel_jours` :
- * 0 = le jour même, 1 = la veille, jusqu'à 7). C'est le seul mécanisme de
- * l'app qui ramène quelqu'un à une date précise — et c'est ce qui donne une
- * raison concrète d'activer les notifications.
+ * Tourne TOUTES LES HEURES et prévient chaque habitant des événements qu'il a
+ * mis en favori, au délai qu'il a choisi (`event_favorites.rappel_jours`).
+ *
+ * Deux régimes :
+ *  - réglage en jours (1 = la veille, jusqu'à 7) → part une fois par jour, au
+ *    passage de 10 h à Paris ;
+ *  - réglage « 2 h avant » (-1) → part dans l'heure qui précède de deux heures
+ *    le début de l'événement. C'est pour lui que le cron tourne à l'heure.
+ *    Sans horaire connu sur l'événement, on retombe sur l'envoi de 10 h le
+ *    jour même — mieux vaut prévenir le matin que pas du tout.
+ *
+ * Tout est comparé en heure de Paris : les horaires des événements sont des
+ * heures locales, et le serveur Vercel est en UTC.
  *
  * Sécurité : même garde que les autres crons (CRON_SECRET si défini, sinon
  * user-agent vercel-cron).
@@ -27,6 +39,35 @@ function parisDate(offsetDays = 0): string {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit',
   }).format(d)
+}
+
+/** Heure courante à Paris (0-23). */
+function parisHeure(): number {
+  return Number(new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Paris', hour: '2-digit', hour12: false,
+  }).format(new Date()))
+}
+
+/**
+ * Quand tombe un rappel « 2 h avant », exprimé en heure locale de Paris.
+ * Renvoie null si l'événement n'a pas d'horaire connu.
+ *
+ * Tout se calcule sur l'horloge murale : les horaires stockés SONT des heures
+ * de Paris, donc aucune conversion de fuseau n'est nécessaire — il suffit de
+ * reculer de 120 minutes, quitte à basculer la veille pour un événement du
+ * tout début de journée.
+ */
+function rappel2h(dateDebut: string, heure: string | null): { date: string; heure: number } | null {
+  if (!heure) return null
+  const [hh, mm] = heure.split(':').map(Number)
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null
+  const minutes = hh * 60 + mm - 120
+  if (minutes >= 0) return { date: dateDebut, heure: Math.floor(minutes / 60) }
+  // Événement avant 2 h du matin : le rappel tombe la veille au soir.
+  const veille = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date(Date.parse(`${dateDebut}T12:00:00Z`) - 86_400_000))
+  return { date: veille, heure: Math.floor((minutes + 1440) / 60) }
 }
 
 export async function GET(req: NextRequest) {
@@ -47,7 +88,7 @@ export async function GET(req: NextRequest) {
   // implicites échouent silencieusement sur ce projet (piège documenté).
   const { data: events, error: evErr } = await supabaseAdmin
     .from('evenements')
-    .select('id, titre, date_debut')
+    .select('id, titre, date_debut, heure')
     .eq('statut', 'publie')
     .gte('date_debut', aujourdhui)
     .lte('date_debut', horizon)
@@ -79,14 +120,26 @@ export async function GET(req: NextRequest) {
     .in('target_id', eventIds)
   const deja = new Set((dejaEnvoyes ?? []).map(n => `${n.user_id}:${n.target_id}`))
 
+  const heureCourante = parisHeure()
+  const heureDenvoi = heureCourante === HEURE_ENVOI_PARIS
+
   let sent = 0
   for (const evt of events) {
     const dans = joursAvant(evt.date_debut)
+    const deuxHeures = rappel2h(evt.date_debut, evt.heure ?? null)
     const destinataires = favs
-      .filter(f => f.event_id === evt.id
-        // C'est aujourd'hui que ce favori doit être rappelé, selon SON réglage.
-        && (f.rappel_jours ?? 1) === dans
-        && !deja.has(`${f.user_id}:${evt.id}`))
+      .filter(f => {
+        if (f.event_id !== evt.id) return false
+        if (deja.has(`${f.user_id}:${evt.id}`)) return false
+        const reglage = f.rappel_jours ?? 1
+        if (reglage === RAPPEL_2H) {
+          // Sans horaire connu, on retombe sur l'envoi du matin, le jour même.
+          if (!deuxHeures) return heureDenvoi && dans === 0
+          return deuxHeures.date === aujourdhui && deuxHeures.heure === heureCourante
+        }
+        // Réglages en jours : une seule fenêtre d'envoi par jour.
+        return heureDenvoi && reglage === dans
+      })
       .map(f => f.user_id)
     if (!destinataires.length) continue
     // notifyUsers insère les notifications ET pousse le web push. Fail-safe :
@@ -100,5 +153,5 @@ export async function GET(req: NextRequest) {
     sent += destinataires.length
   }
 
-  return NextResponse.json({ date: aujourdhui, events: events.length, sent })
+  return NextResponse.json({ date: aujourdhui, heure: heureCourante, events: events.length, sent })
 }
