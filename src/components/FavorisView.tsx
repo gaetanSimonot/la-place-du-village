@@ -509,15 +509,24 @@ function rappelBadge(dateDebut?: string | null, rappelJours = 1): RowItem['badge
   const jours = Math.round(
     (Date.parse(`${dateDebut}T12:00:00Z`) - Date.parse(`${auj}T12:00:00Z`)) / 86_400_000,
   )
-  if (jours < 0)   return undefined                                             // passé
-  if (jours === 0) return { label: "aujourd'hui", bg: '#FFF0E5', color: '#C84B2F' }
-  if (jours === 1) return { label: 'demain',      bg: '#FFF0E5', color: '#C84B2F' }
-  // Le rappel part `rappelJours` avant l'événement : on affiche l'échéance
-  // du RAPPEL, pas celle de l'événement — c'est ce que la personne règle.
+  if (jours < 0) return undefined   // passé : plus rien à rappeler
+
+  const VERT   = { bg: '#E8F2EB', color: '#2D5A3D' }
+  const ORANGE = { bg: '#FFF0E5', color: '#C84B2F' }
+
+  // Le rappel part `rappelJours` avant l'événement. C'est SON échéance qu'on
+  // affiche : sans ça, un événement d'aujourd'hui ou de demain montrerait
+  // toujours la même chose et changer le réglage n'aurait aucun effet visible.
   const avantRappel = jours - rappelJours
-  if (avantRappel <= 0) return { label: `dans ${jours} j`,       bg: '#FFF0E5', color: '#C84B2F' }
-  if (avantRappel === 1) return { label: 'rappel demain',        bg: '#E8F2EB', color: '#2D5A3D' }
-  return { label: `rappel dans ${avantRappel} j`, bg: '#E8F2EB', color: '#2D5A3D' }
+  if (avantRappel > 1)   return { label: `rappel dans ${avantRappel} j`, ...VERT }
+  if (avantRappel === 1) return { label: 'rappel demain',                ...VERT }
+  if (avantRappel === 0) return { label: "rappel aujourd'hui",           ...ORANGE }
+
+  // Réglage plus lointain que l'événement lui-même, ou rappel déjà parti :
+  // on retombe sur la proximité de l'événement, qui reste l'info utile.
+  if (jours === 0) return { label: "c'est aujourd'hui", ...ORANGE }
+  if (jours === 1) return { label: "c'est demain",      ...ORANGE }
+  return { label: `dans ${jours} j`, ...ORANGE }
 }
 
 function eventToRow(e: EvenementCard, onRemove: () => void, rappelJours = 1, onEditRappel?: () => void): RowItem {
