@@ -219,10 +219,11 @@ export default function HomePage() {
   const router = useRouter()
   /** Post à rouvrir dans l'écran des notifications (deep-link ?post=). */
   const [notifPostId, setNotifPostId] = useState<string | null>(null)
-  /** Défilement courant de la liste d'événements, tenu à jour par la feuille. */
-  const listScrollRef = useRef(0)
-  /** Position à rendre à la liste au retour d'une fiche événement. */
-  const [restoreListScroll, setRestoreListScroll] = useState<number | null>(null)
+  /** État courant de la liste d'événements (position + cartes rendues),
+   *  tenu à jour par la feuille sans provoquer de rendu. */
+  const listStateRef = useRef({ top: 0, count: 20 })
+  /** État à rendre à la liste au retour d'une fiche événement. */
+  const [restoreListState, setRestoreListState] = useState<{ top: number; count: number } | null>(null)
 
   // Si on arrive sur / avec ?tab=X (depuis BottomNavBar des pages externes),
   // restaure le bon onglet et quitte le hub. Lecture client-side directe
@@ -321,7 +322,7 @@ export default function HomePage() {
       const s = JSON.parse(saved)
       if (s.filtres)    setFiltres(s.filtres)
       if (s.sheetMode)  setSheetMode(s.sheetMode)
-      if (typeof s.listScroll === 'number' && s.listScroll > 0) setRestoreListScroll(s.listScroll)
+      if (s.listState && typeof s.listState.top === 'number' && s.listState.top > 0) setRestoreListState(s.listState)
       if (s.appMode) setAppMode(s.appMode as 'agenda' | 'annuaire')
       if (s.selectedProducerId) setSelectedProducerId(s.selectedProducerId)
       if (s.selectedId) {
@@ -778,7 +779,7 @@ export default function HomePage() {
       sessionStorage.setItem('pdv-nav-state', JSON.stringify({
         // La hauteur RÉELLE de la feuille, pas 'peek' : on rend la vue telle
         // qu'elle a été quittée, sinon il faut tout redérouler au retour.
-        filtres, sheetMode, listScroll: listScrollRef.current, selectedId: id,
+        filtres, sheetMode, listState: listStateRef.current, selectedId: id,
         mapLat: mapCameraRef.current?.lat,
         mapLng: mapCameraRef.current?.lng,
         mapZoom: mapCameraRef.current?.zoom,
@@ -787,7 +788,7 @@ export default function HomePage() {
   }, [filtres, sheetMode])
 
 
-  const handleScrollRestored = useCallback(() => setRestoreListScroll(null), [])
+  const handleListStateRestored = useCallback(() => setRestoreListState(null), [])
 
   const openEvent = useCallback((id: string) => {
     saveNavForEvent(id)
@@ -1242,9 +1243,9 @@ export default function HomePage() {
 
       {/* Bottom Sheet — masqué sur le hub */}
       {!showHub && <BottomSheet
-        scrollTopRef={listScrollRef}
-        restoreScrollTop={restoreListScroll}
-        onScrollRestored={handleScrollRestored}
+        listStateRef={listStateRef}
+        restoreListState={restoreListState}
+        onListStateRestored={handleListStateRestored}
         evenements={evenements}
         loading={loading}
         selectedId={selectedId}
