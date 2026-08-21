@@ -64,6 +64,22 @@ export const VERSIONS: { id: VersionFilm; label: string }[] = [
   { id: 'vo',   label: 'VO' },
 ]
 
+/**
+ * Visibilité du bloc « Au cinéma aujourd'hui » sur la page Village.
+ * Stockée dans config('cinema_village_public').
+ *   masque → personne, pas même les admins
+ *   admin  → les comptes admin seulement (rodage)
+ *   tous   → tous les habitants
+ */
+export type VisibiliteCinema = 'masque' | 'admin' | 'tous'
+
+/** Tolère les anciennes valeurs booléennes ('true'/'false'). */
+export function parseVisibilite(v: string | null | undefined): VisibiliteCinema {
+  if (v === 'tous' || v === 'true') return 'tous'
+  if (v === 'masque') return 'masque'
+  return 'admin'
+}
+
 /** Champs d'un cinéma, factorisés — la liste sert à plusieurs requêtes. */
 export const CINEMA_FIELDS = 'id, nom, commune, slug, adresse, site_web, billetterie_url, photos'
 

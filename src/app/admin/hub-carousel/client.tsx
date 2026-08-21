@@ -13,6 +13,7 @@ import {
   type SplashPromoConfig, type SplashPromoVariantId,
 } from '@/lib/splashPromo'
 import SplashPromoView from '@/components/SplashPromoView'
+import { parseVisibilite, type VisibiliteCinema } from '@/lib/cinema'
 
 interface EnrichedSlot extends FeaturedSlotRow {
   title?: string
@@ -68,8 +69,8 @@ export default function AdminHubCarousel() {
   const [splashSaving, setSplashSaving] = useState(false)
   const [splashSaved, setSplashSaved]   = useState(false)
   const [splashError, setSplashError]   = useState<string | null>(null)
-  /** Bloc « Au cinéma aujourd'hui » ouvert à tout le monde, ou admins seuls. */
-  const [cinemaPublic, setCinemaPublic] = useState(false)
+  /** Visibilité du bloc « Au cinéma aujourd'hui » : masqué / admin / tous. */
+  const [cinemaVis, setCinemaVis] = useState<VisibiliteCinema>('admin')
   const [cinemaSaving, setCinemaSaving] = useState(false)
   /** Double clic requis avant de relancer le cycle de tout le monde. */
   const [resetAsked, setResetAsked] = useState(false)
@@ -98,7 +99,7 @@ export default function AdminHubCarousel() {
         setHiddenSections(Array.isArray(h) ? h.filter((x: unknown): x is string => typeof x === 'string') : [])
       } catch { setHiddenSections([]) }
       setSplash(parseSplashPromo(splashRes.data?.value))
-      setCinemaPublic(cineRes.data?.value === 'true')
+      setCinemaVis(parseVisibilite(cineRes.data?.value))
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user, isAdmin])
@@ -183,17 +184,17 @@ export default function AdminHubCarousel() {
     setOrderSaving(false)
   }
 
-  async function toggleCinemaPublic(next: boolean) {
-    if (cinemaSaving) return
-    const avant = cinemaPublic
-    setCinemaPublic(next); setCinemaSaving(true)
+  async function changerCinemaVis(next: VisibiliteCinema) {
+    if (cinemaSaving || next === cinemaVis) return
+    const avant = cinemaVis
+    setCinemaVis(next); setCinemaSaving(true)
     const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch('/api/admin/config', {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
-      body:    JSON.stringify({ key: 'cinema_village_public', value: next ? 'true' : 'false' }),
+      body:    JSON.stringify({ key: 'cinema_village_public', value: next }),
     }).catch(() => null)
-    if (!res?.ok) setCinemaPublic(avant)
+    if (!res?.ok) setCinemaVis(avant)
     setCinemaSaving(false)
   }
 
@@ -590,34 +591,36 @@ export default function AdminHubCarousel() {
         </div>
       </div>
 
-      {/* Bloc cinéma sur la page Village — deux modes explicites plutôt qu'une
-          case à cocher : on doit lire son état sans l'interpréter. */}
+      {/* Bloc cinéma sur la page Village — trois états nommés. « Masqué »
+          l'emporte sur tout, y compris sur ton propre compte : c'est ce qui
+          permet de le couper net sans rien décocher ailleurs. */}
       <div style={{ padding: '14px 16px 0' }}>
         <div style={{
           padding: 14, borderRadius: 12, background: '#FFFFFF',
-          border: `1px solid ${cinemaPublic ? '#F0B08A' : '#E5DDD2'}`,
+          border: `1px solid ${cinemaVis === 'tous' ? '#F0B08A' : '#E5DDD2'}`,
           boxShadow: '0 1px 4px rgba(44,28,16,0.04)',
         }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>
             Bloc « Au cinéma aujourd&apos;hui »
           </div>
           <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2, marginBottom: 10, lineHeight: 1.45 }}>
-            Sur la page Village. Dans les deux cas il disparaît les jours sans
-            séance — un cinéma fermé le mardi ne laisse pas de cadre vide.
+            Sur la page Village. Quel que soit le choix, il disparaît les jours
+            sans séance — un cinéma fermé le mardi ne laisse pas de cadre vide.
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 6 }}>
             {([
-              { v: false, titre: 'Voir en admin', sous: 'toi seul' },
-              { v: true,  titre: 'Voir pour tous', sous: 'tous les habitants' },
-            ] as const).map(o => {
-              const actif = cinemaPublic === o.v
+              { v: 'masque' as const, titre: 'Masqué',  sous: 'personne' },
+              { v: 'admin'  as const, titre: 'Admin',   sous: 'toi seul' },
+              { v: 'tous'   as const, titre: 'Tous',    sous: 'les habitants' },
+            ]).map(o => {
+              const actif = cinemaVis === o.v
               return (
                 <button
-                  key={String(o.v)}
-                  onClick={() => toggleCinemaPublic(o.v)}
+                  key={o.v}
+                  onClick={() => changerCinemaVis(o.v)}
                   disabled={cinemaSaving}
                   style={{
-                    flex: 1, padding: '10px 8px', borderRadius: 10, textAlign: 'center',
+                    flex: 1, padding: '10px 6px', borderRadius: 10, textAlign: 'center',
                     border: `1.5px solid ${actif ? '#C84B2F' : '#E5DDD2'}`,
                     background: actif ? '#FFF8F3' : '#FDFAF5',
                     cursor: cinemaSaving ? 'default' : 'pointer',

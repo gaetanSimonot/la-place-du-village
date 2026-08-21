@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { dateParis, type Film, type Seance } from '@/lib/cinema'
+import { dateParis, parseVisibilite, type Film, type Seance } from '@/lib/cinema'
 import { listerCinemas } from '@/lib/cinema-server'
 
 export const dynamic = 'force-dynamic'
@@ -30,11 +30,11 @@ export async function GET(req: NextRequest) {
   // le temps du rodage ? Réglage unique, piloté depuis l'admin.
   const { data: cfg } = await supabaseAdmin
     .from('config').select('value').eq('key', 'cinema_village_public').maybeSingle()
-  const villagePublic = cfg?.value === 'true'
+  const villageVisibilite = parseVisibilite(cfg?.value)
 
   const cinemas = await listerCinemas()
   if (!cinemas.length) {
-    return NextResponse.json({ cinemas: [], cinema: null, films: [], seances: [], evenements: [], villagePublic })
+    return NextResponse.json({ cinemas: [], cinema: null, films: [], seances: [], evenements: [], villageVisibilite })
   }
 
   const aujourdhui = dateParis()
@@ -92,6 +92,6 @@ export async function GET(req: NextRequest) {
     seances,
     evenements: evenements ?? [],
     aujourdhui,
-    villagePublic,
+    villageVisibilite,
   }, { headers: { 'Cache-Control': 'no-store' } })
 }

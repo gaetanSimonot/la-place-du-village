@@ -2,7 +2,7 @@
 import { useMemo } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
-import { formatHeure, type Cinema, type Film, type Seance } from '@/lib/cinema'
+import { formatHeure, type Cinema, type Film, type Seance, type VisibiliteCinema } from '@/lib/cinema'
 
 /**
  * Bloc « Au cinéma aujourd'hui » — une carte insérée dans le flux du Village.
@@ -11,10 +11,10 @@ import { formatHeure, type Cinema, type Film, type Seance } from '@/lib/cinema'
  * entièrement** s'il n'y a aucune séance aujourd'hui. Un cinéma fermé le mardi
  * ne doit pas laisser un bloc vide sur la page d'accueil.
  *
- * Visibilité : ouvert à tout le monde si config('cinema_village_public') vaut
- * true, sinon réservé aux comptes admin. Le réglage se change depuis l'admin,
- * sans déploiement — c'est le composant qui décide, pas son appelant, pour
- * qu'il n'y ait qu'un seul endroit à regarder.
+ * Visibilité : trois états réglés depuis l'admin, sans déploiement — masqué
+ * pour tout le monde, visible des seuls admins, ou visible de tous. C'est le
+ * composant qui décide, pas son appelant, pour qu'il n'y ait qu'un seul
+ * endroit à regarder.
  */
 
 interface Payload {
@@ -23,7 +23,7 @@ interface Payload {
   films: Film[]
   seances: Seance[]
   aujourdhui: string
-  villagePublic: boolean
+  villageVisibilite: VisibiliteCinema
 }
 
 const fetcher = async (u: string) => {
@@ -56,8 +56,11 @@ export default function CinemaAujourdhui({ isAdmin = false }: { isAdmin?: boolea
     return out
   }, [seancesDuJour, data])
 
-  // Réservé aux admins tant que le réglage n'ouvre pas au public.
-  if (data && !data.villagePublic && !isAdmin) return null
+  // Réglage de visibilité — masqué l'emporte sur tout, y compris pour un admin.
+  if (data) {
+    if (data.villageVisibilite === 'masque') return null
+    if (data.villageVisibilite === 'admin' && !isAdmin) return null
+  }
   // Et rien du tout s'il n'y a aucune séance aujourd'hui.
   if (!data || films.length === 0) return null
 

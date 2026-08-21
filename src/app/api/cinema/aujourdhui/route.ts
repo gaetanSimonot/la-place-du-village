@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { dateParis, type Film, type Seance } from '@/lib/cinema'
+import { dateParis, parseVisibilite, type Film, type Seance } from '@/lib/cinema'
 import { listerCinemas } from '@/lib/cinema-server'
 
 export const dynamic = 'force-dynamic'
@@ -20,12 +20,12 @@ export const revalidate = 0
 export async function GET() {
   const { data: cfg } = await supabaseAdmin
     .from('config').select('value').eq('key', 'cinema_village_public').maybeSingle()
-  const villagePublic = cfg?.value === 'true'
+  const villageVisibilite = parseVisibilite(cfg?.value)
 
   const aujourdhui = dateParis()
   const cinemas = await listerCinemas()
   if (!cinemas.length) {
-    return NextResponse.json({ villagePublic, aujourdhui, cinemas: [], films: [], seances: [] })
+    return NextResponse.json({ villageVisibilite, aujourdhui, cinemas: [], films: [], seances: [] })
   }
 
   const { data: seancesRows } = await supabaseAdmin
@@ -45,7 +45,7 @@ export async function GET() {
   const actives = new Set(seances.map(s => s.etablissement_id))
 
   return NextResponse.json({
-    villagePublic,
+    villageVisibilite,
     aujourdhui,
     cinemas: cinemas.filter(c => actives.has(c.id)),
     films: (filmsRows ?? []) as Film[],
