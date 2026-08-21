@@ -39,6 +39,14 @@ interface Props {
   navHeight: number
   screenH: number
   onPeekHeightChange?: (h: number) => void
+  /** Miroir vivant du défilement de la liste — écrit sans provoquer de rendu.
+   *  Le shell le lit au moment d'ouvrir une fiche, pour pouvoir revenir au
+   *  même endroit. */
+  scrollTopRef?: React.MutableRefObject<number>
+  /** Position à restaurer au retour d'une fiche (null = rien à faire). */
+  restoreScrollTop?: number | null
+  /** Appelé une fois la position restaurée, pour que le shell l'oublie. */
+  onScrollRestored?: () => void
   proEvents?: EvenementCard[]
   onDiscoverPro?: (id: string) => void
   onOpenEvent?: (id: string) => void
@@ -83,6 +91,7 @@ export default function BottomSheet({
   evenements, loading, selectedId, onSelectEvent, onViewOnMap,
   filtres, onFiltresChange, mode, onModeChange, navHeight, screenH,
   onPeekHeightChange, proEvents = [], onDiscoverPro, onOpenEvent,
+  scrollTopRef, restoreScrollTop = null, onScrollRestored,
   favIds = [], onToggleFav,
   appMode, onAppModeChange, producers = [], producerLoading = false,
   selectedProducerId = null, onSelectProducer, onViewProducerOnMap,
@@ -138,6 +147,23 @@ export default function BottomSheet({
 
   const headerRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  /** Dernière valeur de restoreScrollTop déjà appliquée (évite de rejouer). */
+  const restoredRef = useRef<number | null>(null)
+
+  /**
+   * Retour d'une fiche événement : on remet la liste où elle était.
+   * On attend que les événements soient arrivés, sinon la liste est encore
+   * trop courte pour qu'un grand scrollTop veuille dire quelque chose.
+   */
+  useEffect(() => {
+    if (restoreScrollTop == null || restoredRef.current === restoreScrollTop) return
+    const el = listRef.current
+    if (!el || !evenements.length) return
+    if (el.scrollHeight <= el.clientHeight + restoreScrollTop - 1) return  // pas encore assez de contenu
+    el.scrollTop = restoreScrollTop
+    restoredRef.current = restoreScrollTop
+    onScrollRestored?.()
+  }, [restoreScrollTop, evenements.length, onScrollRestored])
   const obsRef = useRef<IntersectionObserver | null>(null)
   const loaderRef = useCallback((el: HTMLDivElement | null) => {
     if (obsRef.current) { obsRef.current.disconnect(); obsRef.current = null }
@@ -334,10 +360,13 @@ export default function BottomSheet({
   useEffect(() => { setVisibleCount(BATCH) }, [evenements])
   useEffect(() => { setVisibleEtabCount(BATCH) }, [etablissements])
 
-  // Scroll en haut quand on descend en peek
+  // Scroll en haut quand on descend en peek — sauf si une restauration est en
+  // cours : on revient d'une fiche et remettre la liste en haut annulerait
+  // précisément ce qu'on cherche à rendre.
   useEffect(() => {
+    if (restoreScrollTop != null && restoredRef.current !== restoreScrollTop) return
     if (mode === 'peek') listRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [mode])
+  }, [mode, restoreScrollTop])
 
   // Suggestions de produits basées sur les producers filtrés par catégorie
   const suggestions = useMemo(() => {
@@ -698,6 +727,7 @@ export default function BottomSheet({
       <style>{`.pdv-list-noscroll{scrollbar-width:none}.pdv-list-noscroll::-webkit-scrollbar{display:none}`}</style>
       <div
         ref={listRef}
+        onScroll={e => { if (scrollTopRef) scrollTopRef.current = (e.currentTarget as HTMLDivElement).scrollTop }}
         className="pdv-list-noscroll"
         style={{ flex: 1, overflowY: 'auto', padding: '4px 16px 24px', display: 'flex', flexDirection: 'column', gap: 10 }}
         onPointerDown={e => e.stopPropagation()}
