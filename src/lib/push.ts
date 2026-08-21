@@ -8,12 +8,15 @@
  *  - FAIL-SAFE : ne jamais throw vers l'appelant (un push raté ne doit jamais
  *    casser l'action principale, ex. l'envoi d'un message).
  *  - HYGIÈNE : on supprime les abonnements morts (404/410 = désinstallé/expiré).
- *  - Routage du deep-link basé sur `type` (le champ `target_type` a une
- *    contrainte CHECK et n'est pas fiable comme clé de routage).
+ *  - TEXTE ET DESTINATION : délégués à src/lib/notifRouting.ts, partagé avec
+ *    l'écran in-app. Ce fichier avait autrefois son propre dictionnaire, resté
+ *    en arrière : 33 types sur 40 arrivaient sans phrase et retombaient sur
+ *    l'accueil. Ne jamais redéfinir un libellé ou une URL ici.
  */
 
 import webpush from 'web-push'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { notifPhrase, notifUrl } from '@/lib/notifRouting'
 
 let configured = false
 function ensureConfigured(): boolean {
@@ -44,58 +47,22 @@ interface PushContent {
   tag?: string
 }
 
-/** URL de deep-link : on s'appuie sur target_type+target_id quand ils sont
- *  exploitables, sinon fallback raisonnable. */
-function deepLink(p: NotifPayload, fallback: string): string {
-  const id = p.target_id
-  switch (p.target_type) {
-    case 'etablissement': return id ? `/etablissement/${id}` : fallback
-    case 'producer':      return id ? `/producteur/${id}` : fallback
-    case 'event':         return id ? `/evenement/${id}` : fallback
-    default:              return fallback
-  }
-}
-
-/** Construit le contenu de la notif push à partir du `type` (sans CHECK, fiable). */
+/**
+ * Contenu de la notification affichée par le téléphone.
+ *
+ * Les messages privés mettent le nom de l'expéditeur en TITRE : c'est ce
+ * qu'attend quelqu'un qui reçoit un message, et ça permet au tag de regrouper
+ * une conversation. Tout le reste porte le nom de l'app en titre et la phrase
+ * en corps, comme dans la liste in-app.
+ */
 function pushContentFor(p: NotifPayload): PushContent {
-  const name = p.actor_name || 'La Place du Village'
-  const t = p.type || ''
+  const url = notifUrl(p)
+  const tag = p.target_id ? `${p.type}-${p.target_id}` : undefined
 
-  // Messages (amis / annonces / covoit / support) → boîte de réception unifiée.
-  if (/message/i.test(t)) {
-    return { title: name, body: 'vous a envoyé un message', url: '/messages', tag: `msg-${p.target_id ?? ''}` }
+  if (/message/i.test(p.type || '')) {
+    return { title: p.actor_name || 'La Place du Village', body: notifPhrase(p), url, tag }
   }
-
-  // Dictionnaire des phrases par type connu (fallback générique sinon).
-  const PHRASES: Record<string, string> = {
-    suivi_producteur: 'suit votre page',
-    commentaire:      'a commenté votre page',
-    nouveau_produit:  'propose un nouveau produit',
-    disponibilite:    'a mis à jour ses disponibilités',
-    friend_request:   "vous a envoyé une demande d'ami",
-    friend_accept:    "a accepté votre demande d'ami",
-    forum_comment:    'a répondu à votre sujet',
-    like:             'a aimé votre publication',
-    post_broadcast:   'a publié une nouveauté',
-    journal_publie:   'vient de paraître',
-    moment_nouveau:   'a publié un moment',
-  }
-  // Lien par type (broadcasts : pas de target_type fiable).
-  const URLS: Record<string, string> = {
-    friend_request: '/people',
-    friend_accept:  '/people',
-    forum_comment:  '/forum',
-    post_broadcast: '/',
-    journal_publie: '/journal',
-    moment_nouveau: '/en-ce-moment',
-  }
-  const phrase = PHRASES[t]
-  return {
-    title: 'La Place du Village',
-    body: phrase ? `${name} ${phrase}` : name,
-    url: URLS[t] ?? deepLink(p, '/'),
-    tag: p.target_id ? `${t}-${p.target_id}` : undefined,
-  }
+  return { title: 'La Place du Village', body: notifPhrase(p), url, tag }
 }
 
 interface SubRow { id: string; endpoint: string; p256dh: string; auth: string }

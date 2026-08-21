@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAdminSession } from '@/hooks/useAdminSession'
 import { useFriendships } from '@/hooks/useFriendships'
+import { notifUrl, NOTIFS_URL } from '@/lib/notifRouting'
 import { PLANS_INFO, PLAN_ORDER, type Plan } from '@/lib/capabilities'
 import type { AppNotification, NotifType } from '@/lib/types'
 import { toast } from 'sonner'
@@ -21,6 +22,10 @@ interface Props {
   onDelete?: (id: string) => void
   onOpenProducer?: (id: string) => void
   onBack?: () => void
+  /** Post à ouvrir d'emblée — deep-link `?tab=notifs&post=` d'une notif push. */
+  initialPostId?: string | null
+  /** Appelé une fois le post ouvert, pour que le shell oublie le paramètre. */
+  onInitialPostConsumed?: () => void
 }
 
 /* ─── Type → visual config V3 (palette + SVG icon) ────────────────────── */
@@ -161,7 +166,7 @@ interface PromoUseHistory {
 type UserFilter = 'all' | 'annonces' | 'producteurs' | 'promos' | 'events'
 type AdminFilter = 'all' | 'unread' | 'demandes' | 'annonces' | 'events' | 'support' | 'boost'
 
-export default function NotificationsView({ notifications, loading, loaded, onOpen, onMarkRead, onMarkAllRead, onDelete, onOpenProducer, onBack }: Props) {
+export default function NotificationsView({ notifications, loading, loaded, onOpen, onMarkRead, onMarkAllRead, onDelete, onOpenProducer, onBack, initialPostId, onInitialPostConsumed }: Props) {
   const { friendships, accept: acceptFriendship, cancel: cancelFriendship } = useFriendships()
   const [busyFriendIds, setBusyFriendIds] = useState<Set<string>>(new Set())
 
@@ -220,6 +225,14 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
   const [actionModal, setActionModal] = useState<AppNotification | null>(null)
   const [postModalId, setPostModalId] = useState<string | null>(null)
 
+  // Arrivée depuis une notification du téléphone (?post=) : on ouvre le post
+  // tout de suite, comme si on avait tapé la ligne dans la liste.
+  useEffect(() => {
+    if (!initialPostId) return
+    setPostModalId(initialPostId)
+    onInitialPostConsumed?.()
+  }, [initialPostId, onInitialPostConsumed])
+
   useEffect(() => { onOpen() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mini dashboard admin
@@ -272,85 +285,29 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
 
   const unreadCount = notifications.filter(n => !n.lu).length
 
-  /** Routing par type — identique à V2, logique préservée. */
+  /**
+   * Clic sur une notification. La destination vient de notifRouting.ts, le
+   * module que le push utilise aussi : les deux surfaces ne peuvent plus
+   * diverger. Ne restent ici que les deux cas qui ne sont pas une navigation.
+   */
   function handleClick(n: AppNotification) {
     if (!n.lu) onMarkRead(n.id)
 
-    // Broadcast admin → pop-up qui affiche le post (pas de navigation).
+    // Broadcast admin → pop-up qui affiche le post, pas de navigation.
     if (n.type === 'post_broadcast' && n.target_id) {
       setPostModalId(n.target_id)
       return
     }
-
-    // Brouillon de journal → l'éditeur admin (avant la règle target_type journal).
-    if (n.type === 'journal_brouillon') {
-      router.push('/admin/journal')
-      return
-    }
-
-    if (n.type === 'claim_pending' || n.target_type === 'claim') {
-      router.push('/admin?section=demandes')
-      return
-    }
-    if ((n.type === 'claim_approved' || n.type === 'claim_rejected') && n.target_id) {
-      router.push(`/etablissement/${n.target_id}`)
-      return
-    }
-    if (n.target_type === 'conversation' && n.target_id) {
-      // covoit_* utilise le même target_type 'conversation' mais pointe vers
-      // covoit_conversations, pas annonces_conversations
-      if (n.type.startsWith('covoit_')) {
-        router.push(`/covoiturage/conversations/${n.target_id}`)
-      } else {
-        router.push(`/annonces/conversations/${n.target_id}`)
-      }
-      return
-    }
-    if (n.target_type === 'support_conversation' && n.target_id) {
-      router.push(isAdmin ? `/admin/support/${n.target_id}` : `/support/${n.target_id}`)
-      return
-    }
-    if (n.target_type === 'annonce' && n.target_id) {
-      router.push(`/annonces/${n.target_id}`)
-      return
-    }
-    // Correction proposée → ouvre la fiche event en mode revue admin
-    if (n.type === 'correction_proposee' && n.target_id) {
-      router.push(`/evenement/${n.target_id}?correction=1`)
-      return
-    }
-    // Nouveau moment « En ce moment » → ouvre le viewer sur ce moment
-    if (n.type === 'moment_nouveau' && n.target_id) {
-      router.push(`/en-ce-moment?m=${n.target_id}`)
-      return
-    }
-    if (n.target_type === 'event' && n.target_id) {
-      router.push(`/evenement/${n.target_id}`)
-      return
-    }
+    // Fiche producteur → panneau du shell plutôt qu'un changement de page.
     if (n.target_type === 'producer' && n.target_id) {
       onOpenProducer?.(n.target_id)
       return
     }
-    if (n.target_type === 'article' && n.target_id) {
-      router.push(`/journal/articles/${n.target_id}/view`)
-      return
-    }
-    if (n.target_type === 'journal') {
-      router.push('/journal')
-      return
-    }
-    if (n.target_type === 'friendship') {
-      // friend_request_received → /people (la bannière "Demandes reçues" en haut affiche les pending)
-      // friend_request_accepted → /people aussi (filtre "Mes amis" disponible)
-      router.push('/people')
-      return
-    }
-    if (n.target_type === 'conversation_unified' && n.target_id) {
-      // friend_message → /conversations/[id]
-      router.push(`/conversations/${n.target_id}`)
-      return
-    }
+
+    const url = notifUrl(n, { isAdmin })
+    // Déjà sur l'écran des notifications : ne pas se renvoyer sur soi-même.
+    if (url === NOTIFS_URL) return
+    router.push(url)
   }
 
   // Filtres user (non-admin) par catégorie

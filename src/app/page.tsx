@@ -217,6 +217,8 @@ export default function HomePage() {
     }, 350)
   }, [])
   const router = useRouter()
+  /** Post à rouvrir dans l'écran des notifications (deep-link ?post=). */
+  const [notifPostId, setNotifPostId] = useState<string | null>(null)
 
   // Si on arrive sur / avec ?tab=X (depuis BottomNavBar des pages externes),
   // restaure le bon onglet et quitte le hub. Lecture client-side directe
@@ -227,6 +229,10 @@ export default function HomePage() {
     if (tabParam === 'carte' || tabParam === 'village' || tabParam === 'favoris' || tabParam === 'notifs' || tabParam === 'profil') {
       setShowHub(false)
       setNavTab(tabParam as NavTab)
+      // ?post= : une notification de publication admin, ouverte depuis le
+      // téléphone. On rouvre le post exactement comme un clic dans la liste.
+      const postParam = sp0.get('post')
+      if (tabParam === 'notifs' && postParam) setNotifPostId(postParam)
       window.history.replaceState({}, '', '/')
     }
     // ?splash=1 : le logo des autres pages ramène sur le splash d'accueil.
@@ -1306,6 +1312,8 @@ export default function HomePage() {
             onDelete={removeNotif}
             onOpenProducer={openProducer}
             onBack={() => handleNavTab('accueil')}
+            initialPostId={notifPostId}
+            onInitialPostConsumed={() => setNotifPostId(null)}
           />
         </div>
       )}
