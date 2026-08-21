@@ -713,6 +713,10 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
           )
         })()}
 
+        {/* Module Cinéma — ADMIN uniquement. Ce n'est pas une option publique :
+            elle ne s'achète pas, elle s'accorde. */}
+        {adminUI && <ModuleCinemaAdmin etab={etab} />}
+
         {/* Ajouter / Lier du contenu — propriétaire de la fiche uniquement */}
         {ownerUI && (
           <div style={{ display: 'flex', gap: 10 }}>
@@ -1058,6 +1062,76 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
       {editing && <EtabEditDrawer etab={etab} isAdmin={isAdmin} onClose={() => setEditing(false)} onSaved={patch => setEtab(prev => prev ? { ...prev, ...patch } : prev)} />}
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       <BottomNavBar />
+    </div>
+  )
+}
+
+
+/* ─── Module Cinéma (admin) ───────────────────────────────────────────── */
+
+/**
+ * Accorde ou retire le module Cinéma à cette fiche.
+ *
+ * Rappelle les deux autres conditions plutôt que de se contenter d'un
+ * interrupteur : accorder le module à une fiche non revendiquée ou non Pro ne
+ * produit rien de visible, et sans ce rappel on chercherait longtemps.
+ */
+function ModuleCinemaAdmin({ etab }: {
+  etab: { id: string; user_id?: string | null; plan?: string | null; module_cinema?: boolean; slug?: string | null }
+}) {
+  const [actif, setActif]   = useState(!!etab.module_cinema)
+  const [busy, setBusy]     = useState(false)
+  const [erreur, setErreur] = useState<string | null>(null)
+
+  const revendiquee = !!etab.user_id
+  const pro         = etab.plan === 'pro'
+
+  async function bascule(next: boolean) {
+    if (busy) return
+    const avant = actif
+    setActif(next); setBusy(true); setErreur(null)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch(`/api/admin/etablissements/${etab.id}/module-cinema`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}) },
+      body: JSON.stringify({ actif: next }),
+    }).catch(() => null)
+    if (!res?.ok) { setActif(avant); setErreur('Enregistrement impossible.') }
+    setBusy(false)
+  }
+
+  return (
+    <div style={{ padding: 14, borderRadius: 16, border: `1.5px solid ${actif ? '#F0B08A' : '#E8E0D4'}`, background: actif ? '#FFF8F3' : '#fff' }}>
+      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: busy ? 'default' : 'pointer' }}>
+        <input type="checkbox" checked={actif} disabled={busy} onChange={e => bascule(e.target.checked)}
+          style={{ accentColor: '#C84B2F', marginTop: 2, cursor: 'pointer' }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>Module Cinéma</div>
+          <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2, lineHeight: 1.45 }}>
+            Ouvre « Mon cinéma » à cette fiche et la fait apparaître sur /cinema.
+            Accordé à la main, jamais acheté.
+          </div>
+          <div style={{ fontSize: 10.5, color: '#8A7A6A', marginTop: 6, lineHeight: 1.6 }}>
+            {revendiquee ? '✓' : '✗'} fiche revendiquée &nbsp;·&nbsp; {pro ? '✓' : '✗'} abonnement Pro
+            {(!revendiquee || !pro) && actif && (
+              <div style={{ color: '#B53A22', fontWeight: 700, marginTop: 2 }}>
+                Module accordé, mais sans effet tant que ces deux conditions ne sont pas remplies.
+              </div>
+            )}
+          </div>
+          {actif && (
+            <div style={{ display: 'flex', gap: 14, marginTop: 8 }}>
+              <a href={`/cinema?cinema=${etab.slug ?? etab.id}`} style={{ fontSize: 12, fontWeight: 800, color: '#C84B2F' }}>
+                Voir l&apos;expérience →
+              </a>
+              <a href={`/cinema/admin?cinema=${etab.id}`} style={{ fontSize: 12, fontWeight: 800, color: '#2D5A3D' }}>
+                Mon cinéma →
+              </a>
+            </div>
+          )}
+          {erreur && <div style={{ fontSize: 11, color: '#C0392B', marginTop: 6 }}>{erreur}</div>}
+        </div>
+      </label>
     </div>
   )
 }
