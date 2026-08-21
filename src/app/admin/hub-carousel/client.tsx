@@ -590,29 +590,46 @@ export default function AdminHubCarousel() {
         </div>
       </div>
 
-      {/* Bloc cinéma sur la page Village */}
+      {/* Bloc cinéma sur la page Village — deux modes explicites plutôt qu'une
+          case à cocher : on doit lire son état sans l'interpréter. */}
       <div style={{ padding: '14px 16px 0' }}>
         <div style={{
-          padding: 14, borderRadius: 12,
-          background: cinemaPublic ? '#FFF8F3' : '#FFFFFF',
+          padding: 14, borderRadius: 12, background: '#FFFFFF',
           border: `1px solid ${cinemaPublic ? '#F0B08A' : '#E5DDD2'}`,
           boxShadow: '0 1px 4px rgba(44,28,16,0.04)',
         }}>
-          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: cinemaSaving ? 'default' : 'pointer' }}>
-            <input type="checkbox" checked={cinemaPublic} disabled={cinemaSaving}
-              onChange={e => toggleCinemaPublic(e.target.checked)}
-              style={{ accentColor: '#C84B2F', cursor: 'pointer', marginTop: 2 }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>
-                « Au cinéma aujourd&apos;hui » visible par tout le monde
-              </div>
-              <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2, lineHeight: 1.45 }}>
-                Décoché, le bloc n&apos;apparaît que sur les comptes admin — c&apos;est le
-                temps du rodage. Dans tous les cas il disparaît de lui-même les jours
-                sans séance : un cinéma fermé le mardi ne laisse pas de cadre vide.
-              </div>
-            </div>
-          </label>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>
+            Bloc « Au cinéma aujourd&apos;hui »
+          </div>
+          <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2, marginBottom: 10, lineHeight: 1.45 }}>
+            Sur la page Village. Dans les deux cas il disparaît les jours sans
+            séance — un cinéma fermé le mardi ne laisse pas de cadre vide.
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {([
+              { v: false, titre: 'Voir en admin', sous: 'toi seul' },
+              { v: true,  titre: 'Voir pour tous', sous: 'tous les habitants' },
+            ] as const).map(o => {
+              const actif = cinemaPublic === o.v
+              return (
+                <button
+                  key={String(o.v)}
+                  onClick={() => toggleCinemaPublic(o.v)}
+                  disabled={cinemaSaving}
+                  style={{
+                    flex: 1, padding: '10px 8px', borderRadius: 10, textAlign: 'center',
+                    border: `1.5px solid ${actif ? '#C84B2F' : '#E5DDD2'}`,
+                    background: actif ? '#FFF8F3' : '#FDFAF5',
+                    cursor: cinemaSaving ? 'default' : 'pointer',
+                    fontFamily: 'var(--font-body), sans-serif',
+                  }}
+                >
+                  <div style={{ fontSize: 12.5, fontWeight: 800, color: actif ? '#C0440A' : '#1A1209' }}>{o.titre}</div>
+                  <div style={{ fontSize: 10, color: '#8A7A6A', marginTop: 2 }}>{o.sous}</div>
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
 

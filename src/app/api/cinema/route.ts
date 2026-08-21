@@ -37,13 +37,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ cinemas: [], cinema: null, films: [], seances: [], evenements: [], villagePublic })
   }
 
-  // ?cinema= accepte le slug (lisible, pour les QR) ou l'id.
-  const cinema = demande
-    ? cinemas.find(c => c.slug === demande || c.id === demande) ?? cinemas[0]
-    : cinemas[0]
-
   const aujourdhui = dateParis()
   const fin = dateParis(JOURS_AFFICHES)
+
+  // ?cinema= accepte le slug (lisible, pour les QR) ou l'id.
+  // Sans paramètre, on ne prend PAS la première venue : l'ordre alphabétique
+  // ferait tomber sur une salle sans programmation et donnerait une page vide
+  // alors qu'une autre joue le soir même.
+  let cinema = demande
+    ? cinemas.find(c => c.slug === demande || c.id === demande) ?? null
+    : null
+  if (!cinema) {
+    const { data: prog } = await supabaseAdmin
+      .from('seances').select('etablissement_id')
+      .in('etablissement_id', cinemas.map(c => c.id))
+      .gte('date', aujourdhui).lte('date', fin)
+    const actives = new Set((prog ?? []).map(p => p.etablissement_id))
+    cinema = cinemas.find(c => actives.has(c.id)) ?? cinemas[0]
+  }
 
   const { data: seancesRows } = await supabaseAdmin
     .from('seances')

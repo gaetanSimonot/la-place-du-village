@@ -18,14 +18,19 @@ import { formatHeure, type Cinema, type Film, type Seance } from '@/lib/cinema'
  */
 
 interface Payload {
-  cinema: Cinema | null
+  /** Salles qui jouent aujourd'hui — pas « la » salle. */
+  cinemas: Cinema[]
   films: Film[]
   seances: Seance[]
   aujourdhui: string
   villagePublic: boolean
 }
 
-const fetcher = (u: string) => fetch(u).then(r => r.json())
+const fetcher = async (u: string) => {
+  const r = await fetch(u)
+  if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  return r.json()
+}
 
 export default function CinemaAujourdhui({ isAdmin = false }: { isAdmin?: boolean }) {
   const { data } = useSWR<Payload>('/api/cinema', fetcher, { revalidateOnFocus: false })
@@ -51,10 +56,10 @@ export default function CinemaAujourdhui({ isAdmin = false }: { isAdmin?: boolea
     return out
   }, [seancesDuJour, data])
 
-  // Pas encore ouvert au public : seuls les admins le voient.
+  // Réservé aux admins tant que le réglage n'ouvre pas au public.
   if (data && !data.villagePublic && !isAdmin) return null
-  // Et le bloc n'existe pas s'il n'y a rien à annoncer aujourd'hui.
-  if (!data?.cinema || films.length === 0) return null
+  // Et rien du tout s'il n'y a aucune séance aujourd'hui.
+  if (!data || films.length === 0) return null
 
   // Heure courante à Paris, pour distinguer la prochaine séance de celles
   // déjà passées : « 14h » à 20h n'intéresse plus personne.
@@ -63,7 +68,10 @@ export default function CinemaAujourdhui({ isAdmin = false }: { isAdmin?: boolea
   }).format(new Date())
   const prochaine = seancesDuJour.find(s => s.heure.slice(0, 5) >= maintenant)
 
-  const lien = `/cinema?cinema=${data.cinema.slug ?? data.cinema.id}`
+  // Une seule salle joue : on ouvre directement sa programmation. Plusieurs :
+  // l'accueil cinéma, qui les présentera toutes.
+  const seule = data.cinemas.length === 1 ? data.cinemas[0] : null
+  const lien = seule ? `/cinema?cinema=${seule.slug ?? seule.id}` : '/cinema'
 
   return (
     <div className="mx-4 mt-3.5 overflow-hidden rounded-[20px] bg-white" style={{ border: '1.5px solid #F0B08A' }}>
@@ -78,6 +86,7 @@ export default function CinemaAujourdhui({ isAdmin = false }: { isAdmin?: boolea
           <div className="font-title text-[18px] leading-tight text-texte">Au cinéma aujourd’hui</div>
           <div className="mt-[3px] text-[11.5px] text-texte-doux">
             {films.length} film{films.length > 1 ? 's' : ''} · {seancesDuJour.length} séance{seancesDuJour.length > 1 ? 's' : ''}
+            {data.cinemas.length > 1 ? ` · ${data.cinemas.length} salles` : ''}
           </div>
         </div>
         <span className="flex shrink-0 items-center gap-1 text-[12.5px] font-bold" style={{ color: '#C84B2F' }}>
