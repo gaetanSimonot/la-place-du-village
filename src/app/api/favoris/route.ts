@@ -33,12 +33,15 @@ export async function GET(req: NextRequest) {
   if (ctx instanceof Response) return ctx
 
   // Étape 1 : récupère les ids depuis les 4 tables de liaison en parallèle
-  const [pFavRowsRes, pFollowRowsRes, eFavRowsRes, eFollowRowsRes, promoFavRowsRes] = await Promise.all([
+  const [pFavRowsRes, pFollowRowsRes, eFavRowsRes, eFollowRowsRes, promoFavRowsRes, eventFavRowsRes] = await Promise.all([
     supabaseAdmin.from('producer_favorites').select('producer_id').eq('user_id', ctx.userId),
     supabaseAdmin.from('producer_followers').select('producer_id').eq('user_id', ctx.userId),
     supabaseAdmin.from('etablissement_favorites').select('etablissement_id').eq('user_id', ctx.userId),
     supabaseAdmin.from('etablissement_followers').select('etablissement_id').eq('user_id', ctx.userId),
     supabaseAdmin.from('promotion_favorites').select('promotion_id').eq('user_id', ctx.userId),
+    // Délai de rappel choisi pour chaque événement en favori (défaut 1 = veille).
+    // select('*') : tolérant si la migration rappel_jours n'est pas encore jouée.
+    supabaseAdmin.from('event_favorites').select('*').eq('user_id', ctx.userId),
   ])
 
   const pFavIds    = (pFavRowsRes.data    ?? []).map((r: { producer_id: string }) => r.producer_id)
@@ -46,6 +49,10 @@ export async function GET(req: NextRequest) {
   const eFavIds    = (eFavRowsRes.data    ?? []).map((r: { etablissement_id: string }) => r.etablissement_id)
   const eFollowIds = (eFollowRowsRes.data ?? []).map((r: { etablissement_id: string }) => r.etablissement_id)
   const promoFavIds = (promoFavRowsRes.data ?? []).map((r: { promotion_id: string }) => r.promotion_id)
+  const eventRappels: Record<string, number> = {}
+  for (const r of (eventFavRowsRes.data ?? []) as { event_id: string; rappel_jours: number | null }[]) {
+    eventRappels[r.event_id] = r.rappel_jours ?? 1
+  }
 
   // Étape 2 : fetch les entités liées (dédup pour ne charger chaque entité qu'une fois)
   const allPIds = Array.from(new Set([...pFavIds, ...pFollowIds]))
@@ -95,6 +102,7 @@ export async function GET(req: NextRequest) {
     etabFavs:        eFavIds.map(id => etabsById[id]).filter(Boolean),
     etabFollows:     eFollowIds.map(id => etabsById[id]).filter(Boolean),
     promoFavs:       promoFavIds.map(id => promosById[id]).filter(Boolean),
+    eventRappels,
   }, {
     headers: { 'Cache-Control': 'private, no-store' },
   })

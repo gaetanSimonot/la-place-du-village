@@ -7,7 +7,8 @@ import { formatEventDate } from '@/lib/filters'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
-import { pushDejaAccepte } from '@/components/PushPromptModal'
+import PushPromptModal, { pushDejaAccepte } from '@/components/PushPromptModal'
+import ClientPortal from '@/components/ClientPortal'
 import { useAnnonceFavorites } from '@/hooks/useAnnonceFavorites'
 import { authedFetcher } from '@/lib/swr-fetchers'
 import { ETAB_TYPES } from '@/lib/etablissement-types'
@@ -94,16 +95,36 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
   const [favoSub, setFavoSub]   = useState<FavoSub>('all')
   const [suivisSub, setSuivisSub] = useState<SuivisSub>('all')
 
+  async function changerRappel(eventId: string, jours: number) {
+    setRappelEdit(null)
+    // Optimiste : la pastille se met à jour tout de suite, on revalide après.
+    void mutate(
+      d => (d ? { ...d, eventRappels: { ...d.eventRappels, [eventId]: jours } } : d),
+      { revalidate: false },
+    )
+    const { data: { session } } = await supabase.auth.getSession()
+    await fetch(`/api/evenements/${eventId}/favorite`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}) },
+      body: JSON.stringify({ rappelJours: jours }),
+    }).catch(() => {})
+    void mutate()
+  }
+
   const favKey = !authLoading && user ? '/api/favoris' : null
   const { data, isLoading, mutate } = useSWR<{
     producerFavs: ProducerMin[]; producerFollows: ProducerMin[];
     etabFavs: EtabMin[]; etabFollows: EtabMin[]; promoFavs: PromoMin[];
+    eventRappels: Record<string, number>;
   }>(favKey, authedFetcher)
   const producerFavs    = data?.producerFavs    ?? []
   const producerFollows = data?.producerFollows ?? []
   const etabFavs        = data?.etabFavs        ?? []
   const etabFollows     = data?.etabFollows     ?? []
   const promoFavs       = data?.promoFavs       ?? []
+  const eventRappels    = data?.eventRappels    ?? {}
+  /** Événement dont on est en train de changer le moment du rappel. */
+  const [rappelEdit, setRappelEdit] = useState<{ id: string; titre: string } | null>(null)
   const loading = isLoading && !data
 
   const removeProducerFav = (id: string) =>
@@ -149,7 +170,12 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
         for (const a of annonceFavs) out.push(annonceToRow(a, () => toggleAnnonceFav(a.id)))
       }
       if (favoSub === 'all' || favoSub === 'events') {
-        for (const e of events) out.push(eventToRow(e, () => onToggleFav(e.id)))
+        for (const e of events) out.push(eventToRow(
+          e,
+          () => onToggleFav(e.id),
+          eventRappels[e.id] ?? 1,
+          () => setRappelEdit({ id: e.id, titre: e.titre }),
+        ))
       }
       if (favoSub === 'all' || favoSub === 'producteurs') {
         for (const p of producerFavs) {
@@ -213,7 +239,8 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
     }
     return out
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [section, favoSub, suivisSub, annonceFavs, events, producerFavs, etabFavs, promoFavs, producerFollows, etabFollows])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [section, favoSub, suivisSub, annonceFavs, events, producerFavs, etabFavs, promoFavs, producerFollows, etabFollows, eventRappels])
 
   return (
     <main className="min-h-[100dvh] bg-creme pb-28 font-inter text-texte">
@@ -360,6 +387,56 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
         )}
         {user && !loading && rows.map(r => <Row key={r.key} row={r} />)}
       </div>
+
+      {/* Choix du moment du rappel, pour un favori */}
+      {rappelEdit && (
+        <ClientPortal>
+          <div
+            onClick={() => setRappelEdit(null)}
+            className="fixed inset-0 z-[3400] flex items-end justify-center"
+            style={{ background: 'rgba(26,18,9,0.5)' }}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              className="w-full max-w-[460px] rounded-t-[22px] bg-white px-4 pb-8 pt-4"
+            >
+              <div className="mx-auto mb-3 h-1 w-9 rounded-full" style={{ background: '#D1CCC4' }} />
+              <p className="m-0 mb-1 text-center text-[14px] font-extrabold text-texte">Me rappeler…</p>
+              <p className="m-0 mb-3 truncate text-center text-[12px] text-texte-doux">{rappelEdit.titre}</p>
+              <div className="flex flex-col gap-1.5">
+                {RAPPEL_OPTIONS.map(o => {
+                  const actif = (eventRappels[rappelEdit.id] ?? 1) === o.jours
+                  return (
+                    <button
+                      key={o.jours}
+                      type="button"
+                      onClick={() => changerRappel(rappelEdit.id, o.jours)}
+                      className="flex items-center justify-between rounded-[12px] border px-3.5 py-3 text-[13.5px] font-bold"
+                      style={{
+                        borderColor: actif ? '#C8DEC0' : '#F0EAE0',
+                        background:  actif ? '#E8F2EB' : '#FDFAF5',
+                        color:       actif ? '#2D5A3D' : '#1A1209',
+                      }}
+                    >
+                      {o.label}
+                      {actif && (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </ClientPortal>
+      )}
+
+      {/* Demande d'activation — même composant que partout ailleurs, donc même
+          report de 12 jours et même respect d'un refus délibéré. Le bandeau
+          fixe ci-dessus prend le relais entre deux apparitions. */}
+      {user && <PushPromptModal delayMs={1800} />}
     </main>
   )
 }
@@ -385,6 +462,8 @@ interface RowItem {
   subtitle:  string
   /** Pastille de droite (compte à rebours du rappel, pour les événements). */
   badge?:    { label: string; bg: string; color: string }
+  /** Rend la pastille cliquable — pour changer le délai de rappel. */
+  onBadgeClick?: () => void
 }
 
 function annonceToRow(a: Annonce, onRemove: () => void): RowItem {
@@ -403,6 +482,15 @@ function annonceToRow(a: Annonce, onRemove: () => void): RowItem {
   }
 }
 
+/** Délais de rappel proposés, en jours avant l'événement. */
+export const RAPPEL_OPTIONS: { jours: number; label: string }[] = [
+  { jours: 0, label: 'Le jour même' },
+  { jours: 1, label: 'La veille' },
+  { jours: 2, label: '2 jours avant' },
+  { jours: 3, label: '3 jours avant' },
+  { jours: 7, label: 'Une semaine avant' },
+]
+
 /**
  * Compte à rebours d'un événement en favori.
  *
@@ -413,7 +501,7 @@ function annonceToRow(a: Annonce, onRemove: () => void): RowItem {
  *
  * Le rappel part la veille : c'est ce que la pastille annonce.
  */
-function rappelBadge(dateDebut?: string | null): RowItem['badge'] {
+function rappelBadge(dateDebut?: string | null, rappelJours = 1): RowItem['badge'] {
   if (!dateDebut) return undefined
   const auj = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit',
@@ -421,13 +509,18 @@ function rappelBadge(dateDebut?: string | null): RowItem['badge'] {
   const jours = Math.round(
     (Date.parse(`${dateDebut}T12:00:00Z`) - Date.parse(`${auj}T12:00:00Z`)) / 86_400_000,
   )
-  if (jours < 0)  return undefined                                              // passé
+  if (jours < 0)   return undefined                                             // passé
   if (jours === 0) return { label: "aujourd'hui", bg: '#FFF0E5', color: '#C84B2F' }
   if (jours === 1) return { label: 'demain',      bg: '#FFF0E5', color: '#C84B2F' }
-  return { label: `rappel dans ${jours - 1} j`, bg: '#E8F2EB', color: '#2D5A3D' }
+  // Le rappel part `rappelJours` avant l'événement : on affiche l'échéance
+  // du RAPPEL, pas celle de l'événement — c'est ce que la personne règle.
+  const avantRappel = jours - rappelJours
+  if (avantRappel <= 0) return { label: `dans ${jours} j`,       bg: '#FFF0E5', color: '#C84B2F' }
+  if (avantRappel === 1) return { label: 'rappel demain',        bg: '#E8F2EB', color: '#2D5A3D' }
+  return { label: `rappel dans ${avantRappel} j`, bg: '#E8F2EB', color: '#2D5A3D' }
 }
 
-function eventToRow(e: EvenementCard, onRemove: () => void): RowItem {
+function eventToRow(e: EvenementCard, onRemove: () => void, rappelJours = 1, onEditRappel?: () => void): RowItem {
   const date = e.date_debut ? formatEventDate(e.date_debut, e.date_fin) : ''
   const commune = e.lieux?.commune ?? ''
   return {
@@ -442,7 +535,8 @@ function eventToRow(e: EvenementCard, onRemove: () => void): RowItem {
     tag:       CAT_TAG.event,
     title:     e.titre,
     subtitle:  [date, commune].filter(Boolean).join(' • '),
-    badge:     rappelBadge(e.date_debut),
+    badge:     rappelBadge(e.date_debut, rappelJours),
+    onBadgeClick: onEditRappel,
   }
 }
 
@@ -598,12 +692,27 @@ function Row({ row }: { row: RowItem }) {
 
       {/* Compte à rebours du rappel (événements à venir uniquement) */}
       {row.badge && (
-        <span
-          className="shrink-0 whitespace-nowrap rounded-full px-2 py-[3px] text-[10px] font-extrabold"
-          style={{ background: row.badge.bg, color: row.badge.color }}
-        >
-          {row.badge.label}
-        </span>
+        row.onBadgeClick ? (
+          <button
+            type="button"
+            onClick={e => { e.preventDefault(); e.stopPropagation(); row.onBadgeClick?.() }}
+            aria-label="Changer le moment du rappel"
+            className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border-none px-2 py-[4px] text-[10px] font-extrabold"
+            style={{ background: row.badge.bg, color: row.badge.color }}
+          >
+            {row.badge.label}
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+        ) : (
+          <span
+            className="shrink-0 whitespace-nowrap rounded-full px-2 py-[3px] text-[10px] font-extrabold"
+            style={{ background: row.badge.bg, color: row.badge.color }}
+          >
+            {row.badge.label}
+          </span>
+        )
       )}
 
       {/* Bouton remove (cœur fill rouge ou cloche) */}
