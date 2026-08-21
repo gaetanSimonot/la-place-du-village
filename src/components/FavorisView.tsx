@@ -5,6 +5,7 @@ import useSWR from 'swr'
 import { EvenementCard } from '@/lib/types'
 import { formatEventDate } from '@/lib/filters'
 import { supabase } from '@/lib/supabase'
+import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
 import PushPromptModal, { pushDejaAccepte } from '@/components/PushPromptModal'
@@ -95,20 +96,43 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
   const [favoSub, setFavoSub]   = useState<FavoSub>('all')
   const [suivisSub, setSuivisSub] = useState<SuivisSub>('all')
 
+  /**
+   * Change le moment du rappel d'un favori.
+   *
+   * Volontairement SANS revalidation après coup. Fermer la feuille de choix
+   * redonne le focus, ce qui déclenche une revalidation de /api/favoris — qui
+   * part avant que le PATCH n'ait abouti et rapporte donc l'ancienne valeur.
+   * Et comme SWR dédoublonne les requêtes pendant 5 s, un `mutate()` final
+   * serait fusionné avec elle plutôt que de relire. Le réglage semblait donc
+   * revenir en arrière alors qu'il était bien enregistré.
+   *
+   * On pose la valeur nous-mêmes, on la remplace par celle que le serveur
+   * confirme, et on revient en arrière si l'appel échoue.
+   */
   async function changerRappel(eventId: string, jours: number) {
     setRappelEdit(null)
-    // Optimiste : la pastille se met à jour tout de suite, on revalide après.
-    void mutate(
-      d => (d ? { ...d, eventRappels: { ...d.eventRappels, [eventId]: jours } } : d),
+    const precedent = eventRappels[eventId] ?? 1
+    const poser = (v: number) => mutate(
+      d => (d ? { ...d, eventRappels: { ...(d.eventRappels ?? {}), [eventId]: v } } : d),
       { revalidate: false },
     )
+    void poser(jours)
+
     const { data: { session } } = await supabase.auth.getSession()
-    await fetch(`/api/evenements/${eventId}/favorite`, {
+    const res = await fetch(`/api/evenements/${eventId}/favorite`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}) },
       body: JSON.stringify({ rappelJours: jours }),
-    }).catch(() => {})
-    void mutate()
+    }).catch(() => null)
+
+    if (!res?.ok) {
+      void poser(precedent)
+      toast.error('Le rappel n’a pas pu être modifié.')
+      return
+    }
+    // Le serveur borne la valeur : on affiche ce qu'il a réellement retenu.
+    const body = await res.json().catch(() => null)
+    if (typeof body?.rappelJours === 'number' && body.rappelJours !== jours) void poser(body.rappelJours)
   }
 
   const favKey = !authLoading && user ? '/api/favoris' : null
