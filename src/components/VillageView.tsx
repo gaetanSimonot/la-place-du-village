@@ -21,17 +21,25 @@ interface VillagePost extends PostData {
   authorAvatar: string | null
 }
 
-/** Le « mur du village » : logo + Profil, titre, 4 raccourcis, Aujourd'hui + le fil du village (groupe). */
-export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaToday, onUpgradePrompt }: {
+/** Le « mur du village » : logo + identité, titre, 4 raccourcis, Aujourd'hui + le fil du village (groupe). */
+export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaToday, onUpgradePrompt, onOpenNotifs, unreadCount = 0 }: {
   onOpenProfil: () => void
   onOpenSplash?: () => void
+  /** Cloche de la top bar → vue notifications du shell. */
+  onOpenNotifs?: () => void
+  /** Compteur non lus, fourni par le shell (unique porteur de useNotifications). */
+  unreadCount?: number
   /** « Voir tout » de la section Aujourd'hui → carte agenda du jour. */
   onOpenAgendaToday?: () => void
   /** CTA abonnement (comptes gratuits) → SubscriptionModal du shell. */
   onUpgradePrompt?: (plan: 'habitants' | 'pro', label: string) => void
 }) {
   const { user, profile } = useAuth()
+  const { openAuthModal } = useAuthModal()
   const avatar = profile?.avatar_url ?? null
+  // Prénom = premier mot du nom affiché. Tronqué en CSS pour les noms longs.
+  const prenom = (profile?.display_name ?? '').trim().split(/\s+/)[0] || 'Profil'
+  const initiale = prenom.charAt(0).toUpperCase() || '?'
 
   // CTA plans (comptes gratuits) — même dismiss persistant que sur l'ancien hub.
   const [plansCardDismissed, setPlansCardDismissed] = useState(false)
@@ -57,18 +65,70 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-topbar.webp" alt="La Place du Village" style={{ height: 38, width: 'auto', objectFit: 'contain', display: 'block' }} />
         </button>
-        <button
-          type="button"
-          onClick={onOpenProfil}
-          aria-label="Mon profil"
-          className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border bg-white px-3.5 text-[13px] font-extrabold text-texte"
-          style={{ borderColor: '#E8E0D4' }}
-        >
-          <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-          </svg>
-          Profil
-        </button>
+        {user ? (
+          <div className="flex shrink-0 items-center gap-1.5">
+            {/* Cloche + pastille rouge — le compteur descend du shell, qui tient
+                l'unique abonnement Realtime aux notifications (un seul appel de
+                useNotifications dans tout l'arbre, sinon les channels se marchent
+                dessus). */}
+            <button
+              type="button"
+              onClick={onOpenNotifs}
+              aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} non lues` : 'Notifications'}
+              className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-none bg-transparent text-texte"
+              style={{ cursor: 'pointer' }}
+            >
+              <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8a6 6 0 0 0-12 0c0 6-3 7-3 7h18s-3-1-3-7" />
+                <path d="M13.7 20a2 2 0 0 1-3.4 0" />
+              </svg>
+              {unreadCount > 0 && (
+                <span
+                  className="absolute inline-flex items-center justify-center rounded-full font-extrabold text-white"
+                  style={{
+                    top: 1, right: 1, minWidth: 17, height: 17, fontSize: 9.5, padding: '0 3.5px',
+                    backgroundColor: '#E53935', border: '1.5px solid #fff',
+                  }}
+                >
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* Pastille identité : avatar + prénom, remplace l'ancien « Profil » */}
+            <button
+              type="button"
+              onClick={onOpenProfil}
+              aria-label="Mon profil"
+              className="flex h-9 shrink-0 items-center gap-2 rounded-full border-none pl-1 pr-3.5 text-[13px] font-extrabold text-white"
+              style={{ backgroundColor: '#2D5A3D', cursor: 'pointer' }}
+            >
+              <span
+                className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full text-[13px] font-extrabold"
+                style={{ backgroundColor: '#E8F2EB', color: '#2D5A3D' }}
+              >
+                {avatar
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : initiale}
+              </span>
+              <span className="max-w-[110px] truncate">{prenom}</span>
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => openAuthModal()}
+            className="flex h-9 shrink-0 items-center gap-2 rounded-full border-none px-4 text-[13px] font-extrabold text-white"
+            style={{ backgroundColor: '#2D5A3D', cursor: 'pointer' }}
+          >
+            <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+              <polyline points="10 17 15 12 10 7" /><line x1="15" y1="12" x2="3" y2="12" />
+            </svg>
+            Se connecter
+          </button>
+        )}
       </div>
 
       {/* Titre — 2 lignes, gros et gras (façon mockup) */}

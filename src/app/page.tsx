@@ -1332,6 +1332,8 @@ export default function HomePage() {
           <VillageView
             onOpenProfil={() => setNavTab('profil')}
             onOpenSplash={() => setSplashOpen(true)}
+            onOpenNotifs={() => handleNavTab('notifs')}
+            unreadCount={notifCount}
             onOpenAgendaToday={() => { enterAgendaToday(); setSheetMode('half') }}
             onUpgradePrompt={(plan, label) => setUpgradePrompt({ plan, label })}
           />
