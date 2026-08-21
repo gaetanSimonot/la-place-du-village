@@ -360,6 +360,39 @@ export default function BottomSheet({
   useEffect(() => { setVisibleCount(BATCH) }, [evenements])
   useEffect(() => { setVisibleEtabCount(BATCH) }, [etablissements])
 
+  // L'événement sélectionné garde SA place dans la liste. On le remontait
+  // autrefois en tête, ce qui réorganisait tout sous les doigts : maintenant
+  // c'est la liste qui défile jusqu'à lui.
+  const visibleSource = hiddenIds.size > 0 ? evenements.filter(e => !hiddenIds.has(e.id)) : evenements
+
+  /**
+   * Sélection d'un événement (depuis la carte ou la liste) : on fait défiler
+   * jusqu'à sa carte pour l'amener en haut, sans toucher à l'ordre.
+   *
+   * Deux précautions : s'il est au-delà de ce qui est rendu, on étend d'abord
+   * la pagination ; et on ne fait rien tant qu'une restauration de position
+   * est en cours (retour d'une fiche), sinon on écraserait ce qu'on vient
+   * justement de rendre à l'utilisateur.
+   */
+  useEffect(() => {
+    if (!selectedId || restoreScrollTop != null) return
+    const idx = visibleSource.findIndex(e => e.id === selectedId)
+    if (idx < 0) return
+    if (idx >= visibleCount) { setVisibleCount(Math.ceil((idx + 1) / BATCH) * BATCH); return }
+    const list = listRef.current
+    if (!list) return
+    // rAF : laisser le rendu poser la carte avant de mesurer sa position.
+    const raf = requestAnimationFrame(() => {
+      const card = list.querySelector<HTMLElement>(`[data-evt-id="${CSS.escape(selectedId)}"]`)
+      if (!card) return
+      const top = card.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop
+      list.scrollTo({ top: Math.max(0, top - 4), behavior: 'smooth' })
+    })
+    return () => cancelAnimationFrame(raf)
+  // visibleSource change d'identité à chaque rendu : on se cale sur sa longueur.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, visibleCount, visibleSource.length, restoreScrollTop])
+
   // Scroll en haut quand on descend en peek — sauf si une restauration est en
   // cours : on revient d'une fiche et remettre la liste en haut annulerait
   // précisément ce qu'on cherche à rendre.
@@ -381,12 +414,7 @@ export default function BottomSheet({
     return Array.from(names).slice(0, 6)
   }, [producers, producerSearch])
 
-  const visibleSource = hiddenIds.size > 0 ? evenements.filter(e => !hiddenIds.has(e.id)) : evenements
-  const sortedEvents = selectedId
-    ? [...visibleSource.filter(e => e.id === selectedId), ...visibleSource.filter(e => e.id !== selectedId)]
-    : visibleSource
-
-  const visibleEvents = sortedEvents.slice(0, visibleCount)
+  const visibleEvents = visibleSource.slice(0, visibleCount)
 
   return (
     <>
@@ -817,7 +845,7 @@ export default function BottomSheet({
           )
         ) : loading ? (
           [1,2,3].map(i => <SkeletonCard key={i} />)
-        ) : sortedEvents.length === 0 ? (
+        ) : visibleSource.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 0', color: sheetBg.sub }}>
             <p style={{ fontSize: 48, marginBottom: 10 }}>🏡</p>
             <p style={{ fontWeight: 700, fontSize: 16, fontFamily: 'var(--font-body), sans-serif', color: sheetBg.text }}>Aucun événement</p>
@@ -852,7 +880,7 @@ export default function BottomSheet({
                 onTogglePick={() => togglePick(evt.id)}
               />
             ))}
-            {visibleCount < sortedEvents.length && (
+            {visibleCount < visibleSource.length && (
               <div ref={loaderRef} style={{ height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid #E0D8CE', borderTopColor: 'var(--primary)', animation: 'spin 0.7s linear infinite' }} />
               </div>
@@ -930,6 +958,7 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
 
   return (
     <Link href={`/evenement/${evt.id}`}
+      data-evt-id={evt.id}
       onClick={e => {
         // Si un clic long vient de se déclencher → on avale le clic (pas de nav).
         if (lpFired.current) { e.preventDefault(); lpFired.current = false; return }
