@@ -9,6 +9,7 @@ import { useAuthModal } from '@/contexts/AuthModalContext'
 import type { Evenement } from '@/lib/types'
 import { SectionHeaderV3, FeaturedEventCard, MiniEventCard, MoreEventsCard } from '@/components/HubView'
 import PlansCardFinal from '@/components/PlansCardFinal'
+import CinemaAujourdhui from '@/components/CinemaAujourdhui'
 import PostComposer from '@/components/profil/PostComposer'
 import PostCard, { type PostData } from '@/components/profil/PostCard'
 import PostCommentsDrawer from '@/components/profil/PostCommentsDrawer'
@@ -34,7 +35,7 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
   /** CTA abonnement (comptes gratuits) → SubscriptionModal du shell. */
   onUpgradePrompt?: (plan: 'habitants' | 'pro', label: string) => void
 }) {
-  const { user, profile } = useAuth()
+  const { user, profile, isAdmin } = useAuth()
   const { openAuthModal } = useAuthModal()
   const avatar = profile?.avatar_url ?? null
   // Prénom = premier mot du nom affiché. Tronqué en CSS pour les noms longs.
@@ -140,6 +141,12 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
 
       {/* 4 tuiles */}
       <Tiles />
+
+      {/* Au cinéma aujourd'hui — RÉSERVÉ AUX ADMINS le temps du rodage.
+          Le composant lui-même ne connaît aucun rôle : le jour de l'ouverture
+          au public, il suffit de retirer `isAdmin &&` ci-dessous. Il disparaît
+          déjà tout seul quand il n'y a aucune séance du jour. */}
+      {isAdmin && <CinemaAujourdhui />}
 
       {/* CTA abonnement (comptes gratuits, dismissable) — repris du hub */}
       {showPlansCard && (
