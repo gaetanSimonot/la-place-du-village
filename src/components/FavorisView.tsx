@@ -1,11 +1,13 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
 import { EvenementCard } from '@/lib/types'
 import { formatEventDate } from '@/lib/filters'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
+import { usePushNotifications } from '@/hooks/usePushNotifications'
+import { pushDejaAccepte } from '@/components/PushPromptModal'
 import { useAnnonceFavorites } from '@/hooks/useAnnonceFavorites'
 import { authedFetcher } from '@/lib/swr-fetchers'
 import { ETAB_TYPES } from '@/lib/etablissement-types'
@@ -83,6 +85,10 @@ const IcStore = ({ size = 22 }: { size?: number }) => (
 
 export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpenEtablissement, onBack }: Props) {
   const { user, loading: authLoading } = useAuth()
+  const { state: pushState, busy: pushBusy, enable: enablePush } = usePushNotifications()
+  // Lu au montage seulement : localStorage n'existe pas au rendu serveur.
+  const [pushDejaVu, setPushDejaVu] = useState(false)
+  useEffect(() => { setPushDejaVu(pushDejaAccepte()) }, [])
 
   const [section, setSection]   = useState<Section>('favoris')
   const [favoSub, setFavoSub]   = useState<FavoSub>('all')
@@ -291,6 +297,46 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
         </div>
       )}
 
+      {/* Invitation fixe à activer les notifications — pas une pop-up : elle
+          reste là tant que ce n'est pas fait, sans jamais interrompre. Ne
+          s'affiche que si le push est possible et pas encore activé (donc
+          jamais chez quelqu'un qui a refusé au niveau du navigateur). */}
+      {user && section === 'favoris' && !pushDejaVu && (pushState === 'off' || pushState === 'ios-needs-install') && (
+        <div
+          className="mx-4 mt-3.5 flex items-center gap-3 rounded-[14px] border p-3"
+          style={{ borderColor: '#F0D4C8', background: '#FFF6EF' }}
+        >
+          <span
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+            style={{ background: '#FFE6D6', color: '#C0440A' }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+              <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+            </svg>
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[13px] font-extrabold text-texte">
+              {pushState === 'ios-needs-install' ? "Installez l'app pour les rappels" : 'Recevez vos rappels'}
+            </div>
+            <div className="mt-[2px] text-[11.5px] leading-snug text-texte-doux">
+              {pushState === 'ios-needs-install'
+                ? "Ajoutez La Place du Village à votre écran d'accueil pour être prévenu la veille."
+                : 'Votre téléphone vous prévient la veille de vos événements favoris.'}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => { if (pushState === 'ios-needs-install') { window.location.href = '/app'; return } void enablePush() }}
+            disabled={pushBusy}
+            className="shrink-0 rounded-full border-none px-3.5 py-2 text-[12px] font-extrabold text-white"
+            style={{ background: '#C14A2B', opacity: pushBusy ? 0.6 : 1 }}
+          >
+            {pushBusy ? '…' : pushState === 'ios-needs-install' ? 'Installer' : 'Activer'}
+          </button>
+        </div>
+      )}
+
       {/* ── Liste plate uniforme (style messagerie) ─────────────────── */}
       <div className="pt-3.5">
         {!user && (
@@ -337,6 +383,8 @@ interface RowItem {
   tag:       { label: string; bg: string; color: string }
   title:     string
   subtitle:  string
+  /** Pastille de droite (compte à rebours du rappel, pour les événements). */
+  badge?:    { label: string; bg: string; color: string }
 }
 
 function annonceToRow(a: Annonce, onRemove: () => void): RowItem {
@@ -355,6 +403,30 @@ function annonceToRow(a: Annonce, onRemove: () => void): RowItem {
   }
 }
 
+/**
+ * Compte à rebours d'un événement en favori.
+ *
+ * Purement calculé à l'affichage depuis `date_debut` : aucun appel serveur,
+ * aucune donnée stockée, et volontairement PAS de minuterie à la seconde —
+ * un rafraîchissement par seconde sur une liste ne dirait rien de plus et
+ * ferait travailler le téléphone pour rien.
+ *
+ * Le rappel part la veille : c'est ce que la pastille annonce.
+ */
+function rappelBadge(dateDebut?: string | null): RowItem['badge'] {
+  if (!dateDebut) return undefined
+  const auj = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date())
+  const jours = Math.round(
+    (Date.parse(`${dateDebut}T12:00:00Z`) - Date.parse(`${auj}T12:00:00Z`)) / 86_400_000,
+  )
+  if (jours < 0)  return undefined                                              // passé
+  if (jours === 0) return { label: "aujourd'hui", bg: '#FFF0E5', color: '#C84B2F' }
+  if (jours === 1) return { label: 'demain',      bg: '#FFF0E5', color: '#C84B2F' }
+  return { label: `rappel dans ${jours - 1} j`, bg: '#E8F2EB', color: '#2D5A3D' }
+}
+
 function eventToRow(e: EvenementCard, onRemove: () => void): RowItem {
   const date = e.date_debut ? formatEventDate(e.date_debut, e.date_fin) : ''
   const commune = e.lieux?.commune ?? ''
@@ -370,6 +442,7 @@ function eventToRow(e: EvenementCard, onRemove: () => void): RowItem {
     tag:       CAT_TAG.event,
     title:     e.titre,
     subtitle:  [date, commune].filter(Boolean).join(' • '),
+    badge:     rappelBadge(e.date_debut),
   }
 }
 
@@ -522,6 +595,16 @@ function Row({ row }: { row: RowItem }) {
           <div className="mt-[2px] truncate text-[12px] text-texte-doux">{row.subtitle}</div>
         )}
       </div>
+
+      {/* Compte à rebours du rappel (événements à venir uniquement) */}
+      {row.badge && (
+        <span
+          className="shrink-0 whitespace-nowrap rounded-full px-2 py-[3px] text-[10px] font-extrabold"
+          style={{ background: row.badge.bg, color: row.badge.color }}
+        >
+          {row.badge.label}
+        </span>
+      )}
 
       {/* Bouton remove (cœur fill rouge ou cloche) */}
       {row.onRemove && (

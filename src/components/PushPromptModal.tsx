@@ -16,6 +16,18 @@ import { usePushNotifications } from '@/hooks/usePushNotifications'
  * de demander à froid.
  */
 const DONE_KEY = 'pdv-push-prompt-done'
+
+/**
+ * A-t-on déjà obtenu un oui de cette personne ?
+ *
+ * Posé une seule fois, à la première activation réussie, et jamais effacé —
+ * y compris si elle désactive ensuite depuis les réglages. C'est délibéré :
+ * couper les notifications est un choix explicite, on ne revient pas le lui
+ * demander. Toute nouvelle invitation à activer doit consulter ce drapeau.
+ */
+export function pushDejaAccepte(): boolean {
+  try { return !!localStorage.getItem(DONE_KEY) } catch { return false }
+}
 // v2 : le renommage de la clé remet tous les reports en cours à zéro. Voulu —
 // on relance tout le monde à partir d'aujourd'hui. DONE_KEY, lui, ne change
 // PAS : quelqu'un qui a déjà activé n'a aucune raison d'être relancé.
