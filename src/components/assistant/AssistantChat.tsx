@@ -142,8 +142,6 @@ export default function AssistantChat({ question, dicter, onClose }: {
   const [detache, setDetache] = useState(false)
   const micRef = useRef<MicButtonHandle>(null)
   const champRef = useRef<HTMLTextAreaElement>(null)
-  /** Une transcription Whisper annulée ne doit pas atterrir dans le champ. */
-  const jeterRef = useRef(false)
   /** Le volet des conversations : on le referme en glissant, pas d'un coup. */
   const [voletSort, setVoletSort] = useState(false)
   const fermerRef = useRef<() => void>(() => {})
@@ -358,11 +356,6 @@ export default function AssistantChat({ question, dicter, onClose }: {
   const lancerDictee = () => {
     if (ecoute || micEtat === 'transcribing') return
     micRef.current?.start()
-  }
-  /** La croix renonce : on arrête, et on jette ce qui revient. */
-  const annulerDictee = () => {
-    jeterRef.current = true
-    micRef.current?.stop()
   }
   /**
    * Le bouton vert coupe l'enregistrement. Il n'envoie PAS dans la foulée :
@@ -648,38 +641,43 @@ export default function AssistantChat({ question, dicter, onClose }: {
           />
           )}
 
-          {/* Pendant qu'on parle, le micro devient une CROIX : elle renonce à
-              la dictée et rend le champ tel qu'il était. Ce n'est pas un
-              « stop » — arrêter et envoyer, c'est le rôle du bouton vert. */}
+          {/* Un seul bouton, trois états, dans l'ordre où on les rencontre :
+              on lance la dictée (micro), on l'arrête pour relire (stop), puis
+              on efface si la transcription ne va pas (croix). Arrêter n'est
+              pas renoncer : après le stop, on corrige au clavier ou on envoie. */}
           {ecoute ? (
-            <button type="button" onClick={annulerDictee} aria-label="Annuler la dictée"
-              className="flex-none border-none bg-transparent" style={{ color: '#C84B2F', lineHeight: 0, paddingBottom: 4 }}>
+            <button type="button" onClick={() => micRef.current?.stop()} aria-label="Arrêter la dictée"
+              className="flex flex-none items-center justify-center border-none bg-transparent"
+              style={{ color: '#C84B2F', lineHeight: 0, paddingBottom: 4, width: 20, height: 26 }}>
+              <span style={{ display: 'block', width: 13, height: 13, borderRadius: 3, background: '#C84B2F' }} />
+            </button>
+          ) : micEtat === 'transcribing' ? (
+            <span className="flex flex-none items-center justify-center" style={{ width: 20, height: 26, paddingBottom: 4 }}>
+              <span className="inline-block animate-spin"
+                style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid #E3D9C8', borderTopColor: '#7A6A5A' }} />
+            </span>
+          ) : saisie.trim() ? (
+            <button type="button" onClick={() => setSaisie('')} aria-label="Effacer"
+              className="flex flex-none items-center justify-center border-none bg-transparent"
+              style={{ color: '#A99B89', lineHeight: 0, paddingBottom: 4, width: 20, height: 26 }}>
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
                 <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
           ) : (
             <button type="button" onClick={lancerDictee} aria-label="Dicter"
-              className="flex-none border-none bg-transparent"
-              style={{ color: micEtat === 'transcribing' ? '#7A6A5A' : '#A99B89', lineHeight: 0, paddingBottom: 4 }}>
-              {micEtat === 'transcribing' ? (
-                <span className="inline-block animate-spin"
-                  style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid #E3D9C8', borderTopColor: '#7A6A5A' }} />
-              ) : (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
-                  <path d="M19 11v1a7 7 0 0 1-14 0v-1" /><line x1="12" y1="19" x2="12" y2="22" />
-                </svg>
-              )}
+              className="flex flex-none items-center justify-center border-none bg-transparent"
+              style={{ color: '#A99B89', lineHeight: 0, paddingBottom: 4, width: 20, height: 26 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
+                <path d="M19 11v1a7 7 0 0 1-14 0v-1" /><line x1="12" y1="19" x2="12" y2="22" />
+              </svg>
             </button>
           )}
           {/* Repli Whisper là où le navigateur ne sait pas écouter en direct
               (Firefox, iOS) : on enregistre, et le texte arrive d'un coup. */}
           <MicButton ref={micRef} hidden onStateChange={setMicEtat}
-            onTranscript={t => {
-              if (jeterRef.current) { jeterRef.current = false; return }
-              if (t?.trim()) setSaisie(p => (p ? `${p} ${t.trim()}` : t.trim()))
-            }} />
+            onTranscript={t => { if (t?.trim()) setSaisie(p => (p ? `${p} ${t.trim()}` : t.trim())) }} />
         </div>
 
         <button
