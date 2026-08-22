@@ -200,3 +200,15 @@ html[data-univers='cinema'] {
   background: var(--cine-bg);
 }
 html[data-univers='cinema'] body { background: var(--cine-bg); }
+
+/* ═══════════ ÉGALISEUR — l'assistant écoute ═══════════
+   Whisper transcrit à la fin, pas pendant : sans ce signe, on parle dans le
+   vide sans savoir si le micro a pris. Cinq barres qui respirent, décalées. */
+@keyframes lpv-eq {
+  0%, 100% { transform: scaleY(0.3); }
+  50%      { transform: scaleY(1); }
+}
+.lpv-eq-bar {
+  animation: lpv-eq 0.9s ease-in-out infinite;
+  transform-origin: center;
+}

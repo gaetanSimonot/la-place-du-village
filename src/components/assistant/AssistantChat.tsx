@@ -1,6 +1,5 @@
 'use client'
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useDicteeLive } from '@/hooks/useDicteeLive'
 import { supabase } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
 import SubscriptionModal from '@/components/SubscriptionModal'
@@ -9,6 +8,7 @@ import CarteResultat, { type CarteData } from '@/components/assistant/CarteResul
 import ApercuFiche from '@/components/assistant/ApercuFiche'
 import CarteAction, { type ActionProposee } from '@/components/assistant/CarteAction'
 import Soleil from '@/components/assistant/Soleil'
+import { formaterCout } from '@/lib/assistant/cout'
 import ClientPortal from '@/components/ClientPortal'
 import {
   derniereConversation, lireConversations, enregistrerConversation, oublierConversation,
@@ -129,14 +129,21 @@ export default function AssistantChat({ question, dicter, onClose }: {
   const [cherche, setCherche] = useState<string | null>(null)
   /** État du micro — c'est lui qui fait battre le bouton en rouge. */
   const [micEtat, setMicEtat] = useState<'idle' | 'recording' | 'transcribing'>('idle')
+  /**
+   * Ce que la conversation a coûté. N'arrive du serveur que pour un compte
+   * admin : si le champ est absent, il n'y a rien à afficher, et le client
+   * n'a même pas à savoir qui il est.
+   */
+  const [cout, setCout] = useState(0)
   const finRef = useRef<HTMLDivElement>(null)
+  const filRef = useRef<HTMLDivElement>(null)
+  /** Suit-on la rédaction, ou l'a-t-on quittée des yeux pour relire plus haut ? */
+  const suivreRef = useRef(true)
+  const [detache, setDetache] = useState(false)
   const micRef = useRef<MicButtonHandle>(null)
   const champRef = useRef<HTMLTextAreaElement>(null)
   /** Une transcription Whisper annulée ne doit pas atterrir dans le champ. */
   const jeterRef = useRef(false)
-  const dictee = useDicteeLive({ onTexte: t => setSaisie(t.slice(0, 500)) })
-  const dicteeRef = useRef(dictee)
-  dicteeRef.current = dictee
   /** Le volet des conversations : on le referme en glissant, pas d'un coup. */
   const [voletSort, setVoletSort] = useState(false)
   const fermerRef = useRef<() => void>(() => {})
@@ -144,7 +151,31 @@ export default function AssistantChat({ question, dicter, onClose }: {
   const parHistorique = useRef(false)
   const envoiRef = useRef<(q: string) => void>(() => {})
 
-  useEffect(() => { finRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, cherche])
+  /**
+   * On ne suit la rédaction que si l'on est DÉJÀ en bas.
+   *
+   * Le défilement était forcé à chaque morceau de phrase : impossible de
+   * remonter lire une réponse précédente pendant qu'il écrivait, l'écran
+   * redescendait aussitôt. Dès qu'on s'éloigne du bas, on lâche prise — et un
+   * bouton propose de redescendre quand on le veut.
+   */
+  useEffect(() => {
+    if (suivreRef.current) finRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, cherche])
+
+  const surDefilement = useCallback(() => {
+    const el = filRef.current
+    if (!el) return
+    const enBas = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    suivreRef.current = enBas
+    setDetache(!enBas)
+  }, [])
+
+  const redescendre = () => {
+    suivreRef.current = true
+    setDetache(false)
+    finRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
 
   /**
    * Le bouton retour du téléphone referme l'assistant et rend le Village.
@@ -181,6 +212,9 @@ export default function AssistantChat({ question, dicter, onClose }: {
     if (!q || enCours) return
     setSaisie('')
     setEnCours(true)
+    // On vient de parler : on veut voir la réponse arriver.
+    suivreRef.current = true
+    setDetache(false)
     setMessages(m => [...m, { role: 'user', texte: q, cartes: [] }, { role: 'assistant', texte: '', cartes: [], encours: true }])
 
     const majDernier = (f: (m: Message) => Message) =>
@@ -224,6 +258,7 @@ export default function AssistantChat({ question, dicter, onClose }: {
           try { ev = JSON.parse(ligne.slice(6)) } catch { continue }
 
           if (ev.type === 'debut') { convRef.current = String(ev.conversationId); setConversationId(String(ev.conversationId)) }
+          else if (ev.type === 'fin' && typeof ev.cout === 'number') setCout(c => c + (ev.cout as number))
           else if (ev.type === 'texte') { setCherche(null); majDernier(m => ({ ...m, texte: m.texte + String(ev.delta) })) }
           else if (ev.type === 'outil') {
             setCherche(ev.nom === 'web_search' ? 'web'
@@ -269,12 +304,7 @@ export default function AssistantChat({ question, dicter, onClose }: {
     // Entré par le micro de la barre : on ouvre l'oreille du même côté que le
     // bouton du champ, sinon on lançait Whisper ici et la reconnaissance en
     // direct là — deux transcriptions du même moment.
-    else if (dicter) {
-      setTimeout(() => {
-        if (dicteeRef.current.supporte) dicteeRef.current.demarrer('')
-        else micRef.current?.start()
-      }, 250)
-    }
+    else if (dicter) setTimeout(() => micRef.current?.start(), 250)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -311,30 +341,36 @@ export default function AssistantChat({ question, dicter, onClose }: {
     setTimeout(() => { setListeOuverte(false); setVoletSort(false) }, 220)
   }, [])
 
-  /** On écoute — en direct si le navigateur sait, sinon Whisper enregistre. */
-  const ecoute = dictee.actif || micEtat === 'recording'
+  /**
+   * On dicte avec Whisper, et rien d'autre.
+   *
+   * La reconnaissance du navigateur écrivait les mots en direct, mais elle
+   * répétait les phrases : `continuous` clôt la session à chaque silence, et
+   * ses relances rendaient deux à trois fois le même texte selon le
+   * navigateur. Whisper enregistre puis transcrit d'un bloc — on ne voit pas
+   * les mots arriver, mais ce qui arrive est juste, et c'est vrai partout, y
+   * compris sur iOS où la reconnaissance n'existe pas.
+   *
+   * Ce qu'on perd en direct, l'égaliseur le rend : on voit qu'on est écouté.
+   */
+  const ecoute = micEtat === 'recording'
 
   const lancerDictee = () => {
-    // Jamais les deux à la fois : la reconnaissance du navigateur écrit en
-    // direct pendant que Whisper rendrait le même texte à la fin. C'était la
-    // seconde façon de tout voir s'écrire en double.
-    if (ecoute) return
-    if (dictee.supporte) { dictee.demarrer(saisie); return }
+    if (ecoute || micEtat === 'transcribing') return
     micRef.current?.start()
   }
+  /** La croix renonce : on arrête, et on jette ce qui revient. */
   const annulerDictee = () => {
-    if (dictee.actif) { dictee.annuler(); return }
-    // Whisper n'a pas d'annulation : on arrête, et on jette ce qui revient.
     jeterRef.current = true
     micRef.current?.stop()
   }
   /**
-   * Le bouton vert fait les deux : il coupe la dictée en cours ET envoie.
-   * On ne devrait jamais avoir à appuyer deux fois pour dire une phrase.
+   * Le bouton vert coupe l'enregistrement. Il n'envoie PAS dans la foulée :
+   * la transcription n'arrive qu'après, et il faut pouvoir la relire. Un
+   * second appui l'envoie.
    */
   const envoyerMaintenant = () => {
-    if (dictee.actif) dictee.arreter()
-    else if (micEtat === 'recording') { micRef.current?.stop(); return }
+    if (ecoute) { micRef.current?.stop(); return }
     envoyer(saisie)
   }
 
@@ -344,6 +380,8 @@ export default function AssistantChat({ question, dicter, onClose }: {
     convRef.current = c?.id ?? null
     setConversationId(c?.id ?? null)
     setMessages((c?.messages ?? []) as Message[])
+    // Le compteur suit la conversation affichée, pas la session.
+    setCout(0)
     // On sélectionne d'abord, on referme ensuite : le volet glisse pendant que
     // la conversation choisie s'affiche derrière, et on voit ce qu'on a fait.
     replierVolet()
@@ -384,7 +422,12 @@ export default function AssistantChat({ question, dicter, onClose }: {
         <span style={{ color: 'var(--primary)', flex: 'none' }}><Soleil size={22} /></span>
         <div className="min-w-0 flex-1">
           <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '-.01em' }}>Assistant Village</div>
-          <div style={{ fontSize: 10.5, color: '#7A6A5A', marginTop: 1 }}>Ganges et alentours</div>
+          <div style={{ fontSize: 10.5, color: '#7A6A5A', marginTop: 1 }}>
+            Ganges et alentours
+            {cout > 0 && (
+              <span style={{ color: '#A99B89' }}> · {formaterCout(cout)}</span>
+            )}
+          </div>
         </div>
         <button onClick={fermer} aria-label="Fermer"
           className="flex flex-none items-center justify-center bg-white"
@@ -471,7 +514,8 @@ export default function AssistantChat({ question, dicter, onClose }: {
       )}
 
       {/* Le fil */}
-      <div className="flex-1 overflow-y-auto" style={{ padding: '14px 0 6px' }}>
+      <div ref={filRef} onScroll={surDefilement}
+        className="flex-1 overflow-y-auto" style={{ padding: '14px 0 6px' }}>
         {/* Entrée par le micro : rien n'a encore été dit. On accueille au
             lieu de laisser un écran blanc, et on rappelle ce qu'on sait. */}
         {messages.length === 0 && (
@@ -551,11 +595,42 @@ export default function AssistantChat({ question, dicter, onClose }: {
         <div ref={finRef} />
       </div>
 
+      {/* Revenir en bas quand on s'en est éloigné pour relire. */}
+      {detache && (
+        <button onClick={redescendre} aria-label="Revenir en bas"
+          className="flex items-center justify-center border-none"
+          style={{
+            position: 'absolute', right: 16, bottom: 86, width: 34, height: 34, borderRadius: '50%',
+            background: '#fff', border: '1px solid var(--bord)', color: '#5A4C3E',
+            boxShadow: '0 3px 12px rgba(44,28,16,.12)', zIndex: 3,
+          }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19" /><polyline points="19 12 12 19 5 12" />
+          </svg>
+        </button>
+      )}
+
       {/* Saisie */}
       <div className="flex flex-none items-end gap-2.5 bg-white"
         style={{ padding: '11px 14px max(env(safe-area-inset-bottom),14px)', borderTop: '1px solid #F0EAE0' }}>
         <div className="flex flex-1 items-end gap-2"
           style={{ border: '1px solid var(--bord)', borderRadius: 20, padding: '7px 12px' }}>
+          {/* Pendant l'enregistrement, le champ cède la place : cinq barres
+              qui bougent disent « je vous écoute » mieux qu'un texte. */}
+          {ecoute ? (
+            <div className="flex flex-1 items-center gap-2" style={{ paddingTop: 6, paddingBottom: 6 }}>
+              <span className="flex items-end" style={{ gap: 3, height: 18 }}>
+                {[0, 0.15, 0.3, 0.45, 0.6].map((d, i) => (
+                  <span key={i} className="lpv-eq-bar"
+                    style={{
+                      display: 'block', width: 3, height: i === 2 ? 18 : i % 2 ? 13 : 16,
+                      borderRadius: 2, background: '#C84B2F', animationDelay: `${d}s`,
+                    }} />
+                ))}
+              </span>
+              <span style={{ fontSize: 13, color: '#7A6A5A' }}>Je vous écoute…</span>
+            </div>
+          ) : (
           <textarea
             ref={champRef}
             rows={1}
@@ -564,14 +639,14 @@ export default function AssistantChat({ question, dicter, onClose }: {
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); envoyerMaintenant() } }}
             placeholder={
               quotaEpuise ? 'Conversations de découverte épuisées'
-                : ecoute ? 'Je vous écoute…'
-                : micEtat === 'transcribing' ? 'Un instant…'
+                : micEtat === 'transcribing' ? 'Je transcris…'
                 : 'Continuer la discussion…'
             }
             disabled={!!quotaEpuise}
             className="flex-1 resize-none border-none bg-transparent outline-none"
             style={{ fontSize: 13.5, color: 'var(--texte)', maxHeight: 118, lineHeight: 1.4, paddingTop: 4, paddingBottom: 4 }}
           />
+          )}
 
           {/* Pendant qu'on parle, le micro devient une CROIX : elle renonce à
               la dictée et rend le champ tel qu'il était. Ce n'est pas un
@@ -610,7 +685,7 @@ export default function AssistantChat({ question, dicter, onClose }: {
         <button
           onClick={envoyerMaintenant}
           disabled={enCours || (!saisie.trim() && !ecoute) || !!quotaEpuise}
-          aria-label="Envoyer"
+          aria-label={ecoute ? 'Terminer la dictée' : 'Envoyer'}
           className="flex flex-none items-center justify-center border-none text-white"
           style={{
             width: 38, height: 38, borderRadius: '50%',

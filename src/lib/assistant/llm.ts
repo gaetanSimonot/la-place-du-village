@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { getPrompt } from '@/lib/prompts-ia'
 import { OUTILS, executerOutil, type Carte, type ActionProposee } from '@/lib/assistant/outils'
 import { MODELE, MAX_TOKENS_REPONSE } from '@/lib/assistant/config'
+import type { Consommation } from '@/lib/assistant/cout'
 
 /**
  * ASSISTANT VILLAGE — le modèle. SERVEUR UNIQUEMENT.
@@ -49,7 +50,10 @@ export type EvenementFlux =
   | { type: 'outil';  nom: string; mots?: string | null }
   | { type: 'cartes'; items: Carte[] }
   | { type: 'action'; action: ActionProposee }
-  | { type: 'fin';    texte: string; outils: string[]; tokensIn: number; tokensOut: number; sujet: string | null }
+  | { type: 'fin'; texte: string; outils: string[]; tokensIn: number; tokensOut: number
+      sujet: string | null
+      /** Le détail facturable du tour — séparé, car le cache ne coûte pas pareil. */
+      conso: Consommation }
 
 /** Ce que chaque outil dit du besoin — sert aux statistiques, sans lire les messages. */
 const SUJETS: Record<string, string> = {
@@ -90,10 +94,10 @@ export async function* repondre(params: {
   ]
 
   const outilsAppeles: string[] = []
-  let webUtilise = false
   let texteFinal = ''
-  let tokensIn = 0
-  let tokensOut = 0
+  // Le détail compte : un token relu dans le cache vaut un dixième d'un token
+  // neuf, et les additionner ensemble ferait mentir le coût affiché.
+  const conso: Consommation = { entree: 0, cacheLu: 0, cacheEcrit: 0, sortie: 0, recherchesWeb: 0 }
 
   for (let tour = 0; tour <= params.maxOutils; tour++) {
     // Dernier tour : plus d'outils, il conclut avec ce qu'il a déjà lu.
@@ -126,14 +130,17 @@ export async function* repondre(params: {
       // on la voit passer. On le dit à l'écran, c'est plus long qu'une
       // requête locale et il faut que ça se comprenne.
       if (ev.type === 'content_block_start' && ev.content_block?.type === 'server_tool_use') {
-        webUtilise = true
+        // Facturée à l'appel : on les compte, l'API ne les totalise pas.
+        conso.recherchesWeb += 1
         yield { type: 'outil', nom: 'web_search', mots: null }
       }
     }
 
     const message = await flux.finalMessage()
-    tokensIn  += message.usage.input_tokens + (message.usage.cache_read_input_tokens ?? 0)
-    tokensOut += message.usage.output_tokens
+    conso.entree     += message.usage.input_tokens
+    conso.cacheLu    += message.usage.cache_read_input_tokens ?? 0
+    conso.cacheEcrit += message.usage.cache_creation_input_tokens ?? 0
+    conso.sortie     += message.usage.output_tokens
 
     // Le modèle a lancé une recherche web et attend ses résultats : on lui
     // rend la main sans rien exécuter de notre côté.
@@ -183,7 +190,13 @@ export async function* repondre(params: {
     texteFinal = texteFinal.trimEnd()
   }
 
-  if (webUtilise) outilsAppeles.push('web_search')
+  if (conso.recherchesWeb) outilsAppeles.push('web_search')
   const sujet = outilsAppeles.length ? SUJETS[outilsAppeles[0]] ?? 'autre' : 'autre'
-  yield { type: 'fin', texte: texteFinal, outils: outilsAppeles, tokensIn, tokensOut, sujet }
+  yield {
+    type: 'fin', texte: texteFinal, outils: outilsAppeles, sujet, conso,
+    // Ce qu'on enregistre en base reste un total simple : le détail sert au
+    // coût affiché, pas au suivi de volume.
+    tokensIn: conso.entree + conso.cacheLu + conso.cacheEcrit,
+    tokensOut: conso.sortie,
+  }
 }

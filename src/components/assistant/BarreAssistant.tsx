@@ -83,8 +83,9 @@ export default function BarreAssistant() {
 
   /**
    * Le micro n'enregistre PAS ici : il ouvre la conversation, qui prend le
-   * relais et écrit dans son propre champ. Parler doit mener au même endroit
-   * que taper — un fil qu'on relit, qu'on corrige, et qu'on envoie soi-même.
+   * relais et enregistre dans son propre champ. Parler doit mener au même
+   * endroit que taper — un fil qu'on relit, qu'on corrige, et qu'on envoie
+   * soi-même.
    */
   const dicter = () => {
     setParLaVoix(true)

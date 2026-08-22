@@ -7,6 +7,7 @@ import { reglages, ouvertA, MODELE } from '@/lib/assistant/config'
 import { ouvrirOuReprendre, historique, enregistrerTour } from '@/lib/assistant/conversation'
 import { repondre } from '@/lib/assistant/llm'
 import type { Carte } from '@/lib/assistant/outils'
+import { coutEnEuros } from '@/lib/assistant/cout'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
   const { visibilite } = await reglages()
   const ctx = await getUserContextFromRequest(req)
   return NextResponse.json(
-    { ouvert: ouvertA(visibilite, !!ctx?.isAdmin) },
+    { ouvert: ouvertA(visibilite, !!ctx?.isAdmin), admin: !!ctx?.isAdmin },
     { headers: { 'Cache-Control': 'no-store' } },
   )
 }
@@ -163,7 +164,12 @@ export async function POST(req: NextRequest) {
               modele: MODELE,
               sujet: ev.sujet,
             }).catch(e => console.error('[assistant:enregistrement]', (e as Error).message))
-            envoyer({ type: 'fin', conversationId: conv.id, reste: ouverture.reste })
+            envoyer({
+              type: 'fin', conversationId: conv.id, reste: ouverture.reste,
+              // Le coût n'est calculé et transmis QU'AUX ADMINS : c'est un
+              // instrument de réglage, pas une information pour les habitants.
+              cout: ctx?.isAdmin ? coutEnEuros(ev.conso) : undefined,
+            })
           } else {
             envoyer(ev)
           }
