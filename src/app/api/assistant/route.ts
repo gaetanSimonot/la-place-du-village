@@ -3,7 +3,7 @@ import { createHash } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getUserContextFromRequest } from '@/lib/server-auth'
 import { rateLimit } from '@/lib/rateLimit'
-import { reglages, ouvertA, MODELE } from '@/lib/assistant/config'
+import { reglages, ouvertA, MODELE, MODELES_ESSAI, modeleAutorise } from '@/lib/assistant/config'
 import { ouvrirOuReprendre, historique, enregistrerTour } from '@/lib/assistant/conversation'
 import { repondre } from '@/lib/assistant/llm'
 import type { Carte } from '@/lib/assistant/outils'
@@ -43,7 +43,13 @@ export async function GET(req: NextRequest) {
   const { visibilite } = await reglages()
   const ctx = await getUserContextFromRequest(req)
   return NextResponse.json(
-    { ouvert: ouvertA(visibilite, !!ctx?.isAdmin), admin: !!ctx?.isAdmin },
+    {
+      ouvert: ouvertA(visibilite, !!ctx?.isAdmin),
+      admin: !!ctx?.isAdmin,
+      // De quoi essayer un autre modèle depuis l'en-tête, sans redéployer.
+      modele: ctx?.isAdmin ? MODELE : undefined,
+      modeles: ctx?.isAdmin ? MODELES_ESSAI : undefined,
+    },
     { headers: { 'Cache-Control': 'no-store' } },
   )
 }
@@ -71,6 +77,13 @@ export async function POST(req: NextRequest) {
   const message = typeof body?.message === 'string' ? body.message.trim() : ''
   const conversationId = typeof body?.conversationId === 'string' ? body.conversationId : null
   const anonId = typeof body?.anonId === 'string' ? body.anonId.slice(0, 64) : null
+  /**
+   * Un modèle imposé pour ce tour. RÉSERVÉ AUX ADMINS, et pris dans une liste
+   * blanche : laisser le navigateur nommer librement le modèle reviendrait à
+   * lui laisser choisir la facture. C'est un banc d'essai, pas un réglage
+   * public — les habitants ont toujours celui du projet.
+   */
+  const modeleDemande = modeleAutorise(body?.modele)
 
   const { quotas, visibilite } = await reglages()
 
@@ -149,7 +162,8 @@ export async function POST(req: NextRequest) {
       try {
         envoyer({ type: 'debut', conversationId: conv.id, reste: ouverture.reste })
 
-        for await (const ev of repondre({ question: message, historique: passe, maxOutils: quotas.max_outils_tour })) {
+        const modele = (ctx?.isAdmin && modeleDemande) || MODELE
+        for await (const ev of repondre({ question: message, historique: passe, maxOutils: quotas.max_outils_tour, modele })) {
           if (ev.type === 'cartes') {
             // Le cœur voyage avec la fiche : la personne garde une sortie
             // d'un geste, sans ouvrir l'aperçu ni attendre un aller-retour.
@@ -176,7 +190,7 @@ export async function POST(req: NextRequest) {
               refs: cartesVues.map(c => ({ type: c.type, id: c.id })),
               tokensIn: ev.tokensIn,
               tokensOut: ev.tokensOut,
-              modele: MODELE,
+              modele,
               sujet: ev.sujet,
             }).catch(e => console.error('[assistant:enregistrement]', (e as Error).message))
             envoyer({
@@ -191,7 +205,7 @@ export async function POST(req: NextRequest) {
               cout: ctx?.isAdmin ? coutEnEuros(ev.conso) : undefined,
               // Savoir QUI répond autant que ce que ça coûte : sans le nom du
               // modèle, un prix ne se compare à rien.
-              modele: ctx?.isAdmin ? MODELE : undefined,
+              modele: ctx?.isAdmin ? modele : undefined,
             })
           } else {
             envoyer(ev)

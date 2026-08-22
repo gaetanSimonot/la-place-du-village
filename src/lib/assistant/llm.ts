@@ -59,11 +59,15 @@ export async function* repondre(params: {
   question: string
   historique: { role: 'user' | 'assistant'; contenu: string }[]
   maxOutils: number
+  /** Modèle imposé pour ce tour — un essai d'admin. Sinon celui du projet. */
+  modele?: string | null
 }): AsyncGenerator<EvenementFlux> {
-  const systeme = await getPrompt(promptDuModele(), { today: aujourdhuiFr() })
-  const p = { modele: MODELE, systeme, ...params }
+  const modele = params.modele || MODELE
+  const systeme = await getPrompt(promptDuModele(modele), { today: aujourdhuiFr() })
+  // `modele` après le déversement : celui de `params` peut être vide.
+  const p = { ...params, modele, systeme }
 
-  const flux = fournisseur() === 'anthropic' ? repondreAnthropic(p) : repondreOpenAI(p)
+  const flux = fournisseur(modele) === 'anthropic' ? repondreAnthropic(p) : repondreOpenAI(p)
 
   for await (const ev of flux) {
     if (ev.type !== 'brut') { yield ev; continue }

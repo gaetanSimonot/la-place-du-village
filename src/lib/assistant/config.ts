@@ -24,6 +24,25 @@ export const GANGES_LNG = GANGES.lng
  */
 export const MODELE = 'claude-sonnet-5'
 
+/**
+ * Les modèles qu'un admin peut essayer depuis l'en-tête de la conversation.
+ *
+ * Liste blanche, et c'est le point : le modèle voyage dans la requête pour
+ * qu'un essai soit immédiat, donc il ne doit jamais être un nom libre venu du
+ * navigateur. Les libellés sont ceux qu'on lit en haut de l'écran.
+ */
+export const MODELES_ESSAI = [
+  { id: 'claude-sonnet-5', label: 'sonnet-5',     note: 'le plus fin' },
+  { id: 'gpt-4.1-mini',    label: 'gpt-4.1-mini', note: '13× moins cher' },
+  { id: 'gpt-5-mini',      label: 'gpt-5-mini',   note: 'lent' },
+  { id: 'claude-haiku-4-5', label: 'haiku-4.5',   note: 'compact' },
+] as const
+
+/** Le nom proposé est-il de ceux qu'on accepte ? */
+export function modeleAutorise(v: unknown): string | null {
+  return typeof v === 'string' && MODELES_ESSAI.some(m => m.id === v) ? v : null
+}
+
 export type Fournisseur = 'anthropic' | 'openai'
 
 /** Qui répond, déduit du nom du modèle. */
@@ -38,9 +57,13 @@ export function fournisseur(modele: string = MODELE): Fournisseur {
  * pour un grand modèle, `assistant_village_gpt` en règles courtes et en
  * exemples pour un modèle compact, qui suit mal deux mille mots de prose.
  * Même fond, même personnalité, même interdits — deux façons de les dire.
+ *
+ * Le partage ne se fait donc PAS par fournisseur mais par taille : un Haiku
+ * est un modèle compact, même s'il vient de chez Anthropic.
  */
 export function promptDuModele(modele: string = MODELE): string {
-  return fournisseur(modele) === 'anthropic' ? 'assistant_village' : 'assistant_village_gpt'
+  const grand = /^claude-(sonnet|opus|fable)/.test(modele)
+  return grand ? 'assistant_village' : 'assistant_village_gpt'
 }
 
 /**

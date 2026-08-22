@@ -147,6 +147,11 @@ export default function AssistantChat({ question, dicter, onClose }: {
   const [cout, setCout] = useState(0)
   /** Le modèle qui répond — n'arrive du serveur que pour un compte admin. */
   const [modele, setModele] = useState<string | null>(null)
+  /** Les modèles qu'on peut essayer, et le menu pour en changer. */
+  const [modeles, setModeles] = useState<{ id: string; label: string; note: string }[]>([])
+  const [menuModele, setMenuModele] = useState(false)
+  /** Le choix d'essai, gardé sur l'appareil : on reprend là où on testait. */
+  const [essai, setEssai] = useState<string | null>(null)
   const finRef = useRef<HTMLDivElement>(null)
   const filRef = useRef<HTMLDivElement>(null)
   /** Suit-on la rédaction, ou l'a-t-on quittée des yeux pour relire plus haut ? */
@@ -160,6 +165,8 @@ export default function AssistantChat({ question, dicter, onClose }: {
   /** A-t-on posé une entrée d'historique en s'ouvrant ? */
   const parHistorique = useRef(false)
   const envoiRef = useRef<(q: string) => void>(() => {})
+  const essaiRef = useRef<string | null>(null)
+  essaiRef.current = essai
 
   /**
    * On ne suit la rédaction que si l'on est DÉJÀ en bas.
@@ -238,7 +245,11 @@ export default function AssistantChat({ question, dicter, onClose }: {
           'Content-Type': 'application/json',
           ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
-        body: JSON.stringify({ message: q, conversationId: convRef.current, anonId: anonId() }),
+        body: JSON.stringify({
+          message: q, conversationId: convRef.current, anonId: anonId(),
+          // Réservé aux admins côté serveur : ailleurs, ce champ est ignoré.
+          modele: essaiRef.current ?? undefined,
+        }),
       })
 
       if (!res.ok || !res.body) {
@@ -308,6 +319,19 @@ export default function AssistantChat({ question, dicter, onClose }: {
   useEffect(() => {
     trackEvent('assistant_ouvert', { depuis: dicter ? 'micro' : 'barre' })
     setConversations(lireConversations())
+
+    try { setEssai(localStorage.getItem('lpv_assistant_modele')) } catch { /* noop */ }
+    ;(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const r = await fetch('/api/assistant', {
+          headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
+        })
+        const j = await r.json().catch(() => null)
+        if (Array.isArray(j?.modeles)) setModeles(j.modeles)
+        if (typeof j?.modele === 'string') setModele(m => m ?? j.modele)
+      } catch { /* pas admin, ou hors ligne : pas de sélecteur */ }
+    })()
 
     const passe = derniereConversation()
     const fraiche = passe && Date.now() - (passe.at ?? 0) < 30 * 60_000 && passe.messages.length
@@ -440,7 +464,17 @@ export default function AssistantChat({ question, dicter, onClose }: {
             {/* Réservé aux admins : le modèle et ce que la conversation a
                 coûté. Un prix sans le nom du modèle ne se compare à rien. */}
             {modele && (
-              <span style={{ color: '#A99B89' }}> · {modele.replace(/^claude-/, '')}</span>
+              modeles.length ? (
+                // Cliquable : on essaie un autre modèle sans redéployer, et
+                // on voit le prix bouger dans la conversation suivante.
+                <button onClick={() => setMenuModele(o => !o)}
+                  className="border-none bg-transparent p-0"
+                  style={{ color: essai ? 'var(--primary)' : '#A99B89', fontSize: 10.5, fontWeight: essai ? 800 : 400 }}>
+                  {' · '}{modele.replace(/^claude-/, '')} ▾
+                </button>
+              ) : (
+                <span style={{ color: '#A99B89' }}> · {modele.replace(/^claude-/, '')}</span>
+              )
             )}
             {cout > 0 && (
               <span style={{ color: '#A99B89' }}> · {formaterCout(cout)}</span>
@@ -458,6 +492,39 @@ export default function AssistantChat({ question, dicter, onClose }: {
 
       {/* Les conversations, dans un volet à gauche. Trois suffisent : au-delà,
           une liste devient une archive dont on ne fait rien. */}
+      {/* Le choix du modèle, pour les admins seulement. Un essai vaut mieux
+          qu'un tableau comparatif : on change, on repose la même question, et
+          on voit le prix et le ton bouger dans le même écran. */}
+      {menuModele && modeles.length > 0 && (
+        <div className="flex-none bg-white" style={{ borderBottom: '1px solid #F0EAE0', padding: '8px 14px 12px' }}>
+          {modeles.map(m => {
+            const actif = m.id === modele
+            return (
+              <button key={m.id}
+                onClick={() => {
+                  const choix = m.id
+                  setEssai(choix); setModele(choix); setMenuModele(false)
+                  try { localStorage.setItem('lpv_assistant_modele', choix) } catch { /* noop */ }
+                }}
+                className="mb-1.5 flex w-full items-center gap-2.5 text-left"
+                style={{
+                  border: `1px solid ${actif ? '#C8DEC0' : '#F0EAE0'}`,
+                  background: actif ? '#F4FAF5' : '#fff',
+                  borderRadius: 12, padding: '9px 11px',
+                }}>
+                <span style={{ fontSize: 12.5, fontWeight: 800, color: actif ? 'var(--primary)' : '#1A1209' }}>{m.label}</span>
+                <span style={{ fontSize: 11, color: '#A99B89' }}>{m.note}</span>
+                {actif && <span style={{ marginLeft: 'auto', fontSize: 10.5, color: 'var(--primary)', fontWeight: 800 }}>en cours</span>}
+              </button>
+            )
+          })}
+          <p className="m-0" style={{ fontSize: 10.5, color: '#A99B89', lineHeight: 1.4 }}>
+            Votre essai à vous : les habitants gardent le modèle du projet.
+            Le changement s’applique au prochain message.
+          </p>
+        </div>
+      )}
+
       {listeOuverte && (
         <>
           <div onClick={replierVolet}
