@@ -120,6 +120,21 @@ export default function AjouterPage() {
     if (!authLoading && !user) openAuthModal()
   }, [authLoading, user, openAuthModal])
 
+  /**
+   * Arrivée depuis l'Assistant Village : il a préparé la phrase, on la pose
+   * dans le champ d'analyse. Il ne remplit PAS le formulaire à la place de la
+   * personne — elle relit, elle lance, et le parcours de publication reste
+   * exactement celui qu'elle connaît, avec sa relecture avant parution.
+   */
+  useEffect(() => {
+    try {
+      if (new URLSearchParams(window.location.search).get('assistant') !== '1') return
+      const brouillon = sessionStorage.getItem('lpv_assistant_event')
+      sessionStorage.removeItem('lpv_assistant_event')
+      if (brouillon?.trim()) { setTexte(brouillon.slice(0, 2000)); setStep('input') }
+    } catch { /* rien à pré-remplir */ }
+  }, [])
+
   // Lecture du ?etab=<id> (window.location pour ne pas casser le prerender
   // statique avec useSearchParams) + chargement des infos de la fiche pour
   // pré-remplir le lieu.

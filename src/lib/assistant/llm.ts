@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { getPrompt } from '@/lib/prompts-ia'
-import { OUTILS, executerOutil, type Carte } from '@/lib/assistant/outils'
+import { OUTILS, executerOutil, type Carte, type ActionProposee } from '@/lib/assistant/outils'
 import { MODELE, MAX_TOKENS_REPONSE } from '@/lib/assistant/config'
 
 /**
@@ -18,10 +18,37 @@ import { MODELE, MAX_TOKENS_REPONSE } from '@/lib/assistant/config'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+/**
+ * La recherche web — complément, jamais remplacement.
+ *
+ * Elle tourne chez Anthropic : on la déclare, le modèle l'appelle, rien ne
+ * s'exécute chez nous. Deux raisons de la tenir serrée :
+ *
+ *   — L'ARGENT. Une seule recherche coûte ~13 000 tokens d'entrée, soit plus
+ *     qu'une conversation locale entière. D'où `max_uses: 2`, et la variante
+ *     de base plutôt que celle à filtrage dynamique, qui en consomme 50 % de
+ *     plus pour un numéro de mairie.
+ *   — LE PROJET. Les événements, les commerces, les annonces et le cinéma du
+ *     secteur vivent dans La Place du Village, et nulle part ailleurs.
+ *     Envoyer quelqu'un vers un agenda extérieur ou un professionnel absent
+ *     de la base viderait de son sens ce qu'on est en train de construire.
+ *     Le web sert à préciser (« c'est quoi ce groupe ? »), à compléter
+ *     (le numéro de la gendarmerie), jamais à proposer à la place.
+ *
+ * Le cadrage lui-même est dans le prompt, en base : c'est du jugement, pas
+ * de la mécanique, et il doit pouvoir se corriger sans redéploiement.
+ */
+const OUTIL_WEB = {
+  type: 'web_search_20250305',
+  name: 'web_search',
+  max_uses: 2,
+}
+
 export type EvenementFlux =
   | { type: 'texte';  delta: string }
   | { type: 'outil';  nom: string; mots?: string | null }
   | { type: 'cartes'; items: Carte[] }
+  | { type: 'action'; action: ActionProposee }
   | { type: 'fin';    texte: string; outils: string[]; tokensIn: number; tokensOut: number; sujet: string | null }
 
 /** Ce que chaque outil dit du besoin — sert aux statistiques, sans lire les messages. */
@@ -31,6 +58,7 @@ const SUJETS: Record<string, string> = {
   chercher_seances:       'cinema',
   chercher_promotions:    'bon_plan',
   chercher_annonces:      'annonce',
+  proposer_action:        'action',
   aide_lpv:               'aide',
   meteo:                  'sortie',
 }
@@ -62,6 +90,7 @@ export async function* repondre(params: {
   ]
 
   const outilsAppeles: string[] = []
+  let webUtilise = false
   let texteFinal = ''
   let tokensIn = 0
   let tokensOut = 0
@@ -82,7 +111,9 @@ export async function* repondre(params: {
       // une activité et un restaurant. « low » expédiait la question et
       // n'ouvrait qu'un tiroir. Réglable ici seul.
       output_config: { effort: 'medium' },
-      tools: encoreDesOutils ? OUTILS : undefined,
+      tools: encoreDesOutils
+        ? ([...OUTILS, OUTIL_WEB] as unknown as Anthropic.Tool[])
+        : undefined,
       messages,
     })
 
@@ -91,12 +122,25 @@ export async function* repondre(params: {
         texteFinal += ev.delta.text
         yield { type: 'texte', delta: ev.delta.text }
       }
+      // La recherche web s'exécute chez Anthropic : on ne la déclenche pas,
+      // on la voit passer. On le dit à l'écran, c'est plus long qu'une
+      // requête locale et il faut que ça se comprenne.
+      if (ev.type === 'content_block_start' && ev.content_block?.type === 'server_tool_use') {
+        webUtilise = true
+        yield { type: 'outil', nom: 'web_search', mots: null }
+      }
     }
 
     const message = await flux.finalMessage()
     tokensIn  += message.usage.input_tokens + (message.usage.cache_read_input_tokens ?? 0)
     tokensOut += message.usage.output_tokens
 
+    // Le modèle a lancé une recherche web et attend ses résultats : on lui
+    // rend la main sans rien exécuter de notre côté.
+    if (message.stop_reason === 'pause_turn') {
+      messages.push({ role: 'assistant', content: message.content })
+      continue
+    }
     if (message.stop_reason !== 'tool_use') break
 
     messages.push({ role: 'assistant', content: message.content })
@@ -122,6 +166,7 @@ export async function* repondre(params: {
       try {
         const r = await executerOutil(d.name, (d.input ?? {}) as Record<string, unknown>)
         if (r.cartes.length) yield { type: 'cartes', items: r.cartes }
+        if (r.action) yield { type: 'action', action: r.action }
         resultats.push({ type: 'tool_result', tool_use_id: d.id, content: JSON.stringify(r.pourLeModele) })
       } catch (e) {
         // Un outil en échec ne doit pas emporter le tour : on le dit au
@@ -138,6 +183,7 @@ export async function* repondre(params: {
     texteFinal = texteFinal.trimEnd()
   }
 
+  if (webUtilise) outilsAppeles.push('web_search')
   const sujet = outilsAppeles.length ? SUJETS[outilsAppeles[0]] ?? 'autre' : 'autre'
   yield { type: 'fin', texte: texteFinal, outils: outilsAppeles, tokensIn, tokensOut, sujet }
 }

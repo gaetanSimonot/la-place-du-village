@@ -6,6 +6,8 @@ import { trackEvent } from '@/lib/analytics'
 import SubscriptionModal from '@/components/SubscriptionModal'
 import MicButton, { type MicButtonHandle } from '@/components/MicButton'
 import CarteResultat, { type CarteData } from '@/components/assistant/CarteResultat'
+import ApercuFiche from '@/components/assistant/ApercuFiche'
+import CarteAction, { type ActionProposee } from '@/components/assistant/CarteAction'
 import Soleil from '@/components/assistant/Soleil'
 import ClientPortal from '@/components/ClientPortal'
 import {
@@ -34,6 +36,8 @@ interface Message {
   role: 'user' | 'assistant'
   texte: string
   cartes: CarteData[]
+  /** Le bouton proposé par l'assistant à la fin de ce tour, s'il y en a un. */
+  action?: ActionProposee | null
   encours?: boolean
 }
 
@@ -117,6 +121,8 @@ export default function AssistantChat({ question, dicter, onClose }: {
    */
   const convRef = useRef<string | null>(null)
   const [listeOuverte, setListeOuverte] = useState(false)
+  /** La fiche regardée de près, sans quitter le fil. */
+  const [apercu, setApercu] = useState<CarteData | null>(null)
   const [conversations, setConversations] = useState<ConversationLocale[]>([])
   const [quotaEpuise, setQuotaEpuise] = useState<string | null>(null)
   const [offreOuverte, setOffreOuverte] = useState(false)
@@ -196,8 +202,12 @@ export default function AssistantChat({ question, dicter, onClose }: {
 
           if (ev.type === 'debut') { convRef.current = String(ev.conversationId); setConversationId(String(ev.conversationId)) }
           else if (ev.type === 'texte') { setCherche(null); majDernier(m => ({ ...m, texte: m.texte + String(ev.delta) })) }
-          else if (ev.type === 'outil') setCherche(typeof ev.mots === 'string' && ev.mots ? ev.mots : '')
+          else if (ev.type === 'outil') {
+            setCherche(ev.nom === 'web_search' ? 'web'
+              : typeof ev.mots === 'string' && ev.mots ? ev.mots : '')
+          }
           else if (ev.type === 'cartes') majDernier(m => ({ ...m, cartes: [...m.cartes, ...(ev.items as CarteData[])] }))
+          else if (ev.type === 'action') majDernier(m => ({ ...m, action: ev.action as ActionProposee }))
           else if (ev.type === 'erreur') majDernier(m => ({ ...m, texte: String(ev.message), encours: false }))
         }
       }
@@ -244,7 +254,7 @@ export default function AssistantChat({ question, dicter, onClose }: {
       id: convRef.current,
       titre: messages.find(m => m.role === 'user')?.texte.slice(0, 60) ?? '',
       at: Date.now(),
-      messages: messages.map(m => ({ role: m.role, texte: m.texte, cartes: m.cartes })),
+      messages: messages.map(m => ({ role: m.role, texte: m.texte, cartes: m.cartes, action: m.action ?? null })),
     })
     setConversations(lireConversations())
   }, [messages])
@@ -399,13 +409,7 @@ export default function AssistantChat({ question, dicter, onClose }: {
             </div>
           ) : (
             <Reponse key={i} message={m} onRebond={envoyer}
-              onOuvrir={() => {
-                trackEvent('assistant_clic', { type: 'fiche' })
-                // On quitte l'écran pour de vrai. Ce drapeau dit à la barre du
-                // Village de rouvrir la conversation au retour : sans lui, on
-                // revient devant le Village et on n'ose plus cliquer.
-                try { sessionStorage.setItem('lpv_assistant_ouvert', '1') } catch { /* noop */ }
-              }} />
+              onApercu={c => { trackEvent('assistant_clic', { type: c.type }); setApercu(c) }} />
           )
         ))}
 
@@ -416,7 +420,9 @@ export default function AssistantChat({ question, dicter, onClose }: {
               <Soleil size={14} rayons={4} />
             </span>
             <span style={{ fontSize: 13, color: '#7A6A5A' }}>
-              {cherche ? `Je cherche : ${cherche}…` : 'Je cherche…'}
+              {cherche === 'web' ? 'Je regarde sur le web…'
+                : cherche ? `Je cherche : ${cherche}…`
+                : 'Je cherche…'}
             </span>
           </div>
         )}
@@ -527,6 +533,8 @@ export default function AssistantChat({ question, dicter, onClose }: {
         </button>
       </div>
 
+      {apercu && <ApercuFiche carte={apercu} onClose={() => setApercu(null)} />}
+
       {offreOuverte && (
         <SubscriptionModal
           context={{ kind: 'feature', featureLabel: 'Assistant Village', minPlan: 'habitants' }}
@@ -539,8 +547,8 @@ export default function AssistantChat({ question, dicter, onClose }: {
 }
 
 /** Une réponse : le soleil, le texte, les fiches, puis les rebonds. */
-function Reponse({ message, onOuvrir, onRebond }: {
-  message: Message; onOuvrir: () => void; onRebond: (q: string) => void
+function Reponse({ message, onApercu, onRebond }: {
+  message: Message; onApercu: (c: CarteData) => void; onRebond: (q: string) => void
 }) {
   const parId = new Map(message.cartes.map(c => [c.id, c]))
   const bouts = segments(message.texte)
@@ -568,7 +576,7 @@ function Reponse({ message, onOuvrir, onRebond }: {
     if (b.t === 'q') return
     viderTexte(`t${i}`)
     const c = parId.get(b.id)
-    if (c) blocs.push(<div key={`c${i}`} style={{ marginBottom: 9 }}><CarteResultat carte={c} onOuvrir={onOuvrir} /></div>)
+    if (c) blocs.push(<div key={`c${i}`} style={{ marginBottom: 9 }}><CarteResultat carte={c} onOuvrir={() => onApercu(c)} /></div>)
   })
   viderTexte('tfin')
 
@@ -582,12 +590,16 @@ function Reponse({ message, onOuvrir, onRebond }: {
         <div style={{ flex: 1, minWidth: 0 }}>
           {blocs}
           {oubliees.map(c => (
-            <div key={c.id} style={{ marginBottom: 9 }}><CarteResultat carte={c} onOuvrir={onOuvrir} /></div>
+            <div key={c.id} style={{ marginBottom: 9 }}><CarteResultat carte={c} onOuvrir={() => onApercu(c)} /></div>
           ))}
           {message.encours && !message.texte && (
             <span className="inline-block animate-spin"
               style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid #E3D9C8', borderTopColor: 'var(--primary)' }} />
           )}
+          {message.action && !message.encours && (
+            <CarteAction action={message.action} cartes={message.cartes} texte={propre(message.texte)} />
+          )}
+
           {/* Une réponse se garde ou se transmet : un ami qui cherche un
               artisan, un groupe qui organise sa journée. */}
           {!message.encours && message.texte.trim() && (

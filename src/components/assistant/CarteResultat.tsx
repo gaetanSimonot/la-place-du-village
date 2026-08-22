@@ -1,5 +1,4 @@
 'use client'
-import Link from 'next/link'
 
 /**
  * ASSISTANT VILLAGE — une fiche réelle dans le fil de conversation.
@@ -7,8 +6,9 @@ import Link from 'next/link'
  * Ces cartes ne viennent JAMAIS du texte du modèle : le serveur les a lues
  * en base et les envoie à part. Le modèle n'écrit que des identifiants. Une
  * carte affichée est donc, par construction, une vraie fiche — et le clic
- * ouvre la vraie page de l'application. L'assistant est une façon de
- * naviguer dans La Place du Village, pas un endroit qui la recopie.
+ * ouvre un aperçu, d'où l'on garde la fiche ou l'on va la voir en entier —
+ * sans quitter la conversation. L'assistant est une façon de naviguer dans
+ * La Place du Village, pas un endroit qui la recopie.
  *
  * Géométrie reprise de la maquette (`.rp`) : vignette 62, rayon 14, tag puis
  * titre puis méta. La séance de cinéma garde son bleu nuit — c'est le même
@@ -72,11 +72,12 @@ const IcoTag = (
   </svg>
 )
 
-function Coquille({ href, sombre, onOuvrir, children }: {
-  href: string; sombre?: boolean; onOuvrir?: () => void; children: React.ReactNode
+function Coquille({ sombre, onOuvrir, children }: {
+  sombre?: boolean; onOuvrir?: () => void; children: React.ReactNode
 }) {
   return (
-    <Link href={href} onClick={onOuvrir}
+    <button type="button" onClick={onOuvrir}
+      className="w-full text-left"
       style={{
         display: 'flex', gap: 11, padding: 11, borderRadius: 14,
         border: `1px solid ${sombre ? 'transparent' : '#F0EAE0'}`,
@@ -85,7 +86,7 @@ function Coquille({ href, sombre, onOuvrir, children }: {
         boxShadow: '0 1px 4px rgba(44,28,16,.04)', textDecoration: 'none',
       }}>
       {children}
-    </Link>
+    </button>
   )
 }
 
@@ -124,7 +125,7 @@ export default function CarteResultat({ carte, onOuvrir }: { carte: CarteData; o
     const lieu = (d.lieux ?? null) as Record<string, unknown> | null
     const heure = s(d.heure)?.slice(0, 5)
     return (
-      <Coquille href={`/evenement/${carte.id}`} onOuvrir={onOuvrir}>
+      <Coquille onOuvrir={onOuvrir}>
         <Vignette url={s(d.image_url)} texte={s(d.titre)} />
         <span style={{ flex: 1, minWidth: 0 }}>
           <Tag>{[JOUR(s(d.date_debut)), heure].filter(Boolean).join(' ')}</Tag>
@@ -141,7 +142,7 @@ export default function CarteResultat({ carte, onOuvrir }: { carte: CarteData; o
     const seances = Array.isArray(d.seances) ? (d.seances as Record<string, unknown>[]) : []
     const p = seances[0]
     return (
-      <Coquille href={`/cinema/film/${carte.id}`} onOuvrir={onOuvrir} sombre>
+      <Coquille onOuvrir={onOuvrir} sombre>
         <Vignette url={s(d.affiche_url)} texte={s(d.titre)} sombre />
         <span style={{ flex: 1, minWidth: 0 }}>
           <Tag sombre>
@@ -164,7 +165,7 @@ export default function CarteResultat({ carte, onOuvrir }: { carte: CarteData; o
       artisan_service: 'Artisan', sante_bien_etre: 'Bien-être', activite: 'Activité',
     }
     return (
-      <Coquille href={producteur ? `/producteur/${carte.id}` : `/etablissement/${carte.id}`} onOuvrir={onOuvrir}>
+      <Coquille onOuvrir={onOuvrir}>
         <Vignette url={premiere(d.photos)} texte={s(d.nom)} />
         <span style={{ flex: 1, minWidth: 0 }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -174,6 +175,13 @@ export default function CarteResultat({ carte, onOuvrir }: { carte: CarteData; o
             {misEnAvant && (
               <span style={{ fontSize: 9.5, fontWeight: 800, color: '#C84B2F', border: '1px solid #F6D9CE', borderRadius: 999, padding: '2px 6px' }}>
                 À la une
+              </span>
+            )}
+            {/* Le bon plan du lieu, attaché par la recherche : il ne peut donc
+                pas être hors sujet. */}
+            {(d.bon_plan as { titre?: string } | null)?.titre && (
+              <span style={{ fontSize: 9.5, fontWeight: 800, color: '#2D5A3D', background: '#E8F2EB', borderRadius: 999, padding: '2px 6px' }}>
+                Bon plan
               </span>
             )}
           </span>
@@ -192,7 +200,7 @@ export default function CarteResultat({ carte, onOuvrir }: { carte: CarteData; o
     // Pas de page par promotion dans l'app : la fiche de l'établissement est
     // l'endroit où elle se présente vraiment.
     return (
-      <Coquille href={etab?.id ? `/etablissement/${etab.id}` : '/promotions'} onOuvrir={onOuvrir}>
+      <Coquille onOuvrir={onOuvrir}>
         <Vignette url={s(d.image_url) ?? premiere(etab?.photos)} texte={s(d.title)} />
         <span style={{ flex: 1, minWidth: 0 }}>
           <Tag>Bon plan</Tag>
@@ -206,7 +214,7 @@ export default function CarteResultat({ carte, onOuvrir }: { carte: CarteData; o
   const prix = typeof d.prix_actuel === 'number' ? d.prix_actuel
     : typeof d.prix_initial === 'number' ? d.prix_initial : null
   return (
-    <Coquille href={`/annonces/${carte.id}`} onOuvrir={onOuvrir}>
+    <Coquille onOuvrir={onOuvrir}>
       <Vignette url={premiere(d.photos)} texte={s(d.titre)} />
       <span style={{ flex: 1, minWidth: 0 }}>
         <Tag>{prix !== null ? `${prix} €` : 'Annonce'}</Tag>

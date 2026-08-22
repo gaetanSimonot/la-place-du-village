@@ -22,6 +22,8 @@ export interface MessageLocal {
   role: 'user' | 'assistant'
   texte: string
   cartes: { type: string; id: string; data: Record<string, unknown> }[]
+  /** Le bouton proposé au bout du tour — il doit survivre au retour. */
+  action?: unknown
 }
 
 export interface ConversationLocale {

@@ -34,9 +34,19 @@ export interface Carte {
   data: Record<string, unknown>
 }
 
+/** Une proposition d'agir, que la personne accepte d'un geste — ou pas. */
+export interface ActionProposee {
+  type: 'evenement' | 'annonce' | 'etablissement' | 'favoris' | 'partage'
+  libelle: string
+  texte?: string
+  ids?: string[]
+}
+
 export interface ResultatOutil {
   pourLeModele: unknown
   cartes: Carte[]
+  /** Le bouton à afficher sous la réponse, s'il y en a un. */
+  action?: ActionProposee
   /** Ce qu'on montre à l'écran pendant la recherche : « pizzeria, italien… ». */
   libelle?: string | null
 }
@@ -166,6 +176,43 @@ export const OUTILS = [
     },
   },
   {
+    name: 'proposer_action',
+    description:
+      "Proposer à la personne de FAIRE quelque chose : publier un événement ou une annonce, inscrire son commerce, garder des fiches en favori, ou partager la réponse. " +
+      "Vous ne faites rien vous-même : un bouton apparaît, et c'est elle qui décide. Appelez cet outil APRÈS avoir répondu à la question, jamais à la place. " +
+      "N'en proposez qu'une seule à la fois, et seulement quand elle tombe sous le sens.",
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        type: {
+          type: 'string',
+          enum: ['evenement', 'annonce', 'etablissement', 'favoris', 'partage'],
+          description:
+            "evenement : ouvrir la publication d'un événement, pré-remplie avec `texte`. " +
+            "annonce : ouvrir le dépôt d'une petite annonce. " +
+            "etablissement : ouvrir la demande d'inscription d'un commerce. " +
+            "favoris : garder les fiches que vous venez de citer (cinq au maximum). " +
+            "partage : envoyer votre réponse à quelqu'un.",
+        },
+        libelle: {
+          type: 'string',
+          description: "Ce qui sera écrit sur le bouton, à l'infinitif et court : « Publier cet événement », « Garder ces trois sorties ».",
+        },
+        texte: {
+          type: 'string',
+          description:
+            "Pour `evenement` seulement : la description en une phrase complète, telle qu'on l'écrirait à la main — titre, jour, heure, lieu, commune, prix. " +
+            "Elle pré-remplit le formulaire, que la personne relira. N'inventez aucun détail qu'elle n'a pas donné.",
+        },
+        ids: {
+          type: 'array', items: { type: 'string' },
+          description: "Pour `favoris` : les identifiants des fiches à garder, pris parmi celles que vous venez de citer. Cinq au maximum.",
+        },
+      },
+      required: ['type', 'libelle'],
+    },
+  },
+  {
     name: 'aide_lpv',
     description:
       "Comment fonctionne La Place du Village : créer un compte, revendiquer sa fiche, publier un événement ou une promotion, les offres Habitant et Partenaire. À utiliser pour TOUTE question sur l'application — n'y répondez jamais de mémoire.",
@@ -212,6 +259,7 @@ export async function executerOutil(nom: string, args: Args): Promise<ResultatOu
     case 'chercher_promotions':     return promotions(args)
     case 'chercher_annonces':       return annonces(args)
     case 'meteo':                   return meteo(args)
+    case 'proposer_action':         return proposerAction(args)
     case 'aide_lpv':                return aide()
     default:
       return { pourLeModele: { erreur: `Outil inconnu : ${nom}` }, cartes: [] }
@@ -390,6 +438,28 @@ async function etablissements(a: Args): Promise<ResultatOutil> {
 
   const enAvant = (e: Record<string, unknown>) => e.is_featured === true || e.plan === 'pro'
 
+  /**
+   * Les bons plans des lieux trouvés, joints ICI et pas ailleurs.
+   *
+   * « Où manger ce soir ? » et « il y a justement une promo chez eux » sont
+   * la même réponse : personne ne pense à demander les promotions. En les
+   * attachant aux lieux, elles ne sortent JAMAIS hors sujet — c'est le
+   * risque d'une mise en avant commerciale, et ce qui la rend acceptable.
+   */
+  const promosParEtab = new Map<string, { id: string; titre: string }>()
+  if (lignes.length) {
+    const { data: promos } = await supabaseAdmin
+      .from('promotions')
+      .select('id, etablissement_id, title, description, image_url, valid_until')
+      .eq('active', true)
+      .in('etablissement_id', lignes.map(e => String(e.id)))
+      .or(`valid_until.is.null,valid_until.gte.${new Date().toISOString()}`)
+    for (const p of promos ?? []) {
+      const cle = String(p.etablissement_id)
+      if (!promosParEtab.has(cle)) promosParEtab.set(cle, { id: String(p.id), titre: String(p.title) })
+    }
+  }
+
   return {
     pourLeModele: {
       resultats: [
@@ -401,6 +471,8 @@ async function etablissements(a: Args): Promise<ResultatOutil> {
           horaires: e.horaires ? String(e.horaires).slice(0, 220) : null,
           resume: e.description_courte ? String(e.description_courte).slice(0, 200) : null,
           mis_en_avant: enAvant(e),
+          // Signalez-la si elle colle à la demande, jamais autrement.
+          bon_plan: promosParEtab.get(String(e.id)) ?? null,
         })),
         ...prods.map(p => ({
           id: p.id, nom: p.nom, type: 'producteur', commune: p.commune,
@@ -411,7 +483,11 @@ async function etablissements(a: Args): Promise<ResultatOutil> {
       ],
     },
     cartes: [
-      ...lignes.map(e => ({ type: 'etab' as const, id: String(e.id), data: e })),
+      ...lignes.map(e => ({
+        type: 'etab' as const, id: String(e.id),
+        // La carte porte le bon plan : un liseré suffit à le dire.
+        data: { ...e, bon_plan: promosParEtab.get(String(e.id)) ?? null },
+      })),
       ...prods.map(p => ({ type: 'prod' as const, id: String(p.id), data: p })),
     ],
     libelle: libelleRecherche(mots),
@@ -551,6 +627,41 @@ async function annonces(a: Args): Promise<ResultatOutil> {
     },
     cartes: lignes.map(x => ({ type: 'annonce' as const, id: String(x.id), data: x })),
     libelle: libelleRecherche(mots),
+  }
+}
+
+/* ─── Agir ─────────────────────────────────────────────────────────────── */
+
+/**
+ * L'assistant PROPOSE, il n'exécute pas.
+ *
+ * Rien n'est écrit ici : on valide une intention et on renvoie de quoi
+ * afficher un bouton. C'est la personne qui l'actionne, et le module concerné
+ * s'ouvre alors normalement — avec ses règles, ses champs obligatoires et sa
+ * relecture. Un assistant qui publierait tout seul ferait des dégâts que
+ * personne n'a demandés.
+ */
+const TYPES_ACTION = ['evenement', 'annonce', 'etablissement', 'favoris', 'partage'] as const
+
+async function proposerAction(a: Args): Promise<ResultatOutil> {
+  const type = TYPES_ACTION.find(t => t === a.type)
+  if (!type) return { pourLeModele: { erreur: 'Type d’action inconnu.' }, cartes: [] }
+
+  const libelle = texteDe(a, 'libelle') ?? 'Continuer'
+  const ids = Array.isArray(a.ids)
+    // Cinq d'un coup au maximum : au-delà, on ne sait plus ce qu'on a gardé.
+    ? (a.ids as unknown[]).filter(x => typeof x === 'string').slice(0, 5) as string[]
+    : undefined
+  const texte = typeof a.texte === 'string' ? a.texte.trim().slice(0, 600) : undefined
+
+  if (type === 'favoris' && (!ids || !ids.length)) {
+    return { pourLeModele: { erreur: 'Aucune fiche à garder : citez-les d’abord.' }, cartes: [] }
+  }
+
+  return {
+    pourLeModele: { propose: type, libelle, note: 'Le bouton est affiché. Ne le décrivez pas longuement, une demi-phrase suffit.' },
+    cartes: [],
+    action: { type, libelle, texte, ids },
   }
 }
 

@@ -196,6 +196,15 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [fabOpen, setFabOpen]       = useState(false)
   const [commerceFormOpen, setCommerceFormOpen] = useState(false)
+
+  // L'Assistant Village peut proposer d'inscrire un commerce : il ouvre alors
+  // cette page avec ?commerce=1, et c'est le formulaire habituel qui prend le
+  // relais. useSearchParams ferait basculer la page en rendu client complet.
+  useEffect(() => {
+    try {
+      if (new URLSearchParams(window.location.search).get('commerce') === '1') setCommerceFormOpen(true)
+    } catch { /* noop */ }
+  }, [])
   const [infoOpen, setInfoOpen]     = useState(false)
   const mapDragTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sheetBeforeMapRef = useRef<'peek'|'half'|'full' | null>(null)
