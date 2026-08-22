@@ -1,4 +1,7 @@
 'use client'
+import { imageEvenement } from '@/lib/imageEvenement'
+import { CATEGORIES } from '@/lib/categories'
+import type { Categorie } from '@/lib/types'
 
 /**
  * ASSISTANT VILLAGE — une fiche réelle dans le fil de conversation.
@@ -90,11 +93,15 @@ function Coquille({ sombre, onOuvrir, children }: {
   )
 }
 
-function Vignette({ url, sombre, texte }: { url: string | null; sombre?: boolean; texte?: string | null }) {
+function Vignette({ url, sombre, texte, teinte }: {
+  url: string | null; sombre?: boolean; texte?: string | null
+  /** Couleur de repli quand il n'y a vraiment aucune image. */
+  teinte?: string | null
+}) {
   return (
     <span style={{
       width: 62, height: 62, borderRadius: 11, flex: 'none', overflow: 'hidden', display: 'block',
-      background: sombre ? '#1B2733' : '#F4EFE7',
+      background: sombre ? '#1B2733' : teinte ? `${teinte}1A` : '#F4EFE7',
     }}>
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -103,7 +110,7 @@ function Vignette({ url, sombre, texte }: { url: string | null; sombre?: boolean
         <span style={{
           display: 'flex', width: '100%', height: '100%', alignItems: 'flex-end', padding: 6,
           fontSize: 9, fontWeight: 700, lineHeight: 1.15,
-          color: sombre ? '#CFE6F5' : '#A99B89',
+          color: sombre ? '#CFE6F5' : teinte ?? '#A99B89',
           background: sombre ? 'linear-gradient(155deg,#243447,#131A22)' : 'transparent',
         }}>{texte.slice(0, 28)}</span>
       ) : null}
@@ -124,9 +131,18 @@ export default function CarteResultat({ carte, onOuvrir }: { carte: CarteData; o
   if (carte.type === 'ev') {
     const lieu = (d.lieux ?? null) as Record<string, unknown> | null
     const heure = s(d.heure)?.slice(0, 5)
+    // `imageEvenement` et non `image_url` : c'est lui qui connaît les
+    // illustrations de repli — un marché du mercredi n'a pas d'affiche, et
+    // sans ce passage la conversation affichait un cadre vide là où le reste
+    // de l'app montre son pictogramme.
+    const cat = (s(d.categorie) ?? (Array.isArray(d.categories) ? String(d.categories[0]) : null)) as Categorie | null
     return (
       <Coquille onOuvrir={onOuvrir}>
-        <Vignette url={s(d.image_url)} texte={s(d.titre)} />
+        <Vignette
+          url={imageEvenement(d as { image_url?: string | null; categorie?: string | null; categories?: string[] | null })}
+          texte={s(d.titre)}
+          teinte={cat ? CATEGORIES[cat]?.color ?? null : null}
+        />
         <span style={{ flex: 1, minWidth: 0 }}>
           <Tag>{[JOUR(s(d.date_debut)), heure].filter(Boolean).join(' ')}</Tag>
           <div className="line-clamp-2" style={TITRE}>{s(d.titre) ?? 'Événement'}</div>

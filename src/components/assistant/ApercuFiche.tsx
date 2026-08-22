@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import ClientPortal from '@/components/ClientPortal'
 import { trackEvent } from '@/lib/analytics'
 import type { CarteData } from '@/components/assistant/CarteResultat'
+import { imageEvenement } from '@/lib/imageEvenement'
 
 /**
  * ASSISTANT VILLAGE — l'aperçu d'une fiche, sans quitter la conversation.
@@ -53,7 +54,12 @@ export default function ApercuFiche({ carte, onClose }: Props) {
   const [busy, setBusy] = useState(false)
 
   const titre = s(d.nom) ?? s(d.titre) ?? s(d.title) ?? 'Fiche'
-  const image = s(d.image_url) ?? s(d.affiche_url) ?? premiere(d.photos)
+  // Pour un événement, le helper de l'app décide : il connaît les
+  // illustrations de repli que `image_url` seul ignore.
+  const image = (carte.type === 'ev'
+    ? imageEvenement(d as { image_url?: string | null; categorie?: string | null; categories?: string[] | null })
+    : null)
+    ?? s(d.image_url) ?? s(d.affiche_url) ?? premiere(d.photos)
     ?? premiere((d.etablissement as Record<string, unknown> | null)?.photos)
 
   // L'état du favori est celui du serveur : le cœur ne doit pas mentir.
