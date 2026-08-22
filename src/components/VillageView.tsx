@@ -9,7 +9,7 @@ import { useAuthModal } from '@/contexts/AuthModalContext'
 import type { Evenement } from '@/lib/types'
 import { SectionHeaderV3, FeaturedEventCard, MiniEventCard, MoreEventsCard } from '@/components/HubView'
 import PlansCardFinal from '@/components/PlansCardFinal'
-import CinemaAujourdhui from '@/components/CinemaAujourdhui'
+import CinemaAffiche from '@/components/CinemaAffiche'
 import PostComposer from '@/components/profil/PostComposer'
 import PostCard, { type PostData } from '@/components/profil/PostCard'
 import PostCommentsDrawer from '@/components/profil/PostCommentsDrawer'
@@ -155,8 +155,8 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
 
       {/* Au cinéma — sous l'agenda du jour, dont il est le prolongement. Le
           composant décide seul s'il s'affiche : réglage de visibilité, compte
-          admin, et rien à annoncer aujourd'hui = pas de bloc du tout. */}
-      <CinemaAujourdhui isAdmin={isAdmin} />
+          admin, et rien à l'affiche = pas de bloc du tout. */}
+      <CinemaAffiche isAdmin={isAdmin} />
 
       {/* Fil du village */}
       <div className="mt-4 px-4">

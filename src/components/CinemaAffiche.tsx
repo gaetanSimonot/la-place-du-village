@@ -5,11 +5,12 @@ import useSWR from 'swr'
 import type { Cinema, Film, Seance, VisibiliteCinema } from '@/lib/cinema'
 
 /**
- * Bloc « Au cinéma aujourd'hui » — une carte insérée dans le flux du Village.
+ * Bloc « Au cinéma » — une carte insérée dans le flux du Village.
  *
- * Ce n'est pas une rubrique : c'est une carte cerclée d'orange qui **disparaît
- * entièrement** s'il n'y a aucune séance aujourd'hui. Un cinéma fermé le mardi
- * ne doit pas laisser un bloc vide sur la page d'accueil.
+ * Ce qu'il annonce, c'est l'affiche du moment, pas le programme du jour : un
+ * cinéma fermé le mardi joue quand même les mêmes films, et un habitant qui
+ * passe le mardi doit voir ce qui se donne cette semaine. Le bloc **disparaît
+ * entièrement** quand rien n'est programmé — jamais de carte vide.
  *
  * Visibilité : trois états réglés depuis l'admin, sans déploiement — masqué
  * pour tout le monde, visible des seuls admins, ou visible de tous. C'est le
@@ -18,7 +19,7 @@ import type { Cinema, Film, Seance, VisibiliteCinema } from '@/lib/cinema'
  */
 
 interface Payload {
-  /** Salles qui jouent aujourd'hui — pas « la » salle. */
+  /** Salles qui ont quelque chose à l’affiche — pas « la » salle. */
   cinemas: Cinema[]
   films: Film[]
   seances: Seance[]
@@ -32,8 +33,8 @@ const fetcher = async (u: string) => {
   return r.json()
 }
 
-export default function CinemaAujourdhui({ isAdmin = false }: { isAdmin?: boolean }) {
-  const { data } = useSWR<Payload>('/api/cinema', fetcher, { revalidateOnFocus: false })
+export default function CinemaAffiche({ isAdmin = false }: { isAdmin?: boolean }) {
+  const { data } = useSWR<Payload>('/api/cinema/affiche', fetcher, { revalidateOnFocus: false })
 
   const aujourdhui = data?.aujourdhui ?? ''
   const seancesDuJour = useMemo(
@@ -41,12 +42,16 @@ export default function CinemaAujourdhui({ isAdmin = false }: { isAdmin?: boolea
     [data, aujourdhui],
   )
 
-  /** Films du jour, dans l'ordre de leur première séance. */
+  /**
+   * Les films à l'affiche, dans l'ordre de leur prochaine séance. L'API
+   * renvoie déjà les séances triées par date puis par heure : le premier
+   * passage d'un film est donc le premier qu'on croise.
+   */
   const films = useMemo(() => {
     const parId = new Map((data?.films ?? []).map(f => [f.id, f]))
     const vus = new Set<string>()
     const out: { film: Film; heures: Seance[] }[] = []
-    for (const s of seancesDuJour) {
+    for (const s of data?.seances ?? []) {
       if (vus.has(s.film_id)) { out.find(x => x.film.id === s.film_id)?.heures.push(s); continue }
       const f = parId.get(s.film_id)
       if (!f) continue
@@ -54,14 +59,14 @@ export default function CinemaAujourdhui({ isAdmin = false }: { isAdmin?: boolea
       out.push({ film: f, heures: [s] })
     }
     return out
-  }, [seancesDuJour, data])
+  }, [data])
 
   // Réglage de visibilité — masqué l'emporte sur tout, y compris pour un admin.
   if (data) {
     if (data.villageVisibilite === 'masque') return null
     if (data.villageVisibilite === 'admin' && !isAdmin) return null
   }
-  // Et rien du tout s'il n'y a aucune séance aujourd'hui.
+  // Et rien du tout s'il n'y a aucun film à l'affiche.
   if (!data || films.length === 0) return null
 
   // Une seule salle joue : on ouvre directement sa programmation. Plusieurs :
@@ -70,7 +75,7 @@ export default function CinemaAujourdhui({ isAdmin = false }: { isAdmin?: boolea
   const lien = seule ? `/cinema?cinema=${seule.slug ?? seule.id}` : '/cinema'
 
   return (
-    <div className="mx-4 mt-3.5 overflow-hidden rounded-[20px] bg-white" style={{ border: '1.5px solid #F0B08A' }}>
+    <div className="mx-4 mt-3.5 overflow-hidden rounded-[20px] bg-white" style={{ border: '1px solid #EDE8E0' }}>
       <Link href={lien} className="flex items-center gap-[10px] px-[15px] pb-2.5 pt-3 no-underline">
         <span className="shrink-0 text-texte">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
@@ -81,7 +86,8 @@ export default function CinemaAujourdhui({ isAdmin = false }: { isAdmin?: boolea
         <div className="min-w-0 flex-1">
           <div className="font-title text-[16.5px] leading-tight text-texte">Au cinéma</div>
           <div className="mt-[2px] text-[11px] text-texte-doux">
-            {films.length} film{films.length > 1 ? 's' : ''} · {seancesDuJour.length} séance{seancesDuJour.length > 1 ? 's' : ''}
+            {films.length} film{films.length > 1 ? 's' : ''} à l’affiche
+            {seancesDuJour.length > 0 && ` · ${seancesDuJour.length} séance${seancesDuJour.length > 1 ? 's' : ''} aujourd’hui`}
             {data.cinemas.length > 1 ? ` · ${data.cinemas.length} salles` : ''}
           </div>
         </div>
