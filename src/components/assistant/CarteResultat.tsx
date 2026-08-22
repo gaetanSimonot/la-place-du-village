@@ -1,4 +1,7 @@
 'use client'
+import { useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { trackEvent } from '@/lib/analytics'
 import { imageEvenement } from '@/lib/imageEvenement'
 import { CATEGORIES } from '@/lib/categories'
 import type { Categorie } from '@/lib/types'
@@ -75,21 +78,83 @@ const IcoTag = (
   </svg>
 )
 
-function Coquille({ sombre, onOuvrir, children }: {
-  sombre?: boolean; onOuvrir?: () => void; children: React.ReactNode
+/** Où vit le favori de chaque famille. Un film ne se garde pas. */
+const API_FAVORI: Record<string, string | undefined> = {
+  ev: 'evenements', etab: 'etablissements', prod: 'producers',
+  annonce: 'annonces', promo: 'promotions', film: undefined,
+}
+
+/**
+ * Garder une fiche sans l'ouvrir.
+ *
+ * L'état initial vient du serveur, posé sur la carte pendant la réponse : le
+ * cœur ne ment donc pas, et il n'a coûté aucun aller-retour. Il n'apparaît
+ * que pour un compte connecté — un cœur vide qui échoue au clic serait pire
+ * que pas de cœur du tout.
+ */
+function Coeur({ carte, sombre }: { carte: CarteData; sombre?: boolean }) {
+  const api = API_FAVORI[carte.type]
+  const initial = carte.data.favori
+  const [garde, setGarde] = useState(initial === true)
+  const [busy, setBusy] = useState(false)
+  if (!api || typeof initial !== 'boolean') return null
+
+  async function basculer(e: React.MouseEvent) {
+    e.stopPropagation()   // le clic ne doit pas ouvrir l'aperçu
+    if (busy) return
+    setBusy(true)
+    const avant = garde
+    setGarde(!avant)      // on répond tout de suite, on corrige si besoin
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { setGarde(avant); return }
+      const r = await fetch(`/api/${api}/${carte.id}/favorite`, {
+        method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const j = await r.json().catch(() => null)
+      if (!r.ok) setGarde(avant)
+      else {
+        setGarde(!!j?.favorited)
+        // La carte garde la vérité : rouvrir la conversation depuis
+        // l'appareil ne doit pas rendre un cœur périmé.
+        carte.data.favori = !!j?.favorited
+        trackEvent('assistant_favori', { type: carte.type })
+      }
+    } catch { setGarde(avant) } finally { setBusy(false) }
+  }
+
+  return (
+    <button type="button" onClick={basculer}
+      aria-label={garde ? 'Retirer des favoris' : 'Garder'}
+      className="flex flex-none items-center justify-center border-none bg-transparent"
+      style={{ width: 28, height: 28, marginTop: -2, marginRight: -2, opacity: busy ? 0.5 : 1 }}>
+      <svg width="16" height="16" viewBox="0 0 24 24"
+        fill={garde ? '#C84B2F' : 'none'}
+        stroke={garde ? '#C84B2F' : sombre ? 'rgba(250,251,250,.45)' : '#C9BFB2'}
+        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8l8.8 8.8 8.8-8.8a5.5 5.5 0 0 0 0-7.8z" />
+      </svg>
+    </button>
+  )
+}
+
+function Coquille({ sombre, onOuvrir, carte, children }: {
+  sombre?: boolean; onOuvrir?: () => void; carte: CarteData; children: React.ReactNode
 }) {
   return (
-    <button type="button" onClick={onOuvrir}
+    <div role="button" tabIndex={0} onClick={onOuvrir}
+      onKeyDown={e => { if (e.key === 'Enter') onOuvrir?.() }}
       className="w-full text-left"
       style={{
         display: 'flex', gap: 11, padding: 11, borderRadius: 14,
         border: `1px solid ${sombre ? 'transparent' : '#F0EAE0'}`,
         background: sombre ? '#12171C' : '#fff',
         color: sombre ? '#FAFBFA' : '#1A1209',
-        boxShadow: '0 1px 4px rgba(44,28,16,.04)', textDecoration: 'none',
+        boxShadow: '0 1px 4px rgba(44,28,16,.04)', textDecoration: 'none', cursor: 'pointer',
       }}>
       {children}
-    </button>
+      <Coeur carte={carte} sombre={sombre} />
+    </div>
   )
 }
 
@@ -137,7 +202,7 @@ export default function CarteResultat({ carte, onOuvrir }: { carte: CarteData; o
     // de l'app montre son pictogramme.
     const cat = (s(d.categorie) ?? (Array.isArray(d.categories) ? String(d.categories[0]) : null)) as Categorie | null
     return (
-      <Coquille onOuvrir={onOuvrir}>
+      <Coquille onOuvrir={onOuvrir} carte={carte}>
         <Vignette
           url={imageEvenement(d as { image_url?: string | null; categorie?: string | null; categories?: string[] | null })}
           texte={s(d.titre)}
@@ -158,7 +223,7 @@ export default function CarteResultat({ carte, onOuvrir }: { carte: CarteData; o
     const seances = Array.isArray(d.seances) ? (d.seances as Record<string, unknown>[]) : []
     const p = seances[0]
     return (
-      <Coquille onOuvrir={onOuvrir} sombre>
+      <Coquille onOuvrir={onOuvrir} carte={carte} sombre>
         <Vignette url={s(d.affiche_url)} texte={s(d.titre)} sombre />
         <span style={{ flex: 1, minWidth: 0 }}>
           <Tag sombre>
@@ -181,7 +246,7 @@ export default function CarteResultat({ carte, onOuvrir }: { carte: CarteData; o
       artisan_service: 'Artisan', sante_bien_etre: 'Bien-être', activite: 'Activité',
     }
     return (
-      <Coquille onOuvrir={onOuvrir}>
+      <Coquille onOuvrir={onOuvrir} carte={carte}>
         <Vignette url={premiere(d.photos)} texte={s(d.nom)} />
         <span style={{ flex: 1, minWidth: 0 }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -216,7 +281,7 @@ export default function CarteResultat({ carte, onOuvrir }: { carte: CarteData; o
     // Pas de page par promotion dans l'app : la fiche de l'établissement est
     // l'endroit où elle se présente vraiment.
     return (
-      <Coquille onOuvrir={onOuvrir}>
+      <Coquille onOuvrir={onOuvrir} carte={carte}>
         <Vignette url={s(d.image_url) ?? premiere(etab?.photos)} texte={s(d.title)} />
         <span style={{ flex: 1, minWidth: 0 }}>
           <Tag>Bon plan</Tag>
@@ -230,7 +295,7 @@ export default function CarteResultat({ carte, onOuvrir }: { carte: CarteData; o
   const prix = typeof d.prix_actuel === 'number' ? d.prix_actuel
     : typeof d.prix_initial === 'number' ? d.prix_initial : null
   return (
-    <Coquille onOuvrir={onOuvrir}>
+    <Coquille onOuvrir={onOuvrir} carte={carte}>
       <Vignette url={premiere(d.photos)} texte={s(d.titre)} />
       <span style={{ flex: 1, minWidth: 0 }}>
         <Tag>{prix !== null ? `${prix} €` : 'Annonce'}</Tag>

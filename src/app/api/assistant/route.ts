@@ -8,6 +8,7 @@ import { ouvrirOuReprendre, historique, enregistrerTour } from '@/lib/assistant/
 import { repondre } from '@/lib/assistant/llm'
 import type { Carte } from '@/lib/assistant/outils'
 import { coutEnEuros } from '@/lib/assistant/cout'
+import { marquerFavoris } from '@/lib/assistant/favoris'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -149,7 +150,21 @@ export async function POST(req: NextRequest) {
         envoyer({ type: 'debut', conversationId: conv.id, reste: ouverture.reste })
 
         for await (const ev of repondre({ question: message, historique: passe, maxOutils: quotas.max_outils_tour })) {
-          if (ev.type === 'cartes') cartesVues.push(...ev.items)
+          if (ev.type === 'cartes') {
+            // Le cœur voyage avec la fiche : la personne garde une sortie
+            // d'un geste, sans ouvrir l'aperçu ni attendre un aller-retour.
+            await marquerFavoris(ev.items, ctx?.userId ?? null)
+            cartesVues.push(...ev.items)
+          }
+          if (ev.type === 'action' && ev.action.ids?.length) {
+            // Même règle que pour les fiches citées : une action ne porte que
+            // sur ce que les outils ont rendu. Sans ce filtre, le bouton
+            // « garder ces trois sorties » s'appuyait sur des identifiants
+            // approximatifs et ne gardait rien du tout.
+            const connus = new Set(cartesVues.map(c => c.id))
+            ev.action.ids = ev.action.ids.filter(id => connus.has(id))
+            if (!ev.action.ids.length) continue
+          }
           if (ev.type === 'fin') {
             // On enregistre AVANT de fermer : si le client raccroche, le tour
             // est quand même compté et la conversation reste cohérente.
