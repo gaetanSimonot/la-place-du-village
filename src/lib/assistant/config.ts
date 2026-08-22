@@ -20,8 +20,14 @@ export const GANGES_LNG = GANGES.lng
  */
 export const MODELE = 'claude-sonnet-5'
 
-/** Plafond de sortie par tour — l'assistant doit être court, c'est une règle produit. */
-export const MAX_TOKENS_REPONSE = 900
+/**
+ * Plafond de sortie par tour.
+ *
+ * Court reste la règle pour une demande simple, mais « organise-moi une
+ * journée avec deux amis » demande de la place : météo, une balade, un
+ * restaurant, une séance. 900 tokens coupaient la réponse en plein milieu.
+ */
+export const MAX_TOKENS_REPONSE = 1800
 
 export interface Quotas {
   gratuites: number

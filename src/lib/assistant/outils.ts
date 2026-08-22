@@ -41,10 +41,17 @@ export interface ResultatOutil {
   libelle?: string | null
 }
 
-/** Plafond de résultats rendus au modèle. */
-const MAX = 12
+/**
+ * Plafond de résultats rendus au modèle.
+ *
+ * Volontairement généreux : c'est LUI qui choisit quoi proposer, et il ne
+ * peut pas choisir dans ce qu'il ne voit pas. Douze suffisaient à couper
+ * « du yoga dans la région » en plein milieu — le secteur en compte douze
+ * lieux et huit événements.
+ */
+const MAX = 18
 /** Ce qu'on lit en base avant de classer — large, pour ne rater personne. */
-const LARGE = 40
+const LARGE = 60
 /** Fenêtre maximale d'une recherche de dates — 3 mois suffisent au village. */
 const HORIZON_MAX = 92
 
@@ -314,7 +321,9 @@ async function evenements(a: Args): Promise<ResultatOutil> {
     lieu: (e.lieux?.nom as string) ?? null,
     commune: (e.lieux?.commune as string) ?? null,
     prix: e.prix,
-    resume: e.description ? String(e.description).slice(0, 160) : null,
+    contact: e.contact,
+    organisateurs: e.organisateurs,
+    resume: e.description ? String(e.description).slice(0, 260) : null,
   })
 
   // Quand on demande explicitement les expositions, elles deviennent la
@@ -384,14 +393,19 @@ async function etablissements(a: Args): Promise<ResultatOutil> {
   return {
     pourLeModele: {
       resultats: [
+        // Les coordonnées font partie de la réponse : « tu me donnes le
+        // numéro du Milonga ? » ne doit pas obliger à ouvrir la fiche.
         ...lignes.map(e => ({
           id: e.id, nom: e.nom, type: e.type, commune: e.commune, note: e.note_google,
-          resume: e.description_courte ? String(e.description_courte).slice(0, 140) : null,
+          adresse: e.adresse, telephone: e.contact_tel, site: e.site_web,
+          horaires: e.horaires ? String(e.horaires).slice(0, 220) : null,
+          resume: e.description_courte ? String(e.description_courte).slice(0, 200) : null,
           mis_en_avant: enAvant(e),
         })),
         ...prods.map(p => ({
           id: p.id, nom: p.nom, type: 'producteur', commune: p.commune,
-          resume: p.description_courte ? String(p.description_courte).slice(0, 140) : null,
+          adresse: p.adresse, telephone: p.contact_tel, site: p.site_web,
+          resume: p.description_courte ? String(p.description_courte).slice(0, 200) : null,
           mis_en_avant: false,
         })),
       ],

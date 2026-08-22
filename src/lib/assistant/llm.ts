@@ -77,9 +77,11 @@ export async function* repondre(params: {
       // ils sont mis en cache, et seules les questions successives se paient
       // plein tarif. C'est l'essentiel de l'économie sur une conversation.
       system: [{ type: 'text', text: systeme, cache_control: { type: 'ephemeral' } }],
-      // Réflexion courte : les réponses sont brèves, les outils simples, et
-      // la latence se sent sur un téléphone. Réglable ici seul.
-      output_config: { effort: 'low' },
+      // Assez de réflexion pour CHOISIR les bons outils et composer une
+      // vraie réponse — organiser une journée demande de croiser la météo,
+      // une activité et un restaurant. « low » expédiait la question et
+      // n'ouvrait qu'un tiroir. Réglable ici seul.
+      output_config: { effort: 'medium' },
       tools: encoreDesOutils ? OUTILS : undefined,
       messages,
     })

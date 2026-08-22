@@ -25,6 +25,20 @@
 
 CREATE EXTENSION IF NOT EXISTS unaccent WITH SCHEMA extensions;
 
+-- ── Normaliser, une fois pour toutes ───────────────────────────────────
+-- « saint bauzille » ne trouvait pas « Saint-Bauzille-de-Putois » : le tiret
+-- suffisait à tout bloquer. On aplatit donc de la même façon les deux côtés
+-- de la comparaison — accents, casse, tirets, apostrophes droites et
+-- courbes, points. « st-jean » et « St Jean » deviennent la même chose.
+CREATE OR REPLACE FUNCTION assistant_norm(v text)
+RETURNS text
+LANGUAGE sql
+STABLE
+SET search_path = public, extensions
+AS $$
+  SELECT lower(translate(unaccent(coalesce(v, '')), '-''’.', '    '))
+$$;
+
 -- Les signatures changent (un mot → une liste) : CREATE OR REPLACE ne sait
 -- pas modifier des types de paramètres, il faut retirer les anciennes.
 DROP FUNCTION IF EXISTS assistant_etablissements(text, text, text, int);
@@ -51,12 +65,12 @@ AS $$
     FROM etablissements e
    WHERE (type_filtre IS NULL OR e.type = type_filtre)
      AND (commune_filtre IS NULL
-          OR unaccent(coalesce(e.commune, '')) ILIKE '%' || unaccent(commune_filtre) || '%')
+          OR assistant_norm(e.commune) LIKE '%' || assistant_norm(commune_filtre) || '%')
      AND (termes IS NULL OR cardinality(termes) = 0 OR EXISTS (
            SELECT 1 FROM unnest(termes) AS t
-            WHERE unaccent(coalesce(e.nom, ''))                ILIKE '%' || unaccent(t) || '%'
-               OR unaccent(coalesce(e.description_courte, '')) ILIKE '%' || unaccent(t) || '%'
-               OR unaccent(coalesce(e.description_longue, '')) ILIKE '%' || unaccent(t) || '%'))
+            WHERE assistant_norm(e.nom)                LIKE '%' || assistant_norm(t) || '%'
+               OR assistant_norm(e.description_courte) LIKE '%' || assistant_norm(t) || '%'
+               OR assistant_norm(e.description_longue) LIKE '%' || assistant_norm(t) || '%'))
    -- Sans mot cherché, les mises en avant ouvrent la liste. Dès qu'il y a un
    -- mot, c'est le serveur qui reclasse par pertinence : une fiche qui répond
    -- vraiment passe avant une fiche mise en avant qui répond de loin.
@@ -83,12 +97,12 @@ AS $$
   SELECT p.*
     FROM producers p
    WHERE (commune_filtre IS NULL
-          OR unaccent(coalesce(p.commune, '')) ILIKE '%' || unaccent(commune_filtre) || '%')
+          OR assistant_norm(p.commune) LIKE '%' || assistant_norm(commune_filtre) || '%')
      AND (termes IS NULL OR cardinality(termes) = 0 OR EXISTS (
            SELECT 1 FROM unnest(termes) AS t
-            WHERE unaccent(coalesce(p.nom, ''))                ILIKE '%' || unaccent(t) || '%'
-               OR unaccent(coalesce(p.description_courte, '')) ILIKE '%' || unaccent(t) || '%'
-               OR unaccent(coalesce(p.description_longue, '')) ILIKE '%' || unaccent(t) || '%'))
+            WHERE assistant_norm(p.nom)                LIKE '%' || assistant_norm(t) || '%'
+               OR assistant_norm(p.description_courte) LIKE '%' || assistant_norm(t) || '%'
+               OR assistant_norm(p.description_longue) LIKE '%' || assistant_norm(t) || '%'))
    ORDER BY p.nom
    LIMIT greatest(1, least(coalesce(lim, 10), 30));
 $$;
@@ -136,17 +150,18 @@ AS $$
      AND (cats IS NULL OR cardinality(cats) = 0
           OR coalesce(e.categories, ARRAY[e.categorie]) && cats)
      AND (commune_filtre IS NULL
-          OR unaccent(coalesce(l.commune, '')) ILIKE '%' || unaccent(commune_filtre) || '%')
+          OR assistant_norm(l.commune) LIKE '%' || assistant_norm(commune_filtre) || '%')
      AND (termes IS NULL OR cardinality(termes) = 0 OR EXISTS (
            SELECT 1 FROM unnest(termes) AS t
-            WHERE unaccent(coalesce(e.titre, ''))       ILIKE '%' || unaccent(t) || '%'
-               OR unaccent(coalesce(e.description, '')) ILIKE '%' || unaccent(t) || '%'))
+            WHERE assistant_norm(e.titre)       LIKE '%' || assistant_norm(t) || '%'
+               OR assistant_norm(e.description) LIKE '%' || assistant_norm(t) || '%'))
    ORDER BY e.date_debut
    LIMIT greatest(1, least(coalesce(lim, 40), 80));
 $$;
 
 -- Lecture publique : ces tables sont déjà consultables sans compte dans
 -- l'app. Les fonctions n'ouvrent donc rien de nouveau.
+GRANT EXECUTE ON FUNCTION assistant_norm(text)                                       TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION assistant_etablissements(text[], text, text, int)          TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION assistant_producteurs(text[], text, int)                   TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION assistant_evenements(text, text, text[], text[], text, boolean, int) TO anon, authenticated, service_role;

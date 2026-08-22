@@ -16,9 +16,17 @@
  * qu'il propose, et classer ce que la base renvoie.
  */
 
-/** Sans accents, sans casse — la seule forme dans laquelle on compare. */
+/**
+ * La forme aplatie dans laquelle on compare TOUT : sans accents, sans casse,
+ * et sans les séparateurs qui distinguent « Saint-Bauzille-de-Putois » de
+ * « saint bauzille ». Le tiret suffisait à ne rien trouver.
+ */
 export const nu = (v: unknown): string =>
-  String(v ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  String(v ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[-'’.]/g, ' ')
 
 /** Combien de mots on accepte du modèle, et leur longueur utile. */
 const MAX_MOTS = 8
