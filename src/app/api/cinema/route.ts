@@ -15,6 +15,7 @@ export const revalidate = 0
  * tient dans une réponse (un cinéma ≈ 40 séances par semaine).
  *
  * Query : ?cinema=<slug|id> pour ouvrir directement une salle (QR code).
+ * Sans paramètre, TOUTES les salles sont agrégées — comme le bloc du Village.
  *
  * Pas de cache CDN : une séance ajoutée doit se voir tout de suite, et le
  * volume ne justifie pas d'en discuter.
@@ -40,26 +41,21 @@ export async function GET(req: NextRequest) {
   const aujourdhui = dateParis()
   const fin = dateParis(JOURS_AFFICHES)
 
-  // ?cinema= accepte le slug (lisible, pour les QR) ou l'id.
-  // Sans paramètre, on ne prend PAS la première venue : l'ordre alphabétique
-  // ferait tomber sur une salle sans programmation et donnerait une page vide
-  // alors qu'une autre joue le soir même.
-  let cinema = demande
+  // ?cinema= accepte le slug (lisible, pour les QR) ou l'id, et ouvre CETTE
+  // salle. Sans paramètre, on n'en choisit AUCUNE : on les agrège toutes.
+  // Prendre la première jouait un tour dès la deuxième salle — un film entré
+  // au Vigan remontait sur le Village (qui agrège) mais restait introuvable
+  // ici, ni à l'affiche ni au programme.
+  const cinema = demande
     ? cinemas.find(c => c.slug === demande || c.id === demande) ?? null
     : null
-  if (!cinema) {
-    const { data: prog } = await supabaseAdmin
-      .from('seances').select('etablissement_id')
-      .in('etablissement_id', cinemas.map(c => c.id))
-      .gte('date', aujourdhui).lte('date', fin)
-    const actives = new Set((prog ?? []).map(p => p.etablissement_id))
-    cinema = cinemas.find(c => actives.has(c.id)) ?? cinemas[0]
-  }
+  const salles = cinema ? [cinema] : cinemas
+  const sallesIds = salles.map(c => c.id)
 
   const { data: seancesRows } = await supabaseAdmin
     .from('seances')
     .select('id, etablissement_id, film_id, date, heure, version, salle, billetterie_url, note')
-    .eq('etablissement_id', cinema.id)
+    .in('etablissement_id', sallesIds)
     .gte('date', aujourdhui)
     .lte('date', fin)
     .order('date')
@@ -79,7 +75,7 @@ export async function GET(req: NextRequest) {
   const { data: evenements } = await supabaseAdmin
     .from('evenements')
     .select('id, titre, date_debut, heure, image_url, categorie, categorie_libre, film_id, lieu_id')
-    .eq('etablissement_id', cinema.id)
+    .in('etablissement_id', sallesIds)
     .eq('statut', 'publie')
     .gte('date_debut', aujourdhui)
     .order('date_debut')
@@ -95,7 +91,9 @@ export async function GET(req: NextRequest) {
   const parLieu = new Map((lieuxRows ?? []).map(l => [l.id, l]))
 
   return NextResponse.json({
-    cinemas: cinemas.map(c => ({ id: c.id, nom: c.nom, commune: c.commune, slug: c.slug })),
+    cinemas,
+    // `null` = on regarde toutes les salles à la fois. Une salle précise n'est
+    // retenue que si elle a été demandée.
     cinema,
     films,
     seances,

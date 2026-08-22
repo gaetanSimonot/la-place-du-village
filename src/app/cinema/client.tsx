@@ -29,7 +29,9 @@ interface Evenement {
   lieu: { nom: string | null; adresse: string | null; commune: string | null } | null
 }
 interface Payload {
-  cinemas: { id: string; nom: string; commune: string | null; slug: string | null }[]
+  /** Toutes les salles du territoire. Plusieurs → sélecteur. */
+  cinemas: Cinema[]
+  /** La salle demandée par `?cinema=`. `null` = on les regarde toutes. */
   cinema: Cinema | null
   films: Film[]
   seances: Seance[]
@@ -105,6 +107,12 @@ export default function CinemaClient() {
   )
 
   const cinema = data?.cinema ?? null
+  const salles = useMemo(() => data?.cinemas ?? [], [data])
+  // La salle qu'on regarde : celle demandée, ou l'unique du territoire. En
+  // agrégé (plusieurs salles, aucune demandée) il n'y en a pas — et c'est ce
+  // cas qui manquait : un film entré au Vigan n'apparaissait nulle part ici.
+  const salleUnique = cinema ?? (salles.length === 1 ? salles[0] : null)
+  const nomsSalles = useMemo(() => new Map(salles.map(c => [c.id, c.nom])), [salles])
   const filmsParId = useMemo(() => new Map((data?.films ?? []).map(f => [f.id, f])), [data])
   const seances = useMemo(() => data?.seances ?? [], [data])
   const aujourdhui = data?.aujourdhui ?? ''
@@ -138,7 +146,16 @@ export default function CinemaClient() {
     return Array.from(m.entries())
   }, [seances, onglet, jour])
 
-  const billetterie = cinema?.billetterie_url ?? null
+  const billetterie = salleUnique?.billetterie_url ?? null
+
+  /** Changer de salle. L'URL suit, donc le lien reste partageable. */
+  function choisirSalle(cle: string | null) {
+    setSlug(cle)
+    setJour(null)
+    try {
+      window.history.replaceState(null, '', cle ? `/cinema?cinema=${encodeURIComponent(cle)}` : '/cinema')
+    } catch { /* noop */ }
+  }
 
   return (
     <div className="relative min-h-[100dvh] font-inter"
@@ -171,12 +188,50 @@ export default function CinemaClient() {
         )}
       </div>
 
-      {/* Enseigne */}
+      {/* Enseigne. Le logo est celui de l'Arc-en-Ciel : le poser sur la
+          programmation d'une autre salle serait un contresens. Ailleurs, le
+          nom porte l'identité. */}
       <div className="flex items-center justify-center" style={{ padding: '16px 26px 24px' }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/cinema/aec-logo.png" alt={cinema?.nom ?? 'Cinéma'}
-          style={{ width: '100%', maxWidth: 270, height: 'auto', display: 'block' }} />
+        {salleUnique?.slug === 'ganges' ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src="/cinema/aec-logo.png" alt={salleUnique.nom}
+            style={{ width: '100%', maxWidth: 270, height: 'auto', display: 'block' }} />
+        ) : (
+          <div className="text-center">
+            <h1 className="m-0 font-title"
+              style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--cine-ink)' }}>
+              {salleUnique?.nom ?? 'Au cinéma'}
+            </h1>
+            <p className="m-0" style={{ marginTop: 4, fontSize: 12, color: 'var(--cine-dim2)' }}>
+              {salleUnique?.commune ?? `${salles.length} salles autour de vous`}
+            </p>
+          </div>
+        )}
       </div>
+
+      {/* Choisir sa salle — n'apparaît qu'à partir de la deuxième. */}
+      {salles.length > 1 && (
+        <div className="flex justify-center gap-2 overflow-x-auto px-4 pb-4" style={{ scrollbarWidth: 'none' }}>
+          {[{ id: 'tous', nom: 'Tous les cinémas', cle: null as string | null }, ...salles.map(c => ({
+            id: c.id, nom: c.nom, cle: c.slug ?? c.id,
+          }))].map(o => {
+            const actif = o.cle === null ? !cinema : cinema?.id === o.id
+            return (
+              <button key={o.id} onClick={() => choisirSalle(o.cle)}
+                className="flex-none whitespace-nowrap"
+                style={{
+                  borderRadius: 999, padding: '7px 13px', fontSize: 12,
+                  fontWeight: actif ? 700 : 600,
+                  border: `1px solid ${actif ? 'var(--cine-accent)' : 'rgba(250,251,250,.12)'}`,
+                  background: actif ? 'rgba(157,207,238,.14)' : 'transparent',
+                  color: actif ? 'var(--cine-accent2)' : 'var(--cine-dim)',
+                }}>
+                {o.nom}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {/* Onglets centrés */}
       <div className="flex justify-center gap-7 px-4" style={{ borderBottom: '1px solid var(--cine-line)' }}>
@@ -202,7 +257,7 @@ export default function CinemaClient() {
           <div className="h-7 w-7 animate-spin rounded-full"
             style={{ border: '3px solid rgba(157,207,238,.2)', borderTopColor: 'var(--cine-accent)' }} />
         </div>
-      ) : !cinema ? (
+      ) : !salles.length ? (
         <Vide texte="Aucune salle n’a encore rejoint La Place du Village." />
       ) : onglet === 'films' ? (
         <>
@@ -227,7 +282,7 @@ export default function CinemaClient() {
           {seancesDuJour.length > 0 && (
             <>
               <Titre texte="Aujourd'hui" compteur={seancesDuJour.length} />
-              <ListeSeances jour={aujourdhui} liste={seancesDuJour} films={filmsParId} billetterie={billetterie} sansBandeau />
+              <ListeSeances jour={aujourdhui} liste={seancesDuJour} films={filmsParId} billetterie={billetterie} salles={salleUnique ? null : nomsSalles} sansBandeau />
             </>
           )}
         </>
@@ -261,7 +316,7 @@ export default function CinemaClient() {
           {parJour.length === 0 ? (
             <Vide texte="Aucune séance ce jour-là." />
           ) : parJour.map(([d, liste]) => (
-            <ListeSeances key={d} jour={d} liste={liste} films={filmsParId} billetterie={billetterie} />
+            <ListeSeances key={d} jour={d} liste={liste} films={filmsParId} billetterie={billetterie} salles={salleUnique ? null : nomsSalles} />
           ))}
 
           {jour && (
@@ -307,11 +362,14 @@ function Vide({ texte }: { texte: string }) {
  * lignes qui filent d'un bord à l'autre, la colonne d'heure séparée par un
  * filet vertical, et pas de séparateur sous la dernière.
  */
-function ListeSeances({ jour, liste, films, billetterie, sansBandeau }: {
+function ListeSeances({ jour, liste, films, billetterie, salles, sansBandeau }: {
   jour: string
   liste: Seance[]
   films: Map<string, Film>
   billetterie: string | null
+  /** Les noms de salle, quand plusieurs cinémas sont affichés ensemble.
+      `null` quand on regarde une seule salle : le répéter n'apprend rien. */
+  salles: Map<string, string> | null
   sansBandeau?: boolean
 }) {
   return (
@@ -351,7 +409,12 @@ function ListeSeances({ jour, liste, films, billetterie, sansBandeau }: {
                 {f?.titre ?? 'Film'}
               </Link>
               <div style={{ marginTop: 2, fontSize: 11, color: 'var(--cine-dim2)' }}>
-                {[s.version.toUpperCase(), f?.duree_min ? `${f.duree_min} min` : null, s.salle, s.note].filter(Boolean).join(' · ')}
+                {[
+                  salles?.get(s.etablissement_id) ?? null,
+                  s.version.toUpperCase(),
+                  f?.duree_min ? `${f.duree_min} min` : null,
+                  s.salle, s.note,
+                ].filter(Boolean).join(' · ')}
               </div>
             </div>
             {lien && (
