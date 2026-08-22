@@ -1,5 +1,14 @@
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { CINEMA_FIELDS, type Cinema } from '@/lib/cinema'
+import { CINEMA_FIELDS, type Cinema, type Film } from '@/lib/cinema'
+import { detailsFilm } from '@/lib/tmdb'
+
+/** Ligne brute de `films`, avec les colonnes TMDB. */
+export type FilmRow = Film & {
+  tmdb_id: number | null
+  metadata_source: string
+  backdrop_url: string | null
+  date_sortie: string | null
+}
 
 /**
  * MODULE CINÉMA — accès base, SERVEUR UNIQUEMENT.
@@ -39,4 +48,74 @@ export async function listerCinemas(): Promise<Cinema[]> {
     .eq('module_cinema', true)
     .order('nom')
   return (data ?? []) as Cinema[]
+}
+
+/**
+ * Trouve ou crée NOTRE fiche film à partir d'un identifiant TMDB.
+ *
+ * Point d'entrée unique : l'ajout manuel, l'import d'une affiche et la dictée
+ * appelleront tous celui-ci. Il ne doit donc y avoir qu'une seule logique de
+ * déduplication dans le projet, pas une par écran.
+ *
+ * Ordre de recherche :
+ *   1. même tmdb_id → on réutilise, quel que soit le cinéma qui l'a créé.
+ *      C'est ce qui permettra au Vigan de programmer le « Dune » de Ganges
+ *      sans dupliquer la fiche ;
+ *   2. même titre ET même année → une fiche saisie à la main avant l'arrivée
+ *      de TMDB : on l'adopte et on l'enrichit plutôt que de créer un doublon ;
+ *   3. sinon création.
+ *
+ * Le titre SEUL ne suffit jamais : « Dune » existe en 1984 et en 2021, et les
+ * confondre transférerait la programmation au mauvais film.
+ */
+export async function resoudreFilm(
+  tmdbId: number,
+  cinemaId: string,
+): Promise<{ film: FilmRow; reutilise: boolean }> {
+  const { data: parTmdb } = await supabaseAdmin
+    .from('films').select('*').eq('tmdb_id', tmdbId).maybeSingle()
+  if (parTmdb) return { film: parTmdb as FilmRow, reutilise: true }
+
+  const d = await detailsFilm(tmdbId)
+
+  const champs = {
+    titre:             d.titre,
+    titre_original:    d.titreOriginal,
+    annee:             d.annee,
+    date_sortie:       d.dateSortie,
+    duree_min:         d.dureeMin,
+    realisateur:       d.realisateur,
+    casting:           d.casting,
+    genres:            d.genres.length ? d.genres : null,
+    synopsis:          d.synopsis,
+    affiche_url:       d.afficheUrl,
+    backdrop_url:      d.backdropUrl,
+    bande_annonce_url: d.bandeAnnonceUrl,
+    avertissement:     d.avertissement,
+    tmdb_id:           d.tmdbId,
+    metadata_source:   'tmdb',
+  }
+
+  if (d.annee != null) {
+    const { data: parTitre } = await supabaseAdmin
+      .from('films').select('*')
+      .ilike('titre', d.titre).eq('annee', d.annee).is('tmdb_id', null)
+      .maybeSingle()
+    if (parTitre) {
+      // Fiche saisie à la main : on la complète sans écraser ce que
+      // l'exploitant a déjà renseigné lui-même.
+      const maj: Record<string, unknown> = { tmdb_id: d.tmdbId, metadata_source: 'tmdb', updated_at: new Date().toISOString() }
+      for (const [k, v] of Object.entries(champs)) {
+        if (v != null && !(parTitre as Record<string, unknown>)[k]) maj[k] = v
+      }
+      const { data: maj2 } = await supabaseAdmin
+        .from('films').update(maj).eq('id', (parTitre as FilmRow).id).select('*').single()
+      return { film: (maj2 ?? parTitre) as FilmRow, reutilise: true }
+    }
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('films').insert({ ...champs, cree_par: cinemaId }).select('*').single()
+  if (error) throw new Error(error.message)
+  return { film: data as FilmRow, reutilise: false }
 }

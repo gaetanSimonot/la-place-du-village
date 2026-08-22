@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import BottomNavBar from '@/components/BottomNavBar'
 import ClientPortal from '@/components/ClientPortal'
+import RechercheFilm from '@/components/cinema/RechercheFilm'
 import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
 import { VERSIONS, dateParis, formatHeure, type Film, type VersionFilm } from '@/lib/cinema'
 
@@ -66,6 +67,8 @@ export default function MonCinemaClient() {
   const [vue, setVue] = useState<'affiche' | 'semaine' | 'prochainement'>('affiche')
   /** Film en cours d'édition (affiche, synopsis, distribution…). */
   const [filmEdite, setFilmEdite] = useState<Film | null>(null)
+  /** Recherche d'un film à ajouter (TMDB, avec repli manuel). */
+  const [rechercheOuverte, setRechercheOuverte] = useState(false)
 
   useEffect(() => {
     try { setCinemaId(new URLSearchParams(window.location.search).get('cinema')) } catch { /* noop */ }
@@ -196,7 +199,13 @@ export default function MonCinemaClient() {
       {/* Les films — c'est ici qu'on complète une fiche et qu'on met l'affiche */}
       {data.films.length > 0 && (
         <div className="px-4 pt-4">
-          <h2 className="m-0 mb-2 font-title text-[20px] leading-tight">Mes films</h2>
+          <div className="mb-2 flex items-baseline justify-between">
+            <h2 className="m-0 font-title text-[20px] leading-tight">Mes films</h2>
+            <button onClick={() => setRechercheOuverte(true)}
+              className="border-none bg-transparent p-0 text-[12.5px] font-bold" style={{ color: '#C84B2F' }}>
+              + Ajouter un film
+            </button>
+          </div>
           <div className="flex gap-2.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
             {data.films.map(f => (
               <button key={f.id} onClick={() => setFilmEdite(f)}
@@ -259,6 +268,14 @@ export default function MonCinemaClient() {
           </div>
         ))}
       </div>
+
+      {rechercheOuverte && (
+        <RechercheFilm
+          cinemaId={data.cinema.id}
+          onClose={() => setRechercheOuverte(false)}
+          onCree={(film: Film) => { setRechercheOuverte(false); void mutate(); setFilmEdite(film) }}
+        />
+      )}
 
       {filmEdite && (
         <EditionFilm
