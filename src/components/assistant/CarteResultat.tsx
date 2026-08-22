@@ -119,6 +119,9 @@ function Coeur({ carte, sombre }: { carte: CarteData; sombre?: boolean }) {
         // l'appareil ne doit pas rendre un cœur périmé.
         carte.data.favori = !!j?.favorited
         trackEvent('assistant_favori', { type: carte.type })
+        // La barre du bas fait battre son cœur : on voit où la fiche est
+        // partie, sans quitter la conversation.
+        if (j?.favorited) window.dispatchEvent(new CustomEvent('lpv:favori'))
       }
     } catch { setGarde(avant) } finally { setBusy(false) }
   }
@@ -209,7 +212,7 @@ export default function CarteResultat({ carte, onOuvrir }: { carte: CarteData; o
           teinte={cat ? CATEGORIES[cat]?.color ?? null : null}
         />
         <span style={{ flex: 1, minWidth: 0 }}>
-          <Tag>{[JOUR(s(d.date_debut)), heure].filter(Boolean).join(' ')}</Tag>
+          <Tag>{[JOUR(s(d.date_debut)), heure].filter(Boolean).join(' · ')}</Tag>
           <div className="line-clamp-2" style={TITRE}>{s(d.titre) ?? 'Événement'}</div>
           <Meta icone={IcoPin}>
             {[s(lieu?.nom), s(lieu?.commune), s(d.prix)].filter(Boolean).join(' · ') || 'Lieu à préciser'}

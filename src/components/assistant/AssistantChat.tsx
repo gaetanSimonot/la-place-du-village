@@ -102,6 +102,16 @@ async function partager(texte: string) {
 }
 
 const AV = 26   // diamètre du soleil devant une réponse
+/**
+ * Hauteur de la barre du bas.
+ *
+ * La conversation s'arrête AU-DESSUS d'elle plutôt que de la recouvrir : on
+ * ne quitte pas l'application en parlant à l'assistant, et les cinq onglets
+ * doivent rester là où la main les cherche. C'est aussi ce qui évite d'en
+ * monter une seconde — elle ouvre un canal temps réel, et deux n'auraient
+ * servi à rien.
+ */
+const NAV_H = 64
 const RETRAIT = 51  // 16 (marge) + 26 (soleil) + 9 (gouttière)
 
 export default function AssistantChat({ question, dicter, onClose }: {
@@ -406,7 +416,8 @@ export default function AssistantChat({ question, dicter, onClose }: {
     // zone de saisie passe SOUS la barre du bas. Piège déjà rencontré sur ce
     // projet — toute modale plein écran sort par document.body.
     <ClientPortal>
-    <div className="fixed inset-0 z-[110] flex flex-col font-inter" style={{ background: 'var(--creme)', color: 'var(--texte)' }}>
+    <div className="fixed left-0 right-0 top-0 z-[110] flex flex-col font-inter"
+      style={{ bottom: NAV_H, background: 'var(--creme)', color: 'var(--texte)' }}>
 
       {/* En-tête — le soleil, le nom, le territoire, la sortie */}
       <div className="flex flex-none items-center gap-2.5 bg-white px-3.5 pb-3 pt-[max(env(safe-area-inset-top),0.6rem)]"
@@ -451,11 +462,11 @@ export default function AssistantChat({ question, dicter, onClose }: {
         <>
           <div onClick={replierVolet}
             style={{
-              position: 'fixed', inset: 0, zIndex: 1, background: 'rgba(26,18,9,.35)',
+              position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(26,18,9,.35)',
               opacity: voletSort ? 0 : 1, transition: 'opacity .2s ease',
             }} />
           <div style={{
-            position: 'fixed', top: 0, bottom: 0, left: 0, width: 'min(84vw, 300px)', zIndex: 2,
+            position: 'fixed', top: 0, bottom: 0, left: 0, width: 'min(84vw, 300px)', zIndex: 61,
             background: '#fff', borderRight: '1px solid #F0EAE0', display: 'flex', flexDirection: 'column',
             paddingTop: 'max(env(safe-area-inset-top),14px)',
             // On le laisse glisser : choisir une conversation ne doit pas faire
@@ -618,8 +629,11 @@ export default function AssistantChat({ question, dicter, onClose }: {
       )}
 
       {/* Saisie */}
+      {/* La saisie se pose SUR la barre du bas, qui reste à sa place : on ne
+          quitte pas l'application en parlant à l'assistant, et les cinq
+          onglets doivent rester là où la main les cherche. */}
       <div className="flex flex-none items-end gap-2.5 bg-white"
-        style={{ padding: '11px 14px max(env(safe-area-inset-bottom),14px)', borderTop: '1px solid #F0EAE0' }}>
+        style={{ padding: '11px 14px 12px', borderTop: '1px solid #F0EAE0' }}>
         <div className="flex flex-1 items-end gap-2"
           style={{ border: '1px solid var(--bord)', borderRadius: 20, padding: '7px 12px' }}>
           {/* Pendant l'enregistrement, le champ cède la place : cinq barres

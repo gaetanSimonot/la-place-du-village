@@ -96,6 +96,25 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
     router.push('/ajouter')
   }
 
+  /**
+   * Le cœur des favoris bat une seconde quand quelque chose vient d'y entrer.
+   *
+   * On peut désormais garder une sortie depuis l'Assistant Village sans
+   * quitter la conversation : sans ce signe, rien ne dit où elle est allée.
+   * L'événement est global — n'importe quel écran peut le déclencher, la nav
+   * n'a pas à savoir qui.
+   */
+  const [batFavori, setBatFavori] = useState(false)
+  useEffect(() => {
+    const onFavori = () => {
+      setBatFavori(true)
+      const t = setTimeout(() => setBatFavori(false), 1100)
+      return () => clearTimeout(t)
+    }
+    window.addEventListener('lpv:favori', onFavori)
+    return () => window.removeEventListener('lpv:favori', onFavori)
+  }, [])
+
   const tabs: TabDef[] = [
     { id: 'carte',     label: 'Carte',      href: '/?tab=carte',    active: false,        Icon: Icons.carte },
     { id: 'bonsplans', label: 'Bons plans', href: '/promotions',    active: isPromotions, Icon: Icons.gift },
@@ -159,7 +178,13 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
             }}
           >
             <div style={{ position: 'relative', display: 'inline-flex' }}>
-              <t.Icon />
+              <span style={
+                t.id === 'favoris' && batFavori
+                  ? { color: '#C84B2F', display: 'inline-flex', transformOrigin: 'center', animation: 'lpv-battement .55s ease-in-out 2' }
+                  : { display: 'inline-flex' }
+              }>
+                <t.Icon />
+              </span>
               {t.badge && t.badge > 0 ? (
                 <span style={{
                   position: 'absolute', top: -4, right: -5,
@@ -170,7 +195,7 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
                 }}>{t.badge > 99 ? '99+' : t.badge}</span>
               ) : null}
             </div>
-            <span style={{ fontSize: 10, fontWeight: 700 }}>{t.label}</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: t.id === 'favoris' && batFavori ? '#C84B2F' : undefined }}>{t.label}</span>
           </button>
         )
       })}

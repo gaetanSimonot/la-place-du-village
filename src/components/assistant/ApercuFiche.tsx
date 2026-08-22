@@ -99,6 +99,7 @@ export default function ApercuFiche({ carte, onClose }: Props) {
       if (r.ok) {
         setFavori(!!j?.favorited)
         trackEvent('assistant_favori', { type: carte.type })
+        if (j?.favorited) window.dispatchEvent(new CustomEvent('lpv:favori'))
       }
     } finally { setBusy(false) }
   }
