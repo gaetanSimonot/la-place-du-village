@@ -9,6 +9,7 @@ import { useAuthModal } from '@/contexts/AuthModalContext'
 import BottomNavBar from '@/components/BottomNavBar'
 import ClientPortal from '@/components/ClientPortal'
 import RechercheFilm from '@/components/cinema/RechercheFilm'
+import { useConfirm } from '@/contexts/ConfirmDialogContext'
 import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
 import { VERSIONS, dateParis, formatHeure, type Film, type VersionFilm } from '@/lib/cinema'
 
@@ -61,6 +62,7 @@ export default function MonCinemaClient() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
   const { openAuthModal } = useAuthModal()
+  const { confirm } = useConfirm()
   const [cinemaId, setCinemaId] = useState<string | null>(null)
   const [ajoutOuvert, setAjoutOuvert] = useState(false)
   /** Filtre de la liste, piloté par les quatre entrées de programmation. */
@@ -106,6 +108,31 @@ export default function MonCinemaClient() {
     for (const s of retenues) { const l = m.get(s.date) ?? []; l.push(s); m.set(s.date, l) }
     return Array.from(m.entries())
   }, [seances, aujourdhui, dans7, vue])
+
+  /**
+   * Suppression d'un film, sur clic long — le geste destructeur ne doit pas
+   * être à un tap du geste courant (ouvrir la fiche).
+   *
+   * On annonce le nombre de séances emportées : la base les supprime en
+   * cascade, et l'exploitant doit le savoir AVANT, pas le découvrir après.
+   */
+  async function supprimerFilm(film: Film) {
+    const liees = seances.filter(s => s.film_id === film.id).length
+    const ok = await confirm({
+      title: `Supprimer « ${film.titre} » ?`,
+      message: liees
+        ? `${liees} séance${liees > 1 ? 's' : ''} programmée${liees > 1 ? 's' : ''} ${liees > 1 ? 'seront supprimées' : 'sera supprimée'} avec le film.`
+        : 'Ce film n’a aucune séance programmée.',
+      confirmLabel: 'Supprimer',
+      destructive: true,
+    })
+    if (!ok) return
+    const res = await authedFetch(`/api/cinema/admin?film=${film.id}`, { method: 'DELETE' }).catch(() => null)
+    const j = res && !res.ok ? await res.json().catch(() => null) : null
+    if (!res?.ok) { toast.error(j?.error ?? 'Suppression impossible.'); return }
+    toast.success('Film supprimé.')
+    void mutate()
+  }
 
   async function supprimer(id: string) {
     const res = await authedFetch(`/api/cinema/admin?seance=${id}`, { method: 'DELETE' }).catch(() => null)
@@ -206,10 +233,12 @@ export default function MonCinemaClient() {
               + Ajouter un film
             </button>
           </div>
+          <p className="m-0 mb-2 text-[10.5px] text-texte-doux">Appui long sur une affiche pour supprimer le film.</p>
           <div className="flex gap-2.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
             {data.films.map(f => (
-              <button key={f.id} onClick={() => setFilmEdite(f)}
-                className="w-[92px] shrink-0 border-none bg-transparent p-0 text-left">
+              <VignetteFilm key={f.id} film={f}
+                onOuvrir={() => setFilmEdite(f)}
+                onSupprimer={() => void supprimerFilm(f)}>
                 <div className="relative overflow-hidden rounded-[10px]"
                   style={{ width: 92, aspectRatio: '2 / 3', background: 'linear-gradient(160deg,#2A2320,#0F0D0C)' }}>
                   {f.affiche_url ? (
@@ -225,7 +254,7 @@ export default function MonCinemaClient() {
                   )}
                 </div>
                 <div className="line-clamp-2 text-texte" style={{ marginTop: 6, fontSize: 11.5, fontWeight: 700, lineHeight: 1.2 }}>{f.titre}</div>
-              </button>
+              </VignetteFilm>
             ))}
           </div>
         </div>
@@ -579,5 +608,59 @@ function EditionFilm({ cinemaId, film, onClose, onEnregistre }: {
         </div>
       </div>
     </ClientPortal>
+  )
+}
+
+/* ─── Vignette d'un film : tap pour éditer, appui long pour supprimer ──── */
+
+/**
+ * Le geste destructeur ne doit pas être à un tap du geste courant. Même
+ * mécanique que l'agenda admin : 550 ms, annulé si le doigt bouge, et le
+ * clic qui suit est avalé pour ne pas ouvrir la fiche par-dessus la
+ * confirmation.
+ */
+function VignetteFilm({ film, onOuvrir, onSupprimer, children }: {
+  film: Film
+  onOuvrir: () => void
+  onSupprimer: () => void
+  children: React.ReactNode
+}) {
+  const timer = useRef<ReturnType<typeof setTimeout>>()
+  const declenche = useRef(false)
+  const depart = useRef<{ x: number; y: number } | null>(null)
+
+  const debut = (e: React.PointerEvent) => {
+    declenche.current = false
+    depart.current = { x: e.clientX, y: e.clientY }
+    timer.current = setTimeout(() => { declenche.current = true; onSupprimer() }, 550)
+  }
+  const bouge = (e: React.PointerEvent) => {
+    if (!depart.current) return
+    // Un défilement horizontal du rail ne doit pas déclencher une suppression.
+    if (Math.abs(e.clientX - depart.current.x) > 8 || Math.abs(e.clientY - depart.current.y) > 8) {
+      clearTimeout(timer.current)
+    }
+  }
+  const fin = () => {
+    clearTimeout(timer.current)
+    depart.current = null
+    setTimeout(() => { declenche.current = false }, 60)
+  }
+
+  return (
+    <button
+      type="button"
+      aria-label={`${film.titre} — toucher pour modifier, appui long pour supprimer`}
+      onClick={() => { if (!declenche.current) onOuvrir() }}
+      onPointerDown={debut}
+      onPointerMove={bouge}
+      onPointerUp={fin}
+      onPointerLeave={fin}
+      onContextMenu={e => e.preventDefault()}
+      className="w-[92px] shrink-0 border-none bg-transparent p-0 text-left"
+      style={{ touchAction: 'pan-x' }}
+    >
+      {children}
+    </button>
   )
 }

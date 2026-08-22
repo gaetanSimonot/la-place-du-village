@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import { toast } from 'sonner'
 import BottomNavBar from '@/components/BottomNavBar'
+import BandeAnnonce from '@/components/cinema/BandeAnnonce'
 import { formatHeure, type Cinema, type Film, type Seance } from '@/lib/cinema'
 
 /**
@@ -35,6 +36,7 @@ function jourLisible(date: string): string {
 export default function FilmClient({ id }: { id: string }) {
   const router = useRouter()
   const [tout, setTout] = useState(false)
+  const [videoOuverte, setVideoOuverte] = useState(false)
   const { data, isLoading } = useSWR<Payload>(`/api/cinema/film/${id}`, fetcher)
 
   const film = data?.film
@@ -129,12 +131,12 @@ export default function FilmClient({ id }: { id: string }) {
                 </div>
               )}
               {film.bande_annonce_url && (
-                <a href={film.bande_annonce_url} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center no-underline"
+                <button onClick={() => setVideoOuverte(true)}
+                  className="inline-flex items-center"
                   style={{ marginTop: 12, gap: 7, border: '1px solid #E8E0D4', background: '#fff', borderRadius: 9, padding: '8px 12px', fontSize: 12.5, fontWeight: 700, color: '#1A1209' }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20" /></svg>
                   Bande-annonce
-                </a>
+                </button>
               )}
             </div>
           </div>
@@ -201,6 +203,10 @@ export default function FilmClient({ id }: { id: string }) {
             )}
           </div>
         </>
+      )}
+
+      {videoOuverte && film?.bande_annonce_url && (
+        <BandeAnnonce url={film.bande_annonce_url} titre={film.titre} onClose={() => setVideoOuverte(false)} />
       )}
 
       <BottomNavBar />

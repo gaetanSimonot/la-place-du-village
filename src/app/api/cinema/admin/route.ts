@@ -18,6 +18,7 @@ export const revalidate = 0
  *  POST   { cinema, seances[] }   → crée des séances (import ou saisie)
  *  PATCH  { cinema, film }        → met à jour une fiche film
  *  DELETE ?seance=<id>            → supprime une séance
+ *  DELETE ?film=<id>              → supprime un film et SES séances
  */
 
 /** Fenêtre de programmation présentée à l'exploitant. */
@@ -182,8 +183,39 @@ export async function PATCH(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url)
+  const filmId = searchParams.get('film')
+
+  if (filmId) {
+    // Les films sont GLOBAUX : supprimer celui d'un confrère effacerait sa
+    // programmation par cascade. On refuse dès qu'une autre salle le joue.
+    const { data: ailleurs } = await supabaseAdmin
+      .from('seances').select('etablissement_id').eq('film_id', filmId)
+    const salles = new Set((ailleurs ?? []).map(s => s.etablissement_id))
+
+    const { data: film } = await supabaseAdmin
+      .from('films').select('cree_par').eq('id', filmId).maybeSingle()
+    if (!film) return NextResponse.json({ error: 'Film introuvable' }, { status: 404 })
+
+    // La salle légitime : celle qui l'a créé, ou celle qui le programme.
+    const cinemaId = film.cree_par ?? Array.from(salles)[0] ?? null
+    const g = await garde(req, cinemaId)
+    if (g.erreur) return g.erreur
+
+    const autres = Array.from(salles).filter(id => id !== cinemaId)
+    if (autres.length) {
+      return NextResponse.json(
+        { error: 'Ce film est programmé par un autre cinéma. Retirez d’abord vos séances.' },
+        { status: 409 },
+      )
+    }
+
+    const { error } = await supabaseAdmin.from('films').delete().eq('id', filmId)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  }
+
   const seanceId = searchParams.get('seance')
-  if (!seanceId) return NextResponse.json({ error: 'seance manquante' }, { status: 400 })
+  if (!seanceId) return NextResponse.json({ error: 'seance ou film manquant' }, { status: 400 })
 
   // On remonte à la salle depuis la séance : la garde porte sur le cinéma,
   // pas sur la ligne, sinon n'importe qui pourrait supprimer chez le voisin.
