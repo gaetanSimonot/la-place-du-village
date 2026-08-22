@@ -37,6 +37,8 @@ interface SeanceAdmin {
 }
 interface Payload {
   cinema: { id: string; nom: string; commune: string | null; slug: string | null } | null
+  /** Toutes les salles que cette personne administre — sélecteur dès la 2e. */
+  salles: { id: string; nom: string; commune: string | null }[]
   films: Film[]
   seances: SeanceAdmin[]
 }
@@ -132,11 +134,27 @@ export default function MonCinemaClient() {
       destructive: true,
     })
     if (!ok) return
-    const res = await authedFetch(`/api/cinema/admin?film=${film.id}`, { method: 'DELETE' }).catch(() => null)
-    const j = res && !res.ok ? await res.json().catch(() => null) : null
+    const res = await authedFetch(
+      `/api/cinema/admin?film=${film.id}&cinema=${data?.cinema?.id ?? ''}`,
+      { method: 'DELETE' },
+    ).catch(() => null)
+    const j = res ? await res.json().catch(() => null) : null
     if (!res?.ok) { toast.error(j?.error ?? 'Suppression impossible.'); return }
-    toast.success('Film supprimé.')
+    // `conserve` : la fiche vit encore chez une autre salle, on ne l'a que
+    // retirée d'ici. Le dire évite de croire qu'on a effacé chez le confrère.
+    toast.success(j?.conserve ? 'Film retiré de votre cinéma.' : 'Film supprimé.')
     void mutate()
+  }
+
+  /**
+   * Passer d'une salle à l'autre. L'URL suit : un rechargement, un partage du
+   * lien ou un retour arrière rouvrent la salle choisie, pas la première.
+   */
+  function choisirSalle(id: string) {
+    if (id === cinemaId) return
+    setCinemaId(id)
+    setVue('affiche')
+    try { window.history.replaceState(null, '', `/cinema/admin?cinema=${id}`) } catch { /* noop */ }
   }
 
   async function supprimer(id: string) {
@@ -164,6 +182,28 @@ export default function MonCinemaClient() {
 
   return (
     <Coquille titre={data.cinema.nom} sousTitre={data.cinema.commune ?? undefined} onRetour={() => router.back()}>
+      {/* Deux salles ou plus : on choisit. Sans ce sélecteur, l'écran ouvrait
+          toujours la première par ordre alphabétique. */}
+      {(data.salles?.length ?? 0) > 1 && (
+        <div className="flex gap-2 overflow-x-auto px-4 pt-3" style={{ scrollbarWidth: 'none' }}>
+          {data.salles.map(s => {
+            const actif = s.id === data.cinema!.id
+            return (
+              <button key={s.id} onClick={() => choisirSalle(s.id)}
+                className="flex-none whitespace-nowrap bg-white"
+                style={{
+                  border: `1px solid ${actif ? '#C8DEC0' : '#F0EAE0'}`,
+                  background: actif ? '#F4FAF5' : '#fff',
+                  color: actif ? '#2D5A3D' : '#7A6A5A',
+                  borderRadius: 999, padding: '7px 13px', fontSize: 12.5, fontWeight: 800,
+                }}>
+                {s.nom}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       {/* Trois compteurs — l'état de la programmation en un coup d'œil */}
       <div className="grid grid-cols-3 gap-2 px-4 pt-3.5">
         <Compteur n={compteurs.films}   label="films à l’affiche" />
@@ -235,42 +275,51 @@ export default function MonCinemaClient() {
         </a>
       </div>
 
-      {/* Les films — c'est ici qu'on complète une fiche et qu'on met l'affiche */}
-      {data.films.length > 0 && (
-        <div className="px-4 pt-4">
-          <div className="mb-2 flex items-baseline justify-between">
-            <h2 className="m-0 font-title text-[20px] leading-tight">Mes films</h2>
-            <button onClick={() => setRechercheOuverte(true)}
-              className="border-none bg-transparent p-0 text-[12.5px] font-bold" style={{ color: '#C84B2F' }}>
-              + Ajouter un film
-            </button>
-          </div>
-          <p className="m-0 mb-2 text-[10.5px] text-texte-doux">Appui long sur une affiche pour supprimer le film.</p>
-          <div className="flex gap-2.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-            {data.films.map(f => (
-              <VignetteFilm key={f.id} film={f}
-                onOuvrir={() => setFilmEdite(f)}
-                onSupprimer={() => void supprimerFilm(f)}>
-                <div className="relative overflow-hidden rounded-[10px]"
-                  style={{ width: 92, aspectRatio: '2 / 3', background: 'linear-gradient(160deg,#2A2320,#0F0D0C)' }}>
-                  {f.affiche_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={f.affiche_url} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full flex-col items-center justify-center gap-1" style={{ color: '#B9A98C' }}>
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
-                      </svg>
-                      <span style={{ fontSize: 9, fontWeight: 800 }}>Ajouter</span>
-                    </div>
-                  )}
-                </div>
-                <div className="line-clamp-2 text-texte" style={{ marginTop: 6, fontSize: 11.5, fontWeight: 700, lineHeight: 1.2 }}>{f.titre}</div>
-              </VignetteFilm>
-            ))}
-          </div>
+      {/* Les films — c'est ici qu'on complète une fiche et qu'on met l'affiche.
+          La section reste visible sans film : c'est le seul endroit d'où on en
+          ajoute un, et une salle vide est justement celle qui en a besoin. */}
+      <div className="px-4 pt-4">
+        <div className="mb-2 flex items-baseline justify-between">
+          <h2 className="m-0 font-title text-[20px] leading-tight">Mes films</h2>
+          <button onClick={() => setRechercheOuverte(true)}
+            className="border-none bg-transparent p-0 text-[12.5px] font-bold" style={{ color: '#C84B2F' }}>
+            + Ajouter un film
+          </button>
         </div>
-      )}
+        {data.films.length === 0 ? (
+          <Message
+            titre="Aucun film"
+            texte="Ajoutez vos films ici : la recherche remplit l’affiche et le synopsis. Vous pourrez ensuite les programmer."
+          />
+        ) : (
+          <>
+            <p className="m-0 mb-2 text-[10.5px] text-texte-doux">Appui long sur une affiche pour supprimer le film.</p>
+            <div className="flex gap-2.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+              {data.films.map(f => (
+                <VignetteFilm key={f.id} film={f}
+                  onOuvrir={() => setFilmEdite(f)}
+                  onSupprimer={() => void supprimerFilm(f)}>
+                  <div className="relative overflow-hidden rounded-[10px]"
+                    style={{ width: 92, aspectRatio: '2 / 3', background: 'linear-gradient(160deg,#2A2320,#0F0D0C)' }}>
+                    {f.affiche_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={f.affiche_url} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full flex-col items-center justify-center gap-1" style={{ color: '#B9A98C' }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
+                        </svg>
+                        <span style={{ fontSize: 9, fontWeight: 800 }}>Ajouter</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="line-clamp-2 text-texte" style={{ marginTop: 6, fontSize: 11.5, fontWeight: 700, lineHeight: 1.2 }}>{f.titre}</div>
+                </VignetteFilm>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
 
       {/* La programmation */}
       <div className="px-4 pt-4">

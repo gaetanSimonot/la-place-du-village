@@ -221,8 +221,10 @@ export default function RechercheFilm({ cinemaId, requeteInitiale, onClose, onCr
     if (!films.length) { toast.error(j?.error ?? 'Création impossible.'); return }
     const crees = j?.crees ?? films.length
     toast.success(
-      crees === 0 ? 'Ces films existaient déjà, ils sont réutilisés.'
-        : films.length === 1 ? (j?.reutilise ? 'Ce film existait déjà, il est réutilisé.' : 'Film créé.')
+      // « Déjà là » se disait sans dire OÙ : la fiche est partagée entre les
+      // salles, mais elle rejoint bien le catalogue de celle-ci.
+      crees === 0 ? 'Ces films existaient déjà — ils rejoignent vos films.'
+        : films.length === 1 ? (j?.reutilise ? 'Ce film existait déjà — il rejoint vos films.' : 'Film créé.')
         : `${crees} film${crees > 1 ? 's' : ''} ajouté${crees > 1 ? 's' : ''}.`,
     )
     onCrees(films)

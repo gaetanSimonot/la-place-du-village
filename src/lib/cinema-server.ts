@@ -51,6 +51,59 @@ export async function listerCinemas(): Promise<Cinema[]> {
 }
 
 /**
+ * Les salles que cette personne peut administrer, dans l'ordre des noms.
+ *
+ * L'admin de l'app les voit toutes : sans sélecteur, l'écran « Mon cinéma »
+ * ouvrait toujours la PREMIÈRE par ordre alphabétique, et la deuxième salle
+ * restait inatteignable.
+ */
+export async function sallesAdministrables(
+  userId: string,
+  isAdmin: boolean,
+): Promise<Cinema[]> {
+  const cinemas = await listerCinemas()
+  const retenues: Cinema[] = []
+  for (const c of cinemas) {
+    if (await peutAdministrerCinema(c.id, userId, isAdmin)) retenues.push(c)
+  }
+  return retenues
+}
+
+/**
+ * Ce film entre au catalogue de cette salle.
+ *
+ * Idempotent : la clé primaire composite tranche, réajouter un film déjà au
+ * catalogue ne fait rien. À appeler à CHAQUE résolution, création comme
+ * réutilisation — c'est la réutilisation qui posait problème.
+ */
+export async function lierFilmAuCinema(filmId: string, cinemaId: string): Promise<void> {
+  await supabaseAdmin
+    .from('cinema_films')
+    .upsert({ etablissement_id: cinemaId, film_id: filmId }, {
+      onConflict: 'etablissement_id,film_id',
+      ignoreDuplicates: true,
+    })
+}
+
+/**
+ * Les identifiants des films de cette salle.
+ *
+ * Le catalogue explicite, PLUS les films qu'elle programme : ces derniers
+ * sont le filet si un lien manque (séance importée avant la table, ligne
+ * effacée à la main). Une salle doit toujours voir ce qu'elle joue.
+ */
+export async function filmsDuCinema(cinemaId: string): Promise<string[]> {
+  const [cat, seances] = await Promise.all([
+    supabaseAdmin.from('cinema_films').select('film_id').eq('etablissement_id', cinemaId),
+    supabaseAdmin.from('seances').select('film_id').eq('etablissement_id', cinemaId),
+  ])
+  return Array.from(new Set([
+    ...(cat.data ?? []).map(r => r.film_id as string),
+    ...(seances.data ?? []).map(r => r.film_id as string),
+  ]))
+}
+
+/**
  * Trouve ou crée NOTRE fiche film à partir d'un identifiant TMDB.
  *
  * Point d'entrée unique : l'ajout manuel, l'import d'une affiche et la dictée
@@ -69,6 +122,18 @@ export async function listerCinemas(): Promise<Cinema[]> {
  * confondre transférerait la programmation au mauvais film.
  */
 export async function resoudreFilm(
+  tmdbId: number,
+  cinemaId: string,
+): Promise<{ film: FilmRow; reutilise: boolean }> {
+  const r = await trouverOuCreerFilm(tmdbId, cinemaId)
+  // Le lien vaut aussi — surtout — quand la fiche est réutilisée : sans lui,
+  // la salle s'entend répondre « ce film existe déjà » et ne le voit jamais
+  // apparaître dans ses films.
+  await lierFilmAuCinema(r.film.id, cinemaId)
+  return r
+}
+
+async function trouverOuCreerFilm(
   tmdbId: number,
   cinemaId: string,
 ): Promise<{ film: FilmRow; reutilise: boolean }> {

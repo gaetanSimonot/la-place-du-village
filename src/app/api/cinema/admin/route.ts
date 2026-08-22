@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser } from '@/lib/server-auth'
 import { dateParis, type VersionFilm } from '@/lib/cinema'
-import { peutAdministrerCinema, listerCinemas } from '@/lib/cinema-server'
+import { peutAdministrerCinema, sallesAdministrables, lierFilmAuCinema, filmsDuCinema } from '@/lib/cinema-server'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -18,7 +18,7 @@ export const revalidate = 0
  *  POST   { cinema, seances[] }   → crée des séances (import ou saisie)
  *  PATCH  { cinema, film }        → met à jour une fiche film
  *  DELETE ?seance=<id>            → supprime une séance
- *  DELETE ?film=<id>              → supprime un film et SES séances
+ *  DELETE ?film=<id>&cinema=<id>  → retire un film d'une salle (et ses séances)
  */
 
 /** Fenêtre de programmation présentée à l'exploitant. */
@@ -39,17 +39,17 @@ async function garde(req: NextRequest, cinemaId: string | null) {
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
-  let cinemaId = searchParams.get('cinema')
+  const ctx = await requireUser(req)
+  if (ctx instanceof Response) return ctx
 
-  // Sans paramètre : la première salle que cette personne peut administrer.
+  // Toutes les salles administrables, pas seulement celle qu'on ouvre : le
+  // client en fait un sélecteur dès qu'il y en a deux. Sans paramètre, on
+  // ouvre la première — un paramètre non autorisé est refusé par la garde,
+  // jamais rabattu en silence sur une autre salle.
+  const salles = await sallesAdministrables(ctx.userId, ctx.isAdmin)
+  const cinemaId = searchParams.get('cinema') ?? salles[0]?.id ?? null
   if (!cinemaId) {
-    const ctx = await requireUser(req)
-    if (ctx instanceof Response) return ctx
-    const cinemas = await listerCinemas()
-    for (const c of cinemas) {
-      if (await peutAdministrerCinema(c.id, ctx.userId, ctx.isAdmin)) { cinemaId = c.id; break }
-    }
-    if (!cinemaId) return NextResponse.json({ cinema: null, films: [], seances: [] })
+    return NextResponse.json({ cinema: null, salles: [], films: [], seances: [] })
   }
 
   const g = await garde(req, cinemaId)
@@ -67,16 +67,17 @@ export async function GET(req: NextRequest) {
   ])
 
   const seances = seancesRes.data ?? []
-  const filmIds = Array.from(new Set(seances.map(s => s.film_id)))
-  // Les films déjà saisis par ce cinéma, même sans séance à venir : il doit
-  // pouvoir reprogrammer un film sans le ressaisir.
-  const { data: films } = await supabaseAdmin
-    .from('films').select('*')
-    .or(`cree_par.eq.${cinemaId}${filmIds.length ? `,id.in.(${filmIds.join(',')})` : ''}`)
-    .order('titre')
+  // Le catalogue de CETTE salle, même sans séance à venir : elle doit pouvoir
+  // reprogrammer un film sans le ressaisir. Un film créé par une autre salle
+  // et repris ici en fait partie — c'est tout l'objet de `cinema_films`.
+  const catalogue = await filmsDuCinema(cinemaId)
+  const { data: films } = catalogue.length
+    ? await supabaseAdmin.from('films').select('*').in('id', catalogue).order('titre')
+    : { data: [] }
 
   return NextResponse.json({
     cinema: cinemaRes.data ?? null,
+    salles,
     films: films ?? [],
     seances,
   }, { headers: { 'Cache-Control': 'no-store' } })
@@ -98,7 +99,12 @@ export async function POST(req: NextRequest) {
     // celui qui porte déjà ce titre (comparaison insensible à la casse).
     const { data: existant } = await supabaseAdmin
       .from('films').select('*').ilike('titre', titre).maybeSingle()
-    if (existant) return NextResponse.json({ film: existant, reutilise: true })
+    if (existant) {
+      // Réutiliser la fiche d'une autre salle ne suffit pas : sans ce lien,
+      // « il existe déjà » et le film n'apparaît nulle part ici.
+      await lierFilmAuCinema(existant.id, cinemaId!)
+      return NextResponse.json({ film: existant, reutilise: true })
+    }
 
     const { data, error } = await supabaseAdmin.from('films').insert({
       titre,
@@ -115,6 +121,7 @@ export async function POST(req: NextRequest) {
       cree_par:    cinemaId,
     }).select('*').single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    await lierFilmAuCinema(data.id, cinemaId!)
     return NextResponse.json({ film: data, reutilise: false })
   }
 
@@ -143,6 +150,12 @@ export async function POST(req: NextRequest) {
         ignoreDuplicates: true,
       }).select('id')
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // Programmer un film, c'est l'avoir : la dictée peut créer des séances
+    // sur un film repris d'une autre salle sans passer par « Ajouter ».
+    const vus = Array.from(new Set(lignes.map((l: { film_id: string }) => l.film_id))) as string[]
+    await Promise.all(vus.map(id => lierFilmAuCinema(id, cinemaId!)))
+
     return NextResponse.json({ crees: data?.length ?? 0, recus: lignes.length })
   }
 
@@ -186,32 +199,41 @@ export async function DELETE(req: NextRequest) {
   const filmId = searchParams.get('film')
 
   if (filmId) {
-    // Les films sont GLOBAUX : supprimer celui d'un confrère effacerait sa
-    // programmation par cascade. On refuse dès qu'une autre salle le joue.
-    const { data: ailleurs } = await supabaseAdmin
-      .from('seances').select('etablissement_id').eq('film_id', filmId)
-    const salles = new Set((ailleurs ?? []).map(s => s.etablissement_id))
-
     const { data: film } = await supabaseAdmin
       .from('films').select('cree_par').eq('id', filmId).maybeSingle()
     if (!film) return NextResponse.json({ error: 'Film introuvable' }, { status: 404 })
 
-    // La salle légitime : celle qui l'a créé, ou celle qui le programme.
-    const cinemaId = film.cree_par ?? Array.from(salles)[0] ?? null
+    // La salle qui agit. Le client l'envoie ; à défaut on retombe sur celle
+    // qui a créé la fiche, puis sur celle qui la programme — sans ça, avec
+    // deux salles, on gardait la mauvaise et l'admin supprimait chez l'autre.
+    let cinemaId = searchParams.get('cinema')
+    if (!cinemaId) {
+      const { data: ailleurs } = await supabaseAdmin
+        .from('seances').select('etablissement_id').eq('film_id', filmId).limit(1)
+      cinemaId = film.cree_par ?? ailleurs?.[0]?.etablissement_id ?? null
+    }
     const g = await garde(req, cinemaId)
     if (g.erreur) return g.erreur
 
-    const autres = Array.from(salles).filter(id => id !== cinemaId)
-    if (autres.length) {
-      return NextResponse.json(
-        { error: 'Ce film est programmé par un autre cinéma. Retirez d’abord vos séances.' },
-        { status: 409 },
-      )
-    }
+    // On retire le film DE CETTE SALLE : son entrée au catalogue et ses
+    // séances à elle. Les films sont globaux — effacer la fiche emporterait
+    // par cascade la programmation du confrère.
+    await supabaseAdmin.from('cinema_films')
+      .delete().eq('etablissement_id', cinemaId).eq('film_id', filmId)
+    await supabaseAdmin.from('seances')
+      .delete().eq('etablissement_id', cinemaId).eq('film_id', filmId)
 
-    const { error } = await supabaseAdmin.from('films').delete().eq('id', filmId)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ ok: true })
+    // Plus personne ne le revendique : la fiche part avec.
+    const [liens, seancesAilleurs] = await Promise.all([
+      supabaseAdmin.from('cinema_films').select('etablissement_id').eq('film_id', filmId).limit(1),
+      supabaseAdmin.from('seances').select('id').eq('film_id', filmId).limit(1),
+    ])
+    const vitAilleurs = Boolean(liens.data?.length || seancesAilleurs.data?.length)
+    if (!vitAilleurs) {
+      const { error } = await supabaseAdmin.from('films').delete().eq('id', filmId)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+    return NextResponse.json({ ok: true, conserve: vitAilleurs })
   }
 
   const seanceId = searchParams.get('seance')

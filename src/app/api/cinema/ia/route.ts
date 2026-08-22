@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser } from '@/lib/server-auth'
 import { rateLimit } from '@/lib/rateLimit'
 import { validateImageUpload } from '@/lib/imageUpload'
-import { peutAdministrerCinema } from '@/lib/cinema-server'
+import { peutAdministrerCinema, filmsDuCinema } from '@/lib/cinema-server'
 import { trouverFilms, lireProgramme, type FilmCatalogue } from '@/lib/cinema-ia'
 import { tmdbConfigure } from '@/lib/tmdb'
 
@@ -86,18 +86,17 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * Les films que ce cinéma peut programmer : ceux qu'il a saisis, plus ceux
- * qu'il joue déjà (un film créé par une autre salle et repris ici).
+ * Les films que ce cinéma peut programmer — son catalogue, celui que
+ * `cinema_films` porte, films repris d'une autre salle compris.
  */
 async function catalogueDuCinema(cinemaId: string): Promise<FilmCatalogue[]> {
-  const { data: seances } = await supabaseAdmin
-    .from('seances').select('film_id').eq('etablissement_id', cinemaId)
-  const joues = Array.from(new Set((seances ?? []).map(s => s.film_id)))
+  const ids = await filmsDuCinema(cinemaId)
+  if (!ids.length) return []
 
   const { data } = await supabaseAdmin
     .from('films')
     .select('id, titre, annee, realisateur')
-    .or(`cree_par.eq.${cinemaId}${joues.length ? `,id.in.(${joues.join(',')})` : ''}`)
+    .in('id', ids)
     .order('titre')
     .limit(200)
 
