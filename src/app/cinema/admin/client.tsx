@@ -9,6 +9,7 @@ import { useAuthModal } from '@/contexts/AuthModalContext'
 import BottomNavBar from '@/components/BottomNavBar'
 import ClientPortal from '@/components/ClientPortal'
 import RechercheFilm from '@/components/cinema/RechercheFilm'
+import TimeWheelPicker from '@/components/TimeWheelPicker'
 import { useConfirm } from '@/contexts/ConfirmDialogContext'
 import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
 import { VERSIONS, dateParis, formatHeure, type Film, type VersionFilm } from '@/lib/cinema'
@@ -346,6 +347,7 @@ function AjoutSeance({ cinemaId, films, onClose, onAjoute }: {
   const [date, setDate]       = useState(dateParis())
   const [heure, setHeure]     = useState('20:30')
   const [version, setVersion] = useState<VersionFilm>('vf')
+  const [heureOuverte, setHeureOuverte] = useState(false)
   const [salle, setSalle]     = useState('')
   const [busy, setBusy]       = useState(false)
 
@@ -404,7 +406,17 @@ function AjoutSeance({ cinemaId, films, onClose, onAjoute }: {
 
           <div className="flex gap-2">
             <div className="flex-1"><Champ label="Date"><input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} /></Champ></div>
-            <div className="flex-1"><Champ label="Heure"><input type="time" value={heure} onChange={e => setHeure(e.target.value)} style={inputStyle} /></Champ></div>
+            <div className="flex-1">
+              <Champ label="Heure">
+                {/* Molette du projet (celle du covoiturage) plutôt que l'horloge
+                    native du navigateur : sur Android elle impose un cadran
+                    analogique, pénible pour saisir « 20:30 ». */}
+                <button type="button" onClick={() => setHeureOuverte(true)}
+                  style={{ ...inputStyle, textAlign: 'left', cursor: 'pointer' }}>
+                  {heure || 'Choisir'}
+                </button>
+              </Champ>
+            </div>
           </div>
 
           <Champ label="Version">
@@ -434,6 +446,13 @@ function AjoutSeance({ cinemaId, films, onClose, onAjoute }: {
           </button>
         </div>
       </div>
+
+      <TimeWheelPicker
+        open={heureOuverte}
+        value={heure}
+        onClose={() => setHeureOuverte(false)}
+        onConfirm={hhmm => { setHeure(hhmm); setHeureOuverte(false) }}
+      />
     </ClientPortal>
   )
 }

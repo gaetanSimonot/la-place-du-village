@@ -78,16 +78,16 @@ export default function CinemaAujourdhui({ isAdmin = false }: { isAdmin?: boolea
 
   return (
     <div className="mx-4 mt-3.5 overflow-hidden rounded-[20px] bg-white" style={{ border: '1.5px solid #F0B08A' }}>
-      <Link href={lien} className="flex items-center gap-[11px] px-[15px] pb-3 pt-[15px] no-underline">
+      <Link href={lien} className="flex items-center gap-[10px] px-[15px] pb-2.5 pt-3 no-underline">
         <span className="shrink-0 text-texte">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 8h18v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" />
             <path d="M3 8l2.5-4 4 2M9 6l4.5-2.5 4 2M15 4l4.5-1.5L21 6" />
           </svg>
         </span>
         <div className="min-w-0 flex-1">
-          <div className="font-title text-[18px] leading-tight text-texte">Au cinéma aujourd’hui</div>
-          <div className="mt-[3px] text-[11.5px] text-texte-doux">
+          <div className="font-title text-[16.5px] leading-tight text-texte">Au cinéma aujourd’hui</div>
+          <div className="mt-[2px] text-[11px] text-texte-doux">
             {films.length} film{films.length > 1 ? 's' : ''} · {seancesDuJour.length} séance{seancesDuJour.length > 1 ? 's' : ''}
             {data.cinemas.length > 1 ? ` · ${data.cinemas.length} salles` : ''}
           </div>
@@ -100,36 +100,42 @@ export default function CinemaAujourdhui({ isAdmin = false }: { isAdmin?: boolea
         </span>
       </Link>
 
-      <div className="flex gap-2.5 overflow-x-auto px-[15px] pb-4" style={{ scrollbarWidth: 'none' }}>
-        {films.map(({ film, heures }) => (
-          <Link key={film.id} href={`/cinema/film/${film.id}`} className="w-[92px] shrink-0 no-underline">
-            <div className="relative overflow-hidden rounded-[10px]" style={{ width: 92, aspectRatio: '2 / 3', background: '#241C15' }}>
-              {film.affiche_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={film.affiche_url} alt="" className="h-full w-full object-cover" loading="lazy" />
-              ) : (
-                <div className="flex h-full w-full items-end p-1.5">
-                  <span className="text-[10px] font-extrabold leading-tight text-[#E8C58A]">{film.titre}</span>
-                </div>
-              )}
-            </div>
-            <div className="mt-1.5 line-clamp-2 text-[11.5px] font-bold leading-tight text-texte">{film.titre}</div>
-            <div className="mt-1 flex flex-wrap gap-1">
-              {heures.slice(0, 3).map(s => {
-                const suivante = prochaine?.id === s.id
-                return (
-                  <span key={s.id}
-                    className="rounded-[7px] px-2 py-[3px] text-[11px] font-bold tabular-nums"
-                    style={suivante
-                      ? { background: '#2D5A3D', color: '#fff' }
-                      : { background: '#EAF3EC', color: '#2D5A3D' }}>
-                    {formatHeure(s.heure)}
+      {/* Rail d'affiches seules. Pas de titre sous l'affiche : l'affiche EST
+          le titre, et la répéter en petit doublait la hauteur du bloc pour
+          rien. L'horaire est posé dessus, sur un dégradé qui garantit la
+          lisibilité quelle que soit l'image. */}
+      <div className="flex gap-2 overflow-x-auto px-[15px] pb-[15px]" style={{ scrollbarWidth: 'none' }}>
+        {films.map(({ film, heures }) => {
+          const suivante = heures.find(h => prochaine?.id === h.id) ?? null
+          const aMontrer = suivante ?? heures[0]
+          return (
+            <Link key={film.id} href={`/cinema/film/${film.id}`} className="relative shrink-0 no-underline">
+              <div className="relative overflow-hidden rounded-[10px]"
+                style={{ width: 76, aspectRatio: '2 / 3', background: 'linear-gradient(160deg,#2A2320,#0F0D0C)' }}>
+                {film.affiche_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={film.affiche_url} alt={film.titre} className="h-full w-full object-cover" loading="lazy" />
+                ) : (
+                  <div className="flex h-full w-full items-end p-1.5">
+                    <span style={{ fontSize: 9.5, fontWeight: 800, lineHeight: 1.15, color: '#F4E7CE', textShadow: '0 1px 3px rgba(0,0,0,.6)' }}>
+                      {film.titre}
+                    </span>
+                  </div>
+                )}
+                {/* Voile bas : sans lui, une heure claire sur une affiche
+                    claire devient illisible. */}
+                <div className="pointer-events-none absolute inset-x-0 bottom-0" style={{ height: 30, background: 'linear-gradient(to top, rgba(10,8,6,.85), transparent)' }} />
+                {aMontrer && (
+                  <span className="absolute bottom-1 left-0 right-0 text-center tabular-nums"
+                    style={{ fontSize: 11, fontWeight: 800, color: suivante ? '#8FD9A4' : '#F4E7CE', textShadow: '0 1px 3px rgba(0,0,0,.8)' }}>
+                    {formatHeure(aMontrer.heure)}
+                    {heures.length > 1 && <span style={{ opacity: .7, fontWeight: 700 }}> +{heures.length - 1}</span>}
                   </span>
-                )
-              })}
-            </div>
-          </Link>
-        ))}
+                )}
+              </div>
+            </Link>
+          )
+        })}
       </div>
     </div>
   )
