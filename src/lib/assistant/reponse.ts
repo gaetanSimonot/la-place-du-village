@@ -19,7 +19,14 @@ import type { Carte } from '@/lib/assistant/outils'
  * qui est le but — il protège aussi bien celui d'aujourd'hui que le prochain.
  */
 
-const MARQUEUR = /\[\[(ev|etab|prod|film|promo|annonce):([^\]\s]+)\]\]/g
+const BR = '\n'
+
+/**
+ * Les espaces sont tolérés autour de l'identifiant : certains modèles
+ * écrivent « [[ev: 1234 ]] », et un marqueur non reconnu s'affichait tel quel
+ * à l'écran — crochets compris — pendant que sa fiche disparaissait.
+ */
+const MARQUEUR = /\[\[(ev|etab|prod|film|promo|annonce):\s*([^\]\s]+)\s*\]\]/g
 
 /** Le nom porté par une fiche, quelle que soit sa table. */
 function titreDe(c: Carte): string {
@@ -48,7 +55,9 @@ export function verrouillerReponse(texte: string, cartes: Carte[]): string {
   let net = texte.replace(MARQUEUR, (tout, _type, id: string) => {
     if (!connus.has(id) || cites.has(id)) return ''
     cites.add(id)
-    return tout
+    // Réécrit au format canonique : le client reçoit toujours la même forme,
+    // quel que soit le modèle qui a rédigé.
+    return `[[${_type}:${id}]]`
   })
 
   // ── 2. Un marqueur par ligne, jamais collé au texte ──────────────────
@@ -63,17 +72,20 @@ export function verrouillerReponse(texte: string, cartes: Carte[]): string {
 /**
  * Remet chaque fiche derrière la phrase qui en parle.
  *
- * Certains modèles décrivent tout en prose, puis alignent les marqueurs à la
- * fin. On cherche alors, pour chacun, la ligne où son titre apparaît, et on
- * l'y replace. Sans correspondance trouvée, on le laisse où il est — mieux
- * vaut une carte mal placée qu'une carte perdue.
+ * Certains modèles décrivent tout d'un bloc, puis alignent les marqueurs à la
+ * fin — parfois en un seul paragraphe, sans le moindre retour à la ligne où
+ * glisser quoi que ce soit. On découpe donc le texte EN PHRASES, et on cherche
+ * pour chaque fiche celle qui la mentionne. Six cartes empilées après un pavé,
+ * on ne sait plus laquelle va avec quoi.
+ *
+ * Sans correspondance trouvée, la fiche reste en fin de réponse : mieux vaut
+ * une carte mal placée qu'une carte perdue.
  */
 function replacerLesGroupes(texte: string, cartes: Carte[]): string {
-  const lignes = texte.split('\n')
-  const estMarqueur = (l: string) => /^\s*\[\[[a-z]+:[^\]\s]+\]\]\s*$/.test(l)
+  const lignes = texte.split(BR)
+  const estMarqueur = (l: string) => /^\s*\[\[[a-z]+:\s*[^\]\s]+\s*\]\]\s*$/.test(l)
 
-  // Le bloc de fin : des marqueurs à la suite, éventuellement séparés de
-  // lignes vides, et plus rien d'autre après.
+  // Le bloc de fin : des marqueurs à la suite, et plus rien d'autre après.
   let debut = lignes.length
   for (let i = lignes.length - 1; i >= 0; i--) {
     const l = lignes[i]
@@ -82,25 +94,51 @@ function replacerLesGroupes(texte: string, cartes: Carte[]): string {
     break
   }
   const groupe = lignes.slice(debut).filter(estMarqueur)
-  // Moins de trois d'affilée : c'est une fin de réponse normale.
-  if (groupe.length < 3) return texte
+  if (groupe.length < 2) return texte
 
-  const avant = lignes.slice(0, debut)
-  const parId = new Map(cartes.map(c => [c.id, c]))
-  const restants: string[] = []
-
-  for (const m of groupe) {
-    const id = m.match(/\[\[[a-z]+:([^\]\s]+)\]\]/)?.[1]
-    const carte = id ? parId.get(id) : undefined
-    const titre = carte ? nu(titreDe(carte)) : ''
-    // On cherche le premier mot distinctif du titre dans le texte : les noms
-    // sont souvent raccourcis en prose (« Le Milonga » pour « Le Milonga —
-    // Bar à vins »), une correspondance exacte échouerait presque toujours.
-    const cle = titre.split(/\s+/).filter(m2 => m2.length > 3).slice(0, 2).join(' ')
-    const i = cle ? avant.findIndex(l => nu(l).includes(cle)) : -1
-    if (i >= 0) avant.splice(i + 1, 0, m.trim())
-    else restants.push(m.trim())
+  // Chaque phrase devient une unité où poser une fiche. Un paragraphe unique
+  // en fournit autant qu'il contient de phrases — sans ce découpage, il n'y
+  // avait qu'une seule place possible, et donc aucune.
+  const unites: string[] = []
+  for (const ligne of lignes.slice(0, debut)) {
+    if (!ligne.trim()) { unites.push(ligne); continue }
+    for (const phrase of ligne.split(/(?<=[.!?…])\s+/)) {
+      if (phrase.trim()) unites.push(phrase.trim())
+    }
   }
 
-  return [...avant, ...restants].join('\n')
+  const parId = new Map(cartes.map(c => [c.id, c]))
+  const restants: string[] = []
+  const prises = new Set<number>()
+
+  for (const m of groupe) {
+    const id = m.match(/\[\[[a-z]+:\s*([^\]\s]+)\s*\]\]/)?.[1]
+    const carte = id ? parId.get(id) : undefined
+    const titre = carte ? nu(titreDe(carte)) : ''
+    // On cherche les mots distinctifs du titre : en prose, les noms sont
+    // raccourcis (« Le Milonga » pour « Le Milonga — Bar à vins »), et une
+    // correspondance exacte échouerait presque toujours.
+    const cles = titre.split(/\s+/).filter(x => x.length > 3).slice(0, 3)
+    let i = -1
+    for (const cle of cles) {
+      i = unites.findIndex((u, k) => !estMarqueur(u) && !prises.has(k) && nu(u).includes(cle))
+      if (i >= 0) break
+    }
+    if (i >= 0) {
+      prises.add(i)
+      // On insère après la phrase ET après les fiches déjà posées derrière
+      // elle, pour garder l'ordre d'origine entre plusieurs cartes.
+      let j = i + 1
+      while (j < unites.length && estMarqueur(unites[j])) j++
+      unites.splice(j, 0, m.trim())
+    } else restants.push(m.trim())
+  }
+
+  // Une phrase suivie de sa fiche forme un bloc : on aère entre les blocs.
+  const sortie: string[] = []
+  for (const u of unites) {
+    if (estMarqueur(u) || !sortie.length) sortie.push(u)
+    else sortie.push('', u)
+  }
+  return [...sortie, ...restants].join(BR)
 }

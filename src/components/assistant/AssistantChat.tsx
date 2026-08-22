@@ -54,7 +54,7 @@ function anonId(): string {
   } catch { return 'anon' }
 }
 
-const MARQUEUR = /\[\[(ev|etab|prod|film|promo|annonce|q):([^\]]+)\]\]/g
+const MARQUEUR = /\[\[(ev|etab|prod|film|promo|annonce|q):\s*([^\]]+?)\s*\]\]/g
 
 type Bout =
   | { t: 'texte'; v: string }
