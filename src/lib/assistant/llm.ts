@@ -20,7 +20,7 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export type EvenementFlux =
   | { type: 'texte';  delta: string }
-  | { type: 'outil';  nom: string }
+  | { type: 'outil';  nom: string; mots?: string | null }
   | { type: 'cartes'; items: Carte[] }
   | { type: 'fin';    texte: string; outils: string[]; tokensIn: number; tokensOut: number; sujet: string | null }
 
@@ -109,7 +109,14 @@ export async function* repondre(params: {
 
     for (const d of demandes) {
       outilsAppeles.push(d.name)
-      yield { type: 'outil', nom: d.name }
+      // Les mots que le modèle a choisi d'élargir : les montrer pendant la
+      // recherche rassure sur ce qu'il est en train de faire, et rend
+      // visible le travail qui rattrape « manger italien » → « pizzeria ».
+      const cherches = (d.input as { mots?: unknown })?.mots
+      yield {
+        type: 'outil', nom: d.name,
+        mots: Array.isArray(cherches) ? cherches.filter(m => typeof m === 'string').slice(0, 3).join(', ') : null,
+      }
       try {
         const r = await executerOutil(d.name, (d.input ?? {}) as Record<string, unknown>)
         if (r.cartes.length) yield { type: 'cartes', items: r.cartes }

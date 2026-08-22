@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import AssistantChat from '@/components/assistant/AssistantChat'
 import Soleil from '@/components/assistant/Soleil'
+import { resumeReprise } from '@/lib/assistantLocal'
 
 /**
  * ASSISTANT VILLAGE — la barre, en haut du Village.
@@ -46,6 +47,8 @@ export default function BarreAssistant() {
   /** Ouvert par le micro : la conversation démarre en écoutant. */
   const [parLaVoix, setParLaVoix] = useState(false)
   const [sugs] = useState(suggestions)
+  /** Une conversation récente à reprendre, s'il y en a une. */
+  const [reprise, setReprise] = useState<{ titre: string; minutes: number } | null>(null)
 
   useEffect(() => {
     let annule = false
@@ -56,7 +59,12 @@ export default function BarreAssistant() {
           headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
         })
         const j = await r.json().catch(() => null)
-        if (!annule) setOuvert(!!j?.ouvert)
+        if (annule) return
+        setOuvert(!!j?.ouvert)
+        // Ce qui a été laissé en plan il y a moins d'une demi-heure mérite
+        // qu'on propose de le rouvrir : on revient souvent d'une fiche.
+        const r2 = resumeReprise()
+        setReprise(r2 && r2.minutes < 30 ? r2 : null)
       } catch { /* la barre reste simplement absente */ }
     })()
     return () => { annule = true }
@@ -131,6 +139,20 @@ export default function BarreAssistant() {
               </>
             )}
           </div>
+
+          {reprise && (
+            <button onClick={() => { setParLaVoix(false); setQuestion('') }}
+              className="mt-2.5 flex w-full items-center gap-2 text-left"
+              style={{ border: '1px solid #DCE8DF', background: '#F4FAF5', borderRadius: 12, padding: '8px 11px' }}>
+              <span style={{ color: 'var(--primary)', flex: 'none', lineHeight: 0 }}><Soleil size={13} rayons={4} /></span>
+              <span className="min-w-0 flex-1 truncate" style={{ fontSize: 12, fontWeight: 700, color: '#2D5A3D' }}>
+                Reprendre : {reprise.titre}
+              </span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7FA98A" strokeWidth="2" strokeLinecap="round" className="flex-none">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
+          )}
 
           <div className="flex gap-1.5 overflow-x-auto" style={{ marginTop: 9, scrollbarWidth: 'none' }}>
             {sugs.map(x => (

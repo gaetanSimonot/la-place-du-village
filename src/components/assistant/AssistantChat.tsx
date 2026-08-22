@@ -6,6 +6,11 @@ import SubscriptionModal from '@/components/SubscriptionModal'
 import MicButton, { type MicButtonHandle } from '@/components/MicButton'
 import CarteResultat, { type CarteData } from '@/components/assistant/CarteResultat'
 import Soleil from '@/components/assistant/Soleil'
+import ClientPortal from '@/components/ClientPortal'
+import {
+  derniereConversation, lireConversations, enregistrerConversation,
+  type ConversationLocale,
+} from '@/lib/assistantLocal'
 
 /**
  * ASSISTANT VILLAGE — l'écran de conversation.
@@ -67,6 +72,15 @@ function segments(texte: string): Bout[] {
   return out
 }
 
+/** « il y a 3 min », sans bibliothèque : trois cas suffisent ici. */
+function ilYA(at: number): string {
+  const min = Math.max(0, Math.round((Date.now() - (at ?? 0)) / 60_000))
+  if (min < 1) return "à l'instant"
+  if (min < 60) return `il y a ${min} min`
+  const h = Math.round(min / 60)
+  return h < 24 ? `il y a ${h} h` : `il y a ${Math.round(h / 24)} j`
+}
+
 const AV = 26   // diamètre du soleil devant une réponse
 const RETRAIT = 51  // 16 (marge) + 26 (soleil) + 9 (gouttière)
 
@@ -80,9 +94,17 @@ export default function AssistantChat({ question, dicter, onClose }: {
   const [saisie, setSaisie] = useState('')
   const [enCours, setEnCours] = useState(false)
   const [conversationId, setConversationId] = useState<string | null>(null)
+  /**
+   * L'identifiant en REF, pas seulement en state : la première question part
+   * dans l'effet de montage, avant que React n'ait propagé le state, et sans
+   * ça elle ouvrirait une conversation neuve à côté de celle qu'on reprend.
+   */
+  const convRef = useRef<string | null>(null)
+  const [listeOuverte, setListeOuverte] = useState(false)
+  const [conversations, setConversations] = useState<ConversationLocale[]>([])
   const [quotaEpuise, setQuotaEpuise] = useState<string | null>(null)
   const [offreOuverte, setOffreOuverte] = useState(false)
-  const [cherche, setCherche] = useState(false)
+  const [cherche, setCherche] = useState<string | null>(null)
   /** État du micro — c'est lui qui fait battre le bouton en rouge. */
   const [micEtat, setMicEtat] = useState<'idle' | 'recording' | 'transcribing'>('idle')
   const finRef = useRef<HTMLDivElement>(null)
@@ -109,7 +131,7 @@ export default function AssistantChat({ question, dicter, onClose }: {
           'Content-Type': 'application/json',
           ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
-        body: JSON.stringify({ message: q, conversationId, anonId: anonId() }),
+        body: JSON.stringify({ message: q, conversationId: convRef.current, anonId: anonId() }),
       })
 
       if (!res.ok || !res.body) {
@@ -138,9 +160,9 @@ export default function AssistantChat({ question, dicter, onClose }: {
           let ev: Record<string, unknown>
           try { ev = JSON.parse(ligne.slice(6)) } catch { continue }
 
-          if (ev.type === 'debut') setConversationId(String(ev.conversationId))
-          else if (ev.type === 'texte') { setCherche(false); majDernier(m => ({ ...m, texte: m.texte + String(ev.delta) })) }
-          else if (ev.type === 'outil') setCherche(true)
+          if (ev.type === 'debut') { convRef.current = String(ev.conversationId); setConversationId(String(ev.conversationId)) }
+          else if (ev.type === 'texte') { setCherche(null); majDernier(m => ({ ...m, texte: m.texte + String(ev.delta) })) }
+          else if (ev.type === 'outil') setCherche(typeof ev.mots === 'string' && ev.mots ? ev.mots : '')
           else if (ev.type === 'cartes') majDernier(m => ({ ...m, cartes: [...m.cartes, ...(ev.items as CarteData[])] }))
           else if (ev.type === 'erreur') majDernier(m => ({ ...m, texte: String(ev.message), encours: false }))
         }
@@ -150,23 +172,64 @@ export default function AssistantChat({ question, dicter, onClose }: {
       majDernier(m => ({ ...m, texte: 'La connexion s’est interrompue. Réessayez.', encours: false }))
     } finally {
       setEnCours(false)
-      setCherche(false)
+      setCherche(null)
     }
-  }, [conversationId, enCours])
+  }, [enCours])
 
   envoiRef.current = envoyer
 
-  // La question posée dans la barre part toute seule, une fois. Si on est
-  // entré par le micro, on n'envoie rien : on se met à écouter, et la
-  // personne relit avant d'envoyer.
+  /**
+   * On rouvre là où on s'était arrêté.
+   *
+   * Cliquer sur une fiche proposée quitte vraiment l'écran : sans reprise, on
+   * revenait devant une conversation vide, ce qui décourage d'explorer ce
+   * qu'on nous propose. Au-delà d'une demi-heure on repart à neuf — c'est la
+   * même limite que le serveur retient pour dire qu'un sujet est clos.
+   */
   useEffect(() => {
     trackEvent('assistant_ouvert', { depuis: dicter ? 'micro' : 'barre' })
+    setConversations(lireConversations())
+
+    const passe = derniereConversation()
+    const fraiche = passe && Date.now() - (passe.at ?? 0) < 30 * 60_000 && passe.messages.length
+    if (fraiche && passe) {
+      convRef.current = passe.id
+      setConversationId(passe.id)
+      setMessages(passe.messages as Message[])
+    }
+
     if (question.trim()) envoiRef.current(question)
     else if (dicter) setTimeout(() => micRef.current?.start(), 250)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  /** Chaque tour terminé est gardé sur l'appareil — jamais en cours d'écriture. */
+  useEffect(() => {
+    if (!messages.length || messages.some(m => m.encours)) return
+    enregistrerConversation({
+      id: convRef.current,
+      titre: messages.find(m => m.role === 'user')?.texte.slice(0, 60) ?? '',
+      at: Date.now(),
+      messages: messages.map(m => ({ role: m.role, texte: m.texte, cartes: m.cartes })),
+    })
+    setConversations(lireConversations())
+  }, [messages])
+
+  /** Repartir de zéro, ou rouvrir l'une des trois gardées. */
+  const ouvrirConversation = (c: ConversationLocale | null) => {
+    setListeOuverte(false)
+    setSaisie('')
+    convRef.current = c?.id ?? null
+    setConversationId(c?.id ?? null)
+    setMessages((c?.messages ?? []) as Message[])
+  }
+
   return (
+    // La conversation est ouverte depuis le Village, qui vit dans un conteneur
+    // à z-index propre : sans portail, ce plein écran y reste enfermé et sa
+    // zone de saisie passe SOUS la barre du bas. Piège déjà rencontré sur ce
+    // projet — toute modale plein écran sort par document.body.
+    <ClientPortal>
     <div className="fixed inset-0 z-[110] flex flex-col font-inter" style={{ background: 'var(--creme)', color: 'var(--texte)' }}>
 
       {/* En-tête — le soleil, le nom, le territoire, la sortie */}
@@ -177,6 +240,16 @@ export default function AssistantChat({ question, dicter, onClose }: {
           <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '-.01em' }}>Assistant Village</div>
           <div style={{ fontSize: 10.5, color: '#7A6A5A', marginTop: 1 }}>Ganges et alentours</div>
         </div>
+        {/* Les trois dernières conversations, et de quoi en ouvrir une neuve.
+            Trois suffisent : au-delà, une liste devient une archive dont on
+            ne fait rien. */}
+        <button onClick={() => setListeOuverte(o => !o)} aria-label="Mes conversations"
+          className="flex flex-none items-center justify-center bg-white"
+          style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid var(--bord)', color: '#7A6A5A' }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">
+            <line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="14" y2="17" />
+          </svg>
+        </button>
         <button onClick={onClose} aria-label="Fermer"
           className="flex flex-none items-center justify-center bg-white"
           style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid var(--bord)', color: '#7A6A5A' }}>
@@ -185,6 +258,36 @@ export default function AssistantChat({ question, dicter, onClose }: {
           </svg>
         </button>
       </div>
+
+      {listeOuverte && (
+        <div className="flex-none bg-white" style={{ borderBottom: '1px solid #F0EAE0', padding: '8px 14px 12px' }}>
+          {conversations.map(c => {
+            const actif = (c.id ?? null) === conversationId
+            return (
+              <button key={c.id ?? 'neuve'} onClick={() => ouvrirConversation(c)}
+                className="mb-1.5 flex w-full items-center gap-2.5 text-left"
+                style={{
+                  border: `1px solid ${actif ? '#C8DEC0' : '#F0EAE0'}`,
+                  background: actif ? '#F4FAF5' : '#fff',
+                  borderRadius: 12, padding: '9px 11px',
+                }}>
+                <span style={{ color: actif ? 'var(--primary)' : '#A99B89', flex: 'none', lineHeight: 0 }}>
+                  <Soleil size={13} rayons={4} />
+                </span>
+                <span className="min-w-0 flex-1 truncate" style={{ fontSize: 12.5, fontWeight: 700 }}>{c.titre}</span>
+                <span style={{ fontSize: 10.5, color: '#A99B89', flex: 'none' }}>
+                  {ilYA(c.at)}
+                </span>
+              </button>
+            )
+          })}
+          <button onClick={() => ouvrirConversation(null)}
+            className="w-full border-none bg-transparent py-1 text-center"
+            style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--primary)' }}>
+            + Nouvelle conversation
+          </button>
+        </div>
+      )}
 
       {/* Le fil */}
       <div className="flex-1 overflow-y-auto" style={{ padding: '14px 0 6px' }}>
@@ -218,13 +321,15 @@ export default function AssistantChat({ question, dicter, onClose }: {
           )
         ))}
 
-        {cherche && (
+        {cherche !== null && (
           <div style={{ margin: '0 16px 12px', display: 'flex', gap: 9, alignItems: 'center' }}>
             <span className="flex flex-none items-center justify-center"
               style={{ width: AV, height: AV, borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)' }}>
               <Soleil size={14} rayons={4} />
             </span>
-            <span style={{ fontSize: 13, color: '#7A6A5A' }}>Je cherche…</span>
+            <span style={{ fontSize: 13, color: '#7A6A5A' }}>
+              {cherche ? `Je cherche : ${cherche}…` : 'Je cherche…'}
+            </span>
           </div>
         )}
 
@@ -327,6 +432,7 @@ export default function AssistantChat({ question, dicter, onClose }: {
         />
       )}
     </div>
+    </ClientPortal>
   )
 }
 

@@ -5,6 +5,7 @@ import { getPrompt } from '@/lib/prompts-ia'
 // le redéfinir ici ferait une deuxième vérité pour la même question.
 import { dateParis } from '@/lib/cinema'
 import { meteoJour } from '@/lib/assistant/meteo'
+import { motsCles, classer, classerLieux, nu, libelleRecherche } from '@/lib/assistant/recherche'
 
 /**
  * ASSISTANT VILLAGE — les outils. SERVEUR UNIQUEMENT.
@@ -20,6 +21,10 @@ import { meteoJour } from '@/lib/assistant/meteo'
  * C'est cette séparation qui rend une carte inhallucinable : le texte du
  * modèle ne porte que des identifiants, et un identifiant qu'aucun outil n'a
  * renvoyé n'affiche rien. Les faits restent dans la base de bout en bout.
+ *
+ * TOUTES les recherches prennent une LISTE de mots, jamais un seul : c'est
+ * l'assistant qui élargit « manger italien » en pizzeria, trattoria, pasta.
+ * Voir recherche.ts pour le pourquoi.
  */
 
 /** Une fiche réelle, renvoyée au client pour affichage. */
@@ -32,11 +37,14 @@ export interface Carte {
 export interface ResultatOutil {
   pourLeModele: unknown
   cartes: Carte[]
+  /** Ce qu'on montre à l'écran pendant la recherche : « pizzeria, italien… ». */
+  libelle?: string | null
 }
 
-/** Plafond serveur, jamais négociable par le modèle. */
+/** Plafond de résultats rendus au modèle. */
 const MAX = 12
-
+/** Ce qu'on lit en base avant de classer — large, pour ne rater personne. */
+const LARGE = 40
 /** Fenêtre maximale d'une recherche de dates — 3 mois suffisent au village. */
 const HORIZON_MAX = 92
 
@@ -44,11 +52,15 @@ const HORIZON_MAX = 92
    DÉFINITIONS — ce que le modèle voit
    ═══════════════════════════════════════════════════════════════════════ */
 
-/**
- * Volontairement peu d'outils, aux paramètres évidents. Un outil par famille
- * de contenu du village : au-delà, le modèle hésite et multiplie les appels.
- * Les descriptions sont écrites POUR LUI, pas pour nous.
- */
+/** Le texte commun à tous les paramètres `mots` : c'est LA consigne clé. */
+const MOTS_DESC =
+  "Les mots à chercher, tels qu'ils sont ÉCRITS DANS LES FICHES — pas la façon dont la personne parle. " +
+  "Donnez-en 3 à 6, du plus précis au plus large, en incluant les mots d'enseigne, les spécialités et les synonymes. " +
+  '« manger italien » → ["pizzeria","italien","pizza","trattoria","pasta"]. ' +
+  '« un électricien » → ["electricien","electricite","elec"]. ' +
+  '« du pain » → ["boulangerie","boulanger","fournil","pain"]. ' +
+  "Les accents et la casse n'ont pas d'importance. Omettez ce paramètre pour tout parcourir."
+
 export const OUTILS = [
   {
     name: 'chercher_evenements',
@@ -59,13 +71,13 @@ export const OUTILS = [
       properties: {
         du:   { type: 'string', description: 'Premier jour cherché, AAAA-MM-JJ.' },
         au:   { type: 'string', description: 'Dernier jour cherché inclus, AAAA-MM-JJ. Le même que "du" pour une seule journée.' },
+        mots: { type: 'array', items: { type: 'string' }, description: MOTS_DESC },
         categories: {
           type: 'array',
           items: { type: 'string', enum: ['concert', 'theatre', 'sport', 'marche', 'atelier', 'fete', 'sante_bien_etre', 'autre'] },
-          description: 'Filtre facultatif. Sans lui, toutes les catégories remontent — préférable quand la demande est vague.',
+          description: "Filtre facultatif. Sans lui, toutes les catégories remontent — préférable quand la demande est vague, car le classement d'un événement est souvent approximatif.",
         },
         commune: { type: 'string', description: 'Nom de commune, facultatif.' },
-        texte:   { type: 'string', description: 'Mots du titre recherché, facultatif. À ne mettre que si la personne nomme quelque chose de précis.' },
         en_continu: {
           type: 'boolean',
           description: "true seulement si la personne cherche explicitement une exposition, une permanence ou un cours à l'année. Par défaut (false), ce qui dure des semaines est renvoyé à part, sous « aussi_en_cours ».",
@@ -77,16 +89,16 @@ export const OUTILS = [
   {
     name: 'chercher_etablissements',
     description:
-      "Commerces, restaurants, artisans, services, hébergements, activités, lieux de bien-être ET producteurs du secteur — près de 1500 fiches. À utiliser pour « où manger », « je cherche un électricien », « un endroit pour dormir », « du fromage de chèvre ». Donnez le métier ou le produit tel qu'on le dit : la recherche sait retrouver « Electricité » à partir d'« électricien ».",
+      "Commerces, restaurants, artisans, services, hébergements, activités, lieux de bien-être ET producteurs du secteur — près de 1500 fiches. À utiliser pour « où manger », « je cherche un électricien », « un endroit pour dormir », « du fromage de chèvre ».",
     input_schema: {
       type: 'object' as const,
       properties: {
+        mots: { type: 'array', items: { type: 'string' }, description: MOTS_DESC },
         type: {
           type: 'string',
           enum: ['restaurant_bar', 'hebergement', 'artisan_service', 'sante_bien_etre', 'activite', 'producteur'],
-          description: "Famille de lieu. Un électricien, un plombier ou un garagiste sont des artisan_service ; un maraîcher, un fromager ou un apiculteur sont des producteur. Sans ce filtre, tout est cherché à la fois — souvent préférable.",
+          description: "Famille de lieu. Un électricien, un plombier ou un garagiste sont des artisan_service ; un maraîcher, un fromager ou un apiculteur sont des producteur. À n'utiliser que si vous en êtes sûr : les mots suffisent le plus souvent, et un mauvais filtre écarte des fiches justes.",
         },
-        texte:   { type: 'string', description: "Métier ou nom cherché : « électricien », « pizzeria ». Cherche dans le nom et la description." },
         commune: { type: 'string', description: 'Nom de commune, facultatif.' },
       },
       required: [],
@@ -99,32 +111,35 @@ export const OUTILS = [
     input_schema: {
       type: 'object' as const,
       properties: {
-        du:    { type: 'string', description: 'Premier jour, AAAA-MM-JJ.' },
-        au:    { type: 'string', description: 'Dernier jour inclus, AAAA-MM-JJ.' },
-        titre: { type: 'string', description: "Titre du film, si la personne en nomme un." },
+        du:   { type: 'string', description: 'Premier jour, AAAA-MM-JJ.' },
+        au:   { type: 'string', description: 'Dernier jour inclus, AAAA-MM-JJ.' },
+        mots: {
+          type: 'array', items: { type: 'string' },
+          description: "Titre, genre ou public visé, en plusieurs formulations : [\"animation\",\"famille\",\"enfants\"]. Omettez pour voir toute l'affiche — souvent le mieux, il y a peu de films.",
+        },
       },
       required: ['du', 'au'],
     },
   },
   {
     name: 'chercher_promotions',
-    description: "Bons plans et promotions en cours chez les commerçants partenaires.",
+    description: 'Bons plans et promotions en cours chez les commerçants partenaires. Peu nombreux : omettez les mots pour tout voir.',
     input_schema: {
       type: 'object' as const,
       properties: {
-        texte: { type: 'string', description: 'Mots cherchés dans le titre de la promotion, facultatif.' },
+        mots: { type: 'array', items: { type: 'string' }, description: MOTS_DESC },
       },
       required: [],
     },
   },
   {
     name: 'chercher_annonces',
-    description: "Petites annonces entre habitants : ventes, dons, trocs, services.",
+    description: 'Petites annonces entre habitants : ventes, dons, trocs, services.',
     input_schema: {
       type: 'object' as const,
       properties: {
-        texte:     { type: 'string', description: 'Objet cherché.' },
-        type:      { type: 'string', enum: ['vente', 'troc', 'don', 'service', 'enchere_inversee'] },
+        mots: { type: 'array', items: { type: 'string' }, description: MOTS_DESC },
+        type: { type: 'string', enum: ['vente', 'troc', 'don', 'service', 'enchere_inversee'] },
         categorie: {
           type: 'string',
           enum: ['immobilier', 'vehicules', 'multimedia', 'maison', 'jardin', 'bricolage', 'mode', 'loisirs', 'services', 'animaux', 'autres'],
@@ -139,9 +154,7 @@ export const OUTILS = [
       "Météo prévue à Ganges pour un jour donné, jusqu'à 7 jours. À utiliser seulement quand le temps change la réponse : sortie en extérieur, activité avec des enfants, balade.",
     input_schema: {
       type: 'object' as const,
-      properties: {
-        date: { type: 'string', description: 'Jour cherché, AAAA-MM-JJ.' },
-      },
+      properties: { date: { type: 'string', description: 'Jour cherché, AAAA-MM-JJ.' } },
       required: ['date'],
     },
   },
@@ -186,13 +199,13 @@ function fenetre(a: Args): { du: string; au: string } {
 
 export async function executerOutil(nom: string, args: Args): Promise<ResultatOutil> {
   switch (nom) {
-    case 'chercher_evenements':   return evenements(args)
+    case 'chercher_evenements':     return evenements(args)
     case 'chercher_etablissements': return etablissements(args)
-    case 'chercher_seances':      return seances(args)
-    case 'chercher_promotions':   return promotions(args)
-    case 'chercher_annonces':     return annonces(args)
-    case 'meteo':                 return meteo(args)
-    case 'aide_lpv':              return aide()
+    case 'chercher_seances':        return seances(args)
+    case 'chercher_promotions':     return promotions(args)
+    case 'chercher_annonces':       return annonces(args)
+    case 'meteo':                   return meteo(args)
+    case 'aide_lpv':                return aide()
     default:
       return { pourLeModele: { erreur: `Outil inconnu : ${nom}` }, cartes: [] }
   }
@@ -200,70 +213,106 @@ export async function executerOutil(nom: string, args: Args): Promise<ResultatOu
 
 /* ─── Événements ───────────────────────────────────────────────────────── */
 
+const CHAMPS_EV = 'id, titre, description, date_debut, date_fin, heure, categorie, categories, image_url, image_position, lieu_id, prix, contact, organisateurs, statut, promotion, promo_ordre, vote_count, submitted_by, submitted_by_name, source, created_at, doublon_verifie'
+
+/** Au-delà, ce n'est plus un rendez-vous mais quelque chose qui se visite. */
+const DURABLE_JOURS = 8
+
+type EvLigne = Record<string, unknown> & {
+  id: string
+  titre: string
+  date_debut: string | null
+  date_fin: string | null
+  lieux: Record<string, unknown> | null
+}
+
+/** Nombre de jours couverts, bornes comprises. */
+function duree(e: { date_debut?: unknown; date_fin?: unknown }): number {
+  const d = typeof e.date_debut === 'string' ? e.date_debut : null
+  const f = typeof e.date_fin === 'string' ? e.date_fin : null
+  if (!d || !f || f === d) return 1
+  return Math.round((Date.parse(f) - Date.parse(d)) / 86_400_000) + 1
+}
+
 async function evenements(a: Args): Promise<ResultatOutil> {
   const { du, au } = fenetre(a)
+  const mots = motsCles(a.mots)
   const cats = Array.isArray(a.categories) ? (a.categories as string[]).filter(c => typeof c === 'string') : []
-  const texte = texteDe(a, 'texte')
+  const commune = texteDe(a, 'commune')
+  const termes = mots.length ? mots : null
 
-  let q = supabaseAdmin
-    .from('evenements')
-    .select('id, titre, description, date_debut, date_fin, heure, categorie, categories, image_url, image_position, lieu_id, prix, contact, organisateurs, statut, promotion, promo_ordre, vote_count, submitted_by, submitted_by_name, source, created_at, doublon_verifie')
-    .eq('statut', 'publie')
-    // Un événement sur plusieurs jours (une expo) court encore : on le retient
-    // s'il chevauche la fenêtre, pas seulement s'il y commence.
-    .lte('date_debut', au)
-    .or(`date_fin.gte.${du},and(date_fin.is.null,date_debut.gte.${du})`)
-    .order('date_debut')
-    .limit(MAX)
+  /**
+   * DEUX requêtes, et c'est tout l'intérêt.
+   *
+   * 73 événements chevauchent un week-end donné, dont une exposition ouverte
+   * depuis 346 jours. En une seule requête triée par date de début, les
+   * permanences prenaient les douze premières places et les vraies sorties du
+   * samedi n'atteignaient jamais l'assistant : il répondait qu'il n'y avait
+   * rien, en ne proposant que des expositions. La durée se tranche donc EN
+   * BASE, avant la limite — la trancher après revient à ne rien trancher.
+   */
+  const lire = async (continus: boolean, lim: number): Promise<EvLigne[]> => {
+    const rpc = await supabaseAdmin.rpc('assistant_evenements', {
+      du, au, termes, cats: cats.length ? cats : null,
+      commune_filtre: commune, continus, lim,
+    })
+    if (!rpc.error) return (rpc.data ?? []) as EvLigne[]
 
-  if (cats.length) q = q.overlaps('categories', cats)
-  if (texte) q = q.ilike('titre', `%${echapper(texte)}%`)
+    // Migration non jouée : on lit large et on tranche ici. Dégradé sur les
+    // accents, mais la limite ne se fait plus manger par les permanences.
+    let q = supabaseAdmin.from('evenements').select(CHAMPS_EV)
+      .eq('statut', 'publie')
+      .lte('date_debut', au)
+      .or(`date_fin.gte.${du},and(date_fin.is.null,date_debut.gte.${du})`)
+      .order('date_debut').limit(200)
+    if (cats.length) q = q.overlaps('categories', cats)
+    if (mots.length) {
+      const ou = mots.flatMap(m => [`titre.ilike.%${echapper(m)}%`, `description.ilike.%${echapper(m)}%`]).join(',')
+      q = q.or(ou)
+    }
+    const { data } = await q
+    return ((data ?? []) as unknown as EvLigne[])
+      .filter(e => (continus ? duree(e) >= DURABLE_JOURS : duree(e) < DURABLE_JOURS))
+      .slice(0, lim)
+  }
 
-  const { data } = await q
-  const lignes = data ?? []
-  if (!lignes.length) return { pourLeModele: { resultats: [] }, cartes: [] }
+  const veutDurables = a.en_continu === true
+  const [datesBrut, durablesBrut] = await Promise.all([
+    lire(false, LARGE),
+    lire(true, veutDurables ? LARGE : 8),
+  ])
+
+  const toutes = [...datesBrut, ...durablesBrut]
+  if (!toutes.length) {
+    return { pourLeModele: { resultats: [] }, cartes: [], libelle: libelleRecherche(mots) }
+  }
 
   // Deuxième requête plutôt qu'une jointure : les jointures implicites
   // PostgREST échouent en silence sur ce projet.
-  const lieuIds = Array.from(new Set(lignes.map(e => e.lieu_id).filter(Boolean))) as string[]
+  const lieuIds = Array.from(new Set(toutes.map(e => e.lieu_id).filter(Boolean))) as string[]
   const { data: lieux } = lieuIds.length
     ? await supabaseAdmin.from('lieux').select('*').in('id', lieuIds)
     : { data: [] }
   const parLieu = new Map((lieux ?? []).map(l => [l.id, l]))
 
-  const commune = texteDe(a, 'commune')?.toLowerCase()
-  const avecLieu = lignes
-    .map(e => ({ ...e, lieux: e.lieu_id ? parLieu.get(e.lieu_id) ?? null : null }))
-    .filter(e => !commune || (e.lieux?.commune ?? '').toLowerCase().includes(commune))
+  const communeNu = commune ? nu(commune) : null
+  const habiller = (liste: EvLigne[]) => liste
+    .map(e => ({ ...e, lieux: e.lieu_id ? parLieu.get(e.lieu_id as string) ?? null : null }) as EvLigne)
+    // « Sumène » doit trouver « Sumene » — le repli désaccentue lui aussi.
+    .filter(e => !communeNu || nu(e.lieux?.commune).includes(communeNu))
 
-  /**
-   * Un rendez-vous daté ou quelque chose qui dure ?
-   *
-   * « On fait quoi ce week-end ? » ne veut pas d'une exposition ouverte
-   * depuis onze mois : ces événements chevauchent TOUTES les dates et
-   * noieraient les vraies sorties du samedi. Ils ne sont pas écartés — ils
-   * partent dans un second panier, que le modèle ne propose que si on lui
-   * parle d'expo. Le critère est la DURÉE, pas la catégorie : en base, une
-   * expo est rangée dans « théâtre » ou « autre ».
-   */
-  const DURABLE_JOURS = 8
-  const duree = (e: { date_debut: string | null; date_fin: string | null }) => {
-    if (!e.date_debut || !e.date_fin || e.date_fin === e.date_debut) return 1
-    return Math.round((Date.parse(e.date_fin) - Date.parse(e.date_debut)) / 86_400_000) + 1
-  }
-  const veutDurables = a.en_continu === true
-  const dates = avecLieu.filter(e => duree(e) < DURABLE_JOURS)
-  const durables = avecLieu.filter(e => duree(e) >= DURABLE_JOURS)
+  const dates = classer(habiller(datesBrut), mots, MAX)
+  const durables = classer(habiller(durablesBrut), mots, MAX)
 
-  const resume = (e: (typeof avecLieu)[number]) => ({
+  const resume = (e: EvLigne) => ({
     id: e.id,
     titre: e.titre,
     date: e.date_debut,
     fin: e.date_fin !== e.date_debut ? e.date_fin : undefined,
     heure: e.heure,
     categories: e.categories ?? [e.categorie],
-    lieu: e.lieux?.nom ?? null,
-    commune: e.lieux?.commune ?? null,
+    lieu: (e.lieux?.nom as string) ?? null,
+    commune: (e.lieux?.commune as string) ?? null,
     prix: e.prix,
     resume: e.description ? String(e.description).slice(0, 160) : null,
   })
@@ -276,161 +325,82 @@ async function evenements(a: Args): Promise<ResultatOutil> {
   return {
     pourLeModele: {
       resultats: principaux.map(resume),
-      // Nommé pour être compris sans documentation : ce qui se visite
-      // n'importe quel jour de la période, pas ce qui a lieu tel soir.
       aussi_en_cours: secondaires.slice(0, 4).map(e => ({ ...resume(e), dure_jusquau: e.date_fin })),
       note: secondaires.length && !veutDurables
-        ? "Les entrées de « aussi_en_cours » durent plusieurs semaines (expositions, permanences). Ne les proposez que si la personne les cherche vraiment."
+        ? 'Les entrées de « aussi_en_cours » durent plusieurs semaines (expositions, permanences). Ne les proposez que si la personne les cherche vraiment.'
         : undefined,
     },
-    // Les cartes suivent le même ordre : ce qui est daté d'abord.
     cartes: [...principaux, ...secondaires].map(e => ({ type: 'ev' as const, id: e.id, data: e })),
+    libelle: libelleRecherche(mots),
   }
 }
 
-/* ─── Établissements ───────────────────────────────────────────────────── */
+/* ─── Établissements et producteurs ───────────────────────────────────── */
 
-/**
- * Le mot cherché, décliné du plus précis au plus large.
- *
- * Un métier ne s'écrit jamais comme on le cherche. Les fiches disent
- * « Electricité », « Sageot Electricite », « V.elec », « PIC ELEC »,
- * « Fred'elec » ; les gens tapent « électricien ». Sur ce seul métier :
- * « electricien » trouve 2 fiches, « electr » en trouve 7, « elec » en
- * trouve 18. Le radical court est donc le SEUL qui voit tout le monde.
- *
- * On interroge avec le plus large, et on reclasse ensuite : c'est le
- * scoring qui remet la précision devant, pas la requête.
- */
-function variantes(terme: string): string[] {
-  const nu = terme.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-  const mots = nu.split(/\s+/).filter(m => m.length > 2)
-  const porteur = mots.sort((x, y) => y.length - x.length)[0] ?? nu
-  const out = [nu, porteur]
-  for (const n of [6, 4]) if (porteur.length > n) out.push(porteur.slice(0, n))
-  return Array.from(new Set(out.filter(Boolean)))
-}
-
-const sansAccent = (v: unknown) =>
-  String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-
-/**
- * À quel point cette fiche répond-elle au mot cherché ?
- *
- * La requête part large pour ne rater personne ; le classement remet
- * l'ordre. Une fiche qui porte le mot entier passe devant celle qui n'a que
- * le radical, et le nom compte plus que la description — « Sageot
- * Electricite » est un électricien, un restaurant dont la description
- * mentionne un électricien ne l'est pas.
- */
-function pertinence(ligne: Record<string, unknown>, termes: string[]): number {
-  const nom = sansAccent(ligne.nom)
-  const desc = sansAccent(ligne.description_courte) + ' ' + sansAccent(ligne.description_longue)
-  let score = 0
-  termes.forEach((t, i) => {
-    const poids = termes.length - i          // le terme le plus précis pèse le plus
-    if (nom.includes(t)) score += poids * 3
-    else if (desc.includes(t)) score += poids
-  })
-  return score
-}
-
-/**
- * Établissements ET producteurs.
- *
- * Passe par `assistant_etablissements` en base : c'est la seule façon de
- * désaccentuer des deux côtés, et c'est ce qui manquait — « électricien » ne
- * trouvait pas « Electricité », donc l'assistant répondait qu'il n'y avait
- * aucun électricien dans un village qui en compte dix-huit.
- *
- * Si la fonction n'existe pas encore (migration non jouée), on retombe sur
- * une requête directe : dégradée sur les accents, mais même logique.
- */
 async function etablissements(a: Args): Promise<ResultatOutil> {
-  const texte = texteDe(a, 'texte')
+  const mots = motsCles(a.mots)
   const commune = texteDe(a, 'commune')
   const type = typeof a.type === 'string' && a.type !== 'producteur' ? a.type : null
   const veutProducteurs = a.type === 'producteur' || !type
-
-  const termes = texte ? variantes(texte) : []
-  // Le plus court englobe tous les autres : une seule requête suffit.
-  const large = termes.length ? termes[termes.length - 1] : null
-  const LARGE_MAX = 30
+  const termes = mots.length ? mots : null
 
   let lignes: Record<string, unknown>[] = []
-  let repli = false
-
   const rpc = await supabaseAdmin.rpc('assistant_etablissements', {
-    terme: large, type_filtre: type, commune_filtre: commune, lim: LARGE_MAX,
+    termes, type_filtre: type, commune_filtre: commune, lim: LARGE,
   })
-  if (rpc.error) repli = true
-  else lignes = (rpc.data ?? []) as Record<string, unknown>[]
 
-  if (repli) {
-    let q = supabaseAdmin.from('etablissements').select('*').limit(LARGE_MAX)
+  if (rpc.error) {
+    // Migration non jouée : requête directe, aveugle aux accents.
+    let q = supabaseAdmin.from('etablissements').select('*').limit(LARGE)
     if (type) q = q.eq('type', type)
     if (commune) q = q.ilike('commune', `%${echapper(commune)}%`)
-    if (large) {
-      const t = `%${echapper(large)}%`
-      q = q.or(`nom.ilike.${t},description_courte.ilike.${t},description_longue.ilike.${t}`)
+    if (mots.length) {
+      const ou = mots.flatMap(m => [
+        `nom.ilike.%${echapper(m)}%`,
+        `description_courte.ilike.%${echapper(m)}%`,
+        `description_longue.ilike.%${echapper(m)}%`,
+      ]).join(',')
+      q = q.or(ou)
     }
     const { data } = await q
     lignes = (data ?? []) as Record<string, unknown>[]
+  } else {
+    lignes = (rpc.data ?? []) as Record<string, unknown>[]
   }
 
   // Les producteurs vivent dans une autre table, mais un producteur EST un
   // commerce local : « du fromage de chèvre » doit le trouver.
   let prods: Record<string, unknown>[] = []
-  if (veutProducteurs && !repli) {
-    const r = await supabaseAdmin.rpc('assistant_producteurs', {
-      terme: large, commune_filtre: commune, lim: 8,
-    })
+  if (veutProducteurs) {
+    const r = await supabaseAdmin.rpc('assistant_producteurs', { termes, commune_filtre: commune, lim: 10 })
     if (!r.error) prods = (r.data ?? []) as Record<string, unknown>[]
   }
 
+  lignes = classerLieux(lignes, mots, MAX)
+  prods = classer(prods, mots, 4)
+
   const enAvant = (e: Record<string, unknown>) => e.is_featured === true || e.plan === 'pro'
-
-  // Mises en avant d'abord — elles restent NOMMÉES dans la réponse, jamais
-  // traduites en jugement. Puis la pertinence, puis la note.
-  if (termes.length) {
-    lignes.sort((x, y) =>
-      Number(enAvant(y)) - Number(enAvant(x)) ||
-      pertinence(y, termes) - pertinence(x, termes) ||
-      Number(y.note_google ?? 0) - Number(x.note_google ?? 0))
-    prods.sort((x, y) => pertinence(y, termes) - pertinence(x, termes))
-  }
-
-  lignes = lignes.slice(0, MAX)
-  prods = prods.slice(0, 4)
-
-  const cartes: Carte[] = [
-    ...lignes.map(e => ({ type: 'etab' as const, id: String(e.id), data: e })),
-    ...prods.map(p => ({ type: 'prod' as const, id: String(p.id), data: p })),
-  ]
 
   return {
     pourLeModele: {
       resultats: [
         ...lignes.map(e => ({
-          id: e.id,
-          nom: e.nom,
-          type: e.type,
-          commune: e.commune,
-          note: e.note_google,
+          id: e.id, nom: e.nom, type: e.type, commune: e.commune, note: e.note_google,
           resume: e.description_courte ? String(e.description_courte).slice(0, 140) : null,
           mis_en_avant: enAvant(e),
         })),
         ...prods.map(p => ({
-          id: p.id,
-          nom: p.nom,
-          type: 'producteur',
-          commune: p.commune,
+          id: p.id, nom: p.nom, type: 'producteur', commune: p.commune,
           resume: p.description_courte ? String(p.description_courte).slice(0, 140) : null,
           mis_en_avant: false,
         })),
       ],
     },
-    cartes,
+    cartes: [
+      ...lignes.map(e => ({ type: 'etab' as const, id: String(e.id), data: e })),
+      ...prods.map(p => ({ type: 'prod' as const, id: String(p.id), data: p })),
+    ],
+    libelle: libelleRecherche(mots),
   }
 }
 
@@ -438,15 +408,16 @@ async function etablissements(a: Args): Promise<ResultatOutil> {
 
 async function seances(a: Args): Promise<ResultatOutil> {
   const { du, au } = fenetre(a)
+  const mots = motsCles(a.mots)
 
   const { data: rows } = await supabaseAdmin
     .from('seances')
     .select('id, etablissement_id, film_id, date, heure, version, salle')
     .gte('date', du).lte('date', au)
     .order('date').order('heure')
-    .limit(120)
+    .limit(150)
   const lignes = rows ?? []
-  if (!lignes.length) return { pourLeModele: { resultats: [] }, cartes: [] }
+  if (!lignes.length) return { pourLeModele: { resultats: [] }, cartes: [], libelle: libelleRecherche(mots) }
 
   const filmIds = Array.from(new Set(lignes.map(s => s.film_id)))
   const sallesIds = Array.from(new Set(lignes.map(s => s.etablissement_id)))
@@ -456,15 +427,21 @@ async function seances(a: Args): Promise<ResultatOutil> {
   ])
   const parSalle = new Map((sallesRes.data ?? []).map(c => [c.id, c]))
 
-  const titre = texteDe(a, 'titre')?.toLowerCase()
-  const films = (filmsRes.data ?? []).filter(f => !titre || String(f.titre).toLowerCase().includes(titre))
+  // Le tri se fait ici : il y a rarement plus de vingt films à l'affiche, et
+  // le genre comme le synopsis comptent autant que le titre.
+  const tous = (filmsRes.data ?? []).map(f => ({
+    ...f,
+    // `classer` lit `description` : on lui donne de quoi juger un film.
+    description: [f.synopsis, (f.genres ?? []).join(' '), f.realisateur].filter(Boolean).join(' '),
+  })) as unknown as Record<string, unknown>[]
+  const films = classer(tous, mots, MAX)
 
   // On raisonne par FILM, pas par séance : « un film pour les enfants
   // dimanche » se choisit sur le film, ses horaires viennent ensuite.
   const resultats = films.map(f => {
     const sf = lignes.filter(s => s.film_id === f.id)
     return {
-      id: f.id,
+      id: String(f.id),
       titre: f.titre,
       duree_min: f.duree_min,
       genres: f.genres,
@@ -484,84 +461,82 @@ async function seances(a: Args): Promise<ResultatOutil> {
     pourLeModele: { resultats },
     cartes: films.map(f => ({
       type: 'film' as const,
-      id: f.id,
-      data: { ...f, seances: resultats.find(r => r.id === f.id)?.seances ?? [] },
+      id: String(f.id),
+      data: { ...f, seances: resultats.find(r => r.id === String(f.id))?.seances ?? [] },
     })),
+    libelle: libelleRecherche(mots),
   }
 }
 
 /* ─── Bons plans ───────────────────────────────────────────────────────── */
 
 async function promotions(a: Args): Promise<ResultatOutil> {
-  const texte = texteDe(a, 'texte')
-  let q = supabaseAdmin
+  const mots = motsCles(a.mots)
+  // Une poignée de promotions actives à un instant donné : on les lit toutes
+  // et on classe ici, plutôt que d'imposer un mot à la base.
+  const { data } = await supabaseAdmin
     .from('promotions')
     .select('id, etablissement_id, title, description, image_url, conditions, valid_until')
     .eq('active', true)
     .or(`valid_until.is.null,valid_until.gte.${new Date().toISOString()}`)
     .order('created_at', { ascending: false })
-    .limit(MAX)
-  if (texte) q = q.ilike('title', `%${echapper(texte)}%`)
+    .limit(60)
 
-  const { data } = await q
-  const lignes = data ?? []
-  if (!lignes.length) return { pourLeModele: { resultats: [] }, cartes: [] }
+  const toutes = (data ?? []) as Record<string, unknown>[]
+  const lignes = classer(toutes, mots, MAX)
+  if (!lignes.length) return { pourLeModele: { resultats: [] }, cartes: [], libelle: libelleRecherche(mots) }
 
   const { data: etabs } = await supabaseAdmin
     .from('etablissements').select('id, nom, commune, type, photos')
-    .in('id', Array.from(new Set(lignes.map(p => p.etablissement_id))))
+    .in('id', Array.from(new Set(lignes.map(p => p.etablissement_id as string))))
   const parEtab = new Map((etabs ?? []).map(e => [e.id, e]))
-
-  const avecEtab = lignes.map(p => ({ ...p, etablissement: parEtab.get(p.etablissement_id) ?? null }))
+  type PromoLigne = Record<string, unknown> & { etablissement: Record<string, unknown> | null }
+  const avecEtab: PromoLigne[] = lignes.map(p => ({
+    ...p,
+    etablissement: (parEtab.get(p.etablissement_id as string) ?? null) as Record<string, unknown> | null,
+  }))
 
   return {
     pourLeModele: {
       resultats: avecEtab.map(p => ({
         id: p.id,
         titre: p.title,
-        chez: p.etablissement?.nom ?? null,
-        commune: p.etablissement?.commune ?? null,
+        chez: (p.etablissement?.nom as string) ?? null,
+        commune: (p.etablissement?.commune as string) ?? null,
         jusquau: p.valid_until,
         resume: p.description ? String(p.description).slice(0, 140) : null,
       })),
     },
-    cartes: avecEtab.map(p => ({ type: 'promo' as const, id: p.id, data: p })),
+    cartes: avecEtab.map(p => ({ type: 'promo' as const, id: String(p.id), data: p })),
+    libelle: libelleRecherche(mots),
   }
 }
 
 /* ─── Petites annonces ─────────────────────────────────────────────────── */
 
 async function annonces(a: Args): Promise<ResultatOutil> {
-  const texte = texteDe(a, 'texte')
+  const mots = motsCles(a.mots)
   let q = supabaseAdmin
     .from('annonces')
     .select('id, type, titre, description, categorie, photos, prix_actuel, prix_initial, ville, created_at, sponsored')
     .eq('statut', 'active')
     .order('created_at', { ascending: false })
-    .limit(MAX)
-
+    .limit(80)
   if (typeof a.type === 'string') q = q.eq('type', a.type)
   if (typeof a.categorie === 'string') q = q.eq('categorie', a.categorie)
-  if (texte) {
-    const t = `%${echapper(texte)}%`
-    q = q.or(`titre.ilike.${t},description.ilike.${t}`)
-  }
 
   const { data } = await q
-  const lignes = data ?? []
+  const lignes = classer((data ?? []) as Record<string, unknown>[], mots, MAX)
 
   return {
     pourLeModele: {
       resultats: lignes.map(x => ({
-        id: x.id,
-        titre: x.titre,
-        type: x.type,
-        categorie: x.categorie,
-        prix: x.prix_actuel ?? x.prix_initial,
-        ville: x.ville,
+        id: x.id, titre: x.titre, type: x.type, categorie: x.categorie,
+        prix: x.prix_actuel ?? x.prix_initial, ville: x.ville,
       })),
     },
-    cartes: lignes.map(x => ({ type: 'annonce' as const, id: x.id, data: x })),
+    cartes: lignes.map(x => ({ type: 'annonce' as const, id: String(x.id), data: x })),
+    libelle: libelleRecherche(mots),
   }
 }
 
