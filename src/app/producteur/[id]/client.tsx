@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
+import { signalerFavori } from '@/hooks/useFavori'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import { useAdminSession } from '@/hooks/useAdminSession'
@@ -271,6 +272,7 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
     if (!token) { setIsFav(!next); setFavoriteCount(c => Math.max(0, c + (next ? -1 : 1))); return }
     const res = await fetch(`/api/producers/${id}/favorite`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
     if (!res.ok) { setIsFav(!next); setFavoriteCount(c => Math.max(0, c + (next ? -1 : 1))) }
+    else signalerFavori('prod', id, next)
   }
   async function toggleFollow() {
     if (!user) { openAuthModal(); return }

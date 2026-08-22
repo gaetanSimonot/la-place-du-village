@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
+import { signalerFavori } from '@/hooks/useFavori'
 import type { CarteData } from '@/components/assistant/CarteResultat'
 
 /**
@@ -92,7 +93,7 @@ export default function CarteAction({ action, cartes, texte }: {
             method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` },
           })
         }
-        if (r.ok) gardes++
+        if (r.ok) { gardes++; signalerFavori(parId.get(id) ?? '', id, true) }
       }
       setMessage(gardes ? `Gardé dans vos favoris (${gardes}).` : 'Rien n’a pu être gardé.')
       setEtat(gardes ? 'fait' : 'pret')

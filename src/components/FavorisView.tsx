@@ -2,6 +2,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
+import { signalerFavori } from '@/hooks/useFavori'
 import { EvenementCard } from '@/lib/types'
 import { formatEventDate } from '@/lib/filters'
 import { supabase } from '@/lib/supabase'
@@ -163,6 +164,18 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
     mutate(prev => prev ? { ...prev, promoFavs: prev.promoFavs.filter(x => x.id !== id) } : prev, false)
 
   const { favIds: annonceFavIds, toggle: toggleAnnonceFav } = useAnnonceFavorites()
+  /**
+   * On recharge dès qu'un favori change AILLEURS dans l'application : une
+   * fiche gardée depuis l'assistant, depuis une fiche établissement ou depuis
+   * les bons plans doit apparaître ici sans qu'on ait à rouvrir l'écran.
+   * Cet onglet reste monté, donc rien ne le rafraîchissait de lui-même.
+   */
+  useEffect(() => {
+    const onFavori = () => { void mutate() }
+    window.addEventListener('lpv:favori', onFavori)
+    return () => window.removeEventListener('lpv:favori', onFavori)
+  }, [mutate])
+
   const { data: annoncesData } = useSWR<{ annonces: Annonce[] }>(
     user && annonceFavIds.length > 0 ? '/api/annonces/public' : null,
   )
@@ -230,6 +243,7 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
             async () => {
               const { data: { session } } = await supabase.auth.getSession()
               await fetch(`/api/promotions/${p.id}/favorite`, { method: 'POST', headers: session ? { Authorization: `Bearer ${session.access_token}` } : {} })
+              signalerFavori('promo', p.id, false)
               removePromoFav(p.id)
             },
           ))

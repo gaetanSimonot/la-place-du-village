@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
+import { signalerFavori } from '@/hooks/useFavori'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import { useAdminSession } from '@/hooks/useAdminSession'
@@ -311,6 +312,9 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
     const { data: { session } } = await supabase.auth.getSession(); const token = session?.access_token; if (!token) { setIsFav(!next); return }
     const res = await fetch(`/api/etablissements/${id}/favorite`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
     if (!res.ok) setIsFav(!next)
+    // L'écran des favoris se recharge en l'entendant, les autres cœurs de
+    // cette fiche s'alignent, et celui de la barre du bas bat.
+    else signalerFavori('etab', id, next)
   }
   async function toggleFollow() {
     if (!user) { openAuthModal(); return }

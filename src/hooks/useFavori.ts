@@ -28,6 +28,21 @@ export const API_FAVORI: Record<string, string | undefined> = {
 /** L'annonce faite à toute l'application quand un favori change. */
 export interface DetailFavori { type: string; id: string; favori: boolean }
 
+/**
+ * Annonce qu'un favori a changé, d'où qu'il vienne.
+ *
+ * À appeler après CHAQUE bascule réussie — fiche établissement, fiche
+ * producteur, page des bons plans, conversation. L'écran des favoris se
+ * recharge en l'entendant, les autres cœurs de la même fiche s'alignent, et
+ * celui de la barre du bas bat. Sans cet appel, on ajoute une fiche et on ne
+ * la retrouve nulle part avant d'avoir rouvert l'application.
+ */
+export function signalerFavori(type: string, id: string, favori: boolean): void {
+  try {
+    window.dispatchEvent(new CustomEvent<DetailFavori>('lpv:favori', { detail: { type, id, favori } }))
+  } catch { /* hors navigateur */ }
+}
+
 export function useFavori(type: string, id: string, initial: unknown) {
   const api = API_FAVORI[type]
   const [garde, setGarde] = useState<boolean | null>(
@@ -86,10 +101,7 @@ export function useFavori(type: string, id: string, initial: unknown) {
       if (!r.ok) { setGarde(avant); return }
       const etat = !!j?.favorited
       setGarde(etat)
-      // Tout le monde s'aligne, et la barre du bas le signale à l'ajout.
-      window.dispatchEvent(new CustomEvent<DetailFavori>('lpv:favori', {
-        detail: { type, id, favori: etat },
-      }))
+      signalerFavori(type, id, etat)
     } catch { setGarde(avant) } finally { setBusy(false) }
   }, [api, busy, garde, id, type])
 

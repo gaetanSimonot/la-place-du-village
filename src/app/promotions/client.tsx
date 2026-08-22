@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import useSWR from 'swr'
 import { supabase } from '@/lib/supabase'
+import { signalerFavori } from '@/hooks/useFavori'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import SubscriptionModal from '@/components/SubscriptionModal'
@@ -82,6 +83,10 @@ export default function PromotionsClient() {
     const r = await fetch(`/api/promotions/${promoId}/favorite`, { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` } }).catch(() => null)
     if (!r || !r.ok) {
       setFavIds(prev => { const n = new Set(prev); if (wasFav) n.add(promoId); else n.delete(promoId); return n })  // revert
+    } else {
+      // L'écran des favoris se recharge en l'entendant, et le cœur de la
+      // barre du bas bat : on voit où le bon plan est parti.
+      signalerFavori('promo', promoId, !wasFav)
     }
   }, [user, openAuthModal, favIds])
 
