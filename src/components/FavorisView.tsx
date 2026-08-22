@@ -137,11 +137,19 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
   }
 
   const favKey = !authLoading && user ? '/api/favoris' : null
-  const { data, isLoading, mutate } = useSWR<{
+  const { data, isLoading, error, mutate } = useSWR<{
     producerFavs: ProducerMin[]; producerFollows: ProducerMin[];
     etabFavs: EtabMin[]; etabFollows: EtabMin[]; promoFavs: PromoMin[];
     eventRappels: Record<string, number>;
-  }>(favKey, authedFetcher)
+  }>(favKey, authedFetcher, {
+    // Cet écran reste monté toute la session : sans ces réglages, une
+    // première tentative faite avant que la session soit posée laissait une
+    // erreur en cache, et les listes restaient vides sans rien dire.
+    revalidateOnMount: true,
+    revalidateIfStale: true,
+    shouldRetryOnError: true,
+    errorRetryInterval: 2000,
+  })
   const producerFavs    = data?.producerFavs    ?? []
   const producerFollows = data?.producerFollows ?? []
   const etabFavs        = data?.etabFavs        ?? []
@@ -173,8 +181,18 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
   useEffect(() => {
     const onFavori = () => { void mutate() }
     window.addEventListener('lpv:favori', onFavori)
-    return () => window.removeEventListener('lpv:favori', onFavori)
+    // Revenir d'une fiche ou du navigateur doit suffire à remettre la liste
+    // à jour : l'onglet ne se démonte pas, il faut donc le lui dire.
+    const onVisible = () => { if (document.visibilityState === 'visible') void mutate() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.removeEventListener('lpv:favori', onFavori)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [mutate])
+
+  // Ouvrir l'onglet le rafraîchit, quoi qu'il se soit passé entre-temps.
+  useEffect(() => { if (section === 'favoris') void mutate() }, [section, mutate])
 
   const { data: annoncesData } = useSWR<{ annonces: Annonce[] }>(
     user && annonceFavIds.length > 0 ? '/api/annonces/public' : null,
@@ -276,7 +294,6 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
       }
     }
     return out
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [section, favoSub, suivisSub, annonceFavs, events, producerFavs, etabFavs, promoFavs, producerFollows, etabFollows, eventRappels])
 
@@ -411,7 +428,22 @@ export default function FavorisView({ events, onToggleFav, onOpenProducer, onOpe
           </div>
         )}
         {user && loading && <p className="px-4 py-6 text-center text-[12px] text-texte-doux">Chargement…</p>}
-        {user && !loading && rows.length === 0 && (
+        {/* Un favori absent parce que la liste n'a pas pu être chargée n'est pas
+            un favori absent : le dire, et proposer de réessayer. */}
+        {user && !loading && !data && error && (
+          <div className="mx-4 rounded-[14px] border bg-white p-6 text-center" style={{ borderColor: '#F0EAE0' }}>
+            <p className="m-0 mb-1 text-[14px] font-extrabold text-texte">Liste indisponible</p>
+            <p className="m-0 mb-3 text-[12px] text-texte-doux">
+              Vos favoris n’ont pas pu être chargés. Ils sont bien enregistrés.
+            </p>
+            <button onClick={() => void mutate()}
+              className="rounded-[10px] border bg-white px-3 py-2 text-[12px] font-extrabold text-primary"
+              style={{ borderColor: '#C8DEC0' }}>
+              Réessayer
+            </button>
+          </div>
+        )}
+        {user && !loading && !error && rows.length === 0 && (
           <div className="mx-4 rounded-[14px] border bg-white p-6 text-center" style={{ borderColor: '#F0EAE0' }}>
             <p className="m-0 mb-1 text-[14px] font-extrabold text-texte">
               {section === 'favoris' ? 'Aucun favori' : 'Aucun abonnement'}
