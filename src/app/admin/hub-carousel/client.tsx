@@ -72,6 +72,9 @@ export default function AdminHubCarousel() {
   /** Visibilité du bloc « Au cinéma aujourd'hui » : masqué / admin / tous. */
   const [cinemaVis, setCinemaVis] = useState<VisibiliteCinema>('admin')
   const [cinemaSaving, setCinemaSaving] = useState(false)
+  /** Visibilité de l'Assistant Village dans la barre de recherche. */
+  const [assistantVis, setAssistantVis] = useState<VisibiliteCinema>('admin')
+  const [assistantSaving, setAssistantSaving] = useState(false)
   /** Double clic requis avant de relancer le cycle de tout le monde. */
   const [resetAsked, setResetAsked] = useState(false)
   // Aperçu admin d'une variante : purement local, n'écrit rien et n'affecte
@@ -88,7 +91,8 @@ export default function AdminHubCarousel() {
       supabase.from('config').select('value').eq('key', 'hub_section_hidden').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'splash_promo').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'cinema_village_public').maybeSingle(),
-    ]).then(([toggleRes, imgRes, orderRes, hiddenRes, splashRes, cineRes]) => {
+      supabase.from('config').select('value').eq('key', 'assistant_visibilite').maybeSingle(),
+    ]).then(([toggleRes, imgRes, orderRes, hiddenRes, splashRes, cineRes, assistRes]) => {
       setIntroEnabled(toggleRes.data?.value === 'true')
       setIntroImageUrl(imgRes.data?.value || null)
       let parsed: unknown = []
@@ -100,6 +104,7 @@ export default function AdminHubCarousel() {
       } catch { setHiddenSections([]) }
       setSplash(parseSplashPromo(splashRes.data?.value))
       setCinemaVis(parseVisibilite(cineRes.data?.value))
+      setAssistantVis(parseVisibilite(assistRes.data?.value))
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user, isAdmin])
@@ -196,6 +201,20 @@ export default function AdminHubCarousel() {
     }).catch(() => null)
     if (!res?.ok) setCinemaVis(avant)
     setCinemaSaving(false)
+  }
+
+  async function changerAssistantVis(next: VisibiliteCinema) {
+    if (assistantSaving || next === assistantVis) return
+    const avant = assistantVis
+    setAssistantVis(next); setAssistantSaving(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/config', {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body:    JSON.stringify({ key: 'assistant_visibilite', value: next }),
+    }).catch(() => null)
+    if (!res?.ok) setAssistantVis(avant)
+    setAssistantSaving(false)
   }
 
   async function toggleHide(id: string) {
@@ -628,6 +647,52 @@ export default function AdminHubCarousel() {
                   }}
                 >
                   <div style={{ fontSize: 12.5, fontWeight: 800, color: actif ? '#C0440A' : '#1A1209' }}>{o.titre}</div>
+                  <div style={{ fontSize: 10, color: '#8A7A6A', marginTop: 2 }}>{o.sous}</div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Assistant Village — la recherche conversationnelle. Même mécanique à
+          trois états que le bloc cinéma : « Admin » est l'état de rodage, et
+          la route API refait le calcul, elle ne se fie pas à l'écran. */}
+      <div style={{ padding: '14px 16px 0' }}>
+        <div style={{
+          padding: 14, borderRadius: 12, background: '#FFFFFF',
+          border: `1px solid ${assistantVis === 'tous' ? '#C8DEC0' : '#E5DDD2'}`,
+          boxShadow: '0 1px 4px rgba(44,28,16,0.04)',
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>
+            Assistant Village
+          </div>
+          <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2, marginBottom: 10, lineHeight: 1.45 }}>
+            Dans la barre de recherche : une ligne « Demander à l&apos;Assistant »
+            apparaît quand la frappe ressemble à une question. La recherche
+            habituelle continue de fonctionner à l&apos;identique.
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {([
+              { v: 'masque' as const, titre: 'Masqué',  sous: 'personne' },
+              { v: 'admin'  as const, titre: 'Admin',   sous: 'toi seul' },
+              { v: 'tous'   as const, titre: 'Tous',    sous: 'les habitants' },
+            ]).map(o => {
+              const actif = assistantVis === o.v
+              return (
+                <button
+                  key={o.v}
+                  onClick={() => changerAssistantVis(o.v)}
+                  disabled={assistantSaving}
+                  style={{
+                    flex: 1, padding: '10px 6px', borderRadius: 10, textAlign: 'center',
+                    border: `1.5px solid ${actif ? '#2D5A3D' : '#E5DDD2'}`,
+                    background: actif ? '#F4FAF5' : '#FDFAF5',
+                    cursor: assistantSaving ? 'default' : 'pointer',
+                    fontFamily: 'var(--font-body), sans-serif',
+                  }}
+                >
+                  <div style={{ fontSize: 12.5, fontWeight: 800, color: actif ? '#2D5A3D' : '#1A1209' }}>{o.titre}</div>
                   <div style={{ fontSize: 10, color: '#8A7A6A', marginTop: 2 }}>{o.sous}</div>
                 </button>
               )

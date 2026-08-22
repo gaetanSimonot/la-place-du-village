@@ -41,6 +41,7 @@ export type RateLimitAction =
   | 'link_preview'    // Fetch OG d'un lien externe (anti-abus)
   | 'poster_generate' // Rendu d'affiche serveur (CPU sharp/resvg)
   | 'poster_caption'  // Texte réseaux via Claude (tokens IA)
+  | 'assistant'       // Un message envoyé à l'Assistant Village (tokens IA)
 
 export interface RateLimitRule {
   limit: number
@@ -145,6 +146,15 @@ const RATE_LIMITS_BY_PLAN: Record<RateLimitAction, Record<Plan, RateLimitRule>> 
     basic:     { limit: 30, windowMs: HOUR, message: 'Trop de textes générés. Réessaie dans 1 heure.' },
     habitants: { limit: 30, windowMs: HOUR, message: 'Trop de textes générés. Réessaie dans 1 heure.' },
     pro:       { limit: 30, windowMs: HOUR, message: 'Trop de textes générés. Réessaie dans 1 heure.' },
+  },
+  // Anti-script, PAS le quota produit : le nombre de conversations offertes
+  // se règle dans config('assistant_quotas'). Ce plafond-ci compte les
+  // messages et n'existe que pour empêcher une boucle automatisée. Il est
+  // donc large : un humain ne l'atteint pas en conversant.
+  assistant: {
+    basic:     { limit: 60,  windowMs: HOUR, message: 'Trop de messages d’affilée. Réessayez dans un moment.' },
+    habitants: { limit: 120, windowMs: HOUR, message: 'Trop de messages d’affilée. Réessayez dans un moment.' },
+    pro:       { limit: 120, windowMs: HOUR, message: 'Trop de messages d’affilée. Réessayez dans un moment.' },
   },
 }
 

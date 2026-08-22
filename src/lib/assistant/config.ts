@@ -1,0 +1,101 @@
+import { supabaseAdmin } from '@/lib/supabase-admin'
+import { GANGES } from '@/lib/distance'
+
+/**
+ * ASSISTANT VILLAGE — réglages. SERVEUR UNIQUEMENT.
+ *
+ * Rien de ce qui suit n'est en dur dans le code : combien de conversations
+ * sont offertes, ce qui se passe ensuite, qui voit l'entrée — tout se change
+ * depuis l'admin, sans redéploiement. C'est explicitement demandé : le
+ * lancement sert à MESURER, les valeurs bougeront.
+ */
+
+/** Le centre du secteur — la météo se demande pour le bourg, pas pour la rue. */
+export const GANGES_LAT = GANGES.lat
+export const GANGES_LNG = GANGES.lng
+
+/**
+ * Le modèle. Un seul endroit dans tout le projet le nomme : changer d'avis
+ * après mesure (coût, latence, qualité) ne doit toucher que cette ligne.
+ */
+export const MODELE = 'claude-sonnet-5'
+
+/** Plafond de sortie par tour — l'assistant doit être court, c'est une règle produit. */
+export const MAX_TOKENS_REPONSE = 900
+
+export interface Quotas {
+  gratuites: number
+  habitants_jour: number
+  pro_jour: number
+  minutes_inactivite: number
+  max_tours: number
+  max_outils_tour: number
+  max_caracteres: number
+  ip_heure: number
+}
+
+const DEFAUTS: Quotas = {
+  gratuites: 3,
+  habitants_jour: 40,
+  pro_jour: 40,
+  minutes_inactivite: 30,
+  max_tours: 12,
+  max_outils_tour: 4,
+  max_caracteres: 500,
+  ip_heure: 10,
+}
+
+export type Visibilite = 'masque' | 'admin' | 'tous'
+
+let cache: { at: number; quotas: Quotas; visibilite: Visibilite } | null = null
+const TTL = 60_000
+
+/**
+ * Lit les deux clés en une fois, cache 60 s — même durée que les prompts.
+ * Une valeur absente ou aberrante retombe sur le défaut : un JSON mal saisi
+ * dans l'admin ne doit pas fermer l'assistant.
+ */
+export async function reglages(): Promise<{ quotas: Quotas; visibilite: Visibilite }> {
+  const now = Date.now()
+  if (cache && now - cache.at < TTL) return { quotas: cache.quotas, visibilite: cache.visibilite }
+
+  const { data } = await supabaseAdmin
+    .from('config').select('key, value')
+    .in('key', ['assistant_quotas', 'assistant_visibilite'])
+
+  const brut = new Map((data ?? []).map(r => [r.key, r.value]))
+
+  let quotas = DEFAUTS
+  try {
+    const j = JSON.parse(brut.get('assistant_quotas') ?? '{}') as Partial<Quotas>
+    quotas = { ...DEFAUTS }
+    for (const cle of Object.keys(DEFAUTS) as (keyof Quotas)[]) {
+      const v = Number(j[cle])
+      if (Number.isFinite(v) && v > 0) quotas[cle] = Math.floor(v)
+    }
+  } catch { /* défauts */ }
+
+  const v = brut.get('assistant_visibilite')
+  const visibilite: Visibilite = v === 'tous' ? 'tous' : v === 'masque' ? 'masque' : 'admin'
+
+  cache = { at: now, quotas, visibilite }
+  return { quotas, visibilite }
+}
+
+/** Après une écriture admin, la valeur doit être vue tout de suite. */
+export function viderCacheReglages() {
+  cache = null
+}
+
+/**
+ * L'assistant est-il ouvert à cette personne ?
+ *
+ * `admin` est l'état de rodage : l'entrée n'apparaît que pour les comptes
+ * admin, et la route refuse tout le monde d'autre. Masquer un bouton ne
+ * protège rien — c'est le serveur qui tranche.
+ */
+export function ouvertA(visibilite: Visibilite, isAdmin: boolean): boolean {
+  if (visibilite === 'tous') return true
+  if (visibilite === 'admin') return isAdmin
+  return false
+}

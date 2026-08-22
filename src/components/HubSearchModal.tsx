@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import AssistantChat from '@/components/assistant/AssistantChat'
 
 interface EvenementRow {
   id: string
@@ -62,6 +63,22 @@ function eventDateLabel(date_debut: string | null, date_fin: string | null): str
 
 const ESC_OR = (s: string) => s.replace(/,/g, '\\,').replace(/\)/g, '\\)').replace(/\(/g, '\\(')
 
+/**
+ * Cette frappe est-elle une QUESTION plutôt qu'un mot-clé ?
+ *
+ * « électricien » se répond mieux par la liste : instantanée, exhaustive.
+ * « je cherche un électricien qui puisse venir cette semaine » ne se répond
+ * pas du tout par un `ilike` sur un nom. On ne demande donc jamais à la
+ * personne de choisir entre « recherche » et « assistant » : c'est la forme
+ * de ce qu'elle écrit qui propose le second, sans jamais l'imposer.
+ */
+function ressembleAUneQuestion(q: string): boolean {
+  const t = q.trim()
+  if (t.length < 8) return false
+  if (t.includes('?')) return true
+  return t.split(/\s+/).filter(Boolean).length >= 4
+}
+
 interface Props {
   open:    boolean
   onClose: () => void
@@ -75,6 +92,10 @@ export default function HubSearchModal({ open, onClose, onViewAll }: Props) {
   const [results, setResults] = useState<Results | null>(null)
   const [loading, setLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  /** L'assistant est-il ouvert à cette personne ? (masqué / admin / tous) */
+  const [assistantOuvert, setAssistantOuvert] = useState(false)
+  /** La question envoyée à l'assistant — non nulle = l'écran est ouvert. */
+  const [question, setQuestion] = useState<string | null>(null)
 
   // Reset à l'ouverture + autofocus
   useEffect(() => {
@@ -84,6 +105,24 @@ export default function HubSearchModal({ open, onClose, onViewAll }: Props) {
       const t = setTimeout(() => inputRef.current?.focus(), 60)
       return () => clearTimeout(t)
     }
+  }, [open])
+
+  // Le serveur seul sait si l'assistant est ouvert : pendant le rodage il ne
+  // l'est que pour les admins. On ne montre pas une porte fermée.
+  useEffect(() => {
+    if (!open) return
+    let annule = false
+    ;(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const r = await fetch('/api/assistant', {
+          headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
+        })
+        const j = await r.json().catch(() => null)
+        if (!annule) setAssistantOuvert(!!j?.ouvert)
+      } catch { /* l'assistant reste simplement invisible */ }
+    })()
+    return () => { annule = true }
   }, [open])
 
   // ESC pour fermer
@@ -200,6 +239,37 @@ export default function HubSearchModal({ open, onClose, onViewAll }: Props) {
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto pb-6">
+        {/* L'entrée de l'assistant, EN HAUT des résultats : la liste continue
+            de s'afficher dessous, rien n'est remplacé et rien ne part tout
+            seul. C'est un tap, et seulement quand la frappe ressemble à une
+            question. */}
+        {assistantOuvert && ressembleAUneQuestion(q) && (
+          <button
+            onClick={() => setQuestion(q.trim())}
+            className="flex w-full items-center gap-3 border-none bg-white text-left"
+            style={{ borderBottom: '1px solid #F0EAE0', padding: '13px 16px' }}
+          >
+            <span className="flex h-9 w-9 flex-none items-center justify-center"
+              style={{ borderRadius: 11, background: '#E8F2EB', color: '#2D5A3D' }}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3l1.9 4.7L18.6 9l-4.7 1.9L12 15.6l-1.9-4.7L5.4 9l4.7-1.3z" />
+                <path d="M18 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" />
+              </svg>
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block" style={{ fontSize: 13.5, fontWeight: 800, color: '#1A1209' }}>
+                Demander à l’Assistant Village
+              </span>
+              <span className="block truncate" style={{ fontSize: 11.5, color: '#7A6A5A', marginTop: 2 }}>
+                « {q.trim()} »
+              </span>
+            </span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#A99B89" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+        )}
+
         {/* État vide — pas de query */}
         {q.trim().length < 2 && (
           <div className="px-6 pt-10 text-center">
@@ -300,6 +370,12 @@ export default function HubSearchModal({ open, onClose, onViewAll }: Props) {
           </>
         )}
       </div>
+
+      {/* La conversation se pose PAR-DESSUS la recherche, sans la fermer :
+          on ressort de l'assistant là où on en était. */}
+      {question !== null && (
+        <AssistantChat question={question} onClose={() => setQuestion(null)} />
+      )}
     </div>
   )
 }
