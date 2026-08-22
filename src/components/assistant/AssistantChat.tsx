@@ -167,6 +167,9 @@ export default function AssistantChat({ question, dicter, onClose }: {
   const envoiRef = useRef<(q: string) => void>(() => {})
   const essaiRef = useRef<string | null>(null)
   essaiRef.current = essai
+  /** Le total en cours, lu au moment d'enregistrer — pas au rendu. */
+  const coutRef = useRef(0)
+  coutRef.current = cout
 
   /**
    * On ne suit la rédaction que si l'on est DÉJÀ en bas.
@@ -339,6 +342,7 @@ export default function AssistantChat({ question, dicter, onClose }: {
       convRef.current = passe.id
       setConversationId(passe.id)
       setMessages(passe.messages as Message[])
+      setCout(passe.cout ?? 0)
     }
 
     if (question.trim()) envoiRef.current(question)
@@ -356,6 +360,7 @@ export default function AssistantChat({ question, dicter, onClose }: {
       id: convRef.current,
       titre: messages.find(m => m.role === 'user')?.texte.slice(0, 60) ?? '',
       at: Date.now(),
+      cout: coutRef.current,
       messages: messages.map(m => ({ role: m.role, texte: m.texte, cartes: m.cartes, action: m.action ?? null })),
     })
     setConversations(lireConversations())
@@ -416,8 +421,9 @@ export default function AssistantChat({ question, dicter, onClose }: {
     convRef.current = c?.id ?? null
     setConversationId(c?.id ?? null)
     setMessages((c?.messages ?? []) as Message[])
-    // Le compteur suit la conversation affichée, pas la session.
-    setCout(0)
+    // Le compteur suit la conversation AFFICHÉE : celle qu'on rouvre retrouve
+    // son total, une conversation neuve repart de zéro.
+    setCout(c?.cout ?? 0)
     // On sélectionne d'abord, on referme ensuite : le volet glisse pendant que
     // la conversation choisie s'affiche derrière, et on voit ce qu'on a fait.
     replierVolet()

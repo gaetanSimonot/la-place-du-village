@@ -28,9 +28,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const user = await verifyUser(req)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  // `select('user_id')` et non `select('id')` : cette table a une CLÉ
+  // PRIMAIRE COMPOSITE (user_id, etablissement_id) et pas de colonne `id`.
+  // Demander une colonne absente fait échouer toute la requête en silence :
+  // `existing` restait nul, on réinsérait une ligne déjà là, la clé sautait,
+  // et il devenait impossible de RETIRER un établissement de ses favoris.
   const { data: existing } = await supabaseAdmin
     .from('etablissement_favorites')
-    .select('id')
+    .select('user_id')
     .eq('user_id', user.id)
     .eq('etablissement_id', id)
     .maybeSingle()

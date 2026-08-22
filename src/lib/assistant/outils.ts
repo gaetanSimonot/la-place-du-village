@@ -503,16 +503,27 @@ async function etablissements(a: Args): Promise<ResultatOutil> {
    * risque d'une mise en avant commerciale, et ce qui la rend acceptable.
    */
   const promosParEtab = new Map<string, { id: string; titre: string }>()
+  const cartesPromo: Carte[] = []
   if (lignes.length) {
     const { data: promos } = await supabaseAdmin
       .from('promotions')
-      .select('id, etablissement_id, title, description, image_url, valid_until')
+      .select('id, etablissement_id, title, description, image_url, conditions, valid_until')
       .eq('active', true)
       .in('etablissement_id', lignes.map(e => String(e.id)))
       .or(`valid_until.is.null,valid_until.gte.${new Date().toISOString()}`)
+    const parEtabId = new Map(lignes.map(e => [String(e.id), e]))
     for (const p of promos ?? []) {
       const cle = String(p.etablissement_id)
-      if (!promosParEtab.has(cle)) promosParEtab.set(cle, { id: String(p.id), titre: String(p.title) })
+      if (promosParEtab.has(cle)) continue
+      promosParEtab.set(cle, { id: String(p.id), titre: String(p.title) })
+      // La CARTE du bon plan, pas seulement sa mention. Sans elle, citer
+      // [[promo:…]] ne donnait rien : le verrou retire toute fiche que les
+      // outils n'ont pas rendue, et celle-ci n'était nulle part. Ni fiche à
+      // l'écran, ni cœur pour la garder.
+      cartesPromo.push({
+        type: 'promo', id: String(p.id),
+        data: { ...p, etablissement: parEtabId.get(cle) ?? null },
+      })
     }
   }
 
@@ -545,6 +556,7 @@ async function etablissements(a: Args): Promise<ResultatOutil> {
         // La carte porte le bon plan : un liseré suffit à le dire.
         data: { ...e, bon_plan: promosParEtab.get(String(e.id)) ?? null },
       })),
+      ...cartesPromo,
       ...prods.map(p => ({ type: 'prod' as const, id: String(p.id), data: p })),
     ],
     libelle: libelleRecherche(mots),

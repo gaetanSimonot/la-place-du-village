@@ -29,6 +29,12 @@ export interface MessageLocal {
 export interface ConversationLocale {
   /** L'identifiant SERVEUR : c'est lui qui permet de reprendre le fil. */
   id: string | null
+  /**
+   * Ce que la conversation a coûté, en euros — visible des seuls admins.
+   * Gardé avec elle : un compteur qui repart de zéro à chaque réouverture ne
+   * dit plus rien de ce qu'on a réellement dépensé.
+   */
+  cout?: number
   /** Sa première question, pour la retrouver dans la liste. */
   titre: string
   /** Dernière activité, en millisecondes. */

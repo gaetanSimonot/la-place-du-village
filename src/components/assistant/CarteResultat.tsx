@@ -1,7 +1,5 @@
 'use client'
-import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import { trackEvent } from '@/lib/analytics'
+import { useFavori } from '@/hooks/useFavori'
 import { imageEvenement } from '@/lib/imageEvenement'
 import { CATEGORIES } from '@/lib/categories'
 import type { Categorie } from '@/lib/types'
@@ -78,62 +76,33 @@ const IcoTag = (
   </svg>
 )
 
-/** Où vit le favori de chaque famille. Un film ne se garde pas. */
-const API_FAVORI: Record<string, string | undefined> = {
-  ev: 'evenements', etab: 'etablissements', prod: 'producers',
-  annonce: 'annonces', promo: 'promotions', film: undefined,
-}
-
 /**
  * Garder une fiche sans l'ouvrir.
  *
- * L'état initial vient du serveur, posé sur la carte pendant la réponse : le
- * cœur ne ment donc pas, et il n'a coûté aucun aller-retour. Il n'apparaît
- * que pour un compte connecté — un cœur vide qui échoue au clic serait pire
- * que pas de cœur du tout.
+ * Tout l'état vit dans `useFavori` : la vérité vient du serveur, et le
+ * moindre changement est annoncé à l'application entière. Le cœur de la
+ * carte, celui de l'aperçu et celui de la barre du bas parlent donc toujours
+ * de la même chose.
  */
 function Coeur({ carte, sombre }: { carte: CarteData; sombre?: boolean }) {
-  const api = API_FAVORI[carte.type]
-  const initial = carte.data.favori
-  const [garde, setGarde] = useState(initial === true)
-  const [busy, setBusy] = useState(false)
-  if (!api || typeof initial !== 'boolean') return null
-
-  async function basculer(e: React.MouseEvent) {
-    e.stopPropagation()   // le clic ne doit pas ouvrir l'aperçu
-    if (busy) return
-    setBusy(true)
-    const avant = garde
-    setGarde(!avant)      // on répond tout de suite, on corrige si besoin
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) { setGarde(avant); return }
-      const r = await fetch(`/api/${api}/${carte.id}/favorite`, {
-        method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` },
-      })
-      const j = await r.json().catch(() => null)
-      if (!r.ok) setGarde(avant)
-      else {
-        setGarde(!!j?.favorited)
-        // La carte garde la vérité : rouvrir la conversation depuis
-        // l'appareil ne doit pas rendre un cœur périmé.
-        carte.data.favori = !!j?.favorited
-        trackEvent('assistant_favori', { type: carte.type })
-        // La barre du bas fait battre son cœur : on voit où la fiche est
-        // partie, sans quitter la conversation.
-        if (j?.favorited) window.dispatchEvent(new CustomEvent('lpv:favori'))
-      }
-    } catch { setGarde(avant) } finally { setBusy(false) }
-  }
+  const { possible, garde, connu, busy, basculer } = useFavori(carte.type, carte.id, carte.data.favori)
+  if (!possible || !connu) return null
 
   return (
-    <button type="button" onClick={basculer}
+    <button type="button"
+      onClick={e => {
+        e.stopPropagation()   // le clic ne doit pas ouvrir l'aperçu
+        // La carte garde la vérité : rouvrir la conversation depuis
+        // l'appareil ne doit pas rendre un cœur périmé.
+        carte.data.favori = !garde
+        void basculer()
+      }}
       aria-label={garde ? 'Retirer des favoris' : 'Garder'}
       className="flex flex-none items-center justify-center border-none bg-transparent"
-      style={{ width: 28, height: 28, marginTop: -2, marginRight: -2, opacity: busy ? 0.5 : 1 }}>
-      <svg width="16" height="16" viewBox="0 0 24 24"
+      style={{ width: 30, height: 30, marginTop: -2, marginRight: -2, opacity: busy ? 0.5 : 1 }}>
+      <svg width="17" height="17" viewBox="0 0 24 24"
         fill={garde ? '#C84B2F' : 'none'}
-        stroke={garde ? '#C84B2F' : sombre ? 'rgba(250,251,250,.45)' : '#C9BFB2'}
+        stroke={garde ? '#C84B2F' : sombre ? 'rgba(250,251,250,.5)' : '#C9BFB2'}
         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8l8.8 8.8 8.8-8.8a5.5 5.5 0 0 0 0-7.8z" />
       </svg>
