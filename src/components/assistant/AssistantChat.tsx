@@ -256,7 +256,13 @@ export default function AssistantChat({ question, dicter, onClose }: {
           try { ev = JSON.parse(ligne.slice(6)) } catch { continue }
 
           if (ev.type === 'debut') { convRef.current = String(ev.conversationId); setConversationId(String(ev.conversationId)) }
-          else if (ev.type === 'fin' && typeof ev.cout === 'number') setCout(c => c + (ev.cout as number))
+          else if (ev.type === 'fin') {
+            if (typeof ev.cout === 'number') setCout(c => c + (ev.cout as number))
+            // Le serveur a le dernier mot sur ce qui s'affiche : il a retiré
+            // les fiches introuvables et replacé les autres. On remplace ce
+            // qui a été écrit au fil de l'eau.
+            if (typeof ev.texte === 'string' && ev.texte) majDernier(m => ({ ...m, texte: ev.texte as string }))
+          }
           else if (ev.type === 'texte') { setCherche(null); majDernier(m => ({ ...m, texte: m.texte + String(ev.delta) })) }
           else if (ev.type === 'outil') {
             setCherche(ev.nom === 'web_search' ? 'web'

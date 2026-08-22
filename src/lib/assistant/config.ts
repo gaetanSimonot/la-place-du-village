@@ -15,10 +15,33 @@ export const GANGES_LAT = GANGES.lat
 export const GANGES_LNG = GANGES.lng
 
 /**
- * Le modèle. Un seul endroit dans tout le projet le nomme : changer d'avis
- * après mesure (coût, latence, qualité) ne doit toucher que cette ligne.
+ * Le modèle. Un seul endroit dans tout le projet le nomme.
+ *
+ * Changer cette ligne suffit : le fournisseur, le prompt et la façon de
+ * dialoguer en découlent. L'assistant ne dépend structurellement d'aucun
+ * modèle — ni de celui d'aujourd'hui, ni de celui qui sera meilleur marché
+ * dans six mois.
  */
 export const MODELE = 'claude-sonnet-5'
+
+export type Fournisseur = 'anthropic' | 'openai'
+
+/** Qui répond, déduit du nom du modèle. */
+export function fournisseur(modele: string = MODELE): Fournisseur {
+  return modele.startsWith('claude') ? 'anthropic' : 'openai'
+}
+
+/**
+ * Quel prompt lui donner.
+ *
+ * Deux voix pour un seul assistant : `assistant_village` est écrit en prose
+ * pour un grand modèle, `assistant_village_gpt` en règles courtes et en
+ * exemples pour un modèle compact, qui suit mal deux mille mots de prose.
+ * Même fond, même personnalité, même interdits — deux façons de les dire.
+ */
+export function promptDuModele(modele: string = MODELE): string {
+  return fournisseur(modele) === 'anthropic' ? 'assistant_village' : 'assistant_village_gpt'
+}
 
 /**
  * Plafond de sortie par tour.

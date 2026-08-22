@@ -166,6 +166,11 @@ export async function POST(req: NextRequest) {
             }).catch(e => console.error('[assistant:enregistrement]', (e as Error).message))
             envoyer({
               type: 'fin', conversationId: conv.id, reste: ouverture.reste,
+              // Le texte VERROUILLÉ : les fiches que les outils n'ont pas
+              // rendues en ont été retirées, et chacune remise derrière sa
+              // phrase. C'est lui qui doit s'afficher, pas ce qui a été
+              // streamé au fil de l'eau.
+              texte: ev.texte,
               // Le coût n'est calculé et transmis QU'AUX ADMINS : c'est un
               // instrument de réglage, pas une information pour les habitants.
               cout: ctx?.isAdmin ? coutEnEuros(ev.conso) : undefined,

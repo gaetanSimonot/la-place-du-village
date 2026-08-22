@@ -1,70 +1,45 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { getPrompt } from '@/lib/prompts-ia'
-import { OUTILS, executerOutil, type Carte, type ActionProposee } from '@/lib/assistant/outils'
-import { MODELE, MAX_TOKENS_REPONSE } from '@/lib/assistant/config'
+import type { Carte, ActionProposee } from '@/lib/assistant/outils'
+import { MODELE, fournisseur, promptDuModele } from '@/lib/assistant/config'
+import { verrouillerReponse } from '@/lib/assistant/reponse'
 import type { Consommation } from '@/lib/assistant/cout'
+import { repondreAnthropic } from '@/lib/assistant/providers/anthropic'
+import { repondreOpenAI } from '@/lib/assistant/providers/openai'
 
 /**
- * ASSISTANT VILLAGE — le modèle. SERVEUR UNIQUEMENT.
+ * ASSISTANT VILLAGE — le chef d'orchestre. SERVEUR UNIQUEMENT.
  *
- * SEUL fichier du projet qui connaît Anthropic pour l'assistant. Tout le
- * reste (outils, quota, route, écran) ignore quel modèle répond : en changer
- * après mesure ne doit toucher qu'une constante dans config.ts.
+ * Ce fichier ne parle à aucun modèle. Il choisit le fournisseur, lui donne le
+ * prompt qui lui convient, et VERROUILLE ce qui revient. Les modèles vivent
+ * dans providers/ ; en ajouter un ne touche rien d'autre.
  *
- * La boucle est classique — le modèle demande des outils, on les exécute, on
- * lui rend les résultats, il rédige — avec deux garde-fous : un nombre maximal
- * de tours d'outils, et des cartes émises AU FIL DE L'EAU vers le client, si
- * bien que les fiches s'affichent pendant que la phrase s'écrit.
+ * Le verrou est la raison d'être de cette couche. Un prompt demande, il
+ * n'impose pas : le banc d'essai a montré des identifiants inventés et des
+ * fiches empilées en fin de réponse, deux défauts qu'aucune consigne ne
+ * supprime tout à fait. On ne fait donc pas confiance au modèle sur ce qui
+ * s'affiche — on le contrôle après coup, et de la même façon pour tous.
  */
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
-/**
- * La recherche web — complément, jamais remplacement.
- *
- * Elle tourne chez Anthropic : on la déclare, le modèle l'appelle, rien ne
- * s'exécute chez nous. Deux raisons de la tenir serrée :
- *
- *   — L'ARGENT. Une seule recherche coûte ~13 000 tokens d'entrée, soit plus
- *     qu'une conversation locale entière. D'où `max_uses: 2`, et la variante
- *     de base plutôt que celle à filtrage dynamique, qui en consomme 50 % de
- *     plus pour un numéro de mairie.
- *   — LE PROJET. Les événements, les commerces, les annonces et le cinéma du
- *     secteur vivent dans La Place du Village, et nulle part ailleurs.
- *     Envoyer quelqu'un vers un agenda extérieur ou un professionnel absent
- *     de la base viderait de son sens ce qu'on est en train de construire.
- *     Le web sert à préciser (« c'est quoi ce groupe ? »), à compléter
- *     (le numéro de la gendarmerie), jamais à proposer à la place.
- *
- * Le cadrage lui-même est dans le prompt, en base : c'est du jugement, pas
- * de la mécanique, et il doit pouvoir se corriger sans redéploiement.
- */
-const OUTIL_WEB = {
-  type: 'web_search_20250305',
-  name: 'web_search',
-  max_uses: 2,
-}
-
+/** `brut` est interne : il ne sort jamais d'ici, `fin` le remplace. */
 export type EvenementFlux =
   | { type: 'texte';  delta: string }
   | { type: 'outil';  nom: string; mots?: string | null }
   | { type: 'cartes'; items: Carte[] }
   | { type: 'action'; action: ActionProposee }
+  | { type: 'brut'; texte: string; cartes: Carte[]; action?: ActionProposee; outils: string[]; conso: Consommation }
   | { type: 'fin'; texte: string; outils: string[]; tokensIn: number; tokensOut: number
-      sujet: string | null
-      /** Le détail facturable du tour — séparé, car le cache ne coûte pas pareil. */
-      conso: Consommation }
+      sujet: string | null; conso: Consommation }
 
 /** Ce que chaque outil dit du besoin — sert aux statistiques, sans lire les messages. */
 const SUJETS: Record<string, string> = {
-  chercher_evenements:    'sortie',
+  chercher_evenements:     'sortie',
   chercher_etablissements: 'service',
-  chercher_seances:       'cinema',
-  chercher_promotions:    'bon_plan',
-  chercher_annonces:      'annonce',
-  proposer_action:        'action',
-  aide_lpv:               'aide',
-  meteo:                  'sortie',
+  chercher_seances:        'cinema',
+  chercher_promotions:     'bon_plan',
+  chercher_annonces:       'annonce',
+  proposer_action:         'action',
+  aide_lpv:                'aide',
+  meteo:                   'sortie',
 }
 
 /** Aujourd'hui en toutes lettres — le serveur Vercel est en UTC, jamais à Paris. */
@@ -77,126 +52,34 @@ function aujourdhuiFr(): string {
 /**
  * Un tour complet de conversation, émis au fur et à mesure.
  *
- * `maxOutils` borne le nombre d'allers-retours d'outils : sans lui, une
- * demande mal comprise peut faire tourner le modèle en rond aux frais du
- * projet. Au-delà, on lui retire les outils et il répond avec ce qu'il a.
+ * `maxOutils` borne le nombre d'allers-retours : sans lui, une demande mal
+ * comprise peut faire tourner le modèle en rond aux frais du projet.
  */
 export async function* repondre(params: {
   question: string
   historique: { role: 'user' | 'assistant'; contenu: string }[]
   maxOutils: number
 }): AsyncGenerator<EvenementFlux> {
-  const systeme = await getPrompt('assistant_village', { today: aujourdhuiFr() })
+  const systeme = await getPrompt(promptDuModele(), { today: aujourdhuiFr() })
+  const p = { modele: MODELE, systeme, ...params }
 
-  const messages: Anthropic.MessageParam[] = [
-    ...params.historique.map(m => ({ role: m.role, content: m.contenu })),
-    { role: 'user' as const, content: params.question },
-  ]
+  const flux = fournisseur() === 'anthropic' ? repondreAnthropic(p) : repondreOpenAI(p)
 
-  const outilsAppeles: string[] = []
-  let texteFinal = ''
-  // Le détail compte : un token relu dans le cache vaut un dixième d'un token
-  // neuf, et les additionner ensemble ferait mentir le coût affiché.
-  const conso: Consommation = { entree: 0, cacheLu: 0, cacheEcrit: 0, sortie: 0, recherchesWeb: 0 }
+  for await (const ev of flux) {
+    if (ev.type !== 'brut') { yield ev; continue }
 
-  for (let tour = 0; tour <= params.maxOutils; tour++) {
-    // Dernier tour : plus d'outils, il conclut avec ce qu'il a déjà lu.
-    const encoreDesOutils = tour < params.maxOutils
+    // Le seul endroit où l'on décide de ce qui s'affiche vraiment : on retire
+    // les fiches que les outils n'ont pas rendues, et on remet chacune
+    // derrière la phrase qui en parle.
+    const texte = verrouillerReponse(ev.texte, ev.cartes)
+    const sujet = ev.outils.length ? SUJETS[ev.outils[0]] ?? 'autre' : 'autre'
 
-    const flux = anthropic.messages.stream({
-      model: MODELE,
-      max_tokens: MAX_TOKENS_REPONSE,
-      // Le prompt et la liste d'outils ne bougent pas d'un message à l'autre :
-      // ils sont mis en cache, et seules les questions successives se paient
-      // plein tarif. C'est l'essentiel de l'économie sur une conversation.
-      system: [{ type: 'text', text: systeme, cache_control: { type: 'ephemeral' } }],
-      // Assez de réflexion pour CHOISIR les bons outils et composer une
-      // vraie réponse — organiser une journée demande de croiser la météo,
-      // une activité et un restaurant. « low » expédiait la question et
-      // n'ouvrait qu'un tiroir. Réglable ici seul.
-      output_config: { effort: 'medium' },
-      tools: encoreDesOutils
-        ? ([...OUTILS, OUTIL_WEB] as unknown as Anthropic.Tool[])
-        : undefined,
-      messages,
-    })
-
-    for await (const ev of flux) {
-      if (ev.type === 'content_block_delta' && ev.delta.type === 'text_delta') {
-        texteFinal += ev.delta.text
-        yield { type: 'texte', delta: ev.delta.text }
-      }
-      // La recherche web s'exécute chez Anthropic : on ne la déclenche pas,
-      // on la voit passer. On le dit à l'écran, c'est plus long qu'une
-      // requête locale et il faut que ça se comprenne.
-      if (ev.type === 'content_block_start' && ev.content_block?.type === 'server_tool_use') {
-        // Facturée à l'appel : on les compte, l'API ne les totalise pas.
-        conso.recherchesWeb += 1
-        yield { type: 'outil', nom: 'web_search', mots: null }
-      }
+    yield {
+      type: 'fin', texte, outils: ev.outils, sujet, conso: ev.conso,
+      // Ce qu'on enregistre en base reste un total simple : le détail sert au
+      // coût affiché, pas au suivi de volume.
+      tokensIn: ev.conso.entree + ev.conso.cacheLu + ev.conso.cacheEcrit,
+      tokensOut: ev.conso.sortie,
     }
-
-    const message = await flux.finalMessage()
-    conso.entree     += message.usage.input_tokens
-    conso.cacheLu    += message.usage.cache_read_input_tokens ?? 0
-    conso.cacheEcrit += message.usage.cache_creation_input_tokens ?? 0
-    conso.sortie     += message.usage.output_tokens
-
-    // Le modèle a lancé une recherche web et attend ses résultats : on lui
-    // rend la main sans rien exécuter de notre côté.
-    if (message.stop_reason === 'pause_turn') {
-      messages.push({ role: 'assistant', content: message.content })
-      continue
-    }
-    if (message.stop_reason !== 'tool_use') break
-
-    messages.push({ role: 'assistant', content: message.content })
-
-    // Les appels d'un même tour partent ensemble, et TOUS les résultats
-    // reviennent dans un seul message : les séparer apprendrait au modèle à
-    // ne plus jamais paralléliser.
-    const demandes = message.content.filter(
-      (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use',
-    )
-    const resultats: Anthropic.ToolResultBlockParam[] = []
-
-    for (const d of demandes) {
-      outilsAppeles.push(d.name)
-      // Les mots que le modèle a choisi d'élargir : les montrer pendant la
-      // recherche rassure sur ce qu'il est en train de faire, et rend
-      // visible le travail qui rattrape « manger italien » → « pizzeria ».
-      const cherches = (d.input as { mots?: unknown })?.mots
-      yield {
-        type: 'outil', nom: d.name,
-        mots: Array.isArray(cherches) ? cherches.filter(m => typeof m === 'string').slice(0, 3).join(', ') : null,
-      }
-      try {
-        const r = await executerOutil(d.name, (d.input ?? {}) as Record<string, unknown>)
-        if (r.cartes.length) yield { type: 'cartes', items: r.cartes }
-        if (r.action) yield { type: 'action', action: r.action }
-        resultats.push({ type: 'tool_result', tool_use_id: d.id, content: JSON.stringify(r.pourLeModele) })
-      } catch (e) {
-        // Un outil en échec ne doit pas emporter le tour : on le dit au
-        // modèle, qui peut se rabattre sur un autre ou l'annoncer.
-        console.error('[assistant:outil]', d.name, (e as Error).message)
-        resultats.push({
-          type: 'tool_result', tool_use_id: d.id, is_error: true,
-          content: 'Recherche indisponible pour le moment.',
-        })
-      }
-    }
-
-    messages.push({ role: 'user', content: resultats })
-    texteFinal = texteFinal.trimEnd()
-  }
-
-  if (conso.recherchesWeb) outilsAppeles.push('web_search')
-  const sujet = outilsAppeles.length ? SUJETS[outilsAppeles[0]] ?? 'autre' : 'autre'
-  yield {
-    type: 'fin', texte: texteFinal, outils: outilsAppeles, sujet, conso,
-    // Ce qu'on enregistre en base reste un total simple : le détail sert au
-    // coût affiché, pas au suivi de volume.
-    tokensIn: conso.entree + conso.cacheLu + conso.cacheEcrit,
-    tokensOut: conso.sortie,
   }
 }
