@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import { toast } from 'sonner'
@@ -57,6 +58,23 @@ export default function FilmClient({ id }: { id: string }) {
   }, [seances])
 
   const joursAffiches = tout ? parJour : parJour.slice(0, JOURS_REPLIES)
+
+  /**
+   * Les salles qui jouent ce film. Pas toutes celles qui ont le module :
+   * seulement celles où l'on peut aller le voir, dans l'ordre de leur
+   * première séance. Une seule salle aujourd'hui, deux demain — la liste
+   * s'adapte sans qu'on ait à y toucher.
+   */
+  const salles = useMemo(() => {
+    const vues = new Set<string>()
+    const out: Cinema[] = []
+    for (const s of seances) {
+      if (vues.has(s.etablissement_id)) continue
+      const c = cinemas.get(s.etablissement_id)
+      if (c) { vues.add(s.etablissement_id); out.push(c) }
+    }
+    return out
+  }, [seances, cinemas])
 
   async function partager() {
     const url = typeof window !== 'undefined' ? window.location.href : ''
@@ -184,7 +202,7 @@ export default function FilmClient({ id }: { id: string }) {
                           <div className="min-w-0 flex-1">
                             <div className="truncate" style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--cine-ink)' }}>{salle?.nom ?? 'Cinéma'}</div>
                             <div style={{ fontSize: 11, color: 'var(--cine-dim2)', marginTop: 2 }}>
-                              {s.version.toUpperCase()}{s.salle ? ` · ${s.salle}` : ''}{s.note ? ` · ${s.note}` : ''}
+                              {[salle?.commune, s.version.toUpperCase(), s.salle, s.note].filter(Boolean).join(' · ')}
                             </div>
                           </div>
                           {lien && (
@@ -209,6 +227,50 @@ export default function FilmClient({ id }: { id: string }) {
               </div>
             )}
           </div>
+
+          {/* Où aller le voir. Une carte par salle, avec sa photo : c'est la
+              porte de sortie vers la fiche de l'établissement, celle qui
+              porte l'adresse, le téléphone et les horaires. */}
+          {salles.length > 0 && (
+            <div className="px-4 pt-5">
+              <h2 className="m-0 mb-2 font-title text-[17px] leading-tight" style={{ color: 'var(--cine-ink)' }}>
+                {salles.length > 1 ? 'Les salles' : 'La salle'}
+              </h2>
+              <div className="flex flex-col gap-2">
+                {salles.map(c => (
+                  <Link key={c.id} href={`/etablissement/${c.id}`}
+                    className="flex items-center gap-3 overflow-hidden no-underline"
+                    style={{ borderRadius: 14, border: '1px solid var(--cine-line)', background: 'rgba(157,207,238,.05)', padding: 10 }}>
+                    <span className="flex-none overflow-hidden"
+                      style={{ width: 52, height: 52, borderRadius: 10, background: 'rgba(157,207,238,.1)' }}>
+                      {c.photos?.[0] ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={c.photos[0]} alt="" className="h-full w-full object-cover" loading="lazy" />
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center" style={{ color: 'var(--cine-accent)' }}>
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2 2 2 0 0 0 0 4 2 2 0 0 1-2 2H5a2 2 0 0 1-2-2 2 2 0 0 0 0-4z" />
+                            <line x1="9" y1="7" x2="9" y2="17" strokeDasharray="2 2" />
+                          </svg>
+                        </span>
+                      )}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate" style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--cine-ink)' }}>{c.nom}</div>
+                      <div className="truncate" style={{ marginTop: 2, fontSize: 11.5, color: 'var(--cine-dim2)' }}>
+                        {[c.adresse, c.commune].filter(Boolean).join(' · ') || 'Voir la fiche'}
+                      </div>
+                    </div>
+                    <span className="flex-none" style={{ color: 'var(--cine-accent)', opacity: .7 }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="9 18 15 12 9 6" />
+                      </svg>
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
 
