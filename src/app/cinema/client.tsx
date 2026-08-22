@@ -48,6 +48,20 @@ const ONGLETS: { id: Onglet; label: string }[] = [
 
 const fetcher = (u: string) => fetch(u).then(r => r.json())
 
+/**
+ * L'enseigne de chaque salle, par son identifiant de lien.
+ *
+ * Une salle sans logo n'est pas un problème : son nom s'affiche en grand à
+ * la place. Ajouter une salle, c'est déposer un fichier ici et l'inscrire
+ * dans cette table — rien d'autre.
+ */
+const LOGOS: Record<string, string> = {
+  ganges: '/cinema/aec-logo.png',
+  vigan:  '/cinema/logo-vigan.png',
+}
+const logoDeLaSalle = (slug: string | null | undefined): string | null =>
+  (slug && LOGOS[slug]) || null
+
 function jourLong(date: string): string {
   const s = new Intl.DateTimeFormat('fr-FR', {
     timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long',
@@ -188,13 +202,14 @@ export default function CinemaClient() {
         )}
       </div>
 
-      {/* Enseigne. Le logo est celui de l'Arc-en-Ciel : le poser sur la
-          programmation d'une autre salle serait un contresens. Ailleurs, le
-          nom porte l'identité. */}
+      {/* Enseigne. Chaque salle a la sienne : poser le logo de l'Arc-en-Ciel
+          sur la programmation d'une autre serait un contresens. Sans logo
+          connu, c'est le nom qui porte l'identité — et ajouter une salle ne
+          demande qu'un fichier de plus dans public/cinema/. */}
       <div className="flex items-center justify-center" style={{ padding: '16px 26px 24px' }}>
-        {salleUnique?.slug === 'ganges' ? (
+        {logoDeLaSalle(salleUnique?.slug) ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src="/cinema/aec-logo.png" alt={salleUnique.nom}
+          <img src={logoDeLaSalle(salleUnique?.slug)!} alt={salleUnique?.nom ?? 'Cinéma'}
             style={{ width: '100%', maxWidth: 270, height: 'auto', display: 'block' }} />
         ) : (
           <div className="text-center">
@@ -212,7 +227,7 @@ export default function CinemaClient() {
       {/* Choisir sa salle — n'apparaît qu'à partir de la deuxième. */}
       {salles.length > 1 && (
         <div className="flex justify-center gap-2 overflow-x-auto px-4 pb-4" style={{ scrollbarWidth: 'none' }}>
-          {[{ id: 'tous', nom: 'Tous les cinémas', cle: null as string | null }, ...salles.map(c => ({
+          {[{ id: 'tous', nom: 'Tous', cle: null as string | null }, ...salles.map(c => ({
             id: c.id, nom: c.nom, cle: c.slug ?? c.id,
           }))].map(o => {
             const actif = o.cle === null ? !cinema : cinema?.id === o.id
