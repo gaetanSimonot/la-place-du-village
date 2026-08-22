@@ -1,7 +1,12 @@
-import { MODELE } from '@/lib/assistant/config'
-
 /**
- * ASSISTANT VILLAGE — ce que coûte une réponse. SERVEUR UNIQUEMENT.
+ * ASSISTANT VILLAGE — ce que coûte une réponse.
+ *
+ * ⚠️ CE FICHIER EST IMPORTÉ PAR L'ÉCRAN DE CONVERSATION (pour `formaterCout`)
+ * et ne doit donc RIEN importer qui touche à la base. Une version précédente
+ * y lisait le modèle par défaut depuis config.ts, lequel importe
+ * `supabase-admin` : la clé de service partait dans le navigateur et la page
+ * entière restait blanche. D'où le nom du modèle écrit ici, en clair, sans
+ * dépendance.
  *
  * Affiché en direct, mais aux seuls comptes admin : c'est un instrument de
  * réglage, pas une information pour les habitants.
@@ -24,6 +29,9 @@ import { MODELE } from '@/lib/assistant/config'
  *
  * Tarifs relevés le 22/08/2026, en dollars par million de tokens.
  */
+
+/** Le modèle servant de repli au calcul. Doit rester aligné sur config.ts. */
+const MODELE_REPLI = 'gpt-4.1-mini'
 
 interface Tarif {
   entree: number
@@ -80,8 +88,8 @@ export interface Consommation {
  * Un modèle inconnu retombe sur celui du projet : mieux vaut un ordre de
  * grandeur qu'un zéro trompeur.
  */
-export function coutEnEuros(c: Consommation, modele: string = MODELE): number {
-  const t = (TARIFS[modele] ?? TARIFS[MODELE] ?? sonnet)()
+export function coutEnEuros(c: Consommation, modele: string = MODELE_REPLI): number {
+  const t = (TARIFS[modele] ?? TARIFS[MODELE_REPLI] ?? sonnet)()
   const dollars =
     (c.entree     / 1_000_000) * t.entree +
     (c.cacheLu    / 1_000_000) * t.cacheLu +
