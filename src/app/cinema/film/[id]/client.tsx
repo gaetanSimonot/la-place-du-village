@@ -1,5 +1,5 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import { toast } from 'sonner'
@@ -37,6 +37,13 @@ export default function FilmClient({ id }: { id: string }) {
   const router = useRouter()
   const [tout, setTout] = useState(false)
   const [videoOuverte, setVideoOuverte] = useState(false)
+
+  // On reste dans la salle : la fiche porte le même thème que /cinema,
+  // posé au montage et retiré au démontage pour qu'il ne fuie pas ailleurs.
+  useEffect(() => {
+    document.documentElement.dataset.univers = 'cinema'
+    return () => { delete document.documentElement.dataset.univers }
+  }, [])
   const { data, isLoading } = useSWR<Payload>(`/api/cinema/film/${id}`, fetcher)
 
   const film = data?.film
@@ -60,20 +67,20 @@ export default function FilmClient({ id }: { id: string }) {
   }
 
   return (
-    <div className="relative min-h-[100dvh] bg-creme pb-28 font-inter text-texte">
+    <div className="relative min-h-[100dvh] font-inter" style={{ background: 'var(--cine-bg)', color: 'var(--cine-ink)', paddingBottom: 92 }}>
       {/* En-tête : retour et partage, comme sur les fiches événements */}
-      <div className="flex items-center justify-between gap-2 bg-white px-3.5 py-2.5"
-        style={{ borderBottom: '1px solid #F0EAE0', paddingTop: 'max(10px, env(safe-area-inset-top, 10px))' }}>
+      <div className="flex items-center justify-between gap-2 px-3.5 py-2.5"
+        style={{ paddingTop: 'max(14px, env(safe-area-inset-top, 14px))' }}>
         <button onClick={() => router.back()} aria-label="Retour"
-          className="flex h-[34px] w-[34px] items-center justify-center rounded-[10px] bg-white"
-          style={{ border: '1px solid #E8E0D4' }}>
+          className="flex h-[34px] w-[34px] items-center justify-center rounded-full"
+          style={{ border: '1px solid var(--cine-line)', background: 'rgba(250,251,250,.05)', color: 'var(--cine-ink)' }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
             <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
           </svg>
         </button>
         <button onClick={partager} aria-label="Partager"
-          className="flex h-[34px] w-[34px] items-center justify-center rounded-[10px] bg-white"
-          style={{ border: '1px solid #E8E0D4' }}>
+          className="flex h-[34px] w-[34px] items-center justify-center rounded-full"
+          style={{ border: '1px solid var(--cine-line)', background: 'rgba(250,251,250,.05)', color: 'var(--cine-ink)' }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="13 6 19 12 13 18" /><path d="M19 12H8a4 4 0 0 0-4 4v2" />
           </svg>
@@ -81,10 +88,10 @@ export default function FilmClient({ id }: { id: string }) {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-16"><div className="h-7 w-7 animate-spin rounded-full border-[3px] border-bord border-t-primary" /></div>
+        <div className="flex justify-center py-16"><div className="h-7 w-7 animate-spin rounded-full" style={{ border: '3px solid rgba(157,207,238,.2)', borderTopColor: 'var(--cine-accent)' }} /></div>
       ) : !film ? (
-        <div className="mx-4 mt-6 rounded-[14px] bg-white p-6 text-center" style={{ border: '1px solid #F0EAE0' }}>
-          <p className="m-0 text-[14px] font-extrabold text-texte">Film introuvable</p>
+        <div className="mx-4 mt-6 rounded-[14px] p-6 text-center" style={{ border: '1px solid var(--cine-line)' }}>
+          <p className="m-0 text-[14px] font-extrabold" style={{ color: 'var(--cine-ink)' }}>Film introuvable</p>
         </div>
       ) : (
         <>
@@ -103,11 +110,11 @@ export default function FilmClient({ id }: { id: string }) {
             </div>
 
             <div className="min-w-0 flex-1">
-              <h1 className="m-0 font-title text-texte" style={{ fontSize: 23, lineHeight: 1.15, letterSpacing: '-.02em' }}>{film.titre}</h1>
+              <h1 className="m-0 font-title" style={{ fontSize: 23, lineHeight: 1.15, letterSpacing: '-.02em', color: 'var(--cine-ink)' }}>{film.titre}</h1>
               {film.titre_original && film.titre_original !== film.titre && (
-                <div className="mt-0.5 text-[11.5px] italic text-texte-doux">{film.titre_original}</div>
+                <div className="mt-0.5 text-[11.5px] italic" style={{ color: 'var(--cine-dim2)' }}>{film.titre_original}</div>
               )}
-              <div style={{ marginTop: 9, fontSize: 12.5, color: '#7A6A5A', lineHeight: 1.6 }}>
+              <div style={{ marginTop: 9, fontSize: 12.5, color: 'var(--cine-dim)', lineHeight: 1.6 }}>
                 {[
                   film.duree_min ? `${film.duree_min} min` : null,
                   film.annee ? String(film.annee) : null,
@@ -115,25 +122,25 @@ export default function FilmClient({ id }: { id: string }) {
                 ].filter(Boolean).join(' · ')}
               </div>
               {film.realisateur && (
-                <div className="mt-1.5 text-[12px] text-texte">
-                  <span className="text-texte-doux">De </span>{film.realisateur}
+                <div className="mt-1.5 text-[12px]" style={{ color: 'var(--cine-ink)' }}>
+                  <span style={{ color: 'var(--cine-dim2)' }}>De </span>{film.realisateur}
                 </div>
               )}
               {film.casting && (
-                <div className="mt-0.5 line-clamp-2 text-[12px] text-texte">
-                  <span className="text-texte-doux">Avec </span>{film.casting}
+                <div className="mt-0.5 line-clamp-2 text-[12px]" style={{ color: 'var(--cine-ink)' }}>
+                  <span style={{ color: 'var(--cine-dim2)' }}>Avec </span>{film.casting}
                 </div>
               )}
               {film.avertissement && (
                 <div className="mt-2 inline-block rounded-[6px] px-2 py-1 text-[10.5px] font-extrabold"
-                  style={{ background: '#FFF0E5', color: '#C84B2F' }}>
+                  style={{ background: 'rgba(157,207,238,.16)', color: 'var(--cine-accent2)' }}>
                   {film.avertissement}
                 </div>
               )}
               {film.bande_annonce_url && (
                 <button onClick={() => setVideoOuverte(true)}
                   className="inline-flex items-center"
-                  style={{ marginTop: 12, gap: 7, border: '1px solid #E8E0D4', background: '#fff', borderRadius: 9, padding: '8px 12px', fontSize: 12.5, fontWeight: 700, color: '#1A1209' }}>
+                  style={{ marginTop: 12, gap: 7, border: '1px solid rgba(157,207,238,.45)', background: 'transparent', borderRadius: 9, padding: '8px 12px', fontSize: 12.5, fontWeight: 700, color: 'var(--cine-accent2)' }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20" /></svg>
                   Bande-annonce
                 </button>
@@ -143,47 +150,47 @@ export default function FilmClient({ id }: { id: string }) {
 
           {film.synopsis && (
             <div className="px-4 pt-5">
-              <h2 className="m-0 mb-1.5 font-title text-[17px] leading-tight">Synopsis</h2>
-              <p className="m-0 whitespace-pre-line text-texte" style={{ fontSize: 13.5, lineHeight: 1.62 }}>{film.synopsis}</p>
+              <h2 className="m-0 mb-1.5 font-title text-[17px] leading-tight" style={{ color: 'var(--cine-ink)' }}>Synopsis</h2>
+              <p className="m-0 whitespace-pre-line" style={{ fontSize: 13.5, lineHeight: 1.62, color: 'var(--cine-dim)' }}>{film.synopsis}</p>
             </div>
           )}
 
           {/* Séances, groupées par jour */}
           <div className="px-4 pt-5">
-            <h2 className="m-0 mb-2 font-title text-[17px] leading-tight">Séances</h2>
+            <h2 className="m-0 mb-2 font-title text-[17px] leading-tight" style={{ color: 'var(--cine-ink)' }}>Séances</h2>
             {parJour.length === 0 ? (
-              <div className="rounded-[14px] bg-white p-5 text-center" style={{ border: '1px solid #F0EAE0' }}>
-                <p className="m-0 text-[13px] text-texte-doux">Aucune séance programmée pour l’instant.</p>
+              <div className="rounded-[14px] p-5 text-center" style={{ border: '1px solid var(--cine-line)' }}>
+                <p className="m-0 text-[13px]" style={{ color: 'var(--cine-dim)' }}>Aucune séance programmée pour l’instant.</p>
               </div>
             ) : (
-              <div className="overflow-hidden rounded-[14px] bg-white" style={{ border: '1px solid #F0EAE0' }}>
+              <div className="overflow-hidden rounded-[14px]" style={{ border: '1px solid var(--cine-line)' }}>
                 {joursAffiches.map(([date, liste]) => (
                   <div key={date}>
-                    <div style={{ padding: '11px 14px', fontSize: 12.5, fontWeight: 700, color: '#1A1209', background: '#F7F1E6', borderBottom: '1px solid #F0EAE0' }}>
+                    <div style={{ padding: '11px 14px', fontSize: 11.5, fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--cine-accent)', background: 'var(--cine-band)', borderBottom: '1px solid var(--cine-line)' }}>
                       {jourLisible(date)}
                     </div>
                     {liste.map(s => {
                       const salle = cinemas.get(s.etablissement_id)
                       const lien = s.billetterie_url || salle?.billetterie_url
                       return (
-                        <div key={s.id} className="flex items-center gap-[11px]" style={{ padding: '12px 14px', borderBottom: '1px solid #F0EAE0' }}>
-                          <span className="flex-none" style={{ color: '#C84B2F', opacity: 0.85 }}>
+                        <div key={s.id} className="flex items-center gap-[11px]" style={{ padding: '12px 14px', borderBottom: '1px solid rgba(250,251,250,.07)' }}>
+                          <span className="flex-none" style={{ color: 'var(--cine-accent)', opacity: 0.85 }}>
                             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                               <path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2 2 2 0 0 0 0 4 2 2 0 0 1-2 2H5a2 2 0 0 1-2-2 2 2 0 0 0 0-4z" />
                               <line x1="9" y1="7" x2="9" y2="17" strokeDasharray="2 2" />
                             </svg>
                           </span>
-                          <span className="flex-none font-title tabular-nums" style={{ fontSize: 15 }}>{formatHeure(s.heure)}</span>
+                          <span className="flex-none font-title tabular-nums" style={{ fontSize: 15, color: 'var(--cine-accent2)' }}>{formatHeure(s.heure)}</span>
                           <div className="min-w-0 flex-1">
-                            <div className="truncate text-texte" style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-.01em' }}>{salle?.nom ?? 'Cinéma'}</div>
-                            <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2 }}>
+                            <div className="truncate" style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--cine-ink)' }}>{salle?.nom ?? 'Cinéma'}</div>
+                            <div style={{ fontSize: 11, color: 'var(--cine-dim2)', marginTop: 2 }}>
                               {s.version.toUpperCase()}{s.salle ? ` · ${s.salle}` : ''}{s.note ? ` · ${s.note}` : ''}
                             </div>
                           </div>
                           {lien && (
                             <a href={lien} target="_blank" rel="noopener noreferrer"
                               className="flex-none no-underline"
-                              style={{ border: '1px solid #CFE3D5', background: '#F4FAF5', borderRadius: 9, padding: '7px 12px', fontSize: 12, fontWeight: 700, color: '#2D5A3D' }}>
+                              style={{ border: '1px solid rgba(157,207,238,.45)', background: 'transparent', borderRadius: 7, padding: '6px 11px', fontSize: 11.5, fontWeight: 700, color: 'var(--cine-accent2)' }}>
                               Réserver
                             </a>
                           )}
@@ -195,7 +202,7 @@ export default function FilmClient({ id }: { id: string }) {
                 {!tout && parJour.length > JOURS_REPLIES && (
                   <button onClick={() => setTout(true)}
                     className="block w-full border-none"
-                    style={{ borderTop: '1px solid #F0EAE0', background: '#FBFAF7', padding: 13, fontSize: 13, fontWeight: 700, color: '#1A1209' }}>
+                    style={{ borderTop: '1px solid var(--cine-line)', background: 'rgba(157,207,238,.06)', padding: 13, fontSize: 12.5, fontWeight: 700, color: 'var(--cine-accent)' }}>
                     Voir toutes les séances ({parJour.length} jours)
                   </button>
                 )}

@@ -21,7 +21,10 @@ import { formatHeure, type Cinema, type Film, type Seance } from '@/lib/cinema'
 
 interface Evenement {
   id: string; titre: string; date_debut: string
-  heure: string | null; image_url: string | null; categorie: string | null
+  heure: string | null; image_url: string | null
+  categorie: string | null
+  /** Sous-libellé libre — « ciné-débat ». Préféré à la catégorie quand il existe. */
+  categorie_libre: string | null
 }
 interface Payload {
   cinemas: { id: string; nom: string; commune: string | null; slug: string | null }[]
@@ -356,10 +359,11 @@ function ListeSeances({ jour, liste, films, billetterie, sansBandeau }: {
 function Evenements({ liste }: { liste: Evenement[] }) {
   const [cat, setCat] = useState<string>('tout')
   const cats = useMemo(() => {
-    const s = new Set(liste.map(e => e.categorie).filter(Boolean) as string[])
+    // Le libellé libre prime : « ciné-débat » dit mieux que « autre ».
+    const s = new Set(liste.map(e => e.categorie_libre || e.categorie).filter(Boolean) as string[])
     return ['tout', ...Array.from(s)]
   }, [liste])
-  const filtres = cat === 'tout' ? liste : liste.filter(e => e.categorie === cat)
+  const filtres = cat === 'tout' ? liste : liste.filter(e => (e.categorie_libre || e.categorie) === cat)
   const [phare, ...suite] = filtres
 
   if (!liste.length) return <Vide texte="Aucun événement programmé pour l’instant." />
@@ -416,9 +420,9 @@ function Evenements({ liste }: { liste: Evenement[] }) {
                 <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'rgba(157,207,238,.6)' }}>{nom}</span>
               </div>
               <div className="min-w-0 flex-1" style={{ padding: 12 }}>
-                {e.categorie && (
+                {(e.categorie_libre || e.categorie) && (
                   <span style={{ display: 'inline-block', borderRadius: 4, padding: '2px 7px', fontSize: 9, fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase', background: 'rgba(157,207,238,.16)', color: 'var(--cine-accent2)' }}>
-                    {e.categorie}
+                    {e.categorie_libre || e.categorie}
                   </span>
                 )}
                 <div className="truncate" style={{ marginTop: 6, fontSize: 13.5, fontWeight: 600, letterSpacing: '-.01em', color: 'var(--cine-ink)' }}>{e.titre}</div>

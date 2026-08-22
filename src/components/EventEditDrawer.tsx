@@ -226,6 +226,8 @@ interface InitialImage { base64: string; mime: string; preview: string; position
  * pour permettre à un parent de batcher plusieurs events avant submit.
  */
 export interface EventDraft {
+  /** Sous-libellé libre, purement d'affichage. */
+  categorie_libre?: string | null
   titre:          string
   description:    string
   date_debut:     string
@@ -310,6 +312,9 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
   const [dateFin, setDateFin]           = useState('')
   const [heure, setHeure]               = useState('')
   const [categories, setCategories]     = useState<Categorie[]>(['autre'])
+  /** Sous-libellé libre — « ciné-débat », « vide-grenier »… Purement d'affichage :
+   *  l'événement reste classé dans une catégorie existante. */
+  const [categorieLibre, setCategorieLibre] = useState('')
   const categorie = categories[0] ?? 'autre'   // principale = [0] (contrat affiche, etc.)
   const toggleCat = (key: Categorie) =>
     setCategories(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key])
@@ -364,6 +369,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
         setDateFin(initialData.date_fin ?? '')
         setHeure(initialData.heure?.slice(0, 5) ?? '')
         setCategories(initialData.categories?.length ? initialData.categories : [initialData.categorie ?? 'autre'])
+        setCategorieLibre((initialData as { categorie_libre?: string | null }).categorie_libre ?? '')
         setPrix(initialData.prix ?? '')
         setContact(initialData.contact ?? '')
         setOrganisateurs(initialData.organisateurs ?? '')
@@ -395,6 +401,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
         setDateFin(e.date_fin ?? '')
         setHeure(e.heure?.slice(0, 5) ?? '')
         setCategories(e.categories?.length ? e.categories : [e.categorie])
+        setCategorieLibre((e as { categorie_libre?: string | null }).categorie_libre ?? '')
         setStatut(e.statut)
         setPrix(e.prix ?? '')
         setContact(e.contact ?? '')
@@ -552,7 +559,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
       onEditOnly({
         titre, description,
         date_debut: dateDebut, date_fin: dateFin, heure,
-        categorie, categories,
+        categorie, categories, categorie_libre: categorieLibre.trim() || null,
         lieu_nom: lieuNom, commune, adresse,
         lat: lat ? parseFloat(lat) : null,
         lng: lng ? parseFloat(lng) : null,
@@ -593,7 +600,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
           body: JSON.stringify({
             titre, description,
             date_debut: dateDebut || null, date_fin: dateFin || null, heure: heure || null,
-            categorie, categories,
+            categorie, categories, categorie_libre: categorieLibre.trim() || null,
             lieu_nom: lieuNom || null, commune: commune || null, adresse: adresse || null,
             lat: lat ? parseFloat(lat) : null, lng: lng ? parseFloat(lng) : null,
             place_id_google: placeIdGoogle || null,
@@ -639,7 +646,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
           body: JSON.stringify({
             titre, description,
             date_debut: dateDebut || null, date_fin: dateFin || null, heure: heure || null,
-            categorie, categories,
+            categorie, categories, categorie_libre: categorieLibre.trim() || null,
             lieu_nom: lieuNom || null, commune: commune || null, adresse: adresse || null,
             lat: lat ? parseFloat(lat) : undefined,
             lng: lng ? parseFloat(lng) : undefined,
@@ -971,6 +978,16 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
               )
             })}
           </div>
+          {/* Sous-libellé libre : les catégories de l'app servent aux filtres,
+              à la carte et aux couleurs — on ne les multiplie pas. Ce champ
+              nomme précisément l'événement sans toucher à la taxonomie. */}
+          <input
+            value={categorieLibre}
+            onChange={e => setCategorieLibre(e.target.value.slice(0, 40))}
+            placeholder="Préciser (facultatif) : ciné-débat, vide-grenier…"
+            className="mt-2 w-full rounded-xl bg-white px-3.5 py-2 text-[13px] text-texte outline-none"
+            style={{ border: '1px solid #F0EAE0' }}
+          />
         </div>
 
         {/* V3 DATE | HEURE 2-col */}

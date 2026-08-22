@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
   // du village : on les rappelle ici, elles ne vivent pas dans `seances`.
   const { data: evenements } = await supabaseAdmin
     .from('evenements')
-    .select('id, titre, date_debut, heure, image_url, categorie, film_id')
+    .select('id, titre, date_debut, heure, image_url, categorie, categorie_libre, film_id')
     .eq('etablissement_id', cinema.id)
     .eq('statut', 'publie')
     .gte('date_debut', aujourdhui)

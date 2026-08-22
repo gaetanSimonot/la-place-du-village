@@ -91,6 +91,10 @@ export async function POST(req: NextRequest) {
     // Rattachement fiche établissement : on ne lie (et ne publie directement)
     // que si l'auteur est le propriétaire de la fiche, ou un admin. Sinon le
     // champ est ignoré (anti-usurpation).
+    const categorieLibre = typeof body.categorie_libre === 'string' && body.categorie_libre.trim()
+      ? body.categorie_libre.trim().slice(0, 40)
+      : null
+
     let etabIdToLink: string | null = null
     let ownerPublishDirect = false
     if (bodyEtabId && submittedBy) {
@@ -219,6 +223,10 @@ export async function POST(req: NextRequest) {
         heure: heure || null,
         categorie: primaryCat,
         categories: cats,
+        // Sous-libellé libre : purement d'affichage, il ne change pas le
+        // classement — les catégories pilotent les filtres, la carte et les
+        // couleurs, on ne les multiplie pas.
+        ...(categorieLibre ? { categorie_libre: categorieLibre } : {}),
         statut: finalStatut,
         lieu_id: lieuId,
         // Inclus UNIQUEMENT si rattaché (sinon clé absente) : ainsi la création
