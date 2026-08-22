@@ -42,7 +42,6 @@ function suggestions(): string[] {
 
 export default function BarreAssistant() {
   const [ouvert, setOuvert] = useState(false)
-  const [saisie, setSaisie] = useState('')
   const [question, setQuestion] = useState<string | null>(null)
   /** Ouvert par le micro : la conversation démarre en écoutant. */
   const [parLaVoix, setParLaVoix] = useState(false)
@@ -65,6 +64,16 @@ export default function BarreAssistant() {
         // qu'on propose de le rouvrir : on revient souvent d'une fiche.
         const r2 = resumeReprise()
         setReprise(r2 && r2.minutes < 30 ? r2 : null)
+
+        // On revient d'une fiche ouverte depuis la conversation : on la
+        // rouvre là où elle était, sinon explorer une proposition revient à
+        // perdre le fil, et on cesse de cliquer.
+        try {
+          if (sessionStorage.getItem('lpv_assistant_ouvert') === '1' && j?.ouvert) {
+            setParLaVoix(false)
+            setQuestion('')
+          }
+        } catch { /* noop */ }
       } catch { /* la barre reste simplement absente */ }
     })()
     return () => { annule = true }
@@ -75,7 +84,6 @@ export default function BarreAssistant() {
   const lancer = (q: string) => {
     const t = q.trim()
     if (!t) return
-    setSaisie('')
     setParLaVoix(false)
     setQuestion(t)
   }
@@ -86,7 +94,6 @@ export default function BarreAssistant() {
    * que taper — un fil qu'on relit, qu'on corrige, et qu'on envoie soi-même.
    */
   const dicter = () => {
-    setSaisie('')
     setParLaVoix(true)
     setQuestion('')
   }
@@ -106,38 +113,24 @@ export default function BarreAssistant() {
             </span>
           </div>
 
+          {/* Toucher le champ ouvre la conversation : on y écrit, on y dicte,
+              et on y garde le fil. Un champ qui reste ici obligerait à taper
+              deux fois — une dans la barre, une dans le chat. */}
           <div className="flex items-center gap-2.5"
-            style={{ marginTop: 10, border: '1px solid var(--bord)', background: '#fff', borderRadius: 12, padding: '9px 12px' }}>
-            <input
-              value={saisie}
-              onChange={e => setSaisie(e.target.value.slice(0, 500))}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); lancer(saisie) } }}
-              placeholder="Que cherchez-vous aujourd’hui ?"
-              className="flex-1 border-none bg-transparent outline-none"
-              style={{ fontSize: 13.5, color: 'var(--texte)' }}
-            />
-            {saisie.trim() ? (
-              <button type="button" onClick={() => lancer(saisie)} aria-label="Demander"
-                className="flex flex-none items-center justify-center border-none text-white"
-                style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--primary)' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" />
-                </svg>
-              </button>
-            ) : (
-              <>
-                {/* La dictée ouvre la conversation avec ce qui a été dit :
-                    parler est souvent plus simple que taper une phrase. */}
-                <button type="button" onClick={dicter} aria-label="Dicter"
-                  className="flex-none border-none bg-transparent"
-                  style={{ color: '#A99B89', lineHeight: 0 }}>
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
-                    <path d="M19 11v1a7 7 0 0 1-14 0v-1" /><line x1="12" y1="19" x2="12" y2="22" />
-                  </svg>
-                </button>
-              </>
-            )}
+            style={{ marginTop: 10, border: '1px solid var(--bord)', background: '#fff', borderRadius: 12, padding: '11px 12px' }}>
+            <button type="button" onClick={() => { setParLaVoix(false); setQuestion('') }}
+              className="flex-1 border-none bg-transparent p-0 text-left"
+              style={{ fontSize: 13.5, color: '#7A6A5A' }}>
+              Que cherchez-vous aujourd’hui&nbsp;?
+            </button>
+            <button type="button" onClick={dicter} aria-label="Dicter"
+              className="flex-none border-none bg-transparent"
+              style={{ color: '#A99B89', lineHeight: 0 }}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
+                <path d="M19 11v1a7 7 0 0 1-14 0v-1" /><line x1="12" y1="19" x2="12" y2="22" />
+              </svg>
+            </button>
           </div>
 
           {reprise && (

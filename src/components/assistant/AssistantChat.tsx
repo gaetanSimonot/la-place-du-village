@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { useDicteeLive } from '@/hooks/useDicteeLive'
 import { supabase } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
 import SubscriptionModal from '@/components/SubscriptionModal'
@@ -81,6 +82,21 @@ function ilYA(at: number): string {
   return h < 24 ? `il y a ${h} h` : `il y a ${Math.round(h / 24)} j`
 }
 
+/** Le texte sans les marqueurs : ce qu'on copie, c'est ce qu'on lit. */
+const propre = (t: string) => t.replace(MARQUEUR, '').replace(/\n{3,}/g, '\n\n').trim()
+
+async function copier(texte: string) {
+  try { await navigator.clipboard.writeText(texte) } catch { /* refusé : rien à dire */ }
+}
+
+async function partager(texte: string) {
+  const t = `${texte}\n\n— Assistant Village, La Place du Village`
+  try {
+    if (navigator.share) { await navigator.share({ text: t }); return }
+    await navigator.clipboard.writeText(t)
+  } catch { /* partage annulé */ }
+}
+
 const AV = 26   // diamètre du soleil devant une réponse
 const RETRAIT = 51  // 16 (marge) + 26 (soleil) + 9 (gouttière)
 
@@ -109,9 +125,27 @@ export default function AssistantChat({ question, dicter, onClose }: {
   const [micEtat, setMicEtat] = useState<'idle' | 'recording' | 'transcribing'>('idle')
   const finRef = useRef<HTMLDivElement>(null)
   const micRef = useRef<MicButtonHandle>(null)
+  const champRef = useRef<HTMLTextAreaElement>(null)
+  /** Une transcription Whisper annulée ne doit pas atterrir dans le champ. */
+  const jeterRef = useRef(false)
+  const dictee = useDicteeLive({ onTexte: t => setSaisie(t.slice(0, 500)) })
   const envoiRef = useRef<(q: string) => void>(() => {})
 
   useEffect(() => { finRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, cherche])
+
+  /**
+   * Le champ grandit avec ce qu'on dit, et reste collé au dernier mot.
+   *
+   * Une dictée d'une phrase entière défilait hors du champ : on parlait sans
+   * voir ce qui s'écrivait. Il monte jusqu'à cinq lignes, puis défile.
+   */
+  useEffect(() => {
+    const el = champRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 118)}px`
+    el.scrollTop = el.scrollHeight
+  }, [saisie])
 
   const envoyer = useCallback(async (texte: string) => {
     const q = texte.trim()
@@ -215,6 +249,29 @@ export default function AssistantChat({ question, dicter, onClose }: {
     setConversations(lireConversations())
   }, [messages])
 
+  /** On écoute — en direct si le navigateur sait, sinon Whisper enregistre. */
+  const ecoute = dictee.actif || micEtat === 'recording'
+
+  const lancerDictee = () => {
+    if (dictee.supporte) { dictee.demarrer(saisie); return }
+    micRef.current?.start()
+  }
+  const annulerDictee = () => {
+    if (dictee.actif) { dictee.annuler(); return }
+    // Whisper n'a pas d'annulation : on arrête, et on jette ce qui revient.
+    jeterRef.current = true
+    micRef.current?.stop()
+  }
+  /**
+   * Le bouton vert fait les deux : il coupe la dictée en cours ET envoie.
+   * On ne devrait jamais avoir à appuyer deux fois pour dire une phrase.
+   */
+  const envoyerMaintenant = () => {
+    if (dictee.actif) dictee.arreter()
+    else if (micEtat === 'recording') { micRef.current?.stop(); return }
+    envoyer(saisie)
+  }
+
   /** Repartir de zéro, ou rouvrir l'une des trois gardées. */
   const ouvrirConversation = (c: ConversationLocale | null) => {
     setListeOuverte(false)
@@ -250,7 +307,7 @@ export default function AssistantChat({ question, dicter, onClose }: {
             <line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="14" y2="17" />
           </svg>
         </button>
-        <button onClick={onClose} aria-label="Fermer"
+        <button onClick={() => { try { sessionStorage.removeItem('lpv_assistant_ouvert') } catch { /* noop */ } onClose() }} aria-label="Fermer"
           className="flex flex-none items-center justify-center bg-white"
           style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid var(--bord)', color: '#7A6A5A' }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -259,34 +316,59 @@ export default function AssistantChat({ question, dicter, onClose }: {
         </button>
       </div>
 
+      {/* Les conversations, dans un tiroir à gauche. Trois suffisent : au-delà,
+          une liste devient une archive dont on ne fait rien. */}
       {listeOuverte && (
-        <div className="flex-none bg-white" style={{ borderBottom: '1px solid #F0EAE0', padding: '8px 14px 12px' }}>
-          {conversations.map(c => {
-            const actif = (c.id ?? null) === conversationId
-            return (
-              <button key={c.id ?? 'neuve'} onClick={() => ouvrirConversation(c)}
-                className="mb-1.5 flex w-full items-center gap-2.5 text-left"
-                style={{
-                  border: `1px solid ${actif ? '#C8DEC0' : '#F0EAE0'}`,
-                  background: actif ? '#F4FAF5' : '#fff',
-                  borderRadius: 12, padding: '9px 11px',
-                }}>
-                <span style={{ color: actif ? 'var(--primary)' : '#A99B89', flex: 'none', lineHeight: 0 }}>
-                  <Soleil size={13} rayons={4} />
-                </span>
-                <span className="min-w-0 flex-1 truncate" style={{ fontSize: 12.5, fontWeight: 700 }}>{c.titre}</span>
-                <span style={{ fontSize: 10.5, color: '#A99B89', flex: 'none' }}>
-                  {ilYA(c.at)}
-                </span>
+        <>
+          <div onClick={() => setListeOuverte(false)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(26,18,9,.35)', zIndex: 1 }} />
+          <div style={{
+            position: 'fixed', top: 0, bottom: 0, left: 0, width: 'min(84vw, 300px)', zIndex: 2,
+            background: '#fff', borderRight: '1px solid #F0EAE0', display: 'flex', flexDirection: 'column',
+            paddingTop: 'max(env(safe-area-inset-top),14px)',
+          }}>
+            <div className="flex items-center gap-2" style={{ padding: '4px 14px 12px' }}>
+              <span style={{ color: 'var(--primary)', lineHeight: 0 }}><Soleil size={16} /></span>
+              <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--primary)' }}>
+                Mes conversations
+              </span>
+            </div>
+            <div className="flex-1 overflow-y-auto" style={{ padding: '0 12px' }}>
+              {conversations.length === 0 && (
+                <p className="m-0 px-1 py-3" style={{ fontSize: 12, color: '#A99B89' }}>
+                  Rien encore. Les trois dernières resteront ici.
+                </p>
+              )}
+              {conversations.map(c => {
+                const actif = (c.id ?? null) === conversationId
+                return (
+                  <button key={c.id ?? 'neuve'} onClick={() => ouvrirConversation(c)}
+                    className="mb-1.5 flex w-full items-start gap-2.5 text-left"
+                    style={{
+                      border: `1px solid ${actif ? '#C8DEC0' : '#F0EAE0'}`,
+                      background: actif ? '#F4FAF5' : '#fff',
+                      borderRadius: 12, padding: '10px 11px',
+                    }}>
+                    <span style={{ color: actif ? 'var(--primary)' : '#A99B89', flex: 'none', lineHeight: 0, marginTop: 2 }}>
+                      <Soleil size={13} rayons={4} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="line-clamp-2 block" style={{ fontSize: 12.5, fontWeight: 700, lineHeight: 1.3 }}>{c.titre}</span>
+                      <span className="block" style={{ fontSize: 10.5, color: '#A99B89', marginTop: 3 }}>{ilYA(c.at)}</span>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            <div style={{ padding: '10px 12px max(env(safe-area-inset-bottom),12px)', borderTop: '1px solid #F0EAE0' }}>
+              <button onClick={() => ouvrirConversation(null)}
+                className="w-full border-none text-white"
+                style={{ background: 'var(--primary)', borderRadius: 12, padding: '11px 12px', fontSize: 13, fontWeight: 800 }}>
+                + Nouvelle conversation
               </button>
-            )
-          })}
-          <button onClick={() => ouvrirConversation(null)}
-            className="w-full border-none bg-transparent py-1 text-center"
-            style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--primary)' }}>
-            + Nouvelle conversation
-          </button>
-        </div>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Le fil */}
@@ -317,7 +399,13 @@ export default function AssistantChat({ question, dicter, onClose }: {
             </div>
           ) : (
             <Reponse key={i} message={m} onRebond={envoyer}
-              onOuvrir={() => trackEvent('assistant_clic', { type: 'fiche' })} />
+              onOuvrir={() => {
+                trackEvent('assistant_clic', { type: 'fiche' })
+                // On quitte l'écran pour de vrai. Ce drapeau dit à la barre du
+                // Village de rouvrir la conversation au retour : sans lui, on
+                // revient devant le Village et on n'ose plus cliquer.
+                try { sessionStorage.setItem('lpv_assistant_ouvert', '1') } catch { /* noop */ }
+              }} />
           )
         ))}
 
@@ -369,55 +457,69 @@ export default function AssistantChat({ question, dicter, onClose }: {
       </div>
 
       {/* Saisie */}
-      <div className="flex flex-none items-center gap-2.5 bg-white"
+      <div className="flex flex-none items-end gap-2.5 bg-white"
         style={{ padding: '11px 14px max(env(safe-area-inset-bottom),14px)', borderTop: '1px solid #F0EAE0' }}>
-        <div className="flex flex-1 items-center gap-2"
-          style={{ border: '1px solid var(--bord)', borderRadius: 999, padding: '8px 14px' }}>
-          <input
+        <div className="flex flex-1 items-end gap-2"
+          style={{ border: '1px solid var(--bord)', borderRadius: 20, padding: '7px 12px' }}>
+          <textarea
+            ref={champRef}
+            rows={1}
             value={saisie}
             onChange={e => setSaisie(e.target.value.slice(0, 500))}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); envoyer(saisie) } }}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); envoyerMaintenant() } }}
             placeholder={
               quotaEpuise ? 'Conversations de découverte épuisées'
-                : micEtat === 'recording' ? 'Je vous écoute…'
+                : ecoute ? 'Je vous écoute…'
                 : micEtat === 'transcribing' ? 'Un instant…'
                 : 'Continuer la discussion…'
             }
             disabled={!!quotaEpuise}
-            className="flex-1 border-none bg-transparent outline-none"
-            style={{ fontSize: 13.5, color: 'var(--texte)' }}
+            className="flex-1 resize-none border-none bg-transparent outline-none"
+            style={{ fontSize: 13.5, color: 'var(--texte)', maxHeight: 118, lineHeight: 1.4, paddingTop: 4, paddingBottom: 4 }}
           />
-          {/* La dictée passe par le micro déjà utilisé partout dans l'app :
-              même enregistrement, même transcription, même quota. Elle ÉCRIT
-              dans le champ — on se relit, on corrige, puis on envoie. Une
-              phrase dictée part rarement juste du premier coup. */}
-          <button type="button" onClick={() => micRef.current?.toggle()}
-            aria-label={micEtat === 'recording' ? 'Arrêter la dictée' : 'Dicter'}
-            className="flex-none border-none bg-transparent"
-            style={{ color: micEtat === 'recording' ? '#C84B2F' : '#A99B89', lineHeight: 0 }}>
-            {micEtat === 'transcribing' ? (
-              <span className="inline-block animate-spin"
-                style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid #E3D9C8', borderTopColor: '#7A6A5A' }} />
-            ) : micEtat === 'recording' ? (
-              <span className="inline-block animate-pulse" style={{ width: 13, height: 13, borderRadius: 3, background: '#C84B2F' }} />
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
-                <path d="M19 11v1a7 7 0 0 1-14 0v-1" /><line x1="12" y1="19" x2="12" y2="22" />
+
+          {/* Pendant qu'on parle, le micro devient une CROIX : elle renonce à
+              la dictée et rend le champ tel qu'il était. Ce n'est pas un
+              « stop » — arrêter et envoyer, c'est le rôle du bouton vert. */}
+          {ecoute ? (
+            <button type="button" onClick={annulerDictee} aria-label="Annuler la dictée"
+              className="flex-none border-none bg-transparent" style={{ color: '#C84B2F', lineHeight: 0, paddingBottom: 4 }}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
               </svg>
-            )}
-          </button>
+            </button>
+          ) : (
+            <button type="button" onClick={lancerDictee} aria-label="Dicter"
+              className="flex-none border-none bg-transparent"
+              style={{ color: micEtat === 'transcribing' ? '#7A6A5A' : '#A99B89', lineHeight: 0, paddingBottom: 4 }}>
+              {micEtat === 'transcribing' ? (
+                <span className="inline-block animate-spin"
+                  style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid #E3D9C8', borderTopColor: '#7A6A5A' }} />
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
+                  <path d="M19 11v1a7 7 0 0 1-14 0v-1" /><line x1="12" y1="19" x2="12" y2="22" />
+                </svg>
+              )}
+            </button>
+          )}
+          {/* Repli Whisper là où le navigateur ne sait pas écouter en direct
+              (Firefox, iOS) : on enregistre, et le texte arrive d'un coup. */}
           <MicButton ref={micRef} hidden onStateChange={setMicEtat}
-            onTranscript={t => { if (t?.trim()) setSaisie(p => (p ? `${p} ${t.trim()}` : t.trim())) }} />
+            onTranscript={t => {
+              if (jeterRef.current) { jeterRef.current = false; return }
+              if (t?.trim()) setSaisie(p => (p ? `${p} ${t.trim()}` : t.trim()))
+            }} />
         </div>
+
         <button
-          onClick={() => envoyer(saisie)}
-          disabled={enCours || !saisie.trim() || !!quotaEpuise}
+          onClick={envoyerMaintenant}
+          disabled={enCours || (!saisie.trim() && !ecoute) || !!quotaEpuise}
           aria-label="Envoyer"
           className="flex flex-none items-center justify-center border-none text-white"
           style={{
             width: 38, height: 38, borderRadius: '50%',
-            background: enCours || !saisie.trim() || quotaEpuise ? '#C9BFB2' : 'var(--primary)',
+            background: enCours || (!saisie.trim() && !ecoute) || quotaEpuise ? '#C9BFB2' : 'var(--primary)',
           }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" />
@@ -486,6 +588,23 @@ function Reponse({ message, onOuvrir, onRebond }: {
             <span className="inline-block animate-spin"
               style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid #E3D9C8', borderTopColor: 'var(--primary)' }} />
           )}
+          {/* Une réponse se garde ou se transmet : un ami qui cherche un
+              artisan, un groupe qui organise sa journée. */}
+          {!message.encours && message.texte.trim() && (
+            <div className="flex" style={{ gap: 12, marginTop: 2, marginBottom: rebonds.length ? 8 : 0 }}>
+              <button onClick={() => copier(propre(message.texte))}
+                className="border-none bg-transparent p-0"
+                style={{ fontSize: 11, fontWeight: 700, color: '#A99B89' }}>
+                Copier
+              </button>
+              <button onClick={() => partager(propre(message.texte))}
+                className="border-none bg-transparent p-0"
+                style={{ fontSize: 11, fontWeight: 700, color: '#A99B89' }}>
+                Partager
+              </button>
+            </div>
+          )}
+
           {rebonds.length > 0 && !message.encours && (
             <div className="flex flex-wrap" style={{ gap: 7, marginTop: 2 }}>
               {rebonds.map(r => (
