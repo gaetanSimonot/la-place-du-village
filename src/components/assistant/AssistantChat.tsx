@@ -3,37 +3,33 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
 import SubscriptionModal from '@/components/SubscriptionModal'
+import MicButton, { type MicButtonHandle } from '@/components/MicButton'
 import CarteResultat, { type CarteData } from '@/components/assistant/CarteResultat'
+import Soleil from '@/components/assistant/Soleil'
 
 /**
  * ASSISTANT VILLAGE — l'écran de conversation.
  *
- * Plein écran, au-dessus de la recherche. Le texte s'écrit au fil de l'eau
- * et les fiches apparaissent AVANT que la phrase soit finie : le serveur
- * envoie les cartes dès qu'un outil a répondu.
+ * Plein écran, au-dessus de ce qui l'a ouvert. Le texte s'écrit au fil de
+ * l'eau et les fiches apparaissent AVANT que la phrase soit finie : le
+ * serveur envoie les cartes dès qu'un outil a répondu.
  *
  * Le texte du modèle porte des marqueurs [[type:id]]. On ne les affiche
  * jamais : chacun est remplacé par la vraie fiche reçue à part. Un marqueur
  * dont on n'a pas la fiche est simplement effacé — le modèle ne peut donc
- * pas faire apparaître quelque chose qui n'existe pas.
+ * pas faire apparaître quelque chose qui n'existe pas. [[q:…]] devient une
+ * pastille de rebond : on répond d'un doigt plutôt que de retaper.
+ *
+ * Géométrie reprise de la maquette : réponse sans bulle, soleil de 26 px à
+ * gauche, cartes alignées sous le texte (51 px = 16 + 26 + 9).
  */
 
 interface Message {
   role: 'user' | 'assistant'
   texte: string
   cartes: CarteData[]
-  /** Le flux est-il encore en train d'écrire ce message ? */
   encours?: boolean
 }
-
-const SUGGESTIONS = [
-  'Que faire ce week-end ?',
-  'Une sortie avec les enfants ?',
-  "Qu'est-ce qui passe au cinéma ?",
-  'Je cherche un artisan',
-  'Où manger ce soir ?',
-  'Comment revendiquer ma fiche ?',
-]
 
 /** Identifiant de visiteur : sert à compter, et à rien d'autre. */
 function anonId(): string {
@@ -48,24 +44,31 @@ function anonId(): string {
   } catch { return 'anon' }
 }
 
-const MARQUEUR = /\[\[(ev|etab|film|promo|annonce):([^\]\s]+)\]\]/g
+const MARQUEUR = /\[\[(ev|etab|prod|film|promo|annonce|q):([^\]]+)\]\]/g
 
-/** Découpe la réponse en morceaux de texte et en fiches à afficher. */
-function segments(texte: string): ({ t: 'texte'; v: string } | { t: 'ref'; type: string; id: string })[] {
-  const out: ({ t: 'texte'; v: string } | { t: 'ref'; type: string; id: string })[] = []
-  let reste = texte
+type Bout =
+  | { t: 'texte'; v: string }
+  | { t: 'ref'; type: string; id: string }
+  | { t: 'q'; v: string }
+
+/** Découpe la réponse en texte, fiches, et pastilles de rebond. */
+function segments(texte: string): Bout[] {
+  const out: Bout[] = []
   // Un marqueur en cours de frappe ne doit pas clignoter en clair à l'écran.
-  reste = reste.replace(/\[\[[^\]]*$/, '')
+  const reste = texte.replace(/\[\[[^\]]*$/, '')
   let dernier = 0
   MARQUEUR.lastIndex = 0
   for (let m = MARQUEUR.exec(reste); m; m = MARQUEUR.exec(reste)) {
     if (m.index > dernier) out.push({ t: 'texte', v: reste.slice(dernier, m.index) })
-    out.push({ t: 'ref', type: m[1], id: m[2] })
+    out.push(m[1] === 'q' ? { t: 'q', v: m[2].trim() } : { t: 'ref', type: m[1], id: m[2].trim() })
     dernier = m.index + m[0].length
   }
   if (dernier < reste.length) out.push({ t: 'texte', v: reste.slice(dernier) })
   return out
 }
+
+const AV = 26   // diamètre du soleil devant une réponse
+const RETRAIT = 51  // 16 (marge) + 26 (soleil) + 9 (gouttière)
 
 export default function AssistantChat({ question, onClose }: { question: string; onClose: () => void }) {
   const [messages, setMessages] = useState<Message[]>([])
@@ -74,11 +77,12 @@ export default function AssistantChat({ question, onClose }: { question: string;
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [quotaEpuise, setQuotaEpuise] = useState<string | null>(null)
   const [offreOuverte, setOffreOuverte] = useState(false)
-  const [outilEnCours, setOutilEnCours] = useState<string | null>(null)
+  const [cherche, setCherche] = useState(false)
   const finRef = useRef<HTMLDivElement>(null)
+  const micRef = useRef<MicButtonHandle>(null)
   const envoiRef = useRef<(q: string) => void>(() => {})
 
-  useEffect(() => { finRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, outilEnCours])
+  useEffect(() => { finRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, cherche])
 
   const envoyer = useCallback(async (texte: string) => {
     const q = texte.trim()
@@ -113,7 +117,6 @@ export default function AssistantChat({ question, onClose }: { question: string;
         return
       }
 
-      // Lecture du flux : le texte s'écrit, les fiches se posent au passage.
       const lecteur = res.body.getReader()
       const decodeur = new TextDecoder()
       let tampon = ''
@@ -129,8 +132,8 @@ export default function AssistantChat({ question, onClose }: { question: string;
           try { ev = JSON.parse(ligne.slice(6)) } catch { continue }
 
           if (ev.type === 'debut') setConversationId(String(ev.conversationId))
-          else if (ev.type === 'texte') { setOutilEnCours(null); majDernier(m => ({ ...m, texte: m.texte + String(ev.delta) })) }
-          else if (ev.type === 'outil') setOutilEnCours(String(ev.nom))
+          else if (ev.type === 'texte') { setCherche(false); majDernier(m => ({ ...m, texte: m.texte + String(ev.delta) })) }
+          else if (ev.type === 'outil') setCherche(true)
           else if (ev.type === 'cartes') majDernier(m => ({ ...m, cartes: [...m.cartes, ...(ev.items as CarteData[])] }))
           else if (ev.type === 'erreur') majDernier(m => ({ ...m, texte: String(ev.message), encours: false }))
         }
@@ -140,94 +143,82 @@ export default function AssistantChat({ question, onClose }: { question: string;
       majDernier(m => ({ ...m, texte: 'La connexion s’est interrompue. Réessayez.', encours: false }))
     } finally {
       setEnCours(false)
-      setOutilEnCours(null)
+      setCherche(false)
     }
   }, [conversationId, enCours])
 
   envoiRef.current = envoyer
 
-  // La question tapée dans la barre de recherche part toute seule, une fois.
+  // La question posée dans la barre part toute seule, une fois.
   useEffect(() => {
-    trackEvent('assistant_ouvert', { depuis: 'recherche' })
+    trackEvent('assistant_ouvert', { depuis: 'barre' })
     if (question.trim()) envoiRef.current(question)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (
-    <div className="fixed inset-0 z-[110] flex flex-col bg-creme font-inter">
-      {/* Barre du haut */}
-      <div className="flex flex-none items-center gap-2.5 border-b border-bord bg-white px-4 pb-3 pt-[max(env(safe-area-inset-top),0.5rem)]">
+    <div className="fixed inset-0 z-[110] flex flex-col font-inter" style={{ background: 'var(--creme)', color: 'var(--texte)' }}>
+
+      {/* En-tête — le soleil, le nom, le territoire, la sortie */}
+      <div className="flex flex-none items-center gap-2.5 bg-white px-3.5 pb-3 pt-[max(env(safe-area-inset-top),0.6rem)]"
+        style={{ borderBottom: '1px solid #F0EAE0' }}>
+        <span style={{ color: 'var(--primary)', flex: 'none' }}><Soleil size={22} /></span>
+        <div className="min-w-0 flex-1">
+          <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '-.01em' }}>Assistant Village</div>
+          <div style={{ fontSize: 10.5, color: '#7A6A5A', marginTop: 1 }}>Ganges et alentours</div>
+        </div>
         <button onClick={onClose} aria-label="Fermer"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
+          className="flex flex-none items-center justify-center bg-white"
+          style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid var(--bord)', color: '#7A6A5A' }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </button>
-        <div className="min-w-0 flex-1">
-          <div style={{ fontSize: 14.5, fontWeight: 800, letterSpacing: '-.01em' }}>Assistant Village</div>
-          <div style={{ fontSize: 10.5, color: '#7A6A5A' }}>Cherche dans La Place du Village</div>
-        </div>
       </div>
 
       {/* Le fil */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
-        {messages.length === 0 && (
-          <div className="pt-6">
-            <p className="m-0 font-title" style={{ fontSize: 20, lineHeight: 1.3, color: '#1A1209' }}>
-              Qu’est-ce que vous cherchez ?
-            </p>
-            <p className="m-0 mt-1.5" style={{ fontSize: 12.5, color: '#7A6A5A' }}>
-              Sorties, cinéma, commerces, bons plans, ou une question sur l’application.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {SUGGESTIONS.map(x => (
-                <button key={x} onClick={() => envoyer(x)}
-                  style={{ border: '1px solid #F0EAE0', background: '#fff', borderRadius: 999, padding: '8px 13px', fontSize: 12.5, fontWeight: 600, color: '#3A2E22' }}>
-                  {x}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
+      <div className="flex-1 overflow-y-auto" style={{ padding: '14px 0 6px' }}>
         {messages.map((m, i) => (
-          <div key={i} className="mb-4">
-            {m.role === 'user' ? (
-              <div className="flex justify-end">
-                <div style={{ maxWidth: '85%', background: '#2D5A3D', color: '#fff', borderRadius: '16px 16px 4px 16px', padding: '9px 13px', fontSize: 13.5, lineHeight: 1.45 }}>
-                  {m.texte}
-                </div>
-              </div>
-            ) : (
-              <Reponse message={m} onOuvrir={() => trackEvent('assistant_clic', { type: 'fiche' })} />
-            )}
-          </div>
+          m.role === 'user' ? (
+            <div key={i} style={{ margin: '0 16px 14px', display: 'flex', justifyContent: 'flex-end' }}>
+              <span style={{
+                maxWidth: '80%', background: 'var(--primary)', color: '#fff',
+                borderRadius: '16px 16px 5px 16px', padding: '10px 13px', fontSize: 13.5, lineHeight: 1.45,
+              }}>{m.texte}</span>
+            </div>
+          ) : (
+            <Reponse key={i} message={m} onRebond={envoyer}
+              onOuvrir={() => trackEvent('assistant_clic', { type: 'fiche' })} />
+          )
         ))}
 
-        {outilEnCours && (
-          <div className="mb-4 flex items-center gap-2" style={{ fontSize: 12, color: '#7A6A5A' }}>
-            <span className="h-3.5 w-3.5 animate-spin rounded-full" style={{ border: '2px solid #E3D9C8', borderTopColor: '#2D5A3D' }} />
-            Je cherche…
+        {cherche && (
+          <div style={{ margin: '0 16px 12px', display: 'flex', gap: 9, alignItems: 'center' }}>
+            <span className="flex flex-none items-center justify-center"
+              style={{ width: AV, height: AV, borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)' }}>
+              <Soleil size={14} rayons={4} />
+            </span>
+            <span style={{ fontSize: 13, color: '#7A6A5A' }}>Je cherche…</span>
           </div>
         )}
 
         {quotaEpuise && (
-          <div className="mb-4" style={{ border: '1px solid #F0EAE0', background: '#fff', borderRadius: 16, padding: 16 }}>
-            <p className="m-0" style={{ fontSize: 14, fontWeight: 800, color: '#1A1209' }}>
+          <div style={{ margin: '4px 16px 14px', border: '1px solid #F0EAE0', background: '#fff', borderRadius: 16, padding: 16 }}>
+            <p className="m-0" style={{ fontSize: 14, fontWeight: 800 }}>
               {quotaEpuise === 'jour'
                 ? 'Vous avez beaucoup échangé aujourd’hui'
                 : 'Vous commencez à bien connaître l’Assistant Village'}
             </p>
             <p className="m-0 mt-1.5" style={{ fontSize: 12.5, lineHeight: 1.45, color: '#5A4C3E' }}>
               {quotaEpuise === 'jour'
-                ? 'L’assistant revient demain. Le reste de La Place du Village est toujours là.'
+                ? 'Il revient demain. Le reste de La Place du Village est toujours là.'
                 : 'Avec Habitant, profitez pleinement de l’assistant et des avantages chez les commerçants du secteur.'}
             </p>
             {quotaEpuise !== 'jour' && (
               <div className="mt-3 flex items-center gap-2">
                 <button onClick={() => { trackEvent('assistant_cta', { vers: 'habitants' }); setOffreOuverte(true) }}
                   className="border-none text-white"
-                  style={{ background: '#2D5A3D', borderRadius: 12, padding: '11px 15px', fontSize: 13, fontWeight: 800 }}>
+                  style={{ background: 'var(--primary)', borderRadius: 12, padding: '11px 15px', fontSize: 13, fontWeight: 800 }}>
                   Découvrir Habitant
                 </button>
                 <button onClick={onClose} className="border-none bg-transparent" style={{ fontSize: 12.5, fontWeight: 700, color: '#7A6A5A' }}>
@@ -238,40 +229,53 @@ export default function AssistantChat({ question, onClose }: { question: string;
           </div>
         )}
 
-        {/* Transparence — courte, toujours accessible, jamais un mur de texte. */}
         {messages.length > 0 && (
-          <p className="m-0 pb-2 pt-1" style={{ fontSize: 10.5, lineHeight: 1.45, color: '#A99B89' }}>
-            L’assistant cherche dans les informations publiées sur La Place du Village. Ses réponses
-            peuvent être imparfaites : pour un horaire ou un prix, la fiche fait foi.
+          <p className="m-0" style={{ padding: `2px 16px 10px ${RETRAIT}px`, fontSize: 10.5, lineHeight: 1.45, color: '#A99B89' }}>
+            Les réponses peuvent être imparfaites : pour un horaire, un prix ou une adresse, la fiche fait foi.
           </p>
         )}
         <div ref={finRef} />
       </div>
 
       {/* Saisie */}
-      <div className="flex-none border-t border-bord bg-white px-4 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-3">
-        <div className="flex items-end gap-2">
-          <textarea
+      <div className="flex flex-none items-center gap-2.5 bg-white"
+        style={{ padding: '11px 14px max(env(safe-area-inset-bottom),14px)', borderTop: '1px solid #F0EAE0' }}>
+        <div className="flex flex-1 items-center gap-2"
+          style={{ border: '1px solid var(--bord)', borderRadius: 999, padding: '8px 14px' }}>
+          <input
             value={saisie}
             onChange={e => setSaisie(e.target.value.slice(0, 500))}
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); envoyer(saisie) } }}
-            rows={1}
-            placeholder={quotaEpuise ? 'Conversations de découverte épuisées' : 'Votre message…'}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); envoyer(saisie) } }}
+            placeholder={quotaEpuise ? 'Conversations de découverte épuisées' : 'Continuer la discussion…'}
             disabled={!!quotaEpuise}
-            className="flex-1 resize-none border border-bord bg-creme text-texte outline-none"
-            style={{ borderRadius: 14, padding: '11px 13px', fontSize: 14, maxHeight: 96 }}
+            className="flex-1 border-none bg-transparent outline-none"
+            style={{ fontSize: 13.5, color: 'var(--texte)' }}
           />
-          <button
-            onClick={() => envoyer(saisie)}
-            disabled={enCours || !saisie.trim() || !!quotaEpuise}
-            aria-label="Envoyer"
-            className="flex h-11 w-11 flex-none items-center justify-center border-none text-white"
-            style={{ background: enCours || !saisie.trim() || quotaEpuise ? '#C9BFB2' : '#2D5A3D', borderRadius: 14 }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" />
+          {/* La dictée passe par le micro déjà utilisé partout dans l'app :
+              même enregistrement, même transcription, même quota. */}
+          <button type="button" onClick={() => micRef.current?.toggle()}
+            aria-label="Dicter" className="flex-none border-none bg-transparent"
+            style={{ color: micRef.current?.state === 'recording' ? '#C84B2F' : '#A99B89', lineHeight: 0 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
+              <path d="M19 11v1a7 7 0 0 1-14 0v-1" /><line x1="12" y1="19" x2="12" y2="22" />
             </svg>
           </button>
+          <MicButton ref={micRef} hidden onTranscript={t => { if (t?.trim()) envoyer(t) }} />
         </div>
+        <button
+          onClick={() => envoyer(saisie)}
+          disabled={enCours || !saisie.trim() || !!quotaEpuise}
+          aria-label="Envoyer"
+          className="flex flex-none items-center justify-center border-none text-white"
+          style={{
+            width: 38, height: 38, borderRadius: '50%',
+            background: enCours || !saisie.trim() || quotaEpuise ? '#C9BFB2' : 'var(--primary)',
+          }}>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" />
+          </svg>
+        </button>
       </div>
 
       {offreOuverte && (
@@ -284,34 +288,69 @@ export default function AssistantChat({ question, onClose }: { question: string;
   )
 }
 
-/** Une réponse : le texte, avec les fiches posées là où le modèle les cite. */
-function Reponse({ message, onOuvrir }: { message: Message; onOuvrir: () => void }) {
+/** Une réponse : le soleil, le texte, les fiches, puis les rebonds. */
+function Reponse({ message, onOuvrir, onRebond }: {
+  message: Message; onOuvrir: () => void; onRebond: (q: string) => void
+}) {
   const parId = new Map(message.cartes.map(c => [c.id, c]))
-  const parts = segments(message.texte)
-  const citees = new Set(parts.filter(p => p.t === 'ref').map(p => (p as { id: string }).id))
+  const bouts = segments(message.texte)
+  const refs = bouts.filter(b => b.t === 'ref') as { t: 'ref'; type: string; id: string }[]
+  const rebonds = (bouts.filter(b => b.t === 'q') as { t: 'q'; v: string }[]).map(b => b.v).slice(0, 3)
 
   // Filet : le modèle a cherché, trouvé, mais oublié de citer. Plutôt que de
   // laisser la personne devant un texte sans fiche, on pose les premières.
-  const oubliees = !message.encours && citees.size === 0
-    ? message.cartes.slice(0, 3)
-    : []
+  const oubliees = !message.encours && refs.length === 0 ? message.cartes.slice(0, 3) : []
+
+  /** Le texte et les fiches s'alternent dans l'ordre où le modèle les a mis. */
+  const blocs: React.ReactNode[] = []
+  let paragraphe: string[] = []
+  const viderTexte = (cle: string) => {
+    const t = paragraphe.join('').trim()
+    paragraphe = []
+    if (!t) return
+    blocs.push(
+      <p key={cle} className="m-0 whitespace-pre-wrap"
+        style={{ fontSize: 14, lineHeight: 1.55, marginBottom: 10 }}>{t}</p>,
+    )
+  }
+  bouts.forEach((b, i) => {
+    if (b.t === 'texte') { paragraphe.push(b.v); return }
+    if (b.t === 'q') return
+    viderTexte(`t${i}`)
+    const c = parId.get(b.id)
+    if (c) blocs.push(<div key={`c${i}`} style={{ marginBottom: 9 }}><CarteResultat carte={c} onOuvrir={onOuvrir} /></div>)
+  })
+  viderTexte('tfin')
 
   return (
-    <div>
-      {parts.map((p, i) =>
-        p.t === 'texte' ? (
-          <p key={i} className="m-0 whitespace-pre-wrap"
-            style={{ fontSize: 13.5, lineHeight: 1.55, color: '#2C2116', marginBottom: p.v.trim() ? 8 : 0 }}>
-            {p.v.trim()}
-          </p>
-        ) : parId.has(p.id) ? (
-          <CarteResultat key={i} carte={parId.get(p.id)!} onOuvrir={onOuvrir} />
-        ) : null,
-      )}
-      {oubliees.map(c => <CarteResultat key={c.id} carte={c} onOuvrir={onOuvrir} />)}
-      {message.encours && !message.texte && (
-        <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full" style={{ border: '2px solid #E3D9C8', borderTopColor: '#2D5A3D' }} />
-      )}
+    <div style={{ margin: '0 16px 12px' }}>
+      <div style={{ display: 'flex', gap: 9 }}>
+        <span className="flex flex-none items-center justify-center"
+          style={{ width: AV, height: AV, borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', marginTop: 2 }}>
+          <Soleil size={14} rayons={4} />
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {blocs}
+          {oubliees.map(c => (
+            <div key={c.id} style={{ marginBottom: 9 }}><CarteResultat carte={c} onOuvrir={onOuvrir} /></div>
+          ))}
+          {message.encours && !message.texte && (
+            <span className="inline-block animate-spin"
+              style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid #E3D9C8', borderTopColor: 'var(--primary)' }} />
+          )}
+          {rebonds.length > 0 && !message.encours && (
+            <div className="flex flex-wrap" style={{ gap: 7, marginTop: 2 }}>
+              {rebonds.map(r => (
+                <button key={r} onClick={() => onRebond(r)}
+                  className="bg-white"
+                  style={{ border: '1px solid var(--bord)', borderRadius: 999, padding: '8px 12px', fontSize: 12, fontWeight: 700, color: 'var(--primary)' }}>
+                  {r}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

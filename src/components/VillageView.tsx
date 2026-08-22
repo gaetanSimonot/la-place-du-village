@@ -13,6 +13,7 @@ import CinemaAffiche from '@/components/CinemaAffiche'
 import PostComposer from '@/components/profil/PostComposer'
 import PostCard, { type PostData } from '@/components/profil/PostCard'
 import PostCommentsDrawer from '@/components/profil/PostCommentsDrawer'
+import BarreAssistant from '@/components/assistant/BarreAssistant'
 
 interface VillagePost extends PostData {
   likeCount: number
@@ -131,6 +132,11 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
           </button>
         )}
       </div>
+
+      {/* L'Assistant Village, sous la barre du haut et au-dessus du titre.
+          Le composant décide seul de s'afficher ou non : il demande au
+          serveur si l'assistant est ouvert à cette personne. */}
+      <BarreAssistant />
 
       {/* Titre — 2 lignes, gros et gras (façon mockup) */}
       <div className="px-4 pb-4 pt-4">

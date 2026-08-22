@@ -24,7 +24,7 @@ import { meteoJour } from '@/lib/assistant/meteo'
 
 /** Une fiche réelle, renvoyée au client pour affichage. */
 export interface Carte {
-  type: 'ev' | 'etab' | 'film' | 'promo' | 'annonce'
+  type: 'ev' | 'etab' | 'prod' | 'film' | 'promo' | 'annonce'
   id: string
   data: Record<string, unknown>
 }
@@ -53,7 +53,7 @@ export const OUTILS = [
   {
     name: 'chercher_evenements',
     description:
-      "Événements, sorties et animations du village : concerts, spectacles, marchés, ateliers, fêtes, sport, bien-être. À utiliser dès qu'on cherche quoi faire, quand sortir, ou ce qui se passe à une date.",
+      "Événements, sorties et animations du village : concerts, spectacles, marchés, ateliers, fêtes, sport, bien-être. À utiliser dès qu'on cherche quoi faire, quand sortir, ou ce qui se passe à une date. La réponse sépare les rendez-vous datés de ce qui dure des semaines (expositions, permanences, cours à l'année).",
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -66,6 +66,10 @@ export const OUTILS = [
         },
         commune: { type: 'string', description: 'Nom de commune, facultatif.' },
         texte:   { type: 'string', description: 'Mots du titre recherché, facultatif. À ne mettre que si la personne nomme quelque chose de précis.' },
+        en_continu: {
+          type: 'boolean',
+          description: "true seulement si la personne cherche explicitement une exposition, une permanence ou un cours à l'année. Par défaut (false), ce qui dure des semaines est renvoyé à part, sous « aussi_en_cours ».",
+        },
       },
       required: ['du', 'au'],
     },
@@ -73,14 +77,14 @@ export const OUTILS = [
   {
     name: 'chercher_etablissements',
     description:
-      "Commerces, restaurants, artisans, services, hébergements, activités et lieux de bien-être du secteur. À utiliser pour « où manger », « je cherche un électricien », « un endroit pour dormir ».",
+      "Commerces, restaurants, artisans, services, hébergements, activités, lieux de bien-être ET producteurs du secteur — près de 1500 fiches. À utiliser pour « où manger », « je cherche un électricien », « un endroit pour dormir », « du fromage de chèvre ». Donnez le métier ou le produit tel qu'on le dit : la recherche sait retrouver « Electricité » à partir d'« électricien ».",
     input_schema: {
       type: 'object' as const,
       properties: {
         type: {
           type: 'string',
-          enum: ['restaurant_bar', 'hebergement', 'artisan_service', 'sante_bien_etre', 'activite'],
-          description: "Famille d'établissement. Un électricien, un plombier ou un garagiste sont des artisan_service.",
+          enum: ['restaurant_bar', 'hebergement', 'artisan_service', 'sante_bien_etre', 'activite', 'producteur'],
+          description: "Famille de lieu. Un électricien, un plombier ou un garagiste sont des artisan_service ; un maraîcher, un fromager ou un apiculteur sont des producteur. Sans ce filtre, tout est cherché à la fois — souvent préférable.",
         },
         texte:   { type: 'string', description: "Métier ou nom cherché : « électricien », « pizzeria ». Cherche dans le nom et la description." },
         commune: { type: 'string', description: 'Nom de commune, facultatif.' },
@@ -232,64 +236,163 @@ async function evenements(a: Args): Promise<ResultatOutil> {
     .map(e => ({ ...e, lieux: e.lieu_id ? parLieu.get(e.lieu_id) ?? null : null }))
     .filter(e => !commune || (e.lieux?.commune ?? '').toLowerCase().includes(commune))
 
+  /**
+   * Un rendez-vous daté ou quelque chose qui dure ?
+   *
+   * « On fait quoi ce week-end ? » ne veut pas d'une exposition ouverte
+   * depuis onze mois : ces événements chevauchent TOUTES les dates et
+   * noieraient les vraies sorties du samedi. Ils ne sont pas écartés — ils
+   * partent dans un second panier, que le modèle ne propose que si on lui
+   * parle d'expo. Le critère est la DURÉE, pas la catégorie : en base, une
+   * expo est rangée dans « théâtre » ou « autre ».
+   */
+  const DURABLE_JOURS = 8
+  const duree = (e: { date_debut: string | null; date_fin: string | null }) => {
+    if (!e.date_debut || !e.date_fin || e.date_fin === e.date_debut) return 1
+    return Math.round((Date.parse(e.date_fin) - Date.parse(e.date_debut)) / 86_400_000) + 1
+  }
+  const veutDurables = a.en_continu === true
+  const dates = avecLieu.filter(e => duree(e) < DURABLE_JOURS)
+  const durables = avecLieu.filter(e => duree(e) >= DURABLE_JOURS)
+
+  const resume = (e: (typeof avecLieu)[number]) => ({
+    id: e.id,
+    titre: e.titre,
+    date: e.date_debut,
+    fin: e.date_fin !== e.date_debut ? e.date_fin : undefined,
+    heure: e.heure,
+    categories: e.categories ?? [e.categorie],
+    lieu: e.lieux?.nom ?? null,
+    commune: e.lieux?.commune ?? null,
+    prix: e.prix,
+    resume: e.description ? String(e.description).slice(0, 160) : null,
+  })
+
+  // Quand on demande explicitement les expositions, elles deviennent la
+  // réponse principale. Sinon elles restent en second plan.
+  const principaux = veutDurables ? durables : dates
+  const secondaires = veutDurables ? dates : durables
+
   return {
     pourLeModele: {
-      resultats: avecLieu.map(e => ({
-        id: e.id,
-        titre: e.titre,
-        date: e.date_debut,
-        fin: e.date_fin !== e.date_debut ? e.date_fin : undefined,
-        heure: e.heure,
-        categories: e.categories ?? [e.categorie],
-        lieu: e.lieux?.nom ?? null,
-        commune: e.lieux?.commune ?? null,
-        prix: e.prix,
-        resume: e.description ? String(e.description).slice(0, 160) : null,
-      })),
+      resultats: principaux.map(resume),
+      // Nommé pour être compris sans documentation : ce qui se visite
+      // n'importe quel jour de la période, pas ce qui a lieu tel soir.
+      aussi_en_cours: secondaires.slice(0, 4).map(e => ({ ...resume(e), dure_jusquau: e.date_fin })),
+      note: secondaires.length && !veutDurables
+        ? "Les entrées de « aussi_en_cours » durent plusieurs semaines (expositions, permanences). Ne les proposez que si la personne les cherche vraiment."
+        : undefined,
     },
-    cartes: avecLieu.map(e => ({ type: 'ev' as const, id: e.id, data: e })),
+    // Les cartes suivent le même ordre : ce qui est daté d'abord.
+    cartes: [...principaux, ...secondaires].map(e => ({ type: 'ev' as const, id: e.id, data: e })),
   }
 }
 
 /* ─── Établissements ───────────────────────────────────────────────────── */
 
+/**
+ * Variantes d'un mot cherché, du plus précis au plus large.
+ *
+ * Un métier ne s'écrit jamais comme on le cherche : les fiches disent
+ * « Electricité », « Plomberie », « Pizzeria », les gens tapent
+ * « électricien », « plombier », « pizza ». On désaccentue, puis on raccourcit
+ * par paliers jusqu'au radical. La cascade s'arrête dès qu'une variante
+ * trouve : on ne s'élargit que faute de mieux.
+ */
+function variantes(terme: string): string[] {
+  const nu = terme.normalize('NFD').replace(/[̀-ͯ]/g, '')
+  const mots = nu.split(/\s+/).filter(m => m.length > 2)
+  const porteur = mots.sort((x, y) => y.length - x.length)[0] ?? nu
+  const out = [terme, porteur]
+  for (const n of [6, 4]) if (porteur.length > n) out.push(porteur.slice(0, n))
+  return Array.from(new Set(out.filter(Boolean)))
+}
+
+/**
+ * Établissements ET producteurs.
+ *
+ * Passe par `assistant_etablissements` en base : c'est la seule façon de
+ * désaccentuer des deux côtés, et c'est ce qui manquait — « électricien » ne
+ * trouvait pas « Electricité », donc l'assistant répondait qu'il n'y avait
+ * aucun électricien dans un village qui en compte cinq.
+ *
+ * Si la fonction n'existe pas encore (migration non jouée), on retombe sur
+ * l'ancienne recherche : dégradée, mais l'assistant continue de répondre.
+ */
 async function etablissements(a: Args): Promise<ResultatOutil> {
   const texte = texteDe(a, 'texte')
   const commune = texteDe(a, 'commune')
-  const type = typeof a.type === 'string' ? a.type : null
+  const type = typeof a.type === 'string' && a.type !== 'producteur' ? a.type : null
+  const veutProducteurs = a.type === 'producteur' || !type
 
-  let q = supabaseAdmin
-    .from('etablissements')
-    .select('id, nom, type, commune, adresse, telephone, site_web, photos, note_google, avis_count, plan, is_featured, description_courte, lat, lng')
-    .limit(MAX)
+  let lignes: Record<string, unknown>[] = []
+  let repli = false
 
-  if (type) q = q.eq('type', type)
-  if (commune) q = q.ilike('commune', `%${echapper(commune)}%`)
-  if (texte) {
-    const t = `%${echapper(texte)}%`
-    q = q.or(`nom.ilike.${t},description_courte.ilike.${t}`)
+  for (const v of texte ? variantes(texte) : [null]) {
+    const { data, error } = await supabaseAdmin.rpc('assistant_etablissements', {
+      terme: v, type_filtre: type, commune_filtre: commune, lim: MAX,
+    })
+    if (error) { repli = true; break }
+    if (data?.length) { lignes = data as Record<string, unknown>[]; break }
   }
 
-  const { data } = await q
-  const lignes = data ?? []
+  if (repli) {
+    // Tant que la migration n'est pas jouée : même cascade de variantes, sans
+    // la désaccentuation. « électricien » échoue encore, « electr » passe.
+    for (const v of texte ? variantes(texte) : [null]) {
+      let q = supabaseAdmin.from('etablissements').select('*').limit(MAX)
+      if (type) q = q.eq('type', type)
+      if (commune) q = q.ilike('commune', `%${echapper(commune)}%`)
+      if (v) {
+        const t = `%${echapper(v)}%`
+        q = q.or(`nom.ilike.${t},description_courte.ilike.${t},description_longue.ilike.${t}`)
+      }
+      const { data } = await q
+      if (data?.length) { lignes = data as Record<string, unknown>[]; break }
+    }
+  }
 
-  // Les mises en avant remontent, sans jamais devenir un jugement de valeur :
-  // le modèle reçoit le drapeau tel quel et a pour consigne de le nommer.
-  lignes.sort((x, y) => Number(!!y.is_featured || y.plan === 'pro') - Number(!!x.is_featured || x.plan === 'pro'))
+  // Les producteurs vivent dans une autre table, mais un producteur EST un
+  // commerce local : « du fromage de chèvre » doit le trouver.
+  let prods: Record<string, unknown>[] = []
+  if (veutProducteurs && !repli) {
+    for (const v of texte ? variantes(texte) : [null]) {
+      const { data, error } = await supabaseAdmin.rpc('assistant_producteurs', {
+        terme: v, commune_filtre: commune, lim: 6,
+      })
+      if (error) break
+      if (data?.length) { prods = data as Record<string, unknown>[]; break }
+    }
+  }
+
+  const cartes: Carte[] = [
+    ...lignes.map(e => ({ type: 'etab' as const, id: String(e.id), data: e })),
+    ...prods.map(p => ({ type: 'prod' as const, id: String(p.id), data: p })),
+  ]
 
   return {
     pourLeModele: {
-      resultats: lignes.map(e => ({
-        id: e.id,
-        nom: e.nom,
-        type: e.type,
-        commune: e.commune,
-        note: e.note_google,
-        resume: e.description_courte ? String(e.description_courte).slice(0, 140) : null,
-        mis_en_avant: !!e.is_featured || e.plan === 'pro',
-      })),
+      resultats: [
+        ...lignes.map(e => ({
+          id: e.id,
+          nom: e.nom,
+          type: e.type,
+          commune: e.commune,
+          note: e.note_google,
+          resume: e.description_courte ? String(e.description_courte).slice(0, 140) : null,
+          mis_en_avant: e.is_featured === true || e.plan === 'pro',
+        })),
+        ...prods.map(p => ({
+          id: p.id,
+          nom: p.nom,
+          type: 'producteur',
+          commune: p.commune,
+          resume: p.description_courte ? String(p.description_courte).slice(0, 140) : null,
+          mis_en_avant: false,
+        })),
+      ],
     },
-    cartes: lignes.map(e => ({ type: 'etab' as const, id: e.id, data: e })),
+    cartes,
   }
 }
 

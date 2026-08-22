@@ -1,7 +1,5 @@
 'use client'
 import Link from 'next/link'
-import EventCard from '@/components/EventCard'
-import type { Evenement } from '@/lib/types'
 
 /**
  * ASSISTANT VILLAGE — une fiche réelle dans le fil de conversation.
@@ -12,91 +10,180 @@ import type { Evenement } from '@/lib/types'
  * ouvre la vraie page de l'application. L'assistant est une façon de
  * naviguer dans La Place du Village, pas un endroit qui la recopie.
  *
- * L'événement réutilise `EventCard`, la carte du reste de l'app. Les autres
- * familles n'ont pas de composant autonome équivalent (l'établissement est
- * rendu à l'intérieur des listes de la carte) : elles ont ici une ligne
- * compacte, parce qu'un fil de conversation entrecoupé de grandes cartes
- * pleine largeur ne se lit plus.
+ * Géométrie reprise de la maquette (`.rp`) : vignette 62, rayon 14, tag puis
+ * titre puis méta. La séance de cinéma garde son bleu nuit — c'est le même
+ * univers que la page /cinema, et on le reconnaît sans lire.
  */
 
 export interface CarteData {
-  type: 'ev' | 'etab' | 'film' | 'promo' | 'annonce'
+  type: 'ev' | 'etab' | 'prod' | 'film' | 'promo' | 'annonce'
   id: string
   data: Record<string, unknown>
-}
-
-const CADRE: React.CSSProperties = {
-  display: 'flex', gap: 11, alignItems: 'center',
-  border: '1px solid #F0EAE0', borderRadius: 14, background: '#fff',
-  padding: 10, textDecoration: 'none', marginBottom: 8,
-}
-const TITRE: React.CSSProperties = { fontSize: 13.5, fontWeight: 700, color: '#1A1209', letterSpacing: '-.01em' }
-const SOUS: React.CSSProperties = { fontSize: 11, color: '#7A6A5A', marginTop: 2 }
-
-function Vignette({ url, ratio = 1 }: { url: string | null; ratio?: number }) {
-  return (
-    <span className="flex-none overflow-hidden"
-      style={{ width: 54, aspectRatio: `${ratio}`, borderRadius: 10, background: '#F4EFE7', display: 'block' }}>
-      {url && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt="" className="h-full w-full object-cover" loading="lazy" />
-      )}
-    </span>
-  )
 }
 
 const s = (v: unknown): string | null => (typeof v === 'string' && v ? v : null)
 const premiere = (v: unknown): string | null => (Array.isArray(v) && typeof v[0] === 'string' ? v[0] : null)
 
+const JOUR = (iso: string | null): string => {
+  if (!iso) return ''
+  const d = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short', day: 'numeric' })
+    .format(new Date(`${iso}T12:00:00Z`))
+  return d.charAt(0).toUpperCase() + d.slice(1).replace('.', '.')
+}
+
+/* ─── Briques visuelles ───────────────────────────────────────────────── */
+
+function Tag({ children, sombre }: { children: React.ReactNode; sombre?: boolean }) {
+  return (
+    <span style={{
+      display: 'inline-block', borderRadius: 6, padding: '3px 7px',
+      fontSize: 10, fontWeight: 800, letterSpacing: '.01em',
+      background: sombre ? '#192D41' : '#F4EFE7',
+      color: sombre ? '#8FCBEE' : '#7A6A5A',
+    }}>{children}</span>
+  )
+}
+
+function Meta({ icone, children, sombre }: { icone: React.ReactNode; children: React.ReactNode; sombre?: boolean }) {
+  return (
+    <div style={{
+      marginTop: 4, fontSize: 11.5, display: 'flex', alignItems: 'center', gap: 5,
+      color: sombre ? 'rgba(250,251,250,.6)' : '#7A6A5A', minWidth: 0,
+    }}>
+      <span style={{ flex: 'none', lineHeight: 0 }}>{icone}</span>
+      <span className="truncate">{children}</span>
+    </div>
+  )
+}
+
+const IcoPin = (
+  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
+  </svg>
+)
+const IcoCine = (
+  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round">
+    <rect x="2" y="8" width="20" height="13" rx="2" /><path d="M2.5 8l19-3.4M6.5 7.6l1-3.6M12 6.8l1-3.6M17.5 6l1-3.6" />
+  </svg>
+)
+const IcoTag = (
+  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20.6 13.4L12 22l-9-9V3h10z" /><circle cx="7.5" cy="7.5" r="1.3" />
+  </svg>
+)
+
+function Coquille({ href, sombre, onOuvrir, children }: {
+  href: string; sombre?: boolean; onOuvrir?: () => void; children: React.ReactNode
+}) {
+  return (
+    <Link href={href} onClick={onOuvrir}
+      style={{
+        display: 'flex', gap: 11, padding: 11, borderRadius: 14,
+        border: `1px solid ${sombre ? 'transparent' : '#F0EAE0'}`,
+        background: sombre ? '#12171C' : '#fff',
+        color: sombre ? '#FAFBFA' : '#1A1209',
+        boxShadow: '0 1px 4px rgba(44,28,16,.04)', textDecoration: 'none',
+      }}>
+      {children}
+    </Link>
+  )
+}
+
+function Vignette({ url, sombre, texte }: { url: string | null; sombre?: boolean; texte?: string | null }) {
+  return (
+    <span style={{
+      width: 62, height: 62, borderRadius: 11, flex: 'none', overflow: 'hidden', display: 'block',
+      background: sombre ? '#1B2733' : '#F4EFE7',
+    }}>
+      {url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} loading="lazy" />
+      ) : texte ? (
+        <span style={{
+          display: 'flex', width: '100%', height: '100%', alignItems: 'flex-end', padding: 6,
+          fontSize: 9, fontWeight: 700, lineHeight: 1.15,
+          color: sombre ? '#CFE6F5' : '#A99B89',
+          background: sombre ? 'linear-gradient(155deg,#243447,#131A22)' : 'transparent',
+        }}>{texte.slice(0, 28)}</span>
+      ) : null}
+    </span>
+  )
+}
+
+const TITRE: React.CSSProperties = {
+  marginTop: 5, fontFamily: 'var(--font-title), sans-serif',
+  fontSize: 14.5, fontWeight: 700, lineHeight: 1.18, letterSpacing: '-.01em',
+}
+
+/* ─── La carte ────────────────────────────────────────────────────────── */
+
 export default function CarteResultat({ carte, onOuvrir }: { carte: CarteData; onOuvrir?: () => void }) {
   const d = carte.data
 
   if (carte.type === 'ev') {
+    const lieu = (d.lieux ?? null) as Record<string, unknown> | null
+    const heure = s(d.heure)?.slice(0, 5)
     return (
-      <div className="mb-2" onClick={onOuvrir}>
-        <EventCard evenement={d as unknown as Evenement} />
-      </div>
+      <Coquille href={`/evenement/${carte.id}`} onOuvrir={onOuvrir}>
+        <Vignette url={s(d.image_url)} texte={s(d.titre)} />
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <Tag>{[JOUR(s(d.date_debut)), heure].filter(Boolean).join(' ')}</Tag>
+          <div className="line-clamp-2" style={TITRE}>{s(d.titre) ?? 'Événement'}</div>
+          <Meta icone={IcoPin}>
+            {[s(lieu?.nom), s(lieu?.commune), s(d.prix)].filter(Boolean).join(' · ') || 'Lieu à préciser'}
+          </Meta>
+        </span>
+      </Coquille>
     )
   }
 
   if (carte.type === 'film') {
     const seances = Array.isArray(d.seances) ? (d.seances as Record<string, unknown>[]) : []
-    const prochaine = seances[0]
+    const p = seances[0]
     return (
-      <Link href={`/cinema/film/${carte.id}`} onClick={onOuvrir} style={CADRE}>
-        <Vignette url={s(d.affiche_url)} ratio={2 / 3} />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate" style={TITRE}>{s(d.titre) ?? 'Film'}</span>
-          <span className="block truncate" style={SOUS}>
-            {prochaine
-              ? `${s(prochaine.cinema) ?? 'Cinéma'} · ${s(prochaine.date) ?? ''} ${s(prochaine.heure) ?? ''}`
-              : [d.duree_min ? `${d.duree_min} min` : null, premiere(d.genres)].filter(Boolean).join(' · ')}
-          </span>
+      <Coquille href={`/cinema/film/${carte.id}`} onOuvrir={onOuvrir} sombre>
+        <Vignette url={s(d.affiche_url)} texte={s(d.titre)} sombre />
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <Tag sombre>
+            {p ? [JOUR(s(p.date)), s(p.heure), s(p.version)?.toUpperCase()].filter(Boolean).join(' · ') : 'À l’affiche'}
+          </Tag>
+          <div className="line-clamp-2" style={TITRE}>{s(d.titre) ?? 'Film'}</div>
+          <Meta icone={IcoCine} sombre>
+            {[s(p?.cinema), d.duree_min ? `${d.duree_min} min` : null].filter(Boolean).join(' · ') || 'Cinéma'}
+          </Meta>
         </span>
-      </Link>
+      </Coquille>
     )
   }
 
-  if (carte.type === 'etab') {
-    const misEnAvant = d.is_featured === true || d.plan === 'pro'
+  if (carte.type === 'etab' || carte.type === 'prod') {
+    const producteur = carte.type === 'prod'
+    const misEnAvant = !producteur && (d.is_featured === true || d.plan === 'pro')
+    const TYPES: Record<string, string> = {
+      restaurant_bar: 'Restaurant', hebergement: 'Hébergement',
+      artisan_service: 'Artisan', sante_bien_etre: 'Bien-être', activite: 'Activité',
+    }
     return (
-      <Link href={`/etablissement/${carte.id}`} onClick={onOuvrir} style={CADRE}>
-        <Vignette url={premiere(d.photos)} />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate" style={TITRE}>{s(d.nom) ?? 'Établissement'}</span>
-          <span className="block truncate" style={SOUS}>
+      <Coquille href={producteur ? `/producteur/${carte.id}` : `/etablissement/${carte.id}`} onOuvrir={onOuvrir}>
+        <Vignette url={premiere(d.photos)} texte={s(d.nom)} />
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <Tag>{producteur ? 'Producteur' : TYPES[String(d.type)] ?? 'Commerce'}</Tag>
+            {/* La mise en avant reste NOMMÉE, jamais traduite en jugement :
+                c'est la condition pour continuer à faire confiance au reste. */}
+            {misEnAvant && (
+              <span style={{ fontSize: 9.5, fontWeight: 800, color: '#C84B2F', border: '1px solid #F6D9CE', borderRadius: 999, padding: '2px 6px' }}>
+                À la une
+              </span>
+            )}
+          </span>
+          <div className="line-clamp-2" style={TITRE}>{s(d.nom) ?? 'Établissement'}</div>
+          <Meta icone={IcoPin}>
             {[s(d.commune), typeof d.note_google === 'number' ? `${d.note_google.toFixed(1)} ★` : null]
-              .filter(Boolean).join(' · ')}
-          </span>
+              .filter(Boolean).join(' · ') || 'Autour de Ganges'}
+          </Meta>
         </span>
-        {/* La mise en avant reste NOMMÉE, jamais traduite en jugement : c'est
-            la condition pour qu'on puisse continuer à faire confiance au reste. */}
-        {misEnAvant && (
-          <span className="flex-none" style={{ fontSize: 9.5, fontWeight: 800, color: '#C84B2F', border: '1px solid #F6D9CE', borderRadius: 999, padding: '3px 7px', whiteSpace: 'nowrap' }}>
-            À la une
-          </span>
-        )}
-      </Link>
+      </Coquille>
     )
   }
 
@@ -104,31 +191,28 @@ export default function CarteResultat({ carte, onOuvrir }: { carte: CarteData; o
     const etab = (d.etablissement ?? null) as Record<string, unknown> | null
     // Pas de page par promotion dans l'app : la fiche de l'établissement est
     // l'endroit où elle se présente vraiment.
-    const href = etab?.id ? `/etablissement/${etab.id}` : '/promotions'
     return (
-      <Link href={href} onClick={onOuvrir} style={CADRE}>
-        <Vignette url={s(d.image_url) ?? premiere(etab?.photos)} />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate" style={TITRE}>{s(d.title) ?? 'Bon plan'}</span>
-          <span className="block truncate" style={SOUS}>
-            {[s(etab?.nom), s(etab?.commune)].filter(Boolean).join(' · ')}
-          </span>
+      <Coquille href={etab?.id ? `/etablissement/${etab.id}` : '/promotions'} onOuvrir={onOuvrir}>
+        <Vignette url={s(d.image_url) ?? premiere(etab?.photos)} texte={s(d.title)} />
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <Tag>Bon plan</Tag>
+          <div className="line-clamp-2" style={TITRE}>{s(d.title) ?? 'Promotion'}</div>
+          <Meta icone={IcoPin}>{[s(etab?.nom), s(etab?.commune)].filter(Boolean).join(' · ') || 'Chez un partenaire'}</Meta>
         </span>
-      </Link>
+      </Coquille>
     )
   }
 
   const prix = typeof d.prix_actuel === 'number' ? d.prix_actuel
     : typeof d.prix_initial === 'number' ? d.prix_initial : null
   return (
-    <Link href={`/annonces/${carte.id}`} onClick={onOuvrir} style={CADRE}>
-      <Vignette url={premiere(d.photos)} />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate" style={TITRE}>{s(d.titre) ?? 'Annonce'}</span>
-        <span className="block truncate" style={SOUS}>
-          {[prix !== null ? `${prix} €` : null, s(d.ville)].filter(Boolean).join(' · ')}
-        </span>
+    <Coquille href={`/annonces/${carte.id}`} onOuvrir={onOuvrir}>
+      <Vignette url={premiere(d.photos)} texte={s(d.titre)} />
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <Tag>{prix !== null ? `${prix} €` : 'Annonce'}</Tag>
+        <div className="line-clamp-2" style={TITRE}>{s(d.titre) ?? 'Annonce'}</div>
+        <Meta icone={IcoTag}>{[s(d.type), s(d.ville)].filter(Boolean).join(' · ') || 'Entre habitants'}</Meta>
       </span>
-    </Link>
+    </Coquille>
   )
 }
