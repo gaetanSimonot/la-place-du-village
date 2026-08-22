@@ -135,6 +135,8 @@ export default function AssistantChat({ question, dicter, onClose }: {
   /** Une transcription Whisper annulée ne doit pas atterrir dans le champ. */
   const jeterRef = useRef(false)
   const dictee = useDicteeLive({ onTexte: t => setSaisie(t.slice(0, 500)) })
+  const dicteeRef = useRef(dictee)
+  dicteeRef.current = dictee
   const envoiRef = useRef<(q: string) => void>(() => {})
 
   useEffect(() => { finRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, cherche])
@@ -243,7 +245,15 @@ export default function AssistantChat({ question, dicter, onClose }: {
     }
 
     if (question.trim()) envoiRef.current(question)
-    else if (dicter) setTimeout(() => micRef.current?.start(), 250)
+    // Entré par le micro de la barre : on ouvre l'oreille du même côté que le
+    // bouton du champ, sinon on lançait Whisper ici et la reconnaissance en
+    // direct là — deux transcriptions du même moment.
+    else if (dicter) {
+      setTimeout(() => {
+        if (dicteeRef.current.supporte) dicteeRef.current.demarrer('')
+        else micRef.current?.start()
+      }, 250)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -263,6 +273,10 @@ export default function AssistantChat({ question, dicter, onClose }: {
   const ecoute = dictee.actif || micEtat === 'recording'
 
   const lancerDictee = () => {
+    // Jamais les deux à la fois : la reconnaissance du navigateur écrit en
+    // direct pendant que Whisper rendrait le même texte à la fin. C'était la
+    // seconde façon de tout voir s'écrire en double.
+    if (ecoute) return
     if (dictee.supporte) { dictee.demarrer(saisie); return }
     micRef.current?.start()
   }
