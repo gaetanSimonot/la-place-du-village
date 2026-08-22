@@ -123,6 +123,11 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
   const [photoIdx, setPhotoIdx]     = useState(0)
   /** Loupe sur la photo regardée — le carrousel garde le balayage. */
   const [zoomOuvert, setZoomOuvert] = useState(false)
+  /**
+   * Comment chaque photo occupe le cadre. Rempli au chargement de l'image,
+   * parce qu'on ne connaît ses proportions qu'à ce moment-là.
+   */
+  const [ajustPhoto, setAjustPhoto] = useState<Record<number, 'cover' | 'contain'>>({})
   const [isFav, setIsFav]           = useState(false)
   const [isFollowing, setIsFollowing] = useState(false)
   const [comments, setComments]     = useState<Comment[]>([])
@@ -497,18 +502,50 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
             className="pdv-hscroll"
           >
             {photos.map((url, i) => (
-              <img
+              <div
                 key={i}
-                src={url}
-                alt=""
-                draggable={false}
                 onClick={() => setZoomOuvert(true)}
                 style={{
-                  flex: '0 0 100%', width: '100%', height: '100%',
-                  objectFit: 'cover', scrollSnapAlign: 'start',
-                  userSelect: 'none', cursor: 'zoom-in',
+                  position: 'relative', flex: '0 0 100%', width: '100%', height: '100%',
+                  overflow: 'hidden', scrollSnapAlign: 'start', cursor: 'zoom-in',
                 }}
-              />
+              >
+                {/* Fond flou tiré de la photo elle-même : le cadre reste plein
+                    sans qu'on ait à couper les bords d'une image panoramique. */}
+                {ajustPhoto[i] === 'contain' && (
+                  <img
+                    src={url}
+                    alt=""
+                    aria-hidden
+                    draggable={false}
+                    style={{
+                      position: 'absolute', inset: 0, width: '100%', height: '100%',
+                      objectFit: 'cover', filter: 'blur(22px) brightness(.65)',
+                      transform: 'scale(1.15)', userSelect: 'none',
+                    }}
+                  />
+                )}
+                <img
+                  src={url}
+                  alt=""
+                  draggable={false}
+                  onLoad={e => {
+                    // Une photo nettement plus large que le cadre perdrait la
+                    // moitié de sa scène en « cover ». Au-delà d'un quart
+                    // d'écart, on la montre en entier plutôt que centrée sur
+                    // rien.
+                    const img = e.currentTarget
+                    if (!img.naturalHeight) return
+                    const cadre = (img.parentElement?.clientWidth || 1) / (img.parentElement?.clientHeight || 1)
+                    const ajust = img.naturalWidth / img.naturalHeight > cadre * 1.25 ? 'contain' : 'cover'
+                    setAjustPhoto(prev => prev[i] === ajust ? prev : { ...prev, [i]: ajust })
+                  }}
+                  style={{
+                    position: 'relative', width: '100%', height: '100%',
+                    objectFit: ajustPhoto[i] ?? 'cover', userSelect: 'none',
+                  }}
+                />
+              </div>
             ))}
           </div>
         ) : (
