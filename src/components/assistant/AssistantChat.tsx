@@ -11,7 +11,7 @@ import CarteAction, { type ActionProposee } from '@/components/assistant/CarteAc
 import Soleil from '@/components/assistant/Soleil'
 import ClientPortal from '@/components/ClientPortal'
 import {
-  derniereConversation, lireConversations, enregistrerConversation,
+  derniereConversation, lireConversations, enregistrerConversation, oublierConversation,
   type ConversationLocale,
 } from '@/lib/assistantLocal'
 
@@ -137,9 +137,30 @@ export default function AssistantChat({ question, dicter, onClose }: {
   const dictee = useDicteeLive({ onTexte: t => setSaisie(t.slice(0, 500)) })
   const dicteeRef = useRef(dictee)
   dicteeRef.current = dictee
+  /** Le volet des conversations : on le referme en glissant, pas d'un coup. */
+  const [voletSort, setVoletSort] = useState(false)
+  const fermerRef = useRef<() => void>(() => {})
+  /** A-t-on posé une entrée d'historique en s'ouvrant ? */
+  const parHistorique = useRef(false)
   const envoiRef = useRef<(q: string) => void>(() => {})
 
   useEffect(() => { finRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, cherche])
+
+  /**
+   * Le bouton retour du téléphone referme l'assistant et rend le Village.
+   *
+   * Sans cette entrée d'historique, un retour quittait carrément la page —
+   * geste le plus naturel du monde sur Android, et le plus brutal ici.
+   */
+  useEffect(() => {
+    try {
+      window.history.pushState({ lpvAssistant: 1 }, '')
+      parHistorique.current = true
+    } catch { /* historique indisponible : le bouton croix reste */ }
+    const onPop = () => { parHistorique.current = false; fermerRef.current() }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   /**
    * Le champ grandit avec ce qu'on dit, et reste collé au dernier mot.
@@ -269,6 +290,27 @@ export default function AssistantChat({ question, dicter, onClose }: {
     setConversations(lireConversations())
   }, [messages])
 
+  /**
+   * Une seule sortie, quel qu'en soit le geste : la croix comme le bouton
+   * retour. On consomme l'entrée d'historique qu'on avait posée, sinon elle
+   * resterait derrière nous et le retour suivant ne ferait rien.
+   */
+  const fermer = useCallback(() => {
+    try { sessionStorage.removeItem('lpv_assistant_ouvert') } catch { /* noop */ }
+    if (parHistorique.current) { parHistorique.current = false; window.history.back(); return }
+    onClose()
+  }, [onClose])
+  fermerRef.current = () => {
+    try { sessionStorage.removeItem('lpv_assistant_ouvert') } catch { /* noop */ }
+    onClose()
+  }
+
+  /** Referme le volet en le laissant glisser, puis le démonte. */
+  const replierVolet = useCallback(() => {
+    setVoletSort(true)
+    setTimeout(() => { setListeOuverte(false); setVoletSort(false) }, 220)
+  }, [])
+
   /** On écoute — en direct si le navigateur sait, sinon Whisper enregistre. */
   const ecoute = dictee.actif || micEtat === 'recording'
 
@@ -298,11 +340,24 @@ export default function AssistantChat({ question, dicter, onClose }: {
 
   /** Repartir de zéro, ou rouvrir l'une des trois gardées. */
   const ouvrirConversation = (c: ConversationLocale | null) => {
-    setListeOuverte(false)
     setSaisie('')
     convRef.current = c?.id ?? null
     setConversationId(c?.id ?? null)
     setMessages((c?.messages ?? []) as Message[])
+    // On sélectionne d'abord, on referme ensuite : le volet glisse pendant que
+    // la conversation choisie s'affiche derrière, et on voit ce qu'on a fait.
+    replierVolet()
+  }
+
+  /** Effacer une conversation de cet appareil. Elle n'existe que là. */
+  const supprimerConversation = (c: ConversationLocale) => {
+    oublierConversation(c.id)
+    setConversations(lireConversations())
+    if ((c.id ?? null) === convRef.current) {
+      convRef.current = null
+      setConversationId(null)
+      setMessages([])
+    }
   }
 
   return (
@@ -316,22 +371,22 @@ export default function AssistantChat({ question, dicter, onClose }: {
       {/* En-tête — le soleil, le nom, le territoire, la sortie */}
       <div className="flex flex-none items-center gap-2.5 bg-white px-3.5 pb-3 pt-[max(env(safe-area-inset-top),0.6rem)]"
         style={{ borderBottom: '1px solid #F0EAE0' }}>
-        <span style={{ color: 'var(--primary)', flex: 'none' }}><Soleil size={22} /></span>
-        <div className="min-w-0 flex-1">
-          <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '-.01em' }}>Assistant Village</div>
-          <div style={{ fontSize: 10.5, color: '#7A6A5A', marginTop: 1 }}>Ganges et alentours</div>
-        </div>
-        {/* Les trois dernières conversations, et de quoi en ouvrir une neuve.
-            Trois suffisent : au-delà, une liste devient une archive dont on
-            ne fait rien. */}
-        <button onClick={() => setListeOuverte(o => !o)} aria-label="Mes conversations"
+        {/* Le volet s'ouvre depuis la gauche : son bouton se tient donc du
+            même côté, là où la main le cherche. */}
+        <button onClick={() => (listeOuverte ? replierVolet() : setListeOuverte(true))}
+          aria-label="Mes conversations"
           className="flex flex-none items-center justify-center bg-white"
           style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid var(--bord)', color: '#7A6A5A' }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">
             <line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="14" y2="17" />
           </svg>
         </button>
-        <button onClick={() => { try { sessionStorage.removeItem('lpv_assistant_ouvert') } catch { /* noop */ } onClose() }} aria-label="Fermer"
+        <span style={{ color: 'var(--primary)', flex: 'none' }}><Soleil size={22} /></span>
+        <div className="min-w-0 flex-1">
+          <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '-.01em' }}>Assistant Village</div>
+          <div style={{ fontSize: 10.5, color: '#7A6A5A', marginTop: 1 }}>Ganges et alentours</div>
+        </div>
+        <button onClick={fermer} aria-label="Fermer"
           className="flex flex-none items-center justify-center bg-white"
           style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid var(--bord)', color: '#7A6A5A' }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -340,56 +395,76 @@ export default function AssistantChat({ question, dicter, onClose }: {
         </button>
       </div>
 
-      {/* Les conversations, dans un tiroir à gauche. Trois suffisent : au-delà,
+      {/* Les conversations, dans un volet à gauche. Trois suffisent : au-delà,
           une liste devient une archive dont on ne fait rien. */}
       {listeOuverte && (
         <>
-          <div onClick={() => setListeOuverte(false)}
-            style={{ position: 'fixed', inset: 0, background: 'rgba(26,18,9,.35)', zIndex: 1 }} />
+          <div onClick={replierVolet}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 1, background: 'rgba(26,18,9,.35)',
+              opacity: voletSort ? 0 : 1, transition: 'opacity .2s ease',
+            }} />
           <div style={{
             position: 'fixed', top: 0, bottom: 0, left: 0, width: 'min(84vw, 300px)', zIndex: 2,
             background: '#fff', borderRight: '1px solid #F0EAE0', display: 'flex', flexDirection: 'column',
             paddingTop: 'max(env(safe-area-inset-top),14px)',
+            // On le laisse glisser : choisir une conversation ne doit pas faire
+            // disparaître le volet d'un coup sec, on veut voir ce qu'on a fait.
+            transform: voletSort ? 'translateX(-102%)' : 'translateX(0)',
+            transition: 'transform .22s cubic-bezier(.4,0,.2,1)',
           }}>
-            <div className="flex items-center gap-2" style={{ padding: '4px 14px 12px' }}>
+            <div className="flex items-center gap-2" style={{ padding: '4px 14px 10px' }}>
               <span style={{ color: 'var(--primary)', lineHeight: 0 }}><Soleil size={16} /></span>
               <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--primary)' }}>
                 Mes conversations
               </span>
             </div>
-            <div className="flex-1 overflow-y-auto" style={{ padding: '0 12px' }}>
+
+            {/* En premier, en haut : c'est le geste le plus fréquent. */}
+            <div style={{ padding: '0 12px 10px' }}>
+              <button onClick={() => ouvrirConversation(null)}
+                className="w-full border-none text-white"
+                style={{ background: 'var(--primary)', borderRadius: 12, padding: '11px 12px', fontSize: 13, fontWeight: 800 }}>
+                + Nouvelle conversation
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto" style={{ padding: '0 12px max(env(safe-area-inset-bottom),12px)' }}>
               {conversations.length === 0 && (
-                <p className="m-0 px-1 py-3" style={{ fontSize: 12, color: '#A99B89' }}>
+                <p className="m-0 px-1 py-2" style={{ fontSize: 12, color: '#A99B89' }}>
                   Rien encore. Les trois dernières resteront ici.
                 </p>
               )}
               {conversations.map(c => {
                 const actif = (c.id ?? null) === conversationId
                 return (
-                  <button key={c.id ?? 'neuve'} onClick={() => ouvrirConversation(c)}
-                    className="mb-1.5 flex w-full items-start gap-2.5 text-left"
-                    style={{
-                      border: `1px solid ${actif ? '#C8DEC0' : '#F0EAE0'}`,
-                      background: actif ? '#F4FAF5' : '#fff',
-                      borderRadius: 12, padding: '10px 11px',
-                    }}>
-                    <span style={{ color: actif ? 'var(--primary)' : '#A99B89', flex: 'none', lineHeight: 0, marginTop: 2 }}>
-                      <Soleil size={13} rayons={4} />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="line-clamp-2 block" style={{ fontSize: 12.5, fontWeight: 700, lineHeight: 1.3 }}>{c.titre}</span>
-                      <span className="block" style={{ fontSize: 10.5, color: '#A99B89', marginTop: 3 }}>{ilYA(c.at)}</span>
-                    </span>
-                  </button>
+                  <div key={c.id ?? 'neuve'} className="mb-1.5 flex items-stretch gap-1">
+                    <button onClick={() => ouvrirConversation(c)}
+                      className="flex min-w-0 flex-1 items-start gap-2.5 text-left"
+                      style={{
+                        border: `1px solid ${actif ? '#C8DEC0' : '#F0EAE0'}`,
+                        background: actif ? '#F4FAF5' : '#fff',
+                        borderRadius: 12, padding: '10px 11px',
+                      }}>
+                      <span style={{ color: actif ? 'var(--primary)' : '#A99B89', flex: 'none', lineHeight: 0, marginTop: 2 }}>
+                        <Soleil size={13} rayons={4} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="line-clamp-2 block" style={{ fontSize: 12.5, fontWeight: 700, lineHeight: 1.3 }}>{c.titre}</span>
+                        <span className="block" style={{ fontSize: 10.5, color: '#A99B89', marginTop: 3 }}>{ilYA(c.at)}</span>
+                      </span>
+                    </button>
+                    <button onClick={() => supprimerConversation(c)} aria-label="Supprimer cette conversation"
+                      className="flex flex-none items-center justify-center bg-white"
+                      style={{ width: 34, border: '1px solid #F0EAE0', borderRadius: 12, color: '#A99B89' }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 21 6" /><path d="M8 6V4h8v2" />
+                        <path d="M19 6l-1 14H6L5 6" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" />
+                      </svg>
+                    </button>
+                  </div>
                 )
               })}
-            </div>
-            <div style={{ padding: '10px 12px max(env(safe-area-inset-bottom),12px)', borderTop: '1px solid #F0EAE0' }}>
-              <button onClick={() => ouvrirConversation(null)}
-                className="w-full border-none text-white"
-                style={{ background: 'var(--primary)', borderRadius: 12, padding: '11px 12px', fontSize: 13, fontWeight: 800 }}>
-                + Nouvelle conversation
-              </button>
             </div>
           </div>
         </>
@@ -460,7 +535,7 @@ export default function AssistantChat({ question, dicter, onClose }: {
                   style={{ background: 'var(--primary)', borderRadius: 12, padding: '11px 15px', fontSize: 13, fontWeight: 800 }}>
                   Découvrir Habitant
                 </button>
-                <button onClick={onClose} className="border-none bg-transparent" style={{ fontSize: 12.5, fontWeight: 700, color: '#7A6A5A' }}>
+                <button onClick={fermer} className="border-none bg-transparent" style={{ fontSize: 12.5, fontWeight: 700, color: '#7A6A5A' }}>
                   Plus tard
                 </button>
               </div>

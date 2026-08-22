@@ -17,22 +17,22 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  * navigateur la propose (Chrome, Android), et l'appelant garde Whisper en
  * repli — Firefox et iOS ne l'implémentent pas.
  *
- * ── ON RECONSTRUIT, ON N'ACCUMULE JAMAIS ──────────────────────────────
+ * ── POURQUOI TOUT S'ÉCRIVAIT EN DOUBLE, ET PARFOIS EN TRIPLE ──────────
  *
- * Première version : chaque résultat définitif était AJOUTÉ à un texte en
- * cours. Tout se réécrivait deux ou trois fois, et voici pourquoi.
+ * `continuous` ne tient pas : un silence clôt la session, et il faut relancer
+ * pour poursuivre la phrase. La faute était de relancer LA MÊME INSTANCE.
  *
- * `continuous` ne dure pas : un silence termine la session, et il faut la
- * relancer pour poursuivre la phrase. À chaque relance, `e.results` repart de
- * zéro — mais le compteur de résultats déjà lus, lui, ne repartait pas. Selon
- * le navigateur, des résultats déjà encaissés étaient donc relus et rajoutés
- * une deuxième, puis une troisième fois.
+ * Sur Chrome et sur Android, une instance relancée ne repart pas d'une
+ * ardoise vierge : son `results` CONSERVE les phrases déjà dites. On avait
+ * donc, d'un côté, le texte des sessions précédentes qu'on avait encaissé —
+ * et de l'autre, ces mêmes phrases à nouveau présentes dans `results`. Les
+ * deux s'additionnaient. Une relance doublait, deux relances triplaient.
  *
- * Le remède n'est pas de mieux compter : c'est de ne plus compter du tout. À
- * chaque événement on RECONSTRUIT le texte entier — ce qui précédait la prise
- * de parole, les sessions déjà closes, puis la totalité de la session en
- * cours. Relire deux fois le même résultat produit alors exactement le même
- * texte. La duplication devient impossible, pas seulement improbable.
+ * D'où la règle : UNE SESSION, UNE INSTANCE. Chaque relance crée une
+ * reconnaissance neuve, dont le `results` est forcément vide, et l'ancienne
+ * est détachée de ses événements avant. Le texte, lui, se reconstruit
+ * entièrement à chaque événement — jamais par addition — si bien que relire
+ * deux fois le même résultat produit exactement le même texte.
  */
 
 interface Options {
@@ -62,11 +62,6 @@ export function useDicteeLive({ onTexte }: Options) {
     setSupporte(!!SR)
   }, [])
 
-  /** Assemble sans jamais coller deux espaces ni un espace en tête. */
-  const composer = (courant: string) =>
-    [baseRef.current, closesRef.current, courant]
-      .map(x => x.trim()).filter(Boolean).join(' ')
-
   /** Détache une instance : plus aucun de ses événements ne nous parvient. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const detacher = (rec: any) => {
@@ -74,6 +69,7 @@ export function useDicteeLive({ onTexte }: Options) {
     rec.onresult = null
     rec.onend = null
     rec.onerror = null
+    try { rec.abort?.() } catch { /* ignore */ }
     try { rec.stop() } catch { /* déjà arrêtée */ }
   }
 
@@ -91,18 +87,18 @@ export function useDicteeLive({ onTexte }: Options) {
     onTexteRef.current(baseRef.current)
   }, [arreter])
 
-  const demarrer = useCallback((texteActuel: string) => {
+  /**
+   * Ouvre UNE session. Rappelée telle quelle à chaque silence, elle crée à
+   * chaque fois une instance neuve — c'est ce qui garantit un `results` vide.
+   */
+  const ouvrirSession = useCallback((): boolean => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SR) return false
 
-    // Une instance qui traînerait continuerait d'écrire dans le champ en
+    // Toute instance qui traînerait continuerait d'écrire dans le champ en
     // parallèle de la nouvelle : c'est l'autre façon de tout dire en double.
-    if (recRef.current) { detacher(recRef.current); recRef.current = null }
-
-    baseRef.current = texteActuel.trim()
-    closesRef.current = ''
-    figeRef.current = ''
+    if (recRef.current) { const vieille = recRef.current; recRef.current = null; detacher(vieille) }
 
     const rec = new SR()
     rec.lang = 'fr-FR'
@@ -110,7 +106,7 @@ export function useDicteeLive({ onTexte }: Options) {
     // C'est CE réglage qui fait apparaître les mots pendant qu'on parle.
     rec.interimResults = true
 
-    /** Tout ce que la session en cours a produit, définitif et provisoire. */
+    /** Tout ce que CETTE session a produit, définitif et provisoire. */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sessionEntiere = (e: any): { fige: string; encours: string } => {
       let fige = '', encours = ''
@@ -130,43 +126,52 @@ export function useDicteeLive({ onTexte }: Options) {
       if (recRef.current !== rec) return
       const { fige, encours } = sessionEntiere(e)
       figeRef.current = fige
-      onTexteRef.current(composer([fige, encours].filter(Boolean).join(' ')))
+      const courant = [fige, encours].filter(Boolean).join(' ')
+      onTexteRef.current(
+        [baseRef.current, closesRef.current, courant].map(x => x.trim()).filter(Boolean).join(' '),
+      )
     }
 
-    /**
-     * Un silence clôt la session. On encaisse ce qu'elle a produit, PUIS on
-     * relance : la suivante repartira d'un `results` vide, et comme on ne
-     * conserve aucun compteur d'un cycle à l'autre, rien ne peut être relu.
-     */
     rec.onend = () => {
       if (recRef.current !== rec || !actifRef.current) return
       // L'événement de fin ne porte pas les résultats : on encaisse ce que le
-      // dernier `onresult` avait figé, et on remet le compteur de la session
-      // suivante à zéro.
+      // dernier `onresult` avait figé, puis on repart sur une instance NEUVE.
       if (figeRef.current) {
         closesRef.current = [closesRef.current, figeRef.current].filter(Boolean).join(' ')
         figeRef.current = ''
       }
-      try { rec.start() } catch { /* le navigateur a refusé : on s'arrête là */ }
+      recRef.current = null
+      detacher(rec)
+      // Un souffle avant de rouvrir : relancer dans la foulée de `onend` fait
+      // parfois échouer le démarrage sur Android.
+      setTimeout(() => { if (actifRef.current) ouvrirSession() }, 80)
     }
 
     rec.onerror = () => { /* micro refusé ou réseau : `actif` retombera */ }
 
     try {
-      // Marqué actif AVANT le démarrage : un double appui rapproché ne doit
-      // pas pouvoir ouvrir deux reconnaissances.
       recRef.current = rec
-      actifRef.current = true
-      setActif(true)
       rec.start()
       return true
     } catch {
       recRef.current = null
-      actifRef.current = false
-      setActif(false)
       return false
     }
   }, [])
+
+  const demarrer = useCallback((texteActuel: string) => {
+    if (actifRef.current) return false
+    baseRef.current = texteActuel.trim()
+    closesRef.current = ''
+    figeRef.current = ''
+    // Marqué actif AVANT le démarrage : un double appui rapproché ne doit pas
+    // pouvoir ouvrir deux reconnaissances.
+    actifRef.current = true
+    setActif(true)
+    const ok = ouvrirSession()
+    if (!ok) { actifRef.current = false; setActif(false) }
+    return ok
+  }, [ouvrirSession])
 
   useEffect(() => () => { arreter() }, [arreter])
 
