@@ -70,7 +70,12 @@ function segments(texte: string): Bout[] {
 const AV = 26   // diamètre du soleil devant une réponse
 const RETRAIT = 51  // 16 (marge) + 26 (soleil) + 9 (gouttière)
 
-export default function AssistantChat({ question, onClose }: { question: string; onClose: () => void }) {
+export default function AssistantChat({ question, dicter, onClose }: {
+  question: string
+  /** Ouvrir en écoutant : le micro de la barre a été touché, pas le champ. */
+  dicter?: boolean
+  onClose: () => void
+}) {
   const [messages, setMessages] = useState<Message[]>([])
   const [saisie, setSaisie] = useState('')
   const [enCours, setEnCours] = useState(false)
@@ -78,6 +83,8 @@ export default function AssistantChat({ question, onClose }: { question: string;
   const [quotaEpuise, setQuotaEpuise] = useState<string | null>(null)
   const [offreOuverte, setOffreOuverte] = useState(false)
   const [cherche, setCherche] = useState(false)
+  /** État du micro — c'est lui qui fait battre le bouton en rouge. */
+  const [micEtat, setMicEtat] = useState<'idle' | 'recording' | 'transcribing'>('idle')
   const finRef = useRef<HTMLDivElement>(null)
   const micRef = useRef<MicButtonHandle>(null)
   const envoiRef = useRef<(q: string) => void>(() => {})
@@ -149,10 +156,13 @@ export default function AssistantChat({ question, onClose }: { question: string;
 
   envoiRef.current = envoyer
 
-  // La question posée dans la barre part toute seule, une fois.
+  // La question posée dans la barre part toute seule, une fois. Si on est
+  // entré par le micro, on n'envoie rien : on se met à écouter, et la
+  // personne relit avant d'envoyer.
   useEffect(() => {
-    trackEvent('assistant_ouvert', { depuis: 'barre' })
+    trackEvent('assistant_ouvert', { depuis: dicter ? 'micro' : 'barre' })
     if (question.trim()) envoiRef.current(question)
+    else if (dicter) setTimeout(() => micRef.current?.start(), 250)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -178,6 +188,22 @@ export default function AssistantChat({ question, onClose }: { question: string;
 
       {/* Le fil */}
       <div className="flex-1 overflow-y-auto" style={{ padding: '14px 0 6px' }}>
+        {/* Entrée par le micro : rien n'a encore été dit. On accueille au
+            lieu de laisser un écran blanc, et on rappelle ce qu'on sait. */}
+        {messages.length === 0 && (
+          <div style={{ margin: '0 16px 12px', display: 'flex', gap: 9 }}>
+            <span className="flex flex-none items-center justify-center"
+              style={{ width: AV, height: AV, borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', marginTop: 2 }}>
+              <Soleil size={14} rayons={4} />
+            </span>
+            <div style={{ flex: 1, fontSize: 14, lineHeight: 1.55 }}>
+              {micEtat === 'recording'
+                ? 'Je vous écoute. Dites ce que vous cherchez, puis relisez avant d’envoyer.'
+                : 'Dites-moi ce que vous cherchez : une sortie, un artisan, un film, un bon plan, ou une question sur l’application.'}
+            </div>
+          </div>
+        )}
+
         {messages.map((m, i) => (
           m.role === 'user' ? (
             <div key={i} style={{ margin: '0 16px 14px', display: 'flex', justifyContent: 'flex-end' }}>
@@ -246,22 +272,38 @@ export default function AssistantChat({ question, onClose }: { question: string;
             value={saisie}
             onChange={e => setSaisie(e.target.value.slice(0, 500))}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); envoyer(saisie) } }}
-            placeholder={quotaEpuise ? 'Conversations de découverte épuisées' : 'Continuer la discussion…'}
+            placeholder={
+              quotaEpuise ? 'Conversations de découverte épuisées'
+                : micEtat === 'recording' ? 'Je vous écoute…'
+                : micEtat === 'transcribing' ? 'Un instant…'
+                : 'Continuer la discussion…'
+            }
             disabled={!!quotaEpuise}
             className="flex-1 border-none bg-transparent outline-none"
             style={{ fontSize: 13.5, color: 'var(--texte)' }}
           />
           {/* La dictée passe par le micro déjà utilisé partout dans l'app :
-              même enregistrement, même transcription, même quota. */}
+              même enregistrement, même transcription, même quota. Elle ÉCRIT
+              dans le champ — on se relit, on corrige, puis on envoie. Une
+              phrase dictée part rarement juste du premier coup. */}
           <button type="button" onClick={() => micRef.current?.toggle()}
-            aria-label="Dicter" className="flex-none border-none bg-transparent"
-            style={{ color: micRef.current?.state === 'recording' ? '#C84B2F' : '#A99B89', lineHeight: 0 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
-              <path d="M19 11v1a7 7 0 0 1-14 0v-1" /><line x1="12" y1="19" x2="12" y2="22" />
-            </svg>
+            aria-label={micEtat === 'recording' ? 'Arrêter la dictée' : 'Dicter'}
+            className="flex-none border-none bg-transparent"
+            style={{ color: micEtat === 'recording' ? '#C84B2F' : '#A99B89', lineHeight: 0 }}>
+            {micEtat === 'transcribing' ? (
+              <span className="inline-block animate-spin"
+                style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid #E3D9C8', borderTopColor: '#7A6A5A' }} />
+            ) : micEtat === 'recording' ? (
+              <span className="inline-block animate-pulse" style={{ width: 13, height: 13, borderRadius: 3, background: '#C84B2F' }} />
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
+                <path d="M19 11v1a7 7 0 0 1-14 0v-1" /><line x1="12" y1="19" x2="12" y2="22" />
+              </svg>
+            )}
           </button>
-          <MicButton ref={micRef} hidden onTranscript={t => { if (t?.trim()) envoyer(t) }} />
+          <MicButton ref={micRef} hidden onStateChange={setMicEtat}
+            onTranscript={t => { if (t?.trim()) setSaisie(p => (p ? `${p} ${t.trim()}` : t.trim())) }} />
         </div>
         <button
           onClick={() => envoyer(saisie)}

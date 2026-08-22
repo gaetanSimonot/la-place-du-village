@@ -291,21 +291,48 @@ async function evenements(a: Args): Promise<ResultatOutil> {
 /* ─── Établissements ───────────────────────────────────────────────────── */
 
 /**
- * Variantes d'un mot cherché, du plus précis au plus large.
+ * Le mot cherché, décliné du plus précis au plus large.
  *
- * Un métier ne s'écrit jamais comme on le cherche : les fiches disent
- * « Electricité », « Plomberie », « Pizzeria », les gens tapent
- * « électricien », « plombier », « pizza ». On désaccentue, puis on raccourcit
- * par paliers jusqu'au radical. La cascade s'arrête dès qu'une variante
- * trouve : on ne s'élargit que faute de mieux.
+ * Un métier ne s'écrit jamais comme on le cherche. Les fiches disent
+ * « Electricité », « Sageot Electricite », « V.elec », « PIC ELEC »,
+ * « Fred'elec » ; les gens tapent « électricien ». Sur ce seul métier :
+ * « electricien » trouve 2 fiches, « electr » en trouve 7, « elec » en
+ * trouve 18. Le radical court est donc le SEUL qui voit tout le monde.
+ *
+ * On interroge avec le plus large, et on reclasse ensuite : c'est le
+ * scoring qui remet la précision devant, pas la requête.
  */
 function variantes(terme: string): string[] {
-  const nu = terme.normalize('NFD').replace(/[̀-ͯ]/g, '')
+  const nu = terme.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   const mots = nu.split(/\s+/).filter(m => m.length > 2)
   const porteur = mots.sort((x, y) => y.length - x.length)[0] ?? nu
-  const out = [terme, porteur]
+  const out = [nu, porteur]
   for (const n of [6, 4]) if (porteur.length > n) out.push(porteur.slice(0, n))
   return Array.from(new Set(out.filter(Boolean)))
+}
+
+const sansAccent = (v: unknown) =>
+  String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
+/**
+ * À quel point cette fiche répond-elle au mot cherché ?
+ *
+ * La requête part large pour ne rater personne ; le classement remet
+ * l'ordre. Une fiche qui porte le mot entier passe devant celle qui n'a que
+ * le radical, et le nom compte plus que la description — « Sageot
+ * Electricite » est un électricien, un restaurant dont la description
+ * mentionne un électricien ne l'est pas.
+ */
+function pertinence(ligne: Record<string, unknown>, termes: string[]): number {
+  const nom = sansAccent(ligne.nom)
+  const desc = sansAccent(ligne.description_courte) + ' ' + sansAccent(ligne.description_longue)
+  let score = 0
+  termes.forEach((t, i) => {
+    const poids = termes.length - i          // le terme le plus précis pèse le plus
+    if (nom.includes(t)) score += poids * 3
+    else if (desc.includes(t)) score += poids
+  })
+  return score
 }
 
 /**
@@ -314,10 +341,10 @@ function variantes(terme: string): string[] {
  * Passe par `assistant_etablissements` en base : c'est la seule façon de
  * désaccentuer des deux côtés, et c'est ce qui manquait — « électricien » ne
  * trouvait pas « Electricité », donc l'assistant répondait qu'il n'y avait
- * aucun électricien dans un village qui en compte cinq.
+ * aucun électricien dans un village qui en compte dix-huit.
  *
  * Si la fonction n'existe pas encore (migration non jouée), on retombe sur
- * l'ancienne recherche : dégradée, mais l'assistant continue de répondre.
+ * une requête directe : dégradée sur les accents, mais même logique.
  */
 async function etablissements(a: Args): Promise<ResultatOutil> {
   const texte = texteDe(a, 'texte')
@@ -325,45 +352,56 @@ async function etablissements(a: Args): Promise<ResultatOutil> {
   const type = typeof a.type === 'string' && a.type !== 'producteur' ? a.type : null
   const veutProducteurs = a.type === 'producteur' || !type
 
+  const termes = texte ? variantes(texte) : []
+  // Le plus court englobe tous les autres : une seule requête suffit.
+  const large = termes.length ? termes[termes.length - 1] : null
+  const LARGE_MAX = 30
+
   let lignes: Record<string, unknown>[] = []
   let repli = false
 
-  for (const v of texte ? variantes(texte) : [null]) {
-    const { data, error } = await supabaseAdmin.rpc('assistant_etablissements', {
-      terme: v, type_filtre: type, commune_filtre: commune, lim: MAX,
-    })
-    if (error) { repli = true; break }
-    if (data?.length) { lignes = data as Record<string, unknown>[]; break }
-  }
+  const rpc = await supabaseAdmin.rpc('assistant_etablissements', {
+    terme: large, type_filtre: type, commune_filtre: commune, lim: LARGE_MAX,
+  })
+  if (rpc.error) repli = true
+  else lignes = (rpc.data ?? []) as Record<string, unknown>[]
 
   if (repli) {
-    // Tant que la migration n'est pas jouée : même cascade de variantes, sans
-    // la désaccentuation. « électricien » échoue encore, « electr » passe.
-    for (const v of texte ? variantes(texte) : [null]) {
-      let q = supabaseAdmin.from('etablissements').select('*').limit(MAX)
-      if (type) q = q.eq('type', type)
-      if (commune) q = q.ilike('commune', `%${echapper(commune)}%`)
-      if (v) {
-        const t = `%${echapper(v)}%`
-        q = q.or(`nom.ilike.${t},description_courte.ilike.${t},description_longue.ilike.${t}`)
-      }
-      const { data } = await q
-      if (data?.length) { lignes = data as Record<string, unknown>[]; break }
+    let q = supabaseAdmin.from('etablissements').select('*').limit(LARGE_MAX)
+    if (type) q = q.eq('type', type)
+    if (commune) q = q.ilike('commune', `%${echapper(commune)}%`)
+    if (large) {
+      const t = `%${echapper(large)}%`
+      q = q.or(`nom.ilike.${t},description_courte.ilike.${t},description_longue.ilike.${t}`)
     }
+    const { data } = await q
+    lignes = (data ?? []) as Record<string, unknown>[]
   }
 
   // Les producteurs vivent dans une autre table, mais un producteur EST un
   // commerce local : « du fromage de chèvre » doit le trouver.
   let prods: Record<string, unknown>[] = []
   if (veutProducteurs && !repli) {
-    for (const v of texte ? variantes(texte) : [null]) {
-      const { data, error } = await supabaseAdmin.rpc('assistant_producteurs', {
-        terme: v, commune_filtre: commune, lim: 6,
-      })
-      if (error) break
-      if (data?.length) { prods = data as Record<string, unknown>[]; break }
-    }
+    const r = await supabaseAdmin.rpc('assistant_producteurs', {
+      terme: large, commune_filtre: commune, lim: 8,
+    })
+    if (!r.error) prods = (r.data ?? []) as Record<string, unknown>[]
   }
+
+  const enAvant = (e: Record<string, unknown>) => e.is_featured === true || e.plan === 'pro'
+
+  // Mises en avant d'abord — elles restent NOMMÉES dans la réponse, jamais
+  // traduites en jugement. Puis la pertinence, puis la note.
+  if (termes.length) {
+    lignes.sort((x, y) =>
+      Number(enAvant(y)) - Number(enAvant(x)) ||
+      pertinence(y, termes) - pertinence(x, termes) ||
+      Number(y.note_google ?? 0) - Number(x.note_google ?? 0))
+    prods.sort((x, y) => pertinence(y, termes) - pertinence(x, termes))
+  }
+
+  lignes = lignes.slice(0, MAX)
+  prods = prods.slice(0, 4)
 
   const cartes: Carte[] = [
     ...lignes.map(e => ({ type: 'etab' as const, id: String(e.id), data: e })),
@@ -380,7 +418,7 @@ async function etablissements(a: Args): Promise<ResultatOutil> {
           commune: e.commune,
           note: e.note_google,
           resume: e.description_courte ? String(e.description_courte).slice(0, 140) : null,
-          mis_en_avant: e.is_featured === true || e.plan === 'pro',
+          mis_en_avant: enAvant(e),
         })),
         ...prods.map(p => ({
           id: p.id,

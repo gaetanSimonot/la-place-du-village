@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
+import { useState, useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { supabase } from '@/lib/supabase'
 
 interface Props {
@@ -7,6 +7,12 @@ interface Props {
   className?: string
   /** Si true, le bouton interne est invisible (utile quand on déclenche via ref depuis un parent). */
   hidden?: boolean
+  /**
+   * Suit l'état de l'enregistrement. Nécessaire quand le bouton visible est
+   * dessiné par le parent (`hidden`) : sans ça, rien ne montre à la personne
+   * qu'on est en train de l'écouter.
+   */
+  onStateChange?: (state: 'idle' | 'recording' | 'transcribing') => void
 }
 
 export interface MicButtonHandle {
@@ -18,11 +24,13 @@ export interface MicButtonHandle {
 
 type State = 'idle' | 'recording' | 'transcribing'
 
-const MicButton = forwardRef<MicButtonHandle, Props>(({ onTranscript, className = '', hidden = false }, ref) => {
+const MicButton = forwardRef<MicButtonHandle, Props>(({ onTranscript, className = '', hidden = false, onStateChange }, ref) => {
   const [state, setState] = useState<State>('idle')
   const [error, setError] = useState<string | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef   = useRef<Blob[]>([])
+
+  useEffect(() => { onStateChange?.(state) }, [state, onStateChange])
 
   const start = useCallback(async () => {
     setError(null)

@@ -1,7 +1,6 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import MicButton, { type MicButtonHandle } from '@/components/MicButton'
 import AssistantChat from '@/components/assistant/AssistantChat'
 import Soleil from '@/components/assistant/Soleil'
 
@@ -44,7 +43,8 @@ export default function BarreAssistant() {
   const [ouvert, setOuvert] = useState(false)
   const [saisie, setSaisie] = useState('')
   const [question, setQuestion] = useState<string | null>(null)
-  const micRef = useRef<MicButtonHandle>(null)
+  /** Ouvert par le micro : la conversation démarre en écoutant. */
+  const [parLaVoix, setParLaVoix] = useState(false)
   const [sugs] = useState(suggestions)
 
   useEffect(() => {
@@ -68,7 +68,19 @@ export default function BarreAssistant() {
     const t = q.trim()
     if (!t) return
     setSaisie('')
+    setParLaVoix(false)
     setQuestion(t)
+  }
+
+  /**
+   * Le micro n'enregistre PAS ici : il ouvre la conversation, qui prend le
+   * relais et écrit dans son propre champ. Parler doit mener au même endroit
+   * que taper — un fil qu'on relit, qu'on corrige, et qu'on envoie soi-même.
+   */
+  const dicter = () => {
+    setSaisie('')
+    setParLaVoix(true)
+    setQuestion('')
   }
 
   return (
@@ -108,7 +120,7 @@ export default function BarreAssistant() {
               <>
                 {/* La dictée ouvre la conversation avec ce qui a été dit :
                     parler est souvent plus simple que taper une phrase. */}
-                <button type="button" onClick={() => micRef.current?.toggle()} aria-label="Dicter"
+                <button type="button" onClick={dicter} aria-label="Dicter"
                   className="flex-none border-none bg-transparent"
                   style={{ color: '#A99B89', lineHeight: 0 }}>
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
@@ -116,7 +128,6 @@ export default function BarreAssistant() {
                     <path d="M19 11v1a7 7 0 0 1-14 0v-1" /><line x1="12" y1="19" x2="12" y2="22" />
                   </svg>
                 </button>
-                <MicButton ref={micRef} hidden onTranscript={t => lancer(t)} />
               </>
             )}
           </div>
@@ -133,7 +144,9 @@ export default function BarreAssistant() {
         </div>
       </div>
 
-      {question !== null && <AssistantChat question={question} onClose={() => setQuestion(null)} />}
+      {question !== null && (
+        <AssistantChat question={question} dicter={parLaVoix} onClose={() => setQuestion(null)} />
+      )}
     </>
   )
 }
