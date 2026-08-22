@@ -25,6 +25,8 @@ interface Evenement {
   categorie: string | null
   /** Sous-libellé libre — « ciné-débat ». Préféré à la catégorie quand il existe. */
   categorie_libre: string | null
+  /** Où ça se passe. Presque toujours la salle, parfois la place du village. */
+  lieu: { nom: string | null; adresse: string | null; commune: string | null } | null
 }
 interface Payload {
   cinemas: { id: string; nom: string; commune: string | null; slug: string | null }[]
@@ -333,6 +335,16 @@ function ListeSeances({ jour, liste, films, billetterie, sansBandeau }: {
               style={{ width: 50, paddingRight: 13, borderRight: '1px solid rgba(250,251,250,.12)', fontSize: 15, fontWeight: 800, color: 'var(--cine-accent2)' }}>
               {formatHeure(s.heure)}
             </span>
+            {/* L'affiche en tout petit : on reconnaît un film à son image
+                avant de lire son titre. Calée sur la hauteur du texte pour
+                que la ligne garde exactement sa taille. */}
+            <span className="flex-none overflow-hidden"
+              style={{ width: 23, height: 34, borderRadius: 4, background: 'rgba(157,207,238,.1)', border: '1px solid rgba(157,207,238,.14)' }}>
+              {f?.affiche_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={f.affiche_url} alt="" className="h-full w-full object-cover" loading="lazy" />
+              )}
+            </span>
             <div className="min-w-0 flex-1">
               <Link href={`/cinema/film/${s.film_id}`} className="block truncate no-underline"
                 style={{ fontSize: 13.5, fontWeight: 600, letterSpacing: '-.01em', color: 'var(--cine-ink)' }}>
@@ -404,6 +416,7 @@ function Evenements({ liste }: { liste: Evenement[] }) {
           <h3 className="m-0 font-title" style={{ marginTop: 10, fontSize: 20, fontWeight: 700, lineHeight: 1.2, color: 'var(--cine-ink)' }}>{phare.titre}</h3>
           <div style={{ marginTop: 8, fontSize: 12.5, color: 'var(--cine-dim)', lineHeight: 1.5 }}>
             {jourLong(phare.date_debut)}{phare.heure ? ` · ${formatHeure(phare.heure)}` : ''}
+            {phare.lieu?.nom && <><br />{[phare.lieu.nom, phare.lieu.commune].filter(Boolean).join(' · ')}</>}
           </div>
           <span className="inline-flex items-center"
             style={{ marginTop: 14, gap: 7, borderRadius: 9, background: 'var(--cine-accent)', color: '#0E1620', padding: '10px 14px', fontSize: 12.5, fontWeight: 800 }}>
@@ -415,6 +428,10 @@ function Evenements({ liste }: { liste: Evenement[] }) {
       <div className="flex flex-col gap-2.5" style={{ margin: '12px 18px 0' }}>
         {suite.map(e => {
           const { nom, num } = jourCourt(e.date_debut)
+          // Le nom du lieu suffit s'il est parlant ; sinon l'adresse prend le
+          // relais. Les répéter tous les deux allongerait la carte pour rien.
+          const lieu = [e.lieu?.nom, e.lieu?.commune ?? e.lieu?.adresse]
+            .filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(' · ') || null
           return (
             <Link key={e.id} href={`/evenement/${e.id}`} className="flex overflow-hidden no-underline"
               style={{ borderRadius: 13, background: 'var(--cine-panel)', border: '1px solid rgba(250,251,250,.07)' }}>
@@ -433,7 +450,23 @@ function Evenements({ liste }: { liste: Evenement[] }) {
                 <div style={{ marginTop: 4, fontSize: 11.5, color: 'var(--cine-dim2)' }}>
                   {jourLong(e.date_debut)}{e.heure ? ` · ${formatHeure(e.heure)}` : ''}
                 </div>
+                {lieu && (
+                  <div className="flex items-center gap-1 truncate" style={{ marginTop: 3, fontSize: 11, color: 'var(--cine-dim2)' }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none', opacity: .7 }}>
+                      <path d="M12 22s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="10" r="2.5"/>
+                    </svg>
+                    <span className="truncate">{lieu}</span>
+                  </div>
+                )}
               </div>
+              {/* La photo de l'événement, format carte plutôt qu'affiche : ce
+                  n'est pas un film, c'est une soirée. */}
+              {e.image_url && (
+                <span className="flex-none self-stretch overflow-hidden" style={{ width: 74, borderLeft: '1px solid rgba(250,251,250,.07)' }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={e.image_url} alt="" className="h-full w-full object-cover" loading="lazy" />
+                </span>
+              )}
             </Link>
           )
         })}

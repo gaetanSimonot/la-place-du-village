@@ -2,7 +2,7 @@
 import { useMemo } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
-import type { Cinema, Film, Seance } from '@/lib/cinema'
+import type { Cinema, Film, Seance, VisibiliteCinema } from '@/lib/cinema'
 
 /**
  * « À l'affiche » sur la fiche d'un établissement qui a le module cinéma.
@@ -13,17 +13,23 @@ import type { Cinema, Film, Seance } from '@/lib/cinema'
  *
  * Le composant disparaît s'il n'y a rien à l'affiche : une fiche ne doit pas
  * afficher un cadre vide.
+ *
+ * Visibilité : le même réglage à trois états que le bloc du Village, et le
+ * même interrupteur en admin. Tant que le cinéma est en rodage, le public ne
+ * doit pas tomber dessus par la fiche de l'établissement — un seul endroit à
+ * cocher, deux endroits qui obéissent.
  */
 
 interface Payload {
   cinema: Cinema | null
   films: Film[]
   seances: Seance[]
+  villageVisibilite: VisibiliteCinema
 }
 
 const fetcher = (u: string) => fetch(u).then(r => r.json())
 
-export default function AlAfficheEtab({ etabId }: { etabId: string }) {
+export default function AlAfficheEtab({ etabId, isAdmin = false }: { etabId: string; isAdmin?: boolean }) {
   // L'API accepte l'id aussi bien que le slug : on passe l'id, seule clé dont
   // on soit certain ici.
   const { data } = useSWR<Payload>(`/api/cinema?cinema=${encodeURIComponent(etabId)}`, fetcher, {
@@ -42,6 +48,12 @@ export default function AlAfficheEtab({ etabId }: { etabId: string }) {
     }
     return out
   }, [data])
+
+  // Réglage de visibilité — masqué l'emporte sur tout, y compris pour un admin.
+  if (data) {
+    if (data.villageVisibilite === 'masque') return null
+    if (data.villageVisibilite === 'admin' && !isAdmin) return null
+  }
 
   // La fiche demandée n'est pas celle qu'on a reçue : le module a été retiré
   // entre-temps, ou l'identifiant ne correspond plus. On n'affiche rien.

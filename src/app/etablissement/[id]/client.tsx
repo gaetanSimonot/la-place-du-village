@@ -724,7 +724,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
         {/* À l'affiche — la porte d'entrée de la salle, posée dans la fiche.
             Le composant se retire de lui-même si le programme est vide. */}
         {(etab as { module_cinema?: boolean }).module_cinema && (
-          <AlAfficheEtab etabId={etab.id} />
+          <AlAfficheEtab etabId={etab.id} isAdmin={isAdmin} />
         )}
 
         {/* Module Cinéma — ADMIN uniquement. Ce n'est pas une option publique :

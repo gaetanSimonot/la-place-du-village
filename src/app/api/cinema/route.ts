@@ -78,19 +78,28 @@ export async function GET(req: NextRequest) {
   // du village : on les rappelle ici, elles ne vivent pas dans `seances`.
   const { data: evenements } = await supabaseAdmin
     .from('evenements')
-    .select('id, titre, date_debut, heure, image_url, categorie, categorie_libre, film_id')
+    .select('id, titre, date_debut, heure, image_url, categorie, categorie_libre, film_id, lieu_id')
     .eq('etablissement_id', cinema.id)
     .eq('statut', 'publie')
     .gte('date_debut', aujourdhui)
     .order('date_debut')
     .limit(20)
 
+  // Où ça se passe. Presque toujours le cinéma lui-même, mais pas toujours —
+  // un ciné plein air se joue sur la place. Deuxième requête plutôt qu'une
+  // jointure, même raison que pour les films.
+  const lieuIds = Array.from(new Set((evenements ?? []).map(e => e.lieu_id).filter(Boolean))) as string[]
+  const { data: lieuxRows } = lieuIds.length
+    ? await supabaseAdmin.from('lieux').select('id, nom, adresse, commune').in('id', lieuIds)
+    : { data: [] }
+  const parLieu = new Map((lieuxRows ?? []).map(l => [l.id, l]))
+
   return NextResponse.json({
     cinemas: cinemas.map(c => ({ id: c.id, nom: c.nom, commune: c.commune, slug: c.slug })),
     cinema,
     films,
     seances,
-    evenements: evenements ?? [],
+    evenements: (evenements ?? []).map(e => ({ ...e, lieu: e.lieu_id ? parLieu.get(e.lieu_id) ?? null : null })),
     aujourdhui,
     villageVisibilite,
   }, { headers: { 'Cache-Control': 'no-store' } })
