@@ -1,9 +1,7 @@
 'use client'
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
 import ClientPortal from '@/components/ClientPortal'
-import { trackEvent } from '@/lib/analytics'
+import { useFavori } from '@/hooks/useFavori'
 import type { CarteData } from '@/components/assistant/CarteResultat'
 import { imageEvenement } from '@/lib/imageEvenement'
 
@@ -50,8 +48,9 @@ function jourLong(iso: string | null): string {
 export default function ApercuFiche({ carte, onClose }: Props) {
   const d = carte.data
   const route = ROUTES[carte.type] ?? ROUTES.etab
-  const [favori, setFavori] = useState<boolean | null>(null)
-  const [busy, setBusy] = useState(false)
+  // Le MÊME état que le cœur de la carte : garder une fiche d'un côté doit
+  // se voir de l'autre, et rouvrir l'aperçu ne doit rien redemander.
+  const { possible, garde, connu, busy, basculer } = useFavori(carte.type, carte.id, carte.data.favori)
 
   const titre = s(d.nom) ?? s(d.titre) ?? s(d.title) ?? 'Fiche'
   // Pour un événement, le helper de l'app décide : il connaît les
@@ -61,48 +60,6 @@ export default function ApercuFiche({ carte, onClose }: Props) {
     : null)
     ?? s(d.image_url) ?? s(d.affiche_url) ?? premiere(d.photos)
     ?? premiere((d.etablissement as Record<string, unknown> | null)?.photos)
-
-  // L'état du favori est celui du serveur : le cœur ne doit pas mentir.
-  useEffect(() => {
-    if (!route.api) return
-    let annule = false
-    ;(async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) { if (!annule) setFavori(false); return }
-        const r = await fetch(`/api/${route.api}/${carte.id}/favorite`, {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        })
-        const j = await r.json().catch(() => null)
-        if (!annule) setFavori(!!j?.favorited)
-      } catch { if (!annule) setFavori(false) }
-    })()
-    return () => { annule = true }
-  }, [carte.id, route.api])
-
-  async function basculerFavori() {
-    if (!route.api || busy) return
-    setBusy(true)
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        // Sans compte, on ne peut rien garder : on le dit plutôt que de faire
-        // semblant, et la fiche reste ouverte.
-        alert('Créez un compte pour garder vos favoris.')
-        return
-      }
-      const r = await fetch(`/api/${route.api}/${carte.id}/favorite`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      })
-      const j = await r.json().catch(() => null)
-      if (r.ok) {
-        setFavori(!!j?.favorited)
-        trackEvent('assistant_favori', { type: carte.type })
-        if (j?.favorited) window.dispatchEvent(new CustomEvent('lpv:favori'))
-      }
-    } finally { setBusy(false) }
-  }
 
   /* Les quelques lignes qui aident vraiment à décider, selon la nature. */
   const lignes: string[] = []
@@ -168,18 +125,18 @@ export default function ApercuFiche({ carte, onClose }: Props) {
           </div>
 
           <div className="flex items-center gap-2" style={{ padding: '14px 16px 16px' }}>
-            {route.api && (
-              <button onClick={basculerFavori} disabled={busy}
+            {possible && connu && (
+              <button onClick={() => { carte.data.favori = !garde; void basculer() }} disabled={busy}
                 className="flex flex-none items-center justify-center gap-2 bg-white"
                 style={{
-                  border: `1px solid ${favori ? '#F0B0A0' : 'var(--bord)'}`, borderRadius: 12,
+                  border: `1px solid ${garde ? '#F0B0A0' : 'var(--bord)'}`, borderRadius: 12,
                   padding: '11px 14px', fontSize: 13, fontWeight: 800,
-                  color: favori ? '#C84B2F' : '#5A4C3E',
+                  color: garde ? '#C84B2F' : '#5A4C3E', opacity: busy ? 0.6 : 1,
                 }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill={favori ? '#C84B2F' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill={garde ? '#C84B2F' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8l8.8 8.8 8.8-8.8a5.5 5.5 0 0 0 0-7.8z" />
                 </svg>
-                {favori ? 'Gardé' : 'Garder'}
+                {garde ? 'Gardé' : 'Garder'}
               </button>
             )}
             <Link href={route.page(carte.id)} onClick={onClose}

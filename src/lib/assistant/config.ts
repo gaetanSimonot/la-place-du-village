@@ -22,7 +22,13 @@ export const GANGES_LNG = GANGES.lng
  * modèle — ni de celui d'aujourd'hui, ni de celui qui sera meilleur marché
  * dans six mois.
  */
-export const MODELE = 'claude-sonnet-5'
+export const MODELE_DEFAUT = 'gpt-4.1-mini'
+
+/**
+ * Rétro-compatibilité : le nom historique, encore lu par quelques appelants
+ * qui n'ont pas besoin du réglage vivant (calcul de coût par défaut).
+ */
+export const MODELE = MODELE_DEFAUT
 
 /**
  * Les modèles qu'un admin peut essayer depuis l'en-tête de la conversation.
@@ -75,6 +81,13 @@ export function promptDuModele(modele: string = MODELE): string {
  */
 export const MAX_TOKENS_REPONSE = 1800
 
+export interface Reglages {
+  quotas: Quotas
+  visibilite: Visibilite
+  /** Le modèle en service, pour TOUT LE MONDE. */
+  modele: string
+}
+
 export interface Quotas {
   gratuites: number
   habitants_jour: number
@@ -99,7 +112,7 @@ const DEFAUTS: Quotas = {
 
 export type Visibilite = 'masque' | 'admin' | 'tous'
 
-let cache: { at: number; quotas: Quotas; visibilite: Visibilite } | null = null
+let cache: { at: number; valeurs: Reglages } | null = null
 const TTL = 60_000
 
 /**
@@ -107,13 +120,13 @@ const TTL = 60_000
  * Une valeur absente ou aberrante retombe sur le défaut : un JSON mal saisi
  * dans l'admin ne doit pas fermer l'assistant.
  */
-export async function reglages(): Promise<{ quotas: Quotas; visibilite: Visibilite }> {
+export async function reglages(): Promise<Reglages> {
   const now = Date.now()
-  if (cache && now - cache.at < TTL) return { quotas: cache.quotas, visibilite: cache.visibilite }
+  if (cache && now - cache.at < TTL) return cache.valeurs
 
   const { data } = await supabaseAdmin
     .from('config').select('key, value')
-    .in('key', ['assistant_quotas', 'assistant_visibilite'])
+    .in('key', ['assistant_quotas', 'assistant_visibilite', 'assistant_modele'])
 
   const brut = new Map((data ?? []).map(r => [r.key, r.value]))
 
@@ -130,8 +143,19 @@ export async function reglages(): Promise<{ quotas: Quotas; visibilite: Visibili
   const v = brut.get('assistant_visibilite')
   const visibilite: Visibilite = v === 'tous' ? 'tous' : v === 'masque' ? 'masque' : 'admin'
 
-  cache = { at: now, quotas, visibilite }
-  return { quotas, visibilite }
+  /**
+   * Le modèle vient de la base, pas du code.
+   *
+   * Un admin le change depuis l'en-tête de la conversation, et le changement
+   * vaut pour TOUT LE MONDE — c'est un réglage de service, pas une
+   * préférence personnelle. Un nom inconnu retombe sur le défaut : une
+   * valeur mal saisie ne doit pas éteindre l'assistant.
+   */
+  const modele = modeleAutorise(brut.get('assistant_modele')) ?? MODELE_DEFAUT
+
+  const valeurs: Reglages = { quotas, visibilite, modele }
+  cache = { at: now, valeurs }
+  return valeurs
 }
 
 /** Après une écriture admin, la valeur doit être vue tout de suite. */

@@ -150,8 +150,6 @@ export default function AssistantChat({ question, dicter, onClose }: {
   /** Les modèles qu'on peut essayer, et le menu pour en changer. */
   const [modeles, setModeles] = useState<{ id: string; label: string; note: string }[]>([])
   const [menuModele, setMenuModele] = useState(false)
-  /** Le choix d'essai, gardé sur l'appareil : on reprend là où on testait. */
-  const [essai, setEssai] = useState<string | null>(null)
   const finRef = useRef<HTMLDivElement>(null)
   const filRef = useRef<HTMLDivElement>(null)
   /** Suit-on la rédaction, ou l'a-t-on quittée des yeux pour relire plus haut ? */
@@ -165,8 +163,6 @@ export default function AssistantChat({ question, dicter, onClose }: {
   /** A-t-on posé une entrée d'historique en s'ouvrant ? */
   const parHistorique = useRef(false)
   const envoiRef = useRef<(q: string) => void>(() => {})
-  const essaiRef = useRef<string | null>(null)
-  essaiRef.current = essai
   /** Le total en cours, lu au moment d'enregistrer — pas au rendu. */
   const coutRef = useRef(0)
   coutRef.current = cout
@@ -248,11 +244,7 @@ export default function AssistantChat({ question, dicter, onClose }: {
           'Content-Type': 'application/json',
           ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
-        body: JSON.stringify({
-          message: q, conversationId: convRef.current, anonId: anonId(),
-          // Réservé aux admins côté serveur : ailleurs, ce champ est ignoré.
-          modele: essaiRef.current ?? undefined,
-        }),
+        body: JSON.stringify({ message: q, conversationId: convRef.current, anonId: anonId() }),
       })
 
       if (!res.ok || !res.body) {
@@ -323,7 +315,6 @@ export default function AssistantChat({ question, dicter, onClose }: {
     trackEvent('assistant_ouvert', { depuis: dicter ? 'micro' : 'barre' })
     setConversations(lireConversations())
 
-    try { setEssai(localStorage.getItem('lpv_assistant_modele')) } catch { /* noop */ }
     ;(async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
@@ -475,7 +466,7 @@ export default function AssistantChat({ question, dicter, onClose }: {
                 // on voit le prix bouger dans la conversation suivante.
                 <button onClick={() => setMenuModele(o => !o)}
                   className="border-none bg-transparent p-0"
-                  style={{ color: essai ? 'var(--primary)' : '#A99B89', fontSize: 10.5, fontWeight: essai ? 800 : 400 }}>
+                  style={{ color: '#A99B89', fontSize: 10.5 }}>
                   {' · '}{modele.replace(/^claude-/, '')} ▾
                 </button>
               ) : (
@@ -507,10 +498,21 @@ export default function AssistantChat({ question, dicter, onClose }: {
             const actif = m.id === modele
             return (
               <button key={m.id}
-                onClick={() => {
-                  const choix = m.id
-                  setEssai(choix); setModele(choix); setMenuModele(false)
-                  try { localStorage.setItem('lpv_assistant_modele', choix) } catch { /* noop */ }
+                onClick={async () => {
+                  setModele(m.id); setMenuModele(false)
+                  // Réglage de SERVICE : ce qu'on choisit ici vaut pour tous
+                  // les habitants, pas seulement pour cet appareil.
+                  try {
+                    const { data: { session } } = await supabase.auth.getSession()
+                    await fetch('/api/assistant', {
+                      method: 'PATCH',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+                      },
+                      body: JSON.stringify({ modele: m.id }),
+                    })
+                  } catch { /* le message suivant dira si ça n'a pas pris */ }
                 }}
                 className="mb-1.5 flex w-full items-center gap-2.5 text-left"
                 style={{
@@ -525,8 +527,8 @@ export default function AssistantChat({ question, dicter, onClose }: {
             )
           })}
           <p className="m-0" style={{ fontSize: 10.5, color: '#A99B89', lineHeight: 1.4 }}>
-            Votre essai à vous : les habitants gardent le modèle du projet.
-            Le changement s’applique au prochain message.
+            Réglage du service : votre choix s’applique à tous les habitants,
+            dès le prochain message.
           </p>
         </div>
       )}

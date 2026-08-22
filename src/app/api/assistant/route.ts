@@ -3,7 +3,7 @@ import { createHash } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getUserContextFromRequest } from '@/lib/server-auth'
 import { rateLimit } from '@/lib/rateLimit'
-import { reglages, ouvertA, MODELE, MODELES_ESSAI, modeleAutorise } from '@/lib/assistant/config'
+import { reglages, ouvertA, MODELES_ESSAI, modeleAutorise, viderCacheReglages } from '@/lib/assistant/config'
 import { ouvrirOuReprendre, historique, enregistrerTour } from '@/lib/assistant/conversation'
 import { repondre } from '@/lib/assistant/llm'
 import type { Carte } from '@/lib/assistant/outils'
@@ -40,18 +40,42 @@ export const maxDuration = 60
  * de montrer une porte fermée pendant le rodage.
  */
 export async function GET(req: NextRequest) {
-  const { visibilite } = await reglages()
+  const { visibilite, modele } = await reglages()
   const ctx = await getUserContextFromRequest(req)
   return NextResponse.json(
     {
       ouvert: ouvertA(visibilite, !!ctx?.isAdmin),
       admin: !!ctx?.isAdmin,
       // De quoi essayer un autre modèle depuis l'en-tête, sans redéployer.
-      modele: ctx?.isAdmin ? MODELE : undefined,
+      modele: ctx?.isAdmin ? modele : undefined,
       modeles: ctx?.isAdmin ? MODELES_ESSAI : undefined,
     },
     { headers: { 'Cache-Control': 'no-store' } },
   )
+}
+
+/**
+ * Changer le modèle en service. ADMIN SEULEMENT, et pour TOUT LE MONDE.
+ *
+ * Ce n'est pas une préférence personnelle mais un réglage de service : ce que
+ * l'administrateur choisit ici, les habitants l'obtiennent. Le cache des
+ * réglages est vidé dans la foulée pour que l'effet soit immédiat sur cette
+ * instance ; les autres suivent en moins d'une minute.
+ */
+export async function PATCH(req: NextRequest) {
+  const ctx = await getUserContextFromRequest(req)
+  if (!ctx?.isAdmin) return refus(403, { error: 'Réservé à l’administration' })
+
+  const body = await req.json().catch(() => ({}))
+  const modele = modeleAutorise(body?.modele)
+  if (!modele) return refus(400, { error: 'Modèle inconnu' })
+
+  const { error } = await supabaseAdmin
+    .from('config').upsert({ key: 'assistant_modele', value: modele }, { onConflict: 'key' })
+  if (error) return refus(500, { error: error.message })
+
+  viderCacheReglages()
+  return NextResponse.json({ modele }, { headers: { 'Cache-Control': 'no-store' } })
 }
 
 /** Réponse d'erreur avant l'ouverture du flux — le client sait les lire. */
@@ -85,7 +109,7 @@ export async function POST(req: NextRequest) {
    */
   const modeleDemande = modeleAutorise(body?.modele)
 
-  const { quotas, visibilite } = await reglages()
+  const { quotas, visibilite, modele: modeleEnService } = await reglages()
 
   // Sans compte, `getUserContextFromRequest` renvoie null : l'assistant
   // s'essaie sans s'inscrire, c'est voulu.
@@ -162,7 +186,8 @@ export async function POST(req: NextRequest) {
       try {
         envoyer({ type: 'debut', conversationId: conv.id, reste: ouverture.reste })
 
-        const modele = (ctx?.isAdmin && modeleDemande) || MODELE
+        // Le réglage de service, sauf essai ponctuel d'un admin.
+        const modele = (ctx?.isAdmin && modeleDemande) || modeleEnService
         for await (const ev of repondre({ question: message, historique: passe, maxOutils: quotas.max_outils_tour, modele })) {
           if (ev.type === 'cartes') {
             // Le cœur voyage avec la fiche : la personne garde une sortie
