@@ -95,6 +95,10 @@ export const OUTILS = [
           description: "Filtre facultatif. Sans lui, toutes les catégories remontent — préférable quand la demande est vague, car le classement d'un événement est souvent approximatif.",
         },
         commune: { type: 'string', description: 'Nom de commune, facultatif.' },
+        commune_stricte: {
+          type: 'boolean',
+          description: "true UNIQUEMENT si la personne a exigé de ne pas sortir de cette commune (« uniquement à Ganges », « seulement au Vigan », « pas ailleurs »). Par défaut, si la commune ne donne rien, la recherche s'élargit d'elle-même au secteur.",
+        },
         en_continu: {
           type: 'boolean',
           description: "true seulement si la personne cherche explicitement une exposition, une permanence ou un cours à l'année. Par défaut (false), ce qui dure des semaines est renvoyé à part, sous « aussi_en_cours ».",
@@ -117,6 +121,10 @@ export const OUTILS = [
           description: "Famille de lieu. Un électricien, un plombier ou un garagiste sont des artisan_service ; un maraîcher, un fromager ou un apiculteur sont des producteur. À n'utiliser que si vous en êtes sûr : les mots suffisent le plus souvent, et un mauvais filtre écarte des fiches justes.",
         },
         commune: { type: 'string', description: 'Nom de commune, facultatif.' },
+        commune_stricte: {
+          type: 'boolean',
+          description: "true UNIQUEMENT si la personne a exigé de ne pas sortir de cette commune (« uniquement à Ganges », « seulement au Vigan », « pas ailleurs »). Par défaut, si la commune ne donne rien, la recherche s'élargit d'elle-même au secteur.",
+        },
       },
       required: [],
     },
@@ -293,7 +301,8 @@ async function evenements(a: Args): Promise<ResultatOutil> {
   const { du, au } = fenetre(a)
   const mots = motsCles(a.mots)
   const cats = Array.isArray(a.categories) ? (a.categories as string[]).filter(c => typeof c === 'string') : []
-  const commune = texteDe(a, 'commune')
+  const communeDemandee = texteDe(a, 'commune')
+  let commune = communeDemandee
   const termes = mots.length ? mots : null
 
   /**
@@ -332,14 +341,43 @@ async function evenements(a: Args): Promise<ResultatOutil> {
   }
 
   const veutDurables = a.en_continu === true
-  const [datesBrut, durablesBrut] = await Promise.all([
+  let [datesBrut, durablesBrut] = await Promise.all([
     lire(false, LARGE),
     lire(true, veutDurables ? LARGE : 8),
   ])
 
+  /**
+   * L'ÉLARGISSEMENT, une fois et une seule.
+   *
+   * « Rien à Ganges, voulez-vous que je cherche autour ? » est une question
+   * dont la réponse est toujours oui : le secteur fait cinquante kilomètres,
+   * et un concert à dix minutes répond parfaitement à la demande. On le fait
+   * donc sans demander — sauf si la personne a exigé de ne pas bouger.
+   *
+   * Un seul palier : la commune, puis tout le secteur. Pas de rayons
+   * successifs, pas de requêtes en cascade. Le coût est d'exactement deux
+   * requêtes de plus, et seulement quand les premières n'ont rien rendu.
+   */
+  let elargi = false
+  if (commune && a.commune_stricte !== true && !datesBrut.length && !durablesBrut.length) {
+    elargi = true
+    commune = null
+    ;[datesBrut, durablesBrut] = await Promise.all([
+      lire(false, LARGE),
+      lire(true, veutDurables ? LARGE : 8),
+    ])
+  }
+
   const toutes = [...datesBrut, ...durablesBrut]
   if (!toutes.length) {
-    return { pourLeModele: { resultats: [] }, cartes: [], libelle: libelleRecherche(mots) }
+    return {
+      pourLeModele: {
+        resultats: [],
+        // Le modèle doit pouvoir dire qu'il a VRAIMENT cherché partout.
+        elargi_sans_succes: elargi ? communeDemandee : undefined,
+      },
+      cartes: [], libelle: libelleRecherche(mots),
+    }
   }
 
   // Deuxième requête plutôt qu'une jointure : les jointures implicites
@@ -386,6 +424,8 @@ async function evenements(a: Args): Promise<ResultatOutil> {
       note: secondaires.length && !veutDurables
         ? 'Les entrées de « aussi_en_cours » durent plusieurs semaines (expositions, permanences). Ne les proposez que si la personne les cherche vraiment.'
         : undefined,
+      // Dites-le en une demi-phrase : « rien à Ganges même, mais autour… ».
+      elargi_au_secteur: elargi ? communeDemandee : undefined,
     },
     cartes: [...principaux, ...secondaires].map(e => ({ type: 'ev' as const, id: e.id, data: e })),
     libelle: libelleRecherche(mots),
@@ -396,15 +436,31 @@ async function evenements(a: Args): Promise<ResultatOutil> {
 
 async function etablissements(a: Args): Promise<ResultatOutil> {
   const mots = motsCles(a.mots)
-  const commune = texteDe(a, 'commune')
+  const communeDemandee = texteDe(a, 'commune')
+  let commune = communeDemandee
   const type = typeof a.type === 'string' && a.type !== 'producteur' ? a.type : null
   const veutProducteurs = a.type === 'producteur' || !type
   const termes = mots.length ? mots : null
 
   let lignes: Record<string, unknown>[] = []
-  const rpc = await supabaseAdmin.rpc('assistant_etablissements', {
+  let rpc = await supabaseAdmin.rpc('assistant_etablissements', {
     termes, type_filtre: type, commune_filtre: commune, lim: LARGE,
   })
+
+  /**
+   * Même règle que pour les événements : si la commune ne donne rien, on
+   * regarde le secteur. Un restaurant à dix minutes reste une réponse ; « je
+   * n'ai rien trouvé à Ganges, voulez-vous que je cherche autour ? » n'en est
+   * pas une. Une requête de plus, et seulement quand la première est vide.
+   */
+  let elargi = false
+  if (commune && a.commune_stricte !== true && !rpc.error && !(rpc.data ?? []).length) {
+    elargi = true
+    commune = null
+    rpc = await supabaseAdmin.rpc('assistant_etablissements', {
+      termes, type_filtre: type, commune_filtre: null, lim: LARGE,
+    })
+  }
 
   if (rpc.error) {
     // Migration non jouée : requête directe, aveugle aux accents.
@@ -462,6 +518,7 @@ async function etablissements(a: Args): Promise<ResultatOutil> {
 
   return {
     pourLeModele: {
+      elargi_au_secteur: elargi ? communeDemandee : undefined,
       resultats: [
         // Les coordonnées font partie de la réponse : « tu me donnes le
         // numéro du Milonga ? » ne doit pas obliger à ouvrir la fiche.

@@ -135,6 +135,8 @@ export default function AssistantChat({ question, dicter, onClose }: {
    * n'a même pas à savoir qui il est.
    */
   const [cout, setCout] = useState(0)
+  /** Le modèle qui répond — n'arrive du serveur que pour un compte admin. */
+  const [modele, setModele] = useState<string | null>(null)
   const finRef = useRef<HTMLDivElement>(null)
   const filRef = useRef<HTMLDivElement>(null)
   /** Suit-on la rédaction, ou l'a-t-on quittée des yeux pour relire plus haut ? */
@@ -258,6 +260,7 @@ export default function AssistantChat({ question, dicter, onClose }: {
           if (ev.type === 'debut') { convRef.current = String(ev.conversationId); setConversationId(String(ev.conversationId)) }
           else if (ev.type === 'fin') {
             if (typeof ev.cout === 'number') setCout(c => c + (ev.cout as number))
+            if (typeof ev.modele === 'string') setModele(ev.modele as string)
             // Le serveur a le dernier mot sur ce qui s'affiche : il a retiré
             // les fiches introuvables et replacé les autres. On remplace ce
             // qui a été écrit au fil de l'eau.
@@ -423,6 +426,11 @@ export default function AssistantChat({ question, dicter, onClose }: {
           <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '-.01em' }}>Assistant Village</div>
           <div style={{ fontSize: 10.5, color: '#7A6A5A', marginTop: 1 }}>
             Ganges et alentours
+            {/* Réservé aux admins : le modèle et ce que la conversation a
+                coûté. Un prix sans le nom du modèle ne se compare à rien. */}
+            {modele && (
+              <span style={{ color: '#A99B89' }}> · {modele.replace(/^claude-/, '')}</span>
+            )}
             {cout > 0 && (
               <span style={{ color: '#A99B89' }}> · {formaterCout(cout)}</span>
             )}

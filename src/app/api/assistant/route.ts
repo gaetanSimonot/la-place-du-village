@@ -189,6 +189,9 @@ export async function POST(req: NextRequest) {
               // Le coût n'est calculé et transmis QU'AUX ADMINS : c'est un
               // instrument de réglage, pas une information pour les habitants.
               cout: ctx?.isAdmin ? coutEnEuros(ev.conso) : undefined,
+              // Savoir QUI répond autant que ce que ça coûte : sans le nom du
+              // modèle, un prix ne se compare à rien.
+              modele: ctx?.isAdmin ? MODELE : undefined,
             })
           } else {
             envoyer(ev)
