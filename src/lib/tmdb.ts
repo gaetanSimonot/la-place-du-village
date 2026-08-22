@@ -191,3 +191,107 @@ export async function detailsFilm(tmdbId: number): Promise<TmdbFilm> {
     avertissement: certif ? `Interdit aux moins de ${certif} ans` : null,
   }
 }
+
+/* ─── Recherche par personne ───────────────────────────────────────────── */
+
+/**
+ * Chercher « Will Smith » dans /search/movie ne donne rien : ce point d'entrée
+ * ne connaît que les titres. La filmographie d'une personne demande deux
+ * appels — la trouver, puis lire ses crédits — d'où ce couple de fonctions.
+ */
+
+const TAILLE_PORTRAIT = 'w185'
+
+export interface TmdbPersonne {
+  personneId: number
+  nom: string
+  /** Métier principal selon TMDB, traduit dans nos deux rôles. */
+  role: RolePersonne
+  portraitUrl: string | null
+  /** Deux ou trois titres connus, pour lever le doute entre homonymes. */
+  connuPour: string
+}
+
+export type RolePersonne = 'realisateur' | 'acteur'
+
+interface PersonneBrute {
+  id: number
+  name?: string
+  known_for_department?: string
+  profile_path?: string | null
+  popularity?: number
+  known_for?: { title?: string; name?: string }[]
+}
+
+/** Les personnes portant ce nom, la plus connue d'abord. */
+export async function rechercherPersonnes(requete: string): Promise<TmdbPersonne[]> {
+  const q = requete.trim()
+  if (q.length < 3) return []
+  const data = await appel<{ results?: PersonneBrute[] }>('/search/person', {
+    query: q, include_adult: 'false',
+  })
+  return (data.results ?? [])
+    .slice(0, 4)
+    .map(p => ({
+      personneId: p.id,
+      nom: p.name || 'Sans nom',
+      role: (p.known_for_department === 'Directing' ? 'realisateur' : 'acteur') as RolePersonne,
+      portraitUrl: imageUrl(p.profile_path, TAILLE_PORTRAIT),
+      connuPour: (p.known_for ?? [])
+        .map(k => k.title || k.name).filter(Boolean).slice(0, 3).join(', '),
+    }))
+}
+
+interface CreditBrut {
+  id: number
+  title?: string
+  original_title?: string
+  release_date?: string
+  poster_path?: string | null
+  overview?: string
+  popularity?: number
+  job?: string
+}
+
+/**
+ * La filmographie d'une personne, la plus récente d'abord.
+ *
+ * En réalisation on ne garde que le poste de metteur en scène : Lucas a
+ * produit ou écrit des dizaines de films qu'il n'a pas tournés, et « les films
+ * de George Lucas » n'en désigne pas soixante.
+ *
+ * Les films sans date de sortie sont écartés : ce sont des projets annoncés,
+ * jamais programmables dans une salle.
+ */
+export async function filmsDeLaPersonne(
+  personneId: number,
+  role: RolePersonne,
+  max = 20,
+): Promise<TmdbResultat[]> {
+  const d = await appel<{ cast?: CreditBrut[]; crew?: CreditBrut[] }>(
+    `/person/${personneId}/movie_credits`,
+  )
+  const bruts = role === 'realisateur'
+    ? (d.crew ?? []).filter(c => c.job === 'Director')
+    : (d.cast ?? [])
+
+  // Un comédien peut apparaître deux fois sur un même film (deux rôles).
+  const vus = new Set<number>()
+  return bruts
+    .filter(c => {
+      if (!c.release_date || vus.has(c.id)) return false
+      vus.add(c.id)
+      return true
+    })
+    .sort((a, b) => (b.release_date ?? '').localeCompare(a.release_date ?? ''))
+    .slice(0, max)
+    .map(c => ({
+      tmdbId: c.id,
+      titre: c.title || c.original_title || 'Sans titre',
+      titreOriginal: c.original_title && c.original_title !== c.title ? c.original_title : null,
+      annee: c.release_date ? Number(c.release_date.slice(0, 4)) || null : null,
+      dateSortie: c.release_date || null,
+      afficheUrl: imageUrl(c.poster_path, TAILLE_AFFICHE),
+      synopsis: c.overview || null,
+    }))
+}

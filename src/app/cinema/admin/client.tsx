@@ -9,6 +9,7 @@ import { useAuthModal } from '@/contexts/AuthModalContext'
 import BottomNavBar from '@/components/BottomNavBar'
 import ClientPortal from '@/components/ClientPortal'
 import RechercheFilm from '@/components/cinema/RechercheFilm'
+import DicterProgramme from '@/components/cinema/DicterProgramme'
 import TimeWheelPicker from '@/components/TimeWheelPicker'
 import { useConfirm } from '@/contexts/ConfirmDialogContext'
 import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
@@ -20,8 +21,9 @@ import { VERSIONS, dateParis, formatHeure, type Film, type VersionFilm } from '@
  * Volontairement pauvre en écrans : trois compteurs, la liste des séances, et
  * un bouton pour ajouter. Un exploitant doit comprendre sans formation.
  *
- * Cette version ne fait que la saisie manuelle. L'import par photo et la
- * dictée viendront se brancher sur le même enregistrement de séances.
+ * Trois façons d'entrer une programmation, un seul enregistrement : la dictée
+ * et la photo (DicterProgramme) comme la saisie à la main (AjoutSeance)
+ * finissent sur le même POST de séances. Aucun second chemin d'écriture.
  */
 
 interface SeanceAdmin {
@@ -66,6 +68,8 @@ export default function MonCinemaClient() {
   const { confirm } = useConfirm()
   const [cinemaId, setCinemaId] = useState<string | null>(null)
   const [ajoutOuvert, setAjoutOuvert] = useState(false)
+  /** Le programme dicte, ecrit ou photographie. */
+  const [programmeOuvert, setProgrammeOuvert] = useState(false)
   /** Filtre de la liste, piloté par les quatre entrées de programmation. */
   const [vue, setVue] = useState<'affiche' | 'semaine' | 'prochainement'>('affiche')
   /** Film en cours d'édition (affiche, synopsis, distribution…). */
@@ -169,16 +173,23 @@ export default function MonCinemaClient() {
 
       <div className="px-4 pt-4">
         <button
-          onClick={() => setAjoutOuvert(true)}
+          onClick={() => setProgrammeOuvert(true)}
           className="block w-full border-none text-white"
           style={{ borderRadius: 14, background: '#2D5A3D', padding: 14, fontSize: 14, fontWeight: 800, boxShadow: '0 6px 18px rgba(45,90,61,.25)' }}
         >
-          Ajouter / importer un programme
+          Dicter ou photographier le programme
         </button>
         <p className="mx-1 mt-2 mb-0 text-[11px] leading-snug text-texte-doux">
-          L’import d’un programme par photo ou par dictée arrivera ici. Rien n’est
-          publié sans votre validation.
+          « Samedi prochain le Gondry à 17h30, puis Avatar 3 dimanche à 14h ».
+          Rien n’est publié sans votre validation.
         </p>
+        <button
+          onClick={() => setAjoutOuvert(true)}
+          className="mt-2 w-full border-none bg-transparent py-1 text-[12.5px] font-bold"
+          style={{ color: '#2D5A3D' }}
+        >
+          Ajouter une séance à la main
+        </button>
       </div>
 
       {/* Quatre entrées de programmation — filtres, pas décor */}
@@ -303,7 +314,13 @@ export default function MonCinemaClient() {
         <RechercheFilm
           cinemaId={data.cinema.id}
           onClose={() => setRechercheOuverte(false)}
-          onCree={(film: Film) => { setRechercheOuverte(false); void mutate(); setFilmEdite(film) }}
+          onCrees={(crees: Film[]) => {
+            setRechercheOuverte(false)
+            void mutate()
+            // Un seul film : on enchaine sur sa fiche pour la completer. Une
+            // selection entiere, non — on ne va pas ouvrir douze fiches.
+            if (crees.length === 1) setFilmEdite(crees[0])
+          }}
         />
       )}
 
@@ -313,6 +330,15 @@ export default function MonCinemaClient() {
           film={filmEdite}
           onClose={() => setFilmEdite(null)}
           onEnregistre={() => { setFilmEdite(null); void mutate() }}
+        />
+      )}
+
+      {programmeOuvert && (
+        <DicterProgramme
+          cinemaId={data.cinema.id}
+          films={data.films}
+          onClose={() => setProgrammeOuvert(false)}
+          onEnregistre={() => { setProgrammeOuvert(false); void mutate() }}
         />
       )}
 
@@ -450,6 +476,7 @@ function AjoutSeance({ cinemaId, films, onClose, onAjoute }: {
       <TimeWheelPicker
         open={heureOuverte}
         value={heure}
+        zIndex={3500}
         onClose={() => setHeureOuverte(false)}
         onConfirm={hhmm => { setHeure(hhmm); setHeureOuverte(false) }}
       />

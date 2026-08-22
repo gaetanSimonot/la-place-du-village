@@ -7,9 +7,13 @@ type State = 'idle' | 'recording' | 'transcribing' | 'error'
 interface Props {
   onClose: () => void
   onTranscript: (text: string) => void
+  /** Titre affiche. Le module cinema dicte des films, pas des evenements. */
+  titre?: string
+  /** A relever quand la dictee s'ouvre par-dessus une modale deja empilee. */
+  zIndex?: number
 }
 
-export default function DicteeModal({ onClose, onTranscript }: Props) {
+export default function DicteeModal({ onClose, onTranscript, titre, zIndex = 600 }: Props) {
   const [state, setState] = useState<State>('idle')
   const [seconds, setSeconds] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -104,7 +108,7 @@ export default function DicteeModal({ onClose, onTranscript }: Props) {
   return (
     <div
       style={{
-        position: 'fixed', inset: 0, zIndex: 600,
+        position: 'fixed', inset: 0, zIndex,
         background: 'rgba(26,18,9,0.78)', backdropFilter: 'blur(6px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: 16,
@@ -126,7 +130,7 @@ export default function DicteeModal({ onClose, onTranscript }: Props) {
             fontSize: 24, fontWeight: 700, color: '#1A1209', letterSpacing: '-0.01em', lineHeight: 1.1,
           }}
         >
-          Dicter ton événement
+          {titre ?? 'Dicter ton événement'}
         </h2>
         <p style={{ margin: '0 0 24px', fontSize: 13, color: '#7A6A5A', lineHeight: 1.5 }}>
           {state === 'recording' && 'Parle naturellement. On transcrit à la fin.'}

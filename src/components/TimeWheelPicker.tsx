@@ -23,10 +23,16 @@ interface Props {
   step?: number
   onClose: () => void
   onConfirm: (hhmm: string) => void
+  /**
+   * A relever quand la molette s'ouvre par-dessus une feuille deja empilee :
+   * elles sont soeurs dans le portal, donc c'est le z-index qui tranche, pas
+   * l'ordre du DOM. A 600 sous une feuille en 3400, la molette est invisible.
+   */
+  zIndex?: number
 }
 
 export default function TimeWheelPicker({
-  open, value, step = 5, onClose, onConfirm,
+  open, value, step = 5, onClose, onConfirm, zIndex = 600,
 }: Props) {
   const hours = useMemo(
     () => Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(h => ({ value: h, label: h })),
@@ -57,7 +63,8 @@ export default function TimeWheelPicker({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-[600] flex items-end justify-center bg-black/55 backdrop-blur-[3px] font-inter"
+      className="fixed inset-0 flex items-end justify-center bg-black/55 backdrop-blur-[3px] font-inter"
+      style={{ zIndex }}
     >
       <div
         onClick={e => e.stopPropagation()}

@@ -281,9 +281,13 @@ export default function CinemaClient() {
 
 /* ─── Briques ─────────────────────────────────────────────────────────── */
 
+/**
+ * Le compteur se tient CONTRE le titre, pas à l'autre bout de la ligne :
+ * seul à droite, il flottait sans qu'on sache ce qu'il comptait.
+ */
 function Titre({ texte, compteur }: { texte: string; compteur?: number }) {
   return (
-    <div className="flex items-baseline justify-between" style={{ padding: '18px 18px 10px' }}>
+    <div className="flex items-baseline gap-2" style={{ padding: '18px 18px 10px' }}>
       <h2 className="m-0 font-title" style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--cine-ink)' }}>{texte}</h2>
       {typeof compteur === 'number' && (
         <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--cine-dim2)' }}>{compteur}</span>
