@@ -193,13 +193,20 @@ export default function CinemaClient() {
           style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-.01em', color: 'var(--cine-ink)' }}>
           La Place du Village
         </button>
-        {billetterie && (
+        {billetterie ? (
           <a href={billetterie} target="_blank" rel="noopener noreferrer"
             className="ml-auto flex-none rounded-full no-underline"
             style={{ border: '1px solid var(--cine-accent)', padding: '7px 13px', fontSize: 12, fontWeight: 700, color: 'var(--cine-accent)' }}>
             Billetterie
           </a>
-        )}
+        ) : salleUnique ? (
+          // Une salle sans billetterie en ligne : on le dit plutôt que de
+          // laisser un vide, et surtout plutôt que d'envoyer ailleurs.
+          <span className="ml-auto flex-none rounded-full"
+            style={{ border: '1px solid var(--cine-line)', padding: '7px 13px', fontSize: 11.5, fontWeight: 600, color: 'var(--cine-dim)' }}>
+            Billetterie bientôt
+          </span>
+        ) : null}
       </div>
 
       {/* Enseigne. Chaque salle a la sienne : poser le logo de l'Arc-en-Ciel
@@ -432,11 +439,17 @@ function ListeSeances({ jour, liste, films, billetterie, salles, sansBandeau }: 
                 ].filter(Boolean).join(' · ')}
               </div>
             </div>
-            {lien && (
+            {lien ? (
               <a href={lien} target="_blank" rel="noopener noreferrer" className="flex-none no-underline"
                 style={{ border: '1px solid rgba(157,207,238,.45)', borderRadius: 7, padding: '6px 11px', fontSize: 11.5, fontWeight: 700, color: 'var(--cine-accent2)' }}>
                 Réserver
               </a>
+            ) : (
+              // Pas de réservation en ligne pour cette salle : on l'annonce
+              // sans faire croire à un bouton, et on n'envoie nulle part.
+              <span className="flex-none" style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--cine-dim2)' }}>
+                Sur place
+              </span>
             )}
           </div>
         )
