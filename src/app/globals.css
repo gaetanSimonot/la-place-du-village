@@ -170,3 +170,33 @@ textarea:-webkit-autofill {
 
 /* Titres de FICHES (font-title = Jakarta) : poids commun events + établissements */
 .font-title { font-weight: 500; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   UNIVERS CINÉMA
+   Le temps d'une visite dans une salle, toute l'app bascule en bleu nuit,
+   bottom nav comprise. Le thème est posé sur <html> par la page cinéma et
+   retiré à sa sortie : il ne peut donc pas fuir sur le reste de l'app.
+   ═══════════════════════════════════════════════════════════════════════ */
+html[data-univers='cinema'] {
+  --cine-bg:      #12171C;
+  --cine-bg2:     #0F1419;
+  --cine-panel:   #172230;
+  --cine-band:    #192D41;
+  --cine-accent:  #8FCBEE;
+  --cine-accent2: #B4DDF6;
+  --cine-line:    rgba(157, 207, 238, .15);
+  --cine-ink:     #FAFBFA;
+  --cine-dim:     rgba(250, 251, 250, .60);
+  --cine-dim2:    rgba(250, 251, 250, .42);
+
+  /* Bottom nav de l'app, rhabillée. Mêmes onglets, mêmes libellés. */
+  --nav-bg:      var(--cine-bg2);
+  --nav-bord:    var(--cine-line);
+  --nav-actif:   var(--cine-accent2);
+  --nav-inactif: var(--cine-dim2);
+  --nav-fab-bg:  var(--cine-accent);
+  --nav-fab-ink: #0E1620;
+
+  background: var(--cine-bg);
+}
+html[data-univers='cinema'] body { background: var(--cine-bg); }

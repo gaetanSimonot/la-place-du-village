@@ -107,7 +107,10 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
   return (
     <nav style={{
       position: 'fixed', bottom: 0, left: 0, right: 0, height: 64,
-      backgroundColor: '#fff', borderTop: '1px solid #EDE8E0',
+      // Couleurs par variables : l'univers cinéma les redéfinit le temps de
+      // la visite (voir globals.css, html[data-univers="cinema"]). Le repli
+      // après la virgule est la valeur normale de l'app.
+      backgroundColor: 'var(--nav-bg, #fff)', borderTop: '1px solid var(--nav-bord, #EDE8E0)',
       display: 'flex', zIndex: 50, paddingBottom: 'env(safe-area-inset-bottom)',
     }}>
       {tabs.map(t => {
@@ -127,7 +130,7 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
             >
               <span style={{
                 width: 38, height: 38, borderRadius: '50%',
-                background: 'linear-gradient(135deg, #3C7A50, #2D5A3D)', color: '#fff',
+                background: 'var(--nav-fab-bg, linear-gradient(135deg, #3C7A50, #2D5A3D))', color: 'var(--nav-fab-ink, #fff)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 boxShadow: '0 2px 6px rgba(45,90,61,0.30)',
               }}>
@@ -135,7 +138,7 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
                   <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                 </svg>
               </span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: '#2D5A3D' }}>Ajouter</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--nav-actif, #2D5A3D)' }}>Ajouter</span>
             </button>
           )
         }
@@ -149,9 +152,9 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
               flex: 1, display: 'flex', flexDirection: 'column',
               alignItems: 'center', justifyContent: 'center', gap: 3,
               border: 'none', backgroundColor: 'transparent', cursor: 'pointer',
-              borderTop: isActive ? '2.5px solid #2D5A3D' : '2.5px solid transparent',
+              borderTop: isActive ? '2.5px solid var(--nav-actif, #2D5A3D)' : '2.5px solid transparent',
               paddingBottom: 4,
-              color: isActive ? '#2D5A3D' : '#8A8A8A',
+              color: isActive ? 'var(--nav-actif, #2D5A3D)' : 'var(--nav-inactif, #8A8A8A)',
               WebkitTapHighlightColor: 'transparent',
             }}
           >

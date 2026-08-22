@@ -7,57 +7,71 @@ import BottomNavBar from '@/components/BottomNavBar'
 import { formatHeure, type Cinema, type Film, type Seance } from '@/lib/cinema'
 
 /**
- * Expérience cinéma publique. Aucune authentification, aucune condition :
- * c'est la page que vise le QR code du hall.
+ * UNIVERS CINÉMA — public, sans compte.
  *
- * La bottom nav de l'app reste en place, comme sur tous les autres écrans —
- * le cinéma est une rubrique de La Place du Village, pas une application à
- * part.
+ * Entrer ici fait basculer TOUTE l'app en bleu nuit, bottom nav comprise : on
+ * doit sentir qu'on est ailleurs le temps d'un instant. Le thème est posé sur
+ * <html> au montage et retiré au démontage — il ne peut donc pas fuir sur le
+ * reste de l'app, même si on sort par le bouton retour du système.
+ *
+ * On ne touche pas à la structure : la bottom nav reste celle de l'app, mêmes
+ * onglets, mêmes libellés. Seul son habillage change, par variables CSS. La
+ * sortie se fait par la barre du haut, « La Place du Village ».
  */
 
+interface Evenement {
+  id: string; titre: string; date_debut: string
+  heure: string | null; image_url: string | null; categorie: string | null
+}
 interface Payload {
   cinemas: { id: string; nom: string; commune: string | null; slug: string | null }[]
   cinema: Cinema | null
   films: Film[]
   seances: Seance[]
-  evenements: { id: string; titre: string; date_debut: string; heure: string | null; image_url: string | null }[]
+  evenements: Evenement[]
   aujourdhui: string
 }
 
-type Onglet = 'affiche' | 'aujourdhui' | 'semaine' | 'prochainement'
+type Onglet = 'films' | 'programme' | 'evenements'
 const ONGLETS: { id: Onglet; label: string }[] = [
-  { id: 'affiche',       label: "À l'affiche" },
-  { id: 'aujourdhui',    label: 'Aujourd’hui' },
-  { id: 'semaine',       label: 'Cette semaine' },
-  { id: 'prochainement', label: 'Prochainement' },
+  { id: 'films',      label: 'Films' },
+  { id: 'programme',  label: 'Programme' },
+  { id: 'evenements', label: 'Événements' },
 ]
 
 const fetcher = (u: string) => fetch(u).then(r => r.json())
 
-function jourLisible(date: string): string {
-  const d = new Date(`${date}T12:00:00Z`)
+function jourLong(date: string): string {
   const s = new Intl.DateTimeFormat('fr-FR', {
     timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long',
-  }).format(d)
+  }).format(new Date(`${date}T12:00:00Z`))
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
+function jourCourt(date: string) {
+  const d = new Date(`${date}T12:00:00Z`)
+  return {
+    nom: new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short' }).format(d).replace('.', ''),
+    num: new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric' }).format(d),
+  }
+}
 
-/** Affiche 2:3 avec repli typographique quand aucune image n'est fournie. */
-function Affiche({ film, largeur = 104 }: { film: Film; largeur?: number }) {
+/** Affiche 2:3, avec repli typographique quand elle n'est pas renseignée. */
+function Affiche({ film, largeur }: { film: Film; largeur: number }) {
   return (
-    <div
-      className="relative shrink-0 overflow-hidden rounded-[10px]"
-      style={{ width: largeur, aspectRatio: '2 / 3', background: 'linear-gradient(160deg,#2A2320,#0F0D0C)' }}
-    >
+    <div className="relative shrink-0 overflow-hidden"
+      style={{
+        width: largeur, aspectRatio: '2 / 3', borderRadius: 10,
+        background: 'linear-gradient(160deg,#1E2C3A,#0E1318)',
+        border: '1px solid rgba(157,207,238,.14)',
+      }}>
       {film.affiche_url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={film.affiche_url} alt="" className="h-full w-full object-cover" loading="lazy" />
       ) : (
-        <div className="flex h-full w-full items-end p-2">
-          <span style={{ fontSize: 10.5, fontWeight: 800, lineHeight: 1.15, color: '#F4E7CE', textShadow: '0 1px 3px rgba(0,0,0,.6)' }}>
-            {film.titre}
-          </span>
-        </div>
+        <span className="absolute bottom-2 left-2 right-2 line-clamp-3"
+          style={{ fontSize: 10, fontWeight: 700, lineHeight: 1.2, color: 'rgba(250,251,250,.72)' }}>
+          {film.titre}
+        </span>
       )}
     </div>
   )
@@ -66,7 +80,8 @@ function Affiche({ film, largeur = 104 }: { film: Film; largeur?: number }) {
 export default function CinemaClient() {
   const router = useRouter()
   const [slug, setSlug] = useState<string | null>(null)
-  const [onglet, setOnglet] = useState<Onglet>('affiche')
+  const [onglet, setOnglet] = useState<Onglet>('films')
+  const [jour, setJour] = useState<string | null>(null)
 
   // Lecture directe de l'URL : useSearchParams() ferait basculer la page en
   // rendu client complet (piège documenté sur ce projet).
@@ -74,109 +89,103 @@ export default function CinemaClient() {
     try { setSlug(new URLSearchParams(window.location.search).get('cinema')) } catch { /* noop */ }
   }, [])
 
+  // Le thème vit tant qu'on est sur cette page, et pas une seconde de plus.
+  useEffect(() => {
+    document.documentElement.dataset.univers = 'cinema'
+    return () => { delete document.documentElement.dataset.univers }
+  }, [])
+
   const { data, isLoading } = useSWR<Payload>(
     `/api/cinema${slug ? `?cinema=${encodeURIComponent(slug)}` : ''}`, fetcher,
   )
 
-  const films = useMemo(() => new Map((data?.films ?? []).map(f => [f.id, f])), [data])
-  // useMemo : sans lui, `?? []` produit un tableau neuf à chaque rendu et
-  // relance tous les calculs qui en dépendent.
+  const cinema = data?.cinema ?? null
+  const filmsParId = useMemo(() => new Map((data?.films ?? []).map(f => [f.id, f])), [data])
   const seances = useMemo(() => data?.seances ?? [], [data])
   const aujourdhui = data?.aujourdhui ?? ''
-  const finSemaine = useMemo(() => {
-    if (!aujourdhui) return ''
-    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' })
-      .format(new Date(Date.parse(`${aujourdhui}T12:00:00Z`) + 6 * 86_400_000))
+
+  /** Les 7 prochains jours, pour le bandeau de l'onglet Programme. */
+  const semaine = useMemo(() => {
+    if (!aujourdhui) return []
+    const base = Date.parse(`${aujourdhui}T12:00:00Z`)
+    return Array.from({ length: 7 }, (_, i) =>
+      new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' })
+        .format(new Date(base + i * 86_400_000)))
   }, [aujourdhui])
 
-  /** Séances retenues par l'onglet courant. */
-  const seancesVisibles = useMemo(() => {
-    if (onglet === 'aujourdhui') return seances.filter(s => s.date === aujourdhui)
-    if (onglet === 'semaine')    return seances.filter(s => s.date >= aujourdhui && s.date <= finSemaine)
-    if (onglet === 'prochainement') return seances.filter(s => s.date > finSemaine)
-    return seances
-  }, [seances, onglet, aujourdhui, finSemaine])
-
-  /** Films de l'onglet, dans l'ordre de leur prochaine séance. */
-  const filmsVisibles = useMemo(() => {
-    const vus = new Set<string>()
-    const out: Film[] = []
-    for (const s of seancesVisibles) {
+  const filmsAffiche = useMemo(() => {
+    const vus = new Set<string>(); const out: Film[] = []
+    for (const s of seances) {
       if (vus.has(s.film_id)) continue
-      const f = films.get(s.film_id)
+      const f = filmsParId.get(s.film_id)
       if (f) { vus.add(s.film_id); out.push(f) }
     }
     return out
-  }, [seancesVisibles, films])
+  }, [seances, filmsParId])
 
-  /** Séances groupées par jour, pour l'affichage en lignes. */
+  const seancesDuJour = useMemo(() => seances.filter(s => s.date === aujourdhui), [seances, aujourdhui])
+
+  /** Programmation groupée par jour, selon l'onglet et le jour retenu. */
   const parJour = useMemo(() => {
+    const source = onglet === 'programme' && jour ? seances.filter(s => s.date === jour) : seances
     const m = new Map<string, Seance[]>()
-    for (const s of seancesVisibles) {
-      const l = m.get(s.date) ?? []
-      l.push(s)
-      m.set(s.date, l)
-    }
+    for (const s of source) { const l = m.get(s.date) ?? []; l.push(s); m.set(s.date, l) }
     return Array.from(m.entries())
-  }, [seancesVisibles])
+  }, [seances, onglet, jour])
 
-  const cinema = data?.cinema ?? null
+  const billetterie = cinema?.billetterie_url ?? null
 
   return (
-    <div className="relative min-h-[100dvh] bg-creme pb-28 font-inter text-texte">
-      {/* En-tête : retour, nom de la salle, ville */}
-      <div
-        className="flex items-center gap-[11px] bg-white px-3.5 py-2.5"
-        style={{ borderBottom: '1px solid #F0EAE0', paddingTop: 'max(10px, env(safe-area-inset-top, 10px))' }}
-      >
+    <div className="relative min-h-[100dvh] font-inter"
+      style={{ background: 'var(--cine-bg)', color: 'var(--cine-ink)', paddingBottom: 92 }}>
+
+      {/* Barre de sortie — la porte de retour vers l'app */}
+      <div className="flex items-center gap-2.5 px-3.5"
+        style={{ paddingTop: 'max(16px, env(safe-area-inset-top, 16px))', paddingBottom: 6 }}>
         <button
-          onClick={() => router.back()}
-          aria-label="Retour"
-          className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] bg-white"
-          style={{ border: '1px solid #E8E0D4' }}
+          onClick={() => router.push('/?tab=village')}
+          aria-label="Revenir à La Place du Village"
+          className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-full"
+          style={{ border: '1px solid var(--cine-line)', background: 'rgba(250,251,250,.05)', color: 'var(--cine-ink)' }}
         >
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
             <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
           </svg>
         </button>
-        <div className="min-w-0 flex-1">
-          <div className="truncate font-title text-[17px] leading-tight">{cinema?.nom ?? 'Au cinéma'}</div>
-          {cinema?.commune && <div className="text-[11.5px] text-texte-doux">{cinema.commune}</div>}
-        </div>
-        {cinema?.billetterie_url && (
-          <a
-            href={cinema.billetterie_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex h-[30px] shrink-0 items-center rounded-[8px] px-2.5 text-[11px] font-extrabold no-underline"
-            style={{ background: '#1A1209', color: '#E8C58A' }}
-          >
+        <button onClick={() => router.push('/?tab=village')}
+          className="min-w-0 truncate border-none bg-transparent p-0 text-left"
+          style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-.01em', color: 'var(--cine-ink)' }}>
+          La Place du Village
+        </button>
+        {billetterie && (
+          <a href={billetterie} target="_blank" rel="noopener noreferrer"
+            className="ml-auto flex-none rounded-full no-underline"
+            style={{ border: '1px solid var(--cine-accent)', padding: '7px 13px', fontSize: 12, fontWeight: 700, color: 'var(--cine-accent)' }}>
             Billetterie
           </a>
         )}
       </div>
 
-      {/* Onglets — une seule ligne, défilement horizontal si nécessaire */}
-      <div
-        className="flex gap-4 overflow-x-auto px-4"
-        style={{ borderBottom: '1px solid #F0EAE0', scrollbarWidth: 'none' }}
-      >
+      {/* Enseigne */}
+      <div className="flex items-center justify-center" style={{ padding: '16px 26px 24px' }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/cinema/aec-logo.png" alt={cinema?.nom ?? 'Cinéma'}
+          style={{ width: '100%', maxWidth: 270, height: 'auto', display: 'block' }} />
+      </div>
+
+      {/* Onglets centrés */}
+      <div className="flex justify-center gap-7 px-4" style={{ borderBottom: '1px solid var(--cine-line)' }}>
         {ONGLETS.map(o => {
           const actif = o.id === onglet
           return (
-            <button
-              key={o.id}
-              onClick={() => setOnglet(o.id)}
-              className="shrink-0 whitespace-nowrap bg-transparent px-0"
+            <button key={o.id} onClick={() => setOnglet(o.id)}
+              className="flex-none whitespace-nowrap bg-transparent"
               style={{
-                padding: '11px 0',
-                fontSize: 13,
+                border: 'none', borderBottom: `2px solid ${actif ? 'var(--cine-accent)' : 'transparent'}`,
+                padding: '11px 0 10px', fontSize: 13.5,
                 fontWeight: actif ? 700 : 600,
-                color: actif ? '#C84B2F' : '#7A6A5A',
-                border: 'none',
-                borderBottom: `2.5px solid ${actif ? '#C84B2F' : 'transparent'}`,
-              }}
-            >
+                color: actif ? 'var(--cine-accent2)' : 'var(--cine-dim)',
+              }}>
               {o.label}
             </button>
           )
@@ -185,122 +194,81 @@ export default function CinemaClient() {
 
       {isLoading ? (
         <div className="flex justify-center py-16">
-          <div className="h-7 w-7 animate-spin rounded-full border-[3px] border-bord border-t-primary" />
+          <div className="h-7 w-7 animate-spin rounded-full"
+            style={{ border: '3px solid rgba(157,207,238,.2)', borderTopColor: 'var(--cine-accent)' }} />
         </div>
       ) : !cinema ? (
-        <EtatVide
-          titre="Pas encore de cinéma"
-          texte="Aucune salle n’a encore rejoint La Place du Village."
-        />
-      ) : (
+        <Vide texte="Aucune salle n’a encore rejoint La Place du Village." />
+      ) : onglet === 'films' ? (
         <>
-          {/* Rail d'affiches */}
-          {filmsVisibles.length > 0 && (
-            <div className="pt-4">
-              <div className="flex items-baseline justify-between px-4 pb-2">
-                <h2 className="m-0 font-title text-[20px] leading-tight">
-                  {ONGLETS.find(o => o.id === onglet)?.label}
-                </h2>
-                <span className="text-[11px] font-bold text-texte-doux">
-                  {filmsVisibles.length} film{filmsVisibles.length > 1 ? 's' : ''}
-                </span>
-              </div>
-              <div className="flex gap-2.5 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
-                {filmsVisibles.map(f => (
-                  <Link key={f.id} href={`/cinema/film/${f.id}`} className="w-[104px] shrink-0 no-underline">
-                    <Affiche film={f} />
-                    <div className="line-clamp-2 text-texte" style={{ marginTop: 8, fontSize: 12.5, fontWeight: 700, lineHeight: 1.25, letterSpacing: '-.01em' }}>{f.titre}</div>
-                    {f.duree_min ? <div className="mt-1 text-[11px] text-texte-doux">{f.duree_min} min</div> : null}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Séances, en lignes groupées par jour */}
-          {parJour.length === 0 ? (
-            <EtatVide
-              titre="Aucune séance"
-              texte={onglet === 'aujourdhui'
-                ? 'Rien à l’affiche aujourd’hui. Regardez « Cette semaine ».'
-                : 'Le programme n’est pas encore publié.'}
-            />
+          <Titre texte="À l'affiche" compteur={filmsAffiche.length} />
+          {filmsAffiche.length === 0 ? (
+            <Vide texte="Le programme n’est pas encore publié." />
           ) : (
-            /* Encadré unique, bandeaux de jour à l'intérieur — .sBox de la maquette */
-            <div className="overflow-hidden rounded-[16px] bg-white" style={{ margin: '16px 16px 0', border: '1px solid #F0EAE0' }}>
-              {parJour.map(([date, liste]) => (
-                <div key={date}>
-                  <div style={{ padding: '11px 14px', fontSize: 12.5, fontWeight: 700, color: '#1A1209', background: '#F7F1E6', borderBottom: '1px solid #F0EAE0' }}>
-                    {jourLisible(date)}
+            <div className="flex gap-3 overflow-x-auto px-[18px] pb-1.5" style={{ scrollbarWidth: 'none' }}>
+              {filmsAffiche.map(f => (
+                <Link key={f.id} href={`/cinema/film/${f.id}`} className="w-[118px] flex-none no-underline">
+                  <Affiche film={f} largeur={118} />
+                  <div className="line-clamp-2"
+                    style={{ marginTop: 9, fontSize: 13, fontWeight: 600, lineHeight: 1.3, letterSpacing: '-.01em', color: 'var(--cine-ink)' }}>
+                    {f.titre}
                   </div>
-                  {liste.map(s => {
-                    const f = films.get(s.film_id)
-                    const lien = s.billetterie_url || cinema.billetterie_url
-                    return (
-                      <div key={s.id} className="flex items-center gap-[11px]" style={{ padding: '12px 14px', borderBottom: '1px solid #F0EAE0' }}>
-                        {/* Billet — repère visuel de la maquette */}
-                        <span className="flex-none" style={{ color: '#C84B2F', opacity: 0.85 }}>
-                          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2 2 2 0 0 0 0 4 2 2 0 0 1-2 2H5a2 2 0 0 1-2-2 2 2 0 0 0 0-4z" />
-                            <line x1="9" y1="7" x2="9" y2="17" strokeDasharray="2 2" />
-                          </svg>
-                        </span>
-                        <span className="flex-none font-title tabular-nums" style={{ fontSize: 15 }}>{formatHeure(s.heure)}</span>
-                        <div className="min-w-0 flex-1">
-                          <Link href={`/cinema/film/${s.film_id}`} className="block truncate text-texte no-underline" style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-.01em' }}>
-                            {f?.titre ?? 'Film'}
-                          </Link>
-                          <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2 }}>
-                            {s.version.toUpperCase()}{f?.duree_min ? ` · ${f.duree_min} min` : ''}{s.salle ? ` · ${s.salle}` : ''}
-                            {s.note ? ` · ${s.note}` : ''}
-                          </div>
-                        </div>
-                        {lien && (
-                          <a href={lien} target="_blank" rel="noopener noreferrer" className="flex-none no-underline"
-                            style={{ border: '1px solid #CFE3D5', background: '#F4FAF5', borderRadius: 9, padding: '7px 12px', fontSize: 12, fontWeight: 700, color: '#2D5A3D' }}>
-                            Réserver
-                          </a>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
+                  {f.duree_min ? <div style={{ marginTop: 4, fontSize: 11.5, color: 'var(--cine-dim2)' }}>{f.duree_min} min</div> : null}
+                </Link>
               ))}
             </div>
           )}
 
-          {/* Événements du cinéma — eux vivent aussi dans l'agenda du village */}
-          {(data?.evenements?.length ?? 0) > 0 && (
-            <div className="px-4 pt-2">
-              <h2 className="m-0 mb-2 font-title text-[20px] leading-tight">Événements au cinéma</h2>
-              <div className="flex flex-col gap-2">
-                {data!.evenements.map(e => (
-                  <Link
-                    key={e.id}
-                    href={`/evenement/${e.id}`}
-                    className="flex items-center gap-3 rounded-[12px] bg-white px-3 py-2.5 no-underline"
-                    style={{ border: '1px solid #F0EAE0' }}
-                  >
-                    <span
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]"
-                      style={{ background: '#FFF0E5', color: '#C84B2F' }}
-                    >
-                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
-                      </svg>
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-[13.5px] font-bold text-texte">{e.titre}</div>
-                      <div className="text-[11px] text-texte-doux">
-                        {jourLisible(e.date_debut)}{e.heure ? ` · ${formatHeure(e.heure)}` : ''}
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
+          {seancesDuJour.length > 0 && (
+            <>
+              <Titre texte="Aujourd'hui" compteur={seancesDuJour.length} />
+              <ListeSeances jour={aujourdhui} liste={seancesDuJour} films={filmsParId} billetterie={billetterie} sansBandeau />
+            </>
           )}
         </>
+      ) : onglet === 'programme' ? (
+        <>
+          {/* Bandeau des 7 jours à venir */}
+          <div className="flex gap-[7px] overflow-x-auto" style={{ padding: '14px 18px 4px', scrollbarWidth: 'none' }}>
+            {semaine.map(d => {
+              const { nom, num } = jourCourt(d)
+              const actif = (jour ?? aujourdhui) === d
+              const n = seances.filter(s => s.date === d).length
+              return (
+                <button key={d} onClick={() => setJour(d)}
+                  className="flex-none text-center"
+                  style={{
+                    width: 46, borderRadius: 11, padding: '8px 0 9px',
+                    background: actif ? 'rgba(157,207,238,.14)' : 'rgba(250,251,250,.04)',
+                    border: `1px solid ${actif ? 'var(--cine-accent)' : 'rgba(250,251,250,.06)'}`,
+                    color: actif ? 'var(--cine-accent2)' : 'var(--cine-ink)',
+                    // Un jour sans séance reste cliquable mais s'efface : on ne
+                    // fait pas croire qu'il se passe quelque chose.
+                    opacity: n === 0 ? 0.45 : 1,
+                  }}>
+                  <span style={{ display: 'block', fontSize: 9.5, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: actif ? 'rgba(157,207,238,.6)' : 'var(--cine-dim2)' }}>{nom}</span>
+                  <b className="font-title" style={{ display: 'block', fontSize: 17, lineHeight: 1.1, marginTop: 2, fontWeight: 700 }}>{num}</b>
+                </button>
+              )
+            })}
+          </div>
+
+          {parJour.length === 0 ? (
+            <Vide texte="Aucune séance ce jour-là." />
+          ) : parJour.map(([d, liste]) => (
+            <ListeSeances key={d} jour={d} liste={liste} films={filmsParId} billetterie={billetterie} />
+          ))}
+
+          {jour && (
+            <button onClick={() => setJour(null)}
+              className="block w-full border-none"
+              style={{ borderTop: '1px solid var(--cine-line)', background: 'rgba(157,207,238,.06)', padding: 13, fontSize: 12.5, fontWeight: 700, color: 'var(--cine-accent)' }}>
+              Voir toute la programmation
+            </button>
+          )}
+        </>
+      ) : (
+        <Evenements liste={data?.evenements ?? []} />
       )}
 
       <BottomNavBar />
@@ -308,11 +276,160 @@ export default function CinemaClient() {
   )
 }
 
-function EtatVide({ titre, texte }: { titre: string; texte: string }) {
+/* ─── Briques ─────────────────────────────────────────────────────────── */
+
+function Titre({ texte, compteur }: { texte: string; compteur?: number }) {
   return (
-    <div className="mx-4 mt-6 rounded-[14px] bg-white p-6 text-center" style={{ border: '1px solid #F0EAE0' }}>
-      <p className="m-0 mb-1 text-[14px] font-extrabold text-texte">{titre}</p>
-      <p className="m-0 text-[12px] text-texte-doux">{texte}</p>
+    <div className="flex items-baseline justify-between" style={{ padding: '18px 18px 10px' }}>
+      <h2 className="m-0 font-title" style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--cine-ink)' }}>{texte}</h2>
+      {typeof compteur === 'number' && (
+        <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--cine-dim2)' }}>{compteur}</span>
+      )}
     </div>
+  )
+}
+
+function Vide({ texte }: { texte: string }) {
+  return <p className="px-[18px] py-10 text-center" style={{ fontSize: 12.5, color: 'var(--cine-dim)' }}>{texte}</p>
+}
+
+/**
+ * Liste de séances, bord à bord. Pas d'encadré arrondi : la maquette veut des
+ * lignes qui filent d'un bord à l'autre, la colonne d'heure séparée par un
+ * filet vertical, et pas de séparateur sous la dernière.
+ */
+function ListeSeances({ jour, liste, films, billetterie, sansBandeau }: {
+  jour: string
+  liste: Seance[]
+  films: Map<string, Film>
+  billetterie: string | null
+  sansBandeau?: boolean
+}) {
+  return (
+    <div>
+      {!sansBandeau && (
+        <div className="flex items-center justify-between gap-2"
+          style={{ padding: '9px 18px', fontSize: 11.5, fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--cine-accent)', background: 'var(--cine-band)', borderBottom: '1px solid var(--cine-line)' }}>
+          <span>{jourLong(jour)}</span>
+          <em style={{ fontStyle: 'normal', fontWeight: 700, letterSpacing: '.02em', textTransform: 'none', color: 'var(--cine-dim2)', fontSize: 11 }}>
+            {liste.length} séance{liste.length > 1 ? 's' : ''}
+          </em>
+        </div>
+      )}
+      {liste.map((s, i) => {
+        const f = films.get(s.film_id)
+        const lien = s.billetterie_url || billetterie
+        return (
+          <div key={s.id} className="flex items-center gap-[13px]"
+            style={{ padding: '11px 18px', borderBottom: i === liste.length - 1 ? 'none' : '1px solid rgba(250,251,250,.07)' }}>
+            <span className="flex-none font-title tabular-nums"
+              style={{ width: 50, paddingRight: 13, borderRight: '1px solid rgba(250,251,250,.12)', fontSize: 15, fontWeight: 800, color: 'var(--cine-accent2)' }}>
+              {formatHeure(s.heure)}
+            </span>
+            <div className="min-w-0 flex-1">
+              <Link href={`/cinema/film/${s.film_id}`} className="block truncate no-underline"
+                style={{ fontSize: 13.5, fontWeight: 600, letterSpacing: '-.01em', color: 'var(--cine-ink)' }}>
+                {f?.titre ?? 'Film'}
+              </Link>
+              <div style={{ marginTop: 2, fontSize: 11, color: 'var(--cine-dim2)' }}>
+                {[s.version.toUpperCase(), f?.duree_min ? `${f.duree_min} min` : null, s.salle, s.note].filter(Boolean).join(' · ')}
+              </div>
+            </div>
+            {lien && (
+              <a href={lien} target="_blank" rel="noopener noreferrer" className="flex-none no-underline"
+                style={{ border: '1px solid rgba(157,207,238,.45)', borderRadius: 7, padding: '6px 11px', fontSize: 11.5, fontWeight: 700, color: 'var(--cine-accent2)' }}>
+                Réserver
+              </a>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/**
+ * Événements du cinéma. Ce sont des événements de l'agenda du village, pas des
+ * séances : même modèle de données, et ils apparaissent donc aussi ailleurs
+ * dans l'app. Pas de doublon de modèle.
+ */
+function Evenements({ liste }: { liste: Evenement[] }) {
+  const [cat, setCat] = useState<string>('tout')
+  const cats = useMemo(() => {
+    const s = new Set(liste.map(e => e.categorie).filter(Boolean) as string[])
+    return ['tout', ...Array.from(s)]
+  }, [liste])
+  const filtres = cat === 'tout' ? liste : liste.filter(e => e.categorie === cat)
+  const [phare, ...suite] = filtres
+
+  if (!liste.length) return <Vide texte="Aucun événement programmé pour l’instant." />
+
+  return (
+    <>
+      {/* Chips seulement s'il y a de quoi filtrer — un seul choix n'est pas un filtre. */}
+      {cats.length > 2 && (
+        <div className="flex gap-2 overflow-x-auto" style={{ padding: '14px 18px 0', scrollbarWidth: 'none' }}>
+          {cats.map(c => {
+            const actif = c === cat
+            return (
+              <button key={c} onClick={() => setCat(c)} className="flex-none whitespace-nowrap"
+                style={{
+                  borderRadius: 999, padding: '7px 13px', fontSize: 12,
+                  fontWeight: actif ? 700 : 600,
+                  border: `1px solid ${actif ? 'var(--cine-accent)' : 'rgba(250,251,250,.12)'}`,
+                  background: actif ? 'rgba(157,207,238,.14)' : 'transparent',
+                  color: actif ? 'var(--cine-accent2)' : 'var(--cine-dim)',
+                }}>
+                {c === 'tout' ? 'Tout' : c}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {phare && (
+        <Link href={`/evenement/${phare.id}`} className="block no-underline"
+          style={{ margin: '14px 18px 0', borderRadius: 16, padding: 18, background: 'linear-gradient(140deg,rgba(157,207,238,.16),rgba(157,207,238,.03))', border: '1px solid var(--cine-line)' }}>
+          <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--cine-accent)' }}>
+            À ne pas manquer
+          </span>
+          <h3 className="m-0 font-title" style={{ marginTop: 10, fontSize: 20, fontWeight: 700, lineHeight: 1.2, color: 'var(--cine-ink)' }}>{phare.titre}</h3>
+          <div style={{ marginTop: 8, fontSize: 12.5, color: 'var(--cine-dim)', lineHeight: 1.5 }}>
+            {jourLong(phare.date_debut)}{phare.heure ? ` · ${formatHeure(phare.heure)}` : ''}
+          </div>
+          <span className="inline-flex items-center"
+            style={{ marginTop: 14, gap: 7, borderRadius: 9, background: 'var(--cine-accent)', color: '#0E1620', padding: '10px 14px', fontSize: 12.5, fontWeight: 800 }}>
+            Voir l’événement
+          </span>
+        </Link>
+      )}
+
+      <div className="flex flex-col gap-2.5" style={{ margin: '12px 18px 0' }}>
+        {suite.map(e => {
+          const { nom, num } = jourCourt(e.date_debut)
+          return (
+            <Link key={e.id} href={`/evenement/${e.id}`} className="flex overflow-hidden no-underline"
+              style={{ borderRadius: 13, background: 'var(--cine-panel)', border: '1px solid rgba(250,251,250,.07)' }}>
+              <div className="flex flex-none flex-col items-center justify-center gap-0.5"
+                style={{ width: 58, background: 'rgba(157,207,238,.07)', borderRight: '1px solid var(--cine-line)' }}>
+                <b className="font-title" style={{ fontSize: 20, lineHeight: 1, fontWeight: 700, color: 'var(--cine-accent2)' }}>{num}</b>
+                <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'rgba(157,207,238,.6)' }}>{nom}</span>
+              </div>
+              <div className="min-w-0 flex-1" style={{ padding: 12 }}>
+                {e.categorie && (
+                  <span style={{ display: 'inline-block', borderRadius: 4, padding: '2px 7px', fontSize: 9, fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase', background: 'rgba(157,207,238,.16)', color: 'var(--cine-accent2)' }}>
+                    {e.categorie}
+                  </span>
+                )}
+                <div className="truncate" style={{ marginTop: 6, fontSize: 13.5, fontWeight: 600, letterSpacing: '-.01em', color: 'var(--cine-ink)' }}>{e.titre}</div>
+                <div style={{ marginTop: 4, fontSize: 11.5, color: 'var(--cine-dim2)' }}>
+                  {jourLong(e.date_debut)}{e.heure ? ` · ${formatHeure(e.heure)}` : ''}
+                </div>
+              </div>
+            </Link>
+          )
+        })}
+      </div>
+    </>
   )
 }

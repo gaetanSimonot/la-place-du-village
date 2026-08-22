@@ -2,7 +2,7 @@
 import { useMemo } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
-import { formatHeure, type Cinema, type Film, type Seance, type VisibiliteCinema } from '@/lib/cinema'
+import type { Cinema, Film, Seance, VisibiliteCinema } from '@/lib/cinema'
 
 /**
  * Bloc « Au cinéma aujourd'hui » — une carte insérée dans le flux du Village.
@@ -64,13 +64,6 @@ export default function CinemaAujourdhui({ isAdmin = false }: { isAdmin?: boolea
   // Et rien du tout s'il n'y a aucune séance aujourd'hui.
   if (!data || films.length === 0) return null
 
-  // Heure courante à Paris, pour distinguer la prochaine séance de celles
-  // déjà passées : « 14h » à 20h n'intéresse plus personne.
-  const maintenant = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', hour12: false,
-  }).format(new Date())
-  const prochaine = seancesDuJour.find(s => s.heure.slice(0, 5) >= maintenant)
-
   // Une seule salle joue : on ouvre directement sa programmation. Plusieurs :
   // l'accueil cinéma, qui les présentera toutes.
   const seule = data.cinemas.length === 1 ? data.cinemas[0] : null
@@ -86,7 +79,7 @@ export default function CinemaAujourdhui({ isAdmin = false }: { isAdmin?: boolea
           </svg>
         </span>
         <div className="min-w-0 flex-1">
-          <div className="font-title text-[16.5px] leading-tight text-texte">Au cinéma aujourd’hui</div>
+          <div className="font-title text-[16.5px] leading-tight text-texte">Au cinéma</div>
           <div className="mt-[2px] text-[11px] text-texte-doux">
             {films.length} film{films.length > 1 ? 's' : ''} · {seancesDuJour.length} séance{seancesDuJour.length > 1 ? 's' : ''}
             {data.cinemas.length > 1 ? ` · ${data.cinemas.length} salles` : ''}
@@ -100,42 +93,27 @@ export default function CinemaAujourdhui({ isAdmin = false }: { isAdmin?: boolea
         </span>
       </Link>
 
-      {/* Rail d'affiches seules. Pas de titre sous l'affiche : l'affiche EST
-          le titre, et la répéter en petit doublait la hauteur du bloc pour
-          rien. L'horaire est posé dessus, sur un dégradé qui garantit la
-          lisibilité quelle que soit l'image. */}
+      {/* Affiches seules. Ni titre, ni horaire : le bloc annonce qu'il se
+          passe quelque chose au cinéma et renvoie à la programmation — les
+          détails sont à un tap, ils n'ont pas à encombrer l'accueil. */}
       <div className="flex gap-2 overflow-x-auto px-[15px] pb-[15px]" style={{ scrollbarWidth: 'none' }}>
-        {films.map(({ film, heures }) => {
-          const suivante = heures.find(h => prochaine?.id === h.id) ?? null
-          const aMontrer = suivante ?? heures[0]
-          return (
-            <Link key={film.id} href={`/cinema/film/${film.id}`} className="relative shrink-0 no-underline">
-              <div className="relative overflow-hidden rounded-[10px]"
-                style={{ width: 76, aspectRatio: '2 / 3', background: 'linear-gradient(160deg,#2A2320,#0F0D0C)' }}>
-                {film.affiche_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={film.affiche_url} alt={film.titre} className="h-full w-full object-cover" loading="lazy" />
-                ) : (
-                  <div className="flex h-full w-full items-end p-1.5">
-                    <span style={{ fontSize: 9.5, fontWeight: 800, lineHeight: 1.15, color: '#F4E7CE', textShadow: '0 1px 3px rgba(0,0,0,.6)' }}>
-                      {film.titre}
-                    </span>
-                  </div>
-                )}
-                {/* Voile bas : sans lui, une heure claire sur une affiche
-                    claire devient illisible. */}
-                <div className="pointer-events-none absolute inset-x-0 bottom-0" style={{ height: 30, background: 'linear-gradient(to top, rgba(10,8,6,.85), transparent)' }} />
-                {aMontrer && (
-                  <span className="absolute bottom-1 left-0 right-0 text-center tabular-nums"
-                    style={{ fontSize: 11, fontWeight: 800, color: suivante ? '#8FD9A4' : '#F4E7CE', textShadow: '0 1px 3px rgba(0,0,0,.8)' }}>
-                    {formatHeure(aMontrer.heure)}
-                    {heures.length > 1 && <span style={{ opacity: .7, fontWeight: 700 }}> +{heures.length - 1}</span>}
+        {films.map(({ film }) => (
+          <Link key={film.id} href={`/cinema/film/${film.id}`} className="shrink-0 no-underline">
+            <div className="relative overflow-hidden rounded-[10px]"
+              style={{ width: 76, aspectRatio: '2 / 3', background: 'linear-gradient(160deg,#2A2320,#0F0D0C)' }}>
+              {film.affiche_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={film.affiche_url} alt={film.titre} className="h-full w-full object-cover" loading="lazy" />
+              ) : (
+                <div className="flex h-full w-full items-end p-1.5">
+                  <span style={{ fontSize: 9.5, fontWeight: 800, lineHeight: 1.15, color: '#F4E7CE', textShadow: '0 1px 3px rgba(0,0,0,.6)' }}>
+                    {film.titre}
                   </span>
-                )}
-              </div>
-            </Link>
-          )
-        })}
+                </div>
+              )}
+            </div>
+          </Link>
+        ))}
       </div>
     </div>
   )

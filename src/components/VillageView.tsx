@@ -142,11 +142,6 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
       {/* 4 tuiles */}
       <Tiles />
 
-      {/* Au cinéma aujourd'hui — le composant décide seul s'il s'affiche :
-          réglage d'ouverture au public, ou compte admin, et rien à annoncer
-          aujourd'hui = pas de bloc du tout. */}
-      <CinemaAujourdhui isAdmin={isAdmin} />
-
       {/* CTA abonnement (comptes gratuits, dismissable) — repris du hub */}
       {showPlansCard && (
         <PlansCardFinal
@@ -157,6 +152,11 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
 
       {/* Aujourd'hui — bento du hub (featured + minis), Voir tout → carte */}
       <TodaySection onVoirTout={onOpenAgendaToday} />
+
+      {/* Au cinéma — sous l'agenda du jour, dont il est le prolongement. Le
+          composant décide seul s'il s'affiche : réglage de visibilité, compte
+          admin, et rien à annoncer aujourd'hui = pas de bloc du tout. */}
+      <CinemaAujourdhui isAdmin={isAdmin} />
 
       {/* Fil du village */}
       <div className="mt-4 px-4">
