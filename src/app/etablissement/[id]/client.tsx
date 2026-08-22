@@ -11,6 +11,8 @@ import { ETAB_TYPES } from '@/lib/etablissement-types'
 import { CATEGORIES } from '@/lib/categories'
 import EtabEditDrawer from '@/components/EtabEditDrawer'
 import EtabProductsSection from '@/components/EtabProductsSection'
+import ImageLightbox from '@/components/ImageLightbox'
+import AlAfficheEtab from '@/components/cinema/AlAfficheEtab'
 import type { Etablissement } from '@/lib/types'
 import { can, toUserContext } from '@/lib/capabilities'
 import { QuotaReachedModal } from '@/components/HubModals'
@@ -119,6 +121,8 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
   const [publicPreview, setPublicPreview] = useState(false)
   const [loading, setLoading]       = useState(true)
   const [photoIdx, setPhotoIdx]     = useState(0)
+  /** Loupe sur la photo regardée — le carrousel garde le balayage. */
+  const [zoomOuvert, setZoomOuvert] = useState(false)
   const [isFav, setIsFav]           = useState(false)
   const [isFollowing, setIsFollowing] = useState(false)
   const [comments, setComments]     = useState<Comment[]>([])
@@ -371,6 +375,9 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
 
   const typeInfo = ETAB_TYPES[etab.type]
   const photos = etab.photos ?? []
+  // Photo agrandissable, comme sur la fiche événement : on garde le
+  // carrousel pour passer d'une photo à l'autre, et un tap ouvre la loupe
+  // sur celle qu'on regarde.
   const isOwner = !!user && etab.user_id === user.id
   const canEdit = isAdmin || isOwner
   // En aperçu public, on masque toutes les affordances d'édition (l'œil et la
@@ -495,10 +502,11 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
                 src={url}
                 alt=""
                 draggable={false}
+                onClick={() => setZoomOuvert(true)}
                 style={{
                   flex: '0 0 100%', width: '100%', height: '100%',
                   objectFit: 'cover', scrollSnapAlign: 'start',
-                  userSelect: 'none',
+                  userSelect: 'none', cursor: 'zoom-in',
                 }}
               />
             ))}
@@ -612,7 +620,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
           </div>
         </div>
 
-      <div style={{ padding: '18px 12px 96px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ padding: '20px 16px 96px', display: 'flex', flexDirection: 'column', gap: 14 }}>
 
         {/* Description */}
         {(etab.description_courte || etab.description_longue) && (
@@ -641,22 +649,22 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
           <div style={{ ...CARD, padding: '16px 18px' }}>
             <p style={{ fontSize: 11, fontWeight: 800, color: '#8A7A6A', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Contact</p>
             {etab.contact_tel && <a href={`tel:${etab.contact_tel}`} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', textDecoration: 'none', borderBottom: '1px solid #F0E8DC' }}>
-              <span style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#E8F2EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>📞</span>
+              <PastilleIcone><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.4-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg></PastilleIcone>
               <span style={{ flex: 1, fontSize: 14, color: '#2D5A3D', fontWeight: 600 }}>{etab.contact_tel}</span>
               <span style={{ color: '#C8B8A8', fontSize: 20 }}>›</span>
             </a>}
             {etab.contact_whatsapp && <a href={`https://wa.me/${etab.contact_whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', textDecoration: 'none', borderBottom: '1px solid #F0E8DC' }}>
-              <span style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#E8F2EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>💬</span>
+              <PastilleIcone><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.9 8.9 0 0 1-3.9-.9L3 20.5l1.5-4.4A8.4 8.4 0 0 1 3.6 11.5a8.4 8.4 0 0 1 8.9-8.4 8.4 8.4 0 0 1 8.5 8.4z"/></svg></PastilleIcone>
               <span style={{ flex: 1, fontSize: 14, color: '#2D5A3D', fontWeight: 600 }}>WhatsApp</span>
               <span style={{ color: '#C8B8A8', fontSize: 20 }}>›</span>
             </a>}
             {etab.site_web && <a href={etab.site_web.startsWith('http') ? etab.site_web : `https://${etab.site_web}`} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', textDecoration: 'none', borderBottom: mapsUrl ? '1px solid #F0E8DC' : 'none' }}>
-              <span style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#E8F2EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>🔗</span>
+              <PastilleIcone><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.5.6l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.6l-3 3a5 5 0 0 0 7 7L12.2 19"/></svg></PastilleIcone>
               <span style={{ flex: 1, fontSize: 14, color: '#2D5A3D', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{etab.site_web.replace(/^https?:\/\//, '').replace(/\/$/, '')}</span>
               <span style={{ color: '#C8B8A8', fontSize: 20 }}>›</span>
             </a>}
             {mapsUrl && <a href={mapsUrl} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', textDecoration: 'none' }}>
-              <span style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#E8F2EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>🗺️</span>
+              <PastilleIcone><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></PastilleIcone>
               <span style={{ flex: 1, fontSize: 14, color: '#2D5A3D', fontWeight: 600 }}>Voir l&apos;itinéraire</span>
               <span style={{ color: '#C8B8A8', fontSize: 20 }}>›</span>
             </a>}
@@ -712,6 +720,12 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
             </div>
           )
         })()}
+
+        {/* À l'affiche — la porte d'entrée de la salle, posée dans la fiche.
+            Le composant se retire de lui-même si le programme est vide. */}
+        {(etab as { module_cinema?: boolean }).module_cinema && (
+          <AlAfficheEtab etabId={etab.id} />
+        )}
 
         {/* Module Cinéma — ADMIN uniquement. Ce n'est pas une option publique :
             elle ne s'achète pas, elle s'accorde. */}
@@ -1061,8 +1075,34 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
       )}
       {editing && <EtabEditDrawer etab={etab} isAdmin={isAdmin} onClose={() => setEditing(false)} onSaved={patch => setEtab(prev => prev ? { ...prev, ...patch } : prev)} />}
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      {/* Loupe sur la photo courante. Mode controlled : le composant ne
+          rend pas d'image, seulement la surimpression — le carrousel
+          existant reste donc intact. */}
+      {photos.length > 0 && (
+        <ImageLightbox
+          src={photos[photoIdx]}
+          alt={etab.nom}
+          controlled={{ open: zoomOuvert, onClose: () => setZoomOuvert(false) }}
+        />
+      )}
+
       <BottomNavBar />
     </div>
+  )
+}
+
+
+/**
+ * Pastille d'icône des lignes de contact — même vocabulaire visuel que les
+ * icônes de la fiche événement : un trait, pas un emoji.
+ */
+function PastilleIcone({ children }: { children: React.ReactNode }) {
+  return (
+    <span style={{
+      width: 36, height: 36, borderRadius: 10, backgroundColor: '#E8F2EB',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      color: '#2D5A3D', flexShrink: 0,
+    }}>{children}</span>
   )
 }
 

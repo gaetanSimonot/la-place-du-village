@@ -1,0 +1,47 @@
+### carre — magazine (1024x1024)
+Crée un visuel de COMMUNICATION pour un événement local, destiné aux réseaux sociaux.
+STYLE À RESPECTER — Magazine : Univers « couverture de magazine culturel haut de gamme » : mise en page typographique forte et éditoriale, titre traité comme une accroche de couverture, hiérarchie de texte claire, généreux espaces négatifs, chic et sophistiqué. Fond en aplats de couleur et formes géométriques subtiles ou texture minimale. Sensation de papier glacé, moderne et raffiné.
+Format CARRÉ pour réseaux sociaux (Instagram). Composition centrée et équilibrée, titre bien lisible.
+Palette inspirée d'une ambiance apaisante et zen (influence de COULEUR uniquement).
+RÈGLES STRICTES :
+• Visuel ABSTRAIT / graphique. NE PAS illustrer littéralement les mots du titre.
+• NE JAMAIS produire une image réaliste qui pourrait être prise pour une vraie photo de l'événement, du lieu ou des participants. Pas de photo de foule, de scène, de salle, de personnes reconnaissables.
+• Neutre et élégant : une belle toile de fond, pas une illustration du contenu.
+TEXTE à afficher (en français, parfaitement orthographié, lisible, sans aucune faute) :
+• Titre : « Derniers Secours - Formation gratuite à l'accompagnement de la fin de vie »
+• Date : « jeudi 8 octobre 2026 à 10h00 »
+• Lieu : « Locaux de la CPTS Aigoual Cevennes, Ganges »
+• Petite ligne discrète en bas : « laplaceduvillage.app »
+N'ajoute aucun autre texte, aucun faux logo. Qualité pro, épuré, aéré.
+
+### carre — classique (1024x1024)
+Crée un visuel de COMMUNICATION pour un événement local, destiné aux réseaux sociaux.
+STYLE À RESPECTER — Classique : Univers « affiche d'art classique et intemporelle » : composition équilibrée et élégante, typographie soignée avec empattements, palette chaleureuse et sobre (crèmes, ocres, tons profonds), ornements discrets, légère texture papier. Esprit sérigraphie / affiche de théâtre ancienne revisitée, distingué et rassurant.
+Format CARRÉ pour réseaux sociaux (Instagram). Composition centrée et équilibrée, titre bien lisible.
+Palette inspirée d'une ambiance apaisante et zen (influence de COULEUR uniquement).
+RÈGLES STRICTES :
+• Visuel ABSTRAIT / graphique. NE PAS illustrer littéralement les mots du titre.
+• NE JAMAIS produire une image réaliste qui pourrait être prise pour une vraie photo de l'événement, du lieu ou des participants. Pas de photo de foule, de scène, de salle, de personnes reconnaissables.
+• Neutre et élégant : une belle toile de fond, pas une illustration du contenu.
+TEXTE à afficher (en français, parfaitement orthographié, lisible, sans aucune faute) :
+• Titre : « Derniers Secours - Formation gratuite à l'accompagnement de la fin de vie »
+• Date : « jeudi 8 octobre 2026 à 10h00 »
+• Lieu : « Locaux de la CPTS Aigoual Cevennes, Ganges »
+• Petite ligne discrète en bas : « laplaceduvillage.app »
+N'ajoute aucun autre texte, aucun faux logo. Qualité pro, épuré, aéré.
+
+### carre — moderne (1024x1024)
+Crée un visuel de COMMUNICATION pour un événement local, destiné aux réseaux sociaux.
+STYLE À RESPECTER — Moderne : Univers « design graphique contemporain » : grandes formes géométriques, dégradés tendance, couleurs vives mais maîtrisées, minimalisme assumé, identité visuelle de festival actuel. Composition audacieuse et épurée, très « branding » moderne.
+Format CARRÉ pour réseaux sociaux (Instagram). Composition centrée et équilibrée, titre bien lisible.
+Palette inspirée d'une ambiance apaisante et zen (influence de COULEUR uniquement).
+RÈGLES STRICTES :
+• Visuel ABSTRAIT / graphique. NE PAS illustrer littéralement les mots du titre.
+• NE JAMAIS produire une image réaliste qui pourrait être prise pour une vraie photo de l'événement, du lieu ou des participants. Pas de photo de foule, de scène, de salle, de personnes reconnaissables.
+• Neutre et élégant : une belle toile de fond, pas une illustration du contenu.
+TEXTE à afficher (en français, parfaitement orthographié, lisible, sans aucune faute) :
+• Titre : « Derniers Secours - Formation gratuite à l'accompagnement de la fin de vie »
+• Date : « jeudi 8 octobre 2026 à 10h00 »
+• Lieu : « Locaux de la CPTS Aigoual Cevennes, Ganges »
+• Petite ligne discrète en bas : « laplaceduvillage.app »
+N'ajoute aucun autre texte, aucun faux logo. Qualité pro, épuré, aéré.
