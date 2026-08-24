@@ -26,6 +26,8 @@ import VillageView from '@/components/VillageView'
 import HubSearchModal, { type SearchKind } from '@/components/HubSearchModal'
 import PublishMenuModal from '@/components/PublishMenuModal'
 import BottomNavBar from '@/components/BottomNavBar'
+import { toast } from 'sonner'
+import { trackEvent } from '@/lib/analytics'
 import { ComingSoonModal } from '@/components/HubModals'
 import SubscriptionModal from '@/components/SubscriptionModal'
 import { useFavorites } from '@/hooks/useFavorites'
@@ -206,6 +208,32 @@ export default function HomePage() {
     } catch { /* noop */ }
   }, [])
   const [infoOpen, setInfoOpen]     = useState(false)
+
+  /**
+   * Partager l'application — et non la page où l'on se trouve.
+   *
+   * On envoie /app, l'aiguillage : Android part vers la fiche Play, iPhone
+   * reçoit le mode d'emploi « ajouter à l'écran d'accueil », les autres
+   * arrivent sur le site. Un lien vers l'accueil obligerait celui qui le
+   * reçoit à trouver seul comment installer.
+   */
+  const partagerApp = useCallback(async () => {
+    const url = 'https://laplaceduvillage.app/app'
+    const titre = 'La Place du Village'
+    const texte = 'Tout ce qui se passe autour de Ganges — événements, commerces, bons plans.'
+    trackEvent('partage_app', { source: 'topbar' })
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      // Un partage annulé n'est pas une erreur : on ne dit rien.
+      try { await navigator.share({ title: titre, text: texte, url }) } catch { /* annulé */ }
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(url)
+      toast.success('Lien copié — il n’y a plus qu’à le coller.')
+    } catch {
+      toast.error('Le lien n’a pas pu être copié.')
+    }
+  }, [])
   const mapDragTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sheetBeforeMapRef = useRef<'peek'|'half'|'full' | null>(null)
   /** Une sélection restaurée ne doit pas replier la feuille : on rend la vue
@@ -914,15 +942,37 @@ export default function HomePage() {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src="/logo-topbar.webp" alt="La Place du Village" style={{ height: 38, width: 'auto', objectFit: 'contain', display: 'block' }} />
                   </button>
-                  <button
-                    onClick={() => setInfoOpen(true)}
-                    aria-label="Infos / FAQ"
-                    style={{ width: 38, height: 38, borderRadius: '50%', background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1A1209', cursor: 'pointer', flexShrink: 0 }}
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
-                    </svg>
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                    {/* Partager l'application. Écrit en toutes lettres : une
+                        icône seule se confond avec « partager cette page ». */}
+                    <button
+                      onClick={partagerApp}
+                      aria-label="Partager l’application"
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer',
+                        height: 34, padding: '0 11px', borderRadius: 999,
+                        background: '#F7F1E6', border: '1px solid #E6DCC8', color: '#2D5A3D',
+                        fontFamily: 'var(--font-body), sans-serif', fontWeight: 800, fontSize: 12.5,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+                        <polyline points="16 6 12 2 8 6"/>
+                        <line x1="12" y1="2" x2="12" y2="15"/>
+                      </svg>
+                      Partager
+                    </button>
+                    <button
+                      onClick={() => setInfoOpen(true)}
+                      aria-label="Infos / FAQ"
+                      style={{ width: 38, height: 38, borderRadius: '50%', background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1A1209', cursor: 'pointer', flexShrink: 0 }}
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 <div style={{ display: 'flex', background: '#F7F1E6', borderRadius: 14, padding: 4, gap: 2 }}>
                   {MODES.map(m => {
