@@ -14,6 +14,7 @@ import SubscriptionModal from '@/components/SubscriptionModal'
 import BottomNavBar from '@/components/BottomNavBar'
 import { can, toUserContext } from '@/lib/capabilities'
 import { useSmartBack } from '@/hooks/useSmartBack'
+import TexteRiche from '@/components/TexteRiche'
 
 interface Producer {
   id: string; nom: string; description_courte: string | null; description_longue: string | null
@@ -510,9 +511,10 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
             </div>
           )}
           {producer.description_courte && (
-            <p style={{ marginTop: 12, fontSize: 14, color: T.texte, lineHeight: 1.6, margin: '12px 0 0' }}>
-              {producer.description_courte}
-            </p>
+            <TexteRiche
+              texte={producer.description_courte}
+              style={{ marginTop: 12, fontSize: 14, color: T.texte, lineHeight: 1.6 }}
+            />
           )}
         </div>
 
@@ -733,7 +735,7 @@ export default function ProducteurPageClient({ id, onBack }: { id: string; onBac
             {producer.description_longue && (
               <div style={{ padding: '18px 16px 0' }}>
                 <div style={{ fontSize: 11, fontWeight: 800, color: T.texteDoux, letterSpacing: '0.1em', marginBottom: 8 }}>À PROPOS</div>
-                <p style={{ margin: 0, fontSize: 14, color: T.texte, lineHeight: 1.6 }}>{producer.description_longue}</p>
+                <TexteRiche texte={producer.description_longue} style={{ fontSize: 14, color: T.texte, lineHeight: 1.6 }} />
               </div>
             )}
 

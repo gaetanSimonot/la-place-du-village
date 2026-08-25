@@ -21,6 +21,7 @@ import CategoryPicker from '@/components/CategoryPicker'
 import { supabase } from '@/lib/supabase'
 import { authedFetch } from '@/lib/swr-fetchers'
 import MergeEventsModal from '@/components/MergeEventsModal'
+import { texteBrut } from '@/components/TexteRiche'
 
 const BATCH = 20
 
@@ -1253,7 +1254,7 @@ function EtablissementListCard({ etab, onOpen }: { etab: EtablissementCard; onOp
             <span style={{ fontSize: 11, color: '#92400E', fontWeight: 700 }}>⭐ {etab.note_google.toFixed(1)}</span>
           ) : <div />}
           {etab.description_courte && (
-            <p style={{ fontSize: 10, color: '#8A8A8A', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, paddingLeft: 6, }}>{etab.description_courte}</p>
+            <p style={{ fontSize: 10, color: '#8A8A8A', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, paddingLeft: 6, }}>{texteBrut(etab.description_courte)}</p>
           )}
         </div>
       </div>

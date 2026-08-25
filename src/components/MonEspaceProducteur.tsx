@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
 import ProductsEditSection from '@/components/ProductsEditSection'
+import { texteBrut } from '@/components/TexteRiche'
 
 interface Producer {
   id: string; nom: string; description_courte: string | null; description_longue: string | null
@@ -339,7 +340,7 @@ export default function MonEspaceProducteur() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 17, color: '#2C1810', margin: '0 0 2px' }}>{producer.nom}</p>
             {producer.commune && <p style={{ fontSize: 12, color: '#8A8A8A', margin: '0 0 4px' }}>📍 {producer.commune}</p>}
-            {producer.description_courte && <p style={{ fontSize: 13, color: '#555', margin: 0, lineHeight: 1.4 }}>{producer.description_courte}</p>}
+            {producer.description_courte && <p style={{ fontSize: 13, color: '#555', margin: 0, lineHeight: 1.4 }}>{texteBrut(producer.description_courte)}</p>}
           </div>
         </div>
         {producer.contact_tel && <p style={{ fontSize: 12, color: '#8A8A8A', margin: '0 0 2px' }}>📞 {producer.contact_tel}</p>}

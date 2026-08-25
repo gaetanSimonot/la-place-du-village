@@ -38,6 +38,22 @@ function lignes(bloc: string, cle: string): ReactNode[] {
     : [<br key={`${cle}-br${i}`} />, ...inline(l, `${cle}-l${i}`)])
 }
 
+/**
+ * Version texte plat, pour les endroits où la description est tronquée sur
+ * une ou deux lignes (vignette de carte, encart « L'endroit »…). Le rendu
+ * riche n'a pas de sens là, mais les `##` et `**` ne doivent pas s'afficher.
+ */
+export function texteBrut(texte: string): string {
+  return texte
+    .replace(/\r\n/g, '\n')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*\n]+)\*/g, '$1')
+    .replace(/^\s*[-•]\s+/gm, '')
+    .replace(/\s*\n+\s*/g, ' ')
+    .trim()
+}
+
 export default function TexteRiche({
   texte,
   style,

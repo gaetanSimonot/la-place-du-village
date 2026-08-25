@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import BottomNavBar from '@/components/BottomNavBar'
 import ArticleSocial from '@/components/ArticleSocial'
+import TexteRiche from '@/components/TexteRiche'
 
 export interface JournalRow {
   id: string
@@ -357,7 +358,7 @@ export default function JournalPageClient({
             </div>
           )}
           {spotlight.description_courte && (
-            <p className="mt-3 text-[14px] leading-[1.6] text-texte">{spotlight.description_courte}</p>
+            <TexteRiche texte={spotlight.description_courte} style={{ marginTop: 12, fontSize: 14, lineHeight: 1.6 }} />
           )}
           <Link
             href={spotlight.kind === 'producteur' ? `/producteur/${spotlight.id}` : `/etablissement/${spotlight.id}`}

@@ -20,6 +20,7 @@ import FeedbackButton from '@/components/FeedbackButton'
 import { useSmartBack } from '@/hooks/useSmartBack'
 import { authedFetch } from '@/lib/swr-fetchers'
 import type { CorrectionField } from '@/lib/types'
+import { texteBrut } from '@/components/TexteRiche'
 
 const LINK_STYLE = { color: '#C84B2F', textDecoration: 'underline', wordBreak: 'break-all' } as const
 
@@ -300,7 +301,7 @@ export default function EvenementPageClient({ id }: { id: string }) {
                 <div className="min-w-0 flex-1">
                   <p className="m-0 truncate text-[14px] font-extrabold text-texte">{linkedEtab.nom}</p>
                   {linkedEtab.description_courte && (
-                    <p className="m-0 mt-0.5 text-[12px] leading-[1.4] text-texte-doux" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{linkedEtab.description_courte}</p>
+                    <p className="m-0 mt-0.5 text-[12px] leading-[1.4] text-texte-doux" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{texteBrut(linkedEtab.description_courte)}</p>
                   )}
                   <span className="mt-1 inline-block text-[11px] font-bold text-primary">Voir la fiche →</span>
                 </div>

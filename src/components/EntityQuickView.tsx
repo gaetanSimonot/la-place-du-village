@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { ETAB_TYPES } from '@/lib/etablissement-types'
+import TexteRiche from '@/components/TexteRiche'
 
 type Kind = 'etablissement' | 'producteur'
 
@@ -212,10 +213,10 @@ export default function EntityQuickView({ kind, id, onClose }: Props) {
             {(descShort || descLong) && (
               <div className="px-4 pt-3">
                 {descShort && (
-                  <p className="text-[13px] leading-[1.5] text-texte">{descShort}</p>
+                  <TexteRiche texte={descShort} style={{ fontSize: 13, lineHeight: 1.5 }} />
                 )}
                 {descLong && descLong !== descShort && (
-                  <p className="mt-2 whitespace-pre-wrap text-[13px] leading-[1.5] text-texte">{descLong}</p>
+                  <TexteRiche texte={descLong} style={{ fontSize: 13, lineHeight: 1.5, marginTop: 8 }} />
                 )}
               </div>
             )}
