@@ -25,6 +25,7 @@ import FeatureButton from '@/components/FeatureButton'
 import SubscriptionModal from '@/components/SubscriptionModal'
 import BottomNavBar from '@/components/BottomNavBar'
 import { useSmartBack } from '@/hooks/useSmartBack'
+import TexteRiche from '@/components/TexteRiche'
 
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
 const DAY_KEYS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
@@ -667,8 +668,18 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
         {(etab.description_courte || etab.description_longue) && (
           <div style={CARD}>
             <h3 style={{ fontSize: 11, fontWeight: 800, color: '#8A7A6A', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>À propos</h3>
-            {etab.description_courte && <p style={{ fontSize: 14, color: '#4A3728', lineHeight: 1.7, margin: '0 0 6px' }}>{etab.description_courte}</p>}
-            {etab.description_longue && <p style={{ fontSize: 13, color: '#6B5E4E', lineHeight: 1.7, margin: 0 }}>{etab.description_longue}</p>}
+            {etab.description_courte && (
+              <TexteRiche
+                texte={etab.description_courte}
+                style={{ fontSize: 14, color: '#4A3728', lineHeight: 1.7, marginBottom: 6 }}
+              />
+            )}
+            {etab.description_longue && (
+              <TexteRiche
+                texte={etab.description_longue}
+                style={{ fontSize: 13, color: '#6B5E4E', lineHeight: 1.7 }}
+              />
+            )}
           </div>
         )}
 
