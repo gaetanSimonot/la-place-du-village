@@ -5,7 +5,7 @@ import useSWR, { mutate } from 'swr'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
-import BottomNavBar from '@/components/BottomNavBar'
+import BottomNavBar, { NAV_H } from '@/components/BottomNavBar'
 import EmbedPanel, { type EmbedItem } from '@/components/EmbedPanel'
 import { useAppViewportHeight } from '@/hooks/useAppViewportHeight'
 import { authedFetcher, FetchError } from '@/lib/swr-fetchers'
@@ -411,9 +411,9 @@ export default function ConversationClient({ convId }: Props) {
         // quand le keyboard monte ; sur Chrome Android, interactive-widget
         // (scopé au segment via layout.tsx) le fait aussi.
         height: 'var(--app-vh, 100dvh)',
-        // BottomNavBar fixed bottom:0 (64px) → seulement si rien d'autre
+        // BottomNavBar fixed bottom:0 (NAV_H) → seulement si rien d'autre
         // n'occupe le bas. Sinon (keyboard ou panel), on libère la place.
-        paddingBottom: bottomState === 'none' ? 64 : 0,
+        paddingBottom: bottomState === 'none' ? NAV_H : 0,
         overflow: 'hidden',
       }}>
       {/* ─── Top bar (shrink-0) ──────────────────────────────── */}

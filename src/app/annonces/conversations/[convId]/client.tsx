@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
-import BottomNavBar from '@/components/BottomNavBar'
+import BottomNavBar, { NAV_H } from '@/components/BottomNavBar'
 import type { AnnonceMessage, AnnonceConversation } from '@/lib/annonces'
 import { useSmartBack } from '@/hooks/useSmartBack'
 
@@ -230,7 +230,7 @@ export default function ConversationPageClient({ convId }: Props) {
       fontFamily: 'var(--font-body), sans-serif',
       display: 'flex',
       flexDirection: 'column',
-      paddingBottom: 64, // espace pour BottomNavBar
+      paddingBottom: NAV_H, // espace pour BottomNavBar
     }}>
       {/* Header sticky avec back + annonce */}
       <div style={{

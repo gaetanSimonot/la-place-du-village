@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
-import BottomNavBar from '@/components/BottomNavBar'
+import BottomNavBar, { NAV_H } from '@/components/BottomNavBar'
 import type { SupportConversation, SupportMessage } from '@/lib/support'
 import { useSmartBack } from '@/hooks/useSmartBack'
 
@@ -165,7 +165,7 @@ export default function SupportConversationClient({ convId, mode }: Props) {
       fontFamily: 'var(--font-body), sans-serif',
       display: 'flex',
       flexDirection: 'column',
-      paddingBottom: mode === 'user' ? 64 : 0,
+      paddingBottom: mode === 'user' ? NAV_H : 0,
     }}>
       {/* Header sticky */}
       <div style={{

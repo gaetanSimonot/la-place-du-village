@@ -25,7 +25,7 @@ import HubView from '@/components/HubView'
 import VillageView from '@/components/VillageView'
 import HubSearchModal, { type SearchKind } from '@/components/HubSearchModal'
 import PublishMenuModal from '@/components/PublishMenuModal'
-import BottomNavBar from '@/components/BottomNavBar'
+import BottomNavBar, { NAV_H } from '@/components/BottomNavBar'
 import { toast } from 'sonner'
 import { trackEvent } from '@/lib/analytics'
 import { ComingSoonModal } from '@/components/HubModals'
@@ -41,7 +41,6 @@ const BottomSheet               = dynamic(() => import('@/components/BottomSheet
 // @modal/(.)producteur/[id] et @modal/(.)etablissement/[id].
 
 const defaultFiltres: Filtres = { categories: [], quand: 'toujours' }
-const NAV_H = 62
 
 type NavTab = 'accueil' | 'carte' | 'annonces' | 'favoris' | 'profil' | 'notifs' | 'village' | 'bonsplans'
 

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
-import BottomNavBar from '@/components/BottomNavBar'
+import BottomNavBar, { NAV_H } from '@/components/BottomNavBar'
 import type { Covoiturage, CovoitConversation, CovoitMessage } from '@/lib/covoiturage'
 
 function timeAgo(d: string) {
@@ -140,7 +140,7 @@ export default function CovoitConversationClient({ convId }: { convId: string })
   return (
     <main
       className="flex flex-col bg-creme font-inter text-texte"
-      style={{ height: 'calc(100dvh - 64px - env(safe-area-inset-bottom, 0px))' }}
+      style={{ height: `calc(100dvh - ${NAV_H}px - env(safe-area-inset-bottom, 0px))` }}
     >
       {/* Top bar */}
       <div className="sticky top-0 z-30 flex items-center gap-2.5 border-b border-bordSoft bg-creme/95 px-4 py-3 backdrop-blur">

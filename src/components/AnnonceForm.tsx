@@ -23,7 +23,7 @@ import SubscriptionModal from '@/components/SubscriptionModal'
 interface Props {
   initial?: Annonce | null
   onSuccess?: (annonceId: string) => void
-  /** Décale la barre Sauvegarder (fixe) au-dessus d'une BottomNavBar (= 64). */
+  /** Décale la barre Sauvegarder (fixe) au-dessus d'une BottomNavBar (= NAV_H). */
   bottomOffset?: number
 }
 

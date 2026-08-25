@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import { shareLink } from '@/lib/share'
-import BottomNavBar from '@/components/BottomNavBar'
+import BottomNavBar, { NAV_H } from '@/components/BottomNavBar'
 import PostMedia from '@/components/profil/PostMedia'
 import PollView from '@/components/forum/PollView'
 import NewTopicModal from '@/components/forum/NewTopicModal'
@@ -334,7 +334,7 @@ export default function TopicClient({ id }: { id: string }) {
       ) : null}
 
       {/* ── Composer fixe (au-dessus de la BottomNavBar) ── */}
-      <div className="fixed left-0 right-0 z-30 border-t bg-creme/95 backdrop-blur" style={{ bottom: 64, borderColor: '#E8E0D4' }}>
+      <div className="fixed left-0 right-0 z-30 border-t bg-creme/95 backdrop-blur" style={{ bottom: NAV_H, borderColor: '#E8E0D4' }}>
         {replyTo && (
           <div className="flex items-center justify-between gap-2 px-3 pt-2 text-[11px] text-texte-doux">
             <span className="truncate">↪ Réponse à <strong>{replyTo.author_name ?? 'Quelqu\'un'}</strong></span>

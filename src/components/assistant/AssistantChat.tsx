@@ -10,6 +10,7 @@ import CarteAction, { type ActionProposee } from '@/components/assistant/CarteAc
 import Soleil from '@/components/assistant/Soleil'
 import { formaterCout } from '@/lib/assistant/cout'
 import ClientPortal from '@/components/ClientPortal'
+import { NAV_H } from '@/components/BottomNavBar'
 import {
   derniereConversation, lireConversations, enregistrerConversation, oublierConversation,
   type ConversationLocale,
@@ -111,7 +112,6 @@ const AV = 26   // diamètre du soleil devant une réponse
  * monter une seconde — elle ouvre un canal temps réel, et deux n'auraient
  * servi à rien.
  */
-const NAV_H = 64
 const RETRAIT = 51  // 16 (marge) + 26 (soleil) + 9 (gouttière)
 
 export default function AssistantChat({ question, dicter, onClose }: {

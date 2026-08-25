@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import AnnonceForm from '@/components/AnnonceForm'
 import AnnonceContactModal from '@/components/AnnonceContactModal'
-import BottomNavBar from '@/components/BottomNavBar'
+import BottomNavBar, { NAV_H } from '@/components/BottomNavBar'
 import FeatureButton, { FeatureModal } from '@/components/FeatureButton'
 import ImageLightbox from '@/components/ImageLightbox'
 import { useSmartBack } from '@/hooks/useSmartBack'
@@ -238,7 +238,7 @@ export default function AnnoncePageClient({ id }: Props) {
         </div>
         <div style={{ padding: 16 }}>
           <div style={cardStyle}>
-            <AnnonceForm initial={annonce} bottomOffset={64} onSuccess={async () => { await reload(); setEditing(false) }} />
+            <AnnonceForm initial={annonce} bottomOffset={NAV_H} onSuccess={async () => { await reload(); setEditing(false) }} />
           </div>
         </div>
         <BottomNavBar />
@@ -518,7 +518,7 @@ export default function AnnoncePageClient({ id }: Props) {
       {/* Bottom bar fixe — acheteur sur annonce active (couleur du type) */}
       {!isOwner && isActive && (
         <div style={{
-          position: 'fixed', bottom: 64, left: 0, right: 0,
+          position: 'fixed', bottom: NAV_H, left: 0, right: 0,
           padding: '12px 14px',
           backgroundColor: 'rgba(253,250,245,0.96)', backdropFilter: 'blur(12px)',
           borderTop: '1px solid #EDE6DA', display: 'flex', gap: 10, zIndex: 40,
