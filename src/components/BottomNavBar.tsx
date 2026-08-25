@@ -210,7 +210,13 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
           )
         }
 
-        const isActive = (activeTab ? activeTab === t.id : t.active) || pendingTab === t.id
+        /* L'onglet en attente est exclusif : tant qu'il tient, lui seul est
+           allumé. Sinon, taper vite d'un onglet à l'autre laissait le
+           précédent marqué — encore actif car la page n'avait pas suivi —
+           et deux onglets portaient le signe en même temps. */
+        const isActive = pendingTab
+          ? pendingTab === t.id
+          : (activeTab ? activeTab === t.id : t.active)
         return (
           <button
             key={t.id}
@@ -220,8 +226,7 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
               flex: 1, display: 'flex', flexDirection: 'column',
               alignItems: 'center', justifyContent: 'center', gap: 3,
               border: 'none', backgroundColor: 'transparent', cursor: 'pointer',
-              borderTop: isActive ? '2.5px solid var(--nav-actif, #2D5A3D)' : '2.5px solid transparent',
-              paddingBottom: 4,
+              paddingTop: 2.5, paddingBottom: 4,
               // La couleur passe par une variable, pas par `color` : la règle
               // :active de .lpv-tap doit pouvoir la reprendre à l'appui, et un
               // `color` inline gagnerait contre elle.
@@ -230,10 +235,31 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
             } as React.CSSProperties}
           >
             <div style={{ position: 'relative', display: 'inline-flex' }}>
+              {/* La pastille — un fond posé derrière la seule icône, qui ne
+                  remplit pas la tuile. Elle arrive 70 ms après le vert : le
+                  doigt est parti, l'icône remonte, puis le fond se pose.
+                  À l'extinction, aucun délai et un fondu court — passer vite
+                  d'un onglet à l'autre doit couper net, pas superposer deux
+                  animations. */}
+              <span
+                aria-hidden
+                className="lpv-pastille"
+                style={{
+                  position: 'absolute', left: '50%', top: '50%',
+                  width: 46, height: 30, marginLeft: -23, marginTop: -15,
+                  borderRadius: 15, pointerEvents: 'none',
+                  backgroundColor: 'var(--nav-pastille, rgba(45, 90, 61, .13))',
+                  opacity: isActive ? 1 : 0,
+                  transform: isActive ? 'scale(1)' : 'scale(.72)',
+                  transition: isActive
+                    ? 'opacity 150ms ease-out 70ms, transform 240ms cubic-bezier(.22,1,.36,1) 70ms'
+                    : 'opacity 90ms ease-out, transform 90ms ease-out',
+                }}
+              />
               <span style={
                 t.id === 'favoris' && batFavori
-                  ? { color: '#C84B2F', display: 'inline-flex', transformOrigin: 'center', animation: 'lpv-battement .55s ease-in-out 2' }
-                  : { display: 'inline-flex' }
+                  ? { position: 'relative', color: '#C84B2F', display: 'inline-flex', transformOrigin: 'center', animation: 'lpv-battement .55s ease-in-out 2' }
+                  : { position: 'relative', display: 'inline-flex' }
               }>
                 <t.Icon />
               </span>

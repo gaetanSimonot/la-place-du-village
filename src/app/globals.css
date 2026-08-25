@@ -196,6 +196,7 @@ html[data-univers='cinema'] {
   --nav-inactif: var(--cine-dim2);
   --nav-fab-bg:  var(--cine-accent);
   --nav-fab-ink: #0E1620;
+  --nav-pastille: rgba(180, 221, 246, .16);
 
   background: var(--cine-bg);
 }
@@ -228,15 +229,23 @@ html[data-univers='cinema'] body { background: var(--cine-bg); }
    le doigt appuyait dans le vide. Ces règles rendent le retour, en CSS pur —
    pas de state React, donc pas de re-render entre le doigt et l'image.
 
-   Enfoncement rapide, remontée lente : c'est ce décalage qui fait « vivant »
-   plutôt que « clignotant ». Le mouvement reste organique, comme lpv-eq qui
-   respire et lpv-battement qui bat — ni ripple, ni rebond élastique.
+   Le geste se lit en deux temps : à l'appui l'icône se creuse, au relâchement
+   elle remonte et se met au vert. Le vert est la réponse, pas l'appui : il
+   arrive quand le doigt part, sinon les deux se confondent.
 
    iOS n'applique :active que si l'élément écoute le toucher : les boutons
    concernés portent tous un onPointerDown (voir BottomNavBar). */
 
+/* Un appui maintenu proposait « Copier / Sélectionner » sur le libellé :
+   ce sont des boutons, pas du texte à emporter. */
+.lpv-tap, .lpv-tap-fab {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
 /* Onglet de nav. L'échelle porte sur les enfants et non sur le bouton :
-   le trait de l'onglet actif (borderTop) doit rester immobile. */
+   la pastille est dans l'icône, elle se creuse donc avec elle. */
 .lpv-tap > * {
   transition: transform 200ms cubic-bezier(.22, 1, .36, 1);
 }
@@ -244,11 +253,13 @@ html[data-univers='cinema'] body { background: var(--cine-bg); }
   transform: scale(0.90);
   transition-duration: 70ms;
 }
-/* La couleur bascule sur le vert actif dès l'appui. Elle passe par une
-   variable posée en style inline : une règle `color` ici perdrait contre le
-   style inline, et on ne veut pas empiler des !important. */
-.lpv-tap        { color: var(--tab-ink); }
-.lpv-tap:active { color: var(--nav-actif, #2D5A3D); }
+/* La couleur passe par une variable posée en style inline : une règle
+   `color` ici perdrait contre le style inline, et on ne veut pas empiler
+   des !important. */
+.lpv-tap {
+  color: var(--tab-ink);
+  transition: color 160ms ease-out;
+}
 
 /* Le « + » : un vrai bouton physique, il s'enfonce plus franchement et son
    ombre se resserre. Remontée plus courte que les onglets — il ouvre une
@@ -262,10 +273,11 @@ html[data-univers='cinema'] body { background: var(--cine-bg); }
   transition-duration: 60ms;
 }
 
-/* Mouvement réduit : on garde le changement de couleur — c'est
-   l'information — et on retire l'échelle, qui n'est que le geste. */
+/* Mouvement réduit : on garde le vert et la pastille — c'est l'information —
+   et on retire l'échelle et le fondu, qui ne sont que le geste. */
 @media (prefers-reduced-motion: reduce) {
   .lpv-tap:active > *,
   .lpv-tap-fab:active > span:first-child { transform: none; }
+  .lpv-pastille { transition: none !important; transform: none !important; }
   .lpv-eq-bar { animation: none; }
 }
