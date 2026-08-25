@@ -58,6 +58,7 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
   const { user } = useAuth()
   const intercept = useInterceptModal()
   const [notifCount, setNotifCount] = useState(0)
+  const navRef = useRef<HTMLElement>(null)
   const instanceIdRef = useRef<string>(
     typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2),
   )
@@ -78,14 +79,39 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
     return () => { supabase.removeChannel(ch) }
   }, [user])
 
+  /**
+   * iOS n'applique `:active` qu'aux éléments dont un ancêtre écoute le
+   * toucher. Sans ce listener — vide, passif, posé une fois sur la barre —
+   * l'enfoncement au doigt marcherait sur Android et pas sur iPhone.
+   */
+  useEffect(() => {
+    const el = navRef.current
+    if (!el) return
+    const noop = () => {}
+    el.addEventListener('touchstart', noop, { passive: true })
+    return () => el.removeEventListener('touchstart', noop)
+  }, [])
+
   const isPromotions = pathname?.startsWith('/promotions') ?? false
   const isAnnonces = pathname?.startsWith('/annonces') ?? false
   const onVillageish = activeTab === 'village' || activeTab === 'profil' || activeTab === 'notifs'
 
   const go = (href: string, id: string) => {
+    setPendingTab(id)
     if (onNavigate) { onNavigate(id); return }
     if (intercept) { router.replace(href); return }
     router.push(href)
+  }
+
+  /**
+   * Une secousse de 10 ms au doigt, sur le « + » seulement.
+   *
+   * C'est le geste d'engagement de la barre — les quatre onglets vibrants
+   * feraient du bruit. Sans effet sur iPhone (Safari n'implémente pas
+   * l'API) et sur les navigateurs de bureau : l'appel est simplement ignoré.
+   */
+  const vibrer = () => {
+    try { navigator.vibrate?.(10) } catch { /* refusé par le navigateur : tant pis */ }
   }
 
   // « + » CONTEXTUEL : lié à ce qui est à l'écran.
@@ -104,6 +130,26 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
    * L'événement est global — n'importe quel écran peut le déclencher, la nav
    * n'a pas à savoir qui.
    */
+  /**
+   * L'onglet s'allume au doigt, pas à l'arrivée de la page.
+   *
+   * Sur les ~20 écrans qui montent cette barre sans `activeTab`, taper
+   * « Carte » lançait un router.push et laissait l'onglet gris tout le temps
+   * du chargement : rien ne disait que le tap avait été pris. On peint donc
+   * l'onglet demandé tout de suite, et on lâche dès que la page a suivi.
+   *
+   * Le filet de 2,5 s couvre la navigation qui n'aboutit pas (route
+   * interceptée, retour arrière) : sans lui, l'onglet resterait allumé sur
+   * une page où l'on n'est pas.
+   */
+  const [pendingTab, setPendingTab] = useState<string | null>(null)
+  useEffect(() => { setPendingTab(null) }, [pathname, activeTab])
+  useEffect(() => {
+    if (!pendingTab) return
+    const t = setTimeout(() => setPendingTab(null), 2500)
+    return () => clearTimeout(t)
+  }, [pendingTab])
+
   const [batFavori, setBatFavori] = useState(false)
   useEffect(() => {
     const onFavori = () => {
@@ -138,7 +184,9 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
           return (
             <button
               key="plus"
+              className="lpv-tap-fab"
               onClick={handlePlus}
+              onPointerDown={vibrer}
               aria-label="Ajouter"
               style={{
                 flex: 1, display: 'flex', flexDirection: 'column',
@@ -162,10 +210,11 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
           )
         }
 
-        const isActive = activeTab ? activeTab === t.id : t.active
+        const isActive = (activeTab ? activeTab === t.id : t.active) || pendingTab === t.id
         return (
           <button
             key={t.id}
+            className="lpv-tap"
             onClick={() => go(t.href, t.id)}
             style={{
               flex: 1, display: 'flex', flexDirection: 'column',
@@ -173,9 +222,12 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
               border: 'none', backgroundColor: 'transparent', cursor: 'pointer',
               borderTop: isActive ? '2.5px solid var(--nav-actif, #2D5A3D)' : '2.5px solid transparent',
               paddingBottom: 4,
-              color: isActive ? 'var(--nav-actif, #2D5A3D)' : 'var(--nav-inactif, #8A8A8A)',
+              // La couleur passe par une variable, pas par `color` : la règle
+              // :active de .lpv-tap doit pouvoir la reprendre à l'appui, et un
+              // `color` inline gagnerait contre elle.
+              ['--tab-ink' as string]: isActive ? 'var(--nav-actif, #2D5A3D)' : 'var(--nav-inactif, #8A8A8A)',
               WebkitTapHighlightColor: 'transparent',
-            }}
+            } as React.CSSProperties}
           >
             <div style={{ position: 'relative', display: 'inline-flex' }}>
               <span style={

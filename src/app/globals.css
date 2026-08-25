@@ -221,3 +221,51 @@ html[data-univers='cinema'] body { background: var(--cine-bg); }
   30%      { transform: scale(1.32); }
   60%      { transform: scale(0.94); }
 }
+
+/* ═══════════ TAP — le doigt touche, quelque chose répond ═══════════
+   La barre du bas neutralise le voile gris du navigateur
+   (-webkit-tap-highlight-color: transparent) sans rien mettre à la place :
+   le doigt appuyait dans le vide. Ces règles rendent le retour, en CSS pur —
+   pas de state React, donc pas de re-render entre le doigt et l'image.
+
+   Enfoncement rapide, remontée lente : c'est ce décalage qui fait « vivant »
+   plutôt que « clignotant ». Le mouvement reste organique, comme lpv-eq qui
+   respire et lpv-battement qui bat — ni ripple, ni rebond élastique.
+
+   iOS n'applique :active que si l'élément écoute le toucher : les boutons
+   concernés portent tous un onPointerDown (voir BottomNavBar). */
+
+/* Onglet de nav. L'échelle porte sur les enfants et non sur le bouton :
+   le trait de l'onglet actif (borderTop) doit rester immobile. */
+.lpv-tap > * {
+  transition: transform 200ms cubic-bezier(.22, 1, .36, 1);
+}
+.lpv-tap:active > * {
+  transform: scale(0.90);
+  transition-duration: 70ms;
+}
+/* La couleur bascule sur le vert actif dès l'appui. Elle passe par une
+   variable posée en style inline : une règle `color` ici perdrait contre le
+   style inline, et on ne veut pas empiler des !important. */
+.lpv-tap        { color: var(--tab-ink); }
+.lpv-tap:active { color: var(--nav-actif, #2D5A3D); }
+
+/* Le « + » : un vrai bouton physique, il s'enfonce plus franchement et son
+   ombre se resserre. Remontée plus courte que les onglets — il ouvre une
+   feuille, et son geste doit être fini avant qu'elle arrive. */
+.lpv-tap-fab > span:first-child {
+  transition: transform 140ms cubic-bezier(.22, 1, .36, 1), box-shadow 140ms ease-out;
+}
+.lpv-tap-fab:active > span:first-child {
+  transform: scale(0.88);
+  box-shadow: 0 1px 3px rgba(45, 90, 61, 0.24);
+  transition-duration: 60ms;
+}
+
+/* Mouvement réduit : on garde le changement de couleur — c'est
+   l'information — et on retire l'échelle, qui n'est que le geste. */
+@media (prefers-reduced-motion: reduce) {
+  .lpv-tap:active > *,
+  .lpv-tap-fab:active > span:first-child { transform: none; }
+  .lpv-eq-bar { animation: none; }
+}
