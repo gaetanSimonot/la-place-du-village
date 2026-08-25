@@ -14,6 +14,7 @@ import PostComposer from '@/components/profil/PostComposer'
 import PostCard, { type PostData } from '@/components/profil/PostCard'
 import PostCommentsDrawer from '@/components/profil/PostCommentsDrawer'
 import BarreAssistant from '@/components/assistant/BarreAssistant'
+import { chargerIdentitesEtab } from '@/lib/identite'
 
 interface VillagePost extends PostData {
   likeCount: number
@@ -21,6 +22,7 @@ interface VillagePost extends PostData {
   userHasLiked: boolean
   authorName: string
   authorAvatar: string | null
+  authorHref: string
 }
 
 /** Le « mur du village » : logo + identité, titre, 4 raccourcis, Aujourd'hui + le fil du village (groupe). */
@@ -296,7 +298,7 @@ function VillageFeed({ user, avatar, authorName }: { user: ReturnType<typeof use
     try {
       const { data: rows } = await supabase
         .from('posts')
-        .select('id, user_id, texte, visibility, embed_kind, embed_ref_id, media, created_at')
+        .select('id, user_id, texte, visibility, embed_kind, embed_ref_id, media, created_at, etablissement_id')
         .eq('sur_village', true)
         .order('created_at', { ascending: false })
         .limit(100)
@@ -305,10 +307,11 @@ function VillageFeed({ user, avatar, authorName }: { user: ReturnType<typeof use
 
       const authorIds = Array.from(new Set(base.map(p => p.user_id)))
       const ids = base.map(p => p.id)
-      const [profRes, likesRes, commentsRes] = await Promise.all([
+      const [profRes, likesRes, commentsRes, identites] = await Promise.all([
         supabase.from('profiles').select('user_id, display_name, avatar_url').in('user_id', authorIds),
         supabase.from('post_likes').select('post_id, user_id').in('post_id', ids),
         supabase.from('post_comments').select('post_id').in('post_id', ids),
+        chargerIdentitesEtab(supabase, base.map(p => p.etablissement_id)),
       ])
       const prof = new Map<string, { name: string; avatar: string | null }>()
       for (const p of (profRes.data ?? []) as { user_id: string; display_name: string | null; avatar_url: string | null }[]) {
@@ -322,14 +325,18 @@ function VillageFeed({ user, avatar, authorName }: { user: ReturnType<typeof use
       for (const c of (commentsRes.data ?? []) as { post_id: string }[]) {
         commentCount.set(c.post_id, (commentCount.get(c.post_id) ?? 0) + 1)
       }
-      setPosts(base.map(p => ({
+      setPosts(base.map(p => {
+        // Blase : la fiche remplace le profil sur le fil du village.
+        const etab = p.etablissement_id ? identites.get(p.etablissement_id) : undefined
+        return {
         ...p,
-        authorName: prof.get(p.user_id)?.name ?? 'Villageois',
-        authorAvatar: prof.get(p.user_id)?.avatar ?? null,
+        authorName: etab ? etab.nom : (prof.get(p.user_id)?.name ?? 'Villageois'),
+        authorAvatar: etab ? (etab.photos?.[0] ?? null) : (prof.get(p.user_id)?.avatar ?? null),
+        authorHref: etab ? `/etablissement/${etab.id}` : `/profil/${p.user_id}`,
         likeCount: likeCount.get(p.id) ?? 0,
         commentCount: commentCount.get(p.id) ?? 0,
         userHasLiked: liked.has(p.id),
-      })))
+      }}))
     } catch {
       toast.error('Impossible de charger le fil du village')
     } finally {
@@ -396,6 +403,7 @@ function VillageFeed({ user, avatar, authorName }: { user: ReturnType<typeof use
             post={p}
             authorName={p.authorName}
             authorAvatar={p.authorAvatar}
+            authorHref={p.authorHref}
             isOwn={p.user_id === myId}
             likeCount={p.likeCount}
             commentCount={p.commentCount}

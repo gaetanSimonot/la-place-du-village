@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser, notifyByAudience, notifyUser } from '@/lib/server-auth'
 import { sanitizeMedia } from '@/lib/postMedia'
+import { validerIdentiteDemandee, chargerIdentitesEtab } from '@/lib/identite'
 
 const NOTIFY_AUDIENCES = ['all', 'basic', 'habitants', 'pro'] as const
 type NotifyAudience = (typeof NOTIFY_AUDIENCES)[number]
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
   const { texte, visibility, embed_kind, embed_ref_id, notify, media, sur_village } = body as {
     texte?: unknown; visibility?: unknown;
     embed_kind?: unknown; embed_ref_id?: unknown; notify?: unknown; media?: unknown
-    sur_village?: unknown
+    sur_village?: unknown; etablissement_id?: unknown
   }
 
   const cleanMedia = sanitizeMedia(media)
@@ -66,10 +67,17 @@ export async function POST(req: NextRequest) {
     validEmbedRefId = embed_ref_id
   }
 
+  // Blase : publier sous une fiche exige que la fiche soit attribuée au user.
+  const blase = await validerIdentiteDemandee(supabaseAdmin, ctx.userId, body.etablissement_id)
+  if (blase === false) {
+    return NextResponse.json({ error: 'Vous ne gérez pas cette fiche' }, { status: 403 })
+  }
+
   const { data, error } = await supabaseAdmin
     .from('posts')
     .insert({
       user_id: ctx.userId,
+      etablissement_id: blase,
       texte: trimmed,
       visibility: vis,
       embed_kind: validEmbedKind,
@@ -79,7 +87,7 @@ export async function POST(req: NextRequest) {
       // Les posts admin (compte « La Place du Village ») y vont TOUJOURS.
       sur_village: sur_village === true || ctx.isAdmin,
     })
-    .select('id, user_id, texte, visibility, embed_kind, embed_ref_id, media, created_at, sur_village')
+    .select('id, user_id, texte, visibility, embed_kind, embed_ref_id, media, created_at, sur_village, etablissement_id')
     .single()
 
   if (error) {
@@ -97,9 +105,19 @@ export async function POST(req: NextRequest) {
   ) {
     const { data: prof } = await supabaseAdmin
       .from('profiles').select('display_name').eq('user_id', ctx.userId).maybeSingle()
+
+    // Blase : un post publié sous une fiche est annoncé sous le nom de la
+    // fiche, sinon la notification trahit l'identité personnelle.
+    let nomAffiche = prof?.display_name ?? 'La Place du Village'
+    if (blase) {
+      const identites = await chargerIdentitesEtab(supabaseAdmin, [blase])
+      const etab = identites.get(blase)
+      if (etab) nomAffiche = etab.nom
+    }
+
     const payload = {
       type:       'post_broadcast' as const,
-      actor_name: prof?.display_name ?? 'La Place du Village',
+      actor_name: nomAffiche,
       target_id:  data.id,
     }
     // GARDE-FOU : le vrai broadcast à tous ne part qu'en PRODUCTION. Sur

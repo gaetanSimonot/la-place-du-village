@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser, getUserContextFromRequest } from '@/lib/server-auth'
+import { validerIdentiteDemandee } from '@/lib/identite'
 import {
   isAnnonceType,
   isAnnonceCategorie,
@@ -109,8 +110,16 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Blase : publier sous une fiche exige que la fiche soit attribuée au user.
+  // Sans ce contrôle, n'importe qui publierait au nom d'un commerce du village.
+  const blase = await validerIdentiteDemandee(supabaseAdmin, ctx.userId, body.etablissement_id)
+  if (blase === false) {
+    return NextResponse.json({ error: 'Vous ne gérez pas cette fiche' }, { status: 403 })
+  }
+
   const insert = {
     user_id:             ctx.userId,
+    etablissement_id:    blase,
     type:                body.type,
     titre:               body.titre.trim(),
     description:         body.description?.trim() || null,

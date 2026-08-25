@@ -12,6 +12,8 @@ import PollView from '@/components/forum/PollView'
 import NewTopicModal from '@/components/forum/NewTopicModal'
 import FeatureButton from '@/components/FeatureButton'
 import { type ForumTopic, type ForumComment, forumRelativeDate } from '@/lib/forum'
+import { chargerIdentitesEtab } from '@/lib/identite'
+import IdentitePicker from '@/components/IdentitePicker'
 
 export default function TopicClient({ id }: { id: string }) {
   const router = useRouter()
@@ -31,6 +33,10 @@ export default function TopicClient({ id }: { id: string }) {
   const [likeCount, setLikeCount] = useState(0)
   const [liked, setLiked] = useState(false)
   const [sending, setSending] = useState(false)
+  // Blase : identité sous laquelle répondre (null = profil perso, défaut).
+  const [blase, setBlase]             = useState<string | null>(null)
+  const [blaseNom, setBlaseNom]       = useState<string | null>(null)
+  const [blaseAvatar, setBlaseAvatar] = useState<string | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
 
   async function authHeaders() {
@@ -41,13 +47,20 @@ export default function TopicClient({ id }: { id: string }) {
   const loadTopic = useCallback(async () => {
     const { data } = await supabase
       .from('forum_topics')
-      .select('id, user_id, titre, corps, media, poll, pinned, comment_count, like_count, last_activity_at, created_at')
+      .select('id, user_id, titre, corps, media, poll, pinned, comment_count, like_count, last_activity_at, created_at, etablissement_id')
       .eq('id', id).maybeSingle()
     if (!data) { setNotFound(true); setLoading(false); return }
     const t = data as ForumTopic
     const { data: prof } = await supabase.from('profiles').select('display_name, avatar_url').eq('user_id', t.user_id).maybeSingle()
+    // Blase : le sujet garde ici l'identité sous laquelle il a été ouvert.
+    const identitesTopic = await chargerIdentitesEtab(supabase, [t.etablissement_id])
+    const etabTopic = t.etablissement_id ? identitesTopic.get(t.etablissement_id) : undefined
     const pr = prof as { display_name: string | null; avatar_url: string | null } | null
-    setTopic({ ...t, author_name: pr?.display_name ?? null, author_avatar: pr?.avatar_url ?? null })
+    setTopic({
+      ...t,
+      author_name:   etabTopic ? etabTopic.nom : (pr?.display_name ?? null),
+      author_avatar: etabTopic ? (etabTopic.photos?.[0] ?? null) : (pr?.avatar_url ?? null),
+    })
     setLikeCount(t.like_count ?? 0)
     setLoading(false)
     // Mon like + verrou sondage
@@ -64,7 +77,7 @@ export default function TopicClient({ id }: { id: string }) {
   const loadComments = useCallback(async () => {
     const { data: rows } = await supabase
       .from('forum_comments')
-      .select('id, topic_id, user_id, texte, reply_to_id, edited_at, created_at')
+      .select('id, topic_id, user_id, texte, reply_to_id, edited_at, created_at, etablissement_id')
       .eq('topic_id', id).order('created_at', { ascending: true }).limit(500)
     const base = (rows ?? []) as ForumComment[]
     const uids = Array.from(new Set(base.map(c => c.user_id)))
@@ -74,13 +87,21 @@ export default function TopicClient({ id }: { id: string }) {
       pm = new Map((profs ?? []).map((p: { user_id: string; display_name: string | null; avatar_url: string | null }) => [p.user_id, p]))
     }
     const byId = new Map(base.map(c => [c.id, c]))
+    const identites = await chargerIdentitesEtab(supabase, base.map(c => c.etablissement_id))
+    // Nom affiché d'un commentaire : la fiche si blasé, sinon le profil. Vaut
+    // aussi pour la citation « en réponse à », sinon l'identité fuite là.
+    const nomDe = (c: ForumComment) => {
+      const e = c.etablissement_id ? identites.get(c.etablissement_id) : undefined
+      return e ? e.nom : (pm.get(c.user_id)?.display_name ?? null)
+    }
     setComments(base.map(c => {
       const rt = c.reply_to_id ? byId.get(c.reply_to_id) : null
+      const etab = c.etablissement_id ? identites.get(c.etablissement_id) : undefined
       return {
         ...c,
-        author_name: pm.get(c.user_id)?.display_name ?? null,
-        author_avatar: pm.get(c.user_id)?.avatar_url ?? null,
-        reply_to: rt ? { author_name: pm.get(rt.user_id)?.display_name ?? null, texte: rt.texte } : null,
+        author_name: nomDe(c),
+        author_avatar: etab ? (etab.photos?.[0] ?? null) : (pm.get(c.user_id)?.avatar_url ?? null),
+        reply_to: rt ? { author_name: nomDe(rt), texte: rt.texte } : null,
       }
     }))
   }, [id])
@@ -102,7 +123,7 @@ export default function TopicClient({ id }: { id: string }) {
     try {
       const res = await fetch(`/api/forum/topics/${id}/comments`, {
         method: 'POST', headers: await authHeaders(),
-        body: JSON.stringify({ texte: t, reply_to_id: replyTo?.id ?? null }),
+        body: JSON.stringify({ texte: t, reply_to_id: replyTo?.id ?? null, etablissement_id: blase }),
       })
       const d = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(d.error || 'Erreur')
@@ -111,8 +132,8 @@ export default function TopicClient({ id }: { id: string }) {
         const c = d.comment as ForumComment
         setComments(prev => prev.some(x => x.id === c.id) ? prev : [...prev, {
           ...c,
-          author_name: profile?.display_name ?? null,
-          author_avatar: profile?.avatar_url ?? null,
+          author_name: blaseNom ?? profile?.display_name ?? null,
+          author_avatar: blase ? blaseAvatar : (profile?.avatar_url ?? null),
           reply_to: replyTo ? { author_name: replyTo.author_name ?? null, texte: replyTo.texte } : null,
         }])
       }
@@ -339,6 +360,19 @@ export default function TopicClient({ id }: { id: string }) {
           <div className="flex items-center justify-between gap-2 px-3 pt-2 text-[11px] text-texte-doux">
             <span className="truncate">↪ Réponse à <strong>{replyTo.author_name ?? 'Quelqu\'un'}</strong></span>
             <button onClick={() => setReplyTo(null)} className="font-bold text-accent">×</button>
+          </div>
+        )}
+        {user && (
+          <div className="px-3 pt-2 empty:hidden">
+            <IdentitePicker
+              value={blase}
+              label="Répondre en tant que"
+              onChange={(id, option) => {
+                setBlase(id)
+                setBlaseNom(id ? option.nom : null)
+                setBlaseAvatar(id ? option.avatar : null)
+              }}
+            />
           </div>
         )}
         <div className="flex items-end gap-2 px-3 py-2.5">

@@ -55,7 +55,7 @@ function renderContact(contact: string): React.ReactNode {
 
 export default function EvenementPageClient({ id }: { id: string }) {
   const [evt, setEvt]           = useState<Evenement | null>(null)
-  const [linkedEtab, setLinkedEtab] = useState<{ id: string; nom: string; description_courte: string | null; photos: string[] | null; commune: string | null } | null>(null)
+  const [linkedEtab, setLinkedEtab] = useState<{ id: string; nom: string; description_courte: string | null; photos: string[] | null; commune: string | null; user_id?: string | null } | null>(null)
   const [loading, setLoading]   = useState(true)
   const [editing, setEditing]       = useState(false)
   const [commentsOpen, setCommentsOpen] = useState(false)
@@ -98,7 +98,7 @@ export default function EvenementPageClient({ id }: { id: string }) {
           const etabId = (data as Evenement & { etablissement_id?: string | null }).etablissement_id
           if (etabId) {
             supabase.from('etablissements')
-              .select('id, nom, description_courte, photos, commune')
+              .select('id, nom, description_courte, photos, commune, user_id')
               .eq('id', etabId).maybeSingle()
               .then(({ data: e }) => { if (e) setLinkedEtab(e) })
           }
@@ -119,6 +119,12 @@ export default function EvenementPageClient({ id }: { id: string }) {
       <p className="text-texte-doux">Événement introuvable</p>
     </div>
   )
+
+  // La fiche ne signe l'événement que si elle appartient au soumetteur.
+  const signeParFiche =
+    linkedEtab && evt.submitted_by && linkedEtab.user_id === evt.submitted_by
+      ? linkedEtab
+      : null
 
   const cats  = eventCategories(evt)
   const cat   = CATEGORIES[cats[0]] ?? CATEGORIES.autre
@@ -208,14 +214,24 @@ export default function EvenementPageClient({ id }: { id: string }) {
           >
             {evt.titre}
           </h1>
-          {evt.submitted_by && evt.submitted_by_name && (
+          {/* Blase : si la fiche liée appartient au soumetteur, c'est ELLE qui
+              signe l'événement. Un rattachement de lieu posé par un admin ne
+              signe rien : le profil reste affiché. */}
+          {signeParFiche ? (
+            <p className="mt-2 text-[11px] text-texte-tres-doux">
+              Proposé par{' '}
+              <Link href={`/etablissement/${signeParFiche.id}`} className="font-semibold text-accent hover:underline">
+                {signeParFiche.nom}
+              </Link>
+            </p>
+          ) : evt.submitted_by && evt.submitted_by_name ? (
             <p className="mt-2 text-[11px] text-texte-tres-doux">
               Proposé par{' '}
               <Link href={`/profil/${evt.submitted_by}`} className="font-semibold text-accent hover:underline">
                 {evt.submitted_by_name}
               </Link>
             </p>
-          )}
+          ) : null}
         </div>
 
         {/* Info cards stack */}

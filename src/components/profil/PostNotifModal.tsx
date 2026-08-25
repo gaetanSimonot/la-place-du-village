@@ -6,6 +6,7 @@ import ClientPortal from '@/components/ClientPortal'
 import { PostEmbedRender } from '@/components/profil/PostCard'
 import PostMedia from '@/components/profil/PostMedia'
 import type { MediaItem } from '@/lib/postMedia'
+import { chargerIdentitesEtab } from '@/lib/identite'
 
 const T = {
   primary: '#2D5A3D',
@@ -35,7 +36,7 @@ interface Props {
 export default function PostNotifModal({ postId, onClose }: Props) {
   const router = useRouter()
   const [post, setPost] = useState<PostRow | null>(null)
-  const [author, setAuthor] = useState<{ name: string | null; avatar: string | null }>({ name: null, avatar: null })
+  const [author, setAuthor] = useState<{ name: string | null; avatar: string | null; href?: string }>({ name: null, avatar: null })
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [visible, setVisible] = useState(false)
@@ -58,7 +59,7 @@ export default function PostNotifModal({ postId, onClose }: Props) {
     ;(async () => {
       const { data } = await supabase
         .from('posts')
-        .select('id, user_id, texte, embed_kind, embed_ref_id, media, created_at')
+        .select('id, user_id, texte, embed_kind, embed_ref_id, media, created_at, etablissement_id')
         .eq('id', postId)
         .maybeSingle()
       if (cancelled) return
@@ -69,14 +70,24 @@ export default function PostNotifModal({ postId, onClose }: Props) {
         .from('profiles').select('display_name, avatar_url').eq('user_id', p.user_id).maybeSingle()
       if (cancelled) return
       const pr = prof as { display_name: string | null; avatar_url: string | null } | null
-      setAuthor({ name: pr?.display_name ?? null, avatar: pr?.avatar_url ?? null })
+
+      // Blase : l'aperçu depuis une notification montre la même identité que
+      // le fil, sinon le nom personnel réapparaît ici.
+      const etabId = (p as PostRow & { etablissement_id?: string | null }).etablissement_id ?? null
+      const identites = etabId ? await chargerIdentitesEtab(supabase, [etabId]) : null
+      const etab = etabId ? identites?.get(etabId) : undefined
+      if (cancelled) return
+
+      setAuthor(etab
+        ? { name: etab.nom, avatar: etab.photos?.[0] ?? null, href: `/etablissement/${etab.id}` }
+        : { name: pr?.display_name ?? null, avatar: pr?.avatar_url ?? null, href: `/profil/${p.user_id}` })
       setLoading(false)
     })()
     return () => { cancelled = true }
   }, [postId])
 
   const goToWall = () => {
-    if (post) router.push(`/profil/${post.user_id}`)
+    if (post) router.push(author.href ?? `/profil/${post.user_id}`)
     dismiss()
   }
 

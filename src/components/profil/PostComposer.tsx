@@ -7,6 +7,7 @@ import ClientPortal from '@/components/ClientPortal'
 import EmbedPicker, { type EmbedItem } from '@/components/EmbedPicker'
 import { compressAndUpload } from '@/lib/clientUpload'
 import { type MediaItem, MAX_PHOTOS, youtubeId, youtubeThumb } from '@/lib/postMedia'
+import IdentitePicker from '@/components/IdentitePicker'
 
 export type Visibility = 'public' | 'amis' | 'prive'
 
@@ -54,6 +55,10 @@ export default function PostComposer({ authorName, authorAvatar, onClose, onPost
   const [linkOpen, setLinkOpen]     = useState(false)
   const [linkInput, setLinkInput]   = useState('')
   const [fetchingLink, setFetchingLink] = useState(false)
+  // Blase : identité sous laquelle publier (null = profil perso, défaut).
+  const [blase, setBlase]           = useState<string | null>(null)
+  const [blaseNom, setBlaseNom]     = useState<string | null>(null)
+  const [blaseAvatar, setBlaseAvatar] = useState<string | null>(null)
   const { isAdmin } = useAuth()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -185,6 +190,7 @@ export default function PostComposer({ authorName, authorAvatar, onClose, onPost
           embed_ref_id: embed?.id ?? null,
           media,
           sur_village: toVillage,
+          etablissement_id: blase,
           // Broadcast admin (le serveur revérifie isAdmin). Omis si non-admin ou "Personne".
           notify: isAdmin && notify !== 'none' ? notify : undefined,
         }),
@@ -201,7 +207,10 @@ export default function PostComposer({ authorName, authorAvatar, onClose, onPost
     }
   }
 
-  const initial = (authorName || '·').trim().charAt(0).toUpperCase() || '·'
+  // L'en-tête du composer montre l'identité RÉELLEMENT choisie.
+  const nomAffiche    = blaseNom ?? authorName
+  const avatarAffiche = blase ? blaseAvatar : authorAvatar
+  const initial = (nomAffiche || '·').trim().charAt(0).toUpperCase() || '·'
   const canSend = (texte.trim().length > 0 || media.length > 0) && !posting && !uploading
 
   return (
@@ -251,8 +260,8 @@ export default function PostComposer({ authorName, authorAvatar, onClose, onPost
       <div className="flex-1 overflow-y-auto px-4 pt-4">
         {/* Auteur + visibility */}
         <div className="mb-3 flex items-center gap-2.5">
-          {authorAvatar ? (
-            <img src={authorAvatar} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+          {avatarAffiche ? (
+            <img src={avatarAffiche} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
           ) : (
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary font-serif text-[16px] text-white">
               {initial}
@@ -260,11 +269,21 @@ export default function PostComposer({ authorName, authorAvatar, onClose, onPost
           )}
           <div className="min-w-0 flex-1">
             <div className="truncate text-[13.5px] font-extrabold text-texte" style={{ letterSpacing: '-0.005em' }}>
-              {authorName}
+              {nomAffiche}
             </div>
             <VisibilityPicker value={visibility} onChange={setVisibility} />
           </div>
         </div>
+
+        {/* Identité — n'apparaît que si l'auteur gère une fiche */}
+        <IdentitePicker
+          value={blase}
+          onChange={(id, option) => {
+            setBlase(id)
+            setBlaseNom(id ? option.nom : null)
+            setBlaseAvatar(id ? option.avatar : null)
+          }}
+        />
 
         {/* Texte */}
         <textarea

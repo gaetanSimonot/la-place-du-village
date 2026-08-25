@@ -24,6 +24,7 @@ import {
   type Annonce,
 } from '@/lib/annonces'
 import type { Plan } from '@/lib/capabilities'
+import { chargerIdentitesEtab } from '@/lib/identite'
 
 interface Props { id: string }
 
@@ -41,6 +42,8 @@ interface VendeurInfo {
   ville: string | null
   note_moyenne: number | null
   notes_count: number
+  /** Lien vers l'auteur affiché : profil perso, ou fiche si blase. */
+  href: string
 }
 
 interface ConvSummary {
@@ -104,20 +107,27 @@ export default function AnnoncePageClient({ id }: Props) {
   async function reload() {
     const { data } = await supabase.from('annonces').select('*').eq('id', id).maybeSingle()
     setAnnonce(data as Annonce | null)
-    if (data) await loadVendeur(data.user_id)
+    if (data) await loadVendeur(data.user_id, (data as Annonce).etablissement_id ?? null)
   }
 
-  async function loadVendeur(userId: string) {
+  async function loadVendeur(userId: string, etabId: string | null) {
     const [{ data: prof }, { data: stats }] = await Promise.all([
       supabase.from('profiles').select('display_name, avatar_url, ville').eq('user_id', userId).maybeSingle(),
       supabase.from('vendeur_stats').select('note_moyenne, notes_count').eq('user_id', userId).maybeSingle(),
     ])
+
+    // Blase : la fiche prend la place du profil (nom, photo, lien). Les avis
+    // restent ceux du vendeur réel — c'est la même personne qui vend.
+    const identites = etabId ? await chargerIdentitesEtab(supabase, [etabId]) : null
+    const etab = etabId ? identites?.get(etabId) : undefined
+
     setVendeur({
-      display_name: prof?.display_name ?? null,
-      avatar_url:   prof?.avatar_url ?? null,
-      ville:        (prof as { ville?: string | null })?.ville ?? null,
+      display_name: etab ? etab.nom : (prof?.display_name ?? null),
+      avatar_url:   etab ? (etab.photos?.[0] ?? null) : (prof?.avatar_url ?? null),
+      ville:        etab ? null : ((prof as { ville?: string | null })?.ville ?? null),
       note_moyenne: stats?.note_moyenne ? Number(stats.note_moyenne) : null,
       notes_count:  stats?.notes_count ?? 0,
+      href:         etab ? `/etablissement/${etab.id}` : `/profil/${userId}`,
     })
   }
 
@@ -437,7 +447,7 @@ export default function AnnoncePageClient({ id }: Props) {
         {vendeur && (
           <div style={{ marginTop: 22, paddingTop: 18, borderTop: '1px solid #EDE6DA' }}>
             <div style={LABEL}>Proposé par</div>
-            <Link href={`/profil/${annonce.user_id}`} style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit' }}>
+            <Link href={vendeur.href} style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit' }}>
               {vendeur.avatar_url
                 ? <img src={vendeur.avatar_url} alt="" style={{ width: 50, height: 50, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                 : <div style={{ width: 50, height: 50, borderRadius: '50%', flexShrink: 0, background: 'linear-gradient(135deg, #4A7A5A, #2D5A3D)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: SERIF, fontSize: 22, boxShadow: '0 3px 10px rgba(45,90,61,0.25)' }}>{(vendeur.display_name || '?')[0].toUpperCase()}</div>}

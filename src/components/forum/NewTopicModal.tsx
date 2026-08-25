@@ -6,6 +6,7 @@ import ClientPortal from '@/components/ClientPortal'
 import { compressAndUpload } from '@/lib/clientUpload'
 import { type MediaItem, MAX_PHOTOS } from '@/lib/postMedia'
 import { MAX_POLL_OPTIONS, type ForumPoll } from '@/lib/forum'
+import IdentitePicker from '@/components/IdentitePicker'
 
 export interface EditTopicInit {
   id: string
@@ -30,6 +31,8 @@ export default function NewTopicModal({ onClose, onCreated, editTopic, onUpdated
   const [uploading, setUploading] = useState(false)
   const [posting, setPosting]   = useState(false)
   const [pollOpen, setPollOpen] = useState(!!editTopic?.poll)
+  // Blase : identité d'ouverture du sujet. En édition, elle est figée.
+  const [blase, setBlase]       = useState<string | null>(null)
   const [question, setQuestion] = useState(editTopic?.poll?.question ?? '')
   const [options, setOptions]   = useState<string[]>(editTopic?.poll?.options?.length ? editTopic.poll.options : ['', ''])
   const fileRef = useRef<HTMLInputElement>(null)
@@ -60,6 +63,7 @@ export default function NewTopicModal({ onClose, onCreated, editTopic, onUpdated
     setPosting(true)
     const poll: ForumPoll | null = pollValid ? { question: question.trim(), options: validOptions } : null
     const payload = { titre: titre.trim(), corps: corps.trim() || null, media, poll }
+    const payloadCreation = { ...payload, etablissement_id: blase }
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` }
@@ -70,7 +74,7 @@ export default function NewTopicModal({ onClose, onCreated, editTopic, onUpdated
         onUpdated?.(payload)
         onClose()
       } else {
-        const res = await fetch('/api/forum/topics', { method: 'POST', headers, body: JSON.stringify(payload) })
+        const res = await fetch('/api/forum/topics', { method: 'POST', headers, body: JSON.stringify(payloadCreation) })
         const d = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(d.error || 'Erreur')
         onCreated?.(d.id as string)
@@ -97,6 +101,7 @@ export default function NewTopicModal({ onClose, onCreated, editTopic, onUpdated
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-4 pt-4">
+          {!isEdit && <IdentitePicker value={blase} onChange={setBlase} />}
           <input
             value={titre}
             onChange={e => setTitre(e.target.value.slice(0, 200))}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser, notifyUser } from '@/lib/server-auth'
+import { chargerIdentitesEtab } from '@/lib/identite'
 
 /**
  * Helper : récupère la conv + vérifie que l'user est membre.
@@ -22,7 +23,8 @@ async function getConvAsMember(convId: string, userId: string, isAdmin: boolean)
 
 /**
  * GET — tous les messages de la conv + marque comme lus ceux envoyés par l'autre.
- * Renvoie : { messages, conversation, annonce: { id, titre, photos, contact_tel, contact_email, vendeur_id } }
+ * Renvoie : { messages, conversation, annonce: { id, titre, photos, contact_tel, contact_email, vendeur_id, etablissement_id } }
+ * `etablissement_id` sert au client à afficher le vendeur sous son blase.
  */
 export async function GET(
   req: NextRequest,
@@ -54,7 +56,7 @@ export async function GET(
   // Charge l'annonce associée (titre, photos, contacts)
   const { data: annonce } = await supabaseAdmin
     .from('annonces')
-    .select('id, titre, photos, contact_tel, contact_email, statut, user_id')
+    .select('id, titre, photos, contact_tel, contact_email, statut, user_id, etablissement_id')
     .eq('id', conv.annonce_id)
     .maybeSingle()
 
@@ -107,9 +109,27 @@ export async function POST(
     .eq('user_id', ctx.userId)
     .maybeSingle()
 
+  // Blase : si le vendeur répond depuis une annonce publiée sous une fiche,
+  // l'acheteur doit lire le nom de la fiche dans sa notification, pas le nom
+  // personnel — sinon l'identité fuite par la notification et le push.
+  let nomAffiche = profile?.display_name || 'Un utilisateur'
+  if (ctx.userId === conv.vendeur_id) {
+    const { data: annonceBlase } = await supabaseAdmin
+      .from('annonces')
+      .select('etablissement_id')
+      .eq('id', conv.annonce_id)
+      .maybeSingle()
+    const etabId = (annonceBlase as { etablissement_id: string | null } | null)?.etablissement_id
+    if (etabId) {
+      const identites = await chargerIdentitesEtab(supabaseAdmin, [etabId])
+      const etab = identites.get(etabId)
+      if (etab) nomAffiche = etab.nom
+    }
+  }
+
   await notifyUser(otherId, {
     type:        'annonce_message',
-    actor_name:  profile?.display_name || 'Un utilisateur',
+    actor_name:  nomAffiche,
     target_type: 'conversation',
     target_id:   convId,
   })

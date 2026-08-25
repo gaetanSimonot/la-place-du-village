@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { chargerIdentitesEtab } from '@/lib/identite'
 
 /**
  * GET /api/annonces/public — liste publique d'annonces actives.
@@ -50,7 +51,25 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ annonces: data ?? [] }, {
+  // Blase : on remplace l'auteur par la fiche ET on retire `user_id` de la
+  // réponse publique. Sans ça, l'id partirait au navigateur et permettrait de
+  // remonter au profil personnel derrière l'identité affichée.
+  const brut = (data ?? []) as { user_id: string; etablissement_id?: string | null }[]
+  const identites = await chargerIdentitesEtab(supabaseAdmin, brut.map(a => a.etablissement_id))
+
+  const annonces = brut.map(a => {
+    const etab = a.etablissement_id ? identites.get(a.etablissement_id) : undefined
+    if (!etab) return a
+    return {
+      ...a,
+      user_id: null,
+      auteur_nom:    etab.nom,
+      auteur_avatar: etab.photos?.[0] ?? null,
+      auteur_href:   `/etablissement/${etab.id}`,
+    }
+  })
+
+  return NextResponse.json({ annonces }, {
     headers: {
       'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
     },

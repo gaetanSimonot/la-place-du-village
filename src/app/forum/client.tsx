@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import BottomNavBar from '@/components/BottomNavBar'
 import NewTopicModal from '@/components/forum/NewTopicModal'
 import { type ForumTopic, forumRelativeDate } from '@/lib/forum'
+import { chargerIdentitesEtab } from '@/lib/identite'
 
 export default function ForumClient() {
   const router = useRouter()
@@ -23,7 +24,7 @@ export default function ForumClient() {
   const load = useCallback(async () => {
     const { data: rows } = await supabase
       .from('forum_topics')
-      .select('id, user_id, titre, corps, media, poll, pinned, comment_count, like_count, last_activity_at, created_at')
+      .select('id, user_id, titre, corps, media, poll, pinned, comment_count, like_count, last_activity_at, created_at, etablissement_id')
       .order('pinned', { ascending: false })
       .order('comment_count', { ascending: false })
       .order('last_activity_at', { ascending: false })
@@ -33,7 +34,16 @@ export default function ForumClient() {
     const ids = Array.from(new Set(base.map(t => t.user_id)))
     const { data: profs } = await supabase.from('profiles').select('user_id, display_name, avatar_url').in('user_id', ids)
     const pm = new Map((profs ?? []).map((p: { user_id: string; display_name: string | null; avatar_url: string | null }) => [p.user_id, p]))
-    setTopics(base.map(t => ({ ...t, author_name: pm.get(t.user_id)?.display_name ?? null, author_avatar: pm.get(t.user_id)?.avatar_url ?? null })))
+    // Blase : un sujet ouvert sous une fiche s'affiche sous la fiche.
+    const identites = await chargerIdentitesEtab(supabase, base.map(t => t.etablissement_id))
+    setTopics(base.map(t => {
+      const etab = t.etablissement_id ? identites.get(t.etablissement_id) : undefined
+      return {
+        ...t,
+        author_name:   etab ? etab.nom : (pm.get(t.user_id)?.display_name ?? null),
+        author_avatar: etab ? (etab.photos?.[0] ?? null) : (pm.get(t.user_id)?.avatar_url ?? null),
+      }
+    }))
     setLoading(false)
 
     // Mes likes (pour l'état du bouton J'aime sur chaque miniature)

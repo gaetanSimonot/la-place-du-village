@@ -5,6 +5,8 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import ClientPortal from '@/components/ClientPortal'
+import { chargerIdentitesEtab } from '@/lib/identite'
+import IdentitePicker from '@/components/IdentitePicker'
 
 interface Props {
   postId:        string
@@ -39,11 +41,16 @@ export default function PostCommentsDrawer({ postId, postAuthorId, onClose, onCo
   const onCountChangeRef = useRef(onCountChange)
   useEffect(() => { onCountChangeRef.current = onCountChange }, [onCountChange])
 
+  // Blase : identité sous laquelle commenter (null = profil perso, défaut).
+  const [blase, setBlase]             = useState<string | null>(null)
+  const [blaseNom, setBlaseNom]       = useState<string | null>(null)
+  const [blaseAvatar, setBlaseAvatar] = useState<string | null>(null)
+
   const loadComments = useCallback(async () => {
     setLoading(true)
     const { data, error } = await supabase
       .from('post_comments')
-      .select('id, user_id, texte, created_at')
+      .select('id, user_id, texte, created_at, etablissement_id')
       .eq('post_id', postId)
       .order('created_at', { ascending: true })
       .limit(500)
@@ -52,7 +59,7 @@ export default function PostCommentsDrawer({ postId, postAuthorId, onClose, onCo
       setLoading(false)
       return
     }
-    const rows = (data ?? []) as Array<{ id: string; user_id: string; texte: string; created_at: string }>
+    const rows = (data ?? []) as Array<{ id: string; user_id: string; texte: string; created_at: string; etablissement_id: string | null }>
     if (rows.length === 0) {
       setComments([])
       onCountChangeRef.current?.(0)
@@ -69,12 +76,16 @@ export default function PostCommentsDrawer({ postId, postAuthorId, onClose, onCo
     for (const p of (profs ?? []) as Array<{ user_id: string; display_name: string | null; avatar_url: string | null }>) {
       profMap.set(p.user_id, p)
     }
+    // Blase : un commentaire posté sous une fiche s'affiche sous la fiche.
+    const identites = await chargerIdentitesEtab(supabase, rows.map(r => r.etablissement_id))
+
     const merged: Comment[] = rows.map(r => {
       const p = profMap.get(r.user_id)
+      const etab = r.etablissement_id ? identites.get(r.etablissement_id) : undefined
       return {
         ...r,
-        author_name:   p?.display_name ?? null,
-        author_avatar: p?.avatar_url ?? null,
+        author_name:   etab ? etab.nom : (p?.display_name ?? null),
+        author_avatar: etab ? (etab.photos?.[0] ?? null) : (p?.avatar_url ?? null),
       }
     })
     setComments(merged)
@@ -111,7 +122,7 @@ export default function PostCommentsDrawer({ postId, postAuthorId, onClose, onCo
     setSending(true)
     const { data, error } = await supabase
       .from('post_comments')
-      .insert({ post_id: postId, user_id: user.id, texte: trimmed })
+      .insert({ post_id: postId, user_id: user.id, texte: trimmed, etablissement_id: blase })
       .select('id, user_id, texte, created_at')
       .single()
     if (error || !data) {
@@ -126,8 +137,8 @@ export default function PostCommentsDrawer({ postId, postAuthorId, onClose, onCo
       if (prev.some(c => c.id === data.id)) return prev
       const next = [...prev, {
         ...data,
-        author_name:   profile?.display_name ?? null,
-        author_avatar: profile?.avatar_url ?? null,
+        author_name:   blaseNom ?? profile?.display_name ?? null,
+        author_avatar: blase ? blaseAvatar : (profile?.avatar_url ?? null),
       }]
       onCountChangeRef.current?.(next.length)
       return next
@@ -211,15 +222,24 @@ export default function PostCommentsDrawer({ postId, postAuthorId, onClose, onCo
 
         {/* Composer */}
         {user && (
-          <div
-            className="flex shrink-0 items-end gap-2 px-3 pb-2 pt-3"
-            style={{ borderTop: '1px solid #F0EAE0' }}
-          >
-            {profile?.avatar_url ? (
-              <img src={profile.avatar_url} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
+          <div className="shrink-0" style={{ borderTop: '1px solid #F0EAE0' }}>
+          <div className="px-3 pt-3 empty:hidden">
+            <IdentitePicker
+              value={blase}
+              label="Commenter en tant que"
+              onChange={(id, option) => {
+                setBlase(id)
+                setBlaseNom(id ? option.nom : null)
+                setBlaseAvatar(id ? option.avatar : null)
+              }}
+            />
+          </div>
+          <div className="flex items-end gap-2 px-3 pb-2 pt-1">
+            {(blase ? blaseAvatar : profile?.avatar_url) ? (
+              <img src={(blase ? blaseAvatar : profile?.avatar_url) as string} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
             ) : (
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary font-serif text-[14px] text-white">
-                {(profile?.display_name ?? user.email ?? '·').trim().charAt(0).toUpperCase() || '·'}
+                {(blaseNom ?? profile?.display_name ?? user.email ?? '·').trim().charAt(0).toUpperCase() || '·'}
               </div>
             )}
             <textarea
@@ -246,6 +266,7 @@ export default function PostCommentsDrawer({ postId, postAuthorId, onClose, onCo
                 <polygon points="22 2 15 22 11 13 2 9 22 2" />
               </svg>
             </button>
+          </div>
           </div>
         )}
       </div>

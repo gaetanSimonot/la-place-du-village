@@ -12,6 +12,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import { supabase } from '@/lib/supabase'
 import { compressToBase64 } from '@/lib/clientUpload'
+import IdentitePicker from '@/components/IdentitePicker'
 
 interface FormData {
   titre: string
@@ -94,6 +95,9 @@ export default function AjouterPage() {
   // l'event est rattaché à cette fiche (publication directe pour le
   // propriétaire) et le lieu est pré-rempli avec l'établissement.
   const [etabId, setEtabId] = useState<string | null>(null)
+  // Vrai si la fiche vient de l'URL (?etab=) : dans ce cas l'identité est
+  // imposée par le parcours et le sélecteur n'a pas lieu d'être.
+  const [etabCtxDepuisUrl, setEtabCtxDepuisUrl] = useState(false)
   const [etabCtx, setEtabCtx] = useState<{ nom: string; commune: string; adresse: string; lat: number | null; lng: number | null } | null>(null)
 
   // ── Multi-events : liste de drafts éditables avec checkboxes ──────────────
@@ -142,6 +146,7 @@ export default function AjouterPage() {
     const id = new URLSearchParams(window.location.search).get('etab')
     if (!id) return
     setEtabId(id)
+    setEtabCtxDepuisUrl(true)
     supabase.from('etablissements')
       .select('nom, commune, adresse, lat, lng').eq('id', id).maybeSingle()
       .then(({ data }) => {
@@ -930,6 +935,14 @@ export default function AjouterPage() {
           Capture-le, on s&apos;occupe du reste
         </h1>
         <p className="mt-1.5 text-[13px] leading-[1.5] text-texte-doux">Choisis ta méthode pour ajouter l&apos;événement.</p>
+
+        {/* Identité — masqué si on arrive déjà depuis une fiche (?etab=) */}
+        {!etabCtxDepuisUrl && (
+          <div className="mt-4">
+            <IdentitePicker value={etabId} onChange={setEtabId} />
+          </div>
+        )}
+
         {etabCtx && (
           <div className="mt-3 flex items-center gap-2 rounded-xl px-3 py-2" style={{ background: '#E8F2EB', border: '1px solid #C5DCC9' }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2D5A3D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>

@@ -18,6 +18,8 @@ export interface ForumTopic {
   like_count: number
   last_activity_at: string
   created_at: string
+  /** Blase : fiche sous laquelle le sujet est ouvert (null = profil perso). */
+  etablissement_id?: string | null
   /* enrichis côté client */
   author_name?: string | null
   author_avatar?: string | null
@@ -31,6 +33,8 @@ export interface ForumComment {
   reply_to_id: string | null
   edited_at: string | null
   created_at: string
+  /** Blase : fiche sous laquelle la réponse est postée (null = profil perso). */
+  etablissement_id?: string | null
   /* enrichis côté client */
   author_name?: string | null
   author_avatar?: string | null

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser } from '@/lib/server-auth'
+import { chargerIdentitesEtab } from '@/lib/identite'
 
 /**
  * GET — toutes les conversations du user (acheteur ou vendeur), enrichies
@@ -27,12 +28,19 @@ export async function GET(req: NextRequest) {
   )))
 
   const [{ data: annonces }, { data: profiles }] = await Promise.all([
-    supabaseAdmin.from('annonces').select('id, titre, photos, statut').in('id', annonceIds),
+    supabaseAdmin.from('annonces').select('id, titre, photos, statut, etablissement_id').in('id', annonceIds),
     supabaseAdmin.from('profiles').select('user_id, display_name, avatar_url').in('user_id', otherIds),
   ])
 
   const annonceMap = Object.fromEntries((annonces ?? []).map(a => [a.id, a]))
   const profileMap = Object.fromEntries((profiles ?? []).map(p => [p.user_id, p]))
+
+  // Blase : dans la boîte de réception d'un acheteur, le vendeur s'affiche
+  // sous la fiche qui porte l'annonce.
+  const identites = await chargerIdentitesEtab(
+    supabaseAdmin,
+    (annonces ?? []).map(a => (a as { etablissement_id?: string | null }).etablissement_id),
+  )
 
   // Dernier message + count unread par conv
   const convIds = convs.map(c => c.id)
@@ -53,11 +61,17 @@ export async function GET(req: NextRequest) {
 
   const enriched = convs.map(c => {
     const otherId = c.acheteur_id === ctx.userId ? c.vendeur_id : c.acheteur_id
+    const annonce = annonceMap[c.annonce_id] ?? null
+    const blaseId = (annonce as { etablissement_id?: string | null } | null)?.etablissement_id
+    const etab    = blaseId && otherId === c.vendeur_id ? identites.get(blaseId) : undefined
+
     return {
       ...c,
       role:         c.vendeur_id === ctx.userId ? 'vendeur' : 'acheteur',
-      annonce:      annonceMap[c.annonce_id] ?? null,
-      other:        profileMap[otherId] ?? null,
+      annonce,
+      other:        etab
+        ? { user_id: otherId, display_name: etab.nom, avatar_url: etab.photos?.[0] ?? null }
+        : (profileMap[otherId] ?? null),
       last_message: lastByConv[c.id] ?? null,
       unread_count: unreadByConv[c.id] ?? 0,
     }

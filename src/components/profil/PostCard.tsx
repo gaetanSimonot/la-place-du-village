@@ -9,6 +9,8 @@ import type { MediaItem } from '@/lib/postMedia'
 export interface PostData {
   id:           string
   user_id:      string
+  /** Blase : fiche sous laquelle le post est publié (null = profil perso). */
+  etablissement_id?: string | null
   texte:        string
   visibility:   'public' | 'amis' | 'prive'
   created_at:   string
@@ -21,6 +23,8 @@ interface Props {
   post:           PostData
   authorName:     string
   authorAvatar:   string | null
+  /** Page de l'auteur affiché : profil perso, ou fiche si le post est blasé. */
+  authorHref?:    string
   isOwn:          boolean
   likeCount:      number
   commentCount:   number
@@ -31,7 +35,7 @@ interface Props {
 }
 
 export default function PostCard({
-  post, authorName, authorAvatar, isOwn,
+  post, authorName, authorAvatar, authorHref, isOwn,
   likeCount, commentCount, userHasLiked,
   onToggleLike, onDelete, onComment,
 }: Props) {
@@ -55,7 +59,9 @@ export default function PostCard({
     const linkItem = post.media?.find(m => m.t === 'link' || m.t === 'youtube')
     const url = linkItem
       ? (linkItem.t === 'youtube' ? `https://youtu.be/${linkItem.id}` : linkItem.url)
-      : (typeof window !== 'undefined' ? `${window.location.origin}/profil/${post.user_id}` : '')
+      : (typeof window !== 'undefined'
+          ? `${window.location.origin}${authorHref ?? `/profil/${post.user_id}`}`
+          : '')
     const text = post.texte.length > 120 ? `${post.texte.slice(0, 120)}…` : post.texte
     const data: ShareData = { title: 'La Place du Village', text, url }
     try {

@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import BottomNavBar, { NAV_H } from '@/components/BottomNavBar'
 import type { AnnonceMessage, AnnonceConversation } from '@/lib/annonces'
+import { chargerIdentitesEtab } from '@/lib/identite'
 import { useSmartBack } from '@/hooks/useSmartBack'
 
 interface Props { convId: string }
@@ -91,7 +92,20 @@ export default function ConversationPageClient({ convId }: Props) {
       const { data: prof } = await supabase
         .from('profiles').select('user_id, display_name, avatar_url')
         .eq('user_id', otherId).maybeSingle()
-      setOther(prof as OtherProfile | null)
+
+      // Blase : côté acheteur, le vendeur apparaît sous la fiche qui porte
+      // l'annonce, jamais sous son profil personnel.
+      const blaseId = data.annonce?.etablissement_id ?? null
+      const otherEstVendeur = otherId === data.conversation.vendeur_id
+      if (blaseId && otherEstVendeur) {
+        const identites = await chargerIdentitesEtab(supabase, [blaseId])
+        const etab = identites.get(blaseId)
+        setOther(etab
+          ? { user_id: otherId, display_name: etab.nom, avatar_url: etab.photos?.[0] ?? null }
+          : (prof as OtherProfile | null))
+      } else {
+        setOther(prof as OtherProfile | null)
+      }
 
       // Si conv closed et user est acheteur → vérifie s'il a déjà noté
       if (data.conversation.statut === 'closed' && data.conversation.acheteur_id === user.id) {

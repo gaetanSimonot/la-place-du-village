@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser } from '@/lib/server-auth'
 import { sanitizeMedia } from '@/lib/postMedia'
 import { sanitizePoll } from '@/lib/forum'
+import { validerIdentiteDemandee } from '@/lib/identite'
 
 /** POST — créer un sujet (tout user connecté, gratuit inclus). */
 export async function POST(req: NextRequest) {
@@ -18,10 +19,17 @@ export async function POST(req: NextRequest) {
   const media = sanitizeMedia(body?.media)
   const poll  = sanitizePoll(body?.poll)
 
+  // Blase : ouvrir un sujet sous une fiche exige que la fiche soit attribuée.
+  const blase = await validerIdentiteDemandee(supabaseAdmin, ctx.userId, body?.etablissement_id)
+  if (blase === false) {
+    return NextResponse.json({ error: 'Vous ne gérez pas cette fiche' }, { status: 403 })
+  }
+
   const { data, error } = await supabaseAdmin
     .from('forum_topics')
     .insert({
       user_id: ctx.userId,
+      etablissement_id: blase,
       titre,
       corps,
       media: media.length ? media : null,

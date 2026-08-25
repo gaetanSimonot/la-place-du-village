@@ -24,6 +24,8 @@ export type AnnonceStatut = 'active' | 'vendu' | 'expiree' | 'don_final'
 export interface Annonce {
   id: string
   user_id: string
+  /** Blase : fiche sous laquelle l'annonce est publiée (null = profil perso). */
+  etablissement_id?: string | null
   type: AnnonceType
   titre: string
   description: string | null
@@ -356,6 +358,8 @@ export interface AnnonceCreateInput {
   lat?: number | null
   lng?: number | null
   remise_main_propre?: boolean
+  /** Blase : fiche sous laquelle publier (null = profil perso). Validé serveur. */
+  etablissement_id?: string | null
 }
 
 /**

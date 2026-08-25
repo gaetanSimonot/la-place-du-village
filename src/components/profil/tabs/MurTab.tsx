@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import PostComposer from '../PostComposer'
 import PostCard, { type PostData } from '../PostCard'
 import PostCommentsDrawer from '../PostCommentsDrawer'
+import { chargerIdentitesEtab } from '@/lib/identite'
 
 interface Props {
   /** L'user dont on affiche le mur (en V1 = toujours l'user connecté = soi). */
@@ -15,6 +16,10 @@ interface Props {
 }
 
 interface PostWithLikes extends PostData {
+  /** Blase résolu pour l'affichage (null = profil de l'auteur du mur). */
+  blaseNom?:    string | null
+  blaseAvatar?: string | null
+  blaseHref?:   string | null
   likeCount:    number
   commentCount: number
   userHasLiked: boolean
@@ -54,7 +59,7 @@ export default function MurTab({ profileUserId, authorName, authorAvatar }: Prop
       // (public / soi / amis). Pour son propre mur : tous ses posts.
       const { data: rows, error } = await supabase
         .from('posts')
-        .select('id, user_id, texte, visibility, embed_kind, embed_ref_id, media, created_at')
+        .select('id, user_id, texte, visibility, embed_kind, embed_ref_id, media, created_at, etablissement_id')
         .eq('user_id', profileUserId)
         .order('created_at', { ascending: false })
         .limit(100)
@@ -65,9 +70,10 @@ export default function MurTab({ profileUserId, authorName, authorAvatar }: Prop
 
       // Agrège likes + commentaires pour ces posts (2 requêtes directes)
       const ids = base.map(p => p.id)
-      const [likesRes, commentsRes] = await Promise.all([
+      const [likesRes, commentsRes, identites] = await Promise.all([
         supabase.from('post_likes').select('post_id, user_id').in('post_id', ids),
         supabase.from('post_comments').select('post_id').in('post_id', ids),
+        chargerIdentitesEtab(supabase, base.map(p => p.etablissement_id)),
       ])
       const likeCount = new Map<string, number>()
       const commentCount = new Map<string, number>()
@@ -80,12 +86,20 @@ export default function MurTab({ profileUserId, authorName, authorAvatar }: Prop
         commentCount.set(c.post_id, (commentCount.get(c.post_id) ?? 0) + 1)
       }
 
-      setPosts(base.map(p => ({
-        ...p,
-        likeCount:    likeCount.get(p.id) ?? 0,
-        commentCount: commentCount.get(p.id) ?? 0,
-        userHasLiked: liked.has(p.id),
-      })))
+      setPosts(base.map(p => {
+        // Blase : un post du mur publié sous une fiche garde son identité de
+        // fiche ici aussi — sinon le nom changerait selon l'écran.
+        const etab = p.etablissement_id ? identites.get(p.etablissement_id) : undefined
+        return {
+          ...p,
+          likeCount:    likeCount.get(p.id) ?? 0,
+          commentCount: commentCount.get(p.id) ?? 0,
+          userHasLiked: liked.has(p.id),
+          blaseNom:     etab?.nom ?? null,
+          blaseAvatar:  etab?.photos?.[0] ?? null,
+          blaseHref:    etab ? `/etablissement/${etab.id}` : null,
+        }
+      }))
     } catch {
       toast.error('Impossible de charger les publications')
     } finally {
@@ -180,8 +194,9 @@ export default function MurTab({ profileUserId, authorName, authorAvatar }: Prop
           <PostCard
             key={p.id}
             post={p}
-            authorName={authorName}
-            authorAvatar={authorAvatar}
+            authorName={p.blaseNom ?? authorName}
+            authorAvatar={p.blaseNom ? (p.blaseAvatar ?? null) : authorAvatar}
+            authorHref={p.blaseHref ?? undefined}
             isOwn={isOwnWall}
             likeCount={p.likeCount}
             commentCount={p.commentCount}

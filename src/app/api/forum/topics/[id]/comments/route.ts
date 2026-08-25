@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser } from '@/lib/server-auth'
+import { validerIdentiteDemandee } from '@/lib/identite'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -21,10 +22,16 @@ export async function POST(req: NextRequest, { params }: Params) {
     .from('forum_topics').select('id').eq('id', topicId).maybeSingle()
   if (!topic) return NextResponse.json({ error: 'Sujet introuvable' }, { status: 404 })
 
+  // Blase : répondre sous une fiche exige que la fiche soit attribuée.
+  const blase = await validerIdentiteDemandee(supabaseAdmin, ctx.userId, body?.etablissement_id)
+  if (blase === false) {
+    return NextResponse.json({ error: 'Vous ne gérez pas cette fiche' }, { status: 403 })
+  }
+
   const { data, error } = await supabaseAdmin
     .from('forum_comments')
-    .insert({ topic_id: topicId, user_id: ctx.userId, texte, reply_to_id: replyTo })
-    .select('id, topic_id, user_id, texte, reply_to_id, edited_at, created_at')
+    .insert({ topic_id: topicId, user_id: ctx.userId, texte, reply_to_id: replyTo, etablissement_id: blase })
+    .select('id, topic_id, user_id, texte, reply_to_id, edited_at, created_at, etablissement_id')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

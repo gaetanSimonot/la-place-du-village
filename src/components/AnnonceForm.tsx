@@ -19,6 +19,7 @@ import {
 } from '@/lib/annonces'
 import type { Plan } from '@/lib/capabilities'
 import SubscriptionModal from '@/components/SubscriptionModal'
+import IdentitePicker from '@/components/IdentitePicker'
 
 interface Props {
   initial?: Annonce | null
@@ -79,6 +80,9 @@ export default function AnnonceForm({ initial, onSuccess, bottomOffset = 0 }: Pr
   const [submitting, setSubmitting]       = useState(false)
   const [error, setError]                 = useState<string | null>(null)
   const [showUpgrade, setShowUpgrade]     = useState(false)
+  // Blase : null = profil perso. En édition, l'identité est figée (le PATCH
+  // ne la change pas) — on ne propose donc le choix qu'à la création.
+  const [blase, setBlase]                 = useState<string | null>(null)
 
   const cameraInputRef  = useRef<HTMLInputElement>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
@@ -159,6 +163,7 @@ export default function AnnonceForm({ initial, onSuccess, bottomOffset = 0 }: Pr
       contact_email:   contactEmail.trim() || null,
       ville:           ville.trim() || null,
       remise_main_propre: remiseMP,
+      ...(initial ? {} : { etablissement_id: blase }),
     }
 
     const validationError = validateAnnonceInput(input, plan)
@@ -203,6 +208,9 @@ export default function AnnonceForm({ initial, onSuccess, bottomOffset = 0 }: Pr
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+
+      {/* Sélecteur d'identité — ne s'affiche que si le user gère une fiche */}
+      {!initial && <IdentitePicker value={blase} onChange={setBlase} />}
 
       {/* ─────────── TYPE D'ANNONCE 2x2 V3 ─────────── */}
       <Section title="Type d'annonce">
