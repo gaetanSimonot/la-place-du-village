@@ -612,7 +612,7 @@ function PromoCard({ promo, onUse, onDiscover, disabled, favorited, onToggleFav 
               shareLink({
                 title: `${promo.title} — La Place du Village`,
                 text:  `${promo.title}${promo.etablissement ? ' chez ' + promo.etablissement.nom : ''}`,
-                url:   'https://laplaceduvillage.app/promotions',
+                url:   `https://laplaceduvillage.app/promotions?id=${promo.id}`,
               })
             }}
             className="flex h-7 w-7 items-center justify-center rounded-full border-none bg-white/90 text-texte"
@@ -948,7 +948,7 @@ function DiscoverPromoModal({
               onClick={() => shareLink({
                 title: `${promo.title} — La Place du Village`,
                 text:  `${promo.title}${promo.etablissement ? ' chez ' + promo.etablissement.nom : ''}`,
-                url:   'https://laplaceduvillage.app/promotions',
+                url:   `https://laplaceduvillage.app/promotions?id=${promo.id}`,
               })}
               className="flex h-9 w-9 items-center justify-center rounded-full border border-bord bg-white text-texte"
             >
