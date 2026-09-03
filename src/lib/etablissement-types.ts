@@ -38,3 +38,50 @@ export function etabMarkerSvg(selected: boolean, type: EtablissementType, plan?:
 }
 
 export const ETAB_TYPE_LIST = Object.entries(ETAB_TYPES).map(([id, v]) => ({ id: id as EtablissementType, ...v }))
+
+/**
+ * Ce que la fiche affiche vraiment dans « À propos ».
+ *
+ * `description_courte` et `description_longue` ont deux rôles DIFFÉRENTS :
+ *   - l'accroche : listes de l'annuaire, vignette de la carte, recherche
+ *   - la présentation : le corps de la fiche
+ *
+ * Mais la création d'une fiche dérive l'accroche de la présentation (même
+ * texte, tronqué à 180 caractères) : le propriétaire n'écrit qu'un texte, et
+ * la fiche affichait les deux l'un sous l'autre — mot pour mot identiques.
+ * Constaté sur OB PLOMBERIE et La Cantine BioEnsemble.
+ *
+ * Règles :
+ *   - accroche reprise par la présentation (ou identique) → on ne montre que
+ *     la présentation ;
+ *   - accroche réellement distincte (une signature, un slogan) → on garde les
+ *     deux, c'est une intention éditoriale ;
+ *   - pas de présentation → l'accroche EST la fiche, sinon « À propos » serait
+ *     vide alors qu'un texte existe.
+ *
+ * SOURCE UNIQUE : la fiche publique et l'aperçu de l'éditeur appellent cette
+ * fonction. Elles ne peuvent donc pas se contredire — c'était tout le problème
+ * de l'éditeur, qui ne montrait pas ce qui allait réellement s'afficher.
+ */
+export function descriptionsFiche(
+  courte?: string | null,
+  longue?: string | null,
+): { accroche: string | null; presentation: string | null; accrocheMasquee: boolean } {
+  const c = courte?.trim() || null
+  const l = longue?.trim() || null
+
+  if (!l) return { accroche: null, presentation: c, accrocheMasquee: false }
+  if (!c) return { accroche: null, presentation: l, accrocheMasquee: false }
+
+  // Comparaison tolérante : espaces multiples, casse, et le « … » que la
+  // troncature ajoute en fin d'accroche.
+  const norm = (s: string) =>
+    s.replace(/\s+/g, ' ').replace(/[…\.]+$/, '').trim().toLowerCase()
+
+  const doublon = norm(l).startsWith(norm(c))
+  return {
+    accroche: doublon ? null : c,
+    presentation: l,
+    accrocheMasquee: doublon,
+  }
+}

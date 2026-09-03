@@ -1,13 +1,14 @@
 'use client'
 import { useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { ETAB_TYPES } from '@/lib/etablissement-types'
+import { ETAB_TYPES, descriptionsFiche } from '@/lib/etablissement-types'
 import { PLAN_ORDER, PLANS_INFO } from '@/lib/capabilities'
 import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
 import type { Etablissement } from '@/lib/types'
 
 const s = {
   label: { display: 'block', fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 4 },
+  aide: { fontSize: 11, color: '#A89886', lineHeight: 1.45, margin: '0 0 6px' },
   input: { width: '100%', background: '#fff', border: '1px solid #E8E0D5', borderRadius: 12, padding: '10px 12px', fontSize: 14, color: '#2C1810', outline: 'none', boxSizing: 'border-box' as const },
 }
 
@@ -198,11 +199,50 @@ export default function EtabEditDrawer({ etab, isAdmin, onClose, onSaved }: Prop
             <input ref={fileRef} type="file" accept="image/*" onChange={uploadPhoto} style={{ display: 'none' }} />
           </div>
 
-          {field('Description courte', descCourte, setDescCourte, 'text', 'Accroche en une phrase…')}
+          {/* Les deux textes servent à des endroits DIFFÉRENTS. Les libellés le
+              disent, et l'aperçu ci-dessous montre le résultat réel — l'éditeur
+              affichait deux champs sans indiquer où chacun atterrissait. */}
           <div>
-            <label style={s.label}>Description longue</label>
-            <textarea value={descLongue} onChange={e => setDescLongue(e.target.value)} rows={4} placeholder="Présentation détaillée…" style={{ ...s.input, resize: 'none' as const, lineHeight: 1.5 }} />
+            <label style={s.label}>Accroche</label>
+            <p style={s.aide}>Une phrase. C&apos;est ce qu&apos;on lit dans l&apos;annuaire, sur la carte et dans les résultats de recherche.</p>
+            <input
+              type="text"
+              value={descCourte}
+              onChange={e => setDescCourte(e.target.value)}
+              placeholder="Ex. Plomberie, dépannage et urgences à Ganges"
+              style={s.input}
+            />
+            <p style={{ ...s.aide, marginTop: 4, marginBottom: 0, textAlign: 'right' as const, color: descCourte.length > 90 ? '#C84B2F' : '#A89886' }}>
+              {descCourte.length}/90 {descCourte.length > 90 && '· sera coupée dans les listes'}
+            </p>
           </div>
+          <div>
+            <label style={s.label}>Présentation</label>
+            <p style={s.aide}>Le texte de votre fiche. Prenez la place qu&apos;il vous faut.</p>
+            <textarea value={descLongue} onChange={e => setDescLongue(e.target.value)} rows={4} placeholder="Qui vous êtes, ce que vous proposez, ce qui vous distingue…" style={{ ...s.input, resize: 'none' as const, lineHeight: 1.5 }} />
+          </div>
+
+          {/* Aperçu — même fonction que la fiche publique, donc fidèle */}
+          {(() => {
+            const { accroche, presentation, accrocheMasquee } = descriptionsFiche(descCourte, descLongue)
+            if (!accroche && !presentation) return null
+            return (
+              <div style={{ background: '#FAF7F2', border: '1px solid #EFE7DC', borderRadius: 14, padding: '12px 14px' }}>
+                <p style={{ ...s.aide, marginBottom: 8 }}>Aperçu de votre fiche</p>
+                <div style={{ background: '#fff', border: '1px solid #F0EAE0', borderRadius: 12, padding: '12px 14px' }}>
+                  <h3 style={{ fontSize: 11, fontWeight: 800, color: '#8A7A6A', margin: '0 0 8px', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>À propos</h3>
+                  {accroche && <p style={{ fontSize: 14, color: '#4A3728', lineHeight: 1.7, margin: '0 0 6px', whiteSpace: 'pre-wrap' as const }}>{accroche}</p>}
+                  {presentation && <p style={{ fontSize: 13, color: '#6B5E4E', lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' as const }}>{presentation}</p>}
+                </div>
+                {accrocheMasquee && (
+                  <p style={{ ...s.aide, marginTop: 8, marginBottom: 0, color: '#8A7A6A' }}>
+                    Votre accroche est déjà reprise au début de la présentation : elle n&apos;est donc pas répétée ici.
+                    Elle reste utilisée dans l&apos;annuaire et sur la carte.
+                  </p>
+                )}
+              </div>
+            )
+          })()}
           {field('Téléphone', tel, setTel, 'tel', '06 12 34 56 78')}
           {field('WhatsApp', whatsapp, setWhatsapp, 'tel', '06 12 34 56 78')}
           {field('Site web', siteWeb, setSiteWeb, 'url', 'https://…')}

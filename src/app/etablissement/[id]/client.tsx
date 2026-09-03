@@ -8,7 +8,7 @@ import { signalerFavori } from '@/hooks/useFavori'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import { useAdminSession } from '@/hooks/useAdminSession'
-import { ETAB_TYPES } from '@/lib/etablissement-types'
+import { ETAB_TYPES, descriptionsFiche } from '@/lib/etablissement-types'
 import { CATEGORIES } from '@/lib/categories'
 import EtabEditDrawer from '@/components/EtabEditDrawer'
 import EtabProductsSection from '@/components/EtabProductsSection'
@@ -664,24 +664,30 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
 
       <div style={{ padding: '20px 16px 96px', display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-        {/* Description */}
-        {(etab.description_courte || etab.description_longue) && (
-          <div style={CARD}>
-            <h3 style={{ fontSize: 11, fontWeight: 800, color: '#8A7A6A', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>À propos</h3>
-            {etab.description_courte && (
-              <TexteRiche
-                texte={etab.description_courte}
-                style={{ fontSize: 14, color: '#4A3728', lineHeight: 1.7, marginBottom: 6 }}
-              />
-            )}
-            {etab.description_longue && (
-              <TexteRiche
-                texte={etab.description_longue}
-                style={{ fontSize: 13, color: '#6B5E4E', lineHeight: 1.7 }}
-              />
-            )}
-          </div>
-        )}
+        {/* Description — l'accroche n'est affichée que si elle n'est pas déjà
+            reprise par la présentation (cf. descriptionsFiche). Sans ça, une
+            fiche créée depuis l'app répétait deux fois le même texte. */}
+        {(() => {
+          const { accroche, presentation } = descriptionsFiche(etab.description_courte, etab.description_longue)
+          if (!accroche && !presentation) return null
+          return (
+            <div style={CARD}>
+              <h3 style={{ fontSize: 11, fontWeight: 800, color: '#8A7A6A', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>À propos</h3>
+              {accroche && (
+                <TexteRiche
+                  texte={accroche}
+                  style={{ fontSize: 14, color: '#4A3728', lineHeight: 1.7, marginBottom: 6 }}
+                />
+              )}
+              {presentation && (
+                <TexteRiche
+                  texte={presentation}
+                  style={{ fontSize: 13, color: '#6B5E4E', lineHeight: 1.7 }}
+                />
+              )}
+            </div>
+          )
+        })()}
 
         {/* Horaires */}
         {horaires.some(h => h.val) && (
