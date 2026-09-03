@@ -1,0 +1,60 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   ÉCRAN CARTE — deux colonnes pleine hauteur (handoff §7)
+
+   Sur mobile, la liste est une feuille qu'on tire du bas : c'est le bon
+   geste au pouce, et elle laisse la carte respirer. Sur un écran de bureau
+   il n'y a rien à tirer, et la place ne manque pas : la liste devient une
+   colonne fixe à gauche, la carte occupe tout le reste.
+
+   La feuille est un élément framer-motion : sa position verticale est
+   réécrite en style inline à chaque image d'animation. `!important` est le
+   seul moyen de la neutraliser, et c'est la raison de chacun ci-dessous.
+   Le glissement continue de fonctionner en interne, il n'a simplement plus
+   aucun effet visible — rien à désactiver côté JavaScript, donc rien à
+   casser côté mobile.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@media (min-width: 1024px) {
+
+  /* La liste : colonne gauche, pleine hauteur. */
+  .pcv-sheetCol {
+    transform: none !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: auto !important;
+    width: 370px !important;
+    height: 100% !important;
+    border-radius: 0 !important;
+    box-shadow: 1px 0 0 #E8E0D4, 4px 0 24px rgba(44,28,16,.06) !important;
+  }
+
+  /* La carte occupe ce qui reste. */
+  .pcv-mapWrap {
+    left: 370px !important;
+    bottom: 0 !important;
+  }
+
+  /* La poignée de glissement n'a plus d'objet. */
+  .pcv-sheetCol [style*="cursor: grab"] { cursor: default !important; }
+
+  /* La barre du haut de l'accueil fait doublon avec l'en-tête du site :
+     logo, partage et information y sont déjà. Ses filtres, eux, restent —
+     ils sont dans la feuille, pas ici. */
+  .pcv-homeTop { display: none !important; }
+
+  /* Le contenu de la liste défile pour lui-même : sur bureau, on veut voir
+     la barre de défilement (handoff §10). */
+  .pcv-sheetCol { scrollbar-width: thin; scrollbar-color: #DCD3C4 transparent; }
+  .pcv-sheetCol *::-webkit-scrollbar { display: block !important; width: 9px; }
+  .pcv-sheetCol *::-webkit-scrollbar-thumb {
+    background: #DCD3C4; border-radius: 999px; border: 3px solid #fff;
+  }
+  .pcv-sheetCol *::-webkit-scrollbar-track { background: transparent; }
+
+  /* ─── Point de rupture (handoff §9) ────────────────────────────────── */
+  @media (max-width: 1120px) {
+    .pcv-sheetCol { width: 320px !important; }
+    .pcv-mapWrap  { left: 320px !important; }
+  }
+}

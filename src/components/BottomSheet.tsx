@@ -492,6 +492,7 @@ export default function BottomSheet({
   return (
     <>
     <motion.div
+      className="pcv-sheetCol"
       drag="y"
       dragControls={dragControls}
       dragListener={false}

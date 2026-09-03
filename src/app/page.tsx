@@ -306,6 +306,35 @@ export default function HomePage() {
     }
   }, [])
 
+  // Changement de vue demandé par l'en-tête bureau.
+  //
+  // Ses liens sont des navigations douces : la coquille reste montée, et les
+  // effets qui lisent l'URL ne tournent qu'au montage. Sans ce relais, cliquer
+  // « Carte » depuis Le village changeait l'adresse sans changer l'écran.
+  useEffect(() => {
+    const surVue = (e: Event) => {
+      const vue = (e as CustomEvent<string>).detail
+      setShowHub(false)
+      if (vue === 'village') { setNavTab('village'); return }
+      if (vue === 'annuaire') { setAppMode('annuaire'); setNavTab('carte'); return }
+      if (vue === 'producteurs') { setAppMode('annuaire'); setAnnuaireTab(0); setNavTab('carte'); return }
+      setAppMode('agenda'); setNavTab('carte')
+    }
+    window.addEventListener('pdv-vue', surVue)
+    return () => window.removeEventListener('pdv-vue', surVue)
+  }, [])
+
+  // Google Maps ne repeint pas ses tuiles quand son conteneur est
+  // redimensionné par la seule CSS — et c'est ce qui arrive sur bureau, où la
+  // carte cède 370 px à la colonne de liste. Sans cette secousse, elle reste
+  // blanche jusqu'au premier redimensionnement de la fenêtre.
+  // Sans effet sur mobile : le conteneur n'y change pas de taille.
+  useEffect(() => {
+    if (navTab !== 'carte') return
+    const t = setTimeout(() => window.dispatchEvent(new Event('resize')), 60)
+    return () => clearTimeout(t)
+  }, [navTab])
+
   const handlePublierClick = useCallback(() => {
     if (authLoading) return
     if (!user) { openAuthModal(); return }
@@ -914,7 +943,7 @@ export default function HomePage() {
       )}
 
       {/* Carte plein écran — zIndex:1 crée un stacking context, contient les z-index internes de Google Maps */}
-      <div className="absolute inset-0" style={{ bottom: NAV_H, zIndex: 1 }}>
+      <div className="pcv-mapWrap absolute inset-0" style={{ bottom: NAV_H, zIndex: 1 }}>
         {/* Bande invisible en haut — laisse passer le geste "tirer pour rafraîchir" */}
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 40, zIndex: 5, pointerEvents: 'auto' }} />
         <MapView
@@ -972,7 +1001,7 @@ export default function HomePage() {
           <>
             {/* Top bar bande blanche : rangée 1 = logo + infos · rangée 2 = filtres */}
             {showBtns && (
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 200, display: 'flex', flexDirection: 'column', gap: 8, background: '#fff', padding: '8px 12px 10px', paddingTop: 'max(8px, env(safe-area-inset-top, 8px))', borderBottom: '1px solid #EDE8E0', boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}>
+              <div className="pcv-homeTop" style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 200, display: 'flex', flexDirection: 'column', gap: 8, background: '#fff', padding: '8px 12px 10px', paddingTop: 'max(8px, env(safe-area-inset-top, 8px))', borderBottom: '1px solid #EDE8E0', boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                   <button
                     onClick={() => setSplashOpen(true)}

@@ -20,23 +20,23 @@ import HubSearchModal from '@/components/HubSearchModal'
  */
 
 /** Onglets principaux. Chaque adresse existe déjà — rien n'est inventé. */
-const ONGLETS: { label: string; href: string; actif: (p: string, vue: string) => boolean }[] = [
+const ONGLETS: { label: string; href: string; vue?: string; actif: (p: string, vue: string) => boolean }[] = [
   // ?tab=village existe déjà côté accueil (page.tsx) : il pose l'onglet
   // puis nettoie l'URL. Rien à inventer.
   //
   // `vue` est l'onglet réellement ouvert dans la coquille d'accueil, publié
   // sur <html data-vue>. On ne peut pas le lire dans l'URL : la
   // synchronisation y écrit toujours ?mode=agenda, même sur Le village.
-  { label: 'Le village',  href: '/?tab=village',          actif: (p, vue) => p === '/' && vue === 'village' },
-  { label: 'Carte',       href: '/?mode=agenda',          actif: (p, vue) => p === '/' && vue === 'carte' },
+  { label: 'Le village',  href: '/?tab=village', vue: 'village', actif: (p, vue) => p === '/' && vue === 'village' },
+  { label: 'Carte',       href: '/?mode=agenda', vue: 'carte',   actif: (p, vue) => p === '/' && vue === 'carte' },
   { label: 'Bons plans',  href: '/promotions',            actif: p => p.startsWith('/promotions') },
   { label: 'Annonces',    href: '/annonces',              actif: p => p.startsWith('/annonces') },
 ]
 
 /** Le reste du village, replié — le menu du haut ne doit pas déborder. */
-const PLUS: { label: string; href: string }[] = [
-  { label: 'Commerces',        href: '/?mode=annuaire' },
-  { label: 'Producteurs',      href: '/?mode=annuaire&ann=producteurs' },
+const PLUS: { label: string; href: string; vue?: string }[] = [
+  { label: 'Commerces',        href: '/?mode=annuaire', vue: 'annuaire' },
+  { label: 'Producteurs',      href: '/?mode=annuaire&ann=producteurs', vue: 'producteurs' },
   { label: 'Le journal',       href: '/journal' },
   { label: 'Forum du village', href: '/forum' },
   { label: 'Covoiturage',      href: '/covoiturage' },
@@ -110,6 +110,12 @@ export default function DesktopChrome() {
 
   const initiale = (profile?.display_name || user?.email || '·').trim().charAt(0).toUpperCase()
 
+  /** Prévient la coquille d'accueil, restée montée derrière la navigation. */
+  const changerVue = (v?: string) => {
+    if (!v) return
+    window.dispatchEvent(new CustomEvent('pdv-vue', { detail: v }))
+  }
+
   const dateDuJour = new Date().toLocaleDateString('fr-FR', {
     weekday: 'long', day: 'numeric', month: 'long',
   })
@@ -129,6 +135,7 @@ export default function DesktopChrome() {
                 key={o.label}
                 href={o.href}
                 className={o.actif(pathname, vue) ? 'pcv-on' : undefined}
+                onClick={() => changerVue(o.vue)}
               >
                 {o.label}
               </Link>
@@ -147,7 +154,7 @@ export default function DesktopChrome() {
               {plusOuvert && (
                 <div className="pcv-plusM" role="menu">
                   {PLUS.map(l => (
-                    <Link key={l.href} href={l.href} role="menuitem">{l.label}</Link>
+                    <Link key={l.href} href={l.href} role="menuitem" onClick={() => changerVue(l.vue)}>{l.label}</Link>
                   ))}
                 </div>
               )}
