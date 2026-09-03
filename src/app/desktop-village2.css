@@ -158,6 +158,14 @@
   }
   .pcv-newsRow button:hover { background: #1F4029; box-shadow: 0 4px 12px rgba(45,90,61,.25); }
 
+  /* Pendant l'envoi : le formulaire ne répond plus, il faut que ça se voie. */
+  .pcv-newsRow input:disabled,
+  .pcv-newsRow button:disabled { opacity: .55; cursor: default; }
+  .pcv-newsRow button:disabled:hover { background: #2D5A3D; box-shadow: none; }
+
+  /* Refus (adresse mal formée, panne) — au-dessus du champ, pas en remplacement. */
+  .pcv-newsErr { margin: 8px 0 0; font-size: 12px; line-height: 1.45; color: #B23B2E; }
+
   /* ─── Bouton d'un encart (Découvrir) ───────────────────────────────── */
   .pcv-sbAction { padding: 4px 16px 15px; }
   .pcv-sbBtn {

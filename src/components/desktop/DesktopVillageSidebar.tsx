@@ -233,36 +233,72 @@ export default function DesktopVillageSidebar({ encartPromo }: { encartPromo?: R
  * La lettre du village — gabarit de la maquette : titre, phrase, puis
  * l'adresse et le bouton sur une même ligne.
  *
- * Rien n'est recodé : le champ mène à /newsletter, l'écran d'inscription qui
- * existe déjà, avec l'adresse déjà saisie en paramètre.
+ * L'abonnement se fait SUR PLACE, sans compte et sans quitter la page, via
+ * /api/newsletter/subscribe. Le visiteur reçoit le dernier numéro paru, qui
+ * porte son lien de désabonnement — c'est déjà ce que reçoit une adresse
+ * ajoutée par l'admin.
  */
 function Newsletter() {
   const [email, setEmail] = useState('')
+  const [etat, setEtat] = useState<'saisie' | 'envoi' | 'ok' | 'erreur'>('saisie')
+  const [err, setErr] = useState<string | null>(null)
+
+  async function envoyer(e: React.FormEvent) {
+    e.preventDefault()
+    const adresse = email.trim()
+    if (!adresse || etat === 'envoi') return
+    setEtat('envoi'); setErr(null)
+    try {
+      const r = await fetch('/api/newsletter/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: adresse }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (r.ok) setEtat('ok')
+      else { setErr(d.error ?? 'Abonnement impossible.'); setEtat('erreur') }
+    } catch {
+      setErr('Vérifiez votre connexion.'); setEtat('erreur')
+    }
+  }
+
   return (
     <section className="pcv-sbCard pcv-news">
       <div className="pcv-sbHead"><h3>La newsletter du village</h3></div>
-      <div className="pcv-sbCorps">
-        <p className="pcv-sbPhrase">
-          Chaque semaine : les temps forts, les bons plans et les actualités locales.
-        </p>
-      </div>
-      <form
-        className="pcv-newsRow"
-        onSubmit={e => {
-          e.preventDefault()
-          const q = email.trim() ? `?email=${encodeURIComponent(email.trim())}` : ''
-          window.location.href = `/newsletter${q}`
-        }}
-      >
-        <input
-          type="email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          placeholder="Votre email"
-          aria-label="Votre adresse email"
-        />
-        <button type="submit">S’abonner</button>
-      </form>
+
+      {etat === 'ok' ? (
+        <div className="pcv-sbCorps">
+          <p className="pcv-sbPhrase">
+            <strong>C’est noté.</strong> Le dernier numéro part vers {email.trim()} ;
+            chaque semaine, vous recevrez les temps forts, les bons plans et les
+            actualités du village. Le lien pour vous désabonner est au bas de
+            chaque envoi.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="pcv-sbCorps">
+            <p className="pcv-sbPhrase">
+              Chaque semaine : les temps forts, les bons plans et les actualités locales.
+            </p>
+            {err && <p className="pcv-newsErr">{err}</p>}
+          </div>
+          <form className="pcv-newsRow" onSubmit={envoyer}>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="Votre email"
+              aria-label="Votre adresse email"
+              required
+              disabled={etat === 'envoi'}
+            />
+            <button type="submit" disabled={etat === 'envoi'}>
+              {etat === 'envoi' ? '…' : 'S’abonner'}
+            </button>
+          </form>
+        </>
+      )}
     </section>
   )
 }
