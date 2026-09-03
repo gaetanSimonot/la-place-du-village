@@ -36,6 +36,7 @@ import SubscriptionModal from '@/components/SubscriptionModal'
 import { useFavorites } from '@/hooks/useFavorites'
 import { useProducerFavorites } from '@/hooks/useProducerFavorites'
 import { useNotifications } from '@/hooks/useNotifications'
+import { ecranBureau } from '@/lib/bureau'
 
 const MapView                   = dynamic(() => import('@/components/MapViewSwitch'),              { ssr: false })
 const BottomSheet               = dynamic(() => import('@/components/BottomSheet'),                { ssr: false })
@@ -67,6 +68,7 @@ export default function HomePage() {
   // session — d'où le splash qui revenait sans cesse avant ce fix.
   useEffect(() => {
     if (typeof window === 'undefined') return
+    if (ecranBureau()) return
     if (!localStorage.getItem('pdv-welcome-shown')) setShowWelcome(true)
   }, [])
   // Splash éditorial : 1× par session (= ouverture de l'app). sessionStorage se
@@ -74,6 +76,7 @@ export default function HomePage() {
   // des navigations internes (qui remontent la home et le faisaient revenir).
   useEffect(() => {
     if (typeof window === 'undefined') return
+    if (ecranBureau()) return
     if (sessionStorage.getItem('pdv-splash-seen') !== '1') {
       setSplashOpen(true)
       sessionStorage.setItem('pdv-splash-seen', '1')
@@ -304,7 +307,8 @@ export default function HomePage() {
     }
     // ?splash=1 : le logo des autres pages ramène sur le splash d'accueil.
     if (sp0.get('splash') === '1') {
-      setSplashOpen(true)
+      // Sur ordinateur le logo ramène au village, pas au salon d'entrée.
+      if (!ecranBureau()) setSplashOpen(true)
       window.history.replaceState({}, '', '/')
     }
   }, [])

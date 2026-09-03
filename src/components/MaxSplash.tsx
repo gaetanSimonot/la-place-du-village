@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import { ecranBureau } from '@/lib/bureau'
 import { EvenementCard } from '@/lib/types'
 import { formatEventDate } from '@/lib/filters'
 import { CATEGORIES } from '@/lib/categories'
@@ -53,6 +54,10 @@ export default function MaxSplash({ events, loading = false }: Props) {
   // navigation vers /).
   const [phase, setPhase] = useState<Phase>(() => {
     if (typeof window === 'undefined') return 'dismissed'
+    // Sur ordinateur, aucun écran d'entrée : on arrive directement sur la
+    // page. Ce splash est un geste de téléphone (plein écran, glissement) et
+    // n'a pas de sens dans une fenêtre de navigateur.
+    if (ecranBureau()) return 'dismissed'
     return localStorage.getItem(SEEN_KEY) ? 'dismissed' : 'logo'
   })
   const [logoReady, setLogoReady]   = useState(false)

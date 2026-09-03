@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { ecranBureau } from '@/lib/bureau'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { trackEvent } from '@/lib/analytics'
@@ -70,6 +71,9 @@ export default function PromoSplashGate() {
     // On attend que l'auth soit résolue : sinon un abonné verrait le splash
     // pendant la fraction de seconde où son profil n'est pas encore chargé.
     if (authLoading || !cfg || blockedPage) return
+    // Aucun écran d'entrée sur ordinateur : ces splashs sont conçus plein
+    // écran pour un téléphone. Le réglage reste celui des habitants sur mobile.
+    if (ecranBureau()) return
     if (!cfg.enabled) return
     if (isPayingSubscriber && !adminSeesThem) return
     if (armed.current) return
