@@ -171,7 +171,7 @@ export default function JournalPageClient({
   ) : null
 
   return (
-    <main className="min-h-screen bg-creme pb-28 font-inter">
+    <main className="min-h-screen bg-creme pb-28 font-inter pcv-journal">
       {isDraft && (
         <div
           className="sticky top-0 z-40 flex items-center justify-center gap-2 bg-accent px-4 py-2 text-white"

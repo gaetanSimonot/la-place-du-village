@@ -37,6 +37,28 @@
      partage : 220 px sur 1150 de large font une bande. */
   .pcv-fiche-hero { height: 330px !important; }
 
+  /* ─── Journal ─────────────────────────────────────────────────────────
+     Sa racine porte `min-h-screen` et non `min-h-[100dvh]` : la règle
+     générique ci-dessus ne l'attrapait pas, et le numéro s'écrivait sur des
+     lignes de deux cents caractères. On ne l'élargit pas à 1220 px pour
+     autant — c'est un texte qui se LIT, il lui faut une colonne de journal,
+     pas la largeur d'une page d'annuaire. */
+  .pcv-journal {
+    max-width: 820px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 32px;
+    padding-right: 32px;
+    /* Réserve de la barre du bas, absente sur ordinateur. */
+    padding-bottom: 40px;
+  }
+
+  /* ─── Covoiturage ─────────────────────────────────────────────────────
+     Celui-ci était bien recadré à 1220 px par la règle générique, mais son
+     contenu s'étirait DEDANS : un champ « Départ » de 900 px, un bouton de
+     900 px. C'est une recherche suivie d'une liste — une colonne suffit. */
+  .pcv-covoit { max-width: 780px; }
+
   @media (max-width: 760px) {
     [class*="min-h-[100dvh]"] { padding-left: 20px; padding-right: 20px; }
   }

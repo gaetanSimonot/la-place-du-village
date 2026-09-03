@@ -164,7 +164,7 @@ export default function CovoiturageListClient() {
   }
 
   return (
-    <main className="min-h-[100dvh] bg-creme pb-28 font-inter text-texte">
+    <main className="min-h-[100dvh] bg-creme pb-28 font-inter text-texte pcv-covoit">
       {/* ─── Top bar ────────────────────────────────────── */}
       <div className="sticky top-0 z-30 flex items-center justify-between gap-2.5 border-b border-bordSoft bg-creme/95 px-4 py-3 backdrop-blur">
         <Link

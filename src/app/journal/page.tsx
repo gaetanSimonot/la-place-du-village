@@ -46,7 +46,7 @@ export default async function JournalIndexPage() {
   }
 
   return (
-    <main className="min-h-screen bg-creme px-4 py-16 font-inter">
+    <main className="min-h-screen bg-creme px-4 py-16 font-inter pcv-journal">
       <div className="mx-auto max-w-md text-center">
         <h1
           className="font-serif text-[32px] leading-[1.1] text-texte"
