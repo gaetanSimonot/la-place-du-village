@@ -103,11 +103,27 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, centerOn }: 
     }
   }, [map, selectedId, evenements, fixedMap])
 
+  /**
+   * Le cadrage automatique a DÉJÀ eu lieu ? (bureau seulement)
+   *
+   * Sur mobile il rejoue à chaque changement de liste, et c'est voulu : la
+   * carte est petite, on veut voir ce que le filtre vient de sélectionner.
+   *
+   * Sur un grand écran c'est insupportable : à chaque cran de filtre la carte
+   * recule puis revient, tout bouge sous les yeux. On cadre une fois, à
+   * l'arrivée, puis on laisse la vue tranquille — c'est ce que fait n'importe
+   * quelle carte de recherche.
+   */
+  const cadrageFait = useRef(false)
+
   // Auto-fit bounds selon les événements visibles (désactivé en mode carte fixe)
   useEffect(() => {
     if (!map || fixedMap) return
+    const surBureau = typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches
+    if (surBureau && cadrageFait.current) return
     const withLoc = evenements.filter(e => e.lieux?.lat && e.lieux?.lng)
     if (withLoc.length === 0) return
+    if (surBureau) cadrageFait.current = true
 
     if (withLoc.length === 1) {
       map.panTo({ lat: withLoc[0].lieux!.lat!, lng: withLoc[0].lieux!.lng! })
@@ -129,7 +145,7 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, centerOn }: 
     //
     // Réservé au bureau : sur un écran de 430 px, le même cadrage donne une
     // vue toute différente, et le mobile ne doit pas bouger.
-    if (typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches) {
+    if (surBureau) {
       google.maps.event.addListenerOnce(map, 'idle', () => {
         const z = map.getZoom()
         if (typeof z === 'number' && z < ZOOM_MIN_BUREAU) {

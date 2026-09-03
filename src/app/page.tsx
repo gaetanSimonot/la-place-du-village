@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 
 import ProBandeau from '@/components/ProBandeau'
+import AgendaFilterWheel, { AgendaDateButton } from '@/components/AgendaFilterWheel'
 import MaxSplash from '@/components/MaxSplash'
 import EditorialSplash from '@/components/EditorialSplash'
 import FavorisView from '@/components/FavorisView'
@@ -1066,9 +1067,40 @@ export default function HomePage() {
               </div>
             )}
 
+            {/* ── Barre de commandes du bureau, flottante au bas de la carte ──
+                Sur mobile, ces réglages vivent en haut de l'écran et dans la
+                feuille : c'est là qu'ils tombent sous le pouce. Sur bureau
+                l'œil est au centre, et une grande carte se pilote depuis le
+                bas — on regroupe donc au même endroit le choix du type de
+                carte, les deux filtres et le calendrier.
+                Ce sont les MÊMES composants et le MÊME état que le mobile :
+                rien n'est dupliqué, seuls les exemplaires mobiles sont
+                masqués au-dessus de 1024 px. */}
+            {showBtns && (
+              <div className="pcv-only pcv-mapCtl">
+                <div className="pcv-mapCtlSegs">
+                  {MODES.map(m => (
+                    <button
+                      key={m.id}
+                      onClick={() => setMapMode(m.id)}
+                      className={mapMode === m.id ? 'pcv-mapCtlOn' : undefined}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                {appMode === 'agenda' && (
+                  <div className="pcv-mapCtlFiltres">
+                    <AgendaFilterWheel filtres={filtres} onFiltresChange={setFiltres} />
+                    <AgendaDateButton filtres={filtres} onFiltresChange={setFiltres} />
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Stack boutons flottants à gauche (sous la top bar) : réglages · loupe */}
             {showBtns && (
-              <div style={{ position: 'absolute', top: 'calc(env(safe-area-inset-top, 0px) + 116px)', left: 14, zIndex: 200, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div className="pcv-mapTools" style={{ position: 'absolute', top: 'calc(env(safe-area-inset-top, 0px) + 116px)', left: 14, zIndex: 200, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <button onClick={() => setZonePopup(true)} style={FBTN} aria-label="Réglages de la carte">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="12" cy="12" r="3"/>

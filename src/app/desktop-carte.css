@@ -16,17 +16,10 @@
 
 @media (min-width: 1024px) {
 
-  /* L'écran carte tient dans le gabarit du site (1220 px), comme toutes les
-     autres pages. Étalé sur toute la largeur du navigateur, il n'appartenait
-     plus au même site que le reste. Tout ce qu'il contient est positionné
-     par rapport à cette coquille : contraindre la coquille suffit. */
-  .pcv-home {
-    max-width: 1220px;
-    margin-left: auto;
-    margin-right: auto;
-    border-left: 1px solid #E8E0D4;
-    border-right: 1px solid #E8E0D4;
-  }
+  /* La carte prend TOUTE la largeur de l'écran. C'est le seul écran du site
+     dans ce cas, et c'est justifié : une carte gagne à chaque pixel, et son
+     organisation ne vient pas d'un gabarit de texte mais de la liste à gauche
+     et de la barre de commandes en bas. */
 
   /* La liste : colonne gauche, pleine hauteur. */
   .pcv-sheetCol {
@@ -55,17 +48,7 @@
      sélecteur Événements / Commerces / Producteurs, qui n'existe nulle part
      ailleurs. On masque la première et on garde le second, posé en tête de la
      colonne de gauche comme le fait la maquette (.mapTop). */
-  .pcv-homeTop {
-    left: 0 !important;
-    right: auto !important;
-    width: 370px !important;
-    padding: 10px 12px !important;
-    box-shadow: none !important;
-  }
-  .pcv-homeTop > div:first-child { display: none !important; }
-
-  /* La liste commence sous ce sélecteur. */
-  .pcv-sheetCol { top: 58px !important; }
+  .pcv-homeTop { display: none !important; }
 
   /* Bandeau de l'événement à la une. Sur mobile il barre le bas de l'écran,
      au-dessus de la feuille. Sur bureau, ce calcul le posait par-dessus la
@@ -82,6 +65,74 @@
     box-shadow: 0 10px 30px rgba(26,18,9,.22);
   }
 
+
+  /* ─── Barre de commandes flottante, au bas de la carte ───────────────
+     Type de carte, filtres et calendrier réunis là où l'œil est déjà : sur
+     la carte. Elle flotte au-dessus, centrée sur la partie carte — pas sur
+     l'écran, sinon la liste la décalerait vers la gauche. */
+  .pcv-mapCtl {
+    position: absolute;
+    z-index: 30;
+    bottom: 22px;
+    left: 370px;
+    right: 0;
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    pointer-events: none;
+  }
+  .pcv-mapCtl > * { pointer-events: auto; }
+
+  /* Choix du type de carte */
+  .pcv-mapCtlSegs {
+    display: flex;
+    gap: 2px;
+    padding: 4px;
+    border-radius: 14px;
+    background: rgba(255,255,255,.94);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 6px 22px rgba(26,18,9,.20);
+  }
+  .pcv-mapCtlSegs button {
+    padding: 8px 18px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: #7A6A5A;
+    font-family: var(--font-inter), sans-serif;
+    font-size: 12.5px;
+    font-weight: 700;
+    white-space: nowrap;
+    transition: all .15s;
+  }
+  .pcv-mapCtlSegs button:hover { background: #F7F1E6; color: #1A1209; }
+  .pcv-mapCtlOn { background: #2D5A3D !important; color: #fff !important; font-weight: 800 !important; }
+  .pcv-mapCtlSegs .pcv-mapCtlOn:hover { background: #1F4029 !important; color: #fff !important; }
+
+  /* Filtres + calendrier, sur la même ligne */
+  .pcv-mapCtlFiltres {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 16px;
+    background: rgba(255,255,255,.94);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 6px 22px rgba(26,18,9,.20);
+  }
+  /* Le calendrier est écrit pour flotter dans la feuille : ici il fait partie
+     de la barre, il reprend donc sa place dans le flux. */
+  .pcv-mapCtlFiltres > * { position: static !important; inset: auto !important; }
+
+  /* Les deux boutons ronds (réglages, loupe) se posaient par-dessus la
+     liste : ils passent sur la carte, du côté opposé aux commandes. */
+  .pcv-mapTools {
+    left: auto !important;
+    right: 14px !important;
+    top: 16px !important;
+  }
+
   /* Le contenu de la liste défile pour lui-même : sur bureau, on veut voir
      la barre de défilement (handoff §10). */
   .pcv-sheetCol { scrollbar-width: thin; scrollbar-color: #DCD3C4 transparent; }
@@ -95,6 +146,7 @@
   @media (max-width: 1120px) {
     .pcv-sheetCol { width: 320px !important; }
     .pcv-mapWrap  { left: 320px !important; }
-    .pcv-homeTop  { width: 320px !important; }
+    .pcv-mapCtl   { left: 320px !important; }
+
   }
 }

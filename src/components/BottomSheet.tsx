@@ -515,12 +515,16 @@ export default function BottomSheet({
       {/* Bouton calendrier flottant — enfant DIRECT du sheet, donc hors du
           header mesuré : il ne peut pas influer sur peekH (et donc ni sur les
           snaps, ni sur la position du ProBandeau qui s'y accroche). */}
+      {/* pcv-hide : sur bureau, le calendrier rejoint les deux filtres dans
+          la barre flottante au bas de la carte. */}
       {appMode === 'agenda' && (
-        <AgendaDateButton
-          filtres={filtres}
-          onFiltresChange={onFiltresChange}
-          onOpenChange={handleCalendarOpenChange}
-        />
+        <div className="pcv-hide">
+          <AgendaDateButton
+            filtres={filtres}
+            onFiltresChange={onFiltresChange}
+            onOpenChange={handleCalendarOpenChange}
+          />
+        </div>
       )}
 
       {/* ── Header mesuré (peek height source) ── */}
@@ -554,8 +558,10 @@ export default function BottomSheet({
               <span style={{ opacity: 0.5 }}> · </span>
               <span style={{ fontSize: 11, color: '#9E9089' }}>marchés · ateliers · concerts</span>
             </div>
-            {/* Wheels centrés ~300px, marges latérales restent grabable */}
-            <div style={{
+            {/* Wheels centrés ~300px, marges latérales restent grabable.
+                pcv-hide : sur bureau, ces deux filtres sont dans la barre
+                flottante au bas de la carte. */}
+            <div className="pcv-hide" style={{
               display: 'flex',
               justifyContent: 'center',
               padding: '0 16px 14px',
