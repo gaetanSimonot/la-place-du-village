@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { extractMultipleWithClaude, geocodeWithGoogle, calcStatut } from './extract'
 import { checkDoublon } from './checkDoublon'
 import { checkZone } from './checkZone'
+import { trouverOuCreerLieu } from './lieuxResolve'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -78,14 +79,13 @@ export async function processMessage(
       if (!zone.within) { reasons.push(`"${evt.titre}" → hors zone (${zone.distanceMin}km de ${zone.centreLePlusProche})`); continue }
 
       if (geo.lat) {
-        const { data: lieu } = await supabaseAdmin.from('lieux').insert({
-          nom: evt.lieu_nom ?? evt.commune,
-          adresse: geo.adresse ?? evt.lieu_adresse,
-          lat: geo.lat, lng: geo.lng,
-          place_id_google: geo.place_id_google,
-          commune: evt.commune, code_postal: evt.code_postal,
-        }).select('id').single()
-        lieuId = lieu?.id ?? null
+        // Chercher avant de créer — voir src/lib/lieuxResolve.ts.
+        const lieu = await trouverOuCreerLieu(
+          evt.lieu_nom ?? evt.commune ?? '',
+          evt.commune,
+          { lat: geo.lat, lng: geo.lng, adresse: geo.adresse ?? evt.lieu_adresse, place_id_google: geo.place_id_google },
+        )
+        lieuId = lieu.id
       }
     }
 

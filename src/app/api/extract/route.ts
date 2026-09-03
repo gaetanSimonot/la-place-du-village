@@ -8,6 +8,7 @@ import {
   type GeoResult,
 } from '@/lib/extract'
 import { regrouperRecurrences } from '@/lib/recurrences'
+import { trouverOuCreerLieu } from '@/lib/lieuxResolve'
 import { checkDoublon } from '@/lib/checkDoublon'
 import { requireUser } from '@/lib/server-auth'
 import { rateLimit } from '@/lib/rateLimit'
@@ -103,25 +104,22 @@ async function processOneEvent(
 
   if (extracted.lieu_nom || extracted.commune) {
     geo = await geocodeWithGoogle(extracted.lieu_nom, extracted.commune)
-    const { data: lieu, error: lieuErr } = await supabaseAdmin
-      .from('lieux')
-      .insert({
-        nom: extracted.lieu_nom ?? extracted.commune,
-        adresse: geo.adresse ?? extracted.lieu_adresse,
-        lat: geo.lat,
-        lng: geo.lng,
-        place_id_google: geo.place_id_google,
-        commune: extracted.commune,
-        code_postal: extracted.code_postal,
-      })
-      .select('id')
-      .single()
-    if (lieuErr || !lieu) {
+    // On CHERCHE le lieu avant d'en créer un. L'insertion sèche d'avant a
+    // laissé 1134 lignes dans `lieux` pour ~285 lieux réels — « Le petit
+    // dojo » 88 fois — et privait la vérification anti-doublon de son
+    // meilleur repère : deux copies du même événement ne partageaient pas
+    // leur lieu.
+    const lieu = await trouverOuCreerLieu(
+      extracted.lieu_nom ?? extracted.commune ?? '',
+      extracted.commune,
+      { lat: geo.lat, lng: geo.lng, adresse: geo.adresse ?? extracted.lieu_adresse, place_id_google: geo.place_id_google },
+    )
+    if (!lieu.id) {
       return {
         ok: false,
         reason: 'lieu_insert_error',
         titre: extracted.titre,
-        error: lieuErr?.message ?? 'lieu_insert_failed',
+        error: lieu.error ?? 'lieu_insert_failed',
       }
     }
     lieuId = lieu.id
