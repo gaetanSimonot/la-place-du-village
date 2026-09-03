@@ -181,7 +181,7 @@ export default function ProfilHybridView({ onOpenNotifs, notifUnread }: { onOpen
   const effectiveIsVerified    = inPublic && !settings.module_utile ? false : isVerified
 
   return (
-    <div className="min-h-full bg-creme pb-28 font-inter text-texte">
+    <div className="min-h-full bg-creme pb-28 font-inter text-texte pcv-profil">
       {/* Bandeau "Aperçu public" — visible quand viewMode='public', avec retour explicite */}
       {viewMode === 'public' && (
         <button
@@ -201,6 +201,13 @@ export default function ProfilHybridView({ onOpenNotifs, notifUnread }: { onOpen
         </button>
       )}
 
+      {/* Sur ordinateur : identité à gauche, contenu à droite, le tout dans
+          le gabarit du site. Sur mobile ces trois div sont `display: contents`
+          — elles ne produisent aucune boîte et la page reste EXACTEMENT celle
+          d'avant, dans le même ordre. */}
+      <div className="pcv-profilGrid">
+        <div className="pcv-profilAside">
+
       <ProfilHeader
         viewMode={viewMode}
         displayName={displayName}
@@ -217,6 +224,9 @@ export default function ProfilHybridView({ onOpenNotifs, notifUnread }: { onOpen
         notifUnread={notifUnread}
         msgUnread={msgUnread}
       />
+
+        </div>
+        <div className="pcv-profilMain">
 
       <ProfilTabSwitcher
         active={activeTab}
@@ -235,6 +245,9 @@ export default function ProfilHybridView({ onOpenNotifs, notifUnread }: { onOpen
       {activeTab === 'reels' && <ReelsTab profileUserId={user.id} />}
       {activeTab === 'amis'  && <AmisTab friends={friends} />}
       {activeTab === 'utile' && <UtileTabPlaceholder />}
+
+        </div>
+      </div>
 
       {/* Incitation à activer les notifications (sur sa propre vue uniquement) */}
       {viewMode === 'own' && <PushPromptModal />}

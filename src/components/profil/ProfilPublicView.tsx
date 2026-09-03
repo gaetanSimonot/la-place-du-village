@@ -149,7 +149,11 @@ export default function ProfilPublicView({ viewedUserId }: { viewedUserId: strin
   const safeTab: ProfilTab = visibleTabs.includes(activeTab) ? activeTab : (visibleTabs[0] ?? 'amis')
 
   return (
-    <div className="min-h-[100dvh] bg-creme pb-28 font-inter text-texte">
+    <div className="min-h-[100dvh] bg-creme pb-28 font-inter text-texte pcv-profil">
+      {/* Même structure que /profil : identité à gauche, contenu à droite sur
+          ordinateur ; `display: contents` — donc rien du tout — sur mobile. */}
+      <div className="pcv-profilGrid">
+        <div className="pcv-profilAside">
       <ProfilHeader
         viewMode="public"
         displayName={displayName}
@@ -171,6 +175,8 @@ export default function ProfilPublicView({ viewedUserId }: { viewedUserId: strin
           onCancel:      cancel,
         }}
       />
+        </div>
+        <div className="pcv-profilMain">
 
       <ProfilTabSwitcher
         active={safeTab}
@@ -194,6 +200,9 @@ export default function ProfilPublicView({ viewedUserId }: { viewedUserId: strin
           </p>
         </div>
       )}
+
+        </div>
+      </div>
 
       <BottomNavBar />
     </div>

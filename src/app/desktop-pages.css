@@ -41,3 +41,82 @@
     [class*="min-h-[100dvh]"] { padding-left: 20px; padding-right: 20px; }
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PROFIL — version ordinateur
+
+   /profil échappait à la règle générique ci-dessus : sa racine porte sa
+   hauteur en style inline, pas la classe `min-h-[100dvh]` que cette règle
+   vise. Résultat, c'était le seul écran encore étiré d'un bord à l'autre.
+
+   Les trois conteneurs ci-dessous sont posés dans ProfilHybridView. Hors
+   ordinateur ils sont `display: contents` : ils ne produisent AUCUNE boîte,
+   leurs enfants se placent comme si les div n'existaient pas. Le mobile voit
+   donc exactement la page qu'il voyait avant — mêmes éléments, même ordre,
+   mêmes marges.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.pcv-profilGrid,
+.pcv-profilAside,
+.pcv-profilMain { display: contents; }
+
+@media (min-width: 1024px) {
+
+  /* La grille ci-dessous porte elle-même le gabarit du site. La règle
+     générique du haut de fichier s'applique aussi au profil public (sa racine
+     porte bien `min-h-[100dvh]`) et donnerait un gabarit dans un gabarit :
+     on la neutralise ici. Même spécificité, mais cette règle vient après.
+     Le `padding-bottom` est la réserve de 112 px pour la barre du bas, qui
+     n'existe pas sur ordinateur. */
+  .pcv-profil {
+    max-width: none;
+    padding-left: 0;
+    padding-right: 0;
+    padding-bottom: 0 !important;
+  }
+
+  .pcv-profilGrid {
+    display: grid;
+    /* 360 px : la colonne d'identité reste au moins aussi large que le
+       contenu d'un téléphone (430 px moins ses marges), pour que la rangée de
+       boutons de l'en-tête tienne sur une ligne comme elle le fait là-bas. */
+    grid-template-columns: 360px minmax(0, 1fr);
+    align-items: start;
+    gap: 28px;
+    max-width: 1220px;
+    margin: 0 auto;
+    padding: 26px 32px 48px;
+  }
+
+  /* L'identité : une carte qui tient la colonne. `overflow: hidden` détoure
+     la bannière, qui va sinon aux angles vifs. */
+  .pcv-profilAside {
+    display: block;
+    background: #fff;
+    border: 1px solid #F0EAE0;
+    border-radius: 16px;
+    overflow: hidden;
+    padding-bottom: 18px;
+    /* Elle suit la lecture du mur sans repartir en haut à chaque onglet.
+       64 px = la hauteur de l'en-tête collant du site. */
+    position: sticky;
+    top: 84px;
+  }
+
+  /* La bannière respire un peu plus dans une colonne étroite. */
+  .pcv-profilAside > div:first-child { height: 120px; }
+
+  .pcv-profilMain { display: block; min-width: 0; }
+
+  /* Le sélecteur d'onglets n'a plus à se coller au bord de l'écran : le
+     gabarit fournit déjà la marge. Et il ne s'étire pas sur toute la colonne :
+     quatre pastilles réparties sur 800 px flottent dans le vide. */
+  .pcv-profilMain > div:first-child {
+    padding: 0 0 4px;
+    max-width: 460px;
+  }
+
+  @media (max-width: 1120px) {
+    .pcv-profilGrid { grid-template-columns: 320px minmax(0, 1fr); gap: 22px; }
+  }
+}
