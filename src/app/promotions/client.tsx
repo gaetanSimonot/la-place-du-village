@@ -222,7 +222,7 @@ export default function PromotionsClient() {
   }, [promos])
 
   return (
-    <div className="pcv-page min-h-[100dvh] bg-creme pb-20 font-inter text-texte">
+    <div className="pcv-page pcv-promos min-h-[100dvh] bg-creme pb-20 font-inter text-texte">
       <style>{`.pdv-hscroll { scrollbar-width: none; -webkit-overflow-scrolling: touch; } .pdv-hscroll::-webkit-scrollbar { display: none; }`}</style>
 
       {/* Top bar bande blanche (identique carte) : logo + partager */}
@@ -380,7 +380,7 @@ export default function PromotionsClient() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="pcv-cardGrid grid grid-cols-2 gap-2.5">
             {filteredPromos.map(p => (
               <div key={p.id} id={`promo-${p.id}`} className="relative" style={{ scrollMarginTop: 80 }}>
                 {isAdmin && (

@@ -379,3 +379,32 @@
     .pcv-sbCol { position: static; }
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   LISTES — Annonces et Bons plans
+   Les gabarits de carte ne changent pas (handoff §12) : seule la mise en
+   grille est nouvelle. Sur une colonne de 430 px une carte par ligne allait
+   de soi ; étirée sur 1150 px, elle devient une bande vide.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@media (min-width: 1024px) {
+  /* `.pcv-page` en tête pour passer devant les utilitaires Tailwind
+     (`flex flex-col`, `grid-cols-2`) qui ont la même spécificité. */
+  .pcv-page .pcv-cardGrid {
+    display: grid;
+    gap: 16px;
+    align-content: start;
+  }
+  /* Annonces : carte large, deux lignes de description → 340 px de plancher. */
+  .pcv-page.pcv-annonces .pcv-cardGrid {
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  }
+  /* Bons plans : visuel en tête, carte plus étroite. */
+  .pcv-page.pcv-promos .pcv-cardGrid {
+    grid-template-columns: repeat(auto-fill, minmax(212px, 1fr));
+  }
+
+  /* Les listes portent un padding de 16 px pensé pour le mobile ; au gabarit
+     bureau, la gouttière du conteneur suffit. */
+  .pcv-page .pcv-cardGrid { padding-left: 0; padding-right: 0; }
+}

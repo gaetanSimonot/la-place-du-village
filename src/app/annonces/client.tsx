@@ -50,7 +50,7 @@ export default function AnnoncesPageClient() {
   const hasEnchere = filtered.some(a => a.type === 'enchere_inversee')
 
   return (
-    <div className="pcv-page min-h-[100dvh] bg-creme pb-20 font-inter text-texte">
+    <div className="pcv-page pcv-annonces min-h-[100dvh] bg-creme pb-20 font-inter text-texte">
       <style>{`.pdv-hscroll { scrollbar-width: none; -webkit-overflow-scrolling: touch; } .pdv-hscroll::-webkit-scrollbar { display: none; }`}</style>
 
       {/* ─────────── Top bar : back · titre · messages + créer ─────────── */}
@@ -183,7 +183,7 @@ export default function AnnoncesPageClient() {
           </div>
         ) : (
           <>
-            <div className="flex flex-col gap-2.5">
+            <div className="pcv-cardGrid flex flex-col gap-2.5">
               {sponsored.map(a => <AnnonceCard key={a.id} annonce={a} />)}
               {standard.map(a => <AnnonceCard key={a.id} annonce={a} />)}
             </div>
