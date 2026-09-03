@@ -67,9 +67,12 @@ export async function PATCH(req: NextRequest) {
   if ('user_id' in body) {
     const { user_id, plan, pro_type, display_name } = body
 
-    // Check if profile row exists — if not, we need to create it with all required columns
+    // Le plan est lu AVANT l'écriture : c'est lui qui dit s'il s'agit d'un
+    // vrai basculement vers Partenaire Local (donc un e-mail de bienvenue) ou
+    // d'un simple réenregistrement d'un compte déjà Partenaire (donc rien).
     const { data: existing } = await supabaseAdmin
-      .from('profiles').select('user_id').eq('user_id', user_id).maybeSingle()
+      .from('profiles').select('user_id, plan').eq('user_id', user_id).maybeSingle()
+    const ancienPlan = (existing?.plan as string | null) ?? null
 
     let error
     if (existing) {
@@ -93,10 +96,10 @@ export async function PATCH(req: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    // Bienvenue Partenaire Local — même message que pour un abonnement payé.
-    // La fonction vérifie elle-même que le plan est bien 'pro' et que l'e-mail
-    // n'a jamais été envoyé : réenregistrer un profil ne le renvoie pas.
-    if (plan === 'pro') await envoyerBienvenuePartenaire(user_id)
+    // Bienvenue Partenaire Local — au BASCULEMENT seulement. Réenregistrer un
+    // partenaire (changer son nom affiché) ne renvoie rien ; le repasser en
+    // basic puis en Partenaire renvoie le message, autant de fois que voulu.
+    if (plan === 'pro' && ancienPlan !== 'pro') await envoyerBienvenuePartenaire(user_id)
 
     // Sync is_max on producer for backward compat with the public annuaire API
     const { data: prod } = await supabaseAdmin

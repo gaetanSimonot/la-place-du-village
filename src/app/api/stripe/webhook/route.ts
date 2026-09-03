@@ -46,15 +46,22 @@ export async function POST(req: NextRequest) {
     if (!user_id || !plan) return NextResponse.json({ received: true })
 
     // 1. Source de vérité : profiles.plan
+    // Plan lu AVANT l'écriture : le message de bienvenue ne part qu'au
+    // basculement vers Partenaire Local, pas sur un changement de moyen de
+    // paiement ou une reprise d'un abonnement déjà actif.
+    const { data: avant } = await supabaseAdmin
+      .from('profiles').select('plan').eq('user_id', user_id).maybeSingle()
+    const ancienPlan = (avant?.plan as string | null) ?? null
+
     await supabaseAdmin
       .from('profiles')
       .update({ plan })
       .eq('user_id', user_id)
 
-    // Bienvenue Partenaire Local — une seule fois, quel que soit le chemin
+    // Bienvenue Partenaire Local — au basculement, quel que soit le chemin
     // (paiement ici, attribution manuelle dans /api/admin/membres).
     // Fail-soft : n'interrompt jamais le traitement du paiement.
-    if (plan === 'pro') await envoyerBienvenuePartenaire(user_id)
+    if (plan === 'pro' && ancienPlan !== 'pro') await envoyerBienvenuePartenaire(user_id)
 
     // 2. Auto-claim de la fiche payée si etab_id fourni
     if (etab_id) {

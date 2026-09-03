@@ -3,14 +3,18 @@
  *
  * Deux chemins mènent au plan 'pro' — le paiement Stripe (webhook) et
  * l'attribution manuelle depuis /admin/membres. Les deux appellent cette
- * fonction : le message part quel que soit le chemin, et une seule fois.
+ * fonction : le message part quel que soit le chemin.
  *
- * Garde-fou : profiles.partenaire_bienvenue_at. Renseignée = déjà envoyé.
- * Voir scripts/2026-09-03_bienvenue_partenaire.sql.
+ * Déclencheur : le BASCULEMENT vers 'pro', décidé par l'appelant qui compare
+ * le plan d'avant et celui d'après. Réenregistrer un partenaire ne renvoie
+ * donc rien, mais le repasser en basic puis en Partenaire réenvoie le
+ * message — autant de fois que voulu, ce qui rend le test trivial.
  *
- * Fail-soft : un échec d'envoi ne marque pas la date et ne fait jamais
- * échouer l'appelant. Personne ne doit rater son abonnement parce qu'un
- * e-mail n'est pas parti.
+ * Pas de date d'envoi mémorisée : ce serait un état de plus à entretenir à la
+ * main pour rejouer un essai.
+ *
+ * Fail-soft : un échec d'envoi ne fait jamais échouer l'appelant. Personne
+ * ne doit rater son abonnement parce qu'un e-mail n'est pas parti.
  *
  * TEXTE — écrit par Gaëtan, vouvoiement. Deux réserves signalées le
  * 03/09/2026, à trancher avant de compter dessus :
@@ -94,7 +98,10 @@ function piedHtml(): string {
 }
 
 /**
- * Envoie l'e-mail de bienvenue si ce compte ne l'a jamais reçu.
+ * Envoie l'e-mail de bienvenue.
+ *
+ * L'appelant a déjà vérifié qu'il s'agit d'un basculement vers 'pro' ; on
+ * relit tout de même le plan en base avant d'écrire à qui que ce soit.
  *
  * @param userId le compte qui vient de passer Partenaire Local
  */
@@ -102,7 +109,7 @@ export async function envoyerBienvenuePartenaire(userId: string): Promise<void> 
   try {
     const { data: profil } = await supabaseAdmin
       .from('profiles')
-      .select('email, display_name, plan, partenaire_bienvenue_at')
+      .select('email, display_name, plan')
       .eq('user_id', userId)
       .maybeSingle()
 
@@ -110,7 +117,6 @@ export async function envoyerBienvenuePartenaire(userId: string): Promise<void> 
     // Le plan est relu ICI plutôt que passé en argument : l'appelant vient de
     // l'écrire, on part de ce que la base dit vraiment.
     if (profil.plan !== 'pro') return
-    if (profil.partenaire_bienvenue_at) return
 
     // Les deux boutons pointent vers SA fiche : c'est là que vivent le
     // gestionnaire de promotions et l'édition. L'ancre #promotions amène
@@ -139,14 +145,9 @@ export async function envoyerBienvenuePartenaire(userId: string): Promise<void> 
       html,
     })
 
-    // Échec (quota Resend, adresse invalide…) : on ne marque pas, une
-    // prochaine occasion réessaiera.
-    if (!r.ok) return
-
-    await supabaseAdmin
-      .from('profiles')
-      .update({ partenaire_bienvenue_at: new Date().toISOString() })
-      .eq('user_id', userId)
+    // Échec (quota Resend, adresse invalide…) : silencieux côté appelant.
+    // Le prochain basculement réessaiera.
+    void r
   } catch {
     // Jamais bloquant pour l'appelant : ni le paiement ni l'action admin ne
     // doivent échouer parce qu'un e-mail n'est pas parti.
