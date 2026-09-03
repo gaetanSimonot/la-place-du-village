@@ -42,6 +42,8 @@ export async function GET(req: NextRequest) {
   const dateRaw = (searchParams.get('date') ?? '').trim()
   const dateExacte = /^\d{4}-\d{2}-\d{2}$/.test(dateRaw) ? dateRaw : null
   const nowISO = new Date().toISOString()
+  // Déclarée ici : le tri final en a besoin, hors du bloc qui la calcule.
+  let range: { from: string; to: string } | null = null
 
   // ── PARALLÈLE : events filtrés + promo events + splash featured + config ──
 
@@ -66,8 +68,17 @@ export async function GET(req: NextRequest) {
     q = q.lte('date_debut', dateExacte)
          .or(`date_fin.gte.${dateExacte},and(date_fin.is.null,date_debut.eq.${dateExacte})`)
   } else {
-    const range = getDateRange(quand)
-    if (range) q = q.gte('date_debut', range.from).lte('date_debut', range.to)
+    range = getDateRange(quand)
+    // Recouvrement, exactement comme le calendrier juste au-dessus : on veut
+    // ce qui est EN COURS pendant la période, pas seulement ce qui COMMENCE
+    // dedans. Sans ça, une expo ouverte le 1er juin et courant jusqu'au 30
+    // septembre disparaissait de « Aujourd'hui » dès le 2 juin — comme
+    // l'Atelier Vélo, les Puces de Ganges ou la permanence Créa.Dév, mesurés
+    // absents en production le 03/09/2026.
+    if (range) {
+      q = q.lte('date_debut', range.to)
+           .or(`date_fin.gte.${range.from},and(date_fin.is.null,date_debut.gte.${range.from})`)
+    }
     if (masquerPasses) {
       // Force Europe/Paris (Vercel = UTC par défaut, peu importe la région).
       const today = new Intl.DateTimeFormat('en-CA', {
@@ -119,8 +130,30 @@ export async function GET(req: NextRequest) {
     splashFeatured = splashIds.map(id => eventMap[id]).filter(Boolean) as Array<Record<string, unknown>>
   }
 
+  // ── Ordre de la liste ────────────────────────────────────────────────
+  // Les événements qui DÉBUTENT dans la période passent devant ; ceux qui ne
+  // font que se poursuivre (expos, permanences, ateliers au long cours)
+  // ferment la marche.
+  //
+  // Sans ce tri, l'inverse se produisait : la liste est ordonnée par date de
+  // début, donc une expo ouverte en mai arrivait AVANT le concert de ce soir.
+  // C'est ce qui rendait « Aujourd'hui » illisible — toujours les mêmes
+  // expositions en tête, et le frais noyé dessous.
+  const evenements = [...(evRes.data ?? [])]
+  if (range) {
+    const debut = range.from
+    const commenceDansLaPeriode = (e: { date_debut?: string | null }) =>
+      !!e.date_debut && e.date_debut >= debut
+    evenements.sort((a, b) => {
+      const da = commenceDansLaPeriode(a) ? 0 : 1
+      const db = commenceDansLaPeriode(b) ? 0 : 1
+      if (da !== db) return da - db
+      return String(a.date_debut ?? '').localeCompare(String(b.date_debut ?? ''))
+    })
+  }
+
   return NextResponse.json({
-    evenements:    evRes.data ?? [],
+    evenements,
     promoEvents:   promoRes.data ?? [],
     splashFeatured,
   }, {
