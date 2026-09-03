@@ -81,6 +81,15 @@
     .pcv-page { padding-left: 20px; padding-right: 20px; }
   }
 
+  /* Coquille d'accueil. Sa hauteur est 100dvh en style inline ; sur bureau
+     l'en-tête (64) et le bandeau de contexte (38) sont au-dessus, il faut
+     donc lui retirer ces 102 px sous peine de déborder de l'écran. */
+  .pcv-home { height: calc(100dvh - 102px) !important; }
+
+  /* Panneaux plein écran de l'accueil (Village, Favoris, Notifications) :
+     ils s'arrêtaient au-dessus de la barre du bas, qui n'existe plus ici. */
+  .pcv-panel { bottom: 0 !important; }
+
   /* ─── 4. En-tête ───────────────────────────────────────────────────── */
   .pcv-hd {
     position: sticky;

@@ -21,7 +21,9 @@ import HubSearchModal from '@/components/HubSearchModal'
 
 /** Onglets principaux. Chaque adresse existe déjà — rien n'est inventé. */
 const ONGLETS: { label: string; href: string; actif: (p: string, sp: URLSearchParams) => boolean }[] = [
-  { label: 'Le village',  href: '/',                        actif: (p, sp) => p === '/' && !sp.has('mode') },
+  // ?tab=village existe déjà côté accueil (page.tsx) : il pose l'onglet
+  // puis nettoie l'URL. Rien à inventer.
+  { label: 'Le village',  href: '/?tab=village',          actif: (p, sp) => p === '/' && !sp.has('mode') },
   { label: 'Carte',       href: '/?mode=agenda',            actif: (p, sp) => p === '/' && sp.get('mode') === 'agenda' && sp.get('liste') !== '1' },
   { label: 'Agenda',      href: '/?mode=agenda&liste=1',    actif: (p, sp) => p === '/' && sp.get('liste') === '1' },
   { label: 'Bons plans',  href: '/promotions',              actif: p => p.startsWith('/promotions') },

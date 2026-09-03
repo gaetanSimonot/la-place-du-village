@@ -181,7 +181,11 @@ export default function HomePage() {
     // Sanitize : les anciennes sessions peuvent porter 'accueil'/'annonces'
     // (onglets disparus de la refonte) → retomber sur la carte.
     const valid: NavTab[] = ['carte', 'village', 'profil', 'favoris', 'notifs']
-    return (valid as string[]).includes(saved ?? '') ? (saved as NavTab) : 'carte'
+    if ((valid as string[]).includes(saved ?? '')) return saved as NavTab
+    // Premier arrivage : sur ordinateur on atterrit sur Le village, qui est
+    // l'accueil de la version bureau ; sur mobile, la carte, inchangée.
+    // Même point de rupture que desktop.css.
+    return window.matchMedia('(min-width: 1024px)').matches ? 'village' : 'carte'
   })
   // Persiste navTab pour survivre aux navigations (ex: retour depuis /ajouter,
   // /capturer, /covoiturage/[id], etc.). Sans ça, navTab repart à 'accueil'
@@ -428,6 +432,7 @@ export default function HomePage() {
   // 1) RESTAURATION depuis URL au MOUNT (URL prend priorité si présente)
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search)
+
     if (!sp.has('mode')) return  // pas d'URL state → laisse sessionStorage faire
 
     const mode = sp.get('mode')
@@ -860,11 +865,11 @@ export default function HomePage() {
   }, [saveNavForEvent, router])
 
   return (
-    <div style={{ height: '100dvh', position: 'relative', overflow: 'hidden', backgroundColor: '#e8dece' }}>
+    <div className="pcv-home" style={{ height: '100dvh', position: 'relative', overflow: 'hidden', backgroundColor: '#e8dece' }}>
 
       {/* Hub d'accueil — couvre tout sauf la bottom nav */}
       {showHub && (
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 25, overflowY: 'auto', backgroundColor: 'var(--creme)' }}>
+        <div className="pcv-panel" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 25, overflowY: 'auto', backgroundColor: 'var(--creme)' }}>
           <HubView
             onSelectAgenda={enterAgenda}
             onSelectAgendaToday={enterAgendaToday}
@@ -1388,7 +1393,7 @@ export default function HomePage() {
 
       {/* Favoris — panneau inline au-dessus de la carte */}
       {navTab === 'favoris' && (
-        <div style={{
+        <div className="pcv-panel" style={{
           position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H,
           zIndex: 25, overflowY: 'auto', backgroundColor: 'var(--creme)',
         }}>
@@ -1403,7 +1408,7 @@ export default function HomePage() {
 
       {/* Notifications — panneau inline au-dessus de la carte */}
       {navTab === 'notifs' && (
-        <div style={{
+        <div className="pcv-panel" style={{
           position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H,
           zIndex: 25, overflowY: 'auto', backgroundColor: 'var(--creme)',
         }}>
@@ -1425,7 +1430,7 @@ export default function HomePage() {
 
       {/* Profil — panneau inline au-dessus de la carte (refonte V3 — hybride social) */}
       {navTab === 'profil' && (
-        <div style={{
+        <div className="pcv-panel" style={{
           position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H,
           zIndex: 25, overflowY: 'auto', backgroundColor: 'var(--creme)',
         }}>
@@ -1438,7 +1443,7 @@ export default function HomePage() {
 
       {/* Village — mur du village (refonte app simple) */}
       {navTab === 'village' && (
-        <div style={{
+        <div className="pcv-panel" style={{
           position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H,
           zIndex: 25, overflowY: 'auto', backgroundColor: 'var(--creme)',
         }}>
@@ -1463,7 +1468,17 @@ export default function HomePage() {
       {/* Splash éditorial — « salon » d'entrée (obligatoire pour l'instant) */}
       {splashOpen && (
         <EditorialSplash
-          onExplore={() => { setSplashOpen(false); enterAgenda() }}
+          onExplore={() => {
+            setSplashOpen(false)
+            // Sur ordinateur on atterrit sur Le village, l'accueil de la
+            // version bureau ; sur mobile, la carte, inchangée. Même point de
+            // rupture que desktop.css.
+            if (window.matchMedia('(min-width: 1024px)').matches) {
+              setShowHub(false); setNavTab('village')
+            } else {
+              enterAgenda()
+            }
+          }}
           onRubrique={(href) => { setSplashOpen(false); router.push(href) }}
           onToday={() => { setSplashOpen(false); enterAgendaToday(); setSheetMode('half') }}
           isAdmin={isAdmin}
