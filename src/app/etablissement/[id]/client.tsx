@@ -405,7 +405,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
   const CARD: React.CSSProperties = { backgroundColor: '#fff', borderRadius: 16, padding: '16px 18px', border: '1px solid #F0EAE0', boxShadow: '0 1px 4px rgba(44,28,16,0.04)' }
 
   return (
-    <div style={{ minHeight: '100dvh', backgroundColor: '#FDFAF5', fontFamily: 'var(--font-body), sans-serif' }}>
+    <div className="pcv-fiche" style={{ minHeight: '100dvh', backgroundColor: '#FDFAF5', fontFamily: 'var(--font-body), sans-serif' }}>
 
       {/* Bannière aperçu public — masque l'édition, bouton pour en sortir */}
       {publicPreview && (

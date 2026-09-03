@@ -451,7 +451,7 @@ export default function AjouterPage() {
     const allSelected = selected.size === events.length && events.length > 0
 
     return (
-      <div className="min-h-[100dvh] bg-creme pb-32 font-inter text-texte">
+      <div className="min-h-[100dvh] bg-creme pb-32 font-inter text-texte pcv-form">
         {/* Top bar */}
         <div className="sticky top-0 z-10 flex items-center gap-2.5 border-b border-bord bg-creme/95 px-4 py-3 backdrop-blur">
           <button

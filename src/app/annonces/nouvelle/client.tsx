@@ -34,7 +34,7 @@ export default function NouvelleAnnonceClient() {
   }
 
   return (
-    <div className="min-h-[100dvh] pb-32 font-inter text-texte" style={{ background: '#FDFAF5' }}>
+    <div className="min-h-[100dvh] pb-32 font-inter text-texte pcv-form" style={{ background: '#FDFAF5' }}>
       {/* Top bar V3 */}
       <div className="flex items-center justify-between gap-2.5 px-4 pt-3.5 pb-2">
         <button

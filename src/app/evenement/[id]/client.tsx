@@ -147,7 +147,7 @@ export default function EvenementPageClient({ id }: { id: string }) {
   }
 
   return (
-    <div className="relative min-h-[100dvh] bg-creme pb-28 font-inter text-texte">
+    <div className="relative min-h-[100dvh] bg-creme pb-28 font-inter text-texte pcv-fiche">
       {/* ── Hero photo + floating actions ──
           h-[220px] = même hauteur que ImageLightbox img height:220px. Avec
           h-[300px] avant, l'image laissait 80px de vide en bas (fond

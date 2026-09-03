@@ -34,8 +34,12 @@
   .pcv-fiche-corps { max-width: 62ch; }
 
   /* La photo d'en-tête gagne en hauteur, elle est la porte d'entrée d'un
-     partage : 220 px sur 1150 de large font une bande. */
+     partage : 220 px sur 1150 de large font une bande.
+     ET l'image doit suivre : ImageLightbox la rend à 220 px en dur, ce qui
+     laissait 110 px de fond nu sous elle — une bande grise en travers de la
+     fiche. */
   .pcv-fiche-hero { height: 330px !important; }
+  .pcv-fiche-hero img { height: 100% !important; }
 
   /* ─── Journal ─────────────────────────────────────────────────────────
      Sa racine porte `min-h-screen` et non `min-h-[100dvh]` : la règle
@@ -58,6 +62,44 @@
      contenu s'étirait DEDANS : un champ « Départ » de 900 px, un bouton de
      900 px. C'est une recherche suivie d'une liste — une colonne suffit. */
   .pcv-covoit { max-width: 780px; }
+
+  /* ─── Fiches : événement et établissement ─────────────────────────────
+     Une fiche n'est pas un tableau de bord : c'est une chose qu'on LIT.
+     Étirée sur 1150 px, elle devenait un exercice de balayage — le titre à
+     gauche, le bouton « Itinéraire » à un mètre de là, et les horaires avec
+     « Lundi » d'un côté et « 09:00 – 18:30 » de l'autre.
+
+     La fiche établissement était encore plus loin : sa racine porte sa
+     hauteur en style INLINE, la règle générique du haut de fichier ne
+     l'attrapait donc pas et elle s'étalait sur toute la fenêtre.
+
+     820 px, la même mesure que le journal. La photo d'en-tête y gagne :
+     820 × 330 est une image, 1150 × 220 était une bande. */
+  .pcv-fiche {
+    max-width: 820px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 0;
+    padding-right: 0;
+    padding-bottom: 40px;
+  }
+
+  /* La barre « Appeler / Itinéraire » vit dans la fiche : elle suit sa
+     largeur, au lieu de barrer l'écran d'un bord à l'autre. */
+  .pcv-fiche [style*="position: sticky"],
+  .pcv-fiche [style*="position:sticky"] { border-radius: 0 0 16px 16px; }
+
+  /* ─── Formulaires ─────────────────────────────────────────────────────
+     Publier un événement, une annonce, un covoiturage. Un champ de saisie de
+     1150 px de large n'aide personne : l'œil perd la ligne entre l'étiquette
+     et ce qu'il tape. 720 px, c'est la largeur d'un formulaire qu'on remplit
+     sans réfléchir. */
+  .pcv-form {
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-bottom: 40px;
+  }
 
   @media (max-width: 760px) {
     [class*="min-h-[100dvh]"] { padding-left: 20px; padding-right: 20px; }
