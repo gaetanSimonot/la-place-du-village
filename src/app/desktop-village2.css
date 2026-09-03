@@ -62,20 +62,80 @@
     transition: background .14s;
   }
   .pcv-sbLigne:hover { background: #F7F1E6; }
-  .pcv-sbVignette { width: 46px; height: 46px; border-radius: 10px; }
+  .pcv-sbVignette { width: 52px; height: 52px; border-radius: 10px; }
   .pcv-sbTexte { min-width: 0; display: flex; flex-direction: column; gap: 3px; flex: 1; }
   .pcv-sbNom { font-size: 13.5px; font-weight: 700; line-height: 1.3; }
-  .pcv-sbMeta {
-    display: flex; align-items: baseline; justify-content: space-between;
-    gap: 8px; min-width: 0;
-  }
   .pcv-sbSous {
     font-size: 11.5px; color: #7A6A5A; min-width: 0;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .pcv-sbValeur {
-    font-size: 12.5px; font-weight: 800; color: #2D5A3D; flex: none;
+
+
+  /* ─── En-tête d'encart : titre à gauche, lien à droite ─────────────── */
+  .pcv-sbHead {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 12px; padding: 14px 16px 10px;
   }
+  .pcv-sbHead h3 {
+    margin: 0;
+    font-family: var(--font-jakarta), sans-serif;
+    font-size: 15px; font-weight: 800; letter-spacing: -.02em; color: #1A1209;
+  }
+  .pcv-sbHeadLien {
+    display: inline-flex; align-items: center; gap: 4px; flex: none;
+    font-size: 12px; font-weight: 700; color: #2D5A3D; text-decoration: none;
+  }
+  .pcv-sbHeadLien svg { transition: transform .15s; }
+  .pcv-sbHeadLien:hover svg { transform: translateX(3px); }
+
+  /* ─── Vignette de la zone ───────────────────────────────────────────
+     Un schéma, pas une carte : cercle du rayon et point du village. */
+  .pcv-sbMap {
+    position: relative;
+    display: block;
+    height: 148px;
+    margin: 0 8px 4px;
+    border-radius: 12px;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 30% 25%, #E9EFDF 0%, transparent 55%),
+      radial-gradient(circle at 75% 70%, #E4EAF0 0%, transparent 50%),
+      #EFEADF;
+  }
+  .pcv-sbMapCercle {
+    position: absolute; top: 50%; left: 50%;
+    width: 132px; height: 132px; margin: -66px 0 0 -66px;
+    border-radius: 50%;
+    background: rgba(45,90,61,.10);
+    border: 1.5px solid rgba(45,90,61,.34);
+  }
+  .pcv-sbMapPin {
+    position: absolute; top: 50%; left: 50%;
+    margin: -26px 0 0 -10px;
+    color: #2D5A3D;
+    filter: drop-shadow(0 2px 4px rgba(26,18,9,.28));
+  }
+  .pcv-sbMapNom {
+    position: absolute; top: 50%; left: 50%;
+    transform: translateX(-50%);
+    margin-top: 6px;
+    font-size: 12px; font-weight: 800; color: #1A1209;
+    text-shadow: 0 1px 3px rgba(255,255,255,.9);
+  }
+  .pcv-sbMapRayon {
+    position: absolute; top: 10px; right: 10px;
+    padding: 4px 9px; border-radius: 999px;
+    background: #2D5A3D; color: #fff;
+    font-size: 11px; font-weight: 800;
+  }
+
+  /* Ligne d'information sous la vignette. */
+  .pcv-sbLigneInfo {
+    display: flex; align-items: center; gap: 7px;
+    margin: 8px 0 2px; padding: 0 8px;
+    font-size: 12.5px; color: #7A6A5A;
+  }
+  .pcv-sbLigneInfo svg { color: #A99B89; flex: none; }
 
   /* ─── La lettre du village ──────────────────────────────────────────
      Gabarit de la maquette : titre, phrase, puis adresse et bouton sur une
