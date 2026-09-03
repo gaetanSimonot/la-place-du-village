@@ -222,12 +222,12 @@ export default function PromotionsClient() {
   }, [promos])
 
   return (
-    <div className="min-h-[100dvh] bg-creme pb-20 font-inter text-texte">
+    <div className="pcv-page min-h-[100dvh] bg-creme pb-20 font-inter text-texte">
       <style>{`.pdv-hscroll { scrollbar-width: none; -webkit-overflow-scrolling: touch; } .pdv-hscroll::-webkit-scrollbar { display: none; }`}</style>
 
       {/* Top bar bande blanche (identique carte) : logo + partager */}
       <div
-        className="flex items-center justify-between gap-2.5 bg-white"
+        className="pcv-hide flex items-center justify-between gap-2.5 bg-white"
         style={{ padding: '8px 12px', paddingTop: 'max(8px, env(safe-area-inset-top, 8px))', borderBottom: '1px solid #EDE8E0', boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}
       >
         <button

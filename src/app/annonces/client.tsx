@@ -50,11 +50,11 @@ export default function AnnoncesPageClient() {
   const hasEnchere = filtered.some(a => a.type === 'enchere_inversee')
 
   return (
-    <div className="min-h-[100dvh] bg-creme pb-20 font-inter text-texte">
+    <div className="pcv-page min-h-[100dvh] bg-creme pb-20 font-inter text-texte">
       <style>{`.pdv-hscroll { scrollbar-width: none; -webkit-overflow-scrolling: touch; } .pdv-hscroll::-webkit-scrollbar { display: none; }`}</style>
 
       {/* ─────────── Top bar : back · titre · messages + créer ─────────── */}
-      <div className="flex items-center justify-between gap-2.5 px-4 pt-3.5">
+      <div className="pcv-hide flex items-center justify-between gap-2.5 px-4 pt-3.5">
         <button
           onClick={() => router.push('/')}
           aria-label="Retour"

@@ -1,0 +1,262 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   VERSION ORDINATEUR — chantier additif
+   Réf. DESIGN/PClook/handoff-desktop/HANDOFF-DESKTOP.md
+
+   RÈGLE ABSOLUE : rien ici ne s'applique en dessous de 1024 px. Le mobile
+   garde exactement les styles qu'il avait. Tout est enfermé dans la requête
+   média du bas de fichier, à la seule exception de `.pcv-only` qui masque
+   par défaut les éléments d'interface propres au bureau.
+
+   PRÉFIXE `pcv-` (Place du village, version ordinateur). Le handoff signale
+   que deux noms courts de la maquette (`.sb`, `.ft`) sont déjà entrés en
+   collision pendant sa fabrication : on ne reprend aucun nom nu.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Le châssis bureau n'existe pas sur mobile. Masqué par défaut, révélé plus
+   bas — jamais l'inverse : si la requête média ne s'applique pas, rien ne
+   doit apparaître. */
+.pcv-only { display: none; }
+
+@media (min-width: 1024px) {
+
+  /* ─── 1. Neutraliser le cadre téléphone ──────────────────────────────
+     PhoneFrame enferme l'app dans un téléphone de 430 px dès 600 px de
+     large. On le rend transparent au-delà de 1024, exactement comme il
+     l'est déjà en dessous de 600. Son `transform: translateZ(0)` disparaît
+     avec lui : les `position: fixed` de l'app se repèrent désormais sur le
+     viewport, ce qui est le comportement voulu. */
+  /* `body` en tête pour passer devant phone-frame.css : les deux règles ont
+     la même spécificité et cette feuille-là est chargée après (elle est
+     importée par le composant, pas par le layout). Sans ça, le cadre
+     téléphone reste affiché sur bureau. */
+  body .pf-bg {
+    position: static;
+    inset: auto;
+    background: var(--creme, #FDFAF5);
+    display: block;
+    overflow: visible;
+    padding: 0;
+    z-index: auto;
+  }
+  body .pf-frame {
+    width: 100%;
+    max-width: none;
+    height: auto;
+    max-height: none;
+    min-height: 0;
+    overflow: visible;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    position: static;
+    transform: none;
+  }
+
+  /* ─── 2. Révéler le châssis bureau ─────────────────────────────────── */
+  .pcv-only { display: block; }
+
+  /* Masque commun au mobile-seulement : barre du bas (qui cède la place au
+     menu du haut) et bandeau d'installation PWA (le lien « Installer
+     l'application » reste dans le pied de page). `!important` parce que ces
+     composants portent leur `display` en style inline, qu'une règle simple
+     ne bat pas. */
+  .pcv-hide { display: none !important; }
+
+  /* ─── 3. Gabarit ───────────────────────────────────────────────────── */
+  .pcv-wrap {
+    max-width: 1220px;
+    margin: 0 auto;
+    padding: 0 32px;
+  }
+
+  /* Contenu d'une page posé au gabarit. Sans ça, les écrans écrits pour une
+     colonne de 430 px s'étalent sur toute la largeur de l'écran. */
+  .pcv-page {
+    max-width: 1220px;
+    margin: 0 auto;
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+  @media (max-width: 760px) {
+    .pcv-page { padding-left: 20px; padding-right: 20px; }
+  }
+
+  /* ─── 4. En-tête ───────────────────────────────────────────────────── */
+  .pcv-hd {
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    background: #fff;
+    border-bottom: 1px solid #E8E0D4;
+  }
+  .pcv-hdIn {
+    max-width: 1220px;
+    margin: 0 auto;
+    padding: 0 32px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 34px;
+    min-width: 0;
+  }
+  .pcv-logo { height: 32px; width: auto; object-fit: contain; }
+
+  .pcv-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+    overflow: auto;
+    scrollbar-width: none;
+  }
+  .pcv-nav::-webkit-scrollbar { display: none; }
+  .pcv-nav a {
+    white-space: nowrap;
+    padding: 7px 2px;
+    border-bottom: 2px solid transparent;
+    font-size: 14px;
+    font-weight: 600;
+    color: #3E332A;
+    text-decoration: none;
+    transition: color .15s, border-color .15s;
+  }
+  .pcv-nav a:hover { color: #2D5A3D; border-bottom-color: #E8E0D4; }
+  .pcv-nav a.pcv-on { color: #2D5A3D; font-weight: 700; border-bottom-color: #2D5A3D; }
+
+  .pcv-hdR { display: flex; align-items: center; gap: 12px; flex: none; }
+
+  /* Menu « Plus » */
+  .pcv-plus { position: relative; flex: none; }
+  .pcv-plusB {
+    display: flex; align-items: center; gap: 5px; white-space: nowrap;
+    padding: 7px 2px; border: 0; border-bottom: 2px solid transparent;
+    background: none; font-size: 14px; font-weight: 600; color: #3E332A;
+    transition: color .15s, border-color .15s;
+  }
+  .pcv-plusB:hover, .pcv-plus[data-open="1"] .pcv-plusB {
+    color: #2D5A3D; border-bottom-color: #E8E0D4;
+  }
+  .pcv-plusM {
+    position: absolute; z-index: 70; top: calc(100% + 12px); left: -12px;
+    min-width: 190px; background: #fff; border: 1px solid #E8E0D4;
+    border-radius: 12px; box-shadow: 0 12px 32px rgba(44,28,16,.16); padding: 6px;
+  }
+  .pcv-plusM a {
+    display: block; padding: 9px 12px; border-radius: 8px;
+    font-size: 13.5px; font-weight: 600; color: #3E332A;
+    text-decoration: none; white-space: nowrap; transition: background .12s;
+  }
+  .pcv-plusM a:hover { background: #F7F1E6; color: #2D5A3D; }
+
+  /* Recherche */
+  .pcv-srch {
+    display: flex; align-items: center; gap: 8px; height: 35px;
+    width: clamp(140px, 15vw, 220px); border-radius: 8px;
+    border: 1px solid #E8E0D4; background: #FDFAF5; padding: 0 11px;
+    color: #A99B89; font-size: 13px; transition: .15s;
+  }
+  .pcv-srch:hover, .pcv-srch:focus-within {
+    border-color: #C9BCA6; background: #fff; box-shadow: 0 0 0 3px rgba(45,90,61,.07);
+  }
+  .pcv-srch input {
+    border: 0; outline: 0; background: none; font: inherit; color: #1A1209; width: 100%;
+  }
+
+  /* Bouton Publier + avatar */
+  .pcv-btnP {
+    display: inline-flex; align-items: center; gap: 6px; height: 35px; flex: none;
+    white-space: nowrap; padding: 0 13px; border-radius: 8px; border: 0;
+    background: #2D5A3D; color: #fff; font-size: 13px; font-weight: 700; transition: .15s;
+  }
+  .pcv-btnP:hover { background: #1F4029; box-shadow: 0 4px 12px rgba(45,90,61,.25); }
+  .pcv-av {
+    flex: none; width: 35px; height: 35px; border-radius: 50%;
+    background: #2D5A3D; color: #fff; display: flex; align-items: center;
+    justify-content: center; font-weight: 800; font-size: 13px; border: 0;
+    overflow: hidden; transition: .15s; text-decoration: none;
+  }
+  .pcv-av:hover { box-shadow: 0 0 0 3px #E8F2EB; }
+  .pcv-av img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* ─── 5. Bandeau de contexte ───────────────────────────────────────── */
+  .pcv-ctx { background: #F7F1E6; border-bottom: 1px solid #E8E0D4; }
+  .pcv-ctxIn {
+    max-width: 1220px; margin: 0 auto; padding: 0 32px; height: 38px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12.5px; color: #7A6A5A;
+  }
+  .pcv-ctxIn b { color: #1A1209; font-weight: 700; }
+  .pcv-ctxLieu { display: inline-flex; align-items: center; gap: 6px; }
+  .pcv-ctxIn button {
+    background: none; border: 0; color: #2D5A3D;
+    font-size: 12.5px; font-weight: 700; padding: 0; cursor: pointer;
+  }
+  .pcv-ctxIn button:hover { text-decoration: underline; }
+
+  /* ─── 6. Pied de page ──────────────────────────────────────────────── */
+  .pcv-ft { background: #F4EEE4; border-top: 1px solid #E8E0D4; margin-top: 56px; }
+  .pcv-ftIn {
+    max-width: 1220px; margin: 0 auto; padding: 42px 32px 0;
+    display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 32px;
+  }
+  .pcv-ftMark { font-family: var(--font-jakarta), sans-serif; font-size: 17px; font-weight: 800; letter-spacing: -.02em; color: #1A1209; }
+  .pcv-ftMark p { margin: 10px 0 0; font-size: 13px; line-height: 1.6; color: #7A6A5A; max-width: 34ch; }
+  .pcv-ftCol h4 {
+    font-family: var(--font-jakarta), sans-serif; font-size: 12px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .06em; color: #1A1209; margin: 0 0 12px;
+  }
+  .pcv-ftCol a {
+    display: block; padding: 4px 0; font-size: 13px; color: #7A6A5A;
+    text-decoration: none; transition: color .12s;
+  }
+  .pcv-ftCol a:hover { color: #2D5A3D; }
+  .pcv-ftLegal {
+    max-width: 1220px; margin: 0 auto; padding: 22px 32px 26px; margin-top: 30px;
+    border-top: 1px solid #E8E0D4; display: flex; align-items: center;
+    justify-content: space-between; gap: 16px; font-size: 12px; color: #A99B89;
+  }
+  .pcv-ftLegal a { color: #A99B89; text-decoration: none; }
+  .pcv-ftLegal a:hover { color: #2D5A3D; }
+
+  /* ─── 7. Ce que le mobile n'a jamais eu ────────────────────────────── */
+
+  /* Survols. L'app est écrite en `:active` (.lpv-tap), qui ne dit rien à une
+     souris. On ne touche pas à `.lpv-tap` : il reste pour le tactile. */
+  .pcv-hoverCard { transition: transform .18s cubic-bezier(.22,1,.36,1), box-shadow .18s, border-color .18s; }
+  .pcv-hoverCard:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(44,28,16,.12); }
+  .pcv-hoverRow { transition: background .12s; }
+  .pcv-hoverRow:hover { background: #F7F1E6; }
+
+  /* Tout ce qui est cliquable doit le dire. */
+  a, button, [role="button"], summary { cursor: pointer; }
+
+  /* Accessibilité au clavier — inexistante jusqu'ici. */
+  :focus-visible { outline: none; }
+  input:focus-visible, textarea:focus-visible, select:focus-visible {
+    border-color: #C9BCA6 !important;
+    box-shadow: 0 0 0 3px rgba(45,90,61,.07);
+  }
+  button:focus-visible, a:focus-visible, [role="button"]:focus-visible {
+    box-shadow: 0 0 0 3px rgba(45,90,61,.28);
+    border-radius: 8px;
+  }
+
+  /* Barres de défilement. globals.css les masque partout ; sur les zones qui
+     défilent d'elles-mêmes, un bureau a besoin de les voir. */
+  .pcv-scroll::-webkit-scrollbar { display: block !important; width: 9px; height: 9px; }
+  .pcv-scroll::-webkit-scrollbar-thumb {
+    background: #DCD3C4; border-radius: 999px; border: 3px solid #fff;
+  }
+  .pcv-scroll::-webkit-scrollbar-track { background: transparent; }
+  .pcv-scroll { scrollbar-width: thin; scrollbar-color: #DCD3C4 transparent; }
+
+  /* ─── 8. Points de rupture internes ────────────────────────────────── */
+  @media (max-width: 1120px) {
+    .pcv-hdIn { gap: 22px; }
+    .pcv-nav { gap: 5px; }
+    .pcv-nav a, .pcv-plusB { font-size: 13.5px; }
+    .pcv-srch { width: 38px; padding: 0; justify-content: center; }
+    .pcv-srch input { display: none; }
+  }
+}

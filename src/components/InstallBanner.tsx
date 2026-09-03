@@ -91,7 +91,9 @@ export default function InstallBanner() {
   if (pathname === '/app' || !show || installed || !mode) return null
 
   return (
-    <div style={{
+    // pcv-hide : réservé au mobile. Sur bureau, le lien « Installer
+    // l'application » vit dans le pied de page (handoff §10).
+    <div className="pcv-hide" style={{
       position: 'fixed', bottom: 24, left: 16, right: 16, zIndex: 1000,
       backgroundColor: '#fff', borderRadius: 20,
       boxShadow: '0 8px 32px rgba(0,0,0,0.18)',

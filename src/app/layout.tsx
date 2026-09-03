@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from 'next'
+import { Suspense } from 'react'
 import { Inter, DM_Serif_Display, Caveat, Plus_Jakarta_Sans, Archivo, Nunito } from 'next/font/google'
 import './globals.css'
+// Version ordinateur : additif, tout est enfermé au-dessus de 1024 px.
+import './desktop.css'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import InstallBanner from '@/components/InstallBanner'
 import { AuthModalProvider } from '@/contexts/AuthModalContext'
@@ -11,6 +14,8 @@ import { NavigationHistoryProvider } from '@/contexts/NavigationHistoryContext'
 import SWRProvider from '@/components/SWRProvider'
 import AuthModal from '@/components/AuthModal'
 import PhoneFrame from '@/components/PhoneFrame'
+import DesktopChrome from '@/components/desktop/DesktopChrome'
+import DesktopFooter from '@/components/desktop/DesktopFooter'
 import MaintenanceGate from '@/components/MaintenanceGate'
 import PromoSplashGate from '@/components/PromoSplashGate'
 import { Analytics } from '@vercel/analytics/next'
@@ -145,6 +150,7 @@ export default function RootLayout({
             <ThemeProvider>
               <ConfirmDialogProvider>
                 <HistoryTrapProvider>
+                  <Suspense fallback={null}><DesktopChrome /></Suspense>
                   <PhoneFrame>
                     <MaintenanceGate>{children}</MaintenanceGate>
                     {/* Modal slot : interceptors (.)producteur / (.)etablissement
@@ -183,6 +189,7 @@ export default function RootLayout({
                       }}
                     />
                   </PhoneFrame>
+                  <Suspense fallback={null}><DesktopFooter /></Suspense>
                 </HistoryTrapProvider>
               </ConfirmDialogProvider>
             </ThemeProvider>

@@ -181,7 +181,9 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
   ]
 
   return (
-    <nav style={{
+    // pcv-hide : la barre du bas cède la place au menu du haut au-dessus de
+    // 1024 px (desktop.css). Aucun effet en dessous.
+    <nav className="pcv-hide" style={{
       position: 'fixed', bottom: 0, left: 0, right: 0, height: NAV_H,
       // Couleurs par variables : l'univers cinéma les redéfinit le temps de
       // la visite (voir globals.css, html[data-univers="cinema"]). Le repli
