@@ -38,8 +38,37 @@
      ET l'image doit suivre : ImageLightbox la rend à 220 px en dur, ce qui
      laissait 110 px de fond nu sous elle — une bande grise en travers de la
      fiche. */
-  .pcv-fiche-hero { height: 330px !important; }
-  .pcv-fiche-hero img { height: 100% !important; }
+  /* L'affiche est montrée ENTIÈRE, pas recadrée. Beaucoup d'affiches sont des
+     programmes A4 : découpées à 330 px de haut, on n'en voyait qu'une tranche
+     du milieu — ni le titre, ni les horaires, juste une bande. `contain` sur
+     un fond sombre les rend lisibles d'un coup d'œil ; le clic ouvre la
+     visionneuse pour lire les détails. */
+  .pcv-fiche-hero { height: 520px !important; background: #17110A !important; }
+  .pcv-fiche-hero img {
+    height: 100% !important;
+    width: 100% !important;
+    object-fit: contain !important;
+  }
+
+  /* ─── Tiroir d'édition (modifier un événement) ────────────────────────
+     C'est un plein écran, hérité du téléphone : à 1920 px, les étiquettes
+     étaient d'un côté et les champs de l'autre. Le fond reste plein écran,
+     seul le contenu revient sur une colonne. */
+  .pcv-drawer > * {
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  /* La barre de validation est en `fixed` : les marges automatiques ne la
+     centrent pas, il faut la recadrer à la main. */
+  .pcv-drawer > .pcv-drawerBarre {
+    left: 50%;
+    right: auto;
+    width: 720px;
+    transform: translateX(-50%);
+    border-left: 1px solid #EDE8E0;
+    border-right: 1px solid #EDE8E0;
+  }
 
   /* ─── Journal ─────────────────────────────────────────────────────────
      Sa racine porte `min-h-screen` et non `min-h-[100dvh]` : la règle

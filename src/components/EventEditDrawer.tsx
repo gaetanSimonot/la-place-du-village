@@ -764,7 +764,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
   )
 
   return (
-    <div className="fixed inset-0 z-[1000] overflow-y-auto" style={{ background: '#FDFAF5' }}>
+    <div className="fixed inset-0 z-[1000] overflow-y-auto pcv-drawer" style={{ background: '#FDFAF5' }}>
       {/* V3 Header — back + DM Serif title + Annuler */}
       <div className="sticky top-0 z-10 flex items-center justify-between gap-2.5 px-4 pt-3.5 pb-3" style={{ background: '#FDFAF5' }}>
         <button
@@ -1137,7 +1137,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
 
       {/* Sticky CTA bottom — V3 */}
       <div
-        className="fixed bottom-0 left-0 right-0 z-20"
+        className="fixed bottom-0 left-0 right-0 z-20 pcv-drawerBarre"
         style={{ background: '#FFFFFF', borderTop: '1px solid #EDE8E0', padding: '12px 16px 16px', paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))' }}
       >
         <div className="flex gap-2">
