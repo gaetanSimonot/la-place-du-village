@@ -49,14 +49,19 @@ const PinIcon = () => (
 )
 
 /** En-tête de section : titre, sous-titre, lien « voir tout ». */
-function Entete({ titre, sous, lien }: { titre: string; sous?: string; lien: { href: string; label: string } }) {
+function Entete({ titre, sous, lien }: {
+  titre: string; sous?: string; lien: { href: string; label: string; vue?: string }
+}) {
   return (
     <div className="pcv-bh">
       <div>
         <h2>{titre}</h2>
         {sous && <div className="pcv-sub">{sous}</div>}
       </div>
-      <Link className="pcv-more" href={lien.href}>
+      {/* La coquille d'accueil reste montée derrière une navigation douce :
+          on la prévient, sinon l'adresse change sans que l'écran suive. */}
+      <Link className="pcv-more" href={lien.href}
+            onClick={() => lien.vue && window.dispatchEvent(new CustomEvent('pdv-vue', { detail: lien.vue }))}>
         {lien.label} <span>→</span>
       </Link>
     </div>
@@ -124,11 +129,18 @@ export default function DesktopVillageSections() {
     [semaine, catActive],
   )
 
-  /** Six fiches, les mises en avant d'abord — celles qui ont une photo. */
+  /**
+   * Les partenaires MIS EN AVANT, avec photo. On en prend jusqu'à douze : le
+   * carrousel défile en boucle, il lui faut de quoi tourner. À défaut de
+   * fiches mises en avant, on complète avec les autres — un carrousel vide
+   * serait un trou dans la page.
+   */
   const partenaires = useMemo(() => {
     const avecPhoto = etabs.filter(e => (e.photos?.length ?? 0) > 0)
     const filtre = typeActif ? avecPhoto.filter(e => e.type === typeActif) : avecPhoto
-    return [...filtre].sort((a, b) => Number(b.is_featured) - Number(a.is_featured)).slice(0, 6)
+    const alaUne = filtre.filter(e => e.is_featured)
+    const reste  = filtre.filter(e => !e.is_featured)
+    return [...alaUne, ...reste].slice(0, 12)
   }, [etabs, typeActif])
 
   return (
@@ -140,7 +152,7 @@ export default function DesktopVillageSections() {
           <Entete
             titre="À la une aujourd’hui"
             sous="Ce qui se passe dans la vallée d’ici ce soir"
-            lien={{ href: '/?mode=agenda', label: 'Voir tout l’agenda' }}
+            lien={{ href: '/?mode=agenda', label: 'Voir tout l’agenda', vue: 'carte' }}
           />
           <div className="pcv-g3">
             {aujourdhui.slice(0, 3).map(e => <TuileEvenement key={e.id} ev={e} />)}
@@ -152,11 +164,11 @@ export default function DesktopVillageSections() {
       {partenaires.length > 0 && (
         <section>
           <Entete
-            titre="Ils font vivre notre territoire"
+            titre="Partenaires à la une"
             sous={totalEtabs
-              ? `${totalEtabs} fiches tenues par les commerces et producteurs du coin`
-              : 'Les fiches tenues par les commerces et producteurs du coin'}
-            lien={{ href: '/?mode=annuaire', label: 'Voir tous les partenaires' }}
+              ? `Ils font vivre notre territoire — ${totalEtabs} fiches en tout`
+              : 'Ils font vivre notre territoire'}
+            lien={{ href: '/?mode=annuaire', label: 'Voir tous les partenaires', vue: 'annuaire' }}
           />
           <div className="pcv-chips">
             <button type="button" className={`pcv-pill${typeActif === null ? ' pcv-pillOn' : ''}`}
@@ -169,9 +181,16 @@ export default function DesktopVillageSections() {
               </button>
             ))}
           </div>
-          <div className="pcv-g6">
-            {partenaires.map(e => (
-              <Link key={e.id} href={`/etablissement/${e.id}`} className="pcv-pa">
+          {/* Une seule ligne qui défile en boucle. La liste est écrite deux
+              fois : la deuxième copie prend le relais quand la première sort
+              de l'écran, ce qui rend la boucle invisible. Elle est cachée aux
+              lecteurs d'écran pour ne pas annoncer chaque fiche en double. */}
+          <div className="pcv-carrousel">
+            <div className="pcv-piste" style={{ ['--pcv-n' as string]: partenaires.length }}>
+              {[...partenaires, ...partenaires].map((e, i) => (
+              <Link key={`${e.id}-${i}`} href={`/etablissement/${e.id}`} className="pcv-pa"
+                    aria-hidden={i >= partenaires.length}
+                    tabIndex={i >= partenaires.length ? -1 : undefined}>
                 <span className="pcv-ph2">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={e.photos![0]} alt="" loading="lazy" />
@@ -185,7 +204,8 @@ export default function DesktopVillageSections() {
                   {e.commune && <span className="pcv-cm">{e.commune}</span>}
                 </span>
               </Link>
-            ))}
+              ))}
+            </div>
           </div>
         </section>
       )}
@@ -196,7 +216,7 @@ export default function DesktopVillageSections() {
           <Entete
             titre="L’agenda de la semaine"
             sous={`${semaine.length} rendez-vous d’ici dimanche`}
-            lien={{ href: '/?mode=agenda', label: 'Tout l’agenda' }}
+            lien={{ href: '/?mode=agenda', label: 'Tout l’agenda', vue: 'carte' }}
           />
           {categories.length > 1 && (
             <div className="pcv-chips">

@@ -13,6 +13,7 @@ import { PromotionForm } from '@/components/PromotionsManager'
 import FeatureButton from '@/components/FeatureButton'
 import type { Plan } from '@/lib/capabilities'
 import { ETAB_TYPES } from '@/lib/etablissement-types'
+import DesktopFiltres, { type GroupeFiltre } from '@/components/desktop/DesktopFiltres'
 import type { EtablissementType } from '@/lib/types'
 import EntityQuickView from '@/components/EntityQuickView'
 import BottomNavBar from '@/components/BottomNavBar'
@@ -210,10 +211,56 @@ export default function PromotionsClient() {
     }
   }
 
+  /** Commune choisie dans la colonne de filtres du bureau. */
+  const [communeFilter, setCommuneFilter] = useState<string | null>(null)
+
   const filteredPromos = useMemo(() => {
-    if (!typeFilter) return promos
-    return promos.filter(p => p.etablissement?.type === typeFilter)
-  }, [promos, typeFilter])
+    let r = promos
+    if (typeFilter)    r = r.filter(p => p.etablissement?.type === typeFilter)
+    if (communeFilter) r = r.filter(p => p.etablissement?.commune === communeFilter)
+    return r
+  }, [promos, typeFilter, communeFilter])
+
+  /** Groupes de la colonne de filtres du bureau, comptés sur toutes les
+      promotions chargées — pas sur la liste déjà filtrée, qui ne saurait pas
+      dire ce que contiennent les autres entrées. */
+  const groupesFiltres = useMemo<GroupeFiltre[]>(() => {
+    const parType    = new Map<string, number>()
+    const parCommune = new Map<string, number>()
+    promos.forEach(p => {
+      const t = p.etablissement?.type
+      const c = p.etablissement?.commune
+      if (t) parType.set(t, (parType.get(t) ?? 0) + 1)
+      if (c) parCommune.set(c, (parCommune.get(c) ?? 0) + 1)
+    })
+    const communes = Array.from(parCommune.entries()).sort((a, b) => b[1] - a[1])
+    return [
+      {
+        titre: 'Type d’établissement',
+        entrees: [
+          { label: 'Tout', compte: promos.length, actif: typeFilter === null, onClick: () => setTypeFilter(null) },
+          ...Array.from(parType.entries()).map(([t, n]) => ({
+            label: ETAB_TYPES[t as EtablissementType]?.label ?? t,
+            compte: n,
+            actif: typeFilter === t,
+            onClick: () => setTypeFilter(typeFilter === t ? null : (t as EtablissementType)),
+          })),
+        ],
+      },
+      ...(communes.length > 1 ? [{
+        titre: 'Commune',
+        entrees: [
+          { label: 'Toutes', compte: promos.length, actif: communeFilter === null, onClick: () => setCommuneFilter(null) },
+          ...communes.map(([c, n]) => ({
+            label: c,
+            compte: n,
+            actif: communeFilter === c,
+            onClick: () => setCommuneFilter(communeFilter === c ? null : c),
+          })),
+        ],
+      }] : []),
+    ]
+  }, [promos, typeFilter, communeFilter])
 
   const availableTypes = useMemo(() => {
     const set = new Set<EtablissementType>()
@@ -290,10 +337,11 @@ export default function PromotionsClient() {
         onUpgrade={() => setShowQuotaUpgrade(true)}
       />
 
-      {/* Filtres */}
+      {/* Filtres — pcv-hide : sur bureau, la colonne de gauche fait le même
+          travail, tout ouvert et compté. */}
       {!loading && availableTypes.length > 1 && (
         <div
-          className="pdv-hscroll flex gap-1.5 overflow-x-auto px-4 pb-1 pt-3.5"
+          className="pcv-hide pdv-hscroll flex gap-1.5 overflow-x-auto px-4 pb-1 pt-3.5"
           style={{ scrollSnapType: 'x mandatory' }}
         >
           <button
@@ -361,6 +409,16 @@ export default function PromotionsClient() {
       </div>
 
       {/* Grid 2 cols */}
+      {/* Grille bureau : filtres à gauche, offres à droite. Les enveloppes sont
+          transparentes en dessous de 1024 px (`display: contents`). */}
+      <div className="pcv-rubBody">
+      <DesktopFiltres
+        groupes={groupesFiltres}
+        action={{ href: '/abonnements', label: 'Publier un bon plan',
+                  phrase: 'Promotions illimitées dès 4,99 €/mois avec le plan Partenaire.' }}
+      />
+      <div className="pcv-rubCol">
+
       <div className="px-4">
         {loading ? (
           <div className="py-10 text-center text-[13px] text-texte-doux">Chargement…</div>
@@ -400,6 +458,9 @@ export default function PromotionsClient() {
             ))}
           </div>
         )}
+      </div>
+
+      </div>
       </div>
 
       {/* Modale de confirmation */}

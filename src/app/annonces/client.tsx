@@ -7,6 +7,18 @@ import AnnonceCard from '@/components/AnnonceCard'
 import AnnonceFilters, { SortDropdown, type TriOption } from '@/components/AnnonceFilters'
 import BottomNavBar from '@/components/BottomNavBar'
 import type { Annonce, AnnonceType, AnnonceCategorie } from '@/lib/annonces'
+import { CATEGORIES_ANNONCES, CATEGORIES_LABELS } from '@/lib/annonces'
+import DesktopFiltres, { type GroupeFiltre } from '@/components/desktop/DesktopFiltres'
+
+/** Types d'annonce et leur pastille de couleur — repris d'AnnonceFilters. */
+const TYPES_FILTRE: { id: AnnonceType | null; label: string; couleur?: string }[] = [
+  { id: null,               label: 'Tout' },
+  { id: 'vente',            label: 'Vente',     couleur: '#1A1209' },
+  { id: 'don',              label: 'Don',       couleur: '#2D5A3D' },
+  { id: 'troc',             label: 'Troc',      couleur: '#3A5D8C' },
+  { id: 'service',          label: 'Service',   couleur: '#2E7D74' },
+  { id: 'enchere_inversee', label: 'Enchère ↘', couleur: '#C84B2F' },
+]
 
 /* Normalise pour la recherche : minuscules + sans accents. */
 function norm(s: string): string {
@@ -33,6 +45,11 @@ export default function AnnoncesPageClient() {
   }, [type, categorie, tri])
 
   const { data, isLoading: swrLoading } = useSWR(annoncesKey)
+  // Deuxième lecture SANS filtre : la liste affichée est filtrée côté serveur,
+  // elle ne peut donc pas dire combien il y a d'annonces dans les entrées
+  // qu'on n'a pas sélectionnées. Même route, même cache.
+  const { data: dataTout } = useSWR('/api/annonces/public?tri=date_desc')
+  const toutes = useMemo<Annonce[]>(() => (dataTout?.annonces ?? []) as Annonce[], [dataTout])
   const annonces = useMemo<Annonce[]>(() => (data?.annonces ?? []) as Annonce[], [data])
   const loading = swrLoading && !data
 
@@ -44,6 +61,40 @@ export default function AnnoncesPageClient() {
       norm(`${a.titre} ${a.description ?? ''} ${a.ville ?? ''}`).includes(q)
     )
   }, [annonces, query])
+
+  /** Groupes de la colonne de filtres du bureau, comptés sur la liste entière. */
+  const groupes = useMemo<GroupeFiltre[]>(() => {
+    const parType = new Map<string, number>()
+    const parCat  = new Map<string, number>()
+    toutes.forEach(a => {
+      if (a.type)      parType.set(a.type, (parType.get(a.type) ?? 0) + 1)
+      if (a.categorie) parCat.set(a.categorie, (parCat.get(a.categorie) ?? 0) + 1)
+    })
+    return [
+      {
+        titre: 'Type',
+        entrees: TYPES_FILTRE.map(t => ({
+          label: t.label,
+          couleur: t.couleur,
+          compte: t.id === null ? toutes.length : (parType.get(t.id) ?? 0),
+          actif: type === t.id,
+          onClick: () => setType(t.id),
+        })),
+      },
+      {
+        titre: 'Catégorie',
+        entrees: [
+          { label: 'Toutes', compte: toutes.length, actif: categorie === null, onClick: () => setCategorie(null) },
+          ...CATEGORIES_ANNONCES.map(c => ({
+            label: CATEGORIES_LABELS[c],
+            compte: parCat.get(c) ?? 0,
+            actif: categorie === c,
+            onClick: () => setCategorie(categorie === c ? null : c),
+          })),
+        ],
+      },
+    ]
+  }, [toutes, type, categorie])
 
   const sponsored = useMemo(() => filtered.filter(a => a.sponsored), [filtered])
   const standard  = useMemo(() => filtered.filter(a => !a.sponsored), [filtered])
@@ -146,7 +197,10 @@ export default function AnnoncesPageClient() {
         </div>
       </div>
 
-      {/* ─────────── Pills de type + catégories ─────────── */}
+      {/* ─────────── Pills de type + catégories ───────────
+          pcv-hide : sur bureau, la colonne de filtres de gauche fait le même
+          travail, en gardant tout ouvert et compté. */}
+      <div className="pcv-hide">
       <AnnonceFilters
         type={type}
         categorie={categorie}
@@ -154,6 +208,17 @@ export default function AnnoncesPageClient() {
         onTypeChange={setType}
         onCategorieChange={setCategorie}
       />
+      </div>
+
+      {/* Grille bureau : filtres à gauche, liste à droite. Les enveloppes sont
+          transparentes en dessous de 1024 px (`display: contents`). */}
+      <div className="pcv-rubBody">
+      <DesktopFiltres
+        groupes={groupes}
+        action={{ href: '/annonces/nouvelle', label: 'Publier une annonce',
+                  phrase: 'Vente, don, troc, service ou enchère à l’envers : c’est gratuit.' }}
+      />
+      <div className="pcv-rubCol">
 
       {/* ─────────── Titre section + tri ─────────── */}
       <div className="flex items-center justify-between px-4 pb-1 pt-4">
@@ -190,6 +255,9 @@ export default function AnnoncesPageClient() {
             {hasEnchere && <EnchereExplainCard />}
           </>
         )}
+      </div>
+
+      </div>
       </div>
 
       <BottomNavBar />

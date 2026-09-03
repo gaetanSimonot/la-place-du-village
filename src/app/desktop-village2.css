@@ -1,0 +1,117 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   ACCUEIL — seconde passe : carrousel des partenaires, colonne de droite
+   Complète desktop-village.css. Toujours au-dessus de 1024 px uniquement.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@media (min-width: 1024px) {
+
+  /* ─── Partenaires à la une : une seule ligne, en boucle ─────────────
+     La piste contient la liste écrite deux fois. On la translate de la
+     moitié de sa largeur : quand la première copie est sortie, la seconde
+     occupe exactement sa place, et l'animation repart de zéro sans que rien
+     ne saute. La durée suit le nombre de fiches pour garder une vitesse
+     constante quel qu'en soit le nombre. */
+  .pcv-carrousel {
+    overflow: hidden;
+    /* Les deux bords s'estompent : la ligne n'a ni début ni fin visibles. */
+    mask-image: linear-gradient(90deg, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
+  }
+  .pcv-piste {
+    display: flex;
+    gap: 12px;
+    width: max-content;
+    animation: pcv-defile calc(var(--pcv-n, 6) * 3.4s) linear infinite;
+  }
+  /* Le survol arrête le défilement : on lit ce qu'on regarde. */
+  .pcv-carrousel:hover .pcv-piste,
+  .pcv-carrousel:focus-within .pcv-piste { animation-play-state: paused; }
+
+  .pcv-piste .pcv-pa { width: 168px; flex: none; }
+
+  @keyframes pcv-defile {
+    from { transform: translate3d(0, 0, 0); }
+    /* Moitié de la piste = la liste d'origine, puisqu'elle est doublée.
+       Le décalage du gap fait que la boucle se referme exactement. */
+    to   { transform: translate3d(calc(-50% - 6px), 0, 0); }
+  }
+
+  /* Quelqu'un qui a demandé moins d'animations n'a pas à subir celle-ci. */
+  @media (prefers-reduced-motion: reduce) {
+    .pcv-piste { animation: none; }
+    .pcv-carrousel { overflow-x: auto; }
+  }
+
+  /* La colonne est un conteneur flex à hauteur limitée : sans cette ligne,
+     ses encarts se font écraser pour tenir dedans au lieu de la faire
+     défiler, et leur texte se retrouve coupé en plein milieu. */
+  .pcv-sbCol > * { flex: none; }
+
+  /* ─── Colonne de droite : lignes plus lisibles ──────────────────────
+     La vignette gagne en taille, le titre respire, et la donnée qui décide
+     du clic — le prix, le commerce — est posée à droite au lieu d'être
+     noyée sous le titre. */
+  .pcv-sbLigne {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 8px;
+    border-radius: 11px;
+    text-decoration: none;
+    color: inherit;
+    transition: background .14s;
+  }
+  .pcv-sbLigne:hover { background: #F7F1E6; }
+  .pcv-sbVignette { width: 46px; height: 46px; border-radius: 10px; }
+  .pcv-sbTexte { min-width: 0; display: flex; flex-direction: column; gap: 3px; flex: 1; }
+  .pcv-sbNom { font-size: 13.5px; font-weight: 700; line-height: 1.3; }
+  .pcv-sbMeta {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 8px; min-width: 0;
+  }
+  .pcv-sbSous {
+    font-size: 11.5px; color: #7A6A5A; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .pcv-sbValeur {
+    font-size: 12.5px; font-weight: 800; color: #2D5A3D; flex: none;
+  }
+
+  /* ─── La lettre du village ──────────────────────────────────────────
+     Gabarit de la maquette : titre, phrase, puis adresse et bouton sur une
+     même ligne. */
+  .pcv-news { padding-bottom: 15px; }
+  .pcv-newsRow { display: flex; gap: 7px; margin: 11px 16px 0; }
+  .pcv-newsRow input {
+    flex: 1; min-width: 0; height: 38px; border-radius: 10px;
+    border: 1px solid #E8E0D4; background: #FDFAF5; padding: 0 11px;
+    font: inherit; font-size: 12.5px; color: #1A1209; outline: 0; transition: .15s;
+  }
+  .pcv-newsRow input::placeholder { color: #A99B89; }
+  .pcv-newsRow input:focus {
+    border-color: #C9BCA6; background: #fff; box-shadow: 0 0 0 3px rgba(45,90,61,.07);
+  }
+  .pcv-newsRow button {
+    flex: none; height: 38px; padding: 0 14px; border: 0; border-radius: 10px;
+    background: #2D5A3D; color: #fff; font-size: 12.5px; font-weight: 700;
+    transition: .15s;
+  }
+  .pcv-newsRow button:hover { background: #1F4029; box-shadow: 0 4px 12px rgba(45,90,61,.25); }
+
+  /* ─── Bouton d'un encart (Découvrir) ───────────────────────────────── */
+  .pcv-sbAction { padding: 4px 16px 15px; }
+  .pcv-sbBtn {
+    display: inline-flex; align-items: center; gap: 5px;
+    height: 36px; padding: 0 15px; border-radius: 10px;
+    background: #2D5A3D; color: #fff; text-decoration: none;
+    font-size: 12.5px; font-weight: 700; transition: .15s;
+  }
+  .pcv-sbBtn:hover { background: #1F4029; color: #fff; box-shadow: 0 4px 12px rgba(45,90,61,.25); }
+  .pcv-sbBtn svg { transition: transform .15s; }
+  .pcv-sbBtn:hover svg { transform: translateX(3px); }
+
+  /* L'encart d'abonnement du mobile, posé dans la colonne : il porte ses
+     propres marges horizontales, inutiles ici. */
+  .pcv-sbPromo > * { margin-left: 0 !important; margin-right: 0 !important; }
+  .pcv-sbPromo { margin: 0; }
+}

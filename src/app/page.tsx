@@ -1364,7 +1364,7 @@ export default function HomePage() {
 
       {/* ProBandeau flottant sur la carte — 2/3 largeur, se fait avaler par le sheet (zIndex 19 < 20) */}
       {!showHub && proEvents.length > 0 && appMode === 'agenda' && navTab !== 'profil' && navTab !== 'favoris' && navTab !== 'notifs' && navTab !== 'village' && (
-        <div style={{
+        <div className="pcv-proBandeau" style={{
           position: 'absolute', left: 0, right: '33%',
           bottom: NAV_H + sheetPeekH,
           zIndex: 19,

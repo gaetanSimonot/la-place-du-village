@@ -50,9 +50,20 @@ export default function DesktopVillageHero() {
   const n = (v: number | undefined, un: string, pluriel: string) =>
     typeof v === 'number' ? `${v} ${v > 1 ? pluriel : un}` : ''
 
-  const PORTES = [
+  /**
+   * Les portes qui mènent à la coquille d'accueil (carte, annuaire) sont des
+   * navigations douces : la coquille reste montée et ne relit pas l'URL. Sans
+   * ce relais, cliquer « Événements » changeait l'adresse sans changer
+   * l'écran. Même mécanisme que l'en-tête du site.
+   */
+  const changerVue = (v?: string) => {
+    if (v) window.dispatchEvent(new CustomEvent('pdv-vue', { detail: v }))
+  }
+
+  const PORTES: { href: string; vue?: string; titre: string; phrase: string; compte: string; icone: React.ReactNode }[] = [
     {
       href: '/?mode=agenda',
+      vue: 'carte',
       titre: 'Événements',
       phrase: 'Concerts, marchés, brocantes, fêtes votives : l’agenda de la vallée au jour le jour.',
       compte: typeof c.evenementsJour === 'number' ? `${c.evenementsJour} aujourd’hui` : '',
@@ -63,10 +74,13 @@ export default function DesktopVillageHero() {
       titre: 'Bons plans',
       phrase: 'Les promotions en cours chez les commerçants, valables tout de suite.',
       compte: typeof c.promosActives === 'number' ? `${c.promosActives} en cours` : '',
-      icone: <><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></>,
+      // Le cadeau, comme dans l'onglet Bons plans de l'app mobile
+      // (BottomNavBar, icône `gift`) : même repère visuel des deux côtés.
+      icone: <><polyline points="20 12 20 22 4 22 4 12" /><rect x="2" y="7" width="20" height="5" /><line x1="12" y1="22" x2="12" y2="7" /><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" /><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" /></>,
     },
     {
       href: '/?mode=annuaire',
+      vue: 'annuaire',
       titre: 'Commerces',
       phrase: 'Boutiques, restaurants, artisans et producteurs, avec horaires et contact.',
       compte: n(c.etablissements, 'fiche', 'fiches'),
@@ -101,7 +115,7 @@ export default function DesktopVillageHero() {
 
         <div className="pcv-portes">
           {PORTES.map(p => (
-            <Link key={p.titre} href={p.href} className="pcv-porte">
+            <Link key={p.titre} href={p.href} className="pcv-porte" onClick={() => changerVue(p.vue)}>
               <span className="pcv-porteIc">
                 <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">

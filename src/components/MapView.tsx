@@ -61,6 +61,13 @@ function MapDragListener({ onDragStart, onDragEnd, onCameraIdle }: {
   return null
 }
 
+/**
+ * Le plus loin où la carte a le droit de reculer sur ordinateur. En dessous,
+ * on quitte la vallée : à ce niveau l'écran couvre environ 80 km, ce qui tient
+ * Ganges et ses alentours sans partir vers la mer.
+ */
+const ZOOM_MIN_BUREAU = 11
+
 interface MarkersProps {
   evenements: EvenementCard[]
   selectedId: string | null
@@ -111,6 +118,29 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, centerOn }: 
     const bounds = new google.maps.LatLngBounds()
     withLoc.forEach(e => bounds.extend({ lat: e.lieux!.lat!, lng: e.lieux!.lng! }))
     map.fitBounds(bounds, { top: 60, right: 20, bottom: 180, left: 20 })
+
+    // PLANCHER DE ZOOM (bureau seulement).
+    //
+    // Le cadrage automatique recule jusqu'à contenir TOUS les événements
+    // visibles. Avec un rayon d'affichage de 115 km et près de 300 événements,
+    // il finit par montrer la carte jusqu'à Marseille : on ne voit plus le
+    // village, qui est pourtant le sujet. On l'empêche de descendre sous un
+    // seuil, une fois le cadrage terminé.
+    //
+    // Réservé au bureau : sur un écran de 430 px, le même cadrage donne une
+    // vue toute différente, et le mobile ne doit pas bouger.
+    if (typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches) {
+      google.maps.event.addListenerOnce(map, 'idle', () => {
+        const z = map.getZoom()
+        if (typeof z === 'number' && z < ZOOM_MIN_BUREAU) {
+          // On resserre ET on revient sur le village. Sans le recentrage, le
+          // cadrage laisse la carte au barycentre des événements, qui tombe
+          // vers Montpellier : on voit la vallée dans un coin de l'écran.
+          map.setZoom(ZOOM_MIN_BUREAU)
+          map.setCenter(GANGES)
+        }
+      })
+    }
   }, [map, evenements, fixedMap])
 
   useEffect(() => {

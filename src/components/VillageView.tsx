@@ -167,12 +167,16 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
       {/* 4 tuiles — remplacées sur bureau par les quatre portes du héros. */}
       <div className="pcv-hide"><Tiles /></div>
 
-      {/* CTA abonnement (comptes gratuits, dismissable) — repris du hub */}
+      {/* CTA abonnement (comptes gratuits, dismissable) — repris du hub.
+          pcv-hide : sur bureau il vit dans la colonne de droite, entre les
+          bons plans et les annonces. Même composant, posé ailleurs. */}
       {showPlansCard && (
-        <PlansCardFinal
-          onClick={() => onUpgradePrompt?.('habitants', 'Promotions illimitées')}
-          onDismiss={() => { try { localStorage.setItem('pdv-plans-card-dismissed', '1') } catch { /* noop */ }; setPlansCardDismissed(true) }}
-        />
+        <div className="pcv-hide">
+          <PlansCardFinal
+            onClick={() => onUpgradePrompt?.('habitants', 'Promotions illimitées')}
+            onDismiss={() => { try { localStorage.setItem('pdv-plans-card-dismissed', '1') } catch { /* noop */ }; setPlansCardDismissed(true) }}
+          />
+        </div>
       )}
 
       {/* Aujourd'hui — bento du hub (featured + minis), Voir tout → carte.
@@ -200,7 +204,16 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
       <VillageFeed user={user} avatar={avatar} authorName={profile?.display_name ?? 'Moi'} />
 
       </div>
-      <DesktopVillageSidebar />
+      <DesktopVillageSidebar
+        encartPromo={showPlansCard ? (
+          <div className="pcv-sbPromo">
+            <PlansCardFinal
+              onClick={() => onUpgradePrompt?.('habitants', 'Promotions illimitées')}
+              onDismiss={() => { try { localStorage.setItem('pdv-plans-card-dismissed', '1') } catch { /* noop */ }; setPlansCardDismissed(true) }}
+            />
+          </div>
+        ) : null}
+      />
       </div>
     </div>
   )

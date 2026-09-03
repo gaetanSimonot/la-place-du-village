@@ -16,6 +16,18 @@
 
 @media (min-width: 1024px) {
 
+  /* L'écran carte tient dans le gabarit du site (1220 px), comme toutes les
+     autres pages. Étalé sur toute la largeur du navigateur, il n'appartenait
+     plus au même site que le reste. Tout ce qu'il contient est positionné
+     par rapport à cette coquille : contraindre la coquille suffit. */
+  .pcv-home {
+    max-width: 1220px;
+    margin-left: auto;
+    margin-right: auto;
+    border-left: 1px solid #E8E0D4;
+    border-right: 1px solid #E8E0D4;
+  }
+
   /* La liste : colonne gauche, pleine hauteur. */
   .pcv-sheetCol {
     transform: none !important;
@@ -38,10 +50,37 @@
   /* La poignée de glissement n'a plus d'objet. */
   .pcv-sheetCol [style*="cursor: grab"] { cursor: default !important; }
 
-  /* La barre du haut de l'accueil fait doublon avec l'en-tête du site :
-     logo, partage et information y sont déjà. Ses filtres, eux, restent —
-     ils sont dans la feuille, pas ici. */
-  .pcv-homeTop { display: none !important; }
+  /* La barre du haut de l'accueil porte DEUX rangées : le logo, le partage et
+     l'information — qui font doublon avec l'en-tête du site — puis le
+     sélecteur Événements / Commerces / Producteurs, qui n'existe nulle part
+     ailleurs. On masque la première et on garde le second, posé en tête de la
+     colonne de gauche comme le fait la maquette (.mapTop). */
+  .pcv-homeTop {
+    left: 0 !important;
+    right: auto !important;
+    width: 370px !important;
+    padding: 10px 12px !important;
+    box-shadow: none !important;
+  }
+  .pcv-homeTop > div:first-child { display: none !important; }
+
+  /* La liste commence sous ce sélecteur. */
+  .pcv-sheetCol { top: 58px !important; }
+
+  /* Bandeau de l'événement à la une. Sur mobile il barre le bas de l'écran,
+     au-dessus de la feuille. Sur bureau, ce calcul le posait par-dessus la
+     colonne de liste : on le range au bas de la CARTE, en encart, comme la
+     bulle de la maquette. */
+  .pcv-proBandeau {
+    left: 386px !important;
+    right: auto !important;
+    bottom: 16px !important;
+    width: 380px !important;
+    max-width: calc(100% - 402px) !important;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(26,18,9,.22);
+  }
 
   /* Le contenu de la liste défile pour lui-même : sur bureau, on veut voir
      la barre de défilement (handoff §10). */
@@ -56,5 +95,6 @@
   @media (max-width: 1120px) {
     .pcv-sheetCol { width: 320px !important; }
     .pcv-mapWrap  { left: 320px !important; }
+    .pcv-homeTop  { width: 320px !important; }
   }
 }

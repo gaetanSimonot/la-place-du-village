@@ -55,13 +55,16 @@ function IconeChevron({ ouvert }: { ouvert: boolean }) {
 
 /** Zone d'affichage choisie par la personne, sinon le réglage par défaut. */
 function useZone(): { nom: string; rayon: number } {
-  const [zone, setZone] = useState({ nom: 'Ganges', rayon: 30 })
+  // 45 km = l'étendue réelle du village couvert. La valeur ne sert que
+  // d'affichage par défaut : dès qu'une personne fixe sa propre zone, c'est
+  // la sienne qui s'affiche.
+  const [zone, setZone] = useState({ nom: 'Ganges', rayon: 45 })
   useEffect(() => {
     try {
       const brut = localStorage.getItem('pdv-zone-user')
       if (!brut) return
       const z = JSON.parse(brut) as { nom?: string; rayon?: number }
-      setZone({ nom: z.nom?.trim() || 'Ganges', rayon: z.rayon ?? 30 })
+      setZone({ nom: z.nom?.trim() || 'Ganges', rayon: z.rayon ?? 45 })
     } catch { /* zone par défaut */ }
   }, [])
   return zone
@@ -211,8 +214,6 @@ export default function DesktopChrome() {
               <path d="M12 22s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z" /><circle cx="12" cy="10" r="2.5" />
             </svg>
             <b>{zone.nom}</b> et {zone.rayon} km autour
-            {/* La zone se règle sur la carte, où vit le sélecteur. */}
-            <Link href="/?mode=agenda" style={{ color: '#2D5A3D', fontWeight: 700 }}>· Changer</Link>
           </span>
           <span style={{ textTransform: 'capitalize' }}>{dateDuJour}</span>
         </div>

@@ -1,0 +1,113 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   RUBRIQUES — Annonces et Bons plans (handoff §5 et §6)
+
+   Colonne de filtres de 228 px à gauche, toujours ouverte, chaque entrée
+   avec son compteur. La liste occupe le reste.
+
+   Les enveloppes sont transparentes en dessous de 1024 px (`display:
+   contents`) : le mobile ne les voit pas, sa mise en page est exactement
+   celle d'avant, pastilles horizontales comprises.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.pcv-rubBody,
+.pcv-rubCol { display: contents; }
+
+@media (min-width: 1024px) {
+
+  .pcv-rubBody {
+    display: grid;
+    grid-template-columns: 228px minmax(0, 1fr);
+    gap: 34px;
+    align-items: start;
+    padding: 4px 0 20px;
+  }
+  .pcv-rubCol { display: block; min-width: 0; }
+
+  /* ─── La colonne de filtres ────────────────────────────────────────── */
+  .pcv-flt {
+    position: sticky;
+    top: 78px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    min-width: 0;
+  }
+  .pcv-fltG h5 {
+    margin: 0 0 10px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: #1A1209;
+  }
+  .pcv-fltG ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .pcv-fltG li button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    padding: 6px 9px;
+    margin: 0 -9px;
+    border: 0;
+    background: none;
+    border-radius: 7px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #3E332A;
+    text-align: left;
+    transition: background .12s;
+  }
+  .pcv-fltG li button:hover { background: #F7F1E6; }
+  .pcv-fltOn { background: #E8F2EB !important; color: #2D5A3D !important; font-weight: 700 !important; }
+
+  /* Le compteur, discret, poussé à droite. */
+  .pcv-fltG li button i {
+    font-style: normal;
+    font-size: 11.5px;
+    color: #A99B89;
+    font-weight: 700;
+    margin-left: auto;
+    padding-left: 10px;
+  }
+  .pcv-fltOn i { color: #2D5A3D !important; }
+
+  /* Pastille de couleur d'un type d'annonce. */
+  .pcv-fltDot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+
+  /* Encart du bas : le bouton de publication et sa phrase. */
+  .pcv-fltBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 38px;
+    border-radius: 9px;
+    background: #2D5A3D;
+    color: #fff;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 700;
+    transition: .15s;
+  }
+  .pcv-fltBtn:hover { background: #1F4029; color: #fff; box-shadow: 0 4px 12px rgba(45,90,61,.25); }
+  .pcv-fltP { margin: 9px 0 0; font-size: 11.5px; line-height: 1.45; color: #7A6A5A; }
+
+  /* La liste n'a plus besoin de ses marges de 16 px : la gouttière de la
+     grille s'en charge. */
+  .pcv-rubCol > .px-4 { padding-left: 0 !important; padding-right: 0 !important; }
+
+  /* ─── Point de rupture (handoff §9) ────────────────────────────────── */
+  @media (max-width: 1120px) {
+    .pcv-rubBody { grid-template-columns: 210px minmax(0, 1fr); gap: 26px; }
+  }
+  @media (max-width: 940px) {
+    .pcv-rubBody { grid-template-columns: 196px minmax(0, 1fr); gap: 22px; }
+  }
+}
