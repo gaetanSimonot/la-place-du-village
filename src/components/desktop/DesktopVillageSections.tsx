@@ -39,6 +39,7 @@ interface Etablissement {
   photos?: string[] | null
   description_courte?: string | null
   is_featured?: boolean | null
+  plan?: string | null
 }
 
 const PinIcon = () => (
@@ -94,10 +95,6 @@ export default function DesktopVillageSections() {
   const [aujourdhui, setAujourdhui] = useState<Evenement[]>([])
   const [semaine, setSemaine]       = useState<Evenement[]>([])
   const [etabs, setEtabs]           = useState<Etablissement[]>([])
-  const [typeActif, setTypeActif]   = useState<string | null>(null)
-  /** Total exact des fiches. `etabs.length` ne sert PAS : Supabase plafonne
-      une réponse à 1000 lignes, la liste ne dit donc pas le vrai nombre. */
-  const [totalEtabs, setTotalEtabs] = useState<number | null>(null)
   const [catActive, setCatActive]   = useState<string | null>(null)
 
   useEffect(() => {
@@ -105,14 +102,14 @@ export default function DesktopVillageSections() {
     Promise.all([
       fetch('/api/hub').then(r => (r.ok ? r.json() : null)).catch(() => null),
       fetch('/api/agenda?quand=cette_semaine').then(r => (r.ok ? r.json() : null)).catch(() => null),
+      // Plus d'appel à /api/village/counts : le carrousel ne montre que les
+      // partenaires, il n'a plus à annoncer le total de l'annuaire.
       fetch('/api/annuaire').then(r => (r.ok ? r.json() : null)).catch(() => null),
-      fetch('/api/village/counts').then(r => (r.ok ? r.json() : null)).catch(() => null),
-    ]).then(([hub, agenda, annuaire, counts]) => {
+    ]).then(([hub, agenda, annuaire]) => {
       if (!vivant) return
       if (hub?.todayEvents)          setAujourdhui(hub.todayEvents as Evenement[])
       if (agenda?.evenements)        setSemaine(agenda.evenements as Evenement[])
       if (annuaire?.etablissements)  setEtabs(annuaire.etablissements as Etablissement[])
-      if (typeof counts?.etablissements === 'number') setTotalEtabs(counts.etablissements)
     })
     return () => { vivant = false }
   }, [])
@@ -130,18 +127,25 @@ export default function DesktopVillageSections() {
   )
 
   /**
-   * Les partenaires MIS EN AVANT, avec photo. On en prend jusqu'à douze : le
-   * carrousel défile en boucle, il lui faut de quoi tourner. À défaut de
-   * fiches mises en avant, on complète avec les autres — un carrousel vide
-   * serait un trou dans la page.
+   * Ce carrousel n'est PAS un aperçu de l'annuaire : c'est la vitrine de ceux
+   * qui soutiennent le village. Deux portes d'entrée, et deux seulement —
+   * avoir pris un plan Partenaire Local, ou avoir été mis à la une à la main
+   * depuis l'admin. Les 1400 autres fiches n'ont rien à faire ici : elles ont
+   * leur place dans l'annuaire, à un clic.
+   *
+   * Le premier jet complétait avec des fiches ordinaires quand les mises en
+   * avant manquaient. C'était un contresens : mieux vaut douze partenaires
+   * que douze inconnus qui ressemblent à des partenaires.
+   *
+   * La photo est indispensable — le carrousel est fait d'images.
    */
-  const partenaires = useMemo(() => {
-    const avecPhoto = etabs.filter(e => (e.photos?.length ?? 0) > 0)
-    const filtre = typeActif ? avecPhoto.filter(e => e.type === typeActif) : avecPhoto
-    const alaUne = filtre.filter(e => e.is_featured)
-    const reste  = filtre.filter(e => !e.is_featured)
-    return [...alaUne, ...reste].slice(0, 12)
-  }, [etabs, typeActif])
+  const partenaires = useMemo(
+    () => etabs.filter(e =>
+      (e.photos?.length ?? 0) > 0
+      && (e.is_featured || e.plan === 'pro' || e.plan === 'max'),
+    ),
+    [etabs],
+  )
 
   return (
     <div className="pcv-only pcv-sections">
@@ -165,22 +169,9 @@ export default function DesktopVillageSections() {
         <section>
           <Entete
             titre="Partenaires à la une"
-            sous={totalEtabs
-              ? `Ils font vivre notre territoire — ${totalEtabs} fiches en tout`
-              : 'Ils font vivre notre territoire'}
+            sous="Ils font vivre notre territoire"
             lien={{ href: '/?mode=annuaire', label: 'Voir tous les partenaires', vue: 'annuaire' }}
           />
-          <div className="pcv-chips">
-            <button type="button" className={`pcv-pill${typeActif === null ? ' pcv-pillOn' : ''}`}
-                    onClick={() => setTypeActif(null)}>Tous</button>
-            {ETAB_TYPE_LIST.map(t => (
-              <button key={t.id} type="button"
-                      className={`pcv-pill${typeActif === t.id ? ' pcv-pillOn' : ''}`}
-                      onClick={() => setTypeActif(typeActif === t.id ? null : t.id)}>
-                {t.label}
-              </button>
-            ))}
-          </div>
           {/* Une seule ligne qui défile en boucle. La liste est écrite deux
               fois : la deuxième copie prend le relais quand la première sort
               de l'écran, ce qui rend la boucle invisible. Elle est cachée aux
