@@ -40,10 +40,8 @@ const PLUS: { label: string; href: string; vue?: string }[] = [
   { label: 'Forum',            href: '/forum' },
   { label: 'Le journal',       href: '/journal' },
   { label: 'Covoiturage',      href: '/covoiturage' },
-  // « Les gens » et pas « Les voisins » : c'est le nom que la page se donne
-  // elle-même (annuaire des membres, recherche par nom ou ville). Une
-  // etiquette inventee ici ne dit a personne ou elle mene.
-  { label: 'Les gens',         href: '/people' },
+  // Pas d'annuaire des membres (/people) ici : ce n'est pas une rubrique du
+  // village, et personne ne sait ce que le menu promet en le lisant.
 ]
 
 function IconeChevron({ ouvert }: { ouvert: boolean }) {
