@@ -203,12 +203,24 @@ interface EtabMarkersProps {
   etablissements: EtablissementCard[]
   selectedEtabId: string | null
   onSelectEtab: (id: string | null) => void
+  fixedMap: boolean
 }
 
-function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab }: EtabMarkersProps) {
+function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fixedMap }: EtabMarkersProps) {
   const map = useMap()
   const clustererRef = useRef<MarkerClusterer | null>(null)
   const markersRef   = useRef<google.maps.Marker[]>([])
+
+  // Pan vers l'établissement sélectionné — strictement la même mécanique que
+  // les événements (cf. Markers ci-dessus) : c'est ce qui permet à la liste de
+  // piloter la carte, la sélection étant désormais portée par la page.
+  useEffect(() => {
+    if (!map || !selectedEtabId || fixedMap) return
+    const etab = etablissements.find(e => e.id === selectedEtabId)
+    if (etab?.lat && etab?.lng) {
+      map.panTo({ lat: etab.lat, lng: etab.lng })
+    }
+  }, [map, selectedEtabId, etablissements, fixedMap])
 
   useEffect(() => {
     if (!map) return
@@ -272,11 +284,21 @@ interface Props {
   onSelectProducer?: (id: string | null) => void
   onOpenProducer?: (id: string) => void
   etablissements?: EtablissementCard[]
+  // Sélection établissement CONTRÔLÉE par la page (comme selectedId pour les
+  // événements et selectedProducerId pour les producteurs). Elle vivait avant
+  // en state interne ici : la liste ne pouvait donc pas la piloter, la carte ne
+  // se recentrait pas, et tout était oublié au retour d'une fiche.
+  // Les deux props restent optionnelles → si la page ne les fournit pas, le
+  // composant retombe sur son state interne et se comporte comme avant.
+  selectedEtabId?: string | null
+  onSelectEtab?: (id: string | null) => void
   onOpenEtablissement?: (id: string) => void
 }
 
-export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn, onMapDragStart, onMapDragEnd, onCameraIdle, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], onOpenEtablissement }: Props) {
-  const [selectedEtabId, setSelectedEtabId] = useState<string | null>(null)
+export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn, onMapDragStart, onMapDragEnd, onCameraIdle, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement }: Props) {
+  const [internalEtabId, setInternalEtabId] = useState<string | null>(null)
+  const selectedEtabId    = selectedEtabIdProp !== undefined ? selectedEtabIdProp : internalEtabId
+  const setSelectedEtabId = onSelectEtab ?? setInternalEtabId
   const selectedEvent    = selectedId ? evenements.find(e => e.id === selectedId) : null
   const selectedProducer = selectedProducerId ? producers.find(p => p.id === selectedProducerId) : null
   const selectedEtab     = selectedEtabId ? etablissements.find(e => e.id === selectedEtabId) : null
@@ -330,6 +352,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
           etablissements={etablissements}
           selectedEtabId={selectedEtabId}
           onSelectEtab={setSelectedEtabId}
+          fixedMap={fixedMap}
         />
 
         {/* Vignette établissement sélectionné */}
@@ -346,7 +369,10 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
               <div style={{ position: 'relative', width: 210, overflow: 'visible', fontFamily: 'var(--font-body), sans-serif' }}>
                 <button onClick={() => setSelectedEtabId(null)}
                   style={{ position: 'absolute', top: -10, right: -10, zIndex: 10, width: 22, height: 22, borderRadius: '50%', backgroundColor: '#fff', border: '1.5px solid #ddd', boxShadow: '0 1px 5px rgba(0,0,0,0.22)', cursor: 'pointer', color: '#666', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, padding: 0 }}>✕</button>
-                <div onClick={() => { onOpenEtablissement?.(selectedEtab.id); setSelectedEtabId(null) }}
+                {/* On garde la sélection en ouvrant la fiche — comme pour les
+                    événements : au retour, la vignette est encore ouverte au
+                    bon endroit. L'effacer ici obligeait à retrouver le point. */}
+                <div onClick={() => onOpenEtablissement?.(selectedEtab.id)}
                   style={{ borderRadius: 12, overflow: 'hidden', backgroundColor: '#fff', border: `2.5px solid ${sheetBg.bg}`, cursor: 'pointer', boxShadow: '0 4px 20px rgba(0,0,0,0.18)' }}>
                   {/* Image */}
                   <div style={{ width: '100%', height: 95, position: 'relative', backgroundColor: typeInfo?.bg ?? '#F5F0E8', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>

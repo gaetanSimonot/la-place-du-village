@@ -78,6 +78,21 @@ interface Props {
   selectedEtabType?: EtablissementType | null
   onEtabTypeChange?: (t: EtablissementType | null) => void
   onOpenEtablissement?: (id: string) => void
+  /** Sélection établissement — portée par la page, partagée avec la carte. */
+  selectedEtabId?: string | null
+  onSelectEtab?: (id: string | null) => void
+  /** Bouton 📍 d'une carte établissement : sélectionne ET recentre la carte. */
+  onViewEtabOnMap?: (id: string) => void
+  /**
+   * Remonte à la page la liste d'établissements RÉELLEMENT affichée ici.
+   *
+   * Sans ça, la liste et la carte lisaient deux sources différentes : la liste
+   * peut afficher des résultats de recherche live (requête directe en base,
+   * hors payload /api/annuaire) et applique en plus ses propres filtres note /
+   * ville / rayon — la carte, elle, n'en savait rien et gardait ses punaises
+   * d'origine. D'où des fiches trouvables dans la liste sans punaise associée.
+   */
+  onEtabsDisplayedChange?: (list: EtablissementCard[]) => void
   annuaireTab?: number
   onAnnuaireTabChange?: (idx: number) => void
   /** V3: hide Agenda/Annuaire segmented + in annuaire mode show only the active mode's button (no toggle) */
@@ -104,6 +119,7 @@ export default function BottomSheet({
   featuredProducers = [], onOpenProducer,
   etablissements = [], etablissementLoading = false,
   selectedEtabType = null, onEtabTypeChange, onOpenEtablissement,
+  selectedEtabId = null, onSelectEtab, onViewEtabOnMap, onEtabsDisplayedChange,
   annuaireTab: annuaireTabProp, onAnnuaireTabChange,
   topBarV3 = false,
   isAdmin = false, onAdminMutated,
@@ -365,6 +381,16 @@ export default function BottomSheet({
       return true
     })
   }, [etablissements, etabSearchHits, etabMinNote, etabVille, etabRayon, villeCenter])
+
+  // Remontée de la liste affichée vers la page → la carte pose ses punaises sur
+  // EXACTEMENT ce que la liste montre (recherche live et filtres locaux inclus).
+  // Le callback est stabilisé dans un ref : passé en fonction fléchée inline par
+  // le parent, il change à chaque rendu et rebouclerait l'effet à l'infini.
+  const etabsChangeRef = useRef(onEtabsDisplayedChange)
+  useEffect(() => { etabsChangeRef.current = onEtabsDisplayedChange })
+  useEffect(() => {
+    etabsChangeRef.current?.(displayedEtabs)
+  }, [displayedEtabs])
 
   const etabFilterActive = etabMinNote > 0 || !!etabVille.trim() || etabRayon !== null
 
@@ -843,7 +869,14 @@ export default function BottomSheet({
                 return null
               })()}
               {displayedEtabs.slice(0, visibleEtabCount).map(e => (
-                <EtablissementListCard key={e.id} etab={e} onOpen={() => onOpenEtablissement?.(e.id)} />
+                <EtablissementListCard
+                  key={e.id}
+                  etab={e}
+                  isSelected={e.id === selectedEtabId}
+                  onSelect={() => onSelectEtab?.(e.id)}
+                  onViewOnMap={() => onViewEtabOnMap?.(e.id)}
+                  onOpen={() => onOpenEtablissement?.(e.id)}
+                />
               ))}
               {visibleEtabCount < displayedEtabs.length && (
                 <div ref={etabLoaderRef} style={{ height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1222,16 +1255,24 @@ function ProducerListCard({ producer, isSelected, onSelect, onViewOnMap, onOpenP
   )
 }
 
-function EtablissementListCard({ etab, onOpen }: { etab: EtablissementCard; onOpen: () => void }) {
+function EtablissementListCard({ etab, isSelected, onSelect, onViewOnMap, onOpen }: {
+  etab: EtablissementCard; isSelected: boolean
+  onSelect: () => void; onViewOnMap: () => void; onOpen: () => void
+}) {
   const typeInfo = ETAB_TYPE_LIST.find(t => t.id === etab.type)
   const photo = etab.photos?.[0]
 
+  // Clic sur la carte = sélectionner PUIS ouvrir la fiche — même geste que les
+  // producteurs. La sélection étant portée par la page, elle survit à
+  // l'aller-retour sur la fiche : au retour, la punaise est toujours ouverte.
   return (
-    <div onClick={onOpen} style={{
+    <div onClick={() => { onSelect(); onOpen() }} style={{
       display: 'flex', height: 86, flexShrink: 0,
       borderRadius: 14, overflow: 'hidden', cursor: 'pointer',
       backgroundColor: '#fff',
-      boxShadow: '0 1px 6px rgba(44,44,44,0.09)',
+      boxShadow: isSelected
+        ? '0 0 0 2.5px #2D5A3D, 0 4px 18px rgba(0,0,0,0.14)'
+        : '0 1px 6px rgba(44,44,44,0.09)',
     }}>
       <div style={{ width: 86, flexShrink: 0, backgroundColor: typeInfo?.bg ?? '#F5F0E8', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
         {photo
@@ -1249,12 +1290,25 @@ function EtablissementListCard({ etab, onOpen }: { etab: EtablissementCard; onOp
           <p style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 14, color: '#1C1917', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{etab.nom}</p>
           {etab.commune && <p style={{ fontSize: 11, color: '#6B5E4E', margin: 0, }}>📍 {etab.commune}</p>}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
           {etab.note_google ? (
-            <span style={{ fontSize: 11, color: '#92400E', fontWeight: 700 }}>⭐ {etab.note_google.toFixed(1)}</span>
+            <span style={{ fontSize: 11, color: '#92400E', fontWeight: 700, flexShrink: 0 }}>⭐ {etab.note_google.toFixed(1)}</span>
           ) : <div />}
           {etab.description_courte && (
-            <p style={{ fontSize: 10, color: '#8A8A8A', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, paddingLeft: 6, }}>{texteBrut(etab.description_courte)}</p>
+            <p style={{ fontSize: 10, color: '#8A8A8A', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, paddingLeft: 6, }}>{texteBrut(etab.description_courte)}</p>
+          )}
+          {/* Voir sur la carte — même bouton que les producteurs et les
+              événements. Absent si la fiche n'a pas de coordonnées : il n'y
+              aurait aucune punaise à montrer. */}
+          {etab.lat && etab.lng && (
+            <button onClick={e => { e.preventDefault(); e.stopPropagation(); onViewOnMap() }}
+              aria-label="Voir sur la carte"
+              style={{ width: 26, height: 26, borderRadius: 7, backgroundColor: '#EDE8DF', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B5E4E', flexShrink: 0 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                <circle cx="12" cy="9" r="2.5" fill="currentColor" stroke="none"/>
+              </svg>
+            </button>
           )}
         </div>
       </div>

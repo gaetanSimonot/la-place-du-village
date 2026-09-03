@@ -92,6 +92,15 @@ export default function HomePage() {
   const [etablissements, setEtablissements]         = useState<EtablissementCard[]>([])
   const [etablissementLoading, setEtablissementLoading] = useState(false)
   const [selectedEtabType, setSelectedEtabType]     = useState<EtablissementType | null>(null)
+  // Sélection établissement — au niveau de la PAGE, comme selectedId pour les
+  // événements. Elle vivait dans MapView : la liste ne pouvait pas la piloter
+  // et elle disparaissait au retour d'une fiche. Ici, la home reste montée sous
+  // le slot @modal → la punaise est toujours ouverte au retour.
+  const [selectedEtabId, setSelectedEtabId] = useState<string | null>(null)
+  // Liste d'établissements réellement affichée par le BottomSheet (recherche
+  // live + filtres locaux compris). `null` tant qu'il ne s'est pas exprimé :
+  // on retombe alors sur la liste de l'API, comportement d'avant.
+  const [displayedEtabs, setDisplayedEtabs] = useState<EtablissementCard[] | null>(null)
   // 0 = producteurs, 1 = commerces.
   // DÉFAUT = commerces (1) : Producteurs ne doit JAMAIS être un mode auto.
   // Producteurs ne s'active QUE sur choix explicite (tuile hub, segment
@@ -817,6 +826,18 @@ export default function HomePage() {
     if (p?.lat && p?.lng) setMapCenterOn({ lat: p.lat, lng: p.lng, zoom: 15 })
   }
 
+  // Symétrique du précédent pour les établissements. On cherche la fiche dans
+  // la liste AFFICHÉE (résultats de recherche live inclus) et non dans le seul
+  // payload de l'API : sinon le bouton reste sans effet sur une fiche trouvée
+  // par la recherche.
+  const handleViewEtabOnMap = (id: string) => {
+    const e = (displayedEtabs ?? filteredEtablissements).find(x => x.id === id)
+    setSelectedEtabId(id)
+    setNavTab('carte')
+    setSheetMode('half')
+    if (e?.lat && e?.lng) setMapCenterOn({ lat: e.lat, lng: e.lng, zoom: 15 })
+  }
+
   const saveNavForEvent = useCallback((id: string) => {
     try {
       sessionStorage.setItem('pdv-nav-state', JSON.stringify({
@@ -885,7 +906,9 @@ export default function HomePage() {
           selectedProducerId={selectedProducerId}
           onSelectProducer={setSelectedProducerId}
           onOpenProducer={openProducer}
-          etablissements={appMode === 'annuaire' && annuaireTab === 1 ? filteredEtablissements : []}
+          etablissements={appMode === 'annuaire' && annuaireTab === 1 ? (displayedEtabs ?? filteredEtablissements) : []}
+          selectedEtabId={selectedEtabId}
+          onSelectEtab={setSelectedEtabId}
           onOpenEtablissement={openEtablissement}
           selectedId={selectedId}
           onSelectEvent={setSelectedId}
@@ -1350,6 +1373,10 @@ export default function HomePage() {
         selectedEtabType={selectedEtabType}
         onEtabTypeChange={setSelectedEtabType}
         onOpenEtablissement={openEtablissement}
+        selectedEtabId={selectedEtabId}
+        onSelectEtab={setSelectedEtabId}
+        onViewEtabOnMap={handleViewEtabOnMap}
+        onEtabsDisplayedChange={setDisplayedEtabs}
         etabSearch={etabSearch}
         onEtabSearchChange={setEtabSearch}
         annuaireTab={annuaireTab}

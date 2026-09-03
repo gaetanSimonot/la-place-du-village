@@ -149,7 +149,11 @@ export async function PATCH(req: NextRequest) {
         plan:                'basic',
         is_featured:         false,
         user_id:             null, // fiche non revendiquée
-        // statut omis → DEFAULT (le CHECK rejette 'publie')
+        // statut EXPLICITE — le DEFAULT ('imported') est invisible côté
+        // public : /api/etablissements ne renvoie que 'publie' | 'actif'.
+        // L'admin vient de valider la demande, la fiche doit être visible.
+        // 'publie' est refusé par le CHECK : la valeur visible est 'actif'.
+        statut:              'actif',
       })
       .select('id, nom')
       .single()

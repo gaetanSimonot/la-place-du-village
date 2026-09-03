@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
@@ -54,11 +55,18 @@ interface SubmitResult {
   kind: Kind
 }
 
+/** Quota atteint (429) — la soumission est refusée, on bascule vers le support. */
+interface QuotaResult {
+  count: number
+  limit: number
+}
+
 export default function CommerceRequestModal({ onClose }: { onClose: () => void }) {
   const { user } = useAuth()
   const { openAuthModal } = useAuthModal()
   const [kind, setKind]       = useState<Kind | null>(null)
   const [result, setResult]   = useState<SubmitResult | null>(null)
+  const [quota, setQuota]     = useState<QuotaResult | null>(null)
 
   // Auth gate : si pas log → on ouvre AuthModal au mount et on ferme cette modale
   useEffect(() => {
@@ -106,7 +114,9 @@ export default function CommerceRequestModal({ onClose }: { onClose: () => void 
         }}>
         <div style={{ width: 44, height: 5, borderRadius: 3, backgroundColor: '#E4DED2', margin: '0 auto 14px' }} />
 
-        {result ? (
+        {quota ? (
+          <QuotaView quota={quota} onClose={onClose} />
+        ) : result ? (
           <SuccessView result={result} onClose={onClose} />
         ) : kind === null ? (
           <KindPicker onPick={setKind} />
@@ -116,6 +126,7 @@ export default function CommerceRequestModal({ onClose }: { onClose: () => void 
             onBack={() => setKind(null)}
             onClose={onClose}
             onDone={(data) => setResult({ ...data, kind })}
+            onQuota={setQuota}
           />
         )}
       </div>
@@ -214,12 +225,13 @@ function KindPicker({ onPick }: { onPick: (k: Kind) => void }) {
 }
 
 function ReferenceForm({
-  kind, onBack, onClose, onDone,
+  kind, onBack, onClose, onDone, onQuota,
 }: {
   kind: Kind
   onBack: () => void
   onClose: () => void
   onDone: (data: { auto_published?: boolean; already_exists?: boolean; etablissement_id?: string; producer_id?: string }) => void
+  onQuota: (q: QuotaResult) => void
 }) {
   const { isAdmin } = useAuth()
   const [nom, setNom]                 = useState('')
@@ -401,6 +413,13 @@ function ReferenceForm({
     })
     if (!r.ok) {
       const d = await r.json().catch(() => ({}))
+      // Quota atteint : on ne montre pas une erreur de formulaire, on bascule
+      // sur l'écran qui propose d'en demander plus à l'équipe.
+      if (r.status === 429 && d.quotaReached) {
+        onQuota({ count: d.count ?? 0, limit: d.limit ?? 3 })
+        setSubmitting(false)
+        return
+      }
       setError(d.error ?? 'Erreur envoi')
       setSubmitting(false)
       return
@@ -784,6 +803,92 @@ function ReferenceForm({
         </p>
       </div>
     </>
+  )
+}
+
+/**
+ * Quota atteint — la soumission a été refusée par le serveur (429).
+ *
+ * Plutôt qu'un mur, on ouvre la porte : la personne explique son besoin et le
+ * message part dans la messagerie support (même route que « Contacter
+ * l'équipe »), ce qui notifie les admins. Elle est ensuite déposée dans le fil
+ * de conversation pour suivre la réponse.
+ */
+function QuotaView({ quota, onClose }: { quota: QuotaResult; onClose: () => void }) {
+  const router = useRouter()
+  const [message, setMessage] = useState(
+    `Bonjour, j'ai déjà référencé ${quota.count} établissement${quota.count > 1 ? 's' : ''} et j'aimerais pouvoir en ajouter d'autres.\n\nVoici lesquels et pourquoi :\n`,
+  )
+  const [sending, setSending] = useState(false)
+  const [error, setError]     = useState<string | null>(null)
+
+  async function envoyer() {
+    if (!message.trim()) { setError('Écrivez quelques mots pour l\'équipe'); return }
+    setSending(true); setError(null)
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+    if (!token) { setError('Session expirée'); setSending(false); return }
+
+    const r = await fetch('/api/support/conversations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ message: message.trim() }),
+    })
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}))
+      setError(d.error ?? 'Erreur envoi')
+      setSending(false)
+      return
+    }
+    const d = await r.json()
+    onClose()
+    if (d.conversation?.id) router.push(`/support/${d.conversation.id}`)
+  }
+
+  return (
+    <div style={{ padding: '6px 0 4px' }}>
+      <div style={{ textAlign: 'center', marginBottom: 18 }}>
+        <div style={{ fontSize: 46, marginBottom: 12 }}>🖐️</div>
+        <p style={{ fontWeight: 900, fontSize: 18, color: '#1C1917', margin: '0 0 8px' }}>
+          Limite atteinte
+        </p>
+        <p style={{ fontSize: 13, color: '#6B5E4E', lineHeight: 1.6, margin: 0 }}>
+          Vous avez déjà référencé {quota.count} établissement{quota.count > 1 ? 's' : ''}, et la
+          limite est de {quota.limit} par personne. Dites-nous ce dont vous avez besoin :
+          l&apos;équipe peut vous en ouvrir davantage.
+        </p>
+      </div>
+
+      <textarea
+        value={message}
+        onChange={e => setMessage(e.target.value)}
+        rows={6}
+        style={{
+          width: '100%', padding: '12px 14px', borderRadius: 14,
+          border: '1px solid #E8E0D4', backgroundColor: '#FDFAF5',
+          fontSize: 14, fontFamily: 'inherit', lineHeight: 1.5,
+          resize: 'vertical', marginBottom: 12,
+        }}
+      />
+
+      {error && (
+        <p style={{ fontSize: 12, color: '#C84B2F', fontWeight: 700, margin: '0 0 12px' }}>{error}</p>
+      )}
+
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={onClose} disabled={sending} style={{
+          padding: '13px 20px', borderRadius: 999, backgroundColor: '#F0EAE0',
+          color: '#6B5E4E', border: 'none', fontWeight: 800, fontSize: 14,
+          cursor: sending ? 'default' : 'pointer', fontFamily: 'inherit', flexShrink: 0,
+        }}>Annuler</button>
+        <button onClick={envoyer} disabled={sending} style={{
+          flex: 1, padding: '13px 20px', borderRadius: 999,
+          backgroundColor: sending ? '#8FA894' : '#2D5A3D', color: '#fff',
+          border: 'none', fontWeight: 800, fontSize: 14,
+          cursor: sending ? 'default' : 'pointer', fontFamily: 'inherit',
+        }}>{sending ? 'Envoi…' : 'Envoyer à l\'équipe'}</button>
+      </div>
+    </div>
   )
 }
 

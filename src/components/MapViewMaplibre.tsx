@@ -76,6 +76,10 @@ interface Props {
   onSelectProducer?: (id: string | null) => void
   onOpenProducer?: (id: string) => void
   etablissements?: EtablissementCard[]
+  // Sélection établissement CONTRÔLÉE par la page — cf. MapView.tsx pour le
+  // détail. Optionnelles : sans elles, state interne et comportement d'avant.
+  selectedEtabId?: string | null
+  onSelectEtab?: (id: string | null) => void
   onOpenEtablissement?: (id: string) => void
 }
 
@@ -83,11 +87,13 @@ export default function MapViewMaplibre({
   evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn,
   onMapDragStart, onMapDragEnd, onCameraIdle,
   producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer,
-  etablissements = [], onOpenEtablissement,
+  etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement,
 }: Props) {
   const mapRef = useRef<MapRef | null>(null)
   const [viewport, setViewport] = useState<Viewport>(null)
-  const [selectedEtabId, setSelectedEtabId] = useState<string | null>(null)
+  const [internalEtabId, setInternalEtabId] = useState<string | null>(null)
+  const selectedEtabId    = selectedEtabIdProp !== undefined ? selectedEtabIdProp : internalEtabId
+  const setSelectedEtabId = onSelectEtab ?? setInternalEtabId
   const { fixedMap, sheetBg } = useTheme()
 
   const selectedEvent    = selectedId ? evenements.find(e => e.id === selectedId) : null
@@ -155,6 +161,16 @@ export default function MapViewMaplibre({
       m.getMap().easeTo({ center: [evt.lieux.lng, evt.lieux.lat] })
     }
   }, [selectedId, evenements, fixedMap])
+
+  // Pan vers l'établissement sélectionné — même mécanique que les événements
+  useEffect(() => {
+    const m = mapRef.current
+    if (!m || !selectedEtabId || fixedMap) return
+    const etab = etablissements.find(e => e.id === selectedEtabId)
+    if (etab?.lat && etab?.lng) {
+      m.getMap().easeTo({ center: [etab.lng, etab.lat] })
+    }
+  }, [selectedEtabId, etablissements, fixedMap])
 
   // ── Points + split promu / régulier (les promus ne sont jamais clusterisés) ──
   const eventPts = useMemo(() =>
@@ -310,7 +326,8 @@ export default function MapViewMaplibre({
               <div style={{ position: 'relative', width: 210, overflow: 'visible', fontFamily: 'var(--font-body), sans-serif' }}>
                 <button onClick={() => setSelectedEtabId(null)}
                   style={{ position: 'absolute', top: -10, right: -10, zIndex: 10, width: 22, height: 22, borderRadius: '50%', backgroundColor: '#fff', border: '1.5px solid #ddd', boxShadow: '0 1px 5px rgba(0,0,0,0.22)', cursor: 'pointer', color: '#666', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, padding: 0 }}>✕</button>
-                <div onClick={() => { onOpenEtablissement?.(selectedEtab.id); setSelectedEtabId(null) }}
+                {/* Sélection conservée à l'ouverture de la fiche — cf. MapView */}
+                <div onClick={() => onOpenEtablissement?.(selectedEtab.id)}
                   style={{ borderRadius: 12, overflow: 'hidden', backgroundColor: '#fff', border: `2.5px solid ${sheetBg.bg}`, cursor: 'pointer', boxShadow: '0 4px 20px rgba(0,0,0,0.18)' }}>
                   <div style={{ width: '100%', height: 95, position: 'relative', backgroundColor: typeInfo?.bg ?? '#F5F0E8', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                     {photo

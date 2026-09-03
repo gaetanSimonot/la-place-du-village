@@ -5,6 +5,66 @@ import { requireUser, notifyAdmins } from '@/lib/server-auth'
 const VALID_TYPES = ['restaurant_bar', 'hebergement', 'artisan_service', 'sante_bien_etre', 'activite']
 
 /**
+ * Quota d'établissements soumis par personne (admin illimité).
+ *
+ * La soumission étant AUTO-PUBLIÉE sans relecture, c'est le seul frein au
+ * remplissage en série. Dérogation individuelle possible via
+ * profiles.etab_quota (cf. scripts/2026-08-29_quota_etablissements.sql).
+ *
+ * Même esprit que MAX_CLAIMS_PER_MONTH dans /api/etablissements/[id]/claim.
+ */
+const QUOTA_ETAB_DEFAUT = 3
+
+/**
+ * Renvoie une réponse 429 si la personne a atteint son quota d'établissements,
+ * null sinon. Les admins ne sont jamais limités.
+ *
+ * Ce qui COMPTE : ses fiches déjà créées (etablissement_id renseigné) et ses
+ * demandes encore en attente de validation (traite=false).
+ *
+ * Ce qui ne compte pas — tous repérés par `type_commerce`, la colonne qui sert
+ * déjà de discriminant au quota des revendications :
+ *   - 'claim'         revendication d'une fiche existante (quota séparé, 3/mois)
+ *   - 'doublon'       le lieu Google était déjà référencé, rien n'a été ajouté
+ *   - 'admin_contact' demande exceptionnelle adressée à l'équipe
+ * Ni les demandes rejetées par l'admin (traitées sans fiche) : le quota se
+ * libère, sinon un refus pénaliserait la personne à vie.
+ *
+ * Dérogation individuelle : profiles.etab_quota (NULL = QUOTA_ETAB_DEFAUT).
+ * Cf. scripts/2026-08-29_quota_etablissements.sql pour l'accorder.
+ */
+async function refusSiQuotaAtteint(
+  ctx: { userId: string; isAdmin: boolean },
+): Promise<NextResponse | null> {
+  if (ctx.isAdmin) return null
+
+  const { data: profil } = await supabaseAdmin
+    .from('profiles')
+    .select('etab_quota')
+    .eq('user_id', ctx.userId)
+    .maybeSingle()
+
+  const quota = typeof profil?.etab_quota === 'number' ? profil.etab_quota : QUOTA_ETAB_DEFAUT
+
+  const { count } = await supabaseAdmin
+    .from('commerce_requests')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', ctx.userId)
+    .is('type_commerce', null)
+    .or('etablissement_id.not.is.null,traite.eq.false')
+
+  const dejaSoumis = count ?? 0
+  if (dejaSoumis < quota) return null
+
+  return NextResponse.json({
+    error: `Vous avez déjà référencé ${dejaSoumis} établissement${dejaSoumis > 1 ? 's' : ''} (limite : ${quota}). Écrivez-nous pour en ajouter davantage.`,
+    quotaReached: true,
+    count: dejaSoumis,
+    limit: quota,
+  }, { status: 429 })
+}
+
+/**
  * POST — Demande de référencement commerce (user authentifié obligatoire).
  *
  * AUTO-VALIDATION : si la demande contient un place_id_google + type + lat + lng,
@@ -45,9 +105,11 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     if (existing) {
-      // On enregistre quand même la "demande" en traite=true pour traçabilité
+      // On enregistre quand même la "demande" en traite=true pour traçabilité.
+      // type_commerce='doublon' : la fiche existait déjà, la personne n'a rien
+      // ajouté → cette ligne ne doit pas consommer son quota (cf. plus haut).
       await supabaseAdmin.from('commerce_requests').insert({
-        nom, type, type_commerce: null, adresse, lat, lng,
+        nom, type, type_commerce: 'doublon', adresse, lat, lng,
         place_id_google: placeId, commune, description, contact,
         site_web: siteWeb, horaires, photos, message,
         user_id: ctx.userId, traite: true,
@@ -60,6 +122,12 @@ export async function POST(req: NextRequest) {
         message: 'Cette fiche existe déjà sur la plateforme.',
       })
     }
+
+    // Quota — vérifié APRÈS le doublon : quelqu'un au plafond qui soumet un
+    // lieu déjà référencé doit l'apprendre plutôt que se heurter à la limite,
+    // il n'ajoute rien à la plateforme. Et AVANT toute écriture.
+    const refusAuto = await refusSiQuotaAtteint(ctx)
+    if (refusAuto) return refusAuto
 
     // Création directe de la fiche
     const descCourte = description && description.length > 180 ? description.slice(0, 177) + '…' : description
@@ -79,9 +147,15 @@ export async function POST(req: NextRequest) {
         plan: 'basic',
         is_featured: false,
         user_id: null,
-        // statut omis volontairement → laisse le DEFAULT de la table
-        // (le CHECK constraint rejette 'publie', et la valeur par défaut
-        // est appliquée — 'imported' ou équivalent selon le schéma)
+        // statut EXPLICITE — ne PAS laisser le DEFAULT de la table.
+        // Le DEFAULT vaut 'imported', or la lecture publique
+        // (/api/etablissements) ne renvoie que 'publie' | 'actif' : une fiche
+        // laissée au DEFAULT n'apparaît donc jamais sur la carte ni dans
+        // l'annuaire, et aucun écran ne la repêche ensuite. Elle reste
+        // pourtant trouvable via la recherche (requête directe sans filtre de
+        // statut) → "elle est dans la liste mais pas sur la carte".
+        // 'publie' est refusé par le CHECK : la valeur visible est 'actif'.
+        statut: 'actif',
       })
       .select('id, nom')
       .single()
@@ -115,6 +189,11 @@ export async function POST(req: NextRequest) {
   }
 
   // ─── Chemin CLASSIQUE (pending — admin doit valider) ────────────────────
+  // Le quota s'applique aussi ici : une demande en attente finira en fiche, et
+  // sans ce garde-fou on pourrait noyer la file de modération.
+  const refusPending = await refusSiQuotaAtteint(ctx)
+  if (refusPending) return refusPending
+
   const { data, error } = await supabaseAdmin
     .from('commerce_requests')
     .insert({
