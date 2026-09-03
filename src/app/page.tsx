@@ -15,6 +15,8 @@ import { useAuthModal } from '@/contexts/AuthModalContext'
 
 import ProBandeau from '@/components/ProBandeau'
 import AgendaFilterWheel, { AgendaDateButton } from '@/components/AgendaFilterWheel'
+import DesktopMapFilters from '@/components/desktop/DesktopMapFilters'
+import DesktopEventModal from '@/components/desktop/DesktopEventModal'
 import MaxSplash from '@/components/MaxSplash'
 import EditorialSplash from '@/components/EditorialSplash'
 import FavorisView from '@/components/FavorisView'
@@ -325,16 +327,30 @@ export default function HomePage() {
     return () => window.removeEventListener('pdv-vue', surVue)
   }, [])
 
-  // Google Maps ne repeint pas ses tuiles quand son conteneur est
-  // redimensionné par la seule CSS — et c'est ce qui arrive sur bureau, où la
-  // carte cède 370 px à la colonne de liste. Sans cette secousse, elle reste
-  // blanche jusqu'au premier redimensionnement de la fenêtre.
-  // Sans effet sur mobile : le conteneur n'y change pas de taille.
+  /**
+   * Google Maps ne repeint pas ses tuiles quand son conteneur est
+   * redimensionné par la seule CSS — et c'est ce qui arrive tout le temps sur
+   * bureau : la carte cède sa gauche à la colonne de filtres et à la liste, et
+   * ces largeurs changent avec la fenêtre. Sans réveil, elle reste blanche.
+   *
+   * Une secousse ponctuelle au changement d'onglet ne suffisait pas : la carte
+   * n'est pas encore créée à ce moment-là. On observe donc le conteneur et on
+   * réveille à chaque fois qu'il change de taille, y compris à l'arrivée.
+   *
+   * Sans effet sur mobile : le conteneur n'y change jamais de taille.
+   */
+  const mapWrapRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
-    if (navTab !== 'carte') return
-    const t = setTimeout(() => window.dispatchEvent(new Event('resize')), 60)
-    return () => clearTimeout(t)
-  }, [navTab])
+    const el = mapWrapRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    let t: ReturnType<typeof setTimeout> | undefined
+    const obs = new ResizeObserver(() => {
+      clearTimeout(t)
+      t = setTimeout(() => window.dispatchEvent(new Event('resize')), 80)
+    })
+    obs.observe(el)
+    return () => { clearTimeout(t); obs.disconnect() }
+  }, [])
 
   const handlePublierClick = useCallback(() => {
     if (authLoading) return
@@ -902,7 +918,17 @@ export default function HomePage() {
 
   const handleListStateRestored = useCallback(() => setRestoreListState(null), [])
 
+  /** Fiche ouverte en fenêtre par-dessus la carte (bureau seulement). */
+  const [eventModalId, setEventModalId] = useState<string | null>(null)
+
   const openEvent = useCallback((id: string) => {
+    // Sur bureau, la fiche s'ouvre par-dessus : on ne quitte pas la carte,
+    // donc il n'y a ni cadrage, ni filtres, ni position de liste à restaurer
+    // au retour. Sur mobile, on change de page comme avant.
+    if (typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches) {
+      setEventModalId(id)
+      return
+    }
     saveNavForEvent(id)
     router.push(`/evenement/${id}`)
   }, [saveNavForEvent, router])
@@ -944,7 +970,7 @@ export default function HomePage() {
       )}
 
       {/* Carte plein écran — zIndex:1 crée un stacking context, contient les z-index internes de Google Maps */}
-      <div className="pcv-mapWrap absolute inset-0" style={{ bottom: NAV_H, zIndex: 1 }}>
+      <div ref={mapWrapRef} className="pcv-mapWrap absolute inset-0" style={{ bottom: NAV_H, zIndex: 1 }}>
         {/* Bande invisible en haut — laisse passer le geste "tirer pour rafraîchir" */}
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 40, zIndex: 5, pointerEvents: 'auto' }} />
         <MapView
@@ -1065,6 +1091,17 @@ export default function HomePage() {
                   })}
                 </div>
               </div>
+            )}
+
+            {/* Colonne de filtres du bureau, à gauche de la liste. Elle écrit
+                dans le même `filtres` que les molettes de la barre flottante :
+                les deux restent d'accord sans qu'on ait à les synchroniser. */}
+            {showBtns && appMode === 'agenda' && (
+              <DesktopMapFilters
+                filtres={filtres}
+                onFiltresChange={setFiltres}
+                evenements={evenementsZone}
+              />
             )}
 
             {/* ── Barre de commandes du bureau, flottante au bas de la carte ──
@@ -1427,7 +1464,9 @@ export default function HomePage() {
         onPeekHeightChange={setSheetPeekH}
         proEvents={proEvents}
         onDiscoverPro={openEvent}
-        onOpenEvent={saveNavForEvent}
+        // Bureau : ouvre la fiche en fenêtre. Mobile : mémorise l'état de
+        // navigation avant que le lien de la carte change de page.
+        onOpenEvent={openEvent}
         favIds={favIds}
         onToggleFav={toggleFav}
         appMode={appMode}
@@ -1464,6 +1503,12 @@ export default function HomePage() {
         isAdmin={isAdmin}
         onAdminMutated={() => mutateAgenda()}
       />}
+
+      {/* Fiche événement en fenêtre — bureau seulement (openEvent ne la pose
+          qu'au-dessus de 1024 px). */}
+      {eventModalId && (
+        <DesktopEventModal id={eventModalId} onClose={() => setEventModalId(null)} />
+      )}
 
       {/* Favoris — panneau inline au-dessus de la carte */}
       {navTab === 'favoris' && (

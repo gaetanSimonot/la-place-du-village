@@ -26,7 +26,7 @@
     transform: none !important;
     top: 0 !important;
     bottom: 0 !important;
-    left: 0 !important;
+    left: 228px !important;
     right: auto !important;
     width: 370px !important;
     height: 100% !important;
@@ -36,9 +36,36 @@
 
   /* La carte occupe ce qui reste. */
   .pcv-mapWrap {
-    left: 370px !important;
+    left: 598px !important;
     bottom: 0 !important;
   }
+
+  /* ─── Colonne de filtres, à gauche de la liste ──────────────────────
+     Même grammaire que les rubriques Annonces et Bons plans : tout ouvert,
+     tout compté. */
+  .pcv-mapFlt {
+    position: absolute;
+    top: 0; bottom: 0; left: 0;
+    width: 228px;
+    z-index: 21;
+    background: #FDFAF5;
+    border-right: 1px solid #E8E0D4;
+    padding: 18px 16px 24px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+  .pcv-mapFlt > * { flex: none; }
+
+  /* La date choisie, retirable d'un clic. */
+  .pcv-fltDate {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    width: 100%; padding: 8px 10px; border: 1px solid #C8DEC0; border-radius: 9px;
+    background: #E8F2EB; color: #2D5A3D;
+    font-size: 12.5px; font-weight: 700; text-align: left;
+  }
+  .pcv-fltDate:hover { background: #DCEBDF; }
 
   /* La poignée de glissement n'a plus d'objet. */
   .pcv-sheetCol [style*="cursor: grab"] { cursor: default !important; }
@@ -73,8 +100,8 @@
   .pcv-mapCtl {
     position: absolute;
     z-index: 30;
-    bottom: 22px;
-    left: 370px;
+    top: 16px;
+    left: 598px;
     right: 0;
     display: flex !important;
     flex-direction: column;
@@ -125,6 +152,23 @@
      de la barre, il reprend donc sa place dans le flux. */
   .pcv-mapCtlFiltres > * { position: static !important; inset: auto !important; }
 
+  /* Son panneau s'ouvrait DANS la barre, qu'il faisait gonfler d'un coup.
+     Il devient une petite fenêtre posée sous le bouton, sans rien déplacer. */
+  .pcv-mapCtlFiltres > *:last-child { position: relative !important; }
+  .pcv-mapCtlFiltres > *:last-child > *:nth-child(2) {
+    position: absolute !important;
+    top: calc(100% + 12px) !important;
+    right: 0 !important;
+    left: auto !important;
+    margin-top: 0 !important;
+    width: 330px;
+    z-index: 40;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 18px 44px rgba(26,18,9,.26);
+    overflow: hidden;
+  }
+
   /* Les deux boutons ronds (réglages, loupe) se posaient par-dessus la
      liste : ils passent sur la carte, du côté opposé aux commandes. */
   .pcv-mapTools {
@@ -142,11 +186,80 @@
   }
   .pcv-sheetCol *::-webkit-scrollbar-track { background: transparent; }
 
+
+  /* ─── Fiche événement en fenêtre ─────────────────────────────────────
+     Elle s'ouvre par-dessus la carte, sans navigation : on ferme et l'écran
+     est resté exactement dans l'état où on l'a laissé. */
+  .pcv-evModalFond {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    background: rgba(12,8,4,.45);
+    backdrop-filter: blur(3px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+  }
+  .pcv-evModal {
+    position: relative;
+    width: min(760px, 100%);
+    max-height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: #FDFAF5;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 30px 80px rgba(26,18,9,.34);
+  }
+  .pcv-evModalBarre {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px 10px 16px;
+    background: #fff;
+    border-bottom: 1px solid #EDE8E0;
+    flex: none;
+  }
+  .pcv-evModalLien {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 12.5px; font-weight: 700; color: #2D5A3D; text-decoration: none;
+    padding: 7px 11px; border-radius: 9px; transition: background .12s;
+  }
+  .pcv-evModalLien:hover { background: #E8F2EB; }
+  .pcv-evModalX {
+    width: 34px; height: 34px; flex: none;
+    border: 0; border-radius: 50%; background: #F2EDE4; color: #1A1209;
+    display: flex; align-items: center; justify-content: center; transition: background .12s;
+  }
+  .pcv-evModalX:hover { background: #E4DCCE; }
+
+  .pcv-evModalCorps { overflow-y: auto; min-height: 0; }
+
+  /* La fiche est écrite pour une page : dans la fenêtre elle ne doit ni se
+     recentrer ni réserver la place d'une barre du bas. */
+  .pcv-evModalCorps [class*="min-h-[100dvh]"] {
+    max-width: none !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-bottom: 0 !important;
+    min-height: 0 !important;
+  }
+  .pcv-evModalCorps .pcv-fiche-hero { height: 260px !important; }
+  .pcv-evModalCorps .pcv-hide { display: none !important; }
+
+  /* La flèche « retour » de la fiche n'a pas de sens dans une fenêtre : il n'y
+     a nulle part où revenir, la carte est juste derrière. La croix de la barre
+     du haut fait le travail. */
+  .pcv-evModalCorps [aria-label="Retour"] { display: none !important; }
+
   /* ─── Point de rupture (handoff §9) ────────────────────────────────── */
   @media (max-width: 1120px) {
-    .pcv-sheetCol { width: 320px !important; }
-    .pcv-mapWrap  { left: 320px !important; }
-    .pcv-mapCtl   { left: 320px !important; }
+    .pcv-mapFlt   { width: 196px; }
+    .pcv-sheetCol { left: 196px !important; width: 320px !important; }
+    .pcv-mapWrap  { left: 516px !important; }
+    .pcv-mapCtl   { left: 516px !important; }
 
   }
 }

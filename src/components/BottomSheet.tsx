@@ -1058,7 +1058,14 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
         // Si un clic long vient de se déclencher → on avale le clic (pas de nav).
         if (lpFired.current) { e.preventDefault(); lpFired.current = false; return }
         if (selectMode) { e.preventDefault(); onTogglePick?.(); return }
-        onSelect(); onOpenEvent?.()
+        onSelect()
+        // Sur bureau, la fiche s'ouvre en fenêtre par-dessus la carte :
+        // on empêche la navigation, le parent s'en charge. Sur mobile, le
+        // lien fait son travail comme avant.
+        if (onOpenEvent && typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches) {
+          e.preventDefault()
+        }
+        onOpenEvent?.()
       }}
       onPointerDown={e => {
         if (!onLongPress) return
