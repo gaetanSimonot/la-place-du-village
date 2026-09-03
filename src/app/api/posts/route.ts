@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser, notifyByAudience, notifyUser } from '@/lib/server-auth'
 import { sanitizeMedia } from '@/lib/postMedia'
 import { validerIdentiteDemandee, chargerIdentitesEtab } from '@/lib/identite'
+import { construireEmbedSnapshot, type EmbedSnapshot } from '@/lib/embedSnapshot'
 
 const NOTIFY_AUDIENCES = ['all', 'basic', 'habitants', 'pro'] as const
 type NotifyAudience = (typeof NOTIFY_AUDIENCES)[number]
@@ -67,6 +68,15 @@ export async function POST(req: NextRequest) {
     validEmbedRefId = embed_ref_id
   }
 
+  // Copie figée de l'élément joint. Les éléments du village ont une durée de
+  // vie (un événement est purgé 2 jours après sa fin) : sans cette copie, la
+  // publication qui l'annonçait finit par afficher « élément supprimé ».
+  // Échec ou élément introuvable → on publie quand même, sans copie.
+  let embedSnapshot: EmbedSnapshot | null = null
+  if (validEmbedKind && validEmbedRefId) {
+    embedSnapshot = await construireEmbedSnapshot(supabaseAdmin, validEmbedKind, validEmbedRefId)
+  }
+
   // Blase : publier sous une fiche exige que la fiche soit attribuée au user.
   const blase = await validerIdentiteDemandee(supabaseAdmin, ctx.userId, body.etablissement_id)
   if (blase === false) {
@@ -82,12 +92,13 @@ export async function POST(req: NextRequest) {
       visibility: vis,
       embed_kind: validEmbedKind,
       embed_ref_id: validEmbedRefId,
+      embed_snapshot: embedSnapshot,
       media: cleanMedia.length > 0 ? cleanMedia : null,
       // Posté sur le fil du village (groupe) → visible aussi dans le feed village.
       // Les posts admin (compte « La Place du Village ») y vont TOUJOURS.
       sur_village: sur_village === true || ctx.isAdmin,
     })
-    .select('id, user_id, texte, visibility, embed_kind, embed_ref_id, media, created_at, sur_village, etablissement_id')
+    .select('id, user_id, texte, visibility, embed_kind, embed_ref_id, embed_snapshot, media, created_at, sur_village, etablissement_id')
     .single()
 
   if (error) {

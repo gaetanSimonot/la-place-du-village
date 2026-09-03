@@ -59,7 +59,7 @@ export default function PostNotifModal({ postId, onClose }: Props) {
     ;(async () => {
       const { data } = await supabase
         .from('posts')
-        .select('id, user_id, texte, embed_kind, embed_ref_id, media, created_at, etablissement_id')
+        .select('id, user_id, texte, embed_kind, embed_ref_id, embed_snapshot, media, created_at, etablissement_id')
         .eq('id', postId)
         .maybeSingle()
       if (cancelled) return

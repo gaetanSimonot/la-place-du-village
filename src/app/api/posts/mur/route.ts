@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
   // ── Fetch posts (filtre visibilité côté serveur) ──
   let postsQuery = supabaseAdmin
     .from('posts')
-    .select('id, user_id, texte, visibility, embed_kind, embed_ref_id, created_at')
+    .select('id, user_id, texte, visibility, embed_kind, embed_ref_id, embed_snapshot, created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(100)

@@ -59,7 +59,7 @@ export default function MurTab({ profileUserId, authorName, authorAvatar }: Prop
       // (public / soi / amis). Pour son propre mur : tous ses posts.
       const { data: rows, error } = await supabase
         .from('posts')
-        .select('id, user_id, texte, visibility, embed_kind, embed_ref_id, media, created_at, etablissement_id')
+        .select('id, user_id, texte, visibility, embed_kind, embed_ref_id, embed_snapshot, media, created_at, etablissement_id')
         .eq('user_id', profileUserId)
         .order('created_at', { ascending: false })
         .limit(100)

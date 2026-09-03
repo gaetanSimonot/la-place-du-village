@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import PostMedia from '@/components/profil/PostMedia'
 import type { MediaItem } from '@/lib/postMedia'
+import { EMBED_DISPARU, type EmbedSnapshot } from '@/lib/embedSnapshot'
 
 export interface PostData {
   id:           string
@@ -16,6 +17,8 @@ export interface PostData {
   created_at:   string
   embed_kind?:  string | null
   embed_ref_id?: string | null
+  /** Copie figée de la vignette, prise à la publication (cf. embedSnapshot). */
+  embed_snapshot?: EmbedSnapshot | null
   media?:       MediaItem[] | null
 }
 
@@ -176,7 +179,7 @@ export default function PostCard({
       {/* Embed mini-card (élément du village lié) */}
       {post.embed_kind && post.embed_ref_id && (
         <div className="px-3.5 pb-3">
-          <PostEmbedRender kind={post.embed_kind} refId={post.embed_ref_id} />
+          <PostEmbedRender kind={post.embed_kind} refId={post.embed_ref_id} snapshot={post.embed_snapshot ?? null} />
         </div>
       )}
 
@@ -281,8 +284,16 @@ const EMBED_LABEL: Record<string, string> = {
   annonce: 'Annonce', promo: 'Promotion', covoit: 'Covoiturage', article: 'Article du Journal',
 }
 
-export function PostEmbedRender({ kind, refId, variant = 'compact' }: { kind: string; refId: string; variant?: 'compact' | 'large' }) {
-  const [details, setDetails] = useState<EmbedDetails | null>(null)
+export function PostEmbedRender({ kind, refId, variant = 'compact', snapshot = null }: {
+  kind: string; refId: string; variant?: 'compact' | 'large'; snapshot?: EmbedSnapshot | null
+}) {
+  // La copie figée sert d'affichage immédiat : la vignette est là dès le
+  // premier rendu, sans squelette clignotant, et elle reste si l'élément a
+  // depuis disparu du village.
+  const depuisCopie = (s: EmbedSnapshot): EmbedDetails =>
+    ({ title: s.t, subtitle: s.s, photo: s.p, href: '' })
+
+  const [details, setDetails] = useState<EmbedDetails | null>(snapshot ? depuisCopie(snapshot) : null)
   const [notFound, setNotFound] = useState(false)
 
   useEffect(() => {
@@ -333,13 +344,27 @@ export function PostEmbedRender({ kind, refId, variant = 'compact' }: { kind: st
     return () => { cancelled = true }
   }, [kind, refId])
 
-  if (notFound) {
+  // Élément disparu ET aucune copie (publications antérieures à la copie
+  // figée) : on le dit selon le type. Un événement purgé n'a pas été
+  // « supprimé », il est passé — l'écrire autrement laisse croire à une
+  // modération et discrédite la publication.
+  if (notFound && !snapshot) {
     return (
       <div className="rounded-[12px] border bg-cremeDeep px-3 py-2 text-[11.5px] italic text-texte-doux" style={{ borderColor: '#E8E0D4' }}>
-        Élément supprimé
+        {EMBED_DISPARU[kind] ?? 'N’est plus disponible'}
       </div>
     )
   }
+
+  // Disparu mais copié : la vignette reste lisible, sans lien vers le vide.
+  const disparu = notFound
+
+  /** Cliquable tant que l'élément existe ; simple bloc une fois disparu. */
+  const Enveloppe = ({ className, style, children }: {
+    className: string; style: React.CSSProperties; children: React.ReactNode
+  }) => disparu
+    ? <div className={className} style={{ ...style, opacity: 0.75 }}>{children}</div>
+    : <Link href={details!.href} onClick={e => e.stopPropagation()} className={className} style={style}>{children}</Link>
 
   if (!details) {
     if (variant === 'large') {
@@ -367,9 +392,7 @@ export function PostEmbedRender({ kind, refId, variant = 'compact' }: { kind: st
   // Variante "large" — grande image en haut (style Facebook), carte cliquable
   if (variant === 'large') {
     return (
-      <Link
-        href={details.href}
-        onClick={e => e.stopPropagation()}
+      <Enveloppe
         className="block overflow-hidden rounded-[14px] border bg-white text-inherit no-underline"
         style={{ borderColor: '#E8E0D4', boxShadow: '0 1px 5px rgba(44,28,16,0.06)' }}
       >
@@ -382,26 +405,31 @@ export function PostEmbedRender({ kind, refId, variant = 'compact' }: { kind: st
           <span style={{ position: 'absolute', top: 10, left: 10, padding: '4px 10px', borderRadius: 999, background: 'rgba(26,18,9,0.72)', color: '#fff', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
             {EMBED_LABEL[kind] ?? kind}
           </span>
+          {disparu && (
+            <span style={{ position: 'absolute', bottom: 10, left: 10, padding: '4px 10px', borderRadius: 999, background: 'rgba(255,255,255,0.92)', color: '#6B5E4E', fontSize: 10, fontWeight: 800, letterSpacing: '0.04em' }}>
+              {EMBED_DISPARU[kind] ?? 'N’est plus disponible'}
+            </span>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px' }}>
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 800, color: '#1A1209', letterSpacing: '-0.005em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{details.title}</div>
             {details.subtitle && <div style={{ fontSize: 11.5, color: '#7A6A5A', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{details.subtitle}</div>}
           </div>
-          <span style={{ color: '#C9BBA8', flexShrink: 0 }}>
-            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
-          </span>
+          {!disparu && (
+            <span style={{ color: '#C9BBA8', flexShrink: 0 }}>
+              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+            </span>
+          )}
         </div>
-      </Link>
+      </Enveloppe>
     )
   }
 
   return (
-    <Link
-      href={details.href}
+    <Enveloppe
       className="flex items-center gap-2.5 rounded-[12px] border bg-cremeDeep px-2.5 py-2 text-inherit no-underline"
       style={{ borderColor: '#E8E0D4' }}
-      onClick={e => e.stopPropagation()}
     >
       <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[9px] bg-primary-light text-primary">
         {details.photo
@@ -415,16 +443,18 @@ export function PostEmbedRender({ kind, refId, variant = 'compact' }: { kind: st
         <div className="truncate text-[13px] font-extrabold text-texte" style={{ letterSpacing: '-0.005em' }}>
           {details.title}
         </div>
-        {details.subtitle && (
-          <div className="truncate text-[11px] text-texte-doux">{details.subtitle}</div>
-        )}
+        {disparu
+          ? <div className="truncate text-[11px] italic text-texte-doux">{EMBED_DISPARU[kind] ?? 'N’est plus disponible'}</div>
+          : details.subtitle && <div className="truncate text-[11px] text-texte-doux">{details.subtitle}</div>}
       </div>
-      <span className="shrink-0 text-texte-tres-doux">
-        <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="9 6 15 12 9 18" />
-        </svg>
-      </span>
-    </Link>
+      {!disparu && (
+        <span className="shrink-0 text-texte-tres-doux">
+          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 6 15 12 9 18" />
+          </svg>
+        </span>
+      )}
+    </Enveloppe>
   )
 }
 
