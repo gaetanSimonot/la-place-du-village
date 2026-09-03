@@ -1,5 +1,6 @@
 'use client'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import DesktopVillageSidebar from '@/components/desktop/DesktopVillageSidebar'
 import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import { toast } from 'sonner'
@@ -54,9 +55,11 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
 
   return (
     <div className="min-h-full bg-creme pb-6">
-      {/* Top bar bande blanche (identique carte) : logo + bouton Profil */}
+      {/* Top bar bande blanche (identique carte) : logo + bouton Profil.
+          pcv-hide : sur ordinateur, l'en-tête du site porte déjà le logo,
+          le profil et les notifications — cette barre ferait doublon. */}
       <div
-        className="flex items-center justify-between gap-2.5 bg-white"
+        className="pcv-hide flex items-center justify-between gap-2.5 bg-white"
         style={{ padding: '8px 12px', paddingTop: 'max(8px, env(safe-area-inset-top, 8px))', borderBottom: '1px solid #EDE8E0', boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}
       >
         <button
@@ -135,6 +138,13 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
         )}
       </div>
 
+      {/* Grille bureau : le fil existant à gauche, la colonne d'encarts à
+          droite. Les deux enveloppes sont en `display: contents` en dessous de
+          1024 px — elles n'existent donc pas pour la mise en page mobile, qui
+          reste exactement celle d'avant. */}
+      <div className="pcv-villageGrid">
+      <div className="pcv-villageMain">
+
       {/* L'Assistant Village, sous la barre du haut et au-dessus du titre.
           Le composant décide seul de s'afficher ou non : il demande au
           serveur si l'assistant est ouvert à cette personne. */}
@@ -176,6 +186,10 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
         </div>
       </div>
       <VillageFeed user={user} avatar={avatar} authorName={profile?.display_name ?? 'Moi'} />
+
+      </div>
+      <DesktopVillageSidebar />
+      </div>
     </div>
   )
 }

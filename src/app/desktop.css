@@ -269,3 +269,113 @@
     .pcv-srch input { display: none; }
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   LE VILLAGE — accueil de la version ordinateur
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Les enveloppes de mise en page n'existent PAS pour le mobile : `contents`
+   les rend transparentes, les enfants restent dans le flux d'origine. */
+.pcv-villageGrid,
+.pcv-villageMain { display: contents; }
+
+@media (min-width: 1024px) {
+
+  .pcv-villageGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 30px;
+    align-items: start;
+    max-width: 1220px;
+    margin: 0 auto;
+    padding: 26px 32px 40px;
+  }
+  .pcv-villageMain { display: block; min-width: 0; }
+
+  /* Le titre de l'écran reprend l'échelle bureau. */
+  .pcv-villageMain h1 { font-size: 34px !important; }
+
+  /* Les quatre raccourcis étaient calibrés pour 430 px : sur une colonne
+     large ils devenaient des affiches. On les ramène à une hauteur tenable. */
+  .pcv-villageMain .grid-cols-4 > * { max-height: 190px; }
+
+  /* Colonne de droite — elle suit le défilement, comme la maquette. */
+  .pcv-sbCol {
+    position: sticky;
+    top: 78px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+  }
+  .pcv-sbCard {
+    border: 1px solid #E8E0D4;
+    border-radius: 14px;
+    background: #fff;
+    overflow: hidden;
+  }
+  .pcv-sbTitre {
+    margin: 0;
+    padding: 14px 16px 10px;
+    font-family: var(--font-jakarta), sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: -.02em;
+    color: #1A1209;
+  }
+  .pcv-sbCorps { padding: 0 8px 8px; }
+  .pcv-sbPhrase {
+    margin: 0;
+    padding: 0 8px 6px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #7A6A5A;
+  }
+  .pcv-sbPhrase strong { color: #1A1209; font-weight: 700; }
+
+  .pcv-sbLigne {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 8px;
+    border-radius: 10px;
+    text-decoration: none;
+    color: inherit;
+  }
+  .pcv-sbVignette {
+    width: 40px; height: 40px; flex: none;
+    border-radius: 9px; overflow: hidden;
+    background: #F7F1E6; color: #A99B89;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .pcv-sbVignette img { width: 100%; height: 100%; object-fit: cover; }
+  .pcv-sbTexte { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .pcv-sbNom {
+    font-size: 13px; font-weight: 700; color: #1A1209; line-height: 1.3;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .pcv-sbSous {
+    font-size: 11.5px; color: #7A6A5A;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .pcv-sbPied {
+    display: flex; align-items: center; gap: 5px;
+    padding: 11px 16px;
+    border-top: 1px solid #F0EAE0;
+    font-size: 12px; font-weight: 700; color: #2D5A3D;
+    background: #FEFCF9; text-decoration: none;
+    transition: background .12s;
+  }
+  .pcv-sbPied:hover { background: #F7F1E6; }
+  .pcv-sbPied svg { transition: transform .15s; }
+  .pcv-sbPied:hover svg { transform: translateX(3px); }
+
+  /* Sous 940 px, la colonne passe sous le contenu (handoff §9). */
+  @media (max-width: 1120px) {
+    .pcv-villageGrid { grid-template-columns: minmax(0, 1fr) 300px; }
+  }
+  @media (max-width: 940px) {
+    .pcv-villageGrid { grid-template-columns: minmax(0, 1fr); }
+    .pcv-sbCol { position: static; }
+  }
+}
