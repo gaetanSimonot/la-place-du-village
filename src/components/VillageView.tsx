@@ -1,6 +1,8 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
 import DesktopVillageSidebar from '@/components/desktop/DesktopVillageSidebar'
+import DesktopVillageHero from '@/components/desktop/DesktopVillageHero'
+import DesktopVillageSections from '@/components/desktop/DesktopVillageSections'
 import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import { toast } from 'sonner'
@@ -145,20 +147,25 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
       <div className="pcv-villageGrid">
       <div className="pcv-villageMain">
 
+      {/* Héros bureau — remplace le titre et les quatre tuiles ci-dessous,
+          qui sont masqués au-dessus de 1024 px. */}
+      <DesktopVillageHero />
+
       {/* L'Assistant Village, sous la barre du haut et au-dessus du titre.
           Le composant décide seul de s'afficher ou non : il demande au
           serveur si l'assistant est ouvert à cette personne. */}
       <BarreAssistant />
 
-      {/* Titre — 2 lignes, gros et gras (façon mockup) */}
-      <div className="px-4 pb-4 pt-4">
+      {/* Titre — 2 lignes, gros et gras (façon mockup).
+          pcv-hide : sur bureau, c'est le héros qui porte le titre. */}
+      <div className="pcv-hide px-4 pb-4 pt-4">
         <h1 className="m-0 text-[27px] font-extrabold leading-[1.12] text-texte" style={{ letterSpacing: '-0.02em' }}>
           Aujourd&apos;hui<br />dans le village
         </h1>
       </div>
 
-      {/* 4 tuiles */}
-      <Tiles />
+      {/* 4 tuiles — remplacées sur bureau par les quatre portes du héros. */}
+      <div className="pcv-hide"><Tiles /></div>
 
       {/* CTA abonnement (comptes gratuits, dismissable) — repris du hub */}
       {showPlansCard && (
@@ -168,8 +175,13 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
         />
       )}
 
-      {/* Aujourd'hui — bento du hub (featured + minis), Voir tout → carte */}
-      <TodaySection onVoirTout={onOpenAgendaToday} />
+      {/* Aujourd'hui — bento du hub (featured + minis), Voir tout → carte.
+          Masqué sur bureau : la section « À la une aujourd'hui » ci-dessous
+          montre les mêmes événements au gabarit trois tuiles. */}
+      <div className="pcv-hide"><TodaySection onVoirTout={onOpenAgendaToday} /></div>
+
+      {/* Sections bureau : à la une, territoire, agenda de la semaine. */}
+      <DesktopVillageSections />
 
       {/* Au cinéma — sous l'agenda du jour, dont il est le prolongement. Le
           composant décide seul s'il s'affiche : réglage de visibilité, compte

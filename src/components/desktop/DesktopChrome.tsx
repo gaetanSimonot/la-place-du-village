@@ -20,14 +20,17 @@ import HubSearchModal from '@/components/HubSearchModal'
  */
 
 /** Onglets principaux. Chaque adresse existe déjà — rien n'est inventé. */
-const ONGLETS: { label: string; href: string; actif: (p: string, sp: URLSearchParams) => boolean }[] = [
+const ONGLETS: { label: string; href: string; actif: (p: string, vue: string) => boolean }[] = [
   // ?tab=village existe déjà côté accueil (page.tsx) : il pose l'onglet
   // puis nettoie l'URL. Rien à inventer.
-  { label: 'Le village',  href: '/?tab=village',          actif: (p, sp) => p === '/' && !sp.has('mode') },
-  { label: 'Carte',       href: '/?mode=agenda',            actif: (p, sp) => p === '/' && sp.get('mode') === 'agenda' && sp.get('liste') !== '1' },
-  { label: 'Agenda',      href: '/?mode=agenda&liste=1',    actif: (p, sp) => p === '/' && sp.get('liste') === '1' },
-  { label: 'Bons plans',  href: '/promotions',              actif: p => p.startsWith('/promotions') },
-  { label: 'Annonces',    href: '/annonces',                actif: p => p.startsWith('/annonces') },
+  //
+  // `vue` est l'onglet réellement ouvert dans la coquille d'accueil, publié
+  // sur <html data-vue>. On ne peut pas le lire dans l'URL : la
+  // synchronisation y écrit toujours ?mode=agenda, même sur Le village.
+  { label: 'Le village',  href: '/?tab=village',          actif: (p, vue) => p === '/' && vue === 'village' },
+  { label: 'Carte',       href: '/?mode=agenda',          actif: (p, vue) => p === '/' && vue === 'carte' },
+  { label: 'Bons plans',  href: '/promotions',            actif: p => p.startsWith('/promotions') },
+  { label: 'Annonces',    href: '/annonces',              actif: p => p.startsWith('/annonces') },
 ]
 
 /** Le reste du village, replié — le menu du haut ne doit pas déborder. */
@@ -64,6 +67,19 @@ function useZone(): { nom: string; rayon: number } {
   return zone
 }
 
+/** Onglet ouvert dans la coquille d'accueil, publié sur <html data-vue>. */
+function useVue(): string {
+  const [vue, setVue] = useState('')
+  useEffect(() => {
+    const lire = () => setVue(document.documentElement.dataset.vue ?? '')
+    lire()
+    const obs = new MutationObserver(lire)
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-vue'] })
+    return () => obs.disconnect()
+  }, [])
+  return vue
+}
+
 export default function DesktopChrome() {
   const pathname = usePathname() ?? '/'
   const searchParams = useSearchParams()
@@ -71,6 +87,7 @@ export default function DesktopChrome() {
   const { user, profile } = useAuth()
   const { openAuthModal } = useAuthModal()
   const zone = useZone()
+  const vue = useVue()
 
   const [plusOuvert, setPlusOuvert] = useState(false)
   const [rechercheOuverte, setRechercheOuverte] = useState(false)
@@ -91,7 +108,6 @@ export default function DesktopChrome() {
   // Toute navigation referme le menu.
   useEffect(() => { setPlusOuvert(false) }, [pathname, searchParams])
 
-  const sp = new URLSearchParams(searchParams?.toString() ?? '')
   const initiale = (profile?.display_name || user?.email || '·').trim().charAt(0).toUpperCase()
 
   const dateDuJour = new Date().toLocaleDateString('fr-FR', {
@@ -112,7 +128,7 @@ export default function DesktopChrome() {
               <Link
                 key={o.label}
                 href={o.href}
-                className={o.actif(pathname, sp) ? 'pcv-on' : undefined}
+                className={o.actif(pathname, vue) ? 'pcv-on' : undefined}
               >
                 {o.label}
               </Link>

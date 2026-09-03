@@ -30,8 +30,23 @@ export async function GET() {
     }
   } catch { /* noop */ }
 
+  // Compteurs des quatre « portes » de l'accueil bureau. Comptages seuls
+  // (head: true), donc trois requêtes sans charge utile.
+  const aujourdhui = new Date()
+  const jour = `${aujourdhui.getFullYear()}-${String(aujourdhui.getMonth() + 1).padStart(2, '0')}-${String(aujourdhui.getDate()).padStart(2, '0')}`
+  const [evJourRes, promosRes, etabsRes] = await Promise.all([
+    supabaseAdmin.from('evenements').select('id', { count: 'exact', head: true })
+      .eq('statut', 'publie').lte('date_debut', jour)
+      .or(`date_fin.gte.${jour},and(date_fin.is.null,date_debut.eq.${jour})`),
+    supabaseAdmin.from('promotions').select('id', { count: 'exact', head: true }).eq('active', true),
+    supabaseAdmin.from('etablissements').select('id', { count: 'exact', head: true }).in('statut', ['publie', 'actif']),
+  ])
+
   return NextResponse.json(
     {
+      evenementsJour:  evJourRes.count ?? 0,
+      promosActives:   promosRes.count ?? 0,
+      etablissements:  etabsRes.count ?? 0,
       reels:    reelsRes.count ?? 0,
       debats:   debatsRes.count ?? 0,
       journal:  journalRes.count ?? 0,

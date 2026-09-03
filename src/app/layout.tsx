@@ -4,6 +4,7 @@ import { Inter, DM_Serif_Display, Caveat, Plus_Jakarta_Sans, Archivo, Nunito } f
 import './globals.css'
 // Version ordinateur : additif, tout est enfermé au-dessus de 1024 px.
 import './desktop.css'
+import './desktop-village.css'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import InstallBanner from '@/components/InstallBanner'
 import { AuthModalProvider } from '@/contexts/AuthModalContext'

@@ -193,6 +193,10 @@ export default function HomePage() {
   // top (filtres, +, loupe) disparaissent à tort.
   useEffect(() => {
     try { sessionStorage.setItem('pdv-nav-tab', navTab) } catch {}
+    // L'en-tête bureau a besoin de savoir quel onglet est ouvert pour souligner
+    // le bon. L'URL ne peut pas le dire : la synchronisation y écrit toujours
+    // ?mode=agenda, y compris quand on est sur Le village.
+    try { document.documentElement.dataset.vue = navTab } catch {}
   }, [navTab])
   // Hub : écran d'accueil avec tuiles. Par défaut au lancement.
   // Restauré false si l'user était dans un module avant un refresh.
@@ -290,7 +294,10 @@ export default function HomePage() {
       // téléphone. On rouvre le post exactement comme un clic dans la liste.
       const postParam = sp0.get('post')
       if (tabParam === 'notifs' && postParam) setNotifPostId(postParam)
-      window.history.replaceState({}, '', '/')
+      // On ne nettoie pas pour le village : la synchronisation d'URL le
+      // réinscrit aussitôt, et l'effacer ici le faisait disparaître entre les
+      // deux montages de StrictMode en développement.
+      if (tabParam !== 'village') window.history.replaceState({}, '', '/')
     }
     // ?splash=1 : le logo des autres pages ramène sur le splash d'accueil.
     if (sp0.get('splash') === '1') {
@@ -441,11 +448,14 @@ export default function HomePage() {
     } else if (mode === 'agenda') {
       setShowHub(false)
       setAppMode('agenda')
-      setNavTab('carte')  // sinon navTab reste 'accueil' → boutons du haut cachés
+      // ?tab= a la priorité : il décrit l'onglet, ?mode décrit la carte. Sans
+      // cette garde, revenir sur Le village puis rafraîchir renvoyait sur la
+      // carte, puisque la synchronisation écrit toujours ?mode=agenda.
+      if (sp.get('tab') !== 'village') setNavTab('carte')
     } else if (mode === 'annuaire') {
       setShowHub(false)
       setAppMode('annuaire')
-      setNavTab('carte')  // idem : on arrive sur la carte via deep-link
+      if (sp.get('tab') !== 'village') setNavTab('carte')
     }
 
     // Filtres agenda
@@ -484,6 +494,9 @@ export default function HomePage() {
   // 2) SYNC état → URL (replaceState, miroir non bloquant)
   useEffect(() => {
     const sp = new URLSearchParams()
+    // L'onglet Village doit survivre à un rafraîchissement : ?mode ne décrit
+    // que la carte, il ne peut pas le porter.
+    if (navTab === 'village') sp.set('tab', 'village')
     const mode = showHub ? 'hub' : appMode
     // hub est l'état par défaut → on garde l'URL propre sans ?mode= dans ce cas
     if (mode !== 'hub') sp.set('mode', mode)
@@ -504,7 +517,7 @@ export default function HomePage() {
     // Préserve les autres query params éventuels (?tab=, etc. utilisés par d'autres flows)
     const current = new URLSearchParams(window.location.search)
     current.forEach((v, k) => {
-      if (k !== 'mode' && k !== 'cat' && k !== 'quand' && k !== 'ann' && k !== 'prodcat' && k !== 'q') {
+      if (k !== 'mode' && k !== 'cat' && k !== 'quand' && k !== 'ann' && k !== 'prodcat' && k !== 'q' && k !== 'tab') {
         sp.set(k, v)
       }
     })
@@ -514,7 +527,7 @@ export default function HomePage() {
     if (window.location.pathname + window.location.search !== newUrl) {
       window.history.replaceState(window.history.state, '', newUrl)
     }
-  }, [showHub, appMode, filtres, annuaireTab, selectedCats, producerSearch, etabSearch])
+  }, [showHub, appMode, filtres, annuaireTab, selectedCats, producerSearch, etabSearch, navTab])
 
   // Config chargée une seule fois au mount + écoute changements admin
   useEffect(() => {
