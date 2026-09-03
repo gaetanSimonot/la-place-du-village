@@ -80,6 +80,7 @@ async function processOneEvent(
   sourceAuteur: string | null,
   sourceTelephone: string | null,
   imageUrl: string | null,
+  forcerRelecture = false,
 ): Promise<ProcessResult> {
   // 1. Dédup Claude-powered (cf. src/lib/checkDoublon.ts) — plus fiable que le
   // simple titre+date utilisé avant. Timeout 7s interne, retourne publier:false
@@ -136,7 +137,9 @@ async function processOneEvent(
     commune: extracted.commune,
     adresse: geo.adresse ?? extracted.lieu_adresse,
   })
-  const statut = dup.publier ? baseStatut : 'a_verifier'
+  // `forcerRelecture` : le message a produit une avalanche, on ne publie rien
+  // sans un œil humain (voir SEUIL_RELECTURE).
+  const statut = (dup.publier && !forcerRelecture) ? baseStatut : 'a_verifier'
 
   // 4. Insert event
   const { data: evt, error: evtErr } = await supabaseAdmin
@@ -194,6 +197,20 @@ async function processOneEvent(
  *
  * Le sender VM Signal lit `data.statut` pour son log "→ <statut>".
  */
+/**
+ * Au-delà de ce nombre d'événements tirés d'UN SEUL message, rien n'est publié
+ * automatiquement : tout part en `a_verifier`.
+ *
+ * Vécu le 03/09/2026 : une affiche de planning de cours de yoga (11 créneaux
+ * hebdomadaires) a produit 44 événements par passage, 319 en tout, tous
+ * publiés sans que personne ne les voie passer. Une affiche honnête de
+ * festival peut légitimement porter huit dates ; au-delà, c'est presque
+ * toujours une récurrence dépliée — et le pire cas d'une relecture inutile,
+ * c'est un clic de validation, quand le pire cas de l'inverse est un agenda
+ * noyé.
+ */
+const SEUIL_RELECTURE = 8
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
@@ -256,9 +273,14 @@ export async function POST(req: NextRequest) {
     const created: Array<{ id: string; titre: string; statut: string }> = []
     const skipped: Array<{ reason: string; titre: string | null; doublon_id?: string | null; error?: string }> = []
 
+    // Un seul message qui accouche d'une avalanche : on retient tout pour
+    // relecture au lieu de le déverser dans l'agenda.
+    const avalanche = extractedEvents.length > SEUIL_RELECTURE
+
     for (const extracted of extractedEvents) {
       const result = await processOneEvent(
         extracted, source, sourceGroupe, sourceAuteur, sourceTelephone, imageUrl,
+        avalanche,
       )
       if (result.ok) {
         created.push({ id: result.id, titre: result.titre, statut: result.statut })

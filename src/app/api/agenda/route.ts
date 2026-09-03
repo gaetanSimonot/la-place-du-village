@@ -24,6 +24,9 @@ import type { FiltreQuand } from '@/lib/types'
 
 export const revalidate = 60
 
+/** Garde-fou mémoire, pas un filtre éditorial : voir le commentaire au .limit(). */
+const PLAFOND = 2000
+
 const SELECT = 'id, titre, categorie, categories, date_debut, date_fin, heure, image_url, image_position, promotion, promo_ordre, lieux(id, nom, commune, lat, lng, place_id_google)'
 
 const QUAND_VALUES: FiltreQuand[] = ['toujours', 'aujourd_hui', 'cette_semaine', 'ce_week_end', 'ce_mois']
@@ -51,7 +54,13 @@ export async function GET(req: NextRequest) {
   let q = supabaseAdmin.from('evenements').select(SELECT)
     .eq('statut', 'publie')
     .order('date_debut', { ascending: true })
-    .limit(300)
+    // Pas de plafond arbitraire : à 300, l'agenda était TRONQUÉ en silence.
+    // Mesuré le 03/09/2026 : 654 événements à venir, 300 renvoyés — plus de
+    // 350 n'étaient visibles nulle part, et comme le tri est chronologique
+    // c'étaient les plus lointains qui sautaient. On garde une borne haute,
+    // uniquement comme garde-fou mémoire ; si elle est atteinte un jour, le
+    // champ `tronque` de la réponse le dira au lieu de le taire.
+    .limit(PLAFOND)
   // Filtre par recouvrement : l'event matche si UNE de ses catégories est
   // sélectionnée (multi-catégories). `categories` est backfillé pour toutes
   // les lignes par la migration 2026-06-18.
@@ -153,6 +162,8 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({
+    // Rend la troncature VISIBLE au lieu de la taire.
+    tronque: (evRes.data ?? []).length >= PLAFOND,
     evenements,
     promoEvents:   promoRes.data ?? [],
     splashFeatured,
