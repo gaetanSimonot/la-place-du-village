@@ -57,7 +57,9 @@ export default function PeopleClient() {
     let alive = true
     supabase
       .from('profiles')
-      .select('*', { count: 'exact', head: true })
+      // `user_id` et non `*` : c'est un comptage, inutile de demander des
+      // colonnes que la clé publique n'a plus le droit de lire.
+      .select('user_id', { count: 'exact', head: true })
       .then(({ count, error }) => {
         if (!alive) return
         if (!error && typeof count === 'number') setLiveTotal(count)

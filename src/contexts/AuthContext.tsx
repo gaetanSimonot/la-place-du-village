@@ -21,7 +21,9 @@ export interface Profile {
   bio?: string | null
   ville?: string | null
   link_url?: string | null
-  email: string | null
+  // Optionnel : renseigné depuis la session pour le profil du user connecté.
+  // Sur le profil d'un AUTRE membre, l'e-mail n'est plus lisible côté client.
+  email?: string | null
   username: string | null
   banned: boolean
   plan: string | null
@@ -110,7 +112,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const [profileRes, adminRes] = await Promise.allSettled([
         supabase
           .from('profiles')
-          .select('*')
+          // Colonnes ÉNUMÉRÉES, pas `*` : depuis le verrouillage par colonne
+          // (scripts/2026-09-03_profiles_lecture_par_colonne.sql), `email` et
+          // les champs newsletter ne sont plus lisibles avec la clé publique.
+          // Un `select('*')` demanderait ces colonnes et Postgres refuserait
+          // la requête entière.
+          .select('user_id, display_name, avatar_url, banner_url, bio, ville, link_url, username, banned, plan, pro_type, genre, is_verified, is_public, searchable, display_settings')
           .eq('user_id', userId)
           .single(),
         email
@@ -124,7 +131,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!mounted) return
 
       if (profileRes.status === 'fulfilled' && profileRes.value.data)
-        setProfile({ ...profileRes.value.data, id: userId } as Profile)
+        // `email` vient de la session auth, plus de la table : c'est de toute
+        // façon la source de vérité (profiles.email n'en est qu'une copie, et
+        // c'est bien auth.users.email qui décide du statut admin).
+        setProfile({ ...profileRes.value.data, id: userId, email } as Profile)
       if (adminRes.status === 'fulfilled')   setIsAdmin(!!(adminRes.value as { data: unknown }).data)
     }
 

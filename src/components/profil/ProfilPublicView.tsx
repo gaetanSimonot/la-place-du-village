@@ -65,7 +65,8 @@ export default function ProfilPublicView({ viewedUserId }: { viewedUserId: strin
     ;(async () => {
       const { data: p } = await supabase
         .from('profiles')
-        .select('*')
+        // Colonnes énumérées : `email` n'est plus lisible avec la clé publique
+        .select('user_id, display_name, avatar_url, banner_url, bio, ville, link_url, username, banned, plan, pro_type, genre, is_verified, is_public, searchable, display_settings')
         .eq('user_id', viewedUserId)
         .maybeSingle()
       if (cancelled) return

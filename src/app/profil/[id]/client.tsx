@@ -23,7 +23,6 @@ interface FullProfile {
   display_name: string | null
   avatar_url: string | null
   banner_url: string | null
-  email: string | null
   bio: string | null
   ville: string | null
   link_url: string | null
@@ -171,7 +170,9 @@ export default function ProfilPageClient({ id }: { id: string }) {
           { data: cvStats },
           { data: cvTrajets },
         ] = await Promise.all([
-          supabase.from('profiles').select('*').eq('user_id', id).single(),
+          // Colonnes énumérées : `email` n'est plus lisible avec la clé
+          // publique et un `select('*')` ferait échouer toute la requête.
+          supabase.from('profiles').select('user_id, display_name, avatar_url, banner_url, bio, ville, link_url, plan, genre, is_verified, is_public, searchable, display_settings').eq('user_id', id).single(),
           supabase.from('follows').select('*', { count: 'exact', head: true }).eq('followed_id', id),
           supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
           supabase.from('annonces').select('*', { count: 'exact', head: true }).eq('user_id', id).in('statut', ['active', 'don_final', 'vendu']),
@@ -288,7 +289,10 @@ export default function ProfilPageClient({ id }: { id: string }) {
     }
   }
 
-  const name = useMemo(() => profile?.display_name || profile?.email?.split('@')[0] || 'Anonyme', [profile])
+  // Repli sur l'e-mail retiré : il n'est plus lisible côté client, et il ne
+  // servait jamais — le trigger d'inscription remplit toujours display_name
+  // (aucun des 261 profils n'en est dépourvu, vérifié le 03/09/2026).
+  const name = useMemo(() => profile?.display_name || 'Anonyme', [profile])
 
   if (loading) return (
     <div className="relative min-h-[100dvh] bg-creme pb-28">

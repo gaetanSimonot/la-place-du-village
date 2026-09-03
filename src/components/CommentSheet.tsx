@@ -24,7 +24,7 @@ function renderContent(content: string) {
   return parts.length > 0 ? <>{parts}</> : <>{content}</>
 }
 
-interface Profile { id: string; display_name: string | null; avatar_url: string | null; email: string | null }
+interface Profile { id: string; display_name: string | null; avatar_url: string | null }
 interface CommentData {
   id: string; user_id: string; content: string; parent_id: string | null; created_at: string
   profile: Profile | null
@@ -64,7 +64,7 @@ function CommentBubble({ c, parentAuthor, onReply, isOwn, onMenuOpen, isEditing,
   isEditing?: boolean; editText?: string
   onEditChange?: (v: string) => void; onSaveEdit?: () => void; onCancelEdit?: () => void
 }) {
-  const name = c.profile?.display_name || c.profile?.email?.split('@')[0] || 'Anonyme'
+  const name = c.profile?.display_name || 'Anonyme'
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
       <Link href={`/profil/${c.user_id}`} style={{ flexShrink: 0, textDecoration: 'none' }}>
@@ -160,11 +160,14 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
       mentionTimer.current = setTimeout(async () => {
         const { data } = await supabase
           .from('profiles')
-          .select('user_id, display_name, avatar_url, email')
-          .or(`display_name.ilike.%${query}%,email.ilike.%${query}%`)
+          .select('user_id, display_name, avatar_url')
+          // Recherche par NOM seulement. La recherche par e-mail est retirée :
+          // elle exposait une donnée personnelle et permettait de tester
+          // l'existence d'un compte à partir d'une adresse.
+          .or(`display_name.ilike.%${query}%`)
           .limit(5)
-        setMentionSuggestions(((data ?? []) as { user_id: string; display_name: string | null; avatar_url: string | null; email: string | null }[])
-          .map(p => ({ id: p.user_id, display_name: p.display_name, avatar_url: p.avatar_url, email: p.email })))
+        setMentionSuggestions(((data ?? []) as { user_id: string; display_name: string | null; avatar_url: string | null }[])
+          .map(p => ({ id: p.user_id, display_name: p.display_name, avatar_url: p.avatar_url })))
       }, 200)
     } else {
       clearTimeout(mentionTimer.current)
@@ -178,7 +181,7 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
     const pos = el.selectionStart ?? text.length
     const before = text.slice(0, pos)
     const after = text.slice(pos)
-    const name = p.display_name || p.email?.split('@')[0] || 'Utilisateur'
+    const name = p.display_name || 'Utilisateur'
     const newBefore = before.replace(/@([^\s@]*)$/, `@[${name}](${p.id}) `)
     setText(newBefore + after)
     setMentionSuggestions([])
@@ -197,9 +200,9 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
     let pmap: Record<string, Profile> = {}
     if (ids.length > 0) {
       const { data: profiles } = await supabase
-        .from('profiles').select('user_id, display_name, avatar_url, email').in('user_id', ids)
-      pmap = Object.fromEntries(((profiles ?? []) as { user_id: string; display_name: string | null; avatar_url: string | null; email: string | null }[])
-        .map(p => [p.user_id, { id: p.user_id, display_name: p.display_name, avatar_url: p.avatar_url, email: p.email }]))
+        .from('profiles').select('user_id, display_name, avatar_url').in('user_id', ids)
+      pmap = Object.fromEntries(((profiles ?? []) as { user_id: string; display_name: string | null; avatar_url: string | null }[])
+        .map(p => [p.user_id, { id: p.user_id, display_name: p.display_name, avatar_url: p.avatar_url }]))
     }
     const merged: CommentData[] = list.map(c => ({ ...c, profile: pmap[c.user_id] ?? null }))
     setComments(merged)
@@ -221,7 +224,7 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
     if (!error && data) {
       const newComment: CommentData = {
         ...(data as Omit<CommentData, 'profile'>),
-        profile: { id: user.id, display_name: profile?.display_name ?? null, avatar_url: profile?.avatar_url ?? null, email: user.email ?? null },
+        profile: { id: user.id, display_name: profile?.display_name ?? null, avatar_url: profile?.avatar_url ?? null },
       }
       setComments(prev => {
         const next = [...prev, newComment]
@@ -260,7 +263,7 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
 
   const topLevel   = comments.filter(c => !c.parent_id)
   const repliesOf  = (pid: string) => comments.filter(c => c.parent_id === pid)
-  const authorOf   = (c: CommentData) => c.profile?.display_name || c.profile?.email?.split('@')[0] || 'Anonyme'
+  const authorOf   = (c: CommentData) => c.profile?.display_name || 'Anonyme'
   const myName     = profile?.display_name || user?.email?.split('@')[0] || 'Moi'
   const menuComment = menuId ? comments.find(c => c.id === menuId) ?? null : null
 
@@ -374,7 +377,7 @@ export default function CommentSheet({ evenementId, open, onClose, onCountChange
                     overflow: 'hidden', zIndex: 10,
                   }}>
                     {mentionSuggestions.map(p => {
-                      const name = p.display_name || p.email?.split('@')[0] || 'Utilisateur'
+                      const name = p.display_name || 'Utilisateur'
                       return (
                         <button key={p.id} onMouseDown={e => { e.preventDefault(); insertMention(p) }}
                           style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left' }}>
