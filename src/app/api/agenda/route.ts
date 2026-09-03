@@ -140,23 +140,38 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Ordre de la liste ────────────────────────────────────────────────
-  // Les événements qui DÉBUTENT dans la période passent devant ; ceux qui ne
-  // font que se poursuivre (expos, permanences, ateliers au long cours)
-  // ferment la marche.
+  // Ce qui se passe UNE FOIS passe devant ; ce qui dure ferme la marche.
   //
-  // Sans ce tri, l'inverse se produisait : la liste est ordonnée par date de
-  // début, donc une expo ouverte en mai arrivait AVANT le concert de ce soir.
-  // C'est ce qui rendait « Aujourd'hui » illisible — toujours les mêmes
-  // expositions en tête, et le frais noyé dessous.
+  // Le critère est la DURÉE, pas la date de début. Premier jet : « ce qui
+  // commence dans la période d'abord » — insuffisant, parce qu'un parcours
+  // ouvert le 1er septembre et courant jusqu'au 30 juin commence bel et bien
+  // cette semaine, et repassait donc en tête. 302 jours devant le concert de
+  // samedi.
+  //
+  // Au-delà d'une semaine, ce n'est plus un événement qu'on peut rater : une
+  // expo, une permanence, un parcours à l'année sont des choses installées.
+  // Elles restent visibles — c'était tout l'objet du filtre par recouvrement
+  // — mais en fin de liste, derrière le frais.
+  //
+  // Vaut pour les DEUX chemins : les pastilles et le calendrier. Le premier
+  // jet ne triait que les pastilles, donc choisir le 4 septembre ramenait les
+  // expos en tête.
+  const JOURS_INSTALLE = 7
+
+  const dureeEnJours = (e: { date_debut?: string | null; date_fin?: string | null }): number => {
+    if (!e.date_debut || !e.date_fin || e.date_fin === e.date_debut) return 0
+    const d1 = Date.parse(`${e.date_debut}T12:00:00Z`)
+    const d2 = Date.parse(`${e.date_fin}T12:00:00Z`)
+    if (Number.isNaN(d1) || Number.isNaN(d2)) return 0
+    return Math.round((d2 - d1) / 86_400_000)
+  }
+
   const evenements = [...(evRes.data ?? [])]
-  if (range) {
-    const debut = range.from
-    const commenceDansLaPeriode = (e: { date_debut?: string | null }) =>
-      !!e.date_debut && e.date_debut >= debut
+  if (dateExacte || range) {
     evenements.sort((a, b) => {
-      const da = commenceDansLaPeriode(a) ? 0 : 1
-      const db = commenceDansLaPeriode(b) ? 0 : 1
-      if (da !== db) return da - db
+      const ia = dureeEnJours(a) > JOURS_INSTALLE ? 1 : 0
+      const ib = dureeEnJours(b) > JOURS_INSTALLE ? 1 : 0
+      if (ia !== ib) return ia - ib
       return String(a.date_debut ?? '').localeCompare(String(b.date_debut ?? ''))
     })
   }
