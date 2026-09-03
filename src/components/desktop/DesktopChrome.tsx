@@ -37,10 +37,13 @@ const ONGLETS: { label: string; href: string; vue?: string; actif: (p: string, v
 const PLUS: { label: string; href: string; vue?: string }[] = [
   { label: 'Commerces',        href: '/?mode=annuaire', vue: 'annuaire' },
   { label: 'Producteurs',      href: '/?mode=annuaire&ann=producteurs', vue: 'producteurs' },
+  { label: 'Forum',            href: '/forum' },
   { label: 'Le journal',       href: '/journal' },
-  { label: 'Forum du village', href: '/forum' },
   { label: 'Covoiturage',      href: '/covoiturage' },
-  { label: 'Les voisins',      href: '/people' },
+  // « Les gens » et pas « Les voisins » : c'est le nom que la page se donne
+  // elle-même (annuaire des membres, recherche par nom ou ville). Une
+  // etiquette inventee ici ne dit a personne ou elle mene.
+  { label: 'Les gens',         href: '/people' },
 ]
 
 function IconeChevron({ ouvert }: { ouvert: boolean }) {

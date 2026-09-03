@@ -116,10 +116,13 @@
     gap: 8px;
     flex: 1;
     min-width: 0;
-    overflow: auto;
-    scrollbar-width: none;
+    /* SURTOUT PAS d'`overflow` ici : le menu « Plus » est un enfant de cette
+       barre et retombe SOUS elle. Le moindre `overflow: auto` le rognait a la
+       hauteur de la barre — 37 px — et il ne restait qu'un liseré. La barre
+       n'a pas besoin de defiler : sous 1120 px, la recherche se replie en
+       icone et les onglets se resserrent (voir §8). */
+    overflow: visible;
   }
-  .pcv-nav::-webkit-scrollbar { display: none; }
   .pcv-nav a {
     white-space: nowrap;
     padding: 7px 2px;
