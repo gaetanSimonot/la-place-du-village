@@ -128,6 +128,7 @@ export default function BottomSheet({
   const [peekH, setPeekH]         = useState(130) // hauteur mesurée du header
   const [visibleCount, setVisibleCount] = useState(BATCH)
   const [visibleEtabCount, setVisibleEtabCount] = useState(BATCH)
+  const [visibleProdCount, setVisibleProdCount] = useState(BATCH)
 
   // ── Sélection multiple admin (clic long sur l'agenda) ──
   const [selectMode, setSelectMode] = useState(false)
@@ -222,6 +223,18 @@ export default function BottomSheet({
       if (entries[0].isIntersecting) setVisibleEtabCount(n => n + BATCH)
     }, { threshold: 0.1 })
     etabObsRef.current.observe(el)
+  }, [])
+  // Producteurs : ils s'affichaient TOUS d'un coup, contrairement aux
+  // événements et aux commerces. Sur bureau la colonne est haute et la liste
+  // longue à peindre ; ils se chargent maintenant par lots comme les autres.
+  const prodObsRef = useRef<IntersectionObserver | null>(null)
+  const prodLoaderRef = useCallback((el: HTMLDivElement | null) => {
+    if (prodObsRef.current) { prodObsRef.current.disconnect(); prodObsRef.current = null }
+    if (!el) return
+    prodObsRef.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) setVisibleProdCount(n => n + BATCH)
+    }, { threshold: 0.1 })
+    prodObsRef.current.observe(el)
   }, [])
   const dragControls              = useDragControls()
 
@@ -410,6 +423,7 @@ export default function BottomSheet({
   // Reset visibleCount quand la liste change (nouveau filtre)
   useEffect(() => { setVisibleCount(BATCH) }, [evenements])
   useEffect(() => { setVisibleEtabCount(BATCH) }, [etablissements])
+  useEffect(() => { setVisibleProdCount(BATCH) }, [producers])
 
   // L'événement sélectionné garde SA place dans la liste. On le remontait
   // autrefois en tête, ce qui réorganisait tout sous les doigts : maintenant
@@ -835,7 +849,25 @@ export default function BottomSheet({
       <style>{`.pdv-list-noscroll{scrollbar-width:none}.pdv-list-noscroll::-webkit-scrollbar{display:none}`}</style>
       <div
         ref={listRef}
-        onScroll={e => { if (listStateRef) listStateRef.current = { top: (e.currentTarget as HTMLDivElement).scrollTop, count: visibleCount } }}
+        onScroll={e => {
+          const el = e.currentTarget as HTMLDivElement
+          if (listStateRef) listStateRef.current = { top: el.scrollTop, count: visibleCount }
+          // Chargement par lots à l'approche du bas.
+          //
+          // Le détecteur d'intersection ne se déclenche pas dans cette colonne
+          // sur ordinateur — vérifié à la main : même un observateur posé
+          // depuis la console ne reçoit jamais rien, alors que l'élément est
+          // bien dans le champ. On mesure donc le défilement, ce qui ne dépend
+          // d'aucune subtilité de géométrie.
+          //
+          // Réservé au bureau : sur mobile le détecteur fait déjà le travail,
+          // et deux mécanismes chargeraient deux lots d'un coup.
+          if (typeof window === 'undefined' || !window.matchMedia('(min-width: 1024px)').matches) return
+          if (el.scrollTop + el.clientHeight < el.scrollHeight - 320) return
+          if (appMode === 'agenda')          setVisibleCount(n => n + BATCH)
+          else if (annuaireTabIdx === 1)     setVisibleEtabCount(n => n + BATCH)
+          else                               setVisibleProdCount(n => n + BATCH)
+        }}
         className="pdv-list-noscroll"
         style={{
           flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10,
@@ -924,7 +956,7 @@ export default function BottomSheet({
               {featuredProducers.length > 0 && mode !== 'peek' && (
                 <ProducerBandeau producers={featuredProducers} onDiscover={id => { onSelectProducer?.(id) }} />
               )}
-              {displayedProducers.map(p => (
+              {displayedProducers.slice(0, visibleProdCount).map(p => (
                 <ProducerListCard
                   key={p.id}
                   producer={p}
@@ -936,6 +968,11 @@ export default function BottomSheet({
                   onToggleFav={() => onToggleProducerFav?.(p.id)}
                 />
               ))}
+              {visibleProdCount < displayedProducers.length && (
+                <div ref={prodLoaderRef} style={{ height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid #E0D8CE', borderTopColor: 'var(--primary)', animation: 'spin 0.7s linear infinite' }} />
+                </div>
+              )}
             </>
           )
         ) : loading ? (
@@ -977,13 +1014,18 @@ export default function BottomSheet({
             ))}
             {visibleCount < visibleSource.length && (
               <>
-                {/* Mobile : la suite se charge toute seule au défilement. */}
-                <div ref={loaderRef} className="pcv-hide" style={{ height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {/* La suite se charge toute seule en approchant du bas, sur
+                    bureau comme sur mobile.
+
+                    Il était masqué sur bureau quand le bouton ci-dessous est
+                    arrivé — et un élément en `display: none` ne croise jamais
+                    le bord de l'écran : le détecteur ne se déclenchait plus,
+                    et la liste s'arrêtait au premier lot. */}
+                <div ref={loaderRef} style={{ height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid #E0D8CE', borderTopColor: 'var(--primary)', animation: 'spin 0.7s linear infinite' }} />
                 </div>
-                {/* Bureau : on demande la suite. Un défilement sans fin prive
-                    de tout repère sur ce qu'il reste à voir, et empêche
-                    d'atteindre le bas de la colonne. */}
+                {/* Le bouton reste en secours : sur un écran très haut, le
+                    détecteur peut ne jamais entrer dans le champ. */}
                 <button
                   type="button"
                   className="pcv-only pcv-plusEvts"
