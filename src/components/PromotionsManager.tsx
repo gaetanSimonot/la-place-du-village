@@ -223,7 +223,7 @@ export function PromotionForm({ etablissementId, etablissementPhotos, promo, onC
       backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
     }}>
-      <div onClick={e => e.stopPropagation()} style={{
+      <div className="pcv-sheet" onClick={e => e.stopPropagation()} style={{
         width: '100%', maxWidth: 480, backgroundColor: '#fff',
         borderRadius: '24px 24px 0 0', padding: '20px 20px 28px',
         paddingBottom: 'max(28px, env(safe-area-inset-bottom, 28px))',

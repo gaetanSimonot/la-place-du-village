@@ -153,7 +153,7 @@ export default function EvenementPageClient({ id }: { id: string }) {
           h-[300px] avant, l'image laissait 80px de vide en bas (fond
           bg-[#F0EBE3] visible) où atterrissait le badge catégorie → effet
           "bande grise" entre image et card blanche. */}
-      <div className="relative h-[220px] w-full overflow-hidden bg-[#F0EBE3]">
+      <div className="pcv-fiche-hero relative h-[220px] w-full overflow-hidden bg-[#F0EBE3]">
         {evt.image_url ? (
           <ImageLightbox src={evt.image_url} alt={evt.titre} objectPosition={evt.image_position ?? '50% 50%'} />
         ) : imageDeRepli ? (
@@ -272,7 +272,7 @@ export default function EvenementPageClient({ id }: { id: string }) {
             <Divider />
             <div className="px-4 pt-[18px]">
               <div className="mb-2 text-[11px] font-extrabold tracking-[0.1em] text-texte-doux">À PROPOS</div>
-              <p className="m-0 whitespace-pre-wrap text-[14px] leading-[1.6] text-texte">
+              <p className="pcv-fiche-corps m-0 whitespace-pre-wrap text-[14px] leading-[1.6] text-texte">
                 {linkify(evt.description)}
               </p>
             </div>

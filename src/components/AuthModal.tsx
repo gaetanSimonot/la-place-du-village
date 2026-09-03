@@ -19,7 +19,7 @@ export default function AuthModal() {
       }}
       onClick={closeAuthModal}
     >
-      <div
+      <div className="pcv-sheet"
         style={{
           width: '100%', maxWidth: 480, backgroundColor: '#fff',
           borderRadius: '24px 24px 0 0', padding: '24px 24px 20px',

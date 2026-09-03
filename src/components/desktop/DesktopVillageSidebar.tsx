@@ -115,7 +115,7 @@ export default function DesktopVillageSidebar() {
   const estPartenaire = profile?.plan === 'pro'
 
   return (
-    <aside className="pcv-only pcv-sbCol">
+    <aside className="pcv-only pcv-sbCol pcv-scroll">
 
       {/* Autour de chez soi — la carte est à un clic, on ne la duplique pas
           ici en vignette morte. */}

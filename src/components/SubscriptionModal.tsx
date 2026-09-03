@@ -209,7 +209,7 @@ export default function SubscriptionModal({ context, onClose, currentPlan = 'bas
     <>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 2400, backgroundColor: 'rgba(15,10,5,0.65)', backdropFilter: 'blur(4px)' }} />
 
-      <div style={{
+      <div className="pcv-sheet" style={{
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 2401,
         height: '94dvh', display: 'flex', flexDirection: 'column',
         background: '#FBFAF7', borderRadius: '24px 24px 0 0', overflow: 'hidden',

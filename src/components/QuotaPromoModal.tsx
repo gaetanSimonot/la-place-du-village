@@ -53,7 +53,7 @@ export default function QuotaPromoModal({ promoTitle, promoWhere, others, otherC
   if (typeof document === 'undefined') return null
   return createPortal(
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(15,10,5,0.62)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', fontFamily: 'var(--font-body), sans-serif' }}>
-      <div onClick={e => e.stopPropagation()} style={{ position: 'relative', width: '100%', maxWidth: 480, background: '#FBFAF7', borderRadius: '24px 24px 0 0', paddingBottom: 'max(18px, env(safe-area-inset-bottom, 18px))', boxShadow: '0 -8px 40px rgba(0,0,0,0.22)' }}>
+      <div className="pcv-sheet" onClick={e => e.stopPropagation()} style={{ position: 'relative', width: '100%', maxWidth: 480, background: '#FBFAF7', borderRadius: '24px 24px 0 0', paddingBottom: 'max(18px, env(safe-area-inset-bottom, 18px))', boxShadow: '0 -8px 40px rgba(0,0,0,0.22)' }}>
         <div style={{ width: 44, height: 4, borderRadius: 2, background: '#D1CCC4', margin: '12px auto 0' }} />
         <button aria-label="Fermer" onClick={onClose} style={{ position: 'absolute', top: 14, right: 16, width: 30, height: 30, borderRadius: '50%', background: '#F0EAE0', border: 'none', cursor: 'pointer', color: '#7A6A5A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>

@@ -133,7 +133,7 @@ function IosInstallModal({ onClose, onAlreadyInstalled }: { onClose: () => void;
       onClick={onClose}
       style={{ position: 'fixed', inset: 0, zIndex: 3800, backgroundColor: 'rgba(15,10,5,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', fontFamily: 'var(--font-body), sans-serif' }}
     >
-      <div
+      <div className="pcv-sheet"
         onClick={e => e.stopPropagation()}
         style={{ width: '100%', maxWidth: 480, backgroundColor: '#fff', borderRadius: '24px 24px 0 0', padding: '8px 20px 24px', paddingBottom: 'max(24px, env(safe-area-inset-bottom, 24px))' }}
       >

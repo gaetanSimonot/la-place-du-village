@@ -1060,7 +1060,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
       {addMenuOpen && (
         <ClientPortal>
           <div onClick={() => setAddMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 3000, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-            <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, backgroundColor: '#fff', borderRadius: '24px 24px 0 0', padding: '18px 18px 24px', paddingBottom: 'max(24px, env(safe-area-inset-bottom, 24px))', fontFamily: 'var(--font-body), sans-serif' }}>
+            <div className="pcv-sheet" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, backgroundColor: '#fff', borderRadius: '24px 24px 0 0', padding: '18px 18px 24px', paddingBottom: 'max(24px, env(safe-area-inset-bottom, 24px))', fontFamily: 'var(--font-body), sans-serif' }}>
               <div style={{ width: 38, height: 4, borderRadius: 2, backgroundColor: '#E0D8CE', margin: '0 auto 16px' }} />
               <p style={{ margin: '0 0 14px', fontSize: 16, fontWeight: 800, color: '#1A1209' }}>Que voulez-vous ajouter ?</p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>

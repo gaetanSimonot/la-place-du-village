@@ -27,7 +27,7 @@ export default function WelcomePopup({ onClose }: { onClose: () => void }) {
         fontFamily: 'var(--font-body), sans-serif',
       }}
     >
-      <div
+      <div className="pcv-sheet"
         style={{
           width: '100%', maxWidth: 480,
           backgroundColor: '#FAF7F2',

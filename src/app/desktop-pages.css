@@ -1,0 +1,43 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   TOUTES LES AUTRES PAGES
+
+   Une trentaine d'écrans (forum, journal, covoiturage, profil, cinéma,
+   fiches, formulaires…) sont écrits pour une colonne de 430 px. Étirés sur
+   1900 px, ils deviennent illisibles : des lignes de texte de deux cents
+   caractères, des boutons perdus aux deux bouts de l'écran.
+
+   Plutôt que d'ajouter une classe dans trente fichiers, on vise la classe
+   racine qu'ils ont tous en commun — `min-h-[100dvh]`, posée par Tailwind sur
+   le conteneur de page. Une règle, tous les écrans.
+
+   L'accueil n'est PAS concerné : sa racine porte une hauteur en style inline,
+   pas cette classe. C'est voulu — la carte doit rester pleine largeur.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@media (min-width: 1024px) {
+
+  [class*="min-h-[100dvh]"] {
+    max-width: 1220px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+
+  /* La barre du bas n'existe plus ici : la réserve de 100 à 130 px prévue
+     pour elle laisse un grand vide en pied de page. */
+  [class*="min-h-[100dvh]"] { padding-bottom: 40px !important; }
+
+  /* ─── Fiche événement (handoff §8) ────────────────────────────────────
+     Le corps de texte ne doit pas dépasser une longueur de ligne lisible.
+     62 caractères, c'est la mesure du handoff. */
+  .pcv-fiche-corps { max-width: 62ch; }
+
+  /* La photo d'en-tête gagne en hauteur, elle est la porte d'entrée d'un
+     partage : 220 px sur 1150 de large font une bande. */
+  .pcv-fiche-hero { height: 330px !important; }
+
+  @media (max-width: 760px) {
+    [class*="min-h-[100dvh]"] { padding-left: 20px; padding-right: 20px; }
+  }
+}

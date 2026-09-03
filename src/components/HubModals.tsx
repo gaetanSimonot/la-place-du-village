@@ -21,7 +21,7 @@ function Modal({ children, onClose }: { children: React.ReactNode; onClose: () =
         fontFamily: 'var(--font-body), sans-serif',
       }}
     >
-      <div
+      <div className="pcv-sheet"
         onClick={e => e.stopPropagation()}
         style={{
           width: '100%', maxWidth: 480, backgroundColor: '#fff',

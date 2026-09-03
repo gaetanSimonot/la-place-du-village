@@ -302,11 +302,18 @@
   /* Colonne de droite — elle suit le défilement, comme la maquette. */
   .pcv-sbCol {
     position: sticky;
-    top: 78px;
+    top: 0;
     display: flex;
     flex-direction: column;
     gap: 14px;
     min-width: 0;
+    /* Elle doit pouvoir défiler pour elle-même : collée, elle dépassait du bas
+       de l'écran dès qu'elle était plus haute que lui, et ses derniers encarts
+       devenaient inatteignables. La hauteur est celle du panneau d'accueil,
+       moins la marge du haut. */
+    max-height: calc(100dvh - 130px);
+    overflow-y: auto;
+    padding-bottom: 4px;
   }
   .pcv-sbCard {
     border: 1px solid #E8E0D4;

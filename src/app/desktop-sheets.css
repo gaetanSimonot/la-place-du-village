@@ -1,0 +1,47 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   FEUILLES DU BAS → BOÎTES CENTRÉES (handoff §8)
+
+   L'app compte une douzaine de feuilles ancrées en bas de l'écran, coins
+   arrondis en haut : c'est le bon geste au pouce. Sur un écran de bureau,
+   une feuille collée en bas d'un écran de 1080 px de haut, à mille pixels
+   du regard, n'a plus aucun sens. Elles deviennent des boîtes centrées.
+
+   Ces composants portent leur position en style INLINE : seul `!important`
+   peut passer devant. C'est la raison de chaque `!important` ci-dessous, et
+   la seule.
+
+   Le contenu, lui, n'est pas touché — c'est la même feuille, posée ailleurs.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@media (min-width: 1024px) {
+
+  .pcv-sheet {
+    position: fixed !important;
+    top: 50% !important;
+    bottom: auto !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translate(-50%, -50%) !important;
+
+    width: min(560px, calc(100vw - 80px)) !important;
+    max-width: min(560px, calc(100vw - 80px)) !important;
+
+    /* Une feuille mobile prend souvent 92dvh : centrée, elle doit respirer. */
+    max-height: 86dvh !important;
+    height: auto !important;
+    overflow-y: auto !important;
+
+    /* Quatre coins, puisqu'elle ne sort plus du bas de l'écran. */
+    border-radius: 18px !important;
+
+    /* Le bas d'écran d'un téléphone n'existe pas ici. */
+    padding-bottom: 24px !important;
+
+    box-shadow: 0 24px 70px rgba(26,18,9,.28), 0 4px 16px rgba(26,18,9,.12) !important;
+  }
+
+  /* La poignée de glissement ne veut plus rien dire sur une boîte centrée :
+     rien à glisser, et elle mange 20 px en haut du contenu. */
+  .pcv-sheet > div:first-child[style*="width: 44px"],
+  .pcv-sheet > div:first-child[style*="width:44px"] { display: none !important; }
+}

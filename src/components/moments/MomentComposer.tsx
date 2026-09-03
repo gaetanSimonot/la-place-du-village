@@ -208,7 +208,7 @@ export default function MomentComposer({ onClose, onPublished }: Props) {
   return createPortal(
     <div style={{ position: 'fixed', inset: 0, zIndex: 1300, fontFamily: 'var(--font-body), sans-serif' }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(15,10,5,0.6)', backdropFilter: 'blur(4px)' }} />
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: '#FBFAF7', borderRadius: '24px 24px 0 0', paddingBottom: 'max(20px,env(safe-area-inset-bottom,20px))', boxShadow: '0 -8px 40px rgba(0,0,0,0.22)' }}>
+      <div className="pcv-sheet" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: '#FBFAF7', borderRadius: '24px 24px 0 0', paddingBottom: 'max(20px,env(safe-area-inset-bottom,20px))', boxShadow: '0 -8px 40px rgba(0,0,0,0.22)' }}>
         <div style={{ width: 44, height: 4, borderRadius: 2, background: '#D1CCC4', margin: '12px auto 0' }} />
         <div style={{ padding: '16px 24px 0', textAlign: 'center' }}>
           <h2 style={{ margin: 0, fontFamily: '"DM Serif Display", Georgia, serif', fontSize: 23, color: '#1A1209', letterSpacing: '-0.02em' }}>Partage ton moment</h2>

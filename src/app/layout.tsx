@@ -5,6 +5,8 @@ import './globals.css'
 // Version ordinateur : additif, tout est enfermé au-dessus de 1024 px.
 import './desktop.css'
 import './desktop-village.css'
+import './desktop-sheets.css'
+import './desktop-pages.css'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import InstallBanner from '@/components/InstallBanner'
 import { AuthModalProvider } from '@/contexts/AuthModalContext'

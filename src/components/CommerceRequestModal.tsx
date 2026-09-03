@@ -105,7 +105,7 @@ export default function CommerceRequestModal({ onClose }: { onClose: () => void 
       `}</style>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'rgba(26,18,9,0.55)', backdropFilter: 'blur(3px)' }} />
       <div
-        className="pdv-ref-modal"
+        className="pcv-sheet pdv-ref-modal"
         style={{
           position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 401,
           backgroundColor: '#fff', borderRadius: '24px 24px 0 0',
