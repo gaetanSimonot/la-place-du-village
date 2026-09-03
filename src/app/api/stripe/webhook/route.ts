@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { notifyUser } from '@/lib/server-auth'
+import { envoyerBienvenuePartenaire } from '@/lib/bienvenuePartenaire'
 import Stripe from 'stripe'
 
 /**
@@ -49,6 +50,11 @@ export async function POST(req: NextRequest) {
       .from('profiles')
       .update({ plan })
       .eq('user_id', user_id)
+
+    // Bienvenue Partenaire Local — une seule fois, quel que soit le chemin
+    // (paiement ici, attribution manuelle dans /api/admin/membres).
+    // Fail-soft : n'interrompt jamais le traitement du paiement.
+    if (plan === 'pro') await envoyerBienvenuePartenaire(user_id)
 
     // 2. Auto-claim de la fiche payée si etab_id fourni
     if (etab_id) {

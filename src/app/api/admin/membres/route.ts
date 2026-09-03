@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/server-auth'
+import { envoyerBienvenuePartenaire } from '@/lib/bienvenuePartenaire'
 
 export async function GET(req: NextRequest) {
   const ctx = await requireAdmin(req)
@@ -91,6 +92,11 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // Bienvenue Partenaire Local — même message que pour un abonnement payé.
+    // La fonction vérifie elle-même que le plan est bien 'pro' et que l'e-mail
+    // n'a jamais été envoyé : réenregistrer un profil ne le renvoie pas.
+    if (plan === 'pro') await envoyerBienvenuePartenaire(user_id)
 
     // Sync is_max on producer for backward compat with the public annuaire API
     const { data: prod } = await supabaseAdmin

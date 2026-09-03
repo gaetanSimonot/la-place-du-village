@@ -2,6 +2,8 @@
 import { useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { ETAB_TYPES, descriptionsFiche } from '@/lib/etablissement-types'
+import ChampTexteRiche from '@/components/ChampTexteRiche'
+import TexteRiche from '@/components/TexteRiche'
 import { PLAN_ORDER, PLANS_INFO } from '@/lib/capabilities'
 import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
 import type { Etablissement } from '@/lib/types'
@@ -219,7 +221,12 @@ export default function EtabEditDrawer({ etab, isAdmin, onClose, onSaved }: Prop
           <div>
             <label style={s.label}>Présentation</label>
             <p style={s.aide}>Le texte de votre fiche. Prenez la place qu&apos;il vous faut.</p>
-            <textarea value={descLongue} onChange={e => setDescLongue(e.target.value)} rows={4} placeholder="Qui vous êtes, ce que vous proposez, ce qui vous distingue…" style={{ ...s.input, resize: 'none' as const, lineHeight: 1.5 }} />
+            <ChampTexteRiche
+              valeur={descLongue}
+              onChange={setDescLongue}
+              rows={6}
+              placeholder="Qui vous êtes, ce que vous proposez, ce qui vous distingue…"
+            />
           </div>
 
           {/* Aperçu — même fonction que la fiche publique, donc fidèle */}
@@ -231,8 +238,10 @@ export default function EtabEditDrawer({ etab, isAdmin, onClose, onSaved }: Prop
                 <p style={{ ...s.aide, marginBottom: 8 }}>Aperçu de votre fiche</p>
                 <div style={{ background: '#fff', border: '1px solid #F0EAE0', borderRadius: 12, padding: '12px 14px' }}>
                   <h3 style={{ fontSize: 11, fontWeight: 800, color: '#8A7A6A', margin: '0 0 8px', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>À propos</h3>
-                  {accroche && <p style={{ fontSize: 14, color: '#4A3728', lineHeight: 1.7, margin: '0 0 6px', whiteSpace: 'pre-wrap' as const }}>{accroche}</p>}
-                  {presentation && <p style={{ fontSize: 13, color: '#6B5E4E', lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' as const }}>{presentation}</p>}
+                  {/* TexteRiche, comme la fiche : le gras et les titres se
+                      voient ici tels qu'ils s'afficheront, pas en astérisques. */}
+                  {accroche && <TexteRiche texte={accroche} style={{ fontSize: 14, color: '#4A3728', lineHeight: 1.7, marginBottom: 6 }} />}
+                  {presentation && <TexteRiche texte={presentation} style={{ fontSize: 13, color: '#6B5E4E', lineHeight: 1.7 }} />}
                 </div>
                 {accrocheMasquee && (
                   <p style={{ ...s.aide, marginTop: 8, marginBottom: 0, color: '#8A7A6A' }}>
