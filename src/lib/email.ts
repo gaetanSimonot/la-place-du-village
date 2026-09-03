@@ -55,8 +55,17 @@ export function textToHtml(text: string): string {
   return text.split(/\n{2,}/).map(p => `<p style="margin:0 0 14px;line-height:1.6">${esc(p).replace(/\n/g, '<br/>')}</p>`).join('')
 }
 
+/**
+ * Bouton d'action, rendu en table pour survivre aux clients mail anciens.
+ * Exposé à part : un message peut en contenir plusieurs, là où `renderEmail`
+ * n'en place qu'un seul en pied de contenu.
+ */
+export function boutonEmail(href: string, label: string): string {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:16px 0"><tr><td style="border-radius:12px;background:#2D5A3D"><a href="${href}" style="display:inline-block;padding:13px 26px;color:#fff;font-weight:800;text-decoration:none;border-radius:12px">${esc(label)}</a></td></tr></table>`
+}
+
 /** Gabarit HTML d'un email (entête village + contenu + CTA optionnel + footer). */
-export function renderEmail(opts: { titre: string; bodyHtml: string; cta?: { href: string; label: string }; footerHtml?: string }): string {
+export function renderEmail(opts: { titre?: string; bodyHtml: string; cta?: { href: string; label: string }; footerHtml?: string }): string {
   const cta = opts.cta
     ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:18px 0"><tr><td style="border-radius:12px;background:#2D5A3D"><a href="${opts.cta.href}" style="display:inline-block;padding:13px 26px;color:#fff;font-weight:800;text-decoration:none;border-radius:12px">${esc(opts.cta.label)}</a></td></tr></table>`
     : ''
@@ -66,7 +75,7 @@ export function renderEmail(opts: { titre: string; bodyHtml: string; cta?: { hre
       <a href="${SITE}" style="font-size:20px;font-weight:800;color:#2D5A3D;text-decoration:none">La Place du Village</a>
     </div>
     <div style="background:#fff;border:1px solid #EAE2D6;border-radius:16px;padding:24px">
-      <h1 style="margin:0 0 14px;font-size:20px;color:#1A1209">${esc(opts.titre)}</h1>
+      ${opts.titre ? `<h1 style="margin:0 0 14px;font-size:20px;color:#1A1209">${esc(opts.titre)}</h1>` : ''}
       ${opts.bodyHtml}
       ${cta}
     </div>

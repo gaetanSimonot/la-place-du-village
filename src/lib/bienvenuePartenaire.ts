@@ -11,80 +11,86 @@
  * Fail-soft : un échec d'envoi ne marque pas la date et ne fait jamais
  * échouer l'appelant. Personne ne doit rater son abonnement parce qu'un
  * e-mail n'est pas parti.
+ *
+ * TEXTE — écrit par Gaëtan, vouvoiement. Deux réserves signalées le
+ * 03/09/2026, à trancher avant de compter dessus :
+ *   - « mise en avant dans les résultats de recherche » : la recherche
+ *     globale (HubSearchModal) ne trie PAS par is_featured aujourd'hui. Seul
+ *     l'annuaire le fait (/api/etablissements, .order('is_featured')).
+ *   - « proposer vos articles au Journal Local » : /journal/articles/nouveau
+ *     est ouvert à tout compte connecté, ce n'est pas un avantage Partenaire.
  */
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { sendEmail, renderEmail } from '@/lib/email'
-import { PLANS_INFO } from '@/lib/capabilities'
+import { sendEmail, renderEmail, boutonEmail } from '@/lib/email'
 
 const SITE = 'https://laplaceduvillage.app'
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
-/**
- * Ce qui devient possible, formulé en ACTIONS et non en fonctionnalités.
- * La liste de référence reste PLANS_INFO.pro.features (capabilities.ts) : si
- * les droits changent là-bas, ce texte doit suivre.
- */
-const OUVERTURES: { titre: string; detail: string }[] = [
-  {
-    titre: 'Ta fiche t’appartient',
-    detail: 'Photos, horaires, présentation, contact : tu modifies tout, quand tu veux, sans passer par nous.',
-  },
-  {
-    titre: 'Tes bons plans',
-    detail: 'Tu crées tes promotions et elles apparaissent dans l’onglet Bons plans, sous les yeux du village.',
-  },
-  {
-    titre: 'À la une de ta catégorie',
-    detail: 'Ta fiche remonte dans le bandeau en tête de liste, là où les gens regardent en premier.',
-  },
-  {
-    titre: 'Ta boutique, si tu vends',
-    detail: 'Tu peux détailler tes produits et apparaître sur la carte des producteurs.',
-  },
-  {
-    titre: 'Et tous les avantages Habitants',
-    detail: 'Annonces illimitées, promos sans compteur, enchères 12 h avant tout le monde.',
-  },
+/** Paragraphe courant. */
+const p = (html: string) => `<p style="margin:0 0 14px;line-height:1.65;font-size:15px;color:#3C2C20">${html}</p>`
+
+/** Intertitre de section. */
+const h = (texte: string) =>
+  `<p style="margin:26px 0 10px;font-size:16px;font-weight:800;line-height:1.35;color:#1A1209">${esc(texte)}</p>`
+
+/** Puces de la liste d'avantages. */
+const AVANTAGES = [
+  'une <strong>mise en avant dans les résultats de recherche</strong>',
+  'une <strong>meilleure visibilité dans vos catégories</strong>',
+  'des <strong>mises en avant dans notre newsletter locale</strong>',
+  'des <strong>promotions locales illimitées</strong>',
+  'l’<strong>accès complet aux fonctionnalités de l’application</strong>',
+  'davantage de possibilités pour <strong>enrichir et personnaliser votre fiche</strong>',
+  'un <strong>kit de création pour votre communication</strong>',
+  'la possibilité de <strong>proposer vos articles et actualités au Journal Local</strong>',
+  'et d’autres outils réservés aux Partenaires Locaux.',
 ]
 
-function corpsHtml(prenom: string | null): string {
+function corpsHtml(prenom: string | null, lienFiche: string, lienPromos: string): string {
   const bonjour = prenom ? `Bonjour ${esc(prenom)},` : 'Bonjour,'
 
-  const liste = OUVERTURES.map(o => `
+  const puces = AVANTAGES.map(a => `
     <tr>
-      <td style="padding:0 0 14px">
-        <div style="font-weight:800;font-size:14px;color:#1A1209;margin-bottom:3px">${esc(o.titre)}</div>
-        <div style="font-size:14px;line-height:1.6;color:#5A4A3A">${esc(o.detail)}</div>
+      <td style="padding:0 0 8px;font-size:15px;line-height:1.6;color:#3C2C20">
+        <span style="color:#2D5A3D">•</span>&nbsp; ${a}
       </td>
     </tr>`).join('')
 
-  return `
-    <p style="margin:0 0 14px;line-height:1.6">${bonjour}</p>
+  return [
+    p(bonjour),
 
-    <p style="margin:0 0 14px;line-height:1.6">
-      Te voilà <strong>Partenaire Local</strong>. Merci — c’est ce qui fait vivre
-      La Place du Village, et ça veut dire que ton commerce a maintenant sa vraie
-      place dans le village, tenue par toi.
-    </p>
+    p('Bienvenue parmi les <strong>Partenaires Locaux de La Place du Village</strong>, et merci pour votre confiance !'),
 
-    <p style="margin:0 0 8px;line-height:1.6;font-weight:700">Ce qui t’est ouvert :</p>
+    p('Votre abonnement est maintenant actif. Votre établissement bénéficie dès aujourd’hui de <strong>plus de visibilité sur La Place du Village</strong> et de nouveaux outils pour faire connaître votre activité auprès des habitants.'),
 
-    <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 6px">
-      ${liste}
-    </table>
+    p('Concrètement, vous profitez notamment de :'),
 
-    <p style="margin:0 0 4px;line-height:1.6">
-      <strong>Par où commencer ?</strong> Complète ta fiche. Une bonne photo, tes
-      horaires à jour et quelques lignes de présentation : c’est ce qui fait la
-      différence entre une fiche qu’on croise et une fiche qui donne envie de
-      pousser la porte.
-    </p>`
+    `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 4px">${puces}</table>`,
+
+    h('Pour bien commencer : créez une promotion locale'),
+    p('Une remise sur une prestation, un petit cadeau, une offre découverte, un avantage réservé aux habitants… <strong>même une offre toute simple peut vous apporter immédiatement plus de visibilité.</strong>'),
+    p('Dès sa publication, votre offre apparaît dans l’onglet <strong>Promotions</strong>, l’un des espaces les plus consultés de La Place du Village après la carte des événements.'),
+    boutonEmail(lienPromos, 'Créer ma première promotion'),
+
+    h('Faites aussi vivre votre fiche'),
+    p('Ajoutez vos plus belles photos, vérifiez vos horaires, présentez votre activité et mettez régulièrement vos informations à jour.'),
+    p('Une fiche complète permet aux habitants de mieux vous connaître et vous aide à <strong>profiter au maximum des différentes mises en avant incluses dans votre abonnement.</strong>'),
+    boutonEmail(lienFiche, 'Compléter ma fiche'),
+
+    h('La Place du Village évolue avec vous'),
+    p('La Place du Village est en constante évolution. Nous ajoutons régulièrement de nouvelles fonctionnalités pour mieux mettre en valeur les acteurs locaux et faciliter les échanges avec les habitants.'),
+    p(`Une question ? Une difficulté ? Une suggestion ou une idée pour améliorer la plateforme ? <a href="${SITE}/support" style="color:#2D5A3D;font-weight:700">Écrivez-nous.</a> Vos retours nous aident directement à faire évoluer La Place du Village.`),
+    p('Et surtout, <strong>merci de participer à cette aventure locale.</strong> En rejoignant les Partenaires Locaux, vous contribuez à rendre plus visibles les commerces, services, producteurs, associations et initiatives qui font vivre notre territoire au quotidien.'),
+
+    p('À très bientôt sur La Place du Village,'),
+    p('L’équipe de <strong>La Place du Village</strong>'),
+  ].join('')
 }
 
 function piedHtml(): string {
-  return `Tu reçois ce message parce que tu viens de devenir Partenaire Local sur La Place du Village.<br/>
-    Une question, un doute, une idée ? <a href="${SITE}/support" style="color:#2D5A3D">Écris-nous</a>, on répond.`
+  return `Vous recevez ce message parce que votre abonnement Partenaire Local vient d’être activé sur La Place du Village.<br/>
+    <a href="${SITE}/support" style="color:#9A8A7A">Nous écrire</a>`
 }
 
 /**
@@ -106,8 +112,10 @@ export async function envoyerBienvenuePartenaire(userId: string): Promise<void> 
     if (profil.plan !== 'pro') return
     if (profil.partenaire_bienvenue_at) return
 
-    // Lien vers SA fiche si elle existe déjà (cas d'un abonnement pris depuis
-    // une revendication), sinon vers l'app.
+    // Les deux boutons pointent vers SA fiche : c'est là que vivent le
+    // gestionnaire de promotions et l'édition. L'ancre #promotions amène
+    // directement au bon bloc. Sans fiche (abonnement pris avant de
+    // revendiquer), on renvoie sur l'app plutôt que sur une page inexistante.
     const { data: etab } = await supabaseAdmin
       .from('etablissements')
       .select('id')
@@ -115,18 +123,19 @@ export async function envoyerBienvenuePartenaire(userId: string): Promise<void> 
       .limit(1)
       .maybeSingle()
 
-    const lienFiche = etab?.id ? `${SITE}/etablissement/${etab.id}` : SITE
+    const lienFiche  = etab?.id ? `${SITE}/etablissement/${etab.id}` : SITE
+    const lienPromos = etab?.id ? `${SITE}/etablissement/${etab.id}#promotions` : SITE
 
     const html = renderEmail({
-      titre: `Bienvenue parmi les Partenaires Locaux ${PLANS_INFO.pro.icon}`,
-      bodyHtml: corpsHtml((profil.display_name as string | null) ?? null),
-      cta: { href: lienFiche, label: etab?.id ? 'Compléter ma fiche' : 'Ouvrir La Place du Village' },
+      // Pas de titre : le message porte sa propre accroche dès la première
+      // ligne, un h1 la répéterait.
+      bodyHtml: corpsHtml((profil.display_name as string | null) ?? null, lienFiche, lienPromos),
       footerHtml: piedHtml(),
     })
 
     const r = await sendEmail({
       to: profil.email as string,
-      subject: 'Bienvenue parmi les Partenaires Locaux',
+      subject: 'Bienvenue parmi les Partenaires Locaux de La Place du Village',
       html,
     })
 

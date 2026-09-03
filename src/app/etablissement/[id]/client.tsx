@@ -954,7 +954,9 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
           const canCreatePromo = userPlan === 'pro' || isAdmin
           if (!canCreatePromo) return null
           return (
-            <div style={CARD}>
+            // id : cible du bouton « Créer ma première promotion » de l'e-mail
+            // de bienvenue Partenaire (lien /etablissement/<id>#promotions).
+            <div id="promotions" style={{ ...CARD, scrollMarginTop: 70 }}>
               <PromotionsManager etablissementId={etab.id} etablissementPhotos={etab.photos ?? []} />
             </div>
           )
