@@ -187,6 +187,54 @@
   .pcv-sheetCol *::-webkit-scrollbar-track { background: transparent; }
 
 
+
+  /* ─── Liste : compteur, boutons, « voir plus » ──────────────────────── */
+
+  /* Le compteur passe à gauche et le sur-titre à la ligne : « 297 événements »
+     est l'information, « marchés · ateliers · concerts » la précise. La
+     réserve à droite servait au bouton calendrier, qui n'est plus là. */
+  .pcv-mapCount {
+    text-align: left !important;
+    padding: 14px 16px 10px !important;
+  }
+  .pcv-mapCount > span:first-of-type { font-size: 19px !important; }
+  /* Le point de séparation disparaît, le sur-titre prend sa ligne. */
+  .pcv-mapCount > span[style*="opacity"] { display: none !important; }
+  .pcv-mapCount > span:last-of-type {
+    display: block !important;
+    margin-top: 3px;
+    font-size: 12px !important;
+  }
+
+  /* Bouton « voir plus » : on demande la suite, elle n'arrive plus toute
+     seule. */
+  .pcv-plusEvts {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    width: calc(100% - 22px);
+    margin: 10px 11px 22px;
+    padding: 13px;
+    border: 1px solid #E8E0D4;
+    border-radius: 12px;
+    background: #fff;
+    color: #2D5A3D;
+    font-family: var(--font-inter), sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    transition: .15s;
+  }
+  .pcv-plusEvts:hover { background: #F7F1E6; border-color: #C9BCA6; }
+
+  /* Icône de catégorie dans la colonne de filtres. */
+  .pcv-fltIco {
+    width: 24px; height: 24px; flex: none;
+    border-radius: 7px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 12px; line-height: 1;
+  }
+
   /* ─── Fiche événement en fenêtre ─────────────────────────────────────
      Elle s'ouvre par-dessus la carte, sans navigation : on ferme et l'écran
      est resté exactement dans l'état où on l'a laissé. */

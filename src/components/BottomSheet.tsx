@@ -542,7 +542,7 @@ export default function BottomSheet({
         {/* ── Header agenda : compteur + filtres ── */}
         {appMode === 'agenda' && (
           <>
-            <div style={{
+            <div className="pcv-mapCount" style={{
               // Réserve à droite pour le bouton calendrier flottant (52px +
               // marge), sinon la fin de la ligne passe dessous sur écran étroit.
               padding: '2px 76px 8px 16px',
@@ -976,9 +976,26 @@ export default function BottomSheet({
               />
             ))}
             {visibleCount < visibleSource.length && (
-              <div ref={loaderRef} style={{ height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid #E0D8CE', borderTopColor: 'var(--primary)', animation: 'spin 0.7s linear infinite' }} />
-              </div>
+              <>
+                {/* Mobile : la suite se charge toute seule au défilement. */}
+                <div ref={loaderRef} className="pcv-hide" style={{ height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid #E0D8CE', borderTopColor: 'var(--primary)', animation: 'spin 0.7s linear infinite' }} />
+                </div>
+                {/* Bureau : on demande la suite. Un défilement sans fin prive
+                    de tout repère sur ce qu'il reste à voir, et empêche
+                    d'atteindre le bas de la colonne. */}
+                <button
+                  type="button"
+                  className="pcv-only pcv-plusEvts"
+                  onClick={() => setVisibleCount(n => n + BATCH)}
+                >
+                  Voir plus d’événements
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+              </>
             )}
           </>
         )}

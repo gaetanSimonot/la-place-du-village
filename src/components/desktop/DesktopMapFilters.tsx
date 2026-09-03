@@ -73,7 +73,11 @@ export default function DesktopMapFilters({ filtres, onFiltresChange, evenements
                   categories: catActive === c ? [] : [c],
                 })}
               >
-                <span className="pcv-fltDot" style={{ background: CATEGORIES[c].color }} />
+                {/* Même pastille colorée et même emoji que sur la carte et les
+                    cartes de la liste : un seul repère visuel par catégorie. */}
+                <span className="pcv-fltIco" style={{ background: `${CATEGORIES[c].color}1F`, color: CATEGORIES[c].color }}>
+                  {CATEGORIES[c].emoji}
+                </span>
                 {CATEGORIES[c].label}
                 <i>{parCategorie.get(c) ?? 0}</i>
               </button>
