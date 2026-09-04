@@ -1017,6 +1017,23 @@ export default function HomePage() {
           { id: 'etab' as const, label: 'Commerces' },
           { id: 'prod' as const, label: 'Producteurs' },
         ]
+        /* Mode « Transport » — bouton de repérage seulement, à ce stade.
+           Il ne fait encore rien : c'est une maquette pour juger de sa place à
+           côté des trois autres modes. Les données sont prêtes (GTFS liO du
+           réseau régional, ligne 608 Montpellier–Ganges–Le Vigan : 98 arrêts
+           tous géolocalisés, 89 courses, tracés inclus), la vue reste à
+           construire. */
+        const IconeBus = () => (
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 17V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v11" />
+            <path d="M4 11h16" /><circle cx="8" cy="16" r="1.4" /><circle cx="16" cy="16" r="1.4" />
+            <path d="M6 19v1.5" /><path d="M18 19v1.5" />
+          </svg>
+        )
+        const transportBientot = () =>
+          toast('Transport — en préparation', { description: 'Ligne 608 Montpellier – Ganges – Le Vigan' })
+
         const FBTN: React.CSSProperties = { width: 38, height: 38, borderRadius: '50%', background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1A1209', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }
         // Filtre texte actif (hérité de la recherche du hub) — chip visible et effaçable
         const activeSearch =
@@ -1093,6 +1110,19 @@ export default function HomePage() {
                       </button>
                     )
                   })}
+                  <button
+                    onClick={transportBientot}
+                    aria-label="Transport"
+                    style={{
+                      flex: 1, padding: '8px 4px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                      background: 'transparent', color: '#7A6A5A',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                      fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 12,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <IconeBus />Transport
+                  </button>
                 </div>
               </div>
             )}
@@ -1129,6 +1159,9 @@ export default function HomePage() {
                       {m.label}
                     </button>
                   ))}
+                  <button onClick={transportBientot} aria-label="Transport">
+                    <IconeBus />Transport
+                  </button>
                 </div>
                 {appMode === 'agenda' && (
                   <div className="pcv-mapCtlFiltres">

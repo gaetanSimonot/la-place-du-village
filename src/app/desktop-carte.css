@@ -134,6 +134,8 @@
     transition: all .15s;
   }
   .pcv-mapCtlSegs button:hover { background: #F7F1E6; color: #1A1209; }
+  /* Le bouton Transport porte une icone : elle doit s'aligner sur le mot. */
+  .pcv-mapCtlSegs button { display: inline-flex; align-items: center; gap: 5px; }
   .pcv-mapCtlOn { background: #2D5A3D !important; color: #fff !important; font-weight: 800 !important; }
   .pcv-mapCtlSegs .pcv-mapCtlOn:hover { background: #1F4029 !important; color: #fff !important; }
 
