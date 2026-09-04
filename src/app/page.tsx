@@ -130,9 +130,9 @@ export default function HomePage() {
      y ajoute une ligne et ses arrets. */
   const [modeTransport, setModeTransport] = useState(false)
   const [ligneTransport, setLigneTransport] = useState<{
-    ligne: { nom_court: string | null; nom_long: string | null; couleur: string | null }
+    lignes: { route_id: string; nom_court: string | null; nom_long: string | null; couleur: string | null }[]
     arrets: { stop_id: string; nom: string; lat: number; lng: number }[]
-    traces: { sens: number; points: [number, number][] }[]
+    traces: { sens: number; points: [number, number][]; route_id?: string; couleur?: string }[]
   } | null>(null)
   // L'arret touche sur la carte. C'est le panneau qui lui donne son role,
   // selon la commune a laquelle il appartient.
@@ -199,9 +199,10 @@ export default function HomePage() {
   useEffect(() => {
     if (!modeTransport || ligneTransport) return
     let vivant = true
-    fetch('/api/transport/ligne?route=608')
+    // Sans `?route=`, la route sert TOUT le reseau importe — dix lignes.
+    fetch('/api/transport/ligne')
       .then(r => (r.ok ? r.json() : null))
-      .then(d => { if (vivant && d?.ligne) setLigneTransport(d) })
+      .then(d => { if (vivant && d?.lignes?.length) setLigneTransport(d) })
       .catch(() => toast('Horaires de bus indisponibles'))
     return () => { vivant = false }
   }, [modeTransport, ligneTransport])
@@ -1086,7 +1087,7 @@ export default function HomePage() {
           transport={modeTransport && ligneTransport ? {
             arrets: arretsAffiches,
             traces: ligneTransport.traces,
-            couleur: ligneTransport.ligne.couleur ?? '#2D5A3D',
+            couleur: '#2D5A3D',
             troncon,
             arretDepart: arretsRetenus.depart,
             arretArrivee: arretsRetenus.arrivee,
@@ -1588,8 +1589,7 @@ export default function HomePage() {
            garde sa poignee, ses paliers et son defilement. */
         contenuTransport={modeTransport && ligneTransport ? (
           <TransportPanneau
-            nomLigne={`${ligneTransport.ligne.nom_court ?? ''} — ${ligneTransport.ligne.nom_long ?? ''}`.trim()}
-            couleur={ligneTransport.ligne.couleur ?? '#2D5A3D'}
+            lignes={ligneTransport.lignes}
             arrets={ligneTransport.arrets}
             arretTouche={arretTouche}
             trajetChoisi={trajetChoisi}

@@ -22,8 +22,28 @@ import { supabaseAdmin } from './supabase-admin'
 /** L'archive GTFS, via l'URL stable de data.gouv.fr. */
 const URL_GTFS = 'https://www.data.gouv.fr/api/1/datasets/r/d747fe79-2915-4cdd-8cc5-51a810baaca5'
 
-/** Les lignes qu'on importe. La 608 est Montpellier – Ganges – Le Vigan. */
-export const LIGNES_RETENUES = ['608']
+/**
+ * Les lignes qu'on importe — celles qui traversent la vallee.
+ *
+ * Le reseau liO en compte 309 : les cars de l'Aude ou du Tarn n'ont rien a
+ * faire ici. Ces dix-la representent 197 courses, 378 arrets et 4 530
+ * passages, soit une base qui se lit en millisecondes.
+ *
+ * Ajouter une ligne = ajouter son numero ici, puis relancer le cron (ou
+ * l'appeler a la main avec ?lignes=...). Rien d'autre.
+ */
+export const LIGNES_RETENUES = [
+  '101',  // Campestre-et-Luc – Le Vigan
+  '102',  // Ganges – Saint-Roman-de-Codieres
+  '103',  // Pompignan – Saint-Hippolyte-du-Fort
+  '104',  // Le Vigan – Arphy
+  '105',  // Vissec – Le Vigan
+  '106',  // Saint-Andre-de-Majencoules – Le Vigan
+  '108',  // Le Vigan – Treves
+  '140',  // Le Vigan – Nimes
+  '142',  // Le Vigan – Ales
+  '608',  // Montpellier – Ganges – Le Vigan
+]
 
 export interface ResultatImport {
   lignes: number

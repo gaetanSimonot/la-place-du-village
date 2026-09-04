@@ -24,6 +24,8 @@ export interface ArretChoisissable { stop_id: string; nom: string }
 
 interface Trajet {
   trip_id: string
+  /** La ligne empruntee : avec dix lignes, savoir quel car on prend compte. */
+  route_id: string
   depart: string
   arrivee: string
   duree_min: number
@@ -198,11 +200,11 @@ function ChampCommune({
 }
 
 export default function TransportPanneau({
-  nomLigne, couleur, arrets, arretTouche, trajetChoisi, arretsDesservis,
+  lignes, arrets, arretTouche, trajetChoisi, arretsDesservis,
   onCommunesChange, onArretsRetenus, onChoisirTrajet, onFermer,
 }: {
-  nomLigne: string
-  couleur: string
+  /** Tout le reseau importe. Chaque ligne porte sa couleur officielle liO. */
+  lignes: { route_id: string; nom_court: string | null; nom_long: string | null; couleur: string | null }[]
   arrets: ArretChoisissable[]
   /** Un arrêt touché sur la carte. C'est le panneau qui lui donne son rôle,
    *  selon la commune à laquelle il appartient — pas une bulle à répondre. */
@@ -226,6 +228,20 @@ export default function TransportPanneau({
   const [plusRapide, setPlusRapide] = useState<number | null>(null)
   const [chargement, setChargement] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+
+  // La couleur de la ligne d'un trajet — pour que chaque resultat porte la
+  // sienne, comme sur la carte.
+  const couleurLigne = useCallback(
+    (routeId: string) => lignes.find(l => l.route_id === routeId)?.couleur ?? '#2D5A3D',
+    [lignes],
+  )
+  const nomCourt = useCallback(
+    (routeId: string) => lignes.find(l => l.route_id === routeId)?.nom_court ?? routeId,
+    [lignes],
+  )
+  /** Teinte neutre de l'interface : les elements qui ne sont pas rattaches a
+   *  une ligne precise (pastilles, selection) gardent le vert du site. */
+  const couleur = '#2D5A3D'
 
   const communes = useMemo(
     () => Array.from(new Set(arrets.map(a => communeDe(a.nom)))).sort((a, b) => a.localeCompare(b, 'fr')),
@@ -339,7 +355,9 @@ export default function TransportPanneau({
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
         <div style={{ minWidth: 0 }}>
           <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#1A1209' }}>Où allez-vous ?</p>
-          <p style={{ margin: '2px 0 0', fontSize: 11.5, color: '#7A6A5A' }}>{nomLigne}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 11.5, color: '#7A6A5A' }}>
+            {lignes.length} ligne{lignes.length > 1 ? 's' : ''} de car liO dans la vallée
+          </p>
         </div>
         <button onClick={onFermer} aria-label="Quitter le mode transport" style={{
           width: 30, height: 30, borderRadius: '50%', border: '1px solid #E8E0D4',
@@ -428,13 +446,20 @@ export default function TransportPanneau({
                   onClick={() => onChoisirTrajet(actif ? null : t)}
                   style={{
                     textAlign: 'left', width: '100%', cursor: 'pointer',
-                    border: `1px solid ${actif ? couleur : '#F0EAE0'}`,
-                    background: actif ? `${couleur}12` : '#fff',
+                    border: `1px solid ${actif ? couleurLigne(t.route_id) : '#F0EAE0'}`,
+                    background: actif ? `${couleurLigne(t.route_id)}14` : '#fff',
                     borderRadius: 13, padding: '10px 12px',
                     fontFamily: 'var(--font-body), sans-serif',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                    {/* Le numéro de ligne, dans SA couleur : avec dix lignes,
+                        savoir quel car on prend n'est plus accessoire. */}
+                    <span style={{
+                      fontSize: 11, fontWeight: 800, color: '#fff',
+                      background: couleurLigne(t.route_id), borderRadius: 6,
+                      padding: '2px 7px', letterSpacing: '.02em',
+                    }}>{nomCourt(t.route_id)}</span>
                     <span style={{ fontSize: 17, fontWeight: 800, color: '#1A1209' }}>
                       {t.depart.slice(0, 5)}
                       <span style={{ color: '#A99B89', margin: '0 6px', fontWeight: 600 }}>→</span>
@@ -444,7 +469,7 @@ export default function TransportPanneau({
                     {i === plusRapide && (
                       <span style={{
                         fontSize: 9.5, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase',
-                        color: '#fff', background: couleur, borderRadius: 999, padding: '2px 7px',
+                        color: '#1A1209', background: '#F5E9C8', borderRadius: 999, padding: '2px 7px',
                       }}>le plus rapide</span>
                     )}
                   </div>
@@ -460,7 +485,7 @@ export default function TransportPanneau({
                 {actif && arretsDesservis.length > 0 && (
                   <div style={{
                     marginTop: 6, marginLeft: 8, paddingLeft: 12,
-                    borderLeft: `2px solid ${couleur}`, display: 'grid', gap: 5,
+                    borderLeft: `2px solid ${couleurLigne(t.route_id)}`, display: 'grid', gap: 5,
                   }}>
                     {arretsDesservis.map((a, k) => {
                       const bord = k === 0 || k === arretsDesservis.length - 1

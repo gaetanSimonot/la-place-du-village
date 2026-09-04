@@ -322,7 +322,14 @@ function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fi
    justement ce qu'on vient voir. */
 
 export interface ArretTransport { stop_id: string; nom: string; lat: number; lng: number }
-export interface TraceTransport { sens: number; points: [number, number][] }
+export interface TraceTransport {
+  sens: number
+  points: [number, number][]
+  /** Chaque ligne a sa couleur officielle liO — la 608 est orange, la 101
+   *  bleu clair. Dix lignes d'une seule teinte seraient illisibles. */
+  route_id?: string
+  couleur?: string
+}
 
 interface TransportProps {
   arrets: ArretTransport[]
@@ -374,11 +381,11 @@ function TransportLayer({ arrets, traces, couleur, troncon, arretDepart, arretAr
       // Le GTFS range ses points en [longitude, latitude] ; Google attend
       // l'inverse. Les intervertir dessine la ligne au milieu de l'océan.
       path: t.points.map(([lng, lat]) => ({ lat, lng })),
-      strokeColor: couleur,
+      strokeColor: t.couleur ?? couleur,
       // La ligne entière pâlit dès qu'un trajet est surligné : sans ça, les
       // deux traits se confondent et on ne voit pas ce qu'on a choisi.
-      strokeOpacity: troncon ? 0.22 : 0.85,
-      strokeWeight: 5,
+      strokeOpacity: troncon ? 0.18 : 0.8,
+      strokeWeight: 4.5,
       zIndex: 1,
       map,
     }))
