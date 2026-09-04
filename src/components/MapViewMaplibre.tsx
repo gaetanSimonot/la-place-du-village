@@ -81,6 +81,20 @@ interface Props {
   selectedEtabId?: string | null
   onSelectEtab?: (id: string | null) => void
   onOpenEtablissement?: (id: string) => void
+  /**
+   * Mode transport. ACCEPTÉ ET IGNORÉ ICI : le calque de la ligne de bus n'est
+   * écrit que pour Google Maps, le fond actif. Ces propriétés existent parce
+   * que MapViewSwitch tire son type de ce composant — sans elles, la page ne
+   * compilerait plus.
+   *
+   * Conséquence à connaître : si l'admin bascule le fond sur MapLibre, la
+   * ligne et ses arrêts disparaissent sans un mot. Le jour où cette bascule
+   * devient réelle, il faut écrire le calque ici — une source GeoJSON pour le
+   * tracé, des marqueurs pour les arrêts.
+   */
+  transport?: { arrets: { stop_id: string; nom: string; lat: number; lng: number }[]; traces: { sens: number; points: [number, number][] }[]; couleur: string } | null
+  selectedArretId?: string | null
+  onSelectArret?: (id: string | null) => void
 }
 
 export default function MapViewMaplibre({

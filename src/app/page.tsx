@@ -30,6 +30,7 @@ import HubSearchModal, { type SearchKind } from '@/components/HubSearchModal'
 import PublishMenuModal from '@/components/PublishMenuModal'
 import BottomNavBar, { NAV_H } from '@/components/BottomNavBar'
 import { toast } from 'sonner'
+import TransportPanneau from '@/components/TransportPanneau'
 import { trackEvent } from '@/lib/analytics'
 import { ComingSoonModal } from '@/components/HubModals'
 import SubscriptionModal from '@/components/SubscriptionModal'
@@ -120,6 +121,32 @@ export default function HomePage() {
   const [masquerPasses, setMasquerPasses] = useState(true)
   // Fond de carte global (piloté par l'admin via config.map_provider) — défaut Google
   const [mapProvider, setMapProvider] = useState<'google' | 'maplibre'>('google')
+
+  /* ── Mode transport ────────────────────────────────────────────────────
+     Un quatrieme mode de carte, a cote d'Evenements/Commerces/Producteurs.
+     Il n'entre PAS dans `appMode` : celui-ci commande la feuille, les
+     filtres, l'agenda, la recherche… le greffer la-dedans obligerait a
+     toucher a tout. Le transport se superpose : la carte garde son fond, on
+     y ajoute une ligne et ses arrets. */
+  const [modeTransport, setModeTransport] = useState(false)
+  const [ligneTransport, setLigneTransport] = useState<{
+    ligne: { nom_court: string | null; nom_long: string | null; couleur: string | null }
+    arrets: { stop_id: string; nom: string; lat: number; lng: number }[]
+    traces: { sens: number; points: [number, number][] }[]
+  } | null>(null)
+  const [arretChoisi, setArretChoisi] = useState<string | null>(null)
+
+  // La ligne n'est chargee qu'a la premiere entree dans le mode, et gardee
+  // ensuite : elle ne change qu'au passage du cron, une fois par semaine.
+  useEffect(() => {
+    if (!modeTransport || ligneTransport) return
+    let vivant = true
+    fetch('/api/transport/ligne?route=608')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (vivant && d?.ligne) setLigneTransport(d) })
+      .catch(() => toast('Horaires de bus indisponibles'))
+    return () => { vivant = false }
+  }, [modeTransport, ligneTransport])
   const [zoneCentres, setZoneCentres]   = useState<{ lat: number; lng: number; nom: string }[]>([])
   const [rayonAffichage, setRayonAffichage] = useState<number | null>(null)
   const [zoneLoaded, setZoneLoaded]     = useState(false)
@@ -979,12 +1006,14 @@ export default function HomePage() {
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 40, zIndex: 5, pointerEvents: 'auto' }} />
         <MapView
           provider={mapProvider}
-          evenements={appMode === 'annuaire' ? [] : evenements}
-          producers={appMode === 'annuaire' && annuaireTab === 0 ? filteredProducers : []}
+          /* En mode transport, la carte ne montre QUE la ligne : 274 marqueurs
+             d'evenements par-dessus un trace de bus, on ne voit plus rien. */
+          evenements={modeTransport || appMode === 'annuaire' ? [] : evenements}
+          producers={!modeTransport && appMode === 'annuaire' && annuaireTab === 0 ? filteredProducers : []}
           selectedProducerId={selectedProducerId}
           onSelectProducer={setSelectedProducerId}
           onOpenProducer={openProducer}
-          etablissements={appMode === 'annuaire' && annuaireTab === 1 ? (displayedEtabs ?? filteredEtablissements) : []}
+          etablissements={!modeTransport && appMode === 'annuaire' && annuaireTab === 1 ? (displayedEtabs ?? filteredEtablissements) : []}
           selectedEtabId={selectedEtabId}
           onSelectEtab={setSelectedEtabId}
           onOpenEtablissement={openEtablissement}
@@ -996,6 +1025,13 @@ export default function HomePage() {
           onMapDragStart={onMapDragStart}
           onMapDragEnd={onMapDragEnd}
           onCameraIdle={(lat, lng, zoom) => { mapCameraRef.current = { lat, lng, zoom } }}
+          transport={modeTransport && ligneTransport ? {
+            arrets: ligneTransport.arrets,
+            traces: ligneTransport.traces,
+            couleur: ligneTransport.ligne.couleur ?? '#2D5A3D',
+          } : null}
+          selectedArretId={arretChoisi}
+          onSelectArret={setArretChoisi}
         />
       </div>
 
@@ -1009,6 +1045,7 @@ export default function HomePage() {
         const mapMode: 'evt' | 'etab' | 'prod' =
           appMode === 'agenda' ? 'evt' : annuaireTab === 1 ? 'etab' : 'prod'
         const setMapMode = (m: 'evt' | 'etab' | 'prod') => {
+          setModeTransport(false)
           if (m === 'evt') { setAppMode('agenda') }
           else { setAppMode('annuaire'); setAnnuaireTab(m === 'etab' ? 1 : 0) }
         }
@@ -1031,8 +1068,6 @@ export default function HomePage() {
             <path d="M6 19v1.5" /><path d="M18 19v1.5" />
           </svg>
         )
-        const transportBientot = () =>
-          toast('Transport — en préparation', { description: 'Ligne 608 Montpellier – Ganges – Le Vigan' })
 
         const FBTN: React.CSSProperties = { width: 38, height: 38, borderRadius: '50%', background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1A1209', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }
         // Filtre texte actif (hérité de la recherche du hub) — chip visible et effaçable
@@ -1093,7 +1128,7 @@ export default function HomePage() {
                 </div>
                 <div style={{ display: 'flex', background: '#F7F1E6', borderRadius: 14, padding: 4, gap: 2 }}>
                   {MODES.map(m => {
-                    const active = mapMode === m.id
+                    const active = !modeTransport && mapMode === m.id
                     return (
                       <button
                         key={m.id}
@@ -1111,13 +1146,15 @@ export default function HomePage() {
                     )
                   })}
                   <button
-                    onClick={transportBientot}
+                    onClick={() => setModeTransport(true)}
                     aria-label="Transport"
                     style={{
                       flex: 1, padding: '8px 4px', borderRadius: 10, border: 'none', cursor: 'pointer',
-                      background: 'transparent', color: '#7A6A5A',
+                      background: modeTransport ? '#2D5A3D' : 'transparent',
+                      color: modeTransport ? '#fff' : '#7A6A5A',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-                      fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 12,
+                      fontFamily: 'var(--font-body), sans-serif',
+                      fontWeight: modeTransport ? 800 : 700, fontSize: 12,
                       whiteSpace: 'nowrap',
                     }}
                   >
@@ -1154,16 +1191,17 @@ export default function HomePage() {
                     <button
                       key={m.id}
                       onClick={() => setMapMode(m.id)}
-                      className={mapMode === m.id ? 'pcv-mapCtlOn' : undefined}
+                      className={!modeTransport && mapMode === m.id ? 'pcv-mapCtlOn' : undefined}
                     >
                       {m.label}
                     </button>
                   ))}
-                  <button onClick={transportBientot} aria-label="Transport">
+                  <button onClick={() => setModeTransport(true)} aria-label="Transport"
+                          className={modeTransport ? 'pcv-mapCtlOn' : undefined}>
                     <IconeBus />Transport
                   </button>
                 </div>
-                {appMode === 'agenda' && (
+                {appMode === 'agenda' && !modeTransport && (
                   <div className="pcv-mapCtlFiltres">
                     <AgendaFilterWheel filtres={filtres} onFiltresChange={setFiltres} />
                     <AgendaDateButton filtres={filtres} onFiltresChange={setFiltres} />
@@ -1171,6 +1209,7 @@ export default function HomePage() {
                 )}
               </div>
             )}
+
 
             {/* Stack boutons flottants à gauche (sous la top bar) : réglages · loupe */}
             {showBtns && (
@@ -1484,6 +1523,17 @@ export default function HomePage() {
 
       {/* Bottom Sheet — masqué sur le hub */}
       {!showHub && <BottomSheet
+        /* Le transport prend la liste, il ne se superpose pas : c'est un mode
+           de la carte au meme titre qu'Evenements ou Commerces. La feuille
+           garde sa poignee, ses paliers et son defilement. */
+        contenuTransport={modeTransport && ligneTransport ? (
+          <TransportPanneau
+            nomLigne={`${ligneTransport.ligne.nom_court ?? ''} — ${ligneTransport.ligne.nom_long ?? ''}`.trim()}
+            arrets={ligneTransport.arrets}
+            arretClique={arretChoisi}
+            onFermer={() => { setModeTransport(false); setArretChoisi(null) }}
+          />
+        ) : undefined}
         listStateRef={listStateRef}
         restoreListState={restoreListState}
         onListStateRestored={handleListStateRestored}

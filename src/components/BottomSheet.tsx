@@ -55,6 +55,13 @@ interface Props {
   onToggleFav?: (id: string) => void
   appMode: AppMode
   onAppModeChange?: (m: AppMode) => void
+  /**
+   * Mode transport : ce qu'il faut afficher A LA PLACE des listes.
+   * Le transport est un mode de la carte au meme titre qu'Evenements ou
+   * Commerces — il prend donc la liste, il ne se superpose pas. La feuille
+   * garde tout son comportement : poignee, paliers, defilement.
+   */
+  contenuTransport?: React.ReactNode
   producers?: ProducerCard[]
   producerLoading?: boolean
   selectedProducerId?: string | null
@@ -109,7 +116,7 @@ export default function BottomSheet({
   onPeekHeightChange, proEvents = [], onDiscoverPro, onOpenEvent,
   listStateRef, restoreListState = null, onListStateRestored,
   favIds = [], onToggleFav,
-  appMode, onAppModeChange, producers = [], producerLoading = false,
+  appMode, onAppModeChange, contenuTransport, producers = [], producerLoading = false,
   selectedProducerId = null, onSelectProducer, onViewProducerOnMap,
   selectedCats = [], onSelectedCatsChange,
   availableProducts = [],
@@ -531,7 +538,7 @@ export default function BottomSheet({
           snaps, ni sur la position du ProBandeau qui s'y accroche). */}
       {/* pcv-hide : sur bureau, le calendrier rejoint les deux filtres dans
           la barre flottante au bas de la carte. */}
-      {appMode === 'agenda' && (
+      {appMode === 'agenda' && !contenuTransport && (
         <div className="pcv-hide">
           <AgendaDateButton
             filtres={filtres}
@@ -554,7 +561,7 @@ export default function BottomSheet({
         </div>
 
         {/* ── Header agenda : compteur + filtres ── */}
-        {appMode === 'agenda' && (
+        {appMode === 'agenda' && !contenuTransport && (
           <>
             <div className="pcv-mapCount" style={{
               // Réserve à droite pour le bouton calendrier flottant (52px +
@@ -880,7 +887,8 @@ export default function BottomSheet({
         }}
         onPointerDown={e => e.stopPropagation()}
       >
-        {appMode === 'annuaire' && annuaireTabIdx === 1 ? (
+        {contenuTransport ? contenuTransport :
+         appMode === 'annuaire' && annuaireTabIdx === 1 ? (
           etablissementLoading ? [1,2,3].map(i => <SkeletonCard key={i} />) :
           etablissements.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: sheetBg.sub }}>

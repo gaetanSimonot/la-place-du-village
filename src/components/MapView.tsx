@@ -315,6 +315,77 @@ function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fi
   return null
 }
 
+/* ─── Transport : la ligne et ses arrêts ─────────────────────────────────
+   Deux objets Google Maps seulement — une polyligne par sens, un marqueur
+   rond par arrêt. Pas de regroupement : 98 arrêts alignés le long d'une route
+   ne s'amassent pas comme 1400 commerces, et les regrouper cacherait
+   justement ce qu'on vient voir. */
+
+export interface ArretTransport { stop_id: string; nom: string; lat: number; lng: number }
+export interface TraceTransport { sens: number; points: [number, number][] }
+
+interface TransportProps {
+  arrets: ArretTransport[]
+  traces: TraceTransport[]
+  couleur: string
+  selectedArretId: string | null
+  onSelectArret: (id: string | null) => void
+}
+
+function pastilleArret(selectionne: boolean, couleur: string): string {
+  const r = selectionne ? 9 : 6
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 26 26">
+    <circle cx="13" cy="13" r="${r + 3}" fill="#fff" opacity="0.95"/>
+    <circle cx="13" cy="13" r="${r}" fill="${couleur}" stroke="#fff" stroke-width="2"/>
+  </svg>`
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
+}
+
+function TransportLayer({ arrets, traces, couleur, selectedArretId, onSelectArret }: TransportProps) {
+  const map = useMap()
+  const lignesRef = useRef<google.maps.Polyline[]>([])
+  const arretsRef = useRef<google.maps.Marker[]>([])
+
+  // Le tracé. Séparé des marqueurs : il ne change pas quand on sélectionne un
+  // arrêt, et le redessiner à chaque clic ferait clignoter la ligne.
+  useEffect(() => {
+    if (!map) return
+    lignesRef.current.forEach(l => l.setMap(null))
+    lignesRef.current = traces.map(t => new google.maps.Polyline({
+      // Le GTFS range ses points en [longitude, latitude] ; Google attend
+      // l'inverse. Les intervertir dessine la ligne au milieu de l'océan.
+      path: t.points.map(([lng, lat]) => ({ lat, lng })),
+      strokeColor: couleur,
+      strokeOpacity: 0.85,
+      strokeWeight: 5,
+      zIndex: 1,
+      map,
+    }))
+    return () => { lignesRef.current.forEach(l => l.setMap(null)) }
+  }, [map, traces, couleur])
+
+  useEffect(() => {
+    if (!map) return
+    arretsRef.current.forEach(m => m.setMap(null))
+    arretsRef.current = arrets.map(a => {
+      const choisi = a.stop_id === selectedArretId
+      const m = new google.maps.Marker({
+        position: { lat: a.lat, lng: a.lng },
+        title: a.nom,
+        optimized: false,
+        icon: { url: pastilleArret(choisi, couleur), scaledSize: new google.maps.Size(26, 26), anchor: new google.maps.Point(13, 13) },
+        zIndex: choisi ? 999 : 5,
+        map,
+      })
+      m.addListener('click', () => onSelectArret(choisi ? null : a.stop_id))
+      return m
+    })
+    return () => { arretsRef.current.forEach(m => m.setMap(null)) }
+  }, [map, arrets, selectedArretId, couleur, onSelectArret])
+
+  return null
+}
+
 interface Props {
   evenements: EvenementCard[]
   selectedId: string | null
@@ -339,9 +410,13 @@ interface Props {
   selectedEtabId?: string | null
   onSelectEtab?: (id: string | null) => void
   onOpenEtablissement?: (id: string) => void
+  /** Mode transport : la ligne à dessiner, ou null si on n'y est pas. */
+  transport?: { arrets: ArretTransport[]; traces: TraceTransport[]; couleur: string } | null
+  selectedArretId?: string | null
+  onSelectArret?: (id: string | null) => void
 }
 
-export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn, onMapDragStart, onMapDragEnd, onCameraIdle, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement }: Props) {
+export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn, onMapDragStart, onMapDragEnd, onCameraIdle, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement, transport = null, selectedArretId = null, onSelectArret }: Props) {
   const [internalEtabId, setInternalEtabId] = useState<string | null>(null)
   const selectedEtabId    = selectedEtabIdProp !== undefined ? selectedEtabIdProp : internalEtabId
   const setSelectedEtabId = onSelectEtab ?? setInternalEtabId
@@ -400,6 +475,16 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
           onSelectEtab={setSelectedEtabId}
           fixedMap={fixedMap}
         />
+
+        {transport && (
+          <TransportLayer
+            arrets={transport.arrets}
+            traces={transport.traces}
+            couleur={transport.couleur}
+            selectedArretId={selectedArretId}
+            onSelectArret={onSelectArret ?? (() => {})}
+          />
+        )}
 
         {/* Vignette établissement sélectionné */}
         {selectedEtab && selectedEtab.lat && selectedEtab.lng && (() => {
