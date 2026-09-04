@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/event-reminder",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/transport-gtfs",
+      "schedule": "0 4 * * 1"
     }
   ]
 }

@@ -24,6 +24,7 @@
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "@vis.gl/react-google-maps": "^1.8.2",
+    "fflate": "^0.7.4",
     "framer-motion": "^12.38.0",
     "jsonrepair": "^3.14.0",
     "maplibre-gl": "^5.24.0",
