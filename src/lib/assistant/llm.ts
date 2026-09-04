@@ -40,6 +40,7 @@ const SUJETS: Record<string, string> = {
   proposer_action:         'action',
   aide_lpv:                'aide',
   meteo:                   'sortie',
+  chercher_bus:            'transport',
 }
 
 /** Aujourd'hui en toutes lettres — le serveur Vercel est en UTC, jamais à Paris. */

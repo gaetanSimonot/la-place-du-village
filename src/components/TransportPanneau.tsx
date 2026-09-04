@@ -1,6 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import dynamic from 'next/dynamic'
+
+const DicteeModal = dynamic(() => import('./DicteeModal'), { ssr: false })
 
 /**
  * Mode « Transport » : ou je pars, ou je vais, quand.
@@ -257,6 +260,8 @@ export default function TransportPanneau({
    * bouton ramène en arrière.
    */
   const [etape, setEtape] = useState<'recherche' | 'resultats'>('recherche')
+  const [dicteeOuverte, setDicteeOuverte] = useState(false)
+  const [dicteeEnCours, setDicteeEnCours] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
 
   // La couleur de la ligne d'un trajet — pour que chaque resultat porte la
@@ -351,6 +356,50 @@ export default function TransportPanneau({
   // Un arrêt désigné sur la carte affine la recherche — et la relance
   // aussitôt. Sans ça, le geste ne servait à rien : la liste continuait de
   // montrer tous les bus, tous arrêts confondus.
+  /**
+   * La phrase dictée devient une recherche, et la recherche part.
+   *
+   * On ne s'arrête pas pour faire valider les champs : la personne a parlé,
+   * elle attend un résultat, pas un formulaire pré-rempli à confirmer. S'il
+   * manque une commune, on remplit ce qu'on a et on le lui dit — c'est le
+   * seul cas où l'on s'arrête.
+   */
+  const traiterDictee = useCallback(async (texte: string) => {
+    setDicteeOuverte(false)
+    setDicteeEnCours(true)
+    setMessage(null)
+    try {
+      const r = await fetch('/api/transport/dictee', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texte }),
+      })
+      const d = await r.json()
+      if (!r.ok) { setMessage(d.error ?? 'Je n’ai pas compris.'); return }
+
+      if (d.depart) { setCommuneDepart(d.depart); setArretDepart(null) }
+      if (d.arrivee) { setCommuneArrivee(d.arrivee); setArretArrivee(null) }
+      if (d.date) setDate(d.date)
+      if (d.heure) setHeure(d.heure)
+
+      if (!d.depart || !d.arrivee) {
+        setMessage(
+          !d.depart && !d.arrivee
+            ? 'Je n’ai reconnu ni le départ ni l’arrivée. Complétez à la main.'
+            : `Il me manque ${!d.depart ? 'le départ' : 'l’arrivée'}. Complétez-le et relancez.`,
+        )
+        return
+      }
+      // Les valeurs sont passées en argument : les états ne sont pas encore
+      // écrits quand ce code s'exécute.
+      await chercher(d.depart, d.arrivee, null, null, d.date, d.heure)
+    } catch {
+      setMessage('Vérifiez votre connexion.')
+    } finally {
+      setDicteeEnCours(false)
+    }
+  }, [chercher])
+
   // La carte marque les deux arrêts retenus, et se met à jour quand on change.
   useEffect(() => {
     onArretsRetenus(arretDepart, arretArrivee)
@@ -370,10 +419,33 @@ export default function TransportPanneau({
             {lignes.length} ligne{lignes.length > 1 ? 's' : ''} de car liO dans la vallée
           </p>
         </div>
-        <button onClick={onFermer} aria-label="Quitter le mode transport" style={{
-          width: 30, height: 30, borderRadius: '50%', border: '1px solid #E8E0D4',
-          background: '#fff', cursor: 'pointer', color: '#7A6A5A', flexShrink: 0,
-        }}>✕</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
+          {etape === 'recherche' && (
+            <button
+              onClick={() => setDicteeOuverte(true)}
+              disabled={dicteeEnCours}
+              aria-label="Dicter votre trajet"
+              title="Dicter : « je vais à Montpellier demain matin depuis Ganges »"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6, height: 30,
+                padding: '0 11px', borderRadius: 999, border: 'none', cursor: 'pointer',
+                background: '#2D5A3D', color: '#fff', fontSize: 12, fontWeight: 800,
+                fontFamily: 'var(--font-body), sans-serif', opacity: dicteeEnCours ? 0.6 : 1,
+              }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" y1="19" x2="12" y2="22" />
+              </svg>
+              {dicteeEnCours ? '…' : 'Dicter'}
+            </button>
+          )}
+          <button onClick={onFermer} aria-label="Quitter le mode transport" style={{
+            width: 30, height: 30, borderRadius: '50%', border: '1px solid #E8E0D4',
+            background: '#fff', cursor: 'pointer', color: '#7A6A5A', flexShrink: 0,
+          }}>✕</button>
+        </div>
       </div>
 
       {etape === 'recherche' && (
@@ -563,6 +635,14 @@ export default function TransportPanneau({
 
       {trajetOuvert && arretsDesservis.length === 0 && (
         <p style={{ margin: '10px 0 0', fontSize: 12, color: '#A99B89' }}>Détail du trajet…</p>
+      )}
+
+      {dicteeOuverte && (
+        <DicteeModal
+          titre="Où allez-vous ?"
+          onClose={() => setDicteeOuverte(false)}
+          onTranscript={t => { void traiterDictee(t) }}
+        />
       )}
 
       {/* L'ODbL demande de citer la source. */}

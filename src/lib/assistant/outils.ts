@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { chercherTrajets, resoudreCommune, arretsDeCommune, sansAccent } from '../transportRecherche'
 import { getPrompt } from '@/lib/prompts-ia'
 // dateParis vit dans le module cinéma mais ne touche pas la base : c'est un
 // helper pur (Intl, timeZone Europe/Paris). Le serveur Vercel étant en UTC,
@@ -174,6 +175,24 @@ export const OUTILS = [
     },
   },
   {
+    name: 'chercher_bus',
+    description:
+      "Horaires des cars liO entre deux communes de la vallée — la seule source pour tout ce qui touche au bus, au car, au transport en commun. " +
+      "N'appelez cet outil QUE si vous connaissez la commune de départ ET celle d'arrivée. S'il en manque une, demandez-la d'abord, en une phrase. " +
+      "L'heure est un plancher : « les prochains » veut dire à partir de maintenant, « le matin » à partir de 07:00, « ce soir » à partir de 18:00. " +
+      "Vous pouvez ensuite énoncer les horaires : ils viennent de la donnée officielle, pas de vous.",
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        depart: { type: 'string', description: 'Commune de départ, telle que la personne la dit : « Ganges », « le Vigan », « st hippolyte ».' },
+        arrivee: { type: 'string', description: "Commune d'arrivée, de même." },
+        date: { type: 'string', description: 'Jour du trajet, AAAA-MM-JJ. Par défaut aujourd’hui.' },
+        heure: { type: 'string', description: 'Heure à partir de laquelle chercher, HH:MM. Par défaut maintenant.' },
+      },
+      required: ['depart', 'arrivee'],
+    },
+  },
+  {
     name: 'meteo',
     description:
       "Météo prévue à Ganges pour un jour donné, jusqu'à 7 jours. À utiliser seulement quand le temps change la réponse : sortie en extérieur, activité avec des enfants, balade.",
@@ -239,6 +258,14 @@ const texteDe = (a: Args, k: string) => {
   return typeof v === 'string' && v.trim() ? v.trim().slice(0, 80) : null
 }
 
+/** L'heure courante a Paris. Le serveur Vercel tourne en UTC : sans ca, on
+ *  proposerait les cars de 20h a quelqu'un qui demande a 22h. */
+function heureParis(): string {
+  return new Intl.DateTimeFormat('fr-FR', {
+    timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(new Date()).replace('h', ':')
+}
+
 /** PostgREST découpe .or() sur les virgules et les parenthèses. */
 const echapper = (s: string) => s.replace(/,/g, '\\,').replace(/\)/g, '\\)').replace(/\(/g, '\\(')
 
@@ -266,6 +293,7 @@ export async function executerOutil(nom: string, args: Args): Promise<ResultatOu
     case 'chercher_seances':        return seances(args)
     case 'chercher_promotions':     return promotions(args)
     case 'chercher_annonces':       return annonces(args)
+    case 'chercher_bus':            return bus(args)
     case 'meteo':                   return meteo(args)
     case 'proposer_action':         return proposerAction(args)
     case 'aide_lpv':                return aide()
@@ -735,6 +763,81 @@ async function proposerAction(a: Args): Promise<ResultatOutil> {
 }
 
 /* ─── Météo et aide ────────────────────────────────────────────────────── */
+
+/* ─── Cars liO ─────────────────────────────────────────────────────────── */
+
+/**
+ * Les horaires de car entre deux communes.
+ *
+ * On ne devine PAS a la place de la personne : si une commune ne correspond a
+ * rien de desservi, on rend la liste des communes possibles et le modele
+ * repose la question. Inventer un depart plausible produirait des horaires
+ * justes pour un trajet que personne n'a demande.
+ *
+ * Le calcul est celui de la carte, a la ligne pres — src/lib/transportRecherche.ts.
+ */
+async function bus(a: Args): Promise<ResultatOutil> {
+  const depart = typeof a.depart === 'string' ? a.depart : ''
+  const arrivee = typeof a.arrivee === 'string' ? a.arrivee : ''
+  const date = typeof a.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(a.date) ? a.date : dateParis()
+  const heure = typeof a.heure === 'string' && /^\d{2}:\d{2}$/.test(a.heure) ? a.heure : heureParis()
+
+  const [d, v] = await Promise.all([resoudreCommune(depart), resoudreCommune(arrivee)])
+
+  if (!d.commune || !v.commune) {
+    const manquant = !d.commune ? depart : arrivee
+    return {
+      pourLeModele: {
+        precision_necessaire: `« ${manquant} » ne correspond à aucune commune desservie.`,
+        communes_desservies: (!d.commune ? d.candidates : v.candidates).slice(0, 20),
+        consigne: 'Demandez laquelle, en une phrase, sans lister les vingt.',
+      },
+      cartes: [],
+    }
+  }
+  if (sansAccent(d.commune) === sansAccent(v.commune)) {
+    return { pourLeModele: { erreur: 'Le départ et l’arrivée sont la même commune.' }, cartes: [] }
+  }
+
+  const [ids1, ids2] = await Promise.all([arretsDeCommune(d.commune), arretsDeCommune(v.commune)])
+  const r = await chercherTrajets(ids1, ids2, date, heure, 6)
+  const nom = (id: string) => r.arrets.find(x => x.stop_id === id)?.nom ?? ''
+
+  if (r.trajets.length === 0) {
+    return {
+      pourLeModele: {
+        depart: d.commune, arrivee: v.commune, date, apres: heure,
+        aucun_car: r.raison ?? 'Aucun car dans ce sens après cette heure-là.',
+        consigne: 'Proposez de regarder un autre jour ou plus tôt dans la journée.',
+      },
+      cartes: [],
+    }
+  }
+
+  return {
+    pourLeModele: {
+      depart: d.commune,
+      arrivee: v.commune,
+      date,
+      apres: heure,
+      cars: r.trajets.map((t, i) => ({
+        ligne: t.route_id,
+        depart: t.depart.slice(0, 5),
+        arrivee: t.arrivee.slice(0, 5),
+        duree_min: t.duree_min,
+        monter_a: nom(t.arret_depart),
+        descendre_a: nom(t.arret_arrivee),
+        le_plus_rapide: i === r.plus_rapide || undefined,
+      })),
+      source: 'Réseau liO — Région Occitanie (donnée officielle, ODbL)',
+      consigne:
+        'Donnez les deux ou trois premiers horaires, pas les six. Dites la ligne et où monter. ' +
+        'Ces horaires viennent de la donnée officielle : vous pouvez les énoncer tels quels.',
+    },
+    cartes: [],
+    libelle: `cars ${d.commune} → ${v.commune}`,
+  }
+}
 
 async function meteo(a: Args): Promise<ResultatOutil> {
   const date = typeof a.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(a.date) ? a.date : dateParis()
