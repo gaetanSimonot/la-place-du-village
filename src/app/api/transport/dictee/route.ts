@@ -3,6 +3,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import { getPrompt } from '@/lib/prompts-ia'
 import { safeJsonParse } from '@/lib/safeJsonParse'
 import { communesDesservies, resoudreCommune } from '@/lib/transportRecherche'
+import { requireUser } from '@/lib/server-auth'
+import { checkRateLimit, getRule, rateLimitResponse } from '@/lib/rateLimit'
 
 export const runtime = 'nodejs'
 export const revalidate = 0
@@ -49,6 +51,17 @@ function jour(base: Date, decalage: number): string {
 }
 
 export async function POST(req: NextRequest) {
+  // Compte requis, comme pour tout appel payant du projet. Sans ça, cette
+  // route appellerait Claude pour n'importe qui, sans compteur.
+  const ctx = await requireUser(req)
+  if (ctx instanceof Response) return ctx
+
+  // Même quota que la dictée elle-même (`ai_extract`, 5/h en basic), mais on
+  // ne journalise PAS : /api/transcribe l'a déjà fait pour cette dictée. La
+  // compter deux fois diviserait le quota par deux sans raison.
+  const verdict = await checkRateLimit(ctx.userId, 'ai_extract', getRule('ai_extract', ctx.plan), ctx.isAdmin)
+  if (!verdict.ok) return rateLimitResponse(verdict)
+
   const { texte } = await req.json().catch(() => ({}))
   if (typeof texte !== 'string' || texte.trim().length < 3) {
     return NextResponse.json({ error: 'Rien à interpréter' }, { status: 400 })
