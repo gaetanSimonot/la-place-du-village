@@ -345,22 +345,36 @@ export default function HomePage() {
    *  telle qu'elle a été quittée, hauteur comprise. Consommé une seule fois. */
   const skipSelectionCollapseRef = useRef(false)
 
+  /**
+   * Deplacer la carte replie la feuille, qui remonte quand on lache.
+   *
+   * C'est juste sur l'agenda et l'annuaire : on pousse la carte pour voir un
+   * repere cache sous la liste, et on veut la liste hors du chemin le temps du
+   * geste.
+   *
+   * PAS EN TRANSPORT. Le panneau y est un formulaire : on ecrit deux villes,
+   * on regarde la carte, on revient au champ. Le voir tomber puis rebondir a
+   * chaque effleurement de la carte rend la saisie penible. La feuille reste
+   * ou l'utilisateur l'a mise — a mi-hauteur ou en haut, c'est lui qui decide.
+   */
   const onMapDragStart = useCallback(() => {
+    if (modeTransport) return
     if (mapDragTimerRef.current) clearTimeout(mapDragTimerRef.current)
     setSheetMode(prev => {
       if (prev === 'half') { sheetBeforeMapRef.current = 'half'; return 'peek' }
       return prev
     })
-  }, [])
+  }, [modeTransport])
 
   const onMapDragEnd = useCallback(() => {
+    if (modeTransport) return
     mapDragTimerRef.current = setTimeout(() => {
       if (sheetBeforeMapRef.current === 'half') {
         sheetBeforeMapRef.current = null
         setSheetMode('half')
       }
     }, 350)
-  }, [])
+  }, [modeTransport])
   const router = useRouter()
   /** Post à rouvrir dans l'écran des notifications (deep-link ?post=). */
   const [notifPostId, setNotifPostId] = useState<string | null>(null)
