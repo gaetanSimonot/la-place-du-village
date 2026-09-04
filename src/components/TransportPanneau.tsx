@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
 
+import ClientPortal from './ClientPortal'
+
 const DicteeModal = dynamic(() => import('./DicteeModal'), { ssr: false })
 
 /**
@@ -647,12 +649,19 @@ export default function TransportPanneau({
         <p style={{ margin: '10px 0 0', fontSize: 12, color: '#A99B89' }}>Détail du trajet…</p>
       )}
 
+      {/* Par un PORTAIL, sinon le micro passe derrière la barre du bas.
+          Ce panneau vit dans la feuille, qui est en z-index 20 et crée son
+          propre contexte d'empilement : le 600 du modal n'y vaut plus rien
+          face à la barre en 50. Rendu dans document.body, il redevient
+          au-dessus de tout. */}
       {dicteeOuverte && (
-        <DicteeModal
-          titre="Où allez-vous ?"
-          onClose={() => setDicteeOuverte(false)}
-          onTranscript={t => { void traiterDictee(t) }}
-        />
+        <ClientPortal>
+          <DicteeModal
+            titre="Où allez-vous ?"
+            onClose={() => setDicteeOuverte(false)}
+            onTranscript={t => { void traiterDictee(t) }}
+          />
+        </ClientPortal>
       )}
 
       {/* L'ODbL demande de citer la source. */}
