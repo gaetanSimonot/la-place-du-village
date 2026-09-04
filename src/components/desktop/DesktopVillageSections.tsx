@@ -3,6 +3,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { ETAB_TYPE_LIST } from '@/lib/etablissement-types'
+import { CATEGORIES } from '@/lib/categories'
+import type { Categorie } from '@/lib/types'
+import { imageEvenement } from '@/lib/imageEvenement'
+import { choisirTuilesDuJour } from '@/lib/hubTodayPicker'
 import { texteBrut } from '@/components/TexteRiche'
 
 /**
@@ -27,7 +31,15 @@ interface Evenement {
   date_debut?: string | null
   heure?: string | null
   categorie?: string | null
+  /* Le repli par catégorie a besoin des DEUX : un « concert au marché » doit
+     garder le traitement d'un concert. L'API les envoyait déjà, l'interface
+     ne les déclarait pas. */
+  categories?: string[] | null
   image_url?: string | null
+  /* Le cadrage choisi à la main dans l'admin. La carte mobile s'en sert
+     depuis toujours ; cette tuile l'ignorait, et rognait donc les affiches
+     A4 en plein milieu — souvent du papier blanc. */
+  image_position?: string | null
   lieux?: { nom?: string | null; commune?: string | null } | null
 }
 
@@ -72,17 +84,36 @@ function Entete({ titre, sous, lien }: {
 /** Tuile d'événement — gabarit `.ev` de la maquette. */
 function TuileEvenement({ ev }: { ev: Evenement }) {
   const lieu = ev.lieux?.commune ?? ev.lieux?.nom ?? null
+  const imageDeLaTuile = imageEvenement(ev)
   return (
     <Link href={`/evenement/${ev.id}`} className="pcv-card pcv-ev">
       <span className="pcv-imw">
-        {ev.image_url
+        {/* imageEvenement() et pas ev.image_url : sans affiche, l'événement
+            reçoit le motif de sa catégorie. Ce helper sert déjà partout sur
+            mobile (EventCard, BottomSheet, HubView) ; cette tuile-ci le
+            court-circuitait et laissait un cadre vide. Un tiers des
+            événements d'une semaine n'a pas d'affiche — les marchés et les
+            ateliers surtout — et « une liste de cadres vides donne
+            l'impression qu'il ne se passe rien ». */}
+        {imageDeLaTuile
           // eslint-disable-next-line @next/next/no-img-element
-          ? <img src={ev.image_url} alt="" loading="lazy" />
+          ? <img
+              src={imageDeLaTuile}
+              alt=""
+              loading="lazy"
+              // Le cadrage réglé dans l'admin, comme sur mobile — et seulement
+              // pour la vraie affiche : un motif de repli se cadre au centre.
+              style={{ objectPosition: ev.image_url ? (ev.image_position ?? '50% 50%') : '50% 50%' }}
+            />
           : <span className="pcv-imVide" />}
         {ev.heure && <span className="pcv-hb">{ev.heure.slice(0, 5)}</span>}
       </span>
       <span className="pcv-evB">
-        {ev.categorie && <span className="pcv-kicker">{ev.categorie}</span>}
+        {ev.categorie && (
+          <span className="pcv-kicker">
+            {CATEGORIES[ev.categorie as Categorie]?.label ?? ev.categorie}
+          </span>
+        )}
         <h4>{ev.titre}</h4>
         {ev.lieux?.nom && <span className="pcv-ss">{ev.lieux.nom}</span>}
         <span className="pcv-lo"><PinIcon />{lieu ?? 'Autour de Ganges'}</span>
@@ -121,8 +152,24 @@ export default function DesktopVillageSections() {
     return Array.from(vues).slice(0, 6)
   }, [semaine])
 
+  /**
+   * Les trois tuiles de « L'agenda de la semaine ».
+   *
+   * Sous une catégorie choisie, on prend simplement les trois premiers : la
+   * question est déjà tranchée par le filtre.
+   *
+   * Sous « Tout », non : il y a une dizaine de marchés par semaine, tous tôt
+   * le matin, et pris dans l'ordre ils raflaient les trois places — un
+   * concert du samedi ne remontait jamais. `choisirTuilesDuJour` règle
+   * exactement ça et sert déjà aux tuiles « Aujourd'hui » : un marché au
+   * maximum, jamais deux fois la même catégorie, et l'ordre de préférence met
+   * le marché en dernier parce qu'il revient chaque semaine — il a moins de
+   * valeur d'annonce qu'un spectacle qui n'arrive qu'une fois.
+   */
   const semaineFiltree = useMemo(
-    () => (catActive ? semaine.filter(e => e.categorie === catActive) : semaine).slice(0, 3),
+    () => (catActive
+      ? semaine.filter(e => e.categorie === catActive).slice(0, 3)
+      : choisirTuilesDuJour(semaine, new Map(), 3)),
     [semaine, catActive],
   )
 
@@ -217,7 +264,9 @@ export default function DesktopVillageSections() {
                 <button key={c} type="button"
                         className={`pcv-pill${catActive === c ? ' pcv-pillOn' : ''}`}
                         onClick={() => setCatActive(catActive === c ? null : c)}>
-                  {c}
+                  {/* Le libellé, pas la valeur brute : la base stocke
+                      « sante_bien_etre », personne ne lit ça. */}
+                  {CATEGORIES[c as Categorie]?.label ?? c}
                 </button>
               ))}
             </div>
