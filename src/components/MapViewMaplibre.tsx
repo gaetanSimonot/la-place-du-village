@@ -92,10 +92,8 @@ interface Props {
    * devient réelle, il faut écrire le calque ici — une source GeoJSON pour le
    * tracé, des marqueurs pour les arrêts.
    */
-  transport?: { arrets: { stop_id: string; nom: string; lat: number; lng: number }[]; traces: { sens: number; points: [number, number][] }[]; couleur: string; troncon: [number, number][] | null } | null
-  selectedArretId?: string | null
-  onSelectArret?: (id: string | null) => void
-  onChoisirArret?: (id: string, role: 'depart' | 'arrivee') => void
+  transport?: { arrets: { stop_id: string; nom: string; lat: number; lng: number }[]; traces: { sens: number; points: [number, number][] }[]; couleur: string; troncon: [number, number][] | null; arretDepart: string | null; arretArrivee: string | null } | null
+  onSelectArret?: (id: string) => void
 }
 
 export default function MapViewMaplibre({

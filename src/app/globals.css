@@ -281,36 +281,3 @@ html[data-univers='cinema'] body { background: var(--cine-bg); }
   .lpv-pastille { transition: none !important; transform: none !important; }
   .lpv-eq-bar { animation: none; }
 }
-
-/* ═══════════════════════════════════════════════════════════════════════
-   Vignette d'un arrêt de bus (mode Transport)
-
-   Google fabrique le conteneur de l'InfoWindow hors de notre arbre React :
-   impossible de lui poser une classe. On le cible donc depuis <html>, qui
-   porte `data-transport` uniquement dans ce mode — les vignettes des
-   événements et des commerces gardent leur apparence.
-   ═══════════════════════════════════════════════════════════════════════ */
-
-html[data-transport="1"] .gm-style-iw.gm-style-iw-c {
-  padding: 0 !important;
-  border-radius: 16px !important;
-  box-shadow: 0 10px 32px rgba(44, 28, 16, 0.26) !important;
-  max-width: none !important;
-}
-/* La zone intérieure ajoute son propre retrait et une barre de défilement
-   fantôme qui décale le contenu de quelques pixels. */
-html[data-transport="1"] .gm-style-iw-d {
-  padding: 0 !important;
-  overflow: hidden !important;
-  max-height: none !important;
-}
-/* La croix de fermeture de Google : redondante, on ferme en cliquant à côté,
-   et elle mange le coin de la carte. */
-html[data-transport="1"] .gm-style-iw button.gm-ui-hover-effect {
-  display: none !important;
-}
-/* La pointe sous la bulle, pour qu'elle reste blanche sous les angles
-   arrondis. */
-html[data-transport="1"] .gm-style-iw-tc::after {
-  background: #fff !important;
-}

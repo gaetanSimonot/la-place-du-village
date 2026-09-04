@@ -134,10 +134,15 @@ export default function HomePage() {
     arrets: { stop_id: string; nom: string; lat: number; lng: number }[]
     traces: { sens: number; points: [number, number][] }[]
   } | null>(null)
-  // L'arret dont la vignette est ouverte sur la carte.
-  const [arretChoisi, setArretChoisi] = useState<string | null>(null)
-  // L'arret designe comme depart ou arrivee depuis cette vignette.
-  const [arretImpose, setArretImpose] = useState<{ stop_id: string; role: 'depart' | 'arrivee' } | null>(null)
+  // L'arret touche sur la carte. C'est le panneau qui lui donne son role,
+  // selon la commune a laquelle il appartient.
+  const [arretTouche, setArretTouche] = useState<string | null>(null)
+  // Les deux arrets retenus dans le panneau — la carte les marque.
+  const [arretsRetenus, setArretsRetenus] = useState<{ depart: string | null; arrivee: string | null }>({ depart: null, arrivee: null })
+
+  const majArretsRetenus = useCallback((depart: string | null, arrivee: string | null) => {
+    setArretsRetenus(a => (a.depart === depart && a.arrivee === arrivee ? a : { depart, arrivee }))
+  }, [])
   // Les communes de la recherche : la carte n'affiche que LEURS arrets, au
   // lieu de couvrir la vallee de 98 points.
   const [communesTransport, setCommunesTransport] = useState<{ depart: string | null; arrivee: string | null }>({ depart: null, arrivee: null })
@@ -147,18 +152,6 @@ export default function HomePage() {
   // C'est la reponse a « ou et a quelle heure je monte », qui vaut mieux que
   // de faire choisir un arret a l'aveugle avant meme de connaitre les bus.
   const [arretsDesservis, setArretsDesservis] = useState<{ stop_id: string; nom: string; lat: number | null; lng: number | null; heure: string | null }[]>([])
-
-  // Marqueur sur <html> : il sert a habiller la vignette Google du mode
-  // transport SANS toucher a celles des evenements et des commerces. Le
-  // conteneur de l'InfoWindow est cree par Google hors de notre arbre React :
-  // on ne peut pas lui poser une classe, on ne peut que le cibler depuis un
-  // ancetre.
-  useEffect(() => {
-    try {
-      if (modeTransport) document.documentElement.dataset.transport = '1'
-      else delete document.documentElement.dataset.transport
-    } catch { /* pas de DOM */ }
-  }, [modeTransport])
 
   const majCommunes = useCallback((depart: string | null, arrivee: string | null) => {
     setCommunesTransport(c => (c.depart === depart && c.arrivee === arrivee ? c : { depart, arrivee }))
@@ -1095,10 +1088,10 @@ export default function HomePage() {
             traces: ligneTransport.traces,
             couleur: ligneTransport.ligne.couleur ?? '#2D5A3D',
             troncon,
+            arretDepart: arretsRetenus.depart,
+            arretArrivee: arretsRetenus.arrivee,
           } : null}
-          selectedArretId={arretChoisi}
-          onSelectArret={setArretChoisi}
-          onChoisirArret={(id, role) => { setArretImpose({ stop_id: id, role }); setArretChoisi(null) }}
+          onSelectArret={setArretTouche}
         />
       </div>
 
@@ -1598,13 +1591,15 @@ export default function HomePage() {
             nomLigne={`${ligneTransport.ligne.nom_court ?? ''} — ${ligneTransport.ligne.nom_long ?? ''}`.trim()}
             couleur={ligneTransport.ligne.couleur ?? '#2D5A3D'}
             arrets={ligneTransport.arrets}
-            arretImpose={arretImpose}
+            arretTouche={arretTouche}
             trajetChoisi={trajetChoisi}
             arretsDesservis={arretsDesservis}
             onCommunesChange={majCommunes}
+            onArretsRetenus={majArretsRetenus}
             onChoisirTrajet={choisirTrajet}
             onFermer={() => {
-              setModeTransport(false); setArretChoisi(null); setArretImpose(null)
+              setModeTransport(false); setArretTouche(null)
+              setArretsRetenus({ depart: null, arrivee: null })
               setTrajetChoisi(null); setTroncon(null)
             }}
           />

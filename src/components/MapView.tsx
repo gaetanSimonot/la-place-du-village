@@ -330,20 +330,36 @@ interface TransportProps {
   couleur: string
   /** Le trajet choisi, surligné par-dessus la ligne. */
   troncon: [number, number][] | null
-  selectedArretId: string | null
-  onSelectArret: (id: string | null) => void
+  /** Les deux arrêts retenus dans le panneau — marqués sur la carte. */
+  arretDepart: string | null
+  arretArrivee: string | null
+  onSelectArret: (id: string) => void
 }
 
-function pastilleArret(selectionne: boolean, couleur: string): string {
-  const r = selectionne ? 9 : 6
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 26 26">
-    <circle cx="13" cy="13" r="${r + 3}" fill="#fff" opacity="0.95"/>
-    <circle cx="13" cy="13" r="${r}" fill="${couleur}" stroke="#fff" stroke-width="2"/>
-  </svg>`
+/**
+ * Le repère d'un arrêt. Trois états, lisibles sans légende :
+ *   — retenu comme DÉPART   : gros disque plein, un anneau autour ;
+ *   — retenu comme ARRIVÉE  : gros disque blanc cerclé de la couleur ;
+ *   — simple arrêt          : petit point.
+ * Le départ est plein et l'arrivée creuse : c'est la convention des plans de
+ * transport, on la lit sans y penser.
+ */
+function pastilleArret(role: 'depart' | 'arrivee' | null, couleur: string): string {
+  const T = 34
+  const c = T / 2
+  const corps = role === 'depart'
+    ? `<circle cx="${c}" cy="${c}" r="12" fill="none" stroke="${couleur}" stroke-width="2.5" opacity="0.45"/>
+       <circle cx="${c}" cy="${c}" r="8" fill="${couleur}" stroke="#fff" stroke-width="3"/>`
+    : role === 'arrivee'
+      ? `<circle cx="${c}" cy="${c}" r="12" fill="none" stroke="${couleur}" stroke-width="2.5" opacity="0.45"/>
+         <circle cx="${c}" cy="${c}" r="8" fill="#fff" stroke="${couleur}" stroke-width="4"/>`
+      : `<circle cx="${c}" cy="${c}" r="7" fill="#fff" opacity="0.95"/>
+         <circle cx="${c}" cy="${c}" r="5" fill="${couleur}" stroke="#fff" stroke-width="1.8"/>`
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${T}" height="${T}" viewBox="0 0 ${T} ${T}">${corps}</svg>`
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
 }
 
-function TransportLayer({ arrets, traces, couleur, troncon, selectedArretId, onSelectArret }: TransportProps) {
+function TransportLayer({ arrets, traces, couleur, troncon, arretDepart, arretArrivee, onSelectArret }: TransportProps) {
   const map = useMap()
   const lignesRef = useRef<google.maps.Polyline[]>([])
   const tronconRef = useRef<google.maps.Polyline | null>(null)
@@ -396,20 +412,24 @@ function TransportLayer({ arrets, traces, couleur, troncon, selectedArretId, onS
     if (!map) return
     arretsRef.current.forEach(m => m.setMap(null))
     arretsRef.current = arrets.map(a => {
-      const choisi = a.stop_id === selectedArretId
+      const role: 'depart' | 'arrivee' | null =
+        a.stop_id === arretDepart ? 'depart' : a.stop_id === arretArrivee ? 'arrivee' : null
       const m = new google.maps.Marker({
         position: { lat: a.lat, lng: a.lng },
         title: a.nom,
         optimized: false,
-        icon: { url: pastilleArret(choisi, couleur), scaledSize: new google.maps.Size(26, 26), anchor: new google.maps.Point(13, 13) },
-        zIndex: choisi ? 999 : 5,
+        icon: { url: pastilleArret(role, couleur), scaledSize: new google.maps.Size(34, 34), anchor: new google.maps.Point(17, 17) },
+        zIndex: role ? 999 : 5,
         map,
       })
-      m.addListener('click', () => onSelectArret(choisi ? null : a.stop_id))
+      // Un clic sur la carte fait la même chose qu'une pastille du panneau :
+      // c'est le panneau qui décide si l'arrêt est un départ ou une arrivée,
+      // selon la commune à laquelle il appartient. Plus de bulle à ouvrir.
+      m.addListener('click', () => onSelectArret(a.stop_id))
       return m
     })
     return () => { arretsRef.current.forEach(m => m.setMap(null)) }
-  }, [map, arrets, selectedArretId, couleur, onSelectArret])
+  }, [map, arrets, arretDepart, arretArrivee, couleur, onSelectArret])
 
   return null
 }
@@ -439,14 +459,19 @@ interface Props {
   onSelectEtab?: (id: string | null) => void
   onOpenEtablissement?: (id: string) => void
   /** Mode transport : la ligne à dessiner, ou null si on n'y est pas. */
-  transport?: { arrets: ArretTransport[]; traces: TraceTransport[]; couleur: string; troncon: [number, number][] | null } | null
-  selectedArretId?: string | null
-  onSelectArret?: (id: string | null) => void
-  /** Depuis la vignette d'un arrêt : le désigner comme départ ou arrivée. */
-  onChoisirArret?: (id: string, role: 'depart' | 'arrivee') => void
+  transport?: {
+    arrets: ArretTransport[]
+    traces: TraceTransport[]
+    couleur: string
+    troncon: [number, number][] | null
+    arretDepart: string | null
+    arretArrivee: string | null
+  } | null
+  /** Un arrêt touché sur la carte — le panneau lui donne son rôle. */
+  onSelectArret?: (id: string) => void
 }
 
-export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn, onMapDragStart, onMapDragEnd, onCameraIdle, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement, transport = null, selectedArretId = null, onSelectArret, onChoisirArret }: Props) {
+export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn, onMapDragStart, onMapDragEnd, onCameraIdle, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement, transport = null, onSelectArret }: Props) {
   const [internalEtabId, setInternalEtabId] = useState<string | null>(null)
   const selectedEtabId    = selectedEtabIdProp !== undefined ? selectedEtabIdProp : internalEtabId
   const setSelectedEtabId = onSelectEtab ?? setInternalEtabId
@@ -512,62 +537,11 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
             traces={transport.traces}
             couleur={transport.couleur}
             troncon={transport.troncon}
-            selectedArretId={selectedArretId}
+            arretDepart={transport.arretDepart}
+            arretArrivee={transport.arretArrivee}
             onSelectArret={onSelectArret ?? (() => {})}
           />
         )}
-
-        {/* Vignette d'un arrêt : la commune en surtitre, le lieu en gros,
-            puis on décide s'il est le départ ou l'arrivée. Cliquer à côté la
-            referme. L'habillage du cadre Google est dans globals.css, ciblé
-            par html[data-transport] pour ne pas toucher aux autres vignettes. */}
-        {transport && selectedArretId && (() => {
-          const a = transport.arrets.find(x => x.stop_id === selectedArretId)
-          if (!a) return null
-          // « GANGES - MAIRIE » : la commune d'un côté, le lieu de l'autre.
-          const bout = a.nom.split(' - ')
-          const commune = bout[0]?.trim() ?? a.nom
-          const lieu = bout.slice(1).join(' — ').trim()
-          const joli = (t: string) => t.toLowerCase()
-            .replace(/(^|[\s'’-])([a-zà-ÿ])/g, (_, s2, c) => s2 + c.toUpperCase())
-          const bouton: React.CSSProperties = {
-            flex: 1, height: 36, borderRadius: 10, border: 'none', cursor: 'pointer',
-            fontSize: 12.5, fontWeight: 800, fontFamily: 'var(--font-body), sans-serif',
-            letterSpacing: '-0.01em',
-          }
-          return (
-            <InfoWindow
-              position={{ lat: a.lat, lng: a.lng }}
-              pixelOffset={[0, -16]}
-              onCloseClick={() => onSelectArret?.(null)}
-            >
-              <div style={{ width: 232, fontFamily: 'var(--font-body), sans-serif', overflow: 'hidden', borderRadius: 16 }}>
-                <div style={{ padding: '13px 14px 11px' }}>
-                  <span style={{
-                    display: 'block', fontSize: 9.5, fontWeight: 800, letterSpacing: '.11em',
-                    textTransform: 'uppercase', color: transport.couleur, marginBottom: 3,
-                  }}>
-                    {joli(commune)}
-                  </span>
-                  <p style={{ margin: 0, fontSize: 14.5, fontWeight: 800, color: '#1A1209', lineHeight: 1.25 }}>
-                    {lieu ? joli(lieu) : joli(commune)}
-                  </p>
-                </div>
-                <div style={{ display: 'flex', gap: 7, padding: '0 12px 12px' }}>
-                  <button onClick={() => onChoisirArret?.(a.stop_id, 'depart')}
-                          style={{ ...bouton, background: transport.couleur, color: '#fff' }}>
-                    Départ
-                  </button>
-                  <button onClick={() => onChoisirArret?.(a.stop_id, 'arrivee')}
-                          style={{ ...bouton, background: '#F5F0E8', color: '#1A1209' }}>
-                    Arrivée
-                  </button>
-                </div>
-              </div>
-            </InfoWindow>
-          )
-        })()}
-
         {/* Vignette établissement sélectionné */}
         {selectedEtab && selectedEtab.lat && selectedEtab.lng && (() => {
           const typeInfo = ETAB_TYPES[selectedEtab.type]

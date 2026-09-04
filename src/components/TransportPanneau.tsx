@@ -198,16 +198,20 @@ function ChampCommune({
 }
 
 export default function TransportPanneau({
-  nomLigne, couleur, arrets, arretImpose, trajetChoisi, arretsDesservis,
-  onCommunesChange, onChoisirTrajet, onFermer,
+  nomLigne, couleur, arrets, arretTouche, trajetChoisi, arretsDesservis,
+  onCommunesChange, onArretsRetenus, onChoisirTrajet, onFermer,
 }: {
   nomLigne: string
   couleur: string
   arrets: ArretChoisissable[]
-  arretImpose: { stop_id: string; role: 'depart' | 'arrivee' } | null
+  /** Un arrêt touché sur la carte. C'est le panneau qui lui donne son rôle,
+   *  selon la commune à laquelle il appartient — pas une bulle à répondre. */
+  arretTouche: string | null
   trajetChoisi: string | null
   arretsDesservis: ArretDesservi[]
   onCommunesChange: (depart: string | null, arrivee: string | null) => void
+  /** Les deux arrêts retenus → la carte les marque. */
+  onArretsRetenus: (depart: string | null, arrivee: string | null) => void
   onChoisirTrajet: (t: { trip_id: string; arret_depart: string; arret_arrivee: string } | null) => void
   onFermer: () => void
 }) {
@@ -302,22 +306,30 @@ export default function TransportPanneau({
   // montrer tous les bus, tous arrêts confondus.
   const dejaVu = useRef<string | null>(null)
   useEffect(() => {
-    if (!arretImpose) return
-    const cle = `${arretImpose.stop_id}:${arretImpose.role}`
-    if (dejaVu.current === cle) return
-    dejaVu.current = cle
+    if (!arretTouche) return
+    if (dejaVu.current === arretTouche) return
+    dejaVu.current = arretTouche
 
-    const nom = nomDe(arretImpose.stop_id)
+    const nom = nomDe(arretTouche)
     if (!nom) return
     const c = communeDe(nom)
-    if (arretImpose.role === 'depart') {
-      setCommuneDepart(c); setArretDepart(arretImpose.stop_id)
-      if (communeArrivee) void chercher(c, communeArrivee, arretImpose.stop_id, arretArrivee)
+    // Le rôle se déduit de la commune : un arrêt de la ville de départ est un
+    // départ, un arrêt de la ville d'arrivée est une arrivée. Sans commune
+    // correspondante, on le prend comme point de départ — c'est le geste le
+    // plus courant quand on commence une recherche.
+    if (c === communeArrivee) {
+      setArretArrivee(arretTouche)
+      if (communeDepart) void chercher(communeDepart, c, arretDepart, arretTouche)
     } else {
-      setCommuneArrivee(c); setArretArrivee(arretImpose.stop_id)
-      if (communeDepart) void chercher(communeDepart, c, arretDepart, arretImpose.stop_id)
+      setCommuneDepart(c); setArretDepart(arretTouche)
+      if (communeArrivee) void chercher(c, communeArrivee, arretTouche, arretArrivee)
     }
-  }, [arretImpose, nomDe, communeDepart, communeArrivee, arretDepart, arretArrivee, chercher])
+  }, [arretTouche, nomDe, communeDepart, communeArrivee, arretDepart, arretArrivee, chercher])
+
+  // La carte marque les deux arrêts retenus, et se met à jour quand on change.
+  useEffect(() => {
+    onArretsRetenus(arretDepart, arretArrivee)
+  }, [arretDepart, arretArrivee, onArretsRetenus])
 
   const trajetOuvert = trajets?.find(t => t.trip_id === trajetChoisi) ?? null
 
