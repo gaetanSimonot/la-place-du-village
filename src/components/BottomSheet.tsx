@@ -608,7 +608,11 @@ export default function BottomSheet({
           </>
         )}
 
-        {appMode !== 'agenda' && (
+        {/* `!contenuTransport` : le compteur « 1000 commerces » et ses pastilles
+            de type vivent dans la zone de poignée, pas dans le bloc annuaire
+            plus bas. Sans cette garde, venir de Commerces ou de Producteurs
+            laissait ce titre au-dessus du panneau de trajet. */}
+        {appMode !== 'agenda' && !contenuTransport && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 16px 10px' }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 800, fontSize: 18, color: '#1C1917', margin: 0, lineHeight: 1.1 }}>
@@ -647,8 +651,12 @@ export default function BottomSheet({
         )}
 
         {/* Filtres annuaire — wheel horizontal selon tab actif.
-            En !V3, mini-toggle Producteurs/Commerces au-dessus pour switch. */}
-        {appMode !== 'agenda' && (
+            En !V3, mini-toggle Producteurs/Commerces au-dessus pour switch.
+            `!contenuTransport` : troisième et dernier endroit où l'annuaire
+            s'affiche dans la zone de poignée — compteur, pastilles de type,
+            puis recherche plus bas. En mode transport, la feuille appartient
+            au transport. */}
+        {appMode !== 'agenda' && !contenuTransport && (
           <div style={{ padding: '0 16px 10px' }}>
             {!topBarV3 && (
               <div style={{ display: 'flex', backgroundColor: '#E8F2EB', borderRadius: 999, padding: 3, gap: 2, marginBottom: 8, width: 'fit-content' }}>
@@ -694,7 +702,12 @@ export default function BottomSheet({
       </div>{/* fin zone drag */}
 
       {/* ── Rows annuaire (filtres déplacés dans le header, search & etab filter restent) ── */}
-      {appMode === 'annuaire' && (
+      {/* `!contenuTransport` : en mode transport, la feuille appartient au
+          transport. Sans cette garde, la recherche de commerces et le filtre
+          de type restaient affichés AU-DESSUS du panneau de trajet — venir de
+          Commerces ou de Producteurs laissait donc des champs étrangers dans
+          l'écran, ce qui n'arrivait pas en venant d'Événements. */}
+      {appMode === 'annuaire' && !contenuTransport && (
         <>
 
           {/* Barre de recherche + suggestions */}

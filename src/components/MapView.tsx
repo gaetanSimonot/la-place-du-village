@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useCallback, useState } from 'react'
+import MapTransportLayer, { type ArretTransport, type TraceTransport, type LigneTransport } from './MapTransportLayer'
 import { APIProvider, Map, InfoWindow, useMap } from '@vis.gl/react-google-maps'
 import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer'
 
@@ -315,132 +316,6 @@ function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fi
   return null
 }
 
-/* ─── Transport : la ligne et ses arrêts ─────────────────────────────────
-   Deux objets Google Maps seulement — une polyligne par sens, un marqueur
-   rond par arrêt. Pas de regroupement : 98 arrêts alignés le long d'une route
-   ne s'amassent pas comme 1400 commerces, et les regrouper cacherait
-   justement ce qu'on vient voir. */
-
-export interface ArretTransport { stop_id: string; nom: string; lat: number; lng: number }
-export interface TraceTransport {
-  sens: number
-  points: [number, number][]
-  /** Chaque ligne a sa couleur officielle liO — la 608 est orange, la 101
-   *  bleu clair. Dix lignes d'une seule teinte seraient illisibles. */
-  route_id?: string
-  couleur?: string
-}
-
-interface TransportProps {
-  arrets: ArretTransport[]
-  traces: TraceTransport[]
-  couleur: string
-  /** Le trajet choisi, surligné par-dessus la ligne. */
-  troncon: [number, number][] | null
-  /** Les deux arrêts retenus dans le panneau — marqués sur la carte. */
-  arretDepart: string | null
-  arretArrivee: string | null
-  onSelectArret: (id: string) => void
-}
-
-/**
- * Le repère d'un arrêt. Trois états, lisibles sans légende :
- *   — retenu comme DÉPART   : gros disque plein, un anneau autour ;
- *   — retenu comme ARRIVÉE  : gros disque blanc cerclé de la couleur ;
- *   — simple arrêt          : petit point.
- * Le départ est plein et l'arrivée creuse : c'est la convention des plans de
- * transport, on la lit sans y penser.
- */
-function pastilleArret(role: 'depart' | 'arrivee' | null, couleur: string): string {
-  const T = 34
-  const c = T / 2
-  const corps = role === 'depart'
-    ? `<circle cx="${c}" cy="${c}" r="12" fill="none" stroke="${couleur}" stroke-width="2.5" opacity="0.45"/>
-       <circle cx="${c}" cy="${c}" r="8" fill="${couleur}" stroke="#fff" stroke-width="3"/>`
-    : role === 'arrivee'
-      ? `<circle cx="${c}" cy="${c}" r="12" fill="none" stroke="${couleur}" stroke-width="2.5" opacity="0.45"/>
-         <circle cx="${c}" cy="${c}" r="8" fill="#fff" stroke="${couleur}" stroke-width="4"/>`
-      : `<circle cx="${c}" cy="${c}" r="7" fill="#fff" opacity="0.95"/>
-         <circle cx="${c}" cy="${c}" r="5" fill="${couleur}" stroke="#fff" stroke-width="1.8"/>`
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${T}" height="${T}" viewBox="0 0 ${T} ${T}">${corps}</svg>`
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
-}
-
-function TransportLayer({ arrets, traces, couleur, troncon, arretDepart, arretArrivee, onSelectArret }: TransportProps) {
-  const map = useMap()
-  const lignesRef = useRef<google.maps.Polyline[]>([])
-  const tronconRef = useRef<google.maps.Polyline | null>(null)
-  const arretsRef = useRef<google.maps.Marker[]>([])
-
-  // Le tracé. Séparé des marqueurs : il ne change pas quand on sélectionne un
-  // arrêt, et le redessiner à chaque clic ferait clignoter la ligne.
-  useEffect(() => {
-    if (!map) return
-    lignesRef.current.forEach(l => l.setMap(null))
-    lignesRef.current = traces.map(t => new google.maps.Polyline({
-      // Le GTFS range ses points en [longitude, latitude] ; Google attend
-      // l'inverse. Les intervertir dessine la ligne au milieu de l'océan.
-      path: t.points.map(([lng, lat]) => ({ lat, lng })),
-      strokeColor: t.couleur ?? couleur,
-      // La ligne entière pâlit dès qu'un trajet est surligné : sans ça, les
-      // deux traits se confondent et on ne voit pas ce qu'on a choisi.
-      strokeOpacity: troncon ? 0.18 : 0.8,
-      strokeWeight: 4.5,
-      zIndex: 1,
-      map,
-    }))
-    return () => { lignesRef.current.forEach(l => l.setMap(null)) }
-  }, [map, traces, couleur, troncon])
-
-  // Le trajet choisi, par-dessus.
-  useEffect(() => {
-    if (!map) return
-    tronconRef.current?.setMap(null)
-    tronconRef.current = null
-    if (!troncon || troncon.length < 2) return
-    const chemin = troncon.map(([lng, lat]) => ({ lat, lng }))
-    tronconRef.current = new google.maps.Polyline({
-      path: chemin,
-      strokeColor: couleur,
-      strokeOpacity: 1,
-      strokeWeight: 7,
-      zIndex: 3,
-      map,
-    })
-    // On cadre sur le trajet : chercher soi-même son bout de ligne dans la
-    // vallée entière serait absurde.
-    const bornes = new google.maps.LatLngBounds()
-    chemin.forEach(p => bornes.extend(p))
-    map.fitBounds(bornes, 60)
-    return () => { tronconRef.current?.setMap(null) }
-  }, [map, troncon, couleur])
-
-  useEffect(() => {
-    if (!map) return
-    arretsRef.current.forEach(m => m.setMap(null))
-    arretsRef.current = arrets.map(a => {
-      const role: 'depart' | 'arrivee' | null =
-        a.stop_id === arretDepart ? 'depart' : a.stop_id === arretArrivee ? 'arrivee' : null
-      const m = new google.maps.Marker({
-        position: { lat: a.lat, lng: a.lng },
-        title: a.nom,
-        optimized: false,
-        icon: { url: pastilleArret(role, couleur), scaledSize: new google.maps.Size(34, 34), anchor: new google.maps.Point(17, 17) },
-        zIndex: role ? 999 : 5,
-        map,
-      })
-      // Un clic sur la carte fait la même chose qu'une pastille du panneau :
-      // c'est le panneau qui décide si l'arrêt est un départ ou une arrivée,
-      // selon la commune à laquelle il appartient. Plus de bulle à ouvrir.
-      m.addListener('click', () => onSelectArret(a.stop_id))
-      return m
-    })
-    return () => { arretsRef.current.forEach(m => m.setMap(null)) }
-  }, [map, arrets, arretDepart, arretArrivee, couleur, onSelectArret])
-
-  return null
-}
-
 interface Props {
   evenements: EvenementCard[]
   selectedId: string | null
@@ -469,16 +344,16 @@ interface Props {
   transport?: {
     arrets: ArretTransport[]
     traces: TraceTransport[]
+    lignes: LigneTransport[]
     couleur: string
     troncon: [number, number][] | null
     arretDepart: string | null
     arretArrivee: string | null
+    discret: boolean
   } | null
-  /** Un arrêt touché sur la carte — le panneau lui donne son rôle. */
-  onSelectArret?: (id: string) => void
 }
 
-export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn, onMapDragStart, onMapDragEnd, onCameraIdle, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement, transport = null, onSelectArret }: Props) {
+export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn, onMapDragStart, onMapDragEnd, onCameraIdle, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement, transport = null }: Props) {
   const [internalEtabId, setInternalEtabId] = useState<string | null>(null)
   const selectedEtabId    = selectedEtabIdProp !== undefined ? selectedEtabIdProp : internalEtabId
   const setSelectedEtabId = onSelectEtab ?? setInternalEtabId
@@ -538,17 +413,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
           fixedMap={fixedMap}
         />
 
-        {transport && (
-          <TransportLayer
-            arrets={transport.arrets}
-            traces={transport.traces}
-            couleur={transport.couleur}
-            troncon={transport.troncon}
-            arretDepart={transport.arretDepart}
-            arretArrivee={transport.arretArrivee}
-            onSelectArret={onSelectArret ?? (() => {})}
-          />
-        )}
+        {transport && <MapTransportLayer {...transport} />}
         {/* Vignette établissement sélectionné */}
         {selectedEtab && selectedEtab.lat && selectedEtab.lng && (() => {
           const typeInfo = ETAB_TYPES[selectedEtab.type]

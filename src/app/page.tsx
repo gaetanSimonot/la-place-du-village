@@ -134,9 +134,6 @@ export default function HomePage() {
     arrets: { stop_id: string; nom: string; lat: number; lng: number }[]
     traces: { sens: number; points: [number, number][]; route_id?: string; couleur?: string }[]
   } | null>(null)
-  // L'arret touche sur la carte. C'est le panneau qui lui donne son role,
-  // selon la commune a laquelle il appartient.
-  const [arretTouche, setArretTouche] = useState<string | null>(null)
   // Les deux arrets retenus dans le panneau — la carte les marque.
   const [arretsRetenus, setArretsRetenus] = useState<{ depart: string | null; arrivee: string | null }>({ depart: null, arrivee: null })
 
@@ -1087,12 +1084,15 @@ export default function HomePage() {
           transport={modeTransport && ligneTransport ? {
             arrets: arretsAffiches,
             traces: ligneTransport.traces,
+            lignes: ligneTransport.lignes,
             couleur: '#2D5A3D',
             troncon,
             arretDepart: arretsRetenus.depart,
             arretArrivee: arretsRetenus.arrivee,
+            // Tant qu'aucune ville n'est saisie, les arrets s'effacent : 377
+            // pastilles blanches par-dessus dix lignes, ce n'est plus une carte.
+            discret: !communesTransport.depart && !communesTransport.arrivee,
           } : null}
-          onSelectArret={setArretTouche}
         />
       </div>
 
@@ -1591,14 +1591,13 @@ export default function HomePage() {
           <TransportPanneau
             lignes={ligneTransport.lignes}
             arrets={ligneTransport.arrets}
-            arretTouche={arretTouche}
             trajetChoisi={trajetChoisi}
             arretsDesservis={arretsDesservis}
             onCommunesChange={majCommunes}
             onArretsRetenus={majArretsRetenus}
             onChoisirTrajet={choisirTrajet}
             onFermer={() => {
-              setModeTransport(false); setArretTouche(null)
+              setModeTransport(false)
               setArretsRetenus({ depart: null, arrivee: null })
               setTrajetChoisi(null); setTroncon(null)
             }}

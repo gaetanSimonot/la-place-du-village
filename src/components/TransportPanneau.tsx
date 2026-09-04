@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 /**
  * Mode « Transport » : ou je pars, ou je vais, quand.
@@ -72,6 +72,31 @@ function aujourdhuiParis(): string {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit',
   }).format(new Date())
+}
+
+/**
+ * Les heures proposees, par quart d'heure.
+ *
+ * Un `input[type=time]` ouvre sur telephone un cadran d'horloge ou il faut
+ * viser une aiguille — un geste penible pour dire « a partir de 7h ». Une
+ * liste deroulante native se parcourt au pouce.
+ */
+const HEURES: string[] = (() => {
+  const out: string[] = []
+  for (let h = 0; h < 24; h++) {
+    for (const m of [0, 15, 30, 45]) {
+      out.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
+    }
+  }
+  return out
+})()
+
+/** L'heure courante arrondie au quart d'heure INFERIEUR : on ne veut pas
+ *  rater un bus qui part dans dix minutes. */
+function quartDHeureParis(): string {
+  const h = heureParis()
+  const [hh, mm] = h.split(':').map(Number)
+  return `${String(hh).padStart(2, '0')}:${String(Math.floor(mm / 15) * 15).padStart(2, '0')}`
 }
 
 function heureParis(): string {
@@ -200,15 +225,12 @@ function ChampCommune({
 }
 
 export default function TransportPanneau({
-  lignes, arrets, arretTouche, trajetChoisi, arretsDesservis,
+  lignes, arrets, trajetChoisi, arretsDesservis,
   onCommunesChange, onArretsRetenus, onChoisirTrajet, onFermer,
 }: {
   /** Tout le reseau importe. Chaque ligne porte sa couleur officielle liO. */
   lignes: { route_id: string; nom_court: string | null; nom_long: string | null; couleur: string | null }[]
   arrets: ArretChoisissable[]
-  /** Un arrêt touché sur la carte. C'est le panneau qui lui donne son rôle,
-   *  selon la commune à laquelle il appartient — pas une bulle à répondre. */
-  arretTouche: string | null
   trajetChoisi: string | null
   arretsDesservis: ArretDesservi[]
   onCommunesChange: (depart: string | null, arrivee: string | null) => void
@@ -222,11 +244,19 @@ export default function TransportPanneau({
   const [arretDepart, setArretDepart] = useState<string | null>(null)
   const [arretArrivee, setArretArrivee] = useState<string | null>(null)
   const [date, setDate] = useState(aujourdhuiParis)
-  const [heure, setHeure] = useState(heureParis)
+  const [heure, setHeure] = useState(quartDHeureParis)
   const [trajets, setTrajets] = useState<Trajet[] | null>(null)
   const [nomsArrets, setNomsArrets] = useState<{ stop_id: string; nom: string }[]>([])
   const [plusRapide, setPlusRapide] = useState<number | null>(null)
   const [chargement, setChargement] = useState(false)
+  /**
+   * Deux temps, pas un formulaire qui s'allonge.
+   *   'recherche' — les villes, le jour, l'heure, les arrets ;
+   *   'resultats' — les bus, avec un rappel figé de la question posée.
+   * Un panneau qui empile tout finit par tout mélanger ; ici on avance, et un
+   * bouton ramène en arrière.
+   */
+  const [etape, setEtape] = useState<'recherche' | 'resultats'>('recherche')
   const [message, setMessage] = useState<string | null>(null)
 
   // La couleur de la ligne d'un trajet — pour que chaque resultat porte la
@@ -309,6 +339,7 @@ export default function TransportPanneau({
       setTrajets(d.trajets ?? [])
       setNomsArrets(d.arrets ?? [])
       setPlusRapide(d.plus_rapide ?? null)
+      setEtape('resultats')
       if ((d.trajets ?? []).length === 0) setMessage(d.raison ?? 'Aucun bus dans ce sens après cette heure-là.')
     } catch {
       setMessage('Vérifiez votre connexion.')
@@ -320,28 +351,6 @@ export default function TransportPanneau({
   // Un arrêt désigné sur la carte affine la recherche — et la relance
   // aussitôt. Sans ça, le geste ne servait à rien : la liste continuait de
   // montrer tous les bus, tous arrêts confondus.
-  const dejaVu = useRef<string | null>(null)
-  useEffect(() => {
-    if (!arretTouche) return
-    if (dejaVu.current === arretTouche) return
-    dejaVu.current = arretTouche
-
-    const nom = nomDe(arretTouche)
-    if (!nom) return
-    const c = communeDe(nom)
-    // Le rôle se déduit de la commune : un arrêt de la ville de départ est un
-    // départ, un arrêt de la ville d'arrivée est une arrivée. Sans commune
-    // correspondante, on le prend comme point de départ — c'est le geste le
-    // plus courant quand on commence une recherche.
-    if (c === communeArrivee) {
-      setArretArrivee(arretTouche)
-      if (communeDepart) void chercher(communeDepart, c, arretDepart, arretTouche)
-    } else {
-      setCommuneDepart(c); setArretDepart(arretTouche)
-      if (communeArrivee) void chercher(c, communeArrivee, arretTouche, arretArrivee)
-    }
-  }, [arretTouche, nomDe, communeDepart, communeArrivee, arretDepart, arretArrivee, chercher])
-
   // La carte marque les deux arrêts retenus, et se met à jour quand on change.
   useEffect(() => {
     onArretsRetenus(arretDepart, arretArrivee)
@@ -354,7 +363,9 @@ export default function TransportPanneau({
 
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
         <div style={{ minWidth: 0 }}>
-          <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#1A1209' }}>Où allez-vous ?</p>
+          <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#1A1209' }}>
+            {etape === 'recherche' ? 'Où allez-vous ?' : 'Les prochains cars'}
+          </p>
           <p style={{ margin: '2px 0 0', fontSize: 11.5, color: '#7A6A5A' }}>
             {lignes.length} ligne{lignes.length > 1 ? 's' : ''} de car liO dans la vallée
           </p>
@@ -365,6 +376,7 @@ export default function TransportPanneau({
         }}>✕</button>
       </div>
 
+      {etape === 'recherche' && (
       <div style={{ display: 'grid', gap: 10 }}>
         <div>
           <ChampCommune
@@ -414,7 +426,9 @@ export default function TransportPanneau({
           </label>
           <label>
             <span style={ETIQUETTE}>À partir de</span>
-            <input type="time" value={heure} onChange={e => setHeure(e.target.value)} style={CHAMP} />
+            <select value={heure} onChange={e => setHeure(e.target.value)} style={CHAMP}>
+              {HEURES.map(h => <option key={h} value={h}>{h.replace(':', 'h')}</option>)}
+            </select>
           </label>
         </div>
 
@@ -426,12 +440,45 @@ export default function TransportPanneau({
           {chargement ? 'Recherche…' : 'Chercher'}
         </button>
       </div>
+      )}
+
+      {/* Le rappel figé de la question posée, et le chemin du retour. On ne
+          remplit pas deux fois : « Modifier » ramène au formulaire tel qu'on
+          l'a laissé. */}
+      {etape === 'resultats' && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+          border: '1px solid #F0EAE0', background: '#FBF7F0', borderRadius: 12, padding: '9px 11px',
+        }}>
+          <div style={{ minWidth: 0, fontSize: 12, color: '#3E332A', lineHeight: 1.45 }}>
+            <strong style={{ fontWeight: 800 }}>{nomLisible(communeDepart)}</strong>
+            {arretDepart && <span style={{ color: '#7A6A5A' }}> ({lieuDe(nomDe(arretDepart))})</span>}
+            <span style={{ color: '#A99B89', margin: '0 5px' }}>→</span>
+            <strong style={{ fontWeight: 800 }}>{nomLisible(communeArrivee)}</strong>
+            {arretArrivee && <span style={{ color: '#7A6A5A' }}> ({lieuDe(nomDe(arretArrivee))})</span>}
+            <span style={{ display: 'block', color: '#7A6A5A', fontSize: 11.5, marginTop: 1 }}>
+              {new Date(`${date}T12:00:00Z`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })}
+              {' · dès '}{heure.replace(':', 'h')}
+            </span>
+          </div>
+          <button
+            onClick={() => { setEtape('recherche'); onChoisirTrajet(null) }}
+            style={{
+              flexShrink: 0, border: '1px solid #E8E0D4', background: '#fff', color: '#2D5A3D',
+              borderRadius: 9, padding: '6px 10px', fontSize: 12, fontWeight: 800, cursor: 'pointer',
+              fontFamily: 'var(--font-body), sans-serif',
+            }}
+          >
+            Modifier
+          </button>
+        </div>
+      )}
 
       {message && (
         <p style={{ margin: '12px 0 0', fontSize: 12.5, color: '#7A6A5A', lineHeight: 1.5 }}>{message}</p>
       )}
 
-      {trajets && trajets.length > 0 && (
+      {etape === 'resultats' && trajets && trajets.length > 0 && (
         <div style={{ marginTop: 16, display: 'grid', gap: 8 }}>
           <p style={{ margin: 0, fontSize: 11.5, color: '#7A6A5A', lineHeight: 1.5 }}>
             {trajets.length} bus{(arretDepart || arretArrivee) ? ' à cet arrêt' : ''} · touchez-en un pour voir
