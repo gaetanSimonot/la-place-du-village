@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
 
 import ClientPortal from './ClientPortal'
+import { authedFetch } from '@/lib/swr-fetchers'
 
 const DicteeModal = dynamic(() => import('./DicteeModal'), { ssr: false })
 
@@ -376,7 +377,10 @@ export default function TransportPanneau({
     setDicteeEnCours(true)
     setMessage(null)
     try {
-      const r = await fetch('/api/transport/dictee', {
+      // authedFetch et PAS fetch : la route demande un compte, et un appel nu
+      // repartait en 401 sans que rien ne se remplisse. Il porte le jeton et
+      // le rafraîchit s'il a expiré — un jeton périmé échoue en silence.
+      const r = await authedFetch('/api/transport/dictee', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ texte }),
