@@ -28,17 +28,24 @@ export const fetchCache = 'force-no-store'
 
 const JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'] as const
 
-interface Passage { trip_id: string; ordre: number; depart: string | null; arrivee: string | null }
+interface Passage { trip_id: string; ordre: number; depart: string | null; arrivee: string | null; stop_id: string }
 
 export async function GET(req: NextRequest) {
   const p = new URL(req.url).searchParams
-  const de = (p.get('de') ?? '').trim()
-  const vers = (p.get('vers') ?? '').trim()
+  // Plusieurs arrets separes par des virgules : une commune, c'est plusieurs
+  // arrets (Ganges en a 4, Saint-Gely-du-Fesc 18). On cherche sur tous, et
+  // c'est le resultat qui dit lequel est effectivement emprunte.
+  const listeDe = (p.get('de') ?? '').split(',').map(x => x.trim()).filter(Boolean)
+  const listeVers = (p.get('vers') ?? '').split(',').map(x => x.trim()).filter(Boolean)
+  const de = listeDe[0] ?? ''
+  const vers = listeVers[0] ?? ''
   const date = (p.get('date') ?? '').trim()
   const heure = (p.get('heure') ?? '00:00').trim()
 
-  if (!de || !vers) return NextResponse.json({ error: 'Arrêts de départ et d’arrivée requis' }, { status: 400 })
-  if (de === vers) return NextResponse.json({ error: 'Départ et arrivée sont le même arrêt' }, { status: 400 })
+  if (!de || !vers) return NextResponse.json({ error: 'Départ et arrivée requis' }, { status: 400 })
+  if (listeDe.some(x => listeVers.includes(x))) {
+    return NextResponse.json({ error: 'Le départ et l’arrivée sont au même endroit' }, { status: 400 })
+  }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return NextResponse.json({ error: 'Date attendue au format AAAA-MM-JJ' }, { status: 400 })
   if (!/^\d{2}:\d{2}$/.test(heure)) return NextResponse.json({ error: 'Heure attendue au format HH:MM' }, { status: 400 })
 
@@ -86,14 +93,24 @@ export async function GET(req: NextRequest) {
   // ── 3. Les passages aux deux arrêts ───────────────────────────────────
   const passagesDe = new Map<string, Passage>()
   const passagesVers = new Map<string, Passage>()
-  for (const [arret, cible] of [[de, passagesDe], [vers, passagesVers]] as [string, Map<string, Passage>][]) {
+  for (const [arrets, cible] of [[listeDe, passagesDe], [listeVers, passagesVers]] as [string[], Map<string, Passage>][]) {
     const { data } = await supabaseAdmin
       .from('transport_passages')
-      .select('trip_id, ordre, depart, arrivee')
-      .eq('stop_id', arret)
+      .select('trip_id, ordre, depart, arrivee, stop_id')
+      .in('stop_id', arrets)
     for (const x of data ?? []) {
-      if (!courses.has(x.trip_id as string)) continue
-      cible.set(x.trip_id as string, x as unknown as Passage)
+      const trip = x.trip_id as string
+      if (!courses.has(trip)) continue
+      // Une course peut toucher deux arrets de la meme commune. Pour le
+      // depart on garde le PREMIER rencontre, pour l'arrivee le DERNIER :
+      // c'est ce qui donne le trajet le plus long a l'interieur de la ville,
+      // donc celui qui dessert le plus de monde.
+      const dejaLa = cible.get(trip)
+      if (!dejaLa) { cible.set(trip, x as unknown as Passage); continue }
+      const garderLePlusPetit = cible === passagesDe
+      if (garderLePlusPetit ? (x.ordre as number) < dejaLa.ordre : (x.ordre as number) > dejaLa.ordre) {
+        cible.set(trip, x as unknown as Passage)
+      }
     }
   }
 
@@ -119,15 +136,34 @@ export async function GET(req: NextRequest) {
       arrivee,
       duree_min: minutes(arrivee) - minutes(depart),
       arrets_intermediaires: a.ordre - d.ordre - 1,
+      // Quel arret est REELLEMENT emprunte : la recherche part d'une commune,
+      // la reponse doit dire ou l'on monte et ou l'on descend.
+      arret_depart: d.stop_id,
+      arret_arrivee: a.stop_id,
     })
   }
 
-  trajets.sort((x, y) => x.depart.localeCompare(y.depart))
+  // Tri par heure de depart. On garde en tete de liste le plus tot, qui est
+  // ce qu'on cherche quand on demande « a partir de 7h ». Le plus RAPIDE est
+  // signale a part : entre deux bus a la meme heure, la duree tranche.
+  trajets.sort((x, y) => x.depart.localeCompare(y.depart) || x.duree_min - y.duree_min)
+  const retenus = trajets.slice(0, 12)
+  const plusRapide = retenus.reduce<number | null>(
+    (best, t, i) => (best === null || t.duree_min < retenus[best].duree_min ? i : best), null,
+  )
+
+  // Les noms des arrets empruntes, pour l'affichage.
+  const idsUtiles = Array.from(new Set(retenus.flatMap(t => [t.arret_depart, t.arret_arrivee])))
+  const { data: noms } = idsUtiles.length
+    ? await supabaseAdmin.from('transport_arrets').select('stop_id, nom, lat, lng').in('stop_id', idsUtiles)
+    : { data: [] }
 
   return NextResponse.json({
     date,
     apres: heure,
-    trajets: trajets.slice(0, 12),
+    trajets: retenus,
+    plus_rapide: plusRapide,
+    arrets: noms ?? [],
     source: 'Réseau liO — Région Occitanie, via transport.data.gouv.fr (ODbL)',
   })
 }

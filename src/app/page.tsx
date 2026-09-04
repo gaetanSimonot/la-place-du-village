@@ -134,7 +134,72 @@ export default function HomePage() {
     arrets: { stop_id: string; nom: string; lat: number; lng: number }[]
     traces: { sens: number; points: [number, number][] }[]
   } | null>(null)
+  // L'arret dont la vignette est ouverte sur la carte.
   const [arretChoisi, setArretChoisi] = useState<string | null>(null)
+  // L'arret designe comme depart ou arrivee depuis cette vignette.
+  const [arretImpose, setArretImpose] = useState<{ stop_id: string; role: 'depart' | 'arrivee' } | null>(null)
+  // Les communes de la recherche : la carte n'affiche que LEURS arrets, au
+  // lieu de couvrir la vallee de 98 points.
+  const [communesTransport, setCommunesTransport] = useState<{ depart: string | null; arrivee: string | null }>({ depart: null, arrivee: null })
+  const [trajetChoisi, setTrajetChoisi] = useState<string | null>(null)
+  const [troncon, setTroncon] = useState<[number, number][] | null>(null)
+  // Les arrets DESSERVIS par le trajet choisi, avec leur heure de passage.
+  // C'est la reponse a « ou et a quelle heure je monte », qui vaut mieux que
+  // de faire choisir un arret a l'aveugle avant meme de connaitre les bus.
+  const [arretsDesservis, setArretsDesservis] = useState<{ stop_id: string; nom: string; lat: number | null; lng: number | null; heure: string | null }[]>([])
+
+  // Marqueur sur <html> : il sert a habiller la vignette Google du mode
+  // transport SANS toucher a celles des evenements et des commerces. Le
+  // conteneur de l'InfoWindow est cree par Google hors de notre arbre React :
+  // on ne peut pas lui poser une classe, on ne peut que le cibler depuis un
+  // ancetre.
+  useEffect(() => {
+    try {
+      if (modeTransport) document.documentElement.dataset.transport = '1'
+      else delete document.documentElement.dataset.transport
+    } catch { /* pas de DOM */ }
+  }, [modeTransport])
+
+  const majCommunes = useCallback((depart: string | null, arrivee: string | null) => {
+    setCommunesTransport(c => (c.depart === depart && c.arrivee === arrivee ? c : { depart, arrivee }))
+  }, [])
+
+  /** Le trajet choisi : on demande sa portion de route et on la surligne. */
+  const choisirTrajet = useCallback(async (t: { trip_id: string; arret_depart: string; arret_arrivee: string } | null) => {
+    setTrajetChoisi(t?.trip_id ?? null)
+    if (!t) { setTroncon(null); setArretsDesservis([]); return }
+    try {
+      const r = await fetch(`/api/transport/troncon?trip=${encodeURIComponent(t.trip_id)}&de=${t.arret_depart}&vers=${t.arret_arrivee}`)
+      const d = await r.json()
+      setTroncon(r.ok && Array.isArray(d.points) && d.points.length > 1 ? d.points : null)
+      setArretsDesservis(r.ok && Array.isArray(d.arrets) ? d.arrets : [])
+    } catch {
+      setTroncon(null); setArretsDesservis([])
+    }
+  }, [])
+
+  /** Les arrets a montrer : ceux des communes choisies, sinon tous. */
+  const arretsAffiches = useMemo(() => {
+    // Un seul point par arret PHYSIQUE. Le GTFS decrit chaque sens comme un
+    // arret distinct — deux fiches au meme endroit, l'une pour l'aller,
+    // l'autre pour le retour. Superposees sur la carte, elles font un point
+    // qui en cache un autre et un clic qui tombe au hasard sur l'un des deux.
+    const vus = new Set<string>()
+    const tous = (ligneTransport?.arrets ?? []).filter(a => {
+      const cle = a.nom.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+      if (vus.has(cle)) return false
+      vus.add(cle)
+      return true
+    })
+    // Un trajet est choisi : on ne montre QUE les arrets qu'il dessert.
+    if (arretsDesservis.length > 0) {
+      const ids = new Set(arretsDesservis.map(a => a.stop_id))
+      return tous.filter(a => ids.has(a.stop_id))
+    }
+    const retenues = [communesTransport.depart, communesTransport.arrivee].filter(Boolean) as string[]
+    if (retenues.length === 0) return tous
+    return tous.filter(a => retenues.includes(a.nom.split(' - ')[0].trim()))
+  }, [ligneTransport, communesTransport, arretsDesservis])
 
   // La ligne n'est chargee qu'a la premiere entree dans le mode, et gardee
   // ensuite : elle ne change qu'au passage du cron, une fois par semaine.
@@ -1026,12 +1091,14 @@ export default function HomePage() {
           onMapDragEnd={onMapDragEnd}
           onCameraIdle={(lat, lng, zoom) => { mapCameraRef.current = { lat, lng, zoom } }}
           transport={modeTransport && ligneTransport ? {
-            arrets: ligneTransport.arrets,
+            arrets: arretsAffiches,
             traces: ligneTransport.traces,
             couleur: ligneTransport.ligne.couleur ?? '#2D5A3D',
+            troncon,
           } : null}
           selectedArretId={arretChoisi}
           onSelectArret={setArretChoisi}
+          onChoisirArret={(id, role) => { setArretImpose({ stop_id: id, role }); setArretChoisi(null) }}
         />
       </div>
 
@@ -1529,9 +1596,17 @@ export default function HomePage() {
         contenuTransport={modeTransport && ligneTransport ? (
           <TransportPanneau
             nomLigne={`${ligneTransport.ligne.nom_court ?? ''} — ${ligneTransport.ligne.nom_long ?? ''}`.trim()}
+            couleur={ligneTransport.ligne.couleur ?? '#2D5A3D'}
             arrets={ligneTransport.arrets}
-            arretClique={arretChoisi}
-            onFermer={() => { setModeTransport(false); setArretChoisi(null) }}
+            arretImpose={arretImpose}
+            trajetChoisi={trajetChoisi}
+            arretsDesservis={arretsDesservis}
+            onCommunesChange={majCommunes}
+            onChoisirTrajet={choisirTrajet}
+            onFermer={() => {
+              setModeTransport(false); setArretChoisi(null); setArretImpose(null)
+              setTrajetChoisi(null); setTroncon(null)
+            }}
           />
         ) : undefined}
         listStateRef={listStateRef}

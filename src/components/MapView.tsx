@@ -328,6 +328,8 @@ interface TransportProps {
   arrets: ArretTransport[]
   traces: TraceTransport[]
   couleur: string
+  /** Le trajet choisi, surligné par-dessus la ligne. */
+  troncon: [number, number][] | null
   selectedArretId: string | null
   onSelectArret: (id: string | null) => void
 }
@@ -341,9 +343,10 @@ function pastilleArret(selectionne: boolean, couleur: string): string {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
 }
 
-function TransportLayer({ arrets, traces, couleur, selectedArretId, onSelectArret }: TransportProps) {
+function TransportLayer({ arrets, traces, couleur, troncon, selectedArretId, onSelectArret }: TransportProps) {
   const map = useMap()
   const lignesRef = useRef<google.maps.Polyline[]>([])
+  const tronconRef = useRef<google.maps.Polyline | null>(null)
   const arretsRef = useRef<google.maps.Marker[]>([])
 
   // Le tracé. Séparé des marqueurs : il ne change pas quand on sélectionne un
@@ -356,13 +359,38 @@ function TransportLayer({ arrets, traces, couleur, selectedArretId, onSelectArre
       // l'inverse. Les intervertir dessine la ligne au milieu de l'océan.
       path: t.points.map(([lng, lat]) => ({ lat, lng })),
       strokeColor: couleur,
-      strokeOpacity: 0.85,
+      // La ligne entière pâlit dès qu'un trajet est surligné : sans ça, les
+      // deux traits se confondent et on ne voit pas ce qu'on a choisi.
+      strokeOpacity: troncon ? 0.22 : 0.85,
       strokeWeight: 5,
       zIndex: 1,
       map,
     }))
     return () => { lignesRef.current.forEach(l => l.setMap(null)) }
-  }, [map, traces, couleur])
+  }, [map, traces, couleur, troncon])
+
+  // Le trajet choisi, par-dessus.
+  useEffect(() => {
+    if (!map) return
+    tronconRef.current?.setMap(null)
+    tronconRef.current = null
+    if (!troncon || troncon.length < 2) return
+    const chemin = troncon.map(([lng, lat]) => ({ lat, lng }))
+    tronconRef.current = new google.maps.Polyline({
+      path: chemin,
+      strokeColor: couleur,
+      strokeOpacity: 1,
+      strokeWeight: 7,
+      zIndex: 3,
+      map,
+    })
+    // On cadre sur le trajet : chercher soi-même son bout de ligne dans la
+    // vallée entière serait absurde.
+    const bornes = new google.maps.LatLngBounds()
+    chemin.forEach(p => bornes.extend(p))
+    map.fitBounds(bornes, 60)
+    return () => { tronconRef.current?.setMap(null) }
+  }, [map, troncon, couleur])
 
   useEffect(() => {
     if (!map) return
@@ -411,12 +439,14 @@ interface Props {
   onSelectEtab?: (id: string | null) => void
   onOpenEtablissement?: (id: string) => void
   /** Mode transport : la ligne à dessiner, ou null si on n'y est pas. */
-  transport?: { arrets: ArretTransport[]; traces: TraceTransport[]; couleur: string } | null
+  transport?: { arrets: ArretTransport[]; traces: TraceTransport[]; couleur: string; troncon: [number, number][] | null } | null
   selectedArretId?: string | null
   onSelectArret?: (id: string | null) => void
+  /** Depuis la vignette d'un arrêt : le désigner comme départ ou arrivée. */
+  onChoisirArret?: (id: string, role: 'depart' | 'arrivee') => void
 }
 
-export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn, onMapDragStart, onMapDragEnd, onCameraIdle, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement, transport = null, selectedArretId = null, onSelectArret }: Props) {
+export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn, onMapDragStart, onMapDragEnd, onCameraIdle, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement, transport = null, selectedArretId = null, onSelectArret, onChoisirArret }: Props) {
   const [internalEtabId, setInternalEtabId] = useState<string | null>(null)
   const selectedEtabId    = selectedEtabIdProp !== undefined ? selectedEtabIdProp : internalEtabId
   const setSelectedEtabId = onSelectEtab ?? setInternalEtabId
@@ -481,10 +511,62 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
             arrets={transport.arrets}
             traces={transport.traces}
             couleur={transport.couleur}
+            troncon={transport.troncon}
             selectedArretId={selectedArretId}
             onSelectArret={onSelectArret ?? (() => {})}
           />
         )}
+
+        {/* Vignette d'un arrêt : la commune en surtitre, le lieu en gros,
+            puis on décide s'il est le départ ou l'arrivée. Cliquer à côté la
+            referme. L'habillage du cadre Google est dans globals.css, ciblé
+            par html[data-transport] pour ne pas toucher aux autres vignettes. */}
+        {transport && selectedArretId && (() => {
+          const a = transport.arrets.find(x => x.stop_id === selectedArretId)
+          if (!a) return null
+          // « GANGES - MAIRIE » : la commune d'un côté, le lieu de l'autre.
+          const bout = a.nom.split(' - ')
+          const commune = bout[0]?.trim() ?? a.nom
+          const lieu = bout.slice(1).join(' — ').trim()
+          const joli = (t: string) => t.toLowerCase()
+            .replace(/(^|[\s'’-])([a-zà-ÿ])/g, (_, s2, c) => s2 + c.toUpperCase())
+          const bouton: React.CSSProperties = {
+            flex: 1, height: 36, borderRadius: 10, border: 'none', cursor: 'pointer',
+            fontSize: 12.5, fontWeight: 800, fontFamily: 'var(--font-body), sans-serif',
+            letterSpacing: '-0.01em',
+          }
+          return (
+            <InfoWindow
+              position={{ lat: a.lat, lng: a.lng }}
+              pixelOffset={[0, -16]}
+              onCloseClick={() => onSelectArret?.(null)}
+            >
+              <div style={{ width: 232, fontFamily: 'var(--font-body), sans-serif', overflow: 'hidden', borderRadius: 16 }}>
+                <div style={{ padding: '13px 14px 11px' }}>
+                  <span style={{
+                    display: 'block', fontSize: 9.5, fontWeight: 800, letterSpacing: '.11em',
+                    textTransform: 'uppercase', color: transport.couleur, marginBottom: 3,
+                  }}>
+                    {joli(commune)}
+                  </span>
+                  <p style={{ margin: 0, fontSize: 14.5, fontWeight: 800, color: '#1A1209', lineHeight: 1.25 }}>
+                    {lieu ? joli(lieu) : joli(commune)}
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: 7, padding: '0 12px 12px' }}>
+                  <button onClick={() => onChoisirArret?.(a.stop_id, 'depart')}
+                          style={{ ...bouton, background: transport.couleur, color: '#fff' }}>
+                    Départ
+                  </button>
+                  <button onClick={() => onChoisirArret?.(a.stop_id, 'arrivee')}
+                          style={{ ...bouton, background: '#F5F0E8', color: '#1A1209' }}>
+                    Arrivée
+                  </button>
+                </div>
+              </div>
+            </InfoWindow>
+          )
+        })()}
 
         {/* Vignette établissement sélectionné */}
         {selectedEtab && selectedEtab.lat && selectedEtab.lng && (() => {
