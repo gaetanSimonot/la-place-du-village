@@ -88,18 +88,63 @@ const ETIQUETTE: React.CSSProperties = {
   textTransform: 'uppercase', color: '#7A6A5A', marginBottom: 4,
 }
 
+/**
+ * Les arrets d'une commune, en pastilles selectionnables.
+ *
+ * C'est le filtre fin, et il vit SOUS le champ — pas sur la carte. Chasser un
+ * point de six pixels au milieu d'un trace pour ouvrir une bulle etait un
+ * geste couteux ; ici tout est lisible d'un coup d'oeil et se touche.
+ *
+ * Le retenu grossit et prend la couleur de la ligne, les autres retrecissent
+ * et palissent — ils restent la, on change d'avis d'un doigt.
+ */
+function PastillesArrets({
+  arrets, choisi, couleur, onChoisir,
+}: {
+  arrets: ArretChoisissable[]
+  choisi: string | null
+  couleur: string
+  onChoisir: (id: string | null) => void
+}) {
+  if (arrets.length < 2) return null
+  const nomChoisi = choisi ? sansAccent(arrets.find(a => a.stop_id === choisi)?.nom ?? '') : null
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}>
+      {arrets.map(a => {
+        const actif = nomChoisi !== null && sansAccent(a.nom) === nomChoisi
+        const rien = choisi === null
+        return (
+          <button
+            key={a.stop_id}
+            onClick={() => onChoisir(actif ? null : a.stop_id)}
+            style={{
+              border: `1px solid ${actif ? couleur : '#E8E0D4'}`,
+              background: actif ? couleur : '#fff',
+              color: actif ? '#fff' : (rien ? '#3E332A' : '#A99B89'),
+              borderRadius: 999,
+              padding: actif ? '5px 11px' : '3px 9px',
+              fontSize: actif ? 12.5 : (rien ? 11.5 : 10.5),
+              fontWeight: actif ? 800 : 600,
+              cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif',
+              transition: 'all .15s',
+            }}
+          >
+            {lieuDe(a.nom)}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 /** Un champ de ville a suggestions. */
 function ChampCommune({
-  etiquette, valeur, precis, communes, onChoisir, onEffacerPrecis, couleur,
+  etiquette, valeur, communes, onChoisir,
 }: {
   etiquette: string
   valeur: string
-  /** L'arrêt exact, si l'utilisateur en a désigné un sur la carte. */
-  precis: string | null
   communes: string[]
   onChoisir: (c: string) => void
-  onEffacerPrecis: () => void
-  couleur: string
 }) {
   const [saisie, setSaisie] = useState('')
   const [ouvert, setOuvert] = useState(false)
@@ -123,22 +168,6 @@ function ChampCommune({
         style={CHAMP}
       />
 
-      {/* L'arrêt exact, quand il y en a un — retirable pour revenir à toute
-          la commune. C'est le filtre fin, et il n'est jamais obligatoire. */}
-      {precis && !ouvert && (
-        <button
-          onClick={onEffacerPrecis}
-          style={{
-            marginTop: 5, display: 'inline-flex', alignItems: 'center', gap: 6,
-            border: `1px solid ${couleur}`, background: `${couleur}14`, color: '#1A1209',
-            borderRadius: 999, padding: '3px 9px', fontSize: 11.5, fontWeight: 700,
-            cursor: 'pointer', fontFamily: 'var(--font-body), sans-serif',
-          }}
-        >
-          {lieuDe(precis)}
-          <span style={{ color: '#7A6A5A', fontWeight: 800 }}>✕</span>
-        </button>
-      )}
 
       {ouvert && suggestions.length > 0 && (
         <div style={{
@@ -198,6 +227,21 @@ export default function TransportPanneau({
     () => Array.from(new Set(arrets.map(a => communeDe(a.nom)))).sort((a, b) => a.localeCompare(b, 'fr')),
     [arrets],
   )
+
+  /** Les arrêts d'une commune, un seul par arrêt PHYSIQUE : le GTFS décrit
+   *  les deux côtés de la route comme deux fiches. */
+  const arretsDeLaCommune = useCallback((commune: string): ArretChoisissable[] => {
+    const vus = new Set<string>()
+    return arrets
+      .filter(a => communeDe(a.nom) === commune)
+      .filter(a => {
+        const cle = sansAccent(a.nom)
+        if (vus.has(cle)) return false
+        vus.add(cle)
+        return true
+      })
+      .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'))
+  }, [arrets])
 
   const nomDe = useCallback(
     (id: string) => arrets.find(a => a.stop_id === id)?.nom ?? nomsArrets.find(a => a.stop_id === id)?.nom ?? '',
@@ -292,18 +336,46 @@ export default function TransportPanneau({
       </div>
 
       <div style={{ display: 'grid', gap: 10 }}>
-        <ChampCommune
-          etiquette="Départ" valeur={communeDepart} precis={arretDepart ? nomDe(arretDepart) : null}
-          communes={communes} couleur={couleur}
-          onChoisir={c => { setCommuneDepart(c); setArretDepart(null) }}
-          onEffacerPrecis={() => { setArretDepart(null); void chercher(communeDepart, communeArrivee, null, arretArrivee) }}
-        />
-        <ChampCommune
-          etiquette="Arrivée" valeur={communeArrivee} precis={arretArrivee ? nomDe(arretArrivee) : null}
-          communes={communes} couleur={couleur}
-          onChoisir={c => { setCommuneArrivee(c); setArretArrivee(null) }}
-          onEffacerPrecis={() => { setArretArrivee(null); void chercher(communeDepart, communeArrivee, arretDepart, null) }}
-        />
+        <div>
+          <ChampCommune
+            etiquette="Départ" valeur={communeDepart}
+            communes={communes}
+            onChoisir={c => { setCommuneDepart(c); setArretDepart(null) }}
+          />
+          {/* Les arrêts de la ville, sous le champ. Toucher l'un d'eux le rend
+              obligatoire et relance la recherche aussitôt ; le retoucher
+              revient à toute la commune. */}
+          {communeDepart && (
+            <PastillesArrets
+              arrets={arretsDeLaCommune(communeDepart)}
+              choisi={arretDepart}
+              couleur={couleur}
+              onChoisir={id => {
+                setArretDepart(id)
+                if (communeArrivee) void chercher(communeDepart, communeArrivee, id, arretArrivee)
+              }}
+            />
+          )}
+        </div>
+
+        <div>
+          <ChampCommune
+            etiquette="Arrivée" valeur={communeArrivee}
+            communes={communes}
+            onChoisir={c => { setCommuneArrivee(c); setArretArrivee(null) }}
+          />
+          {communeArrivee && (
+            <PastillesArrets
+              arrets={arretsDeLaCommune(communeArrivee)}
+              choisi={arretArrivee}
+              couleur={couleur}
+              onChoisir={id => {
+                setArretArrivee(id)
+                if (communeDepart) void chercher(communeDepart, communeArrivee, arretDepart, id)
+              }}
+            />
+          )}
+        </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 118px', gap: 8 }}>
           <label>
