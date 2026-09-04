@@ -109,16 +109,54 @@ export default function MapTransportLayer({
   const arretsRef = useRef<google.maps.Marker[]>([])
   /** Ce qu'on LIT sur la carte — jamais ce qu'on y choisit. */
   const [info, setInfo] = useState<Info | null>(null)
+  /**
+   * L'instant du dernier clic sur une ligne ou un arret.
+   *
+   * Google ne referme pas une InfoWindow tout seul : sans le clic sur le fond
+   * ci-dessous, la fiche restait collee et on ne savait plus comment s'en
+   * debarrasser. Mais selon les cas un clic sur une polyligne declenche AUSSI
+   * l'evenement du fond — la fiche se serait alors fermee dans la
+   * milliseconde ou elle s'ouvre. D'ou ce court delai de garde.
+   */
+  const clicSurElement = useRef(0)
+
+  // Cliquer a cote referme la fiche. C'est le geste attendu, et le seul :
+  // la croix de Google est minuscule et on ne la cherche pas.
+  useEffect(() => {
+    if (!map) return
+    const l = map.addListener('click', () => {
+      if (Date.now() - clicSurElement.current < 120) return
+      setInfo(null)
+    })
+    return () => l.remove()
+  }, [map])
 
   // Les lignes.
   useEffect(() => {
     if (!map) return
     lignesRef.current.forEach(l => l.setMap(null))
-    lignesRef.current = traces.map(t => {
+    lignesRef.current = traces.flatMap(t => {
+      const chemin = t.points.map(([lng, lat]) => ({ lat, lng }))
+      const id = t.route_id
+      const ouvrir = (e: google.maps.PolyMouseEvent) => {
+        if (!e.latLng || !id) return
+        clicSurElement.current = Date.now()
+        setInfo({ genre: 'ligne', position: e.latLng.toJSON(), route_id: id })
+      }
+
+      // Une piste de clic INVISIBLE et large, sous le trait visible. Un trait
+      // de 4,5 px est presque impossible a viser — au doigt comme a la souris,
+      // on le rate. Celle-ci fait 20 px et ne se voit pas.
+      const piste = new google.maps.Polyline({
+        path: chemin, strokeColor: t.couleur ?? couleur,
+        strokeOpacity: 0.001, strokeWeight: 20, zIndex: 0, clickable: true, map,
+      })
+      if (id) piste.addListener('click', ouvrir)
+
       const l = new google.maps.Polyline({
         // Le GTFS range ses points en [longitude, latitude] ; Google attend
         // l'inverse. Les intervertir dessine la ligne au milieu de l'ocean.
-        path: t.points.map(([lng, lat]) => ({ lat, lng })),
+        path: chemin,
         strokeColor: t.couleur ?? couleur,
         // Les lignes palissent des qu'un trajet est surligne : sans ca, les
         // traits se confondent et on ne voit pas ce qu'on a choisi.
@@ -127,14 +165,8 @@ export default function MapTransportLayer({
         zIndex: 1,
         map,
       })
-      const id = t.route_id
-      if (id) {
-        l.addListener('click', (e: google.maps.PolyMouseEvent) => {
-          if (!e.latLng) return
-          setInfo({ genre: 'ligne', position: e.latLng.toJSON(), route_id: id })
-        })
-      }
-      return l
+      if (id) l.addListener('click', ouvrir)
+      return [piste, l]
     })
     return () => { lignesRef.current.forEach(l => l.setMap(null)) }
   }, [map, traces, couleur, troncon])
@@ -196,8 +228,10 @@ export default function MapTransportLayer({
         map,
       })
       // Lire, pas choisir : le clic donne le nom de l'arret, rien de plus.
-      m.addListener('click', () =>
-        setInfo({ genre: 'arret', position: { lat: a.lat, lng: a.lng }, nom: a.nom }))
+      m.addListener('click', () => {
+        clicSurElement.current = Date.now()
+        setInfo({ genre: 'arret', position: { lat: a.lat, lng: a.lng }, nom: a.nom })
+      })
       return m
     })
     return () => { arretsRef.current.forEach(m => m.setMap(null)) }
