@@ -1595,6 +1595,8 @@ export default function HomePage() {
             arretsDesservis={arretsDesservis}
             onCommunesChange={majCommunes}
             onArretsRetenus={majArretsRetenus}
+            onDemanderConnexion={() => openAuthModal()}
+            onDemanderAbonnement={() => setUpgradePrompt({ label: 'la recherche vocale de cars', plan: 'habitants' })}
             onChoisirTrajet={choisirTrajet}
             onFermer={() => {
               setModeTransport(false)

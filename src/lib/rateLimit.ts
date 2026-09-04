@@ -42,6 +42,7 @@ export type RateLimitAction =
   | 'poster_generate' // Rendu d'affiche serveur (CPU sharp/resvg)
   | 'poster_caption'  // Texte réseaux via Claude (tokens IA)
   | 'assistant'       // Un message envoyé à l'Assistant Village (tokens IA)
+  | 'transport_dictee' // Dicter un trajet en car (Whisper + Claude)
 
 export interface RateLimitRule {
   limit: number
@@ -63,6 +64,32 @@ const HOUR = 60 * 60 * 1000
 const DAY  = 24 * HOUR
 
 const RATE_LIMITS_BY_PLAN: Record<RateLimitAction, Record<Plan, RateLimitRule>> = {
+  /**
+   * Dicter son trajet en car. Coût mesuré : ~0,13 centime la recherche
+   * (Whisper + une extraction Haiku de 467 jetons).
+   *
+   * Compté À LA JOURNÉE et non à l'heure : chercher un car est un geste du
+   * quotidien, pas une rafale. Cinq essais gratuits laissent le temps de
+   * comprendre à quoi ça sert ; au-delà, c'est un usage régulier, et un usage
+   * régulier vaut un abonnement. Les administrateurs ne sont jamais comptés.
+   */
+  transport_dictee: {
+    basic: {
+      limit: 5,
+      windowMs: DAY,
+      message: 'Vous avez utilisé vos 5 recherches vocales du jour. Passez Habitants pour 20 par jour.',
+    },
+    habitants: {
+      limit: 20,
+      windowMs: DAY,
+      message: 'Quota de recherches vocales atteint (20 par jour).',
+    },
+    pro: {
+      limit: 20,
+      windowMs: DAY,
+      message: 'Quota de recherches vocales atteint (20 par jour).',
+    },
+  },
   ai_extract: {
     basic: {
       limit: 5,

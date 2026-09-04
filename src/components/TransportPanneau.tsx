@@ -229,7 +229,8 @@ function ChampCommune({
 
 export default function TransportPanneau({
   lignes, arrets, trajetChoisi, arretsDesservis,
-  onCommunesChange, onArretsRetenus, onChoisirTrajet, onFermer,
+  onCommunesChange, onArretsRetenus, onChoisirTrajet,
+  onDemanderConnexion, onDemanderAbonnement, onFermer,
 }: {
   /** Tout le reseau importe. Chaque ligne porte sa couleur officielle liO. */
   lignes: { route_id: string; nom_court: string | null; nom_long: string | null; couleur: string | null }[]
@@ -240,6 +241,10 @@ export default function TransportPanneau({
   /** Les deux arrêts retenus → la carte les marque. */
   onArretsRetenus: (depart: string | null, arrivee: string | null) => void
   onChoisirTrajet: (t: { trip_id: string; arret_depart: string; arret_arrivee: string } | null) => void
+  /** Dicter demande un compte : c'est la page qui ouvre la connexion. */
+  onDemanderConnexion: () => void
+  /** Quota épuisé : la page ouvre la proposition d'abonnement. */
+  onDemanderAbonnement: () => void
   onFermer: () => void
 }) {
   const [communeDepart, setCommuneDepart] = useState('')
@@ -374,7 +379,12 @@ export default function TransportPanneau({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ texte }),
       })
+      // 401 : pas de compte. On n'affiche pas un message d'erreur, on ouvre
+      // la connexion — c'est ce que la personne doit faire, pas lire.
+      if (r.status === 401) { onDemanderConnexion(); return }
       const d = await r.json()
+      // Quota épuisé : la proposition d'abonnement, pas un refus sec.
+      if (d?.rateLimitExceeded) { setMessage(d.error ?? null); onDemanderAbonnement(); return }
       if (!r.ok) { setMessage(d.error ?? 'Je n’ai pas compris.'); return }
 
       if (d.depart) { setCommuneDepart(d.depart); setArretDepart(null) }
@@ -398,7 +408,7 @@ export default function TransportPanneau({
     } finally {
       setDicteeEnCours(false)
     }
-  }, [chercher])
+  }, [chercher, onDemanderConnexion, onDemanderAbonnement])
 
   // La carte marque les deux arrêts retenus, et se met à jour quand on change.
   useEffect(() => {

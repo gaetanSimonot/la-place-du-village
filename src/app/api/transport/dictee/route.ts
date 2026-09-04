@@ -4,7 +4,7 @@ import { getPrompt } from '@/lib/prompts-ia'
 import { safeJsonParse } from '@/lib/safeJsonParse'
 import { communesDesservies, resoudreCommune } from '@/lib/transportRecherche'
 import { requireUser } from '@/lib/server-auth'
-import { checkRateLimit, getRule, rateLimitResponse } from '@/lib/rateLimit'
+import { rateLimit } from '@/lib/rateLimit'
 
 export const runtime = 'nodejs'
 export const revalidate = 0
@@ -56,11 +56,11 @@ export async function POST(req: NextRequest) {
   const ctx = await requireUser(req)
   if (ctx instanceof Response) return ctx
 
-  // Même quota que la dictée elle-même (`ai_extract`, 5/h en basic), mais on
-  // ne journalise PAS : /api/transcribe l'a déjà fait pour cette dictée. La
-  // compter deux fois diviserait le quota par deux sans raison.
-  const verdict = await checkRateLimit(ctx.userId, 'ai_extract', getRule('ai_extract', ctx.plan), ctx.isAdmin)
-  if (!verdict.ok) return rateLimitResponse(verdict)
+  // Quota propre au transport : 5 par jour sans abonnement, 20 pour les
+  // abonnés, illimité pour les administrateurs. À la journée et non à
+  // l'heure : chercher un car est un geste du quotidien, pas une rafale.
+  const bloque = await rateLimit(ctx.userId, 'transport_dictee', ctx.plan, ctx.isAdmin)
+  if (bloque) return bloque
 
   const { texte } = await req.json().catch(() => ({}))
   if (typeof texte !== 'string' || texte.trim().length < 3) {
