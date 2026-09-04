@@ -811,6 +811,25 @@ export default function AssistantChat({ question, dicter, onClose }: {
   )
 }
 
+/**
+ * Rend le gras du modele.
+ *
+ * Il ecrit du markdown — c'est sa langue — et le texte partait tel quel dans
+ * un paragraphe : on lisait « les **marches** du mardi », asterisques
+ * comprises. On ne convertit QUE le gras : c'est le seul balisage qu'il
+ * emploie, et un analyseur markdown complet transformerait le moindre
+ * asterisque perdu en liste a puces.
+ *
+ * Une paire non fermee reste litterale — `split` ne la coupe pas.
+ */
+function avecGras(texte: string): React.ReactNode[] {
+  return texte.split(/(\*\*[^*\n]+\*\*)/g).map((bout, i) =>
+    bout.startsWith('**') && bout.endsWith('**') && bout.length > 4
+      ? <strong key={i} style={{ fontWeight: 800 }}>{bout.slice(2, -2)}</strong>
+      : bout,
+  )
+}
+
 /** Une réponse : le soleil, le texte, les fiches, puis les rebonds. */
 function Reponse({ message, onApercu, onRebond }: {
   message: Message; onApercu: (c: CarteData) => void; onRebond: (q: string) => void
@@ -833,7 +852,7 @@ function Reponse({ message, onApercu, onRebond }: {
     if (!t) return
     blocs.push(
       <p key={cle} className="m-0 whitespace-pre-wrap"
-        style={{ fontSize: 14, lineHeight: 1.55, marginBottom: 10 }}>{t}</p>,
+        style={{ fontSize: 14, lineHeight: 1.55, marginBottom: 10 }}>{avecGras(t)}</p>,
     )
   }
   bouts.forEach((b, i) => {
