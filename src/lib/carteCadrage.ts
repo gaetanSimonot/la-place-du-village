@@ -294,7 +294,7 @@ export function desQueVignettePrete(
 }
 
 /**
- * Rejouer une action une fois que plus rien ne bouge.
+ * Faire une chose une fois que plus rien ne bouge.
  *
  * À l'arrivée sur la carte, tout se pose en même temps : la carte prend sa
  * hauteur, la feuille rejoint son palier, la hauteur d'écran réelle remplace
@@ -303,9 +303,11 @@ export function desQueVignettePrete(
  * bornes, elles, ne changent plus ensuite, rien ne vient le corriger : la vue
  * fausse reste jusqu'à ce qu'on touche un filtre.
  *
- * On rejoue donc le MÊME cadrage, une fois, quand la feuille s'est tue. C'est
- * une condition de calme et non un délai fixe : chaque mouvement de la feuille
- * repousse l'échéance, et le cadrage part quand elle s'arrête pour de bon.
+ * On attend donc le calme AVANT de cadrer, plutôt que de cadrer puis de se
+ * corriger : la carte ne se pose qu'une fois, elle ne saute pas du haut vers le
+ * bas sous les yeux. C'est une condition de calme et non un délai fixe : chaque
+ * mouvement de la feuille repousse l'échéance, et le cadrage part quand elle
+ * s'arrête pour de bon.
  *
  * Renvoie de quoi annuler, à rendre au nettoyage de l'effet.
  */

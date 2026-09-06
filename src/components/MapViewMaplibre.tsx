@@ -201,7 +201,10 @@ export default function MapViewMaplibre({
    * avant que la feuille ait sa position.
    */
   const derniereEmpreinte = useRef<string | null>(null)
-  const rejeuFait = useRef(false)
+  const premierCadrageFait = useRef(false)
+  /** Sélection courante, lue par le cadrage d'arrivée sans en dépendre. */
+  const selectionRef = useRef<string | null>(selectedId)
+  useEffect(() => { selectionRef.current = selectedId })
   useEffect(() => {
     const m = mapRef.current
     if (!m || fixedMap) return
@@ -230,22 +233,23 @@ export default function MapViewMaplibre({
       })
     }
 
-    // Cf. MapView.tsx : ni carte sans hauteur, ni feuille sans position — et
-    // un cadrage rejoué une fois que la feuille s'est tue, pour ne pas rester
-    // sur une vue calculee pendant que tout se posait encore.
-    let annulerRejeu: (() => void) | null = null
-    const cadrerPuisConfirmer = () => {
-      cadrer()
-      if (rejeuFait.current) return
-      // Marqué seulement quand le rejeu PART, pas quand il est programmé : si
-      // la liste change entre-temps et annule l'attente, on en reprogramme un.
-      annulerRejeu = quandToutEstPose(sheetY, () => { rejeuFait.current = true; cadrer() })
+    // Cf. MapView.tsx : ni carte sans hauteur, ni feuille sans position ; le
+    // cadrage d'arrivée attend que la feuille se taise et ne joue pas du tout
+    // si une punaise est choisie — retour d'une fiche, la vue est déjà voulue.
+    const lancer = () => {
+      if (premierCadrageFait.current) { cadrer(); return }
+      annulerCalme = quandToutEstPose(sheetY, () => {
+        premierCadrageFait.current = true
+        if (selectionRef.current) return
+        cadrer()
+      })
     }
     const pret = () => cadrable(carte.getContainer()?.clientHeight ?? 0, sheetY)
+    let annulerCalme: (() => void) | null = null
     let annulerAttente: (() => void) | null = null
-    if (pret()) cadrerPuisConfirmer()
-    else annulerAttente = desQueCadrable(pret, cadrerPuisConfirmer)
-    return () => { annulerAttente?.(); annulerRejeu?.() }
+    if (pret()) lancer()
+    else annulerAttente = desQueCadrable(pret, lancer)
+    return () => { annulerAttente?.(); annulerCalme?.() }
   }, [evenements, fixedMap, sheetY])
 
   /**

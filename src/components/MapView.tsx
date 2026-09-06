@@ -251,8 +251,8 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, onBl
   const cadrageFait = useRef(false)
   /** Les bornes du dernier cadrage joué — pour ne pas le rejouer à l'identique. */
   const derniereEmpreinte = useRef<string | null>(null)
-  /** Le cadrage de confirmation de l'arrivée a-t-il déjà été programmé ? */
-  const rejeuFait = useRef(false)
+  /** Le cadrage d'arrivée a-t-il eu lieu ? Les suivants n'attendent plus. */
+  const premierCadrageFait = useRef(false)
 
   // Auto-fit bounds selon les événements visibles (désactivé en mode carte fixe)
   useEffect(() => {
@@ -297,36 +297,41 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, onBl
     }
 
     /*
-     * À l'arrivée, on cadre DEUX fois — et c'est le correctif.
+     * À l'arrivée, on cadre UNE fois, et seulement quand la feuille s'est tue.
      *
-     * Le premier cadrage part dès que la géométrie est connue. Mais « connue »
-     * n'est pas « posée » : la feuille rejoint encore son palier, la hauteur
-     * d'écran réelle vient de remplacer sa valeur par défaut. La marge est donc
-     * calculée sur une géométrie transitoire.
+     * « Géométrie connue » n'est pas « géométrie posée » : au moment où la
+     * carte a sa hauteur, la feuille rejoint encore son palier et la hauteur
+     * d'écran réelle vient tout juste de remplacer sa valeur par défaut. Un
+     * cadrage joué là est calculé sur une géométrie transitoire — et comme les
+     * bornes ne changent plus ensuite, l'empreinte bloque toute correction : la
+     * vue fausse reste jusqu'à ce qu'on touche un filtre.
      *
-     * Et comme les bornes, elles, ne changent plus ensuite, l'empreinte bloque
-     * toute correction : la vue fausse reste jusqu'à ce qu'on touche un filtre.
-     * C'est exactement ce qu'on observait — le cadrage redevient parfait dès
-     * qu'on clique un filtre, parce que ce clic rejoue le calcul sur une
-     * géométrie enfin stable.
+     * On attend donc le calme AVANT de cadrer, au lieu de cadrer puis de se
+     * corriger : la carte ne se pose qu'une fois, elle ne saute plus du haut
+     * vers le bas sous les yeux.
      *
-     * On rejoue donc le même cadrage, par le même chemin, une fois que la
-     * feuille s'est tue. Une seule fois par arrivée.
+     * Et si une punaise est choisie à ce moment-là — retour d'une fiche, où la
+     * sélection et la vue sont restaurées — on ne cadre PAS. Une vue précise a
+     * été demandée, l'englobant de tout le nuage n'a rien à y faire.
+     *
+     * Les cadrages suivants (changement de filtre) partent sans attendre : la
+     * géométrie est posée depuis longtemps, et c'est un geste de l'utilisateur.
      */
-    let annulerRejeu: (() => void) | null = null
-    const cadrerPuisConfirmer = () => {
-      cadrer()
-      if (rejeuFait.current) return
-      // Marqué seulement quand le rejeu PART, pas quand il est programmé : si
-      // la liste change entre-temps et annule l'attente, on en reprogramme un.
-      annulerRejeu = quandToutEstPose(sheetY, () => { rejeuFait.current = true; cadrer() })
+    const lancer = () => {
+      if (premierCadrageFait.current) { cadrer(); return }
+      annulerCalme = quandToutEstPose(sheetY, () => {
+        premierCadrageFait.current = true
+        if (selectionRef.current) return
+        cadrer()
+      })
     }
 
     const pret = () => cadrable(map.getDiv()?.clientHeight ?? 0, sheetY)
+    let annulerCalme: (() => void) | null = null
     let annulerAttente: (() => void) | null = null
-    if (pret()) cadrerPuisConfirmer()
-    else annulerAttente = desQueCadrable(pret, cadrerPuisConfirmer)
-    return () => { annulerAttente?.(); annulerRejeu?.() }
+    if (pret()) lancer()
+    else annulerAttente = desQueCadrable(pret, lancer)
+    return () => { annulerAttente?.(); annulerCalme?.() }
 
     // PLANCHER DE ZOOM (bureau seulement).
     //
