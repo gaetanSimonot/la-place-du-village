@@ -19,8 +19,14 @@ import type { MotionValue } from 'framer-motion'
  * Le décalage du haut (barre de l'application) ne compte pas : il est le même
  * avant et après, il disparaît de la différence.
  *
+ * Le suivi ne connaît PAS d'exception. Il a d'abord été mis en pause pendant
+ * le repli automatique du geste de carte, pour ne pas faire glisser le fond
+ * sous le doigt — mais l'aller et le retour du repli doivent se compenser
+ * exactement, sinon ce qu'on avait amené au milieu avant de relâcher part sous
+ * la feuille quand elle remonte. Suivre le mouvement image par image, c'est
+ * l'animer sur la même durée et la même courbe : c'est le même ressort.
+ *
  * @param sheetY      position du haut de la feuille, partagée par la page
- * @param suspenduRef pause temporaire (cf. le repli pendant un geste de carte)
  * @param actif       faux = on ne touche à rien (carte fixe, carte pas prête)
  * @param deplacer    reçoit le nombre de pixels dont le FOND doit descendre
  *                    (négatif : il monte). À charge de chaque carte de le
@@ -28,7 +34,6 @@ import type { MotionValue } from 'framer-motion'
  */
 export function useSuiviFeuille(
   sheetY: MotionValue<number> | undefined,
-  suspenduRef: React.MutableRefObject<boolean> | undefined,
   actif: boolean,
   deplacer: (dyFond: number) => void,
 ) {
@@ -55,9 +60,8 @@ export function useSuiviFeuille(
       // La feuille démarre à 9999 avant d'être placée : ce n'est pas un geste,
       // et compenser un tel saut enverrait la carte à l'autre bout du monde.
       if (Math.abs(d) > 4000) return
-      if (suspenduRef?.current) return
       deplacerRef.current(d / 2)
     })
     return () => { off(); precedent.current = null }
-  }, [sheetY, suspenduRef, actif])
+  }, [sheetY, actif])
 }

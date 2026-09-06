@@ -82,13 +82,10 @@ function MapDragListener({ onDragStart, onDragEnd, onCameraIdle }: {
  * instantané ; le calcul passe par la projection, où un pixel vaut
  * 1 / 2^zoom unité de monde.
  */
-function SuiviFeuille({ sheetY, suiviSuspenduRef }: {
-  sheetY?: MotionValue<number>
-  suiviSuspenduRef?: React.MutableRefObject<boolean>
-}) {
+function SuiviFeuille({ sheetY }: { sheetY?: MotionValue<number> }) {
   const map = useMap()
   const { fixedMap } = useTheme()
-  useSuiviFeuille(sheetY, suiviSuspenduRef, !!map && !fixedMap, dyFond => {
+  useSuiviFeuille(sheetY, !!map && !fixedMap, dyFond => {
     if (!map) return
     const proj = map.getProjection()
     const c    = map.getCenter()
@@ -444,8 +441,6 @@ interface Props {
    * `useSuiviFeuille`.
    */
   sheetY?: MotionValue<number>
-  /** Met le suivi en pause (repli automatique pendant un geste de carte). */
-  suiviSuspenduRef?: React.MutableRefObject<boolean>
   onMapDragStart?: () => void
   onMapDragEnd?: () => void
   onCameraIdle?: (lat: number, lng: number, zoom: number) => void
@@ -476,7 +471,7 @@ interface Props {
   } | null
 }
 
-export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, restaurerVue, viserLieu, onMapDragStart, onMapDragEnd, onCameraIdle, sheetY, suiviSuspenduRef, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement, transport = null }: Props) {
+export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, restaurerVue, viserLieu, onMapDragStart, onMapDragEnd, onCameraIdle, sheetY, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement, transport = null }: Props) {
   const [internalEtabId, setInternalEtabId] = useState<string | null>(null)
   const selectedEtabId    = selectedEtabIdProp !== undefined ? selectedEtabIdProp : internalEtabId
   const setSelectedEtabId = onSelectEtab ?? setInternalEtabId
@@ -526,7 +521,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
         styles={mapStyle.styles.length > 0 ? mapStyle.styles : WARM_STYLE}
       >
         <MapDragListener onDragStart={onMapDragStart} onDragEnd={onMapDragEnd} onCameraIdle={onCameraIdle} />
-        <SuiviFeuille sheetY={sheetY} suiviSuspenduRef={suiviSuspenduRef} />
+        <SuiviFeuille sheetY={sheetY} />
         <Cadrage restaurerVue={restaurerVue} viserLieu={viserLieu} sheetY={sheetY} />
         <Markers
           evenements={evenements}

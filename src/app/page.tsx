@@ -306,14 +306,19 @@ export default function HomePage() {
   // le montage de la page de celui de la feuille.
   const sheetY = useMotionValue(9999)
   /**
-   * Le suivi se met en pause pendant le repli automatique.
+   * Le repli du geste de carte est COMPENSÉ, lui aussi.
    *
-   * Déplacer la carte replie la feuille — et si la carte se recalait en même
-   * temps, le fond glisserait sous le doigt en plein geste : on perdrait la
-   * manipulation directe, qui est tout ce qui fait une carte. Le repli et son
-   * retour se compensent exactement, on retombe donc où on était.
+   * On l'avait d'abord laissé de côté pour ne pas faire glisser le fond sous
+   * le doigt. Mais l'aller et le retour doivent se compenser exactement :
+   * sinon ce qu'on vient d'amener au milieu, feuille basse, repart sous elle
+   * quand elle remonte. Le suivi n'a donc plus d'exception — il suit le
+   * ressort de la feuille image par image, ce qui est exactement l'animer sur
+   * la même durée et la même courbe.
+   *
+   * Le prix, assumé : au tout début du geste, pendant que la feuille tombe, le
+   * fond glisse d'une centaine de pixels sous le doigt. C'est le symétrique
+   * exact de ce qui se passe au relâchement.
    */
-  const suiviCarteSuspendu = useRef(false)
   const [sheetPeekH, setSheetPeekH] = useState(130)
   const [screenH, setScreenH]       = useState(812)
   const [navTab, setNavTab]         = useState<NavTab>(() => {
@@ -392,7 +397,6 @@ export default function HomePage() {
     }
   }, [])
   const mapDragTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const suiviReprendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sheetBeforeMapRef = useRef<'peek'|'half'|'full' | null>(null)
 
   /**
@@ -410,8 +414,6 @@ export default function HomePage() {
   const onMapDragStart = useCallback(() => {
     if (modeTransport) return
     if (mapDragTimerRef.current) clearTimeout(mapDragTimerRef.current)
-    if (suiviReprendTimerRef.current) clearTimeout(suiviReprendTimerRef.current)
-    suiviCarteSuspendu.current = true
     setSheetMode(prev => {
       if (prev === 'half') { sheetBeforeMapRef.current = 'half'; return 'peek' }
       return prev
@@ -426,11 +428,6 @@ export default function HomePage() {
         setSheetMode('half')
       }
     }, 350)
-    // On ne rend la main au suivi qu'une fois la feuille revenue à sa place :
-    // 350 ms d'attente + le temps du ressort. Reprendre plus tôt ferait sauter
-    // la carte du reste de la remontée.
-    if (suiviReprendTimerRef.current) clearTimeout(suiviReprendTimerRef.current)
-    suiviReprendTimerRef.current = setTimeout(() => { suiviCarteSuspendu.current = false }, 1000)
   }, [modeTransport])
   const router = useRouter()
   /** Post à rouvrir dans l'écran des notifications (deep-link ?post=). */
@@ -1147,7 +1144,6 @@ export default function HomePage() {
           onMapDragStart={onMapDragStart}
           onMapDragEnd={onMapDragEnd}
           sheetY={sheetY}
-          suiviSuspenduRef={suiviCarteSuspendu}
           onCameraIdle={(lat, lng, zoom) => { mapCameraRef.current = { lat, lng, zoom } }}
           transport={modeTransport && ligneTransport ? {
             arrets: arretsAffiches,
