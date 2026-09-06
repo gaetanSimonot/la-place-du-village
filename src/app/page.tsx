@@ -2,6 +2,7 @@
 import React from 'react'
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react'
 import useSWR from 'swr'
+import { useMotionValue } from 'framer-motion'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -262,6 +263,28 @@ export default function HomePage() {
   const [, setGeocoding]                = useState(false)
   const [adminMapSaved, setAdminMapSaved] = useState(false)
   const [sheetMode, setSheetMode]   = useState<'peek'|'half'|'full'>('half')
+  /**
+   * Position verticale de la feuille — écrite par elle, lue par la carte.
+   *
+   * La carte n'a pas de « fenêtre » à elle : elle occupe tout l'écran et la
+   * feuille lui en mange le bas. Son centre visible est donc à mi-chemin de ce
+   * qui dépasse, et il se déplace dès que la feuille bouge. En suivant cette
+   * valeur image par image, le fond se décale d'autant et le point regardé ne
+   * quitte jamais le milieu de ce qu'on voit.
+   *
+   * Une valeur de mouvement et non un état : un état déclencherait un rendu de
+   * la page entière à chaque image d'animation.
+   */
+  const sheetY = useMotionValue(0)
+  /**
+   * Le suivi se met en pause pendant le repli automatique.
+   *
+   * Déplacer la carte replie la feuille — et si la carte se recalait en même
+   * temps, le fond glisserait sous le doigt en plein geste : on perdrait la
+   * manipulation directe, qui est tout ce qui fait une carte. Le repli et son
+   * retour se compensent exactement, on retombe donc où on était.
+   */
+  const suiviCarteSuspendu = useRef(false)
   const [sheetPeekH, setSheetPeekH] = useState(130)
   const [screenH, setScreenH]       = useState(812)
   const [navTab, setNavTab]         = useState<NavTab>(() => {
@@ -340,6 +363,7 @@ export default function HomePage() {
     }
   }, [])
   const mapDragTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const suiviReprendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sheetBeforeMapRef = useRef<'peek'|'half'|'full' | null>(null)
   /** Une sélection restaurée ne doit pas replier la feuille : on rend la vue
    *  telle qu'elle a été quittée, hauteur comprise. Consommé une seule fois. */
@@ -360,6 +384,8 @@ export default function HomePage() {
   const onMapDragStart = useCallback(() => {
     if (modeTransport) return
     if (mapDragTimerRef.current) clearTimeout(mapDragTimerRef.current)
+    if (suiviReprendTimerRef.current) clearTimeout(suiviReprendTimerRef.current)
+    suiviCarteSuspendu.current = true
     setSheetMode(prev => {
       if (prev === 'half') { sheetBeforeMapRef.current = 'half'; return 'peek' }
       return prev
@@ -374,6 +400,11 @@ export default function HomePage() {
         setSheetMode('half')
       }
     }, 350)
+    // On ne rend la main au suivi qu'une fois la feuille revenue à sa place :
+    // 350 ms d'attente + le temps du ressort. Reprendre plus tôt ferait sauter
+    // la carte du reste de la remontée.
+    if (suiviReprendTimerRef.current) clearTimeout(suiviReprendTimerRef.current)
+    suiviReprendTimerRef.current = setTimeout(() => { suiviCarteSuspendu.current = false }, 1000)
   }, [modeTransport])
   const router = useRouter()
   /** Post à rouvrir dans l'écran des notifications (deep-link ?post=). */
@@ -1094,6 +1125,8 @@ export default function HomePage() {
           centerOn={mapCenterOn}
           onMapDragStart={onMapDragStart}
           onMapDragEnd={onMapDragEnd}
+          sheetY={sheetY}
+          suiviSuspenduRef={suiviCarteSuspendu}
           onCameraIdle={(lat, lng, zoom) => { mapCameraRef.current = { lat, lng, zoom } }}
           transport={modeTransport && ligneTransport ? {
             arrets: arretsAffiches,
@@ -1631,6 +1664,7 @@ export default function HomePage() {
         onFiltresChange={setFiltres}
         mode={sheetMode}
         onModeChange={setSheetMode}
+        sheetY={sheetY}
         navHeight={NAV_H}
         screenH={screenH}
         onPeekHeightChange={setSheetPeekH}

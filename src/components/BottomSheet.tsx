@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { motion, useMotionValue, animate, useDragControls } from 'framer-motion'
+import { motion, useMotionValue, animate, useDragControls, type MotionValue } from 'framer-motion'
 import { EvenementCard, Filtres, AppMode, ProducerCard, ProduitCategorie, EtablissementCard, EtablissementType } from '@/lib/types'
 import { CATEGORIES, eventCategories } from '@/lib/categories'
 import { PRODUIT_CATS } from '@/lib/produit-cats'
@@ -108,6 +108,15 @@ interface Props {
   isAdmin?: boolean
   /** Appelé après une mutation admin (suppression/fusion) pour rafraîchir la liste. */
   onAdminMutated?: () => void
+  /**
+   * Position verticale de la feuille, PARTAGÉE avec la page.
+   *
+   * La carte s'en sert pour garder son centre au milieu de la fenêtre qui lui
+   * reste : quand la feuille monte ou descend, le fond suit en temps réel. Un
+   * état React ferait un rendu par image — une valeur de mouvement se lit sans
+   * rien redessiner. Absente, la feuille garde la sienne et rien ne change.
+   */
+  sheetY?: MotionValue<number>
 }
 
 export default function BottomSheet({
@@ -130,6 +139,7 @@ export default function BottomSheet({
   annuaireTab: annuaireTabProp, onAnnuaireTabChange,
   topBarV3 = false,
   isAdmin = false, onAdminMutated,
+  sheetY,
 }: Props) {
   const { sheetBg } = useTheme()
   const [peekH, setPeekH]         = useState(130) // hauteur mesurée du header
@@ -245,6 +255,45 @@ export default function BottomSheet({
   }, [])
   const dragControls              = useDragControls()
 
+  /**
+   * Attraper la feuille N'IMPORTE OÙ dans son en-tête — boutons compris.
+   *
+   * Avant, seules les marges autour des filtres tiraient la feuille : les
+   * commandes elles-mêmes arrêtaient le geste (`stopPropagation`), et c'est
+   * exactement là que le pouce se pose. On ne décide donc plus par ZONE mais
+   * par INTENTION : au contact, on n'engage rien ; on regarde où part le
+   * doigt.
+   *
+   *   • franchement vertical  → c'est la feuille, on démarre le glissement
+   *   • franchement horizontal → c'est un défilement (pastilles de catégorie),
+   *     on se retire pour de bon jusqu'au prochain contact
+   *   • rien de tout ça        → c'est un appui, le clic part normalement
+   *
+   * Le seuil vertical est court (6 px) : au-delà on ne tape plus, on tire.
+   */
+  const gesteRef = useRef<{ x: number; y: number; ouvert: boolean } | null>(null)
+  const gesteDown = useCallback((e: React.PointerEvent) => {
+    gesteRef.current = { x: e.clientX, y: e.clientY, ouvert: true }
+  }, [])
+  const gesteMove = useCallback((e: React.PointerEvent) => {
+    const g = gesteRef.current
+    if (!g || !g.ouvert) return
+    const dx = e.clientX - g.x
+    const dy = e.clientY - g.y
+    if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) { g.ouvert = false; return }
+    if (Math.abs(dy) < 6) return
+    g.ouvert = false
+    dragControls.start(e)
+  }, [dragControls])
+  const gesteUp = useCallback(() => { gesteRef.current = null }, [])
+  /** À poser sur tout ce qui doit tirer la feuille. */
+  const prises = {
+    onPointerDown:   gesteDown,
+    onPointerMove:   gesteMove,
+    onPointerUp:     gesteUp,
+    onPointerCancel: gesteUp,
+  }
+
   // Annuaire state — contrôlé par le parent si onAnnuaireTabChange est fourni
   const [annuaireTabIdxLocal, setAnnuaireTabIdxLocal] = useState(0)
   const annuaireTabIdx = annuaireTabProp ?? annuaireTabIdxLocal
@@ -315,7 +364,10 @@ export default function BottomSheet({
     }
   }, [])
 
-  const y = useMotionValue(9999)
+  // La page peut fournir sa propre valeur de mouvement (elle la passe aussi à
+  // la carte). Sinon la feuille reste autonome.
+  const yLocal = useMotionValue(9999)
+  const y      = sheetY ?? yLocal
 
   useEffect(() => {
     y.set(getSnaps(screenH, navHeight, peekH).half) // départ à la moitié — screenH vient du parent
@@ -539,7 +591,11 @@ export default function BottomSheet({
       {/* pcv-hide : sur bureau, le calendrier rejoint les deux filtres dans
           la barre flottante au bas de la carte. */}
       {appMode === 'agenda' && !contenuTransport && (
-        <div className="pcv-hide">
+        // `prises` aussi ici : le bouton calendrier flotte au-dessus de
+        // l'en-tête, il est dans la zone de prise à l'œil. Il doit l'être
+        // aussi au doigt — sans quoi un coin entier du haut de la feuille
+        // reste mort.
+        <div className="pcv-hide" {...prises}>
           <AgendaDateButton
             filtres={filtres}
             onFiltresChange={onFiltresChange}
@@ -548,13 +604,16 @@ export default function BottomSheet({
         </div>
       )}
 
-      {/* ── Header mesuré (peek height source) ── */}
-      <div ref={headerRef} style={{ flexShrink: 0 }}>
-      {/* ── Zone de drag : handle + compteur + boutons filtres ── */}
-      <div
-        onPointerDown={e => dragControls.start(e)}
-        style={{ flexShrink: 0, cursor: 'grab', touchAction: 'none', userSelect: 'none' }}
-      >
+      {/* ── Header mesuré (peek height source) ──
+          C'est AUSSI la poignée, en entier : de la barre du haut jusqu'au
+          bord de la première carte, tout tire la feuille (cf. `prises`).
+          `pan-x` et non `none` : le vertical nous revient, l'horizontal reste
+          au navigateur pour les pastilles de catégorie qui défilent. */}
+      <div ref={headerRef} {...prises} style={{ flexShrink: 0, cursor: 'grab', touchAction: 'pan-x' }}>
+      {/* ── Poignée visuelle + compteur + boutons filtres ──
+          `userSelect: none` s'arrête ici : plus bas viennent les champs de
+          recherche de l'annuaire, où il faut pouvoir poser le curseur. */}
+      <div style={{ flexShrink: 0, userSelect: 'none' }}>
         {/* Poignée visuelle */}
         <div style={{ padding: '10px 0 6px' }}>
           <div style={{ width: 40, height: 5, borderRadius: 3, backgroundColor: '#C8BDB0', margin: '0 auto' }} />
@@ -588,15 +647,17 @@ export default function BottomSheet({
               padding: '0 16px 14px',
             }}>
               <div
-                onPointerDown={e => e.stopPropagation()}
-                onTouchStart={e => e.stopPropagation()}
+                // Plus de stopPropagation ici : ces deux gros boutons sont
+                // pile là où le pouce se pose, ils doivent tirer la feuille.
+                // Un appui reste un appui — c'est l'intention du geste qui
+                // tranche, pas l'endroit touché.
                 // fit-content (et non width:100% + maxWidth:300) : la rangée
                 // prend exactement la largeur de ses deux boutons, et le
                 // parent en justifyContent:center la recentre. Un libellé long
                 // l'élargit donc à gauche autant qu'à droite au lieu de la
                 // faire déborder d'un seul côté. maxWidth:100% garde le
                 // plafond de l'écran.
-                style={{ touchAction: 'pan-y', width: 'fit-content', maxWidth: '100%' }}
+                style={{ touchAction: 'pan-x', width: 'fit-content', maxWidth: '100%' }}
               >
                 <AgendaFilterWheel
                   filtres={filtres}
@@ -712,7 +773,7 @@ export default function BottomSheet({
 
           {/* Barre de recherche + suggestions */}
           {annuaireTabIdx === 0 ? (
-            <div style={{ padding: '0 16px 10px', position: 'relative' }} onPointerDown={e => e.stopPropagation()}>
+            <div style={{ padding: '0 16px 10px', position: 'relative' }}>
               <div style={{ position: 'relative' }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#AAA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
                   style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
@@ -769,7 +830,7 @@ export default function BottomSheet({
               )}
             </div>
           ) : (
-            <div style={{ padding: '0 16px 10px' }} onPointerDown={e => e.stopPropagation()}>
+            <div style={{ padding: '0 16px 10px' }}>
               <div style={{ display: 'flex', gap: 8, position: 'relative' }}>
                 {/* Input recherche */}
                 <div style={{ flex: 1, position: 'relative' }}>
@@ -863,6 +924,10 @@ export default function BottomSheet({
 
       {/* ── Séparateur ── */}
       <div style={{ height: 1, backgroundColor: sheetBg.border }} />
+      {/* Les 4 px qui séparaient le trait de la première carte appartenaient à
+          la liste, qui ne tire pas la feuille : ils laissaient une bande morte
+          juste au-dessus des cartes. Ils sont ici, du bon côté. */}
+      <div style={{ height: 4 }} />
       </div>{/* fin header mesuré */}
 
       {/* ── Liste ── */}
@@ -891,7 +956,7 @@ export default function BottomSheet({
         className="pdv-list-noscroll"
         style={{
           flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10,
-          padding: '4px 16px 0',
+          padding: '0 16px',
           // La feuille fait toute la hauteur de l'écran mais elle est décalée
           // vers le bas : en 'half' comme en 'peek', sa partie basse est hors
           // champ. Sans cette marge, les dernières cartes tombent dans la zone
@@ -916,8 +981,8 @@ export default function BottomSheet({
                 if (featured.length === 0) return null
                 if (mode === 'full') return (
                   <div style={{
-                    position: 'sticky', top: -4, zIndex: 5,
-                    marginLeft: -16, marginRight: -16, marginTop: -4,
+                    position: 'sticky', top: 0, zIndex: 5,
+                    marginLeft: -16, marginRight: -16,
                     backgroundColor: sheetBg.bg,
                     paddingTop: 4, paddingBottom: 8,
                     boxShadow: '0 4px 12px rgba(0,0,0,0.07)',
@@ -1009,8 +1074,8 @@ export default function BottomSheet({
             {/* Bandeau sticky en haut de liste (mode full uniquement) */}
             {appMode === 'agenda' && proEvents.length > 0 && mode === 'full' && (
               <div style={{
-                position: 'sticky', top: -4, zIndex: 5,
-                marginLeft: -16, marginRight: -16, marginTop: -4,
+                position: 'sticky', top: 0, zIndex: 5,
+                marginLeft: -16, marginRight: -16,
                 backgroundColor: sheetBg.bg,
                 paddingTop: 4, paddingBottom: 8,
                 boxShadow: '0 4px 12px rgba(0,0,0,0.07)',

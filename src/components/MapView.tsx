@@ -15,6 +15,8 @@ import { formatEventDate } from '@/lib/filters'
 import { useTheme } from '@/components/ThemeProvider'
 import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
+import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
+import type { MotionValue } from 'framer-motion'
 
 const GANGES = { lat: 43.9333, lng: 3.7 }
 
@@ -59,6 +61,38 @@ function MapDragListener({ onDragStart, onDragEnd, onCameraIdle }: {
     }))
     return () => listeners.forEach(l => l?.remove())
   }, [map, onDragStart, onDragEnd, onCameraIdle])
+  return null
+}
+
+/**
+ * La carte se recale quand la feuille bouge — la règle est dans le crochet.
+ *
+ * Google Maps n'a pas de marge de cadrage (`padding` n'existe que dans
+ * `fitBounds`) : on déplace donc le centre à la main. Et surtout PAS avec
+ * `panBy()`, qui anime tout seul dès que la distance est courte — appelé à
+ * chaque image, il prendrait un retard visible sur le doigt. `setCenter` est
+ * instantané ; le calcul passe par la projection, où un pixel vaut
+ * 1 / 2^zoom unité de monde.
+ */
+function SuiviFeuille({ sheetY, suiviSuspenduRef }: {
+  sheetY?: MotionValue<number>
+  suiviSuspenduRef?: React.MutableRefObject<boolean>
+}) {
+  const map = useMap()
+  const { fixedMap } = useTheme()
+  useSuiviFeuille(sheetY, suiviSuspenduRef, !!map && !fixedMap, dyFond => {
+    if (!map) return
+    const proj = map.getProjection()
+    const c    = map.getCenter()
+    const z    = map.getZoom()
+    if (!proj || !c || z === undefined) return
+    const pt = proj.fromLatLngToPoint(c)
+    if (!pt) return
+    // Le fond descend de `dyFond` ⇔ le centre remonte d'autant : vers le nord,
+    // donc vers les petits `y` du monde projeté.
+    const nc = proj.fromPointToLatLng(new google.maps.Point(pt.x, pt.y - dyFond / 2 ** z))
+    if (nc) map.setCenter(nc)
+  })
   return null
 }
 
@@ -323,6 +357,14 @@ interface Props {
   onDeselect: () => void
   onOpenEvent: (id: string) => void
   centerOn?: { lat: number; lng: number; zoom?: number } | null
+  /**
+   * Position du haut de la feuille (mobile) — la carte s'y accroche pour
+   * garder son centre au milieu de la fenêtre qui lui reste. Cf.
+   * `useSuiviFeuille`.
+   */
+  sheetY?: MotionValue<number>
+  /** Met le suivi en pause (repli automatique pendant un geste de carte). */
+  suiviSuspenduRef?: React.MutableRefObject<boolean>
   onMapDragStart?: () => void
   onMapDragEnd?: () => void
   onCameraIdle?: (lat: number, lng: number, zoom: number) => void
@@ -353,7 +395,7 @@ interface Props {
   } | null
 }
 
-export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn, onMapDragStart, onMapDragEnd, onCameraIdle, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement, transport = null }: Props) {
+export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn, onMapDragStart, onMapDragEnd, onCameraIdle, sheetY, suiviSuspenduRef, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement, transport = null }: Props) {
   const [internalEtabId, setInternalEtabId] = useState<string | null>(null)
   const selectedEtabId    = selectedEtabIdProp !== undefined ? selectedEtabIdProp : internalEtabId
   const setSelectedEtabId = onSelectEtab ?? setInternalEtabId
@@ -394,6 +436,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
         styles={mapStyle.styles.length > 0 ? mapStyle.styles : WARM_STYLE}
       >
         <MapDragListener onDragStart={onMapDragStart} onDragEnd={onMapDragEnd} onCameraIdle={onCameraIdle} />
+        <SuiviFeuille sheetY={sheetY} suiviSuspenduRef={suiviSuspenduRef} />
         <Markers
           evenements={evenements}
           selectedId={selectedId}

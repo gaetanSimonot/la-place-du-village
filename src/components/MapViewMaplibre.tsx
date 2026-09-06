@@ -9,6 +9,8 @@ import { formatEventDate } from '@/lib/filters'
 import { useTheme } from '@/components/ThemeProvider'
 import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
+import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
+import type { MotionValue } from 'framer-motion'
 
 const GANGES = { lat: 43.9333, lng: 3.7 }
 
@@ -71,6 +73,14 @@ interface Props {
   onMapDragStart?: () => void
   onMapDragEnd?: () => void
   onCameraIdle?: (lat: number, lng: number, zoom: number) => void
+  /**
+   * Position du haut de la feuille (mobile) — la carte s'y accroche pour
+   * garder son centre au milieu de la fenêtre qui lui reste. Cf.
+   * `useSuiviFeuille`.
+   */
+  sheetY?: MotionValue<number>
+  /** Met le suivi en pause (repli automatique pendant un geste de carte). */
+  suiviSuspenduRef?: React.MutableRefObject<boolean>
   producers?: ProducerCard[]
   selectedProducerId?: string | null
   onSelectProducer?: (id: string | null) => void
@@ -106,7 +116,7 @@ interface Props {
 
 export default function MapViewMaplibre({
   evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn,
-  onMapDragStart, onMapDragEnd, onCameraIdle,
+  onMapDragStart, onMapDragEnd, onCameraIdle, sheetY, suiviSuspenduRef,
   producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer,
   etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement,
 }: Props) {
@@ -172,6 +182,20 @@ export default function MapViewMaplibre({
       padding: { top: 60, right: 20, bottom: 180, left: 20 }, duration: 600,
     })
   }, [evenements, fixedMap])
+
+  /**
+   * La carte suit la feuille — même règle que sur le fond Google.
+   *
+   * MapLibre a bien un `setPadding()` qui ferait ça tout seul, mais il occupe
+   * le même réglage que `fitBounds` et `easeTo` : le cadrage automatique
+   * l'écraserait sans prévenir. On déplace donc le fond nous-mêmes, d'un
+   * `panBy` sans durée — instantané, donc collé au doigt.
+   */
+  useSuiviFeuille(sheetY, suiviSuspenduRef, !fixedMap, dyFond => {
+    // `panBy` déplace le CENTRE : un décalage positif fait remonter le fond.
+    // Nous, on veut le faire descendre de `dyFond`.
+    mapRef.current?.getMap().panBy([0, -dyFond], { duration: 0 })
+  })
 
   // Pan vers l'événement sélectionné (désactivé en carte fixe)
   useEffect(() => {

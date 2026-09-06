@@ -142,11 +142,10 @@ export function AgendaDateButton({
   }
 
   return (
-    <div
-      onPointerDown={e => e.stopPropagation()}
-      onTouchStart={e => e.stopPropagation()}
-      style={{ position: 'absolute', top: 8, left: 16, right: 16, zIndex: 30, pointerEvents: 'none' }}
-    >
+    // Le conteneur ne retient plus le geste : la feuille se tire aussi par
+    // ce coin-là. Seul le panneau du calendrier le fait encore, plus bas —
+    // une fois ouvert, il a ses propres gestes à défendre.
+    <div style={{ position: 'absolute', top: 8, left: 16, right: 16, zIndex: 30, pointerEvents: 'none' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <button
           type="button"
@@ -175,7 +174,7 @@ export function AgendaDateButton({
       </div>
 
       {calOpen && (
-        <div style={{ pointerEvents: 'auto', marginTop: 8 }}>
+        <div style={{ pointerEvents: 'auto', marginTop: 8 }} onPointerDown={e => e.stopPropagation()}>
           <DatePanel
             selected={dateActive}
             viewMonth={viewMonth}
