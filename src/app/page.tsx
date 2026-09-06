@@ -306,19 +306,24 @@ export default function HomePage() {
   // le montage de la page de celui de la feuille.
   const sheetY = useMotionValue(9999)
   /**
-   * Le repli du geste de carte est COMPENSÉ, lui aussi.
+   * La feuille est en train de tomber parce qu'on déplace la carte.
    *
-   * On l'avait d'abord laissé de côté pour ne pas faire glisser le fond sous
-   * le doigt. Mais l'aller et le retour doivent se compenser exactement :
-   * sinon ce qu'on vient d'amener au milieu, feuille basse, repart sous elle
-   * quand elle remonte. Le suivi n'a donc plus d'exception — il suit le
-   * ressort de la feuille image par image, ce qui est exactement l'animer sur
-   * la même durée et la même courbe.
+   * Le repli du geste et son retour ne se traitent PAS pareil, et c'est voulu.
    *
-   * Le prix, assumé : au tout début du geste, pendant que la feuille tombe, le
-   * fond glisse d'une centaine de pixels sous le doigt. C'est le symétrique
-   * exact de ce qui se passe au relâchement.
+   * À l'aller, la feuille tombe pendant que le doigt commande : compenser cette
+   * chute ne fait pas que glisser le fond, ça dévore le geste — la compensation
+   * part dans le sens inverse du doigt et l'annule, la carte s'ébroue puis se
+   * bloque. Tant que le doigt commande, la carte ne bouge donc pas toute seule.
+   *
+   * Au retour, plus personne ne touche à rien, et ce qu'on venait d'amener au
+   * milieu doit y rester quand la fenêtre rétrécit : la remontée est suivie.
+   *
+   * La condition est « la feuille descend suite à un déplacement de carte » :
+   * posée quand la chute part, levée quand la remontée part. Pas une fenêtre de
+   * temps — un geste qui traîne reste couvert, un geste bref ne laisse pas la
+   * fin de la chute se faire compenser.
    */
+  const chuteDuPanEnCours = useRef(false)
   const [sheetPeekH, setSheetPeekH] = useState(130)
   const [screenH, setScreenH]       = useState(812)
   const [navTab, setNavTab]         = useState<NavTab>(() => {
@@ -400,18 +405,6 @@ export default function HomePage() {
   const sheetBeforeMapRef = useRef<'peek'|'half'|'full' | null>(null)
 
   /**
-   * Deplacer la carte replie la feuille, qui remonte quand on lache.
-   *
-   * C'est juste sur l'agenda et l'annuaire : on pousse la carte pour voir un
-   * repere cache sous la liste, et on veut la liste hors du chemin le temps du
-   * geste.
-   *
-   * PAS EN TRANSPORT. Le panneau y est un formulaire : on ecrit deux villes,
-   * on regarde la carte, on revient au champ. Le voir tomber puis rebondir a
-   * chaque effleurement de la carte rend la saisie penible. La feuille reste
-   * ou l'utilisateur l'a mise — a mi-hauteur ou en haut, c'est lui qui decide.
-   */
-  /**
    * Le seul cas où la carte a le droit de faire descendre la feuille.
    *
    * Taper une punaise ne replie plus rien : la carte vise pour la position où
@@ -426,11 +419,27 @@ export default function HomePage() {
     setSheetMode(prev => (prev === 'half' ? 'peek' : prev))
   }, [])
 
+  /**
+   * Deplacer la carte replie la feuille, qui remonte quand on lache.
+   *
+   * C'est juste sur l'agenda et l'annuaire : on pousse la carte pour voir un
+   * repere cache sous la liste, et on veut la liste hors du chemin le temps du
+   * geste.
+   *
+   * PAS EN TRANSPORT. Le panneau y est un formulaire : on ecrit deux villes,
+   * on regarde la carte, on revient au champ. Le voir tomber puis rebondir a
+   * chaque effleurement de la carte rend la saisie penible. La feuille reste
+   * ou l'utilisateur l'a mise — a mi-hauteur ou en haut, c'est lui qui decide.
+   */
   const onMapDragStart = useCallback(() => {
     if (modeTransport) return
     if (mapDragTimerRef.current) clearTimeout(mapDragTimerRef.current)
     setSheetMode(prev => {
-      if (prev === 'half') { sheetBeforeMapRef.current = 'half'; return 'peek' }
+      if (prev === 'half') {
+        sheetBeforeMapRef.current = 'half'
+        chuteDuPanEnCours.current = true
+        return 'peek'
+      }
       return prev
     })
   }, [modeTransport])
@@ -440,6 +449,9 @@ export default function HomePage() {
     mapDragTimerRef.current = setTimeout(() => {
       if (sheetBeforeMapRef.current === 'half') {
         sheetBeforeMapRef.current = null
+        // La remontée commence : la carte reprend son suivi, à partir de la
+        // position exacte où la feuille se trouve.
+        chuteDuPanEnCours.current = false
         setSheetMode('half')
       }
     }, 350)
@@ -1159,6 +1171,7 @@ export default function HomePage() {
           onMapDragStart={onMapDragStart}
           onMapDragEnd={onMapDragEnd}
           sheetY={sheetY}
+          panEnCoursRef={chuteDuPanEnCours}
           onBlocTropGrand={laisserLaPlaceALaVignette}
           onCameraIdle={(lat, lng, zoom) => { mapCameraRef.current = { lat, lng, zoom } }}
           transport={modeTransport && ligneTransport ? {

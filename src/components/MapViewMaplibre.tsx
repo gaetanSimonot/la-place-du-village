@@ -89,6 +89,11 @@ interface Props {
    * `useSuiviFeuille`.
    */
   sheetY?: MotionValue<number>
+  /**
+   * Vrai tant qu'un doigt déplace la carte : le suivi de feuille se tait, sinon
+   * la compensation de la chute annule le geste. Cf. `useSuiviFeuille`.
+   */
+  panEnCoursRef?: React.MutableRefObject<boolean>
   producers?: ProducerCard[]
   selectedProducerId?: string | null
   onSelectProducer?: (id: string | null) => void
@@ -124,7 +129,7 @@ interface Props {
 
 export default function MapViewMaplibre({
   evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, restaurerVue, viserLieu, onBlocTropGrand,
-  onMapDragStart, onMapDragEnd, onCameraIdle, sheetY,
+  onMapDragStart, onMapDragEnd, onCameraIdle, sheetY, panEnCoursRef,
   producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer,
   etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement,
 }: Props) {
@@ -218,7 +223,7 @@ export default function MapViewMaplibre({
    * l'écraserait sans prévenir. On déplace donc le fond nous-mêmes, d'un
    * `panBy` sans durée — instantané, donc collé au doigt.
    */
-  useSuiviFeuille(sheetY, !fixedMap, dyFond => {
+  useSuiviFeuille(sheetY, panEnCoursRef, !fixedMap, dyFond => {
     // `panBy` déplace le CENTRE : un décalage positif fait remonter le fond.
     // Nous, on veut le faire descendre de `dyFond`.
     mapRef.current?.getMap().panBy([0, -dyFond], { duration: 0 })

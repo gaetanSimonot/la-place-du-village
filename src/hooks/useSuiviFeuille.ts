@@ -19,14 +19,23 @@ import type { MotionValue } from 'framer-motion'
  * Le décalage du haut (barre de l'application) ne compte pas : il est le même
  * avant et après, il disparaît de la différence.
  *
- * Le suivi ne connaît PAS d'exception. Il a d'abord été mis en pause pendant
- * le repli automatique du geste de carte, pour ne pas faire glisser le fond
- * sous le doigt — mais l'aller et le retour du repli doivent se compenser
- * exactement, sinon ce qu'on avait amené au milieu avant de relâcher part sous
- * la feuille quand elle remonte. Suivre le mouvement image par image, c'est
- * l'animer sur la même durée et la même courbe : c'est le même ressort.
+ * UNE exception, et elle est dissymétrique : rien pendant qu'un doigt déplace
+ * la carte.
+ *
+ * Déplacer la carte fait tomber la feuille, et compenser cette chute ne fait
+ * pas que glisser le fond — ça DÉVORE le geste. La compensation part dans le
+ * sens inverse du doigt et l'annule : la carte s'ébroue puis se bloque. Sur
+ * Google, écrire le centre à chaque image pendant un glissement actif entre en
+ * plus en conflit avec le glissement lui-même. Pendant que le doigt commande,
+ * la carte ne bouge donc pas toute seule.
+ *
+ * La remontée, elle, est suivie : là plus personne ne touche à rien, et ce
+ * qu'on venait d'amener au milieu doit y rester quand la fenêtre rétrécit.
+ * Rien à répliquer pour ça — suivre le ressort image par image EST l'animer
+ * sur la même durée et la même courbe, puisque c'est le même ressort.
  *
  * @param sheetY      position du haut de la feuille, partagée par la page
+ * @param suspenduRef vrai tant qu'un doigt déplace la carte
  * @param actif       faux = on ne touche à rien (carte fixe, carte pas prête)
  * @param deplacer    reçoit le nombre de pixels dont le FOND doit descendre
  *                    (négatif : il monte). À charge de chaque carte de le
@@ -34,6 +43,7 @@ import type { MotionValue } from 'framer-motion'
  */
 export function useSuiviFeuille(
   sheetY: MotionValue<number> | undefined,
+  suspenduRef: React.MutableRefObject<boolean> | undefined,
   actif: boolean,
   deplacer: (dyFond: number) => void,
 ) {
@@ -53,6 +63,9 @@ export function useSuiviFeuille(
 
     const off = sheetY.on('change', v => {
       const p = precedent.current
+      // Le repère se met à jour MÊME quand on ne compense pas — c'est ce qui
+      // évite le saut à la reprise : sans ça, la chute non compensée serait
+      // rattrapée d'un coup à la première image de la remontée.
       precedent.current = v
       if (p === null) return          // première lecture : on prend le repère
       const d = v - p
@@ -60,8 +73,9 @@ export function useSuiviFeuille(
       // La feuille démarre à 9999 avant d'être placée : ce n'est pas un geste,
       // et compenser un tel saut enverrait la carte à l'autre bout du monde.
       if (Math.abs(d) > 4000) return
+      if (suspenduRef?.current) return
       deplacerRef.current(d / 2)
     })
     return () => { off(); precedent.current = null }
-  }, [sheetY, actif])
+  }, [sheetY, suspenduRef, actif])
 }
