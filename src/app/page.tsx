@@ -28,6 +28,8 @@ import { useFavorites } from '@/hooks/useFavorites'
 import { useProducerFavorites } from '@/hooks/useProducerFavorites'
 import { useNotifications } from '@/hooks/useNotifications'
 import { ecranBureau } from '@/lib/bureau'
+import { useHerosVillage } from '@/hooks/useHerosVillage'
+import { lienHeros, herosExterne } from '@/lib/villageHero'
 
 
 /**
@@ -52,7 +54,6 @@ const AppInfoModal         = dynamic(() => import('@/components/AppInfoModal'), 
 const WelcomeModal         = dynamic(() => import('@/components/WelcomeModal'),            { ssr: false })
 const EditorialSplash      = dynamic(() => import('@/components/EditorialSplash'),         { ssr: false })
 const MaxSplash            = dynamic(() => import('@/components/MaxSplash'),               { ssr: false })
-const BandeauHerosCarte = dynamic(() => import('@/components/village/BandeauHerosCarte'), { ssr: false })
 const MapView                   = dynamic(() => import('@/components/MapViewSwitch'),              { ssr: false })
 const BottomSheet               = dynamic(() => import('@/components/BottomSheet'),                { ssr: false })
 // ProducteurPageClient / EtablissementPageClient : retirés (sous-étape 5.2)
@@ -330,6 +331,25 @@ export default function HomePage() {
   const [, setGeocoding]                = useState(false)
   const [adminMapSaved, setAdminMapSaved] = useState(false)
   const [sheetMode, setSheetMode]   = useState<'peek'|'half'|'full'>('half')
+  /**
+   * Le héros du Village, quand il demande à être repris à la une.
+   *
+   * Ce n'est PAS un second bandeau : il entre comme une diapo de plus dans le
+   * bandeau « à la une » qui existe déjà, en tête. Un emplacement unique — en
+   * ouvrir un deuxième, c'est n'en avoir plus aucun qui compte.
+   */
+  const { heros: herosVillage } = useHerosVillage()
+  const herosDiapo = useMemo(() => {
+    if (!herosVillage || !herosVillage.surCarte) return null
+    return {
+      titre: herosVillage.titre,
+      sousTitre: herosVillage.sousTitre,
+      image: herosVillage.image,
+      etiquette: herosVillage.etiquette,
+      href: lienHeros(herosVillage),
+      externe: herosExterne(herosVillage),
+    }
+  }, [herosVillage])
   /**
    * Position verticale de la feuille — écrite par elle, lue par la carte.
    *
@@ -1765,7 +1785,7 @@ export default function HomePage() {
       {/* FAB haut centre — mode-aware */}
 
       {/* ProBandeau flottant sur la carte — 2/3 largeur, se fait avaler par le sheet (zIndex 19 < 20) */}
-      {!showHub && proEvents.length > 0 && appMode === 'agenda' && navTab !== 'profil' && navTab !== 'favoris' && navTab !== 'notifs' && navTab !== 'village' && (
+      {!showHub && (proEvents.length > 0 || herosDiapo) && appMode === 'agenda' && navTab !== 'profil' && navTab !== 'favoris' && navTab !== 'notifs' && navTab !== 'village' && (
         <div className="pcv-proBandeau" style={{
           position: 'absolute', left: 0, right: '33%',
           bottom: NAV_H + sheetPeekH,
@@ -1774,26 +1794,10 @@ export default function HomePage() {
           pointerEvents: sheetMode === 'full' ? 'none' : 'auto',
           transition: 'opacity 0.2s',
         }}>
-          <ProBandeau events={proEvents} onDiscover={openEvent} compact={false} />
+          <ProBandeau events={proEvents} onDiscover={openEvent} compact={false} heros={herosDiapo} />
         </div>
       )}
 
-      {/* Le héros repris à la une, à la place du bandeau des mises en avant.
-          Il ne s'affiche que s'il porte « aussi à la une » — le composant
-          demande au serveur, on ne conditionne rien ici. Même géométrie que
-          le bandeau ci-dessus : deux bandeaux empilés, c'est un de trop. */}
-      {!showHub && navTab === 'carte' && appMode === 'agenda' && !modeTransport && (
-        <div className="pcv-proBandeau" style={{
-          position: 'absolute', left: 0, right: '33%',
-          bottom: NAV_H + sheetPeekH,
-          zIndex: 19,
-          opacity: sheetMode === 'full' ? 0 : 1,
-          pointerEvents: sheetMode === 'full' ? 'none' : 'auto',
-          transition: 'opacity 0.2s',
-        }}>
-          <BandeauHerosCarte />
-        </div>
-      )}
 
       {/* Bottom Sheet — masqué sur le hub */}
       {!showHub && <BottomSheet
@@ -1836,6 +1840,7 @@ export default function HomePage() {
         screenH={screenH}
         onPeekHeightChange={setSheetPeekH}
         proEvents={proEvents}
+        herosDiapo={herosDiapo}
         onDiscoverPro={openEvent}
         // Bureau : ouvre la fiche en fenêtre. Mobile : mémorise l'état de
         // navigation avant que le lien de la carte change de page.

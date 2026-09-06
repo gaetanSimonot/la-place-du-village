@@ -17,34 +17,65 @@ function shuffle<T>(arr: T[]): T[] {
   return a
 }
 
+/**
+ * Le héros du Village, quand il demande à être repris à la une.
+ *
+ * Ce n'est pas un second bandeau : c'est une diapo de plus dans CELUI-CI,
+ * posée en tête. Le « à la une » est un emplacement unique — en ouvrir un
+ * deuxième, c'est n'en avoir plus aucun qui compte.
+ */
+export interface DiapoHeros {
+  titre: string
+  sousTitre: string | null
+  image: string | null
+  etiquette: string
+  href: string
+  externe: boolean
+}
+
+/** Ce que le bandeau fait défiler : des événements, et le héros s'il y est. */
+type Diapo =
+  | { sorte: 'event'; cle: string; evt: EvenementCard }
+  | { sorte: 'heros'; cle: string; h: DiapoHeros }
+
 interface Props {
   events: EvenementCard[]
   onDiscover: (id: string) => void
   compact?: boolean
+  /** Le héros du Village, en tête du défilé. */
+  heros?: DiapoHeros | null
 }
 
-export default function ProBandeau({ events, onDiscover, compact = false }: Props) {
+export default function ProBandeau({ events, onDiscover, compact = false, heros = null }: Props) {
   const [dismissed, setDismissed] = useState(false)
-  const [queue, setQueue]         = useState<EvenementCard[]>([])
+  const [queue, setQueue]         = useState<Diapo[]>([])
   const [idx, setIdx]             = useState(0)
   const timerRef = useRef<ReturnType<typeof setTimeout>>()
 
+  // Le héros ne se mélange pas au tirage : il ouvre le défilé. C'est ce qu'on
+  // a décidé de pousser, il ne peut pas dépendre d'un coup de dé.
+  const composer = useCallback((): Diapo[] => {
+    const evts: Diapo[] = shuffle(events).map(e => ({ sorte: 'event' as const, cle: e.id, evt: e }))
+    return heros ? [{ sorte: 'heros' as const, cle: 'heros', h: heros }, ...evts] : evts
+  }, [events, heros])
+
   useEffect(() => {
-    if (events.length === 0) return
-    setQueue(shuffle(events))
+    const q = composer()
+    if (q.length === 0) return
+    setQueue(q)
     setIdx(0)
-  }, [events])
+  }, [composer])
 
   const advance = useCallback(() => {
     setIdx(prev => {
       const next = prev + 1
       if (next >= queue.length) {
-        setQueue(shuffle(events))
+        setQueue(composer())
         return 0
       }
       return next
     })
-  }, [queue.length, events])
+  }, [queue.length, composer])
 
   useEffect(() => {
     if (dismissed || queue.length === 0) return
@@ -56,27 +87,59 @@ export default function ProBandeau({ events, onDiscover, compact = false }: Prop
 
   if (dismissed || queue.length === 0) return null
 
-  const evt = queue[idx]
-  if (!evt) return null
-  const cat = CATEGORIES[evt.categorie] ?? CATEGORIES.autre
+  const diapo = queue[idx]
+  if (!diapo) return null
+
+  // Vue commune aux deux sortes : le bandeau ne connaît que ça, ce qui évite
+  // de dédoubler chaque mode d'affichage.
+  const vue = diapo.sorte === 'heros'
+    ? {
+        cle: diapo.cle,
+        titre: diapo.h.titre,
+        sous: diapo.h.sousTitre,
+        image: diapo.h.image,
+        imagePos: '50% 50%',
+        couleur: '#C4622D',
+        emoji: '✦',
+        etiquette: diapo.h.etiquette.toUpperCase(),
+        ouvrir: () => {
+          if (diapo.h.externe) window.open(diapo.h.href, '_blank', 'noopener,noreferrer')
+          else window.location.href = diapo.h.href
+        },
+      }
+    : (() => {
+        const e = diapo.evt
+        const c = CATEGORIES[e.categorie] ?? CATEGORIES.autre
+        return {
+          cle: diapo.cle,
+          titre: e.titre,
+          sous: e.lieux?.commune ?? null,
+          image: e.image_url ?? null,
+          imagePos: e.image_position ?? '50% 50%',
+          couleur: c.color,
+          emoji: c.emoji,
+          etiquette: '✦ À LA UNE',
+          ouvrir: () => onDiscover(e.id),
+        }
+      })()
 
   /* ── Mode compact (dans la liste pleine) ── */
   if (compact) {
     return (
       <div
-        onClick={() => { clearTimeout(timerRef.current); onDiscover(evt.id) }}
+        onClick={() => { clearTimeout(timerRef.current); vue.ouvrir() }}
         onPointerDown={e => e.stopPropagation()}
         style={{ margin: '0 12px 8px', cursor: 'pointer', flexShrink: 0 }}
       >
         <div style={{ position: 'relative', height: 64, borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 10px rgba(44,44,44,0.10)' }}>
           <AnimatePresence>
-            <motion.div key={evt.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: CROSS_S }}
+            <motion.div key={vue.cle} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: CROSS_S }}
               style={{ position: 'absolute', inset: 0, display: 'flex', backgroundColor: '#fff' }}>
               {/* Image */}
-              <div style={{ width: 64, flexShrink: 0, position: 'relative', overflow: 'hidden', backgroundColor: cat.color + '22' }}>
-                {evt.image_url
-                  ? <img src={evt.image_url} alt="" loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: evt.image_position ?? '50% 50%' }} />
-                  : <div style={{ position: 'absolute', inset: 0, backgroundColor: cat.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{cat.emoji}</div>
+              <div style={{ width: 64, flexShrink: 0, position: 'relative', overflow: 'hidden', backgroundColor: vue.couleur + '22' }}>
+                {vue.image
+                  ? <img src={vue.image} alt="" loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: vue.imagePos }} />
+                  : <div style={{ position: 'absolute', inset: 0, backgroundColor: vue.couleur, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{vue.emoji}</div>
                 }
               </div>
               {/* Texte */}
@@ -84,10 +147,10 @@ export default function ProBandeau({ events, onDiscover, compact = false }: Prop
                 <button onClick={e => { e.stopPropagation(); setDismissed(true) }}
                   style={{ position: 'absolute', top: 5, right: 6, width: 18, height: 18, borderRadius: '50%', backgroundColor: '#F0EBE4', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: '#8A8A8A', padding: 0 }}>✕</button>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-                  <span style={{ fontSize: 8, fontWeight: 800, color: '#fff', backgroundColor: '#EC407A', borderRadius: 999, padding: '2px 6px', letterSpacing: '0.06em', fontFamily: 'var(--font-body), sans-serif', flexShrink: 0 }}>✦ À LA UNE</span>
-                  {evt.lieux?.commune && <span style={{ fontSize: 10, color: '#6B5E4E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body), sans-serif' }}>{evt.lieux.commune}</span>}
+                  <span style={{ fontSize: 8, fontWeight: 800, color: '#fff', backgroundColor: '#EC407A', borderRadius: 999, padding: '2px 6px', letterSpacing: '0.06em', fontFamily: 'var(--font-body), sans-serif', flexShrink: 0 }}>{vue.etiquette}</span>
+                  {vue.sous && <span style={{ fontSize: 10, color: '#6B5E4E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body), sans-serif' }}>{vue.sous}</span>}
                 </div>
-                <p style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 12, color: '#1C1917', margin: 0, lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', paddingRight: 18 }}>{evt.titre}</p>
+                <p style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 700, fontSize: 12, color: '#1C1917', margin: 0, lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', paddingRight: 18 }}>{vue.titre}</p>
               </div>
             </motion.div>
           </AnimatePresence>
@@ -99,20 +162,20 @@ export default function ProBandeau({ events, onDiscover, compact = false }: Prop
   /* ── Mode flottant : image plein cadre + gradient noir + texte overlay ── */
   return (
     <div
-      onClick={() => { clearTimeout(timerRef.current); onDiscover(evt.id) }}
+      onClick={() => { clearTimeout(timerRef.current); vue.ouvrir() }}
       onPointerDown={e => e.stopPropagation()}
       style={{ margin: '4px 12px 8px', cursor: 'pointer', flexShrink: 0 }}
     >
       <div style={{ position: 'relative', height: 140, borderRadius: 16, overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.22)' }}>
         <AnimatePresence>
-          <motion.div key={evt.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: CROSS_S, ease: 'easeInOut' }}
+          <motion.div key={vue.cle} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: CROSS_S, ease: 'easeInOut' }}
             style={{ position: 'absolute', inset: 0 }}>
 
             {/* Image plein cadre */}
-            {evt.image_url
-              ? <img src={evt.image_url} alt="" loading="lazy"
-                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: evt.image_position ?? '50% 50%' }} />
-              : <div style={{ position: 'absolute', inset: 0, backgroundColor: cat.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 52 }}>{cat.emoji}</div>
+            {vue.image
+              ? <img src={vue.image} alt="" loading="lazy"
+                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: vue.imagePos }} />
+              : <div style={{ position: 'absolute', inset: 0, backgroundColor: vue.couleur, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 52 }}>{vue.emoji}</div>
             }
 
             {/* Gradient haut (pour lisibilité badge) */}
@@ -129,7 +192,7 @@ export default function ProBandeau({ events, onDiscover, compact = false }: Prop
                 borderRadius: 999, padding: '3px 9px',
                 letterSpacing: '0.07em', fontFamily: 'var(--font-body), sans-serif',
                 boxShadow: '0 2px 8px rgba(236,64,122,0.45)',
-              }}>✦ À LA UNE</span>
+              }}>{vue.etiquette}</span>
             </div>
 
             {/* Bouton fermer — haut droite */}
@@ -152,19 +215,31 @@ export default function ProBandeau({ events, onDiscover, compact = false }: Prop
                 lineHeight: 1.3, textShadow: '0 1px 6px rgba(0,0,0,0.5)',
                 overflow: 'hidden', display: '-webkit-box',
                 WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-              }}>{evt.titre}</p>
+              }}>{vue.titre}</p>
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, overflow: 'hidden' }}>
-                  {evt.lieux?.commune && (
-                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.82)', fontFamily: 'var(--font-body), sans-serif', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      📍 {evt.lieux.commune}
-                    </span>
-                  )}
-                  {evt.date_debut && (
-                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)', fontFamily: 'var(--font-body), sans-serif', whiteSpace: 'nowrap' }}>
-                      · {formatEventDate(evt.date_debut, evt.date_fin)}{evt.heure && !evt.date_fin ? ` ${evt.heure.slice(0,5)}` : ''}
-                    </span>
+                  {/* La ligne du bas dit le lieu et la date pour un événement,
+                      le sous-titre pour le héros — même place, même rôle. */}
+                  {diapo.sorte === 'heros' ? (
+                    vue.sous && (
+                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.82)', fontFamily: 'var(--font-body), sans-serif', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {vue.sous}
+                      </span>
+                    )
+                  ) : (
+                    <>
+                      {diapo.evt.lieux?.commune && (
+                        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.82)', fontFamily: 'var(--font-body), sans-serif', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          📍 {diapo.evt.lieux.commune}
+                        </span>
+                      )}
+                      {diapo.evt.date_debut && (
+                        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)', fontFamily: 'var(--font-body), sans-serif', whiteSpace: 'nowrap' }}>
+                          · {formatEventDate(diapo.evt.date_debut, diapo.evt.date_fin)}{diapo.evt.heure && !diapo.evt.date_fin ? ` ${diapo.evt.heure.slice(0,5)}` : ''}
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
 

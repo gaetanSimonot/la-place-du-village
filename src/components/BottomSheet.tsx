@@ -15,7 +15,7 @@ import EtabBandeau from '@/components/EtabBandeau'
 const FULL_TOP = 60   // espace laissé en haut quand sheet pleine
 
 import { useTheme } from '@/components/ThemeProvider'
-import ProBandeau from '@/components/ProBandeau'
+import ProBandeau, { type DiapoHeros } from '@/components/ProBandeau'
 import AgendaFilterWheel, { AgendaDateButton } from '@/components/AgendaFilterWheel'
 import CategoryPicker from '@/components/CategoryPicker'
 import { supabase } from '@/lib/supabase'
@@ -49,6 +49,8 @@ interface Props {
   /** Appelé quand la restauration est finie — ou abandonnée. */
   onListStateRestored?: () => void
   proEvents?: EvenementCard[]
+  /** Le héros du Village, repris en tête du bandeau « à la une ». */
+  herosDiapo?: DiapoHeros | null
   onDiscoverPro?: (id: string) => void
   onOpenEvent?: (id: string) => void
   favIds?: string[]
@@ -129,7 +131,7 @@ interface Props {
 export default function BottomSheet({
   evenements, loading, selectedId, onSelectEvent, onViewOnMap,
   filtres, onFiltresChange, mode, onModeChange, navHeight, screenH,
-  onPeekHeightChange, proEvents = [], onDiscoverPro, onOpenEvent,
+  onPeekHeightChange, proEvents = [], herosDiapo = null, onDiscoverPro, onOpenEvent,
   listStateRef, restoreListState = null, onListStateRestored,
   favIds = [], onToggleFav,
   appMode, onAppModeChange, contenuTransport, producers = [], producerLoading = false,
@@ -1084,7 +1086,7 @@ export default function BottomSheet({
         ) : (
           <>
             {/* Bandeau sticky en haut de liste (mode full uniquement) */}
-            {appMode === 'agenda' && proEvents.length > 0 && mode === 'full' && (
+            {appMode === 'agenda' && (proEvents.length > 0 || herosDiapo) && mode === 'full' && (
               <div style={{
                 position: 'sticky', top: 0, zIndex: 5,
                 marginLeft: -16, marginRight: -16,
@@ -1092,7 +1094,7 @@ export default function BottomSheet({
                 paddingTop: 4, paddingBottom: 8,
                 boxShadow: '0 4px 12px rgba(0,0,0,0.07)',
               }}>
-                <ProBandeau events={proEvents} onDiscover={onDiscoverPro ?? (() => {})} compact={true} />
+                <ProBandeau events={proEvents} onDiscover={onDiscoverPro ?? (() => {})} compact={true} heros={herosDiapo} />
               </div>
             )}
 

@@ -1,88 +1,28 @@
 'use client'
-import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
-import { lienHeros, herosExterne, type HerosVillage, type PublicHeros } from '@/lib/villageHero'
+import { lienHeros, herosExterne } from '@/lib/villageHero'
+import { useHerosVillage } from '@/hooks/useHerosVillage'
 
 /**
  * L'encart mis en avant, en tête du Village.
  *
- * Même gabarit que la barre de l'Assistant juste au-dessus — bord doux, rayon
+ * Même gabarit que la barre de l'Assistant juste en dessous — bord doux, rayon
  * 18, image à gauche — pour que les deux se lisent comme deux cartes du même
  * jeu et non comme une bannière plaquée. Ce sont deux éléments distincts : le
  * héros ne remplace pas l'assistant, il se pose au-dessus.
  *
  * Le composant demande au serveur si le héros lui est ouvert ; il ne filtre
- * rien lui-même. Éteint, il ne s'affiche que pour un admin, réduit à une ligne
- * — de quoi savoir qu'il existe et le rallumer, sans occuper la page.
+ * rien lui-même. Il ne porte AUCUN réglage : tout se règle dans
+ * /admin/hub-carousel, où vivent déjà la visibilité de l'assistant et du
+ * cinéma. Un interrupteur ici ferait un second endroit où dire la même chose,
+ * et deux endroits finissent toujours par se contredire.
  */
 export default function HerosVillage() {
-  const [heros, setHeros]   = useState<HerosVillage | null>(null)
-  const [eteint, setEteint] = useState(false)
-  const [admin, setAdmin]   = useState(false)
-  const [occupe, setOccupe] = useState(false)
+  const { heros, eteint } = useHerosVillage()
 
-  const charger = useCallback(async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const r = await fetch('/api/village-hero', {
-        headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
-        cache: 'no-store',
-      })
-      const j = await r.json().catch(() => null)
-      setHeros(j?.heros ?? null)
-      setEteint(!!j?.eteint)
-      setAdmin(!!j?.estAdmin || !!j?.eteint)
-    } catch { /* l'encart reste simplement absent */ }
-  }, [])
-
-  useEffect(() => { charger() }, [charger])
-
-  /** Bascule tous ⇄ rien depuis la page elle-même, sans passer par l'admin. */
-  const basculer = async () => {
-    if (!heros || occupe) return
-    setOccupe(true)
-    const suivant: PublicHeros = eteint ? 'tous' : 'masque'
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      await fetch('/api/admin/config', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
-        },
-        body: JSON.stringify({ key: 'village_hero', value: JSON.stringify({ ...heros, public: suivant }) }),
-      })
-      await charger()
-    } finally { setOccupe(false) }
-  }
-
-  if (!heros) return null
-
-  // Éteint : seul un admin arrive ici (le serveur ne l'envoie qu'à lui).
-  if (eteint) {
-    return (
-      <div className="px-4 pb-2 pt-1">
-        <button
-          type="button"
-          onClick={basculer}
-          disabled={occupe}
-          className="flex w-full items-center gap-2 rounded-[14px] border border-dashed px-3 py-2 text-left"
-          style={{ borderColor: '#DCD3C4', background: '#FBF7F0', cursor: 'pointer' }}
-        >
-          <span className="text-[11px] font-extrabold uppercase tracking-[0.08em]" style={{ color: '#9E9089' }}>
-            Héros éteint
-          </span>
-          <span className="min-w-0 flex-1 truncate text-[12.5px]" style={{ color: '#7A6A5A' }}>
-            {heros.titre}
-          </span>
-          <span className="shrink-0 text-[11.5px] font-bold" style={{ color: '#2D5A3D' }}>
-            {occupe ? '…' : 'Allumer'}
-          </span>
-        </button>
-      </div>
-    )
-  }
+  // Éteint, on n'affiche rien — même pour un admin. Le voir allumé sur son
+  // téléphone se règle en mettant la visibilité sur « Admin ».
+  if (!heros || eteint) return null
 
   const href    = lienHeros(heros)
   const externe = herosExterne(heros)
@@ -128,18 +68,6 @@ export default function HerosVillage() {
         <a href={href} target="_blank" rel="noopener noreferrer" className="block no-underline">{corps}</a>
       ) : (
         <Link href={href} className="block no-underline">{corps}</Link>
-      )}
-
-      {admin && (
-        <button
-          type="button"
-          onClick={basculer}
-          disabled={occupe}
-          className="mt-1.5 border-none bg-transparent p-0 text-[11.5px] font-bold"
-          style={{ color: '#9E9089', cursor: 'pointer' }}
-        >
-          {occupe ? '…' : 'Éteindre le héros'}
-        </button>
       )}
     </div>
   )
