@@ -58,6 +58,21 @@ export function margeBasse(hauteurCarte: number, feuille: PositionFeuille): numb
  */
 export const PLANCHER_BANDEAU_PRO = 130
 
+/**
+ * Ce qu'un cadrage garde de la carte, quoi qu'il arrive.
+ *
+ * Une marge ne peut pas manger toute la fenêtre. Google ne dit pas ce qu'il
+ * fait d'un cadrage dont les marges dépassent la carte — en pratique il recule
+ * jusqu'au monde entier ; MapLibre, lui, refuse et se plaint dans la console.
+ *
+ * Or la feuille déployée masque TOUTE la carte : la marge basse y vaut sa
+ * hauteur entière, et le moindre recadrage — une revalidation des données
+ * suffit — envoyait la vue sur la France ou plus loin. On ne s'en apercevait
+ * qu'en redescendant la feuille, la carte n'étant pas visible au moment du
+ * dégât.
+ */
+const PART_UTILE_MINIMALE = 0.4
+
 function surBureau(): boolean {
   return typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches
 }
@@ -96,10 +111,16 @@ export function margesCadrage(
   const masque = surBureau()
     ? PLANCHER_BANDEAU_PRO
     : margeBasse(hauteurCarte, feuille) * partFeuille
+  const basse = (bas ?? cotes) + Math.round(masque)
+  // Sans hauteur connue, on ne sait pas plafonner : on rend les marges telles
+  // quelles plutôt que d'inventer un plafond depuis un zéro.
+  const plafond = hauteurCarte
+    ? Math.max(0, Math.round(hauteurCarte * (1 - PART_UTILE_MINIMALE)) - haut)
+    : basse
   return {
     top:    haut,
     right:  cotes,
-    bottom: (bas ?? cotes) + Math.round(masque),
+    bottom: Math.min(basse, plafond),
     left:   cotes,
   }
 }

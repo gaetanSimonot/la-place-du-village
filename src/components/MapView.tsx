@@ -270,7 +270,13 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, onBl
     // vraiment, qui va de ~130 en position basse à la moitié de l'écran à
     // mi-hauteur. Le haut reste à 60 — il protège de la barre de
     // l'application, pas de la feuille.
-    map.fitBounds(bounds, margesCadrage(map.getDiv()?.clientHeight ?? 0, sheetY, { haut: 60, cotes: 20 }))
+    map.fitBounds(bounds, margesCadrage(map.getDiv()?.clientHeight ?? 0, sheetY, {
+      // Meme arbitrage que le transport : voir TOUS les evenements prime sur
+      // les garder au-dessus de la feuille. Les tenir dans le tiers haut de
+      // l'ecran obligerait a reculer jusqu'a la region entiere — et ceux qui
+      // passent sous la feuille sont justement ceux que la liste montre.
+      haut: 60, cotes: 20, partFeuille: 0.5,
+    }))
 
     // PLANCHER DE ZOOM (bureau seulement).
     //

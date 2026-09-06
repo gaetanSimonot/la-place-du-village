@@ -210,7 +210,13 @@ export default function MapViewMaplibre({
     })
     // Cf. MapView.tsx : le bas suit la feuille, le haut protège de la barre.
     m.getMap().fitBounds([[minLng, minLat], [maxLng, maxLat]], {
-      padding: margesCadrage(m.getMap().getContainer()?.clientHeight ?? 0, sheetY, { haut: 60, cotes: 20 }),
+      padding: margesCadrage(m.getMap().getContainer()?.clientHeight ?? 0, sheetY, {
+      // Meme arbitrage que le transport : voir TOUS les evenements prime sur
+      // les garder au-dessus de la feuille. Les tenir dans le tiers haut de
+      // l'ecran obligerait a reculer jusqu'a la region entiere — et ceux qui
+      // passent sous la feuille sont justement ceux que la liste montre.
+      haut: 60, cotes: 20, partFeuille: 0.5,
+    }),
       duration: 600,
     })
   }, [evenements, fixedMap, sheetY])
