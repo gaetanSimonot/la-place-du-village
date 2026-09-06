@@ -370,9 +370,6 @@ export default function HomePage() {
   const mapDragTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
   const suiviReprendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sheetBeforeMapRef = useRef<'peek'|'half'|'full' | null>(null)
-  /** Une sélection restaurée ne doit pas replier la feuille : on rend la vue
-   *  telle qu'elle a été quittée, hauteur comprise. Consommé une seule fois. */
-  const skipSelectionCollapseRef = useRef(false)
 
   /**
    * Deplacer la carte replie la feuille, qui remonte quand on lache.
@@ -568,7 +565,6 @@ export default function HomePage() {
       if (s.appMode) setAppMode(s.appMode as 'agenda' | 'annuaire')
       if (s.selectedProducerId) setSelectedProducerId(s.selectedProducerId)
       if (s.selectedId) {
-        skipSelectionCollapseRef.current = true
         setSelectedId(s.selectedId)
         // Au retour d'une fiche event : force vue carte (sinon navTab reste à
         // 'accueil' et les FAB / boutons map disparaissent). Si l'user voulait
@@ -794,23 +790,18 @@ export default function HomePage() {
     }
   }, [sheetMode, showHub])
 
-  // Sélection d'un marqueur → peek ; déselection → half
-  useEffect(() => {
-    if (selectedId) {
-      // Retour d'une fiche : la sélection vient d'être restaurée, pas d'un
-      // clic sur la carte. Replier ici annulerait la hauteur restaurée.
-      if (skipSelectionCollapseRef.current) { skipSelectionCollapseRef.current = false; return }
-      setSheetMode(prev => {
-        if (prev === 'half') { sheetBeforeMapRef.current = 'half'; return 'peek' }
-        return prev
-      })
-    } else {
-      if (sheetBeforeMapRef.current === 'half') {
-        sheetBeforeMapRef.current = null
-        setSheetMode('half')
-      }
-    }
-  }, [selectedId])
+  /*
+   * Taper une punaise ne replie plus la feuille.
+   *
+   * Ce repli n'existait que parce que le recadrage était faux : la carte
+   * amenait la punaise au centre de son div, c'est-à-dire derrière la liste,
+   * et descendre la feuille était le seul moyen de la revoir. Il se jouait en
+   * plus APRÈS la visée — celle-ci cadrait pour la position d'alors, la
+   * feuille bougeait ensuite, et la vignette finissait beaucoup trop haut.
+   *
+   * La carte vise maintenant le milieu de la fenêtre qui lui reste, à la
+   * position où la feuille se trouve. Il n'y a plus rien à replier.
+   */
 
   // Filtre zone appliqué sur la liste complète — recalculé à chaque changement de zone
   const evenementsZone = useMemo(() => {

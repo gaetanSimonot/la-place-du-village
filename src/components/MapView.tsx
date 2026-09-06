@@ -16,7 +16,14 @@ import { useTheme } from '@/components/ThemeProvider'
 import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
-import { viserGoogle } from '@/lib/carteCadrage'
+import { viserGoogle, hauteurBlocGoogle, desQueVignettePrete } from '@/lib/carteCadrage'
+
+/**
+ * De combien la vignette se pose au-dessus du point. Une seule définition :
+ * le rendu s'en sert pour la poser, le recadrage pour savoir où elle est.
+ */
+const DECALAGE_VIGNETTE       = 36
+const DECALAGE_VIGNETTE_PROMU = 47
 import type { MotionValue } from 'framer-motion'
 
 const GANGES = { lat: 43.9333, lng: 3.7 }
@@ -147,10 +154,16 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, centerOn, sh
     if (!map || fixedMap) return
     if (dernierRecadre.current === selectedId) return
     const evt = evenements.find(e => e.id === selectedId)
-    if (evt?.lieux?.lat && evt?.lieux?.lng) {
-      dernierRecadre.current = selectedId
-      viserGoogle(map, { lat: evt.lieux.lat, lng: evt.lieux.lng }, { feuille: sheetY })
-    }
+    if (!evt?.lieux?.lat || !evt?.lieux?.lng) return
+    dernierRecadre.current = selectedId
+    const point = { lat: evt.lieux.lat, lng: evt.lieux.lng }
+    // On ne vise pas la punaise mais le bloc punaise + vignette : la vignette
+    // se déploie au-dessus, la centrer sur le point la ferait sortir par le
+    // haut. Il faut donc attendre qu'elle existe pour la mesurer.
+    return desQueVignettePrete(
+      () => hauteurBlocGoogle(DECALAGE_VIGNETTE),
+      bloc => viserGoogle(map, point, { feuille: sheetY, bloc }),
+    )
   }, [map, selectedId, evenements, fixedMap, sheetY])
 
   /**
@@ -316,10 +329,14 @@ function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fi
     if (!map || fixedMap) return
     if (dernierRecadre.current === selectedEtabId) return
     const etab = etablissements.find(e => e.id === selectedEtabId)
-    if (etab?.lat && etab?.lng) {
-      dernierRecadre.current = selectedEtabId
-      viserGoogle(map, { lat: etab.lat, lng: etab.lng }, { feuille: sheetY })
-    }
+    if (!etab?.lat || !etab?.lng) return
+    dernierRecadre.current = selectedEtabId
+    const point   = { lat: etab.lat, lng: etab.lng }
+    const promoted = etab.plan === 'pro' || etab.is_featured
+    return desQueVignettePrete(
+      () => hauteurBlocGoogle(promoted ? DECALAGE_VIGNETTE_PROMU : DECALAGE_VIGNETTE),
+      bloc => viserGoogle(map, point, { feuille: sheetY, bloc }),
+    )
   }, [map, selectedEtabId, etablissements, fixedMap, sheetY])
 
   useEffect(() => {
@@ -496,7 +513,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
             <InfoWindow
               position={{ lat: selectedEtab.lat, lng: selectedEtab.lng }}
               onCloseClick={() => setSelectedEtabId(null)}
-              pixelOffset={[0, promoted ? -47 : -36]}
+              pixelOffset={[0, promoted ? -DECALAGE_VIGNETTE_PROMU : -DECALAGE_VIGNETTE]}
               /* Google recadre la carte sur sa vignette à chaque ouverture —
                  et elle se rouvre à chaque rendu. Résultat : le moindre
                  déplacement de carte était suivi d'un retour à la vignette. */
@@ -576,7 +593,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
           <InfoWindow
             position={{ lat: selectedEvent.lieux.lat, lng: selectedEvent.lieux.lng }}
             onCloseClick={onDeselect}
-            pixelOffset={[0, -36]}
+            pixelOffset={[0, -DECALAGE_VIGNETTE]}
             disableAutoPan
           >
             {/* Wrapper overflow:visible pour que le bouton fermer dépasse de la carte */}

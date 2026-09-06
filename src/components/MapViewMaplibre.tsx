@@ -10,7 +10,11 @@ import { useTheme } from '@/components/ThemeProvider'
 import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
-import { viserMaplibre } from '@/lib/carteCadrage'
+import { viserMaplibre, hauteurBlocMaplibre, desQueVignettePrete } from '@/lib/carteCadrage'
+
+/** Cf. MapView.tsx : de combien la vignette se pose au-dessus du point. */
+const DECALAGE_VIGNETTE       = 36
+const DECALAGE_VIGNETTE_PROMU = 47
 import type { MotionValue } from 'framer-motion'
 
 const GANGES = { lat: 43.9333, lng: 3.7 }
@@ -215,10 +219,15 @@ export default function MapViewMaplibre({
     if (!m || fixedMap) return
     if (dernierRecadreEvt.current === selectedId) return
     const evt = evenements.find(e => e.id === selectedId)
-    if (evt?.lieux?.lat && evt?.lieux?.lng) {
-      dernierRecadreEvt.current = selectedId
-      viserMaplibre(m.getMap(), { lat: evt.lieux.lat, lng: evt.lieux.lng }, { feuille: sheetY })
-    }
+    if (!evt?.lieux?.lat || !evt?.lieux?.lng) return
+    dernierRecadreEvt.current = selectedId
+    const carte = m.getMap()
+    const point = { lat: evt.lieux.lat, lng: evt.lieux.lng }
+    // Le bloc punaise + vignette, pas la punaise seule — cf. MapView.tsx.
+    return desQueVignettePrete(
+      () => hauteurBlocMaplibre(DECALAGE_VIGNETTE),
+      bloc => viserMaplibre(carte, point, { feuille: sheetY, bloc }),
+    )
   }, [selectedId, evenements, fixedMap, sheetY])
 
   useEffect(() => {
@@ -227,10 +236,15 @@ export default function MapViewMaplibre({
     if (!m || fixedMap) return
     if (dernierRecadreEtab.current === selectedEtabId) return
     const etab = etablissements.find(e => e.id === selectedEtabId)
-    if (etab?.lat && etab?.lng) {
-      dernierRecadreEtab.current = selectedEtabId
-      viserMaplibre(m.getMap(), { lat: etab.lat, lng: etab.lng }, { feuille: sheetY })
-    }
+    if (!etab?.lat || !etab?.lng) return
+    dernierRecadreEtab.current = selectedEtabId
+    const carte    = m.getMap()
+    const point    = { lat: etab.lat, lng: etab.lng }
+    const promoted = etab.plan === 'pro' || etab.is_featured
+    return desQueVignettePrete(
+      () => hauteurBlocMaplibre(promoted ? DECALAGE_VIGNETTE_PROMU : DECALAGE_VIGNETTE),
+      bloc => viserMaplibre(carte, point, { feuille: sheetY, bloc }),
+    )
   }, [selectedEtabId, etablissements, fixedMap, sheetY])
 
   // ── Points + split promu / régulier (les promus ne sont jamais clusterisés) ──
@@ -392,7 +406,7 @@ export default function MapViewMaplibre({
           const promoted = selectedEtab.plan === 'pro' || selectedEtab.is_featured
           return (
             <Popup longitude={selectedEtab.lng} latitude={selectedEtab.lat} anchor="bottom"
-              offset={[0, promoted ? -47 : -36]} closeButton={false} closeOnClick={false}
+              offset={[0, promoted ? -DECALAGE_VIGNETTE_PROMU : -DECALAGE_VIGNETTE]} closeButton={false} closeOnClick={false}
               onClose={() => setSelectedEtabId(null)} maxWidth="230px">
               <div style={{ position: 'relative', width: 210, overflow: 'visible', fontFamily: 'var(--font-body), sans-serif' }}>
                 <button onClick={() => setSelectedEtabId(null)}
@@ -458,7 +472,7 @@ export default function MapViewMaplibre({
         {/* ── Popup événement ── */}
         {selectedEvent && selectedEvent.lieux?.lat && selectedEvent.lieux?.lng && (
           <Popup longitude={selectedEvent.lieux.lng} latitude={selectedEvent.lieux.lat} anchor="bottom"
-            offset={[0, -36]} closeButton={false} closeOnClick={false}
+            offset={[0, -DECALAGE_VIGNETTE]} closeButton={false} closeOnClick={false}
             onClose={onDeselect} maxWidth="240px">
             <div style={{ position: 'relative', width: 220, overflow: 'visible' }}>
               <button onClick={e => { e.stopPropagation(); onDeselect() }}
