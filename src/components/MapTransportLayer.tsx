@@ -257,7 +257,7 @@ export default function MapTransportLayer({
       const m = new google.maps.Marker({
         position: { lat: a.lat, lng: a.lng },
         title: a.nom,
-        optimized: false,
+        optimized: true,   // cf. MapView.tsx, couche des evenements
         map,
       })
       habiller(m, role)

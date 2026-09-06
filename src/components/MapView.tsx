@@ -307,8 +307,18 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, onBl
       const promoted = evt.promotion === 'pro' || evt.promotion === 'max'
       const marker   = new google.maps.Marker({
         position: { lat: evt.lieux!.lat!, lng: evt.lieux!.lng! },
+      // `optimized` : Google dessine la punaise dans un canevas partage au lieu
+      // d'en faire un element du document. A 258 punaises pour l'agenda, 1000
+      // pour les commerces et 377 pour les arrets, c'est la difference entre
+      // une carte qui glisse et une carte qui rame — chaque deplacement de
+      // camera repositionnait autant de noeuds HTML.
+      //
+      // Ce que ca coute : plus de CSS ni d'animation par punaise, et le
+      // chevauchement se resout au canevas. Les couches ne se melangent jamais
+      // (un mode de carte a la fois), et les icones sont des SVG en URL de
+      // donnees, qui passent tels quels.
         title: evt.titre,
-        optimized: false,
+        optimized: true,
       })
       habillerEvenement(marker, evt, evt.id === selectionRef.current)
       marker.addListener('click', () => onSelectEvent(evt.id))
@@ -379,7 +389,7 @@ function ProducerMarkers({ producers, selectedProducerId, onSelectProducer }: Pr
       const marker = new google.maps.Marker({
         position: { lat: p.lat!, lng: p.lng! },
         title: p.nom,
-        optimized: false,
+        optimized: true,   // cf. la couche des evenements
         map,
       })
       habillerProducteur(marker, p, p.id === selectionRef.current)
@@ -471,7 +481,7 @@ function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fi
       const marker = new google.maps.Marker({
         position: { lat: e.lat!, lng: e.lng! },
         title: e.nom,
-        optimized: false,
+        optimized: true,   // cf. la couche des evenements
       })
       habillerEtablissement(marker, e, e.id === selectionRef.current)
       // Cf. producteurs : la sélection se lit dans la boîte, pas dans la fermeture.
