@@ -10,6 +10,7 @@ import { useTheme } from '@/components/ThemeProvider'
 import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
+import { viserMaplibre } from '@/lib/carteCadrage'
 import type { MotionValue } from 'framer-motion'
 
 const GANGES = { lat: 43.9333, lng: 3.7 }
@@ -170,7 +171,7 @@ export default function MapViewMaplibre({
     const withLoc = evenements.filter(e => e.lieux?.lat && e.lieux?.lng)
     if (withLoc.length === 0) return
     if (withLoc.length === 1) {
-      m.getMap().easeTo({ center: [withLoc[0].lieux!.lng!, withLoc[0].lieux!.lat!], zoom: 14 })
+      viserMaplibre(m.getMap(), { lat: withLoc[0].lieux!.lat!, lng: withLoc[0].lieux!.lng! }, { feuille: sheetY, zoom: 14 })
       return
     }
     let minLng = 180, minLat = 90, maxLng = -180, maxLat = -90
@@ -181,7 +182,7 @@ export default function MapViewMaplibre({
     m.getMap().fitBounds([[minLng, minLat], [maxLng, maxLat]], {
       padding: { top: 60, right: 20, bottom: 180, left: 20 }, duration: 600,
     })
-  }, [evenements, fixedMap])
+  }, [evenements, fixedMap, sheetY])
 
   /**
    * La carte suit la feuille — même règle que sur le fond Google.
@@ -216,9 +217,9 @@ export default function MapViewMaplibre({
     const evt = evenements.find(e => e.id === selectedId)
     if (evt?.lieux?.lat && evt?.lieux?.lng) {
       dernierRecadreEvt.current = selectedId
-      m.getMap().easeTo({ center: [evt.lieux.lng, evt.lieux.lat] })
+      viserMaplibre(m.getMap(), { lat: evt.lieux.lat, lng: evt.lieux.lng }, { feuille: sheetY })
     }
-  }, [selectedId, evenements, fixedMap])
+  }, [selectedId, evenements, fixedMap, sheetY])
 
   useEffect(() => {
     if (!selectedEtabId) { dernierRecadreEtab.current = null; return }
@@ -228,9 +229,9 @@ export default function MapViewMaplibre({
     const etab = etablissements.find(e => e.id === selectedEtabId)
     if (etab?.lat && etab?.lng) {
       dernierRecadreEtab.current = selectedEtabId
-      m.getMap().easeTo({ center: [etab.lng, etab.lat] })
+      viserMaplibre(m.getMap(), { lat: etab.lat, lng: etab.lng }, { feuille: sheetY })
     }
-  }, [selectedEtabId, etablissements, fixedMap])
+  }, [selectedEtabId, etablissements, fixedMap, sheetY])
 
   // ── Points + split promu / régulier (les promus ne sont jamais clusterisés) ──
   const eventPts = useMemo(() =>

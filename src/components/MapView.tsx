@@ -16,6 +16,7 @@ import { useTheme } from '@/components/ThemeProvider'
 import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
+import { viserGoogle } from '@/lib/carteCadrage'
 import type { MotionValue } from 'framer-motion'
 
 const GANGES = { lat: 43.9333, lng: 3.7 }
@@ -109,9 +110,10 @@ interface MarkersProps {
   onSelectEvent: (id: string) => void
   fixedMap: boolean
   centerOn?: { lat: number; lng: number; zoom?: number } | null
+  sheetY?: MotionValue<number>
 }
 
-function Markers({ evenements, selectedId, onSelectEvent, fixedMap, centerOn }: MarkersProps) {
+function Markers({ evenements, selectedId, onSelectEvent, fixedMap, centerOn, sheetY }: MarkersProps) {
   const map = useMap()
   const clustererRef = useRef<MarkerClusterer | null>(null)
   const markersRef   = useRef<google.maps.Marker[]>([])
@@ -147,9 +149,9 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, centerOn }: 
     const evt = evenements.find(e => e.id === selectedId)
     if (evt?.lieux?.lat && evt?.lieux?.lng) {
       dernierRecadre.current = selectedId
-      map.panTo({ lat: evt.lieux.lat, lng: evt.lieux.lng })
+      viserGoogle(map, { lat: evt.lieux.lat, lng: evt.lieux.lng }, { feuille: sheetY })
     }
-  }, [map, selectedId, evenements, fixedMap])
+  }, [map, selectedId, evenements, fixedMap, sheetY])
 
   /**
    * Le cadrage automatique a DÉJÀ eu lieu ? (bureau seulement)
@@ -174,8 +176,7 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, centerOn }: 
     if (surBureau) cadrageFait.current = true
 
     if (withLoc.length === 1) {
-      map.panTo({ lat: withLoc[0].lieux!.lat!, lng: withLoc[0].lieux!.lng! })
-      map.setZoom(14)
+      viserGoogle(map, { lat: withLoc[0].lieux!.lat!, lng: withLoc[0].lieux!.lng! }, { feuille: sheetY, zoom: 14 })
       return
     }
 
@@ -205,7 +206,7 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, centerOn }: 
         }
       })
     }
-  }, [map, evenements, fixedMap])
+  }, [map, evenements, fixedMap, sheetY])
 
   useEffect(() => {
     if (!map) return
@@ -298,9 +299,10 @@ interface EtabMarkersProps {
   selectedEtabId: string | null
   onSelectEtab: (id: string | null) => void
   fixedMap: boolean
+  sheetY?: MotionValue<number>
 }
 
-function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fixedMap }: EtabMarkersProps) {
+function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fixedMap, sheetY }: EtabMarkersProps) {
   const map = useMap()
   const clustererRef = useRef<MarkerClusterer | null>(null)
   const markersRef   = useRef<google.maps.Marker[]>([])
@@ -316,9 +318,9 @@ function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fi
     const etab = etablissements.find(e => e.id === selectedEtabId)
     if (etab?.lat && etab?.lng) {
       dernierRecadre.current = selectedEtabId
-      map.panTo({ lat: etab.lat, lng: etab.lng })
+      viserGoogle(map, { lat: etab.lat, lng: etab.lng }, { feuille: sheetY })
     }
-  }, [map, selectedEtabId, etablissements, fixedMap])
+  }, [map, selectedEtabId, etablissements, fixedMap, sheetY])
 
   useEffect(() => {
     if (!map) return
@@ -469,6 +471,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
           onSelectEvent={onSelectEvent}
           fixedMap={fixedMap}
           centerOn={centerOn}
+          sheetY={sheetY}
         />
         <ProducerMarkers
           producers={producers}
@@ -480,6 +483,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
           selectedEtabId={selectedEtabId}
           onSelectEtab={setSelectedEtabId}
           fixedMap={fixedMap}
+          sheetY={sheetY}
         />
 
         {transport && <MapTransportLayer {...transport} />}
