@@ -181,11 +181,13 @@ interface MarkersProps {
   fixedMap: boolean
   sheetY?: MotionValue<number>
   sheetYRepos?: MotionValue<number>
+  /** Une vue quittée a été rendue : pas de cadrage automatique par-dessus. */
+  vueRestauree?: boolean
   /** Le bloc punaise + vignette ne tient pas dans la place qui reste. */
   onBlocTropGrand?: () => void
 }
 
-function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, sheetYRepos, onBlocTropGrand }: MarkersProps) {
+function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, sheetYRepos, vueRestauree = false, onBlocTropGrand }: MarkersProps) {
   const map = useMap()
   const clustererRef = useRef<MarkerClusterer | null>(null)
   const markersRef   = useRef<google.maps.Marker[]>([])
@@ -317,7 +319,9 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, shee
     const lancer = () => {
       if (!premierCadrageFait.current) {
         premierCadrageFait.current = true
-        if (selectionRef.current) return
+        // Une vue voulue a déjà été posée : soit la vue qu'on a quittée, soit
+        // celle d'une fiche dont la vignette est ouverte. On n'y touche pas.
+        if (vueRestauree || selectionRef.current) return
       }
       cadrer()
     }
@@ -350,7 +354,7 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, shee
         }
       })
     }
-  }, [map, evenements, fixedMap, sheetY, sheetYRepos])
+  }, [map, evenements, fixedMap, sheetY, sheetYRepos, vueRestauree])
 
   useEffect(() => {
     if (!map) return
@@ -586,6 +590,12 @@ interface Props {
   onOpenEvent: (id: string) => void
   /** Rejouer une vue enregistrée — centre de div, tel quel. */
   restaurerVue?: { lat: number; lng: number; zoom?: number } | null
+  /**
+   * Une vue quittée a été rendue à l'utilisateur : le cadrage automatique se
+   * tait. On revient sur la carte là où on l'a laissée, pas sur l'englobant
+   * des événements — aussi juste soit-il, ce n'est pas ce qu'on a quitté.
+   */
+  vueRestauree?: boolean
   /** Amener un lieu au milieu de ce qui n'est pas masqué. */
   viserLieu?: { lat: number; lng: number; zoom?: number; cle?: string; avecVignette?: boolean } | null
   /**
@@ -640,7 +650,7 @@ interface Props {
   } | null
 }
 
-export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, restaurerVue, viserLieu, onBlocTropGrand, sheetYRepos, onMapDragStart, onMapDragEnd, onCameraIdle, sheetY, panEnCoursRef, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement, transport = null }: Props) {
+export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, restaurerVue, vueRestauree = false, viserLieu, onBlocTropGrand, sheetYRepos, onMapDragStart, onMapDragEnd, onCameraIdle, sheetY, panEnCoursRef, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement, transport = null }: Props) {
   const [internalEtabId, setInternalEtabId] = useState<string | null>(null)
   const selectedEtabId    = selectedEtabIdProp !== undefined ? selectedEtabIdProp : internalEtabId
   const setSelectedEtabId = onSelectEtab ?? setInternalEtabId
@@ -699,6 +709,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
           fixedMap={fixedMap}
           sheetY={sheetY}
           sheetYRepos={sheetYRepos}
+          vueRestauree={vueRestauree}
           onBlocTropGrand={onBlocTropGrand}
         />
         <ProducerMarkers

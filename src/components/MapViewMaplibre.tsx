@@ -76,6 +76,8 @@ interface Props {
   onOpenEvent: (id: string) => void
   /** Rejouer une vue enregistrée — centre de div, tel quel. */
   restaurerVue?: { lat: number; lng: number; zoom?: number } | null
+  /** Une vue quittée a été rendue : pas de cadrage automatique. Cf. MapView.tsx. */
+  vueRestauree?: boolean
   /** Amener un lieu au milieu de ce qui n'est pas masqué. */
   viserLieu?: { lat: number; lng: number; zoom?: number; cle?: string; avecVignette?: boolean } | null
   /** La vignette ouverte ne tient pas dans la place qui reste. Cf. MapView.tsx. */
@@ -130,7 +132,7 @@ interface Props {
 }
 
 export default function MapViewMaplibre({
-  evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, restaurerVue, viserLieu, onBlocTropGrand,
+  evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, restaurerVue, vueRestauree = false, viserLieu, onBlocTropGrand,
   onMapDragStart, onMapDragEnd, onCameraIdle, sheetY, sheetYRepos, panEnCoursRef,
   producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer,
   etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement,
@@ -242,14 +244,14 @@ export default function MapViewMaplibre({
     const lancer = () => {
       if (!premierCadrageFait.current) {
         premierCadrageFait.current = true
-        if (selectionRef.current) return
+        if (vueRestauree || selectionRef.current) return
       }
       cadrer()
     }
     const pret = () => cadrable(carte.getContainer()?.clientHeight ?? 0, feuilleCadrage)
     if (pret()) { lancer(); return }
     return desQueCadrable(pret, lancer)
-  }, [evenements, fixedMap, sheetY, sheetYRepos])
+  }, [evenements, fixedMap, sheetY, sheetYRepos, vueRestauree])
 
   /**
    * La carte suit la feuille — même règle que sur le fond Google.

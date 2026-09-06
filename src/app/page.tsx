@@ -291,6 +291,16 @@ export default function HomePage() {
    * recadrage de sélection, qui vise le même point, se tait alors au lieu de
    * viser deux fois.
    */
+  /**
+   * Une vue quittee a ete rendue : la carte ne doit PAS cadrer par-dessus.
+   *
+   * Quand on revient sur la carte, on veut la retrouver ou on l'a laissee — pas
+   * un cadrage sur l'englobant des evenements, aussi juste soit-il. Ce drapeau
+   * dit a la carte de laisser la vue restauree tranquille.
+   */
+  const [vueRestauree, setVueRestauree] = useState(false)
+  /** Miroir du drapeau, lisible depuis un rappel figé au montage. */
+  const vueRestaureeRef = useRef(false)
   const [lieuAViser, setLieuAViser] = useState<
     { lat: number; lng: number; zoom?: number; cle?: string; avecVignette?: boolean } | null
   >(null)
@@ -578,7 +588,9 @@ export default function HomePage() {
         if (data.carte_depart_lat && data.carte_depart_lng) {
           const pos = { lat: data.carte_depart_lat, lng: data.carte_depart_lng, zoom: data.carte_depart_zoom ?? 11 }
           try { localStorage.setItem('pdv-carte-depart', JSON.stringify(pos)) } catch {}
-          setVueARestaurer(pos)
+          // La carte de depart est un DEFAUT : elle ne remplace pas une vue
+          // qu'on vient de rendre a l'utilisateur.
+          if (!vueRestaureeRef.current) setVueARestaurer(pos)
         }
       })
       .catch(() => {})
@@ -648,6 +660,7 @@ export default function HomePage() {
       } else if (s.mapLat != null && s.mapLng != null) {
         setVueARestaurer({ lat: s.mapLat, lng: s.mapLng, zoom: s.mapZoom })
       }
+      if (s.mapLat != null && s.mapLng != null) { vueRestaureeRef.current = true; setVueRestauree(true) }
     } catch {}
   }, []) // mount only
 
@@ -1100,6 +1113,33 @@ export default function HomePage() {
     if (e?.lat && e?.lng) setLieuAViser({ lat: e.lat, lng: e.lng, zoom: 15, cle: id, avecVignette: true })
   }
 
+  /**
+   * Retenir la vue en quittant la carte, pour la rendre au retour.
+   *
+   * Sans ca, revenir sur la carte depuis un autre onglet remonte une page
+   * neuve : filtres par defaut, camera par defaut, et un cadrage automatique
+   * sur l'englobant des evenements — jamais la ou on avait laisse la carte.
+   *
+   * On ecrit dans la meme boite que le retour de fiche, qui sait deja tout
+   * relire. Et on s'efface devant elle : ouvrir une fiche demonte aussi la
+   * page, mais elle a deja ecrit un etat plus riche (selection, position de
+   * liste) qu'il ne faut pas remplacer par le notre.
+   */
+  const vuePourRetourRef = useRef<{ filtres: Filtres; sheetMode: 'peek'|'half'|'full'; appMode: 'agenda' | 'annuaire' }>({ filtres, sheetMode, appMode })
+  vuePourRetourRef.current = { filtres, sheetMode, appMode }
+  useEffect(() => () => {
+    try {
+      if (sessionStorage.getItem('pdv-nav-state')) return
+      const cam = mapCameraRef.current
+      if (!cam) return
+      const v = vuePourRetourRef.current
+      sessionStorage.setItem('pdv-nav-state', JSON.stringify({
+        filtres: v.filtres, sheetMode: v.sheetMode, appMode: v.appMode,
+        mapLat: cam.lat, mapLng: cam.lng, mapZoom: cam.zoom,
+      }))
+    } catch {}
+  }, [])
+
   const saveNavForEvent = useCallback((id: string) => {
     try {
       sessionStorage.setItem('pdv-nav-state', JSON.stringify({
@@ -1189,6 +1229,7 @@ export default function HomePage() {
           onDeselect={() => setSelectedId(null)}
           onOpenEvent={openEvent}
           restaurerVue={vueARestaurer}
+          vueRestauree={vueRestauree}
           viserLieu={lieuAViser}
           onMapDragStart={onMapDragStart}
           onMapDragEnd={onMapDragEnd}
