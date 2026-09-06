@@ -26,6 +26,7 @@ const KIND_LABEL: Record<EmbedKind, string> = {
   promo:    'Promotions',
   covoit:   'Covoiturages',
   article:  'Journal',
+  debat:    'Débats',
 }
 
 const KIND_COLOR: Record<EmbedKind, { bg: string; color: string; tile: string }> = {
@@ -36,9 +37,10 @@ const KIND_COLOR: Record<EmbedKind, { bg: string; color: string; tile: string }>
   promo:    { bg: '#FFF0E5', color: '#E8622A', tile: 'linear-gradient(135deg, #FFE6CC 0%, #FFC79A 100%)' },
   covoit:   { bg: '#E8EEF7', color: '#3A5D8C', tile: 'linear-gradient(135deg, #E8EEF7 0%, #BFD0EC 100%)' },
   article:  { bg: '#FBF3E6', color: '#A8770F', tile: 'linear-gradient(135deg, #FBF3E6 0%, #ECD9AE 100%)' },
+  debat:    { bg: '#EDE9F7', color: '#5B4B9C', tile: 'linear-gradient(135deg, #EDE9F7 0%, #D2C8EE 100%)' },
 }
 
-const ORDERED_KINDS: EmbedKind[] = ['event', 'etab', 'producer', 'annonce', 'promo', 'covoit', 'article']
+const ORDERED_KINDS: EmbedKind[] = ['event', 'etab', 'producer', 'annonce', 'promo', 'covoit', 'article', 'debat']
 
 function CatIcon({ kind, size = 22 }: { kind: EmbedKind; size?: number }) {
   const props = {

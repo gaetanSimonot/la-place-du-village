@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import ClientPortal from '@/components/ClientPortal'
 
-export type EmbedKind = 'event' | 'etab' | 'producer' | 'annonce' | 'promo' | 'covoit' | 'article'
+export type EmbedKind = 'event' | 'etab' | 'producer' | 'annonce' | 'promo' | 'covoit' | 'article' | 'debat'
 
 export interface EmbedItem {
   kind:     EmbedKind
@@ -29,6 +29,7 @@ const KIND_LABEL: Record<EmbedKind, string> = {
   promo:    'Promotions',
   covoit:   'Covoiturages',
   article:  'Journal',
+  debat:    'Débats',
 }
 
 /** Couleurs par kind (badge + fond tuile catégorie) */
@@ -40,6 +41,7 @@ const KIND_COLOR: Record<EmbedKind, { bg: string; color: string; tile: string }>
   promo:    { bg: '#FFF0E5', color: '#E8622A', tile: 'linear-gradient(135deg, #FFE6CC 0%, #FFC79A 100%)' },
   covoit:   { bg: '#E8EEF7', color: '#3A5D8C', tile: 'linear-gradient(135deg, #E8EEF7 0%, #BFD0EC 100%)' },
   article:  { bg: '#FBF3E6', color: '#A8770F', tile: 'linear-gradient(135deg, #FBF3E6 0%, #ECD9AE 100%)' },
+  debat:    { bg: '#EDE9F7', color: '#5B4B9C', tile: 'linear-gradient(135deg, #EDE9F7 0%, #D2C8EE 100%)' },
 }
 
 /** Pictos SVG par kind pour les tuiles catégorie (grand format) */
@@ -57,10 +59,11 @@ function CatIcon({ kind, size = 36 }: { kind: EmbedKind; size?: number }) {
     case 'promo':    return <svg {...props}><path d="M20 12V8H4v4"/><path d="M20 12v8H4v-8"/><line x1="12" y1="8" x2="12" y2="20"/><path d="M8 8a2 2 0 0 1 2-4c1.5 0 2 2 2 4-2 0-4 0-4-2 0-2 2-2 2-2"/></svg>
     case 'covoit':   return <svg {...props}><circle cx="6" cy="17" r="2"/><circle cx="18" cy="17" r="2"/><path d="M3 17h2m12 0h2M5 17l1-5h12l2 5"/><path d="M7 12l1-3h8l1 3"/></svg>
     case 'article':  return <svg {...props}><path d="M4 4h12a2 2 0 0 1 2 2v13a1 1 0 0 1-1 1H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M18 8h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2"/><line x1="6" y1="8" x2="14" y2="8"/><line x1="6" y1="12" x2="14" y2="12"/><line x1="6" y1="16" x2="11" y2="16"/></svg>
+    case 'debat':    return <svg {...props}><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.9 8.9 0 0 1-4-.9L3 21l1.9-4.6A8.4 8.4 0 0 1 4 11.5 8.4 8.4 0 0 1 12.5 3 8.4 8.4 0 0 1 21 11.5z"/><line x1="9" y1="10" x2="16" y2="10"/><line x1="9" y1="14" x2="13" y2="14"/></svg>
   }
 }
 
-const ORDERED_KINDS: EmbedKind[] = ['event', 'etab', 'producer', 'annonce', 'promo', 'covoit', 'article']
+const ORDERED_KINDS: EmbedKind[] = ['event', 'etab', 'producer', 'annonce', 'promo', 'covoit', 'article', 'debat']
 
 export default function EmbedPicker({ onSelect, onClose, lockKind }: Props) {
   const [query, setQuery]             = useState('')

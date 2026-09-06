@@ -31,7 +31,7 @@ export interface EmbedSnapshot {
 }
 
 /** Types acceptés comme élément joint. Aligné sur ALLOWED_KINDS (/api/posts). */
-export const EMBED_KINDS = ['event', 'etab', 'producer', 'annonce', 'promo', 'covoit', 'article'] as const
+export const EMBED_KINDS = ['event', 'etab', 'producer', 'annonce', 'promo', 'covoit', 'article', 'debat'] as const
 
 /**
  * Ce qui est affiché quand l'élément a disparu. Formulé par type : un
@@ -46,6 +46,7 @@ export const EMBED_DISPARU: Record<string, string> = {
   etab:    'Fiche retirée',
   producer:'Fiche retirée',
   article: 'Article retiré',
+  debat:   'Débat retiré',
 }
 
 const texte = (v: unknown): string | null => {
@@ -55,6 +56,16 @@ const texte = (v: unknown): string | null => {
 
 const premierePhoto = (v: unknown): string | null =>
   Array.isArray(v) && typeof v[0] === 'string' ? v[0] : null
+
+/** Les médias du forum sont des objets `{ t: 'photo', url }`, pas des chaînes. */
+const premierePhotoMedia = (v: unknown): string | null => {
+  if (!Array.isArray(v)) return null
+  for (const it of v) {
+    const u = (it as { t?: string; url?: unknown })?.url
+    if ((it as { t?: string })?.t === 'photo' && typeof u === 'string') return u
+  }
+  return null
+}
 
 /**
  * Lit l'élément et en fait une copie figée. `null` s'il est introuvable ou si
@@ -80,6 +91,17 @@ export async function construireEmbedSnapshot(
       const brut = (data as { lieux?: { commune?: string | null } | { commune?: string | null }[] | null }).lieux
       const lieu = Array.isArray(brut) ? brut[0] : brut
       return fige(texte(data.titre), texte(lieu?.commune), texte(data.image_url))
+    }
+
+    // Un débat de la Place publique. Son corps sert de sous-titre : c'est ce
+    // qui donne envie de l'ouvrir, le titre seul étant souvent une question.
+    if (kind === 'debat') {
+      const { data } = await db
+        .from('forum_topics').select('titre, corps, media').eq('id', refId).maybeSingle()
+      if (!data) return null
+      const corps = String(data.corps ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+      const extrait = corps ? (corps.length > 90 ? corps.slice(0, 90).trimEnd() + '…' : corps) : null
+      return fige(texte(data.titre), extrait, premierePhotoMedia(data.media))
     }
 
     if (kind === 'etab') {

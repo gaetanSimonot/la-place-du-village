@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser } from '@/lib/server-auth'
 
-export type EmbedKind = 'event' | 'etab' | 'producer' | 'annonce' | 'promo' | 'covoit' | 'article'
+export type EmbedKind = 'event' | 'etab' | 'producer' | 'annonce' | 'promo' | 'covoit' | 'article' | 'debat'
 
 function articleExcerpt(t: string | null, n = 90): string | null {
   if (!t) return null
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
   const q = (url.searchParams.get('q') ?? '').trim()
   const kindsParam = url.searchParams.get('kinds') ?? ''
   const requested: EmbedKind[] = kindsParam
-    ? (kindsParam.split(',').filter(k => ['event','etab','producer','annonce','promo','covoit','article'].includes(k)) as EmbedKind[])
+    ? (kindsParam.split(',').filter(k => ['event','etab','producer','annonce','promo','covoit','article','debat'].includes(k)) as EmbedKind[])
     : ['event','etab','producer','annonce','promo','covoit','article']
 
   // Mode "browse" : pas de query mais 1 seul kind demandé → liste les
@@ -195,6 +195,32 @@ export async function GET(req: NextRequest) {
           subtitle: c.date_trajet ? new Date(c.date_trajet as string).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : null,
           photo: null,
         })),
+      }
+    })())
+  }
+
+  if (requested.includes('debat')) {
+    tasks.push((async () => {
+      // Les médias du forum sont des objets { t, url }, d'où la photo lue à
+      // part et non par `photos[0]` comme ailleurs.
+      let qb = supabaseAdmin.from('forum_topics').select('id, titre, corps, media')
+      if (ilike) qb = qb.ilike('titre', ilike)
+      const { data } = await qb
+        .order('last_activity_at', { ascending: false })
+        .limit(LIMIT)
+      return {
+        kind: 'debat' as const,
+        rows: (data ?? []).map(t => {
+          const corps = String((t.corps as string | null) ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+          const media = Array.isArray(t.media) ? (t.media as Array<{ t?: string; url?: unknown }>) : []
+          const photo = media.find(m => m?.t === 'photo' && typeof m.url === 'string')?.url as string | undefined
+          return {
+            id: t.id as string,
+            title: t.titre as string,
+            subtitle: corps ? (corps.length > 90 ? corps.slice(0, 90).trimEnd() + '…' : corps) : null,
+            photo: photo ?? null,
+          }
+        }),
       }
     })())
   }

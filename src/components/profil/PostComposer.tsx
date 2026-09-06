@@ -459,6 +459,7 @@ function EmbedPreview({ embed, onRemove }: { embed: EmbedItem; onRemove: () => v
   const labels: Record<EmbedItem['kind'], string> = {
     event: 'Événement', etab: 'Établissement', producer: 'Producteur',
     annonce: 'Annonce', promo: 'Promotion', covoit: 'Covoiturage', article: 'Article du Journal',
+    debat: 'Débat',
   }
   return (
     <div
