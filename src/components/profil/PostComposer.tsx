@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import BoutonBaguette from '@/components/BoutonBaguette'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import ClientPortal from '@/components/ClientPortal'
@@ -380,7 +381,12 @@ export default function PostComposer({ authorName, authorAvatar, onClose, onPost
 
         {/* Actions */}
         <div className="mt-3 flex items-center justify-between gap-2">
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {/* La baguette : elle met en forme sans changer un mot, et le
+                serveur le VÉRIFIE avant de rendre quoi que ce soit. Le texte
+                d'une publication est rendu par TexteRiche, les marques
+                s'affichent donc comme des gras et des listes, pas en clair. */}
+            <BoutonBaguette valeur={texte} onChange={v => setTexte(v.slice(0, MAX))} />
             <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading || photoCount >= MAX_PHOTOS}
               className="inline-flex items-center gap-1.5 rounded-full bg-cremeDeep px-3 py-1.5 text-[11.5px] font-extrabold text-primary disabled:opacity-50">
               <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>

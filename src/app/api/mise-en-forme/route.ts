@@ -58,8 +58,9 @@ export async function POST(req: NextRequest) {
   const ctx = await requireUser(req)
   if (ctx instanceof Response) return ctx
 
-  // Même compteur que les autres appels au modèle : c'est le même budget.
-  const bloque = await rateLimit(ctx.userId, 'ai_extract', ctx.plan, ctx.isAdmin)
+  // Compteur DÉDIÉ, pas celui de l'extraction : les deux n'ont ni le même coût
+  // ni le même usage, et partager un budget rend chacun illisible.
+  const bloque = await rateLimit(ctx.userId, 'mise_en_forme', ctx.plan, ctx.isAdmin)
   if (bloque) return bloque
 
   const { texte } = await req.json().catch(() => ({ texte: null }))

@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import PostMedia from '@/components/profil/PostMedia'
 import type { MediaItem } from '@/lib/postMedia'
 import { EMBED_DISPARU, type EmbedSnapshot } from '@/lib/embedSnapshot'
+import TexteRiche from '@/components/TexteRiche'
 
 export interface PostData {
   id:           string
@@ -159,14 +160,14 @@ export default function PostCard({
         </div>
       </div>
 
-      {/* Texte */}
+      {/* Texte — rendu comme les fiches, pour que les marques posées par la
+          baguette (gras, listes, titres) s'affichent au lieu de rester en
+          clair. Un texte sans marque rend exactement comme avant : TexteRiche
+          conserve les retours à la ligne et les paragraphes. */}
       {post.texte && (
-        <p
-          className="m-0 whitespace-pre-wrap px-3.5 pb-3 pt-2 text-[14px] leading-[1.55] text-texte"
-          style={{ wordBreak: 'break-word' }}
-        >
-          {post.texte}
-        </p>
+        <div className="px-3.5 pb-3 pt-2 text-[14px] leading-[1.55] text-texte" style={{ wordBreak: 'break-word' }}>
+          <TexteRiche texte={post.texte} />
+        </div>
       )}
 
       {/* Médias (photos / vidéo YouTube / lien) */}

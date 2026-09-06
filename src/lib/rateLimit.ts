@@ -38,6 +38,7 @@ export type RateLimitAction =
   | 'places_autocomplete' // Google Places autocomplete (facturé par requête)
   | 'geocode'         // Google Geocoding (facturé par requête)
   | 'voice_edit'      // Édition vocale via Claude (tokens IA)
+  | 'mise_en_forme'   // Bouton baguette : mise en forme d'un texte (Haiku)
   | 'link_preview'    // Fetch OG d'un lien externe (anti-abus)
   | 'poster_generate' // Rendu d'affiche serveur (CPU sharp/resvg)
   | 'poster_caption'  // Texte réseaux via Claude (tokens IA)
@@ -73,6 +74,37 @@ const RATE_LIMITS_BY_PLAN: Record<RateLimitAction, Record<Plan, RateLimitRule>> 
    * comprendre à quoi ça sert ; au-delà, c'est un usage régulier, et un usage
    * régulier vaut un abonnement. Les administrateurs ne sont jamais comptés.
    */
+  /**
+   * Le bouton baguette : mettre en forme un texte sans en changer les mots.
+   *
+   * Coût mesuré, au pire des cas (un texte de 5 000 signes, le maximum
+   * accepté) : environ un centime l'appel — 1 650 jetons en entrée, autant en
+   * sortie, chez Haiku. Dix appels par jour plafonnent donc un abonné à une
+   * dizaine de centimes, et ça n'arrivera pas : on ne remet pas en forme dix
+   * textes par jour.
+   *
+   * Compté à la JOURNÉE : mettre en forme est un geste de rédaction, pas une
+   * rafale. Trois essais gratuits suffisent à comprendre ce que le bouton
+   * fait ; au-delà, c'est qu'on publie régulièrement, et publier régulièrement
+   * vaut un abonnement. Les administrateurs ne sont jamais comptés.
+   */
+  mise_en_forme: {
+    basic: {
+      limit: 3,
+      windowMs: DAY,
+      message: 'Vous avez utilisé vos 3 mises en forme du jour. Passez Habitants pour 10 par jour.',
+    },
+    habitants: {
+      limit: 10,
+      windowMs: DAY,
+      message: 'Quota de mises en forme atteint (10 par jour).',
+    },
+    pro: {
+      limit: 10,
+      windowMs: DAY,
+      message: 'Quota de mises en forme atteint (10 par jour).',
+    },
+  },
   transport_dictee: {
     basic: {
       limit: 5,
