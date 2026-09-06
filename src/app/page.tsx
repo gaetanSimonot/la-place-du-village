@@ -216,8 +216,28 @@ export default function HomePage() {
       .catch(() => toast('Horaires de bus indisponibles'))
     return () => { vivant = false }
   }, [modeTransport, ligneTransport])
-  const [zoneCentres, setZoneCentres]   = useState<{ lat: number; lng: number; nom: string }[]>([])
-  const [rayonAffichage, setRayonAffichage] = useState<number | null>(null)
+  /**
+   * La zone d'affichage — centres et rayon — avec sa derniere valeur connue.
+   *
+   * Elle vient de /api/zone. Tant qu'elle n'est pas la, le rayon vaut zero, et
+   * un rayon nul veut dire « pas de filtre » : l'application montre alors TOUT
+   * ce que la base contient, sans limite geographique. C'est le pire repli
+   * possible — une requete lente ou avortee (on navigue vite) ouvre la porte a
+   * des evenements a 700 km, qui faussent les compteurs et surtout le cadrage
+   * automatique, dont l'englobant part alors au centre de la France.
+   *
+   * On garde donc la derniere zone connue en memoire locale et on demarre
+   * dessus. La zone d'une commune ne change qu'a la main, par l'admin : la
+   * valeur d'hier est infiniment plus juste que « aucune limite ».
+   */
+  const [zoneCentres, setZoneCentres]   = useState<{ lat: number; lng: number; nom: string }[]>(() => {
+    if (typeof window === 'undefined') return []
+    try { return JSON.parse(localStorage.getItem('pdv-zone-connue') || '{}').centres ?? [] } catch { return [] }
+  })
+  const [rayonAffichage, setRayonAffichage] = useState<number | null>(() => {
+    if (typeof window === 'undefined') return null
+    try { return JSON.parse(localStorage.getItem('pdv-zone-connue') || '{}').rayon ?? null } catch { return null }
+  })
   const [zoneLoaded, setZoneLoaded]     = useState(false)
 
   // SWR sur /api/annuaire — clé inclut le type filtre. Disable quand on n'est
@@ -585,6 +605,11 @@ export default function HomePage() {
       .then(data => {
         setZoneCentres(data.centres ?? [])
         setRayonAffichage(data.rayon_affichage ?? 0)
+        try {
+          localStorage.setItem('pdv-zone-connue', JSON.stringify({
+            centres: data.centres ?? [], rayon: data.rayon_affichage ?? 0,
+          }))
+        } catch {}
         if (data.carte_depart_lat && data.carte_depart_lng) {
           const pos = { lat: data.carte_depart_lat, lng: data.carte_depart_lng, zoom: data.carte_depart_zoom ?? 11 }
           try { localStorage.setItem('pdv-carte-depart', JSON.stringify(pos)) } catch {}
