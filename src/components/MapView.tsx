@@ -82,13 +82,21 @@ function MapDragListener({ onDragStart, onDragEnd, onCameraIdle }: {
  * instantané ; le calcul passe par la projection, où un pixel vaut
  * 1 / 2^zoom unité de monde.
  */
-function SuiviFeuille({ sheetY, panEnCoursRef }: {
+function SuiviFeuille({ sheetY, sheetYRepos, panEnCoursRef }: {
   sheetY?: MotionValue<number>
+  sheetYRepos?: MotionValue<number>
   panEnCoursRef?: React.MutableRefObject<boolean>
 }) {
   const map = useMap()
   const { fixedMap } = useTheme()
-  useSuiviFeuille(sheetY, panEnCoursRef, !!map && !fixedMap, dyFond => {
+  const hauteurCarte = useCallback(() => map?.getDiv?.()?.clientHeight ?? 0, [map])
+  useSuiviFeuille({
+    position: sheetY,
+    palier: sheetYRepos,
+    hauteurCarte,
+    suspendu: panEnCoursRef,
+    actif: !!map && !fixedMap,
+  }, dyFond => {
     if (!map) return
     const proj = map.getProjection()
     const c    = map.getCenter()
@@ -703,7 +711,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
         styles={mapStyle.styles.length > 0 ? mapStyle.styles : WARM_STYLE}
       >
         <MapDragListener onDragStart={onMapDragStart} onDragEnd={onMapDragEnd} onCameraIdle={onCameraIdle} />
-        <SuiviFeuille sheetY={sheetY} panEnCoursRef={panEnCoursRef} />
+        <SuiviFeuille sheetY={sheetY} sheetYRepos={sheetYRepos} panEnCoursRef={panEnCoursRef} />
         <Cadrage restaurerVue={restaurerVue} viserLieu={viserLieu} sheetY={sheetY} />
         <Markers
           evenements={evenements}

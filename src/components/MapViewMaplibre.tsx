@@ -263,7 +263,14 @@ export default function MapViewMaplibre({
    * l'écraserait sans prévenir. On déplace donc le fond nous-mêmes, d'un
    * `panBy` sans durée — instantané, donc collé au doigt.
    */
-  useSuiviFeuille(sheetY, panEnCoursRef, !fixedMap, dyFond => {
+  const hauteurCarte = useCallback(() => mapRef.current?.getMap().getContainer()?.clientHeight ?? 0, [])
+  useSuiviFeuille({
+    position: sheetY,
+    palier: sheetYRepos,
+    hauteurCarte,
+    suspendu: panEnCoursRef,
+    actif: !fixedMap,
+  }, dyFond => {
     // `panBy` déplace le CENTRE : un décalage positif fait remonter le fond.
     // Nous, on veut le faire descendre de `dyFond`.
     mapRef.current?.getMap().panBy([0, -dyFond], { duration: 0 })

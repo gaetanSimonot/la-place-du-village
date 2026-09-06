@@ -377,7 +377,20 @@ export default function HomePage() {
    */
   const chuteDuPanEnCours = useRef(false)
   const [sheetPeekH, setSheetPeekH] = useState(130)
-  const [screenH, setScreenH]       = useState(812)
+  /**
+   * Hauteur de l'écran — lue tout de suite, pas après coup.
+   *
+   * Elle valait 812 en dur jusqu'à ce qu'un effet lise la vraie valeur. Sur un
+   * téléphone qui n'en fait que 727, la feuille se plaçait donc d'abord sur un
+   * palier faux, puis se recalait — et ce recalage est un mouvement de feuille
+   * comme un autre, que la carte compensait. À chaque ouverture, la vue
+   * glissait un peu plus. La lire au premier rendu supprime le recalage, donc
+   * la dérive.
+   *
+   * `BottomSheet` est le seul consommateur et ne rend rien côté serveur : pas
+   * de risque de désaccord d'hydratation.
+   */
+  const [screenH, setScreenH]       = useState(() => (typeof window === 'undefined' ? 812 : window.innerHeight))
   const [navTab, setNavTab]         = useState<NavTab>(() => {
     if (typeof window === 'undefined') return 'carte'
     const saved = sessionStorage.getItem('pdv-nav-tab')
