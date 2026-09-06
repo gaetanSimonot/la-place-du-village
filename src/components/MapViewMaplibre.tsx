@@ -74,7 +74,10 @@ interface Props {
   onSelectEvent: (id: string) => void
   onDeselect: () => void
   onOpenEvent: (id: string) => void
-  centerOn?: { lat: number; lng: number; zoom?: number } | null
+  /** Rejouer une vue enregistrée — centre de div, tel quel. */
+  restaurerVue?: { lat: number; lng: number; zoom?: number } | null
+  /** Amener un lieu au milieu de ce qui n'est pas masqué. */
+  viserLieu?: { lat: number; lng: number; zoom?: number; cle?: string; avecVignette?: boolean } | null
   onMapDragStart?: () => void
   onMapDragEnd?: () => void
   onCameraIdle?: (lat: number, lng: number, zoom: number) => void
@@ -120,7 +123,7 @@ interface Props {
 }
 
 export default function MapViewMaplibre({
-  evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn,
+  evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, restaurerVue, viserLieu,
   onMapDragStart, onMapDragEnd, onCameraIdle, sheetY, suiviSuspenduRef,
   producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer,
   etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement,
@@ -160,13 +163,30 @@ export default function MapViewMaplibre({
     setViewport({ bbox: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()], zoom: m.getZoom() })
   }, [])
 
-  // Positionnement initial / restauré (centerOn)
+  /**
+   * REJOUER une vue enregistrée : centre de div, reposé tel quel. Cf.
+   * MapView.tsx pour ce qui sépare cette intention de la suivante.
+   */
   useEffect(() => {
     const m = mapRef.current
-    if (!m || !centerOn) return
-    m.getMap().jumpTo({ center: [centerOn.lng, centerOn.lat], zoom: centerOn.zoom ?? 11 })
+    if (!m || !restaurerVue) return
+    m.getMap().jumpTo({ center: [restaurerVue.lng, restaurerVue.lat], zoom: restaurerVue.zoom ?? 11 })
     updateViewport()
-  }, [centerOn, updateViewport])
+  }, [restaurerVue, updateViewport])
+
+  /** VISER un lieu : au milieu de ce qui n'est pas masqué, vignette comprise. */
+  useEffect(() => {
+    const m = mapRef.current
+    if (!m || !viserLieu) return
+    const carte = m.getMap()
+    const point = { lat: viserLieu.lat, lng: viserLieu.lng }
+    const opts  = { feuille: sheetY, zoom: viserLieu.zoom }
+    if (!viserLieu.avecVignette) { viserMaplibre(carte, point, opts); return }
+    return desQueVignettePrete(
+      () => hauteurBlocMaplibre(DECALAGE_VIGNETTE),
+      bloc => viserMaplibre(carte, point, { ...opts, bloc }),
+    )
+  }, [viserLieu, sheetY])
 
   // Auto-fit bounds sur les événements visibles (désactivé en carte fixe)
   useEffect(() => {
@@ -235,6 +255,8 @@ export default function MapViewMaplibre({
     const m = mapRef.current
     if (!m || fixedMap) return
     if (dernierRecadreEtab.current === selectedEtabId) return
+    // Le 📍 de la liste vise déjà ce point, avec son zoom : le laisser faire.
+    if (viserLieu?.cle === selectedEtabId) { dernierRecadreEtab.current = selectedEtabId; return }
     const etab = etablissements.find(e => e.id === selectedEtabId)
     if (!etab?.lat || !etab?.lng) return
     dernierRecadreEtab.current = selectedEtabId
@@ -245,7 +267,7 @@ export default function MapViewMaplibre({
       () => hauteurBlocMaplibre(promoted ? DECALAGE_VIGNETTE_PROMU : DECALAGE_VIGNETTE),
       bloc => viserMaplibre(carte, point, { feuille: sheetY, bloc }),
     )
-  }, [selectedEtabId, etablissements, fixedMap, sheetY])
+  }, [selectedEtabId, etablissements, fixedMap, sheetY, viserLieu])
 
   // ── Points + split promu / régulier (les promus ne sont jamais clusterisés) ──
   const eventPts = useMemo(() =>

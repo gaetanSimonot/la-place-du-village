@@ -111,16 +111,57 @@ function SuiviFeuille({ sheetY, suiviSuspenduRef }: {
  */
 const ZOOM_MIN_BUREAU = 11
 
+/**
+ * Les deux façons de bouger la carte sans y toucher — et ce qui les sépare.
+ *
+ * RESTAURER : reposer un centre relevé par `getCenter()`, donc un centre de
+ * div. Aucun décalage, sinon la vue glisserait à chaque aller-retour.
+ * VISER : amener un lieu sous les yeux, au milieu de ce qui n'est pas masqué.
+ *
+ * Elles vivaient dans la même propriété, d'où le 📍 d'une carte de la liste
+ * qui posait son commerce derrière la feuille.
+ */
+function Cadrage({ restaurerVue, viserLieu, sheetY }: {
+  restaurerVue?: { lat: number; lng: number; zoom?: number } | null
+  viserLieu?: { lat: number; lng: number; zoom?: number; cle?: string; avecVignette?: boolean } | null
+  sheetY?: MotionValue<number>
+}) {
+  const map = useMap()
+
+  // setCenter et non panTo : fiable sur grande distance.
+  useEffect(() => {
+    if (!map || !restaurerVue) return
+    map.setCenter({ lat: restaurerVue.lat, lng: restaurerVue.lng })
+    map.setZoom(restaurerVue.zoom ?? 11)
+  }, [map, restaurerVue])
+
+  useEffect(() => {
+    if (!map || !viserLieu) return
+    const point = { lat: viserLieu.lat, lng: viserLieu.lng }
+    const opts  = { feuille: sheetY, zoom: viserLieu.zoom }
+    if (!viserLieu.avecVignette) { viserGoogle(map, point, opts); return }
+    // Le 📍 d'une carte de la liste sélectionne aussi la fiche : une vignette
+    // s'ouvre, on vise donc le bloc. Le décalage retenu est celui du cas
+    // courant — une punaise mise en avant est 11 px plus haute, ce qui ne se
+    // voit pas sur un bloc de 250.
+    return desQueVignettePrete(
+      () => hauteurBlocGoogle(DECALAGE_VIGNETTE),
+      bloc => viserGoogle(map, point, { ...opts, bloc }),
+    )
+  }, [map, viserLieu, sheetY])
+
+  return null
+}
+
 interface MarkersProps {
   evenements: EvenementCard[]
   selectedId: string | null
   onSelectEvent: (id: string) => void
   fixedMap: boolean
-  centerOn?: { lat: number; lng: number; zoom?: number } | null
   sheetY?: MotionValue<number>
 }
 
-function Markers({ evenements, selectedId, onSelectEvent, fixedMap, centerOn, sheetY }: MarkersProps) {
+function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY }: MarkersProps) {
   const map = useMap()
   const clustererRef = useRef<MarkerClusterer | null>(null)
   const markersRef   = useRef<google.maps.Marker[]>([])
@@ -130,13 +171,6 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, centerOn, sh
     markersRef.current.forEach(m => m.setMap(null))
     markersRef.current = []
   }, [])
-
-  // Positionnement initial ou restauré — setCenter (fiable sur grande distance, contrairement à panTo)
-  useEffect(() => {
-    if (!map || !centerOn) return
-    map.setCenter({ lat: centerOn.lat, lng: centerOn.lng })
-    map.setZoom(centerOn.zoom ?? 11)
-  }, [map, centerOn])
 
   /**
    * Amener l'événement choisi sous les yeux — UNE fois, au moment du choix.
@@ -313,9 +347,11 @@ interface EtabMarkersProps {
   onSelectEtab: (id: string | null) => void
   fixedMap: boolean
   sheetY?: MotionValue<number>
+  /** Fiche déjà visée par le chemin « viser un lieu » — ne pas viser deux fois. */
+  dejaVise?: string | null
 }
 
-function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fixedMap, sheetY }: EtabMarkersProps) {
+function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fixedMap, sheetY, dejaVise = null }: EtabMarkersProps) {
   const map = useMap()
   const clustererRef = useRef<MarkerClusterer | null>(null)
   const markersRef   = useRef<google.maps.Marker[]>([])
@@ -328,6 +364,8 @@ function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fi
     if (!selectedEtabId) { dernierRecadre.current = null; return }
     if (!map || fixedMap) return
     if (dernierRecadre.current === selectedEtabId) return
+    // Le 📍 de la liste vise déjà ce point, avec son zoom : le laisser faire.
+    if (dejaVise === selectedEtabId) { dernierRecadre.current = selectedEtabId; return }
     const etab = etablissements.find(e => e.id === selectedEtabId)
     if (!etab?.lat || !etab?.lng) return
     dernierRecadre.current = selectedEtabId
@@ -337,7 +375,7 @@ function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fi
       () => hauteurBlocGoogle(promoted ? DECALAGE_VIGNETTE_PROMU : DECALAGE_VIGNETTE),
       bloc => viserGoogle(map, point, { feuille: sheetY, bloc }),
     )
-  }, [map, selectedEtabId, etablissements, fixedMap, sheetY])
+  }, [map, selectedEtabId, etablissements, fixedMap, sheetY, dejaVise])
 
   useEffect(() => {
     if (!map) return
@@ -392,7 +430,10 @@ interface Props {
   onSelectEvent: (id: string) => void
   onDeselect: () => void
   onOpenEvent: (id: string) => void
-  centerOn?: { lat: number; lng: number; zoom?: number } | null
+  /** Rejouer une vue enregistrée — centre de div, tel quel. */
+  restaurerVue?: { lat: number; lng: number; zoom?: number } | null
+  /** Amener un lieu au milieu de ce qui n'est pas masqué. */
+  viserLieu?: { lat: number; lng: number; zoom?: number; cle?: string; avecVignette?: boolean } | null
   /**
    * Position du haut de la feuille (mobile) — la carte s'y accroche pour
    * garder son centre au milieu de la fenêtre qui lui reste. Cf.
@@ -431,7 +472,7 @@ interface Props {
   } | null
 }
 
-export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, centerOn, onMapDragStart, onMapDragEnd, onCameraIdle, sheetY, suiviSuspenduRef, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement, transport = null }: Props) {
+export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, restaurerVue, viserLieu, onMapDragStart, onMapDragEnd, onCameraIdle, sheetY, suiviSuspenduRef, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement, transport = null }: Props) {
   const [internalEtabId, setInternalEtabId] = useState<string | null>(null)
   const selectedEtabId    = selectedEtabIdProp !== undefined ? selectedEtabIdProp : internalEtabId
   const setSelectedEtabId = onSelectEtab ?? setInternalEtabId
@@ -482,12 +523,12 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
       >
         <MapDragListener onDragStart={onMapDragStart} onDragEnd={onMapDragEnd} onCameraIdle={onCameraIdle} />
         <SuiviFeuille sheetY={sheetY} suiviSuspenduRef={suiviSuspenduRef} />
+        <Cadrage restaurerVue={restaurerVue} viserLieu={viserLieu} sheetY={sheetY} />
         <Markers
           evenements={evenements}
           selectedId={selectedId}
           onSelectEvent={onSelectEvent}
           fixedMap={fixedMap}
-          centerOn={centerOn}
           sheetY={sheetY}
         />
         <ProducerMarkers
@@ -501,6 +542,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
           onSelectEtab={setSelectedEtabId}
           fixedMap={fixedMap}
           sheetY={sheetY}
+          dejaVise={viserLieu?.cle ?? null}
         />
 
         {transport && <MapTransportLayer {...transport} />}

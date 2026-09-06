@@ -251,13 +251,37 @@ export default function HomePage() {
   const [userVille, setUserVille]       = useState('')
   const [userCentre, setUserCentre]     = useState<{ lat: number; lng: number; nom: string } | null>(null)
   const [userZoneActive, setUserZoneActive] = useState(false)
-  const [mapCenterOn, setMapCenterOn]   = useState<{ lat: number; lng: number; zoom?: number } | null>(() => {
+  /**
+   * REJOUER une vue enregistrée — pas viser un lieu.
+   *
+   * Le centre qu'on rejoue ici a été relevé par `getCenter()`, c'est donc un
+   * centre de div : la carte le repose tel quel, au même endroit. Le relire
+   * comme un centre visible décalerait la vue un peu plus à chaque
+   * aller-retour. Trois sources : la carte de départ de l'admin, le retour
+   * d'une fiche, l'enregistrement d'une nouvelle carte de départ.
+   */
+  const [vueARestaurer, setVueARestaurer] = useState<{ lat: number; lng: number; zoom?: number } | null>(() => {
     if (typeof window === 'undefined') return null
     try {
       const s = localStorage.getItem('pdv-carte-depart')
       return s ? JSON.parse(s) : null
     } catch { return null }
   })
+  /**
+   * VISER un lieu — l'amener sous les yeux, au milieu de ce qu'on voit.
+   *
+   * Rien à voir avec la restauration ci-dessus, même si les deux finissaient
+   * jusqu'ici dans la même propriété : le 📍 d'une carte de la liste posait
+   * donc son commerce derrière la feuille, alors que taper sa punaise le
+   * plaçait correctement.
+   *
+   * `cle` dit à la carte que ce lieu est DÉJÀ visé par ce chemin — le
+   * recadrage de sélection, qui vise le même point, se tait alors au lieu de
+   * viser deux fois.
+   */
+  const [lieuAViser, setLieuAViser] = useState<
+    { lat: number; lng: number; zoom?: number; cle?: string; avecVignette?: boolean } | null
+  >(null)
   const mapCameraRef = useRef<{ lat: number; lng: number; zoom: number } | null>(null)
   const prevUserRef  = useRef<typeof user>(null)
   const [, setGeocoding]                = useState(false)
@@ -508,7 +532,7 @@ export default function HomePage() {
         if (data.carte_depart_lat && data.carte_depart_lng) {
           const pos = { lat: data.carte_depart_lat, lng: data.carte_depart_lng, zoom: data.carte_depart_zoom ?? 11 }
           try { localStorage.setItem('pdv-carte-depart', JSON.stringify(pos)) } catch {}
-          setMapCenterOn(pos)
+          setVueARestaurer(pos)
         }
       })
       .catch(() => {})
@@ -573,10 +597,10 @@ export default function HomePage() {
         setNavTab('carte')
         // Centre aussi la map sur la dernière position si dispo
         if (s.mapLat != null && s.mapLng != null) {
-          setMapCenterOn({ lat: s.mapLat, lng: s.mapLng, zoom: s.mapZoom })
+          setVueARestaurer({ lat: s.mapLat, lng: s.mapLng, zoom: s.mapZoom })
         }
       } else if (s.mapLat != null && s.mapLng != null) {
-        setMapCenterOn({ lat: s.mapLat, lng: s.mapLng, zoom: s.mapZoom })
+        setVueARestaurer({ lat: s.mapLat, lng: s.mapLng, zoom: s.mapZoom })
       }
     } catch {}
   }, []) // mount only
@@ -1015,7 +1039,7 @@ export default function HomePage() {
     setSelectedProducerId(id)
     setNavTab('carte')
     setSheetMode('half')
-    if (p?.lat && p?.lng) setMapCenterOn({ lat: p.lat, lng: p.lng, zoom: 15 })
+    if (p?.lat && p?.lng) setLieuAViser({ lat: p.lat, lng: p.lng, zoom: 15, cle: id, avecVignette: true })
   }
 
   // Symétrique du précédent pour les établissements. On cherche la fiche dans
@@ -1027,7 +1051,7 @@ export default function HomePage() {
     setSelectedEtabId(id)
     setNavTab('carte')
     setSheetMode('half')
-    if (e?.lat && e?.lng) setMapCenterOn({ lat: e.lat, lng: e.lng, zoom: 15 })
+    if (e?.lat && e?.lng) setLieuAViser({ lat: e.lat, lng: e.lng, zoom: 15, cle: id, avecVignette: true })
   }
 
   const saveNavForEvent = useCallback((id: string) => {
@@ -1118,7 +1142,8 @@ export default function HomePage() {
           onSelectEvent={setSelectedId}
           onDeselect={() => setSelectedId(null)}
           onOpenEvent={openEvent}
-          centerOn={mapCenterOn}
+          restaurerVue={vueARestaurer}
+          viserLieu={lieuAViser}
           onMapDragStart={onMapDragStart}
           onMapDragEnd={onMapDragEnd}
           sheetY={sheetY}
@@ -1567,7 +1592,7 @@ export default function HomePage() {
                         body: JSON.stringify({ carte_depart_lat: pos.lat, carte_depart_lng: pos.lng, carte_depart_zoom: pos.zoom }),
                       })
                       try { localStorage.setItem('pdv-carte-depart', JSON.stringify(pos)) } catch {}
-                      setMapCenterOn(pos)
+                      setVueARestaurer(pos)
                       setAdminMapSaved(true)
                       setTimeout(() => setAdminMapSaved(false), 2000)
                     }}
@@ -1595,7 +1620,7 @@ export default function HomePage() {
                     const z = { rayon: userRayon, nom: userCentre.nom, lat: userCentre.lat, lng: userCentre.lng }
                     localStorage.setItem('pdv-zone-user', JSON.stringify(z))
                     setUserZoneActive(true)
-                    setMapCenterOn({ lat: userCentre.lat, lng: userCentre.lng })
+                    setLieuAViser({ lat: userCentre.lat, lng: userCentre.lng })
                   }
                   setZonePopup(false)
                 }}
