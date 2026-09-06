@@ -6,7 +6,6 @@ import { useMotionValue } from 'framer-motion'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import ProfilHybridView from '@/components/profil/ProfilHybridView'
 import { EvenementCard, Filtres, ProduitCategorie, EtablissementCard, EtablissementType } from '@/lib/types'
 import { useTheme } from '@/components/ThemeProvider'
 import { haversineKm, GANGES } from '@/lib/distance'
@@ -18,28 +17,41 @@ import ProBandeau from '@/components/ProBandeau'
 import AgendaFilterWheel, { AgendaDateButton } from '@/components/AgendaFilterWheel'
 import DesktopMapFilters from '@/components/desktop/DesktopMapFilters'
 import DesktopEventModal from '@/components/desktop/DesktopEventModal'
-import MaxSplash from '@/components/MaxSplash'
-import EditorialSplash from '@/components/EditorialSplash'
-import FavorisView from '@/components/FavorisView'
-import NotificationsView from '@/components/NotificationsView'
-import CommerceRequestModal from '@/components/CommerceRequestModal'
-import AppInfoModal from '@/components/AppInfoModal'
-import WelcomeModal from '@/components/WelcomeModal'
-import HubView from '@/components/HubView'
 import VillageView from '@/components/VillageView'
 import HubSearchModal, { type SearchKind } from '@/components/HubSearchModal'
 import PublishMenuModal from '@/components/PublishMenuModal'
 import BottomNavBar, { NAV_H } from '@/components/BottomNavBar'
 import { toast } from 'sonner'
-import TransportPanneau from '@/components/TransportPanneau'
 import { trackEvent } from '@/lib/analytics'
 import { ComingSoonModal } from '@/components/HubModals'
-import SubscriptionModal from '@/components/SubscriptionModal'
 import { useFavorites } from '@/hooks/useFavorites'
 import { useProducerFavorites } from '@/hooks/useProducerFavorites'
 import { useNotifications } from '@/hooks/useNotifications'
 import { ecranBureau } from '@/lib/bureau'
 
+
+/**
+ * Ecrans et modales charges A LA DEMANDE.
+ *
+ * L'ecran carte les importait tous en dur : leur code etait telecharge et
+ * analyse avant que la carte apparaisse, alors qu'aucun ne s'affiche au
+ * demarrage. 417 ko a l'ouverture, dont plus du quart pour des ecrans qu'on
+ * n'ouvre peut-etre jamais.
+ *
+ * Le village n'est PAS dans cette liste : c'est l'ecran d'atterrissage de la
+ * version bureau, il doit etre la sans attendre.
+ */
+const ProfilHybridView     = dynamic(() => import('@/components/profil/ProfilHybridView'), { ssr: false })
+const FavorisView          = dynamic(() => import('@/components/FavorisView'),             { ssr: false })
+const NotificationsView    = dynamic(() => import('@/components/NotificationsView'),       { ssr: false })
+const HubView              = dynamic(() => import('@/components/HubView'),                 { ssr: false })
+const TransportPanneau     = dynamic(() => import('@/components/TransportPanneau'),        { ssr: false })
+const CommerceRequestModal = dynamic(() => import('@/components/CommerceRequestModal'),    { ssr: false })
+const SubscriptionModal    = dynamic(() => import('@/components/SubscriptionModal'),       { ssr: false })
+const AppInfoModal         = dynamic(() => import('@/components/AppInfoModal'),            { ssr: false })
+const WelcomeModal         = dynamic(() => import('@/components/WelcomeModal'),            { ssr: false })
+const EditorialSplash      = dynamic(() => import('@/components/EditorialSplash'),         { ssr: false })
+const MaxSplash            = dynamic(() => import('@/components/MaxSplash'),               { ssr: false })
 const MapView                   = dynamic(() => import('@/components/MapViewSwitch'),              { ssr: false })
 const BottomSheet               = dynamic(() => import('@/components/BottomSheet'),                { ssr: false })
 // ProducteurPageClient / EtablissementPageClient : retirés (sous-étape 5.2)
