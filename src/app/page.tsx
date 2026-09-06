@@ -275,7 +275,12 @@ export default function HomePage() {
    * Une valeur de mouvement et non un état : un état déclencherait un rendu de
    * la page entière à chaque image d'animation.
    */
-  const sheetY = useMotionValue(0)
+  // 9999 = « pas encore placée », la convention de la feuille elle-même. Zéro
+  // voudrait dire « déployée en plein écran », donc une carte entièrement
+  // masquée : tout ce qui lit cette valeur pour en déduire la place restante
+  // calculerait un cadrage impossible pendant les quelques images qui séparent
+  // le montage de la page de celui de la feuille.
+  const sheetY = useMotionValue(9999)
   /**
    * Le suivi se met en pause pendant le repli automatique.
    *
