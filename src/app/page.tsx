@@ -52,6 +52,7 @@ const AppInfoModal         = dynamic(() => import('@/components/AppInfoModal'), 
 const WelcomeModal         = dynamic(() => import('@/components/WelcomeModal'),            { ssr: false })
 const EditorialSplash      = dynamic(() => import('@/components/EditorialSplash'),         { ssr: false })
 const MaxSplash            = dynamic(() => import('@/components/MaxSplash'),               { ssr: false })
+const BandeauHerosCarte = dynamic(() => import('@/components/village/BandeauHerosCarte'), { ssr: false })
 const MapView                   = dynamic(() => import('@/components/MapViewSwitch'),              { ssr: false })
 const BottomSheet               = dynamic(() => import('@/components/BottomSheet'),                { ssr: false })
 // ProducteurPageClient / EtablissementPageClient : retirés (sous-étape 5.2)
@@ -1774,6 +1775,23 @@ export default function HomePage() {
           transition: 'opacity 0.2s',
         }}>
           <ProBandeau events={proEvents} onDiscover={openEvent} compact={false} />
+        </div>
+      )}
+
+      {/* Le héros repris à la une, à la place du bandeau des mises en avant.
+          Il ne s'affiche que s'il porte « aussi à la une » — le composant
+          demande au serveur, on ne conditionne rien ici. Même géométrie que
+          le bandeau ci-dessus : deux bandeaux empilés, c'est un de trop. */}
+      {!showHub && navTab === 'carte' && appMode === 'agenda' && !modeTransport && (
+        <div className="pcv-proBandeau" style={{
+          position: 'absolute', left: 0, right: '33%',
+          bottom: NAV_H + sheetPeekH,
+          zIndex: 19,
+          opacity: sheetMode === 'full' ? 0 : 1,
+          pointerEvents: sheetMode === 'full' ? 'none' : 'auto',
+          transition: 'opacity 0.2s',
+        }}>
+          <BandeauHerosCarte />
         </div>
       )}
 

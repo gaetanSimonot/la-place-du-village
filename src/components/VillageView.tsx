@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
+import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import type { Evenement } from '@/lib/types'
@@ -18,6 +19,7 @@ import PostComposer from '@/components/profil/PostComposer'
 import PostCard, { type PostData } from '@/components/profil/PostCard'
 import PostCommentsDrawer from '@/components/profil/PostCommentsDrawer'
 import BarreAssistant from '@/components/assistant/BarreAssistant'
+import HerosVillage from '@/components/village/HerosVillage'
 import { chargerIdentitesEtab } from '@/lib/identite'
 
 interface VillagePost extends PostData {
@@ -105,6 +107,23 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
               )}
             </button>
 
+            {/* Raccourci admin vers les réglages de la page — le héros, l'ordre
+                et la visibilité des sections s'y trouvent. Seul un admin le
+                voit, et il ne coûte rien aux autres : le bouton n'existe pas. */}
+            {isAdmin && (
+              <Link
+                href="/admin/hub-carousel"
+                aria-label="Réglages de la page Village"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full no-underline"
+                style={{ color: '#7A6A5A' }}
+              >
+                <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+              </Link>
+            )}
+
             {/* Pastille identité : avatar + prénom, remplace l'ancien « Profil » */}
             <button
               type="button"
@@ -151,6 +170,11 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
       {/* Héros bureau — remplace le titre et les quatre tuiles ci-dessous,
           qui sont masqués au-dessus de 1024 px. */}
       <DesktopVillageHero />
+
+      {/* Le héros — l'encart mis en avant, au-dessus de l'assistant. Les deux
+          sont indépendants : chacun demande au serveur s'il est ouvert à cette
+          personne, et l'un peut vivre sans l'autre. */}
+      <HerosVillage />
 
       {/* L'Assistant Village, sous la barre du haut et au-dessus du titre.
           Le composant décide seul de s'afficher ou non : il demande au
