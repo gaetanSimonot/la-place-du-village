@@ -1,6 +1,7 @@
 'use client'
 import { useRef, useState, type CSSProperties } from 'react'
 import TexteRiche from '@/components/TexteRiche'
+import { supabase } from '@/lib/supabase'
 
 /**
  * Champ de rédaction pour les textes de fiche.
@@ -43,6 +44,43 @@ export default function ChampTexteRiche({
 }: Props) {
   const ref = useRef<HTMLTextAreaElement | null>(null)
   const [apercuOuvert, setApercuOuvert] = useState(true)
+  const [enForme, setEnForme] = useState(false)
+  const [motMiseEnForme, setMotMiseEnForme] = useState<string | null>(null)
+
+  /**
+   * Le bouton baguette : mettre en forme sans changer un mot.
+   *
+   * Le serveur ne rend le texte modifié que s'il a vérifié que les lettres
+   * sont exactement les mêmes ; sinon il rend l'original. Le bouton ne peut
+   * donc pas publier des phrases qui ne sont pas celles de l'auteur — au pire
+   * il n'a servi à rien, et on le dit.
+   */
+  const mettreEnForme = async () => {
+    const t = valeur.trim()
+    if (!t || enForme) return
+    setEnForme(true); setMotMiseEnForme(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const r = await fetch('/api/mise-en-forme', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ texte: valeur }),
+      })
+      const j = await r.json().catch(() => null)
+      if (!r.ok || !j?.texte) { setMotMiseEnForme('Indisponible'); return }
+      if (j.inchange) { setMotMiseEnForme('Rien à changer'); return }
+      onChange(j.texte)
+      setApercuOuvert(true)
+    } catch {
+      setMotMiseEnForme('Indisponible')
+    } finally {
+      setEnForme(false)
+      setTimeout(() => setMotMiseEnForme(null), 2600)
+    }
+  }
 
   /**
    * Applique un format à la sélection.
@@ -141,6 +179,26 @@ export default function ChampTexteRiche({
             {b.libelle}
           </button>
         ))}
+        {/* Mise en forme automatique — n'ajoute que des marques, jamais un mot. */}
+        <button
+          type="button"
+          onClick={mettreEnForme}
+          disabled={enForme || !valeur.trim()}
+          title="Mettre en forme sans changer les mots"
+          aria-label="Mettre en forme sans changer les mots"
+          style={{
+            minWidth: 32, height: 30, padding: '0 9px',
+            borderRadius: 8, border: '1px solid #DCE8DF', background: '#F4FAF5',
+            color: '#2D5A3D', fontSize: 13, cursor: enForme || !valeur.trim() ? 'default' : 'pointer',
+            opacity: !valeur.trim() ? 0.5 : 1,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+          }}
+        >
+          {enForme ? '…' : '✨'}
+        </button>
+        {motMiseEnForme && (
+          <span style={{ fontSize: 10.5, color: '#8A7A6A', alignSelf: 'center' }}>{motMiseEnForme}</span>
+        )}
         {labelApercu && (
           <button
             type="button"

@@ -1,5 +1,6 @@
 'use client'
 import { useRef, useState } from 'react'
+import ChampTexteRiche from '@/components/ChampTexteRiche'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import ClientPortal from '@/components/ClientPortal'
@@ -31,6 +32,11 @@ export default function NewTopicModal({ onClose, onCreated, editTopic, onUpdated
   const [uploading, setUploading] = useState(false)
   const [posting, setPosting]   = useState(false)
   const [pollOpen, setPollOpen] = useState(!!editTopic?.poll)
+  /** Saisie d'un lien à joindre — cf. le bloc « Lien » plus bas. */
+  const [lienOuvert, setLienOuvert] = useState(false)
+  const [lienUrl, setLienUrl]       = useState('')
+  const [lienTitre, setLienTitre]   = useState('')
+  const [lienEnCours, setLienEnCours] = useState(false)
   // Blase : identité d'ouverture du sujet. En édition, elle est figée.
   const [blase, setBlase]       = useState<string | null>(null)
   const [question, setQuestion] = useState(editTopic?.poll?.question ?? '')
@@ -109,14 +115,18 @@ export default function NewTopicModal({ onClose, onCreated, editTopic, onUpdated
             className="block w-full bg-transparent font-serif text-[20px] text-texte outline-none placeholder:text-texte-tres-doux"
             style={{ letterSpacing: '-0.01em' }}
           />
-          <textarea
-            value={corps}
-            onChange={e => setCorps(e.target.value.slice(0, 5000))}
-            placeholder="Développe ton sujet… (optionnel)"
-            rows={6}
-            className="mt-3 block w-full resize-none bg-transparent text-[15px] leading-[1.5] text-texte outline-none placeholder:text-texte-tres-doux"
-            style={{ colorScheme: 'light', minHeight: 140 }}
-          />
+          {/* Le corps du sujet passe par le champ de rédaction commun : mêmes
+              boutons de mise en forme que les fiches, même aperçu, et le même
+              format stocké — que `TexteRiche` sait déjà afficher. */}
+          <div className="mt-3">
+            <ChampTexteRiche
+              valeur={corps}
+              onChange={v => setCorps(v.slice(0, 5000))}
+              placeholder="Développe ton sujet… (optionnel)"
+              rows={6}
+              labelApercu="Aperçu"
+            />
+          </div>
 
           {/* Photos */}
           {media.length > 0 && (
@@ -125,6 +135,74 @@ export default function NewTopicModal({ onClose, onCreated, editTopic, onUpdated
                 <div key={i} className="relative">
                   <button type="button" onClick={() => setMedia(prev => prev.filter((_, j) => j !== i))} className="absolute -right-2 -top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-[#DC2626] text-white" style={{ fontSize: 12, lineHeight: 1 }}>×</button>
                   <img src={m.url} alt="" className="h-[72px] w-[72px] rounded-[10px] object-cover" />
+                </div>
+              ) : null)}
+            </div>
+          )}
+
+          {/* Lien joint — rendu ensuite en carte cliquable par PostMedia, comme
+              dans les publications. On tente l'aperçu automatique, mais on
+              laisse toujours écrire le titre : beaucoup de sites (les cagnottes
+              en particulier) refusent les robots et ne rendront jamais rien. */}
+          {lienOuvert && (
+            <div className="mt-3 rounded-[14px] border bg-cremeDeep p-3" style={{ borderColor: '#E8E0D4' }}>
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-[12px] font-extrabold text-primary">Lien</span>
+                <button type="button" onClick={() => setLienOuvert(false)} className="text-[11px] font-bold text-texte-doux underline">Annuler</button>
+              </div>
+              <input
+                value={lienUrl}
+                onChange={e => setLienUrl(e.target.value)}
+                placeholder="https://…"
+                className="mb-2 block w-full rounded-[10px] border bg-white px-3 py-2 text-[13px] text-texte outline-none"
+                style={{ borderColor: '#E8E0D4', colorScheme: 'light' }}
+              />
+              <input
+                value={lienTitre}
+                onChange={e => setLienTitre(e.target.value.slice(0, 200))}
+                placeholder="Titre affiché (facultatif)"
+                className="mb-2 block w-full rounded-[10px] border bg-white px-3 py-2 text-[13px] text-texte outline-none"
+                style={{ borderColor: '#E8E0D4', colorScheme: 'light' }}
+              />
+              <button
+                type="button"
+                disabled={lienEnCours || !/^https?:\/\//i.test(lienUrl.trim())}
+                onClick={async () => {
+                  const url = lienUrl.trim()
+                  if (!/^https?:\/\//i.test(url)) return
+                  setLienEnCours(true)
+                  let titre = lienTitre.trim() || null
+                  let description: string | null = null
+                  let image: string | null = null
+                  try {
+                    const { data: { session } } = await supabase.auth.getSession()
+                    const r = await fetch(`/api/link-preview?url=${encodeURIComponent(url)}`, {
+                      headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
+                    })
+                    const j = await r.json().catch(() => null)
+                    if (j && !j.error) {
+                      titre = titre ?? (j.title ?? null)
+                      description = j.description ?? null
+                      image = j.image ?? null
+                    }
+                  } catch { /* l'aperçu est un bonus, pas une condition */ }
+                  setMedia(prev => [...prev, { t: 'link', url, title: titre, description, image }])
+                  setLienUrl(''); setLienTitre(''); setLienOuvert(false); setLienEnCours(false)
+                }}
+                className="rounded-[10px] bg-primary px-3 py-2 text-[12px] font-bold text-white disabled:opacity-50"
+              >
+                {lienEnCours ? 'Ajout…' : 'Joindre le lien'}
+              </button>
+            </div>
+          )}
+
+          {/* Liens déjà joints */}
+          {media.some(m => m.t === 'link') && (
+            <div className="mt-2 flex flex-col gap-1.5">
+              {media.map((m, i) => m.t === 'link' ? (
+                <div key={i} className="flex items-center gap-2 rounded-[10px] border bg-white px-2.5 py-1.5" style={{ borderColor: '#E8E0D4' }}>
+                  <span className="min-w-0 flex-1 truncate text-[12px] text-texte">{m.title || m.url}</span>
+                  <button type="button" onClick={() => setMedia(prev => prev.filter((_, j) => j !== i))} className="shrink-0 text-[11px] font-bold text-accent">Retirer</button>
                 </div>
               ) : null)}
             </div>
@@ -159,6 +237,12 @@ export default function NewTopicModal({ onClose, onCreated, editTopic, onUpdated
               <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
               {uploading ? '…' : 'Photo'}
             </button>
+            {!lienOuvert && (
+              <button type="button" onClick={() => setLienOuvert(true)} className="inline-flex items-center gap-1.5 rounded-full bg-cremeDeep px-3 py-1.5 text-[11.5px] font-extrabold text-primary">
+                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                Lien
+              </button>
+            )}
             {!pollOpen && (
               <button type="button" onClick={() => setPollOpen(true)} className="inline-flex items-center gap-1.5 rounded-full bg-cremeDeep px-3 py-1.5 text-[11.5px] font-extrabold text-primary">
                 <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>

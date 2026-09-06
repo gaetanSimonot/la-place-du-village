@@ -202,7 +202,19 @@ export default function TopicClient({ id }: { id: string }) {
   const topicOwner = !!user && topic?.user_id === user.id
 
   return (
-    <div className="min-h-[100dvh] bg-creme font-inter text-texte" style={{ paddingBottom: 132 }}>
+    /*
+     * La page ne fait PAS défiler le document : hauteur fixe, et une seule
+     * zone qui défile à l'intérieur.
+     *
+     * Sur mobile, faire défiler le document escamote la barre du navigateur —
+     * la hauteur de la fenêtre change, et tout ce qui est collé en bas (le
+     * champ de réponse, la barre de navigation) saute. Ça ne se voyait qu'en
+     * admin, parce que les boutons du haut allongent assez la page pour qu'on
+     * défile vraiment. C'est le modèle qu'utilise déjà l'écran carte, et pour
+     * la même raison.
+     */
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-creme font-inter text-texte">
+     <div className="flex-1 overflow-y-auto overscroll-contain" style={{ paddingBottom: 12 }}>
       {/* Top bar */}
       <div className="flex items-center gap-2.5 px-4 pt-3.5">
         <button onClick={() => router.push('/forum')} aria-label="Retour" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bord bg-white text-texte">
@@ -354,8 +366,11 @@ export default function TopicClient({ id }: { id: string }) {
         </>
       ) : null}
 
-      {/* ── Composer fixe (au-dessus de la BottomNavBar) ── */}
-      <div className="fixed left-0 right-0 z-30 border-t bg-creme/95 backdrop-blur" style={{ bottom: NAV_H, borderColor: '#E8E0D4' }}>
+     </div>{/* fin de la zone qui défile */}
+
+      {/* ── Composer : dernier enfant de la colonne, plus « fixed ». La barre
+          de navigation, elle, reste posée par-dessus l'espace réservé. ── */}
+      <div className="shrink-0 border-t bg-creme/95 backdrop-blur" style={{ marginBottom: NAV_H, borderColor: '#E8E0D4' }}>
         {replyTo && (
           <div className="flex items-center justify-between gap-2 px-3 pt-2 text-[11px] text-texte-doux">
             <span className="truncate">↪ Réponse à <strong>{replyTo.author_name ?? 'Quelqu\'un'}</strong></span>
