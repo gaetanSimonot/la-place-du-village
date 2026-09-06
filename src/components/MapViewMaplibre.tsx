@@ -10,7 +10,7 @@ import { useTheme } from '@/components/ThemeProvider'
 import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
-import { viserMaplibre, hauteurBlocMaplibre, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, bornesDe, empreinteBornes } from '@/lib/carteCadrage'
+import { viserMaplibre, hauteurBlocMaplibre, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, sansAberrants, bornesDe, empreinteBornes } from '@/lib/carteCadrage'
 
 /** Cf. MapView.tsx : de combien la vignette se pose au-dessus du point. */
 const DECALAGE_VIGNETTE       = 36
@@ -214,7 +214,9 @@ export default function MapViewMaplibre({
     if (!m || fixedMap) return
     const withLoc = evenements.filter(e => e.lieux?.lat && e.lieux?.lng)
     if (withLoc.length === 0) return
-    const points = withLoc.map(e => ({ lat: e.lieux!.lat!, lng: e.lieux!.lng! }))
+    // Cf. MapView.tsx : une coordonnée fausse ne commande pas le cadrage.
+    const points = sansAberrants(withLoc.map(e => ({ lat: e.lieux!.lat!, lng: e.lieux!.lng! })))
+    if (points.length === 0) return
     const bornes = bornesDe(points)!
     const empreinte = empreinteBornes(bornes)
     // Cf. MapView.tsx : on cadre sur le palier d'arrivée de la feuille.

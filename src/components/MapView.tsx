@@ -16,7 +16,7 @@ import { useTheme } from '@/components/ThemeProvider'
 import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
-import { viserGoogle, hauteurBlocGoogle, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, bornesDe, empreinteBornes } from '@/lib/carteCadrage'
+import { viserGoogle, hauteurBlocGoogle, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, sansAberrants, bornesDe, empreinteBornes } from '@/lib/carteCadrage'
 
 /**
  * De combien la vignette se pose au-dessus du point. Une seule définition :
@@ -269,7 +269,10 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, shee
     // filtre, mais aussi une revalidation qui renvoie exactement les mêmes
     // lieux. Or un cadrage ne regarde QUE les bornes : ni les titres, ni les
     // promotions, ni l'ordre. Mêmes bornes, même vue, rien à rejouer.
-    const points = withLoc.map(e => ({ lat: e.lieux!.lat!, lng: e.lieux!.lng! }))
+    // Une coordonnée fausse ne commande pas le cadrage : sa punaise reste
+    // affichée, mais elle ne fait plus reculer la carte jusqu'au Morvan.
+    const points = sansAberrants(withLoc.map(e => ({ lat: e.lieux!.lat!, lng: e.lieux!.lng! })))
+    if (points.length === 0) return
     const empreinte = empreinteBornes(bornesDe(points)!)
     // Le cadrage lit le palier d'arrivée de la feuille, pas sa position vivante.
     const feuilleCadrage = sheetYRepos ?? sheetY

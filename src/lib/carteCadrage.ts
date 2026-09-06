@@ -1,4 +1,5 @@
 import type { MotionValue } from 'framer-motion'
+import { haversineKm } from '@/lib/distance'
 import type { Map as MapLibreMap } from 'maplibre-gl'
 
 /**
@@ -128,6 +129,42 @@ export function desQueCadrable(pret: () => boolean, cadrer: () => void, imagesMa
   }
   image = requestAnimationFrame(tour)
   return () => cancelAnimationFrame(image)
+}
+
+/**
+ * Au-delà de cette distance du cœur du nuage, un point n'est pas un point
+ * lointain : c'est une coordonnée fausse.
+ *
+ * La carte couvre une vallée. Son rayon d'affichage vaut 115 km. Un événement
+ * à 150 km du cœur des autres n'a pas été saisi là-bas, il a été mal géocodé —
+ * et un seul suffit à faire reculer le cadrage jusqu'à montrer la moitié du
+ * pays. Mesuré sur les données réelles : « Atelier Vélo », donné à Lasalle
+ * (44,06), enregistré à la latitude 50,40. À lui seul il déplaçait le centre du
+ * cadrage de Ganges au Morvan.
+ */
+const ABERRANT_KM = 150
+
+function mediane(v: number[]): number {
+  const t = [...v].sort((a, b) => a - b)
+  return t[Math.floor(t.length / 2)]
+}
+
+/**
+ * Le nuage débarrassé de ses points aberrants.
+ *
+ * On prend le point médian comme cœur — une médiane ne se laisse pas déplacer
+ * par une valeur folle, contrairement à une moyenne — et on écarte ce qui en
+ * est trop loin. Les punaises, elles, restent toutes affichées : on ne cache
+ * rien, on refuse seulement qu'une erreur commande le cadrage.
+ *
+ * Filet de sécurité : si la règle écartait tout, on rend le nuage entier.
+ */
+export function sansAberrants<T extends { lat: number; lng: number }>(points: T[]): T[] {
+  if (points.length < 3) return points
+  const coeurLat = mediane(points.map(p => p.lat))
+  const coeurLng = mediane(points.map(p => p.lng))
+  const gardes = points.filter(p => haversineKm(p.lat, p.lng, coeurLat, coeurLng) <= ABERRANT_KM)
+  return gardes.length > 0 ? gardes : points
 }
 
 export interface Bornes { minLat: number; minLng: number; maxLat: number; maxLng: number }
