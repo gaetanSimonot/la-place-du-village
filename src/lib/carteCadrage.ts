@@ -45,6 +45,65 @@ export function margeBasse(hauteurCarte: number, feuille: PositionFeuille): numb
   return Math.max(0, Math.min(hauteurCarte, hauteurCarte - y))
 }
 
+/**
+ * Ce que le bandeau « à la une » occupe au bas de la carte, sur ordinateur.
+ *
+ * Valeur DÉCLARÉE, pas mesurée : elle ne bouge qu'avec le CSS qui la produit
+ * (`.pcv-proBandeau` dans desktop-carte.css — 16 px de fond plus la carte
+ * elle-même). Une mesure obligerait à attendre que le bandeau existe, alors
+ * qu'un cadrage se calcule souvent avant.
+ *
+ * Sur ordinateur il n'y a pas de feuille : c'est la seule chose qui mange le
+ * bas de la carte, et elle ne se négocie pas.
+ */
+export const PLANCHER_BANDEAU_PRO = 130
+
+function surBureau(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches
+}
+
+export interface OptionsCadrage {
+  /** Air au-dessus — la barre de l'application, sur mobile. */
+  haut: number
+  /** Air à gauche et à droite. */
+  cotes: number
+  /** Air en bas, EN PLUS de ce qui est masqué. Défaut : autant que les côtés. */
+  bas?: number
+  /**
+   * Ce qu'on concède à la feuille, en part de ce qu'elle masque vraiment.
+   *
+   * 1 = on la respecte entièrement. En dessous, on accepte que le bas du
+   * cadrage passe sous elle — parce que reculer assez pour tout montrer
+   * au-dessus coûterait plus que ça ne rapporte. Ne s'applique qu'à la
+   * feuille : le bandeau du bureau n'est pas négociable.
+   */
+  partFeuille?: number
+}
+
+/**
+ * Les marges d'un cadrage automatique, dans un seul vocabulaire.
+ *
+ * Elles étaient dites de quatre façons pour quatre appels — un objet à quatre
+ * côtés ici, un nombre unique là — et aucune ne savait où était la feuille :
+ * un `bottom: 180` en dur valait à peu près la position basse et se trompait
+ * de 160 px à mi-hauteur.
+ */
+export function margesCadrage(
+  hauteurCarte: number,
+  feuille: PositionFeuille,
+  { haut, cotes, bas, partFeuille = 1 }: OptionsCadrage,
+): { top: number; right: number; bottom: number; left: number } {
+  const masque = surBureau()
+    ? PLANCHER_BANDEAU_PRO
+    : margeBasse(hauteurCarte, feuille) * partFeuille
+  return {
+    top:    haut,
+    right:  cotes,
+    bottom: (bas ?? cotes) + Math.round(masque),
+    left:   cotes,
+  }
+}
+
 export interface Visee {
   /** Position de la feuille — c'est elle qui donne la marge. */
   feuille?: PositionFeuille

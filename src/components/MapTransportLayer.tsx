@@ -2,6 +2,18 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useMap, InfoWindow } from '@vis.gl/react-google-maps'
+import type { MotionValue } from 'framer-motion'
+import { margesCadrage } from '@/lib/carteCadrage'
+
+/**
+ * Ce qu'on concède au panneau de trajet quand on cadre une ligne.
+ *
+ * Voir la ligne entière prime sur ne rien mettre sous le panneau : le
+ * respecter entièrement obligerait à tenir tout le tracé dans le tiers haut de
+ * l'écran, donc à reculer jusqu'à ne plus lire les noms de villages. On lui
+ * concède la moitié de ce qu'il masque, et le bas de la ligne passe sous lui.
+ */
+const PART_PANNEAU = 0.5
 
 /**
  * Le calque « Transport » de la carte : les lignes de car et leurs arrets.
@@ -53,6 +65,8 @@ export interface TransportProps {
    * LIGNES ; les arrets ne sont qu'une trame, cliquables si on veut leur nom.
    */
   discret: boolean
+  /** Position du panneau de trajet — les cadrages lui laissent sa place. */
+  sheetY?: MotionValue<number>
 }
 
 /**
@@ -101,7 +115,7 @@ type Info =
   | { genre: 'ligne'; position: google.maps.LatLngLiteral; route_id: string }
 
 export default function MapTransportLayer({
-  arrets, traces, lignes, couleur, troncon, arretDepart, arretArrivee, discret,
+  arrets, traces, lignes, couleur, troncon, arretDepart, arretArrivee, discret, sheetY,
 }: TransportProps) {
   const map = useMap()
   const lignesRef = useRef<google.maps.Polyline[]>([])
@@ -187,8 +201,10 @@ export default function MapTransportLayer({
     cadreFait.current = true
     const bornes = new google.maps.LatLngBounds()
     for (const [lng, lat] of points) bornes.extend({ lat, lng })
-    map.fitBounds(bornes, 40)
-  }, [map, traces, troncon])
+    map.fitBounds(bornes, margesCadrage(map.getDiv()?.clientHeight ?? 0, sheetY, {
+      haut: 40, cotes: 40, partFeuille: PART_PANNEAU,
+    }))
+  }, [map, traces, troncon, sheetY])
 
   // Le trajet choisi, par-dessus.
   useEffect(() => {
@@ -204,9 +220,11 @@ export default function MapTransportLayer({
     // vallee entiere serait absurde.
     const bornes = new google.maps.LatLngBounds()
     chemin.forEach(p => bornes.extend(p))
-    map.fitBounds(bornes, 60)
+    map.fitBounds(bornes, margesCadrage(map.getDiv()?.clientHeight ?? 0, sheetY, {
+      haut: 60, cotes: 60, partFeuille: PART_PANNEAU,
+    }))
     return () => { tronconRef.current?.setMap(null) }
-  }, [map, troncon, couleur])
+  }, [map, troncon, couleur, sheetY])
 
   // Les arrets.
   useEffect(() => {

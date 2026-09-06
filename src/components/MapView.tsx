@@ -16,7 +16,7 @@ import { useTheme } from '@/components/ThemeProvider'
 import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
-import { viserGoogle, hauteurBlocGoogle, desQueVignettePrete } from '@/lib/carteCadrage'
+import { viserGoogle, hauteurBlocGoogle, desQueVignettePrete, margesCadrage } from '@/lib/carteCadrage'
 
 /**
  * De combien la vignette se pose au-dessus du point. Une seule définition :
@@ -229,7 +229,11 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY }: Ma
 
     const bounds = new google.maps.LatLngBounds()
     withLoc.forEach(e => bounds.extend({ lat: e.lieux!.lat!, lng: e.lieux!.lng! }))
-    map.fitBounds(bounds, { top: 60, right: 20, bottom: 180, left: 20 })
+    // Le bas ne vaut plus 180 en dur : il vaut ce que la feuille masque
+    // vraiment, qui va de ~130 en position basse à la moitié de l'écran à
+    // mi-hauteur. Le haut reste à 60 — il protège de la barre de
+    // l'application, pas de la feuille.
+    map.fitBounds(bounds, margesCadrage(map.getDiv()?.clientHeight ?? 0, sheetY, { haut: 60, cotes: 20 }))
 
     // PLANCHER DE ZOOM (bureau seulement).
     //
@@ -545,7 +549,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
           dejaVise={viserLieu?.cle ?? null}
         />
 
-        {transport && <MapTransportLayer {...transport} />}
+        {transport && <MapTransportLayer {...transport} sheetY={sheetY} />}
         {/* Vignette établissement sélectionné */}
         {selectedEtab && selectedEtab.lat && selectedEtab.lng && (() => {
           const typeInfo = ETAB_TYPES[selectedEtab.type]

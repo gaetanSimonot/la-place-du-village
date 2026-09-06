@@ -10,7 +10,7 @@ import { useTheme } from '@/components/ThemeProvider'
 import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
-import { viserMaplibre, hauteurBlocMaplibre, desQueVignettePrete } from '@/lib/carteCadrage'
+import { viserMaplibre, hauteurBlocMaplibre, desQueVignettePrete, margesCadrage } from '@/lib/carteCadrage'
 
 /** Cf. MapView.tsx : de combien la vignette se pose au-dessus du point. */
 const DECALAGE_VIGNETTE       = 36
@@ -203,8 +203,10 @@ export default function MapViewMaplibre({
       minLng = Math.min(minLng, e.lieux!.lng!); maxLng = Math.max(maxLng, e.lieux!.lng!)
       minLat = Math.min(minLat, e.lieux!.lat!); maxLat = Math.max(maxLat, e.lieux!.lat!)
     })
+    // Cf. MapView.tsx : le bas suit la feuille, le haut protège de la barre.
     m.getMap().fitBounds([[minLng, minLat], [maxLng, maxLat]], {
-      padding: { top: 60, right: 20, bottom: 180, left: 20 }, duration: 600,
+      padding: margesCadrage(m.getMap().getContainer()?.clientHeight ?? 0, sheetY, { haut: 60, cotes: 20 }),
+      duration: 600,
     })
   }, [evenements, fixedMap, sheetY])
 
