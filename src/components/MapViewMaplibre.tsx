@@ -197,22 +197,37 @@ export default function MapViewMaplibre({
     mapRef.current?.getMap().panBy([0, -dyFond], { duration: 0 })
   })
 
-  // Pan vers l'événement sélectionné (désactivé en carte fixe)
+  /**
+   * Amener le choix sous les yeux — UNE fois, au moment du choix.
+   *
+   * Ces effets dépendent aussi des tableaux de données, qui changent
+   * d'identité bien plus souvent que la sélection. Sans le garde-fou, la
+   * carte revenait se coller sur la vignette ouverte dès qu'on la déplaçait.
+   * Cf. la même mécanique dans MapView.tsx (fond Google).
+   */
+  const dernierRecadreEvt  = useRef<string | null>(null)
+  const dernierRecadreEtab = useRef<string | null>(null)
+
   useEffect(() => {
+    if (!selectedId) { dernierRecadreEvt.current = null; return }
     const m = mapRef.current
-    if (!m || !selectedId || fixedMap) return
+    if (!m || fixedMap) return
+    if (dernierRecadreEvt.current === selectedId) return
     const evt = evenements.find(e => e.id === selectedId)
     if (evt?.lieux?.lat && evt?.lieux?.lng) {
+      dernierRecadreEvt.current = selectedId
       m.getMap().easeTo({ center: [evt.lieux.lng, evt.lieux.lat] })
     }
   }, [selectedId, evenements, fixedMap])
 
-  // Pan vers l'établissement sélectionné — même mécanique que les événements
   useEffect(() => {
+    if (!selectedEtabId) { dernierRecadreEtab.current = null; return }
     const m = mapRef.current
-    if (!m || !selectedEtabId || fixedMap) return
+    if (!m || fixedMap) return
+    if (dernierRecadreEtab.current === selectedEtabId) return
     const etab = etablissements.find(e => e.id === selectedEtabId)
     if (etab?.lat && etab?.lng) {
+      dernierRecadreEtab.current = selectedEtabId
       m.getMap().easeTo({ center: [etab.lng, etab.lat] })
     }
   }, [selectedEtabId, etablissements, fixedMap])
@@ -260,6 +275,16 @@ export default function MapViewMaplibre({
         onMoveEnd={updateViewport}
         onDragStart={onMapDragStart}
         onDragEnd={onMapDragEnd}
+        /* Taper le fond referme la vignette ouverte. Les punaises et la
+           vignette sont des éléments posés PAR-DESSUS le canevas : un clic
+           dessus remonte quand même jusqu'ici, d'où le filtre. */
+        onClick={e => {
+          const cible = e.originalEvent?.target as HTMLElement | null
+          if (cible?.closest?.('.maplibregl-marker, .maplibregl-popup')) return
+          onDeselect()
+          setSelectedEtabId(null)
+          onSelectProducer?.(null)
+        }}
         onIdle={() => {
           const m = mapRef.current
           if (!m || !onCameraIdle) return

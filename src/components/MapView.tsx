@@ -129,11 +129,24 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, centerOn }: 
     map.setZoom(centerOn.zoom ?? 11)
   }, [map, centerOn])
 
-  // Pan vers l'événement sélectionné (désactivé en mode carte fixe)
+  /**
+   * Amener l'événement choisi sous les yeux — UNE fois, au moment du choix.
+   *
+   * Cet effet dépend aussi de `evenements`, et ce tableau change d'identité
+   * bien plus souvent que la sélection (un filtre, une revalidation, une
+   * recherche). Sans le garde-fou, chacun de ces changements rejouait le
+   * recadrage : on poussait la carte pour regarder à côté, et elle revenait
+   * se coller sur la vignette ouverte. Une vignette ouverte reste ouverte, et
+   * la carte reste où l'utilisateur l'a mise.
+   */
+  const dernierRecadre = useRef<string | null>(null)
   useEffect(() => {
-    if (!map || !selectedId || fixedMap) return
+    if (!selectedId) { dernierRecadre.current = null; return }
+    if (!map || fixedMap) return
+    if (dernierRecadre.current === selectedId) return
     const evt = evenements.find(e => e.id === selectedId)
     if (evt?.lieux?.lat && evt?.lieux?.lng) {
+      dernierRecadre.current = selectedId
       map.panTo({ lat: evt.lieux.lat, lng: evt.lieux.lng })
     }
   }, [map, selectedId, evenements, fixedMap])
@@ -295,10 +308,14 @@ function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fi
   // Pan vers l'établissement sélectionné — strictement la même mécanique que
   // les événements (cf. Markers ci-dessus) : c'est ce qui permet à la liste de
   // piloter la carte, la sélection étant désormais portée par la page.
+  const dernierRecadre = useRef<string | null>(null)
   useEffect(() => {
-    if (!map || !selectedEtabId || fixedMap) return
+    if (!selectedEtabId) { dernierRecadre.current = null; return }
+    if (!map || fixedMap) return
+    if (dernierRecadre.current === selectedEtabId) return
     const etab = etablissements.find(e => e.id === selectedEtabId)
     if (etab?.lat && etab?.lng) {
+      dernierRecadre.current = selectedEtabId
       map.panTo({ lat: etab.lat, lng: etab.lng })
     }
   }, [map, selectedEtabId, etablissements, fixedMap])
@@ -433,6 +450,15 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
         fullscreenControl={false}
         zoomControl={false}
         clickableIcons={false}
+        /* Taper le fond referme la vignette ouverte — le geste attendu partout
+           ailleurs. Un clic sur une punaise ne passe pas par ici (le marqueur
+           consomme l'événement), la sélection ne peut donc pas s'annuler
+           elle-même. */
+        onClick={() => {
+          onDeselect()
+          setSelectedEtabId(null)
+          onSelectProducer?.(null)
+        }}
         styles={mapStyle.styles.length > 0 ? mapStyle.styles : WARM_STYLE}
       >
         <MapDragListener onDragStart={onMapDragStart} onDragEnd={onMapDragEnd} onCameraIdle={onCameraIdle} />
@@ -467,6 +493,10 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
               position={{ lat: selectedEtab.lat, lng: selectedEtab.lng }}
               onCloseClick={() => setSelectedEtabId(null)}
               pixelOffset={[0, promoted ? -47 : -36]}
+              /* Google recadre la carte sur sa vignette à chaque ouverture —
+                 et elle se rouvre à chaque rendu. Résultat : le moindre
+                 déplacement de carte était suivi d'un retour à la vignette. */
+              disableAutoPan
             >
               <div style={{ position: 'relative', width: 210, overflow: 'visible', fontFamily: 'var(--font-body), sans-serif' }}>
                 <button onClick={() => setSelectedEtabId(null)}
@@ -510,6 +540,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
             position={{ lat: selectedProducer.lat, lng: selectedProducer.lng }}
             onCloseClick={() => onSelectProducer?.(null)}
             pixelOffset={[0, -38]}
+            disableAutoPan
           >
             <div style={{ position: 'relative', width: 200, overflow: 'visible', fontFamily: 'var(--font-body), sans-serif' }}>
               <button onClick={() => onSelectProducer?.(null)}
@@ -542,6 +573,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
             position={{ lat: selectedEvent.lieux.lat, lng: selectedEvent.lieux.lng }}
             onCloseClick={onDeselect}
             pixelOffset={[0, -36]}
+            disableAutoPan
           >
             {/* Wrapper overflow:visible pour que le bouton fermer dépasse de la carte */}
             <div style={{ position: 'relative', width: 220, overflow: 'visible' }}>
