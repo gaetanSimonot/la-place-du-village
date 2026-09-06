@@ -153,6 +153,27 @@ function Cadrage({ restaurerVue, viserLieu, sheetY }: {
   return null
 }
 
+/**
+ * L'apparence d'une punaise — sa seule différence entre choisie et pas choisie.
+ *
+ * Sortie de la création exprès : changer de sélection ne touche plus qu'aux
+ * deux punaises concernées. Avant, l'effet de création dépendait de la
+ * sélection et reconstruisait la couche entière à chaque clic — 258 punaises
+ * détruites et refaites, plus la ré-indexation du regroupement, pour deux
+ * icônes qui changent.
+ */
+function habillerEvenement(marker: google.maps.Marker, evt: EvenementCard, choisie: boolean) {
+  const promu = evt.promotion === 'pro' || evt.promotion === 'max'
+  const isMax = evt.promotion === 'max'
+  const p     = getTearParams(choisie, promu, isMax)
+  marker.setIcon({
+    url: markerSvg(evt.categorie, choisie, isApproxLocation(evt.lieux), promu, isMax),
+    scaledSize: new google.maps.Size(p.w, p.h),
+    anchor: new google.maps.Point(p.cx, p.tipY),
+  })
+  marker.setZIndex(choisie ? 999 : promu ? 10 : 1)
+}
+
 interface MarkersProps {
   evenements: EvenementCard[]
   selectedId: string | null
@@ -167,11 +188,18 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, onBl
   const map = useMap()
   const clustererRef = useRef<MarkerClusterer | null>(null)
   const markersRef   = useRef<google.maps.Marker[]>([])
+  /** id → punaise et sa donnée : rhabiller une punaise sans chercher les autres.
+   *  Un objet et non un `Map` : dans ce fichier, `Map` est le composant carte. */
+  const parId = useRef<Record<string, { marker: google.maps.Marker; evt: EvenementCard }>>({})
+  /** Sélection courante, lue par la création ET par l'habillage. Un état ici
+   *  remettrait la sélection dans les dépendances de la création. */
+  const selectionRef = useRef<string | null>(selectedId)
 
   const clearAll = useCallback(() => {
     clustererRef.current?.clearMarkers()
     markersRef.current.forEach(m => m.setMap(null))
     markersRef.current = []
+    parId.current = {}
   }, [])
 
   /**
@@ -276,22 +304,13 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, onBl
     const regularMarkers: google.maps.Marker[] = []
 
     const allNewMarkers = withLoc.map(evt => {
-      const isSelected = evt.id === selectedId
-      const approx     = isApproxLocation(evt.lieux)
-      const isMax      = evt.promotion === 'max'
-      const promoted   = evt.promotion === 'pro' || evt.promotion === 'max'
-      const p          = getTearParams(isSelected, promoted, isMax)
-      const marker     = new google.maps.Marker({
+      const promoted = evt.promotion === 'pro' || evt.promotion === 'max'
+      const marker   = new google.maps.Marker({
         position: { lat: evt.lieux!.lat!, lng: evt.lieux!.lng! },
         title: evt.titre,
         optimized: false,
-        icon: {
-          url: markerSvg(evt.categorie, isSelected, approx, promoted, isMax),
-          scaledSize: new google.maps.Size(p.w, p.h),
-          anchor: new google.maps.Point(p.cx, p.tipY),
-        },
-        zIndex: isSelected ? 999 : promoted ? 10 : 1,
       })
+      habillerEvenement(marker, evt, evt.id === selectionRef.current)
       marker.addListener('click', () => onSelectEvent(evt.id))
       // Promoted markers bypass the clusterer so they're always individually visible
       if (promoted) {
@@ -299,6 +318,7 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, onBl
       } else {
         regularMarkers.push(marker)
       }
+      parId.current[evt.id] = { marker, evt }
       return marker
     })
 
@@ -309,7 +329,19 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, onBl
     } else {
       clustererRef.current.addMarkers(regularMarkers)
     }
-  }, [map, evenements, selectedId, onSelectEvent, clearAll])
+  }, [map, evenements, onSelectEvent, clearAll])
+
+  // Changer de sélection : deux icônes, pas une couche.
+  useEffect(() => {
+    const avant = selectionRef.current
+    if (avant === selectedId) return
+    selectionRef.current = selectedId
+    for (const id of [avant, selectedId]) {
+      if (!id) continue
+      const e = parId.current[id]
+      if (e) habillerEvenement(e.marker, e.evt, id === selectedId)
+    }
+  }, [selectedId])
 
   return null
 }
@@ -320,36 +352,56 @@ interface ProducerMarkersProps {
   onSelectProducer: (id: string | null) => void
 }
 
+function habillerProducteur(marker: google.maps.Marker, prod: ProducerCard, choisi: boolean) {
+  const pp = getProducerTearParams(choisi, prod.is_max)
+  marker.setIcon({
+    url: producerMarkerSvg(choisi, prod.is_max),
+    scaledSize: new google.maps.Size(pp.w, pp.h),
+    anchor: new google.maps.Point(pp.cx, pp.tipY),
+  })
+  marker.setZIndex(choisi ? 999 : prod.is_max ? 10 : 1)
+}
+
 function ProducerMarkers({ producers, selectedProducerId, onSelectProducer }: ProducerMarkersProps) {
   const map = useMap()
   const markersRef = useRef<google.maps.Marker[]>([])
+  const parId = useRef<Record<string, { marker: google.maps.Marker; prod: ProducerCard }>>({})
+  const selectionRef = useRef<string | null>(selectedProducerId)
 
   useEffect(() => {
     if (!map) return
     markersRef.current.forEach(m => m.setMap(null))
     markersRef.current = []
+    parId.current = {}
 
     const withLoc = producers.filter(p => p.lat && p.lng)
     markersRef.current = withLoc.map(p => {
-      const sel  = p.id === selectedProducerId
-      const pp   = getProducerTearParams(sel, p.is_max)
       const marker = new google.maps.Marker({
         position: { lat: p.lat!, lng: p.lng! },
         title: p.nom,
         optimized: false,
         map,
-        icon: {
-          url: producerMarkerSvg(sel, p.is_max),
-          scaledSize: new google.maps.Size(pp.w, pp.h),
-          anchor: new google.maps.Point(pp.cx, pp.tipY),
-        },
-        zIndex: sel ? 999 : p.is_max ? 10 : 1,
       })
-      marker.addListener('click', () => onSelectProducer(sel ? null : p.id))
+      habillerProducteur(marker, p, p.id === selectionRef.current)
+      // La sélection se lit dans la boîte, pas dans la fermeture : sans ça, une
+      // punaise créée non choisie ne saurait jamais se déchoisir.
+      marker.addListener('click', () => onSelectProducer(selectionRef.current === p.id ? null : p.id))
+      parId.current[p.id] = { marker, prod: p }
       return marker
     })
     return () => { markersRef.current.forEach(m => m.setMap(null)) }
-  }, [map, producers, selectedProducerId, onSelectProducer])
+  }, [map, producers, onSelectProducer])
+
+  useEffect(() => {
+    const avant = selectionRef.current
+    if (avant === selectedProducerId) return
+    selectionRef.current = selectedProducerId
+    for (const id of [avant, selectedProducerId]) {
+      if (!id) continue
+      const e = parId.current[id]
+      if (e) habillerProducteur(e.marker, e.prod, id === selectedProducerId)
+    }
+  }, [selectedProducerId])
 
   return null
 }
@@ -364,10 +416,23 @@ interface EtabMarkersProps {
   dejaVise?: string | null
 }
 
+function habillerEtablissement(marker: google.maps.Marker, etab: EtablissementCard, choisi: boolean) {
+  const promu = etab.plan === 'pro' || etab.is_featured
+  const h     = promu ? 47 : 36
+  marker.setIcon({
+    url: etabMarkerSvg(choisi, etab.type, etab.plan, etab.is_featured),
+    scaledSize: new google.maps.Size(28, h),
+    anchor: new google.maps.Point(14, h),
+  })
+  marker.setZIndex(choisi ? 999 : promu ? 10 : 1)
+}
+
 function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fixedMap, sheetY, dejaVise = null }: EtabMarkersProps) {
   const map = useMap()
   const clustererRef = useRef<MarkerClusterer | null>(null)
   const markersRef   = useRef<google.maps.Marker[]>([])
+  const parId = useRef<Record<string, { marker: google.maps.Marker; etab: EtablissementCard }>>({})
+  const selectionRef = useRef<string | null>(selectedEtabId)
 
   // Pan vers l'établissement sélectionné — strictement la même mécanique que
   // les événements (cf. Markers ci-dessus) : c'est ce qui permet à la liste de
@@ -396,28 +461,27 @@ function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fi
     clustererRef.current?.clearMarkers()
     markersRef.current.forEach(m => m.setMap(null))
     markersRef.current = []
+    parId.current = {}
 
     const withLoc = etablissements.filter(e => e.lat && e.lng)
     const regularMarkers: google.maps.Marker[] = []
 
     const newMarkers = withLoc.map(e => {
-      const promoted  = e.plan === 'pro' || e.is_featured
-      const isSelected = e.id === selectedEtabId
-      const iconUrl   = etabMarkerSvg(isSelected, e.type, e.plan, e.is_featured)
-      const h         = promoted ? 47 : 36
+      const promoted = e.plan === 'pro' || e.is_featured
       const marker = new google.maps.Marker({
         position: { lat: e.lat!, lng: e.lng! },
         title: e.nom,
         optimized: false,
-        icon: { url: iconUrl, scaledSize: new google.maps.Size(28, h), anchor: new google.maps.Point(14, h) },
-        zIndex: isSelected ? 999 : promoted ? 10 : 1,
       })
-      marker.addListener('click', () => onSelectEtab(isSelected ? null : e.id))
+      habillerEtablissement(marker, e, e.id === selectionRef.current)
+      // Cf. producteurs : la sélection se lit dans la boîte, pas dans la fermeture.
+      marker.addListener('click', () => onSelectEtab(selectionRef.current === e.id ? null : e.id))
       if (promoted) {
         marker.setMap(map)
       } else {
         regularMarkers.push(marker)
       }
+      parId.current[e.id] = { marker, etab: e }
       return marker
     })
     markersRef.current = newMarkers
@@ -432,7 +496,18 @@ function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fi
       clustererRef.current?.clearMarkers()
       markersRef.current.forEach(m => m.setMap(null))
     }
-  }, [map, etablissements, selectedEtabId, onSelectEtab])
+  }, [map, etablissements, onSelectEtab])
+
+  useEffect(() => {
+    const avant = selectionRef.current
+    if (avant === selectedEtabId) return
+    selectionRef.current = selectedEtabId
+    for (const id of [avant, selectedEtabId]) {
+      if (!id) continue
+      const e = parId.current[id]
+      if (e) habillerEtablissement(e.marker, e.etab, id === selectedEtabId)
+    }
+  }, [selectedEtabId])
 
   return null
 }

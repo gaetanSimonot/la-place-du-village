@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useMap, InfoWindow } from '@vis.gl/react-google-maps'
 import type { MotionValue } from 'framer-motion'
 import { margesCadrage } from '@/lib/carteCadrage'
@@ -226,34 +226,63 @@ export default function MapTransportLayer({
     return () => { tronconRef.current?.setMap(null) }
   }, [map, troncon, couleur, sheetY])
 
-  // Les arrets.
+  /**
+   * Les arrets.
+   *
+   * Retenir un arret dans le panneau ne refait PAS les 377 pastilles : la
+   * creation ignore les deux arrets retenus, un second effet ne rhabille que
+   * ceux qui changent de role. Meme correctif que les trois couches de
+   * MapView.tsx, meme raison — deux icones ne valent pas une couche.
+   */
+  const roleRef = useRef<{ depart: string | null; arrivee: string | null }>({ depart: null, arrivee: null })
+  const parArret = useRef<Record<string, google.maps.Marker>>({})
+
+  const habiller = useCallback((m: google.maps.Marker, role: 'depart' | 'arrivee' | null) => {
+    m.setIcon({
+      url: pastilleArret(role, couleur, discret && !role),
+      scaledSize: new google.maps.Size(34, 34),
+      anchor: new google.maps.Point(17, 17),
+    })
+    m.setZIndex(role ? 999 : 5)
+  }, [couleur, discret])
+
   useEffect(() => {
     if (!map) return
     arretsRef.current.forEach(m => m.setMap(null))
+    parArret.current = {}
     arretsRef.current = arrets.map(a => {
+      const r = roleRef.current
       const role: 'depart' | 'arrivee' | null =
-        a.stop_id === arretDepart ? 'depart' : a.stop_id === arretArrivee ? 'arrivee' : null
+        a.stop_id === r.depart ? 'depart' : a.stop_id === r.arrivee ? 'arrivee' : null
       const m = new google.maps.Marker({
         position: { lat: a.lat, lng: a.lng },
         title: a.nom,
         optimized: false,
-        icon: {
-          url: pastilleArret(role, couleur, discret && !role),
-          scaledSize: new google.maps.Size(34, 34),
-          anchor: new google.maps.Point(17, 17),
-        },
-        zIndex: role ? 999 : 5,
         map,
       })
+      habiller(m, role)
       // Lire, pas choisir : le clic donne le nom de l'arret, rien de plus.
       m.addListener('click', () => {
         clicSurElement.current = Date.now()
         setInfo({ genre: 'arret', position: { lat: a.lat, lng: a.lng }, nom: a.nom })
       })
+      parArret.current[a.stop_id] = m
       return m
     })
     return () => { arretsRef.current.forEach(m => m.setMap(null)) }
-  }, [map, arrets, arretDepart, arretArrivee, couleur, discret])
+  }, [map, arrets, habiller])
+
+  useEffect(() => {
+    const avant = roleRef.current
+    if (avant.depart === arretDepart && avant.arrivee === arretArrivee) return
+    roleRef.current = { depart: arretDepart, arrivee: arretArrivee }
+    const concernes = [avant.depart, avant.arrivee, arretDepart, arretArrivee]
+    for (const id of concernes) {
+      if (!id) continue
+      const m = parArret.current[id]
+      if (m) habiller(m, id === arretDepart ? 'depart' : id === arretArrivee ? 'arrivee' : null)
+    }
+  }, [arretDepart, arretArrivee, habiller])
 
   if (!info) return null
 
