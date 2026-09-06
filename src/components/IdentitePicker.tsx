@@ -74,11 +74,22 @@ export default function IdentitePicker({
   value,
   onChange,
   label = 'Publier en tant que',
+  variante = 'ligne',
 }: {
   value:    string | null
   /** `option` permet à l'appelant de refléter le choix (aperçu auteur). */
   onChange: (id: string | null, option: IdentiteOption) => void
   label?:   string
+  /**
+   * `pastille` : rien qu'un rond d'avatar, à poser DANS une barre de saisie.
+   *
+   * Le mode `ligne` prend toute la largeur avec son intitulé — juste au-dessus
+   * d'un champ de réponse, ça fait un bandeau qui pousse le champ vers le bas
+   * pour un réglage qu'on utilise une fois sur vingt. La pastille dit la même
+   * chose sans rien prendre : l'avatar montre déjà sous quelle identité on
+   * parle, et il se déplie si on le touche.
+   */
+  variante?: 'ligne' | 'pastille'
 }) {
   const [options, setOptions] = useState<IdentiteOption[]>([])
   const [ouvert, setOuvert]   = useState(false)
@@ -119,6 +130,62 @@ export default function IdentitePicker({
     setOuvert(false)
   }
 
+  const liste = (
+    <div
+      role="listbox"
+      className="max-h-56 overflow-y-auto rounded-2xl border border-bord bg-white p-1 shadow-lg"
+    >
+      {options.map(o => {
+        const actif = (o.id ?? null) === (courante.id ?? null)
+        return (
+          <button
+            key={o.id ?? 'perso'}
+            type="button"
+            role="option"
+            aria-selected={actif}
+            onClick={() => choisir(o)}
+            className={`flex w-full items-center gap-2 rounded-xl px-1.5 py-1.5 text-left text-sm font-semibold transition-colors ${
+              actif ? 'bg-primary text-white' : 'text-texte hover:bg-cremeDeep'
+            }`}
+          >
+            <Vignette option={o} actif={actif} />
+            <span className="min-w-0 flex-1 truncate">{o.nom}</span>
+            {actif && (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+
+  // Pastille : l'avatar seul, la liste se dépliant AU-DESSUS — ce mode vit au
+  // bas de l'écran, dans une barre de saisie, où il n'y a pas de place en
+  // dessous.
+  if (variante === 'pastille') {
+    return (
+      <div className="relative shrink-0" ref={boite}>
+        <button
+          type="button"
+          onClick={() => setOuvert(o => !o)}
+          aria-expanded={ouvert}
+          aria-haspopup="listbox"
+          aria-label={`${label} — ${courante.nom}`}
+          title={`${label} — ${courante.nom}`}
+          className="flex items-center rounded-full border border-bord bg-white p-[3px]"
+        >
+          <Vignette option={courante} />
+        </button>
+        {ouvert && (
+          <div className="absolute bottom-full left-0 z-40 mb-1.5 w-[220px]">{liste}</div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="mb-4" ref={boite}>
       <p className="text-[11px] font-bold uppercase tracking-wide text-texte-doux mb-2">{label}</p>
@@ -141,37 +208,7 @@ export default function IdentitePicker({
         </svg>
       </button>
 
-      {ouvert && (
-        <div
-          role="listbox"
-          className="mt-1.5 max-h-56 overflow-y-auto rounded-2xl border border-bord bg-white p-1 shadow-lg"
-        >
-          {options.map(o => {
-            const actif = (o.id ?? null) === (courante.id ?? null)
-            return (
-              <button
-                key={o.id ?? 'perso'}
-                type="button"
-                role="option"
-                aria-selected={actif}
-                onClick={() => choisir(o)}
-                className={`flex w-full items-center gap-2 rounded-xl px-1.5 py-1.5 text-left text-sm font-semibold transition-colors ${
-                  actif ? 'bg-primary text-white' : 'text-texte hover:bg-cremeDeep'
-                }`}
-              >
-                <Vignette option={o} actif={actif} />
-                <span className="min-w-0 flex-1 truncate">{o.nom}</span>
-                {actif && (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                       strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                )}
-              </button>
-            )
-          })}
-        </div>
-      )}
+      {ouvert && <div className="mt-1.5">{liste}</div>}
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { shareLink } from '@/lib/share'
 import { toast } from 'sonner'
 import BottomNavBar from '@/components/BottomNavBar'
 import NewTopicModal from '@/components/forum/NewTopicModal'
+import { texteBrut } from '@/components/TexteRiche'
 import { type ForumTopic, forumRelativeDate } from '@/lib/forum'
 import { chargerIdentitesEtab } from '@/lib/identite'
 
@@ -154,7 +155,11 @@ export default function ForumClient() {
                   </span>
                 )}
                 <div className="font-serif text-[16px] leading-[1.2] text-texte" style={{ letterSpacing: '-0.005em' }}>{t.titre}</div>
-                {t.corps && <p className="m-0 mt-1 line-clamp-2 text-[12.5px] leading-[1.4] text-texte-doux">{t.corps}</p>}
+                {t.corps && (
+                  /* Extrait aplati : sur deux lignes, le rendu riche n'a pas
+                     de sens, mais les marques ne doivent pas s'afficher. */
+                  <p className="m-0 mt-1 line-clamp-2 text-[12.5px] leading-[1.4] text-texte-doux">{texteBrut(t.corps)}</p>
+                )}
                 <div className="mt-1.5 flex items-center gap-2 text-[11px] text-texte-doux">
                   <span className="truncate">{t.author_name ?? 'Quelqu\'un'}</span>
                   <span aria-hidden>·</span>

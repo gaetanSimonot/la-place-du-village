@@ -8,6 +8,7 @@ import { useAuthModal } from '@/contexts/AuthModalContext'
 import { shareLink } from '@/lib/share'
 import BottomNavBar, { NAV_H } from '@/components/BottomNavBar'
 import PostMedia from '@/components/profil/PostMedia'
+import TexteRiche from '@/components/TexteRiche'
 import PollView from '@/components/forum/PollView'
 import NewTopicModal from '@/components/forum/NewTopicModal'
 import FeatureButton from '@/components/FeatureButton'
@@ -274,7 +275,15 @@ export default function TopicClient({ id }: { id: string }) {
                     </div>
                     {hasBody && (
                       <div className="mt-3 rounded-[16px] border bg-white p-4" style={{ borderColor: '#F0EAE0', boxShadow: '0 1px 4px rgba(44,28,16,0.04)' }}>
-                        {topic.corps && <p className="m-0 whitespace-pre-wrap text-[14.5px] leading-[1.55] text-texte" style={{ wordBreak: 'break-word' }}>{topic.corps}</p>}
+                        {topic.corps && (
+                          /* Rendu riche : le corps d'un sujet peut porter du
+                             gras, des titres et des listes — posés à la main ou
+                             par la baguette. En texte nu, les marques
+                             s'affichaient en clair. */
+                          <div className="text-[14.5px] leading-[1.55] text-texte" style={{ wordBreak: 'break-word' }}>
+                            <TexteRiche texte={topic.corps} />
+                          </div>
+                        )}
                         {restMedia && restMedia.length > 0 && <div className={topic.corps ? 'mt-3' : ''}><PostMedia media={restMedia} /></div>}
                         {topic.poll && <div className={topic.corps || (restMedia && restMedia.length > 0) ? 'mt-3' : ''}><PollView topicId={id} poll={topic.poll} /></div>}
                       </div>
@@ -289,7 +298,11 @@ export default function TopicClient({ id }: { id: string }) {
                       <span aria-hidden>·</span>
                       <span>{forumRelativeDate(topic.created_at)}</span>
                     </div>
-                    {topic.corps && <p className="m-0 mt-3 whitespace-pre-wrap text-[14.5px] leading-[1.55] text-texte" style={{ wordBreak: 'break-word' }}>{topic.corps}</p>}
+                    {topic.corps && (
+                      <div className="mt-3 text-[14.5px] leading-[1.55] text-texte" style={{ wordBreak: 'break-word' }}>
+                        <TexteRiche texte={topic.corps} />
+                      </div>
+                    )}
                     {topic.poll && <div className="mt-3"><PollView topicId={id} poll={topic.poll} /></div>}
                   </div>
                 )}
@@ -377,20 +390,25 @@ export default function TopicClient({ id }: { id: string }) {
             <button onClick={() => setReplyTo(null)} className="font-bold text-accent">×</button>
           </div>
         )}
-        {user && (
-          <div className="px-3 pt-2 empty:hidden">
-            <IdentitePicker
-              value={blase}
-              label="Répondre en tant que"
-              onChange={(id, option) => {
-                setBlase(id)
-                setBlaseNom(id ? option.nom : null)
-                setBlaseAvatar(id ? option.avatar : null)
-              }}
-            />
-          </div>
-        )}
+        {/* L'identité vit DANS la barre de saisie, réduite à son avatar. En
+            bandeau au-dessus, elle poussait le champ vers le bas pour un
+            réglage qu'on utilise une fois sur vingt — et l'avatar dit déjà
+            sous quel nom on parle. */}
         <div className="flex items-end gap-2 px-3 py-2.5">
+          {user && (
+            <div className="pb-0.5">
+              <IdentitePicker
+                value={blase}
+                label="Répondre en tant que"
+                variante="pastille"
+                onChange={(id, option) => {
+                  setBlase(id)
+                  setBlaseNom(id ? option.nom : null)
+                  setBlaseAvatar(id ? option.avatar : null)
+                }}
+              />
+            </div>
+          )}
           <textarea
             value={text}
             onChange={e => setText(e.target.value.slice(0, 5000))}
