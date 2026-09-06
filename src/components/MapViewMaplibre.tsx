@@ -10,7 +10,7 @@ import { useTheme } from '@/components/ThemeProvider'
 import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
-import { viserMaplibre, hauteurBlocMaplibre, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, bornesDe, empreinteBornes } from '@/lib/carteCadrage'
+import { viserMaplibre, hauteurBlocMaplibre, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, quandToutEstPose, bornesDe, empreinteBornes } from '@/lib/carteCadrage'
 
 /** Cf. MapView.tsx : de combien la vignette se pose au-dessus du point. */
 const DECALAGE_VIGNETTE       = 36
@@ -201,6 +201,7 @@ export default function MapViewMaplibre({
    * avant que la feuille ait sa position.
    */
   const derniereEmpreinte = useRef<string | null>(null)
+  const rejeuFait = useRef(false)
   useEffect(() => {
     const m = mapRef.current
     if (!m || fixedMap) return
@@ -229,10 +230,22 @@ export default function MapViewMaplibre({
       })
     }
 
-    // Cf. MapView.tsx : ni carte sans hauteur, ni feuille sans position.
+    // Cf. MapView.tsx : ni carte sans hauteur, ni feuille sans position — et
+    // un cadrage rejoué une fois que la feuille s'est tue, pour ne pas rester
+    // sur une vue calculee pendant que tout se posait encore.
+    let annulerRejeu: (() => void) | null = null
+    const cadrerPuisConfirmer = () => {
+      cadrer()
+      if (rejeuFait.current) return
+      // Marqué seulement quand le rejeu PART, pas quand il est programmé : si
+      // la liste change entre-temps et annule l'attente, on en reprogramme un.
+      annulerRejeu = quandToutEstPose(sheetY, () => { rejeuFait.current = true; cadrer() })
+    }
     const pret = () => cadrable(carte.getContainer()?.clientHeight ?? 0, sheetY)
-    if (pret()) { cadrer(); return }
-    return desQueCadrable(pret, cadrer)
+    let annulerAttente: (() => void) | null = null
+    if (pret()) cadrerPuisConfirmer()
+    else annulerAttente = desQueCadrable(pret, cadrerPuisConfirmer)
+    return () => { annulerAttente?.(); annulerRejeu?.() }
   }, [evenements, fixedMap, sheetY])
 
   /**

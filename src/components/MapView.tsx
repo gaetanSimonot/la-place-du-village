@@ -16,7 +16,7 @@ import { useTheme } from '@/components/ThemeProvider'
 import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
-import { viserGoogle, hauteurBlocGoogle, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, bornesDe, empreinteBornes } from '@/lib/carteCadrage'
+import { viserGoogle, hauteurBlocGoogle, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, quandToutEstPose, bornesDe, empreinteBornes } from '@/lib/carteCadrage'
 
 /**
  * De combien la vignette se pose au-dessus du point. Une seule définition :
@@ -251,6 +251,8 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, onBl
   const cadrageFait = useRef(false)
   /** Les bornes du dernier cadrage joué — pour ne pas le rejouer à l'identique. */
   const derniereEmpreinte = useRef<string | null>(null)
+  /** Le cadrage de confirmation de l'arrivée a-t-il déjà été programmé ? */
+  const rejeuFait = useRef(false)
 
   // Auto-fit bounds selon les événements visibles (désactivé en mode carte fixe)
   useEffect(() => {
@@ -294,14 +296,37 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, onBl
       poserPlancherBureau()
     }
 
-    // On ne cadre pas sur une géométrie qu'on ne connaît pas : ni sur une
-    // carte sans hauteur (elle en a une seulement une fois posée dans la
-    // page), ni avant que la feuille — chargée à la demande — ait sa position.
-    // Les deux donneraient une vue à corriger un instant plus tard, et la
-    // première ne donne même rien de sensé.
+    /*
+     * À l'arrivée, on cadre DEUX fois — et c'est le correctif.
+     *
+     * Le premier cadrage part dès que la géométrie est connue. Mais « connue »
+     * n'est pas « posée » : la feuille rejoint encore son palier, la hauteur
+     * d'écran réelle vient de remplacer sa valeur par défaut. La marge est donc
+     * calculée sur une géométrie transitoire.
+     *
+     * Et comme les bornes, elles, ne changent plus ensuite, l'empreinte bloque
+     * toute correction : la vue fausse reste jusqu'à ce qu'on touche un filtre.
+     * C'est exactement ce qu'on observait — le cadrage redevient parfait dès
+     * qu'on clique un filtre, parce que ce clic rejoue le calcul sur une
+     * géométrie enfin stable.
+     *
+     * On rejoue donc le même cadrage, par le même chemin, une fois que la
+     * feuille s'est tue. Une seule fois par arrivée.
+     */
+    let annulerRejeu: (() => void) | null = null
+    const cadrerPuisConfirmer = () => {
+      cadrer()
+      if (rejeuFait.current) return
+      // Marqué seulement quand le rejeu PART, pas quand il est programmé : si
+      // la liste change entre-temps et annule l'attente, on en reprogramme un.
+      annulerRejeu = quandToutEstPose(sheetY, () => { rejeuFait.current = true; cadrer() })
+    }
+
     const pret = () => cadrable(map.getDiv()?.clientHeight ?? 0, sheetY)
-    if (pret()) { cadrer(); return }
-    return desQueCadrable(pret, cadrer)
+    let annulerAttente: (() => void) | null = null
+    if (pret()) cadrerPuisConfirmer()
+    else annulerAttente = desQueCadrable(pret, cadrerPuisConfirmer)
+    return () => { annulerAttente?.(); annulerRejeu?.() }
 
     // PLANCHER DE ZOOM (bureau seulement).
     //
