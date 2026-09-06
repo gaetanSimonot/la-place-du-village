@@ -318,6 +318,16 @@ export default function HomePage() {
   // le montage de la page de celui de la feuille.
   const sheetY = useMotionValue(9999)
   /**
+   * Où la feuille VA se poser — pas où elle est.
+   *
+   * Deux besoins, deux valeurs. Suivre la feuille, c'est coller à l'instant :
+   * `sheetY`. Cadrer, c'est calculer la place que la liste va occuper une fois
+   * posée : cette valeur-ci. La feuille connaît son palier d'arrivée dès le
+   * premier rendu, bien avant d'y arriver — un cadrage n'a donc jamais eu de
+   * raison d'attendre qu'elle finisse son mouvement.
+   */
+  const sheetYRepos = useMotionValue(9999)
+  /**
    * La feuille est en train de tomber parce qu'on déplace la carte.
    *
    * Le repli du geste et son retour ne se traitent PAS pareil, et c'est voulu.
@@ -1183,6 +1193,7 @@ export default function HomePage() {
           onMapDragStart={onMapDragStart}
           onMapDragEnd={onMapDragEnd}
           sheetY={sheetY}
+          sheetYRepos={sheetYRepos}
           panEnCoursRef={chuteDuPanEnCours}
           onBlocTropGrand={laisserLaPlaceALaVignette}
           onCameraIdle={(lat, lng, zoom) => { mapCameraRef.current = { lat, lng, zoom } }}
@@ -1723,6 +1734,7 @@ export default function HomePage() {
         mode={sheetMode}
         onModeChange={setSheetMode}
         sheetY={sheetY}
+        sheetYRepos={sheetYRepos}
         navHeight={NAV_H}
         screenH={screenH}
         onPeekHeightChange={setSheetPeekH}

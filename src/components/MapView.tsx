@@ -16,7 +16,7 @@ import { useTheme } from '@/components/ThemeProvider'
 import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
-import { viserGoogle, hauteurBlocGoogle, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, quandToutEstPose, bornesDe, empreinteBornes } from '@/lib/carteCadrage'
+import { viserGoogle, hauteurBlocGoogle, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, bornesDe, empreinteBornes } from '@/lib/carteCadrage'
 
 /**
  * De combien la vignette se pose au-dessus du point. Une seule définition :
@@ -180,11 +180,12 @@ interface MarkersProps {
   onSelectEvent: (id: string) => void
   fixedMap: boolean
   sheetY?: MotionValue<number>
+  sheetYRepos?: MotionValue<number>
   /** Le bloc punaise + vignette ne tient pas dans la place qui reste. */
   onBlocTropGrand?: () => void
 }
 
-function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, onBlocTropGrand }: MarkersProps) {
+function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, sheetYRepos, onBlocTropGrand }: MarkersProps) {
   const map = useMap()
   const clustererRef = useRef<MarkerClusterer | null>(null)
   const markersRef   = useRef<google.maps.Marker[]>([])
@@ -268,6 +269,8 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, onBl
     // promotions, ni l'ordre. Mêmes bornes, même vue, rien à rejouer.
     const points = withLoc.map(e => ({ lat: e.lieux!.lat!, lng: e.lieux!.lng! }))
     const empreinte = empreinteBornes(bornesDe(points)!)
+    // Le cadrage lit le palier d'arrivée de la feuille, pas sa position vivante.
+    const feuilleCadrage = sheetYRepos ?? sheetY
     if (derniereEmpreinte.current === empreinte) return
 
     const cadrer = () => {
@@ -285,7 +288,7 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, onBl
       // vraiment, qui va de ~130 en position basse à la moitié de l'écran à
       // mi-hauteur. Le haut reste à 60 — il protège de la barre de
       // l'application, pas de la feuille.
-      map.fitBounds(bounds, margesCadrage(map.getDiv()?.clientHeight ?? 0, sheetY, {
+      map.fitBounds(bounds, margesCadrage(map.getDiv()?.clientHeight ?? 0, feuilleCadrage, {
         // Meme arbitrage que le transport : voir TOUS les evenements prime
         // sur les garder au-dessus de la feuille. Les tenir dans le tiers haut
         // de l'ecran obligerait a reculer jusqu'a la region entiere — et ceux
@@ -297,41 +300,31 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, onBl
     }
 
     /*
-     * À l'arrivée, on cadre UNE fois, et seulement quand la feuille s'est tue.
+     * Un seul cadrage, immédiat, sur la place que la feuille VA occuper.
      *
-     * « Géométrie connue » n'est pas « géométrie posée » : au moment où la
-     * carte a sa hauteur, la feuille rejoint encore son palier et la hauteur
-     * d'écran réelle vient tout juste de remplacer sa valeur par défaut. Un
-     * cadrage joué là est calculé sur une géométrie transitoire — et comme les
-     * bornes ne changent plus ensuite, l'empreinte bloque toute correction : la
-     * vue fausse reste jusqu'à ce qu'on touche un filtre.
+     * Il n'y a plus rien à attendre : la feuille publie son palier d'arrivée
+     * dès le premier rendu, bien avant d'y arriver. Mesurer sur sa position
+     * vivante obligeait à attendre qu'elle se pose — et cette attente, branchée
+     * sur ses mouvements, était nourrie par les gestes de l'utilisateur :
+     * déplacer la carte fait tomber la feuille, donc repoussait l'échéance,
+     * puis le cadrage partait et écrasait le geste. Plus rien n'est différé.
      *
-     * On attend donc le calme AVANT de cadrer, au lieu de cadrer puis de se
-     * corriger : la carte ne se pose qu'une fois, elle ne saute plus du haut
-     * vers le bas sous les yeux.
-     *
-     * Et si une punaise est choisie à ce moment-là — retour d'une fiche, où la
-     * sélection et la vue sont restaurées — on ne cadre PAS. Une vue précise a
-     * été demandée, l'englobant de tout le nuage n'a rien à y faire.
-     *
-     * Les cadrages suivants (changement de filtre) partent sans attendre : la
-     * géométrie est posée depuis longtemps, et c'est un geste de l'utilisateur.
+     * Seule exception, au premier cadrage : si une punaise est choisie, on ne
+     * cadre pas. C'est le retour d'une fiche — la vue et la sélection y sont
+     * restaurées, la vignette est ouverte sur son événement, et l'englobant de
+     * tout le nuage n'a rien à y faire.
      */
     const lancer = () => {
-      if (premierCadrageFait.current) { cadrer(); return }
-      annulerCalme = quandToutEstPose(sheetY, () => {
+      if (!premierCadrageFait.current) {
         premierCadrageFait.current = true
         if (selectionRef.current) return
-        cadrer()
-      })
+      }
+      cadrer()
     }
 
-    const pret = () => cadrable(map.getDiv()?.clientHeight ?? 0, sheetY)
-    let annulerCalme: (() => void) | null = null
-    let annulerAttente: (() => void) | null = null
-    if (pret()) lancer()
-    else annulerAttente = desQueCadrable(pret, lancer)
-    return () => { annulerAttente?.(); annulerCalme?.() }
+    const pret = () => cadrable(map.getDiv()?.clientHeight ?? 0, feuilleCadrage)
+    if (pret()) { lancer(); return }
+    return desQueCadrable(pret, lancer)
 
     // PLANCHER DE ZOOM (bureau seulement).
     //
@@ -357,7 +350,7 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, onBl
         }
       })
     }
-  }, [map, evenements, fixedMap, sheetY])
+  }, [map, evenements, fixedMap, sheetY, sheetYRepos])
 
   useEffect(() => {
     if (!map) return
@@ -607,6 +600,12 @@ interface Props {
    */
   sheetY?: MotionValue<number>
   /**
+   * Où la feuille VA se poser. C'est ELLE que lisent les cadrages : ils
+   * calculent la place que la liste va occuper, pas celle qu'elle occupe
+   * pendant qu'elle glisse encore. Le suivi, lui, garde `sheetY`.
+   */
+  sheetYRepos?: MotionValue<number>
+  /**
    * Vrai tant qu'un doigt déplace la carte : le suivi de feuille se tait, sinon
    * la compensation de la chute annule le geste. Cf. `useSuiviFeuille`.
    */
@@ -641,7 +640,7 @@ interface Props {
   } | null
 }
 
-export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, restaurerVue, viserLieu, onBlocTropGrand, onMapDragStart, onMapDragEnd, onCameraIdle, sheetY, panEnCoursRef, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement, transport = null }: Props) {
+export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, restaurerVue, viserLieu, onBlocTropGrand, sheetYRepos, onMapDragStart, onMapDragEnd, onCameraIdle, sheetY, panEnCoursRef, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement, transport = null }: Props) {
   const [internalEtabId, setInternalEtabId] = useState<string | null>(null)
   const selectedEtabId    = selectedEtabIdProp !== undefined ? selectedEtabIdProp : internalEtabId
   const setSelectedEtabId = onSelectEtab ?? setInternalEtabId
@@ -699,6 +698,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
           onSelectEvent={onSelectEvent}
           fixedMap={fixedMap}
           sheetY={sheetY}
+          sheetYRepos={sheetYRepos}
           onBlocTropGrand={onBlocTropGrand}
         />
         <ProducerMarkers
@@ -715,7 +715,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
           dejaVise={viserLieu?.cle ?? null}
         />
 
-        {transport && <MapTransportLayer {...transport} sheetY={sheetY} />}
+        {transport && <MapTransportLayer {...transport} sheetY={sheetYRepos ?? sheetY} />}
         {/* Vignette établissement sélectionné */}
         {selectedEtab && selectedEtab.lat && selectedEtab.lng && (() => {
           const typeInfo = ETAB_TYPES[selectedEtab.type]

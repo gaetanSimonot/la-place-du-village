@@ -10,7 +10,7 @@ import { useTheme } from '@/components/ThemeProvider'
 import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
-import { viserMaplibre, hauteurBlocMaplibre, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, quandToutEstPose, bornesDe, empreinteBornes } from '@/lib/carteCadrage'
+import { viserMaplibre, hauteurBlocMaplibre, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, bornesDe, empreinteBornes } from '@/lib/carteCadrage'
 
 /** Cf. MapView.tsx : de combien la vignette se pose au-dessus du point. */
 const DECALAGE_VIGNETTE       = 36
@@ -89,6 +89,8 @@ interface Props {
    * `useSuiviFeuille`.
    */
   sheetY?: MotionValue<number>
+  /** Où la feuille VA se poser — lu par les cadrages. Cf. MapView.tsx. */
+  sheetYRepos?: MotionValue<number>
   /**
    * Vrai tant qu'un doigt déplace la carte : le suivi de feuille se tait, sinon
    * la compensation de la chute annule le geste. Cf. `useSuiviFeuille`.
@@ -129,7 +131,7 @@ interface Props {
 
 export default function MapViewMaplibre({
   evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, restaurerVue, viserLieu, onBlocTropGrand,
-  onMapDragStart, onMapDragEnd, onCameraIdle, sheetY, panEnCoursRef,
+  onMapDragStart, onMapDragEnd, onCameraIdle, sheetY, sheetYRepos, panEnCoursRef,
   producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer,
   etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement,
 }: Props) {
@@ -213,6 +215,8 @@ export default function MapViewMaplibre({
     const points = withLoc.map(e => ({ lat: e.lieux!.lat!, lng: e.lieux!.lng! }))
     const bornes = bornesDe(points)!
     const empreinte = empreinteBornes(bornes)
+    // Cf. MapView.tsx : on cadre sur le palier d'arrivée de la feuille.
+    const feuilleCadrage = sheetYRepos ?? sheetY
     if (derniereEmpreinte.current === empreinte) return
 
     const carte = m.getMap()
@@ -224,7 +228,7 @@ export default function MapViewMaplibre({
       }
       // Cf. MapView.tsx : le bas suit la feuille, le haut protège de la barre.
       carte.fitBounds([[bornes.minLng, bornes.minLat], [bornes.maxLng, bornes.maxLat]], {
-        padding: margesCadrage(carte.getContainer()?.clientHeight ?? 0, sheetY, {
+        padding: margesCadrage(carte.getContainer()?.clientHeight ?? 0, feuilleCadrage, {
           // Meme arbitrage que le transport : voir TOUS les evenements prime
           // sur les garder au-dessus de la feuille.
           haut: 60, cotes: 20, partFeuille: 0.5,
@@ -233,24 +237,19 @@ export default function MapViewMaplibre({
       })
     }
 
-    // Cf. MapView.tsx : ni carte sans hauteur, ni feuille sans position ; le
-    // cadrage d'arrivée attend que la feuille se taise et ne joue pas du tout
+    // Cf. MapView.tsx : rien de différé, et pas de cadrage au premier passage
     // si une punaise est choisie — retour d'une fiche, la vue est déjà voulue.
     const lancer = () => {
-      if (premierCadrageFait.current) { cadrer(); return }
-      annulerCalme = quandToutEstPose(sheetY, () => {
+      if (!premierCadrageFait.current) {
         premierCadrageFait.current = true
         if (selectionRef.current) return
-        cadrer()
-      })
+      }
+      cadrer()
     }
-    const pret = () => cadrable(carte.getContainer()?.clientHeight ?? 0, sheetY)
-    let annulerCalme: (() => void) | null = null
-    let annulerAttente: (() => void) | null = null
-    if (pret()) lancer()
-    else annulerAttente = desQueCadrable(pret, lancer)
-    return () => { annulerAttente?.(); annulerCalme?.() }
-  }, [evenements, fixedMap, sheetY])
+    const pret = () => cadrable(carte.getContainer()?.clientHeight ?? 0, feuilleCadrage)
+    if (pret()) { lancer(); return }
+    return desQueCadrable(pret, lancer)
+  }, [evenements, fixedMap, sheetY, sheetYRepos])
 
   /**
    * La carte suit la feuille — même règle que sur le fond Google.

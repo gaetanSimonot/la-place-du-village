@@ -117,6 +117,13 @@ interface Props {
    * rien redessiner. Absente, la feuille garde la sienne et rien ne change.
    */
   sheetY?: MotionValue<number>
+  /**
+   * Le palier où la feuille va se poser, publié dès qu'il est connu.
+   *
+   * La carte s'en sert pour cadrer : elle a besoin de la place que la liste
+   * VA occuper, pas de celle qu'elle occupe pendant qu'elle glisse encore.
+   */
+  sheetYRepos?: MotionValue<number>
 }
 
 export default function BottomSheet({
@@ -139,7 +146,7 @@ export default function BottomSheet({
   annuaireTab: annuaireTabProp, onAnnuaireTabChange,
   topBarV3 = false,
   isAdmin = false, onAdminMutated,
-  sheetY,
+  sheetY, sheetYRepos,
 }: Props) {
   const { sheetBg } = useTheme()
   const [peekH, setPeekH]         = useState(130) // hauteur mesurée du header
@@ -381,6 +388,11 @@ export default function BottomSheet({
   }, [mode, screenH, navHeight, peekH, getSnaps, y])
 
   const snaps = getSnaps(screenH, navHeight, peekH)
+
+  // Le palier visé, publié à chaque fois qu'il change — changement de palier,
+  // rotation de l'écran, hauteur de l'en-tête remesurée.
+  const repos = snaps[mode]
+  useEffect(() => { sheetYRepos?.set(repos) }, [sheetYRepos, repos])
 
   const snapTo = useCallback((target: 'peek' | 'half' | 'full') => {
     onModeChange(target)

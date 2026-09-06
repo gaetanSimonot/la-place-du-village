@@ -294,32 +294,6 @@ export function desQueVignettePrete(
 }
 
 /**
- * Faire une chose une fois que plus rien ne bouge.
- *
- * À l'arrivée sur la carte, tout se pose en même temps : la carte prend sa
- * hauteur, la feuille rejoint son palier, la hauteur d'écran réelle remplace
- * sa valeur par défaut, les données arrivent. Un cadrage joué au milieu de ça
- * est calculé sur une géométrie qui n'est pas encore la bonne — et comme les
- * bornes, elles, ne changent plus ensuite, rien ne vient le corriger : la vue
- * fausse reste jusqu'à ce qu'on touche un filtre.
- *
- * On attend donc le calme AVANT de cadrer, plutôt que de cadrer puis de se
- * corriger : la carte ne se pose qu'une fois, elle ne saute pas du haut vers le
- * bas sous les yeux. C'est une condition de calme et non un délai fixe : chaque
- * mouvement de la feuille repousse l'échéance, et le cadrage part quand elle
- * s'arrête pour de bon.
- *
- * Renvoie de quoi annuler, à rendre au nettoyage de l'effet.
- */
-export function quandToutEstPose(feuille: PositionFeuille, agir: () => void, calme = 400): () => void {
-  let minuteur: ReturnType<typeof setTimeout>
-  const repousser = () => { clearTimeout(minuteur); minuteur = setTimeout(agir, calme) }
-  const off = feuille && typeof feuille !== 'number' ? feuille.on('change', repousser) : null
-  repousser()
-  return () => { clearTimeout(minuteur); off?.() }
-}
-
-/**
  * Fond Google : pas de visée décalée dans l'API, on calcule le point.
  *
  * Un pixel vaut 1 / 2^zoom unité de monde projeté, et l'axe y du monde
