@@ -16,7 +16,7 @@ import { useTheme } from '@/components/ThemeProvider'
 import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
-import { viserGoogle, hauteurBlocGoogle, desQueVignettePrete, margesCadrage, fenetreVisible } from '@/lib/carteCadrage'
+import { viserGoogle, hauteurBlocGoogle, desQueVignettePrete, margesCadrage, fenetreVisible, feuillePlacee, bornesDe, empreinteBornes } from '@/lib/carteCadrage'
 
 /**
  * De combien la vignette se pose au-dessus du point. Une seule définition :
@@ -249,6 +249,8 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, onBl
    * quelle carte de recherche.
    */
   const cadrageFait = useRef(false)
+  /** Les bornes du dernier cadrage joué — pour ne pas le rejouer à l'identique. */
+  const derniereEmpreinte = useRef<string | null>(null)
 
   // Auto-fit bounds selon les événements visibles (désactivé en mode carte fixe)
   useEffect(() => {
@@ -257,26 +259,51 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, onBl
     if (surBureau && cadrageFait.current) return
     const withLoc = evenements.filter(e => e.lieux?.lat && e.lieux?.lng)
     if (withLoc.length === 0) return
-    if (surBureau) cadrageFait.current = true
 
-    if (withLoc.length === 1) {
-      viserGoogle(map, { lat: withLoc[0].lieux!.lat!, lng: withLoc[0].lieux!.lng! }, { feuille: sheetY, zoom: 14 })
-      return
+    // Cet effet se rejoue à chaque changement d'identité de la liste — un
+    // filtre, mais aussi une revalidation qui renvoie exactement les mêmes
+    // lieux. Or un cadrage ne regarde QUE les bornes : ni les titres, ni les
+    // promotions, ni l'ordre. Mêmes bornes, même vue, rien à rejouer.
+    const points = withLoc.map(e => ({ lat: e.lieux!.lat!, lng: e.lieux!.lng! }))
+    const empreinte = empreinteBornes(bornesDe(points)!)
+    if (derniereEmpreinte.current === empreinte) return
+
+    const cadrer = () => {
+      derniereEmpreinte.current = empreinte
+      if (surBureau) cadrageFait.current = true
+
+      if (points.length === 1) {
+        viserGoogle(map, points[0], { feuille: sheetY, zoom: 14 })
+        return
+      }
+
+      const bounds = new google.maps.LatLngBounds()
+      points.forEach(p => bounds.extend(p))
+      // Le bas ne vaut plus 180 en dur : il vaut ce que la feuille masque
+      // vraiment, qui va de ~130 en position basse à la moitié de l'écran à
+      // mi-hauteur. Le haut reste à 60 — il protège de la barre de
+      // l'application, pas de la feuille.
+      map.fitBounds(bounds, margesCadrage(map.getDiv()?.clientHeight ?? 0, sheetY, {
+        // Meme arbitrage que le transport : voir TOUS les evenements prime
+        // sur les garder au-dessus de la feuille. Les tenir dans le tiers haut
+        // de l'ecran obligerait a reculer jusqu'a la region entiere — et ceux
+        // qui passent sous la feuille sont justement ceux que la liste montre.
+        haut: 60, cotes: 20, partFeuille: 0.5,
+      }))
+
+      poserPlancherBureau()
     }
 
-    const bounds = new google.maps.LatLngBounds()
-    withLoc.forEach(e => bounds.extend({ lat: e.lieux!.lat!, lng: e.lieux!.lng! }))
-    // Le bas ne vaut plus 180 en dur : il vaut ce que la feuille masque
-    // vraiment, qui va de ~130 en position basse à la moitié de l'écran à
-    // mi-hauteur. Le haut reste à 60 — il protège de la barre de
-    // l'application, pas de la feuille.
-    map.fitBounds(bounds, margesCadrage(map.getDiv()?.clientHeight ?? 0, sheetY, {
-      // Meme arbitrage que le transport : voir TOUS les evenements prime sur
-      // les garder au-dessus de la feuille. Les tenir dans le tiers haut de
-      // l'ecran obligerait a reculer jusqu'a la region entiere — et ceux qui
-      // passent sous la feuille sont justement ceux que la liste montre.
-      haut: 60, cotes: 20, partFeuille: 0.5,
-    }))
+    // La feuille est chargée à la demande : elle peut ne pas encore avoir de
+    // position. Cadrer sans elle donnerait une vue calculée sur une marge de
+    // 20 px, corrigée un instant plus tard — on attend qu'elle se pose.
+    if (feuillePlacee(map.getDiv()?.clientHeight ?? 0, sheetY)) { cadrer(); return }
+    const stop = sheetY!.on('change', () => {
+      if (!feuillePlacee(map.getDiv()?.clientHeight ?? 0, sheetY)) return
+      stop()
+      cadrer()
+    })
+    return stop
 
     // PLANCHER DE ZOOM (bureau seulement).
     //
@@ -288,15 +315,17 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, onBl
     //
     // Réservé au bureau : sur un écran de 430 px, le même cadrage donne une
     // vue toute différente, et le mobile ne doit pas bouger.
-    if (surBureau) {
-      google.maps.event.addListenerOnce(map, 'idle', () => {
-        const z = map.getZoom()
+    function poserPlancherBureau() {
+      if (!surBureau) return
+      const carte = map!
+      google.maps.event.addListenerOnce(carte, 'idle', () => {
+        const z = carte.getZoom()
         if (typeof z === 'number' && z < ZOOM_MIN_BUREAU) {
           // On resserre ET on revient sur le village. Sans le recentrage, le
           // cadrage laisse la carte au barycentre des événements, qui tombe
           // vers Montpellier : on voit la vallée dans un coin de l'écran.
-          map.setZoom(ZOOM_MIN_BUREAU)
-          map.setCenter(GANGES)
+          carte.setZoom(ZOOM_MIN_BUREAU)
+          carte.setCenter(GANGES)
         }
       })
     }

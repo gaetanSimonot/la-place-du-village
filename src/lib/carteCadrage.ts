@@ -77,6 +77,53 @@ function surBureau(): boolean {
   return typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches
 }
 
+/**
+ * La feuille a-t-elle une position, ou n'est-elle pas encore montée ?
+ *
+ * Elle est chargée à la demande : la carte peut vouloir se cadrer avant qu'elle
+ * existe. Sa valeur de départ (9999) se lit comme une marge nulle, et cadrer
+ * là-dessus donne une vue calculée sans elle, corrigée un instant plus tard —
+ * un demi-cran de zoom qui bouge tout seul. Mieux vaut attendre une image.
+ *
+ * Vrai s'il n'y a rien à attendre : sur ordinateur la feuille est une colonne,
+ * et sans valeur fournie il n'y a pas de feuille du tout.
+ */
+export function feuillePlacee(hauteurCarte: number, feuille: PositionFeuille): boolean {
+  if (feuille == null || surBureau()) return true
+  const y = lireY(feuille)
+  return y != null && Number.isFinite(y) && y <= hauteurCarte
+}
+
+export interface Bornes { minLat: number; minLng: number; maxLat: number; maxLng: number }
+
+export function bornesDe(points: { lat: number; lng: number }[]): Bornes | null {
+  if (points.length === 0) return null
+  let minLat = 90, minLng = 180, maxLat = -90, maxLng = -180
+  for (const p of points) {
+    if (p.lat < minLat) minLat = p.lat
+    if (p.lat > maxLat) maxLat = p.lat
+    if (p.lng < minLng) minLng = p.lng
+    if (p.lng > maxLng) maxLng = p.lng
+  }
+  return { minLat, minLng, maxLat, maxLng }
+}
+
+/**
+ * De quoi savoir si un cadrage automatique donnerait la MEME vue qu'avant.
+ *
+ * Seules les bornes comptent : un cadrage ne regarde ni les titres, ni les
+ * promotions, ni l'ordre de la liste. Une revalidation qui renvoie les mêmes
+ * lieux ne doit donc pas rejouer le cadrage — sinon la carte bouge sans qu'on
+ * lui ait rien demandé.
+ *
+ * Cinq décimales, soit le mètre : deux réponses identiques ne doivent pas
+ * différer sur une décimale de flottant.
+ */
+export function empreinteBornes(b: Bornes): string {
+  const r = (v: number) => v.toFixed(5)
+  return `${r(b.minLat)}|${r(b.minLng)}|${r(b.maxLat)}|${r(b.maxLng)}`
+}
+
 export interface OptionsCadrage {
   /** Air au-dessus — la barre de l'application, sur mobile. */
   haut: number

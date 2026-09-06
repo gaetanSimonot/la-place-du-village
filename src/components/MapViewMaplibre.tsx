@@ -10,7 +10,7 @@ import { useTheme } from '@/components/ThemeProvider'
 import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
-import { viserMaplibre, hauteurBlocMaplibre, desQueVignettePrete, margesCadrage, fenetreVisible } from '@/lib/carteCadrage'
+import { viserMaplibre, hauteurBlocMaplibre, desQueVignettePrete, margesCadrage, fenetreVisible, feuillePlacee, bornesDe, empreinteBornes } from '@/lib/carteCadrage'
 
 /** Cf. MapView.tsx : de combien la vignette se pose au-dessus du point. */
 const DECALAGE_VIGNETTE       = 36
@@ -193,32 +193,49 @@ export default function MapViewMaplibre({
     )
   }, [viserLieu, sheetY])
 
-  // Auto-fit bounds sur les événements visibles (désactivé en carte fixe)
+  /**
+   * Auto-fit bounds sur les événements visibles (désactivé en carte fixe).
+   *
+   * Mêmes deux garde-fous que sur le fond Google, pour les mêmes raisons :
+   * on ne rejoue pas un cadrage qui donnerait la même vue, et on ne cadre pas
+   * avant que la feuille ait sa position.
+   */
+  const derniereEmpreinte = useRef<string | null>(null)
   useEffect(() => {
     const m = mapRef.current
     if (!m || fixedMap) return
     const withLoc = evenements.filter(e => e.lieux?.lat && e.lieux?.lng)
     if (withLoc.length === 0) return
-    if (withLoc.length === 1) {
-      viserMaplibre(m.getMap(), { lat: withLoc[0].lieux!.lat!, lng: withLoc[0].lieux!.lng! }, { feuille: sheetY, zoom: 14 })
-      return
+    const points = withLoc.map(e => ({ lat: e.lieux!.lat!, lng: e.lieux!.lng! }))
+    const bornes = bornesDe(points)!
+    const empreinte = empreinteBornes(bornes)
+    if (derniereEmpreinte.current === empreinte) return
+
+    const carte = m.getMap()
+    const cadrer = () => {
+      derniereEmpreinte.current = empreinte
+      if (points.length === 1) {
+        viserMaplibre(carte, points[0], { feuille: sheetY, zoom: 14 })
+        return
+      }
+      // Cf. MapView.tsx : le bas suit la feuille, le haut protège de la barre.
+      carte.fitBounds([[bornes.minLng, bornes.minLat], [bornes.maxLng, bornes.maxLat]], {
+        padding: margesCadrage(carte.getContainer()?.clientHeight ?? 0, sheetY, {
+          // Meme arbitrage que le transport : voir TOUS les evenements prime
+          // sur les garder au-dessus de la feuille.
+          haut: 60, cotes: 20, partFeuille: 0.5,
+        }),
+        duration: 600,
+      })
     }
-    let minLng = 180, minLat = 90, maxLng = -180, maxLat = -90
-    withLoc.forEach(e => {
-      minLng = Math.min(minLng, e.lieux!.lng!); maxLng = Math.max(maxLng, e.lieux!.lng!)
-      minLat = Math.min(minLat, e.lieux!.lat!); maxLat = Math.max(maxLat, e.lieux!.lat!)
+
+    if (feuillePlacee(carte.getContainer()?.clientHeight ?? 0, sheetY)) { cadrer(); return }
+    const stop = sheetY!.on('change', () => {
+      if (!feuillePlacee(carte.getContainer()?.clientHeight ?? 0, sheetY)) return
+      stop()
+      cadrer()
     })
-    // Cf. MapView.tsx : le bas suit la feuille, le haut protège de la barre.
-    m.getMap().fitBounds([[minLng, minLat], [maxLng, maxLat]], {
-      padding: margesCadrage(m.getMap().getContainer()?.clientHeight ?? 0, sheetY, {
-      // Meme arbitrage que le transport : voir TOUS les evenements prime sur
-      // les garder au-dessus de la feuille. Les tenir dans le tiers haut de
-      // l'ecran obligerait a reculer jusqu'a la region entiere — et ceux qui
-      // passent sous la feuille sont justement ceux que la liste montre.
-      haut: 60, cotes: 20, partFeuille: 0.5,
-    }),
-      duration: 600,
-    })
+    return stop
   }, [evenements, fixedMap, sheetY])
 
   /**
