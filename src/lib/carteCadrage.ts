@@ -104,6 +104,18 @@ export function margesCadrage(
   }
 }
 
+/**
+ * La hauteur réellement disponible pour poser un bloc, à cet instant.
+ *
+ * Se calcule sur la place qu'il RESTE, jamais sur une hauteur d'écran de
+ * référence : `innerHeight` bouge quand la barre du navigateur apparaît ou
+ * disparaît, et un grand téléphone passe alors sous le seuil le temps d'un
+ * défilement. C'est la place du moment qui décide, pas le modèle d'appareil.
+ */
+export function fenetreVisible(hauteurCarte: number, feuille: PositionFeuille): number {
+  return Math.max(0, hauteurCarte - margeBasse(hauteurCarte, feuille))
+}
+
 export interface Visee {
   /** Position de la feuille — c'est elle qui donne la marge. */
   feuille?: PositionFeuille

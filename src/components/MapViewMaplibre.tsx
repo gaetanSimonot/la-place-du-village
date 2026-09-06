@@ -10,7 +10,7 @@ import { useTheme } from '@/components/ThemeProvider'
 import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
-import { viserMaplibre, hauteurBlocMaplibre, desQueVignettePrete, margesCadrage } from '@/lib/carteCadrage'
+import { viserMaplibre, hauteurBlocMaplibre, desQueVignettePrete, margesCadrage, fenetreVisible } from '@/lib/carteCadrage'
 
 /** Cf. MapView.tsx : de combien la vignette se pose au-dessus du point. */
 const DECALAGE_VIGNETTE       = 36
@@ -78,6 +78,8 @@ interface Props {
   restaurerVue?: { lat: number; lng: number; zoom?: number } | null
   /** Amener un lieu au milieu de ce qui n'est pas masqué. */
   viserLieu?: { lat: number; lng: number; zoom?: number; cle?: string; avecVignette?: boolean } | null
+  /** La vignette ouverte ne tient pas dans la place qui reste. Cf. MapView.tsx. */
+  onBlocTropGrand?: () => void
   onMapDragStart?: () => void
   onMapDragEnd?: () => void
   onCameraIdle?: (lat: number, lng: number, zoom: number) => void
@@ -121,7 +123,7 @@ interface Props {
 }
 
 export default function MapViewMaplibre({
-  evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, restaurerVue, viserLieu,
+  evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, restaurerVue, viserLieu, onBlocTropGrand,
   onMapDragStart, onMapDragEnd, onCameraIdle, sheetY,
   producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer,
   etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement,
@@ -246,9 +248,14 @@ export default function MapViewMaplibre({
     // Le bloc punaise + vignette, pas la punaise seule — cf. MapView.tsx.
     return desQueVignettePrete(
       () => hauteurBlocMaplibre(DECALAGE_VIGNETTE),
-      bloc => viserMaplibre(carte, point, { feuille: sheetY, bloc }),
+      bloc => {
+        // Cf. MapView.tsx : trop haut pour la place qui reste, on demande à la
+        // feuille de descendre et on vise quand même — le suivi fait le reste.
+        if (bloc > fenetreVisible(carte.getContainer()?.clientHeight ?? 0, sheetY)) onBlocTropGrand?.()
+        viserMaplibre(carte, point, { feuille: sheetY, bloc })
+      },
     )
-  }, [selectedId, evenements, fixedMap, sheetY])
+  }, [selectedId, evenements, fixedMap, sheetY, onBlocTropGrand])
 
   useEffect(() => {
     if (!selectedEtabId) { dernierRecadreEtab.current = null; return }

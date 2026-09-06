@@ -411,6 +411,21 @@ export default function HomePage() {
    * chaque effleurement de la carte rend la saisie penible. La feuille reste
    * ou l'utilisateur l'a mise — a mi-hauteur ou en haut, c'est lui qui decide.
    */
+  /**
+   * Le seul cas où la carte a le droit de faire descendre la feuille.
+   *
+   * Taper une punaise ne replie plus rien : la carte vise pour la position où
+   * la feuille se trouve. Mais sur un petit écran — ou sur un grand dont la
+   * barre de navigateur vient de réapparaître — le bloc punaise + vignette est
+   * plus haut que la place qui reste, et il n'y a pas de cadrage qui le fasse
+   * tenir. On descend d'un cran, une seule fois, et on ne remonte pas tout
+   * seul : la feuille reste où elle est jusqu'à ce que l'utilisateur la
+   * reprenne.
+   */
+  const laisserLaPlaceALaVignette = useCallback(() => {
+    setSheetMode(prev => (prev === 'half' ? 'peek' : prev))
+  }, [])
+
   const onMapDragStart = useCallback(() => {
     if (modeTransport) return
     if (mapDragTimerRef.current) clearTimeout(mapDragTimerRef.current)
@@ -1144,6 +1159,7 @@ export default function HomePage() {
           onMapDragStart={onMapDragStart}
           onMapDragEnd={onMapDragEnd}
           sheetY={sheetY}
+          onBlocTropGrand={laisserLaPlaceALaVignette}
           onCameraIdle={(lat, lng, zoom) => { mapCameraRef.current = { lat, lng, zoom } }}
           transport={modeTransport && ligneTransport ? {
             arrets: arretsAffiches,
