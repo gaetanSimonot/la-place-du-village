@@ -94,6 +94,42 @@ export function feuillePlacee(hauteurCarte: number, feuille: PositionFeuille): b
   return y != null && Number.isFinite(y) && y <= hauteurCarte
 }
 
+/**
+ * La géométrie est-elle connue ? Deux conditions, une seule réponse.
+ *
+ * La carte doit avoir une hauteur — une fenêtre de hauteur nulle ne peut rien
+ * produire de sensé, et un cadrage qu'on y lance recule jusqu'au monde. Et la
+ * feuille doit avoir sa position, sans quoi la marge est fausse.
+ *
+ * Tant que ce n'est pas vrai, on ne cadre pas : on attend. Mieux vaut la vue
+ * enregistrée qu'une vue calculée sur une géométrie qu'on ne connaît pas.
+ */
+export function cadrable(hauteurCarte: number, feuille: PositionFeuille): boolean {
+  return hauteurCarte > 0 && feuillePlacee(hauteurCarte, feuille)
+}
+
+/**
+ * Attendre que la géométrie soit connue, puis cadrer — au plus deux secondes.
+ *
+ * Une image suffit d'ordinaire ; la feuille, chargée à la demande, peut en
+ * demander quelques dizaines. Passé le délai on renonce au cadrage plutôt que
+ * d'en jouer un faux : la vue enregistrée reste, et le prochain changement de
+ * liste réessaiera.
+ *
+ * Renvoie de quoi annuler, à rendre au nettoyage de l'effet.
+ */
+export function desQueCadrable(pret: () => boolean, cadrer: () => void, imagesMax = 120): () => void {
+  let image = 0
+  let restantes = imagesMax
+  const tour = () => {
+    if (pret()) { cadrer(); return }
+    if (restantes-- <= 0) return
+    image = requestAnimationFrame(tour)
+  }
+  image = requestAnimationFrame(tour)
+  return () => cancelAnimationFrame(image)
+}
+
 export interface Bornes { minLat: number; minLng: number; maxLat: number; maxLng: number }
 
 export function bornesDe(points: { lat: number; lng: number }[]): Bornes | null {
@@ -159,11 +195,13 @@ export function margesCadrage(
     ? PLANCHER_BANDEAU_PRO
     : margeBasse(hauteurCarte, feuille) * partFeuille
   const basse = (bas ?? cotes) + Math.round(masque)
-  // Sans hauteur connue, on ne sait pas plafonner : on rend les marges telles
-  // quelles plutôt que d'inventer un plafond depuis un zéro.
+  // Hauteur inconnue : on ne peut rien plafonner, donc on ne concède rien.
+  // Ce cas ne doit pas arriver — un cadrage ne se lance qu'une fois la
+  // géométrie connue (cf. `cadrable`) — et s'il arrive, mieux vaut une marge
+  // nulle qu'une marge que rien ne borne.
   const plafond = hauteurCarte
     ? Math.max(0, Math.round(hauteurCarte * (1 - PART_UTILE_MINIMALE)) - haut)
-    : basse
+    : 0
   return {
     top:    haut,
     right:  cotes,

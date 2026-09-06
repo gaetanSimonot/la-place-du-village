@@ -10,7 +10,7 @@ import { useTheme } from '@/components/ThemeProvider'
 import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
-import { viserMaplibre, hauteurBlocMaplibre, desQueVignettePrete, margesCadrage, fenetreVisible, feuillePlacee, bornesDe, empreinteBornes } from '@/lib/carteCadrage'
+import { viserMaplibre, hauteurBlocMaplibre, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, bornesDe, empreinteBornes } from '@/lib/carteCadrage'
 
 /** Cf. MapView.tsx : de combien la vignette se pose au-dessus du point. */
 const DECALAGE_VIGNETTE       = 36
@@ -229,13 +229,10 @@ export default function MapViewMaplibre({
       })
     }
 
-    if (feuillePlacee(carte.getContainer()?.clientHeight ?? 0, sheetY)) { cadrer(); return }
-    const stop = sheetY!.on('change', () => {
-      if (!feuillePlacee(carte.getContainer()?.clientHeight ?? 0, sheetY)) return
-      stop()
-      cadrer()
-    })
-    return stop
+    // Cf. MapView.tsx : ni carte sans hauteur, ni feuille sans position.
+    const pret = () => cadrable(carte.getContainer()?.clientHeight ?? 0, sheetY)
+    if (pret()) { cadrer(); return }
+    return desQueCadrable(pret, cadrer)
   }, [evenements, fixedMap, sheetY])
 
   /**

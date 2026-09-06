@@ -16,7 +16,7 @@ import { useTheme } from '@/components/ThemeProvider'
 import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
-import { viserGoogle, hauteurBlocGoogle, desQueVignettePrete, margesCadrage, fenetreVisible, feuillePlacee, bornesDe, empreinteBornes } from '@/lib/carteCadrage'
+import { viserGoogle, hauteurBlocGoogle, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, bornesDe, empreinteBornes } from '@/lib/carteCadrage'
 
 /**
  * De combien la vignette se pose au-dessus du point. Une seule définition :
@@ -294,16 +294,14 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, onBl
       poserPlancherBureau()
     }
 
-    // La feuille est chargée à la demande : elle peut ne pas encore avoir de
-    // position. Cadrer sans elle donnerait une vue calculée sur une marge de
-    // 20 px, corrigée un instant plus tard — on attend qu'elle se pose.
-    if (feuillePlacee(map.getDiv()?.clientHeight ?? 0, sheetY)) { cadrer(); return }
-    const stop = sheetY!.on('change', () => {
-      if (!feuillePlacee(map.getDiv()?.clientHeight ?? 0, sheetY)) return
-      stop()
-      cadrer()
-    })
-    return stop
+    // On ne cadre pas sur une géométrie qu'on ne connaît pas : ni sur une
+    // carte sans hauteur (elle en a une seulement une fois posée dans la
+    // page), ni avant que la feuille — chargée à la demande — ait sa position.
+    // Les deux donneraient une vue à corriger un instant plus tard, et la
+    // première ne donne même rien de sensé.
+    const pret = () => cadrable(map.getDiv()?.clientHeight ?? 0, sheetY)
+    if (pret()) { cadrer(); return }
+    return desQueCadrable(pret, cadrer)
 
     // PLANCHER DE ZOOM (bureau seulement).
     //
