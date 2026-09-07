@@ -47,9 +47,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .eq('id', id)
     .maybeSingle()
   if (article?.user_id && article.user_id !== ctx.userId) {
+    // Le nom de la personne, comme le fait déjà le commentaire d'article.
+    // L'affichage attendait un nom depuis le début (`actor_name ?? 'Un
+    // lecteur'` est un repli) : il n'avait simplement jamais été branché ici,
+    // et l'auteur ne recevait qu'un cœur anonyme.
+    const { data: prof } = await supabaseAdmin
+      .from('profiles')
+      .select('display_name')
+      .eq('user_id', ctx.userId)
+      .maybeSingle()
     await notifyUser(article.user_id, {
       type: 'article_like',
-      actor_name: 'Un lecteur',
+      actor_name: prof?.display_name ?? 'Un lecteur',
       target_type: 'article',
       target_id: id,
     })
