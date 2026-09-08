@@ -3,7 +3,7 @@
  * Côté serveur : les blocs "contenu" tirent les données fraîches du site.
  */
 import type { NewsletterBlock, ContentItem } from '@/lib/newsletterBlocks'
-import { getContent } from '@/lib/newsletterContent'
+import { getContent, getSemaineChiffres } from '@/lib/newsletterContent'
 
 const SITE = 'https://laplaceduvillage.app'
 const esc = (s: string) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -76,6 +76,37 @@ async function renderBlock(b: NewsletterBlock): Promise<string> {
     case 'button':     return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:14px auto"><tr><td style="border-radius:12px;background:#2D5A3D"><a href="${esc(b.href)}" style="display:inline-block;padding:13px 26px;color:#fff;font-weight:800;text-decoration:none;border-radius:12px">${esc(b.label)}</a></td></tr></table>`
     case 'image':      return b.url ? `<img src="${esc(b.url)}" alt="" width="528" style="display:block;width:100%;border-radius:12px;margin:10px 0"/>` : ''
     case 'separator':  return `<hr style="border:none;border-top:1px solid #EAE2D6;margin:20px 0"/>`
+    /**
+     * La semaine en chiffres : un grand nombre, puis les catégories en tuiles.
+     *
+     * Table et non flex/grid : c'est la seule mise en page à deux colonnes que
+     * tous les clients mail savent rendre, Outlook compris.
+     */
+    case 'semaine': {
+      const s = await getSemaineChiffres()
+      if (s.total === 0) return ''
+      const tuiles = s.categories.map(c => `
+        <td width="50%" valign="top" style="padding:0 4px 8px 0">
+          <div style="border:1px solid #EAE2D6;border-radius:12px;padding:10px 12px;background:#fff">
+            <span style="font-size:17px;font-weight:800;color:${c.couleur}">${c.n}</span>
+            <span style="font-size:13px;color:#4A3728;margin-left:6px">${c.emoji} ${esc(c.label)}</span>
+          </div>
+        </td>`)
+      let lignes = ''
+      for (let i = 0; i < tuiles.length; i += 2) {
+        lignes += `<tr>${tuiles[i]}${tuiles[i + 1] ?? '<td width="50%"></td>'}</tr>`
+      }
+      return `<div style="margin:14px 0">
+        ${sectionHeader(b.titre)}
+        <div style="text-align:center;padding:6px 0 14px">
+          <div style="font-family:Georgia,serif;font-size:38px;font-weight:800;color:#2D5A3D;line-height:1">${s.total}</div>
+          <div style="font-size:14px;color:#4A3728;margin-top:2px">événements près de chez vous</div>
+          <div style="font-size:12px;color:#9A8A7A;margin-top:2px">${esc(s.libelle)}</div>
+        </div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${lignes}</table>
+        <table role="presentation" cellpadding="0" cellspacing="0" style="margin:14px auto 0"><tr><td style="border-radius:12px;background:#2D5A3D"><a href="${esc(s.href)}" style="display:inline-block;padding:12px 24px;color:#fff;font-weight:800;text-decoration:none;border-radius:12px">Voir tout l’agenda →</a></td></tr></table>
+      </div>`
+    }
     case 'journal': {
       const items = await getContent('journal', 1, [])
       if (!items.length) return ''

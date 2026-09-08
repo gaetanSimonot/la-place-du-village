@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/server-auth'
+import { monterLettreDeLaSemaine } from '@/lib/newsletterAuto'
+import type { NewsletterBlock } from '@/lib/newsletterBlocks'
 
 /**
  * Brouillon de newsletter sauvegardé côté SERVEUR (table config, clé
@@ -17,9 +19,27 @@ export async function GET(req: NextRequest) {
   const ctx = await requireAdmin(req)
   if (ctx instanceof Response) return ctx
   const { data } = await supabaseAdmin.from('config').select('value').eq('key', KEY).maybeSingle()
-  let draft = null
+  let draft: { subject?: string; blocks?: unknown[]; inviteSubject?: string; invite?: unknown } | null = null
   try { draft = data?.value ? JSON.parse(data.value) : null } catch { draft = null }
-  return NextResponse.json({ draft })
+
+  /*
+   * La lettre est REMONTÉE à chaque ouverture, sur la semaine en cours.
+   *
+   * Le brouillon enregistré sert de base — les retouches faites à la main, un
+   * texte d'intro, un bouton ajouté, sont donc conservées. Mais tout ce qui
+   * dépend de la semaine (le sous-titre, l'article de l'habitant, les bons
+   * plans, les deux commerces) est recalculé : ouvrir l'éditeur un lundi doit
+   * montrer la lettre de CE lundi, pas celle qu'on avait laissée.
+   */
+  const auto = await monterLettreDeLaSemaine((draft?.blocks as NewsletterBlock[]) ?? null)
+
+  return NextResponse.json({
+    draft: {
+      ...(draft ?? {}),
+      subject: draft?.subject?.trim() ? draft.subject : auto.subject,
+      blocks: auto.blocks,
+    },
+  })
 }
 
 export async function PUT(req: NextRequest) {

@@ -19,6 +19,15 @@ export type NewsletterBlock =
   | ({ id: string; type: 'promos' } & ListBlockBase)
   | ({ id: string; type: 'annonces' } & ListBlockBase)
   | { id: string; type: 'journal'; titre: string }
+  /**
+   * La semaine en chiffres — le compte des événements par catégorie.
+   *
+   * Remplace la sélection manuelle d'événements, et c'est délibéré : choisir
+   * cinq événements parmi soixante, c'est se tromper cinquante-cinq fois, se
+   * répéter d'une semaine sur l'autre et risquer le doublon. Un décompte ne
+   * peut pas mal choisir — il dit la vérité, et il donne l'échelle.
+   */
+  | { id: string; type: 'semaine'; titre: string }
   | { id: string; type: 'article'; titre: string; ids: string[] }       // articles_journal choisis
   | { id: string; type: 'partenaires'; titre: string; ids: string[] }   // "etab:<id>" | "prod:<id>"
 
@@ -51,6 +60,7 @@ export function makeBlock(type: BlockType): NewsletterBlock {
     case 'promos':      return { id, type, titre: 'Les bons plans', mode: 'auto', count: 4, ids: [] }
     case 'annonces':    return { id, type, titre: 'Dans les annonces', mode: 'auto', count: 4, ids: [] }
     case 'journal':     return { id, type, titre: 'Le Journal du Village' }
+    case 'semaine':     return { id, type, titre: 'Cette semaine près de chez vous' }
     case 'article':     return { id, type, titre: 'À lire dans le Journal', ids: [] }
     case 'partenaires': return { id, type, titre: 'Nos coups de cœur', ids: [] }
   }
@@ -60,9 +70,21 @@ export function makeBlock(type: BlockType): NewsletterBlock {
 export function starterBlocks(): NewsletterBlock[] {
   return [
     makeBlock('header'),
-    makeBlock('text'),
-    makeBlock('events'),
+    makeBlock('semaine'),
+    makeBlock('promos'),
+    makeBlock('article'),
+    makeBlock('partenaires'),
   ]
+}
+
+/** Le décompte d'une catégorie, pour le bloc « semaine ». */
+export interface CompteCategorie { id: string; label: string; emoji: string; couleur: string; n: number }
+
+export interface SemaineChiffres {
+  total: number
+  libelle: string
+  categories: CompteCategorie[]
+  href: string
 }
 
 export const BLOCK_LABELS: Record<BlockType, string> = {
@@ -75,6 +97,7 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   promos: 'Bons plans / Promos',
   annonces: 'Annonces',
   journal: 'Le Journal',
+  semaine: 'La semaine en chiffres',
   article: 'Article du Journal',
   partenaires: 'Coups de cœur partenaires',
 }

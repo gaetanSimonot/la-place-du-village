@@ -7,7 +7,9 @@
  * conservé), sinon → top `count` automatique.
  */
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import type { ContentItem } from '@/lib/newsletterBlocks'
+import type { ContentItem, SemaineChiffres } from '@/lib/newsletterBlocks'
+import { semaineDe } from '@/lib/semaine'
+import { CATEGORIES } from '@/lib/categories'
 
 const SITE = 'https://laplaceduvillage.app'
 
@@ -18,10 +20,74 @@ function dateFr(d: string | null): string | null {
   if (!d) return null
   try { return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long' }).format(new Date(d + 'T12:00:00')) } catch { return d }
 }
-const clamp = (n: number) => Math.max(1, Math.min(12, Math.round(n || 4)))
+/**
+ * Plafond d'une section automatique.
+ *
+ * 30 et non 12 : « on met tous les bons plans » est une consigne explicite, et
+ * il y en a une dizaine en ce moment. Le plafond reste là pour qu'une donnée
+ * aberrante ne produise pas un email de 400 lignes.
+ */
+const clamp = (n: number) => Math.max(1, Math.min(30, Math.round(n || 4)))
 function orderByIds<T extends { id: string }>(rows: T[], ids: string[]): T[] {
   const map = Object.fromEntries(rows.map(r => [r.id, r]))
   return ids.map(i => map[i]).filter(Boolean)
+}
+
+// ── La semaine en chiffres ──────────────────────────────────────────────────
+
+/**
+ * Combien d'événements cette semaine, et de quelle sorte.
+ *
+ * Ce qu'on ÉCARTE, et pourquoi : les expositions et festivals qui durent une
+ * semaine ou plus. Ils sont vrais, mais ils sont là toutes les semaines — les
+ * compter gonflerait le chiffre sans rien dire de neuf, et le même « 30 » tous
+ * les lundis ne veut plus rien dire.
+ *
+ * Ce qu'on GARDE, et c'est délibéré : les rendez-vous récurrents, marchés en
+ * tête. Un marché le samedi est exactement ce qu'on veut annoncer un lundi.
+ * Les exclure faisait tomber le compte de 66 à 52 et la vallée paraissait plus
+ * endormie qu'elle ne l'est.
+ */
+const DUREE_EXPO_JOURS = 7
+
+export async function getSemaineChiffres(): Promise<SemaineChiffres> {
+  const sem = semaineDe()
+  const { data } = await supabaseAdmin
+    .from('evenements')
+    .select('date_debut, date_fin, categorie')
+    .eq('statut', 'publie')
+    .lte('date_debut', sem.fin)
+    .limit(3000)
+
+  const jours = (a: string, b: string | null) =>
+    Math.round((new Date((b ?? a) + 'T12:00:00').getTime() - new Date(a + 'T12:00:00').getTime()) / 86400000)
+
+  const retenus = (data ?? []).filter(e => {
+    const debut = e.date_debut as string
+    const fin   = (e.date_fin as string | null) ?? debut
+    if (fin < sem.debut) return false                       // déjà passé
+    return jours(debut, fin) < DUREE_EXPO_JOURS             // pas une expo au long cours
+  })
+
+  const compte: Record<string, number> = {}
+  for (const e of retenus) {
+    const c = (e.categorie as string) || 'autre'
+    compte[c] = (compte[c] ?? 0) + 1
+  }
+
+  const categories = Object.entries(compte)
+    .map(([id, n]) => {
+      const c = CATEGORIES[id as keyof typeof CATEGORIES] ?? CATEGORIES.autre
+      return { id, label: c.label, emoji: c.emoji, couleur: c.color, n }
+    })
+    .sort((a, b) => b.n - a.n)
+
+  return {
+    total: retenus.length,
+    libelle: sem.libelle,
+    categories,
+    href: `${SITE}/?mode=agenda&quand=cette_semaine`,
+  }
 }
 
 // ── Événements ──────────────────────────────────────────────────────────────

@@ -210,6 +210,12 @@ export default function NewsletterAdminClient() {
         </div>
       </div>
 
+      {/* ── L'envoi automatique et l'état de la file ──────────────────────
+          Ce panneau existe parce qu'on envoyait dans le noir : la file s'étale
+          sur plusieurs jours au rythme du quota, et rien ne disait où elle en
+          était. */}
+      <EtatEnvoi />
+
       {/* Envoi */}
       <div className="px-4 pt-5">
         <button onClick={send} disabled={sending} className="flex w-full items-center justify-center rounded-2xl border-none bg-primary py-3.5 text-[14px] font-extrabold text-white disabled:opacity-60">{sending ? 'Envoi…' : `Envoyer à ${recipientCount} destinataire${recipientCount > 1 ? 's' : ''}`}</button>
@@ -217,6 +223,100 @@ export default function NewsletterAdminClient() {
       </div>
 
       {listOpen && <ListModal audience={listOpen} onClose={() => setListOpen(null)} onChanged={load} />}
+    </div>
+  )
+}
+
+interface Etat {
+  destinataires: number
+  recu: number
+  reste: number
+  parJour: number
+  joursRestants: number
+  edition: { sujet: string; posee: string } | null
+  autoActif: boolean
+  semaine: string
+  envoyeeCetteSemaine: boolean
+}
+
+/**
+ * L'envoi du lundi : son interrupteur, et où en est la file.
+ *
+ * Trois choses qu'on ne savait pas avant : si l'envoi automatique est armé,
+ * combien de personnes ont déjà reçu l'édition en cours, et combien de jours
+ * il reste avant que tout le monde l'ait — le quota Resend étalant l'envoi.
+ */
+function EtatEnvoi() {
+  const [e, setE] = useState<Etat | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const charger = useCallback(async () => {
+    const r = await authedFetch('/api/admin/newsletter/etat', { cache: 'no-store' })
+    if (r.ok) setE(await r.json())
+  }, [])
+
+  useEffect(() => { charger() }, [charger])
+
+  const basculer = async () => {
+    if (!e || busy) return
+    setBusy(true)
+    await authedFetch('/api/admin/newsletter/etat', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ autoActif: !e.autoActif }),
+    })
+    await charger()
+    setBusy(false)
+  }
+
+  if (!e) return null
+
+  const dateFr = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+
+  return (
+    <div className="px-4 pt-5">
+      <div className="rounded-2xl border bg-white p-4" style={{ borderColor: e.autoActif ? '#C8DEC0' : '#EDE6DA' }}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[13px] font-extrabold text-texte">Envoi automatique du lundi</div>
+            <div className="mt-0.5 text-[11.5px] text-texte-doux">
+              {e.autoActif
+                ? `Chaque lundi à midi, la lettre de la semaine part toute seule.`
+                : `Désactivé — rien ne partira sans un clic de ta part.`}
+            </div>
+          </div>
+          <button
+            onClick={basculer}
+            disabled={busy}
+            className="shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-extrabold"
+            style={{
+              background: e.autoActif ? 'var(--primary)' : '#F0EAE0',
+              color: e.autoActif ? '#fff' : '#7A6A5A',
+            }}
+          >
+            {busy ? '…' : e.autoActif ? 'Activé' : 'Désactivé'}
+          </button>
+        </div>
+
+        <div className="mt-3 border-t pt-3 text-[12px] leading-[1.6] text-texte-doux" style={{ borderColor: '#F2ECE2' }}>
+          <div><strong className="text-texte">{e.semaine}</strong>{e.envoyeeCetteSemaine ? ' — déjà envoyée' : ' — pas encore envoyée'}</div>
+          {e.edition ? (
+            <>
+              <div className="mt-1">
+                Édition en file : « {e.edition.sujet} », posée le {dateFr(e.edition.posee)}
+              </div>
+              <div className="mt-1">
+                <strong className="text-texte">{e.recu}</strong> destinataire{e.recu > 1 ? 's' : ''} servi{e.recu > 1 ? 's' : ''}
+                {' · '}
+                <strong className="text-texte">{e.reste}</strong> en attente
+                {e.reste > 0 && ` · encore ${e.joursRestants} jour${e.joursRestants > 1 ? 's' : ''} (${e.parJour}/jour)`}
+              </div>
+            </>
+          ) : (
+            <div className="mt-1">Aucune édition en file pour l’instant.</div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -286,6 +386,15 @@ function BlockEditor({ block: b, patch }: { block: NewsletterBlock; patch: (p: P
   )
   if (b.type === 'image') return <ImageField label="Image" url={b.url} onChange={url => patch({ url } as Partial<NewsletterBlock>)} />
   if (b.type === 'separator') return <p className="text-center text-[12px] text-texte-doux">— ligne de séparation —</p>
+  if (b.type === 'semaine') return (
+    <div className="flex flex-col gap-2">
+      <input value={b.titre} onChange={e => patch({ titre: e.target.value } as Partial<NewsletterBlock>)} placeholder="Titre de la section" className={fieldCls} />
+      <p className="m-0 text-[11.5px] leading-[1.45] text-texte-doux">
+        Compte automatiquement les événements de la semaine par catégorie. Rien à
+        choisir : pas de doublon possible, pas de sélection à refaire chaque lundi.
+      </p>
+    </div>
+  )
   if (b.type === 'journal') return <input value={b.titre} onChange={e => patch({ titre: e.target.value } as Partial<NewsletterBlock>)} placeholder="Titre de la section" className={fieldCls} />
   if (b.type === 'article') return (
     <div className="flex flex-col gap-2">
