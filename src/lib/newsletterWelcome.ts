@@ -7,7 +7,7 @@
  * à la date de l'édition) reçoit automatiquement cette édition, une seule fois.
  */
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { wrapNewsletter } from '@/lib/newsletterRender'
+import { wrapNewsletter, MARQUE_PRENOM } from '@/lib/newsletterRender'
 import { sendEmail } from '@/lib/email'
 
 const SITE = 'https://laplaceduvillage.app'
@@ -29,9 +29,39 @@ export async function setCurrentEdition(subject: string, body: string): Promise<
   await supabaseAdmin.from('config').upsert({ key: KEY, value }, { onConflict: 'key' })
 }
 
-function editionHtml(body: string, token: string): string {
+/**
+ * Le prénom, tiré du nom affiché.
+ *
+ * Premier mot seulement : « Gaëtan Simonot » donne « Gaëtan ». On écarte ce
+ * qui ne ressemble pas à un prénom — une adresse, un nom d'enseigne à rallonge,
+ * du vide — plutôt que d'écrire « Bonjour contact@… ».
+ */
+function prenomDe(nom: string | null | undefined): string {
+  const p = String(nom ?? '').trim().split(/\s+/)[0] ?? ''
+  if (!p || p.length > 20 || p.includes('@')) return ''
+  return p
+}
+
+/**
+ * Personnalise le corps figé pour UN destinataire.
+ *
+ * Le corps de l'édition est rendu une seule fois puis envoyé à tout le monde :
+ * le prénom ne peut donc pas y être écrit au rendu. Il y a une marque, qu'on
+ * remplace ici — au même endroit et au même moment que le jeton de
+ * désabonnement. Sans prénom connu, la marque disparaît et la phrase se lit
+ * « Bonjour, », ce qui reste correct.
+ */
+function personnaliser(body: string, nom: string | null | undefined): string {
+  const p = prenomDe(nom)
+  return body.split(MARQUE_PRENOM).join(p ? ` ${p}` : '')
+}
+
+function editionHtml(body: string, token: string, nom?: string | null): string {
   const unsub = `${SITE}/newsletter?token=${token}&a=unsubscribe`
-  return wrapNewsletter(body, `Tu reçois cet email car tu es abonné·e à la newsletter de La Place du Village.<br/><a href="${unsub}" style="color:#9A8A7A">Se désabonner en un clic</a>`)
+  return wrapNewsletter(
+    personnaliser(body, nom),
+    `Tu reçois cet email car tu es abonné·e à la newsletter de La Place du Village.<br/><a href="${unsub}" style="color:#6B5C4C;text-decoration:underline">Se désabonner en un clic</a><br/>La Place du Village — 34190 Ganges, Hérault, France`,
+  )
 }
 
 /** En-têtes RFC 8058 : désabonnement « 1 clic » natif (Gmail/Outlook/Apple). */
@@ -49,10 +79,10 @@ const needsSend = (welcomedAt: string | null | undefined, sentAt: string) => !we
 export async function welcomeProfile(userId: string): Promise<void> {
   const ed = await getCurrentEdition()
   if (!ed) return
-  const { data } = await supabaseAdmin.from('profiles').select('email, newsletter_token, newsletter_welcomed_at').eq('user_id', userId).maybeSingle()
+  const { data } = await supabaseAdmin.from('profiles').select('email, display_name, newsletter_token, newsletter_welcomed_at').eq('user_id', userId).maybeSingle()
   if (!data?.email) return
   if (!needsSend(data.newsletter_welcomed_at as string | null, ed.sentAt)) return
-  const r = await sendEmail({ to: data.email as string, subject: ed.subject, html: editionHtml(ed.body, String(data.newsletter_token)), headers: unsubHeaders(String(data.newsletter_token)) })
+  const r = await sendEmail({ to: data.email as string, subject: ed.subject, html: editionHtml(ed.body, String(data.newsletter_token), data.display_name as string | null), headers: unsubHeaders(String(data.newsletter_token)) })
   if (!r.ok) return   // échec (ex. quota) → on ne marque PAS → le cron réessaiera
   await supabaseAdmin.from('profiles').update({ newsletter_welcomed_at: new Date().toISOString() }).eq('user_id', userId)
 }
@@ -76,12 +106,12 @@ export async function welcomeBacklog(limit = DAILY_LIMIT): Promise<number> {
   let sent = 0
 
   const { data: profs } = await supabaseAdmin
-    .from('profiles').select('user_id, email, newsletter_token, newsletter_welcomed_at')
+    .from('profiles').select('user_id, email, display_name, newsletter_token, newsletter_welcomed_at')
     .eq('newsletter_optin', true).not('email', 'is', null)
     .or(`newsletter_welcomed_at.is.null,newsletter_welcomed_at.lt.${ed.sentAt}`)
     .limit(limit)
   for (const p of profs ?? []) {
-    const r = await sendEmail({ to: p.email as string, subject: ed.subject, html: editionHtml(ed.body, String(p.newsletter_token)), headers: unsubHeaders(String(p.newsletter_token)) })
+    const r = await sendEmail({ to: p.email as string, subject: ed.subject, html: editionHtml(ed.body, String(p.newsletter_token), p.display_name as string | null), headers: unsubHeaders(String(p.newsletter_token)) })
     if (!r.ok) return sent   // quota/erreur → on s'arrête, le prochain cron reprendra
     await supabaseAdmin.from('profiles').update({ newsletter_welcomed_at: new Date().toISOString() }).eq('user_id', p.user_id)
     sent++
