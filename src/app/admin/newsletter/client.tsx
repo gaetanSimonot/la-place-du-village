@@ -102,6 +102,9 @@ export default function NewsletterAdminClient() {
 
   const recipientCount = counts ? (audience === 'subscribers' ? counts.subscribers : counts.nonSubscribers) : 0
 
+  /** Change après chaque envoi : c'est ce qui fait relire l'état de la file. */
+  const [majEtat, setMajEtat] = useState(0)
+
   const send = async () => {
     const subj = (audience === 'subscribers' ? subject : inviteSubject).trim()
     if (!subj) { toast.error('Objet requis'); return }
@@ -124,6 +127,10 @@ export default function NewsletterAdminClient() {
       } else {
         toast.success(`Envoyé à ${d.sent}/${d.total}`)
       }
+      // Le panneau du dessous montrait encore l'état d'AVANT l'envoi : on le
+      // relit. Sans ça, on vient de poster et l'écran dit toujours « pas
+      // encore envoyée ».
+      setMajEtat(n => n + 1)
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Erreur') } finally { setSending(false) }
   }
 
@@ -214,7 +221,7 @@ export default function NewsletterAdminClient() {
           Ce panneau existe parce qu'on envoyait dans le noir : la file s'étale
           sur plusieurs jours au rythme du quota, et rien ne disait où elle en
           était. */}
-      <EtatEnvoi />
+      <EtatEnvoi maj={majEtat} />
 
       {/* Envoi */}
       <div className="px-4 pt-5">
@@ -246,7 +253,7 @@ interface Etat {
  * combien de personnes ont déjà reçu l'édition en cours, et combien de jours
  * il reste avant que tout le monde l'ait — le quota Resend étalant l'envoi.
  */
-function EtatEnvoi() {
+function EtatEnvoi({ maj }: { maj: number }) {
   const [e, setE] = useState<Etat | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -255,7 +262,8 @@ function EtatEnvoi() {
     if (r.ok) setE(await r.json())
   }, [])
 
-  useEffect(() => { charger() }, [charger])
+  // `maj` change à chaque envoi → on relit.
+  useEffect(() => { charger() }, [charger, maj])
 
   const basculer = async () => {
     if (!e || busy) return
