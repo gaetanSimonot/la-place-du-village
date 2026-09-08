@@ -370,11 +370,24 @@ function ListModal({ audience, onClose, onChanged }: { audience: Audience; onClo
 
 // ── Éditeur d'un bloc ───────────────────────────────────────────────────────
 function BlockEditor({ block: b, patch }: { block: NewsletterBlock; patch: (p: Partial<NewsletterBlock>) => void }) {
+  /*
+   * Pas de champ image ici, et pas de sous-titre non plus.
+   *
+   * L'en-tête est devenu un bandeau vert dessiné : l'image n'y est plus
+   * rendue, et le sous-titre porte la semaine en cours, recalculée à chaque
+   * ouverture. Laisser les deux contrôles, c'était proposer de remplir des
+   * cases sans effet — on charge une image qui n'apparaîtra jamais.
+   *
+   * Les champs restent dans le MODÈLE (les brouillons enregistrés ne cassent
+   * pas), ils ne sont simplement plus offerts à la saisie.
+   */
   if (b.type === 'header') return (
     <div className="flex flex-col gap-2">
-      <ImageField label="Image (optionnelle)" url={b.imageUrl ?? ''} onChange={url => patch({ imageUrl: url } as Partial<NewsletterBlock>)} />
       <input value={b.titre} onChange={e => patch({ titre: e.target.value } as Partial<NewsletterBlock>)} placeholder="Titre" className={fieldCls} />
-      <input value={b.sousTitre} onChange={e => patch({ sousTitre: e.target.value } as Partial<NewsletterBlock>)} placeholder="Sous-titre" className={fieldCls} />
+      <p className="m-0 text-[11.5px] leading-[1.45] text-texte-doux">
+        Bandeau vert, avec « Agenda, sorties, bons plans » et la semaine en
+        cours — {b.sousTitre || 'calculée à l’ouverture'}. Le reste est fixe.
+      </p>
     </div>
   )
   if (b.type === 'text') return <textarea value={b.texte} onChange={e => patch({ texte: e.target.value } as Partial<NewsletterBlock>)} rows={4} placeholder="Ton texte…" className={fieldCls + ' resize-none'} />
