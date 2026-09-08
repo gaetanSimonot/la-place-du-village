@@ -21,40 +21,38 @@ function retirer(blocs: NewsletterBlock[], type: NewsletterBlock['type']): Newsl
 }
 
 /**
- * L'article d'un habitant paru cette semaine.
+ * L'article du journal de la semaine.
  *
- * On ne prend QUE les articles écrits par des habitants : ceux de l'admin sont
- * déjà le corps du journal, les remettre en avant reviendrait à s'auto-citer.
- * S'il y en a plusieurs, on garde le plus récent — un seul, pour ne pas avoir
- * à arbitrer entre deux voisins.
+ * On part du NUMÉRO, pas d'une fenêtre de dates : `journaux_hebdo` porte
+ * `semaine_du`/`semaine_au`, et les articles s'y rattachent par `journal_id`.
+ * C'est la même semaine que celle du sous-titre, sans risque de décalage d'un
+ * jour.
+ *
+ * Peu importe qui l'a écrit — un habitant ou l'admin. Ce qui compte, c'est
+ * qu'un article ait été écrit cette semaine ; s'il n'y en a pas, la section
+ * n'apparaît pas. S'il y en a plusieurs, on garde le plus récent : un seul,
+ * pour ne pas avoir à arbitrer.
+ *
+ * Repli sur la date de création si le numéro de la semaine n'existe pas encore
+ * — le journal est généré le lundi matin, mais rien ne garantit qu'il soit là.
  */
-export async function articleHabitantDeLaSemaine(): Promise<string | null> {
+export async function articleDeLaSemaine(): Promise<string | null> {
   const sem = semaineDe()
 
-  const { data: articles } = await supabaseAdmin
-    .from('articles_journal')
-    .select('id, user_id, created_at')
+  const { data: numero } = await supabaseAdmin
+    .from('journaux_hebdo').select('id').eq('semaine_du', sem.debut).maybeSingle()
+
+  const req = supabaseAdmin
+    .from('articles_journal').select('id')
     .eq('statut', 'publie')
-    .gte('created_at', `${sem.debut}T00:00:00`)
     .order('created_at', { ascending: false })
-    .limit(20)
+    .limit(1)
 
-  if (!articles?.length) return null
+  const { data } = numero?.id
+    ? await req.eq('journal_id', numero.id)
+    : await req.gte('created_at', `${sem.debut}T00:00:00`)
 
-  // Qui est admin ? On compare par email, comme le reste de l'application.
-  const { data: admins } = await supabaseAdmin.from('admin_emails').select('email')
-  const emailsAdmin = new Set((admins ?? []).map(a => String(a.email).toLowerCase()))
-
-  const auteurs = Array.from(new Set(articles.map(a => a.user_id as string)))
-  const { data: profils } = await supabaseAdmin
-    .from('profiles').select('user_id, email').in('user_id', auteurs)
-  const emailDe = Object.fromEntries((profils ?? []).map(p => [p.user_id as string, String(p.email ?? '').toLowerCase()]))
-
-  const habitant = articles.find(a => {
-    const mail = emailDe[a.user_id as string]
-    return mail && !emailsAdmin.has(mail)
-  })
-  return (habitant?.id as string) ?? null
+  return (data?.[0]?.id as string | undefined) ?? null
 }
 
 /** Deux commerces à mettre en avant — les payants d'abord. */
@@ -113,8 +111,8 @@ export async function monterLettreDeLaSemaine(base?: NewsletterBlock[] | null): 
     blocPromos.ids = []
   }
 
-  // L'article d'un habitant, ou pas de section du tout.
-  const article = await articleHabitantDeLaSemaine()
+  // L'article de la semaine, ou pas de section du tout.
+  const article = await articleDeLaSemaine()
   const blocArticle = blocs.find(b => b.type === 'article')
   if (!article) blocs = retirer(blocs, 'article')
   else if (blocArticle && blocArticle.type === 'article') blocArticle.ids = [article]
