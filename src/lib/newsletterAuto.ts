@@ -21,6 +21,42 @@ function retirer(blocs: NewsletterBlock[], type: NewsletterBlock['type']): Newsl
 }
 
 /**
+ * Garantit qu'un bloc existe, sans défaire la mise en page déjà réglée.
+ *
+ * Un brouillon enregistré avant l'arrivée d'un type de bloc ne le contient
+ * évidemment pas — et se contenter de modifier les blocs présents ne le fera
+ * jamais apparaître. C'est ce qui manquait : la lettre se montait sans le bloc
+ * chiffres parce que le brouillon ne l'avait pas.
+ *
+ * `remplace` sert à la substitution : le bloc chiffres prend la PLACE de
+ * l'ancienne sélection d'événements, il ne s'ajoute pas à côté d'elle — sinon
+ * on annonce deux fois les mêmes événements, une fois comptés, une fois
+ * choisis.
+ */
+function garantir(
+  blocs: NewsletterBlock[],
+  type: NewsletterBlock['type'],
+  o: { remplace?: NewsletterBlock['type']; apres?: NewsletterBlock['type'][] } = {},
+): NewsletterBlock[] {
+  if (blocs.some(b => b.type === type)) return blocs
+
+  const neuf = makeBlock(type)
+
+  if (o.remplace) {
+    const i = blocs.findIndex(b => b.type === o.remplace)
+    if (i >= 0) return [...blocs.slice(0, i), neuf, ...blocs.slice(i + 1)]
+  }
+
+  // Sinon : juste après le dernier des blocs cités, ou à la fin.
+  let pos = -1
+  for (const t of o.apres ?? []) {
+    const i = blocs.map(b => b.type).lastIndexOf(t)
+    if (i > pos) pos = i
+  }
+  return pos >= 0 ? [...blocs.slice(0, pos + 1), neuf, ...blocs.slice(pos + 1)] : [...blocs, neuf]
+}
+
+/**
  * L'article du journal de la semaine.
  *
  * On part du NUMÉRO, pas d'une fenêtre de dates : `journaux_hebdo` porte
@@ -101,27 +137,39 @@ export async function monterLettreDeLaSemaine(base?: NewsletterBlock[] | null): 
   const entete = blocs.find(b => b.type === 'header')
   if (entete && entete.type === 'header') entete.sousTitre = sem.libelle
 
+  // Le décompte prend la place de l'ancienne sélection d'événements.
+  blocs = garantir(blocs, 'semaine', { remplace: 'events', apres: ['header'] })
+
   // Les bons plans : tous ceux qui sont valides, et rien si la liste est vide.
   const promos = await nombreDePromos()
-  const blocPromos = blocs.find(b => b.type === 'promos')
   if (promos === 0) blocs = retirer(blocs, 'promos')
-  else if (blocPromos && blocPromos.type === 'promos') {
-    blocPromos.mode = 'auto'
-    blocPromos.count = promos          // « on les met toutes »
-    blocPromos.ids = []
+  else {
+    blocs = garantir(blocs, 'promos', { apres: ['semaine', 'header'] })
+    const blocPromos = blocs.find(b => b.type === 'promos')
+    if (blocPromos && blocPromos.type === 'promos') {
+      blocPromos.mode = 'auto'
+      blocPromos.count = promos        // « on les met toutes »
+      blocPromos.ids = []
+    }
   }
 
   // L'article de la semaine, ou pas de section du tout.
   const article = await articleDeLaSemaine()
-  const blocArticle = blocs.find(b => b.type === 'article')
   if (!article) blocs = retirer(blocs, 'article')
-  else if (blocArticle && blocArticle.type === 'article') blocArticle.ids = [article]
+  else {
+    blocs = garantir(blocs, 'article', { apres: ['journal', 'semaine', 'header'] })
+    const blocArticle = blocs.find(b => b.type === 'article')
+    if (blocArticle && blocArticle.type === 'article') blocArticle.ids = [article]
+  }
 
   // Deux commerces mis en avant — sous deux, on ne montre rien.
   const partenaires = await partenairesDeLaSemaine()
-  const blocPart = blocs.find(b => b.type === 'partenaires')
   if (partenaires.length < 2) blocs = retirer(blocs, 'partenaires')
-  else if (blocPart && blocPart.type === 'partenaires') blocPart.ids = partenaires
+  else {
+    blocs = garantir(blocs, 'partenaires')
+    const blocPart = blocs.find(b => b.type === 'partenaires')
+    if (blocPart && blocPart.type === 'partenaires') blocPart.ids = partenaires
+  }
 
   return { subject: sem.libelle, blocks: blocs }
 }
