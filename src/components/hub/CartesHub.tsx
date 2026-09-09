@@ -71,20 +71,30 @@ export const IconArrow = ({ size = 11 }: { size?: number }) => (
 /* ─── SectionHeader V3 ───────────────────────────────────────────────── */
 
 export function SectionHeaderV3({
-  title, kicker, subtitle, action, onAction,
+  title, kicker, subtitle, action, onAction, compact = false,
 }: {
   title: string
   kicker?: string
   subtitle?: string
   action?: string
   onAction?: () => void
+  /**
+   * Version resserrée, pour la page Village en mobile : titre plus petit, une
+   * seule ligne, sous-titre ignoré, et l'en-tête se rattache à ce qui le
+   * précède au lieu de flotter.
+   *
+   * C'est une VARIANTE et non un remplacement : `HubView` passe un sous-titre
+   * dans ses quatre appels, et le retirer partout les ferait disparaître en
+   * silence.
+   */
+  compact?: boolean
 }) {
   return (
-    <div className="px-4 pb-3 pt-6">
+    <div className={compact ? 'px-4 pb-2.5 pt-2' : 'px-4 pb-3 pt-6'}>
       <div className="flex items-baseline justify-between gap-2.5">
         <div className="flex min-w-0 flex-1 items-baseline gap-2">
           <h3
-            className="m-0 truncate font-serif text-[22px] font-normal leading-[1.1] text-texte"
+            className={`m-0 truncate font-serif leading-[1.1] text-texte ${compact ? 'text-[15px]' : 'text-[22px] font-normal'}`}
             style={{ letterSpacing: '-0.02em' }}
           >
             {title}
@@ -104,7 +114,7 @@ export function SectionHeaderV3({
           </button>
         )}
       </div>
-      {subtitle && (
+      {subtitle && !compact && (
         <p className="mt-1 text-[12px] font-medium text-texte-doux">{subtitle}</p>
       )}
     </div>

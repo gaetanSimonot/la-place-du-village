@@ -281,3 +281,45 @@ html[data-univers='cinema'] body { background: var(--cine-bg); }
   .lpv-pastille { transition: none !important; transform: none !important; }
   .lpv-eq-bar { animation: none; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PAGE VILLAGE — le fond photo du haut (mobile)
+
+   Le héros et le gros titre partagent une photo, comme le héros de la
+   version ordinateur. Le voile passe du translucide à l'opaque en
+   descendant : la photo se fond dans le crème de la page, et le titre reste
+   lisible sans qu'on ait à assombrir l'image.
+
+   Au-dessus de 1024 px, `DesktopVillageHero` porte déjà cette photo et son
+   titre : le fond se retire pour ne pas les doubler.
+   ═══════════════════════════════════════════════════════════════════════ */
+.pcv-topPhoto { position: relative; overflow: hidden; }
+.pcv-topPhoto > .pcv-topPhoto-bg { position: absolute; inset: 0; z-index: 0; }
+.pcv-topPhoto > .pcv-topPhoto-bg img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  object-position: center 42%;
+}
+.pcv-topPhoto > .pcv-topPhoto-bg::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(178deg,
+    rgba(253, 250, 245, 0.62) 0%,
+    rgba(253, 250, 245, 0.74) 38%,
+    rgba(253, 250, 245, 0.93) 78%,
+    #FDFAF5 100%);
+}
+.pcv-topPhoto > .pcv-topPhoto-ct { position: relative; z-index: 1; }
+
+@media (min-width: 1024px) {
+  .pcv-topPhoto > .pcv-topPhoto-bg { display: none; }
+}
+
+/* Le bouton de l'Assistant, posé au-dessus de la barre du bas.
+   Sur ordinateur cette barre n'existe pas (`BottomNavBar` est en `pcv-hide`) :
+   le bouton descend, sinon il flotterait 68 px trop haut, au-dessus de rien.
+   On le garde à cette taille d'écran plutôt que de le masquer — ce serait
+   retirer le seul point d'entrée de l'assistant. */
+@media (min-width: 1024px) {
+  .pcv-assistFab { bottom: 24px !important; right: 24px; }
+}

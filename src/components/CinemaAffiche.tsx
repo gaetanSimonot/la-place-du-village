@@ -75,52 +75,53 @@ export default function CinemaAffiche({ isAdmin = false }: { isAdmin?: boolean }
   const lien = seule ? `/cinema?cinema=${seule.slug ?? seule.id}` : '/cinema'
 
   return (
-    <div className="mx-4 mt-3.5 overflow-hidden rounded-[20px] bg-white" style={{ border: '1px solid #EDE8E0' }}>
-      <Link href={lien} className="flex items-center gap-[10px] px-[15px] pb-2.5 pt-3 no-underline">
-        <span className="shrink-0 text-texte">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 8h18v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" />
-            <path d="M3 8l2.5-4 4 2M9 6l4.5-2.5 4 2M15 4l4.5-1.5L21 6" />
-          </svg>
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="font-title text-[16.5px] leading-tight text-texte">Au cinéma</div>
-          <div className="mt-[2px] text-[11px] text-texte-doux">
-            {films.length} film{films.length > 1 ? 's' : ''} à l’affiche
-            {seancesDuJour.length > 0 && ` · ${seancesDuJour.length} séance${seancesDuJour.length > 1 ? 's' : ''} aujourd’hui`}
-            {data.cinemas.length > 1 ? ` · ${data.cinemas.length} salles` : ''}
-          </div>
-        </div>
-        <span className="flex shrink-0 items-center gap-1 text-[12.5px] font-bold" style={{ color: '#C84B2F' }}>
-          Tout voir
+    <>
+      {/* Rubrique OUVERTE et non carte fermée : le cinéma est une section du
+          flux, au même rang que « Nos rubriques » ou « Le fil du village ». */}
+      <div className="flex items-baseline justify-between gap-2.5 px-4 pb-2.5 pt-[18px]">
+        <span className="font-serif text-[20px] leading-[1.15] text-texte" style={{ letterSpacing: '-0.02em' }}>Au cinéma</span>
+        <Link href={lien} className="flex shrink-0 items-center gap-1 text-[12.5px] font-bold no-underline" style={{ color: '#C84B2F' }}>
+          Voir tout
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" />
           </svg>
-        </span>
-      </Link>
+        </Link>
+      </div>
 
-      {/* Affiches seules. Ni titre, ni horaire : le bloc annonce qu'il se
-          passe quelque chose au cinéma et renvoie à la programmation — les
-          détails sont à un tap, ils n'ont pas à encombrer l'accueil. */}
-      <div className="flex gap-2 overflow-x-auto px-[15px] pb-[15px]" style={{ scrollbarWidth: 'none' }}>
+      {/* Les affiches seules. Pas de bandeau de titre dessous : le titre est
+          déjà imprimé sur l'affiche. Il ne réapparaît qu'en repli, quand il
+          n'y a pas d'image. */}
+      <div className="flex items-start gap-2.5 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
         {films.map(({ film }) => (
-          <Link key={film.id} href={`/cinema/film/${film.id}`} className="shrink-0 no-underline">
-            <div className="relative overflow-hidden rounded-[10px]"
-              style={{ width: 76, aspectRatio: '2 / 3', background: 'linear-gradient(160deg,#2A2320,#0F0D0C)' }}>
+          <Link key={film.id} href={`/cinema/film/${film.id}`} className="block shrink-0 overflow-hidden rounded-[12px] no-underline"
+            style={{ width: 88, boxShadow: '0 2px 8px rgba(44,28,16,.14)' }}>
+            {/* `display:block` obligatoire : sur un span inline, `aspect-ratio`
+                ne s'applique pas et la vignette s'écrase. 27/40 = les vraies
+                proportions d'une affiche, pas du 2:3. */}
+            <span className="relative block w-full"
+              style={{ aspectRatio: '27 / 40', background: 'linear-gradient(160deg,#2A2320,#0F0D0C)' }}>
               {film.affiche_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={film.affiche_url} alt={film.titre} className="h-full w-full object-cover" loading="lazy" />
               ) : (
-                <div className="flex h-full w-full items-end p-1.5">
+                <span className="flex h-full w-full items-end p-1.5">
                   <span style={{ fontSize: 9.5, fontWeight: 800, lineHeight: 1.15, color: '#F4E7CE', textShadow: '0 1px 3px rgba(0,0,0,.6)' }}>
                     {film.titre}
                   </span>
-                </div>
+                </span>
               )}
-            </div>
+            </span>
           </Link>
         ))}
       </div>
-    </div>
+
+      {/* Le comptage passe SOUS les affiches, en petit : c'est une précision,
+          pas une accroche. */}
+      <p className="m-0 px-4 pt-1.5 text-[11.5px]" style={{ color: '#7A6A5A' }}>
+        {films.length} film{films.length > 1 ? 's' : ''} à l’affiche
+        {seancesDuJour.length > 0 && ` · ${seancesDuJour.length} séance${seancesDuJour.length > 1 ? 's' : ''} aujourd’hui`}
+        {data.cinemas.length > 1 ? ` · ${data.cinemas.length} salles` : ''}
+      </p>
+    </>
   )
 }

@@ -171,26 +171,45 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
           qui sont masqués au-dessus de 1024 px. */}
       <DesktopVillageHero />
 
-      {/* Le héros — l'encart mis en avant, au-dessus de l'assistant. Les deux
-          sont indépendants : chacun demande au serveur s'il est ouvert à cette
-          personne, et l'un peut vivre sans l'autre. */}
-      <HerosVillage />
+      {/* ── Haut de page : le héros et le titre sur un fond photo commun ──
+          Reprise du héros de la version ordinateur. Le voile va du translucide
+          en haut à l'opaque en bas : la photo se fond dans la page, et le
+          titre reste lisible sans qu'on ait à assombrir l'image.
+          `pcv-hide` sur le fond seulement — le héros du village, lui, existe
+          sur les deux tailles d'écran. */}
+      <div className="pcv-topPhoto">
+        <div className="pcv-topPhoto-bg" aria-hidden>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/splash-bg-aujourdhui.jpg" alt="" />
+        </div>
+        <div className="pcv-topPhoto-ct">
+          {/* Le héros mis en avant — indépendant de l'assistant : chacun
+              demande au serveur s'il est ouvert à cette personne. */}
+          <HerosVillage />
 
-      {/* L'Assistant Village, sous la barre du haut et au-dessus du titre.
-          Le composant décide seul de s'afficher ou non : il demande au
-          serveur si l'assistant est ouvert à cette personne. */}
-      <BarreAssistant />
-
-      {/* Titre — 2 lignes, gros et gras (façon mockup).
-          pcv-hide : sur bureau, c'est le héros qui porte le titre. */}
-      <div className="pcv-hide px-4 pb-4 pt-4">
-        <h1 className="m-0 text-[27px] font-extrabold leading-[1.12] text-texte" style={{ letterSpacing: '-0.02em' }}>
-          Aujourd&apos;hui<br />dans le village
-        </h1>
+          {/* Titre — deux lignes, deux couleurs de la charte.
+              pcv-hide : sur bureau, c'est le héros qui porte le titre. */}
+          <div className="pcv-hide">
+            <h1 className="m-0 px-4 pb-5 pt-1 text-[27px] font-extrabold leading-[1.12]" style={{ letterSpacing: '-0.02em' }}>
+              <span style={{ color: '#2D5A3D' }}>Aujourd&apos;hui</span><br />
+              <span style={{ color: '#C84B2F' }}>près de chez vous</span>
+            </h1>
+          </div>
+        </div>
       </div>
 
-      {/* 4 tuiles — remplacées sur bureau par les quatre portes du héros. */}
-      <div className="pcv-hide"><Tiles /></div>
+      {/* Aujourd'hui — bento du hub (featured + minis), Voir tout → carte.
+          Masqué sur bureau : la section « À la une aujourd'hui » ci-dessous
+          montre les mêmes événements au gabarit trois tuiles. */}
+      <div className="pcv-hide"><TodaySection onVoirTout={onOpenAgendaToday} /></div>
+
+      {/* Sections bureau : à la une, territoire, agenda de la semaine. */}
+      <DesktopVillageSections />
+
+      {/* Au cinéma — remonté juste après l'agenda du jour, dont il est le
+          prolongement. Le composant décide seul s'il s'affiche : réglage de
+          visibilité, compte admin, et rien à l'affiche = pas de bloc. */}
+      <CinemaAffiche isAdmin={isAdmin} />
 
       {/* CTA abonnement (comptes gratuits, dismissable) — repris du hub.
           pcv-hide : sur bureau il vit dans la colonne de droite, entre les
@@ -204,28 +223,10 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
         </div>
       )}
 
-      {/* Aujourd'hui — bento du hub (featured + minis), Voir tout → carte.
-          Masqué sur bureau : la section « À la une aujourd'hui » ci-dessous
-          montre les mêmes événements au gabarit trois tuiles. */}
-      <div className="pcv-hide"><TodaySection onVoirTout={onOpenAgendaToday} /></div>
+      {/* Nos rubriques — les 4 raccourcis, descendus sous l'agenda.
+          Remplacées sur bureau par les quatre portes du héros. */}
+      <div className="pcv-hide"><Tiles /></div>
 
-      {/* Sections bureau : à la une, territoire, agenda de la semaine. */}
-      <DesktopVillageSections />
-
-      {/* Au cinéma — sous l'agenda du jour, dont il est le prolongement. Le
-          composant décide seul s'il s'affiche : réglage de visibilité, compte
-          admin, et rien à l'affiche = pas de bloc du tout. */}
-      <CinemaAffiche isAdmin={isAdmin} />
-
-      {/* Fil du village */}
-      <div className="mt-4 px-4">
-        <div className="mb-2 flex items-center gap-1.5 text-[10.5px] font-extrabold uppercase tracking-[0.06em] text-primary">
-          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
-          </svg>
-          Le fil du village
-        </div>
-      </div>
       <VillageFeed user={user} avatar={avatar} authorName={profile?.display_name ?? 'Moi'} />
 
       </div>
@@ -240,11 +241,16 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
         ) : null}
       />
       </div>
+
+      {/* L'Assistant Village — bouton flottant par-dessus la page, hors du
+          flux. Le composant décide seul de s'afficher : il demande au serveur
+          si l'assistant est ouvert à cette personne. */}
+      <BarreAssistant />
     </div>
   )
 }
 
-/* ── 4 raccourcis — cartes photo verticales (façon mockup) ──────────── */
+/* ── Nos rubriques — 4 raccourcis en cartes blanches ─────────────────── */
 function Tiles() {
   const router = useRouter()
   const [counts, setCounts] = useState<{ reels: number; debats: number; journal: number; annonces: number; debatPhoto?: string | null } | null>(null)
@@ -253,50 +259,50 @@ function Tiles() {
     fetch('/api/village/counts').then(r => (r.ok ? r.json() : null)).then(d => { if (d) setCounts(d) }).catch(() => {})
   }, [])
 
-  const TILES: { key: 'reels' | 'debats' | 'journal' | 'annonces'; label: string; href: string; color: string; photo: string; icon: React.ReactNode }[] = [
-    { key: 'reels', label: 'Reels', href: '/en-ce-moment?view=1', color: '#E8622A', photo: '/splash-bg-aujourdhui.jpg', icon: <><polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" /></> },
-    { key: 'debats', label: 'Débats', href: '/forum', color: '#7C3AED', photo: counts?.debatPhoto || '/hub-intro-slide.webp', icon: <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z" /> },
-    { key: 'journal', label: 'Journal', href: '/journal', color: '#7C5C3B', photo: '/og/journal.jpg', icon: <><rect x="2" y="4" width="20" height="16" rx="2" ry="2" /><line x1="6" y1="8" x2="18" y2="8" /><line x1="6" y1="12" x2="18" y2="12" /><line x1="6" y1="16" x2="14" y2="16" /></> },
-    { key: 'annonces', label: 'Annonces', href: '/annonces', color: '#2D5A3D', photo: '/og/annonces.jpg', icon: <><path d="M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></> },
+  /* Les photos ne servent plus : la carte est blanche, l'icône colorée porte
+     la rubrique. `debatPhoto` reste dans la réponse de l'API, simplement
+     inutilisé ici. */
+  const TILES: { key: 'reels' | 'debats' | 'journal' | 'annonces'; label: string; href: string; color: string; icon: React.ReactNode }[] = [
+    { key: 'reels', label: 'Reels', href: '/en-ce-moment?view=1', color: '#E8622A', icon: <><polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" /></> },
+    { key: 'debats', label: 'Débats', href: '/forum', color: '#7C3AED', icon: <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z" /> },
+    { key: 'journal', label: 'Journal', href: '/journal', color: '#7C5C3B', icon: <><rect x="2" y="4" width="20" height="16" rx="2" ry="2" /><line x1="6" y1="8" x2="18" y2="8" /><line x1="6" y1="12" x2="18" y2="12" /><line x1="6" y1="16" x2="14" y2="16" /></> },
+    { key: 'annonces', label: 'Annonces', href: '/annonces', color: '#2D5A3D', icon: <><path d="M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></> },
   ]
+
   return (
-    <div className="grid grid-cols-4 gap-2 px-4">
-      {TILES.map(t => {
-        const n = counts?.[t.key] ?? 0
-        return (
-          <button
-            key={t.key}
-            onClick={() => router.push(t.href)}
-            className="flex flex-col items-center border-none bg-transparent p-0 text-center"
-            style={{ cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-          >
-            {/* Carte photo verticale : gradient noir bas + pastille icône + badge count */}
-            <div className="relative w-full overflow-hidden rounded-[16px]" style={{ aspectRatio: '0.68', background: '#E4DACA', boxShadow: '0 2px 8px rgba(44,28,16,0.10)' }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={t.photo} alt="" className="h-full w-full object-cover" />
-              {/* Gradient noir depuis le bas → détache la pastille icône */}
-              <span className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.18) 38%, rgba(0,0,0,0) 60%)' }} />
-              <span
-                className="absolute bottom-2 left-1/2 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full"
-                style={{ background: t.color, color: '#fff', border: '3px solid rgba(251,244,232,0.95)' }}
-              >
-                <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">{t.icon}</svg>
+    <>
+      <div className="flex items-baseline justify-between gap-2.5 px-4 pb-2.5 pt-[18px]">
+        <span className="font-serif text-[20px] leading-[1.15] text-texte" style={{ letterSpacing: '-0.02em' }}>Nos rubriques</span>
+      </div>
+      <div className="grid grid-cols-4 gap-2 px-4">
+        {TILES.map(t => {
+          const n = counts?.[t.key] ?? 0
+          return (
+            <button
+              key={t.key}
+              onClick={() => router.push(t.href)}
+              className="flex flex-col items-center gap-2 rounded-[18px] border-none bg-white px-1 pb-3 pt-3.5 text-center"
+              style={{ cursor: 'pointer', boxShadow: '0 2px 10px rgba(44,28,16,.08)', WebkitTapHighlightColor: 'transparent' }}
+            >
+              <span className="relative flex h-[42px] w-[42px] items-center justify-center rounded-full" style={{ background: t.color, color: '#fff' }}>
+                <svg width={19} height={19} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">{t.icon}</svg>
+                {/* Badge du compteur, posé sur le rond — masqué à zéro : une
+                    pastille « 0 » annonce du vide au lieu de le taire. */}
+                {n > 0 && (
+                  <span
+                    className="absolute inline-flex h-[17px] min-w-[17px] items-center justify-center rounded-full px-1 text-[9.5px] font-extrabold text-white"
+                    style={{ top: -5, right: -7, background: t.color, border: '1.5px solid #fff' }}
+                  >
+                    {n > 99 ? '99+' : n}
+                  </span>
+                )}
               </span>
-              {/* Badge compteur en haut à droite (style notif) — masqué si 0 */}
-              {n > 0 && (
-                <span
-                  className="absolute right-1.5 top-1.5 inline-flex h-[20px] min-w-[20px] items-center justify-center rounded-full px-1 text-[10.5px] font-extrabold text-white"
-                  style={{ background: t.color, border: '1.5px solid #fff' }}
-                >
-                  {n > 99 ? '99+' : n}
-                </span>
-              )}
-            </div>
-            <span className="mt-1.5 text-[12.5px] font-extrabold text-texte" style={{ letterSpacing: '-0.005em' }}>{t.label}</span>
-          </button>
-        )
-      })}
-    </div>
+              <span className="text-[12px] font-extrabold text-texte" style={{ letterSpacing: '-0.005em' }}>{t.label}</span>
+            </button>
+          )
+        })}
+      </div>
+    </>
   )
 }
 
@@ -319,12 +325,14 @@ function TodaySection({ onVoirTout }: { onVoirTout?: () => void }) {
   const showMoreCard = featuredEv && remaining > 0 && miniEvents.length < 2
 
   return (
-    <div className="mt-5">
+    <div>
+      {/* Le compte EST le titre. « Aujourd'hui · 14 » suivi de « 14 événements
+          près de chez vous » disait deux fois la même chose, sous un gros
+          titre qui commençait déjà par « Aujourd'hui ». */}
       <SectionHeaderV3
-        title="Aujourd'hui"
-        kicker={`· ${todayTotal}`}
-        subtitle={`${todayTotal} événement${todayTotal > 1 ? 's' : ''} près de chez vous`}
-        action="Voir tout"
+        compact
+        title={`${todayTotal} événement${todayTotal > 1 ? 's' : ''}`}
+        action="Voir tout l’agenda"
         onAction={onVoirTout ?? (() => router.push('/?tab=carte'))}
       />
       <div
@@ -440,7 +448,24 @@ function VillageFeed({ user, avatar, authorName }: { user: ReturnType<typeof use
   }
 
   return (
-    <div className="px-4 pt-1">
+    <>
+      {/* En-tête du fil, au même rang que « Au cinéma » et « Nos rubriques ».
+          L'ancien sur-titre minuscule en capitales vertes tenait mal à côté
+          d'eux : deux échelles de titre à dix pixels d'écart.
+
+          Le compteur ne coûte AUCUNE requête — c'est le nombre de posts déjà
+          chargés par ce composant. Masqué tant que le chargement n'a rien
+          rendu, pour ne pas afficher « 0 publication » puis se corriger. */}
+      <div className="flex items-baseline justify-between gap-2.5 px-4 pb-2.5 pt-[22px]">
+        <span className="font-serif text-[20px] leading-[1.15] text-texte" style={{ letterSpacing: '-0.02em' }}>Le fil du village</span>
+        {posts.length > 0 && (
+          <span className="shrink-0 text-[11.5px]" style={{ color: '#7A6A5A' }}>
+            {posts.length} publication{posts.length > 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
+
+    <div className="px-4">
       {/* Composer launcher — poste sur le village */}
       <button
         type="button"
@@ -498,5 +523,6 @@ function VillageFeed({ user, avatar, authorName }: { user: ReturnType<typeof use
         />
       )}
     </div>
+    </>
   )
 }
