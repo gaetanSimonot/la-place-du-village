@@ -70,6 +70,8 @@ const PHRASES: Record<string, (n: NotifLike) => string> = {
   post_broadcast:         n => `${n.actor_name ?? 'La Place du Village'} a publié`,
   support_message:        n => `${n.actor_name ?? 'Quelqu’un'} vous a écrit au support`,
   support_conversation:   n => `${n.actor_name ?? 'Quelqu’un'} a ouvert une conversation support`,
+  // Exploitation
+  collector_muet:         n => `⚠️ Le collector ne répond plus depuis ${n.actor_name ?? 'plusieurs heures'} — appuie sur l’icône Collector du téléphone`,
 }
 
 /**
@@ -103,6 +105,9 @@ export function notifUrl(n: NotifLike, opts: { isAdmin?: boolean } = {}): string
   if (t === 'post_broadcast' && id) return `${NOTIFS_URL}&post=${id}`
 
   if (t === 'journal_brouillon')                     return '/admin/journal'
+  // Panne du collector : rien à ouvrir en particulier, la réparation se fait
+  // sur le téléphone. L'admin est le seul écran qui ait du sens.
+  if (t === 'collector_muet')                        return '/admin'
   if (t === 'claim_pending' || tt === 'claim')       return '/admin?section=demandes'
   if ((t === 'claim_approved' || t === 'claim_rejected') && id) return `/etablissement/${id}`
   if (t === 'correction_proposee' && id)             return `/evenement/${id}?correction=1`
