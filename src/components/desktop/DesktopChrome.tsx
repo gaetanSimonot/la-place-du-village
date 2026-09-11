@@ -31,6 +31,11 @@ const ONGLETS: { label: string; href: string; vue?: string; actif: (p: string, v
   { label: 'Carte',       href: '/?mode=agenda', vue: 'carte',   actif: (p, vue) => p === '/' && vue === 'carte' },
   { label: 'Bons plans',  href: '/promotions',            actif: p => p.startsWith('/promotions') },
   { label: 'Annonces',    href: '/annonces',              actif: p => p.startsWith('/annonces') },
+  // Les salles du territoire. L'entrée est en dur : contrairement au bloc du
+  // Village, elle ne consulte pas le réglage de visibilité du module — une
+  // barre de navigation qui apparaît et disparaît selon un réglage serait
+  // pire que le mal. La page, elle, dit d'elle-même quand rien n'est joué.
+  { label: 'Cinémas',     href: '/cinema',                actif: p => p.startsWith('/cinema') },
 ]
 
 /** Le reste du village, replié — le menu du haut ne doit pas déborder. */

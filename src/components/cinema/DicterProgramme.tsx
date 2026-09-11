@@ -192,7 +192,7 @@ export default function DicterProgramme({ cinemaId, films, onClose, onEnregistre
   return (
     <ClientPortal>
       <div onClick={onClose} className="fixed inset-0 z-[3400] flex items-end justify-center" style={{ background: 'rgba(26,18,9,0.5)' }}>
-        <div onClick={e => e.stopPropagation()} className="w-full max-w-[460px] rounded-t-[22px] bg-white px-4 pb-8 pt-4"
+        <div onClick={e => e.stopPropagation()} className="pcv-sheet w-full max-w-[460px] rounded-t-[22px] bg-white px-4 pb-8 pt-4"
           style={{ maxHeight: '92dvh', overflowY: 'auto' }}>
           <div className="mx-auto mb-3 h-1 w-9 rounded-full" style={{ background: '#D1CCC4' }} />
 

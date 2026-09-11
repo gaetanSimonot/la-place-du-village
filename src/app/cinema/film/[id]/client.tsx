@@ -85,7 +85,7 @@ export default function FilmClient({ id }: { id: string }) {
   }
 
   return (
-    <div className="relative min-h-[100dvh] font-inter" style={{ background: 'var(--cine-bg)', color: 'var(--cine-ink)', paddingBottom: 92 }}>
+    <div className="pcv-cine relative min-h-[100dvh] font-inter" style={{ background: 'var(--cine-bg)', color: 'var(--cine-ink)', paddingBottom: 92 }}>
       {/* En-tête : retour et partage, comme sur les fiches événements */}
       <div className="flex items-center justify-between gap-2 px-3.5 py-2.5"
         style={{ paddingTop: 'max(14px, env(safe-area-inset-top, 14px))' }}>

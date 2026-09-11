@@ -1,0 +1,303 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   MODULE CINÉMA — version ordinateur
+
+   Même règle que le reste du chantier bureau : RIEN ici ne s'applique en
+   dessous de 1024 px. Le téléphone garde exactement l'écran qu'il avait.
+
+   PARTI PRIS : le cinéma ne se réétale pas sur 1900 px, il se POSE.
+   Ses trois écrans (/cinema, /cinema/film/[id], /cinema/admin) sont écrits
+   pour une colonne de 430 px — un rouleau d'affiches, des lignes de séances
+   bord à bord, une pastille de jour de 46 px. Étirés, ils se défont ; il n'y
+   avait rien à y gagner. Ici la colonne devient un PANNEAU centré posé sur
+   le fond de la salle : la mise en page est celle du téléphone, à l'identique,
+   et l'écran large sert à l'encadrer plutôt qu'à la distendre.
+
+   La conséquence heureuse : aucun écran du module n'a de seconde mise en
+   page à maintenir. Une section ajoutée demain à /cinema tombe dans le
+   panneau sans qu'on ait à y penser.
+
+   Le fond, lui, prend l'écran entier — l'en-tête, le bandeau de contexte et
+   le pied de page basculent en bleu nuit, exactement comme la barre du bas
+   bascule sur téléphone. Sans ça, une bande blanche de 100 px barrait le
+   haut d'un écran de cinéma.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* L'enveloppe du carrousel ne produit AUCUNE boîte tant qu'on n'est pas sur
+   un écran large : sur téléphone, le rouleau d'affiches est exactement celui
+   d'avant. Et la seconde copie de la liste — celle qui referme la boucle du
+   carrousel — n'existe que là-haut. */
+.pcv-cineCarrousel { display: contents; }
+.pcv-cineDup { display: none; }
+
+@media (min-width: 1024px) {
+
+  /* La copie reparaît : sans elle, la boucle saute. */
+  .pcv-cineDup { display: block; }
+
+  /* ─── 1. Le fond file d'un bord à l'autre ────────────────────────────
+     La règle générique de desktop-pages.css recadre toute page portant
+     `min-h-[100dvh]` à 1220 px. Appliquée ici, elle enfermait la salle dans
+     une boîte bleu nuit posée sur du crème, avec deux bandes claires sur les
+     côtés. C'est le PANNEAU qui porte la largeur (§2), pas la page. */
+  .pcv-cine {
+    max-width: none !important;
+    /* Ces marges tiennent DEUX espaces à la fois, et c'est voulu :
+       — ce qui dépasse du panneau (26 px en haut, 44 px en bas dans le
+         `::after`) est la marge EXTÉRIEURE, entre le panneau et le châssis ;
+       — le reste (40-26 = 14 px en haut, 80-44 = 36 px en bas) est la réserve
+         INTÉRIEURE, entre le bord du panneau et le contenu.
+       Sans cette réserve basse, le dernier élément — « Voir tout le
+       programme » — se retrouvait plaqué contre le bord du panneau. */
+    padding: 40px 20px 80px !important;
+    background: transparent !important;
+    /* Le module passe DEVANT le châssis du site (en-tête à z-index 60, pied
+       de page). C'est ce qui permet au voile ci-dessous de les recouvrir :
+       tant qu'on est dans la salle, le reste du site est éteint. */
+    z-index: 400;
+  }
+
+  /* ─── Le voile ───────────────────────────────────────────────────────
+     Entrer au cinéma, c'est éteindre la lumière : le site derrière est
+     assombri ET rendu inerte — aucun clic ne le traverse. On ressort par la
+     seule porte prévue, « ← La Place du Village », qui est dans le panneau
+     et donc AU-DESSUS du voile.
+
+     Posé en `z-index: -1` dans le contexte d'empilement de la racine : il est
+     derrière le contenu du panneau, mais devant tout ce qui est hors de la
+     racine — c'est-à-dire tout le site. Le défilement de la page, lui, n'est
+     pas bloqué : un voile `fixed` ne retient pas la molette.
+
+     UNIQUEMENT sur l'univers public : « Mon cinéma » est un écran de travail,
+     pas une salle obscure, et son exploitant doit garder la navigation. */
+  html[data-univers='cinema'] .pcv-cine::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: rgba(4, 7, 10, .88);
+    z-index: -1;
+    pointer-events: auto;
+  }
+
+  /* Le châssis de PhoneFrame est déjà neutralisé sur bureau, mais il garde
+     son fond crème : c'est lui qu'on voyait autour de la salle. */
+  html[data-univers='cinema'] body .pf-bg { background: var(--cine-bg); }
+
+  /* ─── 2. Le panneau ──────────────────────────────────────────────────
+     880 px : une salle n'est pas un téléphone posé au milieu de l'écran.
+     Assez large pour que la ligne d'affiches et les séances respirent, assez
+     étroit pour que rien de ce qui a été dessiné pour 430 px ne se déforme.
+     Il défile avec la page — pas de barre de défilement interne, qui ferait
+     deux ascenseurs sur le même écran. */
+  .pcv-cine > * {
+    max-width: 880px;
+    margin-left: auto;
+    margin-right: auto;
+    /* Au-dessus du voile et du décor du panneau, tous deux posés dessous. */
+    position: relative;
+    z-index: 1;
+  }
+  /* Ce qui est en `position: fixed` (barre du bas, modales) ne fait pas
+     partie du panneau : ni recadré, ni repositionné. */
+  .pcv-cine > .fixed,
+  .pcv-cine > [style*="position: fixed"],
+  .pcv-cine > [style*="position:fixed"] {
+    max-width: none;
+    position: fixed;
+  }
+
+  /* Le panneau se voit : détaché du fond, cerné d'un filet, posé par une
+     ombre. C'est la salle éclairée au milieu du noir. Il est dessiné en
+     décor plutôt qu'en conteneur — aucun élément du module n'a eu à changer
+     de place dans le DOM, donc le téléphone n'a rien vu passer.
+     La racine porte déjà `relative` (classe Tailwind) : le décor s'y cale. */
+  .pcv-cine::after {
+    content: '';
+    position: absolute;
+    top: 26px;
+    bottom: 44px;
+    left: 50%;
+    width: 880px;
+    transform: translateX(-50%);
+    border-radius: 20px;
+    /* Plus CLAIR que le fond, jamais plus sombre : un panneau plus sombre
+       que ce qui l'entoure se lit comme un trou, pas comme une salle
+       éclairée. `--cine-panel` est déjà la couleur des panneaux du module. */
+    background: var(--cine-panel);
+    border: 1px solid var(--cine-line);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, .45);
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  /* ─── 3. La ligne d'affiches défile toute seule ───────────────────────
+     Une barre de défilement en travers des affiches, c'est l'aveu qu'on a
+     posé un geste de pouce sur un écran de bureau. La ligne tourne en boucle
+     à la place : la liste est doublée dans le JSX, la copie prend le relais
+     quand l'originale sort du cadre, et la boucle ne se voit pas. Le survol
+     l'arrête — on lit ce qu'on regarde. Mêmes rouages que le carrousel des
+     partenaires du Village (desktop-village2.css). */
+  .pcv-cineCarrousel {
+    display: block;
+    overflow: hidden;
+    /* Les deux bords s'estompent : la ligne n'a ni début ni fin visibles. */
+    mask-image: linear-gradient(90deg, transparent 0, #000 46px, #000 calc(100% - 46px), transparent 100%);
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 46px, #000 calc(100% - 46px), transparent 100%);
+  }
+  .pcv-cinePiste {
+    width: max-content;
+    overflow: visible !important;
+    padding: 4px 0 10px !important;
+    gap: 18px !important;
+    /* 3,4 s par affiche : assez lent pour lire un titre en passant. */
+    animation: pcv-cineDefile calc(var(--pcv-n, 5) * 3.4s) linear infinite;
+  }
+  /* Le survol arrête tout : on lit l'affiche qu'on regarde, et on peut la
+     cliquer sans courir après. */
+  .pcv-cineCarrousel:hover .pcv-cinePiste,
+  .pcv-cineCarrousel:focus-within .pcv-cinePiste { animation-play-state: paused; }
+
+  @keyframes pcv-cineDefile {
+    from { transform: translate3d(0, 0, 0); }
+    /* Moitié de la piste = la liste d'origine, puisqu'elle est doublée. Le
+       demi-gap fait que la boucle se referme exactement. */
+    to   { transform: translate3d(calc(-50% - 9px), 0, 0); }
+  }
+
+  /* Les affiches gagnent la taille que l'écran permet. */
+  .pcv-cinePiste .pcv-cineAff { width: 168px !important; }
+  .pcv-cinePiste .pcv-cineAff > div:first-child { width: 100% !important; }
+
+  /* Quelqu'un qui a demandé moins d'animations n'a pas à subir celle-ci :
+     la ligne redevient un rouleau qu'on pousse. */
+  @media (prefers-reduced-motion: reduce) {
+    .pcv-cinePiste { animation: none; }
+    .pcv-cineCarrousel { overflow-x: auto; }
+  }
+
+  /* La rubrique « Au cinéma » du Village emprunte le titrage commun
+     (`.pcv-bh`), mais elle vit dans le flux et non dans `.pcv-sections` :
+     elle n'hérite donc pas de ses marges. On les lui rend, sinon le filet du
+     titre colle aux affiches. */
+  .pcv-bh { padding-left: 0 !important; padding-right: 0 !important; padding-top: 34px !important; }
+  /* Le lien de la rubrique cinéma porte l'orange de son univers en style
+     inline. Au milieu de rubriques dont les liens sont tous verts, il faisait
+     tache : même titrage veut dire jusqu'au bout. */
+  .pcv-bh .pcv-more { color: #2D5A3D !important; }
+
+  /* ─── 4. Ce que l'écran large permet, sans rien redessiner ────────────
+     Une souris survole ; l'app est écrite en `:active`, qui ne lui dit rien.
+     Ces règles n'ajoutent aucune mise en page, seulement la réponse qu'un
+     bureau attend. */
+  .pcv-cine a[href^="/cinema/film/"] { transition: opacity .15s; }
+  .pcv-cine a[href^="/cinema/film/"]:hover { opacity: .82; }
+
+  /* Les rouleaux horizontaux (affiches, jours, salles) gardent leur geste,
+     mais un bureau a besoin de voir qu'il y a matière à faire défiler : la
+     barre est masquée partout dans l'app par `scrollbarWidth: none`. */
+  /* `scrollbarWidth: 'none'` est posé en style INLINE par ces composants :
+     seul `!important` passe devant. */
+  .pcv-cine [style*="scrollbar-width"] { scrollbar-width: thin !important; }
+  .pcv-cine [style*="scrollbar-width"]::-webkit-scrollbar {
+    display: block !important;
+    height: 8px;
+  }
+  .pcv-cine [style*="scrollbar-width"]::-webkit-scrollbar-thumb {
+    background: rgba(157, 207, 238, .28);
+    border-radius: 999px;
+  }
+  .pcv-cine [style*="scrollbar-width"]::-webkit-scrollbar-track { background: transparent; }
+
+  /* La semaine du programme : sept pastilles de 46 px calées à gauche d'un
+     panneau de 620 laissaient un quart de la ligne vide. Elles se partagent
+     la largeur — c'est la même barre, simplement étalée. La largeur est
+     posée en style inline sur chaque pastille, d'où le `!important`. */
+  .pcv-cineJours > button { flex: 1 1 0 !important; width: auto !important; }
+
+  /* ─── 4. Le châssis du site bascule avec la salle ─────────────────────
+     Sur téléphone, entrer au cinéma fait basculer TOUTE l'app, barre du bas
+     comprise. Sur ordinateur la barre du bas n'existe plus : ce sont
+     l'en-tête, le bandeau de contexte et le pied de page qui basculent à sa
+     place. Rien n'est masqué — on garde la navigation du site, une salle ne
+     doit pas être un cul-de-sac. */
+  html[data-univers='cinema'] .pcv-hd {
+    background: var(--cine-bg2);
+    border-bottom-color: var(--cine-line);
+  }
+  html[data-univers='cinema'] .pcv-nav a,
+  html[data-univers='cinema'] .pcv-plusB { color: var(--cine-dim); }
+  html[data-univers='cinema'] .pcv-nav a:hover,
+  html[data-univers='cinema'] .pcv-plusB:hover,
+  html[data-univers='cinema'] .pcv-nav a.pcv-on {
+    color: var(--cine-accent2);
+    border-bottom-color: var(--cine-accent);
+  }
+  html[data-univers='cinema'] .pcv-srch {
+    background: rgba(250, 251, 250, .05);
+    border-color: var(--cine-line);
+    color: var(--cine-dim2);
+  }
+  html[data-univers='cinema'] .pcv-btnP { background: var(--cine-accent); color: #0E1620; }
+  html[data-univers='cinema'] .pcv-btnP:hover { background: var(--cine-accent2); }
+  html[data-univers='cinema'] .pcv-av { background: var(--cine-accent); color: #0E1620; }
+  /* Le logo du site est une image à fond BLANC opaque (logo-topbar.webp) :
+     posée telle quelle sur le bandeau sombre, c'est une tache. On l'assume
+     en petite plaque — arrondie et cernée, elle se lit comme une étiquette.
+     La seule autre issue serait un second fichier de logo détouré. */
+  html[data-univers='cinema'] .pcv-logo {
+    border-radius: 7px;
+    box-shadow: 0 0 0 1px rgba(157, 207, 238, .18);
+  }
+  html[data-univers='cinema'] .pcv-ctx {
+    background: var(--cine-bg);
+    border-bottom-color: var(--cine-line);
+  }
+  html[data-univers='cinema'] .pcv-ctxIn { color: var(--cine-dim2); }
+  html[data-univers='cinema'] .pcv-ctxIn b { color: var(--cine-ink); }
+  /* Le menu « Plus » est une boîte posée sur l'en-tête : elle suit. */
+  html[data-univers='cinema'] .pcv-plusM {
+    background: var(--cine-panel);
+    border-color: var(--cine-line);
+  }
+  html[data-univers='cinema'] .pcv-plusM a { color: var(--cine-dim); }
+  html[data-univers='cinema'] .pcv-plusM a:hover {
+    background: rgba(157, 207, 238, .10);
+    color: var(--cine-accent2);
+  }
+  html[data-univers='cinema'] .pcv-ft {
+    background: var(--cine-bg2);
+    border-top-color: var(--cine-line);
+    margin-top: 0;
+  }
+  html[data-univers='cinema'] .pcv-ftMark,
+  html[data-univers='cinema'] .pcv-ftCol h4 { color: var(--cine-ink); }
+  html[data-univers='cinema'] .pcv-ftMark p,
+  html[data-univers='cinema'] .pcv-ftCol a,
+  html[data-univers='cinema'] .pcv-ftLegal,
+  html[data-univers='cinema'] .pcv-ftLegal a { color: var(--cine-dim2); }
+  html[data-univers='cinema'] .pcv-ftCol a:hover,
+  html[data-univers='cinema'] .pcv-ftLegal a:hover { color: var(--cine-accent2); }
+  html[data-univers='cinema'] .pcv-ftLegal { border-top-color: var(--cine-line); }
+
+  /* ─── 5. « Mon cinéma » — l'écran de l'exploitant ─────────────────────
+     Celui-là ne bascule PAS en bleu nuit : c'est un écran de gestion, il
+     reste dans le thème clair de l'app (il ne pose pas `data-univers`). Il
+     prend le même panneau, dans ses couleurs à lui. C'est aussi le seul
+     écran du module qu'on utilise vraiment sur un ordinateur — un programme
+     hebdomadaire posé à côté du clavier. */
+  .pcv-cineAdmin::after {
+    background: #fff;
+    border-color: #F0EAE0;
+    box-shadow: 0 18px 48px rgba(26, 18, 9, .10);
+  }
+  /* Son en-tête (retour + nom de la salle) est collé en haut du panneau et
+     porte son propre fond blanc : il doit en épouser les coins. */
+  .pcv-cineAdmin > div:first-child { border-radius: 20px 20px 0 0; }
+
+  /* ─── 6. Feuilles du bas → boîtes centrées ───────────────────────────
+     Elles reprennent `.pcv-sheet` (desktop-sheets.css) : ajouter un film,
+     dicter un programme, ajouter une séance, éditer une fiche. Leur poignée
+     de glissement fait 36 px et non 44 : la règle de masquage de ce
+     fichier-là ne l'attrape pas, alors qu'elle ne veut plus rien dire sur
+     une boîte centrée. */
+  .pcv-sheet > div:first-child.h-1 { display: none !important; }
+}

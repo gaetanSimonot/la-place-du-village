@@ -184,8 +184,13 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
         </div>
         <div className="pcv-topPhoto-ct">
           {/* Le héros mis en avant — indépendant de l'assistant : chacun
-              demande au serveur s'il est ouvert à cette personne. */}
-          <HerosVillage />
+              demande au serveur s'il est ouvert à cette personne.
+              `pcv-hide` : sur ordinateur il vit dans la colonne de droite,
+              sous la carte de la zone. Coincé ici, il tombait SOUS le héros
+              de bureau — deux mises en avant l'une sur l'autre, dont aucune
+              ne portait. Même composant, posé ailleurs : c'est le traitement
+              déjà réservé à l'encart d'abonnement juste en dessous. */}
+          <div className="pcv-hide"><HerosVillage /></div>
 
           {/* Titre — deux lignes, deux couleurs de la charte.
               pcv-hide : sur bureau, c'est le héros qui porte le titre. */}

@@ -77,10 +77,22 @@ export default function CinemaAffiche({ isAdmin = false }: { isAdmin?: boolean }
   return (
     <>
       {/* Rubrique OUVERTE et non carte fermée : le cinéma est une section du
-          flux, au même rang que « Nos rubriques » ou « Le fil du village ». */}
-      <div className="flex items-baseline justify-between gap-2.5 px-4 pb-2.5 pt-[18px]">
-        <span className="font-serif text-[20px] leading-[1.15] text-texte" style={{ letterSpacing: '-0.02em' }}>Au cinéma</span>
-        <Link href={lien} className="flex shrink-0 items-center gap-1 text-[12.5px] font-bold no-underline" style={{ color: '#C84B2F' }}>
+          flux, au même rang que « Nos rubriques » ou « Le fil du village ».
+
+          `pcv-bh` est le titrage commun des rubriques de la version
+          ordinateur — filet noir sous le titre, sous-titre, lien à droite
+          (desktop-village.css). Il n'existe qu'au-dessus de 1024 px : sur
+          téléphone, ce sont les classes Tailwind qui portent la mise en
+          page, exactement comme avant. Le cinéma cesse ainsi d'être la
+          seule rubrique titrée autrement que les autres. */}
+      <div className="pcv-bh flex items-baseline justify-between gap-2.5 px-4 pb-2.5 pt-[18px]">
+        <div>
+          <h2 className="m-0 font-serif text-[20px] leading-[1.15] text-texte" style={{ letterSpacing: '-0.02em' }}>Au cinéma</h2>
+          {/* Le sous-titre n'apparaît que sur ordinateur : sur un téléphone,
+              la ligne de comptage sous les affiches dit déjà tout. */}
+          <div className="pcv-sub pcv-only">Ce qu&apos;on joue en ce moment près de chez vous</div>
+        </div>
+        <Link href={lien} className="pcv-more flex shrink-0 items-center gap-1 text-[12.5px] font-bold no-underline" style={{ color: '#C84B2F' }}>
           Voir tout
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" />
@@ -91,9 +103,14 @@ export default function CinemaAffiche({ isAdmin = false }: { isAdmin?: boolean }
       {/* Les affiches seules. Pas de bandeau de titre dessous : le titre est
           déjà imprimé sur l'affiche. Il ne réapparaît qu'en repli, quand il
           n'y a pas d'image. */}
-      <div className="flex items-start gap-2.5 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
-        {films.map(({ film }) => (
-          <Link key={film.id} href={`/cinema/film/${film.id}`} className="block shrink-0 overflow-hidden rounded-[12px] no-underline"
+      <div className="pcv-cineCarrousel" style={{ ['--pcv-n' as string]: films.length }}>
+      <div className="pcv-cinePiste flex items-start gap-2.5 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
+        {[...films, ...films].map(({ film }, i) => {
+          const copie = i >= films.length
+          return (
+          <Link key={`${film.id}-${i}`} href={`/cinema/film/${film.id}`}
+            className={`pcv-cineAff block shrink-0 overflow-hidden rounded-[12px] no-underline${copie ? ' pcv-cineDup' : ''}`}
+            aria-hidden={copie} tabIndex={copie ? -1 : undefined}
             style={{ width: 88, boxShadow: '0 2px 8px rgba(44,28,16,.14)' }}>
             {/* `display:block` obligatoire : sur un span inline, `aspect-ratio`
                 ne s'applique pas et la vignette s'écrase. 27/40 = les vraies
@@ -112,7 +129,9 @@ export default function CinemaAffiche({ isAdmin = false }: { isAdmin?: boolean }
               )}
             </span>
           </Link>
-        ))}
+          )
+        })}
+      </div>
       </div>
 
       {/* Le comptage passe SOUS les affiches, en petit : c'est une précision,

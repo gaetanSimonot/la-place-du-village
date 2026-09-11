@@ -172,7 +172,7 @@ export default function CinemaClient() {
   }
 
   return (
-    <div className="relative min-h-[100dvh] font-inter"
+    <div className="pcv-cine relative min-h-[100dvh] font-inter"
       style={{ background: 'var(--cine-bg)', color: 'var(--cine-ink)', paddingBottom: 92 }}>
 
       {/* Barre de sortie — la porte de retour vers l'app */}
@@ -287,17 +287,34 @@ export default function CinemaClient() {
           {filmsAffiche.length === 0 ? (
             <Vide texte="Le programme n’est pas encore publié." />
           ) : (
-            <div className="flex gap-3 overflow-x-auto px-[18px] pb-1.5" style={{ scrollbarWidth: 'none' }}>
-              {filmsAffiche.map(f => (
-                <Link key={f.id} href={`/cinema/film/${f.id}`} className="w-[118px] flex-none no-underline">
-                  <Affiche film={f} largeur={118} />
-                  <div className="line-clamp-2"
-                    style={{ marginTop: 9, fontSize: 13, fontWeight: 600, lineHeight: 1.3, letterSpacing: '-.01em', color: 'var(--cine-ink)' }}>
-                    {f.titre}
-                  </div>
-                  {f.duree_min ? <div style={{ marginTop: 4, fontSize: 11.5, color: 'var(--cine-dim2)' }}>{f.duree_min} min</div> : null}
-                </Link>
-              ))}
+            /* Sur téléphone, un rouleau qu'on pousse au pouce. Sur ordinateur,
+               la même ligne défile toute seule en boucle : la liste est écrite
+               DEUX fois, la copie prenant le relais quand l'originale sort du
+               cadre — c'est ce qui rend la boucle invisible. La copie est
+               masquée en dessous de 1024 px (`pcv-cineDup`), le téléphone ne
+               voit donc jamais les affiches en double.
+               L'enveloppe qui rogne est `display: contents` sous 1024 px :
+               elle ne produit aucune boîte, le rouleau du téléphone est celui
+               d'avant, au pixel près.
+               Mêmes rouages que le carrousel des partenaires du Village. */
+            <div className="pcv-cineCarrousel" style={{ ['--pcv-n' as string]: filmsAffiche.length }}>
+            <div className="pcv-cinePiste flex gap-3 overflow-x-auto px-[18px] pb-1.5" style={{ scrollbarWidth: 'none' }}>
+              {[...filmsAffiche, ...filmsAffiche].map((f, i) => {
+                const copie = i >= filmsAffiche.length
+                return (
+                  <Link key={`${f.id}-${i}`} href={`/cinema/film/${f.id}`}
+                    className={`pcv-cineAff w-[118px] flex-none no-underline${copie ? ' pcv-cineDup' : ''}`}
+                    aria-hidden={copie} tabIndex={copie ? -1 : undefined}>
+                    <Affiche film={f} largeur={118} />
+                    <div className="line-clamp-2"
+                      style={{ marginTop: 9, fontSize: 13, fontWeight: 600, lineHeight: 1.3, letterSpacing: '-.01em', color: 'var(--cine-ink)' }}>
+                      {f.titre}
+                    </div>
+                    {f.duree_min ? <div style={{ marginTop: 4, fontSize: 11.5, color: 'var(--cine-dim2)' }}>{f.duree_min} min</div> : null}
+                  </Link>
+                )
+              })}
+            </div>
             </div>
           )}
 
@@ -305,13 +322,23 @@ export default function CinemaClient() {
             <>
               <Titre texte="Aujourd'hui" compteur={seancesDuJour.length} />
               <ListeSeances jour={aujourdhui} liste={seancesDuJour} films={filmsParId} billetterie={billetterie} salles={salleUnique ? null : nomsSalles} sansBandeau />
+              {/* La suite est dans l'onglet d'à côté : sans cette porte, on
+                  voyait les séances du jour et on croyait que c'était tout. */}
+              <button onClick={() => setOnglet('programme')}
+                className="mx-auto flex items-center gap-2 border-none bg-transparent"
+                style={{ marginTop: 14, padding: '10px 18px', borderRadius: 999, border: '1px solid var(--cine-line)', fontSize: 12.5, fontWeight: 700, color: 'var(--cine-accent2)' }}>
+                Voir tout le programme
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" />
+                </svg>
+              </button>
             </>
           )}
         </>
       ) : onglet === 'programme' ? (
         <>
           {/* Bandeau des 7 jours à venir */}
-          <div className="flex gap-[7px] overflow-x-auto" style={{ padding: '14px 18px 4px', scrollbarWidth: 'none' }}>
+          <div className="pcv-cineJours flex gap-[7px] overflow-x-auto" style={{ padding: '14px 18px 4px', scrollbarWidth: 'none' }}>
             {semaine.map(d => {
               const { nom, num } = jourCourt(d)
               const actif = (jour ?? aujourdhui) === d

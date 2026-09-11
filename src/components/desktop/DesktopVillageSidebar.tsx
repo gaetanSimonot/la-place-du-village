@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import HerosVillage from '@/components/village/HerosVillage'
 import { useAuth } from '@/hooks/useAuth'
 import { CATEGORIES_LABELS, type AnnonceCategorie } from '@/lib/annonces'
 
@@ -169,6 +170,13 @@ export default function DesktopVillageSidebar({ encartPromo }: { encartPromo?: R
           Voir sur la carte<Fleche />
         </Link>
       </section>
+
+      {/* ── Le héros du Village ──────────────────────────────────────────
+          La mise en avant du moment, sous la carte : c'est le premier encart
+          qu'on croise après avoir situé sa zone. Le composant décide seul de
+          s'afficher (réglage de visibilité côté serveur) ; éteint, il ne rend
+          rien et la colonne se referme sans laisser de trou. */}
+      <HerosVillage />
 
       {/* ── Bons plans en cours ──────────────────────────────────────── */}
       {promos.length > 0 && (

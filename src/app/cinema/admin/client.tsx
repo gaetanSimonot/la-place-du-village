@@ -457,7 +457,7 @@ function AjoutSeance({ cinemaId, films, onClose, onAjoute }: {
   return (
     <ClientPortal>
       <div onClick={onClose} className="fixed inset-0 z-[3400] flex items-end justify-center" style={{ background: 'rgba(26,18,9,0.5)' }}>
-        <div onClick={e => e.stopPropagation()} className="w-full max-w-[460px] rounded-t-[22px] bg-white px-4 pb-8 pt-4">
+        <div onClick={e => e.stopPropagation()} className="pcv-sheet w-full max-w-[460px] rounded-t-[22px] bg-white px-4 pb-8 pt-4">
           <div className="mx-auto mb-3 h-1 w-9 rounded-full" style={{ background: '#D1CCC4' }} />
           <p className="m-0 mb-3 text-center text-[15px] font-extrabold text-texte">Ajouter une séance</p>
 
@@ -569,7 +569,7 @@ function Coquille({ titre, sousTitre, onRetour, children }: {
   titre: string; sousTitre?: string; onRetour?: () => void; children: React.ReactNode
 }) {
   return (
-    <div className="relative min-h-[100dvh] bg-creme pb-28 font-inter text-texte">
+    <div className="pcv-cine pcv-cineAdmin relative min-h-[100dvh] bg-creme pb-28 font-inter text-texte">
       <div className="flex items-center gap-[11px] bg-white px-3.5 py-2.5"
         style={{ borderBottom: '1px solid #F0EAE0', paddingTop: 'max(10px, env(safe-area-inset-top, 10px))' }}>
         {onRetour && (
@@ -653,7 +653,7 @@ function EditionFilm({ cinemaId, film, onClose, onEnregistre }: {
   return (
     <ClientPortal>
       <div onClick={onClose} className="fixed inset-0 z-[3400] flex items-end justify-center" style={{ background: 'rgba(26,18,9,0.5)' }}>
-        <div onClick={e => e.stopPropagation()} className="w-full max-w-[460px] rounded-t-[22px] bg-white px-4 pb-8 pt-4"
+        <div onClick={e => e.stopPropagation()} className="pcv-sheet w-full max-w-[460px] rounded-t-[22px] bg-white px-4 pb-8 pt-4"
           style={{ maxHeight: '92dvh', overflowY: 'auto' }}>
           <div className="mx-auto mb-3 h-1 w-9 rounded-full" style={{ background: '#D1CCC4' }} />
           <p className="m-0 mb-3 text-center text-[15px] font-extrabold text-texte">Fiche du film</p>

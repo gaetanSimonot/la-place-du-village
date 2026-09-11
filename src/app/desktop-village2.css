@@ -47,6 +47,11 @@
      défiler, et leur texte se retrouve coupé en plein milieu. */
   .pcv-sbCol > * { flex: none; }
 
+  /* Le héros du Village descend ici depuis le haut du fil (VillageView) : il
+     arrive avec les gouttières de 16 px du téléphone, que la colonne fournit
+     déjà. Sans ça, il rentre ses épaules par rapport aux encarts voisins. */
+  .pcv-sbCol > .px-4 { padding-left: 0 !important; padding-right: 0 !important; padding-top: 0 !important; }
+
   /* ─── Colonne de droite : lignes plus lisibles ──────────────────────
      La vignette gagne en taille, le titre respire, et la donnée qui décide
      du clic — le prix, le commerce — est posée à droite au lieu d'être
