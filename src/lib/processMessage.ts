@@ -74,7 +74,14 @@ export async function processMessage(
     let geo = { lat: null as number | null, lng: null as number | null, place_id_google: null as string | null, adresse: null as string | null, approx: false }
 
     if (evt.lieu_nom || evt.commune) {
-      geo = await geocodeWithGoogle(evt.lieu_nom, evt.commune)
+      /*
+       * L'indice geographique existe depuis longtemps dans geocodeWithGoogle,
+       * mesure sur 12 communes du secteur (4 erreurs corrigees, aucune
+       * degradation) — mais aucun collecteur ne s'en servait : ils restaient
+       * sur le defaut « France ». « Breau » partait alors en Seine-et-Marne,
+       * a 518 km, et le filtre de zone ecartait un lieu a 12 km d'ici.
+       */
+      geo = await geocodeWithGoogle(evt.lieu_nom, evt.commune, { indiceGeo: 'Cevennes, Gard, Herault, France' })
       const zone = await checkZone(geo.lat, geo.lng)
       if (!zone.within) { reasons.push(`"${evt.titre}" → hors zone (${zone.distanceMin}km de ${zone.centreLePlusProche})`); continue }
 

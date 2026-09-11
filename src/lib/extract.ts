@@ -128,23 +128,139 @@ async function textsearch(query: string): Promise<Omit<GeoResult, 'approx'> | nu
   return null
 }
 
-// Cherche dans la table lieux d'abord (DB-first cache).
-// Si nom+commune matche un lieu déjà géocodé → réutilise lat/lng sans Google.
+/**
+ * Le nom d'un lieu, ramené à ce qui l'identifie vraiment.
+ *
+ * Une affiche écrit « Chez Milonga », la base dit « Milonga Cave » et la fiche
+ * établissement « Le Milonga – Bar à vins & restaurant ». Trois écritures, un
+ * seul endroit. On retire donc les accents, la ponctuation, et les mots de
+ * tête qui ne désignent rien — c'est ce qui permet aux trois de se rejoindre.
+ */
+const MOTS_DE_TETE = /^(chez|le|la|les|l|au|aux|du|de|des|a|salle|espace)\s+/
+function nomCle(s: string | null | undefined): string {
+  let v = (s ?? '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+  // Deux passes : « chez le milonga » perd ses deux mots de tête.
+  for (let i = 0; i < 2; i++) v = v.replace(MOTS_DE_TETE, '')
+  return v.trim()
+}
+
+/**
+ * Noms trop courants pour désigner un endroit précis. Mesuré sur la base :
+ * 16 noms y sont portés par des lieux distants de plus de 2 km, et ce sont
+ * tous ceux-là. Sur un nom de cette liste on ne devine pas — on laisse Google
+ * trancher avec la commune, comme avant.
+ */
+const NOMS_TROP_COURANTS = new Set([
+  'place de la mairie', 'place du village', 'place de la republique', 'place',
+  'salle des fetes', 'salle polyvalente', 'foyer', 'foyer rural', 'mairie',
+  'stade', 'ecole', 'eglise', 'temple', 'parking', 'boulangerie', 'bar',
+  'cafe', 'restaurant', 'la grange', 'le village', 'centre', 'gymnase',
+  'mediatheque', 'bibliotheque', 'chez moi', 'domicile', 'maison',
+])
+
+interface CandidatLieu {
+  nom: string
+  commune: string | null
+  adresse: string | null
+  lat: number | null
+  lng: number | null
+  place_id_google: string | null
+}
+
+/** Distance à vol d'oiseau, pour juger si deux homonymes sont le même endroit. */
+function ecartKm(a: CandidatLieu, b: CandidatLieu): number {
+  if (a.lat == null || b.lat == null || a.lng == null || b.lng == null) return Infinity
+  const r = (d: number) => (d * Math.PI) / 180
+  const dLat = r(b.lat - a.lat), dLng = r(b.lng - a.lng)
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLng / 2) ** 2
+  return 6371 * 2 * Math.asin(Math.sqrt(h))
+}
+
+/**
+ * CHERCHER DANS CE QU'ON SAIT DÉJÀ, avant de demander à Google.
+ *
+ * Le pipeline le faisait, mais en exigeant le nom EXACT (`ilike` sans joker)
+ * et dans la seule table `lieux`. « Chez Milonga » ne retrouvait donc pas
+ * « Milonga Cave », pourtant à Ganges avec ses coordonnées : Google partait
+ * chercher à l'aveugle et rendait un point à 252 km, que le filtre de zone
+ * écartait. L'événement disparaissait — 207 rejets « hors zone » en deux mois,
+ * dont une bonne part de lieux que la base connaissait par cœur.
+ *
+ * Ici on compare des noms NORMALISÉS, on regarde aussi les fiches
+ * établissement — la source la mieux tenue du projet — et on s'abstient dès
+ * que le nom ne désigne pas un endroit unique.
+ *
+ * Trois refus, dans cet ordre :
+ *   1. nom trop court (< 5) ou trop courant → on ne devine pas ;
+ *   2. commune donnée qui ne concorde pas → ce n'est pas le même endroit ;
+ *   3. plusieurs candidats à plus de 2 km → ambigu, on laisse Google.
+ *
+ * Un refus n'est jamais une perte : on retombe exactement sur le comportement
+ * d'avant.
+ */
 async function lookupLieuxCache(lieuNom: string, commune?: string | null): Promise<Omit<GeoResult, 'approx'> | null> {
-  let query = supabaseAdmin
-    .from('lieux')
-    .select('nom, commune, adresse, lat, lng, place_id_google')
-    .ilike('nom', lieuNom)
-    .not('lat', 'is', null)
-    .limit(1)
-  if (commune) query = query.ilike('commune', commune)
-  const { data } = await query.maybeSingle()
-  if (!data || data.lat == null) return null
+  const cle = nomCle(lieuNom)
+  if (cle.length < 5 || NOMS_TROP_COURANTS.has(cle)) return null
+
+  // Deux requêtes plutôt qu'un `.or()` : les virgules et parenthèses d'un nom
+  // de lieu cassent la syntaxe de filtre de PostgREST (piège documenté sur ce
+  // projet), et un nom de commerce en contient souvent.
+  const motif = `%${cle.replace(/[%_]/g, ' ')}%`
+  const [lieuxRes, etabsRes] = await Promise.all([
+    supabaseAdmin.from('lieux')
+      .select('nom, commune, adresse, lat, lng, place_id_google')
+      .ilike('nom', motif).not('lat', 'is', null).limit(12),
+    supabaseAdmin.from('etablissements')
+      .select('nom, commune, adresse, lat, lng')
+      .ilike('nom', motif).not('lat', 'is', null).limit(12),
+  ])
+
+  const candidats: CandidatLieu[] = [
+    ...((lieuxRes.data ?? []) as CandidatLieu[]),
+    ...((etabsRes.data ?? []).map(e => ({ ...e, place_id_google: null })) as CandidatLieu[]),
+  ]
+  if (!candidats.length) return null
+
+  // Le `%...%` est large exprès — il rattrape « Milonga Cave » depuis
+  // « Milonga ». On resserre ici : l'un des deux noms doit contenir l'autre
+  // une fois normalisé, sinon « Le Cros » attraperait « Le Crosson ».
+  let retenus = candidats.filter(c => {
+    const k = nomCle(c.nom)
+    return k.length >= 3 && (k.includes(cle) || cle.includes(k))
+  })
+  if (!retenus.length) return null
+
+  // La commune ne sert pas à trouver, elle sert à écarter.
+  if (commune) {
+    const ck = nomCle(commune)
+    const memeCommune = retenus.filter(c => {
+      const k = nomCle(c.commune)
+      return !k || k === ck || k.includes(ck) || ck.includes(k)
+    })
+    if (!memeCommune.length) return null
+    retenus = memeCommune
+  }
+
+  // Plusieurs endroits distincts portent ce nom : on ne tranche pas.
+  for (let i = 0; i < retenus.length; i++) {
+    for (let j = i + 1; j < retenus.length; j++) {
+      if (ecartKm(retenus[i], retenus[j]) > 2) return null
+    }
+  }
+
+  // À nom égal, la fiche la plus précise gagne : celle qui porte une adresse.
+  const gagnant = retenus.find(c => c.adresse) ?? retenus[0]
+  if (gagnant.lat == null) return null
+
   return {
-    place_id_google: data.place_id_google ?? null,
-    lat: data.lat,
-    lng: data.lng,
-    adresse: data.adresse ?? null,
+    place_id_google: gagnant.place_id_google ?? null,
+    lat: gagnant.lat,
+    lng: gagnant.lng,
+    adresse: gagnant.adresse ?? null,
   }
 }
 
