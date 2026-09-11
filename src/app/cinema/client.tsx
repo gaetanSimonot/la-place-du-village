@@ -243,42 +243,69 @@ export default function CinemaClient() {
           plutôt qu'un titre générique : la page appartient à ces cinémas-là,
           autant le dire avec leurs propres enseignes. Chacune reste cliquable
           — c'est le chemin le plus court vers une seule salle. */}
-      <div className="flex flex-wrap items-center justify-center gap-x-9 gap-y-4"
-        style={{ padding: '16px 26px 24px' }}>
-        {enseignes.map(salle => (
-          logoDeLaSalle(salle.slug) ? (
-            <button key={salle.id} type="button"
-              onClick={() => salleUnique ? undefined : choisirSalle(salle.slug ?? salle.id)}
-              className="flex-none border-none bg-transparent p-0"
-              style={{ cursor: salleUnique ? 'default' : 'pointer' }}
-              aria-label={salle.nom}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={logoDeLaSalle(salle.slug)!} alt={salle.nom}
-                style={{ width: '100%', maxWidth: salleUnique ? 270 : 200, height: 'auto', display: 'block' }} />
-            </button>
-          ) : (
-            <button key={salle.id} type="button"
-              onClick={() => salleUnique ? undefined : choisirSalle(salle.slug ?? salle.id)}
-              className="flex-none border-none bg-transparent p-0 text-center"
-              style={{ cursor: salleUnique ? 'default' : 'pointer' }}>
-              <span className="m-0 block font-title"
-                style={{ fontSize: salleUnique ? 26 : 20, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--cine-ink)' }}>
-                {salle.nom}
-              </span>
-              {salle.commune && (
-                <span className="m-0 block" style={{ marginTop: 4, fontSize: 12, color: 'var(--cine-dim2)' }}>
-                  {salle.commune}
-                </span>
+      <div style={{ padding: '16px 26px 22px' }}>
+        <div className="flex flex-wrap items-center justify-center" style={{ gap: 0 }}>
+          {enseignes.map((salle, i) => (
+            <div key={salle.id} className="flex flex-none items-center">
+              {/* Un filet entre deux enseignes : sans lui, les deux logos se
+                  touchent et on ne sait plus où l'un finit. */}
+              {i > 0 && (
+                <span aria-hidden className="flex-none"
+                  style={{ width: 1, height: 42, margin: '0 26px', background: 'var(--cine-line)' }} />
               )}
-            </button>
-          )
-        ))}
-        {/* Aucune salle du tout : il reste un titre, sinon la page n'en a pas. */}
-        {enseignes.length === 0 && (
-          <h1 className="m-0 font-title"
-            style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--cine-ink)' }}>
-            Au cinéma
-          </h1>
+              <button type="button"
+                onClick={() => salleUnique ? undefined : choisirSalle(salle.slug ?? salle.id)}
+                className="flex flex-none items-center justify-center border-none bg-transparent p-0"
+                style={{
+                  /* UNE BOÎTE COMMUNE, et l'enseigne se loge dedans.
+                     Les deux logos n'ont pas du tout les mêmes proportions —
+                     l'Arc-en-Ciel est une bande (2,74), Le Palace un carré
+                     (1,6). Calés sur la LARGEUR comme ils l'étaient, le
+                     second sortait à 125 px de haut contre 73 au premier :
+                     une enseigne écrasait l'autre. À boîte égale, chacune
+                     prend la place qu'elle peut sans dépasser, et la ligne
+                     retrouve son aplomb. */
+                  width:  salleUnique ? 270 : 186,
+                  height: salleUnique ? 100 : 76,
+                  cursor: salleUnique ? 'default' : 'pointer',
+                }}
+                aria-label={salle.nom}>
+                {logoDeLaSalle(salle.slug) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={logoDeLaSalle(salle.slug)!} alt={salle.nom}
+                    style={{ maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto', objectFit: 'contain', display: 'block' }} />
+                ) : (
+                  <span className="text-center">
+                    <span className="block font-title"
+                      style={{ fontSize: salleUnique ? 26 : 19, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--cine-ink)' }}>
+                      {salle.nom}
+                    </span>
+                    {salle.commune && (
+                      <span className="block" style={{ marginTop: 3, fontSize: 11.5, color: 'var(--cine-dim2)' }}>
+                        {salle.commune}
+                      </span>
+                    )}
+                  </span>
+                )}
+              </button>
+            </div>
+          ))}
+          {/* Aucune salle du tout : il reste un titre, sinon la page n'en a pas. */}
+          {enseignes.length === 0 && (
+            <h1 className="m-0 font-title"
+              style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--cine-ink)' }}>
+              Au cinéma
+            </h1>
+          )}
+        </div>
+
+        {/* En agrégé, la ligne d'enseignes ne dit pas d'elle-même ce qu'on
+            regarde : cette phrase le dit. Sur une seule salle, sa ville est
+            déjà en haut à droite — la répéter n'apprendrait rien. */}
+        {!salleUnique && enseignes.length > 1 && (
+          <p className="m-0 text-center" style={{ marginTop: 14, fontSize: 12, color: 'var(--cine-dim2)' }}>
+            {enseignes.length} salles autour de vous
+          </p>
         )}
       </div>
 
