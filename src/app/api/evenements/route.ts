@@ -186,6 +186,7 @@ export async function POST(req: NextRequest) {
     const check = await checkDoublon({
       titre,
       date_debut: date_debut || null,
+      heure:      heure || null,
       commune:    commune || null,
       lieu_nom:   lieu_nom || null,
       description: description || null,

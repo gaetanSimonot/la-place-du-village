@@ -89,6 +89,7 @@ async function processOneEvent(
   const dup = await checkDoublon({
     titre: extracted.titre,
     date_debut: extracted.date_debut,
+    heure: extracted.heure,
     commune: extracted.commune,
     lieu_nom: extracted.lieu_nom,
     description: extracted.description,

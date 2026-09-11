@@ -67,7 +67,7 @@ export async function processMessage(
   for (const evt of events) {
     if (!evt.titre?.trim()) { reasons.push('Titre manquant'); continue }
 
-    const check = await checkDoublon({ titre: evt.titre, date_debut: evt.date_debut, commune: evt.commune, lieu_nom: evt.lieu_nom, description: evt.description })
+    const check = await checkDoublon({ titre: evt.titre, date_debut: evt.date_debut, heure: evt.heure, commune: evt.commune, lieu_nom: evt.lieu_nom, description: evt.description })
     if (check.doublon) { reasons.push(`"${evt.titre}" → doublon`); continue }
 
     let lieuId: string | null = null

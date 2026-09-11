@@ -8,6 +8,9 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 export interface DoublonCheckInput {
   titre: string
   date_debut: string | null
+  /** Facultative : deux seances du meme spectacle le meme jour se distinguent
+   *  par elle, et c'est ce qui evite de prendre la seconde pour un doublon. */
+  heure?: string | null
   commune: string | null
   lieu_nom: string | null
   description: string | null
@@ -24,6 +27,40 @@ export interface DoublonCheckResult {
 function formatDateOnly(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
+
+/**
+ * Un texte ramené à ce qui l'identifie : sans accents, sans ponctuation,
+ * sans casse. « Saint-Bauzille-de-Putois » et « St Bauzille de Putois »
+ * doivent se reconnaître — la base porte NEUF communes écrites de plusieurs
+ * façons, et la comparaison stricte les tenait pour des endroits différents.
+ */
+function cleTexte(s: string | null | undefined): string {
+  return (s ?? '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\bst\b/g, 'saint')
+    .replace(/\bste\b/g, 'sainte')
+    .trim()
+}
+
+/**
+ * Deux communes désignent-elles le même endroit ?
+ *
+ * Une commune ABSENTE est compatible avec tout : c'est le point qui laissait
+ * passer les doublons. L'ancien filtre comparait `commune === commune`, si
+ * bien qu'un événement sans lieu résolu — commune vide — ne correspondait à
+ * rien et n'était JAMAIS comparé. Mesuré : 27 des 37 copies en trop de
+ * l'agenda venaient de là.
+ */
+function communesCompatibles(a: string | null | undefined, b: string | null | undefined): boolean {
+  const ka = cleTexte(a), kb = cleTexte(b)
+  if (!ka || !kb) return true
+  return ka === kb
+}
+
+/** L'heure, ramenée à HH:MM — la base écrit tantôt « 20:00 », tantôt « 20:00:00 ». */
+const cleHeure = (h: string | null | undefined): string => (h ?? '').slice(0, 5)
 
 export async function checkDoublon(newEvent: DoublonCheckInput): Promise<DoublonCheckResult> {
   const safe: DoublonCheckResult = {
@@ -51,14 +88,41 @@ export async function checkDoublon(newEvent: DoublonCheckInput): Promise<Doublon
 
   const { data } = await query
   const candidates = (data ?? [])
-    .filter(e => {
-      if (!newEvent.commune) return true
-      const c = (e.lieux as { commune?: string } | null)?.commune ?? ''
-      return c.toLowerCase() === newEvent.commune.toLowerCase()
-    })
+    .filter(e => communesCompatibles((e.lieux as { commune?: string } | null)?.commune, newEvent.commune))
     .slice(0, 10)
 
   if (candidates.length === 0) return safe
+
+  /*
+   * LE CAS ÉVIDENT, TRANCHÉ SANS DEMANDER À PERSONNE.
+   *
+   * Même titre, même jour, même heure, et des communes qui ne se contredisent
+   * pas : c'est le même événement, il n'y a rien à interpréter. Jusqu'ici tout
+   * passait par Claude, qui ne voyait que dix candidats et se faisait berner
+   * par une commune écrite autrement — « Yoga aérien » figurait DIX fois au
+   * 1er octobre, « Cabaret queer » six fois au 30 septembre.
+   *
+   * Ce test est aussi une économie : le cas le plus fréquent ne coûte plus
+   * d'appel au modèle.
+   */
+  const kTitre = cleTexte(newEvent.titre)
+  const kHeure = cleHeure(newEvent.heure)
+  if (kTitre && newEvent.date_debut) {
+    const jumeau = candidates.find(e =>
+      cleTexte(e.titre) === kTitre
+      && e.date_debut === newEvent.date_debut
+      && cleHeure(e.heure) === kHeure,
+    )
+    if (jumeau) {
+      return {
+        doublon: true,
+        doublon_id: jumeau.id,
+        publier: false,
+        raison: 'Déjà présent — même titre, même date, même heure',
+        infos_manquantes: [],
+      }
+    }
+  }
 
   // Appel Claude Haiku avec timeout 7s (Vercel Hobby = 10s max)
   let response
