@@ -25,6 +25,8 @@ export interface GeoLieu {
   lng: number | null
   adresse: string | null
   place_id_google: string | null
+  /** Saisi au formulaire ; absent des extractions automatiques. */
+  code_postal?: string | null
 }
 
 export async function trouverOuCreerLieu(
@@ -56,6 +58,7 @@ export async function trouverOuCreerLieu(
       lng:             geo.lng,
       place_id_google: geo.place_id_google,
       commune,
+      code_postal:     geo.code_postal ?? null,
     })
     .select('id')
     .single()

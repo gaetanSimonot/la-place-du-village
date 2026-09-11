@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { geocodeWithGoogle, calcStatut } from '@/lib/extract'
+import { trouverOuCreerLieu } from '@/lib/lieuxResolve'
 import { mergeCategories } from '@/lib/categories'
 import { checkDoublon } from '@/lib/checkDoublon'
 import { checkZone } from '@/lib/checkZone'
@@ -135,22 +136,37 @@ export async function POST(req: NextRequest) {
         geo = await geocodeWithGoogle(lieu_nom || null, commune || null)
       }
 
-      const { data: lieu, error: lieuErr } = await supabaseAdmin
-        .from('lieux')
-        .insert({
-          nom: lieu_nom,
-          adresse: geo.adresse ?? lieu_adresse ?? null,
+      /*
+       * CHERCHER avant de CREER — comme les deux autres chemins d'ecriture.
+       *
+       * Cette route inserait un lieu NEUF a chaque enregistrement, y compris
+       * a la simple edition d'un evenement. C'est le defaut qui avait gonfle
+       * la table a 1134 lignes pour ~285 lieux reels (« Le petit dojo » 88
+       * fois, « St-Hippolyte-du-Fort » 84 fois), corrige en septembre dans
+       * processMessage et /api/extract — mais pas ici, alors que c'est la
+       * route du FORMULAIRE et de l'EDITION, celle qu'on emprunte a la main.
+       *
+       * Deux consequences, l'une visible et l'autre sournoise : la carte
+       * empile des reperes au meme endroit, et deux evenements au meme lieu
+       * ne partagent pas leur `lieu_id`, si bien que tout ce qui compare par
+       * lieu les croit distincts. Chaque enregistrement ajoutait au passage
+       * une orthographe de commune de plus, ce qui brouille la detection de
+       * doublons.
+       */
+      const lieu = await trouverOuCreerLieu(
+        lieu_nom?.trim() || commune?.trim() || '',
+        commune ?? null,
+        {
           lat: geo.lat,
           lng: geo.lng,
+          adresse: geo.adresse ?? lieu_adresse ?? null,
           place_id_google: geo.place_id_google,
-          commune: commune ?? null,
           code_postal: code_postal ?? null,
-        })
-        .select('id')
-        .single()
+        },
+      )
 
-      if (lieuErr) {
-        console.error('[evenements] insert lieu erreur:', lieuErr.message)
+      if (!lieu.id) {
+        console.error('[evenements] lieu erreur:', lieu.error)
         throw new Error('Le lieu est incomplet ou invalide. Indique au moins un nom de lieu ou une commune.')
       }
       lieuId = lieu.id
