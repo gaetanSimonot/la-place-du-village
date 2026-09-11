@@ -29,6 +29,7 @@ import { useFavorites } from '@/hooks/useFavorites'
 import { useProducerFavorites } from '@/hooks/useProducerFavorites'
 import { useNotifications } from '@/hooks/useNotifications'
 import { ecranBureau } from '@/lib/bureau'
+import { lireEntreeEnCache, rafraichirEntreeEnCache } from '@/lib/entreeApp'
 import { useHerosVillage } from '@/hooks/useHerosVillage'
 import { lienHeros, herosExterne } from '@/lib/villageHero'
 
@@ -88,17 +89,7 @@ export default function HomePage() {
     if (ecranBureau()) return
     if (!localStorage.getItem('pdv-welcome-shown')) setShowWelcome(true)
   }, [])
-  // Splash éditorial : 1× par session (= ouverture de l'app). sessionStorage se
-  // vide quand l'app est fermée → réapparaît au prochain lancement, mais PAS lors
-  // des navigations internes (qui remontent la home et le faisaient revenir).
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (ecranBureau()) return
-    if (sessionStorage.getItem('pdv-splash-seen') !== '1') {
-      setSplashOpen(true)
-      sessionStorage.setItem('pdv-splash-seen', '1')
-    }
-  }, [])
+
   const [appMode, setAppMode]                 = useState<'agenda' | 'annuaire'>('agenda')
   // Restore annuaire mode after returning from a producer page
   useEffect(() => {
@@ -344,7 +335,14 @@ export default function HomePage() {
    * bandeau « à la une » qui existe déjà, en tête. Un emplacement unique — en
    * ouvrir un deuxième, c'est n'en avoir plus aucun qui compte.
    */
-  const { heros: herosVillage } = useHerosVillage()
+  // Le bandeau de la carte ne montre qu'UNE mise en avant : il prend la
+  // première fiche cochée « sur la carte ». L'encart du Village, lui, les fait
+  // défiler — c'est là qu'elles vivent toutes.
+  const { heros: herosListe } = useHerosVillage()
+  const herosVillage = useMemo(
+    () => herosListe.find(h => h.surCarte) ?? null,
+    [herosListe],
+  )
   const herosDiapo = useMemo(() => {
     if (!herosVillage || !herosVillage.surCarte) return null
     return {
@@ -552,6 +550,45 @@ export default function HomePage() {
     }, 350)
   }, [modeTransport])
   const router = useRouter()
+
+  /*
+   * L'ENTRÉE DE L'APP — l'écran d'accueil, et la page sur laquelle on arrive.
+   *
+   * Les deux sont réglés depuis /admin/hub-carousel et lus dans le cache local :
+   * un écran d'entrée ne peut pas attendre le réseau pour savoir s'il doit
+   * s'ouvrir, sinon il s'ouvre puis se referme sous les yeux de la personne.
+   * On rafraîchit le cache derrière, pour le lancement suivant.
+   *
+   * 1× par session (= ouverture de l'app). sessionStorage se vide quand l'app
+   * est fermée → l'entrée rejoue au prochain lancement, mais PAS lors des
+   * navigations internes (qui remontent la home et la faisaient revenir).
+   */
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    void rafraichirEntreeEnCache()
+
+    if (sessionStorage.getItem('pdv-splash-seen') === '1') return
+    sessionStorage.setItem('pdv-splash-seen', '1')
+
+    const entree = lireEntreeEnCache()
+
+    // Une adresse explicite l'emporte sur le réglage : un lien partagé, un QR
+    // code ou un retour de connexion visent un écran précis, et les détourner
+    // vers la page d'arrivée serait perdre la personne en route.
+    const sp = new URLSearchParams(window.location.search)
+    const urlVise = sp.has('mode') || sp.has('tab') || sp.has('splash')
+
+    if (!urlVise) {
+      if (entree.page === 'village') { setShowHub(false); setNavTab('village') }
+      else if (entree.page === 'promotions') { router.replace('/promotions'); return }
+      else if (entree.page === 'annonces')   { router.replace('/annonces'); return }
+      // 'carte' : c'est déjà l'écran par défaut, rien à faire.
+    }
+
+    // L'écran d'accueil n'a jamais existé sur ordinateur : la version bureau
+    // a son propre accueil, Le village.
+    if (entree.splash && !ecranBureau() && !urlVise) setSplashOpen(true)
+  }, [router])
   /** Post à rouvrir dans l'écran des notifications (deep-link ?post=). */
   const [notifPostId, setNotifPostId] = useState<string | null>(null)
   /** État courant de la liste d'événements (position + cartes rendues),
@@ -2065,10 +2102,17 @@ export default function HomePage() {
         <EditorialSplash
           onExplore={() => {
             setSplashOpen(false)
-            // Sur ordinateur on atterrit sur Le village, l'accueil de la
-            // version bureau ; sur mobile, la carte, inchangée. Même point de
-            // rupture que desktop.css.
-            if (window.matchMedia('(min-width: 1024px)').matches) {
+            // « Explorer la Place » mène à la page d'arrivée réglée en admin :
+            // c'est la même porte que celle du lancement, il n'y a pas de
+            // raison qu'elle donne sur autre chose.
+            const page = lireEntreeEnCache().page
+            if (page === 'village') { setShowHub(false); setNavTab('village') }
+            else if (page === 'promotions') router.push('/promotions')
+            else if (page === 'annonces')   router.push('/annonces')
+            else if (window.matchMedia('(min-width: 1024px)').matches) {
+              // Sur ordinateur, « la carte » veut dire Le village : c'est
+              // l'accueil de la version bureau. Même point de rupture que
+              // desktop.css.
               setShowHub(false); setNavTab('village')
             } else {
               enterAgenda()

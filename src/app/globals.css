@@ -202,6 +202,20 @@ html[data-univers='cinema'] {
 }
 html[data-univers='cinema'] body { background: var(--cine-bg); }
 
+/* ═══════════ HÉROS DU VILLAGE — passage d'une fiche à l'autre ═══════════
+   L'encart peut porter plusieurs fiches et les fait défiler. Sans ce fondu,
+   le remplacement est si net qu'on croit à un défaut d'affichage. */
+@keyframes pdv-heros-entree {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+.pdv-heros-fondu { animation: pdv-heros-entree .45s ease-out; }
+
+/* Quelqu'un qui a demandé moins d'animations n'a pas à subir celle-ci. */
+@media (prefers-reduced-motion: reduce) {
+  .pdv-heros-fondu { animation: none; }
+}
+
 /* ═══════════ ÉGALISEUR — l'assistant écoute ═══════════
    Whisper transcrit à la fin, pas pendant : sans ce signe, on parle dans le
    vide sans savoir si le micro a pris. Cinq barres qui respirent, décalées. */

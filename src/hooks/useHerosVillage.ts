@@ -20,7 +20,7 @@ import type { HerosVillage } from '@/lib/villageHero'
  * qu'il sache qu'il existe, alors qu'il ne l'envoie pas du tout aux autres.
  */
 
-interface Reponse { heros?: HerosVillage | null; eteint?: boolean }
+interface Reponse { heros?: HerosVillage[] | HerosVillage | null; eteint?: boolean }
 
 /**
  * Le jeton de session voyage dans l'en-tête, pas dans la clé : c'est le
@@ -45,8 +45,15 @@ export function useHerosVillage() {
   // Même signature qu'avant : pas de héros et pas de bruit en cas d'échec.
   const recharger = useCallback(() => { void mutate() }, [mutate])
 
+  // La route renvoie une LISTE ; on tolère l'ancienne réponse à une fiche au
+  // cas où une version antérieure traînerait dans un cache de navigateur.
+  const brut = data?.heros
+  const heros = Array.isArray(brut) ? brut : brut ? [brut] : []
+
   return {
-    heros:  data?.heros ?? null,
+    heros,
+    /** La première fiche visible — ce que montrent les appelants à un seul emplacement. */
+    premier: heros[0] ?? null,
     eteint: !!data?.eteint,
     pret:   !isLoading,
     recharger,

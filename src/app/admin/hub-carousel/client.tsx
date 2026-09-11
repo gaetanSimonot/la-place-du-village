@@ -14,8 +14,9 @@ import {
 } from '@/lib/splashPromo'
 import SplashPromoView from '@/components/SplashPromoView'
 import { parseVisibilite, type VisibiliteCinema } from '@/lib/cinema'
+import { parseEntree, PAGES_ARRIVEE, type EntreeApp, type PageArrivee } from '@/lib/entreeApp'
 import EmbedPicker, { type EmbedItem } from '@/components/EmbedPicker'
-import { normaliserHeros, HEROS_VIDE, type HerosVillage, type PublicHeros } from '@/lib/villageHero'
+import { normaliserHerosListe, HEROS_VIDE, type HerosVillage, type PublicHeros } from '@/lib/villageHero'
 
 interface EnrichedSlot extends FeaturedSlotRow {
   title?: string
@@ -48,6 +49,13 @@ async function writeJson(url: string, init: RequestInit): Promise<Response> {
 }
 
 /** Gabarit commun des champs du héros. */
+/** Petit bouton carre : monter, descendre, retirer une fiche du heros. */
+const MINI_HEROS: React.CSSProperties = {
+  width: 26, height: 26, borderRadius: 7, border: '1px solid #E5DDD2',
+  background: '#FFFFFF', cursor: 'pointer', fontSize: 13, lineHeight: 1,
+  color: '#5A4A3A', padding: 0,
+}
+
 const CHAMP = { width: '100%', padding: '9px 10px', borderRadius: 9, border: '1.5px solid #E5DDD2', fontSize: 12.5, boxSizing: 'border-box' as const }
 
 export default function AdminHubCarousel() {
@@ -75,15 +83,21 @@ export default function AdminHubCarousel() {
   const [splashSaved, setSplashSaved]   = useState(false)
   const [splashError, setSplashError]   = useState<string | null>(null)
   /** Visibilité du bloc « Au cinéma aujourd'hui » : masqué / admin / tous. */
+  // L'entrée de l'app : écran d'accueil et page d'arrivée, une seule clé.
+  const [entree, setEntree] = useState<EntreeApp>({ splash: true, page: 'carte' })
+  const [entreeSaving, setEntreeSaving] = useState(false)
+
   const [cinemaVis, setCinemaVis] = useState<VisibiliteCinema>('admin')
   const [cinemaSaving, setCinemaSaving] = useState(false)
   /** Visibilité de l'Assistant Village dans la barre de recherche. */
   const [assistantVis, setAssistantVis] = useState<VisibiliteCinema>('admin')
   const [assistantSaving, setAssistantSaving] = useState(false)
   /** Le héros du Village — un seul à la fois, cf. src/lib/villageHero.ts. */
-  const [heros, setHeros] = useState<HerosVillage>(HEROS_VIDE)
+  // Une LISTE de fiches : l'encart les fait défiler. Vide = pas de héros.
+  const [herosListe, setHerosListe] = useState<HerosVillage[]>([])
   const [herosSaving, setHerosSaving] = useState(false)
-  const [herosPicker, setHerosPicker] = useState(false)
+  /** Index de la fiche pour laquelle le sélecteur est ouvert. `null` = fermé. */
+  const [herosPicker, setHerosPicker] = useState<number | null>(null)
   const [herosMsg, setHerosMsg] = useState<string | null>(null)
   /** Double clic requis avant de relancer le cycle de tout le monde. */
   const [resetAsked, setResetAsked] = useState(false)
@@ -103,7 +117,8 @@ export default function AdminHubCarousel() {
       supabase.from('config').select('value').eq('key', 'cinema_village_public').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'assistant_visibilite').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'village_hero').maybeSingle(),
-    ]).then(([toggleRes, imgRes, orderRes, hiddenRes, splashRes, cineRes, assistRes, herosRes]) => {
+      supabase.from('config').select('value').eq('key', 'entree_app').maybeSingle(),
+    ]).then(([toggleRes, imgRes, orderRes, hiddenRes, splashRes, cineRes, assistRes, herosRes, entreeRes]) => {
       setIntroEnabled(toggleRes.data?.value === 'true')
       setIntroImageUrl(imgRes.data?.value || null)
       let parsed: unknown = []
@@ -116,7 +131,8 @@ export default function AdminHubCarousel() {
       setSplash(parseSplashPromo(splashRes.data?.value))
       setCinemaVis(parseVisibilite(cineRes.data?.value))
       setAssistantVis(parseVisibilite(assistRes.data?.value))
-      setHeros(normaliserHeros(herosRes.data?.value) ?? HEROS_VIDE)
+      setHerosListe(normaliserHerosListe(herosRes.data?.value))
+      setEntree(parseEntree(entreeRes.data?.value))
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user, isAdmin])
@@ -201,6 +217,26 @@ export default function AdminHubCarousel() {
     setOrderSaving(false)
   }
 
+  /**
+   * Les deux réglages d'entrée partent ensemble : ils vivent dans la même clé,
+   * et la sauver en deux fois ferait un état transitoire où l'un est enregistré
+   * et l'autre non.
+   */
+  async function enregistrerEntree(patch: Partial<EntreeApp>) {
+    if (entreeSaving) return
+    const avant = entree
+    const next  = { ...entree, ...patch }
+    setEntree(next); setEntreeSaving(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/config', {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body:    JSON.stringify({ key: 'entree_app', value: JSON.stringify(next) }),
+    }).catch(() => null)
+    if (!res?.ok) setEntree(avant)
+    setEntreeSaving(false)
+  }
+
   async function changerCinemaVis(next: VisibiliteCinema) {
     if (cinemaSaving || next === cinemaVis) return
     const avant = cinemaVis
@@ -216,33 +252,62 @@ export default function AdminHubCarousel() {
   }
 
   /**
-   * Enregistre le héros. Un objet unique dans une seule clé de config : c'est
-   * un bloc éditorial, pas six réglages indépendants, et l'enregistrer d'un
-   * coup évite les états mi-anciens mi-nouveaux.
+   * Enregistre la LISTE entière dans la clé de config, à chaque changement.
+   * Un bloc éditorial, pas six réglages indépendants : l'écrire d'un coup
+   * évite les états mi-anciens mi-nouveaux, et la liste est minuscule.
    */
-  async function enregistrerHeros(patch: Partial<HerosVillage>) {
+  async function enregistrerHerosListe(suivante: HerosVillage[]) {
     if (herosSaving) return
-    const suivant = { ...heros, ...patch }
-    setHeros(suivant); setHerosSaving(true); setHerosMsg(null)
+    setHerosListe(suivante); setHerosSaving(true); setHerosMsg(null)
     const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch('/api/admin/config', {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
-      body:    JSON.stringify({ key: 'village_hero', value: JSON.stringify(suivant) }),
+      body:    JSON.stringify({ key: 'village_hero', value: JSON.stringify(suivante) }),
     }).catch(() => null)
     setHerosSaving(false)
     setHerosMsg(res?.ok ? 'Enregistré' : 'Échec de l’enregistrement')
     setTimeout(() => setHerosMsg(null), 2500)
   }
 
-  /** Une fiche choisie remplit le héros : titre, sous-titre et image. */
+  /** Modifie UNE fiche de la liste, les autres intactes. */
+  function modifierHeros(i: number, patch: Partial<HerosVillage>) {
+    void enregistrerHerosListe(herosListe.map((h, k) => (k === i ? { ...h, ...patch } : h)))
+  }
+
+  /** Une fiche de plus, vide et masquée : on la remplit avant de l'ouvrir. */
+  function ajouterHeros() {
+    void enregistrerHerosListe([...herosListe, { ...HEROS_VIDE }])
+  }
+
+  function retirerHeros(i: number) {
+    void enregistrerHerosListe(herosListe.filter((_, k) => k !== i))
+  }
+
+  /** Monte ou descend une fiche : l'ordre est celui du défilement. */
+  function deplacerHeros(i: number, sens: -1 | 1) {
+    const j = i + sens
+    if (j < 0 || j >= herosListe.length) return
+    const copie = [...herosListe]
+    ;[copie[i], copie[j]] = [copie[j], copie[i]]
+    void enregistrerHerosListe(copie)
+  }
+
+  /**
+   * Une fiche choisie au sélecteur remplit le héros : titre, sous-titre et
+   * image. On ne remplace PAS ce qui a déjà été écrit à la main — c'est
+   * presque toujours une reformulation volontaire.
+   */
   function prendreCible(it: EmbedItem) {
-    setHerosPicker(false)
-    enregistrerHeros({
+    const i = herosPicker
+    setHerosPicker(null)
+    if (i === null || !herosListe[i]) return
+    const h = herosListe[i]
+    modifierHeros(i, {
       cible: { sorte: 'interne', kind: it.kind, id: it.id },
-      titre: heros.titre.trim() || it.title,
-      sousTitre: heros.sousTitre ?? it.subtitle,
-      image: heros.image ?? it.photo,
+      titre: h.titre.trim() || it.title,
+      sousTitre: h.sousTitre ?? it.subtitle,
+      image: h.image ?? it.photo,
     })
   }
 
@@ -653,6 +718,79 @@ export default function AdminHubCarousel() {
         </div>
       </div>
 
+      {/* ── L'entrée de l'app ───────────────────────────────────────────
+          Deux réglages qui répondent à la même question — que voit-on en
+          arrivant ? — donc un seul bloc. À ne pas confondre avec les splashs
+          promo plus bas : ceux-là surgissent en cours de visite. */}
+      <div style={{ padding: '14px 16px 0' }}>
+        <div style={{
+          padding: 14, borderRadius: 12, background: '#FFFFFF',
+          border: '1px solid #E5DDD2', boxShadow: '0 1px 4px rgba(44,28,16,0.04)',
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>
+            L&apos;entrée de l&apos;app
+          </div>
+          <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2, marginBottom: 12, lineHeight: 1.45 }}>
+            Ce qu&apos;on voit en ouvrant l&apos;application. Un changement
+            s&apos;applique au lancement suivant, pas aux sessions déjà ouvertes.
+          </div>
+
+          {/* L'écran d'accueil éditorial */}
+          <label style={{
+            display: 'flex', alignItems: 'flex-start', gap: 11,
+            cursor: entreeSaving ? 'default' : 'pointer',
+            padding: 11, borderRadius: 10,
+            background: entree.splash ? '#F4FAF5' : '#FDFAF5',
+            border: `1px solid ${entree.splash ? '#C8DEC0' : '#E5DDD2'}`,
+          }}>
+            <input
+              type="checkbox"
+              checked={entree.splash}
+              disabled={entreeSaving}
+              onChange={e => enregistrerEntree({ splash: e.target.checked })}
+              style={{ width: 17, height: 17, marginTop: 1, accentColor: '#2D5A3D', cursor: 'inherit' }}
+            />
+            <span>
+              <span style={{ display: 'block', fontSize: 12.5, fontWeight: 800, color: '#1A1209' }}>
+                Écran d&apos;accueil
+              </span>
+              <span style={{ display: 'block', fontSize: 11, color: '#7A6A5A', marginTop: 3, lineHeight: 1.45 }}>
+                Les tuiles du jour et le bouton « Explorer la Place », une fois
+                par ouverture. Décoché, l&apos;app ouvre directement sur la page
+                choisie ci-dessous. (Il n&apos;a jamais existé sur ordinateur.)
+              </span>
+            </span>
+          </label>
+
+          {/* La page d'arrivée */}
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#8A7A6A', margin: '14px 0 8px' }}>
+            On arrive sur
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+            {PAGES_ARRIVEE.map(o => {
+              const actif = entree.page === o.id
+              return (
+                <button
+                  key={o.id}
+                  onClick={() => enregistrerEntree({ page: o.id as PageArrivee })}
+                  disabled={entreeSaving}
+                  style={{
+                    padding: '10px 11px', borderRadius: 10, textAlign: 'left',
+                    border: `1.5px solid ${actif ? '#2D5A3D' : '#E5DDD2'}`,
+                    background: actif ? '#F4FAF5' : '#FDFAF5',
+                    cursor: entreeSaving ? 'default' : 'pointer',
+                    fontFamily: 'var(--font-body), sans-serif',
+                  }}
+                >
+                  <div style={{ fontSize: 12.5, fontWeight: 800, color: actif ? '#2D5A3D' : '#1A1209' }}>{o.label}</div>
+                  <div style={{ fontSize: 10, color: '#8A7A6A', marginTop: 2 }}>{o.sous}</div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
       {/* Bloc cinéma sur la page Village — trois états nommés. « Masqué »
           l'emporte sur tout, y compris sur ton propre compte : c'est ce qui
           permet de le couper net sans rien décocher ailleurs. */}
@@ -699,116 +837,176 @@ export default function AdminHubCarousel() {
       </div>
 
       {/* ── Le héros du Village ─────────────────────────────────────────
-          Un seul encart mis en avant, en tête de la page Village. Même
-          mécanique de visibilité à trois états que l'assistant et le cinéma.
+          Un emplacement, une ou PLUSIEURS fiches : au-delà de la première,
+          l'encart les fait défiler tout seul, comme le bandeau « à la une ».
+          L'ordre de cette liste est celui du défilement.
 
-          Il pointe soit sur une fiche de l'app (choisie au sélecteur), soit
-          sur un lien du dehors — auquel cas le titre et l'image se saisissent
-          à la main : beaucoup de sites, les cagnottes en particulier, refusent
-          les robots, et aucun aperçu automatique ne les fera parler. */}
+          Chaque fiche pointe soit sur une fiche de l'app (choisie au
+          sélecteur), soit sur un lien du dehors — auquel cas le titre et
+          l'image se saisissent à la main : beaucoup de sites, les cagnottes
+          en particulier, refusent les robots, et aucun aperçu automatique ne
+          les fera parler.
+
+          Chaque fiche porte SA visibilité : on peut en préparer une en
+          « Admin » pendant qu'une autre tourne déjà pour tout le village. */}
       <div style={{ padding: '14px 16px 0' }}>
         <div style={{
           padding: 14, borderRadius: 12, background: '#FFFFFF',
-          border: `1px solid ${heros.public === 'tous' ? '#C8DEC0' : '#E5DDD2'}`,
+          border: `1px solid ${herosListe.some(h => h.public === 'tous') ? '#C8DEC0' : '#E5DDD2'}`,
           boxShadow: '0 1px 4px rgba(44,28,16,0.04)',
         }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>Héros du Village</div>
-          <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2, marginBottom: 10, lineHeight: 1.45 }}>
-            L&apos;encart en tête de la page Village. Un seul à la fois.
+          <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2, marginBottom: 12, lineHeight: 1.45 }}>
+            L&apos;encart mis en avant sur la page Village. À partir de deux
+            fiches, elles défilent l&apos;une après l&apos;autre.
           </div>
 
-          <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-            {([
-              { v: 'masque' as const, titre: 'Masqué', sous: 'personne' },
-              { v: 'admin'  as const, titre: 'Admin',  sous: 'toi seul' },
-              { v: 'tous'   as const, titre: 'Tous',   sous: 'les habitants' },
-            ]).map(o => {
-              const actif = heros.public === o.v
-              return (
-                <button
-                  key={o.v}
-                  onClick={() => enregistrerHeros({ public: o.v as PublicHeros })}
-                  disabled={herosSaving}
-                  style={{
-                    flex: 1, padding: '10px 6px', borderRadius: 10, textAlign: 'center',
-                    border: `1.5px solid ${actif ? '#2D5A3D' : '#E5DDD2'}`,
-                    background: actif ? '#F4FAF5' : '#FDFAF5',
-                    cursor: herosSaving ? 'default' : 'pointer',
-                    fontFamily: 'var(--font-body), sans-serif',
-                  }}
-                >
-                  <div style={{ fontSize: 12.5, fontWeight: 800, color: actif ? '#2D5A3D' : '#1A1209' }}>{o.titre}</div>
-                  <div style={{ fontSize: 10, color: '#8A7A6A', marginTop: 2 }}>{o.sous}</div>
-                </button>
-              )
-            })}
-          </div>
-
-          <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-            <button
-              onClick={() => setHerosPicker(true)}
-              style={{ flex: 1, padding: '9px 8px', borderRadius: 9, border: `1.5px solid ${heros.cible.sorte === 'interne' ? '#2D5A3D' : '#E5DDD2'}`, background: heros.cible.sorte === 'interne' ? '#F4FAF5' : '#FDFAF5', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#1A1209' }}
-            >
-              {heros.cible.sorte === 'interne' ? 'Changer la fiche…' : 'Choisir une fiche…'}
-            </button>
-            <button
-              onClick={() => enregistrerHeros({ cible: { sorte: 'lien', url: heros.cible.sorte === 'lien' ? heros.cible.url : '' } })}
-              style={{ flex: 1, padding: '9px 8px', borderRadius: 9, border: `1.5px solid ${heros.cible.sorte === 'lien' ? '#2D5A3D' : '#E5DDD2'}`, background: heros.cible.sorte === 'lien' ? '#F4FAF5' : '#FDFAF5', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#1A1209' }}
-            >
-              Un lien du dehors
-            </button>
-          </div>
-
-          {heros.cible.sorte === 'interne' && (
-            <div style={{ fontSize: 11, color: '#5B8A4A', marginBottom: 8 }}>
-              Fiche choisie — {heros.cible.kind}
+          {herosListe.length === 0 && (
+            <div style={{ fontSize: 11.5, color: '#8A7A6A', marginBottom: 10 }}>
+              Aucune fiche. L&apos;encart ne s&apos;affiche pas.
             </div>
           )}
-          {heros.cible.sorte === 'lien' && (
-            <input
-              type="url"
-              defaultValue={heros.cible.url}
-              onBlur={e => enregistrerHeros({ cible: { sorte: 'lien', url: e.target.value.trim() } })}
-              placeholder="https://…"
-              style={{ ...CHAMP, marginBottom: 8 }}
-            />
+
+          {herosListe.map((heros, i) => (
+            <div key={i} style={{
+              border: '1px solid #EDE6DA', borderRadius: 11, padding: 12, marginBottom: 10,
+              background: '#FDFAF5',
+            }}>
+              {/* Barre de la fiche : son rang, et de quoi la déplacer ou la retirer. */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: '#8A7A6A', letterSpacing: '.06em' }}>
+                  FICHE {i + 1}
+                </span>
+                <span style={{ flex: 1 }} />
+                <button onClick={() => deplacerHeros(i, -1)} disabled={herosSaving || i === 0}
+                        aria-label="Monter la fiche"
+                        style={{ ...MINI_HEROS, opacity: i === 0 ? 0.35 : 1 }}>↑</button>
+                <button onClick={() => deplacerHeros(i, 1)} disabled={herosSaving || i === herosListe.length - 1}
+                        aria-label="Descendre la fiche"
+                        style={{ ...MINI_HEROS, opacity: i === herosListe.length - 1 ? 0.35 : 1 }}>↓</button>
+                <button onClick={() => retirerHeros(i)} disabled={herosSaving}
+                        aria-label="Retirer cette fiche"
+                        style={{ ...MINI_HEROS, color: '#B53A22' }}>✕</button>
+              </div>
+
+              <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                {([
+                  { v: 'masque' as const, titre: 'Masqué', sous: 'personne' },
+                  { v: 'admin'  as const, titre: 'Admin',  sous: 'toi seul' },
+                  { v: 'tous'   as const, titre: 'Tous',   sous: 'les habitants' },
+                ]).map(o => {
+                  const actif = heros.public === o.v
+                  return (
+                    <button
+                      key={o.v}
+                      onClick={() => modifierHeros(i, { public: o.v as PublicHeros })}
+                      disabled={herosSaving}
+                      style={{
+                        flex: 1, padding: '8px 6px', borderRadius: 9, textAlign: 'center',
+                        border: `1.5px solid ${actif ? '#2D5A3D' : '#E5DDD2'}`,
+                        background: actif ? '#F4FAF5' : '#FFFFFF',
+                        cursor: herosSaving ? 'default' : 'pointer',
+                        fontFamily: 'var(--font-body), sans-serif',
+                      }}
+                    >
+                      <div style={{ fontSize: 12, fontWeight: 800, color: actif ? '#2D5A3D' : '#1A1209' }}>{o.titre}</div>
+                      <div style={{ fontSize: 9.5, color: '#8A7A6A', marginTop: 1 }}>{o.sous}</div>
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                <button
+                  onClick={() => setHerosPicker(i)}
+                  style={{ flex: 1, padding: '9px 8px', borderRadius: 9, border: `1.5px solid ${heros.cible.sorte === 'interne' ? '#2D5A3D' : '#E5DDD2'}`, background: heros.cible.sorte === 'interne' ? '#F4FAF5' : '#FFFFFF', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#1A1209' }}
+                >
+                  {heros.cible.sorte === 'interne' ? 'Changer la fiche…' : 'Choisir une fiche…'}
+                </button>
+                <button
+                  onClick={() => modifierHeros(i, { cible: { sorte: 'lien', url: heros.cible.sorte === 'lien' ? heros.cible.url : '' } })}
+                  style={{ flex: 1, padding: '9px 8px', borderRadius: 9, border: `1.5px solid ${heros.cible.sorte === 'lien' ? '#2D5A3D' : '#E5DDD2'}`, background: heros.cible.sorte === 'lien' ? '#F4FAF5' : '#FFFFFF', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#1A1209' }}
+                >
+                  Un lien du dehors
+                </button>
+              </div>
+
+              {heros.cible.sorte === 'interne' && (
+                <div style={{ fontSize: 11, color: '#5B8A4A', marginBottom: 8 }}>
+                  Fiche choisie — {heros.cible.kind}
+                </div>
+              )}
+              {heros.cible.sorte === 'lien' && (
+                <input
+                  type="url"
+                  defaultValue={heros.cible.url}
+                  onBlur={e => modifierHeros(i, { cible: { sorte: 'lien', url: e.target.value.trim() } })}
+                  placeholder="https://…"
+                  style={{ ...CHAMP, marginBottom: 8 }}
+                />
+              )}
+
+              <input
+                defaultValue={heros.etiquette}
+                onBlur={e => modifierHeros(i, { etiquette: e.target.value.trim() || 'À la une' })}
+                placeholder="Étiquette — Entraide, Urgence…"
+                style={{ ...CHAMP, marginBottom: 6 }}
+              />
+              <input
+                defaultValue={heros.titre}
+                onBlur={e => modifierHeros(i, { titre: e.target.value.trim() })}
+                placeholder="Titre — sans lui, la fiche ne s’affiche pas"
+                style={{ ...CHAMP, marginBottom: 6 }}
+              />
+              <input
+                defaultValue={heros.sousTitre ?? ''}
+                onBlur={e => modifierHeros(i, { sousTitre: e.target.value.trim() || null })}
+                placeholder="Sous-titre"
+                style={{ ...CHAMP, marginBottom: 6 }}
+              />
+              <input
+                type="url"
+                defaultValue={heros.image ?? ''}
+                onBlur={e => modifierHeros(i, { image: e.target.value.trim() || null })}
+                placeholder="Image (URL)"
+                style={{ ...CHAMP, marginBottom: 10 }}
+              />
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#1A1209', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={heros.surCarte}
+                  onChange={e => modifierHeros(i, { surCarte: e.target.checked })}
+                  style={{ width: 16, height: 16 }}
+                />
+                La reprendre à la une, en bandeau sur la carte
+              </label>
+            </div>
+          ))}
+
+          {/* Le bandeau de la carte ne montre qu’une chose : autant le dire
+              ici plutôt que de laisser chercher pourquoi la deuxième coche ne
+              donne rien. */}
+          {herosListe.filter(h => h.surCarte).length > 1 && (
+            <div style={{ fontSize: 11, color: '#B07B2A', marginBottom: 10, lineHeight: 1.45 }}>
+              Plusieurs fiches sont cochées pour la carte : le bandeau n&apos;en
+              montre qu&apos;une, la première de la liste.
+            </div>
           )}
 
-          <input
-            defaultValue={heros.etiquette}
-            onBlur={e => enregistrerHeros({ etiquette: e.target.value.trim() || 'À la une' })}
-            placeholder="Étiquette — Entraide, Urgence…"
-            style={{ ...CHAMP, marginBottom: 6 }}
-          />
-          <input
-            defaultValue={heros.titre}
-            onBlur={e => enregistrerHeros({ titre: e.target.value.trim() })}
-            placeholder="Titre — sans lui, le héros ne s'affiche pas"
-            style={{ ...CHAMP, marginBottom: 6 }}
-          />
-          <input
-            defaultValue={heros.sousTitre ?? ''}
-            onBlur={e => enregistrerHeros({ sousTitre: e.target.value.trim() || null })}
-            placeholder="Sous-titre"
-            style={{ ...CHAMP, marginBottom: 6 }}
-          />
-          <input
-            type="url"
-            defaultValue={heros.image ?? ''}
-            onBlur={e => enregistrerHeros({ image: e.target.value.trim() || null })}
-            placeholder="Image (URL)"
-            style={{ ...CHAMP, marginBottom: 10 }}
-          />
-
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#1A1209', cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={heros.surCarte}
-              onChange={e => enregistrerHeros({ surCarte: e.target.checked })}
-              style={{ width: 16, height: 16 }}
-            />
-            Le reprendre aussi à la une, en bandeau sur la carte
-          </label>
+          <button
+            onClick={ajouterHeros}
+            disabled={herosSaving}
+            style={{
+              width: '100%', padding: '10px 8px', borderRadius: 10,
+              border: '1.5px dashed #C8DEC0', background: '#F4FAF5',
+              cursor: herosSaving ? 'default' : 'pointer',
+              fontSize: 12.5, fontWeight: 800, color: '#2D5A3D',
+              fontFamily: 'var(--font-body), sans-serif',
+            }}
+          >
+            + Ajouter une fiche
+          </button>
 
           {herosMsg && (
             <div style={{ fontSize: 11, marginTop: 8, color: herosMsg === 'Enregistré' ? '#2D5A3D' : '#B53A22' }}>{herosMsg}</div>
@@ -816,8 +1014,8 @@ export default function AdminHubCarousel() {
         </div>
       </div>
 
-      {herosPicker && (
-        <EmbedPicker onSelect={prendreCible} onClose={() => setHerosPicker(false)} />
+      {herosPicker !== null && (
+        <EmbedPicker onSelect={prendreCible} onClose={() => setHerosPicker(null)} />
       )}
 
       {/* Assistant Village — la recherche conversationnelle. Même mécanique à

@@ -3,10 +3,14 @@ import type { EmbedKind } from '@/components/EmbedPicker'
 /**
  * LE HÉROS DU VILLAGE — un encart mis en avant, en tête de la page Village.
  *
- * Il sert à pousser UNE chose à la fois : une collecte d'entraide, un débat en
- * cours, un commerce à soutenir. Pas un carrousel, pas une file d'attente —
- * un seul, sinon plus rien ne se détache et l'encart perd exactement ce qui
- * fait sa valeur.
+ * Il sert à pousser ce qui compte en ce moment : une collecte d'entraide, un
+ * débat en cours, un commerce à soutenir.
+ *
+ * PLUSIEURS FICHES, UN SEUL EMPLACEMENT. L'encart n'en montre qu'une à la
+ * fois et passe à la suivante toute seule, comme le bandeau « à la une » de la
+ * carte. Ce n'est pas une file d'attente qu'on allonge sans fin : au-delà de
+ * trois ou quatre, plus rien ne se détache et l'encart perd ce qui fait sa
+ * valeur. Une seule fiche reste le cas courant — elle ne défile pas.
  *
  * Il vit dans `config('village_hero')`, comme les autres réglages de la page
  * d'accueil, et s'édite dans /admin/hub-carousel.
@@ -90,6 +94,25 @@ export function normaliserHeros(brut: unknown): HerosVillage | null {
     cible,
     surCarte: r.surCarte === true,
   }
+}
+
+/**
+ * Relit la config, qui porte SOIT une fiche seule (l'ancien format, d'avant
+ * le défilement), SOIT une liste. Les deux continuent de se lire : une config
+ * déjà en place n'a rien à rejouer, elle devient une liste d'un élément.
+ *
+ * Les fiches incomplètes sont écartées une par une plutôt que de faire
+ * échouer la liste entière — une ligne à moitié remplie en admin ne doit pas
+ * emporter les autres avec elle.
+ */
+export function normaliserHerosListe(brut: unknown): HerosVillage[] {
+  let o: unknown = brut
+  if (typeof o === 'string') { try { o = JSON.parse(o) } catch { return [] } }
+  if (Array.isArray(o)) {
+    return o.map(x => normaliserHeros(x)).filter((h): h is HerosVillage => h !== null)
+  }
+  const seul = normaliserHeros(o)
+  return seul ? [seul] : []
 }
 
 /** Faut-il montrer ce héros à cette personne ? */

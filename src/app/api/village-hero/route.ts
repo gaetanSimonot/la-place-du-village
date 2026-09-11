@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getUserContextFromRequest } from '@/lib/server-auth'
-import { normaliserHeros, herosVisible } from '@/lib/villageHero'
+import { normaliserHerosListe, herosVisible } from '@/lib/villageHero'
 
 /**
  * LE HÉROS DU VILLAGE — lecture.
@@ -10,8 +10,12 @@ import { normaliserHeros, herosVisible } from '@/lib/villageHero'
  * laisserait le contenu dans la réponse : n'importe qui verrait, dans l'onglet
  * réseau, ce qui n'est ouvert qu'aux admins pendant le rodage.
  *
- * Réponse : { heros } ou { heros: null }. Jamais d'erreur — un héros absent
- * n'est pas une panne, c'est le cas courant.
+ * Réponse : { heros: [...] }. Une LISTE, parce que l'encart peut faire défiler
+ * plusieurs fiches — vide s'il n'y a rien à montrer. Jamais d'erreur : un
+ * héros absent n'est pas une panne, c'est le cas courant.
+ *
+ * Compatibilité : le champ `heros` reste accompagné, pour l'admin, d'un
+ * `eteint` qui dit qu'il ne reste que des fiches invisibles au public.
  */
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -23,16 +27,20 @@ export async function GET(req: NextRequest) {
   const { data } = await supabaseAdmin
     .from('config').select('value').eq('key', 'village_hero').maybeSingle()
 
-  const heros = normaliserHeros(data?.value)
-  if (!heros) return NextResponse.json({ heros: null })
+  const toutes = normaliserHerosListe(data?.value)
+  if (!toutes.length) return NextResponse.json({ heros: [] })
 
   const ctx = await getUserContextFromRequest(req)
   const estAdmin = !!ctx?.isAdmin
 
-  if (!herosVisible(heros, estAdmin)) {
-    // L'admin doit pouvoir le retrouver pour le rallumer : on lui rend le
-    // héros éteint, avec de quoi savoir qu'il l'est. Aux autres, rien.
-    return NextResponse.json(estAdmin ? { heros, eteint: true } : { heros: null })
+  // Chaque fiche porte sa propre visibilité : on peut en préparer une en
+  // « admin » pendant qu'une autre tourne déjà pour tout le village.
+  const visibles = toutes.filter(h => herosVisible(h, estAdmin))
+
+  if (!visibles.length) {
+    // L'admin doit pouvoir les retrouver pour les rallumer : on lui rend les
+    // fiches éteintes, avec de quoi savoir qu'elles le sont. Aux autres, rien.
+    return NextResponse.json(estAdmin ? { heros: toutes, eteint: true } : { heros: [] })
   }
-  return NextResponse.json({ heros, eteint: false, estAdmin })
+  return NextResponse.json({ heros: visibles, eteint: false, estAdmin })
 }
