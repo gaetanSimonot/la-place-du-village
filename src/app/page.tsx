@@ -16,6 +16,7 @@ import { useAuthModal } from '@/contexts/AuthModalContext'
 import ProBandeau from '@/components/ProBandeau'
 import AgendaFilterWheel, { AgendaDateButton } from '@/components/AgendaFilterWheel'
 import DesktopMapFilters from '@/components/desktop/DesktopMapFilters'
+import DesktopAnnuaireFilters from '@/components/desktop/DesktopAnnuaireFilters'
 import DesktopEventModal from '@/components/desktop/DesktopEventModal'
 import VillageView from '@/components/VillageView'
 import HubSearchModal, { type SearchKind } from '@/components/HubSearchModal'
@@ -242,12 +243,17 @@ export default function HomePage() {
   })
   const [zoneLoaded, setZoneLoaded]     = useState(false)
 
-  // SWR sur /api/annuaire — clé inclut le type filtre. Disable quand on n'est
-  // pas en mode annuaire (key=null) → SWR ne fetch pas, mais garde le cache
-  // de la dernière entrée. Au retour en annuaire, affichage instantané.
-  const annuaireKey = appMode === 'annuaire'
-    ? (selectedEtabType ? `/api/annuaire?type=${selectedEtabType}` : '/api/annuaire')
-    : null
+  // SWR sur /api/annuaire — une seule clé, SANS le type. Disable quand on
+  // n'est pas en mode annuaire (key=null) → SWR ne fetch pas, mais garde le
+  // cache. Au retour en annuaire, affichage instantané.
+  //
+  // Le type se filtre désormais côté client (`filteredEtablissements`). C'est
+  // ce qui permet à la colonne de filtres d'annoncer un nombre derrière
+  // CHAQUE type : tant que le serveur renvoyait la seule catégorie demandée,
+  // les autres affichaient zéro dès qu'on cliquait. Au passage, changer de
+  // type ne déclenche plus d'aller-retour réseau — l'annuaire entier est
+  // déjà là.
+  const annuaireKey = appMode === 'annuaire' ? '/api/annuaire' : null
 
   const { data: annuaireData, isLoading: annuaireLoadingRaw } = useSWR(annuaireKey)
 
@@ -433,8 +439,11 @@ export default function HomePage() {
     // L'en-tête bureau a besoin de savoir quel onglet est ouvert pour souligner
     // le bon. L'URL ne peut pas le dire : la synchronisation y écrit toujours
     // ?mode=agenda, y compris quand on est sur Le village.
-    try { document.documentElement.dataset.vue = navTab } catch {}
-  }, [navTab])
+    //
+    // Le transport passe devant : c'est un calque posé sur la carte, et tant
+    // qu'il est ouvert c'est lui qu'on regarde, pas la carte en dessous.
+    try { document.documentElement.dataset.vue = modeTransport ? 'transport' : navTab } catch {}
+  }, [navTab, modeTransport])
   // Hub : écran d'accueil avec tuiles. Par défaut au lancement.
   // Restauré false si l'user était dans un module avant un refresh.
   // Refonte « app simple » : plus de hub d'accueil. showHub reste dans le code
@@ -586,6 +595,10 @@ export default function HomePage() {
     const surVue = (e: Event) => {
       const vue = (e as CustomEvent<string>).detail
       setShowHub(false)
+      // Le transport se superpose à la carte : toute autre vue doit donc le
+      // couper, sinon on y reste coincé en croyant avoir changé d'écran.
+      if (vue === 'transport') { setModeTransport(true); setNavTab('carte'); return }
+      setModeTransport(false)
       if (vue === 'village') { setNavTab('village'); return }
       if (vue === 'annuaire') { setAppMode('annuaire'); setNavTab('carte'); return }
       if (vue === 'producteurs') { setAppMode('annuaire'); setAnnuaireTab(0); setNavTab('carte'); return }
@@ -907,6 +920,31 @@ export default function HomePage() {
 
   const { data: agendaData, isLoading: agendaLoadingRaw, mutate: mutateAgenda } = useSWR(agendaKey)
 
+  /*
+   * La MÊME clé, sans le filtre de catégorie.
+   *
+   * La colonne de filtres du bureau annonce, derrière chaque catégorie, le
+   * nombre d'événements qu'elle contient. Elle ne peut pas le lire dans
+   * `agendaData` : celui-ci est déjà filtré par l'API, si bien qu'en
+   * choisissant « Concert » toutes les autres catégories tombaient à zéro —
+   * la colonne se vidait à chaque clic et on ne pouvait plus rien viser.
+   *
+   * Tant qu'aucune catégorie n'est choisie, cette clé est identique à
+   * `agendaKey` : SWR les met en commun et il n'y a pas une requête de plus.
+   * La requête ne part que lorsqu'une catégorie est active — et elle est
+   * alors déjà en cache, puisque « Tout » est l'état d'arrivée sur la carte.
+   */
+  const agendaKeyToutesCats = useMemo(() => {
+    if (!zoneLoaded) return null
+    const params = new URLSearchParams()
+    params.set('quand', filtres.quand)
+    if (filtres.date) params.set('date', filtres.date)
+    if (masquerPasses) params.set('masquerPasses', '1')
+    return `/api/agenda?${params.toString()}`
+  }, [filtres.quand, filtres.date, masquerPasses, zoneLoaded])
+
+  const { data: agendaToutesCatsData } = useSWR(agendaKeyToutesCats)
+
   // Sync des states existants depuis agendaData (le rendu utilise les states
   // legacy → minimisation du diff dans la grosse page.tsx).
   useEffect(() => {
@@ -945,20 +983,33 @@ export default function HomePage() {
    * position où la feuille se trouve. Il n'y a plus rien à replier.
    */
 
-  // Filtre zone appliqué sur la liste complète — recalculé à chaque changement de zone
-  const evenementsZone = useMemo(() => {
+  // Filtre zone — la même règle sert à la liste affichée et à celle qui
+  // nourrit les compteurs, pour qu'elles ne puissent pas diverger.
+  const garderDansLaZone = useCallback((liste: EvenementCard[]) => {
     const rayon   = userZoneActive ? userRayon : (rayonAffichage ?? 0)
     const centres = userZoneActive && userCentre
       ? [userCentre]
       : zoneCentres.length > 0 ? zoneCentres : [{ lat: GANGES.lat, lng: GANGES.lng, nom: 'Ganges' }]
-    if (rayon <= 0) return allEvenements
-    return allEvenements.filter(e => {
+    if (rayon <= 0) return liste
+    return liste.filter(e => {
       const lat = e.lieux?.lat
       const lng = e.lieux?.lng
       if (lat == null || lng == null) return true
       return centres.some(c => haversineKm(lat, lng, c.lat, c.lng) <= rayon)
     })
-  }, [allEvenements, rayonAffichage, zoneCentres, userZoneActive, userRayon, userCentre])
+  }, [rayonAffichage, zoneCentres, userZoneActive, userRayon, userCentre])
+
+  // Filtre zone appliqué sur la liste complète — recalculé à chaque changement de zone
+  const evenementsZone = useMemo(
+    () => garderDansLaZone(allEvenements),
+    [allEvenements, garderDansLaZone],
+  )
+
+  /** Toutes catégories confondues : sert UNIQUEMENT aux compteurs. */
+  const evenementsZoneToutesCats = useMemo(
+    () => garderDansLaZone((agendaToutesCatsData?.evenements as EvenementCard[]) ?? []),
+    [agendaToutesCatsData, garderDansLaZone],
+  )
 
   // Filtre texte appliqué après tous les autres filtres
   const evenements = useMemo(() => {
@@ -1103,6 +1154,22 @@ export default function HomePage() {
       })
   }, [producers, selectedCats, producerSearch])
 
+  /**
+   * Les producteurs AVANT le filtre de catégorie : la seule liste qui puisse
+   * dire ce qu'il y a derrière les catégories qu'on n'a pas choisies. La
+   * recherche texte, elle, reste appliquée — quand on cherche « chèvre », les
+   * compteurs doivent parler de ce qu'on cherche.
+   */
+  const producteursZoneToutesCats = useMemo(() => {
+    const q = normSearch(producerSearch.trim())
+    if (!q) return producers
+    return producers.filter(p =>
+      normSearch(p.nom).includes(q) ||
+      normSearch(p.commune ?? '').includes(q) ||
+      (p.produits_disponibles ?? []).some(pr => normSearch(pr.nom).includes(q)),
+    )
+  }, [producers, producerSearch])
+
   // Bandeau "à la une" dérivé de la liste FILTRÉE : sinon il continue de
   // pousser des producteurs hors recherche/catégorie pendant qu'on cherche.
   const featuredProducers = useMemo(() => filteredProducers.filter(p => p.is_featured), [filteredProducers])
@@ -1128,6 +1195,21 @@ export default function HomePage() {
         return e.nom.toLowerCase().includes(q) || (e.commune ?? '').toLowerCase().includes(q)
       })
   }, [etablissements, etabSearch, userZoneActive, userRayon, userCentre, zoneCentres, rayonAffichage])
+
+  /**
+   * Les commerces de la zone, TOUS TYPES confondus : c'est la seule liste qui
+   * puisse dire combien il y en a derrière les types qu'on n'a pas choisis.
+   * Elle sert aux compteurs de la colonne de filtres, et à rien d'autre.
+   */
+  const etablissementsZoneTousTypes = filteredEtablissements
+
+  /** Ce que la carte et la liste montrent vraiment : le type choisi. */
+  const etablissementsAffiches = useMemo(
+    () => (selectedEtabType
+      ? filteredEtablissements.filter(e => e.type === selectedEtabType)
+      : filteredEtablissements),
+    [filteredEtablissements, selectedEtabType],
+  )
 
   // ─────────────────────────────────────────────────────────────────────
   // Sous-étape 5.2 : overlays producteur/établissement → intercepting routes
@@ -1165,7 +1247,7 @@ export default function HomePage() {
   // payload de l'API : sinon le bouton reste sans effet sur une fiche trouvée
   // par la recherche.
   const handleViewEtabOnMap = (id: string) => {
-    const e = (displayedEtabs ?? filteredEtablissements).find(x => x.id === id)
+    const e = (displayedEtabs ?? etablissementsAffiches).find(x => x.id === id)
     setSelectedEtabId(id)
     setNavTab('carte')
     setSheetMode('half')
@@ -1279,7 +1361,7 @@ export default function HomePage() {
           selectedProducerId={selectedProducerId}
           onSelectProducer={setSelectedProducerId}
           onOpenProducer={openProducer}
-          etablissements={!modeTransport && appMode === 'annuaire' && annuaireTab === 1 ? (displayedEtabs ?? filteredEtablissements) : []}
+          etablissements={!modeTransport && appMode === 'annuaire' && annuaireTab === 1 ? (displayedEtabs ?? etablissementsAffiches) : []}
           selectedEtabId={selectedEtabId}
           onSelectEtab={setSelectedEtabId}
           onOpenEtablissement={openEtablissement}
@@ -1448,7 +1530,23 @@ export default function HomePage() {
               <DesktopMapFilters
                 filtres={filtres}
                 onFiltresChange={setFiltres}
-                evenements={evenementsZone}
+                evenements={evenementsZoneToutesCats}
+              />
+            )}
+
+            {/* L'autre face de la carte a droit à la même colonne : les
+                commerces et les producteurs se choisissaient dans une rangée
+                de pastilles qui défile, héritée du téléphone, alors que la
+                place était là. */}
+            {showBtns && appMode === 'annuaire' && !modeTransport && (
+              <DesktopAnnuaireFilters
+                onglet={annuaireTab}
+                etablissements={etablissementsZoneTousTypes}
+                producteurs={producteursZoneToutesCats}
+                typeActif={selectedEtabType}
+                onTypeChange={setSelectedEtabType}
+                catsActives={selectedCats}
+                onCatsChange={c => setSelectedCats(c as typeof selectedCats)}
               />
             )}
 
@@ -1864,7 +1962,7 @@ export default function HomePage() {
         onToggleProducerFav={toggleProducerFav}
         featuredProducers={featuredProducers}
         onOpenProducer={openProducer}
-        etablissements={filteredEtablissements}
+        etablissements={etablissementsAffiches}
         etablissementLoading={etablissementLoading}
         selectedEtabType={selectedEtabType}
         onEtabTypeChange={setSelectedEtabType}

@@ -33,19 +33,45 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const type = searchParams.get('type')
 
-  let query = supabaseAdmin
-    .from('etablissements')
-    .select('id, type, nom, commune, lat, lng, photos, note_google, is_featured, statut, description_courte, plan, user_id')
-    .in('statut', ['publie', 'actif'])
-    .order('is_featured', { ascending: false })
-    .order('nom')
+  /*
+   * PostgREST plafonne une réponse à 1000 lignes, et l'annuaire en compte
+   * davantage : la carte s'arrêtait donc à 1000 fiches, et le compteur de la
+   * colonne de filtres annonçait « 1000 » comme s'il n'y avait rien au-delà.
+   * On demande les lots les uns après les autres jusqu'à en recevoir un
+   * incomplet — c'est le signe qu'on tient la fin.
+   *
+   * Une borne dure à 10 lots protège d'une boucle sans fin si la limite du
+   * serveur changeait un jour : mieux vaut une liste tronquée qu'un onglet
+   * qui tourne à vide.
+   */
+  const PAR_LOT = 1000
+  const MAX_LOTS = 10
+  const lignes: EtabRow[] = []
 
-  if (type) query = query.eq('type', type)
+  for (let lot = 0; lot < MAX_LOTS; lot++) {
+    let query = supabaseAdmin
+      .from('etablissements')
+      .select('id, type, nom, commune, lat, lng, photos, note_google, is_featured, statut, description_courte, plan, user_id')
+      .in('statut', ['publie', 'actif'])
+      .order('is_featured', { ascending: false })
+      .order('nom')
+      // `id` en dernier critère : sans un tri total, deux lignes de même nom
+      // peuvent changer d'ordre entre deux lots et se retrouver en double ou
+      // manquer à l'appel.
+      .order('id')
+      .range(lot * PAR_LOT, lot * PAR_LOT + PAR_LOT - 1)
 
-  const { data, error } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (type) query = query.eq('type', type)
 
-  const etabs = (data ?? []) as EtabRow[]
+    const { data, error } = await query
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    const recues = (data ?? []) as EtabRow[]
+    lignes.push(...recues)
+    if (recues.length < PAR_LOT) break
+  }
+
+  const etabs = lignes
   if (!etabs.length) return NextResponse.json({ etablissements: [] })
 
   // Récupère les drafts et plans des proprios pour appliquer le merge

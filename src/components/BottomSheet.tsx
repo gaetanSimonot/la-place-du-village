@@ -731,8 +731,12 @@ export default function BottomSheet({
             s'affiche dans la zone de poignée — compteur, pastilles de type,
             puis recherche plus bas. En mode transport, la feuille appartient
             au transport. */}
+        {/* `pcv-hide` sur le bloc : sur ordinateur, ces pastilles font doublon
+            avec la colonne de filtres posée à gauche de la liste — la même
+            chose dite deux fois à trente centimètres d'intervalle. Le mode
+            événements n'a jamais eu ce doublon ; l'annuaire s'aligne. */}
         {appMode !== 'agenda' && !contenuTransport && (
-          <div style={{ padding: '0 16px 10px' }}>
+          <div className="pcv-hide" style={{ padding: '0 16px 10px' }}>
             {!topBarV3 && (
               <div style={{ display: 'flex', backgroundColor: '#E8F2EB', borderRadius: 999, padding: 3, gap: 2, marginBottom: 8, width: 'fit-content' }}>
                 <button onClick={() => setAnnuaireTabIdx(0)} style={{

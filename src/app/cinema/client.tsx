@@ -162,6 +162,21 @@ export default function CinemaClient() {
 
   const billetterie = salleUnique?.billetterie_url ?? null
 
+  /**
+   * Les salles dont on porte l'enseigne : celle qu'on regarde, ou toutes
+   * quand on les regarde ensemble.
+   */
+  const enseignes = useMemo(
+    () => (salleUnique ? [salleUnique] : salles),
+    [salleUnique, salles],
+  )
+
+  /** Les villes, dans l'ordre des salles et sans répétition. */
+  const communes = useMemo(
+    () => Array.from(new Set(enseignes.map(c => c.commune).filter(Boolean) as string[])),
+    [enseignes],
+  )
+
   /** Changer de salle. L'URL suit, donc le lien reste partageable. */
   function choisirSalle(cle: string | null) {
     setSlug(cle)
@@ -193,10 +208,20 @@ export default function CinemaClient() {
           style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-.01em', color: 'var(--cine-ink)' }}>
           La Place du Village
         </button>
+        {/* Les villes desservies. En agrégé on les montre TOUTES : c'est ce
+            qui dit, sans un mot de plus, que la page couvre plusieurs salles
+            et lesquelles. Une salle choisie, une seule ville — celle où l'on
+            va. */}
+        {communes.length > 0 && (
+          <span className="ml-auto flex-none truncate"
+            style={{ fontSize: 12, fontWeight: 600, color: 'var(--cine-dim)' }}>
+            {communes.join(' · ')}
+          </span>
+        )}
         {billetterie ? (
           <a href={billetterie} target="_blank" rel="noopener noreferrer"
-            className="ml-auto flex-none rounded-full no-underline"
-            style={{ border: '1px solid var(--cine-accent)', padding: '7px 13px', fontSize: 12, fontWeight: 700, color: 'var(--cine-accent)' }}>
+            className="flex-none rounded-full no-underline"
+            style={{ marginLeft: communes.length ? 12 : 'auto', border: '1px solid var(--cine-accent)', padding: '7px 13px', fontSize: 12, fontWeight: 700, color: 'var(--cine-accent)' }}>
             Billetterie
           </a>
         ) : salleUnique ? (
@@ -212,22 +237,48 @@ export default function CinemaClient() {
       {/* Enseigne. Chaque salle a la sienne : poser le logo de l'Arc-en-Ciel
           sur la programmation d'une autre serait un contresens. Sans logo
           connu, c'est le nom qui porte l'identité — et ajouter une salle ne
-          demande qu'un fichier de plus dans public/cinema/. */}
-      <div className="flex items-center justify-center" style={{ padding: '16px 26px 24px' }}>
-        {logoDeLaSalle(salleUnique?.slug) ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={logoDeLaSalle(salleUnique?.slug)!} alt={salleUnique?.nom ?? 'Cinéma'}
-            style={{ width: '100%', maxWidth: 270, height: 'auto', display: 'block' }} />
-        ) : (
-          <div className="text-center">
-            <h1 className="m-0 font-title"
-              style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--cine-ink)' }}>
-              {salleUnique?.nom ?? 'Au cinéma'}
-            </h1>
-            <p className="m-0" style={{ marginTop: 4, fontSize: 12, color: 'var(--cine-dim2)' }}>
-              {salleUnique?.commune ?? `${salles.length} salles autour de vous`}
-            </p>
-          </div>
+          demande qu'un fichier de plus dans public/cinema/.
+
+          En agrégé, on montre les enseignes de TOUTES les salles côte à côte
+          plutôt qu'un titre générique : la page appartient à ces cinémas-là,
+          autant le dire avec leurs propres enseignes. Chacune reste cliquable
+          — c'est le chemin le plus court vers une seule salle. */}
+      <div className="flex flex-wrap items-center justify-center gap-x-9 gap-y-4"
+        style={{ padding: '16px 26px 24px' }}>
+        {enseignes.map(salle => (
+          logoDeLaSalle(salle.slug) ? (
+            <button key={salle.id} type="button"
+              onClick={() => salleUnique ? undefined : choisirSalle(salle.slug ?? salle.id)}
+              className="flex-none border-none bg-transparent p-0"
+              style={{ cursor: salleUnique ? 'default' : 'pointer' }}
+              aria-label={salle.nom}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={logoDeLaSalle(salle.slug)!} alt={salle.nom}
+                style={{ width: '100%', maxWidth: salleUnique ? 270 : 200, height: 'auto', display: 'block' }} />
+            </button>
+          ) : (
+            <button key={salle.id} type="button"
+              onClick={() => salleUnique ? undefined : choisirSalle(salle.slug ?? salle.id)}
+              className="flex-none border-none bg-transparent p-0 text-center"
+              style={{ cursor: salleUnique ? 'default' : 'pointer' }}>
+              <span className="m-0 block font-title"
+                style={{ fontSize: salleUnique ? 26 : 20, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--cine-ink)' }}>
+                {salle.nom}
+              </span>
+              {salle.commune && (
+                <span className="m-0 block" style={{ marginTop: 4, fontSize: 12, color: 'var(--cine-dim2)' }}>
+                  {salle.commune}
+                </span>
+              )}
+            </button>
+          )
+        ))}
+        {/* Aucune salle du tout : il reste un titre, sinon la page n'en a pas. */}
+        {enseignes.length === 0 && (
+          <h1 className="m-0 font-title"
+            style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--cine-ink)' }}>
+            Au cinéma
+          </h1>
         )}
       </div>
 
