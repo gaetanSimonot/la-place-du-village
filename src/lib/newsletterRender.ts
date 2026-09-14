@@ -75,6 +75,20 @@ function sectionHeader(titre: string, seeAllHref?: string): string {
   </tr></table>`
 }
 
+/**
+ * La ligne qui rattrape l'écart avec la carte.
+ *
+ * Le grand chiffre ne compte QUE ce qui se rate : un cours du mardi ouvert
+ * toute la saison n'est pas une nouvelle. Mais la carte, elle, les affiche —
+ * et l'écart (144 contre 108 le 14/09/2026) ne s'expliquait nulle part. On
+ * nomme donc ce qu'on n'a pas compté, au lieu de laisser croire à une erreur.
+ */
+function ligneInstalles(n: number): string {
+  return n === 1
+    ? '+ 1 exposition ou cours ouvert toute la saison'
+    : `+ ${n} expositions, cours et ateliers ouverts toute la saison`
+}
+
 /** Bouton pleine largeur, à l'épreuve d'Outlook. */
 function bouton(href: string, label: string): string {
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td align="center" bgcolor="#2D5A3D" style="background-color:#2D5A3D;border-radius:12px"><a href="${esc(href)}" style="display:block;padding:14px 18px;font-family:${TEXTE};font-size:14px;font-weight:bold;color:#FFFFFF;text-decoration:none;border-radius:12px">${label}</a></td></tr></table>`
@@ -220,7 +234,9 @@ async function renderBlock(b: NewsletterBlock, semaineLibelle: string): Promise<
             <!--[if gte mso 9]></v:textbox></v:rect><![endif]-->
           </td></tr>
 
-          <tr><td style="padding:14px"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">${lignes}</table></td></tr>
+          <tr><td style="padding:14px 14px ${s.installes ? '4px' : '14px'}"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">${lignes}</table></td></tr>
+
+          ${s.installes ? `<tr><td align="center" style="padding:6px 18px 10px;font-family:${TEXTE};font-size:11.5px;font-style:italic;color:#8A7A68;mso-line-height-rule:exactly;line-height:16px">${ligneInstalles(s.installes)}</td></tr>` : ''}
 
           <tr><td style="padding:2px 14px 0">${bouton(s.href, 'Voir tout l&rsquo;agenda de la semaine &rarr;')}</td></tr>
           <tr><td align="center" style="padding:14px 14px 16px;font-family:${TEXTE};font-size:11.5px;color:#6B5C4C;mso-line-height-rule:exactly;line-height:16px">${esc(s.libelle)}</td></tr>

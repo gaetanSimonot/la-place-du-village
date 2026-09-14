@@ -62,12 +62,25 @@ export async function getSemaineChiffres(): Promise<SemaineChiffres> {
   const jours = (a: string, b: string | null) =>
     Math.round((new Date((b ?? a) + 'T12:00:00').getTime() - new Date(a + 'T12:00:00').getTime()) / 86400000)
 
-  const retenus = (data ?? []).filter(e => {
+  const pendantLaSemaine = (data ?? []).filter(e => {
     const debut = e.date_debut as string
     const fin   = (e.date_fin as string | null) ?? debut
-    if (fin < sem.debut) return false                       // déjà passé
-    return jours(debut, fin) < DUREE_EXPO_JOURS             // pas une expo au long cours
+    return fin >= sem.debut                                 // pas déjà passé
   })
+
+  const retenus = pendantLaSemaine.filter(e =>
+    jours(e.date_debut as string, (e.date_fin as string | null)) < DUREE_EXPO_JOURS)
+
+  /*
+   * Les écartés, comptés au lieu d'être tus.
+   *
+   * Ils sont la DIFFÉRENCE entre la carte et cette lettre : au 14/09/2026, la
+   * carte affichait 144 rendez-vous pour la semaine et le compteur 108 — les
+   * 36 manquants étaient tous des saisons de yoga, des ateliers vélo et des
+   * expositions. Les deux chiffres étaient justes, mais l'écart n'était
+   * explicable nulle part. Une ligne suffit à le dire.
+   */
+  const installes = pendantLaSemaine.length - retenus.length
 
   const compte: Record<string, number> = {}
   for (const e of retenus) {
@@ -87,6 +100,7 @@ export async function getSemaineChiffres(): Promise<SemaineChiffres> {
     libelle: sem.libelle,
     categories,
     href: `${SITE}/?mode=agenda&quand=cette_semaine`,
+    installes,
   }
 }
 

@@ -85,6 +85,15 @@ export interface SemaineChiffres {
   libelle: string
   categories: CompteCategorie[]
   href: string
+  /**
+   * Ce que `total` n'a PAS compté : les expositions, cours et permanences
+   * ouverts une semaine ou plus, qui se tiennent bien pendant la période mais
+   * qu'on n'annonce pas comme un rendez-vous (cf. `getSemaineChiffres`).
+   *
+   * Nommé pour être affiché en toutes lettres : le chiffre de la carte les
+   * inclut, celui de la lettre non, et rien ne disait où passait l'écart.
+   */
+  installes: number
 }
 
 export const BLOCK_LABELS: Record<BlockType, string> = {
