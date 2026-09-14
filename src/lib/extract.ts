@@ -18,6 +18,12 @@ export interface ExtractedData {
   prix: string | null
   contact: string | null
   organisateurs: string | null
+  /**
+   * Jours reels d'un rendez-vous qui revient, ISO 8601 (1=lundi, 7=dimanche).
+   * `null` = pas de recurrence : l'evenement vaut tous les jours de sa periode,
+   * ce qui est la bonne reponse pour une exposition ouverte en continu.
+   */
+  jours_semaine?: number[] | null
 }
 
 export interface GeoResult {
@@ -101,6 +107,28 @@ export async function extractMultipleWithClaude(text: string | null, imageBase64
     && typeof (e as ExtractedData).titre === 'string'
     && (e as ExtractedData).titre.trim().length > 0
   )
+}
+
+/**
+ * Les jours d'un rendez-vous qui revient, nettoyes.
+ *
+ * Ce qui sort du modele passe par ici avant d'atteindre la base : on ne garde
+ * que des entiers 1..7, dedoublonnes et tries. Hors bornes ou vide -> `null`,
+ * c'est-a-dire « pas de recurrence connue », le defaut sur : l'evenement reste
+ * visible tous les jours de sa periode, comme avant cette colonne.
+ *
+ * La contrainte SQL `evenements_jours_semaine_valides` dit la meme chose cote
+ * base — mais une valeur refusee la-bas ferait echouer l'insert ENTIER et
+ * perdrait l'evenement. Le filtre doit donc etre ici aussi.
+ */
+export function nettoyerJoursSemaine(v: unknown): number[] | null {
+  if (!Array.isArray(v)) return null
+  // Array.from plutot que l'etalement d'un Set : la cible TypeScript du projet
+  // n'autorise pas l'iteration directe d'un Set.
+  const jours = Array.from(new Set(
+    v.map(x => Number(x)).filter(n => Number.isInteger(n) && n >= 1 && n <= 7),
+  )).sort((a, b) => a - b)
+  return jours.length ? jours : null
 }
 
 const randOffset = () => Math.random() * 0.004 - 0.002

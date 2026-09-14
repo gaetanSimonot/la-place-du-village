@@ -27,7 +27,7 @@ export const revalidate = 60
 /** Garde-fou mémoire, pas un filtre éditorial : voir le commentaire au .limit(). */
 const PLAFOND = 2000
 
-const SELECT = 'id, titre, categorie, categories, date_debut, date_fin, heure, image_url, image_position, promotion, promo_ordre, lieux(id, nom, commune, lat, lng, place_id_google)'
+const SELECT = 'id, titre, categorie, categories, date_debut, date_fin, heure, jours_semaine, image_url, image_position, promotion, promo_ordre, lieux(id, nom, commune, lat, lng, place_id_google)'
 
 const QUAND_VALUES: FiltreQuand[] = ['toujours', 'aujourd_hui', 'cette_semaine', 'ce_week_end', 'ce_mois']
 
@@ -156,8 +156,6 @@ export async function GET(req: NextRequest) {
   // Vaut pour les DEUX chemins : les pastilles et le calendrier. Le premier
   // jet ne triait que les pastilles, donc choisir le 4 septembre ramenait les
   // expos en tête.
-  const JOURS_INSTALLE = 7
-
   const dureeEnJours = (e: { date_debut?: string | null; date_fin?: string | null }): number => {
     if (!e.date_debut || !e.date_fin || e.date_fin === e.date_debut) return 0
     const d1 = Date.parse(`${e.date_debut}T12:00:00Z`)
@@ -166,7 +164,63 @@ export async function GET(req: NextRequest) {
     return Math.round((d2 - d1) / 86_400_000)
   }
 
-  const evenements = [...(evRes.data ?? [])]
+  const JOURS_INSTALLE = 7
+
+  /**
+   * Le jour ISO d'une date : 1 = lundi … 7 = dimanche.
+   *
+   * Calculé à midi UTC pour que le fuseau ne fasse jamais basculer d'un jour :
+   * à minuit, Paris et UTC ne sont pas le même jour la moitié de l'année.
+   */
+  const jourISO = (ymd: string): number => {
+    const d = new Date(`${ymd}T12:00:00Z`).getUTCDay()
+    return d === 0 ? 7 : d
+  }
+
+  /** Les jours de la semaine que touche une période. Sept jours ou plus → tous. */
+  const joursCouverts = (from: string, to: string): Set<number> => {
+    const d1 = Date.parse(`${from}T12:00:00Z`)
+    const d2 = Date.parse(`${to}T12:00:00Z`)
+    if (Number.isNaN(d1) || Number.isNaN(d2)) return new Set([1, 2, 3, 4, 5, 6, 7])
+    const out = new Set<number>()
+    const jours = Math.min(Math.round((d2 - d1) / 86_400_000), 6)
+    for (let i = 0; i <= jours; i++) {
+      const d = new Date(d1 + i * 86_400_000).getUTCDay()
+      out.add(d === 0 ? 7 : d)
+    }
+    return out
+  }
+
+  /*
+   * UN RENDEZ-VOUS DU JEUDI NE SE TIENT PAS LE LUNDI.
+   *
+   * Depuis le 03/09/2026 un planning hebdomadaire tient dans UNE fiche couvrant
+   * toute la période, au lieu de trente. Mais la sélection retient ce qui
+   * CHEVAUCHE la période demandée — règle écrite pour que les expositions
+   * restent visibles tout du long — si bien qu'« Atelier clown, tous les
+   * jeudis, du 10/09 au 31/12 » s'affichait aussi le lundi. Mesuré le
+   * 14/09/2026 : 9 des 32 fiches « installées » du jour ne concernaient pas ce
+   * lundi-là.
+   *
+   * `jours_semaine` porte désormais les jours réels. NULL = pas de récurrence
+   * connue : l'événement reste visible tous les jours de sa période, ce qui est
+   * la bonne réponse pour une exposition ouverte en continu — et le
+   * comportement d'avant pour tout ce qui n'a pas encore été renseigné.
+   */
+  const joursDemandes = dateExacte
+    ? new Set([jourISO(dateExacte)])
+    : range ? joursCouverts(range.from, range.to) : null
+
+  let evenements = [...(evRes.data ?? [])]
+
+  if (joursDemandes && joursDemandes.size < 7) {
+    evenements = evenements.filter(e => {
+      const js = (e as { jours_semaine?: number[] | null }).jours_semaine
+      if (!js?.length) return true
+      return js.some(j => joursDemandes.has(j))
+    })
+  }
+
   if (dateExacte || range) {
     evenements.sort((a, b) => {
       const ia = dureeEnJours(a) > JOURS_INSTALLE ? 1 : 0

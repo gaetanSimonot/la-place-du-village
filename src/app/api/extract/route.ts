@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import {
   extractMultipleWithClaude,
   geocodeWithGoogle,
+  nettoyerJoursSemaine,
   calcStatut,
   type ExtractedData,
   type GeoResult,
@@ -149,6 +150,7 @@ async function processOneEvent(
       heure: extracted.heure,
       categorie: extracted.categorie ?? 'autre',
       categories: [extracted.categorie ?? 'autre'],
+      jours_semaine: nettoyerJoursSemaine(extracted.jours_semaine),
       statut,
       lieu_id: lieuId,
       prix: extracted.prix,

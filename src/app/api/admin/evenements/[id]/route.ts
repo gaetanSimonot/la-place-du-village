@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { notifyUser, requireAdmin } from '@/lib/server-auth'
 import { mergeCategories } from '@/lib/categories'
+import { nettoyerJoursSemaine } from '@/lib/extract'
 
 // Convertit les chaînes vides en null pour les champs date/heure
 function nullIfEmpty(v: unknown) {
@@ -39,6 +40,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     textFields.forEach(f => { if (body[f] !== undefined) eventUpdate[f] = body[f] })
     dateFields.forEach(f => { if (body[f] !== undefined) eventUpdate[f] = nullIfEmpty(body[f]) })
     if (body.promo_ordre !== undefined) eventUpdate.promo_ordre = body.promo_ordre
+
+    // Les jours d'un rendez-vous qui revient. Absent du corps = INCHANGE : une
+    // edition de titre ne doit pas effacer ce que l'extraction a compris du
+    // rythme. `null` explicite remet « tous les jours de la periode ».
+    if (body.jours_semaine !== undefined) {
+      eventUpdate.jours_semaine = nettoyerJoursSemaine(body.jours_semaine)
+    }
 
     // Multi-catégories : si un tableau `categories` est fourni, on le normalise
     // et on resynchronise `categorie` (= principale = categories[0]) pour la

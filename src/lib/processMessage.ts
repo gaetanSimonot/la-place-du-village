@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { extractMultipleWithClaude, geocodeWithGoogle, calcStatut } from './extract'
+import { extractMultipleWithClaude, geocodeWithGoogle, calcStatut, nettoyerJoursSemaine } from './extract'
 import { checkDoublon } from './checkDoublon'
 import { checkZone } from './checkZone'
 import { trouverOuCreerLieu } from './lieuxResolve'
@@ -104,6 +104,7 @@ export async function processMessage(
       titre: evt.titre, description: evt.description,
       date_debut: evt.date_debut || null, date_fin: evt.date_fin || null, heure: evt.heure || null,
       categorie: evt.categorie ?? 'autre', categories: [evt.categorie ?? 'autre'], statut: finalStatut,
+      jours_semaine: nettoyerJoursSemaine(evt.jours_semaine),
       lieu_id: lieuId, prix: evt.prix || null, contact: evt.contact || null,
       organisateurs: evt.organisateurs || null, image_url: imageUrl, source,
       message_entrant_id: messageId, raison_statut: raisonStatut || null,
