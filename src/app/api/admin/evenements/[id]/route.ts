@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { notifyUser, requireAdmin } from '@/lib/server-auth'
 import { mergeCategories } from '@/lib/categories'
 import { nettoyerJoursSemaine } from '@/lib/extract'
+import { nettoyerDates, bornes } from '@/lib/occurrences'
 
 // Convertit les chaînes vides en null pour les champs date/heure
 function nullIfEmpty(v: unknown) {
@@ -46,6 +47,21 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     // rythme. `null` explicite remet « tous les jours de la periode ».
     if (body.jours_semaine !== undefined) {
       eventUpdate.jours_semaine = nettoyerJoursSemaine(body.jours_semaine)
+    }
+
+    /*
+     * Les dates precises. Absent du corps = INCHANGE, comme le reste.
+     *
+     * `date_debut` et `date_fin` suivent le premier et le dernier jour de la
+     * liste : toute la selection SQL du projet — agenda, newsletter, splash,
+     * compteurs — s'appuie dessus, et la laisser diverger ferait disparaitre
+     * l'evenement de requetes qui ne connaissent rien aux dates.
+     */
+    if (body.dates !== undefined) {
+      const dates = nettoyerDates(body.dates)
+      eventUpdate.dates = dates
+      const b = dates ? bornes(dates) : null
+      if (b) { eventUpdate.date_debut = b.debut; eventUpdate.date_fin = b.fin }
     }
 
     // Multi-catégories : si un tableau `categories` est fourni, on le normalise

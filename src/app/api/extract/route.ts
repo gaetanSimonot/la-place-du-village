@@ -10,6 +10,7 @@ import {
 } from '@/lib/extract'
 import { regrouperRecurrences } from '@/lib/recurrences'
 import { trouverOuCreerLieu } from '@/lib/lieuxResolve'
+import { nettoyerDates } from '@/lib/occurrences'
 import { checkDoublon } from '@/lib/checkDoublon'
 import { requireUser } from '@/lib/server-auth'
 import { rateLimit } from '@/lib/rateLimit'
@@ -151,6 +152,7 @@ async function processOneEvent(
       categorie: extracted.categorie ?? 'autre',
       categories: [extracted.categorie ?? 'autre'],
       jours_semaine: nettoyerJoursSemaine(extracted.jours_semaine),
+      dates: nettoyerDates(extracted.dates),
       statut,
       lieu_id: lieuId,
       prix: extracted.prix,

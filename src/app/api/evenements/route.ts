@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { geocodeWithGoogle, calcStatut } from '@/lib/extract'
+import { geocodeWithGoogle, calcStatut, nettoyerJoursSemaine } from '@/lib/extract'
 import { trouverOuCreerLieu } from '@/lib/lieuxResolve'
+import { nettoyerDates, bornes } from '@/lib/occurrences'
 import { mergeCategories } from '@/lib/categories'
 import { checkDoublon } from '@/lib/checkDoublon'
 import { checkZone } from '@/lib/checkZone'
@@ -35,6 +36,7 @@ export async function POST(req: NextRequest) {
       categorie, categories: bodyCategories, lieu_nom, lieu_adresse, commune, code_postal,
       lat: bodyLat, lng: bodyLng, place_id_google: bodyPlaceId, adresse: bodyAdresse,
       prix, contact, organisateurs,
+      jours_semaine: bodyJours, dates: bodyDates,
       // Nouveau flow : image_url (upload deja fait via signed URL cote
       // client). Ancien flow conserve pour retro-compat : image base64 +
       // imageMimeType -> upload serveur via supabaseAdmin.
@@ -230,14 +232,26 @@ export async function POST(req: NextRequest) {
     // directe, sans file de modération.
     if (ownerPublishDirect) finalStatut = 'publie'
 
+    const datesPrecises = nettoyerDates(bodyDates)
+    const bornesDates = datesPrecises ? bornes(datesPrecises) : null
+
     const { data: evenement, error: evtErr } = await supabaseAdmin
       .from('evenements')
       .insert({
         titre,
         description: description || null,
-        date_debut: date_debut || null,
-        date_fin: date_fin || null,
+        /*
+         * Les dates precises priment sur les bornes saisies : quand elles
+         * existent, `date_debut` et `date_fin` en sont le premier et le
+         * dernier jour. Toute la selection SQL du projet s'appuie sur ces deux
+         * colonnes — les laisser diverger ferait disparaitre l'evenement de
+         * requetes qui ne connaissent rien aux dates.
+         */
+        date_debut: datesPrecises ? bornesDates!.debut : (date_debut || null),
+        date_fin:   datesPrecises ? bornesDates!.fin   : (date_fin || null),
         heure: heure || null,
+        jours_semaine: nettoyerJoursSemaine(bodyJours),
+        dates: datesPrecises,
         categorie: primaryCat,
         categories: cats,
         // Sous-libellé libre : purement d'affichage, il ne change pas le

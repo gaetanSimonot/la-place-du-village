@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Categorie, Evenement, type CorrectionField } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
@@ -11,21 +11,13 @@ import { can, toUserContext } from '@/lib/capabilities'
 import SubscriptionModal from '@/components/SubscriptionModal'
 import PosterGeneratorModal, { type PosterParams } from '@/components/PosterGeneratorModal'
 import SocialsModal from '@/components/SocialsModal'
+import { JOURS_ISO, engendrerDates, datesAVenir, aujourdhuiParis } from '@/lib/occurrences'
 
 /**
  * Les jours de la semaine, ISO 8601 (1 = lundi … 7 = dimanche) — la meme
  * convention que la colonne `evenements.jours_semaine` et que le filtre de
  * l'agenda. Une seule numerotation dans tout le projet.
  */
-const JOURS_SEMAINE: { n: number; court: string; long: string }[] = [
-  { n: 1, court: 'Lun', long: 'lundi' },
-  { n: 2, court: 'Mar', long: 'mardi' },
-  { n: 3, court: 'Mer', long: 'mercredi' },
-  { n: 4, court: 'Jeu', long: 'jeudi' },
-  { n: 5, court: 'Ven', long: 'vendredi' },
-  { n: 6, court: 'Sam', long: 'samedi' },
-  { n: 7, court: 'Dim', long: 'dimanche' },
-]
 
 type Mode = 'edit' | 'crop' | 'fullscreen'
 interface Prediction { place_id: string; description: string; main: string; secondary: string }
@@ -252,6 +244,8 @@ export interface EventDraft {
   heure:          string
   /** Jours reels d'un rendez-vous qui revient (ISO : 1=lundi, 7=dimanche). */
   jours_semaine?: number[] | null
+  /** Les jours OU il a lieu, un par un. Ce qui fait foi quand c'est rempli. */
+  dates?:         string[] | null
   categorie:      Categorie
   categories:     Categorie[]
   lieu_nom:       string
@@ -330,6 +324,13 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
   const [dateDebut, setDateDebut]       = useState('')
   const [dateFin, setDateFin]           = useState('')
   const [joursSemaine, setJoursSemaine] = useState<number[]>([])
+  const [dates, setDates]               = useState<string[]>([])
+  /* L'historique reste en base, mais on ne montre que l'avenir : les
+     dates passees n'apprendraient rien et noieraient celles qui comptent. */
+  const datesAffichees = useMemo<string[]>(
+    () => datesAVenir(dates, aujourdhuiParis()),
+    [dates],
+  )
   const [heure, setHeure]               = useState('')
   const [categories, setCategories]     = useState<Categorie[]>(['autre'])
   /** Sous-libellé libre — « ciné-débat », « vide-grenier »… Purement d'affichage :
@@ -388,6 +389,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
         setDateDebut(initialData.date_debut ?? '')
         setDateFin(initialData.date_fin ?? '')
         setJoursSemaine((initialData as { jours_semaine?: number[] | null }).jours_semaine ?? [])
+        setDates((initialData as { dates?: string[] | null }).dates ?? [])
         setHeure(initialData.heure?.slice(0, 5) ?? '')
         setCategories(initialData.categories?.length ? initialData.categories : [initialData.categorie ?? 'autre'])
         setCategorieLibre((initialData as { categorie_libre?: string | null }).categorie_libre ?? '')
@@ -421,6 +423,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
         setDateDebut(e.date_debut ?? '')
         setDateFin(e.date_fin ?? '')
         setJoursSemaine((e as { jours_semaine?: number[] | null }).jours_semaine ?? [])
+        setDates((e as { dates?: string[] | null }).dates ?? [])
         setHeure(e.heure?.slice(0, 5) ?? '')
         setCategories(e.categories?.length ? e.categories : [e.categorie])
         setCategorieLibre((e as { categorie_libre?: string | null }).categorie_libre ?? '')
@@ -582,6 +585,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
         titre, description,
         date_debut: dateDebut, date_fin: dateFin, heure,
         jours_semaine: joursSemaine.length ? joursSemaine : null,
+        dates: dates.length ? dates : null,
         categorie, categories, categorie_libre: categorieLibre.trim() || null,
         lieu_nom: lieuNom, commune, adresse,
         lat: lat ? parseFloat(lat) : null,
@@ -670,6 +674,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
             titre, description,
             date_debut: dateDebut || null, date_fin: dateFin || null, heure: heure || null,
             jours_semaine: joursSemaine.length ? joursSemaine : null,
+            dates: dates.length ? dates : null,
             categorie, categories, categorie_libre: categorieLibre.trim() || null,
             lieu_nom: lieuNom || null, commune: commune || null, adresse: adresse || null,
             lat: lat ? parseFloat(lat) : undefined,
@@ -706,6 +711,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
         titre, description,
         date_debut: dateDebut || null, date_fin: dateFin || null, heure: heure || null,
         jours_semaine: joursSemaine.length ? joursSemaine : null,
+        dates: dates.length ? dates : null,
         categorie, categories, statut: statutOverride ?? statut,
         prix: prix || null, contact: contact || null, organisateurs: organisateurs || null,
         image_url: finalUrl, image_position: imagePosition,
@@ -1015,51 +1021,98 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
           />
         </div>
 
-        {/* JOURS DE LA SEMAINE — n'apparaît que pour un événement qui S'ÉTALE.
-            Sur une soirée d'un seul soir, la date dit déjà tout, et un
-            sélecteur de jours n'aurait aucun sens.
+        {/* LES DATES — ce qui fait foi.
+            Le générateur n'est qu'un outil de saisie : « de janvier à octobre,
+            tous les samedis » produit quarante dates d'un clic. Ensuite ce
+            sont les dates qui comptent, et on les corrige une par une. C'est
+            ce qui permet de retirer une séance sans inventer un mécanisme
+            d'exceptions — et de décrire les Puces de Ganges, six samedis
+            entre juin et octobre, ce qui n'est aucun rythme.
 
-            « Tous les jours » (aucun jour coché) est le défaut : c'est la
-            bonne réponse pour une exposition ouverte en continu. Cocher des
-            jours, c'est dire « ce rendez-vous ne se tient QUE ces jours-là »,
-            et il disparaît alors de l'agenda des autres jours. */}
+            Les dates passées restent en base mais ne s'affichent pas : elles
+            n'apprendraient rien et noieraient celles qui comptent. */}
         {dateFin && dateFin !== dateDebut && (
           <div>
             <p className="m-0 mb-2 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">
-              Jours de la semaine
+              Dates de l&apos;événement
             </p>
-            <div className="flex flex-wrap gap-1.5">
+
+            {/* 1. Le générateur */}
+            <div className="rounded-xl bg-white p-3" style={{ border: '1px solid #F0EAE0' }}>
+              <p className="m-0 mb-2 text-[11px] text-texte-doux">
+                Du {dateDebut || '…'} au {dateFin || '…'} — cocher les jours, puis générer.
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {JOURS_ISO.map(j => {
+                  const active = joursSemaine.includes(j.n)
+                  return (
+                    <button
+                      key={j.n}
+                      onClick={() => setJoursSemaine(p =>
+                        p.includes(j.n) ? p.filter(x => x !== j.n) : [...p, j.n].sort((a, b) => a - b))}
+                      className="rounded-full px-3 py-1.5 text-[12px] font-bold transition-colors"
+                      style={active
+                        ? { backgroundColor: '#2D5A3D', color: '#fff', border: 'none' }
+                        : { backgroundColor: '#FDFAF5', color: '#7A6A5A', border: '1px solid #F0EAE0' }}
+                    >
+                      {j.court}
+                    </button>
+                  )
+                })}
+              </div>
               <button
-                onClick={() => setJoursSemaine([])}
-                className="rounded-full px-3 py-1.5 text-[12px] font-bold transition-colors"
-                style={joursSemaine.length === 0
-                  ? { backgroundColor: '#2D5A3D', color: '#fff', border: 'none' }
-                  : { backgroundColor: '#fff', color: '#7A6A5A', border: '1px solid #F0EAE0' }}
+                onClick={() => {
+                  const d = engendrerDates(dateDebut, dateFin, joursSemaine)
+                  setDates(d)
+                }}
+                disabled={!dateDebut || !dateFin}
+                className="mt-2.5 w-full rounded-xl py-2 text-[12.5px] font-extrabold text-white disabled:opacity-40"
+                style={{ backgroundColor: '#2D5A3D', border: 'none' }}
               >
-                Tous les jours
+                {joursSemaine.length
+                  ? `Générer les ${joursSemaine.map(n => JOURS_ISO.find(j => j.n === n)!.long).join(', ')}`
+                  : 'Générer tous les jours de la période'}
               </button>
-              {JOURS_SEMAINE.map(j => {
-                const active = joursSemaine.includes(j.n)
-                return (
-                  <button
-                    key={j.n}
-                    onClick={() => setJoursSemaine(p =>
-                      p.includes(j.n) ? p.filter(x => x !== j.n) : [...p, j.n].sort((a, b) => a - b))}
-                    className="rounded-full px-3 py-1.5 text-[12px] font-bold transition-colors"
-                    style={active
-                      ? { backgroundColor: '#2D5A3D', color: '#fff', border: 'none' }
-                      : { backgroundColor: '#fff', color: '#7A6A5A', border: '1px solid #F0EAE0' }}
-                  >
-                    {j.court}
-                  </button>
-                )
-              })}
             </div>
-            <p className="m-0 mt-1.5 text-[10.5px] leading-snug text-texte-doux">
-              {joursSemaine.length === 0
-                ? 'Visible tous les jours de la période — pour une exposition, une permanence.'
-                : `Visible uniquement ${joursSemaine.length > 1 ? 'les' : 'le'} ${joursSemaine.map(n => JOURS_SEMAINE.find(j => j.n === n)!.long).join(', ')}.`}
-            </p>
+
+            {/* 2. Le calendrier — ce qui est réellement publié */}
+            {datesAffichees.length > 0 ? (
+              <>
+                <p className="m-0 mb-1.5 mt-3 text-[11px] text-texte-doux">
+                  {datesAffichees.length} date{datesAffichees.length > 1 ? 's' : ''} à venir
+                  {dates.length > datesAffichees.length && ` (${dates.length - datesAffichees.length} passée${dates.length - datesAffichees.length > 1 ? 's' : ''}, conservées)`}
+                  {' '}— toucher une date pour la retirer.
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {datesAffichees.map(d => (
+                    <button
+                      key={d}
+                      onClick={() => setDates(p => p.filter(x => x !== d))}
+                      className="rounded-lg px-2.5 py-1.5 text-[11.5px] font-bold transition-colors"
+                      style={{ backgroundColor: '#E8F2EB', color: '#2D5A3D', border: '1px solid #C8DEC0' }}
+                      title="Retirer cette date"
+                    >
+                      {new Date(`${d}T12:00:00Z`).toLocaleDateString('fr-FR', {
+                        timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short',
+                      })}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setDates([])}
+                  className="mt-2 border-none bg-transparent p-0 text-[11.5px] font-bold"
+                  style={{ color: '#B53A22' }}
+                >
+                  Effacer les dates — l&apos;événement vaudra toute la période
+                </button>
+              </>
+            ) : (
+              <p className="m-0 mt-2 text-[10.5px] leading-snug text-texte-doux">
+                {dates.length
+                  ? 'Toutes les dates sont passées. L’événement n’apparaîtra plus.'
+                  : 'Aucune date précise : l’événement est visible tous les jours de sa période — ce qu’il faut pour une exposition ou une permanence.'}
+              </p>
+            )}
           </div>
         )}
 

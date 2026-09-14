@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getDateRange } from '@/lib/filters'
 import type { FiltreQuand } from '@/lib/types'
+import { aLieuEntre } from '@/lib/occurrences'
 
 /**
  * GET /api/agenda — payload unique pour la liste des événements.
@@ -27,7 +28,7 @@ export const revalidate = 60
 /** Garde-fou mémoire, pas un filtre éditorial : voir le commentaire au .limit(). */
 const PLAFOND = 2000
 
-const SELECT = 'id, titre, categorie, categories, date_debut, date_fin, heure, jours_semaine, image_url, image_position, promotion, promo_ordre, lieux(id, nom, commune, lat, lng, place_id_google)'
+const SELECT = 'id, titre, categorie, categories, date_debut, date_fin, heure, jours_semaine, dates, image_url, image_position, promotion, promo_ordre, lieux(id, nom, commune, lat, lng, place_id_google)'
 
 const QUAND_VALUES: FiltreQuand[] = ['toujours', 'aujourd_hui', 'cette_semaine', 'ce_week_end', 'ce_mois']
 
@@ -211,13 +212,41 @@ export async function GET(req: NextRequest) {
     ? new Set([jourISO(dateExacte)])
     : range ? joursCouverts(range.from, range.to) : null
 
+  /** La periode reellement demandee, pour interroger les dates precises. */
+  const bornesDemandees = dateExacte
+    ? { from: dateExacte, to: dateExacte }
+    : range
+
   let evenements = [...(evRes.data ?? [])]
 
-  if (joursDemandes && joursDemandes.size < 7) {
+  if (bornesDemandees) {
     evenements = evenements.filter(e => {
-      const js = (e as { jours_semaine?: number[] | null }).jours_semaine
-      if (!js?.length) return true
-      return js.some(j => joursDemandes.has(j))
+      const ev = e as { dates?: string[] | null; jours_semaine?: number[] | null }
+
+      /*
+       * LES DATES PRIMENT SUR TOUT.
+       *
+       * Quand elles sont la, il n'y a rien a interpreter : l'evenement a lieu
+       * ces jours-la et pas d'autres. C'est ce qui permet de decrire les Puces
+       * de Ganges — six samedis entre juin et octobre, ce qui n'est aucun
+       * rythme — et de retirer une seance sans inventer un mecanisme
+       * d'exceptions.
+       */
+      if (ev.dates?.length) {
+        return aLieuEntre(ev.dates, bornesDemandees.from, bornesDemandees.to)
+      }
+
+      /*
+       * A defaut, la regle hebdomadaire, posee ce matin. Elle reste vraie pour
+       * tout ce qui n'a pas encore ete converti en dates.
+       */
+      if (ev.jours_semaine?.length && joursDemandes && joursDemandes.size < 7) {
+        return ev.jours_semaine.some(j => joursDemandes.has(j))
+      }
+
+      // Ni l'un ni l'autre : l'evenement vaut sur toute sa periode. C'est le
+      // comportement historique, et la bonne reponse pour une exposition.
+      return true
     })
   }
 

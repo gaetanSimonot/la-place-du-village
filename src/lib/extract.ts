@@ -24,6 +24,11 @@ export interface ExtractedData {
    * ce qui est la bonne reponse pour une exposition ouverte en continu.
    */
   jours_semaine?: number[] | null
+  /**
+   * Les jours OU l'evenement a lieu, un par un. C'est ce qui fait foi quand
+   * c'est renseigne : une regle ne sait pas dire « sauf le 25 decembre ».
+   */
+  dates?: string[] | null
 }
 
 export interface GeoResult {
