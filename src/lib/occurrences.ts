@@ -142,3 +142,50 @@ export function bornes(dates: string[]): { debut: string; fin: string } | null {
   const triees = [...dates].sort()
   return { debut: triees[0], fin: triees[triees.length - 1] }
 }
+
+/**
+ * CE QU'ON ÉCRIT EN BASE À PARTIR D'UNE EXTRACTION.
+ *
+ * Le modèle lit « tous les jeudis, de septembre à juin » — ça, il le fait très
+ * bien. Il n'énumère PAS les quarante dates : lui faire compter des jours
+ * coûterait des jetons à chaque affiche et finirait par sauter un jeudi ou en
+ * inventer un. Dérouler un calendrier est un calcul, pas une lecture ; c'est
+ * le travail du code, qui ne se trompe jamais et ne coûte rien.
+ *
+ * Résultat : une fiche arrive avec ses dates déjà posées, prêtes à être
+ * corrigées à la main dans l'écran d'édition.
+ *
+ * Les bornes suivent la liste, parce que toute la sélection SQL du projet
+ * s'appuie sur `date_debut` et `date_fin`.
+ */
+export function datesDepuisExtraction(e: {
+  date_debut?: string | null
+  date_fin?: string | null
+  jours_semaine?: number[] | null
+  dates?: string[] | null
+}): { dates: string[] | null; date_debut: string | null; date_fin: string | null } {
+  const debut = estUneDate(e.date_debut) ? e.date_debut : null
+  const fin   = estUneDate(e.date_fin) ? e.date_fin : null
+
+  // Le modèle a donné des dates explicites : elles priment, on ne recalcule rien.
+  const fournies = nettoyerDates(e.dates)
+  if (fournies) {
+    const b = bornes(fournies)!
+    return { dates: fournies, date_debut: b.debut, date_fin: b.fin }
+  }
+
+  const jours = (e.jours_semaine ?? []).filter(j => Number.isInteger(j) && j >= 1 && j <= 7)
+
+  // Sans jours, ou sans période à dérouler, il n'y a rien à matérialiser :
+  // l'événement vaut sur toute sa période. C'est le cas d'une exposition, et
+  // celui d'un événement d'un seul jour — sa date suffit.
+  if (!jours.length || !debut || !fin || fin === debut) {
+    return { dates: null, date_debut: debut, date_fin: fin }
+  }
+
+  const dates = engendrerDates(debut, fin, jours)
+  if (!dates.length) return { dates: null, date_debut: debut, date_fin: fin }
+
+  const b = bornes(dates)!
+  return { dates, date_debut: b.debut, date_fin: b.fin }
+}

@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { extractMultipleWithClaude, geocodeWithGoogle, calcStatut, nettoyerJoursSemaine } from './extract'
-import { nettoyerDates } from './occurrences'
+import { datesDepuisExtraction } from './occurrences'
 import { checkDoublon } from './checkDoublon'
 import { checkZone } from './checkZone'
 import { trouverOuCreerLieu } from './lieuxResolve'
@@ -101,12 +101,23 @@ export async function processMessage(
     const finalStatut = check.publier ? statut : 'a_verifier'
     const raisonStatut = !evt.date_debut ? 'Manque date' : !geo.lat ? 'Lieu non géocodé' : !evt.description ? 'Manque description' : (check.raison ?? '')
 
+    /*
+     * Le calendrier se deroule ICI, pas dans le modele. Il a lu « tous les
+     * jeudis » — c'est sa force ; compter quarante dates ne l'est pas, et lui
+     * faire enumerer un calendrier couterait des jetons a chaque affiche pour
+     * finir par sauter un jeudi. Les bornes suivent la liste obtenue.
+     */
+    const occ = datesDepuisExtraction({
+      date_debut: evt.date_debut, date_fin: evt.date_fin,
+      jours_semaine: nettoyerJoursSemaine(evt.jours_semaine), dates: evt.dates,
+    })
+
     const { data: evenement } = await supabaseAdmin.from('evenements').insert({
       titre: evt.titre, description: evt.description,
-      date_debut: evt.date_debut || null, date_fin: evt.date_fin || null, heure: evt.heure || null,
+      date_debut: occ.date_debut, date_fin: occ.date_fin, heure: evt.heure || null,
       categorie: evt.categorie ?? 'autre', categories: [evt.categorie ?? 'autre'], statut: finalStatut,
       jours_semaine: nettoyerJoursSemaine(evt.jours_semaine),
-      dates: nettoyerDates(evt.dates),
+      dates: occ.dates,
       lieu_id: lieuId, prix: evt.prix || null, contact: evt.contact || null,
       organisateurs: evt.organisateurs || null, image_url: imageUrl, source,
       message_entrant_id: messageId, raison_statut: raisonStatut || null,

@@ -10,7 +10,7 @@ import {
 } from '@/lib/extract'
 import { regrouperRecurrences } from '@/lib/recurrences'
 import { trouverOuCreerLieu } from '@/lib/lieuxResolve'
-import { nettoyerDates } from '@/lib/occurrences'
+import { datesDepuisExtraction } from '@/lib/occurrences'
 import { checkDoublon } from '@/lib/checkDoublon'
 import { requireUser } from '@/lib/server-auth'
 import { rateLimit } from '@/lib/rateLimit'
@@ -141,18 +141,25 @@ async function processOneEvent(
   const statut = dup.publier ? baseStatut : 'a_verifier'
 
   // 4. Insert event
+  // Le calendrier se deroule ici, pas dans le modele — voir
+  // datesDepuisExtraction. Les bornes suivent la liste obtenue.
+  const occ = datesDepuisExtraction({
+    date_debut: extracted.date_debut, date_fin: extracted.date_fin,
+    jours_semaine: nettoyerJoursSemaine(extracted.jours_semaine), dates: extracted.dates,
+  })
+
   const { data: evt, error: evtErr } = await supabaseAdmin
     .from('evenements')
     .insert({
       titre: extracted.titre,
       description: extracted.description,
-      date_debut: extracted.date_debut,
-      date_fin: extracted.date_fin,
+      date_debut: occ.date_debut,
+      date_fin: occ.date_fin,
       heure: extracted.heure,
       categorie: extracted.categorie ?? 'autre',
       categories: [extracted.categorie ?? 'autre'],
       jours_semaine: nettoyerJoursSemaine(extracted.jours_semaine),
-      dates: nettoyerDates(extracted.dates),
+      dates: occ.dates,
       statut,
       lieu_id: lieuId,
       prix: extracted.prix,
