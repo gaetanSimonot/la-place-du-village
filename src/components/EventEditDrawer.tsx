@@ -12,6 +12,21 @@ import SubscriptionModal from '@/components/SubscriptionModal'
 import PosterGeneratorModal, { type PosterParams } from '@/components/PosterGeneratorModal'
 import SocialsModal from '@/components/SocialsModal'
 
+/**
+ * Les jours de la semaine, ISO 8601 (1 = lundi … 7 = dimanche) — la meme
+ * convention que la colonne `evenements.jours_semaine` et que le filtre de
+ * l'agenda. Une seule numerotation dans tout le projet.
+ */
+const JOURS_SEMAINE: { n: number; court: string; long: string }[] = [
+  { n: 1, court: 'Lun', long: 'lundi' },
+  { n: 2, court: 'Mar', long: 'mardi' },
+  { n: 3, court: 'Mer', long: 'mercredi' },
+  { n: 4, court: 'Jeu', long: 'jeudi' },
+  { n: 5, court: 'Ven', long: 'vendredi' },
+  { n: 6, court: 'Sam', long: 'samedi' },
+  { n: 7, court: 'Dim', long: 'dimanche' },
+]
+
 type Mode = 'edit' | 'crop' | 'fullscreen'
 interface Prediction { place_id: string; description: string; main: string; secondary: string }
 
@@ -211,6 +226,8 @@ interface InitialData {
   titre?: string; description?: string; date_debut?: string; date_fin?: string
   heure?: string; categorie?: Categorie; categories?: Categorie[]; lieu_nom?: string; commune?: string
   prix?: string; contact?: string; organisateurs?: string
+  /** Jours reels d'un rendez-vous qui revient (ISO : 1=lundi, 7=dimanche). */
+  jours_semaine?: number[] | null
   // Champs additionnels (réhydratation d'un draft édité précédemment en
   // mode onEditOnly — sinon vides en mode extraction initiale).
   adresse?: string
@@ -233,6 +250,8 @@ export interface EventDraft {
   date_debut:     string
   date_fin:       string
   heure:          string
+  /** Jours reels d'un rendez-vous qui revient (ISO : 1=lundi, 7=dimanche). */
+  jours_semaine?: number[] | null
   categorie:      Categorie
   categories:     Categorie[]
   lieu_nom:       string
@@ -310,6 +329,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
   const [description, setDescription]   = useState('')
   const [dateDebut, setDateDebut]       = useState('')
   const [dateFin, setDateFin]           = useState('')
+  const [joursSemaine, setJoursSemaine] = useState<number[]>([])
   const [heure, setHeure]               = useState('')
   const [categories, setCategories]     = useState<Categorie[]>(['autre'])
   /** Sous-libellé libre — « ciné-débat », « vide-grenier »… Purement d'affichage :
@@ -367,6 +387,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
         setDescription(initialData.description ?? '')
         setDateDebut(initialData.date_debut ?? '')
         setDateFin(initialData.date_fin ?? '')
+        setJoursSemaine((initialData as { jours_semaine?: number[] | null }).jours_semaine ?? [])
         setHeure(initialData.heure?.slice(0, 5) ?? '')
         setCategories(initialData.categories?.length ? initialData.categories : [initialData.categorie ?? 'autre'])
         setCategorieLibre((initialData as { categorie_libre?: string | null }).categorie_libre ?? '')
@@ -399,6 +420,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
         setDescription(e.description ?? '')
         setDateDebut(e.date_debut ?? '')
         setDateFin(e.date_fin ?? '')
+        setJoursSemaine((e as { jours_semaine?: number[] | null }).jours_semaine ?? [])
         setHeure(e.heure?.slice(0, 5) ?? '')
         setCategories(e.categories?.length ? e.categories : [e.categorie])
         setCategorieLibre((e as { categorie_libre?: string | null }).categorie_libre ?? '')
@@ -559,6 +581,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
       onEditOnly({
         titre, description,
         date_debut: dateDebut, date_fin: dateFin, heure,
+        jours_semaine: joursSemaine.length ? joursSemaine : null,
         categorie, categories, categorie_libre: categorieLibre.trim() || null,
         lieu_nom: lieuNom, commune, adresse,
         lat: lat ? parseFloat(lat) : null,
@@ -646,6 +669,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
           body: JSON.stringify({
             titre, description,
             date_debut: dateDebut || null, date_fin: dateFin || null, heure: heure || null,
+            jours_semaine: joursSemaine.length ? joursSemaine : null,
             categorie, categories, categorie_libre: categorieLibre.trim() || null,
             lieu_nom: lieuNom || null, commune: commune || null, adresse: adresse || null,
             lat: lat ? parseFloat(lat) : undefined,
@@ -681,6 +705,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
       const body: Record<string, unknown> = {
         titre, description,
         date_debut: dateDebut || null, date_fin: dateFin || null, heure: heure || null,
+        jours_semaine: joursSemaine.length ? joursSemaine : null,
         categorie, categories, statut: statutOverride ?? statut,
         prix: prix || null, contact: contact || null, organisateurs: organisateurs || null,
         image_url: finalUrl, image_position: imagePosition,
@@ -989,6 +1014,54 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
             style={{ border: '1px solid #F0EAE0' }}
           />
         </div>
+
+        {/* JOURS DE LA SEMAINE — n'apparaît que pour un événement qui S'ÉTALE.
+            Sur une soirée d'un seul soir, la date dit déjà tout, et un
+            sélecteur de jours n'aurait aucun sens.
+
+            « Tous les jours » (aucun jour coché) est le défaut : c'est la
+            bonne réponse pour une exposition ouverte en continu. Cocher des
+            jours, c'est dire « ce rendez-vous ne se tient QUE ces jours-là »,
+            et il disparaît alors de l'agenda des autres jours. */}
+        {dateFin && dateFin !== dateDebut && (
+          <div>
+            <p className="m-0 mb-2 text-[11px] font-extrabold uppercase tracking-[0.1em] text-texte-doux">
+              Jours de la semaine
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                onClick={() => setJoursSemaine([])}
+                className="rounded-full px-3 py-1.5 text-[12px] font-bold transition-colors"
+                style={joursSemaine.length === 0
+                  ? { backgroundColor: '#2D5A3D', color: '#fff', border: 'none' }
+                  : { backgroundColor: '#fff', color: '#7A6A5A', border: '1px solid #F0EAE0' }}
+              >
+                Tous les jours
+              </button>
+              {JOURS_SEMAINE.map(j => {
+                const active = joursSemaine.includes(j.n)
+                return (
+                  <button
+                    key={j.n}
+                    onClick={() => setJoursSemaine(p =>
+                      p.includes(j.n) ? p.filter(x => x !== j.n) : [...p, j.n].sort((a, b) => a - b))}
+                    className="rounded-full px-3 py-1.5 text-[12px] font-bold transition-colors"
+                    style={active
+                      ? { backgroundColor: '#2D5A3D', color: '#fff', border: 'none' }
+                      : { backgroundColor: '#fff', color: '#7A6A5A', border: '1px solid #F0EAE0' }}
+                  >
+                    {j.court}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="m-0 mt-1.5 text-[10.5px] leading-snug text-texte-doux">
+              {joursSemaine.length === 0
+                ? 'Visible tous les jours de la période — pour une exposition, une permanence.'
+                : `Visible uniquement ${joursSemaine.length > 1 ? 'les' : 'le'} ${joursSemaine.map(n => JOURS_SEMAINE.find(j => j.n === n)!.long).join(', ')}.`}
+            </p>
+          </div>
+        )}
 
         {/* V3 DATE | HEURE 2-col */}
         <div className="grid grid-cols-2 gap-3">
