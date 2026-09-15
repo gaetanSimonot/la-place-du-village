@@ -89,7 +89,6 @@ export default function AdminHubCarousel() {
 
   const [cinemaVis, setCinemaVis] = useState<VisibiliteCinema>('admin')
   const [radioVis, setRadioVis] = useState<VisibiliteCinema>('admin')
-  const [radioLogo, setRadioLogo] = useState(false)
   const [radioSaving, setRadioSaving] = useState(false)
   const [cinemaSaving, setCinemaSaving] = useState(false)
   /** Visibilité de l'Assistant Village dans la barre de recherche. */
@@ -119,11 +118,10 @@ export default function AdminHubCarousel() {
       supabase.from('config').select('value').eq('key', 'splash_promo').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'cinema_village_public').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'radio_village_public').maybeSingle(),
-      supabase.from('config').select('value').eq('key', 'radio_topbar_logo').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'assistant_visibilite').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'village_hero').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'entree_app').maybeSingle(),
-    ]).then(([toggleRes, imgRes, orderRes, hiddenRes, splashRes, cineRes, radioRes, radioLogoRes, assistRes, herosRes, entreeRes]) => {
+    ]).then(([toggleRes, imgRes, orderRes, hiddenRes, splashRes, cineRes, radioRes, assistRes, herosRes, entreeRes]) => {
       setIntroEnabled(toggleRes.data?.value === 'true')
       setIntroImageUrl(imgRes.data?.value || null)
       let parsed: unknown = []
@@ -136,7 +134,6 @@ export default function AdminHubCarousel() {
       setSplash(parseSplashPromo(splashRes.data?.value))
       setCinemaVis(parseVisibilite(cineRes.data?.value))
       setRadioVis(parseVisibilite(radioRes.data?.value))
-      setRadioLogo(radioLogoRes.data?.value === 'true')
       setAssistantVis(parseVisibilite(assistRes.data?.value))
       setHerosListe(normaliserHerosListe(herosRes.data?.value))
       setEntree(parseEntree(entreeRes.data?.value))
@@ -256,18 +253,6 @@ export default function AdminHubCarousel() {
     }).catch(() => null)
     if (!res?.ok) setCinemaVis(avant)
     setCinemaSaving(false)
-  }
-
-  async function basculerRadioLogo() {
-    const next = !radioLogo
-    setRadioLogo(next)
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/admin/config', {
-      method:  'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
-      body:    JSON.stringify({ key: 'radio_topbar_logo', value: String(next) }),
-    }).catch(() => null)
-    if (!res?.ok) setRadioLogo(!next)
   }
 
   async function changerRadioVis(next: VisibiliteCinema) {
@@ -883,9 +868,11 @@ export default function AdminHubCarousel() {
             Bloc « Radio Escapades »
           </div>
           <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2, marginBottom: 10, lineHeight: 1.45 }}>
-            Sur la page Village, et la mention « Sélection Radio Escapades » sur
-            les fiches. Le bloc disparaît de lui-même tant qu&apos;aucune
-            émission n&apos;est en ligne.
+            Un seul réglage pour tout le module : le bloc sur la page Village,
+            la mention « Sélection Radio Escapades » sur les fiches, et le
+            bouton d&apos;écoute en direct dans la barre du haut. Le bloc
+            disparaît de lui-même tant qu&apos;aucune émission n&apos;est en
+            ligne.
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
             {([
@@ -913,35 +900,6 @@ export default function AdminHubCarousel() {
               )
             })}
           </div>
-          {/* Le rond dans la barre du haut. Posé SOUS les trois états et non
-              à côté : il en dépend. Module masqué, le rond l'est aussi — un
-              lien vers une section invisible ne veut rien dire — d'où
-              l'interrupteur éteint et inerte dans ce cas. */}
-          <label style={{
-            display: 'flex', alignItems: 'center', gap: 9, marginTop: 12,
-            paddingTop: 11, borderTop: '1px solid #F0E9DD',
-            cursor: radioVis === 'masque' ? 'default' : 'pointer',
-            opacity: radioVis === 'masque' ? .45 : 1,
-          }}>
-            <input
-              type="checkbox"
-              checked={radioLogo && radioVis !== 'masque'}
-              disabled={radioVis === 'masque'}
-              onChange={basculerRadioLogo}
-              style={{ width: 16, height: 16, accentColor: '#2D5A3D', cursor: 'inherit' }}
-            />
-            <span>
-              <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#1A1209' }}>
-                Le rond de la radio dans la barre du haut
-              </span>
-              <span style={{ display: 'block', fontSize: 11, color: '#7A6A5A', marginTop: 1 }}>
-                {radioVis === 'masque'
-                  ? 'Indisponible tant que le module est masqué.'
-                  : 'Un raccourci permanent vers le module, à côté de « Partager ».'}
-              </span>
-            </span>
-          </label>
-
           <a href="/radio/admin" style={{
             display: 'inline-block', marginTop: 12, fontSize: 12, fontWeight: 700,
             color: '#2D5A3D', textDecoration: 'none',

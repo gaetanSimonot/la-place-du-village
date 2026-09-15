@@ -73,19 +73,10 @@ export interface PayloadRadio {
   mentions: MentionRadio[]
   /**
    * Visibilité de TOUT le module : le bloc du Village, la mention sur les
-   * fiches, et le rond de la barre du haut. « Masqué » masque tout.
+   * fiches, et le bouton de la barre du haut. « Masqué » masque tout, et
+   * c'est le seul réglage — le bouton du direct est permanent en dessous.
    */
   villageVisibilite: Visibilite
-  /**
-   * Le rond dans la barre du haut est-il posé ?
-   *
-   * Réglage À L'INTÉRIEUR du précédent, jamais à côté : la barre du haut est
-   * l'endroit le plus voyant de l'app, et on peut vouloir ouvrir le module
-   * aux habitants sans y toucher tout de suite. Mais si le module est masqué,
-   * le rond l'est aussi — un lien vers une section invisible ne veut rien
-   * dire.
-   */
-  topbarLogo: boolean
 }
 
 /**

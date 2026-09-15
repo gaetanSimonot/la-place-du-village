@@ -19,6 +19,7 @@ import { ConfirmDialogProvider } from '@/contexts/ConfirmDialogContext'
 import { HistoryTrapProvider } from '@/contexts/HistoryTrapContext'
 import { NavigationHistoryProvider } from '@/contexts/NavigationHistoryContext'
 import SWRProvider from '@/components/SWRProvider'
+import RadioDirectProvider from '@/components/RadioDirectProvider'
 import AuthModal from '@/components/AuthModal'
 import PhoneFrame from '@/components/PhoneFrame'
 import DesktopChrome from '@/components/desktop/DesktopChrome'
@@ -219,6 +220,9 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <SWRProvider>
+        {/* La radio en direct survit a la navigation : montee ICI, elle n'est
+            jamais demontee par un changement de page. */}
+        <RadioDirectProvider>
         <NavigationHistoryProvider>
         <AuthProvider>
           <AuthModalProvider>
@@ -271,6 +275,7 @@ export default function RootLayout({
           </AuthModalProvider>
         </AuthProvider>
         </NavigationHistoryProvider>
+        </RadioDirectProvider>
         </SWRProvider>
         <Analytics />
         <SpeedInsights />
