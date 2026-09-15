@@ -7,15 +7,20 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import { RADIO, semaineDe, type EmissionRadio } from '@/lib/radio'
+import { uploadViaSignedUrl } from '@/lib/clientUpload'
 
 /**
- * SAISIE D'UNE ÉMISSION — volontairement pauvre en écrans.
+ * SAISIE D'UNE ÉMISSION — deux gestes, et la machine fait le reste.
  *
- * Deux gestes, et c'est tout : coller le lien du podcast, puis lister ce qu'il
- * annonce. Chaque ligne cherche d'abord si l'événement est déjà chez nous ;
- * s'il n'y est pas, on l'écrit à la main et la ligne restera simplement
- * inerte côté public. Refuser la saisie libre obligerait à créer une fiche
- * bâclée pour chaque rendez-vous entendu — l'agenda s'en trouverait sali.
+ * Déposer l'audio (un fichier de l'ordinateur ou un lien), puis demander la
+ * détection : l'émission est transcrite, et les rendez-vous qu'elle annonce
+ * sont reconnus dans l'agenda. On ne recopie rien à la main.
+ *
+ * LA SAISIE MANUELLE RESTE, mais en second : elle sert à corriger ce que le
+ * modèle a raté, pas à faire le travail. Un rendez-vous absent de l'agenda
+ * s'écrit en clair et sa ligne restera inerte côté public — refuser ce cas
+ * obligerait à créer une fiche bâclée pour chaque nom entendu, et salirait
+ * l'agenda.
  *
  * L'accès réel est contrôlé PAR LE SERVEUR dans /api/radio/admin : cet écran
  * ne fait que refléter ce que l'API accepte. Masquer un écran ne protège rien.
@@ -82,6 +87,45 @@ export default function RadioAdminClient() {
   const [semaine, setSemaine] = useState(() => semaineDe().debut)
   const [description, setDescription] = useState('')
   const [enCours, setEnCours] = useState(false)
+  // L'audio arrive par un LIEN ou par un FICHIER de l'ordinateur. Les deux
+  // aboutissent au même champ `audio_url` : une fois déposé, un fichier a une
+  // adresse comme un autre, et rien en aval n'a besoin de savoir d'où il vient.
+  const [source, setSource] = useState<'lien' | 'fichier'>('fichier')
+  const [depot, setDepot] = useState(0)
+  const [nomFichier, setNomFichier] = useState<string | null>(null)
+  const [detection, setDetection] = useState<string | null>(null)
+
+  async function deposerAudio(f: File | null | undefined) {
+    if (!f) return
+    setDepot(1); setNomFichier(f.name)
+    try {
+      const r = await uploadViaSignedUrl({ file: f, kind: 'radio-audio', onProgress: setDepot })
+      setAudio(r.publicUrl)
+      setDepot(100)
+      toast.success('Audio déposé')
+    } catch (e) {
+      setDepot(0); setNomFichier(null)
+      toast.error((e as Error).message || 'Dépôt impossible')
+    }
+  }
+
+  /*
+   * L'émission se lit elle-même : transcription puis reconnaissance des
+   * rendez-vous. Long — jusqu'à une minute sur une émission d'une demi-heure —
+   * d'où l'état affiché plutôt qu'un bouton qui semble ne rien faire.
+   */
+  async function detecter(id: string) {
+    if (detection) return
+    setDetection('Transcription en cours… cela peut prendre une minute.')
+    const res = await authedFetch('/api/radio/admin/transcrire', {
+      method: 'POST', body: JSON.stringify({ emission_id: id }),
+    })
+    const j = await res.json().catch(() => ({}))
+    setDetection(null)
+    if (!res.ok) { toast.error(j.error ?? 'Détection impossible'); return }
+    toast.success(`${j.ajoutes} rendez-vous ajoutés — ${j.rattaches} reconnus dans l’agenda, ${j.libres} en texte libre`)
+    await relireDetail()
+  }
 
   async function creerEmission() {
     if (enCours) return
@@ -182,9 +226,35 @@ export default function RadioAdminClient() {
               placeholder="Sélection culturelle de la semaine" />
           </div>
           <div>
-            <label style={ETIQ} htmlFor="ra-audio">Lien du podcast</label>
-            <input id="ra-audio" style={CHAMP} value={audio} onChange={e => setAudio(e.target.value)}
-              placeholder="https://…/selection.mp3" inputMode="url" />
+            <span style={ETIQ}>L’audio de l’émission</span>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 7 }}>
+              {(['fichier', 'lien'] as const).map(o => (
+                <button key={o} type="button" onClick={() => setSource(o)}
+                  style={{
+                    flex: 1, padding: '8px 6px', borderRadius: 9, fontSize: 12.5, fontWeight: 700,
+                    border: `1.5px solid ${source === o ? '#2D5A3D' : '#E3DACB'}`,
+                    background: source === o ? '#F1F6F2' : '#fff',
+                    color: source === o ? '#2D5A3D' : '#7A6A5A', cursor: 'pointer',
+                  }}>
+                  {o === 'fichier' ? 'Depuis mon ordinateur' : 'Par un lien'}
+                </button>
+              ))}
+            </div>
+
+            {source === 'fichier' ? (
+              <>
+                <input id="ra-fichier" type="file" accept="audio/*" style={CHAMP}
+                  onChange={e => deposerAudio(e.target.files?.[0])} />
+                <div style={{ fontSize: 11.5, color: '#A2917C', marginTop: 4 }}>
+                  MP3, M4A, WAV ou OGG — 50 Mo maximum.
+                  {nomFichier && depot > 0 && depot < 100 ? ` Envoi ${depot} %…` : ''}
+                  {audio && depot === 100 ? ' Déposé.' : ''}
+                </div>
+              </>
+            ) : (
+              <input id="ra-audio" style={CHAMP} value={audio} onChange={e => setAudio(e.target.value)}
+                placeholder="https://…/selection.mp3" inputMode="url" />
+            )}
           </div>
           <div>
             <label style={ETIQ} htmlFor="ra-semaine">Semaine concernée</label>
@@ -250,6 +320,20 @@ export default function RadioAdminClient() {
 
                 {ouverte && (
                   <div className="mt-3" style={{ borderTop: '1px solid #F0E9DD', paddingTop: 11 }}>
+                    {/* L'émission se lit elle-même. Posé AVANT la saisie
+                        manuelle : c'est le chemin normal, la main sert à
+                        corriger ce que le modèle a raté. */}
+                    <button type="button" onClick={() => detecter(e.id)} disabled={!!detection}
+                      style={{
+                        width: '100%', border: 'none', borderRadius: 11, padding: '12px 14px',
+                        fontSize: 13.5, fontWeight: 700, marginBottom: 14,
+                        background: detection ? '#E3DACB' : '#17120E',
+                        color: detection ? '#7A6A5A' : '#E8913C',
+                        cursor: detection ? 'default' : 'pointer',
+                      }}>
+                      {detection ?? 'Écouter l’émission et détecter les rendez-vous'}
+                    </button>
+
                     {/* ── Rattacher une fiche existante ── */}
                     <label style={ETIQ} htmlFor="ra-rech">Chercher un événement de l’agenda</label>
                     <input id="ra-rech" style={CHAMP} value={recherche} onChange={ev => setRecherche(ev.target.value)}

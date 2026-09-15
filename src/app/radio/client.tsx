@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic'
 import useSWR from 'swr'
 import BottomNavBar from '@/components/BottomNavBar'
 import { supabase } from '@/lib/supabase'
+import { useAdminSession } from '@/hooks/useAdminSession'
 import { CATEGORIES } from '@/lib/categories'
 import { formatEventDate } from '@/lib/filters'
 import { RADIO, formatDuree, type PayloadRadio, type MentionRadio } from '@/lib/radio'
@@ -92,6 +93,7 @@ function LigneMention({ m }: { m: MentionRadio }) {
 
 export default function RadioClient() {
   const router = useRouter()
+  const isAdmin = useAdminSession()
   const { data, isLoading } = useSWR<PayloadRadio>('/api/radio', fetcher)
   const [mapProvider, setMapProvider] = useState<'google' | 'maplibre'>('google')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -162,6 +164,22 @@ export default function RadioClient() {
           Chaque semaine, ce que {RADIO.nom} a retenu — et où y aller.
         </p>
       </div>
+
+      {/* La saisie se fait DEPUIS le module, pas depuis un écran d'admin
+          perdu ailleurs : c'est ici qu'on voit le résultat, donc ici qu'on
+          doit pouvoir le corriger. Visible des seuls admins. */}
+      {isAdmin && (
+        <div className="px-3.5 pt-4">
+          <Link href="/radio/admin" className="flex items-center gap-2 rounded-[14px] no-underline"
+            style={{ border: `1px dashed ${LINE}`, padding: '11px 13px', color: ACCENT, fontSize: 13, fontWeight: 700 }}>
+            <svg aria-hidden width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+            </svg>
+            {emission ? 'Modifier cette émission' : 'Monter l’émission de la semaine'}
+          </Link>
+        </div>
+      )}
 
       {/* ── L'émission ─────────────────────────────────────────────── */}
       <div className="px-3.5 pt-5">

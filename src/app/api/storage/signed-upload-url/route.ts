@@ -22,12 +22,22 @@ import { requireUser } from '@/lib/server-auth'
  * Returns : { uploadUrl, token, publicUrl, path, bucket }
  */
 
-type UploadKind = 'event-image' | 'product-image' | 'admin-edit' | 'profile-banner' | 'profile-avatar' | 'hub-hero-intro' | 'film-affiche' | 'post-media' | 'moment-image' | 'moment-video'
+type UploadKind = 'event-image' | 'product-image' | 'admin-edit' | 'profile-banner' | 'profile-avatar' | 'hub-hero-intro' | 'film-affiche' | 'post-media' | 'moment-image' | 'moment-video' | 'radio-audio'
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const VIDEO_MIME = new Set(['video/mp4', 'video/quicktime', 'video/webm'])
 const MAX_BYTES = 10 * 1024 * 1024       // 10 MB (images, max bucket par défaut)
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024 // 50 MB (moment vidéo ≤ 60s)
+// Une émission de radio : MP3 le plus souvent, parfois M4A depuis un
+// enregistreur. 50 Mo est la limite du bucket `radio` — au-delà, Supabase
+// refuserait le dépôt et l'écran n'aurait rien d'utile à dire.
+const AUDIO_MIME = new Set(['audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/wav', 'audio/ogg', 'audio/webm'])
+const MAX_AUDIO_BYTES = 50 * 1024 * 1024
+
+const EXT_AUDIO: Record<string, string> = {
+  'audio/mpeg': 'mp3', 'audio/mp3': 'mp3', 'audio/mp4': 'm4a', 'audio/x-m4a': 'm4a',
+  'audio/aac': 'aac', 'audio/wav': 'wav', 'audio/ogg': 'ogg', 'audio/webm': 'weba',
+}
 
 function extFromMime(mime: string): 'jpg' | 'png' | 'webp' | 'mp4' | 'mov' | 'webm' {
   if (mime === 'image/png') return 'png'
@@ -52,19 +62,20 @@ export async function POST(req: NextRequest) {
   const size = Number(body?.size ?? 0)
   const refId = body?.refId ? String(body.refId) : null
 
-  if (!kind || !['event-image', 'product-image', 'admin-edit', 'profile-banner', 'profile-avatar', 'hub-hero-intro', 'film-affiche', 'post-media', 'moment-image', 'moment-video'].includes(kind)) {
+  if (!kind || !['event-image', 'product-image', 'admin-edit', 'profile-banner', 'profile-avatar', 'hub-hero-intro', 'film-affiche', 'post-media', 'moment-image', 'moment-video', 'radio-audio'].includes(kind)) {
     return NextResponse.json({ error: 'kind invalide' }, { status: 400 })
   }
 
   // Validation MIME + taille selon le kind (vidéo = MIME vidéo + 50 Mo).
   const isVideo = kind === 'moment-video'
-  const allowedMime = isVideo ? VIDEO_MIME : ALLOWED_MIME
-  const maxBytes = isVideo ? MAX_VIDEO_BYTES : MAX_BYTES
+  const isAudio = kind === 'radio-audio'
+  const allowedMime = isAudio ? AUDIO_MIME : isVideo ? VIDEO_MIME : ALLOWED_MIME
+  const maxBytes = isAudio ? MAX_AUDIO_BYTES : isVideo ? MAX_VIDEO_BYTES : MAX_BYTES
   if (!allowedMime.has(mimeType)) {
-    return NextResponse.json({ error: isVideo ? 'MIME vidéo non autorisé (MP4/MOV/WebM)' : 'MIME non autorisé (JPEG/PNG/WebP uniquement)' }, { status: 400 })
+    return NextResponse.json({ error: isAudio ? 'Format audio non autorisé (MP3, M4A, WAV, OGG)' : isVideo ? 'MIME vidéo non autorisé (MP4/MOV/WebM)' : 'MIME non autorisé (JPEG/PNG/WebP uniquement)' }, { status: 400 })
   }
   if (!Number.isFinite(size) || size <= 0 || size > maxBytes) {
-    return NextResponse.json({ error: isVideo ? 'Vidéo trop lourde (50 Mo max)' : 'Taille invalide' }, { status: 400 })
+    return NextResponse.json({ error: isAudio ? 'Fichier audio trop lourd (50 Mo max)' : isVideo ? 'Vidéo trop lourde (50 Mo max)' : 'Taille invalide' }, { status: 400 })
   }
 
   // Calcul du bucket + path selon kind (server-side, jamais user-controlled)
@@ -158,6 +169,15 @@ export async function POST(req: NextRequest) {
     // Path random sous son propre userId → pas d'écrasement, pas d'accès croisé.
     bucket = 'reference-photos'
     path = `posts/${ctx.userId}/${randomName()}.${extFromMime(mimeType)}`
+  } else if (kind === 'radio-audio') {
+    // L'émission de la semaine, déposée depuis l'ordinateur. Réservée aux
+    // admins : le module n'est pas encore une fiche revendiquée par la radio,
+    // et un bucket audio ouvert à tous serait un hébergeur gratuit.
+    if (!ctx.isAdmin) {
+      return NextResponse.json({ error: 'Réservé aux admins' }, { status: 403 })
+    }
+    bucket = 'radio'
+    path = `emissions/${randomName()}.${EXT_AUDIO[mimeType] ?? 'mp3'}`
   } else if (kind === 'moment-image' || kind === 'moment-video') {
     // Reel : ouvert à tout user connecté (le quota gratuit 1/mois et la
     // promotion accueil sont gérés à la création POST /api/moments).

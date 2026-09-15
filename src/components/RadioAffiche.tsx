@@ -24,7 +24,32 @@ export default function RadioAffiche({ isAdmin }: { isAdmin: boolean }) {
 
   if (!data) return null
   if (!sectionVisible(data.villageVisibilite, isAdmin)) return null
-  if (!data.emission) return null
+
+  /*
+   * PAS D'ÉMISSION : un habitant ne voit rien, un admin voit la porte.
+   *
+   * Un bloc vide n'apprend rien au village. Mais pour toi, l'absence de bloc
+   * est indiscernable d'un module cassé — c'est exactement ce qui s'est
+   * passé la première fois. On montre donc le chemin vers la saisie, à toi
+   * seul.
+   */
+  if (!data.emission) {
+    if (!isAdmin) return null
+    return (
+      <Link href="/radio/admin" className="mt-4 block rounded-[18px] no-underline"
+        style={{ border: '1px dashed #C9BBA6', background: 'transparent', padding: 14 }}>
+        <span style={{ display: 'block', fontSize: 10.5, fontWeight: 700, letterSpacing: 1.3, textTransform: 'uppercase', color: '#B4661F' }}>
+          {RADIO.nom} · visible par toi seul
+        </span>
+        <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#1A1209', marginTop: 3 }}>
+          Aucune émission en ligne
+        </span>
+        <span style={{ display: 'block', fontSize: 12.5, color: '#7A6A5A', marginTop: 2 }}>
+          Monter la sélection de la semaine →
+        </span>
+      </Link>
+    )
+  }
 
   const { emission, mentions } = data
   const duree = formatDuree(emission.duree_s)
