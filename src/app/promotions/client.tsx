@@ -18,6 +18,7 @@ import type { EtablissementType } from '@/lib/types'
 import EntityQuickView from '@/components/EntityQuickView'
 import BottomNavBar from '@/components/BottomNavBar'
 import { shareLink } from '@/lib/share'
+import RadioPastille from '@/components/RadioPastille'
 
 interface Promotion {
   id: string
@@ -286,6 +287,9 @@ export default function PromotionsClient() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-topbar.webp" alt="La Place du Village" style={{ height: 38, width: 'auto', objectFit: 'contain', display: 'block' }} />
         </button>
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          <RadioPastille />
+        </div>
         <button
           type="button"
           onClick={() => shareLink({

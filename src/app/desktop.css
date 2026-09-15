@@ -414,3 +414,9 @@
      bureau, la gouttière du conteneur suffit. */
   .pcv-page .pcv-cardGrid { padding-left: 0; padding-right: 0; }
 }
+
+/* Le bouton de la radio dans la barre du bureau — entre le logo et la
+   navigation, aligné comme elle. */
+@media (min-width: 1024px) {
+  .pcv-radioTop { display: flex; align-items: center; margin-left: 14px; flex: 0 0 auto }
+}

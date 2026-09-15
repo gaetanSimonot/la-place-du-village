@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import HubSearchModal from '@/components/HubSearchModal'
+import RadioPastille from '@/components/RadioPastille'
 
 /**
  * CHÂSSIS BUREAU — en-tête + bandeau de contexte.
@@ -144,6 +145,10 @@ export default function DesktopChrome() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo-topbar.webp" alt="La Place du Village" className="pcv-logo" />
           </Link>
+
+          {/* La radio, a gauche de la navigation : sur ordinateur cette barre
+              est la seule, elle couvre donc toutes les pages d'un coup. */}
+          <div className="pcv-radioTop"><RadioPastille /></div>
 
           <nav className="pcv-nav">
             {ONGLETS.map(o => (

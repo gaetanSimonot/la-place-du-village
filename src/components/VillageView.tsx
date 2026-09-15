@@ -22,6 +22,7 @@ import PostCommentsDrawer from '@/components/profil/PostCommentsDrawer'
 import BarreAssistant from '@/components/assistant/BarreAssistant'
 import HerosVillage from '@/components/village/HerosVillage'
 import { chargerIdentitesEtab } from '@/lib/identite'
+import RadioPastille from '@/components/RadioPastille'
 
 interface VillagePost extends PostData {
   likeCount: number
@@ -78,6 +79,11 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-topbar.webp" alt="La Place du Village" style={{ height: 38, width: 'auto', objectFit: 'contain', display: 'block' }} />
         </button>
+        {/* La radio : meme bouton que partout, le son suit d'une page a
+            l'autre. Le composant decide seul s'il se pose. */}
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          <RadioPastille />
+        </div>
         {user ? (
           <div className="flex shrink-0 items-center gap-1.5">
             {/* Cloche + pastille rouge — le compteur descend du shell, qui tient

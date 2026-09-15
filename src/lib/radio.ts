@@ -136,3 +136,107 @@ export function audioUrlValide(url: string): boolean {
     return false
   }
 }
+
+/* ── Ce qu'on peut tirer d'une phrase dite à l'antenne ─────────────────── */
+
+const MOIS = ['janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin',
+  'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre']
+
+const JOURS_NOM = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
+
+/** Minuscules, sans accents — « août » et « aout » doivent se reconnaître. */
+const aplatir = (s: string) =>
+  s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+
+export interface DatesDites {
+  date_debut: string | null
+  date_fin: string | null
+  heure: string | null
+}
+
+/**
+ * LIRE LA DATE DANS CE QUE L'ANIMATEUR A DIT.
+ *
+ * La transcription porte déjà l'information — « mardi 15 septembre à 20h,
+ * salle de spectacle de Saint-Hippolyte ». La recopier à la main serait
+ * absurde ; la deviner au jugé serait pire. On ne rend donc une date que
+ * lorsqu'elle est ÉCRITE : un quantième et un mois, ou à défaut un jour de la
+ * semaine — et dans ce dernier cas c'est celui de la semaine dont parle
+ * l'émission, ce qui est le cas de très loin le plus fréquent et réduit le
+ * risque d'erreur à presque rien.
+ *
+ * « JUSQU'AU » ANNONCE UNE FIN, PAS UN DÉBUT. « jusqu'au 26 septembre » pour
+ * une exposition déjà ouverte : poser cette date en date de début décalerait
+ * l'événement de plusieurs semaines. Elle part donc en date de fin, et le
+ * début reste vide.
+ *
+ * Tout ce qui sort d'ici est PROPOSÉ, jamais enregistré : l'éditeur s'ouvre
+ * prérempli et c'est un humain qui valide.
+ */
+export function datesDepuisDetail(detail: string | null | undefined, semaineDebut: string): DatesDites {
+  const vide: DatesDites = { date_debut: null, date_fin: null, heure: null }
+  if (!detail) return vide
+  const t = aplatir(detail)
+
+  // ── L'heure : « à 20h », « à partir de 18h », « 18h15 » ──────────────
+  let heure: string | null = null
+  const mh = t.match(/(\d{1,2})\s*h\s*(\d{2})?/)
+  if (mh) {
+    const h = Number(mh[1])
+    const m = mh[2] ? Number(mh[2]) : 0
+    if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+      heure = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+    }
+  }
+
+  // ── Les dates écrites en toutes lettres : « 15 septembre » ───────────
+  const anneeRef = Number(semaineDebut.slice(0, 4))
+  const ancre = Date.parse(`${semaineDebut}T12:00:00Z`)
+  const trouvees: { pos: number; date: string }[] = []
+
+  const motif = new RegExp('(\\d{1,2})\\s+(' + MOIS.join('|') + ')', 'g')
+  let m: RegExpExecArray | null
+  while ((m = motif.exec(t)) !== null) {
+    const jour = Number(m[1])
+    const mois = MOIS.indexOf(m[2])
+    if (jour < 1 || jour > 31) continue
+
+    /*
+     * L'ANNÉE VIENT DE L'ÉMISSION, avec un rattrapage de fin d'année.
+     * Une émission du 30 décembre qui annonce « le 3 janvier » parle de
+     * l'année suivante : sans ce report, on daterait l'événement onze mois
+     * plus tôt.
+     */
+    let candidate = `${anneeRef}-${String(mois + 1).padStart(2, '0')}-${String(jour).padStart(2, '0')}`
+    if (Date.parse(`${candidate}T12:00:00Z`) < ancre - 120 * 86_400_000) {
+      candidate = `${anneeRef + 1}-${String(mois + 1).padStart(2, '0')}-${String(jour).padStart(2, '0')}`
+    }
+    if (!Number.isNaN(Date.parse(`${candidate}T12:00:00Z`))) {
+      trouvees.push({ pos: m.index, date: candidate })
+    }
+  }
+
+  if (trouvees.length >= 2) {
+    return { date_debut: trouvees[0].date, date_fin: trouvees[1].date, heure }
+  }
+
+  if (trouvees.length === 1) {
+    // « jusqu'au » juste avant la date : c'est une fin.
+    const avant = t.slice(0, trouvees[0].pos)
+    const estUneFin = /jusqu'?\s*au?\s*$|jusqu'?\s*au?\s+le?\s*$/.test(avant.trim() + ' ')
+      || /jusqu'?\s*au?\s+$/.test(avant)
+    return estUneFin
+      ? { date_debut: null, date_fin: trouvees[0].date, heure }
+      : { date_debut: trouvees[0].date, date_fin: null, heure }
+  }
+
+  // ── À défaut, un jour de la semaine : celui de la semaine de l'émission
+  for (let i = 0; i < JOURS_NOM.length; i++) {
+    if (new RegExp('\\b' + JOURS_NOM[i] + '\\b').test(t)) {
+      const d = new Date(ancre + i * 86_400_000)
+      return { date_debut: d.toISOString().slice(0, 10), date_fin: null, heure }
+    }
+  }
+
+  return { ...vide, heure }
+}

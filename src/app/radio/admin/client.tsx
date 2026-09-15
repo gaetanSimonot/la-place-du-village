@@ -6,7 +6,7 @@ import BottomNavBar from '@/components/BottomNavBar'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAuthModal } from '@/contexts/AuthModalContext'
-import { RADIO, semaineDe, type EmissionRadio } from '@/lib/radio'
+import { RADIO, semaineDe, datesDepuisDetail, type EmissionRadio } from '@/lib/radio'
 import { uploadViaSignedUrl } from '@/lib/clientUpload'
 import EventEditDrawer from '@/components/EventEditDrawer'
 
@@ -462,6 +462,14 @@ export default function RadioAdminClient() {
           initialData={{
             titre: creerPour.titre,
             description: creerPour.detail ? `Annoncé à l’antenne : ${creerPour.detail}` : '',
+            ...(() => {
+              const d = datesDepuisDetail(creerPour.detail, detail?.emission?.semaine_debut ?? '')
+              return {
+                ...(d.date_debut ? { date_debut: d.date_debut } : {}),
+                ...(d.date_fin ? { date_fin: d.date_fin } : {}),
+                ...(d.heure ? { heure: d.heure } : {}),
+              }
+            })(),
           }}
           onClose={() => setCreerPour(null)}
           onSaved={async (r) => {

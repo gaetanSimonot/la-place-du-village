@@ -14,7 +14,7 @@ import { useAdminSession } from '@/hooks/useAdminSession'
 import { CATEGORIES } from '@/lib/categories'
 import { formatEventDate } from '@/lib/filters'
 import { imageEvenement } from '@/lib/imageEvenement'
-import { RADIO, LOGO_ROND, BLEU_RADIO, formatDuree, type PayloadRadio, type MentionRadio } from '@/lib/radio'
+import { RADIO, LOGO_ROND, BLEU_RADIO, formatDuree, datesDepuisDetail, type PayloadRadio, type MentionRadio } from '@/lib/radio'
 import type { EvenementCard } from '@/lib/types'
 
 const MapView = dynamic(() => import('@/components/MapViewSwitch'), { ssr: false })
@@ -394,6 +394,16 @@ export default function RadioClient() {
           initialData={{
             titre: creerPour.titre,
             description: creerPour.detail ? `Annoncé à l’antenne : ${creerPour.detail}` : '',
+            /* La date et l'heure sont LUES dans ce que l'animateur a dit, pas
+               devinees : rien n'est propose si la phrase ne les porte pas. */
+            ...(() => {
+              const d = datesDepuisDetail(creerPour.detail, emission?.semaine_debut ?? '')
+              return {
+                ...(d.date_debut ? { date_debut: d.date_debut } : {}),
+                ...(d.date_fin ? { date_fin: d.date_fin } : {}),
+                ...(d.heure ? { heure: d.heure } : {}),
+              }
+            })(),
           }}
           onClose={() => setCreerPour(null)}
           onSaved={async (r) => {
