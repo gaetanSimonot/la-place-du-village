@@ -16,7 +16,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .select('titre, corps')
     .eq('id', id)
     .maybeSingle()
-  if (!data) return { title: 'Article — La Place du Village' }
+  if (!data) return { title: 'Article — La Place' }
   return {
     title: `${data.titre} — Article du Journal`,
     description: data.corps.slice(0, 160),

@@ -2,7 +2,7 @@ import { Metadata } from 'next'
 import ConversationPageClient from './client'
 
 export const metadata: Metadata = {
-  title: 'Conversation — La Place du Village',
+  title: 'Conversation — La Place',
 }
 
 export default async function ConversationPage({ params }: { params: Promise<{ convId: string }> }) {

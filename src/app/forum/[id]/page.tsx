@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: data.titre,
       description,
       url: `${appUrl}/forum/${id}`,
-      siteName: 'La Place du Village',
+      siteName: 'La Place',
       images: [{ url: imageUrl, width: 1200, height: 630, alt: data.titre }],
       type: 'article',
     },

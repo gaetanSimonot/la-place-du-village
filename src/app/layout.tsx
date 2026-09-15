@@ -50,10 +50,30 @@ const nunito = Nunito({
   weight: ['400', '600', '700', '800'], subsets: ['latin'], variable: '--font-nunito', display: 'swap', preload: false,
 })
 
+/*
+ * LE NOM PUBLIC EST « LA PLACE ». L'ANCIEN RESTE TROUVABLE.
+ *
+ * Google construit le nom du site à partir de quatre signaux, dans cet ordre :
+ * la donnée structurée `WebSite.name`, `og:site_name`, le `<title>` de la page
+ * d'accueil, puis `<meta name="application-name">`. Les quatre disent « La
+ * Place » — s'ils se contredisaient, Google trancherait tout seul, et pas
+ * forcément dans le bon sens.
+ *
+ * Personne ne doit perdre l'app en cherchant « la place du village » pour
+ * autant. L'ancien nom reste donc écrit à trois endroits que Google lit :
+ * `alternateName` dans la donnée structurée (le champ prévu exactement pour
+ * ça), la description, et les 150 mentions déjà présentes dans les pages.
+ *
+ * Le changement de nom affiché met plusieurs jours à passer : Google doit
+ * recrawler l'accueil. Rien ne se casse entre-temps, l'ancien nom s'affiche.
+ */
+const NOM = 'La Place'
+const NOM_HISTORIQUE = 'La Place du Village'
+
 export const metadata: Metadata = {
-  title: 'La Place du Village',
-  description: 'Événements locaux autour de Ganges (Hérault)',
-  applicationName: 'La Place du Village',
+  title: NOM,
+  description: `Les événements, commerces et annonces autour de Ganges (Hérault). ${NOM}, anciennement ${NOM_HISTORIQUE}.`,
+  applicationName: NOM,
   manifest: '/manifest.json',
   metadataBase: new URL('https://laplaceduvillage.app'),
   // Canonique explicite (sans www) — sinon Google considère
@@ -63,9 +83,9 @@ export const metadata: Metadata = {
     canonical: 'https://laplaceduvillage.app/',
   },
   openGraph: {
-    title: 'La Place du Village',
-    siteName: 'La Place du Village',
-    description: 'Événements locaux autour de Ganges (Hérault)',
+    title: NOM,
+    siteName: NOM,
+    description: `Les événements, commerces et annonces autour de Ganges (Hérault). ${NOM}, anciennement ${NOM_HISTORIQUE}.`,
     url: 'https://laplaceduvillage.app',
     locale: 'fr_FR',
     type: 'website',
@@ -93,8 +113,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'La Place du Village',
-    description: 'Événements locaux autour de Ganges (Hérault)',
+    title: NOM,
+    description: `Les événements, commerces et annonces autour de Ganges (Hérault). ${NOM}, anciennement ${NOM_HISTORIQUE}.`,
     images: ['/og/tout-est-la.jpg'],
   },
   appleWebApp: {
@@ -115,6 +135,42 @@ export const metadata: Metadata = {
       { url: '/icon-120.png',         sizes: '120x120', type: 'image/png' },
     ],
   },
+}
+
+const SITE_URL = 'https://laplaceduvillage.app/'
+
+/**
+ * Ce que Google lit pour nommer le site dans ses résultats.
+ *
+ * Les deux nœuds sont liés par `@id` plutôt que dupliqués : l'éditeur du site
+ * EST l'organisation, et un moteur qui voit deux fois le même nom sans lien
+ * entre eux peut conclure à deux entités différentes.
+ *
+ * Le domaine ne change pas. Le renommer ferait perdre l'historique du site,
+ * qui est le vrai capital de référencement ici — bien plus que le nom.
+ */
+const DONNEE_STRUCTUREE = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebSite',
+      '@id': `${SITE_URL}#site`,
+      name: NOM,
+      alternateName: [NOM_HISTORIQUE],
+      url: SITE_URL,
+      inLanguage: 'fr-FR',
+      publisher: { '@id': `${SITE_URL}#org` },
+    },
+    {
+      '@type': 'Organization',
+      '@id': `${SITE_URL}#org`,
+      name: NOM,
+      alternateName: [NOM_HISTORIQUE],
+      url: SITE_URL,
+      logo: `${SITE_URL}icons/icon-512.png`,
+      areaServed: 'Ganges, Hérault, France',
+    },
+  ],
 }
 
 export const viewport: Viewport = {
@@ -148,6 +204,18 @@ export default function RootLayout({
             window.__pwaPrompt = e;
           });
         `}} />
+        {/*
+          La carte d'identité du site pour les moteurs.
+          `alternateName` est le champ prévu pour un nom abandonné : il dit à
+          Google « ce site s'appelle La Place ET on le cherche aussi sous La
+          Place du Village », sans que l'ancien nom ne s'affiche nulle part.
+          Le `<` est échappé : une chaîne de la donnée pourrait sinon fermer
+          la balise script et injecter du balisage.
+        */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(DONNEE_STRUCTUREE).replace(/</g, '\\u003c') }}
+        />
       </head>
       <body className="antialiased">
         <SWRProvider>

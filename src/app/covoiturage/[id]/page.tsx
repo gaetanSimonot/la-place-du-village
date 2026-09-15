@@ -5,7 +5,7 @@ interface PageProps { params: Promise<{ id: string }> }
 export async function generateMetadata({ params }: PageProps) {
   const { id } = await params
   return {
-    title: `Covoiturage — La Place du Village`,
+    title: `Covoiturage — La Place`,
     description: `Trajet partagé · id ${id}`,
   }
 }

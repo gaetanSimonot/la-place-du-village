@@ -1,7 +1,7 @@
 import CovoiturageListClient from './client'
 
 export const metadata = {
-  title: 'Covoiturage — La Place du Village',
+  title: 'Covoiturage — La Place',
   description: 'Trajets partagés autour de Ganges et le Sud-Hérault',
 }
 

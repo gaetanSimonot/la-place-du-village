@@ -13,7 +13,7 @@ type Props = { params: Promise<{ numero: string }> }
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { numero } = await params
   const n = parseInt(numero, 10)
-  if (!Number.isFinite(n)) return { title: 'Journal — La Place du Village' }
+  if (!Number.isFinite(n)) return { title: 'Journal — La Place' }
 
   const { data } = await supabaseAdmin
     .from('journaux_hebdo')
@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .eq('numero', n)
     .maybeSingle()
 
-  if (!data) return { title: `Journal n°${n} — La Place du Village` }
+  if (!data) return { title: `Journal n°${n} — La Place` }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://laplaceduvillage.app'
   const imageUrl = data.cover_image_url ?? `${appUrl}/logo.png`
@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: `Journal du Village n°${n} — ${data.cover_titre}`,
       description: data.cover_deck,
       url: `${appUrl}/journal/${n}`,
-      siteName: 'La Place du Village',
+      siteName: 'La Place',
       images: [{ url: imageUrl, width: 1200, height: 630, alt: data.cover_titre }],
       type: 'article',
     },

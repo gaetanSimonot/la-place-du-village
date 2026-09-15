@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .eq('id', id)
     .single()
 
-  if (!data) return { title: 'Événement — La Place du Village' }
+  if (!data) return { title: 'Événement — La Place' }
 
   const evt = data as unknown as EventMeta
   const cat = CATEGORIES[evt.categorie as Categorie] ?? CATEGORIES.autre
@@ -37,13 +37,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const imageUrl = evt.image_url ?? `${appUrl}/logo.png`
 
   return {
-    title: `${cat.emoji} ${evt.titre} — La Place du Village`,
+    title: `${cat.emoji} ${evt.titre} — La Place`,
     description,
     openGraph: {
       title: `${cat.emoji} ${evt.titre}`,
       description,
       url: `${appUrl}/evenement/${id}`,
-      siteName: 'La Place du Village',
+      siteName: 'La Place',
       images: [{ url: imageUrl, width: 1200, height: 630, alt: evt.titre }],
       type: 'article',
     },

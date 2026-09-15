@@ -12,20 +12,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .eq('id', id)
     .maybeSingle()
 
-  if (!data) return { title: 'Établissement — La Place du Village' }
+  if (!data) return { title: 'Établissement — La Place' }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://laplaceduvillage.app'
   const imageUrl = (data.photos ?? [])[0] ?? `${appUrl}/logo.png`
   const commune = data.commune ? ` · ${data.commune}` : ''
 
   return {
-    title: `📍 ${data.nom}${commune} — La Place du Village`,
+    title: `📍 ${data.nom}${commune} — La Place`,
     description: data.description_courte ?? undefined,
     openGraph: {
       title: `📍 ${data.nom}`,
       description: data.description_courte ?? undefined,
       url: `${appUrl}/etablissement/${id}`,
-      siteName: 'La Place du Village',
+      siteName: 'La Place',
       images: [{ url: imageUrl, width: 1200, height: 630, alt: data.nom }],
       type: 'article',
     },

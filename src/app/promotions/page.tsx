@@ -2,7 +2,7 @@ import { Metadata } from 'next'
 import PromotionsClient from './client'
 
 export const metadata: Metadata = {
-  title: 'Promotions locales — La Place du Village',
+  title: 'Promotions locales — La Place',
   description: 'Offres exclusives chez vos commerçants locaux',
 }
 

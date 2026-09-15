@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 const OG_DESC = 'Vous lisez les nouvelles du village. Pourquoi ne pas les écrire ? Le Journal hebdo de La Place du Village.'
 
 export const metadata = {
-  title: 'Journal du Village — La Place du Village',
+  title: 'Journal du Village — La Place',
   description: OG_DESC,
   openGraph: {
     title: 'Le Journal du Village',

@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import CinemaClient from './client'
 
 export const metadata: Metadata = {
-  title: 'Au cinéma — La Place du Village',
+  title: 'Au cinéma — La Place',
   description: 'Les films à l’affiche et les séances près de chez vous.',
 }
 
