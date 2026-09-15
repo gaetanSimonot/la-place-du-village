@@ -32,6 +32,7 @@ import { ecranBureau } from '@/lib/bureau'
 import { lireEntreeEnCache, rafraichirEntreeEnCache } from '@/lib/entreeApp'
 import { useHerosVillage } from '@/hooks/useHerosVillage'
 import { lienHeros, herosExterne } from '@/lib/villageHero'
+import RadioPastille from '@/components/RadioPastille'
 
 
 /**
@@ -1491,6 +1492,10 @@ export default function HomePage() {
                     <img src="/logo-topbar.webp" alt="La Place du Village" style={{ height: 38, width: 'auto', objectFit: 'contain', display: 'block' }} />
                   </button>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                    {/* La radio. Le composant decide seul s'il se pose :
+                        module masque, ou rond decoche dans le hub, et il ne
+                        rend rien. Il partage la requete du bloc du Village. */}
+                    <RadioPastille />
                     {/* Partager l'application. Écrit en toutes lettres : une
                         icône seule se confond avec « partager cette page ». */}
                     <button

@@ -3,7 +3,7 @@ import useSWR from 'swr'
 import { supabase } from '@/lib/supabase'
 import { useAdminSession } from '@/hooks/useAdminSession'
 import { parseVisibilite, sectionVisible } from '@/lib/visibilite'
-import { MENTION_RADIO } from '@/lib/radio'
+import { MENTION_RADIO, LOGO_ROND, BLEU_RADIO } from '@/lib/radio'
 
 /**
  * « SÉLECTION RADIO ESCAPADES » — la mention qui suit l'événement partout.
@@ -12,6 +12,15 @@ import { MENTION_RADIO } from '@/lib/radio'
  * la liste, sur la fiche, ailleurs. C'est tout l'intérêt — sinon la sélection
  * n'existerait que sur la page du module, là où elle n'apprend rien à
  * personne.
+ *
+ * ELLE PORTE LE BLEU DE LA RADIO, pas l'orange de l'app. C'est une marque
+ * extérieure qui recommande un événement : la faire passer pour un label
+ * maison serait trompeur, et le contraste est justement ce qui la fait
+ * remarquer au milieu des pastilles de catégorie.
+ *
+ * Elle est COMPOSÉE — le rond, puis le texte — faute de logotype horizontal.
+ * Assembler à partir de la vraie marque vaut mieux que dessiner un logo qui
+ * n'existe pas.
  *
  * ELLE DISPARAÎT AVEC LE MODULE. Tant que `radio_village_public` est sur
  * « masqué » ou « admins », aucun habitant ne doit la voir : un badge qui
@@ -55,29 +64,33 @@ export default function MentionRadio({
   if (!actif || !visible) return null
 
   const petite = taille === 'petite'
+  const rond = petite ? 14 : 18
+
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full align-middle"
+      className="inline-flex items-center rounded-full align-middle"
       style={{
-        border: '1px solid rgba(232,145,60,.45)',
-        background: 'rgba(232,145,60,.12)',
-        color: '#B4661F',
-        padding: petite ? '2px 7px' : '3px 9px',
-        fontSize: petite ? 10 : 11,
+        gap: petite ? 5 : 6,
+        border: `1px solid ${BLEU_RADIO}2E`,
+        background: `${BLEU_RADIO}0F`,
+        color: BLEU_RADIO,
+        padding: petite ? '2px 8px 2px 3px' : '3px 11px 3px 4px',
+        fontSize: petite ? 10 : 11.5,
         fontWeight: 700,
-        letterSpacing: .2,
+        letterSpacing: .1,
         whiteSpace: 'nowrap',
+        maxWidth: '100%',
       }}
     >
-      {/* Trois ondes : le signe d'une diffusion, lisible à 10 px là où une
-          icône de micro deviendrait une tache. */}
-      <svg aria-hidden width={petite ? 9 : 11} height={petite ? 9 : 11} viewBox="0 0 24 24"
-        fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
-        <path d="M12 12h.01" />
-        <path d="M8.5 15.5a5 5 0 0 1 0-7" />
-        <path d="M15.5 8.5a5 5 0 0 1 0 7" />
-      </svg>
-      {MENTION_RADIO}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={LOGO_ROND}
+        alt=""
+        width={rond}
+        height={rond}
+        style={{ width: rond, height: rond, borderRadius: '50%', display: 'block', flexShrink: 0 }}
+      />
+      <span className="truncate">{MENTION_RADIO}</span>
     </span>
   )
 }

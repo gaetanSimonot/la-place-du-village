@@ -31,11 +31,16 @@ export async function GET(req: NextRequest) {
   const demande = (new URL(req.url).searchParams.get('semaine') ?? '').trim()
   const semaineVoulue = /^\d{4}-\d{2}-\d{2}$/.test(demande) ? demande : null
 
-  const { data: cfg } = await supabaseAdmin
-    .from('config').select('value').eq('key', 'radio_village_public').maybeSingle()
-  const villageVisibilite = parseVisibilite(cfg?.value)
+  const [cfgRes, logoRes] = await Promise.all([
+    supabaseAdmin.from('config').select('value').eq('key', 'radio_village_public').maybeSingle(),
+    supabaseAdmin.from('config').select('value').eq('key', 'radio_topbar_logo').maybeSingle(),
+  ])
+  const villageVisibilite = parseVisibilite(cfgRes.data?.value)
+  // Absent = éteint. Un réglage qu'on a oublié de poser ne doit pas allumer
+  // quelque chose dans la barre du haut.
+  const topbarLogo = logoRes.data?.value === 'true'
 
-  const vide: PayloadRadio = { emission: null, mentions: [], villageVisibilite }
+  const vide: PayloadRadio = { emission: null, mentions: [], villageVisibilite, topbarLogo }
 
   // ── L'émission ────────────────────────────────────────────────────────
   let emission: EmissionRadio | null = null
@@ -97,7 +102,7 @@ export async function GET(req: NextRequest) {
   }))
 
   return NextResponse.json(
-    { emission, mentions, villageVisibilite } satisfies PayloadRadio,
+    { emission, mentions, villageVisibilite, topbarLogo } satisfies PayloadRadio,
     { headers: { 'Cache-Control': 'no-store' } },
   )
 }

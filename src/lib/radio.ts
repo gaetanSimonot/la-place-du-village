@@ -71,9 +71,45 @@ export interface MentionRadio {
 export interface PayloadRadio {
   emission: EmissionRadio | null
   mentions: MentionRadio[]
-  /** Visibilité du bloc sur la page Village ET de la mention sur les fiches. */
+  /**
+   * Visibilité de TOUT le module : le bloc du Village, la mention sur les
+   * fiches, et le rond de la barre du haut. « Masqué » masque tout.
+   */
   villageVisibilite: Visibilite
+  /**
+   * Le rond dans la barre du haut est-il posé ?
+   *
+   * Réglage À L'INTÉRIEUR du précédent, jamais à côté : la barre du haut est
+   * l'endroit le plus voyant de l'app, et on peut vouloir ouvrir le module
+   * aux habitants sans y toucher tout de suite. Mais si le module est masqué,
+   * le rond l'est aussi — un lien vers une section invisible ne veut rien
+   * dire.
+   */
+  topbarLogo: boolean
 }
+
+/**
+ * La marque de la radio, déposée dans `public/radio/`.
+ *
+ * Un seul fichier : le rond. Il n'existe pas de version horizontale du logo,
+ * alors la mention sur les fiches se compose — le rond, puis le texte, aux
+ * couleurs de la radio. Mieux vaut assembler à partir de la vraie marque que
+ * dessiner un logotype qui n'existe pas.
+ */
+/** Le rond, servi en 128 px (7 ko) : la barre du haut l'affiche en 38. */
+export const LOGO_ROND = '/radio/escapades-rond-128.png'
+
+/** L'original 512 px, gardé comme source — pour un usage plus grand un jour. */
+export const LOGO_ROND_SOURCE = '/radio/escapades-rond.png'
+
+/**
+ * Le bleu de la radio, relevé sur le logo (#26328C).
+ *
+ * La mention sur les fiches porte CETTE couleur et pas l'orange de l'app :
+ * c'est une marque extérieure, elle doit se lire comme telle. Partout
+ * ailleurs, le module reste dans la palette de La Place.
+ */
+export const BLEU_RADIO = '#26328C'
 
 /**
  * Le lundi de la semaine d'une date, en heure de Paris.

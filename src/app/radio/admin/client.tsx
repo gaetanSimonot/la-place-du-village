@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import { RADIO, semaineDe, type EmissionRadio } from '@/lib/radio'
 import { uploadViaSignedUrl } from '@/lib/clientUpload'
+import EventEditDrawer from '@/components/EventEditDrawer'
 
 /**
  * SAISIE D'UNE ÉMISSION — deux gestes, et la machine fait le reste.
@@ -53,12 +54,12 @@ async function authedFetch(url: string, init?: RequestInit) {
 const fetcher = (u: string) => authedFetch(u).then(r => r.json())
 
 const CHAMP: React.CSSProperties = {
-  width: '100%', border: '1px solid #E3DACB', borderRadius: 10,
-  padding: '10px 12px', fontSize: 14, background: '#fff', color: '#1A1209',
+  width: '100%', border: '1px solid var(--bord)', borderRadius: 10,
+  padding: '10px 12px', fontSize: 14, background: 'var(--blanc)', color: 'var(--texte)',
 }
 const ETIQ: React.CSSProperties = {
   display: 'block', fontSize: 11.5, fontWeight: 700, letterSpacing: .4,
-  textTransform: 'uppercase', color: '#7A6A5A', margin: '0 0 5px',
+  textTransform: 'uppercase', color: 'var(--gris)', margin: '0 0 5px',
 }
 
 export default function RadioAdminClient() {
@@ -79,7 +80,6 @@ export default function RadioAdminClient() {
 
   const emissions = liste?.emissions ?? []
   const mentions = useMemo(() => detail?.mentions ?? [], [detail])
-  const courante = detail?.emission ?? null
 
   // ── Création d'une émission ───────────────────────────────────────────
   const [titre, setTitre] = useState('')
@@ -195,21 +195,47 @@ export default function RadioAdminClient() {
     await relireDetail()
   }
 
+  /*
+   * CRÉER LA FICHE D'UN RENDEZ-VOUS QUE L'AGENDA NE CONNAÎT PAS.
+   *
+   * On rouvre l'éditeur d'événement de l'app — le même que partout ailleurs,
+   * avec sa recherche d'adresse, ses catégories et sa validation. Sans
+   * `evenementId` il crée au lieu de modifier, et `initialData` le préremplit.
+   * Écrire un second formulaire ici aurait produit des fiches au rabais, sans
+   * géocodage ni contrôle de doublon.
+   *
+   * Ce qu'on préremplit est ce qu'on SAIT : le titre entendu, et ce que
+   * l'animateur a dit du jour et du lieu, versé en description. La date et
+   * l'adresse restent à confirmer — les deviner d'une phrase parlée
+   * produirait des fiches fausses que personne ne relirait.
+   */
+  const [creerPour, setCreerPour] = useState<MentionAdmin | null>(null)
+
+  async function rattacher(mentionId: string, evenementId: string) {
+    const res = await authedFetch('/api/radio/admin', {
+      method: 'PATCH',
+      body: JSON.stringify({ type: 'mention', id: mentionId, evenement_id: evenementId }),
+    })
+    if (!res.ok) { toast.error('Fiche créée, mais le rattachement a échoué'); return }
+    toast.success('Fiche créée et rattachée')
+    await relireDetail()
+  }
+
   const dejaCites = useMemo(
     () => new Set(mentions.map(m => m.evenement_id).filter(Boolean) as string[]),
     [mentions],
   )
 
   return (
-    <div className="min-h-[100dvh]" style={{ background: '#FDFAF5', color: '#1A1209', paddingBottom: 96 }}>
+    <div className="min-h-[100dvh]" style={{ background: 'var(--creme)', color: 'var(--texte)', paddingBottom: 96 }}>
       <div className="px-4" style={{ paddingTop: 'max(18px, env(safe-area-inset-top, 18px))' }}>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.4, textTransform: 'uppercase', color: '#C4622D' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.4, textTransform: 'uppercase', color: 'var(--accent)' }}>
           {RADIO.nom}
         </div>
-        <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-.02em', margin: '4px 0 0' }}>
+        <h1 className="m-0 font-serif" style={{ fontSize: 24, lineHeight: 1.12, letterSpacing: '-.02em', marginTop: 4 }}>
           La sélection de la semaine
         </h1>
-        <p style={{ fontSize: 13, color: '#7A6A5A', margin: '6px 0 0', lineHeight: 1.5 }}>
+        <p style={{ fontSize: 13, color: 'var(--gris)', margin: '6px 0 0', lineHeight: 1.5 }}>
           Collez le lien du podcast, puis listez ce qu’il annonce. Un rendez-vous
           absent de l’agenda s’écrit à la main : sa ligne s’affichera sans être
           cliquable.
@@ -217,7 +243,7 @@ export default function RadioAdminClient() {
       </div>
 
       {/* ── Nouvelle émission ──────────────────────────────────────── */}
-      <div className="mx-4 mt-5 rounded-[16px]" style={{ background: '#fff', border: '1px solid #EAE2D6', padding: 15 }}>
+      <div className="mx-4 mt-5 rounded-[16px]" style={{ background: 'var(--blanc)', border: '1px solid var(--bord)', padding: 15 }}>
         <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 12 }}>Nouvelle émission</div>
         <div className="flex flex-col gap-3">
           <div>
@@ -232,9 +258,9 @@ export default function RadioAdminClient() {
                 <button key={o} type="button" onClick={() => setSource(o)}
                   style={{
                     flex: 1, padding: '8px 6px', borderRadius: 9, fontSize: 12.5, fontWeight: 700,
-                    border: `1.5px solid ${source === o ? '#2D5A3D' : '#E3DACB'}`,
-                    background: source === o ? '#F1F6F2' : '#fff',
-                    color: source === o ? '#2D5A3D' : '#7A6A5A', cursor: 'pointer',
+                    border: `1.5px solid ${source === o ? 'var(--primary)' : 'var(--bord)'}`,
+                    background: source === o ? 'var(--primary-light)' : 'var(--blanc)',
+                    color: source === o ? 'var(--primary)' : 'var(--gris)', cursor: 'pointer',
                   }}>
                   {o === 'fichier' ? 'Depuis mon ordinateur' : 'Par un lien'}
                 </button>
@@ -273,7 +299,7 @@ export default function RadioAdminClient() {
             disabled={enCours || !titre.trim() || !audio.trim()}
             style={{
               border: 'none', borderRadius: 11, padding: '12px 16px', fontSize: 14, fontWeight: 700,
-              background: !titre.trim() || !audio.trim() ? '#E3DACB' : '#2D5A3D',
+              background: !titre.trim() || !audio.trim() ? 'var(--bord)' : 'var(--primary)',
               color: !titre.trim() || !audio.trim() ? '#A2917C' : '#fff',
               cursor: !titre.trim() || !audio.trim() ? 'default' : 'pointer',
             }}
@@ -289,19 +315,19 @@ export default function RadioAdminClient() {
           Émissions
         </div>
         {emissions.length === 0 && (
-          <div style={{ fontSize: 13, color: '#7A6A5A' }}>Aucune émission pour le moment.</div>
+          <div style={{ fontSize: 13, color: 'var(--gris)' }}>Aucune émission pour le moment.</div>
         )}
         <div className="flex flex-col gap-2">
           {emissions.map(e => {
             const ouverte = e.id === emissionId
             return (
               <div key={e.id} className="rounded-[14px]"
-                style={{ background: '#fff', border: `1px solid ${ouverte ? '#2D5A3D' : '#EAE2D6'}`, padding: 12 }}>
+                style={{ background: '#fff', border: `1px solid ${ouverte ? 'var(--primary)' : 'var(--bord)'}`, padding: 12 }}>
                 <div className="flex items-start gap-2">
                   <button type="button" onClick={() => setEmissionId(ouverte ? null : e.id)}
                     className="min-w-0 flex-1 border-none bg-transparent p-0 text-left">
                     <div style={{ fontSize: 14, fontWeight: 700 }}>{e.titre}</div>
-                    <div style={{ fontSize: 12, color: '#7A6A5A', marginTop: 2 }}>
+                    <div style={{ fontSize: 12, color: 'var(--gris)', marginTop: 2 }}>
                       {e.semaine_debut} · {e.statut === 'publie' ? 'en ligne' : e.statut}
                     </div>
                   </button>
@@ -309,9 +335,9 @@ export default function RadioAdminClient() {
                     onClick={() => changerStatut(e, e.statut === 'publie' ? 'brouillon' : 'publie')}
                     className="flex-none rounded-full"
                     style={{
-                      border: `1px solid ${e.statut === 'publie' ? '#2D5A3D' : '#E3DACB'}`,
-                      background: e.statut === 'publie' ? '#2D5A3D' : 'transparent',
-                      color: e.statut === 'publie' ? '#fff' : '#7A6A5A',
+                      border: `1px solid ${e.statut === 'publie' ? 'var(--primary)' : 'var(--bord)'}`,
+                      background: e.statut === 'publie' ? 'var(--primary)' : 'transparent',
+                      color: e.statut === 'publie' ? '#fff' : 'var(--gris)',
                       padding: '6px 11px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
                     }}>
                     {e.statut === 'publie' ? 'En ligne' : 'Publier'}
@@ -319,7 +345,7 @@ export default function RadioAdminClient() {
                 </div>
 
                 {ouverte && (
-                  <div className="mt-3" style={{ borderTop: '1px solid #F0E9DD', paddingTop: 11 }}>
+                  <div className="mt-3" style={{ borderTop: '1px solid var(--bord)', paddingTop: 11 }}>
                     {/* L'émission se lit elle-même. Posé AVANT la saisie
                         manuelle : c'est le chemin normal, la main sert à
                         corriger ce que le modèle a raté. */}
@@ -327,8 +353,8 @@ export default function RadioAdminClient() {
                       style={{
                         width: '100%', border: 'none', borderRadius: 11, padding: '12px 14px',
                         fontSize: 13.5, fontWeight: 700, marginBottom: 14,
-                        background: detection ? '#E3DACB' : '#17120E',
-                        color: detection ? '#7A6A5A' : '#E8913C',
+                        background: detection ? 'var(--bord)' : 'var(--primary)',
+                        color: detection ? 'var(--gris)' : '#fff',
                         cursor: detection ? 'default' : 'pointer',
                       }}>
                       {detection ?? 'Écouter l’émission et détecter les rendez-vous'}
@@ -339,7 +365,7 @@ export default function RadioAdminClient() {
                     <input id="ra-rech" style={CHAMP} value={recherche} onChange={ev => setRecherche(ev.target.value)}
                       placeholder="Trois lettres suffisent" />
                     {resultats.length > 0 && (
-                      <div className="mt-2 overflow-hidden rounded-[10px]" style={{ border: '1px solid #EAE2D6' }}>
+                      <div className="mt-2 overflow-hidden rounded-[10px]" style={{ border: '1px solid var(--bord)' }}>
                         {resultats.map(r => {
                           const deja = dejaCites.has(r.id)
                           return (
@@ -347,12 +373,12 @@ export default function RadioAdminClient() {
                               onClick={() => ajouterMention({ titre: r.titre, evenement_id: r.id })}
                               className="block w-full border-none text-left"
                               style={{
-                                background: deja ? '#F7F2E9' : '#fff', padding: '9px 11px',
-                                borderBottom: '1px solid #F0E9DD', cursor: deja ? 'default' : 'pointer',
+                                background: deja ? 'var(--creme)' : 'var(--blanc)', padding: '9px 11px',
+                                borderBottom: '1px solid var(--bord)', cursor: deja ? 'default' : 'pointer',
                                 opacity: deja ? .55 : 1,
                               }}>
                               <div style={{ fontSize: 13, fontWeight: 600 }}>{r.titre}</div>
-                              <div style={{ fontSize: 11.5, color: '#7A6A5A' }}>
+                              <div style={{ fontSize: 11.5, color: 'var(--gris)' }}>
                                 {[r.date_debut, r.lieux?.nom || r.lieux?.commune].filter(Boolean).join(' · ')}
                                 {deja ? ' · déjà cité' : ''}
                               </div>
@@ -372,7 +398,7 @@ export default function RadioAdminClient() {
                       <button type="button" disabled={!libre.trim()}
                         onClick={() => ajouterMention({ titre: libre, detail: detailLibre })}
                         style={{
-                          marginTop: 7, border: '1px solid #E3DACB', borderRadius: 10, background: '#fff',
+                          marginTop: 7, border: '1px solid var(--bord)', borderRadius: 10, background: '#fff',
                           padding: '9px 14px', fontSize: 13, fontWeight: 700,
                           color: libre.trim() ? '#1A1209' : '#A2917C', cursor: libre.trim() ? 'pointer' : 'default',
                         }}>
@@ -382,23 +408,32 @@ export default function RadioAdminClient() {
 
                     {/* ── Ce que l'émission cite déjà ── */}
                     <div className="mt-4">
-                      <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#7A6A5A' }}>
+                      <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--gris)' }}>
                         Cités ({mentions.length})
                       </div>
                       {mentions.map(m => (
                         <div key={m.id} className="flex items-start gap-2"
-                          style={{ borderBottom: '1px solid #F0E9DD', padding: '9px 0' }}>
+                          style={{ borderBottom: '1px solid var(--bord)', padding: '9px 0' }}>
                           <span aria-hidden className="mt-[7px] h-1.5 w-1.5 flex-none rounded-full"
-                            style={{ background: m.evenement_id ? '#2D5A3D' : 'transparent', border: m.evenement_id ? 'none' : '1.5px solid #C4B5A2' }} />
+                            style={{ background: m.evenement_id ? 'var(--primary)' : 'transparent', border: m.evenement_id ? 'none' : '1.5px solid #C4B5A2' }} />
                           <div className="min-w-0 flex-1">
                             <div style={{ fontSize: 13.5, fontWeight: 600 }}>{m.titre}</div>
-                            <div style={{ fontSize: 11.5, color: '#7A6A5A' }}>
+                            <div style={{ fontSize: 11.5, color: 'var(--gris)' }}>
                               {m.evenement_id
                                 ? [m.evenements?.date_debut, m.evenements?.lieux?.nom || m.evenements?.lieux?.commune]
                                     .filter(Boolean).join(' · ') || 'rattaché à une fiche'
                                 : (m.detail || 'ligne libre — non cliquable')}
                             </div>
                           </div>
+                          {!m.evenement_id && (
+                            <button type="button" onClick={() => setCreerPour(m)}
+                              className="flex-none rounded-full"
+                              style={{ border: '1px solid var(--bord)', background: 'var(--blanc)',
+                                       padding: '5px 10px', fontSize: 11.5, fontWeight: 700,
+                                       color: 'var(--primary)', cursor: 'pointer' }}>
+                              Créer la fiche
+                            </button>
+                          )}
                           <button type="button" onClick={() => retirerMention(m.id)}
                             aria-label={`Retirer ${m.titre}`}
                             className="flex-none border-none bg-transparent"
@@ -422,7 +457,21 @@ export default function RadioAdminClient() {
         </div>
       </div>
 
-      {courante && null}
+      {creerPour && (
+        <EventEditDrawer
+          initialData={{
+            titre: creerPour.titre,
+            description: creerPour.detail ? `Annoncé à l’antenne : ${creerPour.detail}` : '',
+          }}
+          onClose={() => setCreerPour(null)}
+          onSaved={async (r) => {
+            const mention = creerPour
+            setCreerPour(null)
+            if (mention && r?.id) await rattacher(mention.id, r.id)
+            else await relireDetail()
+          }}
+        />
+      )}
       <BottomNavBar />
     </div>
   )

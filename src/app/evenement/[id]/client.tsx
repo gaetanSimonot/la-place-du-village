@@ -203,10 +203,6 @@ export default function EvenementPageClient({ id }: { id: string }) {
               {(CATEGORIES[c] ?? CATEGORIES.autre).label}
             </span>
           ))}
-          {/* Citee a l'antenne. Sur la fiche elle est en taille normale : c'est
-              ici qu'on decide d'y aller, et savoir que la radio l'a retenu
-              pese dans la decision. */}
-          <MentionRadio actif={evt.radio_selection} />
         </div>
       </div>
 
@@ -214,6 +210,11 @@ export default function EvenementPageClient({ id }: { id: string }) {
       <div className="relative z-[4] -mt-5 rounded-t-[24px] bg-white pb-6">
         {/* Title block */}
         <div className="px-4 pt-[18px]">
+          {/* Citee a l'antenne. Posee DANS la fiche et non sur la photo : une
+              etiquette par-dessus une affiche cache l'affiche, et se pose mal
+              des que l'image est claire. Ici elle se lit, juste avant le
+              titre, la ou l'on decide d'y aller. */}
+          <MentionRadio actif={evt.radio_selection} />
           <h1
             className="m-0 font-title text-[28px] leading-[1.05] text-texte"
             style={{ letterSpacing: '-0.02em' }}
