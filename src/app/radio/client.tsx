@@ -104,7 +104,9 @@ export default function RadioClient() {
   }, [])
 
   const emission = data?.emission ?? null
-  const mentions = data?.mentions ?? []
+  // Un tableau neuf a chaque rendu relancerait le useMemo de la carte, et
+  // avec lui le recadrage. On le fige sur la donnee.
+  const mentions = useMemo(() => data?.mentions ?? [], [data])
 
   /** Ce que la carte peut montrer : les fiches rattachées ET localisées. */
   const surLaCarte = useMemo<EvenementCard[]>(

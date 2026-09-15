@@ -4,7 +4,6 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/server-auth'
 import { getPrompt } from '@/lib/prompts-ia'
 import { safeJsonParse } from '@/lib/safeJsonParse'
-import { semaineDe } from '@/lib/radio'
 
 /**
  * POST /api/radio/admin/transcrire — l'émission se lit elle-même.
