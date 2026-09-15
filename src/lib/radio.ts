@@ -30,7 +30,7 @@ import type { Visibilite } from './visibilite'
 export const RADIO = {
   cle: 'escapades',
   nom: 'Radio Escapades',
-  site: 'https://www.radio-escapades.org',
+  site: 'https://www.radioescapades.org',
 } as const
 
 /**

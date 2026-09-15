@@ -8,6 +8,8 @@ import useSWR from 'swr'
 import BottomNavBar from '@/components/BottomNavBar'
 import RadioDirect from '@/components/RadioDirect'
 import { supabase } from '@/lib/supabase'
+import { toast } from 'sonner'
+import EventEditDrawer from '@/components/EventEditDrawer'
 import { useAdminSession } from '@/hooks/useAdminSession'
 import { CATEGORIES } from '@/lib/categories'
 import { formatEventDate } from '@/lib/filters'
@@ -58,7 +60,12 @@ function libelleSemaine(lundi: string): string {
  * vignette, et un bloc INERTE plutôt qu'un lien mort — un lien qui ne fait
  * rien au toucher est plus déroutant qu'une ligne visiblement calme.
  */
-function LigneMention({ m }: { m: MentionRadio }) {
+function LigneMention({ m, adminPeutCreer, onCreer }: {
+  m: MentionRadio
+  /** Un admin voit les creneaux vides comme des fiches a creer. */
+  adminPeutCreer?: boolean
+  onCreer?: (m: MentionRadio) => void
+}) {
   const e = m.evenement
   const cat = e ? CATEGORIES[e.categorie] ?? CATEGORIES.autre : null
 
@@ -101,6 +108,13 @@ function LigneMention({ m }: { m: MentionRadio }) {
                 .filter(Boolean).join(' · ')
             : m.detail || 'Cité à l’antenne — pas encore dans l’agenda'}
         </span>
+        {!e && adminPeutCreer && (
+          <span className="mt-1.5 inline-flex items-center gap-1" style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--primary)' }}>
+            <svg aria-hidden width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2.6" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+            Créer la fiche
+          </span>
+        )}
       </span>
 
       {e && (
@@ -119,15 +133,33 @@ function LigneMention({ m }: { m: MentionRadio }) {
     boxShadow: e ? '0 1px 6px rgba(44,28,16,.05)' : 'none',
   }
 
-  return e
-    ? <Link href={`/evenement/${e.id}`} className="flex gap-3 no-underline" style={style}>{corps}</Link>
-    : <div className="flex gap-3" style={style}>{corps}</div>
+  if (e) return <Link href={`/evenement/${e.id}`} className="flex gap-3 no-underline" style={style}>{corps}</Link>
+
+  /*
+   * Pas de fiche. Pour un habitant, un bloc INERTE — un lien qui ne fait rien
+   * au toucher est plus deroutant qu'une ligne visiblement calme.
+   *
+   * Pour un admin, c'est au contraire l'endroit le plus naturel pour creer la
+   * fiche manquante : c'est ici qu'on lit la selection et qu'on voit le trou.
+   * L'obliger a rouvrir l'ecran de saisie pour ca serait un detour.
+   */
+  if (adminPeutCreer && onCreer) {
+    return (
+      <button type="button" onClick={() => onCreer(m)}
+        className="flex w-full gap-3 text-left"
+        style={{ ...style, border: '1px dashed var(--bord)', cursor: 'pointer', background: 'var(--blanc)' }}>
+        {corps}
+      </button>
+    )
+  }
+  return <div className="flex gap-3" style={style}>{corps}</div>
 }
 
 export default function RadioClient() {
   const router = useRouter()
   const isAdmin = useAdminSession()
-  const { data, isLoading } = useSWR<PayloadRadio>('/api/radio', fetcher)
+  const { data, isLoading, mutate } = useSWR<PayloadRadio>('/api/radio', fetcher)
+  const [creerPour, setCreerPour] = useState<MentionRadio | null>(null)
   const [mapProvider, setMapProvider] = useState<'google' | 'maplibre'>('google')
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
@@ -160,6 +192,24 @@ export default function RadioClient() {
       zoom: surLaCarte.length === 1 ? 13 : 10.5,
     }
   }, [surLaCarte])
+
+  /*
+   * La fiche cree, on la rattache a la mention.
+   *
+   * L'ecriture passe par la route admin, gardee cote serveur : cette page est
+   * publique, et un bouton visible ne prouve rien.
+   */
+  async function rattacher(mentionId: string, evenementId: string) {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/radio/admin', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body: JSON.stringify({ type: 'mention', id: mentionId, evenement_id: evenementId }),
+    }).catch(() => null)
+    if (!res?.ok) { toast.error('Fiche créée, mais le rattachement a échoué'); return }
+    toast.success('Fiche créée et rattachée')
+    await mutate()
+  }
 
   const sansAdresse = mentions.length - surLaCarte.length
 
@@ -294,7 +344,9 @@ export default function RadioClient() {
             <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--gris)' }}>{mentions.length}</span>
           </div>
           <div className="flex flex-col gap-2 px-4">
-            {mentions.map(m => <LigneMention key={m.id} m={m} />)}
+            {mentions.map(m => (
+              <LigneMention key={m.id} m={m} adminPeutCreer={isAdmin} onCreer={setCreerPour} />
+            ))}
           </div>
         </div>
       )}
@@ -333,6 +385,25 @@ export default function RadioClient() {
         </div>
       )}
 
+      {creerPour && (
+        /* L'editeur de l'app, sans evenementId donc en creation, prerempli de
+           ce qu'on SAIT : le titre entendu, et ce que l'animateur a dit du
+           jour et du lieu. La date et l'adresse restent a confirmer — les
+           deviner d'une phrase parlee produirait des fiches fausses. */
+        <EventEditDrawer
+          initialData={{
+            titre: creerPour.titre,
+            description: creerPour.detail ? `Annoncé à l’antenne : ${creerPour.detail}` : '',
+          }}
+          onClose={() => setCreerPour(null)}
+          onSaved={async (r) => {
+            const mention = creerPour
+            setCreerPour(null)
+            if (mention && r?.id) await rattacher(mention.id, r.id)
+            else await mutate()
+          }}
+        />
+      )}
       <BottomNavBar />
     </div>
   )
