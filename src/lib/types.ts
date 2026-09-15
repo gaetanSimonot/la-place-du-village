@@ -42,6 +42,14 @@ export interface Evenement {
   submitted_by_name: string | null
   vote_count: number
   publish_at: string | null
+  /**
+   * Cité par une émission de Radio Escapades encore en ligne.
+   *
+   * Tenu par un déclencheur SQL sur `radio_mentions` : ni l'app ni l'admin ne
+   * l'écrivent jamais à la main. C'est ce qui permet d'afficher la mention sur
+   * la carte et dans les listes sans une requête de plus par événement.
+   */
+  radio_selection: boolean
 }
 
 // Type allégé pour l'affichage public (carte + liste)
@@ -70,6 +78,14 @@ export interface EvenementCard {
   promo_ordre: number | null
   vote_count: number
   submitted_by_name: string | null
+  /**
+   * Cité par une émission de Radio Escapades encore en ligne.
+   *
+   * Tenu par un déclencheur SQL sur `radio_mentions` : ni l'app ni l'admin ne
+   * l'écrivent jamais à la main. C'est ce qui permet d'afficher la mention sur
+   * la carte et dans les listes sans une requête de plus par événement.
+   */
+  radio_selection: boolean
 }
 
 export function isApproxLocation(lieu: Lieu | LieuCard | null): boolean {

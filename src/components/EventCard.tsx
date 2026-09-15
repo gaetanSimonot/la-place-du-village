@@ -8,6 +8,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useAdminSession } from '@/hooks/useAdminSession'
 import EventEditDrawer from '@/components/EventEditDrawer'
+import MentionRadio from '@/components/MentionRadio'
 
 interface Props {
   evenement: Evenement
@@ -61,6 +62,10 @@ export default function EventCard({ evenement, isSelected, onClick }: Props) {
                   </span>
                 )
               })}
+              {/* Citee a l'antenne. Posee dans la MEME rangee que les
+                  categories : c'est une etiquette de plus sur l'evenement,
+                  pas un bandeau qui lui vole la vedette. */}
+              <MentionRadio actif={evenement.radio_selection} taille="petite" />
             </span>
 
             <h3

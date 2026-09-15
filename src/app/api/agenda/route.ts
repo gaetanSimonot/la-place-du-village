@@ -28,7 +28,7 @@ export const revalidate = 60
 /** Garde-fou mémoire, pas un filtre éditorial : voir le commentaire au .limit(). */
 const PLAFOND = 2000
 
-const SELECT = 'id, titre, categorie, categories, date_debut, date_fin, heure, jours_semaine, dates, image_url, image_position, promotion, promo_ordre, lieux(id, nom, commune, lat, lng, place_id_google)'
+const SELECT = 'id, titre, categorie, categories, date_debut, date_fin, heure, jours_semaine, dates, image_url, image_position, promotion, promo_ordre, radio_selection, lieux(id, nom, commune, lat, lng, place_id_google)'
 
 const QUAND_VALUES: FiltreQuand[] = ['toujours', 'aujourd_hui', 'cette_semaine', 'ce_week_end', 'ce_mois']
 
@@ -133,7 +133,7 @@ export async function GET(req: NextRequest) {
   if (splashIds.length > 0) {
     const { data: events } = await supabaseAdmin
       .from('evenements')
-      .select('id, titre, categorie, categories, date_debut, date_fin, heure, image_url, image_position, promotion, promo_ordre, vote_count, submitted_by_name, lieux(id, nom, commune, lat, lng, place_id_google)')
+      .select('id, titre, categorie, categories, date_debut, date_fin, heure, image_url, image_position, promotion, promo_ordre, radio_selection, vote_count, submitted_by_name, lieux(id, nom, commune, lat, lng, place_id_google)')
       .in('id', splashIds)
       .eq('statut', 'publie')
     const eventMap = Object.fromEntries(((events ?? []) as Array<Record<string, unknown>>).map(e => [e.id as string, e]))

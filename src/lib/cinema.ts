@@ -18,6 +18,8 @@
  * forcer créerait un système parallèle mal placé.
  */
 
+import type { Visibilite } from './visibilite'
+
 export interface Cinema {
   id: string
   nom: string
@@ -67,18 +69,13 @@ export const VERSIONS: { id: VersionFilm; label: string }[] = [
 /**
  * Visibilité du bloc « Au cinéma aujourd'hui » sur la page Village.
  * Stockée dans config('cinema_village_public').
- *   masque → personne, pas même les admins
- *   admin  → les comptes admin seulement (rodage)
- *   tous   → tous les habitants
+ *
+ * La règle est partagée avec l'Assistant et la radio : elle vit désormais dans
+ * `@/lib/visibilite`. On la ré-exporte ici pour ne pas casser les imports
+ * existants, et parce que `VisibiliteCinema` se lit bien sur le site d'appel.
  */
-export type VisibiliteCinema = 'masque' | 'admin' | 'tous'
-
-/** Tolère les anciennes valeurs booléennes ('true'/'false'). */
-export function parseVisibilite(v: string | null | undefined): VisibiliteCinema {
-  if (v === 'tous' || v === 'true') return 'tous'
-  if (v === 'masque') return 'masque'
-  return 'admin'
-}
+export type VisibiliteCinema = Visibilite
+export { parseVisibilite } from './visibilite'
 
 /** Champs d'un cinéma, factorisés — la liste sert à plusieurs requêtes. */
 export const CINEMA_FIELDS = 'id, nom, commune, slug, adresse, site_web, billetterie_url, photos'

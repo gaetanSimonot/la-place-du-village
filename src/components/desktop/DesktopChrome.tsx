@@ -36,6 +36,9 @@ const ONGLETS: { label: string; href: string; vue?: string; actif: (p: string, v
   // barre de navigation qui apparaît et disparaît selon un réglage serait
   // pire que le mal. La page, elle, dit d'elle-même quand rien n'est joué.
   { label: 'Cinémas',     href: '/cinema',                actif: p => p.startsWith('/cinema') },
+  // Même raisonnement pour la radio : l'entrée est en dur, la page dit
+  // d'elle-même quand aucune émission n'est montée.
+  { label: 'Radio',       href: '/radio',                 actif: p => p.startsWith('/radio') },
   // Le transport n'a pas d'adresse à lui : c'est un calque posé sur la carte,
   // piloté par l'état de la coquille d'accueil. Le lien y ramène, et
   // `changerVue` fait le reste — comme pour Le village et Carte.

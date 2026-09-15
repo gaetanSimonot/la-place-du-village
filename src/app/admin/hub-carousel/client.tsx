@@ -88,6 +88,8 @@ export default function AdminHubCarousel() {
   const [entreeSaving, setEntreeSaving] = useState(false)
 
   const [cinemaVis, setCinemaVis] = useState<VisibiliteCinema>('admin')
+  const [radioVis, setRadioVis] = useState<VisibiliteCinema>('admin')
+  const [radioSaving, setRadioSaving] = useState(false)
   const [cinemaSaving, setCinemaSaving] = useState(false)
   /** Visibilité de l'Assistant Village dans la barre de recherche. */
   const [assistantVis, setAssistantVis] = useState<VisibiliteCinema>('admin')
@@ -115,10 +117,11 @@ export default function AdminHubCarousel() {
       supabase.from('config').select('value').eq('key', 'hub_section_hidden').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'splash_promo').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'cinema_village_public').maybeSingle(),
+      supabase.from('config').select('value').eq('key', 'radio_village_public').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'assistant_visibilite').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'village_hero').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'entree_app').maybeSingle(),
-    ]).then(([toggleRes, imgRes, orderRes, hiddenRes, splashRes, cineRes, assistRes, herosRes, entreeRes]) => {
+    ]).then(([toggleRes, imgRes, orderRes, hiddenRes, splashRes, cineRes, radioRes, assistRes, herosRes, entreeRes]) => {
       setIntroEnabled(toggleRes.data?.value === 'true')
       setIntroImageUrl(imgRes.data?.value || null)
       let parsed: unknown = []
@@ -130,6 +133,7 @@ export default function AdminHubCarousel() {
       } catch { setHiddenSections([]) }
       setSplash(parseSplashPromo(splashRes.data?.value))
       setCinemaVis(parseVisibilite(cineRes.data?.value))
+      setRadioVis(parseVisibilite(radioRes.data?.value))
       setAssistantVis(parseVisibilite(assistRes.data?.value))
       setHerosListe(normaliserHerosListe(herosRes.data?.value))
       setEntree(parseEntree(entreeRes.data?.value))
@@ -249,6 +253,20 @@ export default function AdminHubCarousel() {
     }).catch(() => null)
     if (!res?.ok) setCinemaVis(avant)
     setCinemaSaving(false)
+  }
+
+  async function changerRadioVis(next: VisibiliteCinema) {
+    if (radioSaving || next === radioVis) return
+    const avant = radioVis
+    setRadioVis(next); setRadioSaving(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/admin/config', {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body:    JSON.stringify({ key: 'radio_village_public', value: next }),
+    }).catch(() => null)
+    if (!res?.ok) setRadioVis(avant)
+    setRadioSaving(false)
   }
 
   /**
@@ -833,6 +851,59 @@ export default function AdminHubCarousel() {
               )
             })}
           </div>
+        </div>
+      </div>
+
+      {/* Bloc Radio Escapades sur la page Village — mêmes trois états que le
+          cinéma. « Masqué » retire AUSSI la mention « Sélection Radio
+          Escapades » des fiches d'événements : un badge qui renvoie à un
+          module invisible ne veut rien dire. */}
+      <div style={{ padding: '14px 16px 0' }}>
+        <div style={{
+          padding: 14, borderRadius: 12, background: '#FFFFFF',
+          border: `1px solid ${radioVis === 'tous' ? '#F0B08A' : '#E5DDD2'}`,
+          boxShadow: '0 1px 4px rgba(44,28,16,0.04)',
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>
+            Bloc « Radio Escapades »
+          </div>
+          <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2, marginBottom: 10, lineHeight: 1.45 }}>
+            Sur la page Village, et la mention « Sélection Radio Escapades » sur
+            les fiches. Le bloc disparaît de lui-même tant qu&apos;aucune
+            émission n&apos;est en ligne.
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {([
+              { v: 'masque' as const, titre: 'Masqué',  sous: 'personne' },
+              { v: 'admin'  as const, titre: 'Admin',   sous: 'toi seul' },
+              { v: 'tous'   as const, titre: 'Tous',    sous: 'les habitants' },
+            ]).map(o => {
+              const actif = radioVis === o.v
+              return (
+                <button
+                  key={o.v}
+                  onClick={() => changerRadioVis(o.v)}
+                  disabled={radioSaving}
+                  style={{
+                    flex: 1, padding: '10px 6px', borderRadius: 10, textAlign: 'center',
+                    border: `1.5px solid ${actif ? '#C84B2F' : '#E5DDD2'}`,
+                    background: actif ? '#FFF8F3' : '#FDFAF5',
+                    cursor: radioSaving ? 'default' : 'pointer',
+                    fontFamily: 'var(--font-body), sans-serif',
+                  }}
+                >
+                  <div style={{ fontSize: 12.5, fontWeight: 800, color: actif ? '#C0440A' : '#1A1209' }}>{o.titre}</div>
+                  <div style={{ fontSize: 10, color: '#8A7A6A', marginTop: 2 }}>{o.sous}</div>
+                </button>
+              )
+            })}
+          </div>
+          <a href="/radio/admin" style={{
+            display: 'inline-block', marginTop: 11, fontSize: 12, fontWeight: 700,
+            color: '#2D5A3D', textDecoration: 'none',
+          }}>
+            Monter l&apos;émission de la semaine →
+          </a>
         </div>
       </div>
 

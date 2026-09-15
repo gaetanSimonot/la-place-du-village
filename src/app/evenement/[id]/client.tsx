@@ -21,6 +21,7 @@ import { useSmartBack } from '@/hooks/useSmartBack'
 import { authedFetch } from '@/lib/swr-fetchers'
 import type { CorrectionField } from '@/lib/types'
 import { texteBrut } from '@/components/TexteRiche'
+import MentionRadio from '@/components/MentionRadio'
 
 const LINK_STYLE = { color: '#C84B2F', textDecoration: 'underline', wordBreak: 'break-all' } as const
 
@@ -202,6 +203,10 @@ export default function EvenementPageClient({ id }: { id: string }) {
               {(CATEGORIES[c] ?? CATEGORIES.autre).label}
             </span>
           ))}
+          {/* Citee a l'antenne. Sur la fiche elle est en taille normale : c'est
+              ici qu'on decide d'y aller, et savoir que la radio l'a retenu
+              pese dans la decision. */}
+          <MentionRadio actif={evt.radio_selection} />
         </div>
       </div>
 

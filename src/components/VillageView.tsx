@@ -15,6 +15,7 @@ import type { Evenement } from '@/lib/types'
 import { SectionHeaderV3, FeaturedEventCard, MiniEventCard, MoreEventsCard } from '@/components/hub/CartesHub'
 import PlansCardFinal from '@/components/PlansCardFinal'
 import CinemaAffiche from '@/components/CinemaAffiche'
+import RadioAffiche from '@/components/RadioAffiche'
 import PostComposer from '@/components/profil/PostComposer'
 import PostCard, { type PostData } from '@/components/profil/PostCard'
 import PostCommentsDrawer from '@/components/profil/PostCommentsDrawer'
@@ -215,6 +216,11 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
           prolongement. Le composant décide seul s'il s'affiche : réglage de
           visibilité, compte admin, et rien à l'affiche = pas de bloc. */}
       <CinemaAffiche isAdmin={isAdmin} />
+
+      {/* Radio Escapades — la selection culturelle de la semaine. Juste apres
+          le cinema : deux facons d'apprendre ce qui se passe, l'une par
+          l'affiche, l'autre par l'antenne. Meme regle d'auto-effacement. */}
+      <RadioAffiche isAdmin={isAdmin} />
 
       {/* CTA abonnement (comptes gratuits, dismissable) — repris du hub.
           pcv-hide : sur bureau il vit dans la colonne de droite, entre les
