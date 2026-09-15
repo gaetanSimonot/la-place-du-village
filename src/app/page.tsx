@@ -29,7 +29,7 @@ import { useFavorites } from '@/hooks/useFavorites'
 import { useProducerFavorites } from '@/hooks/useProducerFavorites'
 import { useNotifications } from '@/hooks/useNotifications'
 import { ecranBureau } from '@/lib/bureau'
-import { lireEntreeEnCache, rafraichirEntreeEnCache } from '@/lib/entreeApp'
+import { lireEntreeEnCache, entreeFraiche } from '@/lib/entreeApp'
 import { useHerosVillage } from '@/hooks/useHerosVillage'
 import { lienHeros, herosExterne } from '@/lib/villageHero'
 import RadioPastille from '@/components/RadioPastille'
@@ -566,29 +566,43 @@ export default function HomePage() {
    */
   useEffect(() => {
     if (typeof window === 'undefined') return
-    void rafraichirEntreeEnCache()
 
     if (sessionStorage.getItem('pdv-splash-seen') === '1') return
     sessionStorage.setItem('pdv-splash-seen', '1')
 
-    const entree = lireEntreeEnCache()
-
     // Une adresse explicite l'emporte sur le réglage : un lien partagé, un QR
     // code ou un retour de connexion visent un écran précis, et les détourner
-    // vers la page d'arrivée serait perdre la personne en route.
+    // vers la page d'arrivée serait perdre la personne en route. Lu tout de
+    // suite : ce test ne dépend pas du serveur.
     const sp = new URLSearchParams(window.location.search)
     const urlVise = sp.has('mode') || sp.has('tab') || sp.has('splash')
 
-    if (!urlVise) {
-      if (entree.page === 'village') { setShowHub(false); setNavTab('village') }
-      else if (entree.page === 'promotions') { router.replace('/promotions'); return }
-      else if (entree.page === 'annonces')   { router.replace('/annonces'); return }
-      // 'carte' : c'est déjà l'écran par défaut, rien à faire.
-    }
+    let abandonne = false
+    void (async () => {
+      /*
+       * On ATTEND le vrai réglage, brièvement.
+       *
+       * Se contenter du cache laissait passer tous les nouveaux venus : sans
+       * rien en mémoire, ils retombaient sur le défaut historique — écran
+       * ouvert — et le voyaient alors qu'il était décoché. `entreeFraiche`
+       * rend la valeur du serveur, ou la dernière connue si le réseau traîne.
+       */
+      const entree = await entreeFraiche()
+      if (abandonne) return
 
-    // L'écran d'accueil n'a jamais existé sur ordinateur : la version bureau
-    // a son propre accueil, Le village.
-    if (entree.splash && !ecranBureau() && !urlVise) setSplashOpen(true)
+      if (!urlVise) {
+        if (entree.page === 'village') { setShowHub(false); setNavTab('village') }
+        else if (entree.page === 'promotions') { router.replace('/promotions'); return }
+        else if (entree.page === 'annonces')   { router.replace('/annonces'); return }
+        // 'carte' : c'est déjà l'écran par défaut, rien à faire.
+      }
+
+      // L'écran d'accueil n'a jamais existé sur ordinateur : la version bureau
+      // a son propre accueil, Le village.
+      if (entree.splash && !ecranBureau() && !urlVise) setSplashOpen(true)
+    })()
+
+    return () => { abandonne = true }
   }, [router])
   /** Post à rouvrir dans l'écran des notifications (deep-link ?post=). */
   const [notifPostId, setNotifPostId] = useState<string | null>(null)

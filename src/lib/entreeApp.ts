@@ -76,12 +76,35 @@ export function lireEntreeEnCache(): EntreeApp {
   }
 }
 
-/** Met le cache à jour depuis le serveur, sans bloquer qui que ce soit. */
-export async function rafraichirEntreeEnCache(): Promise<void> {
-  try {
+/**
+ * LE RÉGLAGE RÉEL, AVEC LA DERNIÈRE VALEUR CONNUE EN FILET.
+ *
+ * `lireEntreeEnCache` seul ne suffisait pas, et c'était un vrai défaut : une
+ * personne qui ouvre l'app POUR LA PREMIÈRE FOIS n'a rien en cache, retombe
+ * donc sur le défaut historique — écran d'accueil ouvert — et voit le splash
+ * quel que soit le réglage. Le réglage ne s'appliquait qu'aux visiteurs qui
+ * étaient déjà venus au moins une fois. Mesuré le 15/09/2026 : `splash:false`
+ * en base, et l'écran s'ouvrait quand même chez des gens.
+ *
+ * On demande donc la valeur au serveur et on l'attend — mais pas plus que
+ * `delaiMax`. Au-delà, ou si le réseau refuse, on repart sur la dernière
+ * valeur connue : l'app ne doit jamais rester bloquée derrière un réglage.
+ * Quelques centaines de millisecondes au lancement ne se voient pas ; un
+ * écran qui s'ouvre alors qu'on l'a décoché, si.
+ */
+export async function entreeFraiche(delaiMax = 700): Promise<EntreeApp> {
+  if (typeof window === 'undefined') return ENTREE_DEFAUT
+
+  const secours = new Promise<EntreeApp>(r => setTimeout(() => r(lireEntreeEnCache()), delaiMax))
+
+  const reseau = (async () => {
     const r = await fetch('/api/entree', { cache: 'no-store' })
-    if (!r.ok) return
-    const j = await r.json()
-    localStorage.setItem(CLE_CACHE_ENTREE, JSON.stringify(parseEntree(JSON.stringify(j))))
-  } catch { /* pas de réglage frais, pas de bruit : le cache fait l'affaire */ }
+    if (!r.ok) throw new Error(String(r.status))
+    const valeur = parseEntree(JSON.stringify(await r.json()))
+    try { localStorage.setItem(CLE_CACHE_ENTREE, JSON.stringify(valeur)) } catch { /* cache indisponible */ }
+    return valeur
+  })().catch(() => lireEntreeEnCache())
+
+  return Promise.race([reseau, secours])
 }
+
