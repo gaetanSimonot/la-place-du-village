@@ -54,6 +54,20 @@ function debutCommun(a: string, b: string): number {
 function motCorrespond(motFiche: string, motTape: string): boolean {
   if (motFiche === motTape) return true
   if (motFiche.startsWith(motTape) || motTape.startsWith(motFiche)) return true
+
+  /*
+   * LE MOT COLLE AU PRECEDENT.
+   *
+   * « DecoRoom » s'ecrit en un seul mot, et on le cherche en deux. « deco »
+   * passe — c'est le debut — mais « room » est AU MILIEU, ni debut ni fin.
+   * Comme chaque mot tape doit trouver preneur, la recherche echouait
+   * entiere. Le cas est courant dans les enseignes : DecoRoom, BioCoop,
+   * MaxiZoo.
+   *
+   * Quatre lettres au minimum : en dessous, « ain » rapprocherait pain,
+   * bain, main et Saint.
+   */
+  if (motTape.length >= 4 && motFiche.indexOf(motTape) > 0) return true
   if (motTape.length >= 5 && motFiche.length >= 5) {
     const c = debutCommun(motFiche, motTape)
     if (c >= 5 && c >= Math.min(motFiche.length, motTape.length) - 4) return true
