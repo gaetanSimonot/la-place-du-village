@@ -18,7 +18,6 @@ import { useTheme } from '@/components/ThemeProvider'
 import ProBandeau, { type DiapoHeros } from '@/components/ProBandeau'
 import AgendaFilterWheel, { AgendaDateButton } from '@/components/AgendaFilterWheel'
 import CategoryPicker from '@/components/CategoryPicker'
-import { supabase } from '@/lib/supabase'
 import { authedFetch } from '@/lib/swr-fetchers'
 import MergeEventsModal from '@/components/MergeEventsModal'
 import { texteBrut } from '@/components/TexteRiche'
@@ -317,31 +316,23 @@ export default function BottomSheet({
   const [etabVille, setEtabVille]           = useState('')
   const [etabRayon, setEtabRayon]           = useState<number | null>(null)
 
-  // Recherche live globale (BDD) — même pattern que la loupe HubSearchModal.
-  // ESC_OR : PostgREST .or() utilise les virgules/parenthèses comme séparateurs,
-  // il faut donc les échapper dans le terme utilisateur sinon la query plante
-  // silencieusement (data null, on affiche "rien trouvé").
-  const [etabSearchHits, setEtabSearchHits] = useState<EtablissementCard[] | null>(null)
-  useEffect(() => {
-    const q = etabSearch.trim()
-    if (q.length < 2) { setEtabSearchHits(null); return }
-    let cancelled = false
-    const t = setTimeout(async () => {
-      const escaped = q.replace(/,/g, '\\,').replace(/\)/g, '\\)').replace(/\(/g, '\\(')
-      const like = `%${escaped}%`
-      let query = supabase
-        .from('etablissements')
-        .select('id, type, nom, commune, lat, lng, photos, note_google, is_featured, statut, description_courte, plan')
-        .or(`nom.ilike.${like},commune.ilike.${like}`)
-        .limit(50)
-      if (selectedEtabType) query = query.eq('type', selectedEtabType)
-      const { data, error } = await query
-      if (cancelled) return
-      if (error) console.warn('[etab search]', error)
-      setEtabSearchHits((data ?? []) as EtablissementCard[])
-    }, 200)
-    return () => { cancelled = true; clearTimeout(t) }
-  }, [etabSearch, selectedEtabType])
+  /*
+   * PAS DE RECHERCHE SERVEUR POUR LES COMMERCES.
+   *
+   * Il y en avait une — un `ILIKE '%saisie%'` sur le nom et la commune — et
+   * c'est elle qui rendait la recherche impitoyable : « Equitherapeute » ne
+   * trouvait pas « Lucile Le Bihan, Psychothérapie & Équithérapie », ni à
+   * cause de l'accent ni a cause de la terminaison. Elle court-circuitait en
+   * plus la recherche tolérante de la page, qui ne s'exécutait jamais.
+   *
+   * Elle était surtout INUTILE : `/api/annuaire` charge déjà les 1472 fiches
+   * dans la page. Interroger la base pour chercher dans ce qu'on a sous la
+   * main coûtait un aller-retour à chaque frappe, pour un résultat plus
+   * pauvre.
+   *
+   * La liste reçue en prop arrive donc filtrée par `correspond` (accents, mot
+   * à mot, début commun) — voir `src/lib/recherche.ts`.
+   */
 
   // Pas d'équivalent producteur ici : contrairement aux établissements, les
   // producteurs sont TOUS déjà chargés côté page (/api/producers ne pagine
@@ -444,17 +435,15 @@ export default function BottomSheet({
   }, [etablissements, etabVille])
 
   // Liste affichée :
-  //  - Si recherche live active (etabSearchHits != null) → on prend les hits
-  //    BDD globale (cohérent avec la loupe d'en haut). Filtre par type appliqué
-  //    côté supabase pour minimiser le payload.
-  //  - Sinon → liste locale filtrée par zone/rayon/note (mode "navigation").
+  //  - Recherche en cours → la liste reçue en prop, déjà passée au crible
+  //    tolérant de la page, sans les filtres de navigation.
+  //  - Sinon → la même liste, filtrée par zone/rayon/note.
   const displayedEtabs = useMemo(() => {
-    if (etabSearchHits) {
-      // Search active : applique uniquement les filtres légers (note min)
-      return etabSearchHits.filter(e => {
-        if (etabMinNote > 0 && (!e.note_google || e.note_google < etabMinNote)) return false
-        return true
-      })
+    // Une recherche en cours l'emporte sur les filtres de navigation : on
+    // cherche dans TOUT, pas dans ce que la zone laissait voir.
+    if (etabSearch.trim().length >= 2) {
+      return etablissements.filter(e =>
+        !(etabMinNote > 0 && (!e.note_google || e.note_google < etabMinNote)))
     }
     return etablissements.filter(e => {
       if (etabMinNote > 0 && (!e.note_google || e.note_google < etabMinNote)) return false
@@ -466,7 +455,7 @@ export default function BottomSheet({
       }
       return true
     })
-  }, [etablissements, etabSearchHits, etabMinNote, etabVille, etabRayon, villeCenter])
+  }, [etablissements, etabSearch, etabMinNote, etabVille, etabRayon, villeCenter])
 
   // Remontée de la liste affichée vers la page → la carte pose ses punaises sur
   // EXACTEMENT ce que la liste montre (recherche live et filtres locaux inclus).
