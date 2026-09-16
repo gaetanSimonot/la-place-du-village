@@ -33,6 +33,7 @@ import { lireEntreeEnCache, entreeFraiche } from '@/lib/entreeApp'
 import { useHerosVillage } from '@/hooks/useHerosVillage'
 import { lienHeros, herosExterne } from '@/lib/villageHero'
 import RadioPastille from '@/components/RadioPastille'
+import { correspond } from '@/lib/recherche'
 
 
 /**
@@ -1199,9 +1200,9 @@ export default function HomePage() {
         const q = normSearch(producerSearch.trim())
         if (!q) return true
         return (
-          normSearch(p.nom).includes(q) ||
-          normSearch(p.commune ?? '').includes(q) ||
-          (p.produits_disponibles ?? []).some(pr => normSearch(pr.nom).includes(q))
+          correspond(
+            [p.nom, p.commune, ...(p.produits_disponibles ?? []).map(pr => pr.nom)],
+            producerSearch)
         )
       })
   }, [producers, selectedCats, producerSearch])
@@ -1216,9 +1217,9 @@ export default function HomePage() {
     const q = normSearch(producerSearch.trim())
     if (!q) return producers
     return producers.filter(p =>
-      normSearch(p.nom).includes(q) ||
-      normSearch(p.commune ?? '').includes(q) ||
-      (p.produits_disponibles ?? []).some(pr => normSearch(pr.nom).includes(q)),
+      correspond(
+        [p.nom, p.commune, ...(p.produits_disponibles ?? []).map(pr => pr.nom)],
+        producerSearch),
     )
   }, [producers, producerSearch])
 
@@ -1243,8 +1244,10 @@ export default function HomePage() {
       })
       .filter(e => {
         if (!hasActiveSearch) return true
-        const q = etabSearch.toLowerCase().trim()
-        return e.nom.toLowerCase().includes(q) || (e.commune ?? '').toLowerCase().includes(q)
+        // Tolerante : accents, mot a mot, et debut commun — « equitherapeute »
+        // doit trouver « Equitherapie ». Le type et la description courte sont
+        // fouilles aussi : on cherche souvent un metier, pas une enseigne.
+        return correspond([e.nom, e.commune, e.type, e.description_courte], etabSearch)
       })
   }, [etablissements, etabSearch, userZoneActive, userRayon, userCentre, zoneCentres, rayonAffichage])
 

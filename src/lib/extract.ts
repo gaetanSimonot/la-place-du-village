@@ -248,13 +248,21 @@ async function lookupLieuxCache(lieuNom: string, commune?: string | null): Promi
       .select('nom, commune, adresse, lat, lng, place_id_google')
       .ilike('nom', motif).not('lat', 'is', null).limit(12),
     supabaseAdmin.from('etablissements')
-      .select('nom, commune, adresse, lat, lng')
+      .select('nom, commune, adresse, lat, lng, place_id_google')
       .ilike('nom', motif).not('lat', 'is', null).limit(12),
   ])
 
   const candidats: CandidatLieu[] = [
     ...((lieuxRes.data ?? []) as CandidatLieu[]),
-    ...((etabsRes.data ?? []).map(e => ({ ...e, place_id_google: null })) as CandidatLieu[]),
+    /*
+     * On GARDE le place_id de l'etablissement.
+     *
+     * Il etait force a null : l'app retrouvait le bon commerce, prenait ses
+     * coordonnees exactes, puis jetait sa carte d'identite — et affichait
+     * « Localisation approximative » sur une punaise parfaitement posee. Vu le
+     * 16/09/2026 sur « Le Pradet » a Saint-Hippolyte-du-Fort.
+     */
+    ...((etabsRes.data ?? []) as CandidatLieu[]),
   ]
   if (!candidats.length) return null
 

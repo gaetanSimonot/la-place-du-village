@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from './supabase-admin'
 import { getPrompt } from './prompts-ia'
 import { safeJsonParse } from './safeJsonParse'
+import { memeCommune } from './communes'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -54,9 +55,10 @@ function cleTexte(s: string | null | undefined): string {
  * l'agenda venaient de là.
  */
 function communesCompatibles(a: string | null | undefined, b: string | null | undefined): boolean {
-  const ka = cleTexte(a), kb = cleTexte(b)
-  if (!ka || !kb) return true
-  return ka === kb
+  // `memeCommune` porte la meme normalisation que la fusion des graphies :
+  // « St Hippolyte du Fort » et « Saint-Hippolyte-du-Fort » sont le meme
+  // village pour la detection de doublons comme pour l'affichage.
+  return memeCommune(a, b)
 }
 
 /** L'heure, ramenée à HH:MM — la base écrit tantôt « 20:00 », tantôt « 20:00:00 ». */
@@ -77,7 +79,16 @@ export async function checkDoublon(newEvent: DoublonCheckInput): Promise<Doublon
     .select('id, titre, date_debut, description, heure, lieux(nom, commune)')
     .not('statut', 'in', '("archive","rejete")')
     .order('created_at', { ascending: false })
-    .limit(60)
+    /*
+     * 300 ET NON 60.
+     *
+     * La requete est deja bornee aux fiches dont la date tombe a sept jours
+     * de celle du nouvel evenement ; le plafond ne servait qu'a se proteger.
+     * A 60, il coupait pour de vrai : « Cafe Pros La Soierie », saisi deux
+     * semaines plus tot, etait sorti de la fenetre et son doublon est passe.
+     * Mesure le 15/09/2026.
+     */
+    .limit(300)
 
   if (newEvent.date_debut) {
     const d = new Date(newEvent.date_debut + 'T00:00:00')
@@ -87,11 +98,15 @@ export async function checkDoublon(newEvent: DoublonCheckInput): Promise<Doublon
   }
 
   const { data } = await query
-  const candidates = (data ?? [])
+  const compatibles = (data ?? [])
     .filter(e => communesCompatibles((e.lieux as { commune?: string } | null)?.commune, newEvent.commune))
-    .slice(0, 10)
 
-  if (candidates.length === 0) return safe
+  if (compatibles.length === 0) return safe
+
+  // Le modele ne lit que dix fiches — au-dela, il confond. Le test
+  // deterministe ci-dessous, lui, les regarde TOUTES : il ne coute rien et un
+  // jumeau evident ne doit pas dependre de la place qu'il occupe dans la pile.
+  const candidates = compatibles.slice(0, 10)
 
   /*
    * LE CAS ÉVIDENT, TRANCHÉ SANS DEMANDER À PERSONNE.
@@ -108,7 +123,7 @@ export async function checkDoublon(newEvent: DoublonCheckInput): Promise<Doublon
   const kTitre = cleTexte(newEvent.titre)
   const kHeure = cleHeure(newEvent.heure)
   if (kTitre && newEvent.date_debut) {
-    const jumeau = candidates.find(e =>
+    const jumeau = compatibles.find(e =>
       cleTexte(e.titre) === kTitre
       && e.date_debut === newEvent.date_debut
       && cleHeure(e.heure) === kHeure,

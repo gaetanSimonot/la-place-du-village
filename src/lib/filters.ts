@@ -89,7 +89,32 @@ export function formatEventDate(
 ): string {
   if (!date_debut) return ''
   if (date_fin && date_fin !== date_debut) {
+    const debut = new Date(date_debut + 'T12:00:00')
     const fin = new Date(date_fin + 'T12:00:00')
+    const jours = Math.round((fin.getTime() - debut.getTime()) / 86400000)
+
+    /*
+     * « JUSQU'AU » CONVIENT A UNE EXPO, PAS A UN WEEK-END.
+     *
+     * La regle d'origine, ecrite le 20/05/2026 pour les expositions,
+     * s'appliquait a TOUT ce qui a deux dates — et un evenement sur deux jours
+     * heritait du libelle d'une expo, ce qui FAIT DISPARAITRE sa date de
+     * debut. La Journee de la Speleologie des 3 et 4 octobre s'annoncait
+     * « Jusqu'au 4 octobre » : on ratait le premier jour.
+     *
+     * En dessous d'une semaine, on nomme les deux bornes. Au-dela, la date de
+     * fin suffit : personne ne retient le debut d'une expo de trois mois, on
+     * veut savoir jusqu'a quand il reste temps d'y aller.
+     */
+    if (jours < 7) {
+      const memeMois = debut.getMonth() === fin.getMonth() && debut.getFullYear() === fin.getFullYear()
+      const jourSeul = new Intl.DateTimeFormat('fr-FR', { day: 'numeric' })
+      const jourEtMois = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long' })
+      return memeMois
+        ? `Du ${jourSeul.format(debut)} au ${jourEtMois.format(fin)}`
+        : `Du ${jourEtMois.format(debut)} au ${jourEtMois.format(fin)}`
+    }
+
     const fmt = style === 'long'
       ? new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(fin)
       : new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long' }).format(fin)
