@@ -1067,12 +1067,11 @@ export default function HomePage() {
   // Filtre texte appliqué après tous les autres filtres
   const evenements = useMemo(() => {
     if (!searchQuery.trim()) return evenementsZone
-    const q = searchQuery.toLowerCase()
+    // Meme tolerance que l'annuaire : accents, mot a mot, debut commun. Sans
+    // elle, « equitherapie » ne trouvait pas « Equitherapie », et « concert
+    // ganges » ne trouvait rien du tout faute d'etre un morceau exact.
     return evenementsZone.filter(e =>
-      e.titre.toLowerCase().includes(q) ||
-      e.lieux?.commune?.toLowerCase().includes(q) ||
-      e.lieux?.nom?.toLowerCase().includes(q)
-    )
+      correspond([e.titre, e.lieux?.commune, e.lieux?.nom, e.categorie], searchQuery))
   }, [evenementsZone, searchQuery])
 
   // Promoted events bypass user category/date filters — fetched independently
