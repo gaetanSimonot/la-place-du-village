@@ -145,8 +145,28 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_KEY!,
 )
 
+/**
+ * ON DIT A GOOGLE OU REGARDER.
+ *
+ * Sans repere, « Lasalle » peut sortir n'importe quel homonyme de la planete :
+ * une affiche annoncait un atelier velo a Lasalle, a 17 km de Ganges, et
+ * Google a rendu un commerce a Dour, EN BELGIQUE, a 719 km — avec un
+ * identifiant parfaitement valide. Idem pour un « Antirouille » au Quebec et
+ * un « Golf de Casiac » en Italie.
+ *
+ * `location` + `radius` ne ferment pas la recherche, ils la PENCHENT : a nom
+ * egal, Google prefere ce qui est proche. C'est exactement ce qu'on veut —
+ * pas d'exclusion brutale, juste l'evidence locale d'abord. Le rayon est
+ * large a dessein : il oriente, il ne filtre pas, et le controle de zone
+ * s'occupe ensuite de ce qui est vraiment trop loin.
+ */
+const REPERE = { lat: 43.9339831, lng: 3.7088474, rayonM: 60_000 }   // Ganges
+
 async function textsearch(query: string): Promise<Omit<GeoResult, 'approx'> | null> {
-  const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${process.env.GOOGLE_PLACES_KEY}`
+  const url = `https://maps.googleapis.com/maps/api/place/textsearch/json`
+    + `?query=${encodeURIComponent(query)}`
+    + `&location=${REPERE.lat},${REPERE.lng}&radius=${REPERE.rayonM}&region=fr&language=fr`
+    + `&key=${process.env.GOOGLE_PLACES_KEY}`
   const res = await fetch(url)
   const data = await res.json()
   if (data.results?.[0]) {

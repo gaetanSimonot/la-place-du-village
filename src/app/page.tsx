@@ -68,6 +68,16 @@ const defaultFiltres: Filtres = { categories: [], quand: 'toujours' }
 
 type NavTab = 'accueil' | 'carte' | 'annonces' | 'favoris' | 'profil' | 'notifs' | 'village' | 'bonsplans'
 
+/**
+ * LE RAYON PAR DEFAUT, AVANT TOUT REGLAGE.
+ *
+ * 45 km autour de Ganges : on garde Le Vigan, Lasalle, Sauve, Anduze, Ales et
+ * Montpellier, on laisse le littoral dehors. A 65 km on atteignait Sete, a
+ * 59 km — ce qui n'etait pas une erreur, mais pas ce qu'on veut voir en
+ * ouvrant l'app depuis les Cevennes.
+ */
+const RAYON_DEFAUT = 45
+
 export default function HomePage() {
   const { fixedMap, setFixedMap } = useTheme()
   const { user, profile, loading: authLoading, isAdmin } = useAuth()
@@ -280,7 +290,7 @@ export default function HomePage() {
 
   // Zone user (localStorage)
   const [zonePopup, setZonePopup]       = useState(false)
-  const [userRayon, setUserRayon]       = useState<number>(30)
+  const [userRayon, setUserRayon]       = useState<number>(RAYON_DEFAUT)
   const [userVille, setUserVille]       = useState('')
   const [userCentre, setUserCentre]     = useState<{ lat: number; lng: number; nom: string } | null>(null)
   const [userZoneActive, setUserZoneActive] = useState(false)
@@ -940,7 +950,7 @@ export default function HomePage() {
       const saved = localStorage.getItem('pdv-zone-user')
       if (saved) {
         const z = JSON.parse(saved as string)
-        setUserRayon(z.rayon ?? 30)
+        setUserRayon(z.rayon ?? RAYON_DEFAUT)
         setUserVille(z.nom ?? '')
         setUserCentre({ lat: z.lat, lng: z.lng, nom: z.nom ?? '' })
         setUserZoneActive(true)
@@ -1809,7 +1819,7 @@ export default function HomePage() {
                   <span style={{ fontSize: 13, fontWeight: 700, color: '#2D5A3D' }}>km</span>
                 </div>
                 <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
-                  {[5, 10, 30, 50, 100].map(km => {
+                  {[10, 30, 45, 65, 100].map(km => {
                     const active = userRayon === km
                     return (
                       <button
@@ -1928,12 +1938,28 @@ export default function HomePage() {
             <div style={{ padding: '12px 16px 16px', borderTop: '1px solid #F0EAE0', background: '#fff', flexShrink: 0, paddingBottom: 'max(20px, env(safe-area-inset-bottom, 20px))' }}>
               <button
                 onClick={() => {
-                  if (userCentre) {
-                    const z = { rayon: userRayon, nom: userCentre.nom, lat: userCentre.lat, lng: userCentre.lng }
-                    localStorage.setItem('pdv-zone-user', JSON.stringify(z))
-                    setUserZoneActive(true)
-                    setLieuAViser({ lat: userCentre.lat, lng: userCentre.lng })
-                  }
+                  /*
+                   * LE RAYON SEUL DOIT SUFFIRE.
+                   *
+                   * Tout etait conditionne a `userCentre`, qui n'existe que si
+                   * l'on a tape une ville. Qui deplacait seulement le curseur
+                   * voyait donc « Appliquer » ne RIEN faire : rien d'enregistre,
+                   * l'app restait sur le rayon de l'admin, et le reglage etait
+                   * perdu au rechargement. A defaut de ville choisie, on prend
+                   * le centre de la zone administrative.
+                   */
+                  const centre = userCentre
+                    ?? (zoneCentres[0] ? { lat: zoneCentres[0].lat, lng: zoneCentres[0].lng, nom: zoneCentres[0].nom } : null)
+                    ?? { lat: GANGES.lat, lng: GANGES.lng, nom: 'Ganges' }
+
+                  localStorage.setItem('pdv-zone-user', JSON.stringify({
+                    rayon: userRayon, nom: centre.nom, lat: centre.lat, lng: centre.lng,
+                  }))
+                  setUserCentre(centre)
+                  setUserZoneActive(true)
+                  // On ne recadre QUE si la personne a choisi une ville : bouger
+                  // la carte parce qu'on a touche un curseur est desagreable.
+                  if (userCentre) setLieuAViser({ lat: userCentre.lat, lng: userCentre.lng })
                   setZonePopup(false)
                 }}
                 style={{ width: '100%', padding: 14, borderRadius: 14, background: '#2D5A3D', color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit' }}

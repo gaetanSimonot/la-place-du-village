@@ -12,6 +12,7 @@ import { regrouperRecurrences } from '@/lib/recurrences'
 import { trouverOuCreerLieu } from '@/lib/lieuxResolve'
 import { datesDepuisExtraction } from '@/lib/occurrences'
 import { checkDoublon } from '@/lib/checkDoublon'
+import { checkZone } from '@/lib/checkZone'
 import { requireUser } from '@/lib/server-auth'
 import { rateLimit } from '@/lib/rateLimit'
 import { validateImageUpload } from '@/lib/imageUpload'
@@ -64,7 +65,7 @@ interface ProcessedEvent {
 }
 interface ProcessedSkip {
   ok: false
-  reason: 'duplicate' | 'lieu_insert_error' | 'event_insert_error'
+  reason: 'duplicate' | 'hors_zone' | 'lieu_insert_error' | 'event_insert_error'
   titre: string | null
   doublon_id?: string | null
   error?: string
@@ -126,6 +127,30 @@ async function processOneEvent(
       }
     }
     lieuId = lieu.id
+  }
+
+  /*
+   * TROP LOIN : ON REFUSE.
+   *
+   * `checkZone` protegeait le formulaire, le chemin WhatsApp et les scrapers —
+   * mais PAS cette route, celle par laquelle Signal ecrit. Un evenement pose
+   * en Belgique, au Quebec ou en Italie entrait donc sans etre mesure.
+   * Constate le 17/09/2026 : 56 lieux au-dela de 95 km, et 5 evenements
+   * Signal poses dessus.
+   *
+   * Sans coordonnees, `checkZone` laisse passer : on ne peut pas refuser ce
+   * qu'on n'a pas pu situer, et une affiche sans adresse reste utile.
+   */
+  if (geo.lat != null && geo.lng != null) {
+    const zone = await checkZone(geo.lat, geo.lng)
+    if (!zone.within) {
+      return {
+        ok: false,
+        reason: 'hors_zone',
+        titre: extracted.titre,
+        error: `${zone.distanceMin} km de ${zone.centreLePlusProche} (limite ${zone.rayon} km)`,
+      }
+    }
   }
 
   // 3. Statut : combine calcStatut + override "publier" du check doublon (si
