@@ -33,7 +33,7 @@ import { lireEntreeEnCache, entreeFraiche } from '@/lib/entreeApp'
 import { useHerosVillage } from '@/hooks/useHerosVillage'
 import { lienHeros, herosExterne } from '@/lib/villageHero'
 import RadioPastille from '@/components/RadioPastille'
-import { correspond } from '@/lib/recherche'
+import { correspond, scoreCorrespondance } from '@/lib/recherche'
 
 
 /**
@@ -1247,6 +1247,14 @@ export default function HomePage() {
         // doit trouver « Equitherapie ». Le type et la description courte sont
         // fouilles aussi : on cherche souvent un metier, pas une enseigne.
         return correspond([e.nom, e.commune, e.type, e.description_courte], etabSearch)
+      })
+      // Le meilleur d'abord : trouver la fiche en quatrieme position revient
+      // presque a ne pas la trouver.
+      .sort((a, b) => {
+        if (!hasActiveSearch) return 0
+        const sa = scoreCorrespondance(a.nom, [a.nom, a.commune, a.type, a.description_courte], etabSearch)
+        const sb = scoreCorrespondance(b.nom, [b.nom, b.commune, b.type, b.description_courte], etabSearch)
+        return sb - sa || a.nom.length - b.nom.length
       })
   }, [etablissements, etabSearch, userZoneActive, userRayon, userCentre, zoneCentres, rayonAffichage])
 

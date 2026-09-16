@@ -53,7 +53,23 @@ function debutCommun(a: string, b: string): number {
  */
 function motCorrespond(motFiche: string, motTape: string): boolean {
   if (motFiche === motTape) return true
-  if (motFiche.startsWith(motTape) || motTape.startsWith(motFiche)) return true
+
+  // Le mot tape est le DEBUT d'un mot de la fiche : « boulang » trouve
+  // « boulangerie ». Sans danger, meme sur deux lettres — c'est la personne
+  // qui a choisi de s'arreter la.
+  if (motFiche.startsWith(motTape)) return true
+
+  /*
+   * L'INVERSE, MAIS SEULEMENT SUR DES MOTS PLEINS.
+   *
+   * Un mot de la fiche qui commence le mot tape : « deco » pour « decoroom ».
+   * Utile — mais SANS le plancher de quatre lettres, c'etait une catastrophe :
+   * « de » est le debut de « decoroom », donc toute fiche contenant « de »
+   * — Saint-Andre-DE-Majencoules, Durfort-et-Saint-Martin-DE-Sossenac —
+   * repondait a la recherche. Mesure le 17/09/2026 : « Decoroom » rendait 86
+   * artisans sur 344.
+   */
+  if (motFiche.length >= 4 && motTape.startsWith(motFiche)) return true
 
   /*
    * LE MOT COLLE AU PRECEDENT.
@@ -93,4 +109,47 @@ export function correspond(champs: (string | null | undefined)[], requete: strin
   if (!motsFiche.length) return false
 
   return tapes.every(t => motsFiche.some(m => motCorrespond(m, t)))
+}
+
+/**
+ * A QUEL POINT CETTE FICHE REPOND-ELLE ?
+ *
+ * `correspond` dit oui ou non ; il faut aussi dire DANS QUEL ORDRE. Sans ça,
+ * chercher « Decoroom » rendait bien DécoRoom, mais en quatrieme position
+ * derriere trois enseignes qui partagent seulement le debut « deco » — et on
+ * ne trouve pas ce qu'on cherche alors que c'est la.
+ *
+ * Le nom prime sur tout le reste : on cherche une enseigne, pas une commune.
+ * Et à egalite, le nom le plus court gagne — « DécoRoom » avant « DécoRoom
+ * Amenagement Interieur », parce que le plus court est le plus probable.
+ */
+export function scoreCorrespondance(nom: string | null | undefined, champs: (string | null | undefined)[], requete: string): number {
+  const colle = (x: string | null | undefined) => aplatir(x).replace(/[^a-z0-9]/g, '')
+  const n = colle(nom)
+  const q = colle(requete)
+  if (!q) return 0
+
+  if (n === q) return 100
+  if (n.startsWith(q)) return 80
+  if (n.indexOf(q) > 0) return 60
+
+  // Tous les mots tapes se trouvent dans le NOM seul.
+  const motsNom = motsDe(nom)
+  if (motsDe(requete).every(t => motsNom.some(m => motCorrespond(m, t)))) return 40
+
+  // Trouvee, mais par la commune, le type ou la description.
+  return correspond(champs, requete) ? 10 : 0
+}
+
+/** Trie une liste deja filtree, du plus pertinent au moins. */
+export function trierParPertinence<T>(
+  liste: T[],
+  requete: string,
+  champsDe: (x: T) => { nom: string | null | undefined; champs: (string | null | undefined)[] },
+): T[] {
+  if (!requete.trim()) return liste
+  return [...liste]
+    .map(x => { const c = champsDe(x); return { x, s: scoreCorrespondance(c.nom, c.champs, requete), l: (c.nom ?? '').length } })
+    .sort((a, b) => b.s - a.s || a.l - b.l)
+    .map(r => r.x)
 }
