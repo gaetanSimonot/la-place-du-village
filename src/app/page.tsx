@@ -13,6 +13,7 @@ import { normSearch } from '@/lib/filters'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 
+import MapStylePicker from '@/components/MapStylePicker'
 import ProBandeau from '@/components/ProBandeau'
 import AgendaFilterWheel, { AgendaDateButton } from '@/components/AgendaFilterWheel'
 import DesktopMapFilters from '@/components/desktop/DesktopMapFilters'
@@ -1944,6 +1945,21 @@ export default function HomePage() {
                     <span>{adminMapSaved ? '✓' : '📍'}</span>
                     {adminMapSaved ? 'Point de départ enregistré !' : 'Fixer le point de départ ici'}
                   </button>
+
+                  {/* Le style s'applique a TOUS les visiteurs, pas au seul
+                      appareil : c'est pour ca qu'il est sous la barre admin,
+                      avec le point de depart, et pas dans les preferences
+                      d'apparence de chacun. */}
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1A1209', marginBottom: 2 }}>
+                    Fond de carte
+                  </div>
+                  <div style={{ fontSize: 11, color: '#7A6A5A', marginBottom: 8 }}>
+                    Pour tout le monde. « Standard » est le seul qui dessine les bâtiments —
+                    sans eux, une rue étroite se lit mal. Enregistré dès le clic.
+                  </div>
+                  <div style={{ marginBottom: 12 }}>
+                    <MapStylePicker />
+                  </div>
                 </>
               )}
             </div>
