@@ -96,6 +96,70 @@ export const MAP_STYLES: MapStyleDef[] = [
       { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#8c6e5a' }] },
     ],
   },
+  /*
+   * LES DEUX « PLAN » SONT LES SEULS EPURES QUI DESSINENT LES BATIMENTS.
+   *
+   * Les autres styles maison posent `elementType: 'geometry'` en aplat, puis
+   * recolorent `landscape` — et les batiments, qui sont `landscape.man_made`,
+   * heritent du fond et disparaissent. Dans un centre ancien on voit alors le
+   * trait d'une ruelle sans comprendre ou il passe : c'est le defaut qui a
+   * fait croire a un probleme de zoom, puis de donnees Google.
+   *
+   * Le remede tient en deux lignes par style : une couleur de remplissage
+   * pour `landscape.man_made`, et surtout un CONTOUR — sans lui, les maisons
+   * mitoyennes se fondent en un seul bloc. Valeurs verifiees au rendu sur le
+   * centre de Ganges, pas choisies a l'estime.
+   */
+  {
+    id: 'plan',
+    name: 'Plan',
+    description: 'Epure, batiments dessines',
+    previewBg: '#eceae3',
+    styles: [
+      { elementType: 'geometry',              stylers: [{ color: '#f2f1ec' }] },
+      { elementType: 'labels.text.stroke',    stylers: [{ color: '#f7f6f2' }] },
+      { elementType: 'labels.text.fill',      stylers: [{ color: '#8a8378' }] },
+      { featureType: 'water',     elementType: 'geometry', stylers: [{ color: '#c3d6e4' }] },
+      { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#eceae3' }] },
+      { featureType: 'landscape.natural',  elementType: 'geometry',        stylers: [{ color: '#e3e3d8' }] },
+      { featureType: 'landscape.man_made', elementType: 'geometry.fill',   stylers: [{ color: '#dedcd3' }] },
+      { featureType: 'landscape.man_made', elementType: 'geometry.stroke', stylers: [{ color: '#ccc9bd' }] },
+      { featureType: 'road',         elementType: 'geometry',        stylers: [{ color: '#ffffff' }] },
+      { featureType: 'road',         elementType: 'geometry.stroke', stylers: [{ color: '#d8d5cb' }] },
+      { featureType: 'road.highway', elementType: 'geometry',        stylers: [{ color: '#f6e9b8' }] },
+      { featureType: 'poi',      elementType: 'geometry',      stylers: [{ color: '#e3e6da' }] },
+      { featureType: 'poi.park', elementType: 'geometry.fill', stylers: [{ color: '#cfdcc0' }] },
+      { featureType: 'poi',      elementType: 'labels',        stylers: [{ visibility: 'off' }] },
+      { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
+      { featureType: 'transit',  elementType: 'labels.icon',   stylers: [{ visibility: 'off' }] },
+      { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#cfccc2' }] },
+    ],
+  },
+  {
+    id: 'planchaud',
+    name: 'Plan chaud',
+    description: 'Epure sudiste, batiments dessines',
+    previewBg: '#ebe5d9',
+    styles: [
+      { elementType: 'geometry',              stylers: [{ color: '#f2ede4' }] },
+      { elementType: 'labels.text.stroke',    stylers: [{ color: '#f7f3ec' }] },
+      { elementType: 'labels.text.fill',      stylers: [{ color: '#7a6a5a' }] },
+      { featureType: 'water',     elementType: 'geometry', stylers: [{ color: '#aac4d8' }] },
+      { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#ebe5d9' }] },
+      { featureType: 'landscape.natural',  elementType: 'geometry',        stylers: [{ color: '#ded6c8' }] },
+      { featureType: 'landscape.man_made', elementType: 'geometry.fill',   stylers: [{ color: '#dccfb6' }] },
+      { featureType: 'landscape.man_made', elementType: 'geometry.stroke', stylers: [{ color: '#b8a88c' }] },
+      { featureType: 'road',         elementType: 'geometry',        stylers: [{ color: '#fffdf8' }] },
+      { featureType: 'road',         elementType: 'geometry.stroke', stylers: [{ color: '#d5c9b4' }] },
+      { featureType: 'road.highway', elementType: 'geometry',        stylers: [{ color: '#f4d97a' }] },
+      { featureType: 'poi',      elementType: 'geometry',      stylers: [{ color: '#ded5c2' }] },
+      { featureType: 'poi.park', elementType: 'geometry.fill', stylers: [{ color: '#b8c89a' }] },
+      { featureType: 'poi',      elementType: 'labels',        stylers: [{ visibility: 'off' }] },
+      { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
+      { featureType: 'transit',  elementType: 'labels.icon',   stylers: [{ visibility: 'off' }] },
+      { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#c5b9a8' }] },
+    ],
+  },
   {
     id: 'standard',
     name: 'Standard',
