@@ -78,6 +78,20 @@ type NavTab = 'accueil' | 'carte' | 'annonces' | 'favoris' | 'profil' | 'notifs'
  */
 const RAYON_DEFAUT = 45
 
+/**
+ * Zoom d'arrivee quand on vise UNE fiche (commerce ou producteur).
+ *
+ * A 15, on voyait Ganges en entier : aucun fond de carte ne nomme une ruelle a
+ * cette echelle, et la punaise semblait flotter sur du vide. Le cas vecu :
+ * « rue du Vieux Temple », a Ganges, n'apparaissait pas — alors que Google la
+ * connait et l'affiche tres bien sur maps.google.com, qui lui se pose vers 18.
+ *
+ * 17 montre la rue et son nom en gardant les rues voisines autour : on situe
+ * encore le commerce dans le village. A 18 on est sur le batiment, mais on a
+ * perdu le quartier.
+ */
+const ZOOM_FICHE = 17
+
 export default function HomePage() {
   const { fixedMap, setFixedMap } = useTheme()
   const { user, profile, loading: authLoading, isAdmin } = useAuth()
@@ -1311,7 +1325,7 @@ export default function HomePage() {
     setSelectedProducerId(id)
     setNavTab('carte')
     setSheetMode('half')
-    if (p?.lat && p?.lng) setLieuAViser({ lat: p.lat, lng: p.lng, zoom: 15, cle: id, avecVignette: true })
+    if (p?.lat && p?.lng) setLieuAViser({ lat: p.lat, lng: p.lng, zoom: ZOOM_FICHE, cle: id, avecVignette: true })
   }
 
   // Symétrique du précédent pour les établissements. On cherche la fiche dans
@@ -1323,7 +1337,7 @@ export default function HomePage() {
     setSelectedEtabId(id)
     setNavTab('carte')
     setSheetMode('half')
-    if (e?.lat && e?.lng) setLieuAViser({ lat: e.lat, lng: e.lng, zoom: 15, cle: id, avecVignette: true })
+    if (e?.lat && e?.lng) setLieuAViser({ lat: e.lat, lng: e.lng, zoom: ZOOM_FICHE, cle: id, avecVignette: true })
   }
 
   /**
