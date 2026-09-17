@@ -6,7 +6,8 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useAdminSession } from '@/hooks/useAdminSession'
 import { useTheme } from '@/components/ThemeProvider'
-import { COLOR_THEMES, MAP_STYLES, SHEET_BG_OPTIONS } from '@/lib/themes'
+import { COLOR_THEMES, SHEET_BG_OPTIONS } from '@/lib/themes'
+import MapStylePicker from './MapStylePicker'
 import { PLANS_INFO, type Plan } from '@/lib/capabilities'
 import LoginView from '@/components/LoginView'
 import SubscriptionModal from '@/components/SubscriptionModal'
@@ -615,29 +616,19 @@ export default function ProfilView() {
                 })}
               </div>
 
-              <div className="mb-2 text-[12px] font-bold text-texte">Style de carte</div>
-              <div className="flex flex-col gap-1.5">
-                {MAP_STYLES.map(s => {
-                  const active = theme.mapStyle.id === s.id
-                  return (
-                    <button
-                      key={s.id}
-                      onClick={() => theme.setMapStyleId(s.id)}
-                      className="flex items-center gap-3 rounded-xl border-none px-3 py-2.5 text-left"
-                      style={{
-                        backgroundColor: active ? 'var(--primary-light)' : '#FDFAF5',
-                        outline: active ? '2px solid var(--primary)' : '1.5px solid transparent',
-                      }}
-                    >
-                      <div className="h-7 w-9 shrink-0 rounded-md" style={{ backgroundColor: s.previewBg }} />
-                      <div className="flex-1">
-                        <p className="m-0 text-[12px] font-bold" style={{ color: active ? 'var(--primary)' : '#1A1209' }}>{s.name}</p>
-                        <p className="m-0 mt-px text-[10px] text-texte-doux">{s.description}</p>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
+              {/* Reserve a l'admin : le style de carte n'est plus une preference
+                  d'appareil, il s'applique a tous les visiteurs. Le laisser
+                  visible pour chacun donnerait un bouton qui change l'app des
+                  autres, ou qui ne fait rien. */}
+              {isAdmin && (
+                <>
+                  <div className="mb-1 text-[12px] font-bold text-texte">Style de carte</div>
+                  <p className="m-0 mb-2 text-[10px] text-texte-doux">
+                    Admin — s&apos;applique a toute l&apos;app, pour tous les visiteurs.
+                  </p>
+                  <MapStylePicker />
+                </>
+              )}
             </div>
           </div>
 

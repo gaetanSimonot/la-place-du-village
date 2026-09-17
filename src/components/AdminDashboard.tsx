@@ -10,6 +10,7 @@ import { Evenement, isApproxLocation } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
 import DoublonsAdmin from '@/components/DoublonsAdmin'
+import MapStylePicker from '@/components/MapStylePicker'
 import ZoneAdmin from '@/components/ZoneAdmin'
 import MembresAdmin from '@/components/MembresAdmin'
 import ProduceurAdmin from '@/components/ProduceurAdmin'
@@ -1147,6 +1148,16 @@ function ParametersSection(p: ParamProps) {
               </span>
               {p.togglingMap && <span className="text-xs text-gray-400">…</span>}
             </label>
+
+            <div className="mt-4 border-t border-gray-100 pt-3">
+              <p className="font-bold text-[#2C1810] text-sm mb-1">Style</p>
+              <p className="text-xs text-gray-500 mb-3">
+                S&apos;applique lui aussi a TOUTE l&apos;app. « Standard » est le seul qui
+                dessine les batiments : sans eux, une rue etroite se lit mal.
+                Enregistre des le clic.
+              </p>
+              <MapStylePicker />
+            </div>
           </div>
 
           <div className="bg-white rounded-2xl p-4 shadow-sm">
