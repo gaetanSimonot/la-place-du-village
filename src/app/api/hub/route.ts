@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { normalizeHubOrder } from '@/lib/hubSections'
 import { choisirTuilesDuJour, type EvenementTuile } from '@/lib/hubTodayPicker'
+import { haversineKm } from '@/lib/distance'
 
 /**
  * Valide une date YYYY-MM-DD venant du client. Retourne la date validée OU
@@ -25,6 +26,30 @@ function validateClientDate(clientDate: string | null): string {
   if (!isFinite(serverTs)) return serverYMD
   if (Math.abs(clientTs - serverTs) > 1.5 * 86400 * 1000) return serverYMD
   return clientDate
+}
+
+/**
+ * Zone personnelle envoyee par le client (`?zlat&zlng&zr`), ou null.
+ *
+ * Sans elle, le hub retombe sur la zone administrative. Elle existe parce que
+ * les tuiles « Aujourd'hui » sont CHOISIES ici, parmi tous les candidats du
+ * jour : filtrer apres coup, sur les trois tuiles deja retenues, laisserait un
+ * trou sans remplacant.
+ *
+ * Meme precaution que pour `?d=` : on borne et on ARRONDIT, sinon chaque
+ * decimale envoyee creerait son entree de cache CDN. Deux reglages voisins
+ * partagent ainsi la meme reponse.
+ */
+function validateClientZone(
+  sp: URLSearchParams,
+): { lat: number; lng: number; rayon: number } | null {
+  const lat = Number(sp.get('zlat'))
+  const lng = Number(sp.get('zlng'))
+  const r   = Number(sp.get('zr'))
+  if (!isFinite(lat) || !isFinite(lng) || !isFinite(r)) return null
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null
+  if (r < 1 || r > 300) return null
+  return { lat: Math.round(lat * 100) / 100, lng: Math.round(lng * 100) / 100, rayon: Math.round(r) }
 }
 
 /**
@@ -90,6 +115,8 @@ export async function GET(req: NextRequest) {
     covoitsRes,
     allPromosRes,
     topForumRes,
+    zoneCentresRes,
+    rayonAffichageRes,
   ] = await Promise.all([
     supabaseAdmin.from('evenements').select('*', { count: 'exact', head: true }).eq('statut', 'publie'),
     supabaseAdmin.from('etablissements').select('*', { count: 'exact', head: true }),
@@ -174,6 +201,9 @@ export async function GET(req: NextRequest) {
       .order('comment_count', { ascending: false })
       .order('last_activity_at', { ascending: false })
       .limit(4),
+    // Zone administrative : le repli quand le visiteur n'a pas de zone a lui.
+    supabaseAdmin.from('zone_centres').select('lat, lng'),
+    supabaseAdmin.from('config').select('value').eq('key', 'rayon_affichage_km').maybeSingle(),
   ])
 
   // ── HERO carousel : résoudre featured items + fallback today/week ──
@@ -353,7 +383,38 @@ export async function GET(req: NextRequest) {
   // event du jour non déjà utilisé (par id).
   type EventRow = Record<string, unknown>
   const eventSlots = (eventSlotsRes.data ?? []) as Array<{ content_id: string; position: number }>
-  const candidatsDuJour = (todayEventsRes.data ?? []) as EventRow[]
+  /*
+   * LES TUILES RESTENT DANS LA ZONE, comme l'agenda.
+   *
+   * Sans ce filtre, le hub ne mesurait AUCUNE distance : un concert a Sete, a
+   * 59 km, s'affichait sur la tuile du village alors que l'agenda le refusait
+   * — la meme app disait deux choses le meme jour. L'agenda applique
+   * `garderDansLaZone` (page.tsx) ; voici la meme regle, du cote serveur.
+   *
+   * La zone du visiteur gagne sur celle de l'admin quand il s'en est donne
+   * une : c'est deja ainsi que se comportent la carte et l'agenda.
+   *
+   * UN EVENEMENT SANS COORDONNEES PASSE, volontairement et comme ailleurs. On
+   * ne refuse pas ce qu'on n'a pas pu situer : une affiche qui ne dit pas ou
+   * elle se passe reste une information, et 27 fiches sont dans ce cas.
+   */
+  const zoneClient = validateClientZone(searchParams)
+  const centresZone = zoneClient
+    ? [{ lat: zoneClient.lat, lng: zoneClient.lng }]
+    : ((zoneCentresRes.data ?? []) as Array<{ lat: number; lng: number }>)
+  const rayonZone = zoneClient
+    ? zoneClient.rayon
+    : parseInt(rayonAffichageRes.data?.value ?? '0', 10)
+
+  const dansLaZone = (e: EventRow) => {
+    if (!(rayonZone > 0) || centresZone.length === 0) return true
+    const lieu = e.lieux as { lat?: number | null; lng?: number | null } | null
+    const lat = lieu?.lat, lng = lieu?.lng
+    if (lat == null || lng == null) return true
+    return centresZone.some(c => haversineKm(lat, lng, c.lat, c.lng) <= rayonZone)
+  }
+
+  const candidatsDuJour = ((todayEventsRes.data ?? []) as EventRow[]).filter(dansLaZone)
 
   // Positions forcées par l'admin (bouton « mettre en avant »). Elles gagnent
   // toujours : aucune règle de tri ne s'applique à elles.
@@ -413,7 +474,13 @@ export async function GET(req: NextRequest) {
     // todayTotal reste le compteur des events publiés du jour, indépendant
     // du featured admin — ça sert le badge "X events aujourd'hui" qui doit
     // refléter l'activité réelle, pas le choix éditorial.
-    todayTotal:  todayEventsRes.count ?? 0,
+    //
+    // Il compte désormais les candidats DANS LA ZONE, et non toutes les lignes
+    // du jour : afficher « 23 événements » puis en ouvrir 21 dans l'agenda
+    // faisait douter du reste. Conséquence assumée : au-delà de 40 événements
+    // dans une même journée, le total serait plafonné par le `limit(40)`
+    // ci-dessus — on en compte une vingtaine, la marge tient.
+    todayTotal:  candidatsDuJour.length,
     promos:      orderedPromos.slice(0, 8),
     ventes:      ordered.slice(0, 4),
     ventesTotal: annoncesTotal ?? ordered.length,

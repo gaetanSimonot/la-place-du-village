@@ -130,8 +130,22 @@ export default function DesktopVillageSections() {
 
   useEffect(() => {
     let vivant = true
+    /*
+     * La zone personnelle voyage avec l'appel au hub, comme sur mobile : sans
+     * elle, les tuiles « Aujourd'hui » montraient un evenement que l'agenda
+     * refusait le meme jour. Lue ici et non au rendu — `localStorage` n'existe
+     * pas cote serveur.
+     */
+    let paramsZone = ''
+    try {
+      const brut = localStorage.getItem('pdv-zone-user')
+      const z = brut ? (JSON.parse(brut) as { lat?: unknown; lng?: unknown; rayon?: unknown }) : null
+      if (typeof z?.lat === 'number' && typeof z?.lng === 'number' && typeof z?.rayon === 'number') {
+        paramsZone = `?zlat=${z.lat}&zlng=${z.lng}&zr=${z.rayon}`
+      }
+    } catch { /* zone du village par defaut */ }
     Promise.all([
-      fetch('/api/hub').then(r => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`/api/hub${paramsZone}`).then(r => (r.ok ? r.json() : null)).catch(() => null),
       fetch('/api/agenda?quand=cette_semaine').then(r => (r.ok ? r.json() : null)).catch(() => null),
       // Plus d'appel à /api/village/counts : le carrousel ne montre que les
       // partenaires, il n'a plus à annoncer le total de l'annuaire.

@@ -323,13 +323,51 @@ function Tiles() {
   )
 }
 
+/**
+ * Zone personnelle du visiteur, lue une seule fois au montage.
+ *
+ * `pret` distingue « pas encore lu » de « aucune zone ». Sans ce drapeau, la
+ * premiere requete partirait sans zone : les tuiles s'afficheraient, puis
+ * changeraient sous les yeux au second appel.
+ *
+ * Lecture en effet et non pendant le rendu — `localStorage` n'existe pas au
+ * rendu serveur, et un ecart entre les deux fait repartir React de zero.
+ */
+function useZonePerso() {
+  const [etat, setEtat] = useState<{
+    pret: boolean
+    zone: { lat: number; lng: number; rayon: number } | null
+  }>({ pret: false, zone: null })
+
+  useEffect(() => {
+    try {
+      const brut = localStorage.getItem('pdv-zone-user')
+      const z = brut ? (JSON.parse(brut) as { lat?: unknown; lng?: unknown; rayon?: unknown }) : null
+      const valide =
+        typeof z?.lat === 'number' && typeof z?.lng === 'number' && typeof z?.rayon === 'number'
+      setEtat({ pret: true, zone: valide ? { lat: z.lat as number, lng: z.lng as number, rayon: z.rayon as number } : null })
+    } catch {
+      setEtat({ pret: true, zone: null })
+    }
+  }, [])
+
+  return etat
+}
+
 /* ── Aujourd'hui — bento repris du hub (featured + 2 minis + « +N ») ──── */
 function TodaySection({ onVoirTout }: { onVoirTout?: () => void }) {
   const router = useRouter()
   // Date LOCALE (pas toISOString → décalage UTC), même logique que le hub.
   const _d = new Date()
   const todayYMD = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`
-  const { data: hubData } = useSWR(`/api/hub?d=${todayYMD}`)
+  /*
+   * La zone voyage avec la requete : c'est le serveur qui choisit les tuiles,
+   * parmi tous les candidats du jour. Filtrer ici, sur les trois deja
+   * retenues, laisserait un trou sans remplacant — et le compteur mentirait.
+   */
+  const { pret: zonePrete, zone } = useZonePerso()
+  const paramsZone = zone ? `&zlat=${zone.lat}&zlng=${zone.lng}&zr=${zone.rayon}` : ''
+  const { data: hubData } = useSWR(zonePrete ? `/api/hub?d=${todayYMD}${paramsZone}` : null)
 
   const todayEvents: Evenement[] = (hubData?.todayEvents ?? []) as Evenement[]
   const todayTotal: number = hubData?.todayTotal ?? 0
