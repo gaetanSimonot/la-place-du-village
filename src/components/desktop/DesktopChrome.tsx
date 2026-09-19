@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import HubSearchModal from '@/components/HubSearchModal'
 import RadioPastille from '@/components/RadioPastille'
+import { useTerritoire } from '@/components/TerritoireProvider'
 
 /**
  * CHÂSSIS BUREAU — en-tête + bandeau de contexte.
@@ -72,15 +73,24 @@ function useZone(): { nom: string; rayon: number } {
   // 45 km = l'étendue réelle du village couvert. La valeur ne sert que
   // d'affichage par défaut : dès qu'une personne fixe sa propre zone, c'est
   // la sienne qui s'affiche.
+  const { territoire } = useTerritoire()
   const [zone, setZone] = useState({ nom: 'Ganges', rayon: 45 })
   useEffect(() => {
+    /*
+     * La zone personnelle n'a cours QUE dans le territoire ou elle a ete
+     * reglee. Sans ce controle, l'en-tete annoncait « ganges et 200 km
+     * autour » alors qu'on regardait Pau : le bandeau disait une ville, la
+     * carte en montrait une autre.
+     */
     try {
       const brut = localStorage.getItem('pdv-zone-user')
-      if (!brut) return
-      const z = JSON.parse(brut) as { nom?: string; rayon?: number }
-      setZone({ nom: z.nom?.trim() || 'Ganges', rayon: z.rayon ?? 45 })
-    } catch { /* zone par défaut */ }
-  }, [])
+      const z = brut ? (JSON.parse(brut) as { nom?: string; rayon?: number; territoire?: string }) : null
+      const sienne = z && (z.territoire ? z.territoire === territoire?.slug : !!territoire?.par_defaut)
+      if (z && sienne) { setZone({ nom: z.nom?.trim() || 'Ganges', rayon: z.rayon ?? 45 }); return }
+    } catch { /* zone par defaut */ }
+    // Hors de son territoire : on annonce celui qu'on regarde.
+    if (territoire) setZone({ nom: territoire.nom, rayon: 0 })
+  }, [territoire])
   return zone
 }
 
@@ -231,7 +241,7 @@ export default function DesktopChrome() {
                  strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 22s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z" /><circle cx="12" cy="10" r="2.5" />
             </svg>
-            <b>{zone.nom}</b> et {zone.rayon} km autour
+            <b>{zone.nom}</b>{zone.rayon > 0 ? ` et ${zone.rayon} km autour` : ' et ses environs'}
           </span>
           <span style={{ textTransform: 'capitalize' }}>{dateDuJour}</span>
         </div>

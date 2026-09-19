@@ -1175,10 +1175,21 @@ export default function HomePage() {
   )
 
   /** Toutes catégories confondues : sert UNIQUEMENT aux compteurs. */
-  const evenementsZoneToutesCats = useMemo(
-    () => garderDansLaZone((agendaToutesCatsData?.evenements as EvenementCard[]) ?? []),
-    [agendaToutesCatsData, garderDansLaZone],
-  )
+  const evenementsZoneToutesCats = useMemo(() => {
+    /*
+     * MEME GARDE QUE POUR LA LISTE PRINCIPALE, et elle manquait ici.
+     *
+     * Cette seconde liste nourrit les compteurs par categorie et la colonne
+     * de gauche sur ordinateur. Faute de ce controle, elle recevait les
+     * evenements du territoire precedent — gardes par SWR en
+     * `keepPreviousData` — et les mesurait contre le rayon du nouveau : sur
+     * grand ecran, toute l'app annoncait « 0 evenement » alors que la version
+     * telephone, elle, en montrait bien un.
+     */
+    const servi = (agendaToutesCatsData?.territoire as { slug?: string } | null)?.slug ?? null
+    if (slugTerritoire && servi && servi !== slugTerritoire) return []
+    return garderDansLaZone((agendaToutesCatsData?.evenements as EvenementCard[]) ?? [])
+  }, [agendaToutesCatsData, garderDansLaZone, slugTerritoire])
 
   // Filtre texte appliqué après tous les autres filtres
   const evenements = useMemo(() => {

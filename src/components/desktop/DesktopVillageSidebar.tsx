@@ -92,15 +92,24 @@ function Ligne({ href, photo, titre, sous }: {
 
 /** Zone d'affichage, lue là où l'app la range. */
 function useZone(): { nom: string; rayon: number } {
+  const { territoire } = useTerritoire()
   const [zone, setZone] = useState({ nom: 'Ganges', rayon: 45 })
   useEffect(() => {
+    /*
+     * La zone personnelle n'a cours QUE dans le territoire ou elle a ete
+     * reglee. Sans ce controle, l'en-tete annoncait « ganges et 200 km
+     * autour » alors qu'on regardait Pau : le bandeau disait une ville, la
+     * carte en montrait une autre.
+     */
     try {
       const brut = localStorage.getItem('pdv-zone-user')
-      if (!brut) return
-      const z = JSON.parse(brut) as { nom?: string; rayon?: number }
-      setZone({ nom: z.nom?.trim() || 'Ganges', rayon: z.rayon ?? 45 })
-    } catch { /* zone par défaut */ }
-  }, [])
+      const z = brut ? (JSON.parse(brut) as { nom?: string; rayon?: number; territoire?: string }) : null
+      const sienne = z && (z.territoire ? z.territoire === territoire?.slug : !!territoire?.par_defaut)
+      if (z && sienne) { setZone({ nom: z.nom?.trim() || 'Ganges', rayon: z.rayon ?? 45 }); return }
+    } catch { /* zone par defaut */ }
+    // Hors de son territoire : on annonce celui qu'on regarde.
+    if (territoire) setZone({ nom: territoire.nom, rayon: 0 })
+  }, [territoire])
   return zone
 }
 
@@ -116,7 +125,7 @@ function useZone(): { nom: string; rayon: number } {
  */
 function VignetteZone({ nom, rayon }: { nom: string; rayon: number }) {
   return (
-    <div className="pcv-sbMap" aria-label={`Zone d’affichage : ${nom} et ${rayon} km autour`}>
+    <div className="pcv-sbMap" aria-label={rayon > 0 ? `Zone d’affichage : ${nom} et ${rayon} km autour` : `Zone d’affichage : ${nom} et ses environs`}>
       <span className="pcv-sbMapRayon">{rayon} km</span>
       <span className="pcv-sbMapCercle" aria-hidden />
       <span className="pcv-sbMapPin" aria-hidden>
