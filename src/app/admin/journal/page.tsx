@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import JournalAttachPicker from '@/components/JournalAttachPicker'
 import SpotlightPicker, { type SpotlightValue } from '@/components/SpotlightPicker'
 import BottomNavBar from '@/components/BottomNavBar'
+import { useTerritoire } from '@/components/TerritoireProvider'
 
 interface JournalRow {
   id: string
@@ -40,6 +41,11 @@ async function authHeaders(): Promise<Record<string, string>> {
 
 export default function AdminJournalPage() {
   const router = useRouter()
+  /* Le journal administre est celui de la ville qu'on regarde : sa collection,
+     sa numerotation, sa file d'articles. */
+  const { territoire } = useTerritoire()
+  const qTerr = territoire?.slug ? `?territoire=${encodeURIComponent(territoire.slug)}` : ''
+
   const [journaux, setJournaux] = useState<JournalRow[]>([])
   const [articles, setArticles] = useState<ArticleRow[]>([])
   const [busy, setBusy] = useState(false)
@@ -51,12 +57,12 @@ export default function AdminJournalPage() {
   const load = useCallback(async () => {
     const headers = await authHeaders()
     const [j, a] = await Promise.all([
-      fetch('/api/admin/journal', { headers }).then(r => r.json()),
-      fetch('/api/admin/articles', { headers }).then(r => r.json()),
+      fetch(`/api/admin/journal${qTerr}`, { headers }).then(r => r.json()),
+      fetch(`/api/admin/articles${qTerr}`, { headers }).then(r => r.json()),
     ])
     setJournaux(j.journaux ?? [])
     setArticles(a.articles ?? [])
-  }, [])
+  }, [qTerr])
 
   useEffect(() => { load() }, [load])
 
@@ -75,7 +81,7 @@ export default function AdminJournalPage() {
   const handleGenerate = async () => {
     setBusy(true); setError(null)
     try {
-      const res = await fetch('/api/admin/journal/generate', {
+      const res = await fetch(`/api/admin/journal/generate${qTerr}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
         // Si l admin a choisi un spotlight avant -> envoye au generator
@@ -96,7 +102,7 @@ export default function AdminJournalPage() {
   const handleCreateEmpty = async () => {
     setBusy(true); setError(null)
     try {
-      const res = await fetch('/api/admin/journal', {
+      const res = await fetch(`/api/admin/journal${qTerr}`, {
         method: 'POST',
         headers: await authHeaders(),
       })

@@ -10,10 +10,18 @@
  *  4. Insère un brouillon dans journaux_hebdo.
  *
  * Coût estimé : ~$0.05 par numéro (Sonnet, 5K input + 2K output).
+ *
+ * TOUT est rapporté au territoire : un numéro parle d'UNE vallée. Sans ça le
+ * journal de Pau raconterait la semaine des Cévennes — et la numérotation,
+ * comptée sur toute la table, ferait commencer Pau au numéro 19.
+ *
+ * Chaque filtre n'est posé QUE si le territoire est connu : à vide, il
+ * viderait le numéro au lieu de le restreindre.
  */
 
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import type { Territoire } from '@/lib/territoires'
 
 const SONNET_MODEL = 'claude-sonnet-4-6'
 
@@ -95,19 +103,25 @@ function getSemaineCourante(): { du: Date; au: Date } {
   return { du: monday, au: sunday }
 }
 
-async function collectContext(spotlightOverride?: SpotlightOverride): Promise<ContextSemaine> {
+async function collectContext(
+  spotlightOverride?: SpotlightOverride,
+  territoire?: Territoire | null,
+): Promise<ContextSemaine> {
   const { du, au } = getSemaineCourante()
   const duISO = du.toISOString().slice(0, 10)
   const auISO = au.toISOString().slice(0, 10)
   const nowISO = new Date().toISOString()
+  const T = territoire?.id ?? null
 
   // 1. Featured slots journal_hebdo en priorité (admin pin éditorial)
-  const { data: featuredSlots } = await supabaseAdmin
+  let qSlots = supabaseAdmin
     .from('featured_slots')
     .select('content_type, content_id')
     .eq('slot', 'journal_hebdo')
     .lte('starts_at', nowISO)
     .gt('ends_at', nowISO)
+  if (T) qSlots = qSlots.eq('territoire_id', T)
+  const { data: featuredSlots } = await qSlots
 
   const pinEvtIds   = (featuredSlots ?? []).filter(s => s.content_type === 'evenement').map(s => s.content_id)
   const pinAnnIds   = (featuredSlots ?? []).filter(s => s.content_type === 'annonce').map(s => s.content_id)
@@ -119,13 +133,21 @@ async function collectContext(spotlightOverride?: SpotlightOverride): Promise<Co
     pinEvtIds.length > 0
       ? supabaseAdmin.from('evenements').select('id, titre, date_debut, heure, description, categorie, lieux(nom, commune)').in('id', pinEvtIds).eq('statut', 'publie').gte('date_debut', duISO).lte('date_debut', auISO)
       : Promise.resolve({ data: [] as EvtRow[] }),
-    supabaseAdmin.from('evenements').select('id, titre, date_debut, heure, description, categorie, lieux(nom, commune)').eq('statut', 'publie').gte('date_debut', duISO).lte('date_debut', auISO).limit(12),
+    (() => {
+      let q = supabaseAdmin.from('evenements').select('id, titre, date_debut, heure, description, categorie, lieux(nom, commune)').eq('statut', 'publie').gte('date_debut', duISO).lte('date_debut', auISO)
+      if (T) q = q.eq('territoire_id', T)
+      return q.limit(12)
+    })(),
   ])
   const events = mergeUnique<EvtRow>([(pinEvents ?? []) as unknown as EvtRow[], (weekEvents ?? []) as unknown as EvtRow[]]).slice(0, 8)
 
   // 3. Annonces : flag publier_dans_journal + pin éditorial
   const [{ data: flagged }, { data: pinAnns }] = await Promise.all([
-    supabaseAdmin.from('annonces').select('id, titre, description, prix_initial, prix_actuel, type, ville').eq('statut', 'active').eq('publier_dans_journal', true).gte('created_at', duISO).limit(8),
+    (() => {
+      let q = supabaseAdmin.from('annonces').select('id, titre, description, prix_initial, prix_actuel, type, ville').eq('statut', 'active').eq('publier_dans_journal', true).gte('created_at', duISO)
+      if (T) q = q.eq('territoire_id', T)
+      return q.limit(8)
+    })(),
     pinAnnIds.length > 0
       ? supabaseAdmin.from('annonces').select('id, titre, description, prix_initial, prix_actuel, type, ville').in('id', pinAnnIds)
       : Promise.resolve({ data: [] as AnnonceRow[] }),
@@ -133,7 +155,8 @@ async function collectContext(spotlightOverride?: SpotlightOverride): Promise<Co
   const annonces = mergeUnique<AnnonceRow>([(pinAnns ?? []) as AnnonceRow[], (flagged ?? []) as AnnonceRow[]]).slice(0, 6)
 
   // 4. Promos actives (priorité pin)
-  const promosRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL ?? ''}/api/promotions`).catch(() => null)
+  const qPromo = territoire?.slug ? `?territoire=${encodeURIComponent(territoire.slug)}` : ''
+  const promosRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL ?? ''}/api/promotions${qPromo}`).catch(() => null)
   const allPromos = (promosRes && promosRes.ok) ? ((await promosRes.json())?.promotions ?? []) as PromoRow[] : []
   const pinPromos = allPromos.filter(p => pinPromoIds.includes(p.id))
   const promos = mergeUnique<PromoRow>([pinPromos, allPromos]).slice(0, 5)
@@ -163,7 +186,10 @@ async function collectContext(spotlightOverride?: SpotlightOverride): Promise<Co
       .maybeSingle()
     spotlight = (data as EtabRow | null) ?? null
   }
-  if (!spotlight) {
+  if (!spotlight && (!territoire || territoire.par_defaut)) {
+    // Le tirage au sort passe par une RPC qui ignore les territoires. Plutot
+    // que de lui faire sortir un commerce cevenol dans le journal de Pau, on
+    // ne tire que dans le territoire par defaut : ailleurs, pas de portrait.
     const { data } = await supabaseAdmin.rpc('spotlight_etablissement_random')
     spotlight = Array.isArray(data) && data[0] ? (data[0] as EtabRow) : null
   }
@@ -172,11 +198,13 @@ async function collectContext(spotlightOverride?: SpotlightOverride): Promise<Co
   // Article validé de la SEMAINE en cours (plus le plus vieux de la file, pour
   // ne pas faire remonter un article d'il y a des semaines). Les anciens
   // validés peuvent toujours être attachés à la main depuis l'admin.
-  const { data: articleData } = await supabaseAdmin
+  let qArticle = supabaseAdmin
     .from('articles_journal')
     .select('id, titre, corps, user_id')
     .eq('statut', 'valide')
     .gte('created_at', duISO)
+  if (T) qArticle = qArticle.eq('territoire_id', T)
+  const { data: articleData } = await qArticle
     .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle()
@@ -280,16 +308,19 @@ async function callClaude(system: string, user: string): Promise<ClaudeOutput> {
 
 export async function generateJournalDraft(
   spotlightOverride?: SpotlightOverride,
+  territoire?: Territoire | null,
 ): Promise<{ id: string; numero: number }> {
-  const ctx = await collectContext(spotlightOverride)
+  const ctx = await collectContext(spotlightOverride, territoire)
   const { system, user } = buildPrompt(ctx)
   const ai = await callClaude(system, user)
 
   const { du } = getSemaineCourante()
 
-  const { data: last } = await supabaseAdmin
-    .from('journaux_hebdo')
-    .select('numero')
+  // Numerotation propre au territoire : le premier numero de Pau est le 1,
+  // pas le 19. L'unicite en base est (territoire_id, numero).
+  let qLast = supabaseAdmin.from('journaux_hebdo').select('numero')
+  if (territoire) qLast = qLast.eq('territoire_id', territoire.id)
+  const { data: last } = await qLast
     .order('numero', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -317,6 +348,7 @@ export async function generateJournalDraft(
     // /api/admin/journal/[id] (statut='publie') qui date publie_at, publie
     // l'article lié et envoie la notif à tous. Rien de tout ça à la génération.
     statut:               'brouillon',
+    ...(territoire ? { territoire_id: territoire.id } : {}),
   }
 
   const { data, error } = await supabaseAdmin

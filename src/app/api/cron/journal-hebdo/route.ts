@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateJournalDraft } from '@/lib/journal-generator'
+import { territoireParDefaut } from '@/lib/territoires'
 import { notifyAdmins } from '@/lib/server-auth'
 
 export const runtime = 'nodejs'
@@ -33,7 +34,15 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const { id, numero } = await generateJournalDraft()
+    /*
+     * L'hebdo automatique ne concerne QUE le territoire par defaut, et
+     * c'est ecrit ici plutot que subi : un territoire qui ouvre n'a pas
+     * encore de semaine a raconter, et un numero vide chaque lundi ne
+     * vaut pas mieux que pas de journal. Le jour ou un autre territoire
+     * en veut un, c'est cette ligne qui s'ouvre — une boucle sur les
+     * territoires qui l'ont demande.
+     */
+    const { id, numero } = await generateJournalDraft(undefined, await territoireParDefaut())
     // Prévient les admins qu'un brouillon est prêt à relire/publier.
     await notifyAdmins({
       type:        'journal_brouillon',

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser } from '@/lib/server-auth'
+import { territoireDeLaRequete } from '@/lib/territoires'
 import { generateJournalDraft, type SpotlightOverride } from '@/lib/journal-generator'
 
 export const runtime = 'nodejs'
@@ -22,7 +23,9 @@ export async function POST(req: NextRequest) {
   } catch {}
 
   try {
-    const { id, numero } = await generateJournalDraft(spotlight)
+    // Le numero se fabrique avec le contenu du territoire administre, et
+    // repart a 1 dans chacun.
+    const { id, numero } = await generateJournalDraft(spotlight, await territoireDeLaRequete(req.url))
     return NextResponse.json({ id, numero })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
