@@ -1128,10 +1128,19 @@ export default function HomePage() {
   // nourrit les compteurs, pour qu'elles ne puissent pas diverger.
   const garderDansLaZone = useCallback((liste: EvenementCard[]) => {
     const rayon   = zonePersoActive ? userRayon : (rayonAffichage ?? 0)
-    const centres = zonePersoActive && userCentre
-      ? [userCentre]
-      : zoneCentres.length > 0 ? zoneCentres : [{ lat: GANGES.lat, lng: GANGES.lng, nom: 'Ganges' }]
-    if (rayon <= 0) return liste
+    /*
+     * SANS CENTRE CONNU, ON NE FILTRE PAS — on ne retombe PAS sur Ganges.
+     *
+     * L'ancien repli mesurait depuis Ganges des qu'aucun centre n'etait
+     * charge. En vue Pau, pendant la seconde ou la zone arrive, cela effacait
+     * tout : un evenement a Pau est a huit cents kilometres de Ganges. Et si
+     * la requete echouait, l'ecran restait vide pour toujours en annoncant
+     * « zero evenement » — une panne qui se lit comme une absence de contenu.
+     *
+     * Montrer trop large un instant vaut mieux que montrer faux.
+     */
+    const centres = zonePersoActive && userCentre ? [userCentre] : zoneCentres
+    if (rayon <= 0 || centres.length === 0) return liste
     return liste.filter(e => {
       const lat = e.lieux?.lat
       const lng = e.lieux?.lng
@@ -1316,9 +1325,9 @@ export default function HomePage() {
 
   const filteredEtablissements = useMemo(() => {
     const rayon   = zonePersoActive ? userRayon : (rayonAffichage ?? 0)
-    const centres = zonePersoActive && userCentre
-      ? [userCentre]
-      : zoneCentres.length > 0 ? zoneCentres : [{ lat: GANGES.lat, lng: GANGES.lng, nom: 'Ganges' }]
+    // Meme regle que pour les evenements : sans centre connu on ne filtre
+    // pas, plutot que de mesurer depuis Ganges dans une autre ville.
+    const centres = zonePersoActive && userCentre ? [userCentre] : zoneCentres
     // Quand l'user fait une recherche active → ignore le filtre zone/rayon
     // (il cherche un nom précis, doit pouvoir trouver même hors zone)
     const hasActiveSearch = etabSearch.trim().length > 0
@@ -1326,7 +1335,7 @@ export default function HomePage() {
     return etablissements
       .filter(e => {
         if (hasActiveSearch) return true
-        if (rayon <= 0 || e.lat == null || e.lng == null) return true
+        if (rayon <= 0 || centres.length === 0 || e.lat == null || e.lng == null) return true
         return centres.some(c => haversineKm(e.lat!, e.lng!, c.lat, c.lng) <= rayon)
       })
       .filter(e => {
