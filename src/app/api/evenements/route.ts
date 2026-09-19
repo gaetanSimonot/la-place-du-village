@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { geocodeWithGoogle, calcStatut, nettoyerJoursSemaine, INDICE_GEO_SECTEUR } from '@/lib/extract'
+import { geocodeWithGoogle, calcStatut, nettoyerJoursSemaine, INDICE_GEO_SECTEUR, communeDepuisAdresse } from '@/lib/extract'
 import { trouverOuCreerLieu } from '@/lib/lieuxResolve'
 import { nettoyerDates, bornes } from '@/lib/occurrences'
 import { mergeCategories } from '@/lib/categories'
@@ -163,9 +163,11 @@ export async function POST(req: NextRequest) {
        * une orthographe de commune de plus, ce qui brouille la detection de
        * doublons.
        */
+      // Ce que la personne a saisi prime ; l'adresse ne comble que le vide.
+      const communeReelle = (commune || '').trim() || communeDepuisAdresse(geo.adresse ?? lieu_adresse)
       const lieu = await trouverOuCreerLieu(
-        lieu_nom?.trim() || commune?.trim() || '',
-        commune ?? null,
+        lieu_nom?.trim() || communeReelle || '',
+        communeReelle,
         {
           lat: geo.lat,
           lng: geo.lng,

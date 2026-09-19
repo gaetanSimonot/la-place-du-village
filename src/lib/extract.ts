@@ -354,6 +354,36 @@ async function lookupLieuxCache(lieuNom: string, commune?: string | null): Promi
  * changer si la zone déménage.
  */
 export const INDICE_GEO_SECTEUR = 'Cevennes, Gard, Herault, France'
+
+/**
+ * La commune lue dans l'adresse rendue par Google, ou `null`.
+ *
+ * POURQUOI ELLE PRIME SUR CELLE DU MODELE. Jusqu'ici deux champs d'origines
+ * differentes cohabitaient sans jamais se parler : `commune` venait de ce que
+ * le modele avait lu sur l'affiche, `adresse` de ce que Google avait trouve.
+ * Quand les deux divergeaient, rien ne tranchait.
+ *
+ * ELLE NE SERT QUE DE BOUCHE-TROU, ET C'EST DELIBERE. Quand le modele a lu une
+ * commune, on la garde, meme si l'adresse en dit une autre. Mesure sur les 843
+ * fiches existantes : 176 communes ne concordent pas avec leur propre adresse,
+ * et dans ces desaccords c'est le plus souvent L'ADRESSE qui a tort — « Theatre
+ * de Verduire, Saint-Jean-du-Gard » geocode a Ales, « Marche couvert,
+ * Saint-Jean-du-Gard » a Fabregues, « Foyer Albouy, Le Vigan » a Beziers.
+ * Preferer l'adresse aurait remplace la seule valeur juste par la fausse.
+ *
+ * Un desaccord n'est donc pas une commune a corriger : c'est le signe que le
+ * POINT est douteux. On ne se sert de l'adresse que la ou il n'y avait rien.
+ *
+ * Format attendu : « ..., 34190 Ganges, France ». Sans code postal — donc sur
+ * un geocodage approximatif, ou une adresse etrangere — on rend `null` et
+ * l'appelant garde ce qu'il avait.
+ */
+export function communeDepuisAdresse(adresse: string | null | undefined): string | null {
+  if (!adresse) return null
+  const m = adresse.match(/\b\d{5}\s+([^,]+)/)
+  const commune = m?.[1]?.trim()
+  return commune && commune.length > 1 ? commune : null
+}
 export async function geocodeWithGoogle(
   lieuNom: string | null,
   commune?: string | null,

@@ -6,6 +6,7 @@ import {
   nettoyerJoursSemaine,
   calcStatut,
   INDICE_GEO_SECTEUR,
+  communeDepuisAdresse,
   type ExtractedData,
   type GeoResult,
 } from '@/lib/extract'
@@ -118,9 +119,11 @@ async function processOneEvent(
     // dojo » 88 fois — et privait la vérification anti-doublon de son
     // meilleur repère : deux copies du même événement ne partageaient pas
     // leur lieu.
+    // Ce que le modele a lu prime ; l'adresse ne comble que le vide.
+    const communeReelle = extracted.commune || communeDepuisAdresse(geo.adresse)
     const lieu = await trouverOuCreerLieu(
-      extracted.lieu_nom ?? extracted.commune ?? '',
-      extracted.commune,
+      extracted.lieu_nom ?? communeReelle ?? '',
+      communeReelle,
       { lat: geo.lat, lng: geo.lng, adresse: geo.adresse ?? extracted.lieu_adresse, place_id_google: geo.place_id_google },
     )
     if (!lieu.id) {

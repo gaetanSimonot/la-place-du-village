@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { extractMultipleWithClaude, geocodeWithGoogle, calcStatut, nettoyerJoursSemaine, INDICE_GEO_SECTEUR } from './extract'
+import { extractMultipleWithClaude, geocodeWithGoogle, calcStatut, nettoyerJoursSemaine, INDICE_GEO_SECTEUR, communeDepuisAdresse } from './extract'
 import { datesDepuisExtraction } from './occurrences'
 import { checkDoublon } from './checkDoublon'
 import { checkZone } from './checkZone'
@@ -100,10 +100,14 @@ export async function processMessage(
       if (!zone.within) { reasons.push(`"${evt.titre}" → hors zone (${zone.distanceMin}km de ${zone.centreLePlusProche})`); continue }
 
       if (geo.lat) {
+        // Ce que le modele a lu prime ; l'adresse ne comble que le vide.
+        // Un desaccord signale un point douteux, pas une commune a corriger
+        // — voir communeDepuisAdresse.
+        const communeReelle = evt.commune || communeDepuisAdresse(geo.adresse)
         // Chercher avant de créer — voir src/lib/lieuxResolve.ts.
         const lieu = await trouverOuCreerLieu(
-          evt.lieu_nom ?? evt.commune ?? '',
-          evt.commune,
+          evt.lieu_nom ?? communeReelle ?? '',
+          communeReelle,
           { lat: geo.lat, lng: geo.lng, adresse: geo.adresse ?? evt.lieu_adresse, place_id_google: geo.place_id_google },
         )
         lieuId = lieu.id
