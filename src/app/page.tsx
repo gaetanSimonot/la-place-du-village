@@ -318,6 +318,10 @@ export default function HomePage() {
   const [userVille, setUserVille]       = useState('')
   const [userCentre, setUserCentre]     = useState<{ lat: number; lng: number; nom: string } | null>(null)
   const [userZoneActive, setUserZoneActive] = useState(false)
+  /* Le territoire dans lequel la zone personnelle a ete reglee. `null` pour
+     une zone enregistree avant le multi-territoire : elle vaut alors pour le
+     territoire par defaut, ou elle a forcement ete posee. */
+  const [userZoneTerritoire, setUserZoneTerritoire] = useState<string | null>(null)
   /**
    * REJOUER une vue enregistrée — pas viser un lieu.
    *
@@ -979,6 +983,7 @@ export default function HomePage() {
         setUserRayon(z.rayon ?? RAYON_DEFAUT)
         setUserVille(z.nom ?? '')
         setUserCentre({ lat: z.lat, lng: z.lng, nom: z.nom ?? '' })
+        setUserZoneTerritoire(typeof z.territoire === 'string' ? z.territoire : null)
         setUserZoneActive(true)
       }
     } catch {}
@@ -1081,11 +1086,26 @@ export default function HomePage() {
    * position où la feuille se trouve. Il n'y a plus rien à replier.
    */
 
+  /*
+   * UNE ZONE PERSONNELLE N'A COURS QUE DANS SON TERRITOIRE.
+   *
+   * Elle prime sur les centres du territoire — c'est son role. Mais 45 km
+   * autour de Ganges, appliques en vue Pau, effacent tout : l'evenement etait
+   * bien servi par l'API et disparaissait a l'ecran. Hors de son territoire,
+   * on l'ignore et on reprend les centres de celui qu'on regarde.
+   *
+   * Une zone enregistree avant le multi-territoire n'a pas de slug : elle vaut
+   * pour le territoire par defaut, ou elle a forcement ete posee.
+   */
+  const zonePersoActive = userZoneActive && (
+    userZoneTerritoire ? userZoneTerritoire === territoireVu?.slug : !!territoireVu?.par_defaut
+  )
+
   // Filtre zone — la même règle sert à la liste affichée et à celle qui
   // nourrit les compteurs, pour qu'elles ne puissent pas diverger.
   const garderDansLaZone = useCallback((liste: EvenementCard[]) => {
-    const rayon   = userZoneActive ? userRayon : (rayonAffichage ?? 0)
-    const centres = userZoneActive && userCentre
+    const rayon   = zonePersoActive ? userRayon : (rayonAffichage ?? 0)
+    const centres = zonePersoActive && userCentre
       ? [userCentre]
       : zoneCentres.length > 0 ? zoneCentres : [{ lat: GANGES.lat, lng: GANGES.lng, nom: 'Ganges' }]
     if (rayon <= 0) return liste
@@ -1095,7 +1115,7 @@ export default function HomePage() {
       if (lat == null || lng == null) return true
       return centres.some(c => haversineKm(lat, lng, c.lat, c.lng) <= rayon)
     })
-  }, [rayonAffichage, zoneCentres, userZoneActive, userRayon, userCentre])
+  }, [rayonAffichage, zoneCentres, zonePersoActive, userRayon, userCentre])
 
   // Filtre zone appliqué sur la liste complète — recalculé à chaque changement de zone
   const evenementsZone = useMemo(
@@ -1272,8 +1292,8 @@ export default function HomePage() {
   const featuredProducers = useMemo(() => filteredProducers.filter(p => p.is_featured), [filteredProducers])
 
   const filteredEtablissements = useMemo(() => {
-    const rayon   = userZoneActive ? userRayon : (rayonAffichage ?? 0)
-    const centres = userZoneActive && userCentre
+    const rayon   = zonePersoActive ? userRayon : (rayonAffichage ?? 0)
+    const centres = zonePersoActive && userCentre
       ? [userCentre]
       : zoneCentres.length > 0 ? zoneCentres : [{ lat: GANGES.lat, lng: GANGES.lng, nom: 'Ganges' }]
     // Quand l'user fait une recherche active → ignore le filtre zone/rayon
@@ -1301,7 +1321,7 @@ export default function HomePage() {
         const sb = scoreCorrespondance(b.nom, [b.nom, b.commune, b.type, b.description_courte], etabSearch)
         return sb - sa || a.nom.length - b.nom.length
       })
-  }, [etablissements, etabSearch, userZoneActive, userRayon, userCentre, zoneCentres, rayonAffichage])
+  }, [etablissements, etabSearch, zonePersoActive, userRayon, userCentre, zoneCentres, rayonAffichage])
 
   /**
    * Les commerces de la zone, TOUS TYPES confondus : c'est la seule liste qui
@@ -1786,7 +1806,7 @@ export default function HomePage() {
               }}>
                 Réglages de la carte
               </h2>
-              {userZoneActive && (
+              {zonePersoActive && (
                 <button
                   onClick={() => {
                     localStorage.removeItem('pdv-zone-user')
@@ -1824,7 +1844,11 @@ export default function HomePage() {
                     {userCentre?.nom ?? userVille ?? 'Ganges'}
                   </div>
                   <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2 }}>
-                    {userZoneActive ? 'Zone personnelle active' : 'Zone par défaut du village'}
+                    {zonePersoActive
+                      ? 'Zone personnelle active'
+                      : userZoneActive
+                        ? `Ta zone est réglée sur un autre territoire — ici, celle de ${territoireVu?.nom ?? 'la ville'}`
+                        : 'Zone par défaut du village'}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
@@ -2010,7 +2034,12 @@ export default function HomePage() {
 
                   localStorage.setItem('pdv-zone-user', JSON.stringify({
                     rayon: userRayon, nom: centre.nom, lat: centre.lat, lng: centre.lng,
+                    // Une zone personnelle appartient au territoire ou elle a
+                    // ete reglee : 45 km autour de Ganges n'a aucun sens en
+                    // vue Pau.
+                    territoire: territoireVu?.slug ?? null,
                   }))
+                  setUserZoneTerritoire(territoireVu?.slug ?? null)
                   setUserCentre(centre)
                   setUserZoneActive(true)
                   // On ne recadre QUE si la personne a choisi une ville : bouger
