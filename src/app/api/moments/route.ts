@@ -105,6 +105,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  /* Le contenu cree appartient au territoire depuis lequel on publie. Sans
+     lui, il serait invisible PARTOUT : toutes les lectures filtrent. */
+  const terrCreation = await territoireDeLaRequete(req.url)
+
   const ctx = await requireUser(req)
   if (ctx instanceof Response) return ctx
 
@@ -157,6 +161,7 @@ export async function POST(req: NextRequest) {
     const { data: moment, error } = await supabaseAdmin
       .from('moments')
       .insert({
+        ...(terrCreation ? { territoire_id: terrCreation.id } : {}),
         auteur_id:        ctx.userId,
         auteur_nom:       prof?.display_name ?? null,
         lieu_id:          body.lieu_id || null,

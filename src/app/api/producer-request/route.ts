@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { territoireDeLaRequete } from '@/lib/territoires'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser, notifyAdmins } from '@/lib/server-auth'
 
@@ -16,6 +17,9 @@ const VALID_CATS = [
  * Sinon, pending (l'admin valide).
  */
 export async function POST(req: NextRequest) {
+  /* Le territoire depuis lequel on cree. Sans lui la fiche serait invisible
+     PARTOUT : toutes les lectures de l'annuaire filtrent desormais. */
+  const terrCreation = await territoireDeLaRequete(req.url)
   const ctx = await requireUser(req)
   if (ctx instanceof Response) return ctx
 
@@ -81,6 +85,7 @@ export async function POST(req: NextRequest) {
     const { data: newProd, error: createErr } = await supabaseAdmin
       .from('producers')
       .insert({
+        ...(terrCreation ? { territoire_id: terrCreation.id } : {}),
         nom,
         description_courte: descCourte,
         description_longue: description,

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { territoireDeLaRequete } from '@/lib/territoires'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser } from '@/lib/server-auth'
 import { can } from '@/lib/capabilities'
@@ -50,6 +51,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  /* Le territoire depuis lequel on cree. Sans lui la fiche serait invisible
+     PARTOUT : toutes les lectures de l'annuaire filtrent desormais. */
+  const terrCreation = await territoireDeLaRequete(req.url)
   const ctx = await requireUser(req)
   if (ctx instanceof Response) return ctx
 
@@ -68,6 +72,7 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabaseAdmin
     .from('producers')
     .insert({
+      ...(terrCreation ? { territoire_id: terrCreation.id } : {}),
       user_id: ctx.userId,
       nom,
       description_courte: description_courte || null,

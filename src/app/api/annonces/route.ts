@@ -85,6 +85,10 @@ export async function GET(req: NextRequest) {
  *  - habitants / pro / admin : illimité tous types
  */
 export async function POST(req: NextRequest) {
+  /* Le contenu cree appartient au territoire depuis lequel on publie. Sans
+     lui, il serait invisible PARTOUT : toutes les lectures filtrent. */
+  const terrCreation = await territoireDeLaRequete(req.url)
+
   const ctx = await requireUser(req)
   if (ctx instanceof Response) return ctx
 
@@ -144,7 +148,7 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await supabaseAdmin
     .from('annonces')
-    .insert(insert)
+    .insert({ ...insert, ...(terrCreation ? { territoire_id: terrCreation.id } : {}) })
     .select()
     .single()
 

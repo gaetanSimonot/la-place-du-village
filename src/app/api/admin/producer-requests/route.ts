@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { territoireDeLaRequete } from '@/lib/territoires'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin, notifyUser } from '@/lib/server-auth'
 
@@ -72,6 +73,9 @@ export async function GET(req: NextRequest) {
  * reject : marque traite=true + notif rejet.
  */
 export async function PATCH(req: NextRequest) {
+  /* Le territoire depuis lequel l'admin valide la demande : la fiche creee
+     doit lui appartenir, sinon elle n'apparait nulle part. */
+  const terrCreation = await territoireDeLaRequete(req.url)
   const ctx = await requireAdmin(req)
   if (ctx instanceof Response) return ctx
 
@@ -107,6 +111,7 @@ export async function PATCH(req: NextRequest) {
     const { data: newProd, error: createErr } = await supabaseAdmin
       .from('producers')
       .insert({
+        ...(terrCreation ? { territoire_id: terrCreation.id } : {}),
         nom:                 r.nom,
         description_courte:  descCourte,
         description_longue:  description,

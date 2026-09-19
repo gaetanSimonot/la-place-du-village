@@ -102,6 +102,10 @@ export async function GET(req: NextRequest) {
  *          frequency: 'always'|'weekly'|'monthly', valid_from?, valid_until? }
  */
 export async function POST(req: NextRequest) {
+  /* Le contenu cree appartient au territoire depuis lequel on publie. Sans
+     lui, il serait invisible PARTOUT : toutes les lectures filtrent. */
+  const terrCreation = await territoireDeLaRequete(req.url)
+
   const ctx = await requireUser(req)
   if (ctx instanceof Response) return ctx
 
@@ -135,6 +139,7 @@ export async function POST(req: NextRequest) {
     .insert({
       etablissement_id,
       user_id: ctx.userId,
+      ...(terrCreation ? { territoire_id: terrCreation.id } : {}),
       title: title.trim(),
       description: description?.trim() || null,
       image_url: image_url || null,
