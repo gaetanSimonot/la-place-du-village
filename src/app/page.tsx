@@ -1006,6 +1006,10 @@ export default function HomePage() {
    */
   useEffect(() => { fetchZoneConfig() }, [fetchZoneConfig])
 
+  /* Changer de ville vide la liste : on ne garde pas sous les yeux les
+     evenements de l'autre territoire le temps que les siens arrivent. */
+  useEffect(() => { setAllEvenements([]); setPromoEventsData([]) }, [slugTerritoire])
+
   /*
    * Les caches locaux du territoire regarde, relus a chaque bascule.
    *
@@ -1075,10 +1079,25 @@ export default function HomePage() {
   // legacy → minimisation du diff dans la grosse page.tsx).
   useEffect(() => {
     if (!agendaData) return
+    /*
+     * ON REFUSE LA REPONSE D'UNE AUTRE VILLE.
+     *
+     * SWR est regle en `keepPreviousData` : en basculant de territoire, il
+     * continue de servir les evenements du precedent pendant qu'il revalide.
+     * La zone, elle, arrive par un fetch simple, donc plus vite — et on se
+     * retrouvait a mesurer quatre cents evenements cevenols contre le rayon
+     * de Pau. Resultat : « zero evenement », durablement, alors que tout
+     * etait juste de chaque cote.
+     *
+     * L'agenda dit desormais quel territoire il a servi. Tant que ce n'est
+     * pas celui qu'on regarde, on attend.
+     */
+    const slugServi = (agendaData.territoire as { slug?: string } | null)?.slug ?? null
+    if (slugTerritoire && slugServi && slugServi !== slugTerritoire) return
     setAllEvenements((agendaData.evenements as EvenementCard[]) ?? [])
     setPromoEventsData((agendaData.promoEvents as EvenementCard[]) ?? [])
     setSplashFeaturedEvents((agendaData.splashFeatured as EvenementCard[]) ?? [])
-  }, [agendaData])
+  }, [agendaData, slugTerritoire])
 
   // Loading initial : tant que SWR n'a pas remonté de data ET qu'on est en train
   // de fetcher, on affiche le loader. Au retour (cache hit), data est déjà là

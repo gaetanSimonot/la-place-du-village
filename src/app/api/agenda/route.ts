@@ -280,6 +280,9 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({
+      // Le territoire servi, pour que le client puisse refuser une reponse
+      // qui ne correspond plus a la ville qu'il regarde — voir page.tsx.
+      territoire: territoire ? { id: territoire.id, slug: territoire.slug } : null,
     // Rend la troncature VISIBLE au lieu de la taire.
     tronque: (evRes.data ?? []).length >= PLAFOND,
     evenements,
