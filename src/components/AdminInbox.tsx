@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import EventEditDrawer from '@/components/EventEditDrawer'
 import { supabase } from '@/lib/supabase'
+import { useTerritoire } from '@/components/TerritoireProvider'
 
 interface MessageEntrant {
   id: string
@@ -60,6 +61,11 @@ interface Props {
 }
 
 export default function AdminInbox({ onCountChange }: Props) {
+  /* La reception est celle de la ville qu'on administre : un message palois
+     et un message cevenol ne se distinguent pas a l'oeil dans une meme file. */
+  const { territoire } = useTerritoire()
+  const qTerr = territoire?.slug ? `&territoire=${encodeURIComponent(territoire.slug)}` : ''
+
   const [messages, setMessages] = useState<MessageEntrant[]>([])
   const [total, setTotal]       = useState(0)
   const [statut, setStatut]     = useState('tous')
@@ -78,14 +84,14 @@ export default function AdminInbox({ onCountChange }: Props) {
     const headers: Record<string, string> = tk ? { Authorization: `Bearer ${tk}` } : {}
     const params = new URLSearchParams({ limit: '50' })
     if (s !== 'tous') params.set('statut', s)
-    const res = await fetch(`/api/admin/inbox?${params}`, { headers })
+    const res = await fetch(`/api/admin/inbox?${params}${qTerr}`, { headers })
     if (res.ok) {
       const data = await res.json()
       setMessages(data.messages)
       setTotal(data.total)
     }
     setLoading(false)
-  }, [])
+  }, [qTerr])
 
   const fetchCounts = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -94,7 +100,7 @@ export default function AdminInbox({ onCountChange }: Props) {
     const statuts = ['non_publiable', 'en_attente', 'doublon', 'hors_zone', 'a_traiter']
     const results = await Promise.all(
       statuts.map(s =>
-        fetch(`/api/admin/inbox?statut=${s}&limit=1`, { headers })
+        fetch(`/api/admin/inbox?statut=${s}&limit=1${qTerr}`, { headers })
           .then(r => r.ok ? r.json() : { total: 0 })
           .then((d: { total?: number }) => ({ s, n: d.total ?? 0 }))
       )

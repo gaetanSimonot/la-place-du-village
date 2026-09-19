@@ -7,10 +7,12 @@ export async function GET(req: NextRequest) {
   const ctx = await requireAdmin(req)
   if (ctx instanceof Response) return ctx
 
-  const { data, error } = await supabaseAdmin
-    .from('producers')
-    .select('*, products(*)')
-    .order('created_at', { ascending: false })
+  // La liste est celle du territoire administre — la creation l'etait deja.
+  const terr = await territoireDeLaRequete(req.url)
+  let q = supabaseAdmin.from('producers').select('*, products(*)')
+  if (terr) q = q.eq('territoire_id', terr.id)
+
+  const { data, error } = await q.order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ producers: data })

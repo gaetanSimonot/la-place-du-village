@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { geocodeWithGoogle, calcStatut } from './extract'
 import { checkDoublon } from './checkDoublon'
-import { checkZone } from './checkZone'
+import { territoireParId, territoireDuPoint, indiceGeoDe } from './territoires'
 import { getPrompt } from './prompts-ia'
 import { safeJsonParse } from './safeJsonParse'
 import { scrapeRecurrentSource, type ScrapeRecurrentResult } from './scraper-recurrent'
@@ -118,6 +118,17 @@ export async function scrapeSource(
     return { sourceId, sourceName: '?', trouves: 0, doublons: 0, inseres: 0, erreur: 'Source introuvable', evenements: [] }
   }
 
+  /*
+   * LE TERRITOIRE DE LA SOURCE PRESUME, LA GEOGRAPHIE TRANCHE.
+   *
+   * Meme regle que les trois chemins d'ingestion. La presomption sert d'abord
+   * au geocodage — qui n'avait AUCUN repere ici, contrairement aux autres
+   * chemins : « Breau » partait donc en Seine-et-Marne, a 518 km, et se
+   * faisait ensuite refuser comme hors zone. Le defaut existait avant les
+   * territoires ; il se corrige en meme temps.
+   */
+  const terrSource = await territoireParId(source.territoire_id)
+
   // 1bis. Aiguillage : une source « récurrente » (page de marchés…) ne contient
   // pas d'événements datés mais une table de récurrences. Pipeline dédié.
   if (source.type === 'recurrent') {
@@ -162,12 +173,18 @@ export async function scrapeSource(
       if (!evt.titre?.trim()) continue
 
       // Vérifier doublon via Claude
+      // La dedup se fait DANS le territoire : sans ca les evenements d'une
+      // ville occupent des places dans la fenetre de comparaison de l'autre,
+      // et un vrai doublon peut en sortir.
+      let terrEvt = terrSource
+
       const check = await checkDoublon({
         titre:       evt.titre,
         date_debut:  evt.date_debut,
         commune:     evt.commune,
         lieu_nom:    evt.lieu_nom,
         description: evt.description,
+        territoire_id: terrEvt?.id ?? null,
       })
 
       if (check.doublon) {
@@ -185,6 +202,7 @@ export async function scrapeSource(
           lieu_id:          null,
           source:           'scrape',
           scrape_source_id: sourceId,
+          ...(terrEvt ? { territoire_id: terrEvt.id } : {}),
         })
         continue
       }
@@ -192,13 +210,17 @@ export async function scrapeSource(
       // Géocoder
       let lieuId: string | null = null
       if (evt.lieu_nom || evt.commune) {
-        const geo = await geocodeWithGoogle(evt.lieu_nom, evt.commune)
+        const geo = await geocodeWithGoogle(evt.lieu_nom, evt.commune, { indiceGeo: indiceGeoDe(terrSource) })
 
-        // Vérification zone géographique
-        const zone = await checkZone(geo.lat, geo.lng)
-        if (!zone.within) {
-          evenements.push({ titre: evt.titre, statut: 'hors_zone', doublon: false })
-          continue
+        // Hors de TOUTES les zones : refus, comme avant. Dedans : c'est le
+        // point qui range, pas la source.
+        if (geo.lat != null && geo.lng != null) {
+          const arbitrage = await territoireDuPoint(geo.lat, geo.lng)
+          if (!arbitrage.territoire) {
+            evenements.push({ titre: evt.titre, statut: 'hors_zone', doublon: false })
+            continue
+          }
+          terrEvt = arbitrage.territoire
         }
 
         if (evt.lieu_nom || evt.commune) {
@@ -212,6 +234,7 @@ export async function scrapeSource(
               place_id_google: geo.place_id_google,
               commune:         evt.commune,
               code_postal:     evt.code_postal,
+              ...(terrEvt ? { territoire_id: terrEvt.id } : {}),
             })
             .select('id')
             .single()
@@ -252,6 +275,7 @@ export async function scrapeSource(
           organisateurs:    evt.organisateurs,
           source:           'scrape',
           scrape_source_id: sourceId,
+          ...(terrEvt ? { territoire_id: terrEvt.id } : {}),
         })
 
       if (!evtErr) {

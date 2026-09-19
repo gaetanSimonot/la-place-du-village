@@ -18,7 +18,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from './supabase-admin'
 import { geocodeWithGoogle } from './extract'
-import { checkZone } from './checkZone'
+import { territoireParId, territoireDuPoint, indiceGeoDe } from './territoires'
 import { getPrompt } from './prompts-ia'
 import { safeJsonParse } from './safeJsonParse'
 
@@ -229,6 +229,9 @@ async function trouveOuCreeLieu(
   commune: string | null,
   geo: { lat: number | null; lng: number | null; adresse: string | null; place_id_google: string | null },
   dryRun: boolean,
+  /** Le territoire ou le lieu doit naitre. Un lieu sans territoire serait
+   *  invisible partout — le defaut en base rattrape, mais mal. */
+  territoireId: string | null = null,
 ): Promise<{ id: string | null; reutilise: boolean }> {
   // 1. Par place_id Google — l'identifiant le plus fiable
   if (geo.place_id_google) {
@@ -254,6 +257,7 @@ async function trouveOuCreeLieu(
       lng:             geo.lng,
       place_id_google: geo.place_id_google,
       commune,
+      ...(territoireId ? { territoire_id: territoireId } : {}),
     })
     .select('id')
     .single()
@@ -271,6 +275,8 @@ interface SourceRow {
   publier_auto?: boolean | null
   /** Contexte ajouté aux requêtes de géocodage, ex "Cévennes, France". */
   indice_geo?: string | null
+  /** Le territoire de la source : présomption, revue par la géographie. */
+  territoire_id?: string | null
 }
 
 export async function scrapeRecurrentSource(
@@ -278,6 +284,11 @@ export async function scrapeRecurrentSource(
   opts: { dryRun?: boolean } = {},
 ): Promise<ScrapeRecurrentResult> {
   const dryRun = opts.dryRun === true
+  /*
+   * LE TERRITOIRE DE LA SOURCE PRESUME, LA GEOGRAPHIE TRANCHE — meme regle
+   * que les trois chemins d'ingestion et que le scraper classique.
+   */
+  const terrSource = await territoireParId(source.territoire_id)
   const horizon = source.horizon_jours && source.horizon_jours > 0 ? source.horizon_jours : HORIZON_DEFAUT
   const statutCible = source.publier_auto ? 'publie' : 'en_attente'
 
@@ -319,7 +330,9 @@ export async function scrapeRecurrentSource(
     // `indiceGeo` : une page régionale ne cite que des communes du coin, mais
     // Google ne le sait pas. Sans indice, "Bréau" (12 km) part sur son homonyme
     // de Seine-et-Marne à 518 km et le filtre de zone écarte un marché local.
-    const indice = source.indice_geo ?? null
+    // L'indice propre a la source prime — elle peut viser plus serre que sa
+    // ville. A defaut, celui du territoire.
+    const indice = source.indice_geo ?? indiceGeoDe(terrSource)
     const geos = await mapLimit(regles, CONCURRENCE_GEOCODE, async (r) => {
       if (!r.lieu_nom && !r.commune) return null
       return geocodeWithGoogle(r.lieu_nom, r.commune, { indiceGeo: indice })
@@ -368,16 +381,27 @@ export async function scrapeRecurrentSource(
         continue
       }
 
-      // 4c. Filtre géographique, au rayon propre à cette source
-      const zone = await checkZone(geo.lat, geo.lng, source.rayon_km)
-      rapport.distance_km = zone.distanceMin
-      if (!zone.within) {
+      /*
+       * 4c. Filtre géographique. Hors de TOUTES les zones : refus. Dedans :
+       * c'est le point qui range la règle, pas la source.
+       *
+       * Le rayon propre à la source reste un filtre EN PLUS : une page
+       * « marchés des Cévennes » doit rester serrée même si le territoire
+       * accepte plus large.
+       */
+      const arbitrage = await territoireDuPoint(geo.lat, geo.lng)
+      rapport.distance_km = arbitrage.distanceKm
+      const tropLoin = source.rayon_km && source.rayon_km > 0 && arbitrage.distanceKm > source.rayon_km
+      if (!arbitrage.territoire || tropLoin) {
         rapport.verdict = 'hors_zone'
-        rapport.commentaire = `${zone.distanceMin} km de ${zone.centreLePlusProche} (limite ${zone.rayon} km)`
+        rapport.commentaire = tropLoin
+          ? `${arbitrage.distanceKm} km de ${arbitrage.centreLePlusProche} (limite de la source : ${source.rayon_km} km)`
+          : `${arbitrage.distanceKm} km de ${arbitrage.centreLePlusProche} — hors de toutes les zones`
         base.totaux.regles_hors_zone++
         base.regles.push(rapport)
         continue
       }
+      const terrRegle = arbitrage.territoire
 
       // 4d. Les dates
       const dates = occurrences(r, horizon)
@@ -395,7 +419,7 @@ export async function scrapeRecurrentSource(
 
       // 4e. Le lieu — résolu UNE fois par règle, pas une fois par occurrence
       const lieuNom = r.lieu_nom || r.commune || r.titre
-      const { id: lieuId, reutilise } = await trouveOuCreeLieu(lieuNom, r.commune ?? null, geo, dryRun)
+      const { id: lieuId, reutilise } = await trouveOuCreeLieu(lieuNom, r.commune ?? null, geo, dryRun, terrRegle?.id ?? null)
       if (reutilise) rapport.commentaire = 'lieu existant réutilisé'
 
       const descriptionFinale = [r.description?.trim(), r.periode_texte ? `Période : ${r.periode_texte}.` : null]
@@ -416,6 +440,7 @@ export async function scrapeRecurrentSource(
           source:           'scrape',
           scrape_source_id: source.id,
           doublon_verifie:  true,   // le verrou d'unicité remplace la dédup IA
+          ...(terrRegle ? { territoire_id: terrRegle.id } : {}),
         })
       }
 

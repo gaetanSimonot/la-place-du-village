@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { useAuth } from '@/hooks/useAuth'
 import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
 
@@ -33,6 +34,10 @@ const emptyForm = () => ({
 })
 
 export default function ProduceurAdmin({ embedded }: { embedded?: boolean }) {
+  /* L'ecran administre UNE ville : sa reception, ses sources, ses fiches. */
+  const { territoire } = useTerritoire()
+  const qTerr = territoire?.slug ? `?territoire=${encodeURIComponent(territoire.slug)}` : ''
+
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
   const [adminVerified, setAdminVerified] = useState(embedded ?? false)
@@ -65,7 +70,7 @@ export default function ProduceurAdmin({ embedded }: { embedded?: boolean }) {
 
   const fetchAll = useCallback(async () => {
     const t = await token()
-    const r = await fetch('/api/admin/producteurs', { headers: { Authorization: `Bearer ${t}` } })
+    const r = await fetch(`/api/admin/producteurs${qTerr}`, { headers: { Authorization: `Bearer ${t}` } })
     const d = await r.json()
     setProducers(d.producers ?? [])
   }, [token])
@@ -108,7 +113,7 @@ export default function ProduceurAdmin({ embedded }: { embedded?: boolean }) {
       is_max: form.is_max,
     }
     const isNew = editId === 'new'
-    const url = isNew ? '/api/admin/producteurs' : `/api/admin/producteurs/${editId}`
+    const url = isNew ? `/api/admin/producteurs${qTerr}` : `/api/admin/producteurs/${editId}`
     const r = await fetch(url, {
       method: isNew ? 'POST' : 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },

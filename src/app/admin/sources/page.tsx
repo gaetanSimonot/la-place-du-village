@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { useTerritoire } from '@/components/TerritoireProvider'
 
 /** Helper local : récupère les headers avec token Bearer pour les routes
  *  /api/admin/sources et /api/scrape-source, protégées par requireAdmin. */
@@ -76,6 +77,10 @@ const VERDICTS: Record<RegleRapport['verdict'], { label: string; color: string }
 }
 
 export default function SourcesPage() {
+  /* L'ecran administre UNE ville : sa reception, ses sources, ses fiches. */
+  const { territoire } = useTerritoire()
+  const qTerr = territoire?.slug ? `?territoire=${encodeURIComponent(territoire.slug)}` : ''
+
   const [sources, setSources] = useState<Source[]>([])
   const [loading, setLoading] = useState(true)
   const [scraping, setScraping] = useState<string | null>(null)
@@ -91,11 +96,11 @@ export default function SourcesPage() {
 
   const fetchSources = useCallback(async () => {
     setLoading(true)
-    const res = await fetch('/api/admin/sources', { headers: await adminHeaders() })
+    const res = await fetch(`/api/admin/sources${qTerr}`, { headers: await adminHeaders() })
     const data = await res.json()
     setSources(data.sources ?? [])
     setLoading(false)
-  }, [])
+  }, [qTerr])
 
   useEffect(() => { fetchSources() }, [fetchSources])
 
@@ -105,7 +110,7 @@ export default function SourcesPage() {
     const payload = form.type === 'recurrent'
       ? form
       : { nom: form.nom, url: form.url, frequence: form.frequence, type: 'evenements' }
-    await fetch('/api/admin/sources', {
+    await fetch(`/api/admin/sources${qTerr}`, {
       method: 'POST',
       headers: await adminHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload),

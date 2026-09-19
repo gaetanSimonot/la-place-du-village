@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/server-auth'
+import { territoireDeLaRequete } from '@/lib/territoires'
 
 export async function GET(req: NextRequest) {
   const ctx = await requireAdmin(req)
@@ -20,6 +21,15 @@ export async function GET(req: NextRequest) {
   if (statut && statut !== 'tous') {
     query = query.eq('statut', statut)
   }
+
+  /*
+   * La reception est celle du territoire administre. Le message porte deja
+   * son territoire — pose a l'arrivee par le groupe d'ou il vient — donc
+   * relire Pau depuis la vue cevenole melangerait deux villes dans la meme
+   * file, sans moyen de les distinguer a l'oeil.
+   */
+  const terr = await territoireDeLaRequete(req.url)
+  if (terr) query = query.eq('territoire_id', terr.id)
 
   const { data, error, count } = await query
 
