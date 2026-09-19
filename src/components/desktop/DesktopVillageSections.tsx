@@ -8,6 +8,7 @@ import type { Categorie } from '@/lib/types'
 import { imageEvenement } from '@/lib/imageEvenement'
 import { choisirTuilesDuJour } from '@/lib/hubTodayPicker'
 import { useTerritoire } from '@/components/TerritoireProvider'
+import { useZonePerso } from '@/hooks/useZonePerso'
 import { texteBrut } from '@/components/TexteRiche'
 
 /**
@@ -130,8 +131,16 @@ export default function DesktopVillageSections() {
   const [catActive, setCatActive]   = useState<string | null>(null)
   const { territoire } = useTerritoire()
   const slugTerr = territoire?.slug ?? null
+  /*
+   * La zone personnelle n'a cours QUE dans le territoire ou elle a ete reglee
+   * — le hook s'en charge. Lue a la main ici, une zone ancree sur Pau partait
+   * avec l'appel en vue Cevennes : zero evenement du jour, et la section
+   * « Aujourd'hui » disparaissait entierement, sans message.
+   */
+  const { pret: zonePrete, zone } = useZonePerso()
 
   useEffect(() => {
+    if (!zonePrete) return
     let vivant = true
     /*
      * La zone personnelle voyage avec l'appel au hub, comme sur mobile : sans
@@ -139,14 +148,7 @@ export default function DesktopVillageSections() {
      * refusait le meme jour. Lue ici et non au rendu — `localStorage` n'existe
      * pas cote serveur.
      */
-    let paramsZone = ''
-    try {
-      const brut = localStorage.getItem('pdv-zone-user')
-      const z = brut ? (JSON.parse(brut) as { lat?: unknown; lng?: unknown; rayon?: unknown }) : null
-      if (typeof z?.lat === 'number' && typeof z?.lng === 'number' && typeof z?.rayon === 'number') {
-        paramsZone = `?zlat=${z.lat}&zlng=${z.lng}&zr=${z.rayon}`
-      }
-    } catch { /* zone du village par defaut */ }
+    let paramsZone = zone ? `?zlat=${zone.lat}&zlng=${zone.lng}&zr=${zone.rayon}` : ''
     // Le territoire regarde, comme sur mobile — sur le hub ET sur l'agenda,
     // sinon la semaine resterait cevenole pendant que les tuiles changent.
     const qTerr = slugTerr ? `&territoire=${encodeURIComponent(slugTerr)}` : ''
@@ -164,7 +166,7 @@ export default function DesktopVillageSections() {
       if (annuaire?.etablissements)  setEtabs(annuaire.etablissements as Etablissement[])
     })
     return () => { vivant = false }
-  }, [slugTerr])
+  }, [slugTerr, zonePrete, zone])
 
   /** Catégories réellement présentes dans les événements de la semaine. */
   const categories = useMemo(() => {

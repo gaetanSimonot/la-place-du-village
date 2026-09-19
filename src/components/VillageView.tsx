@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { useTerritoire } from '@/components/TerritoireProvider'
+import { useZonePerso } from '@/hooks/useZonePerso'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import type { Evenement } from '@/lib/types'
 import { SectionHeaderV3, FeaturedEventCard, MiniEventCard, MoreEventsCard } from '@/components/hub/CartesHub'
@@ -326,37 +327,6 @@ function Tiles() {
       </div>
     </>
   )
-}
-
-/**
- * Zone personnelle du visiteur, lue une seule fois au montage.
- *
- * `pret` distingue « pas encore lu » de « aucune zone ». Sans ce drapeau, la
- * premiere requete partirait sans zone : les tuiles s'afficheraient, puis
- * changeraient sous les yeux au second appel.
- *
- * Lecture en effet et non pendant le rendu — `localStorage` n'existe pas au
- * rendu serveur, et un ecart entre les deux fait repartir React de zero.
- */
-function useZonePerso() {
-  const [etat, setEtat] = useState<{
-    pret: boolean
-    zone: { lat: number; lng: number; rayon: number } | null
-  }>({ pret: false, zone: null })
-
-  useEffect(() => {
-    try {
-      const brut = localStorage.getItem('pdv-zone-user')
-      const z = brut ? (JSON.parse(brut) as { lat?: unknown; lng?: unknown; rayon?: unknown }) : null
-      const valide =
-        typeof z?.lat === 'number' && typeof z?.lng === 'number' && typeof z?.rayon === 'number'
-      setEtat({ pret: true, zone: valide ? { lat: z.lat as number, lng: z.lng as number, rayon: z.rayon as number } : null })
-    } catch {
-      setEtat({ pret: true, zone: null })
-    }
-  }, [])
-
-  return etat
 }
 
 /* ── Aujourd'hui — bento repris du hub (featured + 2 minis + « +N ») ──── */
