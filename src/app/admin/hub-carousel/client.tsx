@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { useTerritoire } from '@/components/TerritoireProvider'
+import { lireConfigsClient, urlEcritureConfig } from '@/lib/configClient'
 import { markHubDirty } from '@/lib/hubFresh'
 import { useAuth } from '@/hooks/useAuth'
 import { FEATURED_SLOTS, type FeaturedSlotRow } from '@/lib/featured'
@@ -106,22 +108,37 @@ export default function AdminHubCarousel() {
   // Aperçu admin d'une variante : purement local, n'écrit rien et n'affecte
   // pas ce que voient les habitants.
   const [previewVariant, setPreviewVariant] = useState<SplashPromoVariantId | null>(null)
+  /* Le territoire qu'on administre. Un visiteur ne peut pas en changer : pour
+     tout le monde sauf l'admin c'est celui par defaut, et cet ecran se
+     comporte alors exactement comme avant. */
+  const { territoire: territoireAdmin } = useTerritoire()
+  /* Le territoire voyage avec chaque appel admin : ce qu'on epingle
+     appartient a la ville qu'on administre. */
+  const qTerrSlots = territoireAdmin?.slug ? `?territoire=${encodeURIComponent(territoireAdmin.slug)}` : ''
 
   // Charge la config slide intro (toggle + image custom)
   useEffect(() => {
     if (authLoading || !user || !isAdmin) return
-    Promise.all([
-      supabase.from('config').select('value').eq('key', 'hub_hero_intro_enabled').maybeSingle(),
-      supabase.from('config').select('value').eq('key', 'hub_hero_intro_image_url').maybeSingle(),
-      supabase.from('config').select('value').eq('key', 'hub_section_order').maybeSingle(),
-      supabase.from('config').select('value').eq('key', 'hub_section_hidden').maybeSingle(),
-      supabase.from('config').select('value').eq('key', 'splash_promo').maybeSingle(),
-      supabase.from('config').select('value').eq('key', 'cinema_village_public').maybeSingle(),
-      supabase.from('config').select('value').eq('key', 'radio_village_public').maybeSingle(),
-      supabase.from('config').select('value').eq('key', 'assistant_visibilite').maybeSingle(),
-      supabase.from('config').select('value').eq('key', 'village_hero').maybeSingle(),
-      supabase.from('config').select('value').eq('key', 'entree_app').maybeSingle(),
-    ]).then(([toggleRes, imgRes, orderRes, hiddenRes, splashRes, cineRes, radioRes, assistRes, herosRes, entreeRes]) => {
+    /*
+     * On administre LE TERRITOIRE COURANT. Les reglages editoriaux lus ici
+     * sont les siens ; s'il n'en a pas, ils reviennent vides — jamais ceux
+     * d'un autre. La regle est partagee avec le serveur (CLES_EDITORIALES).
+     */
+    lireConfigsClient([
+      'hub_hero_intro_enabled', 'hub_hero_intro_image_url', 'hub_section_order',
+      'hub_section_hidden', 'splash_promo', 'cinema_village_public',
+      'radio_village_public', 'assistant_visibilite', 'village_hero', 'entree_app',
+    ], territoireAdmin?.id ?? null, !!territoireAdmin?.par_defaut).then(cfg => {
+      const toggleRes = { data: { value: cfg.hub_hero_intro_enabled } }
+      const imgRes    = { data: { value: cfg.hub_hero_intro_image_url } }
+      const orderRes  = { data: { value: cfg.hub_section_order } }
+      const hiddenRes = { data: { value: cfg.hub_section_hidden } }
+      const splashRes = { data: { value: cfg.splash_promo } }
+      const cineRes   = { data: { value: cfg.cinema_village_public } }
+      const radioRes  = { data: { value: cfg.radio_village_public } }
+      const assistRes = { data: { value: cfg.assistant_visibilite } }
+      const herosRes  = { data: { value: cfg.village_hero } }
+      const entreeRes = { data: { value: cfg.entree_app } }
       setIntroEnabled(toggleRes.data?.value === 'true')
       setIntroImageUrl(imgRes.data?.value || null)
       let parsed: unknown = []
@@ -139,7 +156,7 @@ export default function AdminHubCarousel() {
       setEntree(parseEntree(entreeRes.data?.value))
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, user, isAdmin])
+  }, [authLoading, user, isAdmin, territoireAdmin?.id, territoireAdmin?.par_defaut])
 
   async function toggleIntro(next: boolean) {
     if (introSaving) return
@@ -149,7 +166,7 @@ export default function AdminHubCarousel() {
     const { data: { session } } = await supabase.auth.getSession()
     const token = session?.access_token
     if (!token) { setIntroEnabled(prev); setIntroSaving(false); return }
-    const res = await writeJson('/api/admin/config', {
+    const res = await writeJson(urlEcritureConfig(territoireAdmin?.par_defaut ? null : territoireAdmin?.slug ?? null), {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body:    JSON.stringify({ key: 'hub_hero_intro_enabled', value: next ? 'true' : 'false' }),
@@ -171,7 +188,7 @@ export default function AdminHubCarousel() {
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
       if (!token) { setIntroImgUploading(false); return }
-      const res = await writeJson('/api/admin/config', {
+      const res = await writeJson(urlEcritureConfig(territoireAdmin?.par_defaut ? null : territoireAdmin?.slug ?? null), {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body:    JSON.stringify({ key: 'hub_hero_intro_image_url', value: newUrl }),
@@ -192,7 +209,7 @@ export default function AdminHubCarousel() {
     const token = session?.access_token
     if (!token) { setIntroImgUploading(false); return }
     // Vide la config → HubView retombera sur /hub-intro-slide.png
-    await writeJson('/api/admin/config', {
+    await writeJson(urlEcritureConfig(territoireAdmin?.par_defaut ? null : territoireAdmin?.slug ?? null), {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body:    JSON.stringify({ key: 'hub_hero_intro_image_url', value: '' }),
@@ -212,7 +229,7 @@ export default function AdminHubCarousel() {
     const { data: { session } } = await supabase.auth.getSession()
     const token = session?.access_token
     if (!token) { setSectionOrder(prev); setOrderSaving(false); return }
-    const res = await writeJson('/api/admin/config', {
+    const res = await writeJson(urlEcritureConfig(territoireAdmin?.par_defaut ? null : territoireAdmin?.slug ?? null), {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body:    JSON.stringify({ key: 'hub_section_order', value: JSON.stringify(next) }),
@@ -232,7 +249,7 @@ export default function AdminHubCarousel() {
     const next  = { ...entree, ...patch }
     setEntree(next); setEntreeSaving(true)
     const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/admin/config', {
+    const res = await fetch(urlEcritureConfig(territoireAdmin?.par_defaut ? null : territoireAdmin?.slug ?? null), {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
       body:    JSON.stringify({ key: 'entree_app', value: JSON.stringify(next) }),
@@ -246,7 +263,7 @@ export default function AdminHubCarousel() {
     const avant = cinemaVis
     setCinemaVis(next); setCinemaSaving(true)
     const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/admin/config', {
+    const res = await fetch(urlEcritureConfig(territoireAdmin?.par_defaut ? null : territoireAdmin?.slug ?? null), {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
       body:    JSON.stringify({ key: 'cinema_village_public', value: next }),
@@ -260,7 +277,7 @@ export default function AdminHubCarousel() {
     const avant = radioVis
     setRadioVis(next); setRadioSaving(true)
     const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/admin/config', {
+    const res = await fetch(urlEcritureConfig(territoireAdmin?.par_defaut ? null : territoireAdmin?.slug ?? null), {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
       body:    JSON.stringify({ key: 'radio_village_public', value: next }),
@@ -278,7 +295,7 @@ export default function AdminHubCarousel() {
     if (herosSaving) return
     setHerosListe(suivante); setHerosSaving(true); setHerosMsg(null)
     const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/admin/config', {
+    const res = await fetch(urlEcritureConfig(territoireAdmin?.par_defaut ? null : territoireAdmin?.slug ?? null), {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
       body:    JSON.stringify({ key: 'village_hero', value: JSON.stringify(suivante) }),
@@ -334,7 +351,7 @@ export default function AdminHubCarousel() {
     const avant = assistantVis
     setAssistantVis(next); setAssistantSaving(true)
     const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/admin/config', {
+    const res = await fetch(urlEcritureConfig(territoireAdmin?.par_defaut ? null : territoireAdmin?.slug ?? null), {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
       body:    JSON.stringify({ key: 'assistant_visibilite', value: next }),
@@ -352,7 +369,7 @@ export default function AdminHubCarousel() {
     const { data: { session } } = await supabase.auth.getSession()
     const token = session?.access_token
     if (!token) { setHiddenSections(prev); setOrderSaving(false); return }
-    const res = await writeJson('/api/admin/config', {
+    const res = await writeJson(urlEcritureConfig(territoireAdmin?.par_defaut ? null : territoireAdmin?.slug ?? null), {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body:    JSON.stringify({ key: 'hub_section_hidden', value: JSON.stringify(next) }),
@@ -416,7 +433,7 @@ export default function AdminHubCarousel() {
     const { data: { session } } = await supabase.auth.getSession()
     const token = session?.access_token
     if (!token) return
-    const res = await fetch(`/api/featured-slots?all=${showExpired ? '1' : ''}`, {
+    const res = await fetch(`/api/featured-slots?all=${showExpired ? '1' : ''}${qTerrSlots ? '&' + qTerrSlots.slice(1) : ''}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
     if (!res.ok) {
@@ -501,7 +518,7 @@ export default function AdminHubCarousel() {
     const { data: { session } } = await supabase.auth.getSession()
     const token = session?.access_token
     if (!token) return
-    const res = await writeJson('/api/featured-slots', {
+    const res = await writeJson(`/api/featured-slots${qTerrSlots}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ id, ...patch }),

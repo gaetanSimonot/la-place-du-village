@@ -1,5 +1,9 @@
 import { supabaseAdmin } from './supabase-admin'
 import { territoireParDefaut, type Territoire } from './territoires'
+// La liste vit dans son propre module : le navigateur la lit aussi, et deux
+// listes qui divergent feraient ecrire l'admin la ou l'app ne lit pas.
+import { CLES_EDITORIALES, estEditoriale } from './configCles'
+export { CLES_EDITORIALES, estEditoriale }
 
 /**
  * LIRE ET ÉCRIRE UN RÉGLAGE, POUR UN TERRITOIRE DONNÉ.
@@ -28,39 +32,6 @@ import { territoireParDefaut, type Territoire } from './territoires'
  * décide, et elle se lit d'un coup d'œil.
  * ────────────────────────────────────────────────────────────────────────
  */
-
-/**
- * Les clés ÉCRITES POUR UN ENDROIT. Absentes pour un territoire → `null`,
- * jamais la valeur d'un autre.
- */
-export const CLES_EDITORIALES = new Set([
-  'village_hero',
-  'hub_subtitle',
-  'hub_section_order',
-  'hub_section_hidden',
-  'hub_hero_intro_enabled',
-  'hub_hero_intro_image_url',
-  'splash_hero_image_url',
-  'splash_decouvrir',
-  'splash_promo',
-  'promo_carousel',
-  'image_library',
-  'entree_app',
-  'newsletter_current',
-  'newsletter_draft',
-  'newsletter_auto_last',
-  'radio_topbar_logo',
-  'radio_village_public',
-  'cinema_village_public',
-  'carte_depart_lat',
-  'carte_depart_lng',
-  'carte_depart_zoom',
-])
-
-/** Vrai si la clé se tait plutôt que d'hériter. */
-export function estEditoriale(cle: string): boolean {
-  return CLES_EDITORIALES.has(cle)
-}
 
 /** Cache 30 s : ces réglages sont lus plusieurs fois par rendu de page. */
 const CACHE_MS = 30_000

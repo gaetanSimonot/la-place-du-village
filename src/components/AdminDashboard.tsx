@@ -12,6 +12,7 @@ import { formatDate } from '@/lib/filters'
 import DoublonsAdmin from '@/components/DoublonsAdmin'
 import MapStylePicker from '@/components/MapStylePicker'
 import TerritoirePicker from '@/components/TerritoirePicker'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import ZoneAdmin from '@/components/ZoneAdmin'
 import MembresAdmin from '@/components/MembresAdmin'
 import ProduceurAdmin from '@/components/ProduceurAdmin'
@@ -104,6 +105,10 @@ export default function AdminDashboard() {
   const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
   const [adminVerified, setAdminVerified] = useState(false)
+  /* Le territoire administre : les listes, les compteurs et les mises en
+     avant de cet ecran ne parlent que de lui. */
+  const { territoire: territoireAdmin } = useTerritoire()
+  const idTerrAdmin = territoireAdmin?.id ?? null
 
   // Auth guard
   useEffect(() => {
@@ -178,6 +183,7 @@ export default function AdminDashboard() {
 
   const fetchEvents = useCallback(async (tab: EventTab, sub: SubFilter) => {
     setLoading(true)
+    // On administre UN territoire : la liste ne montre que le sien.
     let query = supabase
       .from('evenements')
       .select('id, titre, description, categorie, date_debut, statut, source, source_groupe, source_auteur, source_telephone, created_at, lieu_id, doublon_verifie, image_url, image_position, promotion, submitted_by, submitted_by_name, vote_count, publish_at, lieux(id, nom, commune, lat, lng, place_id_google)')
@@ -186,21 +192,25 @@ export default function AdminDashboard() {
       .limit(100)
     const sources = SOURCES_BY_TAB[tab]
     if (sources) query = query.in('source', sources)
+    if (idTerrAdmin) query = query.eq('territoire_id', idTerrAdmin)
     const { data } = await query
     setEvenements((data as unknown as Evenement[]) ?? [])
     setLoading(false)
-  }, [])
+  }, [idTerrAdmin])
 
   const fetchTabCounts = useCallback(async () => {
+    // Les badges comptent le territoire administre, comme la liste : un
+    // « 12 a traiter » qui inclut une autre ville ferait chercher longtemps.
+    const compte = (sources?: string[]) => {
+      let q = supabase.from('evenements').select('id', { count: 'exact', head: true })
+        .in('statut', STATUTS_BY_FILTER.a_traiter)
+      if (sources) q = q.in('source', sources)
+      if (idTerrAdmin) q = q.eq('territoire_id', idTerrAdmin)
+      return q
+    }
     const [cAll, c1, c2, c3] = await Promise.all([
-      supabase.from('evenements').select('id', { count: 'exact', head: true })
-        .in('statut', STATUTS_BY_FILTER.a_traiter),
-      supabase.from('evenements').select('id', { count: 'exact', head: true })
-        .in('source', SOURCES_BY_TAB.collector!).in('statut', STATUTS_BY_FILTER.a_traiter),
-      supabase.from('evenements').select('id', { count: 'exact', head: true })
-        .in('source', SOURCES_BY_TAB.soumission!).in('statut', STATUTS_BY_FILTER.a_traiter),
-      supabase.from('evenements').select('id', { count: 'exact', head: true })
-        .in('source', SOURCES_BY_TAB.scrap!).in('statut', STATUTS_BY_FILTER.a_traiter),
+      compte(), compte(SOURCES_BY_TAB.collector!),
+      compte(SOURCES_BY_TAB.soumission!), compte(SOURCES_BY_TAB.scrap!),
     ])
     setTabCounts({
       tous:       cAll.count ?? 0,
@@ -208,7 +218,7 @@ export default function AdminDashboard() {
       soumission: c2.count ?? 0,
       scrap:      c3.count ?? 0,
     })
-  }, [])
+  }, [idTerrAdmin])
 
   const fetchFeedbacks = useCallback(async () => {
     const res = await authedFetch('/api/admin/feedbacks')

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { markHubDirty } from '@/lib/hubFresh'
 import { useAuth } from '@/hooks/useAuth'
 import { FEATURED_SLOTS, SLOT_ALLOWED_TYPES, type FeaturedSlot, type FeaturedContentType, type FeatureCredits, creditsRemaining } from '@/lib/featured'
@@ -76,6 +77,9 @@ interface ModalProps {
 }
 
 export function FeatureModal({ contentType, contentId, isAdmin, isOwner, plan, onClose }: ModalProps) {
+  // Le territoire administre : la mise en avant lui appartient.
+  const { territoire: territoireFeat } = useTerritoire()
+  const qTerrSlots = territoireFeat?.slug ? `?territoire=${encodeURIComponent(territoireFeat.slug)}` : ''
   const allowedSlots = FEATURED_SLOTS.filter(s => SLOT_ALLOWED_TYPES[s.id].includes(contentType))
 
   const [credits, setCredits]             = useState<FeatureCredits | null>(null)
@@ -109,7 +113,7 @@ export function FeatureModal({ contentType, contentId, isAdmin, isOwner, plan, o
     if (!token) { setSubmitting(false); return }
 
     const endsAt = new Date(Date.now() + hours * 3600 * 1000).toISOString()
-    const res = await fetch('/api/featured-slots', {
+    const res = await fetch(`/api/featured-slots${qTerrSlots}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ slot, content_type: contentType, content_id: contentId, ends_at: endsAt, priority: 10 }),
@@ -133,7 +137,7 @@ export function FeatureModal({ contentType, contentId, isAdmin, isOwner, plan, o
     const token = session?.access_token
     if (!token) { setSubmitting(false); return }
 
-    const res = await fetch('/api/featured-slots', {
+    const res = await fetch(`/api/featured-slots${qTerrSlots}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({

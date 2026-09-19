@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { territoireDeLaRequete } from '@/lib/territoires'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/server-auth'
 import { endOfTodayParisISO, type FeaturedSlot, type FeaturedContentType } from '@/lib/featured'
@@ -17,10 +18,15 @@ export async function GET(req: NextRequest) {
   const slot = searchParams.get('slot') as FeaturedSlot | null
   const all  = searchParams.get('all') === '1'
 
+  // Les mises en avant de CE territoire : la une de Pau n'est pas celle des
+  // Cevennes. Filtre pose uniquement si le territoire est connu.
+  const terr = await territoireDeLaRequete(req.url)
+
   let q = supabaseAdmin
     .from('featured_slots')
     .select('*')
 
+  if (terr) q = q.eq('territoire_id', terr.id)
   if (slot) q = q.eq('slot', slot)
   if (!all) q = q.gt('ends_at', new Date().toISOString()).lte('starts_at', new Date().toISOString())
 
@@ -45,6 +51,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const ctx = await requireAdmin(req)
   if (ctx instanceof Response) return ctx
+
+  // Le territoire qu'on administre au moment de poser la mise en avant.
+  const terrPost = await territoireDeLaRequete(req.url)
 
   const body = await req.json().catch(() => ({}))
   const slot         = body?.slot as FeaturedSlot
@@ -100,6 +109,8 @@ export async function POST(req: NextRequest) {
       sponsored,
       position,
       source:           'admin',
+      // Une mise en avant appartient au territoire depuis lequel on l'a posee.
+      ...(terrPost ? { territoire_id: terrPost.id } : {}),
       created_by:        ctx.userId,
       created_by_admin:  true,
     })
