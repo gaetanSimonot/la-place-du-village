@@ -99,6 +99,7 @@ async function processOneEvent(
     commune: extracted.commune,
     lieu_nom: extracted.lieu_nom,
     description: extracted.description,
+    territoire_id: territoire?.id ?? null,
   })
 
   if (dup.doublon) {

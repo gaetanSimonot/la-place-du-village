@@ -15,6 +15,22 @@ export interface DoublonCheckInput {
   commune: string | null
   lieu_nom: string | null
   description: string | null
+  /**
+   * Ne comparer qu'aux evenements de CE territoire.
+   *
+   * Deux raisons, et la seconde compte plus que la premiere. On evite qu'un
+   * « Loto » de Pau soit pris pour celui de Sumene — le modele verrait la
+   * commune et trancherait sans doute bien. Mais surtout : la fenetre de
+   * comparaison est plafonnee a 300 fiches. Sans decoupage, les evenements
+   * d'un territoire occupent des places dans la fenetre de l'autre, et un
+   * VRAI doublon peut en sortir. C'est exactement le defaut mesure le
+   * 15/09/2026, quand le plafond etait a 60 : « Cafe Pros La Soierie » etait
+   * hors fenetre et sa copie est passee.
+   *
+   * Absent (ou avant la migration des territoires) : on compare a tout,
+   * comme avant.
+   */
+  territoire_id?: string | null
 }
 
 export interface DoublonCheckResult {
@@ -89,6 +105,10 @@ export async function checkDoublon(newEvent: DoublonCheckInput): Promise<Doublon
      * Mesure le 15/09/2026.
      */
     .limit(300)
+
+  // On ne compare qu'a l'interieur du territoire — voir `territoire_id` plus
+  // haut. Sans territoire (avant migration), la fenetre reste celle d'avant.
+  if (newEvent.territoire_id) query = query.eq('territoire_id', newEvent.territoire_id)
 
   if (newEvent.date_debut) {
     const d = new Date(newEvent.date_debut + 'T00:00:00')

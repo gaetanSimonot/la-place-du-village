@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { geocodeWithGoogle, calcStatut, nettoyerJoursSemaine, INDICE_GEO_SECTEUR, communeDepuisAdresse } from '@/lib/extract'
+import { geocodeWithGoogle, calcStatut, nettoyerJoursSemaine, communeDepuisAdresse } from '@/lib/extract'
 import { trouverOuCreerLieu } from '@/lib/lieuxResolve'
 import { nettoyerDates, bornes } from '@/lib/occurrences'
 import { mergeCategories } from '@/lib/categories'
 import { checkDoublon } from '@/lib/checkDoublon'
 import { checkZone } from '@/lib/checkZone'
+import { territoireParDefaut, indiceGeoDe } from '@/lib/territoires'
 import { rateLimit } from '@/lib/rateLimit'
 import { validateImageUpload } from '@/lib/imageUpload'
 
@@ -128,6 +129,16 @@ export async function POST(req: NextRequest) {
       imageUrl = up.url
     }
 
+    /*
+     * LE FORMULAIRE ECRIT DANS LE TERRITOIRE PAR DEFAUT.
+     *
+     * Provisoire et assume : tant que le selecteur de territoire n'existe pas
+     * (reserve a l'admin), une saisie a la main appartient au territoire ou se
+     * trouvent tous les habitants. Quand le selecteur arrivera, c'est lui qui
+     * decidera ici.
+     */
+    const territoire = await territoireParDefaut()
+
     let lieuId: string | null = null
     let geo = { place_id_google: null as string | null, lat: null as number | null, lng: null as number | null, adresse: null as string | null, approx: false }
 
@@ -143,7 +154,7 @@ export async function POST(req: NextRequest) {
          * dessous renvoie un 422 « hors zone ». Quelqu'un saisissait un
          * événement à 12 km et se voyait refuser l'enregistrement.
          */
-        geo = await geocodeWithGoogle(lieu_nom || null, commune || null, { indiceGeo: INDICE_GEO_SECTEUR })
+        geo = await geocodeWithGoogle(lieu_nom || null, commune || null, { indiceGeo: indiceGeoDe(territoire) })
       }
 
       /*
@@ -174,6 +185,7 @@ export async function POST(req: NextRequest) {
           adresse: geo.adresse ?? lieu_adresse ?? null,
           place_id_google: geo.place_id_google,
           code_postal: code_postal ?? null,
+          territoire_id: territoire?.id ?? null,
         },
       )
 
@@ -185,7 +197,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Vérification zone géographique
-    const zone = await checkZone(geo.lat, geo.lng)
+    const zone = await checkZone(geo.lat, geo.lng, null, territoire)
     if (!zone.within) {
       return NextResponse.json({
         error: `Événement hors zone (${zone.distanceMin} km de ${zone.centreLePlusProche}, rayon configuré : ${zone.rayon} km)`,
@@ -218,6 +230,7 @@ export async function POST(req: NextRequest) {
       commune:    commune || null,
       lieu_nom:   lieu_nom || null,
       description: description || null,
+      territoire_id: territoire?.id ?? null,
     })
 
     let finalStatut: string
@@ -280,6 +293,7 @@ export async function POST(req: NextRequest) {
         image_url: imageUrl,
         image_position: imageUrl ? (image_position || '50% 50%') : null,
         source: 'formulaire',
+        ...(territoire ? { territoire_id: territoire.id } : {}),
         submitted_by: submittedBy,
         submitted_by_name: submittedByName,
         publish_at: null,
