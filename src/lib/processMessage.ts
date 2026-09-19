@@ -2,10 +2,9 @@ import { createClient } from '@supabase/supabase-js'
 import { extractMultipleWithClaude, geocodeWithGoogle, calcStatut, nettoyerJoursSemaine, communeDepuisAdresse } from './extract'
 import { datesDepuisExtraction } from './occurrences'
 import { checkDoublon } from './checkDoublon'
-import { checkZone } from './checkZone'
 import { trouverOuCreerLieu } from './lieuxResolve'
 import { regrouperRecurrences } from './recurrences'
-import { territoireDuGroupe, indiceGeoDe, type Territoire } from './territoires'
+import { territoireDuGroupe, territoireDuPoint, indiceGeoDe, type Territoire } from './territoires'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -93,7 +92,16 @@ export async function processMessage(
   for (const evt of events) {
     if (!evt.titre?.trim()) { reasons.push('Titre manquant'); continue }
 
-    const check = await checkDoublon({ titre: evt.titre, date_debut: evt.date_debut, heure: evt.heure, commune: evt.commune, lieu_nom: evt.lieu_nom, description: evt.description, territoire_id: territoire?.id ?? null })
+    /*
+     * Le territoire se decide EVENEMENT PAR EVENEMENT. Un meme message peut
+     * en annoncer deux dans deux villes ; si on rangeait le message entier,
+     * le second heriterait du premier — et pire, son geocodage serait oriente
+     * vers la mauvaise ville. `territoire` (le groupe) reste la presomption
+     * commune, `terr` le verdict propre a cet evenement.
+     */
+    let terr = territoire
+
+    const check = await checkDoublon({ titre: evt.titre, date_debut: evt.date_debut, heure: evt.heure, commune: evt.commune, lieu_nom: evt.lieu_nom, description: evt.description, territoire_id: terr?.id ?? null })
     if (check.doublon) { reasons.push(`"${evt.titre}" → doublon`); continue }
 
     let lieuId: string | null = null
@@ -107,9 +115,30 @@ export async function processMessage(
        * sur le defaut « France ». « Breau » partait alors en Seine-et-Marne,
        * a 518 km, et le filtre de zone ecartait un lieu a 12 km d'ici.
        */
-      geo = await geocodeWithGoogle(evt.lieu_nom, evt.commune, { indiceGeo: indiceGeoDe(territoire) })
-      const zone = await checkZone(geo.lat, geo.lng, null, territoire)
-      if (!zone.within) { reasons.push(`"${evt.titre}" → hors zone (${zone.distanceMin}km de ${zone.centreLePlusProche})`); continue }
+      geo = await geocodeWithGoogle(evt.lieu_nom, evt.commune, { indiceGeo: indiceGeoDe(terr) })
+
+      /*
+       * LE GROUPE PRESUME, LA GEOGRAPHIE TRANCHE.
+       *
+       * Le territoire du groupe a servi a orienter le geocodage ci-dessus —
+       * sans repere, « Breau » part en Seine-et-Marne. Maintenant que le
+       * point est connu, c'est lui qui decide : un evenement annonce dans un
+       * groupe cevenol mais qui se tient a Pau part a Pau, sans que personne
+       * n'ait rien a declarer.
+       *
+       * Ca ne coute aucun appel de plus : le geocodage a deja eu lieu, on ne
+       * fait que des soustractions sur des coordonnees.
+       *
+       * Hors de TOUTES les zones, on refuse — comme avant. Sans coordonnees,
+       * on garde la presomption du groupe : on ne refuse pas ce qu'on n'a pas
+       * pu situer.
+       */
+      const arbitrage = await territoireDuPoint(geo.lat, geo.lng)
+      if (geo.lat != null && !arbitrage.territoire) {
+        reasons.push(`"${evt.titre}" → hors zone (${arbitrage.distanceKm}km de ${arbitrage.centreLePlusProche})`)
+        continue
+      }
+      if (arbitrage.territoire) terr = arbitrage.territoire
 
       if (geo.lat) {
         // Ce que le modele a lu prime ; l'adresse ne comble que le vide.
@@ -120,7 +149,7 @@ export async function processMessage(
         const lieu = await trouverOuCreerLieu(
           evt.lieu_nom ?? communeReelle ?? '',
           communeReelle,
-          { lat: geo.lat, lng: geo.lng, adresse: geo.adresse ?? evt.lieu_adresse, place_id_google: geo.place_id_google , territoire_id: territoire?.id ?? null },
+          { lat: geo.lat, lng: geo.lng, adresse: geo.adresse ?? evt.lieu_adresse, place_id_google: geo.place_id_google , territoire_id: terr?.id ?? null },
         )
         lieuId = lieu.id
       }
@@ -150,7 +179,7 @@ export async function processMessage(
       lieu_id: lieuId, prix: evt.prix || null, contact: evt.contact || null,
       organisateurs: evt.organisateurs || null, image_url: imageUrl, source,
       message_entrant_id: messageId, raison_statut: raisonStatut || null,
-      ...(territoire ? { territoire_id: territoire.id } : {}),
+      ...(terr ? { territoire_id: terr.id } : {}),
     }).select('id').single()
 
     if (evenement) {

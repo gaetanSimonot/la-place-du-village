@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { INDICE_GEO_SECTEUR } from './extract'
+import { haversineKm } from './distance'
 
 /**
  * LE TERRITOIRE — qui décide de quoi, et pourquoi.
@@ -165,4 +166,62 @@ export async function territoirePourIngestion(
     return { ok: true, territoire: t }
   }
   return { ok: true, territoire: await territoireDuGroupe(source, groupe) }
+}
+
+export interface ArbitrageZone {
+  /** Le territoire dont la zone contient ce point. `null` = hors de toutes. */
+  territoire: Territoire | null
+  /** Distance au centre le plus proche, toutes villes confondues. */
+  distanceKm: number
+  /** Le nom de ce centre — pour expliquer un refus lisiblement. */
+  centreLePlusProche: string
+}
+
+/**
+ * QUEL TERRITOIRE CONTIENT CE POINT ?
+ *
+ * C'est l'arbitre du rangement automatique. Le groupe d'origine donne une
+ * PRESOMPTION — elle sert a orienter le geocodage, qui sans repere part
+ * chercher l'homonyme le plus celebre. Mais une fois le point connu, c'est la
+ * geographie qui tranche : un evenement annonce dans un groupe cevenol mais
+ * qui se tient a Pau part a Pau, sans que personne n'ait rien a declarer.
+ *
+ * Ce que ca ne coute PAS : un appel de plus. Le geocodage a deja eu lieu ; on
+ * ne fait ici que des soustractions sur des coordonnees.
+ *
+ * Hors de toutes les zones, on rend `null` : c'est un refus, et il doit le
+ * rester. Un evenement a 700 km n'appartient a personne.
+ *
+ * Quand deux zones se chevauchent — ca arrivera si deux territoires voisins
+ * s'ouvrent — le plus proche gagne. C'est la reponse la moins surprenante.
+ */
+export async function territoireDuPoint(
+  lat: number | null,
+  lng: number | null,
+): Promise<ArbitrageZone> {
+  const vide: ArbitrageZone = { territoire: null, distanceKm: 0, centreLePlusProche: '' }
+  if (lat == null || lng == null) return vide
+
+  const liste = await tous()
+  if (!liste.length) return vide
+
+  const { data, error } = await supabaseAdmin
+    .from('zone_centres')
+    .select('nom, lat, lng, territoire_id')
+  if (error || !data?.length) return vide
+
+  let gagnant: Territoire | null = null
+  let distanceGagnante = Infinity
+  let minGlobal = Infinity
+  let nomMin = ''
+
+  for (const c of data as Array<{ nom: string; lat: number; lng: number; territoire_id: string | null }>) {
+    const d = haversineKm(lat, lng, c.lat, c.lng)
+    if (d < minGlobal) { minGlobal = d; nomMin = c.nom }
+    const t = liste.find(x => x.id === c.territoire_id)
+    if (!t || !t.actif) continue
+    if (d <= t.rayon_insertion_km && d < distanceGagnante) { gagnant = t; distanceGagnante = d }
+  }
+
+  return { territoire: gagnant, distanceKm: Math.round(minGlobal), centreLePlusProche: nomMin }
 }

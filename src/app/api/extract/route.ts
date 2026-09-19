@@ -10,11 +10,10 @@ import {
   type GeoResult,
 } from '@/lib/extract'
 import { regrouperRecurrences } from '@/lib/recurrences'
-import { territoirePourIngestion, indiceGeoDe, type Territoire } from '@/lib/territoires'
+import { territoirePourIngestion, territoireDuPoint, indiceGeoDe, type Territoire } from '@/lib/territoires'
 import { trouverOuCreerLieu } from '@/lib/lieuxResolve'
 import { datesDepuisExtraction } from '@/lib/occurrences'
 import { checkDoublon } from '@/lib/checkDoublon'
-import { checkZone } from '@/lib/checkZone'
 import { requireUser } from '@/lib/server-auth'
 import { rateLimit } from '@/lib/rateLimit'
 import { validateImageUpload } from '@/lib/imageUpload'
@@ -87,8 +86,10 @@ async function processOneEvent(
   sourceAuteur: string | null,
   sourceTelephone: string | null,
   imageUrl: string | null,
-  territoire: Territoire | null,
+  territoirePresume: Territoire | null,
 ): Promise<ProcessResult> {
+  // Presomption du groupe, revue par la geographie plus bas.
+  let territoire = territoirePresume
   // 1. Dédup Claude-powered (cf. src/lib/checkDoublon.ts) — plus fiable que le
   // simple titre+date utilisé avant. Timeout 7s interne, retourne publier:false
   // en cas d'incertitude (events seront en statut a_verifier).
@@ -116,6 +117,41 @@ async function processOneEvent(
     // Seine-et-Marne, à 518. Le contrôle de zone écartait ensuite un lieu
     // parfaitement local.
     geo = await geocodeWithGoogle(extracted.lieu_nom, extracted.commune, { indiceGeo: indiceGeoDe(territoire) })
+
+    /*
+     * LE GROUPE PRESUME, LA GEOGRAPHIE TRANCHE — meme regle que le chemin
+     * WhatsApp. Le territoire de la source a oriente le geocodage ci-dessus ;
+     * le point, une fois connu, decide du rangement. Un evenement annonce
+     * dans un groupe cevenol mais qui se tient a Pau part a Pau, sans que
+     * personne n'ait rien a declarer. Aucun appel de plus : on ne fait que
+     * des soustractions sur des coordonnees.
+     *
+     * TROP LOIN : ON REFUSE. Ce controle protegeait le formulaire, WhatsApp
+     * et les scrapers — mais PAS cette route, celle par laquelle Signal
+     * ecrit. Constate le 17/09/2026 : 56 lieux au-dela de 95 km, et 5
+     * evenements Signal poses dessus.
+     *
+     * Il se juge AVANT la creation du lieu, pour deux raisons : le lieu doit
+     * naitre dans le bon territoire, et un refus ne doit pas laisser une
+     * fiche de lieu orpheline derriere lui.
+     *
+     * Sans coordonnees, on laisse passer avec la presomption du groupe : on
+     * ne refuse pas ce qu'on n'a pas pu situer, et une affiche sans adresse
+     * reste utile.
+     */
+    if (geo.lat != null && geo.lng != null) {
+      const arbitrage = await territoireDuPoint(geo.lat, geo.lng)
+      if (!arbitrage.territoire) {
+        return {
+          ok: false,
+          reason: 'hors_zone',
+          titre: extracted.titre,
+          error: `${arbitrage.distanceKm} km de ${arbitrage.centreLePlusProche} — hors de toutes les zones`,
+        }
+      }
+      territoire = arbitrage.territoire
+    }
+
     // On CHERCHE le lieu avant d'en créer un. L'insertion sèche d'avant a
     // laissé 1134 lignes dans `lieux` pour ~285 lieux réels — « Le petit
     // dojo » 88 fois — et privait la vérification anti-doublon de son
@@ -137,30 +173,6 @@ async function processOneEvent(
       }
     }
     lieuId = lieu.id
-  }
-
-  /*
-   * TROP LOIN : ON REFUSE.
-   *
-   * `checkZone` protegeait le formulaire, le chemin WhatsApp et les scrapers —
-   * mais PAS cette route, celle par laquelle Signal ecrit. Un evenement pose
-   * en Belgique, au Quebec ou en Italie entrait donc sans etre mesure.
-   * Constate le 17/09/2026 : 56 lieux au-dela de 95 km, et 5 evenements
-   * Signal poses dessus.
-   *
-   * Sans coordonnees, `checkZone` laisse passer : on ne peut pas refuser ce
-   * qu'on n'a pas pu situer, et une affiche sans adresse reste utile.
-   */
-  if (geo.lat != null && geo.lng != null) {
-    const zone = await checkZone(geo.lat, geo.lng, null, territoire)
-    if (!zone.within) {
-      return {
-        ok: false,
-        reason: 'hors_zone',
-        titre: extracted.titre,
-        error: `${zone.distanceMin} km de ${zone.centreLePlusProche} (limite ${zone.rayon} km)`,
-      }
-    }
   }
 
   // 3. Statut : combine calcStatut + override "publier" du check doublon (si
