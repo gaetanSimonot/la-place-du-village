@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { territoirePourIngestion } from '@/lib/territoires'
 import { createHash } from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import { processMessage } from '@/lib/processMessage'
@@ -117,11 +118,32 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { source = 'whatsapp', groupe, auteur, contenu, image, imageMimeType, image_url } = body
+  const { source = 'whatsapp', groupe, auteur, contenu, image, imageMimeType, image_url,
+          // Deux champs apportes par le collecteur Facebook. Les collecteurs
+          // WhatsApp et Signal ne les envoient pas : tout reste facultatif.
+          territoire: slugTerritoire, permalien } = body
 
   if (!contenu?.trim() && !image && !image_url) {
     return NextResponse.json({ error: 'Contenu ou image requis' }, { status: 400 })
   }
+
+  /*
+   * LE TERRITOIRE DU POST. Le champ du payload prime ; sinon on regarde la
+   * table des groupes ; sinon le territoire par defaut.
+   *
+   * Un slug inconnu est REFUSE et non rattrape en silence : un collecteur qui
+   * se trompe de nom doit le voir tout de suite. Retomber sur le defaut
+   * rangerait les posts de Pau dans les Cevennes, et ca ne se verrait que des
+   * semaines plus tard.
+   */
+  const res = await territoirePourIngestion(slugTerritoire, source, groupe)
+  if (!res.ok) {
+    return NextResponse.json({
+      error: `Territoire inconnu : « ${res.slugInconnu} ». Rien n'a ete enregistre.`,
+      territoire_inconnu: res.slugInconnu,
+    }, { status: 400 })
+  }
+  const territoire = res.territoire
 
   const empreinte = typeof image === 'string' && image ? empreinteImage(image) : null
 
@@ -152,6 +174,8 @@ export async function POST(req: NextRequest) {
     .insert({
       source,
       groupe: groupe ?? null,
+      ...(territoire ? { territoire_id: territoire.id } : {}),
+      ...(typeof permalien === 'string' && permalien ? { permalien: permalien.slice(0, 500) } : {}),
       auteur: auteur ?? null,
       contenu: contenu ?? null,
       image_url: imageUrl,
@@ -164,7 +188,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Erreur insertion message' }, { status: 500 })
   }
 
-  const result = await processMessage(msg.id, contenu ?? null, imageUrl, source, image ?? null, imageMimeType ?? null, groupe ?? null)
+  const result = await processMessage(msg.id, contenu ?? null, imageUrl, source, image ?? null, imageMimeType ?? null, groupe ?? null, territoire)
 
   await supabaseAdmin.from('messages_entrants').update({
     statut: result.statut,

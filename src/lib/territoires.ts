@@ -131,3 +131,38 @@ export async function territoireDeLaRequete(url: string): Promise<Territoire | n
   try { slug = new URL(url).searchParams.get('territoire') } catch { slug = null }
   return (await territoireParSlug(slug)) ?? (await territoireParDefaut())
 }
+
+/** Ce que rend `territoirePourIngestion` : soit un territoire, soit un refus. */
+export type ResolutionIngestion =
+  | { ok: true; territoire: Territoire | null }
+  | { ok: false; slugInconnu: string }
+
+/**
+ * Le territoire d'un post qui ARRIVE, et l'ordre de priorite.
+ *
+ *   1. le champ `territoire` du payload, quand le collecteur le connait ;
+ *   2. sinon la table `territoire_groupes`, par (source, groupe) ;
+ *   3. sinon le territoire par defaut.
+ *
+ * Cet ordre permet aux collecteurs WhatsApp et Signal de ne RIEN changer :
+ * ils n'envoient pas de territoire, leurs groupes sont declares cote app, et
+ * un groupe non declare retombe sur le defaut.
+ *
+ * UN SLUG INCONNU EST REFUSE, il ne retombe pas sur le defaut. Un collecteur
+ * qui se trompe de nom doit le savoir : retomber en silence sur les Cevennes
+ * rangerait les posts de Pau au mauvais endroit, et ca ne se verrait que des
+ * semaines plus tard. Mal ranger est pire que refuser.
+ */
+export async function territoirePourIngestion(
+  slugDemande: string | null | undefined,
+  source: string | null | undefined,
+  groupe: string | null | undefined,
+): Promise<ResolutionIngestion> {
+  const slug = (slugDemande ?? '').trim()
+  if (slug) {
+    const t = await territoireParSlug(slug)
+    if (!t) return { ok: false, slugInconnu: slug }
+    return { ok: true, territoire: t }
+  }
+  return { ok: true, territoire: await territoireDuGroupe(source, groupe) }
+}

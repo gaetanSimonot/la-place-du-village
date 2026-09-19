@@ -5,7 +5,7 @@ import { checkDoublon } from './checkDoublon'
 import { checkZone } from './checkZone'
 import { trouverOuCreerLieu } from './lieuxResolve'
 import { regrouperRecurrences } from './recurrences'
-import { territoireDuGroupe, indiceGeoDe } from './territoires'
+import { territoireDuGroupe, indiceGeoDe, type Territoire } from './territoires'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,6 +28,8 @@ export async function processMessage(
   imageBase64?: string | null,
   imageMime?: string | null,
   groupe?: string | null,
+  /** Deja resolu par l'appelant (l'inbox le fait). Sinon on le deduit ici. */
+  territoireResolu?: Territoire | null,
 ): Promise<ProcessResult> {
   /*
    * LE GROUPE DECIDE DU TERRITOIRE, et tout ce qu'il apporte en herite.
@@ -36,7 +38,7 @@ export async function processMessage(
    * Avant la migration des territoires, `territoire` vaut null et tout se
    * comporte exactement comme avant.
    */
-  const territoire = await territoireDuGroupe(source, groupe)
+  const territoire = territoireResolu ?? await territoireDuGroupe(source, groupe)
   let base64 = imageBase64 || null
   const mime  = imageMime || 'image/jpeg'
 

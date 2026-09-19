@@ -10,7 +10,7 @@ import {
   type GeoResult,
 } from '@/lib/extract'
 import { regrouperRecurrences } from '@/lib/recurrences'
-import { territoireDuGroupe, indiceGeoDe, type Territoire } from '@/lib/territoires'
+import { territoirePourIngestion, indiceGeoDe, type Territoire } from '@/lib/territoires'
 import { trouverOuCreerLieu } from '@/lib/lieuxResolve'
 import { datesDepuisExtraction } from '@/lib/occurrences'
 import { checkDoublon } from '@/lib/checkDoublon'
@@ -253,7 +253,10 @@ export async function POST(req: NextRequest) {
 
     // Auth : sources webhook (whatsapp/signal) requièrent la clé x-wa-key,
     // sinon user authentifié + rate-limit (formulaire admin).
-    if (source === 'whatsapp' || source === 'signal') {
+    // `facebook` rejoint les sources webhook : le collecteur PC s'authentifie
+    // par la meme cle que le telephone. Sans cette ligne il tombait sur
+    // requireUser et recevait un 401 qu'il aurait pris pour une panne.
+    if (source === 'whatsapp' || source === 'signal' || source === 'facebook') {
       const waKey = req.headers.get('x-wa-key')
       if (!waKey || waKey !== process.env.WHATSAPP_API_KEY) {
         return NextResponse.json({ error: 'Clé API invalide' }, { status: 401 })
@@ -301,8 +304,19 @@ export async function POST(req: NextRequest) {
 
     // Les créneaux qui se répètent sont fondus AVANT tout traitement : une
     // seule fiche part au géocodage, à la dédup et en base, au lieu de trente.
-    // Le groupe decide du territoire, resolu UNE fois pour tout le message.
-    const territoire = await territoireDuGroupe(source, sourceGroupe)
+    /*
+     * Le territoire du message, resolu UNE fois pour toute l'affiche : le champ
+     * `territoire` du payload prime, sinon le groupe, sinon le defaut. Un slug
+     * inconnu est refuse plutot que range au mauvais endroit.
+     */
+    const resTerr = await territoirePourIngestion(body?.territoire, source, sourceGroupe)
+    if (!resTerr.ok) {
+      return NextResponse.json({
+        error: `Territoire inconnu : « ${resTerr.slugInconnu} ». Rien n'a ete enregistre.`,
+        territoire_inconnu: resTerr.slugInconnu,
+      }, { status: 400 })
+    }
+    const territoire = resTerr.territoire
 
     const aTraiter = regrouperRecurrences(extractedEvents)
 
