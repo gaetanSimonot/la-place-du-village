@@ -1,5 +1,5 @@
 'use client'
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAdminSession } from '@/hooks/useAdminSession'
 
@@ -70,27 +70,83 @@ export function TerritoireProvider({ children }: { children: React.ReactNode }) 
     return () => { vivant = false }
   }, [])
 
+  /*
+   * UN CHOIX FAIT A LA MAIN NE DOIT PLUS JAMAIS ETRE RELU PAR-DESSUS.
+   *
+   * L'effet ci-dessous se rejoue a chaque fois qu'`isAdmin` change — et sur
+   * telephone ca arrive tout seul : l'app reprise en arriere-plan rafraichit
+   * son jeton, `isAdmin` retombe a false une fraction de seconde puis
+   * remonte. L'effet relisait alors la valeur gardee et ECRASAIT le choix
+   * qu'on venait de faire : on tape « Cevennes », l'ecran repasse sur Pau
+   * sans rien dire. Invisible sur PC, ou la session ne bouge pas.
+   */
+  const choixExplicite = useRef(false)
+
   // Le choix garde n'est relu QU'AUX ADMINS. Si l'un d'eux perd ses droits,
-  // il retombe seul sur le territoire par defaut sans rien avoir a nettoyer.
+  // il retombe seul sur le territoire par defaut sans rien avoir a nettoyer
+  // (c'est `slugEffectif` plus bas qui s'en charge, pas cet effet).
   useEffect(() => {
-    if (!isAdmin) { setSlug(null); return }
+    if (!isAdmin || choixExplicite.current) return
+
+    /*
+     * `?territoire=<slug>` force la vue, une fois, et devient le choix garde.
+     * C'est la porte de sortie quand le choix enregistre est coince sur un
+     * appareil qu'on n'a pas sous la main : un lien suffit a s'en defaire.
+     * Reserve a l'admin comme le reste — le parametre ne fait rien aux autres.
+     */
+    let voulu: string | null = null
+    try { voulu = new URLSearchParams(window.location.search).get('territoire') } catch { voulu = null }
+
+    if (voulu) {
+      choixExplicite.current = true
+      setSlug(voulu)
+      try { localStorage.setItem(CLE, voulu) } catch { /* choix non garde */ }
+      return
+    }
+
     try {
       const garde = localStorage.getItem(CLE)
       if (garde) setSlug(garde)
     } catch { /* pas de choix garde */ }
   }, [isAdmin])
 
+  /*
+   * Un slug garde qui ne correspond a aucun territoire est efface. Sans ca il
+   * reste la indefiniment, a faire retomber l'ecran sur le defaut a chaque
+   * ouverture sans qu'on comprenne pourquoi.
+   */
+  useEffect(() => {
+    if (!pret || !slug) return
+    if (territoires.some(t => t.slug === slug)) return
+    setSlug(null)
+    try { localStorage.removeItem(CLE) } catch { /* rien a nettoyer */ }
+  }, [pret, slug, territoires])
+
+  /*
+   * LE DROIT DE BASCULER SE VERIFIE A L'AFFICHAGE, PAS A L'ENREGISTREMENT.
+   *
+   * La garantie est la meme — qui n'est pas admin voit toujours le territoire
+   * par defaut, quoi qu'il y ait en memoire. Mais la refuser au moment du clic
+   * creait une panne silencieuse sur telephone : `isAdmin` retombe a false une
+   * fraction de seconde quand l'app reprend et rafraichit son jeton, et un
+   * appui tombe pile dans cette fenetre ne faisait RIEN. Le bouton repondait
+   * une fois sur deux, sans message, sans trace.
+   */
+  const slugEffectif = isAdmin ? slug : null
+
   const territoire =
-    (slug ? territoires.find(t => t.slug === slug) : null)
+    (slugEffectif ? territoires.find(t => t.slug === slugEffectif) : null)
     ?? territoires.find(t => t.par_defaut)
     ?? territoires[0]
     ?? null
 
   const choisirTerritoire = useCallback((s: string) => {
-    if (!isAdmin) return
+    // Le marquer AVANT de poser l'etat : a partir d'ici, plus aucune
+    // relecture n'a le droit de revenir dessus.
+    choixExplicite.current = true
     setSlug(s)
     try { localStorage.setItem(CLE, s) } catch { /* choix non garde */ }
-  }, [isAdmin])
+  }, [])
 
   return (
     <TerritoireContext.Provider value={{
