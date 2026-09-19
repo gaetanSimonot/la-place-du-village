@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/server-auth'
 import { monterLettreDeLaSemaine } from '@/lib/newsletterAuto'
+import { territoireDeLaRequete } from '@/lib/territoires'
 import type { NewsletterBlock } from '@/lib/newsletterBlocks'
 
 /**
@@ -31,7 +32,8 @@ export async function GET(req: NextRequest) {
    * plans, les deux commerces) est recalculé : ouvrir l'éditeur un lundi doit
    * montrer la lettre de CE lundi, pas celle qu'on avait laissée.
    */
-  const auto = await monterLettreDeLaSemaine((draft?.blocks as NewsletterBlock[]) ?? null)
+  const terr = (await territoireDeLaRequete(req.url))?.id ?? null
+  const auto = await monterLettreDeLaSemaine((draft?.blocks as NewsletterBlock[]) ?? null, terr)
 
   return NextResponse.json({
     draft: {

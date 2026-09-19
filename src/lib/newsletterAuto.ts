@@ -72,15 +72,19 @@ function garantir(
  * Repli sur la date de création si le numéro de la semaine n'existe pas encore
  * — le journal est généré le lundi matin, mais rien ne garantit qu'il soit là.
  */
-export async function articleDeLaSemaine(): Promise<string | null> {
+export async function articleDeLaSemaine(terr: string | null = null): Promise<string | null> {
   const sem = semaineDe()
 
-  const { data: numero } = await supabaseAdmin
-    .from('journaux_hebdo').select('id').eq('semaine_du', sem.debut).maybeSingle()
+  let qNum = supabaseAdmin
+    .from('journaux_hebdo').select('id').eq('semaine_du', sem.debut)
+  if (terr) qNum = qNum.eq('territoire_id', terr)
+  const { data: numero } = await qNum.maybeSingle()
 
-  const req = supabaseAdmin
+  let req = supabaseAdmin
     .from('articles_journal').select('id')
     .eq('statut', 'publie')
+  if (terr) req = req.eq('territoire_id', terr)
+  req = req
     .order('created_at', { ascending: false })
     .limit(1)
 
@@ -92,12 +96,13 @@ export async function articleDeLaSemaine(): Promise<string | null> {
 }
 
 /** Deux commerces à mettre en avant — les payants d'abord. */
-export async function partenairesDeLaSemaine(): Promise<string[]> {
-  const { data } = await supabaseAdmin
+export async function partenairesDeLaSemaine(terr: string | null = null): Promise<string[]> {
+  let q = supabaseAdmin
     .from('etablissements')
     .select('id, plan, is_featured, photos, nom')
     .or('plan.eq.pro,is_featured.eq.true')
-    .limit(60)
+  if (terr) q = q.eq('territoire_id', terr)
+  const { data } = await q.limit(60)
 
   const candidats = (data ?? [])
     // Une vignette sans photo est un trou dans la lettre : on ne la propose pas.
@@ -109,11 +114,12 @@ export async function partenairesDeLaSemaine(): Promise<string[]> {
 }
 
 /** Y a-t-il des bons plans en cours ? Sinon la section n'a rien à montrer. */
-export async function nombreDePromos(): Promise<number> {
-  const { count } = await supabaseAdmin
+export async function nombreDePromos(terr: string | null = null): Promise<number> {
+  let q = supabaseAdmin
     .from('promotions').select('id', { count: 'exact', head: true })
     .eq('active', true)
-    .or(`valid_until.is.null,valid_until.gte.${new Date().toISOString()}`)
+  if (terr) q = q.eq('territoire_id', terr)
+  const { count } = await q.or(`valid_until.is.null,valid_until.gte.${new Date().toISOString()}`)
   return count ?? 0
 }
 
@@ -124,7 +130,7 @@ export async function nombreDePromos(): Promise<number> {
  * on ne remplace alors que ce qui dépend de la semaine, et les retouches
  * faites à la main — un texte d'intro, un bouton ajouté — sont conservées.
  */
-export async function monterLettreDeLaSemaine(base?: NewsletterBlock[] | null): Promise<{
+export async function monterLettreDeLaSemaine(base?: NewsletterBlock[] | null, terr: string | null = null): Promise<{
   subject: string
   blocks: NewsletterBlock[]
 }> {
@@ -141,7 +147,7 @@ export async function monterLettreDeLaSemaine(base?: NewsletterBlock[] | null): 
   blocs = garantir(blocs, 'semaine', { remplace: 'events', apres: ['header'] })
 
   // Les bons plans : tous ceux qui sont valides, et rien si la liste est vide.
-  const promos = await nombreDePromos()
+  const promos = await nombreDePromos(terr)
   if (promos === 0) blocs = retirer(blocs, 'promos')
   else {
     blocs = garantir(blocs, 'promos', { apres: ['semaine', 'header'] })
@@ -154,7 +160,7 @@ export async function monterLettreDeLaSemaine(base?: NewsletterBlock[] | null): 
   }
 
   // L'article de la semaine, ou pas de section du tout.
-  const article = await articleDeLaSemaine()
+  const article = await articleDeLaSemaine(terr)
   if (!article) blocs = retirer(blocs, 'article')
   else {
     blocs = garantir(blocs, 'article', { apres: ['journal', 'semaine', 'header'] })
@@ -163,7 +169,7 @@ export async function monterLettreDeLaSemaine(base?: NewsletterBlock[] | null): 
   }
 
   // Deux commerces mis en avant — sous deux, on ne montre rien.
-  const partenaires = await partenairesDeLaSemaine()
+  const partenaires = await partenairesDeLaSemaine(terr)
   if (partenaires.length < 2) blocs = retirer(blocs, 'partenaires')
   else {
     blocs = garantir(blocs, 'partenaires')

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/server-auth'
+import { territoireDeLaRequete } from '@/lib/territoires'
 import { sendBatch } from '@/lib/email'
 import { renderNewsletterBody, renderInviteBody, wrapNewsletter } from '@/lib/newsletterRender'
 import { setCurrentEdition, welcomeBacklog, DAILY_LIMIT } from '@/lib/newsletterWelcome'
@@ -31,12 +32,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Service email non configuré (RESEND_API_KEY)' }, { status: 503 })
   }
 
+  /*
+   * LA LISTE D'ABONNES N'EST PAS ENCORE TERRITORIALE — et c'est ecrit ici
+   * plutot que decouvert apres coup.
+   *
+   * L'edition active et le repere « deja recu » (`newsletter_welcomed_at`)
+   * sont UNIQUES par personne : monter une lettre pour Pau et l'envoyer la
+   * ferait partir aux 280 abonnes cevenols, sans aucun moyen de la rappeler.
+   * On refuse donc l'envoi hors du territoire par defaut. La composition et
+   * l'apercu, eux, fonctionnent : on peut preparer la lettre de Pau, pas
+   * l'expedier.
+   *
+   * Ce qu'il faudra pour lever la garde : une edition active PAR territoire et
+   * un repere de reception par territoire.
+   */
+  const terrEnvoi = await territoireDeLaRequete(req.url)
+  if (terrEnvoi && !terrEnvoi.par_defaut) {
+    return NextResponse.json({
+      error: `La liste d'abonnes n'est pas encore par territoire : impossible d'envoyer depuis la vue ${terrEnvoi.nom}. La lettre peut etre composee et previsualisee, pas expediee.`,
+    }, { status: 409 })
+  }
+
   // ── Abonnés : file d'attente étalée ────────────────────────────────────
   if (audience === 'subscribers') {
     if (!(Array.isArray(blocks) && blocks.length)) {
       return NextResponse.json({ error: 'Ajoute au moins une section' }, { status: 400 })
     }
-    const body = await renderNewsletterBody(blocks as NewsletterBlock[])
+    const body = await renderNewsletterBody(blocks as NewsletterBlock[], terrEnvoi?.id ?? null)
     await setCurrentEdition(subject, body)            // devient l'édition active
     const sent = await welcomeBacklog(DAILY_LIMIT)    // 1er lot immédiat
 

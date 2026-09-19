@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { monterLettreDeLaSemaine } from '@/lib/newsletterAuto'
+import { territoireParDefaut } from '@/lib/territoires'
 import { renderNewsletterBody } from '@/lib/newsletterRender'
 import { setCurrentEdition, welcomeBacklog, DAILY_LIMIT } from '@/lib/newsletterWelcome'
 import type { NewsletterBlock } from '@/lib/newsletterBlocks'
@@ -62,10 +63,19 @@ export async function GET(req: NextRequest) {
     base = brut ? (JSON.parse(brut).blocks as NewsletterBlock[]) : null
   } catch { base = null }
 
-  const { subject, blocks } = await monterLettreDeLaSemaine(base)
+  /*
+   * La lettre du lundi ne concerne QUE le territoire par defaut, et c'est
+   * ecrit ici plutot que subi : les abonnes sont tous la, et un territoire
+   * qui ouvre n'a pas encore de semaine a raconter. Le jour ou un autre en
+   * veut une, c'est cette ligne qui s'ouvre — une boucle sur les territoires
+   * qui l'ont demandee, chacun avec SES abonnes.
+   */
+  const terr = (await territoireParDefaut())?.id ?? null
+
+  const { subject, blocks } = await monterLettreDeLaSemaine(base, terr)
   if (!blocks.length) return NextResponse.json({ error: 'aucune section à envoyer' }, { status: 500 })
 
-  const body = await renderNewsletterBody(blocks)
+  const body = await renderNewsletterBody(blocks, terr)
   await setCurrentEdition(subject, body)
   await supabaseAdmin.from('config').upsert({ key: CLE_DERNIER, value: sem.debut }, { onConflict: 'key' })
 

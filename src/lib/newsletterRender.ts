@@ -143,7 +143,7 @@ function articleCard(it: ContentItem): string {
 
 /* ── Les blocs ──────────────────────────────────────────────────────────── */
 
-async function renderBlock(b: NewsletterBlock, semaineLibelle: string): Promise<string> {
+async function renderBlock(b: NewsletterBlock, semaineLibelle: string, terr: string | null): Promise<string> {
   switch (b.type) {
     /**
      * Bandeau vert. Les deux dernières lignes sont FIGÉES : c'est l'identité
@@ -196,7 +196,7 @@ async function renderBlock(b: NewsletterBlock, semaineLibelle: string): Promise<
      * rend jamais les deux.
      */
     case 'semaine': {
-      const s = await getSemaineChiffres()
+      const s = await getSemaineChiffres(terr)
       if (s.total === 0) return ''
 
       const tuiles = s.categories.slice(0, 8).map(c => {
@@ -245,13 +245,13 @@ async function renderBlock(b: NewsletterBlock, semaineLibelle: string): Promise<
     }
 
     case 'journal': {
-      const items = await getContent('journal', 1, [])
+      const items = await getContent('journal', 1, [], terr)
       if (!items.length) return ''
       return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:14px 0"><tr><td>${sectionHeader(b.titre)}</td></tr><tr><td>${journalCard(items[0])}</td></tr></table>`
     }
 
     case 'article': {
-      const items = await getContent('article', 0, b.ids)
+      const items = await getContent('article', 0, b.ids, terr)
       if (!items.length) return ''
       return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:14px 0"><tr><td>${sectionHeader(b.titre, SEE_ALL.article)}</td></tr><tr><td>${items.map(articleCard).join('')}</td></tr></table>`
     }
@@ -262,7 +262,7 @@ async function renderBlock(b: NewsletterBlock, semaineLibelle: string): Promise<
     case 'partenaires': {
       const ids = 'ids' in b ? b.ids : []
       const count = 'count' in b ? b.count : 4
-      const items = await getContent(b.type, count, ids)
+      const items = await getContent(b.type, count, ids, terr)
       if (items.length === 0) return ''
       return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:14px 0"><tr><td>${sectionHeader(b.titre, SEE_ALL[b.type])}</td></tr><tr><td>${grid(items)}</td></tr></table>`
     }
@@ -275,10 +275,10 @@ async function renderBlock(b: NewsletterBlock, semaineLibelle: string): Promise<
  * Sans lui, Gmail affiche le début du corps — soit « Sud Cévennes La Place du
  * Village ». Une ligne qui ne dit rien à l'endroit qui décide de l'ouverture.
  */
-async function preEntete(blocks: NewsletterBlock[]): Promise<string> {
+async function preEntete(blocks: NewsletterBlock[], terr: string | null): Promise<string> {
   const bouts: string[] = []
   if (blocks.some(b => b.type === 'semaine')) {
-    const s = await getSemaineChiffres().catch(() => null)
+    const s = await getSemaineChiffres(terr).catch(() => null)
     if (s?.total) bouts.push(`${s.total} rendez-vous près de chez vous`)
   }
   if (blocks.some(b => b.type === 'journal' || b.type === 'article')) bouts.push('le Journal')
@@ -286,12 +286,18 @@ async function preEntete(blocks: NewsletterBlock[]): Promise<string> {
   return bouts.length ? `Le programme de la semaine : ${bouts.join(', ')}.` : 'Le programme de la semaine.'
 }
 
-export async function renderNewsletterBody(blocks: NewsletterBlock[]): Promise<string> {
-  const sem = await getSemaineChiffres().catch(() => null)
+/**
+ * `terr` : le territoire de la lettre. Tout ce que le corps va chercher — le
+ * decompte de la semaine, les bons plans, l'article, les partenaires — en
+ * depend. Une lettre montee pour Pau et rendue sans lui parlerait des
+ * Cevennes, et personne ne s'en apercevrait avant qu'elle soit partie.
+ */
+export async function renderNewsletterBody(blocks: NewsletterBlock[], terr: string | null = null): Promise<string> {
+  const sem = await getSemaineChiffres(terr).catch(() => null)
   const libelle = sem?.libelle ?? ''
   const [entete, ...parts] = await Promise.all([
-    preEntete(blocks),
-    ...blocks.map(b => renderBlock(b, libelle)),
+    preEntete(blocks, terr),
+    ...blocks.map(b => renderBlock(b, libelle, terr)),
   ])
   const cache = `<span class="ph" style="display:none!important;visibility:hidden;opacity:0;height:0;width:0;max-height:0;max-width:0;overflow:hidden;mso-hide:all">${esc(entete)}</span>`
   return cache + '\n' + (parts as string[]).join('\n')

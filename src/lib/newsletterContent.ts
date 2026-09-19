@@ -50,14 +50,27 @@ function orderByIds<T extends { id: string }>(rows: T[], ids: string[]): T[] {
  */
 const DUREE_EXPO_JOURS = 7
 
-export async function getSemaineChiffres(): Promise<SemaineChiffres> {
+/**
+ * LA LETTRE PARLE D'UNE SEULE VALLEE.
+ *
+ * Chaque fonction publique de ce module prend le territoire de la lettre en
+ * cours. Le filtre n'est pose QUE s'il est connu — a vide il rendrait une
+ * lettre vide, ce qui ne se remarque qu'une fois partie.
+ *
+ * Ecrit en `let q = ...; if (terr) q = q.eq(...)` plutot qu'avec un assistant
+ * generique : un helper qui prend la requete et la rend fait exploser
+ * l'inference de types de PostgREST (TS2589, deja rencontre sur ce chantier).
+ */
+
+export async function getSemaineChiffres(terr: string | null = null): Promise<SemaineChiffres> {
   const sem = semaineDe()
-  const { data } = await supabaseAdmin
+  let qSem = supabaseAdmin
     .from('evenements')
     .select('date_debut, date_fin, categorie')
     .eq('statut', 'publie')
     .lte('date_debut', sem.fin)
-    .limit(3000)
+  if (terr) qSem = qSem.eq('territoire_id', terr)
+  const { data } = await qSem.limit(3000)
 
   const jours = (a: string, b: string | null) =>
     Math.round((new Date((b ?? a) + 'T12:00:00').getTime() - new Date(a + 'T12:00:00').getTime()) / 86400000)
@@ -105,14 +118,16 @@ export async function getSemaineChiffres(): Promise<SemaineChiffres> {
 }
 
 // ── Événements ──────────────────────────────────────────────────────────────
-export async function getEvents(count: number, ids: string[] = []): Promise<ContentItem[]> {
+export async function getEvents(count: number, ids: string[] = [], terr: string | null = null): Promise<ContentItem[]> {
   const sel = 'id, titre, image_url, date_debut, lieux(nom, commune)'
   let rows: Record<string, unknown>[]
   if (ids.length) {
     const { data } = await supabaseAdmin.from('evenements').select(sel).in('id', ids)
     rows = orderByIds((data ?? []) as { id: string }[], ids) as Record<string, unknown>[]
   } else {
-    const { data } = await supabaseAdmin.from('evenements').select(sel).eq('statut', 'publie').gte('date_debut', todayISO()).order('date_debut', { ascending: true }).limit(clamp(count))
+    let q = supabaseAdmin.from('evenements').select(sel).eq('statut', 'publie').gte('date_debut', todayISO())
+    if (terr) q = q.eq('territoire_id', terr)
+    const { data } = await q.order('date_debut', { ascending: true }).limit(clamp(count))
     rows = (data ?? []) as Record<string, unknown>[]
   }
   return rows.map(e => {
@@ -122,13 +137,15 @@ export async function getEvents(count: number, ids: string[] = []): Promise<Cont
 }
 
 // ── Promos ──────────────────────────────────────────────────────────────────
-export async function getPromos(count: number, ids: string[] = []): Promise<ContentItem[]> {
+export async function getPromos(count: number, ids: string[] = [], terr: string | null = null): Promise<ContentItem[]> {
   let rows: Record<string, unknown>[]
   if (ids.length) {
     const { data } = await supabaseAdmin.from('promotions').select('id, title, image_url, etablissement_id').in('id', ids)
     rows = orderByIds((data ?? []) as { id: string }[], ids) as Record<string, unknown>[]
   } else {
-    const { data } = await supabaseAdmin.from('promotions').select('id, title, image_url, etablissement_id').eq('active', true).or('valid_until.is.null,valid_until.gte.' + new Date().toISOString()).order('created_at', { ascending: false }).limit(clamp(count))
+    let q = supabaseAdmin.from('promotions').select('id, title, image_url, etablissement_id').eq('active', true)
+    if (terr) q = q.eq('territoire_id', terr)
+    const { data } = await q.or('valid_until.is.null,valid_until.gte.' + new Date().toISOString()).order('created_at', { ascending: false }).limit(clamp(count))
     rows = (data ?? []) as Record<string, unknown>[]
   }
   const etabIds = Array.from(new Set(rows.map(r => r.etablissement_id).filter(Boolean) as string[]))
@@ -141,22 +158,26 @@ export async function getPromos(count: number, ids: string[] = []): Promise<Cont
 }
 
 // ── Annonces ────────────────────────────────────────────────────────────────
-export async function getAnnonces(count: number, ids: string[] = []): Promise<ContentItem[]> {
+export async function getAnnonces(count: number, ids: string[] = [], terr: string | null = null): Promise<ContentItem[]> {
   const sel = 'id, titre, photos, ville, prix_actuel'
   let rows: Record<string, unknown>[]
   if (ids.length) {
     const { data } = await supabaseAdmin.from('annonces').select(sel).in('id', ids)
     rows = orderByIds((data ?? []) as { id: string }[], ids) as Record<string, unknown>[]
   } else {
-    const { data } = await supabaseAdmin.from('annonces').select(sel).in('statut', ['active', 'don_final']).order('created_at', { ascending: false }).limit(clamp(count))
+    let q = supabaseAdmin.from('annonces').select(sel).in('statut', ['active', 'don_final'])
+    if (terr) q = q.eq('territoire_id', terr)
+    const { data } = await q.order('created_at', { ascending: false }).limit(clamp(count))
     rows = (data ?? []) as Record<string, unknown>[]
   }
   return rows.map(a => ({ title: (a.titre as string) ?? 'Annonce', sub: [a.prix_actuel != null ? `${a.prix_actuel} €` : null, a.ville].filter(Boolean).join(' · ') || null, image: (a.photos as string[] | null)?.[0] ?? null, href: `${SITE}/annonces/${a.id}` }))
 }
 
 // ── Journal ─────────────────────────────────────────────────────────────────
-export async function getJournal(): Promise<ContentItem[]> {
-  const { data } = await supabaseAdmin.from('journaux_hebdo').select('numero, cover_titre, cover_image_url').eq('statut', 'publie').order('numero', { ascending: false }).limit(1)
+export async function getJournal(terr: string | null = null): Promise<ContentItem[]> {
+  let qJ = supabaseAdmin.from('journaux_hebdo').select('numero, cover_titre, cover_image_url').eq('statut', 'publie')
+  if (terr) qJ = qJ.eq('territoire_id', terr)
+  const { data } = await qJ.order('numero', { ascending: false }).limit(1)
   const j = data?.[0]
   if (!j) return []
   return [{ title: (j.cover_titre as string) || `Journal du Village n°${j.numero}`, sub: `Numéro ${j.numero}`, image: (j.cover_image_url as string | null) ?? null, href: `${SITE}/journal/${j.numero}` }]
@@ -189,12 +210,12 @@ export async function getPartenaires(ids: string[]): Promise<ContentItem[]> {
   return ids.map(i => map[i]).filter(Boolean) as ContentItem[]
 }
 
-export async function getContent(kind: string, count: number, ids: string[]): Promise<ContentItem[]> {
+export async function getContent(kind: string, count: number, ids: string[], terr: string | null = null): Promise<ContentItem[]> {
   switch (kind) {
-    case 'events':      return getEvents(count, ids)
-    case 'promos':      return getPromos(count, ids)
-    case 'annonces':    return getAnnonces(count, ids)
-    case 'journal':     return getJournal()
+    case 'events':      return getEvents(count, ids, terr)
+    case 'promos':      return getPromos(count, ids, terr)
+    case 'annonces':    return getAnnonces(count, ids, terr)
+    case 'journal':     return getJournal(terr)
     case 'article':     return getArticles(ids)
     case 'partenaires': return getPartenaires(ids)
     default:            return []
@@ -205,27 +226,38 @@ export async function getContent(kind: string, count: number, ids: string[]): Pr
 export interface SearchResult { value: string; label: string; sub: string | null; image: string | null }
 
 /** Liste des candidats d'une section (pour le modal « choisir »). */
-export async function browseList(kind: string): Promise<SearchResult[]> {
+export async function browseList(kind: string, terr: string | null = null): Promise<SearchResult[]> {
   if (kind === 'events') {
-    const { data } = await supabaseAdmin.from('evenements').select('id, titre, image_url, date_debut').eq('statut', 'publie').gte('date_debut', todayISO()).order('date_debut', { ascending: true }).limit(50)
+    let q = supabaseAdmin.from('evenements').select('id, titre, image_url, date_debut').eq('statut', 'publie').gte('date_debut', todayISO())
+    if (terr) q = q.eq('territoire_id', terr)
+    const { data } = await q.order('date_debut', { ascending: true }).limit(50)
     return (data ?? []).map(e => ({ value: e.id as string, label: e.titre as string, sub: dateFr(e.date_debut as string | null), image: (e.image_url as string | null) ?? null }))
   }
   if (kind === 'promos') {
-    const { data } = await supabaseAdmin.from('promotions').select('id, title, image_url').eq('active', true).or('valid_until.is.null,valid_until.gte.' + new Date().toISOString()).order('created_at', { ascending: false }).limit(50)
+    let q = supabaseAdmin.from('promotions').select('id, title, image_url').eq('active', true)
+    if (terr) q = q.eq('territoire_id', terr)
+    const { data } = await q.or('valid_until.is.null,valid_until.gte.' + new Date().toISOString()).order('created_at', { ascending: false }).limit(50)
     return (data ?? []).map(p => ({ value: p.id as string, label: p.title as string, sub: null, image: (p.image_url as string | null) ?? null }))
   }
   if (kind === 'annonces') {
-    const { data } = await supabaseAdmin.from('annonces').select('id, titre, photos, ville').in('statut', ['active', 'don_final']).order('created_at', { ascending: false }).limit(50)
+    let q = supabaseAdmin.from('annonces').select('id, titre, photos, ville').in('statut', ['active', 'don_final'])
+    if (terr) q = q.eq('territoire_id', terr)
+    const { data } = await q.order('created_at', { ascending: false }).limit(50)
     return (data ?? []).map(a => ({ value: a.id as string, label: a.titre as string, sub: (a.ville as string) ?? null, image: (a.photos as string[] | null)?.[0] ?? null }))
   }
   if (kind === 'article') {
-    const { data } = await supabaseAdmin.from('articles_journal').select('id, titre, photo_url').eq('statut', 'publie').order('created_at', { ascending: false }).limit(50)
+    let q = supabaseAdmin.from('articles_journal').select('id, titre, photo_url').eq('statut', 'publie')
+    if (terr) q = q.eq('territoire_id', terr)
+    const { data } = await q.order('created_at', { ascending: false }).limit(50)
     return (data ?? []).map(a => ({ value: a.id as string, label: a.titre as string, sub: null, image: (a.photo_url as string | null) ?? null }))
   }
   if (kind === 'partenaires') {
+    let qEtabs = supabaseAdmin.from('etablissements').select('id, nom, photos, commune')
+    let qProds = supabaseAdmin.from('producers').select('id, nom, photos, commune')
+    if (terr) { qEtabs = qEtabs.eq('territoire_id', terr); qProds = qProds.eq('territoire_id', terr) }
     const [etabs, prods] = await Promise.all([
-      supabaseAdmin.from('etablissements').select('id, nom, photos, commune').order('nom', { ascending: true }).limit(30),
-      supabaseAdmin.from('producers').select('id, nom, photos, commune').order('nom', { ascending: true }).limit(30),
+      qEtabs.order('nom', { ascending: true }).limit(30),
+      qProds.order('nom', { ascending: true }).limit(30),
     ])
     return [
       ...(etabs.data ?? []).map(e => ({ value: `etab:${e.id}`, label: e.nom as string, sub: (e.commune as string) ?? null, image: (e.photos as string[] | null)?.[0] ?? null })),
@@ -235,28 +267,39 @@ export async function browseList(kind: string): Promise<SearchResult[]> {
   return []
 }
 
-export async function search(kind: string, q: string): Promise<SearchResult[]> {
+export async function search(kind: string, q: string, terr: string | null = null): Promise<SearchResult[]> {
   const like = `%${q}%`
   if (kind === 'events') {
-    const { data } = await supabaseAdmin.from('evenements').select('id, titre, image_url, date_debut').eq('statut', 'publie').ilike('titre', like).order('date_debut', { ascending: false }).limit(10)
+    let q1 = supabaseAdmin.from('evenements').select('id, titre, image_url, date_debut').eq('statut', 'publie').ilike('titre', like)
+    if (terr) q1 = q1.eq('territoire_id', terr)
+    const { data } = await q1.order('date_debut', { ascending: false }).limit(10)
     return (data ?? []).map(e => ({ value: e.id as string, label: e.titre as string, sub: dateFr(e.date_debut as string | null), image: (e.image_url as string | null) ?? null }))
   }
   if (kind === 'promos') {
-    const { data } = await supabaseAdmin.from('promotions').select('id, title, image_url').eq('active', true).ilike('title', like).limit(10)
+    let q1 = supabaseAdmin.from('promotions').select('id, title, image_url').eq('active', true).ilike('title', like)
+    if (terr) q1 = q1.eq('territoire_id', terr)
+    const { data } = await q1.limit(10)
     return (data ?? []).map(p => ({ value: p.id as string, label: p.title as string, sub: null, image: (p.image_url as string | null) ?? null }))
   }
   if (kind === 'annonces') {
-    const { data } = await supabaseAdmin.from('annonces').select('id, titre, photos, ville').in('statut', ['active', 'don_final']).ilike('titre', like).limit(10)
+    let q1 = supabaseAdmin.from('annonces').select('id, titre, photos, ville').in('statut', ['active', 'don_final']).ilike('titre', like)
+    if (terr) q1 = q1.eq('territoire_id', terr)
+    const { data } = await q1.limit(10)
     return (data ?? []).map(a => ({ value: a.id as string, label: a.titre as string, sub: (a.ville as string) ?? null, image: (a.photos as string[] | null)?.[0] ?? null }))
   }
   if (kind === 'article') {
-    const { data } = await supabaseAdmin.from('articles_journal').select('id, titre, photo_url').eq('statut', 'publie').ilike('titre', like).limit(10)
+    let q1 = supabaseAdmin.from('articles_journal').select('id, titre, photo_url').eq('statut', 'publie').ilike('titre', like)
+    if (terr) q1 = q1.eq('territoire_id', terr)
+    const { data } = await q1.limit(10)
     return (data ?? []).map(a => ({ value: a.id as string, label: a.titre as string, sub: null, image: (a.photo_url as string | null) ?? null }))
   }
   if (kind === 'partenaires') {
+    let qE = supabaseAdmin.from('etablissements').select('id, nom, photos, commune').ilike('nom', like)
+    let qP = supabaseAdmin.from('producers').select('id, nom, photos, commune').ilike('nom', like)
+    if (terr) { qE = qE.eq('territoire_id', terr); qP = qP.eq('territoire_id', terr) }
     const [etabs, prods] = await Promise.all([
-      supabaseAdmin.from('etablissements').select('id, nom, photos, commune').ilike('nom', like).limit(8),
-      supabaseAdmin.from('producers').select('id, nom, photos, commune').ilike('nom', like).limit(8),
+      qE.limit(8),
+      qP.limit(8),
     ])
     return [
       ...(etabs.data ?? []).map(e => ({ value: `etab:${e.id}`, label: e.nom as string, sub: (e.commune as string) ?? null, image: (e.photos as string[] | null)?.[0] ?? null })),

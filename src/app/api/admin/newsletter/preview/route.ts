@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/server-auth'
+import { territoireDeLaRequete } from '@/lib/territoires'
 import { renderNewsletterBody, renderInviteBody, wrapNewsletter } from '@/lib/newsletterRender'
 import type { NewsletterBlock } from '@/lib/newsletterBlocks'
 
@@ -21,6 +22,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ html: wrapNewsletter(body + cta, 'Aperçu · le lien d’abonnement sera personnalisé pour chaque destinataire.') })
   }
 
-  const body = await renderNewsletterBody((blocks ?? []) as NewsletterBlock[])
+  const terr = (await territoireDeLaRequete(req.url))?.id ?? null
+  const body = await renderNewsletterBody((blocks ?? []) as NewsletterBlock[], terr)
   return NextResponse.json({ html: wrapNewsletter(body, 'Aperçu · un lien de désabonnement sera ajouté pour chaque abonné.') })
 }

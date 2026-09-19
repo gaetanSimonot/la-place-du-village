@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { useAuth } from '@/hooks/useAuth'
 import { authedFetch } from '@/lib/swr-fetchers'
 import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
@@ -13,10 +14,26 @@ const LS_KEY = 'newsletter_draft_v2'
 const ADD_TYPES: BlockType[] = ['header', 'text', 'events', 'promos', 'annonces', 'partenaires', 'journal', 'article', 'button', 'image', 'separator']
 interface Invite { titre: string; message: string; imageUrl: string }
 
+/**
+ * Le territoire administre, en suffixe d'URL.
+ *
+ * La lettre parle d'UNE ville : ses evenements, ses bons plans, son article,
+ * ses commerces, et les listes qu'on propose a l'admin pour la composer.
+ * Quatre composants de cet ecran appellent l'API ; ils prennent tous ce
+ * suffixe, pour qu'aucun ne puisse aller chercher ailleurs.
+ */
+function useSuffixeTerritoire(): { premier: string; suivant: string } {
+  const { territoire } = useTerritoire()
+  const p = territoire?.slug ? `?territoire=${encodeURIComponent(territoire.slug)}` : ''
+  const s = territoire?.slug ? `&territoire=${encodeURIComponent(territoire.slug)}` : ''
+  return { premier: p, suivant: s }
+}
+
 function reorder<T>(arr: T[], from: number, to: number): T[] { const a = arr.slice(); const [x] = a.splice(from, 1); a.splice(to, 0, x); return a }
 const fieldCls = 'w-full rounded-xl border bg-white px-3 py-2 text-[13.5px] text-texte outline-none'
 
 export default function NewsletterAdminClient() {
+  const qT = useSuffixeTerritoire()
   const router = useRouter()
   const { user, isAdmin, loading: authLoading } = useAuth()
 
@@ -47,7 +64,7 @@ export default function NewsletterAdminClient() {
   // chargé, l'autosave serveur s'active.
   useEffect(() => {
     if (authLoading || !isAdmin) return
-    authedFetch('/api/admin/newsletter/draft').then(async r => {
+    authedFetch(`/api/admin/newsletter/draft${qT.premier}`).then(async r => {
       if (r.ok) {
         const d = (await r.json()).draft
         if (d) {
@@ -65,7 +82,7 @@ export default function NewsletterAdminClient() {
     if (!loaded) return
     setSaveState('saving')
     const t = setTimeout(async () => {
-      const r = await authedFetch('/api/admin/newsletter/draft', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subject, inviteSubject, blocks, invite }) }).catch(() => null)
+      const r = await authedFetch(`/api/admin/newsletter/draft${qT.premier}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subject, inviteSubject, blocks, invite }) }).catch(() => null)
       setSaveState(r && r.ok ? 'saved' : 'idle')
     }, 800)
     return () => clearTimeout(t)
@@ -81,7 +98,7 @@ export default function NewsletterAdminClient() {
   useEffect(() => {
     const t = setTimeout(async () => {
       const mode = audience === 'subscribers' ? 'newsletter' : 'invite'
-      const r = await authedFetch('/api/admin/newsletter/preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode, blocks, invite }) }).catch(() => null)
+      const r = await authedFetch(`/api/admin/newsletter/preview${qT.premier}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode, blocks, invite }) }).catch(() => null)
       if (r && r.ok) setPreviewHtml((await r.json()).html ?? '')
     }, 450)
     return () => clearTimeout(t)
@@ -116,7 +133,7 @@ export default function NewsletterAdminClient() {
     if (!confirm(confirmMsg)) return
     setSending(true)
     try {
-      const r = await authedFetch('/api/admin/newsletter/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ audience, subject: subj, blocks, invite }) })
+      const r = await authedFetch(`/api/admin/newsletter/send${qT.premier}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ audience, subject: subj, blocks, invite }) })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(d.error || 'Échec')
       if (d.queued) {
@@ -456,12 +473,13 @@ interface Pick { value: string; label: string; sub: string | null; image: string
 
 // ── Picker : bouton + modal (parcourir tout + rechercher + cocher) ──────────
 function ItemPicker({ kind, ids, onChange }: { kind: string; ids: string[]; onChange: (ids: string[]) => void }) {
+  const qT = useSuffixeTerritoire()
   const [open, setOpen] = useState(false)
   const [labels, setLabels] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (ids.length === 0) return
-    authedFetch(`/api/admin/newsletter/content?type=${kind}&ids=${ids.join(',')}`).then(async r => {
+    authedFetch(`/api/admin/newsletter/content?type=${kind}&ids=${ids.join(',')}${qT.suivant}`).then(async r => {
       if (!r.ok) return
       const items = (await r.json()).items ?? []
       setLabels(l => { const n = { ...l }; ids.forEach((id, i) => { if (items[i]?.title) n[id] = items[i].title }); return n })
@@ -481,18 +499,19 @@ function ItemPicker({ kind, ids, onChange }: { kind: string; ids: string[]; onCh
 }
 
 function SectionPicker({ kind, ids, onSave, onClose }: { kind: string; ids: string[]; onSave: (ids: string[], labels: Record<string, string>) => void; onClose: () => void }) {
+  const qT = useSuffixeTerritoire()
   const [candidates, setCandidates] = useState<Pick[] | null>(null)
   const [q, setQ] = useState('')
   const [results, setResults] = useState<Pick[]>([])
   const [sel, setSel] = useState<string[]>(ids)
   const [labels, setLabels] = useState<Record<string, string>>({})
 
-  useEffect(() => { authedFetch(`/api/admin/newsletter/content?browse=${kind}`).then(async r => setCandidates(r.ok ? ((await r.json()).results ?? []) : [])).catch(() => setCandidates([])) }, [kind])
+  useEffect(() => { authedFetch(`/api/admin/newsletter/content?browse=${kind}${qT.suivant}`).then(async r => setCandidates(r.ok ? ((await r.json()).results ?? []) : [])).catch(() => setCandidates([])) }, [kind])
   useEffect(() => {
     if (q.trim().length < 2) { setResults([]); return }
-    const t = setTimeout(() => { authedFetch(`/api/admin/newsletter/content?search=${kind}&q=${encodeURIComponent(q.trim())}`).then(async r => { if (r.ok) setResults((await r.json()).results ?? []) }).catch(() => {}) }, 250)
+    const t = setTimeout(() => { authedFetch(`/api/admin/newsletter/content?search=${kind}&q=${encodeURIComponent(q.trim())}${qT.suivant}`).then(async r => { if (r.ok) setResults((await r.json()).results ?? []) }).catch(() => {}) }, 250)
     return () => clearTimeout(t)
-  }, [q, kind])
+  }, [q, kind, qT.suivant])
 
   const list = q.trim().length >= 2 ? results : (candidates ?? [])
   const toggle = (it: Pick) => { setSel(s => s.includes(it.value) ? s.filter(x => x !== it.value) : [...s, it.value]); setLabels(l => ({ ...l, [it.value]: it.label })) }
