@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { Categorie, Evenement, type CorrectionField } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { uploadViaSignedUrl, base64ToBlob, compressImage } from '@/lib/clientUpload'
@@ -305,6 +306,11 @@ interface Props {
 }
 
 export default function EventEditDrawer({ evenementId, initialData, initialImage, onClose, onSaved, onEditOnly, etablissementId, proposalMode, reviewProposal }: Props) {
+  /* La ville regardee voyage avec la publication : elle PRESUME (elle donne
+     son repere au geocodage), la geographie tranche ensuite cote serveur. */
+  const { territoire } = useTerritoire()
+  const qTerr = territoire?.slug ? `?territoire=${encodeURIComponent(territoire.slug)}` : ''
+
   const { profile } = useAuth()
   const isAdmin = useAdminSession()
   const [posterOpen, setPosterOpen] = useState(false)
@@ -668,7 +674,7 @@ export default function EventEditDrawer({ evenementId, initialData, initialImage
         const { data: { session } } = await supabase.auth.getSession()
         const headers: Record<string, string> = { 'Content-Type': 'application/json' }
         if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
-        const res = await fetch('/api/evenements', {
+        const res = await fetch(`/api/evenements${qTerr}`, {
           method: 'POST', headers,
           body: JSON.stringify({
             titre, description,

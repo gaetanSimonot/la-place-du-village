@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { Categorie } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import EventEditDrawer, { type EventDraft } from '@/components/EventEditDrawer'
@@ -106,6 +107,11 @@ function extractedToDraft(e: ExtraitPreview): EventDraft {
 }
 
 export default function AjouterPage() {
+  /* La ville regardee voyage avec la publication : elle PRESUME (elle donne
+     son repere au geocodage), la geographie tranche ensuite cote serveur. */
+  const { territoire } = useTerritoire()
+  const qTerr = territoire?.slug ? `?territoire=${encodeURIComponent(territoire.slug)}` : ''
+
   const { user, profile, loading: authLoading } = useAuth()
   const { openAuthModal } = useAuthModal()
   const router = useRouter()
@@ -343,7 +349,7 @@ export default function AjouterPage() {
           usingSharedFromB64 = true
         }
 
-        const res = await fetch('/api/evenements', {
+        const res = await fetch(`/api/evenements${qTerr}`, {
           method: 'POST',
           headers,
           body: JSON.stringify({

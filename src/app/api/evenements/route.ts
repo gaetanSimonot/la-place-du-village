@@ -5,8 +5,7 @@ import { trouverOuCreerLieu } from '@/lib/lieuxResolve'
 import { nettoyerDates, bornes } from '@/lib/occurrences'
 import { mergeCategories } from '@/lib/categories'
 import { checkDoublon } from '@/lib/checkDoublon'
-import { checkZone } from '@/lib/checkZone'
-import { territoireParDefaut, indiceGeoDe } from '@/lib/territoires'
+import { territoireParDefaut, territoireDeLaRequete, territoireDuPoint, indiceGeoDe } from '@/lib/territoires'
 import { rateLimit } from '@/lib/rateLimit'
 import { validateImageUpload } from '@/lib/imageUpload'
 
@@ -130,14 +129,18 @@ export async function POST(req: NextRequest) {
     }
 
     /*
-     * LE FORMULAIRE ECRIT DANS LE TERRITOIRE PAR DEFAUT.
+     * LE FORMULAIRE SUIT LA MEME REGLE QUE LES COLLECTEURS : la ville
+     * regardee PRESUME, la geographie TRANCHE.
      *
-     * Provisoire et assume : tant que le selecteur de territoire n'existe pas
-     * (reserve a l'admin), une saisie a la main appartient au territoire ou se
-     * trouvent tous les habitants. Quand le selecteur arrivera, c'est lui qui
-     * decidera ici.
+     * La presomption n'est pas decorative — c'est elle qui donne son repere au
+     * geocodage quelques lignes plus bas, et le geocodage a lieu AVANT qu'on
+     * sache ou se trouve l'evenement. Sans repere, « Breau » part en
+     * Seine-et-Marne a 518 km.
+     *
+     * Sans parametre, c'est le territoire par defaut : pour les habitants,
+     * qui ne peuvent pas basculer, rien ne change.
      */
-    const territoire = await territoireParDefaut()
+    let territoire = (await territoireDeLaRequete(req.url)) ?? (await territoireParDefaut())
 
     let lieuId: string | null = null
     let geo = { place_id_google: null as string | null, lat: null as number | null, lng: null as number | null, adresse: null as string | null, approx: false }
@@ -150,11 +153,30 @@ export async function POST(req: NextRequest) {
          * Le repère du secteur, comme les deux chemins des collecteurs.
          *
          * Ici l'enjeu est plus grave qu'une punaise mal posée : sans repère,
-         * « Bréau » atterrit en Seine-et-Marne, et `checkZone` juste en
+         * « Bréau » atterrit en Seine-et-Marne, et l'arbitrage juste en
          * dessous renvoie un 422 « hors zone ». Quelqu'un saisissait un
          * événement à 12 km et se voyait refuser l'enregistrement.
          */
         geo = await geocodeWithGoogle(lieu_nom || null, commune || null, { indiceGeo: indiceGeoDe(territoire) })
+      }
+
+      /*
+       * Hors de TOUTES les zones : on refuse, comme avant. Dedans : c'est le
+       * point qui range, pas la ville qu'on regardait — un evenement saisi a Pau
+       * appartient a Pau, meme tape depuis la vue cevenole.
+       *
+       * Sans coordonnees on laisse passer : on ne refuse pas ce qu'on n'a pas pu
+       * situer, et l'evenement partira en `a_verifier` de toute facon.
+       */
+      if (geo.lat != null && geo.lng != null) {
+        const arbitrage = await territoireDuPoint(geo.lat, geo.lng)
+        if (!arbitrage.territoire) {
+          return NextResponse.json({
+            error: `Événement hors zone (${arbitrage.distanceKm} km de ${arbitrage.centreLePlusProche})`,
+            hors_zone: true,
+          }, { status: 422 })
+        }
+        territoire = arbitrage.territoire
       }
 
       /*
@@ -194,15 +216,6 @@ export async function POST(req: NextRequest) {
         throw new Error('Le lieu est incomplet ou invalide. Indique au moins un nom de lieu ou une commune.')
       }
       lieuId = lieu.id
-    }
-
-    // Vérification zone géographique
-    const zone = await checkZone(geo.lat, geo.lng, null, territoire)
-    if (!zone.within) {
-      return NextResponse.json({
-        error: `Événement hors zone (${zone.distanceMin} km de ${zone.centreLePlusProche}, rayon configuré : ${zone.rayon} km)`,
-        hors_zone: true,
-      }, { status: 422 })
     }
 
     // Multi-catégories : tableau normalisé + catégorie principale (= [0]).
