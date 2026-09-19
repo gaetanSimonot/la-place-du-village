@@ -32,8 +32,8 @@ export async function GET(req: NextRequest) {
    * autre territoire, on ne sert RIEN : « Pau n'a pas encore de heros » est vrai,
    * « voici le heros des Cevennes » ne l'est pas.
    *
-   * Disparaitra quand `config` deviendra territorial ; d'ici la, cette garde
-   * est la seule chose qui empeche un melange visible.
+   * `lireConfig` rend `null` pour une cle editoriale absente : un territoire
+   * sans heros n'affiche rien, jamais celui d'un autre.
    */
   const terr = await territoireDeLaRequete(req.url)
   const toutes = normaliserHerosListe(await lireConfig('village_hero', terr))

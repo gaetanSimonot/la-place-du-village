@@ -95,6 +95,21 @@ const RAYON_DEFAUT = 45
  */
 const ZOOM_FICHE = 17
 
+/**
+ * LES CACHES LOCAUX SONT PROPRES A CHAQUE TERRITOIRE.
+ *
+ * La derniere zone connue et la derniere position de carte etaient gardees
+ * sous une cle unique. En basculant sur Pau, l'ecran repartait donc des
+ * centres cevenols et surtout de la CAMERA cevenole : le marqueur de Pau
+ * existait bien, a huit cents kilometres hors de l'ecran, et on concluait que
+ * l'evenement n'etait pas la.
+ *
+ * Le territoire par defaut garde la cle historique : le reglage deja
+ * enregistre par l'admin continue de s'appliquer, sans rien a refaire.
+ */
+const cleLocale = (base: string, slug: string | null, parDefaut: boolean) =>
+  (!slug || parDefaut) ? base : `${base}:${slug}`
+
 export default function HomePage() {
   const { fixedMap, setFixedMap } = useTheme()
   /*
@@ -260,14 +275,8 @@ export default function HomePage() {
    * dessus. La zone d'une commune ne change qu'a la main, par l'admin : la
    * valeur d'hier est infiniment plus juste que « aucune limite ».
    */
-  const [zoneCentres, setZoneCentres]   = useState<{ lat: number; lng: number; nom: string }[]>(() => {
-    if (typeof window === 'undefined') return []
-    try { return JSON.parse(localStorage.getItem('pdv-zone-connue') || '{}').centres ?? [] } catch { return [] }
-  })
-  const [rayonAffichage, setRayonAffichage] = useState<number | null>(() => {
-    if (typeof window === 'undefined') return null
-    try { return JSON.parse(localStorage.getItem('pdv-zone-connue') || '{}').rayon ?? null } catch { return null }
-  })
+  const [zoneCentres, setZoneCentres]   = useState<{ lat: number; lng: number; nom: string }[]>([])
+  const [rayonAffichage, setRayonAffichage] = useState<number | null>(null)
   const [zoneLoaded, setZoneLoaded]     = useState(false)
 
   // SWR sur /api/annuaire — une seule clé, SANS le type. Disable quand on
@@ -331,13 +340,7 @@ export default function HomePage() {
    * aller-retour. Trois sources : la carte de départ de l'admin, le retour
    * d'une fiche, l'enregistrement d'une nouvelle carte de départ.
    */
-  const [vueARestaurer, setVueARestaurer] = useState<{ lat: number; lng: number; zoom?: number } | null>(() => {
-    if (typeof window === 'undefined') return null
-    try {
-      const s = localStorage.getItem('pdv-carte-depart')
-      return s ? JSON.parse(s) : null
-    } catch { return null }
-  })
+  const [vueARestaurer, setVueARestaurer] = useState<{ lat: number; lng: number; zoom?: number } | null>(null)
   /**
    * VISER un lieu — l'amener sous les yeux, au milieu de ce qu'on voit.
    *
@@ -744,13 +747,13 @@ export default function HomePage() {
         setZoneCentres(data.centres ?? [])
         setRayonAffichage(data.rayon_affichage ?? 0)
         try {
-          localStorage.setItem('pdv-zone-connue', JSON.stringify({
+          localStorage.setItem(cleLocale('pdv-zone-connue', slugTerritoire, !!territoireVu?.par_defaut), JSON.stringify({
             centres: data.centres ?? [], rayon: data.rayon_affichage ?? 0,
           }))
         } catch {}
         if (data.carte_depart_lat && data.carte_depart_lng) {
           const pos = { lat: data.carte_depart_lat, lng: data.carte_depart_lng, zoom: data.carte_depart_zoom ?? 11 }
-          try { localStorage.setItem('pdv-carte-depart', JSON.stringify(pos)) } catch {}
+          try { localStorage.setItem(cleLocale('pdv-carte-depart', slugTerritoire, !!territoireVu?.par_defaut), JSON.stringify(pos)) } catch {}
           // La carte de depart est un DEFAUT : elle ne remplace pas une vue
           // qu'on vient de rendre a l'utilisateur.
           if (!vueRestaureeRef.current) setVueARestaurer(pos)
@@ -1002,6 +1005,26 @@ export default function HomePage() {
    * rend l'intention lisible plutot que de la laisser dans une dependance.
    */
   useEffect(() => { fetchZoneConfig() }, [fetchZoneConfig])
+
+  /*
+   * Les caches locaux du territoire regarde, relus a chaque bascule.
+   *
+   * La camera surtout : sans ca, passer sur Pau gardait la vue cevenole et
+   * le marqueur de Pau restait a huit cents kilometres hors de l'ecran — on
+   * concluait que l'evenement n'etait pas la, alors qu'il etait bien servi.
+   */
+  useEffect(() => {
+    const pd = !!territoireVu?.par_defaut
+    try {
+      const z = JSON.parse(localStorage.getItem(cleLocale('pdv-zone-connue', slugTerritoire, pd)) || '{}')
+      setZoneCentres(z.centres ?? [])
+      setRayonAffichage(z.rayon ?? null)
+    } catch { setZoneCentres([]); setRayonAffichage(null) }
+    try {
+      const v = localStorage.getItem(cleLocale('pdv-carte-depart', slugTerritoire, pd))
+      setVueARestaurer(v ? JSON.parse(v) : null)
+    } catch { setVueARestaurer(null) }
+  }, [slugTerritoire, territoireVu?.par_defaut])
 
   // SWR sur /api/agenda — clé inclut les filtres (cat + quand + masquerPasses)
   // pour que chaque combinaison ait sa propre entrée cache. Le retour sur la
@@ -1972,7 +1995,7 @@ export default function HomePage() {
                         },
                         body: JSON.stringify({ carte_depart_lat: pos.lat, carte_depart_lng: pos.lng, carte_depart_zoom: pos.zoom }),
                       })
-                      try { localStorage.setItem('pdv-carte-depart', JSON.stringify(pos)) } catch {}
+                      try { localStorage.setItem(cleLocale('pdv-carte-depart', slugTerritoire, !!territoireVu?.par_defaut), JSON.stringify(pos)) } catch {}
                       setVueARestaurer(pos)
                       setAdminMapSaved(true)
                       setTimeout(() => setAdminMapSaved(false), 2000)
