@@ -40,6 +40,8 @@ interface Params {
   question: string
   historique: { role: 'user' | 'assistant'; contenu: string }[]
   maxOutils: number
+  /** Le territoire regarde : l'assistant ne parle que de cette ville-la. */
+  territoire?: string | null
 }
 
 export async function* repondreAnthropic(p: Params): AsyncGenerator<EvenementFlux> {
@@ -120,7 +122,7 @@ export async function* repondreAnthropic(p: Params): AsyncGenerator<EvenementFlu
         mots: Array.isArray(cherches) ? cherches.filter(m => typeof m === 'string').slice(0, 3).join(', ') : null,
       }
       try {
-        const r = await executerOutil(d.name, (d.input ?? {}) as Record<string, unknown>)
+        const r = await executerOutil(d.name, (d.input ?? {}) as Record<string, unknown>, p.territoire ?? null)
         if (r.cartes.length) { cartes.push(...r.cartes); yield { type: 'cartes', items: r.cartes } }
         if (r.action) { action = r.action; yield { type: 'action', action: r.action } }
         resultats.push({ type: 'tool_result', tool_use_id: d.id, content: JSON.stringify(r.pourLeModele) })

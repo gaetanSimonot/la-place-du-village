@@ -62,6 +62,13 @@ export async function* repondre(params: {
   maxOutils: number
   /** Modèle imposé pour ce tour — un essai d'admin. Sinon celui du projet. */
   modele?: string | null
+  /**
+   * Le territoire regardé. Il traverse jusqu'aux outils : sans lui,
+   * l'assistant répondrait « le marché est mardi » à quelqu'un qui regarde
+   * une autre vallée — et rien, dans la réponse, ne dirait qu'elle est
+   * fausse.
+   */
+  territoire?: string | null
 }): AsyncGenerator<EvenementFlux> {
   const modele = params.modele || MODELE
   const systeme = await getPrompt(promptDuModele(modele), { today: aujourdhuiFr() })

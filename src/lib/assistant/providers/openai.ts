@@ -28,6 +28,8 @@ interface Params {
   question: string
   historique: { role: 'user' | 'assistant'; contenu: string }[]
   maxOutils: number
+  /** Le territoire regarde : l'assistant ne parle que de cette ville-la. */
+  territoire?: string | null
 }
 
 /** Les mêmes outils, dans le dialecte des fonctions OpenAI. */
@@ -97,7 +99,7 @@ export async function* repondreOpenAI(p: Params): AsyncGenerator<EvenementFlux> 
       }
 
       try {
-        const r = await executerOutil(nom, args)
+        const r = await executerOutil(nom, args, p.territoire ?? null)
         if (r.cartes.length) { cartes.push(...r.cartes); yield { type: 'cartes', items: r.cartes } }
         if (r.action) { action = r.action; yield { type: 'action', action: r.action } }
         messages.push({ role: 'tool', tool_call_id: a.id, content: JSON.stringify(r.pourLeModele) })

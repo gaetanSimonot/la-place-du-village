@@ -286,13 +286,13 @@ function fenetre(a: Args): { du: string; au: string } {
   return { du, au }
 }
 
-export async function executerOutil(nom: string, args: Args): Promise<ResultatOutil> {
+export async function executerOutil(nom: string, args: Args, terr: string | null = null): Promise<ResultatOutil> {
   switch (nom) {
-    case 'chercher_evenements':     return evenements(args)
-    case 'chercher_etablissements': return etablissements(args)
-    case 'chercher_seances':        return seances(args)
-    case 'chercher_promotions':     return promotions(args)
-    case 'chercher_annonces':       return annonces(args)
+    case 'chercher_evenements':     return evenements(args, terr)
+    case 'chercher_etablissements': return etablissements(args, terr)
+    case 'chercher_seances':        return seances(args, terr)
+    case 'chercher_promotions':     return promotions(args, terr)
+    case 'chercher_annonces':       return annonces(args, terr)
     case 'chercher_bus':            return bus(args)
     case 'meteo':                   return meteo(args)
     case 'proposer_action':         return proposerAction(args)
@@ -305,6 +305,43 @@ export async function executerOutil(nom: string, args: Args): Promise<ResultatOu
 /* ─── Événements ───────────────────────────────────────────────────────── */
 
 const CHAMPS_EV = 'id, titre, description, date_debut, date_fin, heure, categorie, categories, image_url, image_position, lieu_id, prix, contact, organisateurs, statut, promotion, promo_ordre, vote_count, submitted_by, submitted_by_name, source, created_at, doublon_verifie'
+
+/**
+ * L'ASSISTANT NE PARLE QUE DE LA VILLE QU'ON REGARDE.
+ *
+ * Trois de ses recherches passent par des fonctions SQL (`assistant_evenements`,
+ * `assistant_etablissements`, `assistant_producteurs`) qui ignorent les
+ * territoires : elles sont insensibles aux accents, c'est leur raison d'être,
+ * et leur signature est figée en base.
+ *
+ * Plutôt que de les réécrire à l'aveugle, on TAMISE ce qu'elles rendent : on
+ * demande les identifiants qui appartiennent au territoire, et on ne garde
+ * que ceux-là. Une requête de plus, et aucune fuite possible d'une ville vers
+ * l'autre.
+ *
+ * Ce que ça coûte : la limite de la fonction SQL s'applique AVANT le tamis.
+ * Dans un territoire qui compte peu de contenu, une réponse peut donc être
+ * plus maigre qu'elle ne devrait. C'est un manque, pas un mensonge — et il se
+ * lèvera en ajoutant un paramètre `territoire_filtre` aux trois fonctions.
+ *
+ * Les tamis sont écrits table par table : `supabaseAdmin.from(variable)` fait
+ * perdre le typage à PostgREST (déjà rencontré sur ce chantier).
+ */
+async function idsDuTerritoireEvenements(ids: string[], terr: string | null): Promise<Set<string> | null> {
+  if (!terr || !ids.length) return null
+  const { data } = await supabaseAdmin.from('evenements').select('id').in('id', ids).eq('territoire_id', terr)
+  return new Set((data ?? []).map(r => String(r.id)))
+}
+async function idsDuTerritoireEtablissements(ids: string[], terr: string | null): Promise<Set<string> | null> {
+  if (!terr || !ids.length) return null
+  const { data } = await supabaseAdmin.from('etablissements').select('id').in('id', ids).eq('territoire_id', terr)
+  return new Set((data ?? []).map(r => String(r.id)))
+}
+async function idsDuTerritoireProducteurs(ids: string[], terr: string | null): Promise<Set<string> | null> {
+  if (!terr || !ids.length) return null
+  const { data } = await supabaseAdmin.from('producers').select('id').in('id', ids).eq('territoire_id', terr)
+  return new Set((data ?? []).map(r => String(r.id)))
+}
 
 /** Au-delà, ce n'est plus un rendez-vous mais quelque chose qui se visite. */
 const DURABLE_JOURS = 8
@@ -325,7 +362,7 @@ function duree(e: { date_debut?: unknown; date_fin?: unknown }): number {
   return Math.round((Date.parse(f) - Date.parse(d)) / 86_400_000) + 1
 }
 
-async function evenements(a: Args): Promise<ResultatOutil> {
+async function evenements(a: Args, terr: string | null = null): Promise<ResultatOutil> {
   const { du, au } = fenetre(a)
   const mots = motsCles(a.mots)
   const cats = Array.isArray(a.categories) ? (a.categories as string[]).filter(c => typeof c === 'string') : []
@@ -348,12 +385,18 @@ async function evenements(a: Args): Promise<ResultatOutil> {
       du, au, termes, cats: cats.length ? cats : null,
       commune_filtre: commune, continus, lim,
     })
-    if (!rpc.error) return (rpc.data ?? []) as EvLigne[]
+    if (!rpc.error) {
+      const lignes = (rpc.data ?? []) as EvLigne[]
+      const gardes = await idsDuTerritoireEvenements(lignes.map(l => String(l.id)), terr)
+      return gardes ? lignes.filter(l => gardes.has(String(l.id))) : lignes
+    }
 
     // Migration non jouée : on lit large et on tranche ici. Dégradé sur les
     // accents, mais la limite ne se fait plus manger par les permanences.
     let q = supabaseAdmin.from('evenements').select(CHAMPS_EV)
       .eq('statut', 'publie')
+    if (terr) q = q.eq('territoire_id', terr)
+    q = q
       .lte('date_debut', au)
       .or(`date_fin.gte.${du},and(date_fin.is.null,date_debut.gte.${du})`)
       .order('date_debut').limit(200)
@@ -462,7 +505,7 @@ async function evenements(a: Args): Promise<ResultatOutil> {
 
 /* ─── Établissements et producteurs ───────────────────────────────────── */
 
-async function etablissements(a: Args): Promise<ResultatOutil> {
+async function etablissements(a: Args, terr: string | null = null): Promise<ResultatOutil> {
   const mots = motsCles(a.mots)
   const communeDemandee = texteDe(a, 'commune')
   let commune = communeDemandee
@@ -493,6 +536,7 @@ async function etablissements(a: Args): Promise<ResultatOutil> {
   if (rpc.error) {
     // Migration non jouée : requête directe, aveugle aux accents.
     let q = supabaseAdmin.from('etablissements').select('*').limit(LARGE)
+    if (terr) q = q.eq('territoire_id', terr)
     if (type) q = q.eq('type', type)
     if (commune) q = q.ilike('commune', `%${echapper(commune)}%`)
     if (mots.length) {
@@ -507,6 +551,8 @@ async function etablissements(a: Args): Promise<ResultatOutil> {
     lignes = (data ?? []) as Record<string, unknown>[]
   } else {
     lignes = (rpc.data ?? []) as Record<string, unknown>[]
+    const gardes = await idsDuTerritoireEtablissements(lignes.map(l => String(l.id)), terr)
+    if (gardes) lignes = lignes.filter(l => gardes.has(String(l.id)))
   }
 
   // Les producteurs vivent dans une autre table, mais un producteur EST un
@@ -514,7 +560,11 @@ async function etablissements(a: Args): Promise<ResultatOutil> {
   let prods: Record<string, unknown>[] = []
   if (veutProducteurs) {
     const r = await supabaseAdmin.rpc('assistant_producteurs', { termes, commune_filtre: commune, lim: 10 })
-    if (!r.error) prods = (r.data ?? []) as Record<string, unknown>[]
+    if (!r.error) {
+      prods = (r.data ?? []) as Record<string, unknown>[]
+      const gardes = await idsDuTerritoireProducteurs(prods.map(x => String(x.id)), terr)
+      if (gardes) prods = prods.filter(x => gardes.has(String(x.id)))
+    }
   }
 
   lignes = classerLieux(lignes, mots, MAX)
@@ -533,10 +583,12 @@ async function etablissements(a: Args): Promise<ResultatOutil> {
   const promosParEtab = new Map<string, { id: string; titre: string }>()
   const cartesPromo: Carte[] = []
   if (lignes.length) {
-    const { data: promos } = await supabaseAdmin
+    let qP = supabaseAdmin
       .from('promotions')
       .select('id, etablissement_id, title, description, image_url, conditions, valid_until')
       .eq('active', true)
+    if (terr) qP = qP.eq('territoire_id', terr)
+    const { data: promos } = await qP
       .in('etablissement_id', lignes.map(e => String(e.id)))
       .or(`valid_until.is.null,valid_until.gte.${new Date().toISOString()}`)
     const parEtabId = new Map(lignes.map(e => [String(e.id), e]))
@@ -593,7 +645,7 @@ async function etablissements(a: Args): Promise<ResultatOutil> {
 
 /* ─── Cinéma ───────────────────────────────────────────────────────────── */
 
-async function seances(a: Args): Promise<ResultatOutil> {
+async function seances(a: Args, terr: string | null = null): Promise<ResultatOutil> {
   const { du, au } = fenetre(a)
   const mots = motsCles(a.mots)
 
@@ -606,8 +658,21 @@ async function seances(a: Args): Promise<ResultatOutil> {
   const lignes = rows ?? []
   if (!lignes.length) return { pourLeModele: { resultats: [] }, cartes: [], libelle: libelleRecherche(mots) }
 
-  const filmIds = Array.from(new Set(lignes.map(s => s.film_id)))
-  const sallesIds = Array.from(new Set(lignes.map(s => s.etablissement_id)))
+  /*
+    * Une seance n'a pas de territoire — mais la SALLE en a un, et c'est elle
+    * qui situe la seance. On tamise donc par la salle : annoncer a Pau la
+    * seance de 20h30 a Ganges serait un rendez-vous manque, pas une reponse.
+    */
+  let seancesRetenues = lignes
+  if (terr) {
+    const gardesSalles = await idsDuTerritoireEtablissements(
+      Array.from(new Set(lignes.map(s => String(s.etablissement_id)))), terr)
+    if (gardesSalles) seancesRetenues = lignes.filter(s => gardesSalles.has(String(s.etablissement_id)))
+    if (!seancesRetenues.length) return { pourLeModele: { resultats: [] }, cartes: [], libelle: libelleRecherche(mots) }
+  }
+
+  const filmIds = Array.from(new Set(seancesRetenues.map(s => s.film_id)))
+  const sallesIds = Array.from(new Set(seancesRetenues.map(s => s.etablissement_id)))
   const [filmsRes, sallesRes] = await Promise.all([
     supabaseAdmin.from('films').select('id, titre, annee, duree_min, realisateur, genres, synopsis, affiche_url, avertissement').in('id', filmIds),
     supabaseAdmin.from('etablissements').select('id, nom, commune').in('id', sallesIds),
@@ -626,7 +691,7 @@ async function seances(a: Args): Promise<ResultatOutil> {
   // On raisonne par FILM, pas par séance : « un film pour les enfants
   // dimanche » se choisit sur le film, ses horaires viennent ensuite.
   const resultats = films.map(f => {
-    const sf = lignes.filter(s => s.film_id === f.id)
+    const sf = seancesRetenues.filter(s => s.film_id === f.id)
     return {
       id: String(f.id),
       titre: f.titre,
@@ -657,14 +722,16 @@ async function seances(a: Args): Promise<ResultatOutil> {
 
 /* ─── Bons plans ───────────────────────────────────────────────────────── */
 
-async function promotions(a: Args): Promise<ResultatOutil> {
+async function promotions(a: Args, terr: string | null = null): Promise<ResultatOutil> {
   const mots = motsCles(a.mots)
   // Une poignée de promotions actives à un instant donné : on les lit toutes
   // et on classe ici, plutôt que d'imposer un mot à la base.
-  const { data } = await supabaseAdmin
+  let qPromo = supabaseAdmin
     .from('promotions')
     .select('id, etablissement_id, title, description, image_url, conditions, valid_until')
     .eq('active', true)
+  if (terr) qPromo = qPromo.eq('territoire_id', terr)
+  const { data } = await qPromo
     .or(`valid_until.is.null,valid_until.gte.${new Date().toISOString()}`)
     .order('created_at', { ascending: false })
     .limit(60)
@@ -701,12 +768,14 @@ async function promotions(a: Args): Promise<ResultatOutil> {
 
 /* ─── Petites annonces ─────────────────────────────────────────────────── */
 
-async function annonces(a: Args): Promise<ResultatOutil> {
+async function annonces(a: Args, terr: string | null = null): Promise<ResultatOutil> {
   const mots = motsCles(a.mots)
   let q = supabaseAdmin
     .from('annonces')
     .select('id, type, titre, description, categorie, photos, prix_actuel, prix_initial, ville, created_at, sponsored')
     .eq('statut', 'active')
+  if (terr) q = q.eq('territoire_id', terr)
+  q = q
     .order('created_at', { ascending: false })
     .limit(80)
   if (typeof a.type === 'string') q = q.eq('type', a.type)

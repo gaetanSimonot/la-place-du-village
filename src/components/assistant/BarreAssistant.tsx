@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { NAV_H } from '@/components/BottomNavBar'
 import AssistantChat from '@/components/assistant/AssistantChat'
 
@@ -20,6 +21,11 @@ import AssistantChat from '@/components/assistant/AssistantChat'
  */
 
 export default function BarreAssistant() {
+  /* L'assistant ne parle que de la ville qu'on regarde : le territoire
+     voyage avec la question, jusqu'aux outils qui lisent la base. */
+  const { territoire: terrVu } = useTerritoire()
+  const qTerrAssist = terrVu?.slug ? `?territoire=${encodeURIComponent(terrVu.slug)}` : ''
+
   const [ouvert, setOuvert] = useState(false)
   const [question, setQuestion] = useState<string | null>(null)
   /** Ouvert par le micro : la conversation démarre en écoutant. */
@@ -30,7 +36,7 @@ export default function BarreAssistant() {
     ;(async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        const r = await fetch('/api/assistant', {
+        const r = await fetch(`/api/assistant${qTerrAssist}`, {
           headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
         })
         const j = await r.json().catch(() => null)

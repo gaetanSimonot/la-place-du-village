@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import AssistantChat from '@/components/assistant/AssistantChat'
 
 interface EvenementRow {
@@ -87,6 +88,11 @@ interface Props {
 }
 
 export default function HubSearchModal({ open, onClose, onViewAll }: Props) {
+  /* L'assistant ne parle que de la ville qu'on regarde : le territoire
+     voyage avec la question, jusqu'aux outils qui lisent la base. */
+  const { territoire: terrVu } = useTerritoire()
+  const qTerrAssist = terrVu?.slug ? `?territoire=${encodeURIComponent(terrVu.slug)}` : ''
+
   const router = useRouter()
   const [q, setQ] = useState('')
   const [results, setResults] = useState<Results | null>(null)
@@ -115,7 +121,7 @@ export default function HubSearchModal({ open, onClose, onViewAll }: Props) {
     ;(async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        const r = await fetch('/api/assistant', {
+        const r = await fetch(`/api/assistant${qTerrAssist}`, {
           headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
         })
         const j = await r.json().catch(() => null)

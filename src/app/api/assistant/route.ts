@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createHash } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getUserContextFromRequest } from '@/lib/server-auth'
+import { territoireDeLaRequete } from '@/lib/territoires'
 import { rateLimit } from '@/lib/rateLimit'
 import { reglages, ouvertA, MODELES_ESSAI, modeleAutorise, viderCacheReglages } from '@/lib/assistant/config'
 import { ouvrirOuReprendre, historique, enregistrerTour } from '@/lib/assistant/conversation'
@@ -177,6 +178,17 @@ export async function POST(req: NextRequest) {
 
   const passe = await historique(conv.id)
 
+  /*
+   * Le territoire regarde. Resolu ICI, avant le flux : une fois la reponse
+   * commencee, il est trop tard pour aller chercher quoi que ce soit.
+   *
+   * Sans lui, l'assistant repondrait « le marche est mardi » a quelqu'un qui
+   * regarde une autre vallee — et rien, dans la reponse, ne dirait qu'elle
+   * est fausse. C'est la forme d'erreur la plus couteuse ici : une carte
+   * inhallucinable, mais deposee dans la mauvaise ville.
+   */
+  const terrAssistant = (await territoireDeLaRequete(req.url))?.id ?? null
+
   const encodeur = new TextEncoder()
   const flux = new ReadableStream({
     async start(controle) {
@@ -188,7 +200,7 @@ export async function POST(req: NextRequest) {
 
         // Le réglage de service, sauf essai ponctuel d'un admin.
         const modele = (ctx?.isAdmin && modeleDemande) || modeleEnService
-        for await (const ev of repondre({ question: message, historique: passe, maxOutils: quotas.max_outils_tour, modele })) {
+        for await (const ev of repondre({ question: message, historique: passe, maxOutils: quotas.max_outils_tour, modele, territoire: terrAssistant })) {
           if (ev.type === 'cartes') {
             // Le cœur voyage avec la fiche : la personne garde une sortie
             // d'un geste, sans ouvrir l'aperçu ni attendre un aller-retour.

@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { trackEvent } from '@/lib/analytics'
 import SubscriptionModal from '@/components/SubscriptionModal'
 import MicButton, { type MicButtonHandle } from '@/components/MicButton'
@@ -120,6 +121,11 @@ export default function AssistantChat({ question, dicter, onClose }: {
   dicter?: boolean
   onClose: () => void
 }) {
+  /* L'assistant ne parle que de la ville qu'on regarde : le territoire
+     voyage avec la question, jusqu'aux outils qui lisent la base. */
+  const { territoire: terrVu } = useTerritoire()
+  const qTerrAssist = terrVu?.slug ? `?territoire=${encodeURIComponent(terrVu.slug)}` : ''
+
   const [messages, setMessages] = useState<Message[]>([])
   const [saisie, setSaisie] = useState('')
   const [enCours, setEnCours] = useState(false)
@@ -238,7 +244,7 @@ export default function AssistantChat({ question, dicter, onClose }: {
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/assistant', {
+      const res = await fetch(`/api/assistant${qTerrAssist}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -318,7 +324,7 @@ export default function AssistantChat({ question, dicter, onClose }: {
     ;(async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        const r = await fetch('/api/assistant', {
+        const r = await fetch(`/api/assistant${qTerrAssist}`, {
           headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
         })
         const j = await r.json().catch(() => null)
@@ -504,7 +510,7 @@ export default function AssistantChat({ question, dicter, onClose }: {
                   // les habitants, pas seulement pour cet appareil.
                   try {
                     const { data: { session } } = await supabase.auth.getSession()
-                    await fetch('/api/assistant', {
+                    await fetch(`/api/assistant${qTerrAssist}`, {
                       method: 'PATCH',
                       headers: {
                         'Content-Type': 'application/json',
