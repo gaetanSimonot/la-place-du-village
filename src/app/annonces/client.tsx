@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import AnnonceCard from '@/components/AnnonceCard'
 import AnnonceFilters, { SortDropdown, type TriOption } from '@/components/AnnonceFilters'
 import BottomNavBar from '@/components/BottomNavBar'
@@ -36,19 +37,25 @@ export default function AnnoncesPageClient() {
   // SWR avec clé incluant les filtres serveur (type/categorie/tri) → chaque
   // combinaison a sa propre entrée cache. La recherche texte (`query`) reste
   // client-side : filtrage instantané sur la liste déjà chargée.
+  // Le territoire regarde voyage dans la cle : chaque ville a son cache.
+  const { territoire } = useTerritoire()
+  const slugTerr = territoire?.slug ?? null
+
   const annoncesKey = useMemo(() => {
     const params = new URLSearchParams()
     if (type)      params.set('type', type)
     if (categorie) params.set('categorie', categorie)
     params.set('tri', tri)
+    if (slugTerr)  params.set('territoire', slugTerr)
     return `/api/annonces/public?${params.toString()}`
-  }, [type, categorie, tri])
+  }, [type, categorie, tri, slugTerr])
 
   const { data, isLoading: swrLoading } = useSWR(annoncesKey)
   // Deuxième lecture SANS filtre : la liste affichée est filtrée côté serveur,
   // elle ne peut donc pas dire combien il y a d'annonces dans les entrées
   // qu'on n'a pas sélectionnées. Même route, même cache.
-  const { data: dataTout } = useSWR('/api/annonces/public?tri=date_desc')
+  const { data: dataTout } = useSWR(
+    `/api/annonces/public?tri=date_desc${slugTerr ? `&territoire=${encodeURIComponent(slugTerr)}` : ''}`)
   const toutes = useMemo<Annonce[]>(() => (dataTout?.annonces ?? []) as Annonce[], [dataTout])
   const annonces = useMemo<Annonce[]>(() => (data?.annonces ?? []) as Annonce[], [data])
   const loading = swrLoading && !data

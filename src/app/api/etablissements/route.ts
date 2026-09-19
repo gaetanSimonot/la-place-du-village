@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { territoireDeLaRequete } from '@/lib/territoires'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { mergeDraft, shouldApplyDraft } from '@/lib/etab-drafts'
 
@@ -48,6 +49,10 @@ export async function GET(req: NextRequest) {
   const MAX_LOTS = 10
   const lignes: EtabRow[] = []
 
+  // Le territoire regarde. Filtre pose UNIQUEMENT s'il est connu : sinon un
+  // echec de lecture viderait l'annuaire pour tout le monde.
+  const terr = await territoireDeLaRequete(req.url)
+
   for (let lot = 0; lot < MAX_LOTS; lot++) {
     let query = supabaseAdmin
       .from('etablissements')
@@ -61,6 +66,7 @@ export async function GET(req: NextRequest) {
       .order('id')
       .range(lot * PAR_LOT, lot * PAR_LOT + PAR_LOT - 1)
 
+    if (terr) query = query.eq('territoire_id', terr.id)
     if (type) query = query.eq('type', type)
 
     const { data, error } = await query

@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import { shareLink } from '@/lib/share'
@@ -21,15 +22,21 @@ export default function ForumClient() {
   const [myLikes, setMyLikes] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [composerOpen, setComposerOpen] = useState(false)
+  const { territoire } = useTerritoire()
+  const idTerritoire = territoire?.id ?? null
 
   const load = useCallback(async () => {
-    const { data: rows } = await supabase
+    // Le forum d'un territoire n'est pas celui d'un autre : c'est une
+    // communaute, pas un contenu geolocalise.
+    let q = supabase
       .from('forum_topics')
       .select('id, user_id, titre, corps, media, poll, pinned, comment_count, like_count, last_activity_at, created_at, etablissement_id')
       .order('pinned', { ascending: false })
       .order('comment_count', { ascending: false })
       .order('last_activity_at', { ascending: false })
       .limit(60)
+    if (idTerritoire) q = q.eq('territoire_id', idTerritoire)
+    const { data: rows } = await q
     const base = (rows ?? []) as ForumTopic[]
     if (base.length === 0) { setTopics([]); setPollCounts({}); setLoading(false); return }
     const ids = Array.from(new Set(base.map(t => t.user_id)))
@@ -66,7 +73,7 @@ export default function ForumClient() {
       if (arr && v.option_index >= 0 && v.option_index < arr.length) arr[v.option_index]++
     }
     setPollCounts(Object.fromEntries(counts))
-  }, [user])
+  }, [user, idTerritoire])
 
   useEffect(() => { load() }, [load])
   useEffect(() => {

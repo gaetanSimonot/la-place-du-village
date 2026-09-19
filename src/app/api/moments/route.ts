@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { territoireDeLaRequete } from '@/lib/territoires'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getUserContextFromRequest, requireUser, notifyByAudience, notifyUsers, notifyUser } from '@/lib/server-auth'
 import { can } from '@/lib/capabilities'
@@ -16,6 +17,9 @@ import type { Moment, MomentCible, MomentKind } from '@/lib/moments'
 const MOMENTS_BUCKET_PREFIX = `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''}/storage/v1/object/public/moments/`
 
 export async function GET(req: NextRequest) {
+  // Le territoire regarde. Filtre pose UNIQUEMENT s'il est connu : sinon un
+  // echec de lecture viderait l'ecran pour tout le monde.
+  const terr = await territoireDeLaRequete(req.url)
   const ctx = await getUserContextFromRequest(req)   // null si non connecté
   const nowISO = new Date().toISOString()
   const auteur = new URL(req.url).searchParams.get('auteur')
@@ -27,6 +31,7 @@ export async function GET(req: NextRequest) {
     .select('*')
     .order('created_at', { ascending: false })
     .limit(100)
+  if (terr) query = query.eq('territoire_id', terr.id)
   query = auteur
     ? query.eq('auteur_id', auteur)
     : query.eq('sur_accueil', true).gt('expires_at', nowISO)

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { territoireDeLaRequete } from '@/lib/territoires'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser } from '@/lib/server-auth'
 import { validateCovoitInput, type CovoitFormInput } from '@/lib/covoiturage'
@@ -18,6 +19,9 @@ import { validateCovoitInput, type CovoitFormInput } from '@/lib/covoiturage'
  *   - limit (default 50)
  */
 export async function GET(req: NextRequest) {
+  // Le territoire regarde. Filtre pose UNIQUEMENT s'il est connu : sinon un
+  // echec de lecture viderait l'ecran pour tout le monde.
+  const terr = await territoireDeLaRequete(req.url)
   const { searchParams } = new URL(req.url)
   const depart      = searchParams.get('depart')?.trim()
   const destination = searchParams.get('destination')?.trim()
@@ -38,6 +42,8 @@ export async function GET(req: NextRequest) {
     .order('date_trajet', { ascending: true })
     .order('heure_depart', { ascending: true })
     .limit(limit)
+
+  if (terr) q = q.eq('territoire_id', terr.id)
 
   if (depart)      q = q.ilike('depart', `%${depart}%`)
   if (destination) q = q.ilike('destination', `%${destination}%`)

@@ -113,3 +113,21 @@ export async function territoireDuGroupe(
 export function indiceGeoDe(t: Territoire | null): string {
   return t?.indice_geo?.trim() || INDICE_GEO_SECTEUR
 }
+
+/**
+ * Le territoire d'une requete de LECTURE (`?territoire=<slug>`).
+ *
+ * Un slug inconnu retombe sur le defaut : on ne sert jamais une page vide a
+ * cause d'une faute de frappe. Le parametre n'est pas une autorisation — il
+ * choisit une vue sur du contenu deja public. Ce qu'il protege, c'est la
+ * coherence de l'affichage.
+ *
+ * A utiliser avec `filtrerParTerritoire` : le filtre ne doit JAMAIS etre pose
+ * quand le territoire est inconnu, sinon un echec de lecture viderait l'ecran
+ * pour tout le monde.
+ */
+export async function territoireDeLaRequete(url: string): Promise<Territoire | null> {
+  let slug: string | null = null
+  try { slug = new URL(url).searchParams.get('territoire') } catch { slug = null }
+  return (await territoireParSlug(slug)) ?? (await territoireParDefaut())
+}

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { territoireDeLaRequete } from '@/lib/territoires'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { chargerIdentitesEtab } from '@/lib/identite'
 
@@ -36,6 +37,10 @@ export async function GET(req: NextRequest) {
     .select('*')
     .in('statut', ['active', 'don_final'])
     .order('sponsored', { ascending: false })
+
+  // Le territoire regarde. Filtre pose UNIQUEMENT s'il est connu.
+  const terr = await territoireDeLaRequete(req.url)
+  if (terr)      query = query.eq('territoire_id', terr.id)
 
   if (type)      query = query.eq('type', type)
   if (categorie) query = query.eq('categorie', categorie)

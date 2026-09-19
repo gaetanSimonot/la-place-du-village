@@ -29,10 +29,21 @@ export async function GET(req: NextRequest) {
   const { searchParams, origin } = new URL(req.url)
   const type = searchParams.get('type')
 
-  const etabUrl = type
-    ? `${origin}/api/etablissements?type=${encodeURIComponent(type)}`
-    : `${origin}/api/etablissements`
-  const prodUrl = `${origin}/api/producers`
+  /*
+   * Le territoire voyage jusqu'aux deux routes internes. Sans ca, l'annuaire
+   * resterait cevenol pendant que la carte change de ville — cette route ne
+   * fait que relayer /api/etablissements et /api/producers.
+   */
+  const terr = searchParams.get('territoire')
+  const qTerr = terr ? `territoire=${encodeURIComponent(terr)}` : ''
+  const joindre = (base: string, ...bouts: string[]) => {
+    const q = bouts.filter(Boolean).join('&')
+    return q ? `${base}?${q}` : base
+  }
+
+  const etabUrl = joindre(`${origin}/api/etablissements`,
+    type ? `type=${encodeURIComponent(type)}` : '', qTerr)
+  const prodUrl = joindre(`${origin}/api/producers`, qTerr)
 
   const [prodRes, etabRes] = await Promise.all([
     fetch(prodUrl, { cache: 'no-store' }).catch(() => null),

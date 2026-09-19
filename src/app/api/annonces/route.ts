@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { territoireDeLaRequete } from '@/lib/territoires'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser, getUserContextFromRequest } from '@/lib/server-auth'
 import { validerIdentiteDemandee } from '@/lib/identite'
@@ -25,6 +26,9 @@ import { can } from '@/lib/capabilities'
  * ne voient pas les enchères inversées créées dans les EARLY_BID_DELAY_HOURS dernières heures.
  */
 export async function GET(req: NextRequest) {
+  // Le territoire regarde. Filtre pose UNIQUEMENT s'il est connu : sinon un
+  // echec de lecture viderait l'ecran pour tout le monde.
+  const terr = await territoireDeLaRequete(req.url)
   const { searchParams } = new URL(req.url)
   const type      = searchParams.get('type')
   const categorie = searchParams.get('categorie')
@@ -41,6 +45,8 @@ export async function GET(req: NextRequest) {
     .from('annonces')
     .select('*')
     .in('statut', ['active', 'don_final'])
+
+  if (terr) query = query.eq('territoire_id', terr.id)
 
   if (type && isAnnonceType(type))                query = query.eq('type', type)
   if (categorie && isAnnonceCategorie(categorie)) query = query.eq('categorie', categorie)

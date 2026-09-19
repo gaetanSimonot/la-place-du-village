@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { territoireDeLaRequete } from '@/lib/territoires'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { normalizeProduitCat } from '@/lib/produit-cats'
 
@@ -11,6 +12,9 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export async function GET(req: NextRequest) {
+  // Le territoire regarde. Filtre pose UNIQUEMENT s'il est connu : sinon un
+  // echec de lecture viderait l'ecran pour tout le monde.
+  const terr = await territoireDeLaRequete(req.url)
   const url  = new URL(req.url)
   const cat  = url.searchParams.get('categorie') ?? ''
   const q    = url.searchParams.get('search')    ?? ''
@@ -20,6 +24,7 @@ export async function GET(req: NextRequest) {
     .select('*, products(*)')
     .order('is_max', { ascending: false })
     .order('created_at', { ascending: false })
+  if (terr) query = query.eq('territoire_id', terr.id)
 
   if (q) query = query.ilike('nom', `%${q}%`)
 

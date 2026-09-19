@@ -98,6 +98,87 @@ export async function GET(req: NextRequest) {
   const weekISO = inAWeek.toISOString().slice(0, 10)
   const nowISO  = new Date().toISOString()
 
+  /*
+   * LE TERRITOIRE REGARDE, resolu AVANT les requetes pour les filtrer a la
+   * source plutot qu'apres coup : les mises en avant, les bons plans et les
+   * annonces sont tires par identifiant, et un filtre applique trop tard
+   * aurait laisse des trous au lieu de piocher un remplacant.
+   *
+   * Sans parametre — donc pour tout le monde aujourd'hui — c'est le territoire
+   * par defaut, et la reponse est celle d'avant. Comme partout, le filtre
+   * n'est POSE que si le territoire est connu.
+   */
+  const territoireVu = (await territoireParSlug(searchParams.get('territoire')))
+    ?? (await territoireParDefaut())
+  const T = territoireVu?.id ?? null
+
+  /*
+   * LES EMPLACEMENTS « MIS EN AVANT » DE CE TERRITOIRE.
+   *
+   * Construits ici plutot qu'en ligne dans le Promise.all : le filtre s'ajoute
+   * par reaffectation, ce qui garde le typage des colonnes — un `.select()`
+   * bati dynamiquement le perd, et toute la suite devient du GenericStringError.
+   */
+  let qHero = supabaseAdmin
+    .from('featured_slots')
+    .select('content_type, content_id, priority, image_position')
+    .eq('slot', 'hub_hero')
+    .lte('starts_at', nowISO)
+    .gt('ends_at', nowISO)
+    .order('priority', { ascending: false })
+    .order('created_at', { ascending: false })
+  if (T) qHero = qHero.eq('territoire_id', T)
+
+  let qPromoSlots = supabaseAdmin
+    .from('featured_slots')
+    .select('content_id, priority')
+    .eq('slot', 'homepage')
+    .eq('content_type', 'promotion')
+    .lte('starts_at', nowISO)
+    .gt('ends_at', nowISO)
+    .order('priority', { ascending: false })
+    .order('created_at', { ascending: false })
+  if (T) qPromoSlots = qPromoSlots.eq('territoire_id', T)
+
+  let qVenteSlots = supabaseAdmin
+    .from('featured_slots')
+    .select('content_id, priority')
+    .eq('slot', 'homepage')
+    .eq('content_type', 'annonce')
+    .lte('starts_at', nowISO)
+    .gt('ends_at', nowISO)
+    .order('priority', { ascending: false })
+    .order('created_at', { ascending: false })
+  if (T) qVenteSlots = qVenteSlots.eq('territoire_id', T)
+
+  let qForum = supabaseAdmin
+    .from('forum_topics')
+    .select('id, user_id, titre, media, poll, comment_count, like_count, last_activity_at')
+    .order('pinned', { ascending: false })
+    .order('comment_count', { ascending: false })
+    .order('last_activity_at', { ascending: false })
+    .limit(4)
+  if (T) qForum = qForum.eq('territoire_id', T)
+
+  let qPromos = supabaseAdmin
+    .from('promotions')
+    .select('*')
+    .eq('active', true)
+    .or(`valid_until.is.null,valid_until.gte.${nowISO}`)
+    .order('created_at', { ascending: false })
+  if (T) qPromos = qPromos.eq('territoire_id', T)
+
+  let qEventSlots = supabaseAdmin
+    .from('featured_slots')
+    .select('content_id, position')
+    .eq('slot', 'homepage')
+    .eq('content_type', 'evenement')
+    .lte('starts_at', nowISO)
+    .gt('ends_at', nowISO)
+    .not('position', 'is', null)
+    .order('position', { ascending: true })
+  if (T) qEventSlots = qEventSlots.eq('territoire_id', T)
+
   // ── PARALLÈLE 1er niveau : counts + configs + featured + today/week + journal + covoits ──
   const [
     evtCountRes,
@@ -126,41 +207,10 @@ export async function GET(req: NextRequest) {
     supabaseAdmin.from('config').select('value').eq('key', 'hub_hero_intro_image_url').maybeSingle(),
     supabaseAdmin.from('config').select('value').eq('key', 'hub_section_order').maybeSingle(),
     supabaseAdmin.from('config').select('value').eq('key', 'hub_section_hidden').maybeSingle(),
-    supabaseAdmin
-      .from('featured_slots')
-      .select('content_type, content_id, priority, image_position')
-      .eq('slot', 'hub_hero')
-      .lte('starts_at', nowISO)
-      .gt('ends_at', nowISO)
-      .order('priority', { ascending: false })
-      .order('created_at', { ascending: false }),
-    supabaseAdmin
-      .from('featured_slots')
-      .select('content_id, priority')
-      .eq('slot', 'homepage')
-      .eq('content_type', 'promotion')
-      .lte('starts_at', nowISO)
-      .gt('ends_at', nowISO)
-      .order('priority', { ascending: false })
-      .order('created_at', { ascending: false }),
-    supabaseAdmin
-      .from('featured_slots')
-      .select('content_id, priority')
-      .eq('slot', 'homepage')
-      .eq('content_type', 'annonce')
-      .lte('starts_at', nowISO)
-      .gt('ends_at', nowISO)
-      .order('priority', { ascending: false })
-      .order('created_at', { ascending: false }),
-    supabaseAdmin
-      .from('featured_slots')
-      .select('content_id, position')
-      .eq('slot', 'homepage')
-      .eq('content_type', 'evenement')
-      .lte('starts_at', nowISO)
-      .gt('ends_at', nowISO)
-      .not('position', 'is', null)
-      .order('position', { ascending: true }),
+    qHero,
+    qPromoSlots,
+    qVenteSlots,
+    qEventSlots,
     // limit 40 (et non 8) : depuis les marchés, une dizaine d'événements du
     // jour sont à 07:00-08:00. Avec une fenêtre de 8, un concert à 20h30
     // n'était même pas CANDIDAT au choix des tuiles — pas mal classé, absent.
@@ -188,20 +238,9 @@ export async function GET(req: NextRequest) {
       .order('heure_depart', { ascending: true })
       .limit(3),
     // Toutes les promos actives non expirées (filtrées ensuite par plan owner)
-    supabaseAdmin
-      .from('promotions')
-      .select('*')
-      .eq('active', true)
-      .or(`valid_until.is.null,valid_until.gte.${nowISO}`)
-      .order('created_at', { ascending: false }),
+    qPromos,
     // Top sujets du forum (même tri que la liste /forum) → bento Place publique
-    supabaseAdmin
-      .from('forum_topics')
-      .select('id, user_id, titre, media, poll, comment_count, like_count, last_activity_at')
-      .order('pinned', { ascending: false })
-      .order('comment_count', { ascending: false })
-      .order('last_activity_at', { ascending: false })
-      .limit(4),
+    qForum,
     // Zone administrative : le repli quand le visiteur n'a pas de zone a lui.
     supabaseAdmin.from('zone_centres').select('lat, lng, territoire_id'),
     supabaseAdmin.from('config').select('value').eq('key', 'rayon_affichage_km').maybeSingle(),
@@ -321,11 +360,13 @@ export async function GET(req: NextRequest) {
   const seen = new Set<string>()
 
   if (venteFeaturedIds.length > 0) {
-    const { data: featuredAnnonces } = await supabaseAdmin
+    let qFeatAnn = supabaseAdmin
       .from('annonces')
       .select('*')
       .in('id', venteFeaturedIds)
       .eq('statut', 'active')
+    if (T) qFeatAnn = qFeatAnn.eq('territoire_id', T)
+    const { data: featuredAnnonces } = await qFeatAnn
     const map = Object.fromEntries(((featuredAnnonces ?? []) as Array<Record<string, unknown>>).map(a => [a.id as string, a]))
     venteFeaturedIds.forEach(id => {
       const a = map[id]
@@ -334,7 +375,7 @@ export async function GET(req: NextRequest) {
   }
 
   if (ordered.length < 4) {
-    const { data: encheres } = await supabaseAdmin
+    let qEncheres = supabaseAdmin
       .from('annonces')
       .select('*')
       .eq('statut', 'active')
@@ -343,6 +384,8 @@ export async function GET(req: NextRequest) {
       .not('prix_initial', 'is', null)
       .order('created_at', { ascending: false })
       .limit(12)
+    if (T) qEncheres = qEncheres.eq('territoire_id', T)
+    const { data: encheres } = await qEncheres
     ;((encheres ?? []) as Array<Record<string, unknown>>).forEach(a => {
       if (seen.has(a.id as string)) return
       const pa = a.prix_actuel as number | null
@@ -357,12 +400,14 @@ export async function GET(req: NextRequest) {
   // complète avec les annonces actives les plus récentes (tout type) → la
   // section homepage n'est jamais vide.
   if (ordered.length < 4) {
-    const { data: recentes } = await supabaseAdmin
+    let qRecentes = supabaseAdmin
       .from('annonces')
       .select('*')
       .in('statut', ['active', 'don_final'])
       .order('created_at', { ascending: false })
       .limit(12)
+    if (T) qRecentes = qRecentes.eq('territoire_id', T)
+    const { data: recentes } = await qRecentes
     ;((recentes ?? []) as Array<Record<string, unknown>>).forEach(a => {
       if (ordered.length >= 4 || seen.has(a.id as string)) return
       ordered.push(a); seen.add(a.id as string)
@@ -372,10 +417,12 @@ export async function GET(req: NextRequest) {
   // Total réel d'annonces visibles (toutes catégories) pour le compteur "· N"
   // de la section, indépendant des 4 cartes affichées. Aligné sur la liste
   // publique /annonces (statut active|don_final).
-  const { count: annoncesTotal } = await supabaseAdmin
+  let qTotalAnn = supabaseAdmin
     .from('annonces')
     .select('id', { count: 'exact', head: true })
     .in('statut', ['active', 'don_final'])
+  if (T) qTotalAnn = qTotalAnn.eq('territoire_id', T)
+  const { count: annoncesTotal } = await qTotalAnn
 
   // ── EVENTS HOMEPAGE : positionnement explicite 1/2/3 par l'admin, complété
   // par les events du jour sur les positions laissées vides. Section a 3
@@ -399,15 +446,6 @@ export async function GET(req: NextRequest) {
    * ne refuse pas ce qu'on n'a pas pu situer : une affiche qui ne dit pas ou
    * elle se passe reste une information, et 27 fiches sont dans ce cas.
    */
-  /*
-   * Le territoire regarde. Ses centres et son rayon remplacent la zone
-   * administrative globale ; ses evenements sont les seuls candidats aux
-   * tuiles. Sans parametre — donc pour tout le monde aujourd'hui — c'est le
-   * territoire par defaut, et la reponse est celle d'avant.
-   */
-  const territoireVu = (await territoireParSlug(searchParams.get('territoire')))
-    ?? (await territoireParDefaut())
-
   const zoneClient = validateClientZone(searchParams)
   const tousCentres = (zoneCentresRes.data ?? []) as Array<{ lat: number; lng: number; territoire_id: string | null }>
   const centresZone = zoneClient

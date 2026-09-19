@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { territoireDeLaRequete } from '@/lib/territoires'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser } from '@/lib/server-auth'
 import { can } from '@/lib/capabilities'
@@ -13,10 +14,14 @@ export async function GET(req: NextRequest) {
   const etabId = searchParams.get('etab')
   const mine = searchParams.get('mine') === '1'
 
+  // Le territoire regarde. Filtre pose UNIQUEMENT s'il est connu.
+  const terr = await territoireDeLaRequete(req.url)
+
   let query = supabaseAdmin
     .from('promotions')
     .select('*')
     .order('created_at', { ascending: false })
+  if (terr) query = query.eq('territoire_id', terr.id)
 
   if (mine) {
     const ctx = await requireUser(req)

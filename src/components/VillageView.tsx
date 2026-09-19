@@ -424,15 +424,21 @@ function VillageFeed({ user, avatar, authorName }: { user: ReturnType<typeof use
   const [loading, setLoading] = useState(true)
   const [composerOpen, setComposerOpen] = useState(false)
   const [commentsForPost, setCommentsForPost] = useState<VillagePost | null>(null)
+  const { territoire: territoireVillage } = useTerritoire()
+  const idTerritoireVillage = territoireVillage?.id ?? null
 
   const loadPosts = useCallback(async () => {
     try {
-      const { data: rows } = await supabase
+      // Le fil du village d'un territoire n'est pas celui d'un autre : c'est
+      // une communaute, pas un contenu geolocalise.
+      let q = supabase
         .from('posts')
         .select('id, user_id, texte, visibility, embed_kind, embed_ref_id, embed_snapshot, media, created_at, etablissement_id')
         .eq('sur_village', true)
         .order('created_at', { ascending: false })
         .limit(100)
+      if (idTerritoireVillage) q = q.eq('territoire_id', idTerritoireVillage)
+      const { data: rows } = await q
       const base = (rows ?? []) as PostData[]
       if (base.length === 0) { setPosts([]); return }
 
@@ -473,7 +479,7 @@ function VillageFeed({ user, avatar, authorName }: { user: ReturnType<typeof use
     } finally {
       setLoading(false)
     }
-  }, [myId])
+  }, [myId, idTerritoireVillage])
 
   useEffect(() => { loadPosts() }, [loadPosts])
 

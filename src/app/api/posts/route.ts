@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { territoireDeLaRequete } from '@/lib/territoires'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser, notifyByAudience, notifyUser } from '@/lib/server-auth'
 import { sanitizeMedia } from '@/lib/postMedia'
@@ -23,6 +24,9 @@ const MAX_LEN = 2000
  * - Validation texte 1..2000 chars + visibility whitelist
  */
 export async function POST(req: NextRequest) {
+  // Le territoire depuis lequel on publie : le fil du village appartient a
+  // une communaute, pas a une zone.
+  const terr = await territoireDeLaRequete(req.url)
   const ctx = await requireUser(req)
   if (ctx instanceof Response) return ctx
 
@@ -89,6 +93,9 @@ export async function POST(req: NextRequest) {
       user_id: ctx.userId,
       etablissement_id: blase,
       texte: trimmed,
+      // Le fil du village appartient a une communaute, pas a une zone : un
+      // post nait dans le territoire depuis lequel il est ecrit.
+      ...(terr ? { territoire_id: terr.id } : {}),
       visibility: vis,
       embed_kind: validEmbedKind,
       embed_ref_id: validEmbedRefId,

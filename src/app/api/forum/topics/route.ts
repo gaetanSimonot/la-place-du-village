@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { territoireDeLaRequete } from '@/lib/territoires'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser } from '@/lib/server-auth'
 import { sanitizeMedia } from '@/lib/postMedia'
@@ -25,11 +26,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Vous ne gérez pas cette fiche' }, { status: 403 })
   }
 
+  // Le forum d'un territoire n'est pas celui d'un autre.
+  const terr = await territoireDeLaRequete(req.url)
+
   const { data, error } = await supabaseAdmin
     .from('forum_topics')
     .insert({
       user_id: ctx.userId,
       etablissement_id: blase,
+      ...(terr ? { territoire_id: terr.id } : {}),
       titre,
       corps,
       media: media.length ? media : null,
