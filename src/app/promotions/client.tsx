@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import useSWR from 'swr'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { supabase } from '@/lib/supabase'
 import { signalerFavori } from '@/hooks/useFavori'
 import { useAuth } from '@/hooks/useAuth'
@@ -131,7 +132,9 @@ export default function PromotionsClient() {
   // SWR sur /api/promotions (mode public, sans mine ni etab) → cache CDN 60s
   // + mémoire client. Retour sur la page = instantané. Le refetch après
   // utilisation d'une promo se fait via mutatePromos().
-  const { data: promoData, isLoading: promoLoading, mutate: mutatePromos } = useSWR('/api/promotions')
+  const { territoire } = useTerritoire()
+  const slugTerr = territoire?.slug ?? null
+  const { data: promoData, isLoading: promoLoading, mutate: mutatePromos } = useSWR(`/api/promotions${slugTerr ? `?territoire=${encodeURIComponent(slugTerr)}` : ''}`)
   // useMemo pour stabiliser la référence array (évite cascades useMemo aval).
   const promos = useMemo<Promotion[]>(() => (promoData?.promotions ?? []) as Promotion[], [promoData])
   const loading = promoLoading && !promoData

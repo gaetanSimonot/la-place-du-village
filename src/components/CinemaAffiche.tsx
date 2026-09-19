@@ -2,6 +2,7 @@
 import { useMemo } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import type { Cinema, Film, Seance, VisibiliteCinema } from '@/lib/cinema'
 
 /**
@@ -34,7 +35,9 @@ const fetcher = async (u: string) => {
 }
 
 export default function CinemaAffiche({ isAdmin = false }: { isAdmin?: boolean }) {
-  const { data } = useSWR<Payload>('/api/cinema/affiche', fetcher, { revalidateOnFocus: false })
+  const { territoire } = useTerritoire()
+  const slugTerr = territoire?.slug ?? null
+  const { data } = useSWR<Payload>(slugTerr ? `/api/cinema/affiche?territoire=${encodeURIComponent(slugTerr)}` : '/api/cinema/affiche', fetcher, { revalidateOnFocus: false })
 
   const aujourdhui = data?.aujourdhui ?? ''
   const seancesDuJour = useMemo(

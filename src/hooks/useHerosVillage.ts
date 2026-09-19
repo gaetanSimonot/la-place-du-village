@@ -1,6 +1,7 @@
 'use client'
 import { useCallback } from 'react'
 import useSWR from 'swr'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { supabase } from '@/lib/supabase'
 import type { HerosVillage } from '@/lib/villageHero'
 
@@ -38,7 +39,9 @@ async function chargerHeros(url: string): Promise<Reponse> {
 }
 
 export function useHerosVillage() {
-  const { data, isLoading, mutate } = useSWR<Reponse>('/api/village-hero', chargerHeros, {
+  const { territoire } = useTerritoire()
+  const slugTerr = territoire?.slug ?? null
+  const { data, isLoading, mutate } = useSWR<Reponse>(slugTerr ? `/api/village-hero?territoire=${encodeURIComponent(slugTerr)}` : '/api/village-hero', chargerHeros, {
     revalidateOnFocus: false,
   })
 

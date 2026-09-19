@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import useSWR from 'swr'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { sectionVisible } from '@/lib/visibilite'
 import { imageEvenement } from '@/lib/imageEvenement'
 import { RADIO, LOGO_ROND, BLEU_RADIO, formatDuree, type PayloadRadio } from '@/lib/radio'
@@ -26,7 +27,9 @@ import { RADIO, LOGO_ROND, BLEU_RADIO, formatDuree, type PayloadRadio } from '@/
 const fetcher = (u: string) => fetch(u).then(r => r.json())
 
 export default function RadioAffiche({ isAdmin }: { isAdmin: boolean }) {
-  const { data } = useSWR<PayloadRadio>('/api/radio', fetcher)
+  const { territoire } = useTerritoire()
+  const slugTerr = territoire?.slug ?? null
+  const { data } = useSWR<PayloadRadio>(slugTerr ? `/api/radio?territoire=${encodeURIComponent(slugTerr)}` : '/api/radio', fetcher)
 
   if (!data) return null
   if (!sectionVisible(data.villageVisibilite, isAdmin)) return null

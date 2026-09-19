@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { territoireDeLaRequete, territoireParDefaut } from '@/lib/territoires'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getUserContextFromRequest } from '@/lib/server-auth'
 import { normaliserHerosListe, herosVisible } from '@/lib/villageHero'
@@ -24,6 +25,21 @@ export const revalidate = 0
 export const fetchCache = 'force-no-store'
 
 export async function GET(req: NextRequest) {
+
+  /*
+   * L'EDITORIAL N'EST PAS ENCORE TERRITORIAL — il vit dans `config`, qui n'a
+   * qu'une ligne par cle. Plutot que de servir le contenu des Cevennes a un
+   * autre territoire, on ne sert RIEN : « Pau n'a pas encore de heros » est vrai,
+   * « voici le heros des Cevennes » ne l'est pas.
+   *
+   * Disparaitra quand `config` deviendra territorial ; d'ici la, cette garde
+   * est la seule chose qui empeche un melange visible.
+   */
+  const terr = await territoireDeLaRequete(req.url)
+  const defaut = await territoireParDefaut()
+  if (terr && defaut && terr.id !== defaut.id) {
+    return NextResponse.json({ heros: [] })
+  }
   const { data } = await supabaseAdmin
     .from('config').select('value').eq('key', 'village_hero').maybeSingle()
 

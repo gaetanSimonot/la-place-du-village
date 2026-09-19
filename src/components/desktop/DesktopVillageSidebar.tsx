@@ -1,5 +1,6 @@
 'use client'
 
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import HerosVillage from '@/components/village/HerosVillage'
@@ -132,16 +133,18 @@ function VignetteZone({ nom, rayon }: { nom: string; rayon: number }) {
 export default function DesktopVillageSidebar({ encartPromo }: { encartPromo?: React.ReactNode }) {
   const { profile } = useAuth()
   const zone = useZone()
+  const { territoire } = useTerritoire()
+  const slugTerr = territoire?.slug ?? null
   const [hub, setHub] = useState<HubPayload | null>(null)
 
   useEffect(() => {
     let vivant = true
-    fetch('/api/hub')
+    fetch(`/api/hub${slugTerr ? `?territoire=${encodeURIComponent(slugTerr)}` : ''}`)
       .then(r => (r.ok ? r.json() : null))
       .then(d => { if (vivant && d) setHub(d as HubPayload) })
       .catch(() => { /* la colonne se contente de moins */ })
     return () => { vivant = false }
-  }, [])
+  }, [slugTerr])
 
   const promos = (hub?.promos ?? []).slice(0, 3)
   const ventes = (hub?.ventes ?? []).slice(0, 3)

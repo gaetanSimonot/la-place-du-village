@@ -272,10 +272,14 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
 function Tiles() {
   const router = useRouter()
   const [counts, setCounts] = useState<{ reels: number; debats: number; journal: number; annonces: number; debatPhoto?: string | null } | null>(null)
+  // Les petits nombres des tuiles comptent CE territoire.
+  const { territoire } = useTerritoire()
+  const slugTuiles = territoire?.slug ?? null
 
   useEffect(() => {
-    fetch('/api/village/counts').then(r => (r.ok ? r.json() : null)).then(d => { if (d) setCounts(d) }).catch(() => {})
-  }, [])
+    fetch(`/api/village/counts${slugTuiles ? `?territoire=${encodeURIComponent(slugTuiles)}` : ''}`)
+      .then(r => (r.ok ? r.json() : null)).then(d => { if (d) setCounts(d) }).catch(() => {})
+  }, [slugTuiles])
 
   /* Les photos ne servent plus : la carte est blanche, l'icône colorée porte
      la rubrique. `debatPhoto` reste dans la réponse de l'API, simplement

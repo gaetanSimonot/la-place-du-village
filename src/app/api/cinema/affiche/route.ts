@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { territoireDeLaRequete, territoireParDefaut } from '@/lib/territoires'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { dateParis, parseVisibilite, type Film, type Seance } from '@/lib/cinema'
 import { listerCinemas } from '@/lib/cinema-server'
@@ -23,7 +24,13 @@ export const revalidate = 0
 /** Horizon de programmation, aligné sur celui de l'expérience publique. */
 const JOURS_AFFICHES = 21
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Meme garde que /api/cinema : pas d'affiche cevenole dans un autre
+  // territoire tant que `config` n'est pas territorial.
+  const terr = await territoireDeLaRequete(req.url)
+  const defaut = await territoireParDefaut()
+  if (terr && defaut && terr.id !== defaut.id) return NextResponse.json({ film: null, seances: [] })
+
   const { data: cfg } = await supabaseAdmin
     .from('config').select('value').eq('key', 'cinema_village_public').maybeSingle()
   const villageVisibilite = parseVisibilite(cfg?.value)

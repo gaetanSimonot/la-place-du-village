@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { territoireDeLaRequete, territoireParDefaut } from '@/lib/territoires'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { parseVisibilite } from '@/lib/visibilite'
 import { semaineDe, RADIO, type EmissionRadio, type MentionRadio, type PayloadRadio } from '@/lib/radio'
@@ -28,6 +29,21 @@ const SELECT_EVENT =
   'lieux(id, nom, commune, lat, lng, place_id_google)'
 
 export async function GET(req: NextRequest) {
+
+  /*
+   * L'EDITORIAL N'EST PAS ENCORE TERRITORIAL — il vit dans `config`, qui n'a
+   * qu'une ligne par cle. Plutot que de servir le contenu des Cevennes a un
+   * autre territoire, on ne sert RIEN : « Pau n'a pas encore de radio » est vrai,
+   * « voici le radio des Cevennes » ne l'est pas.
+   *
+   * Disparaitra quand `config` deviendra territorial ; d'ici la, cette garde
+   * est la seule chose qui empeche un melange visible.
+   */
+  const terr = await territoireDeLaRequete(req.url)
+  const defaut = await territoireParDefaut()
+  if (terr && defaut && terr.id !== defaut.id) {
+    return NextResponse.json({ emission: null, mentions: [], villageVisibilite: 'personne' })
+  }
   const demande = (new URL(req.url).searchParams.get('semaine') ?? '').trim()
   const semaineVoulue = /^\d{4}-\d{2}-\d{2}$/.test(demande) ? demande : null
 
