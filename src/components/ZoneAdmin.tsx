@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 import { APIProvider, Map, useMap } from '@vis.gl/react-google-maps'
 import { supabase } from '@/lib/supabase'
+import { useTerritoire } from './TerritoireProvider'
 
 /** Helper : récupère le header Authorization Bearer pour les routes
  *  /api/admin/zone qui sont protégées par requireAdmin. */
@@ -60,6 +61,12 @@ function MapZoomButtons() {
 /* ── Composant principal ── */
 
 export default function ZoneAdmin() {
+  /* Cet ecran regle LA ZONE DU TERRITOIRE ADMINISTRE : ses points d'ancrage,
+     ses rayons, son cadrage. Sans ce parametre il melangeait les centres des
+     deux villes, et ecrivait le rayon de Pau dans celui des Cevennes. */
+  const { territoire } = useTerritoire()
+  const suffixe = territoire ? `?territoire=${encodeURIComponent(territoire.slug)}` : ''
+
   const [centres, setCentres]         = useState<Centre[]>([])
   const [rayonInsertion, setRayonInsertion] = useState(100)
   const [rayonAffichage, setRayonAffichage] = useState(50)
@@ -80,7 +87,7 @@ export default function ZoneAdmin() {
   const [pickZoom,  setPickZoom]  = useState(carteZoom)
 
   const fetchZone = useCallback(async () => {
-    const res  = await fetch('/api/admin/zone', { headers: await adminHeaders() })
+    const res  = await fetch(`/api/admin/zone${suffixe}`, { headers: await adminHeaders() })
     const data = await res.json()
     setCentres(data.centres ?? [])
     setRayonInsertion(data.rayon_insertion ?? 100)
@@ -88,14 +95,14 @@ export default function ZoneAdmin() {
     setCarteLat(data.carte_depart_lat   ?? 43.5785)
     setCarteLng(data.carte_depart_lng   ?? 3.8940)
     setCarteZoom(data.carte_depart_zoom ?? 11)
-  }, [])
+  }, [suffixe])
 
   useEffect(() => { fetchZone() }, [fetchZone])
 
   const validerZone = async () => {
     setSaving(true)
     const headers = await adminHeaders({ 'Content-Type': 'application/json' })
-    const promise = fetch('/api/admin/zone', {
+    const promise = fetch(`/api/admin/zone${suffixe}`, {
       method: 'PATCH',
       headers,
       body: JSON.stringify({ rayon_insertion: rayonInsertion, rayon_affichage: rayonAffichage, carte_depart_lat: carteLat, carte_depart_lng: carteLng, carte_depart_zoom: carteZoom }),
@@ -115,7 +122,7 @@ export default function ZoneAdmin() {
     if (!newNom.trim()) return
     setAdding(true); setError(null)
     const headers = await adminHeaders({ 'Content-Type': 'application/json' })
-    const res  = await fetch('/api/admin/zone', { method: 'POST', headers, body: JSON.stringify({ nom: newNom.trim() }) })
+    const res  = await fetch(`/api/admin/zone${suffixe}`, { method: 'POST', headers, body: JSON.stringify({ nom: newNom.trim() }) })
     const data = await res.json()
     if (!res.ok) { setError(data.error ?? 'Erreur') } else { setNewNom(''); await fetchZone() }
     setAdding(false)
@@ -165,7 +172,7 @@ export default function ZoneAdmin() {
               <button onClick={() => deleteCentre(c.id)} disabled={deletingId === c.id} className="text-red-300 hover:text-red-500 text-lg transition-colors disabled:opacity-40">🗑️</button>
             </div>
           ))}
-          {centres.length === 0 && <p className="text-sm text-gray-400 text-center py-3">Aucun centre — Ganges utilisé par défaut</p>}
+          {centres.length === 0 && <p className="text-sm text-gray-400 text-center py-3">Aucun centre pour {territoire?.nom ?? 'ce territoire'} — rien n&apos;y sera accepté</p>}
         </div>
       </div>
 

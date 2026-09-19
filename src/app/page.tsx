@@ -2033,7 +2033,10 @@ export default function HomePage() {
                       const pos = { lat: cam.lat, lng: cam.lng, zoom: cam.zoom }
                       const { data: { session: sess } } = await supabase.auth.getSession()
                       const tk = sess?.access_token
-                      await fetch('/api/admin/zone', {
+                      // Le cadrage appartient au territoire regarde : sans ce
+                      // parametre, definir la vue de Pau ecraserait celle des
+                      // Cevennes.
+                      await fetch(`/api/admin/zone${slugTerritoire ? `?territoire=${encodeURIComponent(slugTerritoire)}` : ''}`, {
                         method: 'PATCH',
                         headers: {
                           'Content-Type': 'application/json',
