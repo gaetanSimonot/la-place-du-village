@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import type { Evenement } from '@/lib/types'
 import { SectionHeaderV3, FeaturedEventCard, MiniEventCard, MoreEventsCard } from '@/components/hub/CartesHub'
@@ -367,7 +368,10 @@ function TodaySection({ onVoirTout }: { onVoirTout?: () => void }) {
    */
   const { pret: zonePrete, zone } = useZonePerso()
   const paramsZone = zone ? `&zlat=${zone.lat}&zlng=${zone.lng}&zr=${zone.rayon}` : ''
-  const { data: hubData } = useSWR(zonePrete ? `/api/hub?d=${todayYMD}${paramsZone}` : null)
+  // Le territoire regarde voyage avec la requete, comme pour l'agenda.
+  const { territoire } = useTerritoire()
+  const paramTerr = territoire?.slug ? `&territoire=${encodeURIComponent(territoire.slug)}` : ''
+  const { data: hubData } = useSWR(zonePrete ? `/api/hub?d=${todayYMD}${paramsZone}${paramTerr}` : null)
 
   const todayEvents: Evenement[] = (hubData?.todayEvents ?? []) as Evenement[]
   const todayTotal: number = hubData?.todayTotal ?? 0

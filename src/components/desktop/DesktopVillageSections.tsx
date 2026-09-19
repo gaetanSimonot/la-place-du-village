@@ -7,6 +7,7 @@ import { CATEGORIES } from '@/lib/categories'
 import type { Categorie } from '@/lib/types'
 import { imageEvenement } from '@/lib/imageEvenement'
 import { choisirTuilesDuJour } from '@/lib/hubTodayPicker'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { texteBrut } from '@/components/TexteRiche'
 
 /**
@@ -127,6 +128,8 @@ export default function DesktopVillageSections() {
   const [semaine, setSemaine]       = useState<Evenement[]>([])
   const [etabs, setEtabs]           = useState<Etablissement[]>([])
   const [catActive, setCatActive]   = useState<string | null>(null)
+  const { territoire } = useTerritoire()
+  const slugTerr = territoire?.slug ?? null
 
   useEffect(() => {
     let vivant = true
@@ -144,9 +147,13 @@ export default function DesktopVillageSections() {
         paramsZone = `?zlat=${z.lat}&zlng=${z.lng}&zr=${z.rayon}`
       }
     } catch { /* zone du village par defaut */ }
+    // Le territoire regarde, comme sur mobile — sur le hub ET sur l'agenda,
+    // sinon la semaine resterait cevenole pendant que les tuiles changent.
+    const qTerr = slugTerr ? `&territoire=${encodeURIComponent(slugTerr)}` : ''
+    if (slugTerr) paramsZone += (paramsZone ? '&' : '?') + 'territoire=' + encodeURIComponent(slugTerr)
     Promise.all([
       fetch(`/api/hub${paramsZone}`).then(r => (r.ok ? r.json() : null)).catch(() => null),
-      fetch('/api/agenda?quand=cette_semaine').then(r => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`/api/agenda?quand=cette_semaine${qTerr}`).then(r => (r.ok ? r.json() : null)).catch(() => null),
       // Plus d'appel à /api/village/counts : le carrousel ne montre que les
       // partenaires, il n'a plus à annoncer le total de l'annuaire.
       fetch('/api/annuaire').then(r => (r.ok ? r.json() : null)).catch(() => null),
@@ -157,7 +164,7 @@ export default function DesktopVillageSections() {
       if (annuaire?.etablissements)  setEtabs(annuaire.etablissements as Etablissement[])
     })
     return () => { vivant = false }
-  }, [])
+  }, [slugTerr])
 
   /** Catégories réellement présentes dans les événements de la semaine. */
   const categories = useMemo(() => {

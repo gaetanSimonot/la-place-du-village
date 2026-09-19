@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase'
 import { EvenementCard, Filtres, ProduitCategorie, EtablissementCard, EtablissementType } from '@/lib/types'
 import { useTheme } from '@/components/ThemeProvider'
 import { useTerritoire } from '@/components/TerritoireProvider'
+import TerritoirePicker from '@/components/TerritoirePicker'
 import { haversineKm, GANGES } from '@/lib/distance'
 import { normSearch } from '@/lib/filters'
 import { useAuth } from '@/hooks/useAuth'
@@ -101,7 +102,7 @@ export default function HomePage() {
    * carte et le cadrage racontent la meme ville. Pour tout le monde sauf
    * l'admin, c'est le territoire par defaut — donc rien ne change.
    */
-  const { territoire: territoireVu, territoires, choisirTerritoire } = useTerritoire()
+  const { territoire: territoireVu } = useTerritoire()
   const slugTerritoire = territoireVu?.slug ?? null
   const { user, profile, loading: authLoading, isAdmin } = useAuth()
   const { favIds, toggle: toggleFav } = useFavorites()
@@ -1967,38 +1968,9 @@ export default function HomePage() {
 
                   {/* Le territoire regarde. Reserve a l'admin : un visiteur
                       reste toujours sur celui par defaut, et rien ne change
-                      pour lui. Cache tant qu'il n'y a qu'un territoire — un
-                      selecteur a un seul choix n'apprend rien. */}
-                  {territoires.length > 1 && (
-                    <>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: '#1A1209', marginBottom: 2 }}>
-                        Territoire
-                      </div>
-                      <div style={{ fontSize: 11, color: '#7A6A5A', marginBottom: 8 }}>
-                        Ce que TU regardes. Les habitants restent sur {territoires.find(t => t.par_defaut)?.nom ?? 'le territoire par défaut'}.
-                      </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
-                        {territoires.map(t => {
-                          const actif = t.slug === territoireVu?.slug
-                          return (
-                            <button
-                              key={t.id}
-                              onClick={() => choisirTerritoire(t.slug)}
-                              style={{
-                                padding: '8px 14px', borderRadius: 999, cursor: 'pointer',
-                                border: actif ? '2px solid #2D5A3D' : '1.5px solid #E5DDD2',
-                                background: actif ? '#E8F2EB' : '#fff',
-                                color: actif ? '#2D5A3D' : '#7A6A5A',
-                                fontWeight: 700, fontSize: 13, fontFamily: 'inherit',
-                              }}
-                            >
-                              {t.nom}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </>
-                  )}
+                      pour lui. Le composant se tait s'il n'y a qu'un
+                      territoire. */}
+                  <div style={{ marginBottom: 14 }}><TerritoirePicker /></div>
 
                   {/* Le style s'applique a TOUS les visiteurs, pas au seul
                       appareil : c'est pour ca qu'il est sous la barre admin,

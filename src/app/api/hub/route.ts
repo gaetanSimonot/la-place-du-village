@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { normalizeHubOrder } from '@/lib/hubSections'
 import { choisirTuilesDuJour, type EvenementTuile } from '@/lib/hubTodayPicker'
 import { haversineKm } from '@/lib/distance'
+import { territoireParDefaut, territoireParSlug } from '@/lib/territoires'
 
 /**
  * Valide une date YYYY-MM-DD venant du client. Retourne la date validée OU
@@ -202,7 +203,7 @@ export async function GET(req: NextRequest) {
       .order('last_activity_at', { ascending: false })
       .limit(4),
     // Zone administrative : le repli quand le visiteur n'a pas de zone a lui.
-    supabaseAdmin.from('zone_centres').select('lat, lng'),
+    supabaseAdmin.from('zone_centres').select('lat, lng, territoire_id'),
     supabaseAdmin.from('config').select('value').eq('key', 'rayon_affichage_km').maybeSingle(),
   ])
 
@@ -398,13 +399,23 @@ export async function GET(req: NextRequest) {
    * ne refuse pas ce qu'on n'a pas pu situer : une affiche qui ne dit pas ou
    * elle se passe reste une information, et 27 fiches sont dans ce cas.
    */
+  /*
+   * Le territoire regarde. Ses centres et son rayon remplacent la zone
+   * administrative globale ; ses evenements sont les seuls candidats aux
+   * tuiles. Sans parametre — donc pour tout le monde aujourd'hui — c'est le
+   * territoire par defaut, et la reponse est celle d'avant.
+   */
+  const territoireVu = (await territoireParSlug(searchParams.get('territoire')))
+    ?? (await territoireParDefaut())
+
   const zoneClient = validateClientZone(searchParams)
+  const tousCentres = (zoneCentresRes.data ?? []) as Array<{ lat: number; lng: number; territoire_id: string | null }>
   const centresZone = zoneClient
     ? [{ lat: zoneClient.lat, lng: zoneClient.lng }]
-    : ((zoneCentresRes.data ?? []) as Array<{ lat: number; lng: number }>)
+    : (territoireVu ? tousCentres.filter(c => c.territoire_id === territoireVu.id) : tousCentres)
   const rayonZone = zoneClient
     ? zoneClient.rayon
-    : parseInt(rayonAffichageRes.data?.value ?? '0', 10)
+    : territoireVu?.rayon_affichage_km ?? parseInt(rayonAffichageRes.data?.value ?? '0', 10)
 
   const dansLaZone = (e: EventRow) => {
     if (!(rayonZone > 0) || centresZone.length === 0) return true
@@ -414,7 +425,12 @@ export async function GET(req: NextRequest) {
     return centresZone.some(c => haversineKm(lat, lng, c.lat, c.lng) <= rayonZone)
   }
 
-  const candidatsDuJour = ((todayEventsRes.data ?? []) as EventRow[]).filter(dansLaZone)
+  // Les tuiles ne piochent que dans le territoire regarde. Comme ailleurs, le
+  // filtre n'est pose que si le territoire est connu : mieux vaut servir large
+  // que servir une page vide sur un echec de lecture.
+  const candidatsDuJour = ((todayEventsRes.data ?? []) as EventRow[])
+    .filter(e => !territoireVu || e.territoire_id === territoireVu.id)
+    .filter(dansLaZone)
 
   // Positions forcées par l'admin (bouton « mettre en avant »). Elles gagnent
   // toujours : aucune règle de tri ne s'applique à elles.

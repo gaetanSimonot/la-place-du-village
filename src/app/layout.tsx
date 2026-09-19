@@ -13,6 +13,7 @@ import './desktop-carte.css'
 import './desktop-cinema.css'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { TerritoireProvider } from '@/components/TerritoireProvider'
+import { TerritoireBandeau } from '@/components/TerritoirePicker'
 import InstallBanner from '@/components/InstallBanner'
 import { AuthModalProvider } from '@/contexts/AuthModalContext'
 import { AuthProvider } from '@/contexts/AuthContext'
@@ -229,6 +230,7 @@ export default function RootLayout({
           <AuthModalProvider>
             <ThemeProvider>
             <TerritoireProvider>
+            <TerritoireBandeau />
               <ConfirmDialogProvider>
                 <HistoryTrapProvider>
                   <Suspense fallback={null}><DesktopChrome /></Suspense>

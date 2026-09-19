@@ -11,6 +11,7 @@ import { CATEGORIES } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
 import DoublonsAdmin from '@/components/DoublonsAdmin'
 import MapStylePicker from '@/components/MapStylePicker'
+import TerritoirePicker from '@/components/TerritoirePicker'
 import ZoneAdmin from '@/components/ZoneAdmin'
 import MembresAdmin from '@/components/MembresAdmin'
 import ProduceurAdmin from '@/components/ProduceurAdmin'
@@ -1131,6 +1132,15 @@ function ParametersSection(p: ParamProps) {
               </span>
               {p.togglingMaint && <span className="text-xs text-gray-400">…</span>}
             </label>
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            <p className="font-bold text-[#2C1810] text-sm mb-1">📍 Territoire</p>
+            <p className="text-xs text-gray-500 mb-3">
+              Ce que TU regardes dans l&apos;app. Les habitants ne voient pas ce choix
+              et restent sur le territoire par défaut.
+            </p>
+            <TerritoirePicker compact />
           </div>
 
           <div className="bg-white rounded-2xl p-4 shadow-sm">
