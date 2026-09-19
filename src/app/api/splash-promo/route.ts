@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/server-auth'
+import { territoireDeLaRequete } from '@/lib/territoires'
+import { lireConfig, ecrireConfig } from '@/lib/configTerritoire'
 import { SPLASH_PROMO_KEY, normalizeSplashPromo, parseSplashPromo } from '@/lib/splashPromo'
 
 // Lecture d'une config admin : force-dynamic ne suffit pas, Next cache le fetch
@@ -21,10 +22,12 @@ export const fetchCache = 'force-no-store'
  * et la charge est négligeable (une ligne, lue au plus une fois par session).
  */
 
-export async function GET() {
-  const { data } = await supabaseAdmin
-    .from('config').select('value').eq('key', SPLASH_PROMO_KEY).maybeSingle()
-  return NextResponse.json(parseSplashPromo(data?.value), {
+export async function GET(req: NextRequest) {
+  // Chaque territoire a sa campagne — et surtout sa propre frontiere
+  // veterans/nouveaux (`activatedAt`). Herite, un territoire tout neuf
+  // considererait ses premiers habitants comme des anciens.
+  const valeur = await lireConfig(SPLASH_PROMO_KEY, await territoireDeLaRequete(req.url))
+  return NextResponse.json(parseSplashPromo(valeur), {
     headers: { 'Cache-Control': 'no-store' },
   })
 }
@@ -42,9 +45,8 @@ export async function POST(req: NextRequest) {
   // volontairement ou par un copier-coller malheureux. Elle est posée une
   // seule fois, à la première bascule off → on, et conservée ensuite : le
   // système peut être éteint puis rallumé sans que la frontière ne bouge.
-  const { data: current } = await supabaseAdmin
-    .from('config').select('value').eq('key', SPLASH_PROMO_KEY).maybeSingle()
-  const stored = parseSplashPromo(current?.value)
+  const terr = await territoireDeLaRequete(req.url)
+  const stored = parseSplashPromo(await lireConfig(SPLASH_PROMO_KEY, terr))
   const activatedAt = stored.activatedAt ?? (incoming.enabled ? new Date().toISOString() : null)
 
   // « Relancer le cycle » : action explicite (body.resetCycle), pas un champ de
@@ -57,10 +59,8 @@ export async function POST(req: NextRequest) {
 
   const cfg = { ...incoming, activatedAt, cycleEpoch }
 
-  const { error } = await supabaseAdmin
-    .from('config')
-    .upsert({ key: SPLASH_PROMO_KEY, value: JSON.stringify(cfg) }, { onConflict: 'key' })
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  const res = await ecrireConfig(SPLASH_PROMO_KEY, JSON.stringify(cfg), terr)
+  if (!res.ok) return NextResponse.json({ error: res.error }, { status: 500 })
 
   // Renvoie la config telle qu'enregistrée : le client affiche la valeur
   // effective (bornée) plutôt que ce qu'il croyait avoir saisi.

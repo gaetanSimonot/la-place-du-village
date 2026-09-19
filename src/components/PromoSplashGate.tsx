@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ecranBureau } from '@/lib/bureau'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { trackEvent } from '@/lib/analytics'
 import SplashPromoView from './SplashPromoView'
 import SubscriptionModal from './SubscriptionModal'
@@ -49,15 +50,21 @@ export default function PromoSplashGate() {
   /** Un seul armement de minuterie par session de montage. */
   const armed = useRef(false)
 
+  /* La campagne appartient au territoire — sa frontiere veterans/nouveaux
+     surtout : heritee, un territoire neuf prendrait ses premiers habitants
+     pour des anciens. */
+  const { territoire } = useTerritoire()
+  const slugTerr = territoire?.slug ?? null
+
   // La config est publique et non cachée : une seule lecture par chargement.
   useEffect(() => {
     let alive = true
-    fetch('/api/splash-promo')
+    fetch(`/api/splash-promo${slugTerr ? `?territoire=${encodeURIComponent(slugTerr)}` : ''}`)
       .then(r => (r.ok ? r.json() : null))
       .then(j => { if (alive) setCfg(parseSplashPromo(j ? JSON.stringify(j) : null)) })
       .catch(() => { if (alive) setCfg(parseSplashPromo(null)) })
     return () => { alive = false }
-  }, [])
+  }, [slugTerr])
 
   const plan = profile?.plan ?? 'basic'
   // Source de vérité de l'abonnement : le plan du profil, comme partout

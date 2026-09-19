@@ -4,6 +4,8 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import EmbedPicker, { type EmbedItem } from '@/components/EmbedPicker'
 import ImageLibraryPicker from '@/components/ImageLibraryPicker'
+import { useTerritoire } from '@/components/TerritoireProvider'
+import { cleLocale } from '@/lib/cleLocale'
 
 /* Données réelles renvoyées par /api/splash */
 interface SplashData {
@@ -65,16 +67,37 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
     if (typeof window === 'undefined') return null
     try { return localStorage.getItem('pdv-splash-hero') } catch { return null }
   })
+  /*
+   * Le splash est le PREMIER ecran : servir le heros, le journal et le bon
+   * plan des Cevennes a qui regarde Pau, ce serait mentir des l'entree.
+   */
+  const { territoire } = useTerritoire()
+  const slugTerr = territoire?.slug ?? null
+  const qTerr = slugTerr ? `&territoire=${encodeURIComponent(slugTerr)}` : ''
+  const qTerrPost = slugTerr ? `?territoire=${encodeURIComponent(slugTerr)}` : ''
+  const cleHero = cleLocale('pdv-splash-hero', slugTerr, !!territoire?.par_defaut)
+
   const load = useCallback(() => {
-    fetch(`/api/splash?_=${Date.now()}`, { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).then(data => {
+    fetch(`/api/splash?_=${Date.now()}${qTerr}`, { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).then(data => {
       if (!data) return
       setD(data)
       const h = (data.hero as string | undefined) || '/splash-header.jpg'
       setHero(h)
-      try { localStorage.setItem('pdv-splash-hero', h) } catch { /* noop */ }
+      try { localStorage.setItem(cleHero, h) } catch { /* noop */ }
     }).catch(() => {})
-  }, [])
+  }, [qTerr, cleHero])
   useEffect(() => { load() }, [load])
+
+  /*
+   * L'image gardee est relue quand le territoire change. L'initialisation
+   * ci-dessus lit la cle historique — celle du territoire par defaut — ce qui
+   * laisse les habitants exactement dans leur comportement d'avant ; en vue
+   * Pau, on remplace ici par la sienne, quitte a n'avoir rien a montrer.
+   */
+  useEffect(() => {
+    if (!territoire || territoire.par_defaut) return
+    try { setHero(localStorage.getItem(cleHero)) } catch { setHero(null) }
+  }, [territoire, cleHero])
 
   // Admin : élément mis en avant dans « À découvrir »
   const savePick = async (item: EmbedItem | null) => {
@@ -84,7 +107,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
       await supabase.auth.refreshSession().catch(() => {})
       const { data: { session } } = await supabase.auth.getSession()
       const tk = session?.access_token
-      const r = await fetch('/api/splash/decouvrir', {
+      const r = await fetch(`/api/splash/decouvrir${qTerrPost}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
         body: JSON.stringify(item),
@@ -101,13 +124,13 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
   const saveHero = async (url: string) => {
     setHeroPickerOpen(false)
     setHero(url)                                            // affichage instantané (optimiste)
-    try { localStorage.setItem('pdv-splash-hero', url) } catch { /* noop */ }
+    try { localStorage.setItem(cleHero, url) } catch { /* noop */ }
     setD(prev => (prev ? { ...prev, hero: url } : prev))
     try {
       await supabase.auth.refreshSession().catch(() => {})
       const { data: { session } } = await supabase.auth.getSession()
       const tk = session?.access_token
-      const r = await fetch('/api/splash/hero', {
+      const r = await fetch(`/api/splash/hero${qTerrPost}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
         body: JSON.stringify({ url }),

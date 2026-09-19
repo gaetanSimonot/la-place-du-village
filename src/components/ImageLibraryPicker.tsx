@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { compressImage, uploadViaSignedUrl } from '@/lib/clientUpload'
+import { useTerritoire } from '@/components/TerritoireProvider'
 
 /**
  * Modale « Ma bibliothèque d'images » : grille des images de l'admin,
@@ -13,12 +14,17 @@ export default function ImageLibraryPicker({ onSelect, onClose, currentUrl }: {
   onClose: () => void
   currentUrl?: string | null
 }) {
+  /* Chaque territoire a SA bibliotheque : les photos de Ganges n'illustrent
+     pas Pau. Vide au depart pour un territoire neuf, ce qui est juste. */
+  const { territoire } = useTerritoire()
+  const qTerr = territoire?.slug ? `?territoire=${encodeURIComponent(territoire.slug)}` : ''
+
   const [images, setImages] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const load = () => fetch('/api/image-library').then(r => (r.ok ? r.json() : { images: [] })).then(d => setImages(d.images ?? [])).catch(() => {})
-  useEffect(() => { load() }, [])
+  const load = () => fetch(`/api/image-library${qTerr}`).then(r => (r.ok ? r.json() : { images: [] })).then(d => setImages(d.images ?? [])).catch(() => {})
+  useEffect(() => { load() }, [qTerr])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const token = async () => {
     await supabase.auth.refreshSession().catch(() => {})   // token frais (sinon POST admin échoue en silence)
@@ -35,7 +41,7 @@ export default function ImageLibraryPicker({ onSelect, onClose, currentUrl }: {
       const compressed = await compressImage(file)
       const { publicUrl } = await uploadViaSignedUrl({ file: compressed, kind: 'hub-hero-intro' })
       const tk = (await supabase.auth.getSession()).data.session?.access_token
-      const r = await fetch('/api/image-library', {
+      const r = await fetch(`/api/image-library${qTerr}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
         body: JSON.stringify({ url: publicUrl }),
@@ -51,7 +57,7 @@ export default function ImageLibraryPicker({ onSelect, onClose, currentUrl }: {
 
   const remove = async (url: string) => {
     const tk = await token()
-    const r = await fetch('/api/image-library', {
+    const r = await fetch(`/api/image-library${qTerr}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
       body: JSON.stringify({ url, remove: true }),

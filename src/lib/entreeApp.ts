@@ -98,7 +98,17 @@ export async function entreeFraiche(delaiMax = 700): Promise<EntreeApp> {
   const secours = new Promise<EntreeApp>(r => setTimeout(() => r(lireEntreeEnCache()), delaiMax))
 
   const reseau = (async () => {
-    const r = await fetch('/api/entree', { cache: 'no-store' })
+    /*
+     * Lue AVANT React : pas de contexte ici, donc on lit le territoire la ou
+     * le selecteur le range. Le territoire par defaut n'ecrit rien — un
+     * habitant part donc avec exactement la requete d'avant.
+     */
+    let qTerr = ''
+    try {
+      const slug = localStorage.getItem('pdv-territoire')
+      if (slug) qTerr = `?territoire=${encodeURIComponent(slug)}`
+    } catch { /* pas de choix garde */ }
+    const r = await fetch(`/api/entree${qTerr}`, { cache: 'no-store' })
     if (!r.ok) throw new Error(String(r.status))
     const valeur = parseEntree(JSON.stringify(await r.json()))
     try { localStorage.setItem(CLE_CACHE_ENTREE, JSON.stringify(valeur)) } catch { /* cache indisponible */ }

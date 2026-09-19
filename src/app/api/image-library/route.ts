@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/server-auth'
+import { territoireDeLaRequete } from '@/lib/territoires'
+import { lireConfig, ecrireConfig } from '@/lib/configTerritoire'
+import type { Territoire } from '@/lib/territoires'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,16 +15,18 @@ export const dynamic = 'force-dynamic'
  */
 const KEY = 'image_library'
 
-async function read(): Promise<string[]> {
-  const { data } = await supabaseAdmin.from('config').select('value').eq('key', KEY).maybeSingle()
+async function read(terr: Territoire | null): Promise<string[]> {
+  // Chaque territoire a SA bibliotheque : les photos de Ganges n'illustrent
+  // pas Pau. Vide au depart, ce qui est la reponse juste.
+  const valeur = await lireConfig(KEY, terr)
   try {
-    const a = data?.value ? JSON.parse(data.value) : []
+    const a = valeur ? JSON.parse(valeur) : []
     return Array.isArray(a) ? a.filter((x: unknown): x is string => typeof x === 'string') : []
   } catch { return [] }
 }
 
-export async function GET() {
-  return NextResponse.json({ images: await read() })
+export async function GET(req: NextRequest) {
+  return NextResponse.json({ images: await read(await territoireDeLaRequete(req.url)) })
 }
 
 export async function POST(req: NextRequest) {
@@ -31,9 +35,10 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
   const url = typeof body.url === 'string' ? body.url : ''
   if (!url) return NextResponse.json({ error: 'url manquante' }, { status: 400 })
-  let list = await read()
+  const terr = await territoireDeLaRequete(req.url)
+  let list = await read(terr)
   list = body.remove ? list.filter(u => u !== url) : [url, ...list.filter(u => u !== url)]
-  const { error } = await supabaseAdmin.from('config').upsert({ key: KEY, value: JSON.stringify(list) }, { onConflict: 'key' })
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  const res = await ecrireConfig(KEY, JSON.stringify(list), terr)
+  if (!res.ok) return NextResponse.json({ error: res.error }, { status: 500 })
   return NextResponse.json({ images: list })
 }

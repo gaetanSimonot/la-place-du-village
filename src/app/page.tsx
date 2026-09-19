@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase'
 import { EvenementCard, Filtres, ProduitCategorie, EtablissementCard, EtablissementType } from '@/lib/types'
 import { useTheme } from '@/components/ThemeProvider'
 import { useTerritoire } from '@/components/TerritoireProvider'
+import { cleLocale } from '@/lib/cleLocale'
 import TerritoirePicker from '@/components/TerritoirePicker'
 import { haversineKm, GANGES } from '@/lib/distance'
 import { normSearch } from '@/lib/filters'
@@ -94,21 +95,6 @@ const RAYON_DEFAUT = 45
  * perdu le quartier.
  */
 const ZOOM_FICHE = 17
-
-/**
- * LES CACHES LOCAUX SONT PROPRES A CHAQUE TERRITOIRE.
- *
- * La derniere zone connue et la derniere position de carte etaient gardees
- * sous une cle unique. En basculant sur Pau, l'ecran repartait donc des
- * centres cevenols et surtout de la CAMERA cevenole : le marqueur de Pau
- * existait bien, a huit cents kilometres hors de l'ecran, et on concluait que
- * l'evenement n'etait pas la.
- *
- * Le territoire par defaut garde la cle historique : le reglage deja
- * enregistre par l'admin continue de s'appliquer, sans rien a refaire.
- */
-const cleLocale = (base: string, slug: string | null, parDefaut: boolean) =>
-  (!slug || parDefaut) ? base : `${base}:${slug}`
 
 export default function HomePage() {
   const { fixedMap, setFixedMap } = useTheme()

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/server-auth'
+import { territoireDeLaRequete } from '@/lib/territoires'
+import { ecrireConfig } from '@/lib/configTerritoire'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,7 +15,11 @@ export async function POST(req: NextRequest) {
   if (ctx instanceof Response) return ctx
   const body = await req.json().catch(() => ({}))
   const value = typeof body.url === 'string' ? body.url : ''
-  const { error } = await supabaseAdmin.from('config').upsert({ key: 'splash_hero_image_url', value }, { onConflict: 'key' })
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // Le reglage appartient au territoire administre : c'est `ecrireConfig` qui
+  // tranche entre `config` (territoire par defaut, table inchangee) et
+  // `config_territoire`. La decision ne doit exister qu'a UN endroit.
+  const terr = await territoireDeLaRequete(req.url)
+  const res = await ecrireConfig('splash_hero_image_url', value, terr)
+  if (!res.ok) return NextResponse.json({ error: res.error }, { status: 500 })
   return NextResponse.json({ success: true })
 }

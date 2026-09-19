@@ -391,7 +391,7 @@ export default function AdminHubCarousel() {
     const { data: { session } } = await supabase.auth.getSession()
     const token = session?.access_token
     if (!token) { setSplashError('Session expirée, recharge la page.'); setSplashSaving(false); return }
-    const res = await fetch('/api/splash-promo', {
+    const res = await fetch(`/api/splash-promo${qTerrSlots}`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body:    JSON.stringify(resetCycle ? { ...splash, resetCycle: true } : splash),

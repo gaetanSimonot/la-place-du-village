@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/server-auth'
+import { territoireDeLaRequete } from '@/lib/territoires'
+import { lireConfig, ecrireConfig } from '@/lib/configTerritoire'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,10 +16,13 @@ export const dynamic = 'force-dynamic'
  */
 const KEY = 'promo_carousel'
 
-export async function GET() {
-  const { data } = await supabaseAdmin.from('config').select('value').eq('key', KEY).maybeSingle()
+export async function GET(req: NextRequest) {
+  // L'ordre du carrousel designe des promos PRECISES, par leur identifiant.
+  // Herite d'un autre territoire il ne designerait rien : la cle est
+  // editoriale, donc `lireConfig` rend `null` plutot que celui du voisin.
+  const valeur = await lireConfig(KEY, await territoireDeLaRequete(req.url))
   let cfg: { order: string[]; coupDeCoeur: string | null } = { order: [], coupDeCoeur: null }
-  try { if (data?.value) cfg = { order: [], coupDeCoeur: null, ...JSON.parse(data.value) } } catch { /* noop */ }
+  try { if (valeur) cfg = { order: [], coupDeCoeur: null, ...JSON.parse(valeur) } } catch { /* noop */ }
   return NextResponse.json(cfg)
 }
 
@@ -30,7 +34,7 @@ export async function POST(req: NextRequest) {
     order: Array.isArray(body.order) ? body.order.filter((x: unknown) => typeof x === 'string') : [],
     coupDeCoeur: typeof body.coupDeCoeur === 'string' ? body.coupDeCoeur : null,
   })
-  const { error } = await supabaseAdmin.from('config').upsert({ key: KEY, value }, { onConflict: 'key' })
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  const res = await ecrireConfig(KEY, value, await territoireDeLaRequete(req.url))
+  if (!res.ok) return NextResponse.json({ error: res.error }, { status: 500 })
   return NextResponse.json({ success: true })
 }

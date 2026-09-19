@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase-admin'
+import { NextRequest, NextResponse } from 'next/server'
 import { parseEntree } from '@/lib/entreeApp'
+import { territoireDeLaRequete } from '@/lib/territoires'
+import { lireConfig } from '@/lib/configTerritoire'
 
 // Une config admin lue par une route : `force-dynamic` ne suffit pas, Next
 // cache le fetch et sert l'ancienne valeur malgré la base à jour (piège
@@ -18,11 +19,12 @@ export const fetchCache = 'force-no-store'
  * lancement suivant — d'où `no-store`, pour qu'un changement en admin ne
  * traîne pas derrière un cache de CDN en plus du cache du client.
  */
-export async function GET() {
-  const { data } = await supabaseAdmin
-    .from('config').select('value').eq('key', 'entree_app').maybeSingle()
+export async function GET(req: NextRequest) {
+  // Un territoire sans reglage propre ouvre sur le comportement par defaut de
+  // `parseEntree`, jamais sur la porte d'entree d'une autre ville.
+  const valeur = await lireConfig('entree_app', await territoireDeLaRequete(req.url))
 
-  return NextResponse.json(parseEntree(data?.value), {
+  return NextResponse.json(parseEntree(valeur), {
     headers: { 'Cache-Control': 'no-store' },
   })
 }

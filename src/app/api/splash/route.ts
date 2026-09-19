@@ -1,5 +1,7 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { territoireDeLaRequete } from '@/lib/territoires'
+import { lireConfigs } from '@/lib/configTerritoire'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -7,6 +9,18 @@ export const fetchCache = 'force-no-store'   // lectures supabase TOUJOURS fraî
 
 /**
  * GET /api/splash — données des rubriques du splash éditorial (sources réelles).
+ *
+ * TOUT y est territorial, et c'est l'écran où ça se voit le plus : le splash
+ * est la première chose qu'on voit. Servir le héros, le journal et le bon plan
+ * des Cévennes à quelqu'un qui regarde Pau, ce serait lui mentir dès l'entrée.
+ *
+ * Deux natures de données, deux traitements :
+ *   — le CONTENU (événements, sujets, journal, promos, moments) se filtre par
+ *     `territoire_id`, et seulement quand le territoire est connu : un filtre
+ *     posé à vide viderait l'écran pour tout le monde ;
+ *   — l'ÉDITORIAL (image héro, coup de cœur, « à découvrir ») passe par
+ *     `lireConfigs`, qui rend `null` pour un territoire sans réglage plutôt
+ *     que d'hériter de celui du voisin.
  */
 function parisDate(d: Date): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d)
@@ -21,25 +35,38 @@ function weekRange(): [string, string] {
   return [parisDate(mon), parisDate(sun)]
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const today = parisDate(new Date())
   const [mon, sun] = weekRange()
+  const terr = await territoireDeLaRequete(req.url)
+  const T = terr?.id ?? null
 
-  const [todayCntRes, weekCntRes, topicsCntRes, commentsRes, journalRes, promoCfgRes, momentRes, heroRes, decouvrirRes] = await Promise.all([
-    supabaseAdmin.from('evenements').select('id', { count: 'exact', head: true }).eq('statut', 'publie').eq('date_debut', today),
-    supabaseAdmin.from('evenements').select('id', { count: 'exact', head: true }).eq('statut', 'publie').gte('date_debut', mon).lte('date_debut', sun),
-    supabaseAdmin.from('forum_topics').select('id', { count: 'exact', head: true }),
+  // Chaque requete de contenu porte le filtre — pose UNIQUEMENT si le
+  // territoire est connu (cf. en-tete).
+  let qToday = supabaseAdmin.from('evenements').select('id', { count: 'exact', head: true }).eq('statut', 'publie').eq('date_debut', today)
+  if (T) qToday = qToday.eq('territoire_id', T)
+  let qWeek = supabaseAdmin.from('evenements').select('id', { count: 'exact', head: true }).eq('statut', 'publie').gte('date_debut', mon).lte('date_debut', sun)
+  if (T) qWeek = qWeek.eq('territoire_id', T)
+  let qTopics = supabaseAdmin.from('forum_topics').select('id', { count: 'exact', head: true })
+  if (T) qTopics = qTopics.eq('territoire_id', T)
+  let qJournal = supabaseAdmin.from('journaux_hebdo').select('numero, cover_titre, cover_kicker').eq('statut', 'publie').order('numero', { ascending: false }).limit(1)
+  if (T) qJournal = qJournal.eq('territoire_id', T)
+  let qMoment = supabaseAdmin.from('moments').select('id, auteur_id, media_kind, media_url, poster_url, legende').eq('sur_accueil', true).gt('expires_at', new Date().toISOString()).order('created_at', { ascending: false }).limit(1)
+  if (T) qMoment = qMoment.eq('territoire_id', T)
+
+  const [todayCntRes, weekCntRes, topicsCntRes, commentsRes, journalRes, momentRes, reglages] = await Promise.all([
+    qToday,
+    qWeek,
+    qTopics,
     supabaseAdmin.from('forum_comments').select('topic_id'),
-    supabaseAdmin.from('journaux_hebdo').select('numero, cover_titre, cover_kicker').eq('statut', 'publie').order('numero', { ascending: false }).limit(1).maybeSingle(),
-    supabaseAdmin.from('config').select('value').eq('key', 'promo_carousel').maybeSingle(),
-    supabaseAdmin.from('moments').select('id, auteur_id, media_kind, media_url, poster_url, legende').eq('sur_accueil', true).gt('expires_at', new Date().toISOString()).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-    supabaseAdmin.from('config').select('value').eq('key', 'splash_hero_image_url').maybeSingle(),
-    supabaseAdmin.from('config').select('value').eq('key', 'splash_decouvrir').maybeSingle(),
+    qJournal.maybeSingle(),
+    qMoment.maybeSingle(),
+    lireConfigs(['promo_carousel', 'splash_hero_image_url', 'splash_decouvrir'], terr),
   ])
 
   // Image héro = slot dédié du splash (config 'splash_hero_image_url'), indépendant
   // du carrousel/hub. Fallback sur l'image d'entrée par défaut si non réglé.
-  const hero = (heroRes.data?.value as string | undefined) || '/splash-header.jpg'
+  const hero = reglages.splash_hero_image_url || '/splash-header.jpg'
 
   const aujourdhui = {
     today: todayCntRes.count ?? 0,
@@ -56,11 +83,15 @@ export async function GET() {
   const topId = ranked[0]?.[0] ?? null
   let topComments = topId ? ranked[0][1] : 0
   type TopicRow = { id: string; titre: string; media: { url?: string }[] | null }
+  let qTop = supabaseAdmin.from('forum_topics').select('id, titre, media')
+  if (T) qTop = qTop.eq('territoire_id', T)
   let topRow = topId
-    ? (await supabaseAdmin.from('forum_topics').select('id, titre, media').eq('id', topId).maybeSingle()).data as TopicRow | null
+    ? (await qTop.eq('id', topId).maybeSingle()).data as TopicRow | null
     : null
   if (!topRow) {
-    topRow = (await supabaseAdmin.from('forum_topics').select('id, titre, media').order('created_at', { ascending: false }).limit(1).maybeSingle()).data as TopicRow | null
+    let qDernier = supabaseAdmin.from('forum_topics').select('id, titre, media')
+    if (T) qDernier = qDernier.eq('territoire_id', T)
+    topRow = (await qDernier.order('created_at', { ascending: false }).limit(1).maybeSingle()).data as TopicRow | null
     topComments = topRow ? (tally[topRow.id] ?? 0) : 0
   }
   let caFaitParler: { id: string; titre: string; comments: number; votes: number; image: string | null } | null = null
@@ -76,8 +107,9 @@ export async function GET() {
 
   // ── Bon plan : coup de cœur (sinon dernière promo active) ────────────────
   let coupId: string | null = null
-  try { coupId = promoCfgRes.data?.value ? JSON.parse(promoCfgRes.data.value).coupDeCoeur ?? null : null } catch { /* noop */ }
-  const promoQ = supabaseAdmin.from('promotions').select('id, title, description, image_url, etablissement_id').eq('active', true)
+  try { coupId = reglages.promo_carousel ? JSON.parse(reglages.promo_carousel).coupDeCoeur ?? null : null } catch { /* noop */ }
+  let promoQ = supabaseAdmin.from('promotions').select('id, title, description, image_url, etablissement_id').eq('active', true)
+  if (T) promoQ = promoQ.eq('territoire_id', T)
   const { data: promoRow } = coupId
     ? await promoQ.eq('id', coupId).maybeSingle()
     : await promoQ.order('created_at', { ascending: false }).limit(1).maybeSingle()
@@ -108,7 +140,7 @@ export async function GET() {
     }
   }
   let decouvrir: { kind: string; id: string; title: string; subtitle: string | null; photo: string | null } | null = null
-  try { if (decouvrirRes.data?.value) decouvrir = JSON.parse(decouvrirRes.data.value) } catch { /* noop */ }
+  try { if (reglages.splash_decouvrir) decouvrir = JSON.parse(reglages.splash_decouvrir) } catch { /* noop */ }
 
   return NextResponse.json(
     { hero, aujourdhui, caFaitParler, journal, bonPlan, vuAujourdhui, decouvrir },

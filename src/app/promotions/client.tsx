@@ -141,7 +141,7 @@ export default function PromotionsClient() {
   const fetchPromos = mutatePromos  // alias pour rester compat avec les callers existants
 
   // Réglage carrousel (ordre admin + coup de cœur)
-  const { data: carouselCfg, mutate: mutateCarousel } = useSWR<{ order: string[]; coupDeCoeur: string | null }>('/api/promo-carousel')
+  const { data: carouselCfg, mutate: mutateCarousel } = useSWR<{ order: string[]; coupDeCoeur: string | null }>(`/api/promo-carousel${slugTerr ? `?territoire=${encodeURIComponent(slugTerr)}` : ''}`)
   const [orderModalOpen, setOrderModalOpen] = useState(false)
   const carouselOrder = useMemo(() => carouselCfg?.order ?? [], [carouselCfg])
   const coupDeCoeur = carouselCfg?.coupDeCoeur ?? null
@@ -1175,6 +1175,11 @@ function CarouselOrderModal({ promos, initialOrder, initialCoupDeCoeur, onClose,
     const idxOf = (id: string) => { const i = initialOrder.indexOf(id); return i === -1 ? Infinity : i }
     return [...promos].sort((a, b) => idxOf(a.id) - idxOf(b.id))
   }, [promos, initialOrder])
+  // L'ordre designe des promos PRECISES : il appartient au territoire ou
+  // elles vivent, pas a l'app.
+  const { territoire } = useTerritoire()
+  const slugTerr = territoire?.slug ?? null
+
   const [list, setList] = useState<Promotion[]>(initial)
   const [coup, setCoup] = useState<string | null>(initialCoupDeCoeur)
   const [saving, setSaving] = useState(false)
@@ -1186,7 +1191,7 @@ function CarouselOrderModal({ promos, initialOrder, initialCoupDeCoeur, onClose,
     setSaving(true)
     const { data: { session } } = await supabase.auth.getSession()
     const tk = session?.access_token
-    const r = await fetch('/api/promo-carousel', {
+    const r = await fetch(`/api/promo-carousel${slugTerr ? `?territoire=${encodeURIComponent(slugTerr)}` : ''}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
       body: JSON.stringify({ order: list.map(p => p.id), coupDeCoeur: coup }),

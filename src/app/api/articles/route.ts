@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser } from '@/lib/server-auth'
+import { territoireDeLaRequete } from '@/lib/territoires'
 import {
   canSubmitArticleJournal,
   validateArticleInput,
@@ -35,12 +36,17 @@ export async function POST(req: NextRequest) {
     if (!body.titre?.trim()) return NextResponse.json({ error: 'Le titre est requis' }, { status: 400 })
   }
 
+  // L'article nait dans le territoire d'ou il est ecrit. Sans ca il serait
+  // invisible partout — la panne silencieuse qu'on a deja payee ailleurs.
+  const terr = await territoireDeLaRequete(req.url)
+
   const insert = {
     user_id: ctx.userId,
     titre: body.titre.trim(),
     corps: (body.corps ?? '').trim(),
     photo_url: body.photo_url?.trim() || null,
     statut: wantStatut,
+    ...(terr ? { territoire_id: terr.id } : {}),
   }
 
   const { data, error } = await supabaseAdmin
@@ -57,11 +63,16 @@ export async function POST(req: NextRequest) {
  * GET /api/articles
  * Liste les articles publiés (lecture publique).
  */
-export async function GET() {
-  const { data, error } = await supabaseAdmin
+export async function GET(req: NextRequest) {
+  const terr = await territoireDeLaRequete(req.url)
+  let q = supabaseAdmin
     .from('articles_journal')
     .select('id, titre, corps, photo_url, journal_id, created_at')
     .eq('statut', 'publie')
+  // Filtre pose UNIQUEMENT si le territoire est connu : a vide, il viderait
+  // le journal pour tout le monde.
+  if (terr) q = q.eq('territoire_id', terr.id)
+  const { data, error } = await q
     .order('created_at', { ascending: false })
     .limit(50)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

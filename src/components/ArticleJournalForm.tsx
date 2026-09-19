@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { validateArticleInput, type ArticleJournal } from '@/lib/articles'
 import { useHistoryTrap } from '@/contexts/HistoryTrapContext'
 import { useConfirm } from '@/contexts/ConfirmDialogContext'
+import { useTerritoire } from '@/components/TerritoireProvider'
 
 interface Props {
   /** Si fourni, on édite l'article (charge ses champs) */
@@ -18,6 +19,7 @@ async function authHeaders(): Promise<Record<string, string>> {
 }
 
 export default function ArticleJournalForm({ initial = null, onSaved }: Props) {
+  const { territoire } = useTerritoire()
   const [titre, setTitre]         = useState(initial?.titre ?? '')
   const [corps, setCorps]         = useState(initial?.corps ?? '')
   const [photoUrl, setPhotoUrl]   = useState(initial?.photo_url ?? '')
@@ -86,7 +88,9 @@ export default function ArticleJournalForm({ initial = null, onSaved }: Props) {
     try {
       const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) }
       const body = JSON.stringify({ titre, corps, photo_url: photoUrl || null, statut: statutCible })
-      const url = initial ? `/api/articles/${initial.id}` : '/api/articles'
+      // L'article nait dans le territoire d'ou il est ecrit.
+      const qTerr = territoire?.slug ? `?territoire=${encodeURIComponent(territoire.slug)}` : ''
+      const url = initial ? `/api/articles/${initial.id}` : `/api/articles${qTerr}`
       const method = initial ? 'PATCH' : 'POST'
       const res = await fetch(url, { method, headers, body })
       const d = await res.json()
