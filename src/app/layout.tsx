@@ -12,6 +12,7 @@ import './desktop-rubriques.css'
 import './desktop-carte.css'
 import './desktop-cinema.css'
 import { ThemeProvider } from '@/components/ThemeProvider'
+import { TerritoireProvider } from '@/components/TerritoireProvider'
 import InstallBanner from '@/components/InstallBanner'
 import { AuthModalProvider } from '@/contexts/AuthModalContext'
 import { AuthProvider } from '@/contexts/AuthContext'
@@ -227,6 +228,7 @@ export default function RootLayout({
         <AuthProvider>
           <AuthModalProvider>
             <ThemeProvider>
+            <TerritoireProvider>
               <ConfirmDialogProvider>
                 <HistoryTrapProvider>
                   <Suspense fallback={null}><DesktopChrome /></Suspense>
@@ -271,6 +273,7 @@ export default function RootLayout({
                   <Suspense fallback={null}><DesktopFooter /></Suspense>
                 </HistoryTrapProvider>
               </ConfirmDialogProvider>
+            </TerritoireProvider>
             </ThemeProvider>
           </AuthModalProvider>
         </AuthProvider>

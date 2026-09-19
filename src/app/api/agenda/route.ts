@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getDateRange } from '@/lib/filters'
 import type { FiltreQuand } from '@/lib/types'
 import { aLieuEntre } from '@/lib/occurrences'
+import { territoireParDefaut, territoireParSlug } from '@/lib/territoires'
 
 /**
  * GET /api/agenda — payload unique pour la liste des événements.
@@ -15,6 +16,7 @@ import { aLieuEntre } from '@/lib/occurrences'
  *   ?cat=concert,marche,atelier   (CSV catégories — vide = toutes)
  *   ?quand=cette_semaine          (FiltreQuand — défaut: toujours)
  *   ?masquerPasses=1              (0/1 — défaut: 0)
+ *   ?territoire=pau               (slug — défaut: le territoire par défaut)
  *
  * Cache : variant par URL (chaque combinaison filtres = sa propre entrée
  * CDN). 60s s-maxage + 120s SWR.
@@ -37,6 +39,22 @@ export async function GET(req: NextRequest) {
   const catCsv = (searchParams.get('cat') ?? '').trim()
   const quandRaw = (searchParams.get('quand') ?? 'toujours').trim()
   const masquerPasses = searchParams.get('masquerPasses') === '1'
+
+  /*
+   * Le territoire de la lecture. Sans parametre — donc pour tout le monde
+   * aujourd'hui — c'est celui par defaut, et la reponse est identique a
+   * avant. Un slug inconnu retombe aussi sur le defaut : on ne sert jamais
+   * une liste vide par accident de frappe.
+   */
+  const territoire = (await territoireParSlug(searchParams.get('territoire')))
+    ?? (await territoireParDefaut())
+  /*
+   * LE FILTRE N'EST POSE QUE SI LE TERRITOIRE EST CONNU (voir les deux
+   * conditions plus bas). Un `.eq('territoire_id', '')` de repli viderait
+   * l'agenda pour tout le monde au moindre echec de lecture : on prefere
+   * servir large que servir rien. Une liste vide est un bug silencieux, une
+   * liste complete est le comportement d'avant.
+   */
 
   const cats = catCsv ? catCsv.split(',').map(s => s.trim()).filter(Boolean) : []
   const quand: FiltreQuand = QUAND_VALUES.includes(quandRaw as FiltreQuand) ? (quandRaw as FiltreQuand) : 'toujours'
@@ -62,6 +80,7 @@ export async function GET(req: NextRequest) {
     // uniquement comme garde-fou mémoire ; si elle est atteinte un jour, le
     // champ `tronque` de la réponse le dira au lieu de le taire.
     .limit(PLAFOND)
+  if (territoire) q = q.eq('territoire_id', territoire.id)
   // Filtre par recouvrement : l'event matche si UNE de ses catégories est
   // sélectionnée (multi-catégories). `categories` est backfillé pour toutes
   // les lignes par la migration 2026-06-18.
@@ -105,6 +124,7 @@ export async function GET(req: NextRequest) {
     .eq('statut', 'publie')
     .in('promotion', ['pro', 'max'])
     .order('date_debut', { ascending: true })
+  if (territoire) pq = pq.eq('territoire_id', territoire.id)
   if (masquerPasses) {
     // Force Europe/Paris (Vercel = UTC par défaut, peu importe la région).
     const today = new Intl.DateTimeFormat('en-CA', {

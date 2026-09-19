@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { EvenementCard, Filtres, ProduitCategorie, EtablissementCard, EtablissementType } from '@/lib/types'
 import { useTheme } from '@/components/ThemeProvider'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { haversineKm, GANGES } from '@/lib/distance'
 import { normSearch } from '@/lib/filters'
 import { useAuth } from '@/hooks/useAuth'
@@ -95,6 +96,13 @@ const ZOOM_FICHE = 17
 
 export default function HomePage() {
   const { fixedMap, setFixedMap } = useTheme()
+  /*
+   * Le territoire regarde. Il voyage dans chaque appel pour que l'agenda, la
+   * carte et le cadrage racontent la meme ville. Pour tout le monde sauf
+   * l'admin, c'est le territoire par defaut — donc rien ne change.
+   */
+  const { territoire: territoireVu, territoires, choisirTerritoire } = useTerritoire()
+  const slugTerritoire = territoireVu?.slug ?? null
   const { user, profile, loading: authLoading, isAdmin } = useAuth()
   const { favIds, toggle: toggleFav } = useFavorites()
   const { favIds: producerFavIds, toggle: toggleProducerFav } = useProducerFavorites()
@@ -725,7 +733,7 @@ export default function HomePage() {
   }, [router])
 
   const fetchZoneConfig = useCallback(() => {
-    fetch('/api/zone')
+    fetch(slugTerritoire ? `/api/zone?territoire=${encodeURIComponent(slugTerritoire)}` : '/api/zone')
       .then(r => r.json())
       .then(data => {
         setZoneCentres(data.centres ?? [])
@@ -745,7 +753,9 @@ export default function HomePage() {
       })
       .catch(() => {})
       .finally(() => setZoneLoaded(true))
-  }, [])
+    // Le territoire fait partie de la requete : changer de ville doit relire
+    // ses centres et son rayon, sinon la carte resterait cadree sur l'autre.
+  }, [slugTerritoire])
 
   useLayoutEffect(() => {
     const update = () => setScreenH(window.innerHeight)
@@ -980,6 +990,13 @@ export default function HomePage() {
     return () => window.removeEventListener('storage', onStorage)
   }, [fetchZoneConfig]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  /*
+   * Changer de territoire relit sa zone. `fetchZoneConfig` depend deja du
+   * slug, donc sa nouvelle identite suffit a declencher — mais l'ecrire ici
+   * rend l'intention lisible plutot que de la laisser dans une dependance.
+   */
+  useEffect(() => { fetchZoneConfig() }, [fetchZoneConfig])
+
   // SWR sur /api/agenda — clé inclut les filtres (cat + quand + masquerPasses)
   // pour que chaque combinaison ait sa propre entrée cache. Le retour sur la
   // page (quitter / revenir) sert depuis cache mémoire SWR instantanément,
@@ -993,8 +1010,9 @@ export default function HomePage() {
     // propre entrée de cache CDN.
     if (filtres.date) params.set('date', filtres.date)
     if (masquerPasses) params.set('masquerPasses', '1')
+    if (slugTerritoire) params.set('territoire', slugTerritoire)
     return `/api/agenda?${params.toString()}`
-  }, [filtres, masquerPasses, zoneLoaded])
+  }, [filtres, masquerPasses, zoneLoaded, slugTerritoire])
 
   const { data: agendaData, isLoading: agendaLoadingRaw, mutate: mutateAgenda } = useSWR(agendaKey)
 
@@ -1018,8 +1036,9 @@ export default function HomePage() {
     params.set('quand', filtres.quand)
     if (filtres.date) params.set('date', filtres.date)
     if (masquerPasses) params.set('masquerPasses', '1')
+    if (slugTerritoire) params.set('territoire', slugTerritoire)
     return `/api/agenda?${params.toString()}`
-  }, [filtres.quand, filtres.date, masquerPasses, zoneLoaded])
+  }, [filtres.quand, filtres.date, masquerPasses, zoneLoaded, slugTerritoire])
 
   const { data: agendaToutesCatsData } = useSWR(agendaKeyToutesCats)
 
@@ -1945,6 +1964,41 @@ export default function HomePage() {
                     <span>{adminMapSaved ? '✓' : '📍'}</span>
                     {adminMapSaved ? 'Point de départ enregistré !' : 'Fixer le point de départ ici'}
                   </button>
+
+                  {/* Le territoire regarde. Reserve a l'admin : un visiteur
+                      reste toujours sur celui par defaut, et rien ne change
+                      pour lui. Cache tant qu'il n'y a qu'un territoire — un
+                      selecteur a un seul choix n'apprend rien. */}
+                  {territoires.length > 1 && (
+                    <>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#1A1209', marginBottom: 2 }}>
+                        Territoire
+                      </div>
+                      <div style={{ fontSize: 11, color: '#7A6A5A', marginBottom: 8 }}>
+                        Ce que TU regardes. Les habitants restent sur {territoires.find(t => t.par_defaut)?.nom ?? 'le territoire par défaut'}.
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+                        {territoires.map(t => {
+                          const actif = t.slug === territoireVu?.slug
+                          return (
+                            <button
+                              key={t.id}
+                              onClick={() => choisirTerritoire(t.slug)}
+                              style={{
+                                padding: '8px 14px', borderRadius: 999, cursor: 'pointer',
+                                border: actif ? '2px solid #2D5A3D' : '1.5px solid #E5DDD2',
+                                background: actif ? '#E8F2EB' : '#fff',
+                                color: actif ? '#2D5A3D' : '#7A6A5A',
+                                fontWeight: 700, fontSize: 13, fontFamily: 'inherit',
+                              }}
+                            >
+                              {t.nom}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </>
+                  )}
 
                   {/* Le style s'applique a TOUS les visiteurs, pas au seul
                       appareil : c'est pour ca qu'il est sous la barre admin,
