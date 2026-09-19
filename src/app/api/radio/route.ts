@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { territoireDeLaRequete, territoireParDefaut } from '@/lib/territoires'
+import { territoireDeLaRequete } from '@/lib/territoires'
+import { lireConfig } from '@/lib/configTerritoire'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { parseVisibilite } from '@/lib/visibilite'
 import { semaineDe, RADIO, type EmissionRadio, type MentionRadio, type PayloadRadio } from '@/lib/radio'
@@ -40,16 +41,10 @@ export async function GET(req: NextRequest) {
    * est la seule chose qui empeche un melange visible.
    */
   const terr = await territoireDeLaRequete(req.url)
-  const defaut = await territoireParDefaut()
-  if (terr && defaut && terr.id !== defaut.id) {
-    return NextResponse.json({ emission: null, mentions: [], villageVisibilite: 'personne' })
-  }
   const demande = (new URL(req.url).searchParams.get('semaine') ?? '').trim()
   const semaineVoulue = /^\d{4}-\d{2}-\d{2}$/.test(demande) ? demande : null
 
-  const { data: cfg } = await supabaseAdmin
-    .from('config').select('value').eq('key', 'radio_village_public').maybeSingle()
-  const villageVisibilite = parseVisibilite(cfg?.value)
+  const villageVisibilite = parseVisibilite(await lireConfig('radio_village_public', terr))
 
   const vide: PayloadRadio = { emission: null, mentions: [], villageVisibilite }
 
@@ -57,20 +52,23 @@ export async function GET(req: NextRequest) {
   let emission: EmissionRadio | null = null
 
   if (semaineVoulue) {
-    const { data } = await supabaseAdmin
+    let q = supabaseAdmin
       .from('radio_emissions').select('*')
       .eq('radio', RADIO.cle).eq('statut', 'publie')
       .eq('semaine_debut', semaineVoulue)
-      .maybeSingle()
+    if (terr) q = q.eq('territoire_id', terr.id)
+    const { data } = await q.maybeSingle()
     emission = (data as EmissionRadio | null) ?? null
   } else {
     const lundi = semaineDe().debut
-    const { data } = await supabaseAdmin
+    let q = supabaseAdmin
       .from('radio_emissions').select('*')
       .eq('radio', RADIO.cle).eq('statut', 'publie')
       .lte('semaine_debut', lundi)
       .order('semaine_debut', { ascending: false })
       .limit(1)
+    if (terr) q = q.eq('territoire_id', terr.id)
+    const { data } = await q
     emission = ((data ?? [])[0] as EmissionRadio | undefined) ?? null
   }
 

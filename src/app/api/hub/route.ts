@@ -4,6 +4,7 @@ import { normalizeHubOrder } from '@/lib/hubSections'
 import { choisirTuilesDuJour, type EvenementTuile } from '@/lib/hubTodayPicker'
 import { haversineKm } from '@/lib/distance'
 import { territoireParDefaut, territoireParSlug } from '@/lib/territoires'
+import { lireConfigs } from '@/lib/configTerritoire'
 
 /**
  * Valide une date YYYY-MM-DD venant du client. Retourne la date validée OU
@@ -113,6 +114,41 @@ export async function GET(req: NextRequest) {
   const T = territoireVu?.id ?? null
 
   /*
+   * Les reglages d'apparence du hub appartiennent au territoire : son
+   * intro, l'ordre de ses sections, celles qu'il cache. Une cle absente pour
+   * Pau rend `null` et non la valeur cevenole — voir CLES_EDITORIALES.
+   */
+  let qCountEv = supabaseAdmin.from('evenements').select('*', { count: 'exact', head: true }).eq('statut', 'publie')
+  if (T) qCountEv = qCountEv.eq('territoire_id', T)
+  let qCountEtab = supabaseAdmin.from('etablissements').select('*', { count: 'exact', head: true })
+  if (T) qCountEtab = qCountEtab.eq('territoire_id', T)
+  let qCountProd = supabaseAdmin.from('producers').select('*', { count: 'exact', head: true })
+  if (T) qCountProd = qCountProd.eq('territoire_id', T)
+
+  let qJournalHub = supabaseAdmin
+    .from('journaux_hebdo')
+    .select('id, numero, cover_titre, cover_image_url, temps_lecture_min, publie_at, position_hub')
+    .eq('statut', 'publie')
+    .order('numero', { ascending: false })
+    .limit(1)
+  if (T) qJournalHub = qJournalHub.eq('territoire_id', T)
+
+  let qCovoitHub = supabaseAdmin
+    .from('covoiturages')
+    .select('id, depart, destination, date_trajet, heure_depart, prix, places, places_prises, statut')
+    .neq('statut', 'annule')
+    .gte('date_trajet', todayISO)
+    .order('date_trajet', { ascending: true })
+    .order('heure_depart', { ascending: true })
+    .limit(3)
+  if (T) qCovoitHub = qCovoitHub.eq('territoire_id', T)
+
+  const reglagesHub = await lireConfigs(
+    ['hub_hero_intro_enabled', 'hub_hero_intro_image_url', 'hub_section_order', 'hub_section_hidden'],
+    territoireVu,
+  )
+
+  /*
    * LES EMPLACEMENTS « MIS EN AVANT » DE CE TERRITOIRE.
    *
    * Construits ici plutot qu'en ligne dans le Promise.all : le filtre s'ajoute
@@ -184,10 +220,6 @@ export async function GET(req: NextRequest) {
     evtCountRes,
     etabCountRes,
     prodCountRes,
-    introCfgRes,
-    introImgRes,
-    sectionOrderRes,
-    sectionHiddenRes,
     heroSlotsRes,
     promoSlotsRes,
     venteSlotsRes,
@@ -200,13 +232,7 @@ export async function GET(req: NextRequest) {
     zoneCentresRes,
     rayonAffichageRes,
   ] = await Promise.all([
-    supabaseAdmin.from('evenements').select('*', { count: 'exact', head: true }).eq('statut', 'publie'),
-    supabaseAdmin.from('etablissements').select('*', { count: 'exact', head: true }),
-    supabaseAdmin.from('producers').select('*', { count: 'exact', head: true }),
-    supabaseAdmin.from('config').select('value').eq('key', 'hub_hero_intro_enabled').maybeSingle(),
-    supabaseAdmin.from('config').select('value').eq('key', 'hub_hero_intro_image_url').maybeSingle(),
-    supabaseAdmin.from('config').select('value').eq('key', 'hub_section_order').maybeSingle(),
-    supabaseAdmin.from('config').select('value').eq('key', 'hub_section_hidden').maybeSingle(),
+    qCountEv, qCountEtab, qCountProd,
     qHero,
     qPromoSlots,
     qVenteSlots,
@@ -222,21 +248,8 @@ export async function GET(req: NextRequest) {
       .eq('date_debut', todayISO)
       .order('heure', { ascending: true, nullsFirst: false })
       .limit(40),
-    supabaseAdmin
-      .from('journaux_hebdo')
-      .select('id, numero, cover_titre, cover_image_url, temps_lecture_min, publie_at, position_hub')
-      .eq('statut', 'publie')
-      .order('numero', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabaseAdmin
-      .from('covoiturages')
-      .select('id, depart, destination, date_trajet, heure_depart, prix, places, places_prises, statut')
-      .neq('statut', 'annule')
-      .gte('date_trajet', todayISO)
-      .order('date_trajet', { ascending: true })
-      .order('heure_depart', { ascending: true })
-      .limit(3),
+    qJournalHub,
+    qCovoitHub,
     // Toutes les promos actives non expirées (filtrées ensuite par plan owner)
     qPromos,
     // Top sujets du forum (même tri que la liste /forum) → bento Place publique
@@ -284,20 +297,22 @@ export async function GET(req: NextRequest) {
 
   // Fallback 1 : event du jour si pas de featured
   if (heroItems.length === 0) {
-    const { data } = await supabaseAdmin
+    let q = supabaseAdmin
       .from('evenements')
       .select('*, lieux(*)')
       .eq('statut', 'publie')
       .eq('date_debut', todayISO)
       .order('promo_ordre', { ascending: false })
       .limit(1)
+    if (T) q = q.eq('territoire_id', T)
+    const { data } = await q
     const ev = (data?.[0] as Record<string, unknown> | undefined) ?? null
     if (ev) heroItems.push({ kind: 'evenement', data: ev, imagePosition: (ev.image_position as string | null) ?? null })
   }
 
   // Fallback 2 : event de la semaine
   if (heroItems.length === 0) {
-    const { data } = await supabaseAdmin
+    let q = supabaseAdmin
       .from('evenements')
       .select('*, lieux(*)')
       .eq('statut', 'publie')
@@ -305,6 +320,8 @@ export async function GET(req: NextRequest) {
       .lte('date_debut', weekISO)
       .order('date_debut', { ascending: true })
       .limit(1)
+    if (T) q = q.eq('territoire_id', T)
+    const { data } = await q
     const ev = (data?.[0] as Record<string, unknown> | undefined) ?? null
     if (ev) heroItems.push({ kind: 'evenement', data: ev, imagePosition: (ev.image_position as string | null) ?? null })
   }
@@ -522,8 +539,8 @@ export async function GET(req: NextRequest) {
       // qui consultent /people (via /api/people qui exige requireUser).
     },
     heroItems,
-    introEnabled:  introCfgRes.data?.value === 'true',
-    introImageUrl: introImgRes.data?.value || null,
+    introEnabled:  reglagesHub.hub_hero_intro_enabled === 'true',
+    introImageUrl: reglagesHub.hub_hero_intro_image_url || null,
     todayEvents: finalTodayEvents,
     // todayTotal reste le compteur des events publiés du jour, indépendant
     // du featured admin — ça sert le badge "X events aujourd'hui" qui doit
@@ -538,15 +555,15 @@ export async function GET(req: NextRequest) {
     promos:      orderedPromos.slice(0, 8),
     ventes:      ordered.slice(0, 4),
     ventesTotal: annoncesTotal ?? ordered.length,
-    journal:     journalRes.data ?? null,
+    journal:     (journalRes.data ?? [])[0] ?? null,
     covoits:     covoitsRes.data ?? [],
     forumTopics,
     sectionOrder: normalizeHubOrder((() => {
-      try { return JSON.parse(sectionOrderRes.data?.value ?? '[]') } catch { return [] }
+      try { return JSON.parse(reglagesHub.hub_section_order ?? '[]') } catch { return [] }
     })()),
     sectionHidden: (() => {
       try {
-        const v = JSON.parse(sectionHiddenRes.data?.value ?? '[]')
+        const v = JSON.parse(reglagesHub.hub_section_hidden ?? '[]')
         return Array.isArray(v) ? v.filter((x: unknown): x is string => typeof x === 'string') : []
       } catch { return [] }
     })(),

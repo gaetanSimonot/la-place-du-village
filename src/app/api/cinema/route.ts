@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { territoireDeLaRequete, territoireParDefaut } from '@/lib/territoires'
+import { territoireDeLaRequete } from '@/lib/territoires'
+import { lireConfig } from '@/lib/configTerritoire'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { dateParis, parseVisibilite, type Film, type Seance } from '@/lib/cinema'
 import { listerCinemas } from '@/lib/cinema-server'
@@ -37,19 +38,13 @@ export async function GET(req: NextRequest) {
    * est la seule chose qui empeche un melange visible.
    */
   const terr = await territoireDeLaRequete(req.url)
-  const defaut = await territoireParDefaut()
-  if (terr && defaut && terr.id !== defaut.id) {
-    return NextResponse.json({ seances: [], films: [], evenements: [], lieux: [], villageVisibilite: 'personne' })
-  }
   const demande = new URL(req.url).searchParams.get('cinema')
 
   // Le bloc du Village est-il ouvert à tout le monde, ou réservé aux admins
   // le temps du rodage ? Réglage unique, piloté depuis l'admin.
-  const { data: cfg } = await supabaseAdmin
-    .from('config').select('value').eq('key', 'cinema_village_public').maybeSingle()
-  const villageVisibilite = parseVisibilite(cfg?.value)
+  const villageVisibilite = parseVisibilite(await lireConfig('cinema_village_public', terr))
 
-  const cinemas = await listerCinemas()
+  const cinemas = await listerCinemas(terr?.id ?? null)
   if (!cinemas.length) {
     return NextResponse.json({ cinemas: [], cinema: null, films: [], seances: [], evenements: [], villageVisibilite })
   }

@@ -41,12 +41,17 @@ export async function peutAdministrerCinema(
 }
 
 /** Les fiches ayant le module accordé. Vide tant que rien n'est accordé. */
-export async function listerCinemas(): Promise<Cinema[]> {
-  const { data } = await supabaseAdmin
+export async function listerCinemas(territoireId?: string | null): Promise<Cinema[]> {
+  // Un cinema est une fiche etablissement : il porte deja son territoire, et
+  // ses seances suivent leur salle. Filtrer ici suffit donc a cloisonner tout
+  // le module — il n'y a rien a ajouter sur `seances`.
+  let q = supabaseAdmin
     .from('etablissements')
     .select(CINEMA_FIELDS)
     .eq('module_cinema', true)
     .order('nom')
+  if (territoireId) q = q.eq('territoire_id', territoireId)
+  const { data } = await q
   return (data ?? []) as Cinema[]
 }
 

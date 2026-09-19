@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { territoireDeLaRequete, territoireParDefaut } from '@/lib/territoires'
-import { supabaseAdmin } from '@/lib/supabase-admin'
+import { territoireDeLaRequete } from '@/lib/territoires'
+import { lireConfig } from '@/lib/configTerritoire'
 import { getUserContextFromRequest } from '@/lib/server-auth'
 import { normaliserHerosListe, herosVisible } from '@/lib/villageHero'
 
@@ -36,14 +36,7 @@ export async function GET(req: NextRequest) {
    * est la seule chose qui empeche un melange visible.
    */
   const terr = await territoireDeLaRequete(req.url)
-  const defaut = await territoireParDefaut()
-  if (terr && defaut && terr.id !== defaut.id) {
-    return NextResponse.json({ heros: [] })
-  }
-  const { data } = await supabaseAdmin
-    .from('config').select('value').eq('key', 'village_hero').maybeSingle()
-
-  const toutes = normaliserHerosListe(data?.value)
+  const toutes = normaliserHerosListe(await lireConfig('village_hero', terr))
   if (!toutes.length) return NextResponse.json({ heros: [] })
 
   const ctx = await getUserContextFromRequest(req)

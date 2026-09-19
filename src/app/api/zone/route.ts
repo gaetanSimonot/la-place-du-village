@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { territoireParDefaut, territoireParSlug } from '@/lib/territoires'
+import { lireConfigs } from '@/lib/configTerritoire'
 
 /*
  * `force-dynamic` NE SUFFIT PAS, et ça s'est vu.
@@ -38,20 +39,22 @@ export async function GET(req: NextRequest) {
   const territoire = (await territoireParSlug(slug)) ?? (await territoireParDefaut())
 
   const requeteCentres = supabaseAdmin.from('zone_centres').select('id, nom, lat, lng')
-  const [centresRes, affichageRes, latRes, lngRes, zoomRes] = await Promise.all([
+  const [centresRes, affichageRes, cadrage] = await Promise.all([
     territoire ? requeteCentres.eq('territoire_id', territoire.id) : requeteCentres,
     supabaseAdmin.from('config').select('value').eq('key', 'rayon_affichage_km').single(),
-    supabaseAdmin.from('config').select('value').eq('key', 'carte_depart_lat').single(),
-    supabaseAdmin.from('config').select('value').eq('key', 'carte_depart_lng').single(),
-    supabaseAdmin.from('config').select('value').eq('key', 'carte_depart_zoom').single(),
+    // Le point de depart de la carte appartient au territoire. Absent pour
+    // lui, on retombe sur son PREMIER CENTRE plus bas : mieux vaut ouvrir sur
+    // Pau que sur les Cevennes.
+    lireConfigs(['carte_depart_lat', 'carte_depart_lng', 'carte_depart_zoom'], territoire),
   ])
+  const centre0 = (centresRes.data ?? [])[0] as { lat: number; lng: number } | undefined
 
   return NextResponse.json({
     territoire: territoire ? { id: territoire.id, slug: territoire.slug, nom: territoire.nom } : null,
     centres:           centresRes.data ?? [],
     rayon_affichage:   territoire?.rayon_affichage_km ?? parseInt(affichageRes.data?.value ?? '0',  10),
-    carte_depart_lat:  parseFloat(latRes.data?.value  ?? '43.5785'),
-    carte_depart_lng:  parseFloat(lngRes.data?.value  ?? '3.8940'),
-    carte_depart_zoom: parseInt(zoomRes.data?.value   ?? '11', 10),
+    carte_depart_lat:  parseFloat(cadrage.carte_depart_lat  ?? String(centre0?.lat ?? 43.5785)),
+    carte_depart_lng:  parseFloat(cadrage.carte_depart_lng  ?? String(centre0?.lng ?? 3.8940)),
+    carte_depart_zoom: parseInt(cadrage.carte_depart_zoom   ?? '11', 10),
   })
 }
