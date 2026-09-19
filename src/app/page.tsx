@@ -1028,6 +1028,13 @@ export default function HomePage() {
       const v = localStorage.getItem(cleLocale('pdv-carte-depart', slugTerritoire, pd))
       setVueARestaurer(v ? JSON.parse(v) : null)
     } catch { setVueARestaurer(null) }
+    // Le nom de ville du panneau suit le territoire : laisser « ganges » en
+    // vue Pau laisse croire que le reglage s'applique.
+    try {
+      const zu = JSON.parse(localStorage.getItem('pdv-zone-user') || 'null')
+      const sienne = zu && (zu.territoire ? zu.territoire === slugTerritoire : pd)
+      if (!sienne) setUserVille('')
+    } catch { /* rien a corriger */ }
   }, [slugTerritoire, territoireVu?.par_defaut])
 
   // SWR sur /api/agenda — clé inclut les filtres (cat + quand + masquerPasses)
@@ -2090,7 +2097,20 @@ export default function HomePage() {
                    * perdu au rechargement. A defaut de ville choisie, on prend
                    * le centre de la zone administrative.
                    */
-                  const centre = userCentre
+                  /*
+                   * LE CENTRE DOIT APPARTENIR A LA VILLE QU'ON REGARDE.
+                   *
+                   * `userCentre` survit a un changement de territoire : en
+                   * basculant sur Pau, il valait encore Ganges. Enregistrer
+                   * alors sans avoir choisi de ville produisait une zone
+                   * « centree sur Ganges, etiquetee Pau » — 200 km autour de
+                   * Ganges appliques en vue Pau, donc plus rien a l'ecran, et
+                   * aucun moyen de comprendre pourquoi.
+                   *
+                   * On ne reprend donc `userCentre` que s'il vaut pour CE
+                   * territoire ; sinon on part du centre de la ville regardee.
+                   */
+                  const centre = (zonePersoActive ? userCentre : null)
                     ?? (zoneCentres[0] ? { lat: zoneCentres[0].lat, lng: zoneCentres[0].lng, nom: zoneCentres[0].nom } : null)
                     ?? { lat: GANGES.lat, lng: GANGES.lng, nom: 'Ganges' }
 
@@ -2106,7 +2126,7 @@ export default function HomePage() {
                   setUserZoneActive(true)
                   // On ne recadre QUE si la personne a choisi une ville : bouger
                   // la carte parce qu'on a touche un curseur est desagreable.
-                  if (userCentre) setLieuAViser({ lat: userCentre.lat, lng: userCentre.lng })
+                  if (zonePersoActive && userCentre) setLieuAViser({ lat: userCentre.lat, lng: userCentre.lng })
                   setZonePopup(false)
                 }}
                 style={{ width: '100%', padding: 14, borderRadius: 14, background: '#2D5A3D', color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit' }}
