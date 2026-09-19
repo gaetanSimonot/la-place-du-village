@@ -26,6 +26,35 @@ interface FormData {
   prix: string
   contact: string
   organisateurs: string
+  /** Jours reels d'un rendez-vous qui revient (ISO : 1=lundi, 7=dimanche). */
+  jours_semaine?: number[] | null
+  /** Les jours OU il a lieu, un par un. Ce qui fait foi quand c'est rempli. */
+  dates?: string[] | null
+}
+
+/**
+ * Un evenement tel que /api/extract/preview le renvoie.
+ *
+ * Type nomme plutot qu'un `Record<string, string>` : la recurrence voyage en
+ * tableaux (`dates`, `jours_semaine`), et c'est justement ce que l'ancienne
+ * signature interdisait de recopier — le « tous les jeudis » lu par le modele
+ * n'arrivait jamais jusqu'a la base.
+ */
+interface ExtraitPreview {
+  titre?:         string | null
+  description?:   string | null
+  date_debut?:    string | null
+  date_fin?:      string | null
+  heure?:         string | null
+  categorie?:     string | null
+  lieu_nom?:      string | null
+  lieu_adresse?:  string | null
+  commune?:       string | null
+  prix?:          string | null
+  contact?:       string | null
+  organisateurs?: string | null
+  jours_semaine?: number[] | null
+  dates?:         string[] | null
 }
 
 const emptyForm: FormData = {
@@ -45,13 +74,18 @@ interface SubmitResult {
 }
 
 /** Convertit un event brut renvoyé par /api/extract/preview en EventDraft. */
-function extractedToDraft(e: Record<string, string | null | undefined>): EventDraft {
+function extractedToDraft(e: ExtraitPreview): EventDraft {
   return {
     titre:         e.titre        ?? '',
     description:   e.description  ?? '',
     date_debut:    e.date_debut   ?? '',
     date_fin:      e.date_fin     ?? '',
     heure:         e.heure        ?? '',
+    // La recurrence suit le brouillon jusqu'a l'insertion. Sans ces deux
+    // lignes, « tous les jeudis » devenait un evenement continu, affiche
+    // chaque jour de la periode.
+    jours_semaine: e.jours_semaine ?? null,
+    dates:         e.dates         ?? null,
     categorie:    (e.categorie    ?? 'autre') as Categorie,
     categories:   [(e.categorie   ?? 'autre') as Categorie],
     lieu_nom:      e.lieu_nom     ?? '',
@@ -234,7 +268,7 @@ export default function AjouterPage() {
 
       // L'API retourne { events: [...] }. On filtre les events avec titre +
       // date + lieu minimum (sinon l'IA a juste partiellement extrait).
-      const raw: Array<Record<string, string>> = data.events ?? []
+      const raw: ExtraitPreview[] = data.events ?? []
       const valid = raw.filter(e =>
         e != null && e.titre?.trim() && e.date_debut &&
         (e.lieu_nom?.trim() || e.commune?.trim())
@@ -251,6 +285,8 @@ export default function AjouterPage() {
           date_debut: e.date_debut ?? '',
           date_fin: e.date_fin ?? '',
           heure: e.heure ?? '',
+          jours_semaine: e.jours_semaine ?? null,
+          dates: e.dates ?? null,
           categorie: (e.categorie ?? 'autre') as Categorie,
           lieu_nom: e.lieu_nom ?? '',
           commune: e.commune ?? '',
@@ -316,6 +352,8 @@ export default function AjouterPage() {
             date_debut:   evt.date_debut    || null,
             date_fin:     evt.date_fin      || null,
             heure:        evt.heure         || null,
+            jours_semaine: evt.jours_semaine ?? null,
+            dates:         evt.dates         ?? null,
             categorie:    evt.categorie,
             categories:   evt.categories,
             lieu_nom:     evt.lieu_nom      || null,

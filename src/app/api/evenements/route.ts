@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { geocodeWithGoogle, calcStatut, nettoyerJoursSemaine } from '@/lib/extract'
+import { geocodeWithGoogle, calcStatut, nettoyerJoursSemaine, INDICE_GEO_SECTEUR } from '@/lib/extract'
 import { trouverOuCreerLieu } from '@/lib/lieuxResolve'
 import { nettoyerDates, bornes } from '@/lib/occurrences'
 import { mergeCategories } from '@/lib/categories'
@@ -135,7 +135,15 @@ export async function POST(req: NextRequest) {
       if (bodyLat && bodyLng) {
         geo = { lat: bodyLat, lng: bodyLng, place_id_google: bodyPlaceId ?? null, adresse: bodyAdresse ?? lieu_adresse ?? null, approx: false }
       } else {
-        geo = await geocodeWithGoogle(lieu_nom || null, commune || null)
+        /*
+         * Le repère du secteur, comme les deux chemins des collecteurs.
+         *
+         * Ici l'enjeu est plus grave qu'une punaise mal posée : sans repère,
+         * « Bréau » atterrit en Seine-et-Marne, et `checkZone` juste en
+         * dessous renvoie un 422 « hors zone ». Quelqu'un saisissait un
+         * événement à 12 km et se voyait refuser l'enregistrement.
+         */
+        geo = await geocodeWithGoogle(lieu_nom || null, commune || null, { indiceGeo: INDICE_GEO_SECTEUR })
       }
 
       /*

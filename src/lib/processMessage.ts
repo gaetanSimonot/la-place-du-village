@@ -1,9 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
-import { extractMultipleWithClaude, geocodeWithGoogle, calcStatut, nettoyerJoursSemaine } from './extract'
+import { extractMultipleWithClaude, geocodeWithGoogle, calcStatut, nettoyerJoursSemaine, INDICE_GEO_SECTEUR } from './extract'
 import { datesDepuisExtraction } from './occurrences'
 import { checkDoublon } from './checkDoublon'
 import { checkZone } from './checkZone'
 import { trouverOuCreerLieu } from './lieuxResolve'
+import { regrouperRecurrences } from './recurrences'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -60,6 +61,18 @@ export async function processMessage(
     return { statut: 'non_publiable', raison: 'Aucun événement détecté par Claude', extraction: [], evenements_crees: 0, premier_evenement_id: null }
   }
 
+  /*
+   * Les créneaux qui se répètent sont fondus AVANT tout traitement : une seule
+   * fiche part au géocodage, à la dédup et en base, au lieu de trente.
+   *
+   * Ce filet n'existait que sur le chemin Signal, alors que WhatsApp apporte
+   * l'essentiel du contenu. Une affiche de planning y produisait donc encore
+   * ce qu'elle avait produit le 03/09 ailleurs : 44 événements par passage.
+   * Le prompt demande bien UNE fiche pour un planning, mais un prompt est une
+   * consigne — ceci n'en dépend pas.
+   */
+  events = regrouperRecurrences(events)
+
   const reasons: string[] = []
   let firstId: string | null = null
   let totalPublie = 0
@@ -82,7 +95,7 @@ export async function processMessage(
        * sur le defaut « France ». « Breau » partait alors en Seine-et-Marne,
        * a 518 km, et le filtre de zone ecartait un lieu a 12 km d'ici.
        */
-      geo = await geocodeWithGoogle(evt.lieu_nom, evt.commune, { indiceGeo: 'Cevennes, Gard, Herault, France' })
+      geo = await geocodeWithGoogle(evt.lieu_nom, evt.commune, { indiceGeo: INDICE_GEO_SECTEUR })
       const zone = await checkZone(geo.lat, geo.lng)
       if (!zone.within) { reasons.push(`"${evt.titre}" → hors zone (${zone.distanceMin}km de ${zone.centreLePlusProche})`); continue }
 

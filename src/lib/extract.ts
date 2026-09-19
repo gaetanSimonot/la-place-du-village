@@ -340,9 +340,20 @@ async function lookupLieuxCache(lieuNom: string, commune?: string | null): Promi
  * (Bréau 518→12, Saint-Martial 113→12, Rochegude 96→58, Ste Claire 434→0) sans
  * dégrader un seul cas qui marchait déjà.
  *
- * Défaut "France" = comportement historique inchangé pour les appelants
- * existants (WhatsApp, Signal, formulaire).
+ * Défaut "France" = comportement historique, conservé pour les appelants qui
+ * ne visent pas notre secteur.
  */
+
+/**
+ * Le repère du secteur, à passer par TOUT chemin qui écrit un événement chez
+ * nous : WhatsApp, Signal et le formulaire.
+ *
+ * Il vivait en clair dans `processMessage` seul, et les deux autres chemins
+ * géocodaient donc avec « France ». Une constante partagée pour qu'un
+ * quatrième chemin ne reparte pas sans, et pour n'avoir qu'un endroit à
+ * changer si la zone déménage.
+ */
+export const INDICE_GEO_SECTEUR = 'Cevennes, Gard, Herault, France'
 export async function geocodeWithGoogle(
   lieuNom: string | null,
   commune?: string | null,

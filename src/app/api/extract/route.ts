@@ -5,6 +5,7 @@ import {
   geocodeWithGoogle,
   nettoyerJoursSemaine,
   calcStatut,
+  INDICE_GEO_SECTEUR,
   type ExtractedData,
   type GeoResult,
 } from '@/lib/extract'
@@ -107,7 +108,11 @@ async function processOneEvent(
   let geo: GeoResult = { place_id_google: null, lat: null, lng: null, adresse: null, approx: false }
 
   if (extracted.lieu_nom || extracted.commune) {
-    geo = await geocodeWithGoogle(extracted.lieu_nom, extracted.commune)
+    // Avec le repère du secteur, comme le chemin WhatsApp : sans lui Google
+    // rend l'homonyme le plus célèbre, et « Bréau » — à 12 km — partait en
+    // Seine-et-Marne, à 518. Le contrôle de zone écartait ensuite un lieu
+    // parfaitement local.
+    geo = await geocodeWithGoogle(extracted.lieu_nom, extracted.commune, { indiceGeo: INDICE_GEO_SECTEUR })
     // On CHERCHE le lieu avant d'en créer un. L'insertion sèche d'avant a
     // laissé 1134 lignes dans `lieux` pour ~285 lieux réels — « Le petit
     // dojo » 88 fois — et privait la vérification anti-doublon de son
