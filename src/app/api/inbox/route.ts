@@ -164,7 +164,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Erreur insertion message' }, { status: 500 })
   }
 
-  const result = await processMessage(msg.id, contenu ?? null, imageUrl, source, image ?? null, imageMimeType ?? null)
+  const result = await processMessage(msg.id, contenu ?? null, imageUrl, source, image ?? null, imageMimeType ?? null, groupe ?? null)
 
   await supabaseAdmin.from('messages_entrants').update({
     statut: result.statut,

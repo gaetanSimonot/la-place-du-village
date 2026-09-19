@@ -1,10 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
-import { extractMultipleWithClaude, geocodeWithGoogle, calcStatut, nettoyerJoursSemaine, INDICE_GEO_SECTEUR, communeDepuisAdresse } from './extract'
+import { extractMultipleWithClaude, geocodeWithGoogle, calcStatut, nettoyerJoursSemaine, communeDepuisAdresse } from './extract'
 import { datesDepuisExtraction } from './occurrences'
 import { checkDoublon } from './checkDoublon'
 import { checkZone } from './checkZone'
 import { trouverOuCreerLieu } from './lieuxResolve'
 import { regrouperRecurrences } from './recurrences'
+import { territoireDuGroupe, indiceGeoDe } from './territoires'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,7 +27,16 @@ export async function processMessage(
   source: string = 'whatsapp',
   imageBase64?: string | null,
   imageMime?: string | null,
+  groupe?: string | null,
 ): Promise<ProcessResult> {
+  /*
+   * LE GROUPE DECIDE DU TERRITOIRE, et tout ce qu'il apporte en herite.
+   * Un groupe non declare retombe sur le territoire par defaut : brancher un
+   * nouveau groupe cevenol ne demande donc aucune declaration prealable.
+   * Avant la migration des territoires, `territoire` vaut null et tout se
+   * comporte exactement comme avant.
+   */
+  const territoire = await territoireDuGroupe(source, groupe)
   let base64 = imageBase64 || null
   const mime  = imageMime || 'image/jpeg'
 
@@ -95,8 +105,8 @@ export async function processMessage(
        * sur le defaut « France ». « Breau » partait alors en Seine-et-Marne,
        * a 518 km, et le filtre de zone ecartait un lieu a 12 km d'ici.
        */
-      geo = await geocodeWithGoogle(evt.lieu_nom, evt.commune, { indiceGeo: INDICE_GEO_SECTEUR })
-      const zone = await checkZone(geo.lat, geo.lng)
+      geo = await geocodeWithGoogle(evt.lieu_nom, evt.commune, { indiceGeo: indiceGeoDe(territoire) })
+      const zone = await checkZone(geo.lat, geo.lng, null, territoire)
       if (!zone.within) { reasons.push(`"${evt.titre}" → hors zone (${zone.distanceMin}km de ${zone.centreLePlusProche})`); continue }
 
       if (geo.lat) {
@@ -108,7 +118,7 @@ export async function processMessage(
         const lieu = await trouverOuCreerLieu(
           evt.lieu_nom ?? communeReelle ?? '',
           communeReelle,
-          { lat: geo.lat, lng: geo.lng, adresse: geo.adresse ?? evt.lieu_adresse, place_id_google: geo.place_id_google },
+          { lat: geo.lat, lng: geo.lng, adresse: geo.adresse ?? evt.lieu_adresse, place_id_google: geo.place_id_google , territoire_id: territoire?.id ?? null },
         )
         lieuId = lieu.id
       }
@@ -138,6 +148,7 @@ export async function processMessage(
       lieu_id: lieuId, prix: evt.prix || null, contact: evt.contact || null,
       organisateurs: evt.organisateurs || null, image_url: imageUrl, source,
       message_entrant_id: messageId, raison_statut: raisonStatut || null,
+      ...(territoire ? { territoire_id: territoire.id } : {}),
     }).select('id').single()
 
     if (evenement) {

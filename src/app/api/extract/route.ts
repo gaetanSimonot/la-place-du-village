@@ -5,12 +5,12 @@ import {
   geocodeWithGoogle,
   nettoyerJoursSemaine,
   calcStatut,
-  INDICE_GEO_SECTEUR,
   communeDepuisAdresse,
   type ExtractedData,
   type GeoResult,
 } from '@/lib/extract'
 import { regrouperRecurrences } from '@/lib/recurrences'
+import { territoireDuGroupe, indiceGeoDe, type Territoire } from '@/lib/territoires'
 import { trouverOuCreerLieu } from '@/lib/lieuxResolve'
 import { datesDepuisExtraction } from '@/lib/occurrences'
 import { checkDoublon } from '@/lib/checkDoublon'
@@ -87,6 +87,7 @@ async function processOneEvent(
   sourceAuteur: string | null,
   sourceTelephone: string | null,
   imageUrl: string | null,
+  territoire: Territoire | null,
 ): Promise<ProcessResult> {
   // 1. Dédup Claude-powered (cf. src/lib/checkDoublon.ts) — plus fiable que le
   // simple titre+date utilisé avant. Timeout 7s interne, retourne publier:false
@@ -113,7 +114,7 @@ async function processOneEvent(
     // rend l'homonyme le plus célèbre, et « Bréau » — à 12 km — partait en
     // Seine-et-Marne, à 518. Le contrôle de zone écartait ensuite un lieu
     // parfaitement local.
-    geo = await geocodeWithGoogle(extracted.lieu_nom, extracted.commune, { indiceGeo: INDICE_GEO_SECTEUR })
+    geo = await geocodeWithGoogle(extracted.lieu_nom, extracted.commune, { indiceGeo: indiceGeoDe(territoire) })
     // On CHERCHE le lieu avant d'en créer un. L'insertion sèche d'avant a
     // laissé 1134 lignes dans `lieux` pour ~285 lieux réels — « Le petit
     // dojo » 88 fois — et privait la vérification anti-doublon de son
@@ -124,7 +125,7 @@ async function processOneEvent(
     const lieu = await trouverOuCreerLieu(
       extracted.lieu_nom ?? communeReelle ?? '',
       communeReelle,
-      { lat: geo.lat, lng: geo.lng, adresse: geo.adresse ?? extracted.lieu_adresse, place_id_google: geo.place_id_google },
+      { lat: geo.lat, lng: geo.lng, adresse: geo.adresse ?? extracted.lieu_adresse, place_id_google: geo.place_id_google , territoire_id: territoire?.id ?? null },
     )
     if (!lieu.id) {
       return {
@@ -150,7 +151,7 @@ async function processOneEvent(
    * qu'on n'a pas pu situer, et une affiche sans adresse reste utile.
    */
   if (geo.lat != null && geo.lng != null) {
-    const zone = await checkZone(geo.lat, geo.lng)
+    const zone = await checkZone(geo.lat, geo.lng, null, territoire)
     if (!zone.within) {
       return {
         ok: false,
@@ -203,6 +204,7 @@ async function processOneEvent(
       source_groupe:    sourceGroupe,
       source_auteur:    sourceAuteur,
       source_telephone: sourceTelephone,
+      ...(territoire ? { territoire_id: territoire.id } : {}),
     })
     .select('id, titre, statut')
     .single()
@@ -298,6 +300,9 @@ export async function POST(req: NextRequest) {
 
     // Les créneaux qui se répètent sont fondus AVANT tout traitement : une
     // seule fiche part au géocodage, à la dédup et en base, au lieu de trente.
+    // Le groupe decide du territoire, resolu UNE fois pour tout le message.
+    const territoire = await territoireDuGroupe(source, sourceGroupe)
+
     const aTraiter = regrouperRecurrences(extractedEvents)
 
     // Process chaque event séquentiellement (cf. note sur la dédup intra-batch
@@ -307,7 +312,7 @@ export async function POST(req: NextRequest) {
 
     for (const extracted of aTraiter) {
       const result = await processOneEvent(
-        extracted, source, sourceGroupe, sourceAuteur, sourceTelephone, imageUrl,
+        extracted, source, sourceGroupe, sourceAuteur, sourceTelephone, imageUrl, territoire,
       )
       if (result.ok) {
         created.push({ id: result.id, titre: result.titre, statut: result.statut })

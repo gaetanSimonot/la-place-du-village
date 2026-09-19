@@ -27,6 +27,8 @@ export interface GeoLieu {
   place_id_google: string | null
   /** Saisi au formulaire ; absent des extractions automatiques. */
   code_postal?: string | null
+  /** Territoire de la source qui apporte ce lieu. Absent avant migration. */
+  territoire_id?: string | null
 }
 
 export async function trouverOuCreerLieu(
@@ -59,6 +61,10 @@ export async function trouverOuCreerLieu(
       place_id_google: geo.place_id_google,
       commune,
       code_postal:     geo.code_postal ?? null,
+      // Le lieu nait dans le territoire de la source qui l'a apporte.
+      // Absent avant la migration des territoires : la colonne est alors
+      // simplement omise.
+      ...(geo.territoire_id ? { territoire_id: geo.territoire_id } : {}),
     })
     .select('id')
     .single()

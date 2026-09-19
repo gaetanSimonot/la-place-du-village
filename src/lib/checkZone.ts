@@ -27,22 +27,34 @@ export interface ZoneCheckResult {
  *  toucher au réglage global : une page « marchés des Cévennes » doit être
  *  filtrée plus serré (50 km) qu'une source d'événements locale (100 km).
  */
+/**
+ * `territoire` restreint la mesure aux centres de CE territoire, avec SON
+ * rayon d'insertion. Sans lui — et tant que la migration des territoires
+ * n'est pas jouee — on retombe sur l'ancien comportement : tous les centres,
+ * le rayon global. C'est ce qui permet de livrer ce code avant la migration.
+ *
+ * Sans ce decoupage, ouvrir Pau ferait accepter les evenements de Pau dans
+ * les Cevennes : `zone_centres` a ete concue pour UN territoire a plusieurs
+ * points d'ancrage, pas pour plusieurs territoires.
+ */
 export async function checkZone(
   lat: number | null,
   lng: number | null,
   rayonOverride?: number | null,
+  territoire?: { id: string; nom: string; rayon_insertion_km: number } | null,
 ): Promise<ZoneCheckResult> {
+  const requeteCentres = supabaseAdmin.from('zone_centres').select('id, nom, lat, lng')
   const [rayonRes, centresRes] = await Promise.all([
     supabaseAdmin.from('config').select('value').eq('key', 'rayon_insertion_km').single(),
-    supabaseAdmin.from('zone_centres').select('id, nom, lat, lng'),
+    territoire ? requeteCentres.eq('territoire_id', territoire.id) : requeteCentres,
   ])
 
   const rayon = rayonOverride != null && rayonOverride > 0
     ? rayonOverride
-    : parseInt(rayonRes.data?.value ?? '100', 10)
+    : territoire?.rayon_insertion_km ?? parseInt(rayonRes.data?.value ?? '100', 10)
   const centres: ZoneCentre[] = centresRes.data?.length
     ? centresRes.data
-    : [{ id: 'default', nom: 'Ganges', lat: GANGES.lat, lng: GANGES.lng }]
+    : [{ id: 'default', nom: territoire?.nom ?? 'Ganges', lat: GANGES.lat, lng: GANGES.lng }]
 
   if (lat == null || lng == null) {
     return { within: true, distanceMin: 0, centreLePlusProche: centres[0].nom, rayon }

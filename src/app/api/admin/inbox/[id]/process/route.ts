@@ -19,7 +19,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   await supabaseAdmin.from('messages_entrants').update({ statut: 'a_traiter' }).eq('id', params.id)
 
-  const result = await processMessage(params.id, msg.contenu, msg.image_url, msg.source)
+  // Le groupe vient de la ligne deja enregistree : un retraitement doit
+  // ranger l'evenement dans le meme territoire que le premier passage.
+  const result = await processMessage(params.id, msg.contenu, msg.image_url, msg.source, null, null, msg.groupe ?? null)
 
   await supabaseAdmin.from('messages_entrants').update({
     statut: result.statut,
