@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import ClientPortal from '@/components/ClientPortal'
+import { useTerritoire } from '@/components/TerritoireProvider'
 
 export type EmbedKind = 'event' | 'etab' | 'producer' | 'annonce' | 'promo' | 'covoit' | 'article' | 'debat'
 
@@ -66,6 +67,8 @@ function CatIcon({ kind, size = 36 }: { kind: EmbedKind; size?: number }) {
 const ORDERED_KINDS: EmbedKind[] = ['event', 'etab', 'producer', 'annonce', 'promo', 'covoit', 'article', 'debat']
 
 export default function EmbedPicker({ onSelect, onClose, lockKind }: Props) {
+  const { territoire: territoireEmbed } = useTerritoire()
+  const slugTerrEmbed = territoireEmbed?.slug ?? null
   const [query, setQuery]             = useState('')
   const [selectedKind, setSelectedKind] = useState<EmbedKind | null>(lockKind ?? null)
   const [results, setResults]         = useState<EmbedItem[]>([])
@@ -111,6 +114,9 @@ export default function EmbedPicker({ onSelect, onClose, lockKind }: Props) {
     const params = new URLSearchParams()
     if (q.length >= 2) params.set('q', q)
     if (selectedKind !== null) params.set('kinds', selectedKind)
+    // On ne propose que du contenu du territoire regarde : choisir un concert
+    // cevenol pour le heros de Pau est une erreur facile et invisible ensuite.
+    if (slugTerrEmbed) params.set('territoire', slugTerrEmbed)
 
     const res = await fetch(`/api/search/embed?${params.toString()}`, {
       headers: { Authorization: `Bearer ${token}` },

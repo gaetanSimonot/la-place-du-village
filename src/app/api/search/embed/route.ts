@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { territoireDeLaRequete } from '@/lib/territoires'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser } from '@/lib/server-auth'
 
@@ -42,6 +43,18 @@ export async function GET(req: NextRequest) {
   // Mode browse : on remonte plus d'items (30) pour permettre de scroller
   const LIMIT = browseSingleKind ? 30 : 8
 
+  /*
+   * ON NE CHERCHE QUE DANS LE TERRITOIRE REGARDE.
+   *
+   * C'est la recherche qui sert a remplir le heros, le splash, un embed. Sans
+   * ce filtre, on administre Pau et on se voit proposer un concert cevenol :
+   * l'erreur est facile a commettre et invisible ensuite.
+   *
+   * Les huit tables portent toutes leur territoire, donc le filtre s'ecrit
+   * une fois et s'applique partout.
+   */
+  const terr = await territoireDeLaRequete(req.url)
+
   type Task = Promise<{ kind: EmbedKind; rows: Array<{ id: string; title: string; subtitle: string | null; photo: string | null }> }>
   const tasks: Task[] = []
 
@@ -51,6 +64,7 @@ export async function GET(req: NextRequest) {
         .from('evenements')
         .select('id, titre, image_url, date_debut, heure, lieux(commune)')
         .eq('statut', 'publie')
+      if (terr) qb = qb.eq('territoire_id', terr.id)
       if (ilike) qb = qb.ilike('titre', ilike)
       const { data } = await qb
         .order('date_debut', { ascending: true })
@@ -92,6 +106,7 @@ export async function GET(req: NextRequest) {
       let qb = supabaseAdmin
         .from('etablissements')
         .select('id, nom, commune, photos')
+      if (terr) qb = qb.eq('territoire_id', terr.id)
       if (ilike) qb = qb.ilike('nom', ilike)
       const { data } = await qb.order('nom', { ascending: true }).limit(LIMIT)
       return {
@@ -111,6 +126,7 @@ export async function GET(req: NextRequest) {
       let qb = supabaseAdmin
         .from('producers')
         .select('id, nom, commune, photos')
+      if (terr) qb = qb.eq('territoire_id', terr.id)
       if (ilike) qb = qb.ilike('nom', ilike)
       const { data } = await qb.order('nom', { ascending: true }).limit(LIMIT)
       return {
@@ -134,6 +150,7 @@ export async function GET(req: NextRequest) {
         .from('annonces')
         .select('id, titre, photos, prix_initial, statut, type, categorie')
         .in('statut', ['active', 'don_final'])
+      if (terr) qb = qb.eq('territoire_id', terr.id)
       if (ilike) qb = qb.ilike('titre', ilike)
       const { data } = await qb
         .order('created_at', { ascending: false })
@@ -161,6 +178,7 @@ export async function GET(req: NextRequest) {
         .select('id, title, image_url, description')
         .eq('active', true)
         .or(`valid_until.is.null,valid_until.gte.${nowISO}`)
+      if (terr) qb = qb.eq('territoire_id', terr.id)
       if (ilike) qb = qb.ilike('title', ilike)
       const { data } = await qb.order('created_at', { ascending: false }).limit(LIMIT)
       return {
@@ -183,6 +201,7 @@ export async function GET(req: NextRequest) {
       let qb = supabaseAdmin
         .from('covoiturages')
         .select('id, depart, destination, date_trajet, heure_depart')
+      if (terr) qb = qb.eq('territoire_id', terr.id)
       if (ilike) qb = qb.or(`depart.ilike.${ilike},destination.ilike.${ilike}`)
       const { data } = await qb
         .order('date_trajet', { ascending: true })
@@ -204,6 +223,7 @@ export async function GET(req: NextRequest) {
       // Les médias du forum sont des objets { t, url }, d'où la photo lue à
       // part et non par `photos[0]` comme ailleurs.
       let qb = supabaseAdmin.from('forum_topics').select('id, titre, corps, media')
+      if (terr) qb = qb.eq('territoire_id', terr.id)
       if (ilike) qb = qb.ilike('titre', ilike)
       const { data } = await qb
         .order('last_activity_at', { ascending: false })
@@ -228,6 +248,7 @@ export async function GET(req: NextRequest) {
   if (requested.includes('article')) {
     tasks.push((async () => {
       let qb = supabaseAdmin.from('articles_journal').select('id, titre, corps, photo_url').eq('statut', 'publie')
+      if (terr) qb = qb.eq('territoire_id', terr.id)
       if (ilike) qb = qb.ilike('titre', ilike)
       const { data } = await qb.order('created_at', { ascending: false }).limit(LIMIT)
       return {
