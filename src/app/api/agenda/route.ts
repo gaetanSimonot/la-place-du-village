@@ -293,9 +293,37 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  if (dateExacte || range) {
+  /*
+   * LE TRI VAUT POUR TOUS LES FILTRES, « tout » COMPRIS.
+   *
+   * Il etait enferme dans `if (dateExacte || range)`. En filtre « tout », ni
+   * l'un ni l'autre n'est pose : aucun tri ne s'appliquait, et la liste
+   * sortait telle que la base la rend — `date_debut` croissant. Une saison
+   * qui « commence » le 1er janvier arrivait donc tout en haut, devant le
+   * concert de ce soir. C'est exactement ce que ce tri existe pour empecher.
+   */
+  {
+    /*
+     * DEUX REGLES, PARCE QUE DEUX SITUATIONS.
+     *
+     * Sur un filtre de periode — aujourd'hui, ce week-end, ce mois — tout se
+     * passe dans le meme court intervalle : la duree EST l'urgence, et les
+     * quatre rangs s'appliquent. On veut d'abord ce qui n'a lieu que ce
+     * jour-la.
+     *
+     * Sur « tout », la liste court sur des mois : la chronologie redevient la
+     * colonne vertebrale. Trier par duree y mettrait un concert de decembre
+     * devant un festival de ce week-end. Seul l'ecart qui compte est
+     * maintenu : ce qui est INSTALLE (une expo, une saison, une permanence)
+     * ferme la marche, parce qu'on ne peut pas le rater.
+     */
+    const gradue = !!(dateExacte || range)
+    const rang = (e: { date_debut?: string | null; date_fin?: string | null }): number =>
+      gradue ? rangDuree(e) : (dureeEnJours(e) >= JOURS_INSTALLE ? 1 : 0)
+    const installe = gradue ? 3 : 1
+
     evenements.sort((a, b) => {
-      const ra = rangDuree(a), rb = rangDuree(b)
+      const ra = rang(a), rb = rang(b)
       if (ra !== rb) return ra - rb
       /*
        * Entre installés, c'est la DURÉE qui départage, pas la date de début.
@@ -304,7 +332,7 @@ export async function GET(req: NextRequest) {
        * une saison « commence » le 1er janvier, ce qui la placerait en tête
        * d'un tri chronologique alors qu'elle court encore six mois.
        */
-      if (ra === 3) {
+      if (ra === installe) {
         const ja = dureeEnJours(a), jb = dureeEnJours(b)
         if (ja !== jb) return ja - jb
       }
