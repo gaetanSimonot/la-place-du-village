@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { extractMultipleWithClaude, geocodeWithGoogle, calcStatut, nettoyerJoursSemaine, communeDepuisAdresse } from './extract'
+import { extractMultipleWithClaude, geocodeWithGoogle, calcStatut, nettoyerJoursSemaine, communeDepuisAdresse, ressembleAUneAdresse } from './extract'
 import { datesDepuisExtraction } from './occurrences'
 import { checkDoublon } from './checkDoublon'
 import { trouverOuCreerLieu } from './lieuxResolve'
@@ -115,7 +115,13 @@ export async function processMessage(
        * sur le defaut « France ». « Breau » partait alors en Seine-et-Marne,
        * a 518 km, et le filtre de zone ecartait un lieu a 12 km d'ici.
        */
-      geo = await geocodeWithGoogle(evt.lieu_nom, evt.commune, { indiceGeo: indiceGeoDe(terr) })
+      geo = await geocodeWithGoogle(evt.lieu_nom, evt.commune, {
+        indiceGeo: indiceGeoDe(terr),
+        // L'adresse postale de l'annonce : le signal le plus precis qu'on
+        // ait, et il n'etait pas transmis.
+        adresse: evt.lieu_adresse,
+        codePostal: evt.code_postal,
+      })
 
       /*
        * LE GROUPE PRESUME, LA GEOGRAPHIE TRANCHE.
@@ -145,11 +151,22 @@ export async function processMessage(
         // Un desaccord signale un point douteux, pas une commune a corriger
         // — voir communeDepuisAdresse.
         const communeReelle = evt.commune || communeDepuisAdresse(geo.adresse)
+      /*
+       * LE NOM DU LIEU, QUAND L'ANNONCE N'EN DONNE PAS.
+       *
+       * Retomber sur le nom de la commune donne une punaise « Le Vigan » au
+       * milieu du village, la ou l'annonce disait « 70 route du Pont de la
+       * Croix ». L'adresse est un bien meilleur intitule : elle situe, elle
+       * se reconnait, et elle est ce que la personne lira sur la fiche.
+       */
+        const intitule = evt.lieu_nom
+          || (ressembleAUneAdresse(evt.lieu_adresse) ? evt.lieu_adresse : null)
+          || communeReelle || ''
         // Chercher avant de créer — voir src/lib/lieuxResolve.ts.
         const lieu = await trouverOuCreerLieu(
-          evt.lieu_nom ?? communeReelle ?? '',
+          intitule,
           communeReelle,
-          { lat: geo.lat, lng: geo.lng, adresse: geo.adresse ?? evt.lieu_adresse, place_id_google: geo.place_id_google , territoire_id: terr?.id ?? null },
+          { lat: geo.lat, lng: geo.lng, adresse: geo.adresse ?? evt.lieu_adresse, place_id_google: geo.place_id_google, code_postal: evt.code_postal ?? null, territoire_id: terr?.id ?? null },
         )
         lieuId = lieu.id
       }

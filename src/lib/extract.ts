@@ -384,12 +384,51 @@ export function communeDepuisAdresse(adresse: string | null | undefined): string
   const commune = m?.[1]?.trim()
   return commune && commune.length > 1 ? commune : null
 }
+/**
+ * Vrai si ce texte ressemble a une ADRESSE POSTALE et pas a un nom de lieu.
+ *
+ * Le critere est un numero de voie, ou un mot de voie. « 70 route du Pont de
+ * la Croix » oui ; « Salle des fetes » non. On reste volontairement strict :
+ * une adresse douteuse envoyee a Google rend un point douteux, et un point
+ * faux est pire qu'un point approximatif — il a l'air juste.
+ */
+const MOTS_DE_VOIE = /\b(rue|route|avenue|av\.|bd|boulevard|chemin|impasse|place|allée|allee|quai|faubourg|lotissement|hameau|mas|domaine|zone|za|zi|lieu-dit|lieudit)\b/i
+export function ressembleAUneAdresse(t: string | null | undefined): boolean {
+  const v = (t ?? '').trim()
+  if (v.length < 6) return false
+  if (/^\d{1,4}\s*(bis|ter)?\s*[,\s]/i.test(v)) return true
+  return MOTS_DE_VOIE.test(v)
+}
+
 export async function geocodeWithGoogle(
   lieuNom: string | null,
   commune?: string | null,
-  opts: { indiceGeo?: string | null } = {},
+  opts: { indiceGeo?: string | null; adresse?: string | null; codePostal?: string | null } = {},
 ): Promise<GeoResult> {
   const indice = opts.indiceGeo?.trim() || 'France'
+
+  /*
+   * 0. L'ADRESSE POSTALE D'ABORD — c'est le signal le plus precis qu'on ait.
+   *
+   * Elle n'etait tout simplement pas transmise : on interrogeait Google avec
+   * le nom du lieu et la commune, et rien d'autre. Quand une annonce ne donne
+   * PAS de nom de lieu mais une adresse — « vide-maison, 70 route du Pont de
+   * la Croix, 30120 Le Vigan » — on retombait sur la branche « commune
+   * seule », c'est-a-dire le centre du village avec un decalage aleatoire.
+   * La punaise se posait a plusieurs centaines de metres de la maison, et
+   * l'adresse disparaissait de la fiche. Constate le 20/09/2026.
+   *
+   * Le code postal entre dans la requete quand on l'a : il tranche entre deux
+   * communes homonymes mieux que n'importe quel repere regional.
+   */
+  const adresse = (opts.adresse ?? '').trim()
+  if (ressembleAUneAdresse(adresse)) {
+    const q = [adresse, opts.codePostal, commune, indice].filter(Boolean).join(', ')
+    const precis = await textsearch(q)
+    // Un resultat sans coordonnees ne vaut pas mieux que pas de resultat.
+    if (precis && precis.lat != null) return { ...precis, approx: false }
+  }
+
   // 1. Lieu précis + commune → DB-first puis Google
   if (lieuNom) {
     // Cache hit dans table lieux → ZERO appel Google

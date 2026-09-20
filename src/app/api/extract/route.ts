@@ -6,6 +6,7 @@ import {
   nettoyerJoursSemaine,
   calcStatut,
   communeDepuisAdresse,
+  ressembleAUneAdresse,
   type ExtractedData,
   type GeoResult,
 } from '@/lib/extract'
@@ -116,7 +117,11 @@ async function processOneEvent(
     // rend l'homonyme le plus célèbre, et « Bréau » — à 12 km — partait en
     // Seine-et-Marne, à 518. Le contrôle de zone écartait ensuite un lieu
     // parfaitement local.
-    geo = await geocodeWithGoogle(extracted.lieu_nom, extracted.commune, { indiceGeo: indiceGeoDe(territoire) })
+    geo = await geocodeWithGoogle(extracted.lieu_nom, extracted.commune, {
+      indiceGeo: indiceGeoDe(territoire),
+      adresse: extracted.lieu_adresse,
+      codePostal: extracted.code_postal,
+    })
 
     /*
      * LE GROUPE PRESUME, LA GEOGRAPHIE TRANCHE — meme regle que le chemin
@@ -159,8 +164,19 @@ async function processOneEvent(
     // leur lieu.
     // Ce que le modele a lu prime ; l'adresse ne comble que le vide.
     const communeReelle = extracted.commune || communeDepuisAdresse(geo.adresse)
+      /*
+     * LE NOM DU LIEU, QUAND L'ANNONCE N'EN DONNE PAS.
+     *
+     * Retomber sur le nom de la commune donne une punaise « Le Vigan » au
+     * milieu du village, la ou l'annonce disait « 70 route du Pont de la
+     * Croix ». L'adresse est un bien meilleur intitule : elle situe, elle
+     * se reconnait, et elle est ce que la personne lira sur la fiche.
+     */
+    const intitule = extracted.lieu_nom
+      || (ressembleAUneAdresse(extracted.lieu_adresse) ? extracted.lieu_adresse : null)
+      || communeReelle || ''
     const lieu = await trouverOuCreerLieu(
-      extracted.lieu_nom ?? communeReelle ?? '',
+      intitule,
       communeReelle,
       { lat: geo.lat, lng: geo.lng, adresse: geo.adresse ?? extracted.lieu_adresse, place_id_google: geo.place_id_google , territoire_id: territoire?.id ?? null },
     )

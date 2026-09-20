@@ -31,6 +31,26 @@ export interface GeoLieu {
   territoire_id?: string | null
 }
 
+/** Deux adresses désignent-elles le même endroit ? Comparaison volontairement
+ *  grossière : la ponctuation, la casse et « , France » ne distinguent rien. */
+function memeAdresse(a: string | null, b: string | null): boolean {
+  const cle = (x: string | null) => (x ?? '')
+    .toLowerCase()
+    .replace(/,?\s*france\s*$/i, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+  const ka = cle(a), kb = cle(b)
+  if (!ka || !kb) return false
+  return ka === kb || ka.includes(kb) || kb.includes(ka)
+}
+
+/** Une fiche existante peut-elle accueillir ce qu'on apporte ? */
+function compatible(apportee: string | null, existante: string | null): boolean {
+  if (!apportee) return true                 // rien de plus précis à perdre
+  if (!existante) return false               // la fiche est plus vague : on n'y range pas une adresse
+  return memeAdresse(apportee, existante)
+}
+
 export async function trouverOuCreerLieu(
   nom: string,
   commune: string | null,
@@ -44,11 +64,25 @@ export async function trouverOuCreerLieu(
     if (data?.id) return { id: data.id, reutilise: true }
   }
 
-  // 2. Par nom + commune, insensible à la casse.
-  let q = supabaseAdmin.from('lieux').select('id').ilike('nom', nom).limit(1)
+  /*
+   * 2. Par nom + commune, insensible à la casse.
+   *
+   * AVEC UNE RESERVE, et elle compte : quand l'annonce ne donne pas de nom de
+   * lieu, le nom vaut le nom de la commune. « 70 route du Pont de la Croix »
+   * et « Le Vigan » tout court arrivent alors tous les deux sous le nom
+   * « Le Vigan » — et le second reutilisait la fiche du premier, sans son
+   * adresse et avec les coordonnées du centre du village.
+   *
+   * On ne réutilise donc une fiche que si elle est COMPATIBLE : soit on
+   * n'apporte pas d'adresse, soit elle porte la même. Une adresse précise ne
+   * se range jamais dans une fiche qui n'en a pas.
+   */
+  let q = supabaseAdmin.from('lieux').select('id, adresse').ilike('nom', nom).limit(1)
   if (commune) q = q.ilike('commune', commune)
   const { data: parNom } = await q.maybeSingle()
-  if (parNom?.id) return { id: parNom.id, reutilise: true }
+  if (parNom?.id && compatible(geo.adresse, parNom.adresse as string | null)) {
+    return { id: parNom.id, reutilise: true }
+  }
 
   // 3. Rien ne correspond : on crée.
   const { data: cree, error } = await supabaseAdmin

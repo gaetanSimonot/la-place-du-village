@@ -157,7 +157,13 @@ export async function POST(req: NextRequest) {
          * dessous renvoie un 422 « hors zone ». Quelqu'un saisissait un
          * événement à 12 km et se voyait refuser l'enregistrement.
          */
-        geo = await geocodeWithGoogle(lieu_nom || null, commune || null, { indiceGeo: indiceGeoDe(territoire) })
+        geo = await geocodeWithGoogle(lieu_nom || null, commune || null, {
+          indiceGeo: indiceGeoDe(territoire),
+          // L'adresse saisie au formulaire vaut mieux que le nom du lieu :
+          // c'est le signal le plus precis, et il n'etait pas transmis.
+          adresse: lieu_adresse,
+          codePostal: code_postal,
+        })
       }
 
       /*
