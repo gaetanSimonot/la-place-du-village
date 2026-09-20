@@ -1,4 +1,5 @@
 import { unzipSync } from 'fflate'
+import { territoireParSlug } from './territoires'
 import { supabaseAdmin } from './supabase-admin'
 
 /**
@@ -19,31 +20,94 @@ import { supabaseAdmin } from './supabase-admin'
  * de tableau intermédiaire de 800 000 entrées.
  */
 
-/** L'archive GTFS, via l'URL stable de data.gouv.fr. */
-const URL_GTFS = 'https://www.data.gouv.fr/api/1/datasets/r/d747fe79-2915-4cdd-8cc5-51a810baaca5'
-
 /**
- * Les lignes qu'on importe — celles qui traversent la vallee.
+ * LES RESEAUX QU'ON IMPORTE, UN PAR TERRITOIRE.
  *
- * Le reseau liO en compte 309 : les cars de l'Aude ou du Tarn n'ont rien a
- * faire ici. Ces dix-la representent 197 courses, 378 arrets et 4 530
- * passages, soit une base qui se lit en millisecondes.
+ * C'etait une seule URL en dur. Ouvrir une ville suppose d'en brancher une
+ * autre : le flux liO ne connait pas les cars du Bearn, et reciproquement.
  *
- * Ajouter une ligne = ajouter son numero ici, puis relancer le cron (ou
- * l'appeler a la main avec ?lignes=...). Rien d'autre.
+ * Pourquoi ici et pas en base : brancher un reseau n'est pas un reglage, c'est
+ * une decision. Il faut lire le fichier de l'exploitant, reperer les lignes
+ * qui servent vraiment le territoire, et verifier que leurs identifiants
+ * n'entrent pas en collision avec ceux d'un autre reseau. Un champ de
+ * formulaire donnerait l'illusion que ca se fait d'un clic.
+ *
+ * LES IDENTIFIANTS NE SE TELESCOPENT PAS, et c'est verifie : liO numerote ses
+ * lignes « 101 » et ses arrets « 3013112 », le Bearn les qualifie
+ * (« PYRENEES_ATLANTIQUES:Line:3448 », « MOBIITI:StopPlace:49408 »). Zero
+ * collision sur les 763 arrets du second. Les deux reseaux vivent donc dans
+ * les memes tables sans s'ecraser — c'est `territoire_id` sur la ligne qui
+ * les separe a la lecture.
  */
-export const LIGNES_RETENUES = [
-  '101',  // Campestre-et-Luc – Le Vigan
-  '102',  // Ganges – Saint-Roman-de-Codieres
-  '103',  // Pompignan – Saint-Hippolyte-du-Fort
-  '104',  // Le Vigan – Arphy
-  '105',  // Vissec – Le Vigan
-  '106',  // Saint-Andre-de-Majencoules – Le Vigan
-  '108',  // Le Vigan – Treves
-  '140',  // Le Vigan – Nimes
-  '142',  // Le Vigan – Ales
-  '608',  // Montpellier – Ganges – Le Vigan
+export interface ReseauGtfs {
+  /** Le territoire a qui appartiennent ces lignes. */
+  territoire: string
+  nom: string
+  url: string
+  /**
+   * Les lignes retenues, par leur NUMERO tel qu'il s'affiche
+   * (`route_short_name`), ou par `route_id` quand l'exploitant n'en publie
+   * pas. Vide = tout le reseau, ce qui n'a de sens que sur un flux deja
+   * restreint au territoire.
+   */
+  lignes: string[]
+}
+
+export const RESEAUX: ReseauGtfs[] = [
+  {
+    territoire: 'cevennes',
+    nom: 'liO — cars de l\'Occitanie',
+    url: 'https://www.data.gouv.fr/api/1/datasets/r/d747fe79-2915-4cdd-8cc5-51a810baaca5',
+    // Le reseau entier compte 309 lignes : les cars de l'Aude ou du Tarn
+    // n'ont rien a faire ici.
+    lignes: [
+      '101',  // Campestre-et-Luc – Le Vigan
+      '102',  // Ganges – Saint-Roman-de-Codieres
+      '103',  // Pompignan – Saint-Hippolyte-du-Fort
+      '104',  // Le Vigan – Arphy
+      '105',  // Vissec – Le Vigan
+      '106',  // Saint-Andre-de-Majencoules – Le Vigan
+      '108',  // Le Vigan – Treves
+      '140',  // Le Vigan – Nimes
+      '142',  // Le Vigan – Ales
+      '608',  // Montpellier – Ganges – Le Vigan
+    ],
+  },
+  {
+    territoire: 'pau',
+    nom: 'Reseau interurbain des Pyrenees-Atlantiques',
+    url: 'https://www.pigma.org/public/opendata/nouvelle_aquitaine_mobilites/publication/pyrenees_atlantiques-aggregated-gtfs.zip',
+    /*
+     * LES QUINZE, ET C'EST TOUT LE FLUX. Mesure sur le fichier : 15 lignes,
+     * 763 arrets, 174 courses, 1 Mo. Toutes desservent un arret a moins de
+     * 45 km de Pau — le flux est deja celui du departement, il n'y a rien a
+     * ecarter. On les nomme quand meme : une ligne ajoutee par l'exploitant
+     * demain doit etre un choix, pas une surprise.
+     */
+    lignes: [
+      '520',  // Pau – Orthez
+      '521',  // Pau – Monein
+      '522',  // Pau – Artix – Mourenx
+      '523',  // Orthez – Saint-Palais
+      '524',  // Pau – Gourette
+      '525',  // Laruns – Artouste – Col du Pourtalet
+      '530',  // Pau/Aire-sur-l'Adour – Mont-de-Marsan
+      '531',  // Pau – Agen
+      '532',  // Pau – Crouseilles
+      '533',  // Pau – Pontacq
+      '534',  // Pau – Asson – Bruges
+      '535',  // Pau – Montaut
+      '550',  // Bedous – Canfranc
+      '551',  // Oloron – Arette
+      '552',  // Oloron – Mauleon
+    ],
+  },
 ]
+
+/** Le reseau d'un territoire, par son slug. */
+export function reseauDe(slug: string | null | undefined): ReseauGtfs | null {
+  return RESEAUX.find(r => r.territoire === slug) ?? null
+}
 
 export interface ResultatImport {
   lignes: number
@@ -123,6 +187,20 @@ export interface RangsGtfs {
  * Lit l'archive et en tire les rangs a ecrire. AUCUN acces base : c'est ce
  * qui rend cette etape verifiable seule, avec un fichier sous la main.
  */
+/**
+ * Reconnait une ligne retenue.
+ *
+ * Deux exploitants, deux facons de nommer : liO donne `route_id = '101'`, le
+ * Bearn donne `route_id = 'PYRENEES_ATLANTIQUES:Line:3448'` et
+ * `route_short_name = '520'`. On declare les lignes par le NUMERO qu'on lit
+ * sur le car ; on accepte les deux pour que les reseaux deja branches ne
+ * changent pas de comportement.
+ */
+function estRetenue(r: { route_id?: string; route_short_name?: string }, retenues: Set<string>): boolean {
+  if (!retenues.size) return true     // flux deja restreint au territoire
+  return retenues.has(r.route_id ?? '') || retenues.has(r.route_short_name ?? '')
+}
+
 export function extraireGtfs(archive: Uint8Array, lignes: string[]): RangsGtfs {
   const zip = unzipSync(archive)
 
@@ -137,7 +215,7 @@ export function extraireGtfs(archive: Uint8Array, lignes: string[]): RangsGtfs {
   // 1. Les lignes.
   const rangsLignes: Record<string, unknown>[] = []
   parcourir(texte('routes.txt'), r => {
-    if (!retenues.has(r.route_id)) return
+    if (!estRetenue(r, retenues)) return
     rangsLignes.push({
       route_id: r.route_id,
       nom_court: r.route_short_name || null,
@@ -148,6 +226,7 @@ export function extraireGtfs(archive: Uint8Array, lignes: string[]): RangsGtfs {
     })
   })
   if (rangsLignes.length === 0) throw new Error(`Aucune ligne trouvee parmi : ${lignes.join(', ')}`)
+  const idsRetenus = new Set(rangsLignes.map(l => String(l.route_id)))
 
   // 2. Les courses — et au passage les services et traces utiles.
   const idsCourses = new Set<string>()
@@ -155,7 +234,9 @@ export function extraireGtfs(archive: Uint8Array, lignes: string[]): RangsGtfs {
   const idsTraces = new Set<string>()
   const rangsCourses: Record<string, unknown>[] = []
   parcourir(texte('trips.txt'), t => {
-    if (!retenues.has(t.route_id)) return
+    // `trips.txt` ne porte pas le numero affiche : on s'appuie sur les
+    // identifiants des lignes effectivement retenues juste au-dessus.
+    if (!idsRetenus.has(t.route_id)) return
     idsCourses.add(t.trip_id)
     idsServices.add(t.service_id)
     if (t.shape_id) idsTraces.add(t.shape_id)
@@ -251,28 +332,28 @@ export function extraireGtfs(archive: Uint8Array, lignes: string[]): RangsGtfs {
   }
 }
 
-export async function importerGtfsLio(
-  lignes: string[] = LIGNES_RETENUES,
+export async function importerReseau(
+  reseau: ReseauGtfs,
+  lignesDemandees?: string[],
 ): Promise<ResultatImport> {
   const debut = Date.now()
 
-  const rep = await fetch(URL_GTFS)
-  if (!rep.ok) throw new Error(`Telechargement GTFS : HTTP ${rep.status}`)
-  const r = extraireGtfs(new Uint8Array(await rep.arrayBuffer()), lignes)
+  const rep = await fetch(reseau.url)
+  if (!rep.ok) throw new Error(`Telechargement GTFS (${reseau.nom}) : HTTP ${rep.status}`)
+  const r = extraireGtfs(new Uint8Array(await rep.arrayBuffer()),
+    lignesDemandees && lignesDemandees.length ? lignesDemandees : reseau.lignes)
 
   /*
-   * L'ordre compte : les courses referencent les lignes, les passages
-   * referencent les courses.
-   *
-   * Le TERRITOIRE des lignes n'est pas ecrit ici, et c'est voulu : ce flux est
-   * celui du reseau liO, donc des Cevennes, et la valeur par defaut posee en
-   * base y suffit. Une ligne deja connue garde la sienne — l'upsert ne touche
-   * que les colonnes fournies.
-   *
-   * LE JOUR OU UN SECOND RESEAU ARRIVE, c'est ici que ca se joue : il faudra
-   * un territoire par flux, sinon les cars de Pau naitront cevenols et la
-   * carte de Ganges les dessinera.
+   * LE TERRITOIRE EST POSE ICI, sur chaque ligne. Tout en decoule : les
+   * courses, les passages et les arrets se rattachent aux lignes, et c'est
+   * `territoire_id` qui empeche la carte de Ganges de dessiner les cars du
+   * Bearn. Sans lui, la valeur par defaut en base les rendrait cevenols.
    */
+  const terr = await territoireParSlug(reseau.territoire)
+  if (terr) for (const l of r.lignes) l.territoire_id = terr.id
+
+  // L'ordre compte : les courses referencent les lignes, les passages
+  // referencent les courses.
   await ecrire('transport_lignes', r.lignes, 'route_id')
   await ecrire('transport_arrets', r.arrets, 'stop_id')
   await ecrire('transport_traces', r.traces, 'shape_id')
