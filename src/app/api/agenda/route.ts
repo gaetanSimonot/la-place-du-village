@@ -187,6 +187,29 @@ export async function GET(req: NextRequest) {
 
   const JOURS_INSTALLE = 7
 
+  /*
+   * LE RANG D'UN ÉVÉNEMENT DANS LA LISTE, SELON CE QU'IL DURE.
+   *
+   * Le premier jet ne connaissait que deux rangs : court, ou installé. Un
+   * vide-grenier d'un jour et un festival de trois jours se retrouvaient donc
+   * mélangés, alors qu'ils n'appellent pas la même urgence — sur le filtre
+   * « aujourd'hui », on veut d'abord ce qui n'a lieu QUE aujourd'hui.
+   *
+   * Quatre rangs, du plus périssable au plus installé :
+   *   0  un seul jour  — ce soir ou jamais
+   *   1  deux ou trois jours — un festival, une fête de village
+   *   2  jusqu'à une semaine — une manifestation qui s'étale
+   *   3  au-delà — une expo, une permanence, une saison : des choses qu'on
+   *      ne peut pas rater, et qui ferment donc la marche
+   */
+  const rangDuree = (e: { date_debut?: string | null; date_fin?: string | null }): number => {
+    const j = dureeEnJours(e)
+    if (j <= 0) return 0
+    if (j <= 2) return 1
+    if (j < JOURS_INSTALLE) return 2
+    return 3
+  }
+
   /**
    * Le jour ISO d'une date : 1 = lundi … 7 = dimanche.
    *
@@ -272,10 +295,31 @@ export async function GET(req: NextRequest) {
 
   if (dateExacte || range) {
     evenements.sort((a, b) => {
-      const ia = dureeEnJours(a) > JOURS_INSTALLE ? 1 : 0
-      const ib = dureeEnJours(b) > JOURS_INSTALLE ? 1 : 0
-      if (ia !== ib) return ia - ib
-      return String(a.date_debut ?? '').localeCompare(String(b.date_debut ?? ''))
+      const ra = rangDuree(a), rb = rangDuree(b)
+      if (ra !== rb) return ra - rb
+      /*
+       * Entre installés, c'est la DURÉE qui départage, pas la date de début.
+       * Une expo qui ferme dans huit jours est plus urgente qu'une saison
+       * ouverte jusqu'en juin — et leur date de début ne veut rien dire ici :
+       * une saison « commence » le 1er janvier, ce qui la placerait en tête
+       * d'un tri chronologique alors qu'elle court encore six mois.
+       */
+      if (ra === 3) {
+        const ja = dureeEnJours(a), jb = dureeEnJours(b)
+        if (ja !== jb) return ja - jb
+      }
+      const da = String(a.date_debut ?? ''), db = String(b.date_debut ?? '')
+      if (da !== db) return da.localeCompare(db)
+      /*
+       * À date égale, l'HEURE tranche — et c'est le cas de tout le filtre
+       * « aujourd'hui », où les dates sont toutes les mêmes. Sans elle, la
+       * liste du jour sortait dans l'ordre de la base. Ce qui n'annonce pas
+       * d'heure passe en dernier : on ne sait pas quand ça commence, on ne
+       * va pas le placer avant un concert qui, lui, le dit.
+       */
+      const ha = String(a.heure ?? ''), hb = String(b.heure ?? '')
+      if (!ha !== !hb) return ha ? -1 : 1
+      return ha.localeCompare(hb)
     })
   }
 
