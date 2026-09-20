@@ -169,7 +169,7 @@ export async function scrapeSource(
      * première page laissait les deux tiers du site sur la table. Le
      * dédoublonnage fait le ménage quand les rubriques se recoupent.
      */
-    const enPlus = piste.agendas.slice(1, 6).map(a => a.url)
+    const enPlus = piste.agendas.slice(1, 14).map(a => a.url)
     return scrapeStructure({ ...source, url: cible, pagesEnPlus: enPlus }, opts)
   }
 

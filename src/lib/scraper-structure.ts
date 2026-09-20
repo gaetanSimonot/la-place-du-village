@@ -212,7 +212,11 @@ export async function scrapeStructure(
   // 1. Les fiches annoncées par les pages de liste, sans doublon d'adresse.
   // Un objet simple plutôt qu'une Map, pour la même raison que ci-dessus.
   const fiches: Record<string, EventStructure> = {}
+  // Meme garde-fou pour la lecture des pages structurees : quatorze rubriques
+  // paginees, c'est vite cinquante requetes.
+  const finListes = Date.now() + 90_000
   for (const racine of bases) {
+    if (Date.now() > finListes) break
     for (let p = 1; p <= PAGES_MAX; p++) {
       const url = p === 1 ? racine : racine + (racine.includes('?') ? '&' : '?') + 'p=' + p
       const html = await lirePage(url)
@@ -238,11 +242,20 @@ export async function scrapeStructure(
    * ce qui effaçait les images.
    */
   if (!Object.keys(fiches).length) {
-    // On partage le budget entre les pages de liste : cinq rubriques valent
-    // mieux qu'une seule lue en détail.
-    const budget = Math.max(45_000, Math.round(150_000 / Math.max(1, bases.length)))
+    /*
+     * UN SEUL BUDGET POUR TOUTES LES PAGES, ET NON UN PAR PAGE.
+     *
+     * Premier jet : 45 s par page de liste. Avec quatorze rubriques
+     * déclarées dans le plan du site, ça faisait 630 s — le double de ce que
+     * l'hébergeur accorde à la route. On partage une enveloppe commune, et on
+     * s'arrête quand elle est vide : le passage suivant prendra la suite,
+     * puisque rien n'est refait deux fois.
+     */
+    const finCollecte = Date.now() + 150_000
     for (const racine of bases) {
-      const parFiches = await collecterParFiches(racine, budget)
+      const reste = finCollecte - Date.now()
+      if (reste < 12_000) break
+      const parFiches = await collecterParFiches(racine, reste)
       for (const u of Object.keys(parFiches.fiches)) fiches[u] = parFiches.fiches[u]
       resultat.parFiches += parFiches.visitees
       resultat.parOpenGraph += parFiches.parOpenGraph

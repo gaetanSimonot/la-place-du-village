@@ -30,6 +30,16 @@ const UA = {
 /** Au-delà, on explore un site au lieu de le reconnaître. */
 const VISITES_MAX = 14
 
+/**
+ * Pages de rubrique retenues dans le plan du site.
+ *
+ * Le guide du Béarn en déclare 153 — une par rubrique et par mois. Les
+ * moissonner toutes ferait des milliers de fiches en un passage. On en prend
+ * de quoi couvrir les prochains mois sans y passer la nuit ; le reste
+ * viendra aux passages suivants, où rien n'est refait deux fois.
+ */
+const PAGES_DU_PLAN_MAX = 20
+
 /** Les mots qui désignent une page d'agenda, dans un lien ou son texte. */
 const MOTS_AGENDA = /agenda|sorties|[ée]v[ée]nements?|manifestations?|que-?faire|programmation|spectacles|animations|calendrier/i
 
@@ -236,6 +246,62 @@ export function metaOpenGraph(html: string): {
 }
 
 /**
+ * LE PLAN DU SITE — la fouille que le site a faite pour nous.
+ *
+ * C'est le mecanisme canonique, et le plus genereux : beaucoup d'agendas y
+ * declarent TOUTES leurs pages de rubrique, y compris celles qu'aucun menu ne
+ * montre. Le guide du Bearn y publie « agenda/cinema.html?dates=2026-09 »,
+ * « agenda/concerts.html?dates=2026-09 » et cent cinquante autres — une par
+ * rubrique et par mois — alors que sa page d'agenda n'en lie aucune.
+ *
+ * On suit un niveau d'index (un plan qui renvoie a d'autres plans), on ne
+ * garde que ce qui annonce un agenda, et on ECARTE LES MOIS PASSES : une
+ * rubrique datee de mars dernier ne contient plus rien a moissonner.
+ */
+async function pagesDuPlan(origine: string, mois: string[]): Promise<string[]> {
+  const base = new URL(origine).origin
+  const out: string[] = []
+  const locs = (x: string) => {
+    const r: string[] = []
+    const re = /<loc>([^<]+)<\/loc>/gi
+    let m: RegExpExecArray | null
+    while ((m = re.exec(x)) !== null) r.push(m[1].trim())
+    return r
+  }
+  for (const nom of ['/sitemap.xml', '/sitemap_index.xml']) {
+    const plan = await lire(base + nom)
+    if (!plan) continue
+    let adresses = locs(plan.html)
+    // Un index de plans : on suit ceux qui parlent d'agenda, une fois.
+    const sousPlans = adresses.filter(u => /\.xml($|\?)/i.test(u) && MOTS_AGENDA.test(u)).slice(0, 3)
+    for (const sp of sousPlans) {
+      const p2 = await lire(sp)
+      if (p2) adresses = adresses.concat(locs(p2.html))
+    }
+    for (const u of adresses) {
+      if (/\.xml($|\?)/i.test(u)) continue
+      let x: URL
+      try { x = new URL(u) } catch { continue }
+      if (x.host !== new URL(origine).host) continue
+      if (!MOTS_AGENDA.test(x.pathname)) continue
+      // Une page datee : on ne garde que le mois courant et les suivants.
+      const date = x.searchParams.get('dates') || x.searchParams.get('SD') || ''
+      if (date) {
+        const mm = date.match(/(\d{4})-(\d{2})/) || date.match(/(\d{2})\/(\d{4})/)
+        if (mm) {
+          const cle = mm[0].length === 7 && mm[0].indexOf('-') === 4
+            ? mm[0] : mm[2] + '-' + mm[1]
+          if (mois.indexOf(cle) < 0) continue
+        }
+      }
+      if (out.indexOf(u) < 0) out.push(u)
+    }
+    if (out.length) break
+  }
+  return out
+}
+
+/**
  * CETTE PAGE EST-ELLE UNE LISTE, OU UN ARTICLE ?
  *
  * La répétition seule ne suffit pas : un article de journal porte lui aussi
@@ -375,6 +441,26 @@ export async function explorerSource(adresse: string): Promise<PisteSource> {
   }
 
   /*
+   * LE PLAN DU SITE, en dernier recours de recherche mais pas de valeur :
+   * il déclare souvent des rubriques qu'aucun menu ne montre.
+   */
+  const maintenant = new Date()
+  const moisUtiles: string[] = []
+  for (let k = 0; k < 4; k++) {
+    const d = new Date(maintenant.getFullYear(), maintenant.getMonth() + k, 1)
+    moisUtiles.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'))
+  }
+  try {
+    const duPlan = await pagesDuPlan(piste.origine, moisUtiles)
+    for (const u of duPlan.slice(0, PAGES_DU_PLAN_MAX)) {
+      if (piste.agendas.some(x => x.url === u)) continue
+      // On ne les visite pas une par une : le site les déclare lui-même, et
+      // les tester toutes coûterait plus cher que de les moissonner.
+      piste.agendas.push({ url: u, evenements: 0, methode: 'inconnu' })
+    }
+  } catch { /* pas de plan : tant pis */ }
+
+  /*
    * L'ORDRE COMPTE : c'est la première qui sera moissonnée.
    *
    *   1. la page qu'on nous a donnée, si elle vaut quelque chose — elle a
@@ -389,8 +475,10 @@ export async function explorerSource(adresse: string): Promise<PisteSource> {
   }
   const demandee = (u: string) => (u.replace(/\/+$/, '') === depart.replace(/\/+$/, '')
     || u.replace(/\/+$/, '') === piste.origine.replace(/\/+$/, '')) ? 0 : 1
+  const verifiee = (m: string) => (m === 'inconnu' ? 1 : 0)
   piste.agendas.sort((a, b) =>
     demandee(a.url) - demandee(b.url)
+    || verifiee(a.methode) - verifiee(b.methode)
     || (b.methode === 'structure' ? 1 : 0) - (a.methode === 'structure' ? 1 : 0)
     || profondeur(a.url) - profondeur(b.url)
     || b.evenements - a.evenements)
