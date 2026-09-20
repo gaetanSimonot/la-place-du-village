@@ -101,8 +101,16 @@ export interface ScrapeStructureResult {
   inseres:    number
   /** Ce que la source a livré, champ par champ — c'est le vrai rapport. */
   qualite: {
-    /** Fiches réellement visitées — le dénominateur des lignes suivantes. */
+    /** Fiches réellement visitées — le dénominateur de l'image et du texte. */
     detaillees:       number
+    /**
+     * Fiches passées le contrôle de doublon — le dénominateur du LIEU.
+     *
+     * Le géocodage vient APRÈS ce contrôle : un doublon n'est jamais situé,
+     * et c'est voulu, on ne paie pas pour placer ce qu'on a déjà. Rapporter
+     * « 1 lieu sur 13 » était donc un chiffre faux — c'était 1 sur 1.
+     */
+    retenus:          number
     avec_image:       number
     avec_heure:       number
     avec_description: number
@@ -116,6 +124,17 @@ export interface ScrapeStructureResult {
   geocodages: number
   /** Événements rangés au titre, faute de rubrique utilisable à la source. */
   ranges: number
+  /** Événements complets publiés après coup, la case ayant été cochée depuis. */
+  rattrapes: number
+  /**
+   * Un modèle est-il intervenu ?
+   *
+   * Le rapport affirmait « aucun modèle n'est intervenu » en toutes
+   * circonstances, y compris quand le chemin par fiches venait d'en appeler
+   * un pour retrouver les dates. Une phrase rassurante et fausse est pire
+   * qu'une phrase inquiétante et vraie.
+   */
+  modeleUtilise: boolean
   /**
    * OÙ SONT PASSÉS LES ÉVÉNEMENTS TROUVÉS.
    *
@@ -240,12 +259,14 @@ export async function scrapeStructure(
   const resultat: ScrapeStructureResult = {
     mode: 'structure', sourceId: source.id, sourceName: source.nom, dryRun,
     trouves: 0, doublons: 0, inseres: 0,
-    qualite: { detaillees: 0, avec_image: 0, avec_heure: 0, avec_description: 0, avec_adresse: 0, avec_lieu: 0 },
+    qualite: { detaillees: 0, retenus: 0, avec_image: 0, avec_heure: 0, avec_description: 0, avec_adresse: 0, avec_lieu: 0 },
     interrompu: false,
     reglages: { horizon_jours: horizon, publier_auto: publierAuto, pages_lues: 0 },
     geocodages: 0,
     ranges: 0,
     reformulees: 0,
+    modeleUtilise: false,
+    rattrapes: 0,
     ecartes: { hors_horizon: 0, hors_zone: 0, sans_date: 0, non_traites: 0, echec_ecriture: 0 },
     parFiches: 0,
     parOpenGraph: 0,
@@ -315,6 +336,8 @@ export async function scrapeStructure(
       for (const u of Object.keys(parFiches.pages)) dejaLues[u] = parFiches.pages[u]
       resultat.parFiches += parFiches.visitees
       resultat.parOpenGraph += parFiches.parOpenGraph
+      // Le chemin par fiches demande les dates a un modele.
+      if (parFiches.visitees) resultat.modeleUtilise = true
       quota -= parFiches.visitees
     }
   }
@@ -427,6 +450,8 @@ export async function scrapeStructure(
       resultat.evenements.push({ titre: e.name ?? '?', statut: 'doublon', doublon: true, image: false })
       continue
     }
+
+    resultat.qualite.retenus++
 
     // 5. Le lieu. L'adresse postale part au géocodage — c'est le signal le
     //    plus précis que la source nous donne — et le lieu se RÉUTILISE :
@@ -549,6 +574,7 @@ export async function scrapeStructure(
       if (error && error.code !== '23514') break
     }
     resultat.ranges = ids.length
+    if (ids.length) resultat.modeleUtilise = true
   }
 
   /*
@@ -566,6 +592,31 @@ export async function scrapeStructure(
         .update({ description: reecrites[id] }).eq('id', id)
     }
     resultat.reformulees = ids.length
+    if (ids.length) resultat.modeleUtilise = true
+  }
+
+  /*
+   * LA CASE « PUBLIER DIRECTEMENT » VAUT AUSSI POUR LE PASSE.
+   *
+   * Sans ca, elle ne vaut que pour l'avenir : quarante-quatre evenements
+   * complets restaient en attente parce qu'ils etaient entres AVANT qu'on la
+   * coche, et rien ne repassait dessus. Cocher une case et ne voir rien
+   * bouger, c'est se demander si elle sert a quelque chose.
+   *
+   * On ne touche QU'A CEUX dont c'etait la seule raison d'attendre. Un
+   * evenement auquel il manque une image ou une description garde sa place
+   * dans la file, avec sa raison : la regle reste « pas de donnees, pas de
+   * fiche ».
+   */
+  if (!dryRun && publierAuto) {
+    const { data: rattrapes } = await supabaseAdmin
+      .from('evenements')
+      .update({ statut: 'publie', raison_statut: null })
+      .eq('scrape_source_id', source.id)
+      .eq('statut', 'en_attente')
+      .eq('raison_statut', 'Source non auto-publiée')
+      .select('id')
+    resultat.rattrapes = (rattrapes ?? []).length
   }
 
   resultat.geocodages = Object.keys(geocodes).length

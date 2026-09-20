@@ -70,10 +70,14 @@ interface ScrapeResult {
   regles?: RegleRapport[]
   /** Mode « structure » : ce que la source a vraiment livré, champ par champ. */
   qualite?: {
-    detaillees: number; avec_image: number; avec_heure: number
+    detaillees: number; retenus?: number; avec_image: number; avec_heure: number
     avec_description: number; avec_adresse: number; avec_lieu: number
   }
+  modeleUtilise?: boolean
+  rattrapes?: number
   geocodages?: number
+  parFiches?: number
+  parOpenGraph?: number
   interrompu?: boolean
   ecartes?: {
     hors_horizon: number; hors_zone: number; sans_date: number
@@ -374,6 +378,15 @@ export default function SourcesPage() {
                   événements s'évaporer sans un mot. Chaque ligne manquante a
                   maintenant sa raison, et la somme fait le compte.
               */}
+              {!!rapport.rattrapes && (
+                <p className="text-xs text-green-800 bg-green-50 rounded-xl px-3 py-2">
+                  <b>{rapport.rattrapes}</b> événement{rapport.rattrapes > 1 ? 's' : ''} déjà en
+                  attente {rapport.rattrapes > 1 ? 'ont' : 'a'} été publié{rapport.rattrapes > 1 ? 's' : ''} :
+                  {rapport.rattrapes > 1 ? ' ils n’attendaient' : ' il n’attendait'} que la case
+                  « publier directement ».
+                </p>
+              )}
+
               {rapport.ecartes && (() => {
                 const e = rapport.ecartes
                 const lignes: [string, number, string][] = [
@@ -404,23 +417,33 @@ export default function SourcesPage() {
               {rapport.qualite && rapport.qualite.detaillees > 0 && (
                 <div className="space-y-2">
                   <div className="grid grid-cols-2 gap-2 text-xs">
+                    {/*
+                        LE LIEU N'A PAS LE MÊME DÉNOMINATEUR.
+                        Le géocodage vient après le contrôle de doublon : un
+                        doublon n'est jamais situé, et c'est voulu. Le compter
+                        parmi les fiches lues donnait « 1 lieu sur 13 » quand
+                        c'était 1 sur 1.
+                    */}
                     {([
-                      ['Avec image', rapport.qualite.avec_image],
-                      ['Avec lieu situé', rapport.qualite.avec_lieu],
-                      ['Avec description', rapport.qualite.avec_description],
-                      ['Avec horaire', rapport.qualite.avec_heure],
-                    ] as const).map(([label, n]) => (
+                      ['Avec image', rapport.qualite.avec_image, rapport.qualite.detaillees],
+                      ['Avec lieu situé', rapport.qualite.avec_lieu, rapport.qualite.retenus ?? rapport.qualite.detaillees],
+                      ['Avec description', rapport.qualite.avec_description, rapport.qualite.detaillees],
+                      ['Avec horaire', rapport.qualite.avec_heure, rapport.qualite.detaillees],
+                    ] as const).map(([label, n, sur]) => (
                       <div key={label} className="bg-[#FBF7F0] rounded-xl px-3 py-2">
                         <p className="text-gray-400">{label}</p>
                         <p className="font-bold text-[#2C1810] text-base">
-                          {n}<span className="text-gray-400 font-normal text-xs"> / {rapport.qualite!.detaillees}</span>
+                          {n}<span className="text-gray-400 font-normal text-xs"> / {sur}</span>
                         </p>
                       </div>
                     ))}
                   </div>
                   <p className="text-[11px] text-gray-400">
-                    Lu dans les données que le site publie lui-même — aucun modèle n&apos;est
-                    intervenu{typeof rapport.geocodages === 'number'
+                    {rapport.parFiches
+                      ? `Fiches lues une par une (${rapport.parFiches} visitées, ${rapport.parOpenGraph ?? 0} images récupérées)`
+                      : 'Lu dans les données que le site publie lui-même'}
+                    {rapport.modeleUtilise === false ? ' — aucun modèle n’est intervenu' : ''}
+                    {typeof rapport.geocodages === 'number'
                       ? `, ${rapport.geocodages} adresse${rapport.geocodages > 1 ? 's' : ''} envoyée${rapport.geocodages > 1 ? 's' : ''} à Google`
                       : ''}.
                   </p>
