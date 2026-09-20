@@ -59,16 +59,6 @@ const PAGES_MAX = 4
 /** Horizon par défaut, aligné sur celui des sources récurrentes. */
 const HORIZON_DEFAUT = 42
 
-/**
- * Temps que l'on s'autorise, en millisecondes.
- *
- * La route qui appelle ce code est coupée à 300 s par l'hébergeur. Une
- * coupure en plein vol n'est pas neutre : le travail est fait et payé, mais
- * l'appelant ne reçoit rien et ne sait pas où ça s'est arrêté. On s'arrête
- * donc NOUS-MÊMES, proprement, en le disant — et comme rien n'est refait deux
- * fois d'un passage à l'autre, le suivant reprend la suite.
- */
-const BUDGET_MS = 230_000
 
 /**
  * L'ENVELOPPE DE TOUT LE PASSAGE.
