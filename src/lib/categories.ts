@@ -8,6 +8,9 @@ export const CATEGORIES: Record<Categorie, { label: string; emoji: string; color
   atelier: { label: 'Atelier',  emoji: '🎨', color: '#3498DB' },
   fete:    { label: 'Fête',     emoji: '🎉', color: '#E91E63' },
   sante_bien_etre: { label: 'Santé & bien-être', emoji: '🌿', color: '#16A085' },
+  // Ajoutée le 20/09/2026 : sur l'agenda de Pau, les expositions pesaient
+  // plus de la moitié du fourre-tout « autre ».
+  exposition: { label: 'Exposition', emoji: '🖼️', color: '#8E6C3A' },
   autre:   { label: 'Autre',    emoji: '📌', color: '#95A5A6' },
 }
 

@@ -52,7 +52,7 @@ interface RegleRapport {
 }
 
 interface ScrapeResult {
-  mode?: 'recurrent'
+  mode?: 'recurrent' | 'structure'
   dryRun?: boolean
   trouves: number
   doublons: number
@@ -67,6 +67,13 @@ interface ScrapeResult {
     occurrences_prevues: number; occurrences_creees: number; occurrences_ignorees: number
   }
   regles?: RegleRapport[]
+  /** Mode « structure » : ce que la source a vraiment livré, champ par champ. */
+  qualite?: {
+    detaillees: number; avec_image: number; avec_heure: number
+    avec_description: number; avec_adresse: number; avec_lieu: number
+  }
+  geocodages?: number
+  interrompu?: boolean
 }
 
 const VERDICTS: Record<RegleRapport['verdict'], { label: string; color: string }> = {
@@ -139,18 +146,63 @@ export default function SourcesPage() {
     await fetchSources()
   }
 
+  /*
+   * LANCER UN SCRAPE, ET NE JAMAIS LAISSER L'ÉCRAN TOURNER DANS LE VIDE.
+   *
+   * Un passage dure deux à trois minutes. Le navigateur, lui, ne tient pas
+   * toujours une requête aussi longue : il coupe, `fetch` lève, et sans
+   * `finally` le rouage ne se relâchait jamais — l'écran tournait
+   * indéfiniment alors que le serveur avait fini son travail et tout écrit.
+   *
+   * Quand la réponse se perd, on va lire le JOURNAL de la source : le travail
+   * a eu lieu, son bilan est en base, et le montrer vaut mieux que de laisser
+   * croire à un échec.
+   */
   const lancer = async (id: string, nom: string, dryRun: boolean) => {
     if (!dryRun && !confirm(`Scraper « ${nom} » et écrire en base ?`)) return
     setScraping(id)
     setScrapeResult(r => ({ ...r, [id]: undefined as unknown as ScrapeResult }))
-    const res = await fetch(`/api/scrape-source?id=${id}${dryRun ? '&dryRun=1' : ''}`, {
-      headers: await adminHeaders(),
-    })
-    const data = await res.json()
-    setScrapeResult(r => ({ ...r, [id]: data }))
-    if (!data.erreur && !data.error) setRapport({ ...data, sourceName: nom })
-    if (!dryRun) await fetchSources()
-    setScraping(null)
+    try {
+      const res = await fetch(`/api/scrape-source?id=${id}${dryRun ? '&dryRun=1' : ''}`, {
+        headers: await adminHeaders(),
+      })
+      const data = await res.json()
+      setScrapeResult(r => ({ ...r, [id]: data }))
+      if (!data.erreur && !data.error) setRapport({ ...data, sourceName: nom })
+    } catch {
+      const data = (!dryRun && await dernierBilan(id)) || {
+        trouves: 0, doublons: 0, inseres: 0,
+        erreur: 'La réponse s’est perdue en route. Rouvre cette page dans un instant : '
+          + 'si le passage a abouti, son bilan apparaîtra dans le journal de la source.',
+      }
+      setScrapeResult(r => ({ ...r, [id]: data }))
+      setRapport({ ...data, sourceName: nom })
+    } finally {
+      if (!dryRun) await fetchSources()
+      setScraping(null)
+    }
+  }
+
+  /**
+   * Le dernier passage enregistré pour cette source.
+   *
+   * La liste des sources porte déjà leur journal : on la relit plutôt que
+   * d'ajouter une route pour ça.
+   */
+  const dernierBilan = async (id: string): Promise<ScrapeResult | null> => {
+    try {
+      const r = await fetch('/api/admin/sources', { headers: await adminHeaders() })
+      if (!r.ok) return null
+      const j = await r.json()
+      const src = (j.sources ?? []).find((x: Source) => x.id === id)
+      const log = [...(src?.scrape_logs ?? [])]
+        .sort((x, y) => y.created_at.localeCompare(x.created_at))[0]
+      if (!log) return null
+      return {
+        trouves: log.trouves ?? 0, doublons: log.doublons ?? 0, inseres: log.inseres ?? 0,
+        erreur: log.erreur ?? undefined,
+      }
+    } catch { return null }
   }
 
   const statutLabel = (s: string) => {
@@ -177,7 +229,7 @@ export default function SourcesPage() {
                 <p className="text-xs text-gray-500 mt-0.5">
                   {rapport.mode === 'recurrent' && rapport.totaux
                     ? `${rapport.totaux.regles_trouvees} règles · ${rapport.totaux.regles_retenues} retenues · ${rapport.totaux.occurrences_prevues} dates`
-                    : `${rapport.trouves} trouvés · ${rapport.doublons} doublons · ${rapport.inseres} insérés`}
+                    : `${rapport.trouves} trouvés · ${rapport.doublons} déjà connus · ${rapport.inseres} insérés`}
                 </p>
               </div>
               <button onClick={() => setRapport(null)} className="ml-auto text-gray-400 text-xl leading-none shrink-0">✕</button>
@@ -191,6 +243,44 @@ export default function SourcesPage() {
             )}
 
             <div className="overflow-y-auto px-4 py-3 space-y-3">
+
+              {/*
+                  CE QUE LA SOURCE A VRAIMENT LIVRÉ.
+                  Un compte d'insérés ne dit pas si les fiches sont présentables.
+                  Ces quatre chiffres-là le disent, et c'est ce qu'on veut savoir
+                  avant de laisser une source publier toute seule.
+              */}
+              {rapport.qualite && rapport.qualite.detaillees > 0 && (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    {([
+                      ['Avec image', rapport.qualite.avec_image],
+                      ['Avec lieu situé', rapport.qualite.avec_lieu],
+                      ['Avec description', rapport.qualite.avec_description],
+                      ['Avec horaire', rapport.qualite.avec_heure],
+                    ] as const).map(([label, n]) => (
+                      <div key={label} className="bg-[#FBF7F0] rounded-xl px-3 py-2">
+                        <p className="text-gray-400">{label}</p>
+                        <p className="font-bold text-[#2C1810] text-base">
+                          {n}<span className="text-gray-400 font-normal text-xs"> / {rapport.qualite!.detaillees}</span>
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-gray-400">
+                    Lu dans les données que le site publie lui-même — aucun modèle n&apos;est
+                    intervenu{typeof rapport.geocodages === 'number'
+                      ? `, ${rapport.geocodages} adresse${rapport.geocodages > 1 ? 's' : ''} envoyée${rapport.geocodages > 1 ? 's' : ''} à Google`
+                      : ''}.
+                  </p>
+                  {rapport.interrompu && (
+                    <p className="text-xs text-orange-700 bg-orange-50 rounded-xl px-3 py-2">
+                      Arrêté au temps imparti — il reste des fiches à lire. Relance :
+                      rien n&apos;est refait deux fois, le passage suivant reprend la suite.
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* ── Rapport source récurrente ── */}
               {rapport.mode === 'recurrent' && rapport.totaux ? (
@@ -343,6 +433,43 @@ export default function SourcesPage() {
             </p>
           </div>
 
+          {/*
+              L'horizon et la publication directe valent pour LES DEUX types de
+              source : le rayon et l'indice géographique, eux, ne servent qu'aux
+              récurrentes. La case « publier directement » était enfermée avec
+              elles, donc introuvable pour une source d'événements — alors qu'elle
+              y change tout.
+          */}
+          <div className="bg-[#FBF7F0] rounded-xl p-3 space-y-3">
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="text-xs text-gray-500 font-semibold">Horizon (jours)</label>
+                <input
+                  type="number" inputMode="numeric"
+                  value={form.horizon_jours}
+                  onChange={e => setForm(f => ({ ...f, horizon_jours: e.target.value }))}
+                  className="w-full bg-white border border-[#E8E0D5] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D]"
+                />
+              </div>
+            </div>
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.publier_auto}
+                onChange={e => setForm(f => ({ ...f, publier_auto: e.target.checked }))}
+                className="mt-0.5"
+              />
+              <span className="text-xs text-gray-600 leading-snug">
+                Publier directement ce qui est complet
+                <span className="block text-[11px] text-gray-400">
+                  Un événement qui a sa date, son lieu situé, sa description et son
+                  image n&apos;a plus rien à vérifier. Ceux à qui il manque quelque
+                  chose attendent quand même, en disant quoi.
+                </span>
+              </span>
+            </label>
+          </div>
+
           {estRecurrent && (
             <div className="bg-[#FBF7F0] rounded-xl p-3 space-y-3">
               <div className="flex gap-2">
@@ -352,15 +479,6 @@ export default function SourcesPage() {
                     type="number" inputMode="numeric"
                     value={form.rayon_km}
                     onChange={e => setForm(f => ({ ...f, rayon_km: e.target.value }))}
-                    className="w-full bg-white border border-[#E8E0D5] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D]"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="text-xs text-gray-500 font-semibold">Horizon (jours)</label>
-                  <input
-                    type="number" inputMode="numeric"
-                    value={form.horizon_jours}
-                    onChange={e => setForm(f => ({ ...f, horizon_jours: e.target.value }))}
                     className="w-full bg-white border border-[#E8E0D5] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[#C4622D]"
                   />
                 </div>
@@ -378,21 +496,6 @@ export default function SourcesPage() {
                   homonyme de Seine-et-Marne, à 518 km.
                 </p>
               </div>
-              <label className="flex items-start gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.publier_auto}
-                  onChange={e => setForm(f => ({ ...f, publier_auto: e.target.checked }))}
-                  className="mt-0.5"
-                />
-                <span className="text-xs text-gray-600 leading-snug">
-                  Publier directement
-                  <span className="block text-[11px] text-gray-400">
-                    Sinon chaque date part dans la file à valider — 25 marchés sur 6 semaines,
-                    ça fait 150 lignes à cliquer. La validation se fait une fois, sur l&apos;aperçu.
-                  </span>
-                </span>
-              </label>
             </div>
           )}
 

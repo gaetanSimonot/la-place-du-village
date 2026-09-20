@@ -92,7 +92,7 @@ export const OUTILS = [
         mots: { type: 'array', items: { type: 'string' }, description: MOTS_DESC },
         categories: {
           type: 'array',
-          items: { type: 'string', enum: ['concert', 'theatre', 'sport', 'marche', 'atelier', 'fete', 'sante_bien_etre', 'autre'] },
+          items: { type: 'string', enum: ['concert', 'theatre', 'sport', 'marche', 'atelier', 'fete', 'sante_bien_etre', 'exposition', 'autre'] },
           description: "Filtre facultatif. Sans lui, toutes les catégories remontent — préférable quand la demande est vague, car le classement d'un événement est souvent approximatif.",
         },
         commune: { type: 'string', description: 'Nom de commune, facultatif.' },

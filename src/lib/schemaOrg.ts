@@ -96,11 +96,15 @@ export async function pagePubliesStructure(url: string): Promise<boolean> {
 /**
  * Le vocabulaire des agendas vers nos huit catégories.
  *
- * Deux remarques honnêtes. « Exposition », « conférence » et « visite » n'ont
- * pas d'équivalent chez nous et tombent donc dans « autre » : ce n'est pas un
- * mauvais rangement, c'est une catégorie qui nous manque — et sur Pau elles
- * pèsent lourd. « Brocante » et « foire » rejoignent « marché », qui est le
- * plus proche de l'idée d'étals.
+ * « Brocante » et « foire » rejoignent « marché », qui est le plus proche de
+ * l'idée d'étals. « Visite » et « conférence » restent dans « autre » : elles
+ * ne se confondent avec rien de ce que nous avons, et rien ne dit encore
+ * qu'elles méritent chacune leur catégorie.
+ *
+ * « activites-loisirs » est le FOURRE-TOUT DE LA SOURCE : alentoor y range
+ * aussi bien le Top 14 qu'un atelier fromage. Le traduire en « autre » serait
+ * fidèle mais inutile — c'est le seul cas où l'on regarde le titre, et le
+ * scraper le fait à part (voir scraper-structure.ts).
  */
 const CATEGORIES_SOURCE: Record<string, Categorie> = {
   concert:                 'concert',
@@ -115,11 +119,14 @@ const CATEGORIES_SOURCE: Record<string, Categorie> = {
   festival:                'fete',
   festivites:              'fete',
   fete:                    'fete',
-  exposition:              'autre',
+  exposition:              'exposition',
   conference:              'autre',
   visite:                  'autre',
   'activites-loisirs':     'autre',
 }
+
+/** Les rubriques trop larges pour dire quoi que ce soit du contenu. */
+export const RUBRIQUES_FOURRE_TOUT = ['activites-loisirs']
 
 /**
  * La catégorie annoncée par la fiche elle-même.
@@ -128,15 +135,18 @@ const CATEGORIES_SOURCE: Record<string, Categorie> = {
  * fiche : ce lien est la catégorie, dite par la source. Aucun modèle n'a donc
  * à deviner, et si la rubrique nous est inconnue on ne force rien.
  */
-export function categorieDepuisFiche(html: string, cheminListe: string): Categorie {
+export function categorieDepuisFiche(
+  html: string,
+  cheminListe: string,
+): { categorie: Categorie; rubrique: string | null } {
   const base = cheminListe.replace(/^https?:\/\/[^/]+/, '').replace(/\/+$/, '')
   const re = new RegExp('href="' + base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '/([a-z0-9-]+)"', 'gi')
   let m: RegExpExecArray | null
   while ((m = re.exec(html)) !== null) {
     const connue = CATEGORIES_SOURCE[m[1]]
-    if (connue) return connue
+    if (connue) return { categorie: connue, rubrique: m[1] }
   }
-  return 'autre'
+  return { categorie: 'autre', rubrique: null }
 }
 
 /** « 2026-09-20T09:30:00+02:00 » → { date: '2026-09-20', heure: '09:30' }. */

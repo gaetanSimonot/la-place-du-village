@@ -27,6 +27,10 @@ const REPLI_PAR_CATEGORIE: Partial<Record<Categorie, string>> = {
   atelier:         '/categories/atelier.webp',
   fete:            '/categories/fete.webp',
   sante_bien_etre: '/categories/sante_bien_etre.webp',
+  // Pas encore d'illustration propre aux expositions : celle d'« autre »
+  // tient lieu de repli. A regenerer avec scripts/generer-illustrations-
+  // categories.mjs le jour ou on lui en dessine une.
+  exposition:      '/categories/autre.webp',
   autre:           '/categories/autre.webp',
 }
 

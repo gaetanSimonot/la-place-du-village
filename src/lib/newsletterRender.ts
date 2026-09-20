@@ -56,13 +56,17 @@ const SEE_ALL: Record<string, string> = {
  */
 const LIBELLES_NL: Record<Categorie, string> = {
   marche: 'Marchés', concert: 'Concerts', fete: 'Fêtes', atelier: 'Ateliers',
-  sport: 'Sport', theatre: 'Théâtre', sante_bien_etre: 'Bien-être', autre: 'Autres',
+  sport: 'Sport', theatre: 'Théâtre', sante_bien_etre: 'Bien-être',
+  exposition: 'Expos', autre: 'Autres',
 }
 
 /** Nom de fichier de l'icône — `sante_bien_etre` se raccourcit en `sante`. */
 const ICONE: Record<Categorie, string> = {
   marche: 'marche', concert: 'concert', fete: 'fete', atelier: 'atelier',
-  sport: 'sport', theatre: 'theatre', sante_bien_etre: 'sante', autre: 'autre',
+  sport: 'sport', theatre: 'theatre', sante_bien_etre: 'sante',
+  // Pas d'icone dediee pour l'instant : celle d'« autre » fait l'affaire,
+  // et vaut mieux qu'un fichier manquant dans un email.
+  exposition: 'autre', autre: 'autre',
 }
 
 /* ── Fragments partagés ─────────────────────────────────────────────────── */

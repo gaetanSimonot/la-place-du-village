@@ -5,10 +5,14 @@ import { trouverOuCreerLieu } from './lieuxResolve'
 import { checkDoublon } from './checkDoublon'
 import { territoireParId, territoireDuPoint, indiceGeoDe } from './territoires'
 import {
-  evenementsStructures, categorieDepuisFiche,
+  evenementsStructures, categorieDepuisFiche, RUBRIQUES_FOURRE_TOUT,
   dateEtHeure, tarif, imageDe, adresseDe, lirePage, UA,
   type EventStructure,
 } from './schemaOrg'
+import Anthropic from '@anthropic-ai/sdk'
+import { safeJsonParse } from './safeJsonParse'
+import { CATEGORIES } from './categories'
+import type { Categorie } from './types'
 
 /**
  * SCRAPE DE SOURCES QUI PUBLIENT LEURS DONNÉES STRUCTURÉES.
@@ -101,6 +105,8 @@ export interface ScrapeStructureResult {
   reglages: { horizon_jours: number; publier_auto: boolean; pages_lues: number }
   /** Nombre d'adresses distinctes envoyées à Google — la seule dépense. */
   geocodages: number
+  /** Événements rangés au titre, faute de rubrique utilisable à la source. */
+  ranges: number
   evenements: { titre: string; statut: string; doublon: boolean; image: boolean; raison?: string }[]
 }
 
@@ -147,6 +153,63 @@ async function rapatrierImage(url: string): Promise<string | null> {
   }
 }
 
+// ── Le fourre-tout de la source, repris au titre ─────────────────────
+
+/**
+ * Range les événements que la source n'a pas rangés.
+ *
+ * Alentoor possède une rubrique « activités-loisirs » où il met aussi bien le
+ * Top 14 qu'un atelier fromage : la traduire fidèlement donnerait « autre »
+ * pour un tiers de l'agenda, alors que le TITRE dit tout haut « Rugby Top14 -
+ * Section Vs Castres ».
+ *
+ * Lire ce titre n'est pas inventer : l'information est écrite, elle est juste
+ * à un autre endroit que la rubrique. On ne le fait QUE pour ce fourre-tout —
+ * partout ailleurs la source a déjà dit sa rubrique, et sa parole prime.
+ *
+ * UN SEUL appel, pour tout le lot, sur les titres et deux lignes de résumé :
+ * quelques milliers de jetons pour un passage entier. En cas de doute ou de
+ * panne, tout reste en « autre » — le défaut est le silence, jamais une
+ * catégorie inventée.
+ */
+async function rangerLeFourreTout(
+  lignes: { id: string; titre: string; description: string | null }[],
+): Promise<Record<string, Categorie>> {
+  if (!lignes.length || !process.env.ANTHROPIC_API_KEY) return {}
+  const valides = Object.keys(CATEGORIES) as Categorie[]
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  try {
+    const r = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2048,
+      temperature: 0,
+      system: 'Tu ranges des événements locaux dans des catégories. '
+        + 'Catégories autorisées, et AUCUNE autre : ' + valides.join(', ') + '. '
+        + 'Réponds UNIQUEMENT par un tableau JSON [{"i":<numéro>,"c":"<catégorie>"}], '
+        + 'un objet par événement, dans l’ordre reçu. '
+        + 'Si le titre ne permet pas de trancher, réponds "autre" — ne devine pas.',
+      messages: [{
+        role: 'user',
+        content: lignes.map((l, i) =>
+          i + '. ' + l.titre + (l.description ? ' — ' + l.description.slice(0, 160) : '')
+        ).join('\n'),
+      }],
+    })
+    const brut = r.content[0].type === 'text' ? r.content[0].text : '[]'
+    const parsed = safeJsonParse<{ i: number; c: string }[]>(brut)
+    if (!Array.isArray(parsed)) return {}
+    const out: Record<string, Categorie> = {}
+    for (const x of parsed) {
+      const ligne = lignes[x?.i]
+      const cat = String(x?.c ?? '') as Categorie
+      if (ligne && valides.indexOf(cat) >= 0 && cat !== 'autre') out[ligne.id] = cat
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
 // ── Le pipeline ──────────────────────────────────────────────────────────────
 
 interface SourceRow {
@@ -177,6 +240,7 @@ export async function scrapeStructure(
     interrompu: false,
     reglages: { horizon_jours: horizon, publier_auto: publierAuto, pages_lues: 0 },
     geocodages: 0,
+    ranges: 0,
     evenements: [],
   }
 
@@ -252,6 +316,8 @@ export async function scrapeStructure(
   // Les fiches se lisent par lots — en parallèle, car c'est de l'attente
   // réseau — puis se traitent une à une, car chaque écriture doit voir les
   // lieux créés par la précédente pour les réutiliser.
+  // Ceux que la source n'a pas su ranger : on les reprendra en un seul appel.
+  const aRanger: { id: string; titre: string; description: string | null }[] = []
   const fini = Date.now() + BUDGET_MS
   for (let debut = 0; debut < aVisiter.length; debut += LOT) {
     if (Date.now() > fini) { resultat.interrompu = true; break }
@@ -265,7 +331,9 @@ export async function scrapeStructure(
     const html = pages[k]
     const detail = html ? (evenementsStructures(html)[0] ?? apercu) : apercu
     const e: EventStructure = { ...apercu, ...detail }
-    const categorie = html ? categorieDepuisFiche(html, base) : 'autre'
+    const lecture = html ? categorieDepuisFiche(html, base) : { categorie: 'autre' as const, rubrique: null }
+    const categorie = lecture.categorie
+    const fourreTout = !lecture.rubrique || RUBRIQUES_FOURRE_TOUT.indexOf(lecture.rubrique) >= 0
     resultat.qualite.detaillees++
 
     const { date, heure } = dateEtHeure(e.startDate)
@@ -376,7 +444,7 @@ export async function scrapeStructure(
     // 7. L'image chez nous, puis l'écriture.
     const imageUrl = imageSource ? await rapatrierImage(imageSource) : null
 
-    const { error } = await supabaseAdmin.from('evenements').insert({
+    const { data: cree, error } = await supabaseAdmin.from('evenements').insert({
       titre: e.name, description,
       date_debut: date, date_fin: fin && fin !== date ? fin : null, heure,
       categorie, categories: [categorie],
@@ -386,12 +454,34 @@ export async function scrapeStructure(
       source: 'scrape', scrape_source_id: source.id,
       raison_statut: raison || null,
       ...(terrEvt ? { territoire_id: terrEvt.id } : {}),
-    })
+    }).select('id').single()
     if (!error) {
       resultat.inseres++
       dejaEnBase.add(empreinteEvt(e.name ?? '', date))
+      if (fourreTout && cree?.id) aRanger.push({ id: cree.id, titre: e.name ?? '', description })
     }
     }
+  }
+
+  /*
+   * Le rattrapage, une fois tout écrit. Il vient APRÈS exprès : les événements
+   * sont déjà en base, correctement en « autre ». Si l'appel échoue, il ne
+   * manque qu'un rangement — pas un événement.
+   */
+  if (!dryRun && aRanger.length) {
+    const rangement = await rangerLeFourreTout(aRanger)
+    const ids = Object.keys(rangement)
+    for (const id of ids) {
+      const cat = rangement[id]
+      const { error } = await supabaseAdmin.from('evenements')
+        .update({ categorie: cat, categories: [cat] }).eq('id', id)
+      // 23514 = la contrainte CHECK refuse cette catégorie : la migration
+      // qui l'ajoute n'a pas encore été jouée. L'événement reste en
+      // « autre », ce qui est faux mais valide — et se rattrape au prochain
+      // passage une fois la migration passée.
+      if (error && error.code !== '23514') break
+    }
+    resultat.ranges = ids.length
   }
 
   resultat.geocodages = Object.keys(geocodes).length

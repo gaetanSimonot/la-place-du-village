@@ -30,6 +30,7 @@ export const PRIORITE_CATEGORIES: string[] = [
   'atelier',
   'sport',
   'sante_bien_etre',
+  'exposition',
   'autre',
   'marche',
 ]
