@@ -5,6 +5,7 @@ import Link from 'next/link'
 import useSWR from 'swr'
 import BottomNavBar from '@/components/BottomNavBar'
 import { formatHeure, type Cinema, type Film, type Seance } from '@/lib/cinema'
+import { useTerritoire } from '@/components/TerritoireProvider'
 
 /**
  * UNIVERS CINÉMA — public, sans compte.
@@ -116,8 +117,22 @@ export default function CinemaClient() {
     return () => { delete document.documentElement.dataset.univers }
   }, [])
 
+  /*
+   * LA VILLE FAIT PARTIE DE LA CLE.
+   *
+   * La route filtre bien, mais elle ne peut filtrer que si on lui dit
+   * laquelle : sans le parametre elle sert le territoire par defaut. En vue
+   * Pau, l'ecran Cinemas montrait donc l'Arc en Ciel et le Palace, deux
+   * salles cevenoles. Et le cache SWR, indexe sur la cle, aurait de toute
+   * facon servi la reponse de l'une a l'autre.
+   */
+  const { territoire } = useTerritoire()
+  const qTerr = territoire?.slug ? `territoire=${encodeURIComponent(territoire.slug)}` : ''
+  const qCine = slug ? `cinema=${encodeURIComponent(slug)}` : ''
+  const requete = [qCine, qTerr].filter(Boolean).join('&')
+
   const { data, isLoading } = useSWR<Payload>(
-    `/api/cinema${slug ? `?cinema=${encodeURIComponent(slug)}` : ''}`, fetcher,
+    `/api/cinema${requete ? `?${requete}` : ''}`, fetcher,
   )
 
   const cinema = data?.cinema ?? null
