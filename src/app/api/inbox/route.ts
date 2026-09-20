@@ -197,5 +197,21 @@ export async function POST(req: NextRequest) {
     evenement_id: result.premier_evenement_id ?? null,
   }).eq('id', msg.id)
 
-  return NextResponse.json({ ok: true, id: msg.id, ...result })
+  /*
+   * On rend le TERRITOIRE ou le message a ete range.
+   *
+   * Le collecteur n'a aucun moyen de le savoir autrement : il envoie un slug
+   * ou rien du tout, et c'est l'app qui tranche — table des groupes, defaut,
+   * puis arbitrage geographique evenement par evenement. Sans cette reponse,
+   * son journal ne peut que dire « envoye », jamais « range a Pau ».
+   *
+   * C'est la presomption au moment de l'accueil : un evenement precis peut
+   * encore changer de ville si ses coordonnees le placent ailleurs.
+   */
+  return NextResponse.json({
+    ok: true,
+    id: msg.id,
+    territoire: territoire ? { slug: territoire.slug, nom: territoire.nom } : null,
+    ...result,
+  })
 }
