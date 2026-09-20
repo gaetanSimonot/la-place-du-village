@@ -191,7 +191,9 @@ export default function SourcesPage() {
    */
   const dernierBilan = async (id: string): Promise<ScrapeResult | null> => {
     try {
-      const r = await fetch('/api/admin/sources', { headers: await adminHeaders() })
+      // Avec le territoire : sans lui, la liste retombe sur le territoire par
+      // defaut et la source cherchee n'y figure pas.
+      const r = await fetch(`/api/admin/sources${qTerr}`, { headers: await adminHeaders() })
       if (!r.ok) return null
       const j = await r.json()
       const src = (j.sources ?? []).find((x: Source) => x.id === id)
