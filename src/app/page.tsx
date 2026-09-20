@@ -243,7 +243,9 @@ export default function HomePage() {
     // Sans `?route=`, la route sert TOUT le reseau importe — dix lignes.
     fetch(`/api/transport/ligne${slugTerritoire ? `?territoire=${encodeURIComponent(slugTerritoire)}` : ''}`)
       .then(r => (r.ok ? r.json() : null))
-      .then(d => { if (vivant && d?.lignes?.length) setLigneTransport(d) })
+      // On garde AUSSI la reponse vide : c'est elle qui permet de dire
+      // « pas de cars ici » au lieu de laisser un onglet muet.
+      .then(d => { if (vivant && d?.lignes) setLigneTransport(d) })
       .catch(() => toast('Horaires de bus indisponibles'))
     return () => { vivant = false }
   }, [modeTransport, ligneTransport, slugTerritoire])
@@ -275,7 +277,18 @@ export default function HomePage() {
   // les autres affichaient zéro dès qu'on cliquait. Au passage, changer de
   // type ne déclenche plus d'aller-retour réseau — l'annuaire entier est
   // déjà là.
-  const annuaireKey = appMode === 'annuaire' ? '/api/annuaire' : null
+  /*
+   * LE TERRITOIRE FAIT PARTIE DE LA CLE.
+   *
+   * La route filtre bien, mais elle ne peut filtrer que si on lui dit quelle
+   * ville : sans le parametre elle sert le territoire par defaut. En vue Pau,
+   * l'annuaire montrait donc les producteurs et les commerces des Cevennes —
+   * et le cache SWR, indexe sur la cle, aurait de toute facon servi la
+   * reponse de l'un a l'autre.
+   */
+  const annuaireKey = appMode === 'annuaire'
+    ? (slugTerritoire ? `/api/annuaire?territoire=${encodeURIComponent(slugTerritoire)}` : '/api/annuaire')
+    : null
 
   const { data: annuaireData, isLoading: annuaireLoadingRaw } = useSWR(annuaireKey)
 
@@ -1913,7 +1926,9 @@ export default function HomePage() {
                     onKeyDown={async e => {
                       if (e.key === 'Enter' && userVille.trim()) {
                         setGeocoding(true)
-                        const r = await fetch(`/api/admin/geocode?q=${encodeURIComponent(userVille + ', Hérault, France')}`)
+                        /* Le repere suit la ville regardee : « Pau, Hérault »
+                           n'existe pas, et Google rendrait n'importe quoi. */
+                        const r = await fetch(`/api/admin/geocode?q=${encodeURIComponent(userVille + ', ' + (territoireVu?.nom ?? 'Hérault') + ', France')}`)
                         const d = await r.json()
                         if (d.lat) setUserCentre({ lat: d.lat, lng: d.lng, nom: userVille.trim() })
                         setGeocoding(false)
@@ -2150,7 +2165,23 @@ export default function HomePage() {
         /* Le transport prend la liste, il ne se superpose pas : c'est un mode
            de la carte au meme titre qu'Evenements ou Commerces. La feuille
            garde sa poignee, ses paliers et son defilement. */
-        contenuTransport={modeTransport && ligneTransport ? (
+        contenuTransport={modeTransport && ligneTransport && !ligneTransport.lignes.length ? (
+          /*
+           * Le territoire regarde n'a pas de reseau importe. Le dire comme un
+           * fait, pas comme une panne : la personne comprend qu'il n'y a rien
+           * a chercher, au lieu de croire que l'ecran est casse.
+           */
+          <div style={{ padding: '28px 22px', textAlign: 'center', fontFamily: 'var(--font-body), sans-serif' }}>
+            <div style={{ fontSize: 30, marginBottom: 10 }}>🚌</div>
+            <p style={{ fontWeight: 700, color: '#1A1209', fontSize: 15, margin: '0 0 6px' }}>
+              Pas encore de cars {territoireVu?.nom ? `sur ${territoireVu.nom}` : 'ici'}
+            </p>
+            <p style={{ color: '#7A6A5A', fontSize: 13, lineHeight: 1.5, margin: 0 }}>
+              Les horaires viennent du fichier officiel du réseau. Celui de ce
+              territoire n&apos;est pas encore branché.
+            </p>
+          </div>
+        ) : modeTransport && ligneTransport ? (
           <TransportPanneau
             lignes={ligneTransport.lignes}
             arrets={ligneTransport.arrets}

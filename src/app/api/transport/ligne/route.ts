@@ -60,8 +60,26 @@ export async function GET(req: NextRequest) {
   if (demandee) qLignes = qLignes.eq('route_id', demandee)
   const { data: lignes } = await qLignes
 
+  /*
+   * UN TERRITOIRE SANS RESEAU N'EST PAS UNE PANNE.
+   *
+   * On repondait 404 « Aucune ligne importee » — bon pour un identifiant de
+   * ligne qui n'existe pas, faux pour une ville qui n'a simplement pas encore
+   * de cars chez nous. Le client, lui, ne sait pas faire la difference : il
+   * n'affichait RIEN, et un onglet vide se lit comme un bug.
+   *
+   * On rend donc 200 avec une liste vide, et on dit lequel des deux cas c'est.
+   */
   if (!lignes || lignes.length === 0) {
-    return NextResponse.json({ error: 'Aucune ligne importée' }, { status: 404 })
+    if (demandee) {
+      return NextResponse.json({ error: 'Ligne inconnue : ' + demandee }, { status: 404 })
+    }
+    return NextResponse.json({
+      lignes: [], courses: [], traces: [], arrets: [],
+      // Le client s'en sert pour choisir sa phrase.
+      aucunReseau: true,
+      territoire: terrLignes ? { slug: terrLignes.slug, nom: terrLignes.nom } : null,
+    })
   }
 
   const idsLignes = lignes.map(l => l.route_id as string)
