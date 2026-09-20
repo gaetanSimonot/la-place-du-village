@@ -74,6 +74,10 @@ interface ScrapeResult {
   }
   geocodages?: number
   interrompu?: boolean
+  ecartes?: {
+    hors_horizon: number; hors_zone: number; sans_date: number
+    non_traites: number; echec_ecriture: number
+  }
 }
 
 /**
@@ -281,6 +285,13 @@ export default function SourcesPage() {
               <button onClick={() => setRapport(null)} className="ml-auto text-gray-400 text-xl leading-none shrink-0">✕</button>
             </div>
 
+            {rapport.interrompu && (
+              <div className="bg-orange-50 text-orange-800 text-xs px-4 py-2.5 border-b border-orange-100">
+                <b>Arrêté au temps imparti</b> — il reste des fiches à lire. Relancez :
+                le passage suivant reprend ailleurs, et rien n&apos;est refait deux fois.
+              </div>
+            )}
+
             {/* Bandeau aperçu */}
             {rapport.dryRun && (
               <div className="bg-blue-50 text-blue-700 text-xs px-4 py-2.5 border-b border-blue-100">
@@ -296,6 +307,39 @@ export default function SourcesPage() {
                   Ces quatre chiffres-là le disent, et c'est ce qu'on veut savoir
                   avant de laisser une source publier toute seule.
               */}
+              {/*
+                  OÙ SONT PASSÉS LES ÉVÉNEMENTS TROUVÉS.
+                  « 93 trouvés, 42 connus, 0 insérés » laissait cinquante et un
+                  événements s'évaporer sans un mot. Chaque ligne manquante a
+                  maintenant sa raison, et la somme fait le compte.
+              */}
+              {rapport.ecartes && (() => {
+                const e = rapport.ecartes
+                const lignes: [string, number, string][] = [
+                  ['Hors de la période', e.hors_horizon, 'au-delà de l’horizon de la source'],
+                  ['Hors zone', e.hors_zone, 'le lieu tombe en dehors du territoire'],
+                  ['Sans date', e.sans_date, 'la source n’en donne pas — on n’en invente pas'],
+                  ['Pas eu le temps', e.non_traites, 'relancez : le passage suivant les prendra'],
+                  ['Échec d’écriture', e.echec_ecriture, 'la base a refusé la ligne'],
+                ]
+                const utiles = lignes.filter(l => l[1] > 0)
+                if (!utiles.length) return null
+                return (
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-bold text-gray-500 uppercase" style={{ letterSpacing: '0.06em' }}>
+                      Non retenus
+                    </p>
+                    {utiles.map(([label, n, pourquoi]) => (
+                      <div key={label} className="flex items-baseline gap-2 text-xs bg-[#FBF7F0] rounded-xl px-3 py-2">
+                        <span className="font-bold text-[#2C1810] shrink-0">{n}</span>
+                        <span className="text-gray-600 shrink-0">{label}</span>
+                        <span className="text-gray-400 text-[11px] leading-snug">{pourquoi}</span>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
+
               {rapport.qualite && rapport.qualite.detaillees > 0 && (
                 <div className="space-y-2">
                   <div className="grid grid-cols-2 gap-2 text-xs">
@@ -319,12 +363,7 @@ export default function SourcesPage() {
                       ? `, ${rapport.geocodages} adresse${rapport.geocodages > 1 ? 's' : ''} envoyée${rapport.geocodages > 1 ? 's' : ''} à Google`
                       : ''}.
                   </p>
-                  {rapport.interrompu && (
-                    <p className="text-xs text-orange-700 bg-orange-50 rounded-xl px-3 py-2">
-                      Arrêté au temps imparti — il reste des fiches à lire. Relance :
-                      rien n&apos;est refait deux fois, le passage suivant reprend la suite.
-                    </p>
-                  )}
+
                 </div>
               )}
 

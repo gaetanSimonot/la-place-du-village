@@ -116,6 +116,21 @@ export interface ScrapeStructureResult {
   geocodages: number
   /** Événements rangés au titre, faute de rubrique utilisable à la source. */
   ranges: number
+  /**
+   * OÙ SONT PASSÉS LES ÉVÉNEMENTS TROUVÉS.
+   *
+   * Un rapport qui annonce « 93 trouvés, 42 connus, 0 insérés » laisse
+   * cinquante et un événements s'évaporer sans un mot, et personne ne peut
+   * savoir si c'est normal. Chaque fiche trouvée tombe désormais dans une
+   * case, et la somme doit faire le compte.
+   */
+  ecartes: {
+    hors_horizon: number
+    hors_zone:    number
+    sans_date:    number
+    non_traites:  number
+    echec_ecriture: number
+  }
   /** Descriptions remises au format de la maison (trop longues, ou coupées). */
   reformulees: number
   /** Fiches visitées une par une, faute de données sur la page de liste. */
@@ -231,6 +246,7 @@ export async function scrapeStructure(
     geocodages: 0,
     ranges: 0,
     reformulees: 0,
+    ecartes: { hors_horizon: 0, hors_zone: 0, sans_date: 0, non_traites: 0, echec_ecriture: 0 },
     parFiches: 0,
     parOpenGraph: 0,
     evenements: [],
@@ -242,6 +258,14 @@ export async function scrapeStructure(
   // 1. Les fiches annoncées par les pages de liste, sans doublon d'adresse.
   // Un objet simple plutôt qu'une Map, pour la même raison que ci-dessus.
   const fiches: Record<string, EventStructure> = {}
+  /*
+   * Les pages déjà téléchargées pendant la collecte.
+   *
+   * Sans elles, la boucle de traitement RETELECHARGEAIT chaque fiche : cent
+   * visites réseau pour cent fiches qu'on venait de lire. C'est ce qui vidait
+   * l'enveloppe de temps avant la fin.
+   */
+  const dejaLues: Record<string, string> = {}
   // Les listes n'ont droit qu'au tiers de l'enveloppe : c'est la visite des
   // fiches, derriere, qui rapporte.
   const finListes = Math.min(depart + 60_000, finGlobale - RESERVE_TRAITEMENT_MS)
@@ -288,6 +312,7 @@ export async function scrapeStructure(
       if (reste < 12_000 || quota <= 0) { resultat.interrompu = true; break }
       const parFiches = await collecterParFiches(racine, reste, quota)
       for (const u of Object.keys(parFiches.fiches)) fiches[u] = parFiches.fiches[u]
+      for (const u of Object.keys(parFiches.pages)) dejaLues[u] = parFiches.pages[u]
       resultat.parFiches += parFiches.visitees
       resultat.parOpenGraph += parFiches.parOpenGraph
       quota -= parFiches.visitees
@@ -321,9 +346,10 @@ export async function scrapeStructure(
   for (const url of Object.keys(fiches)) {
     const apercu = fiches[url]
     const grossier = dateEtHeure(apercu.startDate)
-    if (grossier.date) {
+    if (!grossier.date) { resultat.ecartes.sans_date++; continue }
+    {
       const d = new Date(grossier.date)
-      if (d < aujourdhui || d > limite) continue
+      if (d < aujourdhui || d > limite) { resultat.ecartes.hors_horizon++; continue }
     }
     if (dejaEnBase.has(empreinteEvt(apercu.name ?? '', grossier.date))) {
       resultat.doublons++
@@ -352,9 +378,13 @@ export async function scrapeStructure(
   const aReformuler: { id: string; titre: string; description: string }[] = []
   const fini = finGlobale
   for (let debut = 0; debut < aVisiter.length; debut += LOT) {
-    if (Date.now() > fini) { resultat.interrompu = true; break }
+    if (Date.now() > fini) {
+      resultat.interrompu = true
+      resultat.ecartes.non_traites = aVisiter.length - debut
+      break
+    }
     const lotUrls = aVisiter.slice(debut, debut + LOT)
-    const pages = await Promise.all(lotUrls.map(u => lirePage(u)))
+    const pages = await Promise.all(lotUrls.map(u => dejaLues[u] ?? lirePage(u)))
     await pause(150)
 
     for (let k = 0; k < lotUrls.length; k++) {
@@ -417,6 +447,7 @@ export async function scrapeStructure(
       if (geo.lat != null && geo.lng != null) {
         const arbitrage = await territoireDuPoint(geo.lat, geo.lng)
         if (!arbitrage.territoire) {
+          resultat.ecartes.hors_zone++
           resultat.evenements.push({ titre: e.name ?? '?', statut: 'hors_zone', doublon: false, image: false })
           continue
         }
@@ -487,6 +518,7 @@ export async function scrapeStructure(
       raison_statut: raison || null,
       ...(terrEvt ? { territoire_id: terrEvt.id } : {}),
     }).select('id').single()
+    if (error) resultat.ecartes.echec_ecriture++
     if (!error) {
       resultat.inseres++
       dejaEnBase.add(empreinteEvt(e.name ?? '', date))

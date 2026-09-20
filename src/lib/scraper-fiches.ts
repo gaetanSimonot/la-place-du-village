@@ -137,9 +137,16 @@ export async function collecterParFiches(
   pageListe: string,
   budgetMs = 120_000,
   quota = FICHES_MAX,
-): Promise<{ fiches: Record<string, EventStructure>; visitees: number; parOpenGraph: number }> {
+): Promise<{
+  fiches: Record<string, EventStructure>
+  visitees: number
+  parOpenGraph: number
+  /** Le HTML de chaque fiche, pour ne pas la retelecharger ensuite. */
+  pages: Record<string, string>
+}> {
   const out: Record<string, EventStructure> = {}
-  const resultat = { fiches: out, visitees: 0, parOpenGraph: 0 }
+  const pagesLues: Record<string, string> = {}
+  const resultat = { fiches: out, visitees: 0, parOpenGraph: 0, pages: pagesLues }
 
   const liste = await lire(pageListe)
   if (!liste) return resultat
@@ -164,6 +171,7 @@ export async function collecterParFiches(
       const html = pages[k]
       if (!html) continue
       const url = lot[k]
+      pagesLues[url] = html
 
       // 1. La fiche publie-t-elle ses données ? Alors rien à interpréter.
       const structure = evenementsStructures(html)[0]
