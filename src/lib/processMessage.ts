@@ -159,14 +159,45 @@ export async function processMessage(
        * Croix ». L'adresse est un bien meilleur intitule : elle situe, elle
        * se reconnait, et elle est ce que la personne lira sur la fiche.
        */
-        const intitule = evt.lieu_nom
-          || (ressembleAUneAdresse(evt.lieu_adresse) ? evt.lieu_adresse : null)
-          || communeReelle || ''
+/*
+         * STRICT POUR LE POINT, SOUPLE POUR L'INTITULE — ce n'est pas le meme risque.
+         *
+         * Un point faux a l'air juste : on le croit, on s'y rend, et c'est une soiree
+         * perdue. On n'envoie donc a Google que ce qui ressemble vraiment a une
+         * adresse postale (`ressembleAUneAdresse`).
+         *
+         * Un intitule, lui, n'est que du texte a lire. « Voie verte reliant Le Vigan
+         * a Arre » ne se geocode pas, mais c'est infiniment mieux que « Le Vigan »
+         * pour savoir ou l'on va. Des que l'annonce donne un repere et aucun nom de
+         * lieu, ce repere devient l'intitule.
+         */
+        const intitule = evt.lieu_nom || evt.lieu_adresse?.trim() || communeReelle || ''
         // Chercher avant de créer — voir src/lib/lieuxResolve.ts.
+          /*
+           * QUI FAIT AUTORITE SUR QUOI.
+           *
+           * L'annonce fait autorite sur l'ADRESSE : c'est l'organisateur qui
+           * l'ecrit, et il sait ou il habite. Google fait autorite sur le
+           * POINT : c'est lui qui sait ou tombe cette rue.
+           *
+           * Les confondre donne des fiches ou l'adresse affichee n'est pas
+           * celle de l'annonce — « 96 bis rue de la Place » devenait « 88 Rue
+           * de la Place », parce que la recherche de lieux de Google rend le
+           * numero le plus proche qu'elle connaisse. On garde donc le texte de
+           * l'annonce des qu'il ressemble a une adresse, et l'adresse de
+           * Google seulement a defaut (cas du lieu nomme : « Feliz Cafe » ne
+           * porte pas d'adresse, Google en fournit une utile).
+           */
         const lieu = await trouverOuCreerLieu(
           intitule,
           communeReelle,
-          { lat: geo.lat, lng: geo.lng, adresse: geo.adresse ?? evt.lieu_adresse, place_id_google: geo.place_id_google, code_postal: evt.code_postal ?? null, territoire_id: terr?.id ?? null },
+          {
+            lat: geo.lat, lng: geo.lng,
+            adresse: ressembleAUneAdresse(evt.lieu_adresse) ? evt.lieu_adresse : (geo.adresse ?? evt.lieu_adresse),
+            place_id_google: geo.place_id_google,
+            code_postal: evt.code_postal ?? null,
+            territoire_id: terr?.id ?? null,
+          },
         )
         lieuId = lieu.id
       }

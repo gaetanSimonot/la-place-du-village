@@ -172,13 +172,31 @@ async function processOneEvent(
      * Croix ». L'adresse est un bien meilleur intitule : elle situe, elle
      * se reconnait, et elle est ce que la personne lira sur la fiche.
      */
-    const intitule = extracted.lieu_nom
-      || (ressembleAUneAdresse(extracted.lieu_adresse) ? extracted.lieu_adresse : null)
-      || communeReelle || ''
+/*
+     * STRICT POUR LE POINT, SOUPLE POUR L'INTITULE — ce n'est pas le meme risque.
+     *
+     * Un point faux a l'air juste : on le croit, on s'y rend, et c'est une soiree
+     * perdue. On n'envoie donc a Google que ce qui ressemble vraiment a une
+     * adresse postale (`ressembleAUneAdresse`).
+     *
+     * Un intitule, lui, n'est que du texte a lire. « Voie verte reliant Le Vigan
+     * a Arre » ne se geocode pas, mais c'est infiniment mieux que « Le Vigan »
+     * pour savoir ou l'on va. Des que l'annonce donne un repere et aucun nom de
+     * lieu, ce repere devient l'intitule.
+     */
+    const intitule = extracted.lieu_nom || extracted.lieu_adresse?.trim() || communeReelle || ''
     const lieu = await trouverOuCreerLieu(
       intitule,
       communeReelle,
-      { lat: geo.lat, lng: geo.lng, adresse: geo.adresse ?? extracted.lieu_adresse, place_id_google: geo.place_id_google , territoire_id: territoire?.id ?? null },
+      {
+        lat: geo.lat, lng: geo.lng,
+        // L'annonce fait autorite sur l'ADRESSE, Google sur le POINT : la
+        // recherche de lieux rend le numero le plus proche qu'elle connaisse,
+        // et « 96 bis » devenait « 88 ».
+        adresse: ressembleAUneAdresse(extracted.lieu_adresse) ? extracted.lieu_adresse : (geo.adresse ?? extracted.lieu_adresse),
+        place_id_google: geo.place_id_google,
+        territoire_id: territoire?.id ?? null,
+      },
     )
     if (!lieu.id) {
       return {
