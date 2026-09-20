@@ -161,7 +161,16 @@ export async function scrapeSource(
      * chose — quelqu'un l'a choisie, ce n'est pas à nous de la corriger.
      */
     const cible = piste.agendas[0].url
-    return scrapeStructure({ ...source, url: cible }, opts)
+    /*
+     * On moissonne aussi les autres pages du même site.
+     *
+     * Beaucoup d'agendas n'affichent qu'un échantillon à la racine et rangent
+     * le reste par rubrique : concerts, festivals, patrimoine. S'arrêter à la
+     * première page laissait les deux tiers du site sur la table. Le
+     * dédoublonnage fait le ménage quand les rubriques se recoupent.
+     */
+    const enPlus = piste.agendas.slice(1, 6).map(a => a.url)
+    return scrapeStructure({ ...source, url: cible, pagesEnPlus: enPlus }, opts)
   }
 
   // 1ter. Le pipeline classique ci-dessous écrit au fil de l'eau : il n'a pas

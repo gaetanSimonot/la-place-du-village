@@ -163,6 +163,15 @@ interface SourceRow {
   id: string
   nom: string
   url: string
+  /**
+   * Les autres pages de liste du même site, trouvées par l'exploration.
+   *
+   * Beaucoup d'agendas ne montrent qu'une poignée d'événements sur leur page
+   * d'accueil et rangent le reste par rubrique. Le guide du Béarn en affiche
+   * 18 à la racine, mais 19 rien que pour les concerts et 12 pour les
+   * festivals : s'arrêter à la première page, c'est laisser les deux tiers.
+   */
+  pagesEnPlus?: string[]
   territoire_id: string | null
   horizon_jours: number | null
   publier_auto: boolean | null
@@ -180,6 +189,9 @@ export async function scrapeStructure(
   const terrSource = await territoireParId(source.territoire_id)
 
   const base = source.url.startsWith('http') ? source.url : 'https://' + source.url
+  // La page demandée d'abord, puis les rubriques ; sans doublon.
+  const bases: string[] = [base]
+  for (const u of source.pagesEnPlus ?? []) if (bases.indexOf(u) < 0) bases.push(u)
   const resultat: ScrapeStructureResult = {
     mode: 'structure', sourceId: source.id, sourceName: source.nom, dryRun,
     trouves: 0, doublons: 0, inseres: 0,
@@ -200,19 +212,21 @@ export async function scrapeStructure(
   // 1. Les fiches annoncées par les pages de liste, sans doublon d'adresse.
   // Un objet simple plutôt qu'une Map, pour la même raison que ci-dessus.
   const fiches: Record<string, EventStructure> = {}
-  for (let p = 1; p <= PAGES_MAX; p++) {
-    const url = p === 1 ? base : base + (base.includes('?') ? '&' : '?') + 'p=' + p
-    const html = await lirePage(url)
-    if (!html) break
-    const lot = evenementsStructures(html)
-    if (!lot.length) break
-    resultat.reglages.pages_lues = p
-    const avant = Object.keys(fiches).length
-    for (const e of lot) if (e.url) fiches[e.url] = e
-    // Une page qui n'apporte plus rien signale la fin de la pagination :
-    // beaucoup de sites resservent la dernière page indéfiniment.
-    if (Object.keys(fiches).length === avant) break
-    await pause(300)
+  for (const racine of bases) {
+    for (let p = 1; p <= PAGES_MAX; p++) {
+      const url = p === 1 ? racine : racine + (racine.includes('?') ? '&' : '?') + 'p=' + p
+      const html = await lirePage(url)
+      if (!html) break
+      const lot = evenementsStructures(html)
+      if (!lot.length) break
+      resultat.reglages.pages_lues++
+      const avant = Object.keys(fiches).length
+      for (const e of lot) if (e.url) fiches[e.url] = e
+      // Une page qui n'apporte plus rien signale la fin de la pagination :
+      // beaucoup de sites resservent la dernière page indéfiniment.
+      if (Object.keys(fiches).length === avant) break
+      await pause(300)
+    }
   }
   /*
    * LA PAGE NE PUBLIE RIEN ? ON VA VOIR LES FICHES.
@@ -224,10 +238,15 @@ export async function scrapeStructure(
    * ce qui effaçait les images.
    */
   if (!Object.keys(fiches).length) {
-    const parFiches = await collecterParFiches(base, 120_000)
-    for (const u of Object.keys(parFiches.fiches)) fiches[u] = parFiches.fiches[u]
-    resultat.parFiches = parFiches.visitees
-    resultat.parOpenGraph = parFiches.parOpenGraph
+    // On partage le budget entre les pages de liste : cinq rubriques valent
+    // mieux qu'une seule lue en détail.
+    const budget = Math.max(45_000, Math.round(150_000 / Math.max(1, bases.length)))
+    for (const racine of bases) {
+      const parFiches = await collecterParFiches(racine, budget)
+      for (const u of Object.keys(parFiches.fiches)) fiches[u] = parFiches.fiches[u]
+      resultat.parFiches += parFiches.visitees
+      resultat.parOpenGraph += parFiches.parOpenGraph
+    }
   }
 
   resultat.trouves = Object.keys(fiches).length

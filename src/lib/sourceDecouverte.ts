@@ -341,6 +341,25 @@ export async function explorerSource(adresse: string): Promise<PisteSource> {
     for (const c of CHEMINS_TYPES) candidates.push(orig + c)
   }
 
+  /*
+   * L'ORDRE DES VISITES COMPTE, puisqu'elles sont comptees.
+   *
+   * Un menu melange « /fr/agenda/concerts.html » et
+   * « /actualites/comment-organiser-une-manifestation ». Le premier porte le
+   * mot dans son CHEMIN, le second seulement dans son intitule — et le budget
+   * de visites partait dans le second. On regarde donc d'abord les adresses
+   * qui annoncent un agenda par leur chemin, et les plus courtes d'abord.
+   */
+  candidates.sort((a, b) => {
+    const parChemin = (u: string) => {
+      try { return MOTS_AGENDA.test(new URL(u).pathname) ? 0 : 1 } catch { return 1 }
+    }
+    const longueur = (u: string) => {
+      try { return new URL(u).pathname.length } catch { return 999 }
+    }
+    return parChemin(a) - parChemin(b) || longueur(a) - longueur(b)
+  })
+
   // ── On regarde ce que valent les candidates ───────────────────────────
   for (const c of candidates) {
     if (piste.visitees >= VISITES_MAX) break
