@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { geocodeWithGoogle, calcStatut } from './extract'
 import { checkDoublon } from './checkDoublon'
+import { trouverOuCreerLieu } from './lieuxResolve'
 import { territoireParId, territoireDuPoint, indiceGeoDe } from './territoires'
 import { getPrompt } from './prompts-ia'
 import { safeJsonParse } from './safeJsonParse'
@@ -241,23 +242,22 @@ export async function scrapeSource(
           terrEvt = arbitrage.territoire
         }
 
-        if (evt.lieu_nom || evt.commune) {
-          const { data: lieu } = await supabaseAdmin
-            .from('lieux')
-            .insert({
-              nom:             evt.lieu_nom ?? evt.commune,
-              adresse:         geo.adresse ?? null,
-              lat:             geo.lat,
-              lng:             geo.lng,
-              place_id_google: geo.place_id_google,
-              commune:         evt.commune,
-              code_postal:     evt.code_postal,
-              ...(terrEvt ? { territoire_id: terrEvt.id } : {}),
-            })
-            .select('id')
-            .single()
-          lieuId = lieu?.id ?? null
-        }
+        /*
+         * CHERCHER AVANT DE CREER — comme les trois autres chemins.
+         *
+         * Celui-ci faisait un INSERT brut : chaque evenement fabriquait sa
+         * propre punaise, meme au meme endroit. « Stade d'Aveze » a fini en
+         * 48 exemplaires, tous avec le MEME identifiant Google. C'etait le
+         * dernier chemin a echapper au point d'entree commun.
+         */
+        const lieu = await trouverOuCreerLieu(evt.lieu_nom ?? evt.commune ?? '', evt.commune, {
+          lat: geo.lat, lng: geo.lng,
+          adresse: geo.adresse ?? null,
+          place_id_google: geo.place_id_google,
+          code_postal: evt.code_postal ?? null,
+          territoire_id: terrEvt?.id ?? null,
+        })
+        lieuId = lieu.id
       }
 
       // Calculer statut (toujours en_attente pour les scrapes)

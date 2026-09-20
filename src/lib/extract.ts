@@ -255,6 +255,38 @@ function ecartKm(a: CandidatLieu, b: CandidatLieu): number {
  * Un refus n'est jamais une perte : on retombe exactement sur le comportement
  * d'avant.
  */
+/**
+ * CETTE ADRESSE EST-ELLE DEJÀ CONNUE DE NOUS ?
+ *
+ * Le cache par NOM existait ; celui par ADRESSE manquait, et c'est lui qui
+ * compte depuis que l'adresse postale passe en premier. Résultat : « Rue du
+ * Château, Pau » était en base depuis le premier passage et se repayait à
+ * chaque suivant. Un agenda déjà moissonné doit coûter zéro.
+ *
+ * On compare sur l'adresse normalisée ET la commune : deux « 12 rue de la
+ * Poste » dans deux villages ne sont pas le même endroit.
+ */
+async function lookupAdresseCache(
+  adresse: string,
+  commune?: string | null,
+): Promise<Omit<GeoResult, 'approx'> | null> {
+  const cle = nomCle(adresse)
+  if (cle.length < 8) return null
+  const motif = `%${cle.replace(/[%_]/g, ' ')}%`
+  let q = supabaseAdmin.from('lieux')
+    .select('nom, commune, adresse, lat, lng, place_id_google')
+    .ilike('adresse', motif).not('lat', 'is', null).limit(6)
+  if (commune) q = q.ilike('commune', commune)
+  const { data } = await q
+  const trouve = (data ?? [])[0] as CandidatLieu | undefined
+  if (!trouve || trouve.lat == null) return null
+  return {
+    lat: trouve.lat, lng: trouve.lng,
+    adresse: trouve.adresse ?? null,
+    place_id_google: trouve.place_id_google ?? null,
+  }
+}
+
 async function lookupLieuxCache(lieuNom: string, commune?: string | null): Promise<Omit<GeoResult, 'approx'> | null> {
   const cle = nomCle(lieuNom)
   if (cle.length < 5 || NOMS_TROP_COURANTS.has(cle)) return null
@@ -262,14 +294,24 @@ async function lookupLieuxCache(lieuNom: string, commune?: string | null): Promi
   // Deux requêtes plutôt qu'un `.or()` : les virgules et parenthèses d'un nom
   // de lieu cassent la syntaxe de filtre de PostgREST (piège documenté sur ce
   // projet), et un nom de commerce en contient souvent.
+  /*
+   * Quarante candidats, pas douze.
+   *
+   * La base a longtemps porte le meme endroit en dizaines d'exemplaires —
+   * « Stade d'Aveze » 48 fois. La requete n'en lisait que douze, et il
+   * suffisait qu'un intrus se glisse parmi eux pour que la regle des 2 km
+   * juge l'ensemble ambigu et renvoie tout le monde chez Google. Le plafond
+   * ne protegeait rien : un nom de lieu ne ramene jamais des milliers de
+   * lignes.
+   */
   const motif = `%${cle.replace(/[%_]/g, ' ')}%`
   const [lieuxRes, etabsRes] = await Promise.all([
     supabaseAdmin.from('lieux')
       .select('nom, commune, adresse, lat, lng, place_id_google')
-      .ilike('nom', motif).not('lat', 'is', null).limit(12),
+      .ilike('nom', motif).not('lat', 'is', null).limit(40),
     supabaseAdmin.from('etablissements')
       .select('nom, commune, adresse, lat, lng, place_id_google')
-      .ilike('nom', motif).not('lat', 'is', null).limit(12),
+      .ilike('nom', motif).not('lat', 'is', null).limit(40),
   ])
 
   const candidats: CandidatLieu[] = [
@@ -423,6 +465,11 @@ export async function geocodeWithGoogle(
    */
   const adresse = (opts.adresse ?? '').trim()
   if (ressembleAUneAdresse(adresse)) {
+    // a. Déjà chez nous ? Alors rien à demander à Google.
+    const connue = await lookupAdresseCache(adresse!, commune)
+    if (connue && connue.lat != null) return { ...connue, approx: false }
+
+    // b. Sinon Google, qui reste le seul à savoir ce qu'est un lieu.
     const q = [adresse, opts.codePostal, commune, indice].filter(Boolean).join(', ')
     const precis = await textsearch(q)
     // Un resultat sans coordonnees ne vaut pas mieux que pas de resultat.
