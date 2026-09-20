@@ -322,15 +322,26 @@ export async function scrapeStructure(
         }
         terrEvt = arbitrage.territoire
       }
-      const lieu = await trouverOuCreerLieu(nomLieu ?? commune ?? '', commune, {
-        lat: geo.lat, lng: geo.lng,
-        adresse: rue ?? geo.adresse ?? null,
-        place_id_google: geo.place_id_google,
-        code_postal: adr.postalCode ?? null,
-        territoire_id: terrEvt?.id ?? null,
-      })
-      lieuId = lieu.id
-      if (lieuId) resultat.qualite.avec_lieu++
+      /*
+       * L'APERÇU NE CRÉE PAS DE LIEU. Il géocode — c'est son travail, montrer
+       * ce que l'on obtiendrait — mais il n'écrit pas. La première version le
+       * faisait, et trois aperçus successifs ont déposé des fiches de lieu que
+       * plus aucun événement ne référençait : un mode « rien n'est écrit » qui
+       * écrit quand même est pire que pas d'aperçu du tout.
+       */
+      if (dryRun) {
+        if (geo.lat != null) resultat.qualite.avec_lieu++
+      } else {
+        const lieu = await trouverOuCreerLieu(nomLieu ?? commune ?? '', commune, {
+          lat: geo.lat, lng: geo.lng,
+          adresse: rue ?? geo.adresse ?? null,
+          place_id_google: geo.place_id_google,
+          code_postal: adr.postalCode ?? null,
+          territoire_id: terrEvt?.id ?? null,
+        })
+        lieuId = lieu.id
+        if (lieuId) resultat.qualite.avec_lieu++
+      }
     }
 
     /*
