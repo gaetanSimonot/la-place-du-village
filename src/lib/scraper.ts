@@ -6,6 +6,8 @@ import { territoireParId, territoireDuPoint, indiceGeoDe } from './territoires'
 import { getPrompt } from './prompts-ia'
 import { safeJsonParse } from './safeJsonParse'
 import { scrapeRecurrentSource, type ScrapeRecurrentResult } from './scraper-recurrent'
+import { scrapeStructure, type ScrapeStructureResult } from './scraper-structure'
+import { pagePubliesStructure } from './schemaOrg'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -106,7 +108,7 @@ async function extractEventsFromPage(pageText: string, sourceUrl: string): Promi
 export async function scrapeSource(
   sourceId: string,
   opts: { dryRun?: boolean } = {},
-): Promise<ScrapeResult | ScrapeRecurrentResult> {
+): Promise<ScrapeResult | ScrapeRecurrentResult | ScrapeStructureResult> {
   // 1. Charger la source
   const { data: source, error: srcErr } = await supabaseAdmin
     .from('sources')
@@ -133,6 +135,22 @@ export async function scrapeSource(
   // pas d'événements datés mais une table de récurrences. Pipeline dédié.
   if (source.type === 'recurrent') {
     return scrapeRecurrentSource(source, opts)
+  }
+
+  /*
+   * 1quater. LA SOURCE PUBLIE-T-ELLE SES DONNÉES ELLE-MÊME ?
+   *
+   * Beaucoup d'agendas déposent un bloc schema.org/Event dans leurs pages :
+   * titre, description entière, date AVEC l'heure, adresse postale découpée,
+   * tarif et image. Quand c'est le cas, faire relire la page par un modèle
+   * coûte un appel pour un résultat moins bon — et fait perdre les images,
+   * que l'aplatissement en texte efface.
+   *
+   * La détection est automatique et ne demande aucun réglage : une page qui
+   * ne publie rien de structuré retombe sur la lecture par modèle, ci-dessous.
+   */
+  if (await pagePubliesStructure(source.url.startsWith('http') ? source.url : 'https://' + source.url)) {
+    return scrapeStructure(source, opts)
   }
 
   // 1ter. Le pipeline classique ci-dessous écrit au fil de l'eau : il n'a pas
