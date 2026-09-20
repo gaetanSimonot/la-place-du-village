@@ -9,7 +9,6 @@ import { markHubDirty } from '@/lib/hubFresh'
 import { useAuth } from '@/hooks/useAuth'
 import { FEATURED_SLOTS, type FeaturedSlotRow } from '@/lib/featured'
 import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
-import { HUB_SECTIONS, normalizeHubOrder } from '@/lib/hubSections'
 import {
   SPLASH_PROMO_BOUNDS, SPLASH_PROMO_DEFAULTS, SPLASH_PROMO_VARIANTS, parseSplashPromo,
   type SplashPromoConfig, type SplashPromoVariantId,
@@ -75,10 +74,6 @@ export default function AdminHubCarousel() {
   const [introImageUrl, setIntroImageUrl] = useState<string | null>(null)
   const [introImgUploading, setIntroImgUploading] = useState(false)
   const introImgInput = useRef<HTMLInputElement>(null)
-  // Ordre des sections de contenu de l'accueil
-  const [sectionOrder, setSectionOrder] = useState<string[]>(() => normalizeHubOrder([]))
-  const [hiddenSections, setHiddenSections] = useState<string[]>([])
-  const [orderSaving, setOrderSaving] = useState(false)
   // Splashs promotionnels de l'offre Habitant (config('splash_promo'))
   const [splash, setSplash] = useState<SplashPromoConfig>(SPLASH_PROMO_DEFAULTS)
   const [splashSaving, setSplashSaving] = useState(false)
@@ -125,14 +120,11 @@ export default function AdminHubCarousel() {
      * d'un autre. La regle est partagee avec le serveur (CLES_EDITORIALES).
      */
     lireConfigsClient([
-      'hub_hero_intro_enabled', 'hub_hero_intro_image_url', 'hub_section_order',
-      'hub_section_hidden', 'splash_promo', 'cinema_village_public',
+      'hub_hero_intro_enabled', 'hub_hero_intro_image_url',       'splash_promo', 'cinema_village_public',
       'radio_village_public', 'assistant_visibilite', 'village_hero', 'entree_app',
     ], territoireAdmin?.id ?? null, !!territoireAdmin?.par_defaut).then(cfg => {
       const toggleRes = { data: { value: cfg.hub_hero_intro_enabled } }
       const imgRes    = { data: { value: cfg.hub_hero_intro_image_url } }
-      const orderRes  = { data: { value: cfg.hub_section_order } }
-      const hiddenRes = { data: { value: cfg.hub_section_hidden } }
       const splashRes = { data: { value: cfg.splash_promo } }
       const cineRes   = { data: { value: cfg.cinema_village_public } }
       const radioRes  = { data: { value: cfg.radio_village_public } }
@@ -141,13 +133,6 @@ export default function AdminHubCarousel() {
       const entreeRes = { data: { value: cfg.entree_app } }
       setIntroEnabled(toggleRes.data?.value === 'true')
       setIntroImageUrl(imgRes.data?.value || null)
-      let parsed: unknown = []
-      try { parsed = JSON.parse(orderRes.data?.value ?? '[]') } catch {}
-      setSectionOrder(normalizeHubOrder(parsed))
-      try {
-        const h = JSON.parse(hiddenRes.data?.value ?? '[]')
-        setHiddenSections(Array.isArray(h) ? h.filter((x: unknown): x is string => typeof x === 'string') : [])
-      } catch { setHiddenSections([]) }
       setSplash(parseSplashPromo(splashRes.data?.value))
       setCinemaVis(parseVisibilite(cineRes.data?.value))
       setRadioVis(parseVisibilite(radioRes.data?.value))
@@ -218,25 +203,6 @@ export default function AdminHubCarousel() {
     setIntroImgUploading(false)
   }
 
-  async function moveSection(index: number, delta: number) {
-    const target = index + delta
-    if (target < 0 || target >= sectionOrder.length || orderSaving) return
-    const prev = sectionOrder
-    const next = [...sectionOrder]
-    ;[next[index], next[target]] = [next[target], next[index]]
-    setSectionOrder(next)
-    setOrderSaving(true)
-    const { data: { session } } = await supabase.auth.getSession()
-    const token = session?.access_token
-    if (!token) { setSectionOrder(prev); setOrderSaving(false); return }
-    const res = await writeJson(urlEcritureConfig(territoireAdmin?.par_defaut ? null : territoireAdmin?.slug ?? null), {
-      method:  'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body:    JSON.stringify({ key: 'hub_section_order', value: JSON.stringify(next) }),
-    })
-    if (!res.ok) setSectionOrder(prev)
-    setOrderSaving(false)
-  }
 
   /**
    * Les deux réglages d'entrée partent ensemble : ils vivent dans la même clé,
@@ -360,23 +326,6 @@ export default function AdminHubCarousel() {
     setAssistantSaving(false)
   }
 
-  async function toggleHide(id: string) {
-    if (orderSaving) return
-    const prev = hiddenSections
-    const next = hiddenSections.includes(id) ? hiddenSections.filter(x => x !== id) : [...hiddenSections, id]
-    setHiddenSections(next)
-    setOrderSaving(true)
-    const { data: { session } } = await supabase.auth.getSession()
-    const token = session?.access_token
-    if (!token) { setHiddenSections(prev); setOrderSaving(false); return }
-    const res = await writeJson(urlEcritureConfig(territoireAdmin?.par_defaut ? null : territoireAdmin?.slug ?? null), {
-      method:  'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body:    JSON.stringify({ key: 'hub_section_hidden', value: JSON.stringify(next) }),
-    })
-    if (!res.ok) setHiddenSections(prev)
-    setOrderSaving(false)
-  }
 
   /**
    * Splashs promo : un seul bouton pour tout le bloc (toggle + 4 nombres).
@@ -698,58 +647,6 @@ export default function AdminHubCarousel() {
               </div>
             </div>
           )}
-        </div>
-      </div>
-
-      {/* Ordre des sections de contenu de l'accueil */}
-      <div style={{ padding: '14px 16px 0' }}>
-        <div style={{
-          padding: 14, borderRadius: 12, background: '#FFFFFF',
-          border: '1px solid #E5DDD2', boxShadow: '0 1px 4px rgba(44,28,16,0.04)',
-        }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>
-            Ordre des sections de l&apos;accueil
-          </div>
-          <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2, marginBottom: 10 }}>
-            Réorganise les blocs de contenu de la page d&apos;accueil. Hero, tuiles et footer restent fixes. Une section sans contenu n&apos;apparaît pas mais garde sa place dans l&apos;ordre.
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {sectionOrder.map((id, i) => {
-              const label = HUB_SECTIONS.find(s => s.id === id)?.label ?? id
-              const isFirst = i === 0
-              const isLast = i === sectionOrder.length - 1
-              const isHidden = hiddenSections.includes(id)
-              return (
-                <div key={id} style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '9px 12px', borderRadius: 10,
-                  background: isHidden ? '#F4EFE7' : '#FDFAF6',
-                  border: '1px solid #E5DDD2', opacity: isHidden ? 0.62 : 1,
-                }}>
-                  <span style={{
-                    width: 24, height: 24, borderRadius: 7,
-                    background: '#F0EAE0', color: '#7A6A5A',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 12, fontWeight: 900, flexShrink: 0,
-                  }}>{i + 1}</span>
-                  <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: '#1A1209', textDecoration: isHidden ? 'line-through' : 'none' }}>{label}</span>
-                  <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                    <button
-                      onClick={() => toggleHide(id)} disabled={orderSaving}
-                      title={isHidden ? 'Afficher' : 'Masquer'}
-                      style={{ ...btnStyle(orderSaving), color: isHidden ? '#B53A22' : '#2D5A3D', width: 30 }}
-                    >
-                      {isHidden
-                        ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10 10 0 0 1 12 20C5 20 1 12 1 12a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9 9 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
-                        : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>}
-                    </button>
-                    <button onClick={() => moveSection(i, -1)} disabled={isFirst || orderSaving} style={btnStyle(isFirst || orderSaving)}>▲</button>
-                    <button onClick={() => moveSection(i, +1)} disabled={isLast || orderSaving} style={btnStyle(isLast || orderSaving)}>▼</button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
         </div>
       </div>
 

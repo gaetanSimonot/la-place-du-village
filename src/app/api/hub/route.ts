@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { normalizeHubOrder } from '@/lib/hubSections'
 import { choisirTuilesDuJour, type EvenementTuile } from '@/lib/hubTodayPicker'
 import { haversineKm } from '@/lib/distance'
 import { territoireParDefaut, territoireParSlug } from '@/lib/territoires'
@@ -569,15 +568,6 @@ export async function GET(req: NextRequest) {
     journal:     (journalRes.data ?? [])[0] ?? null,
     covoits:     covoitsRes.data ?? [],
     forumTopics,
-    sectionOrder: normalizeHubOrder((() => {
-      try { return JSON.parse(reglagesHub.hub_section_order ?? '[]') } catch { return [] }
-    })()),
-    sectionHidden: (() => {
-      try {
-        const v = JSON.parse(reglagesHub.hub_section_hidden ?? '[]')
-        return Array.isArray(v) ? v.filter((x: unknown): x is string => typeof x === 'string') : []
-      } catch { return [] }
-    })(),
   }
 
   return NextResponse.json(payload, {

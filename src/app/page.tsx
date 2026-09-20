@@ -54,7 +54,6 @@ import { correspond, scoreCorrespondance } from '@/lib/recherche'
 const ProfilHybridView     = dynamic(() => import('@/components/profil/ProfilHybridView'), { ssr: false })
 const FavorisView          = dynamic(() => import('@/components/FavorisView'),             { ssr: false })
 const NotificationsView    = dynamic(() => import('@/components/NotificationsView'),       { ssr: false })
-const HubView              = dynamic(() => import('@/components/HubView'),                 { ssr: false })
 const TransportPanneau     = dynamic(() => import('@/components/TransportPanneau'),        { ssr: false })
 const CommerceRequestModal = dynamic(() => import('@/components/CommerceRequestModal'),    { ssr: false })
 const SubscriptionModal    = dynamic(() => import('@/components/SubscriptionModal'),       { ssr: false })
@@ -484,14 +483,6 @@ export default function HomePage() {
     // qu'il est ouvert c'est lui qu'on regarde, pas la carte en dessous.
     try { document.documentElement.dataset.vue = modeTransport ? 'transport' : navTab } catch {}
   }, [navTab, modeTransport])
-  // Hub : écran d'accueil avec tuiles. Par défaut au lancement.
-  // Restauré false si l'user était dans un module avant un refresh.
-  // Refonte « app simple » : plus de hub d'accueil. showHub reste dans le code
-  // (overlay HubView conservé) mais n'est jamais activé dans ce flux.
-  const [showHub, setShowHub] = useState(false)
-  useEffect(() => {
-    try { sessionStorage.setItem('pdv-show-hub', showHub ? '1' : '0') } catch {}
-  }, [showHub])
 
   // Modales du hub
   const [comingSoonLabel, setComingSoonLabel] = useState<string | null>(null)
@@ -632,7 +623,7 @@ export default function HomePage() {
       if (abandonne) return
 
       if (!urlVise) {
-        if (entree.page === 'village') { setShowHub(false); setNavTab('village') }
+        if (entree.page === 'village') setNavTab('village')
         else if (entree.page === 'promotions') { router.replace('/promotions'); return }
         else if (entree.page === 'annonces')   { router.replace('/annonces'); return }
         // 'carte' : c'est déjà l'écran par défaut, rien à faire.
@@ -660,7 +651,6 @@ export default function HomePage() {
     const sp0 = new URLSearchParams(window.location.search)
     const tabParam = sp0.get('tab')
     if (tabParam === 'carte' || tabParam === 'village' || tabParam === 'favoris' || tabParam === 'notifs' || tabParam === 'profil') {
-      setShowHub(false)
       setNavTab(tabParam as NavTab)
       // ?post= : une notification de publication admin, ouverte depuis le
       // téléphone. On rouvre le post exactement comme un clic dans la liste.
@@ -687,7 +677,6 @@ export default function HomePage() {
   useEffect(() => {
     const surVue = (e: Event) => {
       const vue = (e as CustomEvent<string>).detail
-      setShowHub(false)
       // Le transport se superpose à la carte : toute autre vue doit donc le
       // couper, sinon on y reste coincé en croyant avoir changé d'écran.
       if (vue === 'transport') { setModeTransport(true); setNavTab('carte'); return }
@@ -818,7 +807,6 @@ export default function HomePage() {
         // Au retour d'une fiche event : force vue carte (sinon navTab reste à
         // 'accueil' et les FAB / boutons map disparaissent). Si l'user voulait
         // le Hub, il a son onglet pour y retourner.
-        setShowHub(false)
         setNavTab('carte')
         // Centre aussi la map sur la dernière position si dispo
         if (s.mapLat != null && s.mapLng != null) {
@@ -872,17 +860,13 @@ export default function HomePage() {
     if (!sp.has('mode')) return  // pas d'URL state → laisse sessionStorage faire
 
     const mode = sp.get('mode')
-    if (mode === 'hub') {
-      setShowHub(true)
-    } else if (mode === 'agenda') {
-      setShowHub(false)
+    if (mode === 'agenda') {
       setAppMode('agenda')
       // ?tab= a la priorité : il décrit l'onglet, ?mode décrit la carte. Sans
       // cette garde, revenir sur Le village puis rafraîchir renvoyait sur la
       // carte, puisque la synchronisation écrit toujours ?mode=agenda.
       if (sp.get('tab') !== 'village') setNavTab('carte')
     } else if (mode === 'annuaire') {
-      setShowHub(false)
       setAppMode('annuaire')
       if (sp.get('tab') !== 'village') setNavTab('carte')
     }
@@ -926,9 +910,8 @@ export default function HomePage() {
     // L'onglet Village doit survivre à un rafraîchissement : ?mode ne décrit
     // que la carte, il ne peut pas le porter.
     if (navTab === 'village') sp.set('tab', 'village')
-    const mode = showHub ? 'hub' : appMode
-    // hub est l'état par défaut → on garde l'URL propre sans ?mode= dans ce cas
-    if (mode !== 'hub') sp.set('mode', mode)
+    const mode = appMode
+    sp.set('mode', mode)
 
     if (mode === 'agenda') {
       if (filtres.categories.length > 0) sp.set('cat', filtres.categories.join(','))
@@ -956,7 +939,7 @@ export default function HomePage() {
     if (window.location.pathname + window.location.search !== newUrl) {
       window.history.replaceState(window.history.state, '', newUrl)
     }
-  }, [showHub, appMode, filtres, annuaireTab, selectedCats, producerSearch, etabSearch, navTab])
+  }, [appMode, filtres, annuaireTab, selectedCats, producerSearch, etabSearch, navTab])
 
   // Config chargée une seule fois au mount + écoute changements admin
   useEffect(() => {
@@ -1115,11 +1098,10 @@ export default function HomePage() {
   // Sheet full → active le mode liste ; sheet réduite → revient en carte
   // Exception : sur le hub ou les onglets statiques, on ne touche pas au navTab
   useEffect(() => {
-    if (showHub) return
     if (sheetMode !== 'full') {
       setNavTab(prev => (prev === 'profil' || prev === 'favoris' || prev === 'notifs' || prev === 'accueil' || prev === 'village') ? prev : 'carte')
     }
-  }, [sheetMode, showHub])
+  }, [sheetMode])
 
   /*
    * Taper une punaise ne replie plus la feuille.
@@ -1220,7 +1202,6 @@ export default function HomePage() {
     if (tab === 'bonsplans') { router.push('/promotions'); return }
     if (tab === 'annonces')  { router.push('/annonces'); return }
     if (tab === 'accueil')   { setNavTab('village'); return }   // legacy (retour notifs…) → Village
-    if (showHub) setShowHub(false)
     if (tab === 'profil')  { setNavTab('profil');  return }
     if (tab === 'favoris') { setNavTab('favoris'); return }
     if (tab === 'notifs')  { setNavTab('notifs');  return }
@@ -1231,13 +1212,11 @@ export default function HomePage() {
 
   // Handlers tuiles du hub
   const enterAgenda = () => {
-    setShowHub(false)
     setAppMode('agenda')
     setNavTab('carte')
     setSheetMode('half')
   }
   const enterAgendaToday = () => {
-    setShowHub(false)
     setAppMode('agenda')
     // `date: null` indispensable : une date précise restée active primerait
     // sur `quand` et la tuile "Aujourd'hui" n'afficherait pas aujourd'hui.
@@ -1245,22 +1224,6 @@ export default function HomePage() {
     setNavTab('carte')
     setSheetMode('full') // sheet plein pour voir la liste filtrée
   }
-  const enterAnnuaire = (typeFilter?: EtablissementType) => {
-    setShowHub(false)
-    setAppMode('annuaire')
-    setAnnuaireTab(1)
-    setSelectedEtabType(typeFilter ?? null)
-    setNavTab('carte')
-    setSheetMode('half')
-  }
-  const enterProducteurs = () => {
-    setShowHub(false)
-    setAppMode('annuaire')
-    setAnnuaireTab(0)
-    setNavTab('carte')
-    setSheetMode('half')
-  }
-
   const handleViewOnMap = (id: string) => {
     setSelectedId(id)
     setNavTab('carte')
@@ -1269,7 +1232,6 @@ export default function HomePage() {
 
   // "Voir tout sur la carte" depuis la modale recherche globale
   const handleSearchViewAll = useCallback((kind: SearchKind, query: string) => {
-    setShowHub(false)
     setSelectedId(null)
     setNavTab('carte')
     setSheetMode('half')
@@ -1510,24 +1472,6 @@ export default function HomePage() {
   return (
     <div className="pcv-home" style={{ height: '100dvh', position: 'relative', overflow: 'hidden', backgroundColor: '#e8dece' }}>
 
-      {/* Hub d'accueil — couvre tout sauf la bottom nav */}
-      {showHub && (
-        <div className="pcv-panel" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 25, overflowY: 'auto', backgroundColor: 'var(--creme)' }}>
-          <HubView
-            onSelectAgenda={enterAgenda}
-            onSelectAgendaToday={enterAgendaToday}
-            onSelectAnnuaire={enterAnnuaire}
-            onSelectProducteurs={enterProducteurs}
-            onComingSoon={setComingSoonLabel}
-            onUpgradePrompt={(plan, label) => setUpgradePrompt({ plan, label })}
-            onOpenNotifs={() => handleNavTab('notifs')}
-            onOpenInfo={() => setInfoOpen(true)}
-            onOpenSearch={() => setSearchOpen(true)}
-            onOpenSplash={() => setSplashOpen(true)}
-            unreadCount={notifCount}
-          />
-        </div>
-      )}
 
       {/* Modale "Bientôt disponible" */}
       {comingSoonLabel && (
@@ -1594,7 +1538,7 @@ export default function HomePage() {
         // showBtns : les fiches producteur/etab ouvertes ne sont plus
         // un state local — elles sont gérées par les intercepting routes.
         // Le slot @modal au layout masque les boutons via z-index.
-        const showBtns = !showHub && navTab === 'carte' && sheetMode !== 'full' && !searchOpen
+        const showBtns = navTab === 'carte' && sheetMode !== 'full' && !searchOpen
         // V3 derived map mode (evt/etab/prod)
         const mapMode: 'evt' | 'etab' | 'prod' =
           appMode === 'agenda' ? 'evt' : annuaireTab === 1 ? 'etab' : 'prod'
@@ -2146,7 +2090,7 @@ export default function HomePage() {
       {/* FAB haut centre — mode-aware */}
 
       {/* ProBandeau flottant sur la carte — 2/3 largeur, se fait avaler par le sheet (zIndex 19 < 20) */}
-      {!showHub && (proEvents.length > 0 || herosDiapo) && appMode === 'agenda' && navTab !== 'profil' && navTab !== 'favoris' && navTab !== 'notifs' && navTab !== 'village' && (
+      {(proEvents.length > 0 || herosDiapo) && appMode === 'agenda' && navTab !== 'profil' && navTab !== 'favoris' && navTab !== 'notifs' && navTab !== 'village' && (
         <div className="pcv-proBandeau" style={{
           position: 'absolute', left: 0, right: '33%',
           bottom: NAV_H + sheetPeekH,
@@ -2161,7 +2105,7 @@ export default function HomePage() {
 
 
       {/* Bottom Sheet — masqué sur le hub */}
-      {!showHub && <BottomSheet
+      {<BottomSheet
         /* Le transport prend la liste, il ne se superpose pas : c'est un mode
            de la carte au meme titre qu'Evenements ou Commerces. La feuille
            garde sa poignee, ses paliers et son defilement. */
@@ -2348,14 +2292,14 @@ export default function HomePage() {
             // c'est la même porte que celle du lancement, il n'y a pas de
             // raison qu'elle donne sur autre chose.
             const page = lireEntreeEnCache().page
-            if (page === 'village') { setShowHub(false); setNavTab('village') }
+            if (page === 'village') setNavTab('village')
             else if (page === 'promotions') router.push('/promotions')
             else if (page === 'annonces')   router.push('/annonces')
             else if (window.matchMedia('(min-width: 1024px)').matches) {
               // Sur ordinateur, « la carte » veut dire Le village : c'est
               // l'accueil de la version bureau. Même point de rupture que
               // desktop.css.
-              setShowHub(false); setNavTab('village')
+              setNavTab('village')
             } else {
               enterAgenda()
             }
