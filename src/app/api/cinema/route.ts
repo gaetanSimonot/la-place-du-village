@@ -3,7 +3,7 @@ import { territoireDeLaRequete } from '@/lib/territoires'
 import { lireConfig } from '@/lib/configTerritoire'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { dateParis, parseVisibilite, type Film, type Seance } from '@/lib/cinema'
-import { listerCinemas } from '@/lib/cinema-server'
+import { cinemasAvecSeances } from '@/lib/cinema-server'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -44,7 +44,10 @@ export async function GET(req: NextRequest) {
   // le temps du rodage ? Réglage unique, piloté depuis l'admin.
   const villageVisibilite = parseVisibilite(await lireConfig('cinema_village_public', terr))
 
-  const cinemas = await listerCinemas(terr?.id ?? null)
+  // Pas de dates, pas de cinéma : une salle sans séance à venir ne figure
+  // ni dans la liste, ni dans les pastilles de choix. Elle reparait d'
+  // elle-même dès qu'une séance est connue.
+  const cinemas = await cinemasAvecSeances(terr?.id ?? null)
   if (!cinemas.length) {
     return NextResponse.json({ cinemas: [], cinema: null, films: [], seances: [], evenements: [], villageVisibilite })
   }

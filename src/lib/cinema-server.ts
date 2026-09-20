@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { CINEMA_FIELDS, type Cinema, type Film } from '@/lib/cinema'
+import { CINEMA_FIELDS, dateParis, type Cinema, type Film } from '@/lib/cinema'
 import { detailsFilm } from '@/lib/tmdb'
 
 /** Ligne brute de `films`, avec les colonnes TMDB. */
@@ -53,6 +53,41 @@ export async function listerCinemas(territoireId?: string | null): Promise<Cinem
   if (territoireId) q = q.eq('territoire_id', territoireId)
   const { data } = await q
   return (data ?? []) as Cinema[]
+}
+
+/**
+ * Les salles qui ont quelque chose à montrer.
+ *
+ * PAS DE DATES, PAS DE CINÉMA. Une salle sans séance à venir n'est pas une
+ * salle où il ne se passe rien : c'est une salle dont NOUS ne savons rien.
+ * L'afficher promettrait une programmation qu'on serait incapable de nommer,
+ * et l'habitant se déplacerait sur la foi d'une promesse vide. Sa fiche
+ * établissement reste, elle : le lieu existe, il a une adresse et un
+ * téléphone — c'est le module cinéma qui se tait.
+ *
+ * À N'UTILISER QUE CÔTÉ PUBLIC. Côté administration, c'est précisément une
+ * salle vide qu'on vient remplir : la filtrer la rendrait inatteignable.
+ *
+ * Une requête par salle plutôt qu'une seule sur toutes : PostgREST plafonne
+ * à 1000 lignes, et une grosse salle suffirait à remplir la réponse et à
+ * faire disparaître les autres.
+ */
+export async function cinemasAvecSeances(
+  territoireId?: string | null,
+): Promise<Cinema[]> {
+  const cinemas = await listerCinemas(territoireId)
+  const aujourdhui = dateParis()
+  const retenues: Cinema[] = []
+  for (const c of cinemas) {
+    const { data } = await supabaseAdmin
+      .from('seances')
+      .select('id')
+      .eq('etablissement_id', c.id)
+      .gte('date', aujourdhui)
+      .limit(1)
+    if (data && data.length) retenues.push(c)
+  }
+  return retenues
 }
 
 /**
