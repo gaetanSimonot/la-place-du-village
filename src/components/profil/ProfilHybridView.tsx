@@ -1,10 +1,11 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import useSWR from 'swr'
 import { authedFetcher } from '@/lib/swr-fetchers'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useFriendships } from '@/hooks/useFriendships'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import LoginView from '@/components/LoginView'
 import EditProfileModal from '@/components/EditProfileModal'
 import PushPromptModal from '@/components/PushPromptModal'
@@ -19,6 +20,7 @@ interface Etab {
   id: string
   nom: string
   photos: string[] | null
+  territoire_id: string | null
 }
 interface Producer {
   id: string
@@ -37,6 +39,13 @@ export default function ProfilHybridView({ onOpenNotifs, notifUnread }: { onOpen
   // éviter le double subscribe Realtime sur friendships-<userId>.
   // Le state est passé en prop à AmisTab.
   const friends = useFriendships()
+  // La liste des territoires est deja en memoire pour toute l'app : on s'en
+  // sert pour nommer celui de chaque fiche, sans une requete de plus.
+  const { territoires } = useTerritoire()
+  const nomTerritoire = useMemo(
+    () => Object.fromEntries(territoires.map(t => [t.id, t.nom])) as Record<string, string>,
+    [territoires],
+  )
 
   const [activeTab, setActiveTab] = useState<ProfilTab>('mur')
   const [viewMode, setViewMode] = useState<ViewMode>('own')
@@ -74,7 +83,7 @@ export default function ProfilHybridView({ onOpenNotifs, notifUnread }: { onOpen
 
     supabase
       .from('etablissements')
-      .select('id, nom, photos')
+      .select('id, nom, photos, territoire_id')
       .eq('user_id', user.id)
       .then(({ data }) => {
         if (!cancelled && data) setMyEtabs(data as Etab[])
@@ -170,6 +179,7 @@ export default function ProfilHybridView({ onOpenNotifs, notifUnread }: { onOpen
       id: e.id,
       nom: e.nom,
       photoUrl: e.photos?.[0] ?? null,
+      territoire: e.territoire_id ? nomTerritoire[e.territoire_id] ?? null : null,
     })),
   ]
 

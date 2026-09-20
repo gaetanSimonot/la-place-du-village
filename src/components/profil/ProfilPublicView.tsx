@@ -14,6 +14,8 @@ import MurTab from './tabs/MurTab'
 import ReelsTab from './tabs/ReelsTab'
 
 interface Etab { id: string; nom: string; photos: string[] | null }
+// Le territoire n'est pas lu ici : sur le profil d'un autre, les fiches
+// tiennent en une poignee de lignes et l'intitule n'apprendrait rien.
 interface Producer { id: string; nom: string; photos: string[] | null; commune: string | null }
 
 function isProfilTab(v: string | null): v is ProfilTab {

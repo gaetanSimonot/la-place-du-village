@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import FriendButton from '@/components/FriendButton'
 import type { FriendshipStateForMe } from '@/lib/friendships'
@@ -23,6 +23,8 @@ export interface FicheProMini {
   nom: string
   photoUrl: string | null
   sub?: string
+  /** Nom du territoire de la fiche — sert a ranger quand on en gere ailleurs. */
+  territoire?: string | null
 }
 
 /**
@@ -267,50 +269,129 @@ export default function ProfilHeader({
         </div>
       )}
 
-      {ficheProMinis.length > 0 && (
-        <div className="flex flex-col gap-2 px-4 pt-[14px]">
-          {ficheProMinis.map(f => (
-            <Link
-              key={`${f.kind}-${f.id}`}
-              href={f.kind === 'producer' ? `/producteur/${f.id}` : `/etablissement/${f.id}`}
-              className="flex w-full items-center gap-[10px] rounded-[12px] border bg-white px-3 py-2.5 text-inherit no-underline"
-              style={{ borderColor: '#F0EAE0' }}
-            >
-              <div
-                className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[9px] bg-primary-light text-primary"
-                aria-hidden
-              >
-                {f.photoUrl ? (
-                  <img src={f.photoUrl} alt="" className="h-full w-full object-cover" />
-                ) : f.kind === 'producer' ? (
-                  <IcLeaf size={16} />
-                ) : (
-                  <IcStore size={16} />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div
-                  className="text-[9px] font-extrabold uppercase text-primary"
-                  style={{ letterSpacing: '0.1em' }}
-                >
-                  {f.kind === 'producer' ? 'Ma fiche producteur' : 'Mon établissement'}
-                </div>
-                <div
-                  className="mt-px truncate text-[13px] font-bold text-texte"
-                  style={{ letterSpacing: '-0.01em' }}
-                >
-                  {f.nom}
-                </div>
-                {f.sub && <div className="mt-px text-[10.5px] text-texte-doux">{f.sub}</div>}
-              </div>
-              <span className="text-texte-tres-doux">
-                <IcChev size={14} />
-              </span>
-            </Link>
-          ))}
-        </div>
-      )}
+      <FichesPro fiches={ficheProMinis} viewMode={viewMode} />
     </>
+  )
+}
+
+/* ── Les fiches que l'on gère ──────────────────────────────────
+ *
+ * UNE SEULE BOÎTE, et non une carte par fiche. Chaque carte faisait ~56 px :
+ * à huit établissements, on faisait défiler sa propre administration avant
+ * d'atteindre son mur. Ici les lignes sont denses, la boîte se replie dès
+ * qu'il y en a plus de trois, et le repli se souvient d'une visite à l'autre.
+ *
+ * Le rangement par territoire n'apparaît QUE si l'on en gère dans plusieurs :
+ * pour tout le monde sauf l'admin, l'intitulé n'apprendrait rien et ne serait
+ * qu'une ligne de plus. Les fiches dont le territoire est inconnu ferment la
+ * marche plutôt que de s'intercaler.
+ */
+const CLE_PLI = 'pcv-fiches-pro-repliees'
+
+function FichesPro({ fiches, viewMode }: { fiches: FicheProMini[]; viewMode: ViewMode }) {
+  const groupes = useMemo(() => {
+    const ordre: string[] = []
+    const par: Record<string, FicheProMini[]> = {}
+    for (const f of fiches) {
+      const k = f.territoire ?? ''
+      if (!par[k]) { par[k] = []; ordre.push(k) }
+      par[k].push(f)
+    }
+    // Les fiches dont le territoire est inconnu ferment la marche ; le tri
+    // est stable, l'ordre d'arrivee des autres est donc conserve.
+    ordre.sort((a, b) => (a ? 0 : 1) - (b ? 0 : 1))
+    return ordre.map(k => [k, par[k]] as [string, FicheProMini[]])
+  }, [fiches])
+
+  const dense = fiches.length > 3
+  const [ouvert, setOuvert] = useState(false)
+
+  useEffect(() => {
+    if (!dense) { setOuvert(true); return }
+    let choix = false
+    try { choix = localStorage.getItem(CLE_PLI) === 'non' } catch { /* navigation privée */ }
+    setOuvert(choix)
+  }, [dense])
+
+  function basculer() {
+    setOuvert(o => {
+      try { localStorage.setItem(CLE_PLI, o ? 'oui' : 'non') } catch { /* idem */ }
+      return !o
+    })
+  }
+
+  if (fiches.length === 0) return null
+  const parTerritoire = groupes.filter(([k]) => k).length > 1
+
+  return (
+    <div
+      className="mx-4 mt-[14px] overflow-hidden rounded-[12px] border bg-white"
+      style={{ borderColor: '#F0EAE0' }}
+    >
+      <button
+        type="button"
+        onClick={dense ? basculer : undefined}
+        aria-expanded={dense ? ouvert : undefined}
+        className="flex w-full items-center gap-2 px-3 py-2.5 text-left"
+        style={{ cursor: dense ? 'pointer' : 'default' }}
+      >
+        <span className="shrink-0 text-[9px] font-extrabold uppercase text-primary" style={{ letterSpacing: '0.1em' }}>
+          {viewMode === 'public' ? 'Ses fiches' : 'Ce que je gère'}
+        </span>
+        <span className="shrink-0 text-[11px] font-bold text-texte-doux">{fiches.length}</span>
+        {dense && !ouvert && (
+          <span className="min-w-0 flex-1 truncate text-[11px] text-texte-tres-doux">
+            {groupes.map(([k, v]) => `${k || 'Ailleurs'} ${v.length}`).join(' · ')}
+          </span>
+        )}
+        {dense && (
+          <span
+            className="ml-auto shrink-0 text-texte-tres-doux"
+            style={{ transform: ouvert ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}
+          >
+            <IcChev size={14} />
+          </span>
+        )}
+      </button>
+
+      {ouvert && groupes.map(([cle, liste]) => (
+        <div key={cle || 'sans-territoire'}>
+          {parTerritoire && (
+            <div
+              className="px-3 py-1 text-[9.5px] font-bold uppercase text-texte-doux"
+              style={{ letterSpacing: '0.08em', background: '#FBF8F3', borderTop: '1px solid #F5F0E8' }}
+            >
+              {cle || 'Ailleurs'}
+            </div>
+          )}
+          {liste.map(f => <LigneFichePro key={`${f.kind}-${f.id}`} f={f} />)}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function LigneFichePro({ f }: { f: FicheProMini }) {
+  return (
+    <Link
+      href={f.kind === 'producer' ? `/producteur/${f.id}` : `/etablissement/${f.id}`}
+      className="flex w-full items-center gap-2.5 px-3 py-2 text-inherit no-underline"
+      style={{ borderTop: '1px solid #F5F0E8' }}
+    >
+      <div
+        className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-[7px] bg-primary-light text-primary"
+        aria-hidden
+      >
+        {f.photoUrl
+          ? <img src={f.photoUrl} alt="" className="h-full w-full object-cover" />
+          : f.kind === 'producer' ? <IcLeaf size={13} /> : <IcStore size={13} />}
+      </div>
+      <span className="min-w-0 flex-1 truncate text-[12.5px] font-bold text-texte" style={{ letterSpacing: '-0.01em' }}>
+        {f.nom}
+      </span>
+      {f.sub && <span className="shrink-0 truncate text-[10.5px] text-texte-doux" style={{ maxWidth: '38%' }}>{f.sub}</span>}
+      <span className="shrink-0 text-texte-tres-doux"><IcChev size={13} /></span>
+    </Link>
   )
 }
 
