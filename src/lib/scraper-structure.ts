@@ -71,6 +71,27 @@ const HORIZON_DEFAUT = 42
 const BUDGET_MS = 230_000
 
 /**
+ * L'ENVELOPPE DE TOUT LE PASSAGE.
+ *
+ * Elle existe parce que le contraire a coute un passage tue en plein vol :
+ * les budgets etaient poses PHASE PAR PHASE — 90 s pour lire les listes,
+ * 150 s pour visiter les fiches, 230 s pour traiter les evenements — et ils
+ * s'additionnaient jusqu'a 470 s, soit le double de ce que l'hebergeur
+ * accorde. Le travail etait fait, paye, et personne n'en savait rien : le
+ * journal ne s'ecrit qu'a la fin, et la fin n'arrivait jamais.
+ *
+ * Desormais chaque phase prend ce qu'il RESTE, en laissant de quoi finir la
+ * suivante. 210 s laisse une marge sous les 300 s de la route.
+ */
+const ENVELOPPE_MS = 210_000
+
+/** Ce qu'on garde pour traiter et ecrire, une fois la collecte finie. */
+const RESERVE_TRAITEMENT_MS = 110_000
+
+/** Fiches visitees au total dans un passage, toutes rubriques confondues. */
+const FICHES_PAR_PASSAGE = 110
+
+/**
  * Fiches téléchargées de front.
  *
  * Elles ne dépendent pas les unes des autres, et l'attente réseau dominait
@@ -188,10 +209,29 @@ export async function scrapeStructure(
   const publierAuto = source.publier_auto === true
   const terrSource = await territoireParId(source.territoire_id)
 
+  const depart = Date.now()
+  const finGlobale = depart + ENVELOPPE_MS
   const base = source.url.startsWith('http') ? source.url : 'https://' + source.url
-  // La page demandée d'abord, puis les rubriques ; sans doublon.
+  /*
+   * LA PAGE DEMANDÉE D'ABORD, PUIS LES RUBRIQUES — MAIS PAS TOUJOURS LES
+   * MÊMES EN PREMIER.
+   *
+   * Un passage ne peut pas tout moissonner : un site qui déclare quatorze
+   * rubriques représente des centaines de fiches. Si l'ordre était toujours
+   * identique, les dernières rubriques ne seraient JAMAIS lues — chaque
+   * passage s'arrêterait au même endroit. On décale donc le point de départ
+   * d'un passage à l'autre, et en quelques jours tout le site est couvert.
+   *
+   * Le décalage suit le nombre de passages déjà enregistrés : pas de tirage
+   * au sort, pour qu'un incident reste reproductible.
+   */
+  const { count: passages } = await supabaseAdmin
+    .from('scrape_logs').select('id', { count: 'exact', head: true }).eq('source_id', source.id)
+  const rubriques = (source.pagesEnPlus ?? []).filter(u => u !== base)
+  const decalage = rubriques.length ? (passages ?? 0) % rubriques.length : 0
+  const tournantes = rubriques.slice(decalage).concat(rubriques.slice(0, decalage))
   const bases: string[] = [base]
-  for (const u of source.pagesEnPlus ?? []) if (bases.indexOf(u) < 0) bases.push(u)
+  for (const u of tournantes) if (bases.indexOf(u) < 0) bases.push(u)
   const resultat: ScrapeStructureResult = {
     mode: 'structure', sourceId: source.id, sourceName: source.nom, dryRun,
     trouves: 0, doublons: 0, inseres: 0,
@@ -212,9 +252,9 @@ export async function scrapeStructure(
   // 1. Les fiches annoncées par les pages de liste, sans doublon d'adresse.
   // Un objet simple plutôt qu'une Map, pour la même raison que ci-dessus.
   const fiches: Record<string, EventStructure> = {}
-  // Meme garde-fou pour la lecture des pages structurees : quatorze rubriques
-  // paginees, c'est vite cinquante requetes.
-  const finListes = Date.now() + 90_000
+  // Les listes n'ont droit qu'au tiers de l'enveloppe : c'est la visite des
+  // fiches, derriere, qui rapporte.
+  const finListes = Math.min(depart + 60_000, finGlobale - RESERVE_TRAITEMENT_MS)
   for (const racine of bases) {
     if (Date.now() > finListes) break
     for (let p = 1; p <= PAGES_MAX; p++) {
@@ -251,14 +291,16 @@ export async function scrapeStructure(
      * s'arrête quand elle est vide : le passage suivant prendra la suite,
      * puisque rien n'est refait deux fois.
      */
-    const finCollecte = Date.now() + 150_000
+    const finCollecte = finGlobale - RESERVE_TRAITEMENT_MS
+    let quota = FICHES_PAR_PASSAGE
     for (const racine of bases) {
       const reste = finCollecte - Date.now()
-      if (reste < 12_000) break
-      const parFiches = await collecterParFiches(racine, reste)
+      if (reste < 12_000 || quota <= 0) { resultat.interrompu = true; break }
+      const parFiches = await collecterParFiches(racine, reste, quota)
       for (const u of Object.keys(parFiches.fiches)) fiches[u] = parFiches.fiches[u]
       resultat.parFiches += parFiches.visitees
       resultat.parOpenGraph += parFiches.parOpenGraph
+      quota -= parFiches.visitees
     }
   }
 
@@ -318,7 +360,7 @@ export async function scrapeStructure(
   const aRanger: { id: string; titre: string; description: string | null }[] = []
   // Et celles dont le texte ne ressemble pas à ce que l'app écrit ailleurs.
   const aReformuler: { id: string; titre: string; description: string }[] = []
-  const fini = Date.now() + BUDGET_MS
+  const fini = finGlobale
   for (let debut = 0; debut < aVisiter.length; debut += LOT) {
     if (Date.now() > fini) { resultat.interrompu = true; break }
     const lotUrls = aVisiter.slice(debut, debut + LOT)

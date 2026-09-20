@@ -136,13 +136,14 @@ async function retrouverLesDates(
 export async function collecterParFiches(
   pageListe: string,
   budgetMs = 120_000,
+  quota = FICHES_MAX,
 ): Promise<{ fiches: Record<string, EventStructure>; visitees: number; parOpenGraph: number }> {
   const out: Record<string, EventStructure> = {}
   const resultat = { fiches: out, visitees: 0, parOpenGraph: 0 }
 
   const liste = await lire(pageListe)
   if (!liste) return resultat
-  const urls = liensDeFiches(liste, pageListe).slice(0, FICHES_MAX)
+  const urls = liensDeFiches(liste, pageListe).slice(0, Math.max(0, Math.min(FICHES_MAX, quota)))
   if (!urls.length) return resultat
 
   const aujourdhui = new Intl.DateTimeFormat('fr-FR', {
