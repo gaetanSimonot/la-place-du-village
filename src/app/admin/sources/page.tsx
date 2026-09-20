@@ -76,6 +76,50 @@ interface ScrapeResult {
   interrompu?: boolean
 }
 
+/**
+ * LA SANTÉ D'UNE SOURCE, LUE DANS SON JOURNAL.
+ *
+ * Une source ne meurt pas bruyamment : le site refait son design, la page
+ * déménage, et elle rend zéro pendant trois mois sans que personne le
+ * remarque. Le journal de chaque passage est déjà en base — il suffit de le
+ * lire, aucune colonne à ajouter.
+ *
+ * Trois états :
+ *   muette   — les DEUX derniers passages n'ont rien trouvé : à regarder ;
+ *   en baisse — elle rapporte beaucoup moins qu'avant : le site a bougé ;
+ *   vivante  — rien à signaler.
+ *
+ * On exige DEUX passages vides et non un : un site en travaux un mardi soir
+ * ne doit pas déclencher une alerte.
+ */
+type Sante = { etat: 'vivante' | 'baisse' | 'muette'; detail: string } | null
+
+function santeDeLaSource(logs: Source['scrape_logs']): Sante {
+  const j = [...(logs ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 5)
+  if (j.length < 2) return null
+  const rien = (l: { trouves: number }) => (l.trouves ?? 0) === 0
+  if (rien(j[0]) && rien(j[1])) {
+    const suite = j.findIndex(l => !rien(l))
+    const n = suite < 0 ? j.length : suite
+    return { etat: 'muette', detail: n + ' passage' + (n > 1 ? 's' : '') + ' sans rien trouver' }
+  }
+  // Une chute franche par rapport à ce que la source donnait d'habitude.
+  const precedents = j.slice(1).map(l => l.trouves ?? 0).filter(n => n > 0)
+  if (precedents.length >= 2) {
+    const habituel = precedents.reduce((a, b) => a + b, 0) / precedents.length
+    if (habituel >= 5 && (j[0].trouves ?? 0) < habituel * 0.4) {
+      return { etat: 'baisse', detail: Math.round(j[0].trouves) + ' au lieu de ~' + Math.round(habituel) }
+    }
+  }
+  return { etat: 'vivante', detail: '' }
+}
+
+const COULEUR_SANTE: Record<'vivante' | 'baisse' | 'muette', string> = {
+  vivante: 'bg-green-100 text-green-700',
+  baisse:  'bg-amber-100 text-amber-700',
+  muette:  'bg-red-100 text-red-700',
+}
+
 const VERDICTS: Record<RegleRapport['verdict'], { label: string; color: string }> = {
   retenue:     { label: 'Retenu',      color: 'bg-green-100 text-green-700' },
   hors_zone:   { label: 'Hors zone',   color: 'bg-gray-100 text-gray-500' },
@@ -537,6 +581,7 @@ export default function SourcesPage() {
           const result  = scrapeResult[src.id]
           const isScraping = scraping === src.id
           const recurrent = src.type === 'recurrent'
+          const sante = santeDeLaSource(src.scrape_logs)
 
           return (
             <div key={src.id} className="bg-white rounded-2xl p-4 shadow-sm border border-transparent">
@@ -550,6 +595,11 @@ export default function SourcesPage() {
                         récurrent
                       </span>
                     )}
+                    {sante && sante.etat !== 'vivante' && (
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${COULEUR_SANTE[sante.etat]}`}>
+                        {sante.etat === 'muette' ? 'ne rend plus rien' : 'en baisse'}
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-gray-400 truncate mt-0.5">{src.url}</p>
                   <p className="text-xs text-gray-400 mt-0.5">
@@ -557,6 +607,14 @@ export default function SourcesPage() {
                     {recurrent && ` · ${src.rayon_km ?? '?'} km · ${src.horizon_jours ?? 42} j${src.publier_auto ? ' · auto-publié' : ''}`}
                     {src.dernier_scrape && ` · Dernier scrape : ${new Date(src.dernier_scrape).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
                   </p>
+                  {sante && sante.etat !== 'vivante' && (
+                    <p className="text-[11px] text-red-600 mt-1 leading-snug">
+                      {sante.detail}
+                      {sante.etat === 'muette'
+                        ? ' — le site a peut-être déménagé sa page. Relancez : l’exploration cherchera toute seule.'
+                        : ' — la page a peut-être changé de forme.'}
+                    </p>
+                  )}
                 </div>
                 <button
                   onClick={() => toggleActif(src.id, src.actif)}

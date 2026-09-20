@@ -8,7 +8,7 @@ import { getPrompt } from './prompts-ia'
 import { safeJsonParse } from './safeJsonParse'
 import { scrapeRecurrentSource, type ScrapeRecurrentResult } from './scraper-recurrent'
 import { scrapeStructure, type ScrapeStructureResult } from './scraper-structure'
-import { pagePubliesStructure } from './schemaOrg'
+import { explorerSource } from './sourceDecouverte'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -150,8 +150,18 @@ export async function scrapeSource(
    * La détection est automatique et ne demande aucun réglage : une page qui
    * ne publie rien de structuré retombe sur la lecture par modèle, ci-dessous.
    */
-  if (await pagePubliesStructure(source.url.startsWith('http') ? source.url : 'https://' + source.url)) {
-    return scrapeStructure(source, opts)
+  const piste = await explorerSource(source.url)
+  if (piste.agendas.length) {
+    /*
+     * MODE DOMAINE. On peut désormais donner « ville-pau.fr » au lieu de
+     * chercher soi-même la bonne page : l'exploration lit le menu, les
+     * chemins habituels et les liens, et rend la meilleure page d'agenda.
+     *
+     * La page DÉSIGNÉE par l'admin reste prioritaire quand elle vaut quelque
+     * chose — quelqu'un l'a choisie, ce n'est pas à nous de la corriger.
+     */
+    const cible = piste.agendas[0].url
+    return scrapeStructure({ ...source, url: cible }, opts)
   }
 
   // 1ter. Le pipeline classique ci-dessous écrit au fil de l'eau : il n'a pas

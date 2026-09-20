@@ -10,6 +10,7 @@ import {
   type EventStructure,
 } from './schemaOrg'
 import { rangerLeFourreTout, reformulerDescriptions, aBesoinDeReprise } from './scraper-retouches'
+import { collecterParFiches } from './scraper-fiches'
 
 /**
  * SCRAPE DE SOURCES QUI PUBLIENT LEURS DONNÉES STRUCTURÉES.
@@ -106,6 +107,10 @@ export interface ScrapeStructureResult {
   ranges: number
   /** Descriptions remises au format de la maison (trop longues, ou coupées). */
   reformulees: number
+  /** Fiches visitées une par une, faute de données sur la page de liste. */
+  parFiches: number
+  /** Images récupérées grâce à Open Graph, que l'ancien repli perdait. */
+  parOpenGraph: number
   evenements: { titre: string; statut: string; doublon: boolean; image: boolean; raison?: string }[]
 }
 
@@ -184,6 +189,8 @@ export async function scrapeStructure(
     geocodages: 0,
     ranges: 0,
     reformulees: 0,
+    parFiches: 0,
+    parOpenGraph: 0,
     evenements: [],
   }
 
@@ -207,9 +214,25 @@ export async function scrapeStructure(
     if (Object.keys(fiches).length === avant) break
     await pause(300)
   }
+  /*
+   * LA PAGE NE PUBLIE RIEN ? ON VA VOIR LES FICHES.
+   *
+   * Deuxième marche de l'escalier. Beaucoup de sites ne mettent aucune donnée
+   * sur leur page de liste mais en posent sur chaque fiche — et quasiment
+   * tous portent des balises Open Graph, qui donnent au moins le titre, le
+   * résumé et L'IMAGE. On suit donc les liens plutôt que d'aplatir la page,
+   * ce qui effaçait les images.
+   */
+  if (!Object.keys(fiches).length) {
+    const parFiches = await collecterParFiches(base, 120_000)
+    for (const u of Object.keys(parFiches.fiches)) fiches[u] = parFiches.fiches[u]
+    resultat.parFiches = parFiches.visitees
+    resultat.parOpenGraph = parFiches.parOpenGraph
+  }
+
   resultat.trouves = Object.keys(fiches).length
   if (!resultat.trouves) {
-    resultat.erreur = 'Aucun événement structuré sur cette page'
+    resultat.erreur = 'Aucun événement trouvé : ni données structurées, ni fiches lisibles'
     return resultat
   }
 
