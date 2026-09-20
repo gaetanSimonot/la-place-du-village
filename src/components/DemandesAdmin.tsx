@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { supabase } from '@/lib/supabase'
 
 interface EtabSummary {
@@ -72,6 +73,10 @@ function fmtDate(iso: string) {
 }
 
 export default function DemandesAdmin() {
+  /* L'ecran administre UNE ville : les demandes viennent d'elle. */
+  const { territoire: tAdmin } = useTerritoire()
+  const qTerrAdmin = tAdmin?.slug ? `territoire=${encodeURIComponent(tAdmin.slug)}` : ''
+
   const [demandes, setDemandes] = useState<Demande[]>([])
   const [producerDemandes, setProducerDemandes] = useState<ProducerDemande[]>([])
   const [loading, setLoading]   = useState(true)
@@ -82,8 +87,8 @@ export default function DemandesAdmin() {
     setLoading(true)
     const token = await getToken()
     const [commerceRes, producerRes] = await Promise.all([
-      fetch('/api/admin/commerce-requests', { headers: { Authorization: `Bearer ${token}` } }),
-      fetch('/api/admin/producer-requests', { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`/api/admin/commerce-requests?${qTerrAdmin}`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`/api/admin/producer-requests?${qTerrAdmin}`, { headers: { Authorization: `Bearer ${token}` } }),
     ])
     if (commerceRes.ok) {
       const d = await commerceRes.json()

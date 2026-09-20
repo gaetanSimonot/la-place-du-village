@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
@@ -62,6 +63,7 @@ interface QuotaResult {
 }
 
 export default function CommerceRequestModal({ onClose }: { onClose: () => void }) {
+
   const { user } = useAuth()
   const { openAuthModal } = useAuthModal()
   const [kind, setKind]       = useState<Kind | null>(null)
@@ -233,6 +235,12 @@ function ReferenceForm({
   onDone: (data: { auto_published?: boolean; already_exists?: boolean; etablissement_id?: string; producer_id?: string }) => void
   onQuota: (q: QuotaResult) => void
 }) {
+  /* PUBLIER DEPUIS LA VILLE QU'ON REGARDE. Sans ce parametre, la route
+     retombe sur le territoire par defaut : une publication faite en vue Pau
+     naissait aux Cevennes, et son auteur ne la retrouvait plus. */
+  const { territoire: tPub } = useTerritoire()
+  const qTerrPub = tPub?.slug ? `?territoire=${encodeURIComponent(tPub.slug)}` : ''
+
   const { isAdmin } = useAuth()
   const [nom, setNom]                 = useState('')
   const [type, setType]               = useState<string>('')
@@ -389,7 +397,7 @@ function ReferenceForm({
     const token = session?.access_token
     if (!token) { setError('Session expirée'); setSubmitting(false); return }
 
-    const endpoint = kind === 'commerce' ? '/api/commerce-request' : '/api/producer-request'
+    const endpoint = (kind === 'commerce' ? '/api/commerce-request' : '/api/producer-request') + qTerrPub
     const payload: Record<string, unknown> = {
       nom:             nom.trim(),
       adresse:         adresse.trim(),

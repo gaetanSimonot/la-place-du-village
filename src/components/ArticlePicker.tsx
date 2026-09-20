@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { supabase } from '@/lib/supabase'
 import type { ArticleJournal } from '@/lib/articles'
 
@@ -19,6 +20,10 @@ interface Props {
 }
 
 export default function ArticlePicker({ value, onChange }: Props) {
+  /* L'ecran administre UNE ville : ce qu'on y propose vient d'elle. */
+  const { territoire: tAdmin } = useTerritoire()
+  const qTerrAdmin = tAdmin?.slug ? `territoire=${encodeURIComponent(tAdmin.slug)}` : ''
+
   const [open, setOpen] = useState(false)
   const [current, setCurrent] = useState<ArticleJournal | null>(null)
   const [candidates, setCandidates] = useState<ArticleJournal[]>([])
@@ -29,13 +34,13 @@ export default function ArticlePicker({ value, onChange }: Props) {
     let cancelled = false
     ;(async () => {
       if (!value) { setCurrent(null); return }
-      const res = await fetch(`/api/admin/articles?statut=publie`, { headers: await authHeaders() })
+      const res = await fetch(`/api/admin/articles?statut=publie&${qTerrAdmin}`, { headers: await authHeaders() })
       const d = await res.json()
       const found = ((d.articles ?? []) as ArticleJournal[]).find(a => a.id === value)
       if (cancelled) return
       if (found) { setCurrent(found); return }
       // Fallback : article peut-être en valide ou en_attente
-      const res2 = await fetch(`/api/admin/articles`, { headers: await authHeaders() })
+      const res2 = await fetch(`/api/admin/articles?${qTerrAdmin}`, { headers: await authHeaders() })
       const d2 = await res2.json()
       const found2 = ((d2.articles ?? []) as ArticleJournal[]).find(a => a.id === value)
       if (cancelled) return
@@ -50,7 +55,7 @@ export default function ArticlePicker({ value, onChange }: Props) {
     let cancelled = false
     setLoading(true)
     ;(async () => {
-      const res = await fetch(`/api/admin/articles?statut=valide`, { headers: await authHeaders() })
+      const res = await fetch(`/api/admin/articles?statut=valide&${qTerrAdmin}`, { headers: await authHeaders() })
       const d = await res.json()
       if (!cancelled) {
         setCandidates((d.articles ?? []) as ArticleJournal[])

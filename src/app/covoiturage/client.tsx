@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import BottomNavBar from '@/components/BottomNavBar'
@@ -63,6 +64,11 @@ function Avatar({ name, url, size = 32 }: { name: string; url?: string | null; s
 }
 
 export default function CovoiturageListClient() {
+  /* La ville regardee voyage avec la requete : la route filtre bien,
+     encore faut-il lui dire laquelle. */
+  const { territoire: tCovoit } = useTerritoire()
+  const slugTerrCovoit = tCovoit?.slug ?? null
+
   const { user } = useAuth()
   const { openAuthModal } = useAuthModal()
   const [covoits, setCovoits] = useState<CovoitWithProf[]>([])
@@ -115,11 +121,12 @@ export default function CovoiturageListClient() {
     if (regularite === 'ponctuel') params.set('regulier', 'false')
     if (prixMax < 20)      params.set('prix_max',   String(prixMax))
     if (detourMax < 30)    params.set('detour_max', String(detourMax))
+    if (slugTerrCovoit) params.set('territoire', slugTerrCovoit)
     const res = await fetch(`/api/covoiturages?${params.toString()}`)
     const data = await res.json()
     setCovoits((data.covoiturages ?? []) as CovoitWithProf[])
     setLoading(false)
-  }, [depart, destination, sens, regularite, prixMax, detourMax])
+  }, [depart, destination, sens, regularite, prixMax, detourMax, slugTerrCovoit])
 
   useEffect(() => { load() }, [load])
 

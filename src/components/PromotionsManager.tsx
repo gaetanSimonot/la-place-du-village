@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { createPortal } from 'react-dom'
 import { supabase } from '@/lib/supabase'
 import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
@@ -31,6 +32,7 @@ interface Props {
 }
 
 export default function PromotionsManager({ etablissementId, etablissementPhotos = [] }: Props) {
+
   const [promos, setPromos] = useState<Promotion[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<Promotion | null>(null)
@@ -162,6 +164,12 @@ export function PromotionForm({ etablissementId, etablissementPhotos, promo, onC
   onClose: () => void
   onSaved: () => void
 }) {
+  /* PUBLIER DEPUIS LA VILLE QU'ON REGARDE. Sans ce parametre, la route
+     retombe sur le territoire par defaut : une publication faite en vue Pau
+     naissait aux Cevennes, et son auteur ne la retrouvait plus. */
+  const { territoire: tPub } = useTerritoire()
+  const qTerrPub = tPub?.slug ? `?territoire=${encodeURIComponent(tPub.slug)}` : ''
+
   const [title, setTitle]         = useState(promo?.title ?? '')
   const [description, setDescription] = useState(promo?.description ?? '')
   const [conditions, setConditions] = useState(promo?.conditions ?? '')
@@ -200,7 +208,7 @@ export function PromotionForm({ etablissementId, etablissementPhotos, promo, onC
       frequency,
       valid_until: validUntil || null,
     }
-    const url = promo ? `/api/promotions/${promo.id}` : '/api/promotions'
+    const url = promo ? `/api/promotions/${promo.id}` : `/api/promotions${qTerrPub}`
     const method = promo ? 'PATCH' : 'POST'
     const r = await fetch(url, {
       method,

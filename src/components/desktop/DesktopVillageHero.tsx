@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import Link from 'next/link'
 
 /**
@@ -36,11 +37,16 @@ const Fleche = () => (
 )
 
 export default function DesktopVillageHero() {
+  /* La ville regardee voyage avec la requete : la route filtre bien,
+     encore faut-il lui dire laquelle. */
+  const { territoire: tCounts } = useTerritoire()
+  const qTerrCounts = tCounts?.slug ? `?territoire=${encodeURIComponent(tCounts.slug)}` : ''
+
   const [c, setC] = useState<Compteurs>({})
 
   useEffect(() => {
     let vivant = true
-    fetch('/api/village/counts')
+    fetch(`/api/village/counts${qTerrCounts}`)
       .then(r => (r.ok ? r.json() : null))
       .then(d => { if (vivant && d) setC(d as Compteurs) })
       .catch(() => { /* les portes se passent de compteur */ })

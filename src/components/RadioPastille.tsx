@@ -1,5 +1,6 @@
 'use client'
 import useSWR from 'swr'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { useAdminSession } from '@/hooks/useAdminSession'
 import { sectionVisible } from '@/lib/visibilite'
 import { RADIO, LOGO_ROND, BLEU_RADIO, type PayloadRadio } from '@/lib/radio'
@@ -29,8 +30,13 @@ import { useRadioDirect } from '@/components/RadioDirectProvider'
 const fetcher = (u: string) => fetch(u).then(r => r.json())
 
 export default function RadioPastille() {
+  /* La ville regardee voyage avec la requete : la route filtre bien,
+     encore faut-il lui dire laquelle. */
+  const { territoire: tRadio } = useTerritoire()
+  const qTerrRadio = tRadio?.slug ? `?territoire=${encodeURIComponent(tRadio.slug)}` : ''
+
   const isAdmin = useAdminSession()
-  const { data } = useSWR<PayloadRadio>('/api/radio', fetcher, { revalidateOnFocus: false })
+  const { data } = useSWR<PayloadRadio>(`/api/radio${qTerrRadio}`, fetcher, { revalidateOnFocus: false })
   const { etat, basculer } = useRadioDirect()
 
   if (!data) return null

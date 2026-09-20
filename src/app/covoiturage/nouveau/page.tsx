@@ -1,5 +1,6 @@
 'use client'
 import { Suspense, useEffect, useState } from 'react'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -34,6 +35,12 @@ const empty: FormState = {
 }
 
 function NouveauCovoitInner() {
+  /* PUBLIER DEPUIS LA VILLE QU'ON REGARDE. Sans ce parametre, la route
+     retombe sur le territoire par defaut : une publication faite en vue Pau
+     naissait aux Cevennes, et son auteur ne la retrouvait plus. */
+  const { territoire: tPub } = useTerritoire()
+  const qTerrPub = tPub?.slug ? `?territoire=${encodeURIComponent(tPub.slug)}` : ''
+
   const router = useRouter()
   const params = useSearchParams()
   const editId = params.get('id')
@@ -121,7 +128,7 @@ function NouveauCovoitInner() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
-      const url = editId ? `/api/covoiturages/${editId}` : '/api/covoiturages'
+      const url = editId ? `/api/covoiturages/${editId}` : `/api/covoiturages${qTerrPub}`
       const method = editId ? 'PATCH' : 'POST'
       const res = await fetch(url, {
         method,
@@ -346,6 +353,7 @@ function NouveauCovoitInner() {
 }
 
 export default function NouveauCovoitPage() {
+
   return (
     <Suspense fallback={<main className="min-h-[100dvh] bg-creme p-6 font-inter"><p className="text-texte-doux">Chargement…</p></main>}>
       <NouveauCovoitInner />

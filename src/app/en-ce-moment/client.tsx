@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import { momentAge, type Moment } from '@/lib/moments'
@@ -10,6 +11,11 @@ import MomentComposer from '@/components/moments/MomentComposer'
 import BottomNavBar from '@/components/BottomNavBar'
 
 export default function EnCeMomentClient() {
+  /* La ville regardee voyage avec la requete : la route filtre bien,
+     encore faut-il lui dire laquelle. */
+  const { territoire: tMoments } = useTerritoire()
+  const qTerrMoments = tMoments?.slug ? `?territoire=${encodeURIComponent(tMoments.slug)}` : ''
+
   const router = useRouter()
   const { user } = useAuth()
   const { openAuthModal } = useAuthModal()
@@ -21,7 +27,7 @@ export default function EnCeMomentClient() {
 
   const load = async (openMomentId?: string | null, openFirst?: boolean) => {
     const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/moments', {
+    const res = await fetch(`/api/moments${qTerrMoments}`, {
       headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
     }).catch(() => null)
     const list = res && res.ok ? ((await res.json()).moments ?? []) as Moment[] : []

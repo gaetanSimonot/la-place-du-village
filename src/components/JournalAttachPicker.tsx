@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { supabase } from '@/lib/supabase'
 
 interface JournalRow {
@@ -30,6 +31,10 @@ interface Props {
 export default function JournalAttachPicker({
   articleId, currentJournalId, onAttached, onDetached, onClose,
 }: Props) {
+  /* L'ecran administre UNE ville : ce qu'on y propose vient d'elle. */
+  const { territoire: tAdmin } = useTerritoire()
+  const qTerrAdmin = tAdmin?.slug ? `territoire=${encodeURIComponent(tAdmin.slug)}` : ''
+
   const [journals, setJournals] = useState<JournalRow[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState<string | null>(null)
@@ -38,7 +43,7 @@ export default function JournalAttachPicker({
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const res = await fetch('/api/admin/journal', { headers: await authHeaders() })
+      const res = await fetch(`/api/admin/journal?${qTerrAdmin}`, { headers: await authHeaders() })
       const d = await res.json()
       if (cancelled) return
       setJournals((d.journaux ?? []) as JournalRow[])

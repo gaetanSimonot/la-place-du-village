@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import type { Moment } from '@/lib/moments'
 
 /**
@@ -11,6 +12,11 @@ import type { Moment } from '@/lib/moments'
  * moment actif (affiche alors une icône caméra neutre).
  */
 export default function MomentsPastille() {
+  /* La ville regardee voyage avec la requete : la route filtre bien,
+     encore faut-il lui dire laquelle. */
+  const { territoire: tMoments } = useTerritoire()
+  const qTerrMoments = tMoments?.slug ? `?territoire=${encodeURIComponent(tMoments.slug)}` : ''
+
   const router = useRouter()
   const [moments, setMoments] = useState<Moment[]>([])
 
@@ -18,7 +24,7 @@ export default function MomentsPastille() {
     let cancelled = false
     ;(async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/moments', {
+      const res = await fetch(`/api/moments${qTerrMoments}`, {
         headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
       }).catch(() => null)
       if (!res || !res.ok || cancelled) return

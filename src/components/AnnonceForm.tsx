@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
@@ -59,6 +60,12 @@ const TYPE_INFO: Record<AnnonceType, { label: string; sub: string; color: string
 const MAX_PHOTOS = 3
 
 export default function AnnonceForm({ initial, onSuccess, bottomOffset = 0 }: Props) {
+  /* PUBLIER DEPUIS LA VILLE QU'ON REGARDE. Sans ce parametre, la route
+     retombe sur le territoire par defaut : une annonce ecrite en vue Pau
+     naissait aux Cevennes, et son auteur ne la retrouvait plus. */
+  const { territoire: tPub } = useTerritoire()
+  const qTerrPub = tPub?.slug ? `?territoire=${encodeURIComponent(tPub.slug)}` : ''
+
   const router = useRouter()
   const { user, profile } = useAuth()
   const plan = (profile?.plan as Plan) ?? 'basic'
@@ -174,7 +181,7 @@ export default function AnnonceForm({ initial, onSuccess, bottomOffset = 0 }: Pr
     const token = session?.access_token
     if (!token) { setError('Connectez-vous pour continuer'); setSubmitting(false); return }
 
-    const url    = initial ? `/api/annonces/${initial.id}` : '/api/annonces'
+    const url    = initial ? `/api/annonces/${initial.id}` : `/api/annonces${qTerrPub}`
     const method = initial ? 'PATCH' : 'POST'
 
     const res = await fetch(url, {

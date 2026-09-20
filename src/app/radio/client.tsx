@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
 import useSWR from 'swr'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import BottomNavBar from '@/components/BottomNavBar'
 import RadioDirect from '@/components/RadioDirect'
 import { supabase } from '@/lib/supabase'
@@ -156,9 +157,14 @@ function LigneMention({ m, adminPeutCreer, onCreer }: {
 }
 
 export default function RadioClient() {
+  /* La ville regardee voyage avec la requete : la route filtre bien,
+     encore faut-il lui dire laquelle. */
+  const { territoire: tRadio } = useTerritoire()
+  const qTerrRadio = tRadio?.slug ? `?territoire=${encodeURIComponent(tRadio.slug)}` : ''
+
   const router = useRouter()
   const isAdmin = useAdminSession()
-  const { data, isLoading, mutate } = useSWR<PayloadRadio>('/api/radio', fetcher)
+  const { data, isLoading, mutate } = useSWR<PayloadRadio>(`/api/radio${qTerrRadio}`, fetcher)
   const [creerPour, setCreerPour] = useState<MentionRadio | null>(null)
   const [mapProvider, setMapProvider] = useState<'google' | 'maplibre'>('google')
   const [selectedId, setSelectedId] = useState<string | null>(null)
