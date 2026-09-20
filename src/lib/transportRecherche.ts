@@ -69,11 +69,65 @@ export function minutes(h: string): number {
   return Number(hh) * 60 + Number(mm)
 }
 
+/**
+ * LES ARRETS QUE DESSERT UN TERRITOIRE.
+ *
+ * Un arret n'a pas de territoire, et il ne peut pas en avoir : c'est un point
+ * sur une route. Ce qui en a un, c'est la LIGNE — `transport_lignes` porte
+ * `territoire_id`. On remonte donc la chaine : lignes du territoire, leurs
+ * courses, les arrets qu'elles marquent.
+ *
+ * `null` veut dire « pas de filtre » : sans territoire connu, tout le reseau,
+ * exactement comme avant. Un ENSEMBLE VIDE veut dire autre chose — ce
+ * territoire n'a aucune ligne, et la bonne reponse est « aucun car ici »,
+ * surement pas les horaires de la vallee d'a cote.
+ *
+ * Garde 60 s en memoire : la question revient a chaque recherche de trajet, et
+ * le reseau ne change qu'a l'import GTFS.
+ */
+const CACHE_MS = 60_000
+const cacheArrets = new Map<string, { a: number; ids: Set<string> }>()
+
+export async function arretsDuTerritoire(terr: string | null): Promise<Set<string> | null> {
+  if (!terr) return null
+  const garde = cacheArrets.get(terr)
+  if (garde && Date.now() - garde.a < CACHE_MS) return garde.ids
+
+  const { data: lignes } = await supabaseAdmin
+    .from('transport_lignes').select('route_id').eq('territoire_id', terr)
+  const routes = (lignes ?? []).map(l => l.route_id as string)
+  if (!routes.length) {
+    const vide = new Set<string>()
+    cacheArrets.set(terr, { a: Date.now(), ids: vide })
+    return vide
+  }
+
+  const { data: courses } = await supabaseAdmin
+    .from('transport_courses').select('trip_id').in('route_id', routes)
+  const trips = (courses ?? []).map(c => c.trip_id as string)
+
+  const ids = new Set<string>()
+  // Par paquets : la liste de courses peut depasser ce qu'une URL accepte.
+  for (let i = 0; i < trips.length; i += 100) {
+    const { data } = await supabaseAdmin
+      .from('transport_passages').select('stop_id').in('trip_id', trips.slice(i, i + 100))
+    for (const x of data ?? []) ids.add(x.stop_id as string)
+  }
+  cacheArrets.set(terr, { a: Date.now(), ids })
+  return ids
+}
+
 /** Toutes les communes desservies, une fois chacune. */
-export async function communesDesservies(): Promise<string[]> {
-  const { data } = await supabaseAdmin.from('transport_arrets').select('nom')
+export async function communesDesservies(terr: string | null = null): Promise<string[]> {
+  const [{ data }, gardes] = await Promise.all([
+    supabaseAdmin.from('transport_arrets').select('stop_id, nom'),
+    arretsDuTerritoire(terr),
+  ])
   const vues = new Set<string>()
-  for (const a of data ?? []) vues.add(communeDe(a.nom as string))
+  for (const a of data ?? []) {
+    if (gardes && !gardes.has(a.stop_id as string)) continue
+    vues.add(communeDe(a.nom as string))
+  }
   return Array.from(vues).sort((a, b) => a.localeCompare(b, 'fr'))
 }
 
@@ -84,10 +138,10 @@ export async function communesDesservies(): Promise<string[]> {
  * Egalite exacte d'abord, puis inclusion — dans un sens comme dans l'autre,
  * parce qu'on dit « Saint-Hippolyte » pour « SAINT-HIPPOLYTE DU FORT ».
  */
-export async function resoudreCommune(texte: string): Promise<{ commune: string | null; candidates: string[] }> {
+export async function resoudreCommune(texte: string, terr: string | null = null): Promise<{ commune: string | null; candidates: string[] }> {
   const q = sansAccent(texte).replace(/^(a|au|de|du|vers|pour|jusqu.a)\s+/i, '')
   if (!q) return { commune: null, candidates: [] }
-  const toutes = await communesDesservies()
+  const toutes = await communesDesservies(terr)
 
   const exact = toutes.find(c => sansAccent(c) === q)
   if (exact) return { commune: exact, candidates: [] }
@@ -100,10 +154,14 @@ export async function resoudreCommune(texte: string): Promise<{ commune: string 
   return { commune: null, candidates: proches.length > 0 ? proches : toutes }
 }
 
-/** Les identifiants d'arret d'une commune. */
-export async function arretsDeCommune(commune: string): Promise<string[]> {
-  const { data } = await supabaseAdmin.from('transport_arrets').select('stop_id, nom')
+/** Les identifiants d'arret d'une commune, dans le territoire regarde. */
+export async function arretsDeCommune(commune: string, terr: string | null = null): Promise<string[]> {
+  const [{ data }, gardes] = await Promise.all([
+    supabaseAdmin.from('transport_arrets').select('stop_id, nom'),
+    arretsDuTerritoire(terr),
+  ])
   return (data ?? [])
+    .filter(a => !gardes || gardes.has(a.stop_id as string))
     .filter(a => sansAccent(communeDe(a.nom as string)) === sansAccent(commune))
     .map(a => a.stop_id as string)
 }

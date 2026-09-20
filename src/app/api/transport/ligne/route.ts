@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { territoireDeLaRequete } from '@/lib/territoires'
 
 export const revalidate = 0
 export const fetchCache = 'force-no-store'
@@ -45,9 +46,17 @@ function alleger(points: [number, number][]): [number, number][] {
 export async function GET(req: NextRequest) {
   const demandee = (new URL(req.url).searchParams.get('route') ?? '').trim()
 
+  /*
+   * Le reseau d'UNE ville. Tout le reste de cette route decoule des lignes —
+   * courses, passages, arrets, traces — donc filtrer ici suffit a ne jamais
+   * dessiner les cars d'une vallee sur la carte d'une autre.
+   */
+  const terrLignes = await territoireDeLaRequete(req.url)
+
   let qLignes = supabaseAdmin
     .from('transport_lignes')
     .select('route_id, nom_court, nom_long, couleur, couleur_texte, maj')
+  if (terrLignes) qLignes = qLignes.eq('territoire_id', terrLignes.id)
   if (demandee) qLignes = qLignes.eq('route_id', demandee)
   const { data: lignes } = await qLignes
 

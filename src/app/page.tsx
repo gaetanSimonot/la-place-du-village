@@ -241,12 +241,12 @@ export default function HomePage() {
     if (!modeTransport || ligneTransport) return
     let vivant = true
     // Sans `?route=`, la route sert TOUT le reseau importe — dix lignes.
-    fetch('/api/transport/ligne')
+    fetch(`/api/transport/ligne${slugTerritoire ? `?territoire=${encodeURIComponent(slugTerritoire)}` : ''}`)
       .then(r => (r.ok ? r.json() : null))
       .then(d => { if (vivant && d?.lignes?.length) setLigneTransport(d) })
       .catch(() => toast('Horaires de bus indisponibles'))
     return () => { vivant = false }
-  }, [modeTransport, ligneTransport])
+  }, [modeTransport, ligneTransport, slugTerritoire])
   /**
    * La zone d'affichage — centres et rayon — avec sa derniere valeur connue.
    *

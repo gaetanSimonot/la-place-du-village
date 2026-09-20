@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { getPrompt } from '@/lib/prompts-ia'
 import { safeJsonParse } from '@/lib/safeJsonParse'
 import { communesDesservies, resoudreCommune } from '@/lib/transportRecherche'
+import { territoireDeLaRequete } from '@/lib/territoires'
 import { requireUser } from '@/lib/server-auth'
 import { rateLimit } from '@/lib/rateLimit'
 
@@ -75,7 +76,11 @@ export async function POST(req: NextRequest) {
     timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', hour12: false,
   }).format(new Date()).replace('h', ':')
 
-  const communes = await communesDesservies()
+  // Les communes qu'on propose sont celles que CE territoire dessert : citer
+  // Ganges a quelqu'un qui regarde Pau enverrait le modele sur une reponse
+  // juste pour un trajet que personne n'a demande.
+  const terrDictee = (await territoireDeLaRequete(req.url))?.id ?? null
+  const communes = await communesDesservies(terrDictee)
 
   let systeme = PROMPT_DEFAUT
   try { systeme = await getPrompt('transport_dictee') } catch { /* repli ci-dessus */ }
@@ -105,7 +110,7 @@ export async function POST(req: NextRequest) {
   // On repasse SES communes dans notre resolveur : il ne peut pas en inventer.
   const valider = async (v: unknown): Promise<string | null> => {
     if (typeof v !== 'string' || !v.trim()) return null
-    const r = await resoudreCommune(v)
+    const r = await resoudreCommune(v, terrDictee)
     return r.commune
   }
   const [depart, arrivee] = await Promise.all([valider(lu.depart), valider(lu.arrivee)])

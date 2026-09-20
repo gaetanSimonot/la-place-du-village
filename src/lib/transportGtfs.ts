@@ -260,8 +260,19 @@ export async function importerGtfsLio(
   if (!rep.ok) throw new Error(`Telechargement GTFS : HTTP ${rep.status}`)
   const r = extraireGtfs(new Uint8Array(await rep.arrayBuffer()), lignes)
 
-  // L'ordre compte : les courses referencent les lignes, les passages
-  // referencent les courses.
+  /*
+   * L'ordre compte : les courses referencent les lignes, les passages
+   * referencent les courses.
+   *
+   * Le TERRITOIRE des lignes n'est pas ecrit ici, et c'est voulu : ce flux est
+   * celui du reseau liO, donc des Cevennes, et la valeur par defaut posee en
+   * base y suffit. Une ligne deja connue garde la sienne — l'upsert ne touche
+   * que les colonnes fournies.
+   *
+   * LE JOUR OU UN SECOND RESEAU ARRIVE, c'est ici que ca se joue : il faudra
+   * un territoire par flux, sinon les cars de Pau naitront cevenols et la
+   * carte de Ganges les dessinera.
+   */
   await ecrire('transport_lignes', r.lignes, 'route_id')
   await ecrire('transport_arrets', r.arrets, 'stop_id')
   await ecrire('transport_traces', r.traces, 'shape_id')

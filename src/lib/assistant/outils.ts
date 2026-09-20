@@ -293,7 +293,7 @@ export async function executerOutil(nom: string, args: Args, terr: string | null
     case 'chercher_seances':        return seances(args, terr)
     case 'chercher_promotions':     return promotions(args, terr)
     case 'chercher_annonces':       return annonces(args, terr)
-    case 'chercher_bus':            return bus(args)
+    case 'chercher_bus':            return bus(args, terr)
     case 'meteo':                   return meteo(args)
     case 'proposer_action':         return proposerAction(args)
     case 'aide_lpv':                return aide()
@@ -845,13 +845,13 @@ async function proposerAction(a: Args): Promise<ResultatOutil> {
  *
  * Le calcul est celui de la carte, a la ligne pres — src/lib/transportRecherche.ts.
  */
-async function bus(a: Args): Promise<ResultatOutil> {
+async function bus(a: Args, terr: string | null = null): Promise<ResultatOutil> {
   const depart = typeof a.depart === 'string' ? a.depart : ''
   const arrivee = typeof a.arrivee === 'string' ? a.arrivee : ''
   const date = typeof a.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(a.date) ? a.date : dateParis()
   const heure = typeof a.heure === 'string' && /^\d{2}:\d{2}$/.test(a.heure) ? a.heure : heureParis()
 
-  const [d, v] = await Promise.all([resoudreCommune(depart), resoudreCommune(arrivee)])
+  const [d, v] = await Promise.all([resoudreCommune(depart, terr), resoudreCommune(arrivee, terr)])
 
   if (!d.commune || !v.commune) {
     const manquant = !d.commune ? depart : arrivee
@@ -868,7 +868,7 @@ async function bus(a: Args): Promise<ResultatOutil> {
     return { pourLeModele: { erreur: 'Le départ et l’arrivée sont la même commune.' }, cartes: [] }
   }
 
-  const [ids1, ids2] = await Promise.all([arretsDeCommune(d.commune), arretsDeCommune(v.commune)])
+  const [ids1, ids2] = await Promise.all([arretsDeCommune(d.commune, terr), arretsDeCommune(v.commune, terr)])
   const r = await chercherTrajets(ids1, ids2, date, heure, 6)
   const nom = (id: string) => r.arrets.find(x => x.stop_id === id)?.nom ?? ''
 

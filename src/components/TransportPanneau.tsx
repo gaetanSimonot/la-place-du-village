@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 
 import ClientPortal from './ClientPortal'
 import { authedFetch } from '@/lib/swr-fetchers'
+import { useTerritoire } from '@/components/TerritoireProvider'
 
 const DicteeModal = dynamic(() => import('./DicteeModal'), { ssr: false })
 
@@ -250,6 +251,10 @@ export default function TransportPanneau({
   onDemanderAbonnement: () => void
   onFermer: () => void
 }) {
+  /* Les communes proposees a la dictee sont celles que CE territoire dessert. */
+  const { territoire: terrTransport } = useTerritoire()
+  const qTerrTransport = terrTransport?.slug ? `?territoire=${encodeURIComponent(terrTransport.slug)}` : ''
+
   const [communeDepart, setCommuneDepart] = useState('')
   const [communeArrivee, setCommuneArrivee] = useState('')
   const [arretDepart, setArretDepart] = useState<string | null>(null)
@@ -380,7 +385,7 @@ export default function TransportPanneau({
       // authedFetch et PAS fetch : la route demande un compte, et un appel nu
       // repartait en 401 sans que rien ne se remplisse. Il porte le jeton et
       // le rafraîchit s'il a expiré — un jeton périmé échoue en silence.
-      const r = await authedFetch('/api/transport/dictee', {
+      const r = await authedFetch(`/api/transport/dictee${qTerrTransport}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ texte }),
