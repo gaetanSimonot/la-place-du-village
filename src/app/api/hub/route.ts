@@ -71,6 +71,17 @@ function validateClientZone(
  * Pas inclus ici car ça casserait le cache (response variable par user).
  */
 
+/*
+ * SOIXANTE SECONDES DE CACHE, DELIBEREMENT — ne pas « corriger » cette route
+ * en y collant force-no-store comme sur les autres lectures de config.
+ *
+ * C'est l'ecran le plus demande de l'app, et son cache CDN est ce qui le rend
+ * instantane. Le decalage que ce cache provoquait pour l'admin — une mise en
+ * avant invisible pendant 60 a 180 s — a deja ete regle autrement, par
+ * src/lib/hubFresh.ts : l'admin marque le hub « sale » et son prochain appel
+ * passe a cote du cache. Le probleme est resolu sans sacrifier la vitesse
+ * pour tout le monde.
+ */
 export const revalidate = 60
 
 type HeroItem =

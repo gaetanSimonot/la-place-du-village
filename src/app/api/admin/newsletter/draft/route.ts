@@ -5,6 +5,16 @@ import { monterLettreDeLaSemaine } from '@/lib/newsletterAuto'
 import { territoireDeLaRequete } from '@/lib/territoires'
 import type { NewsletterBlock } from '@/lib/newsletterBlocks'
 
+/*
+ * Une config admin lue par une route : les trois directives vont ensemble.
+ * `force-dynamic` seul ne suffit pas — Next garde en cache le fetch vers
+ * Supabase, et l'editeur rouvre sur le brouillon d'avant la derniere
+ * sauvegarde. Piege deja vecu sur /api/splash.
+ */
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const fetchCache = 'force-no-store'
+
 /**
  * Brouillon de newsletter sauvegardé côté SERVEUR (table config, clé
  * 'newsletter_draft'). Permet de configurer une fois et de retrouver son
