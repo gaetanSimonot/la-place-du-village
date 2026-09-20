@@ -181,15 +181,24 @@ export default function CinemaClient() {
    * Les salles dont on porte l'enseigne : celle qu'on regarde, ou toutes
    * quand on les regarde ensemble.
    */
+  /*
+   * L'ENSEIGNE N'APPARAIT QUE SUR UNE SALLE.
+   *
+   * En « Tous », on alignait les logos des trois salles cote a cote. Ils
+   * n'ont ni les memes proportions ni le meme poids visuel — une bande, un
+   * carre, un bloc — et la ligne ne tenait pas debout. Un titre commun est
+   * plus juste : la page ne parle alors d'aucune salle en particulier.
+   */
   const enseignes = useMemo(
-    () => (salleUnique ? [salleUnique] : salles),
-    [salleUnique, salles],
+    () => (salleUnique ? [salleUnique] : []),
+    [salleUnique],
   )
 
-  /** Les villes, dans l'ordre des salles et sans répétition. */
+  /** La ville de la salle regardee. En « Tous », aucune : le compte des
+   *  salles le dit mieux qu'une enumeration de communes. */
   const communes = useMemo(
-    () => Array.from(new Set(enseignes.map(c => c.commune).filter(Boolean) as string[])),
-    [enseignes],
+    () => (salleUnique && salleUnique.commune ? [salleUnique.commune] : []),
+    [salleUnique],
   )
 
   /** Changer de salle. L'URL suit, donc le lien reste partageable. */
@@ -305,7 +314,8 @@ export default function CinemaClient() {
               </button>
             </div>
           ))}
-          {/* Aucune salle du tout : il reste un titre, sinon la page n'en a pas. */}
+          {/* En « Tous » — et quand il n'y a aucune salle — c'est ce titre qui
+              porte la page, a la place des enseignes empilees. */}
           {enseignes.length === 0 && (
             <h1 className="m-0 font-title"
               style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--cine-ink)' }}>
@@ -317,24 +327,36 @@ export default function CinemaClient() {
         {/* En agrégé, la ligne d'enseignes ne dit pas d'elle-même ce qu'on
             regarde : cette phrase le dit. Sur une seule salle, sa ville est
             déjà en haut à droite — la répéter n'apprendrait rien. */}
-        {!salleUnique && enseignes.length > 1 && (
+        {!salleUnique && salles.length > 1 && (
           <p className="m-0 text-center" style={{ marginTop: 14, fontSize: 12, color: 'var(--cine-dim2)' }}>
-            {enseignes.length} salles autour de vous
+            {salles.length} salles autour de vous
           </p>
         )}
       </div>
 
-      {/* Choisir sa salle — n'apparaît qu'à partir de la deuxième. */}
+      {/* Choisir sa salle — n'apparaît qu'à partir de la deuxième.
+
+          ELLES PASSENT A LA LIGNE, elles ne defilent pas. En defilement
+          horizontal centre, la premiere pastille sortait de l'ecran par la
+          GAUCHE et devenait inatteignable : on ne peut pas remonter avant le
+          debut d'une zone centree. Des qu'un troisieme cinema est arrive, le
+          bouton « Tous » a disparu. A la ligne, tout reste visible et
+          cliquable, quel que soit le nombre de salles. */}
       {salles.length > 1 && (
-        <div className="flex justify-center gap-2 overflow-x-auto px-4 pb-4" style={{ scrollbarWidth: 'none' }}>
+        <div className="flex flex-wrap justify-center px-4 pb-4"
+          style={{ gap: 8, rowGap: 8 }}>
           {[{ id: 'tous', nom: 'Tous', cle: null as string | null }, ...salles.map(c => ({
             id: c.id, nom: c.nom, cle: c.slug ?? c.id,
           }))].map(o => {
             const actif = o.cle === null ? !cinema : cinema?.id === o.id
             return (
               <button key={o.id} onClick={() => choisirSalle(o.cle)}
-                className="flex-none whitespace-nowrap"
+                className="flex-none"
                 style={{
+                  // Un nom long ne pousse plus la ligne hors de l'ecran : il
+                  // se coupe proprement avec des points de suspension.
+                  maxWidth: 'min(15rem, 46vw)',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   borderRadius: 999, padding: '7px 13px', fontSize: 12,
                   fontWeight: actif ? 700 : 600,
                   border: `1px solid ${actif ? 'var(--cine-accent)' : 'rgba(250,251,250,.12)'}`,
