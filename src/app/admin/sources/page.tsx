@@ -23,6 +23,7 @@ interface Source {
   rayon_km?: number | null
   horizon_jours?: number | null
   publier_auto?: boolean | null
+  indice_geo?: string | null
   dernier_scrape: string | null
   created_at: string
   scrape_logs: { id: string; created_at: string; trouves: number; doublons: number; inseres: number; erreur: string | null }[]
@@ -148,6 +149,8 @@ export default function SourcesPage() {
   })
   const [adding, setAdding] = useState(false)
   const [showForm, setShowForm] = useState(false)
+  /** Identifiant de la source ouverte, ou null quand on en crée une. */
+  const [enEdition, setEnEdition] = useState<string | null>(null)
 
   const fetchSources = useCallback(async () => {
     setLoading(true)
@@ -159,24 +162,82 @@ export default function SourcesPage() {
 
   useEffect(() => { fetchSources() }, [fetchSources])
 
-  const addSource = async () => {
+  const formulaireVide = {
+    nom: '', url: '', frequence: '24h', type: 'evenements',
+    rayon_km: '50', horizon_jours: '42', publier_auto: false, indice_geo: 'Cévennes, France',
+  }
+
+  /**
+   * ENREGISTRER — création OU modification.
+   *
+   * Deux défauts réparés ici d'un coup.
+   *
+   * LA CHARGE JETAIT LES RÉGLAGES. Pour une source d'événements, on n'envoyait
+   * que le nom, l'adresse, la fréquence et le type : `publier_auto` et
+   * `horizon_jours` étaient silencieusement perdus. Cocher « publier
+   * directement » à la création n'a donc JAMAIS rien fait — la case existait,
+   * le réglage n'arrivait pas.
+   *
+   * ET ON NE POUVAIT PAS REVENIR DESSUS. Le formulaire ne savait que créer :
+   * le seul moyen de changer un réglage était de supprimer la source et de la
+   * refaire — ce qui détache ses événements au passage, puisque la clé
+   * étrangère les met à `null` au lieu de les supprimer.
+   */
+  const enregistrer = async () => {
     if (!form.nom.trim() || !form.url.trim()) return
     setAdding(true)
-    const payload = form.type === 'recurrent'
-      ? form
-      : { nom: form.nom, url: form.url, frequence: form.frequence, type: 'evenements' }
-    await fetch(`/api/admin/sources${qTerr}`, {
-      method: 'POST',
-      headers: await adminHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(payload),
-    })
-    setForm({
-      nom: '', url: '', frequence: '24h', type: 'evenements',
-      rayon_km: '50', horizon_jours: '42', publier_auto: false, indice_geo: 'Cévennes, France',
-    })
+    const payload = {
+      nom: form.nom.trim(),
+      url: form.url.trim(),
+      frequence: form.frequence,
+      type: form.type,
+      horizon_jours: form.horizon_jours,
+      publier_auto: form.publier_auto,
+      ...(form.type === 'recurrent'
+        ? { rayon_km: form.rayon_km, indice_geo: form.indice_geo }
+        : {}),
+    }
+    if (enEdition) {
+      // La route de modification prend le corps tel quel : on n'y met que ce
+      // qui se règle, jamais l'identifiant ni le territoire.
+      await fetch(`/api/admin/sources/${enEdition}`, {
+        method: 'PATCH',
+        headers: await adminHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          ...payload,
+          horizon_jours: parseInt(String(form.horizon_jours), 10) || 42,
+          rayon_km: form.type === 'recurrent' ? (parseInt(String(form.rayon_km), 10) || null) : null,
+        }),
+      })
+    } else {
+      await fetch(`/api/admin/sources${qTerr}`, {
+        method: 'POST',
+        headers: await adminHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(payload),
+      })
+    }
+    setForm(formulaireVide)
+    setEnEdition(null)
     setShowForm(false)
     await fetchSources()
     setAdding(false)
+  }
+
+  /** Ouvre le formulaire sur une source existante. */
+  const ouvrirSource = (src: Source) => {
+    setEnEdition(src.id)
+    setForm({
+      nom: src.nom ?? '',
+      url: src.url ?? '',
+      frequence: src.frequence ?? '24h',
+      type: src.type ?? 'evenements',
+      rayon_km: String(src.rayon_km ?? 50),
+      horizon_jours: String(src.horizon_jours ?? 42),
+      publier_auto: src.publier_auto === true,
+      indice_geo: src.indice_geo ?? '',
+    })
+    setShowForm(true)
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const toggleActif = async (id: string, actif: boolean) => {
@@ -477,7 +538,7 @@ export default function SourcesPage() {
         <Link href="/admin" className="text-[#C4622D] text-xl font-bold">←</Link>
         <h1 className="font-bold text-lg flex-1">Sources de scraping</h1>
         <button
-          onClick={() => setShowForm(f => !f)}
+          onClick={() => { setEnEdition(null); setForm(formulaireVide); setShowForm(f => !f) }}
           className="bg-[#C4622D] text-white text-sm font-bold px-3 py-1.5 rounded-lg"
         >
           + Ajouter
@@ -597,11 +658,11 @@ export default function SourcesPage() {
               <option value="mensuel">Mensuel</option>
             </select>
             <button
-              onClick={addSource}
+              onClick={enregistrer}
               disabled={adding}
               className="ml-auto bg-[#C4622D] text-white text-sm font-bold px-4 py-2 rounded-xl disabled:opacity-50"
             >
-              {adding ? '...' : 'Sauvegarder'}
+              {adding ? '...' : (enEdition ? 'Enregistrer les modifications' : 'Sauvegarder')}
             </button>
           </div>
         </div>
@@ -703,6 +764,13 @@ export default function SourcesPage() {
                   {isScraping ? (
                     <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> Scraping...</>
                   ) : '▶ Scraper'}
+                </button>
+                <button
+                  onClick={() => ouvrirSource(src)}
+                  aria-label="Modifier cette source"
+                  className="px-3 py-2 bg-[#FBF7F0] border border-[#E8E0D5] rounded-xl text-sm"
+                >
+                  ✎
                 </button>
                 <button
                   onClick={() => deleteSource(src.id)}
