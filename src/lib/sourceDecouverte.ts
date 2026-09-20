@@ -67,16 +67,29 @@ async function lire(url: string): Promise<{ html: string; url: string } | null> 
   }
 }
 
-/** Tous les liens d'une page, ramenés à des adresses absolues. */
+/**
+ * Tous les liens d'une page, ramenés à des adresses absolues.
+ *
+ * ON NE LIT QUE LA BALISE OUVRANTE. Premier jet, l'expression exigeait le
+ * `</a>` fermant à moins de 120 caractères — ce qui marche pour un lien de
+ * menu et rate TOUS ceux d'un site qui enveloppe une carte entière (image,
+ * titre, résumé, dates) dans son lien. Le guide du Béarn ne rendait alors
+ * aucun lien, alors que sa page d'agenda en porte dix-huit.
+ *
+ * Le texte du lien n'est plus qu'un aperçu de ce qui suit, ce qui suffit : il
+ * ne sert qu'à reconnaître un mot de menu.
+ */
 function liens(html: string, base: string): { href: string; texte: string }[] {
   const out: { href: string; texte: string }[] = []
-  const re = /<a\b[^>]*href=["']([^"'#]+)["'][^>]*>([\s\S]{0,120}?)<\/a>/gi
+  const re = /<a\b[^>]*href=["']([^"'#]+)["'][^>]*>/gi
   let m: RegExpExecArray | null
   while ((m = re.exec(html)) !== null) {
     let href = m[1].trim()
     if (!href || /^(javascript:|mailto:|tel:)/i.test(href)) continue
     try { href = new URL(href, base).toString() } catch { continue }
-    out.push({ href, texte: m[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() })
+    const apercu = html.slice(re.lastIndex, re.lastIndex + 200)
+      .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+    out.push({ href, texte: apercu })
   }
   return out
 }
@@ -103,36 +116,56 @@ function compterEvents(html: string): number {
 /**
  * LES LIENS QUI MÈNENT AUX FICHES D'UN ÉVÉNEMENT.
  *
- * On ne cherche pas un mot-clé : on cherche une RÉPÉTITION. Une page de liste
- * porte vingt liens bâtis sur le même moule, et c'est le moule qui les trahit,
- * quel que soit le vocabulaire du site.
+ * On ne cherche pas un mot-clé, on cherche une RÉPÉTITION : une page de liste
+ * porte vingt liens qui partent tous au même endroit du site.
  *
- * LE MOULE, C'EST LE CHEMIN SANS SON DERNIER MORCEAU. Premier jet, on ne
- * remplaçait que les chiffres : « /evenements/bigflo-oli » et
- * « /evenements/christophe-mae » comptaient alors pour deux moules différents,
- * et la page d'accueil du Zénith — qui porte pourtant toute sa saison — ne
- * ressemblait à rien. En ne gardant que le préfixe, les deux se rejoignent
- * sous « evenements/* », qui est exactement ce qu'ils sont.
+ * LE SIGNAL, C'EST LE PRÉFIXE COMMUN, pas le chemin entier. Deuxième essai,
+ * on regroupait sur le chemin privé de son dernier morceau — ce qui suffisait
+ * pour « /evenements/bigflo-oli », mais pas pour le guide du Béarn, qui range
+ * ses fiches en « /fr/agenda/cirque/monein-264/stage ». La catégorie et la
+ * commune varient, donc chaque fiche fabriquait son propre moule et rien ne
+ * se regroupait, alors que « fr/agenda » les rassemblait toutes.
+ *
+ * On essaie donc TOUS les préfixes, de un à quatre morceaux, et on garde le
+ * plus PRÉCIS parmi ceux qui rassemblent le plus de fiches. « fr » et
+ * « fr/agenda » en rassemblent autant ; c'est « fr/agenda » qui dit quelque
+ * chose.
  */
 function moulesDeLiens(html: string, pageListe: string): { forme: string; urls: string[] }[] {
   let base: URL
   try { base = new URL(pageListe) } catch { return [] }
   const profondeurListe = base.pathname.replace(/\/+$/, '').split('/').filter(Boolean).length
 
-  const parForme: Record<string, string[]> = {}
+  const parPrefixe: Record<string, string[]> = {}
   for (const l of liens(html, pageListe)) {
     let u: URL
     try { u = new URL(l.href) } catch { continue }
     if (u.host !== base.host) continue
     const segs = u.pathname.replace(/\/+$/, '').split('/').filter(Boolean)
+    // Plus profond que la page de liste : sinon c'est de la navigation.
     if (segs.length <= profondeurListe) continue
-    // Le dernier morceau est le nom de la fiche : il varie par nature.
-    const forme = segs.slice(0, -1).map(x => x.replace(/\d+/g, '#')).join('/') + '/*'
-    ;(parForme[forme] = parForme[forme] || []).push(u.origin + u.pathname)
+    const propre = u.origin + u.pathname
+    for (let k = 1; k <= Math.min(4, segs.length - 1); k++) {
+      const prefixe = segs.slice(0, k).map(x => x.replace(/\d+/g, '#')).join('/')
+      ;(parPrefixe[prefixe] = parPrefixe[prefixe] || []).push(propre)
+    }
   }
-  return Object.entries(parForme)
+
+  const groupes = Object.entries(parPrefixe)
     .map(([forme, v]) => ({ forme, urls: sansDoublon(v) }))
-    .sort((a, b) => b.urls.length - a.urls.length)
+  if (!groupes.length) return []
+  const meilleur = Math.max(...groupes.map(g => g.urls.length))
+
+  /*
+   * Le plus precis parmi les plus fournis. Un préfixe plus long qui garde
+   * l'essentiel des fiches décrit mieux ce qu'elles sont — et un préfixe
+   * trop court ramène la navigation du site avec.
+   */
+  return groupes
+    .filter(g => g.urls.length >= meilleur * 0.8)
+    .sort((a, b) =>
+      b.forme.split('/').length - a.forme.split('/').length
+      || b.urls.length - a.urls.length)
 }
 
 /** Les adresses des fiches d'une page de liste, ou rien. */
@@ -161,19 +194,39 @@ export function formeDesFiches(html: string, pageListe: string): { forme: string
 export function metaOpenGraph(html: string): {
   titre: string | null; description: string | null; image: string | null
 } {
+  /*
+   * LE GUILLEMET FERMANT DOIT ÊTRE LE MÊME QUE L'OUVRANT.
+   *
+   * Premier jet : `content=["']([^"']*)["']`. Un titre en guillemets doubles
+   * qui contient une apostrophe s'arrêtait dessus — « Le Tour de l'Ossau »
+   * devenait « Le Tour de l », et « Théâtre « L'albert qu'Esm » » devenait
+   * « Théâtre « L ». En français, une apostrophe par titre est la norme :
+   * le défaut coupait la moitié des fiches.
+   *
+   * La référence arrière `\1` impose le même guillemet des deux côtés, et
+   * l'apostrophe redevient un caractère ordinaire.
+   */
   const lire1 = (prop: string): string | null => {
+    const echappe = prop.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const re = new RegExp(
-      '<meta[^>]+(?:property|name)=["\']' + prop + '["\'][^>]*content=["\']([^"\']*)["\']', 'i')
+      '<meta[^>]+(?:property|name)=(["\'])' + echappe + '\\1[^>]*content=(["\'])([\\s\\S]*?)\\2', 'i')
     const m = html.match(re)
-    if (m?.[1]) return m[1]
-    // Certains outils inversent l'ordre des attributs.
+    if (m?.[3] != null) return m[3]
+    // Certains outils posent `content` avant `property`.
     const re2 = new RegExp(
-      '<meta[^>]+content=["\']([^"\']*)["\'][^>]*(?:property|name)=["\']' + prop + '["\']', 'i')
-    return html.match(re2)?.[1] ?? null
+      '<meta[^>]+content=(["\'])([\\s\\S]*?)\\1[^>]*(?:property|name)=(["\'])' + echappe + '\\3', 'i')
+    const m2 = html.match(re2)
+    return m2?.[2] ?? null
   }
   const decode = (s: string | null) => s
-    ? s.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#0?39;|&apos;|&rsquo;/g, "'")
-       .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').trim()
+    ? s.replace(/&amp;/g, '&').replace(/&quot;|&#0?34;/g, '"')
+       .replace(/&#0?39;|&apos;|&rsquo;|&#8217;/g, "'")
+       .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+       .replace(/&nbsp;|&#160;/g, ' ')
+       .replace(/&laquo;|&#171;/g, '«').replace(/&raquo;|&#187;/g, '»')
+       .replace(/&eacute;/g, 'é').replace(/&egrave;/g, 'è').replace(/&agrave;/g, 'à')
+       .replace(/&ecirc;/g, 'ê').replace(/&ccedil;/g, 'ç').replace(/&ocirc;/g, 'ô')
+       .replace(/\s+/g, ' ').trim()
     : null
   return {
     titre: decode(lire1('og:title') ?? lire1('twitter:title')),
