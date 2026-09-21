@@ -287,7 +287,34 @@ async function lookupAdresseCache(
   }
 }
 
-async function lookupLieuxCache(lieuNom: string, commune?: string | null): Promise<Omit<GeoResult, 'approx'> | null> {
+async function lookupLieuxCache(
+  lieuNom: string,
+  commune?: string | null,
+  /**
+   * CHERCHE-T-ON UNE COMMUNE, ET NON UN LIEU ?
+   *
+   * La recherche est volontairement LARGE : « Chez Milonga » doit retrouver
+   * « Milonga Cave », sinon on repart chez Google pour un endroit qu'on
+   * connait par coeur. Cette largeur est bonne — pour un nom de lieu.
+   *
+   * Avec un nom de COMMUNE, elle devient un piege. Des dizaines de fiches
+   * portent le nom du village dans le leur : « La Bougeotte - Ganges 34 »,
+   * « Cinema l'arc en ciel, Ganges ». Toutes contiennent « ganges », donc
+   * toutes sont candidates — et la regle finale, qui prefere « la fiche la
+   * plus precise, celle qui porte une adresse », donne la victoire au
+   * commerce a tous les coups, puisque la commune nue n'a jamais d'adresse.
+   *
+   * Resultat mesure le 21/09/2026 : toute annonce disant seulement « a
+   * Ganges » atterrissait Place Fabre Olivet, chez La Bougeotte. « Laroque »
+   * tombait a la salle de la mairie, « Le Vigan » a la mediatheque. C'est le
+   * cas le plus FREQUENT d'une annonce de village, et l'erreur ne se voyait
+   * pas : une punaise bien posee, une adresse credible, le bon village.
+   *
+   * Quand ce drapeau est leve, seul un lieu qui EST cette commune repond.
+   * « La Bougeotte a Ganges » n'est pas Ganges.
+   */
+  chercheUneCommune = false,
+): Promise<Omit<GeoResult, 'approx'> | null> {
   const cle = nomCle(lieuNom)
   if (cle.length < 5 || NOMS_TROP_COURANTS.has(cle)) return null
 
@@ -333,7 +360,10 @@ async function lookupLieuxCache(lieuNom: string, commune?: string | null): Promi
   // une fois normalisé, sinon « Le Cros » attraperait « Le Crosson ».
   let retenus = candidats.filter(c => {
     const k = nomCle(c.nom)
-    return k.length >= 3 && (k.includes(cle) || cle.includes(k))
+    if (k.length < 3) return false
+    // Une commune ne se reconnait que dans son propre nom.
+    if (chercheUneCommune) return k === cle
+    return k.includes(cle) || cle.includes(k)
   })
   if (!retenus.length) return null
 
@@ -491,7 +521,7 @@ export async function geocodeWithGoogle(
   // 2. Commune seule → coords approximatives centrées sur la commune
   if (commune) {
     // Cache hit sur une commune déjà connue
-    const cachedCommune = await lookupLieuxCache(commune)
+    const cachedCommune = await lookupLieuxCache(commune, null, true)
     if (cachedCommune && cachedCommune.lat != null) {
       return {
         place_id_google: null,
