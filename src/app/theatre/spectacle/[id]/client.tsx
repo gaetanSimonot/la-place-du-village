@@ -25,16 +25,46 @@ import {
  * non une liste continue.
  */
 
+interface LieuDeJeu {
+  id: string
+  nom: string
+  adresse: string | null
+  commune: string | null
+  lat: number | null
+  lng: number | null
+}
+
 interface Payload {
   spectacle: Spectacle
   representations: Representation[]
   theatres: Theatre[]
+  /** Les endroits hors les murs, géocodés, rapprochés par NOM. */
+  lieux: LieuDeJeu[]
   aujourdhui: string
 }
 
 const fetcher = (u: string) => fetch(u).then(r => r.json())
 /** Jours affichés avant de proposer « voir toutes les dates ». */
 const JOURS_REPLIES = 8
+
+/**
+ * L'adresse à montrer pour un endroit, ou rien du tout.
+ *
+ * La commune n'est répétée que si l'adresse ne la porte pas déjà :
+ * « 440 Esplanade Charles de Gaulle, 34000 Montpellier, Montpellier » serait
+ * du bruit. Et quand on n'a pas d'adresse, on n'en invente pas.
+ */
+function adresseDuLieu(etab: Theatre | null, lieu: LieuDeJeu | null): string | null {
+  const source = etab ?? lieu
+  if (!source) return null
+  const adresse = source.adresse?.trim() || null
+  const commune = source.commune?.trim() || null
+  if (!adresse) return commune
+  if (commune && !adresse.toLowerCase().includes(commune.toLowerCase())) {
+    return `${adresse}, ${commune}`
+  }
+  return adresse
+}
 
 function jourLisible(date: string): string {
   const s = new Intl.DateTimeFormat('fr-FR', {
@@ -79,21 +109,48 @@ export default function SpectacleClient({ id }: { id: string }) {
     return Array.from(m.entries())
   }, [passees])
 
+  const lieuxConnus = useMemo(
+    () => new Map((data?.lieux ?? []).map(l => [l.nom, l])), [data?.lieux])
+
   /**
-   * Les salles qui jouent ce spectacle. Pas toutes celles qui ont le module :
-   * seulement celles où l'on peut aller le voir, dans l'ordre de leur
-   * première date.
+   * OÙ L'ON VA LE VOIR — construit sur les DATES du spectacle, jamais sur la
+   * salle qui le programme.
+   *
+   * C'est la correction du 21/09 : l'Albarède programme toute la saison, mais
+   * « Garder » se joue aux Belvédères de Blandas et « Pixel » à l'Opéra
+   * Berlioz. La fiche affichait l'adresse du théâtre — elle envoyait les
+   * gens à 40 km du spectacle.
+   *
+   * Trois cas, dans cet ordre de précision :
+   *   1. le lieu porte une fiche établissement → sa carte, cliquable ;
+   *   2. il est dans le registre des lieux → son nom et son adresse ;
+   *   3. ce n'est pas un endroit (« Écoles du territoire », « Divers lieux »)
+   *      → son libellé seul. On n'invente pas d'adresse.
    */
-  const lesSalles = useMemo(() => {
-    const vues = new Set<string>()
-    const out: Theatre[] = []
+  const ouLeVoir = useMemo(() => {
+    const vus = new Set<string>()
+    const out: {
+      cle: string; nom: string; adresse: string | null
+      etablissement: Theatre | null; lieu: LieuDeJeu | null
+    }[] = []
     for (const r of toutes) {
-      if (vues.has(r.etablissement_id)) continue
-      const t = salles.get(r.etablissement_id)
-      if (t) { vues.add(r.etablissement_id); out.push(t) }
+      const salle = salles.get(r.etablissement_id) ?? null
+      // Sans libellé propre, la date se joue dans les murs de la salle.
+      const nom = r.lieu ?? salle?.nom ?? null
+      if (!nom || vus.has(nom)) continue
+      vus.add(nom)
+
+      // Le libellé désigne-t-il la salle elle-même ?
+      const etab = salle && (!r.lieu || r.lieu === salle.nom) ? salle : null
+      const lieu = lieuxConnus.get(nom) ?? null
+      out.push({
+        cle: nom, nom,
+        adresse: adresseDuLieu(etab, lieu),
+        etablissement: etab, lieu,
+      })
     }
     return out
-  }, [toutes, salles])
+  }, [toutes, salles, lieuxConnus])
 
   async function partager() {
     const url = typeof window !== 'undefined' ? window.location.href : ''
@@ -111,14 +168,14 @@ export default function SpectacleClient({ id }: { id: string }) {
         style={{ paddingTop: 'max(14px, env(safe-area-inset-top, 14px))' }}>
         <button onClick={() => router.back()} aria-label="Retour"
           className="flex h-[34px] w-[34px] items-center justify-center rounded-full"
-          style={{ border: '1px solid var(--uni-line)', background: 'rgba(251,247,245,.05)', color: 'var(--uni-ink)' }}>
+          style={{ border: '1px solid var(--uni-line)', background: 'rgba(253,246,243,.05)', color: 'var(--uni-ink)' }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
             <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
           </svg>
         </button>
         <button onClick={partager} aria-label="Partager"
           className="flex h-[34px] w-[34px] items-center justify-center rounded-full"
-          style={{ border: '1px solid var(--uni-line)', background: 'rgba(251,247,245,.05)', color: 'var(--uni-ink)' }}>
+          style={{ border: '1px solid var(--uni-line)', background: 'rgba(253,246,243,.05)', color: 'var(--uni-ink)' }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="13 6 19 12 13 18" /><path d="M19 12H8a4 4 0 0 0-4 4v2" />
           </svg>
@@ -128,7 +185,7 @@ export default function SpectacleClient({ id }: { id: string }) {
       {isLoading ? (
         <div className="flex justify-center py-16">
           <div className="h-7 w-7 animate-spin rounded-full"
-            style={{ border: '3px solid rgba(226,69,60,.2)', borderTopColor: 'var(--uni-accent)' }} />
+            style={{ border: '3px solid rgba(236,96,66,.2)', borderTopColor: 'var(--uni-accent)' }} />
         </div>
       ) : !spectacle ? (
         <div className="mx-4 mt-6 rounded-[14px] p-6 text-center" style={{ border: '1px solid var(--uni-line)' }}>
@@ -139,7 +196,7 @@ export default function SpectacleClient({ id }: { id: string }) {
           {/* Visuel + informations */}
           <div className="flex gap-4 px-4 pt-4">
             <div className="relative w-[122px] shrink-0 overflow-hidden rounded-[12px]"
-              style={{ aspectRatio: '3 / 4', background: 'linear-gradient(160deg,#3A1C1E,#150B0C)', boxShadow: '0 6px 18px rgba(20,8,9,.3)' }}>
+              style={{ aspectRatio: '3 / 4', background: 'linear-gradient(160deg,#3E211C,#1A0E0D)', boxShadow: '0 6px 18px rgba(18,7,6,.34)' }}>
               {spectacle.affiche_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={spectacle.affiche_url} alt="" className="h-full w-full object-cover" />
@@ -169,7 +226,7 @@ export default function SpectacleClient({ id }: { id: string }) {
               {spectacle.bande_annonce_url && (
                 <button onClick={() => setVideoOuverte(true)}
                   className="inline-flex items-center"
-                  style={{ marginTop: 12, gap: 7, border: '1px solid rgba(226,69,60,.5)', background: 'transparent', borderRadius: 9, padding: '8px 12px', fontSize: 12.5, fontWeight: 700, color: 'var(--uni-accent2)' }}>
+                  style={{ marginTop: 12, gap: 7, border: '1px solid rgba(236,96,66,.5)', background: 'transparent', borderRadius: 9, padding: '8px 12px', fontSize: 12.5, fontWeight: 700, color: 'var(--uni-accent2)' }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20" /></svg>
                   Teaser
                 </button>
@@ -182,7 +239,7 @@ export default function SpectacleClient({ id }: { id: string }) {
           {spectacle.citation && (
             <div className="px-4 pt-5">
               <p className="m-0 italic"
-                style={{ background: 'rgba(226,69,60,.12)', borderLeft: '2px solid var(--uni-accent)', borderRadius: '0 10px 10px 0', padding: '12px 14px', fontSize: 13.5, lineHeight: 1.6, color: 'var(--uni-ink)' }}>
+                style={{ background: 'rgba(236,96,66,.12)', borderLeft: '2px solid var(--uni-accent)', borderRadius: '0 10px 10px 0', padding: '12px 14px', fontSize: 13.5, lineHeight: 1.6, color: 'var(--uni-ink)' }}>
                 {spectacle.citation}
               </p>
             </div>
@@ -212,7 +269,7 @@ export default function SpectacleClient({ id }: { id: string }) {
                 {!tout && parJour.length > JOURS_REPLIES && (
                   <button onClick={() => setTout(true)}
                     className="block w-full border-none"
-                    style={{ borderTop: '1px solid var(--uni-line)', background: 'rgba(226,69,60,.07)', padding: 13, fontSize: 12.5, fontWeight: 700, color: 'var(--uni-accent)' }}>
+                    style={{ borderTop: '1px solid var(--uni-line)', background: 'rgba(236,96,66,.07)', padding: 13, fontSize: 12.5, fontWeight: 700, color: 'var(--uni-accent)' }}>
                     Voir toutes les dates ({parJour.length} jours)
                   </button>
                 )}
@@ -242,44 +299,87 @@ export default function SpectacleClient({ id }: { id: string }) {
             </div>
           )}
 
-          {/* Où aller le voir. C'est la porte de sortie vers la fiche de
-              l'établissement, celle qui porte l'adresse et le téléphone. */}
-          {lesSalles.length > 0 && (
+          {/* OÙ LE VOIR. Un endroit par ligne, dans l'ordre des dates.
+
+              Une salle qui a sa fiche reste cliquable — c'est là qu'on trouve
+              le téléphone et les horaires. Un lieu hors les murs montre son
+              adresse, géocodée une fois, et ouvre l'itinéraire. Ce qui n'est
+              pas un endroit — « Écoles du territoire », « Divers lieux » —
+              garde son libellé seul : on n'invente pas d'adresse. */}
+          {ouLeVoir.length > 0 && (
             <div className="px-4 pt-5">
               <h2 className="m-0 mb-2 font-title text-[17px] leading-tight" style={{ color: 'var(--uni-ink)' }}>
-                {lesSalles.length > 1 ? 'Les salles' : 'La salle'}
+                {ouLeVoir.length > 1 ? 'Où le voir' : 'La salle'}
               </h2>
               <div className="flex flex-col gap-2">
-                {lesSalles.map(t => (
-                  <Link key={t.id} href={`/etablissement/${t.id}`}
-                    className="flex items-center gap-3 overflow-hidden no-underline"
-                    style={{ borderRadius: 14, border: '1px solid var(--uni-line)', background: 'rgba(226,69,60,.06)', padding: 10 }}>
-                    <span className="flex-none overflow-hidden"
-                      style={{ width: 52, height: 52, borderRadius: 10, background: 'rgba(226,69,60,.1)' }}>
-                      {t.photos?.[0] ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={t.photos[0]} alt="" className="h-full w-full object-cover" loading="lazy" />
-                      ) : (
-                        <span className="flex h-full w-full items-center justify-center" style={{ color: 'var(--uni-accent)' }}>
-                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M4 5h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" /><path d="M12 12v7" /><path d="M8 19h8" />
+                {ouLeVoir.map(o => {
+                  const dedans = (
+                    <>
+                      <span className="flex-none overflow-hidden"
+                        style={{ width: 52, height: 52, borderRadius: 10, background: 'rgba(236,96,66,.1)' }}>
+                        {o.etablissement?.photos?.[0] ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={o.etablissement.photos[0]} alt="" className="h-full w-full object-cover" loading="lazy" />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center" style={{ color: 'var(--uni-accent)' }}>
+                            {o.etablissement ? (
+                              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M4 5h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" /><path d="M12 12v7" /><path d="M8 19h8" />
+                              </svg>
+                            ) : (
+                              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M12 22s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z" /><circle cx="12" cy="10" r="2.5" />
+                              </svg>
+                            )}
+                          </span>
+                        )}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate" style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--uni-ink)' }}>
+                          {o.nom}
+                        </div>
+                        <div style={{ marginTop: 2, fontSize: 11.5, lineHeight: 1.4, color: 'var(--uni-dim2)' }}>
+                          {o.adresse ?? (o.etablissement ? 'Voir la fiche' : 'Lieu précisé par le théâtre')}
+                        </div>
+                      </div>
+                      {(o.etablissement || (o.lieu?.lat && o.lieu?.lng)) && (
+                        <span className="flex-none" style={{ color: 'var(--uni-accent)', opacity: .7 }}>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="9 18 15 12 9 6" />
                           </svg>
                         </span>
                       )}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate" style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--uni-ink)' }}>{t.nom}</div>
-                      <div className="truncate" style={{ marginTop: 2, fontSize: 11.5, color: 'var(--uni-dim2)' }}>
-                        {[t.adresse, t.commune].filter(Boolean).join(' · ') || 'Voir la fiche'}
-                      </div>
+                    </>
+                  )
+                  const cadre = {
+                    borderRadius: 14, border: '1px solid var(--uni-line)',
+                    background: 'rgba(236,96,66,.06)', padding: 10,
+                  }
+                  // Une fiche établissement l'emporte : elle porte bien plus que
+                  // l'adresse. Sinon l'itinéraire, quand on a de quoi le tracer.
+                  if (o.etablissement) {
+                    return (
+                      <Link key={o.cle} href={`/etablissement/${o.etablissement.id}`}
+                        className="flex items-center gap-3 overflow-hidden no-underline" style={cadre}>
+                        {dedans}
+                      </Link>
+                    )
+                  }
+                  if (o.lieu?.lat && o.lieu?.lng) {
+                    return (
+                      <a key={o.cle} target="_blank" rel="noopener noreferrer"
+                        href={`https://www.google.com/maps/search/?api=1&query=${o.lieu.lat},${o.lieu.lng}`}
+                        className="flex items-center gap-3 overflow-hidden no-underline" style={cadre}>
+                        {dedans}
+                      </a>
+                    )
+                  }
+                  return (
+                    <div key={o.cle} className="flex items-center gap-3 overflow-hidden" style={cadre}>
+                      {dedans}
                     </div>
-                    <span className="flex-none" style={{ color: 'var(--uni-accent)', opacity: .7 }}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="9 18 15 12 9 6" />
-                      </svg>
-                    </span>
-                  </Link>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
@@ -319,7 +419,7 @@ function Jour({ date, liste, salles, passe }: {
         const lien = r.billetterie_url || salle?.billetterie_url
         return (
           <div key={r.id} className="flex items-center gap-[11px]"
-            style={{ padding: '12px 14px', borderBottom: '1px solid rgba(251,247,245,.07)' }}>
+            style={{ padding: '12px 14px', borderBottom: '1px solid rgba(253,246,243,.07)' }}>
             <span className="flex-none" style={{ color: 'var(--uni-accent)', opacity: 0.85 }}>
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 5h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" /><path d="M12 12v7" /><path d="M8 19h8" />
@@ -344,7 +444,7 @@ function Jour({ date, liste, salles, passe }: {
             ) : passe ? null : lien ? (
               <a href={lien} target="_blank" rel="noopener noreferrer"
                 className="flex-none no-underline"
-                style={{ border: '1px solid rgba(226,69,60,.5)', background: 'transparent', borderRadius: 7, padding: '6px 11px', fontSize: 11.5, fontWeight: 700, color: 'var(--uni-accent2)' }}>
+                style={{ border: '1px solid rgba(236,96,66,.5)', background: 'transparent', borderRadius: 7, padding: '6px 11px', fontSize: 11.5, fontWeight: 700, color: 'var(--uni-accent2)' }}>
                 Réserver
               </a>
             ) : null}

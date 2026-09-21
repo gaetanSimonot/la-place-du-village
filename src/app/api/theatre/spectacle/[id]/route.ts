@@ -37,10 +37,38 @@ export async function GET(
   // tourner, et la fiche doit dire OÙ.
   const theatres = await listerTheatres()
 
+  /*
+   * LES LIEUX DE JEU HORS LES MURS.
+   *
+   * Une saison de village ne se joue pas que dans la salle : « Garder » se
+   * donne aux Belvédères de Blandas, « Pixel » à l'Opéra Berlioz. La fiche
+   * affichait pourtant l'adresse du théâtre qui programme — elle envoyait
+   * les gens à 40 km du spectacle.
+   *
+   * `representations.lieu` porte le nom exact écrit au programme. On le
+   * rapproche de la table `lieux`, le registre des endroits de l'app, où ces
+   * salles ont été géocodées une fois pour toutes. Rapprochement par NOM et
+   * non par clé étrangère : si quelqu'un réécrit le libellé d'une date,
+   * l'adresse disparaît — c'est la bonne panne. Une clé étrangère aurait
+   * gardé l'ancienne adresse et menti.
+   *
+   * Un lieu sans correspondance — « Écoles du territoire », « Divers lieux »
+   * — n'en a tout simplement pas : ce ne sont pas des adresses, et on n'en
+   * inventera pas.
+   */
+  const nomsLieux = Array.from(new Set(
+    (repRows ?? []).map(r => r.lieu).filter(Boolean) as string[]))
+  const { data: lieuxRows } = nomsLieux.length
+    ? await supabaseAdmin.from('lieux')
+        .select('id, nom, adresse, commune, lat, lng')
+        .in('nom', nomsLieux)
+    : { data: [] }
+
   return NextResponse.json({
     spectacle: spRow as Spectacle,
     representations: (repRows ?? []) as Representation[],
     theatres,
+    lieux: lieuxRows ?? [],
     aujourdhui: dateParis(),
   }, { headers: { 'Cache-Control': 'no-store' } })
 }

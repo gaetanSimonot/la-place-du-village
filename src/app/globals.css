@@ -209,25 +209,33 @@ html[data-univers='cinema'] {
 }
 html[data-univers='cinema'] body { background: var(--uni-bg); }
 
-/* ─── UNIVERS THÉÂTRE ─────────────────────────────────────────
-   Le rouge du rideau, PAS le rose. L'accent est franchement rouge (teinte
-   autour de 5°, saturée) : éclaircir un rouge le fait virer au rose, et le
-   théâtre n'est pas rose. Les fonds portent la même chaleur, assez sombres
-   pour qu'une affiche posée dessus garde ses couleurs.
+/* ─── UNIVERS THÉÂTRE ─────────────────────────────
+   LE ROUGE SE MESURE, IL NE SE CHOISIT PAS À L'ŒIL.
+
+   Premier jet : un rouge pur et saturé (#E2453C), illisible — 4,75 de
+   contraste sur son fond quand le bleu du cinéma en tient 10,25. C'est
+   arithmétique : un rouge pur est une couleur SOMBRE ; l'éclaircir le
+   désature et le fait virer au rose, ce dont on ne veut pas non plus.
+
+   La sortie est dans la TEINTE. À 11-13° plutôt qu'à 5°, on gagne la
+   luminance de l'orange en gardant 72 % de saturation : c'est un vermillon,
+   une terre cuite — franchement rouge, jamais rose. Contraste 5,7 pour
+   l'accent et 8,5 pour sa variante claire, au-dessus du seuil sur le fond
+   comme sur le bandeau.
 
    Mêmes dix jetons que le cinéma, au même rang : tout le châssis suit — la
    bottom nav, la barre du haut, le panneau bureau — sans une ligne de plus. */
 html[data-univers='theatre'] {
-  --uni-bg:      #150B0C;
-  --uni-bg2:     #110809;
-  --uni-panel:   #241214;
-  --uni-band:    #34171A;
-  --uni-accent:  #E2453C;
-  --uni-accent2: #F76E61;
-  --uni-line:    rgba(226, 69, 60, .20);
-  --uni-ink:     #FBF7F5;
-  --uni-dim:     rgba(251, 247, 245, .62);
-  --uni-dim2:    rgba(251, 247, 245, .44);
+  --uni-bg:      #1A0E0D;
+  --uni-bg2:     #140908;
+  --uni-panel:   #2A1512;
+  --uni-band:    #3B1C17;
+  --uni-accent:  #EC6042;
+  --uni-accent2: #FF9070;
+  --uni-line:    rgba(236, 96, 66, .22);
+  --uni-ink:     #FDF6F3;
+  --uni-dim:     rgba(253, 246, 243, .70);
+  --uni-dim2:    rgba(253, 246, 243, .50);
 
   /* Bottom nav de l'app, rhabillée. Mêmes onglets, mêmes libellés. */
   --nav-bg:      var(--uni-bg2);
@@ -235,8 +243,8 @@ html[data-univers='theatre'] {
   --nav-actif:   var(--uni-accent2);
   --nav-inactif: var(--uni-dim2);
   --nav-fab-bg:  var(--uni-accent);
-  --nav-fab-ink: #1B0708;
-  --nav-pastille: rgba(247, 110, 97, .16);
+  --nav-fab-ink: #2A0B06;
+  --nav-pastille: rgba(255, 144, 112, .18);
 
   background: var(--uni-bg);
 }

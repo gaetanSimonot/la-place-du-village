@@ -103,7 +103,7 @@ export default function TheatreAffiche({ isAdmin = false }: { isAdmin?: boolean 
           </h2>
           <div className="pcv-sub pcv-only">La saison du spectacle vivant près de chez vous</div>
         </div>
-        <Link href={lien} className="pcv-more flex shrink-0 items-center gap-1 text-[12.5px] font-bold no-underline" style={{ color: '#C6332B' }}>
+        <Link href={lien} className="pcv-more flex shrink-0 items-center gap-1 text-[12.5px] font-bold no-underline" style={{ color: '#B8412A' }}>
           Voir tout
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" />
@@ -122,7 +122,7 @@ export default function TheatreAffiche({ isAdmin = false }: { isAdmin?: boolean 
             {/* `display:block` obligatoire : sur un span inline, `aspect-ratio`
                 ne s'applique pas et la vignette s'écrase. */}
             <span className="relative block w-full"
-              style={{ aspectRatio: '3 / 4', background: 'linear-gradient(160deg,#3A1C1E,#150B0C)' }}>
+              style={{ aspectRatio: '3 / 4', background: 'linear-gradient(160deg,#3E211C,#1A0E0D)' }}>
               {s.affiche_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={s.affiche_url} alt={s.titre} className="h-full w-full object-cover" loading="lazy" />
@@ -137,7 +137,7 @@ export default function TheatreAffiche({ isAdmin = false }: { isAdmin?: boolean 
                   d'y aller, et elle doit se lire sans ouvrir la fiche. */}
               <span className="absolute inset-x-0 bottom-0 px-2 py-1.5"
                 style={{ background: 'linear-gradient(to top, rgba(15,10,12,.92), transparent)' }}>
-                <span className="block text-[11px] font-extrabold" style={{ color: '#FF8A7E' }}>
+                <span className="block text-[11px] font-extrabold" style={{ color: '#FF9070' }}>
                   {jourCourt(date.date)}{heureLisible(date.heure) ? ` · ${heureLisible(date.heure)}` : ''}
                 </span>
               </span>
