@@ -170,14 +170,14 @@ export default function SpectacleClient({ id }: { id: string }) {
         style={{ paddingTop: 'max(14px, env(safe-area-inset-top, 14px))' }}>
         <button onClick={() => router.back()} aria-label="Retour"
           className="flex h-[34px] w-[34px] items-center justify-center rounded-full"
-          style={{ border: '1px solid var(--uni-line)', background: 'rgba(253,246,243,.05)', color: 'var(--uni-ink)' }}>
+          style={{ border: '1px solid var(--uni-line)', background: 'var(--uni-creux)', color: 'var(--uni-ink)' }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
             <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
           </svg>
         </button>
         <button onClick={partager} aria-label="Partager"
           className="flex h-[34px] w-[34px] items-center justify-center rounded-full"
-          style={{ border: '1px solid var(--uni-line)', background: 'rgba(253,246,243,.05)', color: 'var(--uni-ink)' }}>
+          style={{ border: '1px solid var(--uni-line)', background: 'var(--uni-creux)', color: 'var(--uni-ink)' }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="13 6 19 12 13 18" /><path d="M19 12H8a4 4 0 0 0-4 4v2" />
           </svg>
@@ -187,7 +187,7 @@ export default function SpectacleClient({ id }: { id: string }) {
       {isLoading ? (
         <div className="flex justify-center py-16">
           <div className="h-7 w-7 animate-spin rounded-full"
-            style={{ border: '3px solid rgba(236,96,66,.2)', borderTopColor: 'var(--uni-accent)' }} />
+            style={{ border: '3px solid var(--uni-tint2)', borderTopColor: 'var(--uni-accent)' }} />
         </div>
       ) : !spectacle ? (
         <div className="mx-4 mt-6 rounded-[14px] p-6 text-center" style={{ border: '1px solid var(--uni-line)' }}>
@@ -204,7 +204,7 @@ export default function SpectacleClient({ id }: { id: string }) {
               onClick={() => spectacle.affiche_url && setVisuelOuvert(true)}
               aria-label={spectacle.affiche_url ? `Voir l’affiche de ${spectacle.titre} en grand` : undefined}
               className="relative w-[122px] shrink-0 overflow-hidden rounded-[12px] border-none p-0"
-              style={{ aspectRatio: '3 / 4', background: 'linear-gradient(160deg,#3E211C,#1A0E0D)', boxShadow: '0 6px 18px rgba(18,7,6,.34)', cursor: spectacle.affiche_url ? 'zoom-in' : 'default' }}>
+              style={{ aspectRatio: '3 / 4', background: 'var(--uni-vide)', boxShadow: 'var(--uni-ombre)', cursor: spectacle.affiche_url ? 'zoom-in' : 'default' }}>
               {spectacle.affiche_url ? (
                 <>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -219,7 +219,7 @@ export default function SpectacleClient({ id }: { id: string }) {
                 </>
               ) : (
                 <span className="flex h-full w-full items-end p-2 text-left">
-                  <span style={{ fontSize: 10.5, fontWeight: 800, lineHeight: 1.15, color: '#F4E7CE', textShadow: '0 1px 3px rgba(0,0,0,.6)' }}>{spectacle.titre}</span>
+                  <span style={{ fontSize: 10.5, fontWeight: 800, lineHeight: 1.15, color: 'var(--uni-videInk)', textShadow: '0 1px 3px rgba(0,0,0,.45)' }}>{spectacle.titre}</span>
                 </span>
               )}
             </button>
@@ -243,7 +243,7 @@ export default function SpectacleClient({ id }: { id: string }) {
               {spectacle.bande_annonce_url && (
                 <button onClick={() => setVideoOuverte(true)}
                   className="inline-flex items-center"
-                  style={{ marginTop: 12, gap: 7, border: '1px solid rgba(236,96,66,.5)', background: 'transparent', borderRadius: 9, padding: '8px 12px', fontSize: 12.5, fontWeight: 700, color: 'var(--uni-accent2)' }}>
+                  style={{ marginTop: 12, gap: 7, border: '1px solid var(--uni-bordA)', background: 'transparent', borderRadius: 9, padding: '8px 12px', fontSize: 12.5, fontWeight: 700, color: 'var(--uni-accent2)' }}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20" /></svg>
                   Teaser
                 </button>
@@ -256,7 +256,7 @@ export default function SpectacleClient({ id }: { id: string }) {
           {spectacle.citation && (
             <div className="px-4 pt-5">
               <p className="m-0 italic"
-                style={{ background: 'rgba(236,96,66,.12)', borderLeft: '2px solid var(--uni-accent)', borderRadius: '0 10px 10px 0', padding: '12px 14px', fontSize: 13.5, lineHeight: 1.6, color: 'var(--uni-ink)' }}>
+                style={{ background: 'var(--uni-tint2)', borderLeft: '2px solid var(--uni-accent)', borderRadius: '0 10px 10px 0', padding: '12px 14px', fontSize: 13.5, lineHeight: 1.6, color: 'var(--uni-ink)' }}>
                 {spectacle.citation}
               </p>
             </div>
@@ -286,7 +286,7 @@ export default function SpectacleClient({ id }: { id: string }) {
                 {!tout && parJour.length > JOURS_REPLIES && (
                   <button onClick={() => setTout(true)}
                     className="block w-full border-none"
-                    style={{ borderTop: '1px solid var(--uni-line)', background: 'rgba(236,96,66,.07)', padding: 13, fontSize: 12.5, fontWeight: 700, color: 'var(--uni-accent)' }}>
+                    style={{ borderTop: '1px solid var(--uni-line)', background: 'var(--uni-tint)', padding: 13, fontSize: 12.5, fontWeight: 700, color: 'var(--uni-accent)' }}>
                     Voir toutes les dates ({parJour.length} jours)
                   </button>
                 )}
@@ -333,7 +333,7 @@ export default function SpectacleClient({ id }: { id: string }) {
                   const dedans = (
                     <>
                       <span className="flex-none overflow-hidden"
-                        style={{ width: 52, height: 52, borderRadius: 10, background: 'rgba(236,96,66,.1)' }}>
+                        style={{ width: 52, height: 52, borderRadius: 10, background: 'var(--uni-tint)' }}>
                         {o.etablissement?.photos?.[0] ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={o.etablissement.photos[0]} alt="" className="h-full w-full object-cover" loading="lazy" />
@@ -370,7 +370,7 @@ export default function SpectacleClient({ id }: { id: string }) {
                   )
                   const cadre = {
                     borderRadius: 14, border: '1px solid var(--uni-line)',
-                    background: 'rgba(236,96,66,.06)', padding: 10,
+                    background: 'var(--uni-tint)', padding: 10,
                   }
                   // Une fiche établissement l'emporte : elle porte bien plus que
                   // l'adresse. Sinon l'itinéraire, quand on a de quoi le tracer.
@@ -441,7 +441,7 @@ function Jour({ date, liste, salles, passe }: {
         const lien = r.billetterie_url || salle?.billetterie_url
         return (
           <div key={r.id} className="flex items-center gap-[11px]"
-            style={{ padding: '12px 14px', borderBottom: '1px solid rgba(253,246,243,.07)' }}>
+            style={{ padding: '12px 14px', borderBottom: '1px solid var(--uni-trait)' }}>
             <span className="flex-none" style={{ color: 'var(--uni-accent)', opacity: 0.85 }}>
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 5h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" /><path d="M12 12v7" /><path d="M8 19h8" />
@@ -466,7 +466,7 @@ function Jour({ date, liste, salles, passe }: {
             ) : passe ? null : lien ? (
               <a href={lien} target="_blank" rel="noopener noreferrer"
                 className="flex-none no-underline"
-                style={{ border: '1px solid rgba(236,96,66,.5)', background: 'transparent', borderRadius: 7, padding: '6px 11px', fontSize: 11.5, fontWeight: 700, color: 'var(--uni-accent2)' }}>
+                style={{ border: '1px solid var(--uni-bordA)', background: 'transparent', borderRadius: 7, padding: '6px 11px', fontSize: 11.5, fontWeight: 700, color: 'var(--uni-accent2)' }}>
                 Réserver
               </a>
             ) : null}

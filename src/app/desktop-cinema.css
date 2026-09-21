@@ -78,7 +78,7 @@
     content: '';
     position: fixed;
     inset: 0;
-    background: rgba(4, 7, 10, .88);
+    background: var(--uni-voile);
     z-index: -1;
     pointer-events: auto;
   }
@@ -209,7 +209,7 @@
     height: 8px;
   }
   .pcv-cine [style*="scrollbar-width"]::-webkit-scrollbar-thumb {
-    background: rgba(157, 207, 238, .28);
+    background: var(--uni-bordA);
     border-radius: 999px;
   }
   .pcv-cine [style*="scrollbar-width"]::-webkit-scrollbar-track { background: transparent; }
@@ -239,7 +239,7 @@
     border-bottom-color: var(--uni-accent);
   }
   html[data-univers] .pcv-srch {
-    background: rgba(250, 251, 250, .05);
+    background: var(--uni-creux);
     border-color: var(--uni-line);
     color: var(--uni-dim2);
   }
@@ -252,7 +252,7 @@
      La seule autre issue serait un second fichier de logo détouré. */
   html[data-univers] .pcv-logo {
     border-radius: 7px;
-    box-shadow: 0 0 0 1px rgba(157, 207, 238, .18);
+    box-shadow: 0 0 0 1px var(--uni-tint2);
   }
   html[data-univers] .pcv-ctx {
     background: var(--uni-bg);
@@ -267,7 +267,7 @@
   }
   html[data-univers] .pcv-plusM a { color: var(--uni-dim); }
   html[data-univers] .pcv-plusM a:hover {
-    background: rgba(157, 207, 238, .10);
+    background: var(--uni-tint);
     color: var(--uni-accent2);
   }
   html[data-univers] .pcv-ft {

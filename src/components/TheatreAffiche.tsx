@@ -103,7 +103,7 @@ export default function TheatreAffiche({ isAdmin = false }: { isAdmin?: boolean 
           </h2>
           <div className="pcv-sub pcv-only">La saison du spectacle vivant près de chez vous</div>
         </div>
-        <Link href={lien} className="pcv-more flex shrink-0 items-center gap-1 text-[12.5px] font-bold no-underline" style={{ color: '#B8412A' }}>
+        <Link href={lien} className="pcv-more flex shrink-0 items-center gap-1 text-[12.5px] font-bold no-underline" style={{ color: '#A03A74' }}>
           Voir tout
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" />
@@ -122,13 +122,13 @@ export default function TheatreAffiche({ isAdmin = false }: { isAdmin?: boolean 
             {/* `display:block` obligatoire : sur un span inline, `aspect-ratio`
                 ne s'applique pas et la vignette s'écrase. */}
             <span className="relative block w-full"
-              style={{ aspectRatio: '3 / 4', background: 'linear-gradient(160deg,#3E211C,#1A0E0D)' }}>
+              style={{ aspectRatio: '3 / 4', background: 'linear-gradient(160deg,#C9C7C3,#9B9DA0)' }}>
               {s.affiche_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={s.affiche_url} alt={s.titre} className="h-full w-full object-cover" loading="lazy" />
               ) : (
                 <span className="flex h-full w-full items-end p-2">
-                  <span style={{ fontSize: 11, fontWeight: 800, lineHeight: 1.15, color: '#F4E7CE', textShadow: '0 1px 3px rgba(0,0,0,.6)' }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, lineHeight: 1.15, color: '#FFFFFF', textShadow: '0 1px 3px rgba(0,0,0,.45)' }}>
                     {s.titre}
                   </span>
                 </span>
@@ -136,8 +136,8 @@ export default function TheatreAffiche({ isAdmin = false }: { isAdmin?: boolean 
               {/* La date par-dessus l'image : c'est l'information qui décide
                   d'y aller, et elle doit se lire sans ouvrir la fiche. */}
               <span className="absolute inset-x-0 bottom-0 px-2 py-1.5"
-                style={{ background: 'linear-gradient(to top, rgba(15,10,12,.92), transparent)' }}>
-                <span className="block text-[11px] font-extrabold" style={{ color: '#FF9070' }}>
+                style={{ background: 'linear-gradient(to top, rgba(24,20,22,.92), transparent)' }}>
+                <span className="block text-[11px] font-extrabold" style={{ color: '#F2A8D0' }}>
                   {jourCourt(date.date)}{heureLisible(date.heure) ? ` · ${heureLisible(date.heure)}` : ''}
                 </span>
               </span>

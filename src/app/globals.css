@@ -205,47 +205,76 @@ html[data-univers='cinema'] {
   --nav-fab-ink: #0E1620;
   --nav-pastille: rgba(180, 221, 246, .16);
 
+  /* Surfaces et traits. Ils vivent ici et non dans les écrans : un univers
+     clair n'a pas les mêmes traits qu'un univers sombre, et un trait écrit
+     en dur dans un composant ne peut pas changer d'avis. */
+  --uni-tint:     rgba(157, 207, 238, .06);
+  --uni-tint2:    rgba(157, 207, 238, .14);
+  --uni-bordA:    rgba(157, 207, 238, .45);
+  --uni-doux:     rgba(157, 207, 238, .60);
+  --uni-trait:    rgba(250, 251, 250, .07);
+  --uni-trait2:   rgba(250, 251, 250, .12);
+  --uni-creux:    rgba(250, 251, 250, .04);
+  --uni-vide:     linear-gradient(160deg, #1E2C3A, #0E1318);
+  --uni-videInk:  rgba(250, 251, 250, .72);
+  --uni-ombre:    0 6px 18px rgba(26, 18, 9, .18);
+  --uni-voile:    rgba(4, 7, 10, .88);
+
   background: var(--uni-bg);
 }
 html[data-univers='cinema'] body { background: var(--uni-bg); }
 
-/* ─── UNIVERS THÉÂTRE ─────────────────────────────
-   LE ROUGE SE MESURE, IL NE SE CHOISIT PAS À L'ŒIL.
+/* ─── UNIVERS THÉÂTRE ────────────────────────────────────
+   LE CODE DE LA COUVERTURE : un enfant en rose face à un dragon à la craie,
+   sur un mur de béton. Rose #D16DA3, béton #9C9EA1, craie #E5E5E6 — relevés
+   sur le programme lui-même.
 
-   Premier jet : un rouge pur et saturé (#E2453C), illisible — 4,75 de
-   contraste sur son fond quand le bleu du cinéma en tient 10,25. C'est
-   arithmétique : un rouge pur est une couleur SOMBRE ; l'éclaircir le
-   désature et le fait virer au rose, ce dont on ne veut pas non plus.
+   Le théâtre est donc le SEUL module clair, et c'est juste : un cinéma est
+   une salle obscure, un programme de théâtre est un objet imprimé qu'on
+   feuillette. Le rose de la couverture est assombri pour le texte (#A03A74,
+   #8E2F66) : tel quel il tient 2,4 de contraste sur du béton clair, on ne le
+   lirait pas. La teinte, elle, ne bouge pas.
 
-   La sortie est dans la TEINTE. À 11-13° plutôt qu'à 5°, on gagne la
-   luminance de l'orange en gardant 72 % de saturation : c'est un vermillon,
-   une terre cuite — franchement rouge, jamais rose. Contraste 5,7 pour
-   l'accent et 8,5 pour sa variante claire, au-dessus du seuil sur le fond
-   comme sur le bandeau.
-
-   Mêmes dix jetons que le cinéma, au même rang : tout le châssis suit — la
-   bottom nav, la barre du haut, le panneau bureau — sans une ligne de plus. */
+   Mêmes jetons que le cinéma, au même rang : tout le châssis suit — la
+   bottom nav, la barre du haut, le voile et le panneau bureau — sans une
+   ligne de plus. C'est à ça que servait le renommage en --uni-*. */
 html[data-univers='theatre'] {
-  --uni-bg:      #1A0E0D;
-  --uni-bg2:     #140908;
-  --uni-panel:   #2A1512;
-  --uni-band:    #3B1C17;
-  --uni-accent:  #EC6042;
-  --uni-accent2: #FF9070;
-  --uni-line:    rgba(236, 96, 66, .22);
-  --uni-ink:     #FDF6F3;
-  --uni-dim:     rgba(253, 246, 243, .70);
-  --uni-dim2:    rgba(253, 246, 243, .50);
+  --uni-bg:      #E7E6E3;
+  --uni-bg2:     #FFFFFF;
+  --uni-panel:   #FFFFFF;
+  --uni-band:    #F5E6EE;
+  --uni-accent:  #A03A74;
+  --uni-accent2: #8E2F66;
+  --uni-line:    rgba(34, 36, 42, .14);
+  --uni-ink:     #22242A;
+  --uni-dim:     rgba(34, 36, 42, .78);
+  --uni-dim2:    rgba(34, 36, 42, .62);
+
+  --uni-tint:     rgba(160, 58, 116, .07);
+  --uni-tint2:    rgba(160, 58, 116, .14);
+  --uni-bordA:    rgba(160, 58, 116, .42);
+  --uni-doux:     rgba(160, 58, 116, .72);
+  --uni-trait:    rgba(34, 36, 42, .11);
+  --uni-trait2:   rgba(34, 36, 42, .17);
+  --uni-creux:    rgba(34, 36, 42, .04);
+  /* Le béton du mur, pour un spectacle sans visuel. */
+  --uni-vide:     linear-gradient(160deg, #C9C7C3, #9B9DA0);
+  --uni-videInk:  #FFFFFF;
+  --uni-ombre:    0 6px 18px rgba(34, 36, 42, .16);
+  /* Le voile du bureau s'éclaircit avec l'univers : un voile noir sur un
+     module clair ferait un trou dans la page. */
+  --uni-voile:    rgba(231, 230, 227, .94);
 
   /* Bottom nav de l'app, rhabillée. Mêmes onglets, mêmes libellés. */
-  --nav-bg:      var(--uni-bg2);
+  --nav-bg:      #FFFFFF;
   --nav-bord:    var(--uni-line);
   --nav-actif:   var(--uni-accent2);
   --nav-inactif: var(--uni-dim2);
   --nav-fab-bg:  var(--uni-accent);
-  --nav-fab-ink: #2A0B06;
-  --nav-pastille: rgba(255, 144, 112, .18);
+  --nav-fab-ink: #FFFFFF;
+  --nav-pastille: var(--uni-tint2);
 
+  color-scheme: light;
   background: var(--uni-bg);
 }
 html[data-univers='theatre'] body { background: var(--uni-bg); }

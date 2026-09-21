@@ -98,7 +98,7 @@ function Visuel({ spectacle, largeur }: { spectacle: Spectacle; largeur: number 
     <div className="relative shrink-0 overflow-hidden"
       style={{
         width: largeur, aspectRatio: '3 / 4', borderRadius: 10,
-        background: 'linear-gradient(160deg,#3E211C,#1A0E0D)',
+        background: 'var(--uni-vide)',
         border: '1px solid var(--uni-line)',
       }}>
       {spectacle.affiche_url ? (
@@ -106,7 +106,7 @@ function Visuel({ spectacle, largeur }: { spectacle: Spectacle; largeur: number 
         <img src={spectacle.affiche_url} alt="" className="h-full w-full object-cover" loading="lazy" />
       ) : (
         <span className="absolute bottom-2 left-2 right-2 line-clamp-3"
-          style={{ fontSize: 10, fontWeight: 700, lineHeight: 1.2, color: 'rgba(253,246,243,.72)' }}>
+          style={{ fontSize: 10, fontWeight: 700, lineHeight: 1.2, color: 'var(--uni-videInk)' }}>
           {spectacle.titre}
         </span>
       )}
@@ -118,6 +118,13 @@ export default function TheatreClient() {
   const router = useRouter()
   const [slug, setSlug] = useState<string | null>(null)
   const [onglet, setOnglet] = useState<Onglet>('spectacles')
+  /**
+   * Le mois regardé. TROIS états et non deux, et c'est ce qui manquait :
+   * `null` = on n'a pas encore choisi, et l'effet plus bas pose le mois
+   * courant ; `'tout'` = toute la saison, DEMANDÉE. Avec deux états,
+   * « Voir toute la saison » remettait `null` et l'effet le rattrapait
+   * aussitôt sur le mois courant : le bouton basculait sur lui-même.
+   */
   const [mois, setMois] = useState<string | null>(null)
 
   // Lecture directe de l'URL : useSearchParams() ferait basculer la page en
@@ -192,16 +199,19 @@ export default function TheatreClient() {
 
   /** Programmation groupée par jour, selon le mois retenu. */
   const parJour = useMemo(() => {
-    const source = mois ? saison.filter(r => r.date.slice(0, 7) === mois) : saison
+    const source = mois && mois !== 'tout'
+      ? saison.filter(r => r.date.slice(0, 7) === mois)
+      : saison
     const m = new Map<string, Representation[]>()
     for (const r of source) { const l = m.get(r.date) ?? []; l.push(r); m.set(r.date, l) }
     return Array.from(m.entries())
   }, [saison, mois])
 
   // Ouvrir le programme sur le mois courant plutôt qu'en septembre : on
-  // cherche ce qui se joue maintenant, pas le début de la saison.
+  // cherche ce qui se joue maintenant, pas le début de la saison. Ne se
+  // joue QU'UNE FOIS : 'tout' est un choix, pas une absence de choix.
   useEffect(() => {
-    if (mois || !aujourdhui || moisSaison.length === 0) return
+    if (mois !== null || !aujourdhui || moisSaison.length === 0) return
     const k = aujourdhui.slice(0, 7)
     setMois(moisSaison.includes(k)
       ? k
@@ -234,7 +244,7 @@ export default function TheatreClient() {
           onClick={() => router.push('/?tab=village')}
           aria-label="Revenir à La Place du Village"
           className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-full"
-          style={{ border: '1px solid var(--uni-line)', background: 'rgba(253,246,243,.05)', color: 'var(--uni-ink)' }}
+          style={{ border: '1px solid var(--uni-line)', background: 'var(--uni-creux)', color: 'var(--uni-ink)' }}
         >
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
             <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
@@ -325,8 +335,8 @@ export default function TheatreClient() {
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   borderRadius: 999, padding: '7px 13px', fontSize: 12,
                   fontWeight: actif ? 700 : 600,
-                  border: `1px solid ${actif ? 'var(--uni-accent)' : 'rgba(253,246,243,.12)'}`,
-                  background: actif ? 'rgba(236,96,66,.16)' : 'transparent',
+                  border: `1px solid ${actif ? 'var(--uni-accent)' : 'var(--uni-trait2)'}`,
+                  background: actif ? 'var(--uni-tint2)' : 'transparent',
                   color: actif ? 'var(--uni-accent2)' : 'var(--uni-dim)',
                 }}>
                 {o.nom}
@@ -358,7 +368,7 @@ export default function TheatreClient() {
       {isLoading ? (
         <div className="flex justify-center py-16">
           <div className="h-7 w-7 animate-spin rounded-full"
-            style={{ border: '3px solid rgba(236,96,66,.2)', borderTopColor: 'var(--uni-accent)' }} />
+            style={{ border: '3px solid var(--uni-tint2)', borderTopColor: 'var(--uni-accent)' }} />
         </div>
       ) : !salles.length ? (
         <Vide texte="Aucun théâtre n’a encore rejoint La Place du Village." />
@@ -424,6 +434,21 @@ export default function TheatreClient() {
           {/* Bandeau des mois de la saison, avec le nombre de dates. Le passé
               y est, simplement estompé : une saison se regarde en entier. */}
           <div className="pcv-cineJours flex gap-[7px] overflow-x-auto" style={{ padding: '14px 18px 4px', scrollbarWidth: 'none' }}>
+            {/* Une pastille « tout » EN TÊTE du bandeau : le choix reste visible et
+                réversible. Un bouton de bas de page qui disparaît une fois pressé
+                laissait sans repère — on ne savait plus ce qu'on regardait. */}
+            <button onClick={() => setMois('tout')} className="flex-none text-center"
+              style={{
+                width: 52, borderRadius: 11, padding: '8px 0 9px',
+                background: mois === 'tout' ? 'var(--uni-tint2)' : 'var(--uni-creux)',
+                border: `1px solid ${mois === 'tout' ? 'var(--uni-accent)' : 'var(--uni-trait)'}`,
+                color: mois === 'tout' ? 'var(--uni-accent2)' : 'var(--uni-ink)',
+              }}>
+              <span style={{ display: 'block', fontSize: 9.5, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: mois === 'tout' ? 'var(--uni-doux)' : 'var(--uni-dim2)' }}>
+                tout
+              </span>
+              <b className="font-title" style={{ display: 'block', fontSize: 17, lineHeight: 1.1, marginTop: 2, fontWeight: 700 }}>{saison.length}</b>
+            </button>
             {moisSaison.map(m => {
               const actif = mois === m
               const passe = aujourdhui ? m < aujourdhui.slice(0, 7) : false
@@ -432,12 +457,12 @@ export default function TheatreClient() {
                 <button key={m} onClick={() => setMois(m)} className="flex-none text-center"
                   style={{
                     width: 52, borderRadius: 11, padding: '8px 0 9px',
-                    background: actif ? 'rgba(236,96,66,.16)' : 'rgba(253,246,243,.04)',
-                    border: `1px solid ${actif ? 'var(--uni-accent)' : 'rgba(253,246,243,.06)'}`,
+                    background: actif ? 'var(--uni-tint2)' : 'var(--uni-creux)',
+                    border: `1px solid ${actif ? 'var(--uni-accent)' : 'var(--uni-trait)'}`,
                     color: actif ? 'var(--uni-accent2)' : 'var(--uni-ink)',
                     opacity: passe && !actif ? 0.5 : 1,
                   }}>
-                  <span style={{ display: 'block', fontSize: 9.5, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: actif ? 'rgba(255,144,112,.7)' : 'var(--uni-dim2)' }}>
+                  <span style={{ display: 'block', fontSize: 9.5, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: actif ? 'var(--uni-doux)' : 'var(--uni-dim2)' }}>
                     {moisCourt(m)}
                   </span>
                   <b className="font-title" style={{ display: 'block', fontSize: 17, lineHeight: 1.1, marginTop: 2, fontWeight: 700 }}>{n}</b>
@@ -447,7 +472,7 @@ export default function TheatreClient() {
           </div>
 
           {parJour.length === 0 ? (
-            <Vide texte="Rien ce mois-là." />
+            <Vide texte={mois === 'tout' ? 'La saison n’est pas encore publiée.' : 'Rien ce mois-là.'} />
           ) : parJour.map(([d, liste]) => {
             const passe = !!aujourdhui && d < aujourdhui
             return (
@@ -465,10 +490,10 @@ export default function TheatreClient() {
             )
           })}
 
-          {mois && (
-            <button onClick={() => setMois(null)}
+          {mois !== 'tout' && (
+            <button onClick={() => setMois('tout')}
               className="block w-full border-none"
-              style={{ borderTop: '1px solid var(--uni-line)', background: 'rgba(236,96,66,.07)', padding: 13, fontSize: 12.5, fontWeight: 700, color: 'var(--uni-accent)' }}>
+              style={{ borderTop: '1px solid var(--uni-line)', background: 'var(--uni-tint)', padding: 13, fontSize: 12.5, fontWeight: 700, color: 'var(--uni-accent)' }}>
               Voir toute la saison
             </button>
           )}
@@ -533,9 +558,9 @@ function ListeDates({ liste, spectacles, billetterie, salles, avecJour, passe }:
         const j = jourCourt(r.date)
         return (
           <div key={r.id} className="flex items-center gap-[13px]"
-            style={{ padding: '11px 18px', borderBottom: i === liste.length - 1 ? 'none' : '1px solid rgba(253,246,243,.07)' }}>
+            style={{ padding: '11px 18px', borderBottom: i === liste.length - 1 ? 'none' : '1px solid var(--uni-trait)' }}>
             <span className="flex-none font-title tabular-nums"
-              style={{ width: avecJour ? 62 : 50, paddingRight: 13, borderRight: '1px solid rgba(253,246,243,.12)', fontSize: avecJour ? 12.5 : 15, fontWeight: 800, color: 'var(--uni-accent2)', lineHeight: 1.25 }}>
+              style={{ width: avecJour ? 62 : 50, paddingRight: 13, borderRight: '1px solid var(--uni-trait2)', fontSize: avecJour ? 12.5 : 15, fontWeight: 800, color: 'var(--uni-accent2)', lineHeight: 1.25 }}>
               {avecJour ? (
                 <>
                   {`${j.nom} ${j.num}`}
@@ -551,7 +576,7 @@ function ListeDates({ liste, spectacles, billetterie, salles, avecJour, passe }:
                 avant de lire son titre. Calé sur la hauteur du texte pour que
                 la ligne garde exactement sa taille. */}
             <span className="flex-none overflow-hidden"
-              style={{ width: 26, height: 34, borderRadius: 4, background: 'rgba(236,96,66,.1)', border: '1px solid var(--uni-line)' }}>
+              style={{ width: 26, height: 34, borderRadius: 4, background: 'var(--uni-tint)', border: '1px solid var(--uni-line)' }}>
               {s?.affiche_url && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={s.affiche_url} alt="" className="h-full w-full object-cover" loading="lazy" />
@@ -582,7 +607,7 @@ function ListeDates({ liste, spectacles, billetterie, salles, avecJour, passe }:
               </span>
             ) : lien ? (
               <a href={lien} target="_blank" rel="noopener noreferrer" className="flex-none no-underline"
-                style={{ border: '1px solid rgba(236,96,66,.5)', borderRadius: 7, padding: '6px 11px', fontSize: 11.5, fontWeight: 700, color: 'var(--uni-accent2)' }}>
+                style={{ border: '1px solid var(--uni-bordA)', borderRadius: 7, padding: '6px 11px', fontSize: 11.5, fontWeight: 700, color: 'var(--uni-accent2)' }}>
                 Réserver
               </a>
             ) : (
@@ -625,8 +650,8 @@ function Evenements({ liste }: { liste: Evenement[] }) {
                 style={{
                   borderRadius: 999, padding: '7px 13px', fontSize: 12,
                   fontWeight: actif ? 700 : 600,
-                  border: `1px solid ${actif ? 'var(--uni-accent)' : 'rgba(253,246,243,.12)'}`,
-                  background: actif ? 'rgba(236,96,66,.16)' : 'transparent',
+                  border: `1px solid ${actif ? 'var(--uni-accent)' : 'var(--uni-trait2)'}`,
+                  background: actif ? 'var(--uni-tint2)' : 'transparent',
                   color: actif ? 'var(--uni-accent2)' : 'var(--uni-dim)',
                 }}>
                 {c === 'tout' ? 'Tout' : c}
@@ -638,7 +663,7 @@ function Evenements({ liste }: { liste: Evenement[] }) {
 
       {phare && (
         <Link href={`/evenement/${phare.id}`} className="block no-underline"
-          style={{ margin: '14px 18px 0', borderRadius: 16, padding: 18, background: 'linear-gradient(140deg,rgba(236,96,66,.18),rgba(236,96,66,.03))', border: '1px solid var(--uni-line)' }}>
+          style={{ margin: '14px 18px 0', borderRadius: 16, padding: 18, background: 'linear-gradient(140deg,var(--uni-tint2),var(--uni-tint))', border: '1px solid var(--uni-line)' }}>
           <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--uni-accent)' }}>
             À ne pas manquer
           </span>
@@ -663,15 +688,15 @@ function Evenements({ liste }: { liste: Evenement[] }) {
             .filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(' · ') || null
           return (
             <Link key={e.id} href={`/evenement/${e.id}`} className="flex overflow-hidden no-underline"
-              style={{ borderRadius: 13, background: 'var(--uni-panel)', border: '1px solid rgba(253,246,243,.07)' }}>
+              style={{ borderRadius: 13, background: 'var(--uni-panel)', border: '1px solid var(--uni-trait)' }}>
               <div className="flex flex-none flex-col items-center justify-center gap-0.5"
-                style={{ width: 58, background: 'rgba(236,96,66,.08)', borderRight: '1px solid var(--uni-line)' }}>
+                style={{ width: 58, background: 'var(--uni-tint)', borderRight: '1px solid var(--uni-line)' }}>
                 <b className="font-title" style={{ fontSize: 20, lineHeight: 1, fontWeight: 700, color: 'var(--uni-accent2)' }}>{num}</b>
-                <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'rgba(255,144,112,.65)' }}>{nom}</span>
+                <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--uni-doux)' }}>{nom}</span>
               </div>
               <div className="min-w-0 flex-1" style={{ padding: 12 }}>
                 {(e.categorie_libre || e.categorie) && (
-                  <span style={{ display: 'inline-block', borderRadius: 4, padding: '2px 7px', fontSize: 9, fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase', background: 'rgba(236,96,66,.18)', color: 'var(--uni-accent2)' }}>
+                  <span style={{ display: 'inline-block', borderRadius: 4, padding: '2px 7px', fontSize: 9, fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase', background: 'var(--uni-tint2)', color: 'var(--uni-accent2)' }}>
                     {e.categorie_libre || e.categorie}
                   </span>
                 )}
@@ -691,7 +716,7 @@ function Evenements({ liste }: { liste: Evenement[] }) {
               {/* La photo de l'événement, format carte plutôt qu'affiche : ce
                   n'est pas un spectacle, c'est une soirée. */}
               {e.image_url && (
-                <span className="flex-none self-stretch overflow-hidden" style={{ width: 74, borderLeft: '1px solid rgba(253,246,243,.07)' }}>
+                <span className="flex-none self-stretch overflow-hidden" style={{ width: 74, borderLeft: '1px solid var(--uni-trait)' }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={e.image_url} alt="" className="h-full w-full object-cover" loading="lazy" />
                 </span>
