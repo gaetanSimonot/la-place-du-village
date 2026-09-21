@@ -17,6 +17,7 @@ import type { Evenement } from '@/lib/types'
 import { SectionHeaderV3, FeaturedEventCard, MiniEventCard, MoreEventsCard } from '@/components/hub/CartesHub'
 import PlansCardFinal from '@/components/PlansCardFinal'
 import CinemaAffiche from '@/components/CinemaAffiche'
+import TheatreAffiche from '@/components/TheatreAffiche'
 import RadioAffiche from '@/components/RadioAffiche'
 import PostComposer from '@/components/profil/PostComposer'
 import PostCard, { type PostData } from '@/components/profil/PostCard'
@@ -224,6 +225,13 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
           prolongement. Le composant décide seul s'il s'affiche : réglage de
           visibilité, compte admin, et rien à l'affiche = pas de bloc. */}
       <CinemaAffiche isAdmin={isAdmin} />
+
+      {/* Au théâtre — juste après le cinéma, dont il est le pendant : deux
+          salles, deux façons de sortir le soir. Même règle d'auto-effacement,
+          et une accroche différente — le cinéma montre ce qu'on joue cette
+          semaine, le théâtre les prochaines dates, parce qu'une saison de
+          village compte dix soirées et non quarante séances. */}
+      <TheatreAffiche isAdmin={isAdmin} />
 
       {/* Radio Escapades — la selection culturelle de la semaine. Juste apres
           le cinema : deux facons d'apprendre ce qui se passe, l'une par
