@@ -104,12 +104,21 @@ export async function GET(req: NextRequest) {
   // `representations`.
   const { data: evenements } = await supabaseAdmin
     .from('evenements')
-    .select('id, titre, date_debut, heure, image_url, categorie, spectacle_id, lieu_id')
+    .select('id, titre, date_debut, heure, image_url, categorie, categorie_libre, spectacle_id, lieu_id')
     .in('etablissement_id', sallesIds)
     .eq('statut', 'publie')
     .gte('date_debut', aujourdhui)
     .order('date_debut')
     .limit(20)
+
+  // Où ça se passe. Presque toujours le théâtre lui-même, mais pas toujours —
+  // une ouverture de saison se joue parfois sur la place. Deuxième requête
+  // plutôt qu'une jointure, même raison que pour les spectacles.
+  const lieuIds = Array.from(new Set((evenements ?? []).map(e => e.lieu_id).filter(Boolean))) as string[]
+  const { data: lieuxRows } = lieuIds.length
+    ? await supabaseAdmin.from('lieux').select('id, nom, adresse, commune').in('id', lieuIds)
+    : { data: [] }
+  const parLieu = new Map((lieuxRows ?? []).map(l => [l.id, l]))
 
   return NextResponse.json({
     theatres,
@@ -118,7 +127,7 @@ export async function GET(req: NextRequest) {
     spectacles,
     representations,
     passees,
-    evenements: evenements ?? [],
+    evenements: (evenements ?? []).map(e => ({ ...e, lieu: e.lieu_id ? parLieu.get(e.lieu_id) ?? null : null })),
     aujourdhui,
     villageVisibilite,
   }, { headers: { 'Cache-Control': 'no-store' } })

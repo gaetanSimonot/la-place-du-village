@@ -1,8 +1,13 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   MODULE CINÉMA — version ordinateur
+   MODULES CINÉMA ET THÉÂTRE — version ordinateur
 
    Même règle que le reste du chantier bureau : RIEN ici ne s'applique en
    dessous de 1024 px. Le téléphone garde exactement l'écran qu'il avait.
+
+   Un seul châssis pour les deux modules : les règles sont écrites sur
+   `[data-univers]` et sur `.pcv-cine`, pas sur le cinéma. Le théâtre porte
+   les mêmes classes et hérite du panneau, du voile et du rouleau sans une
+   ligne de plus — seules ses dix couleurs changent (globals.css).
 
    PARTI PRIS : le cinéma ne se réétale pas sur 1900 px, il se POSE.
    Ses trois écrans (/cinema, /cinema/film/[id], /cinema/admin) sont écrits
@@ -69,7 +74,7 @@
 
      UNIQUEMENT sur l'univers public : « Mon cinéma » est un écran de travail,
      pas une salle obscure, et son exploitant doit garder la navigation. */
-  html[data-univers='cinema'] .pcv-cine::before {
+  html[data-univers] .pcv-cine::before {
     content: '';
     position: fixed;
     inset: 0;
@@ -80,7 +85,7 @@
 
   /* Le châssis de PhoneFrame est déjà neutralisé sur bureau, mais il garde
      son fond crème : c'est lui qu'on voyait autour de la salle. */
-  html[data-univers='cinema'] body .pf-bg { background: var(--cine-bg); }
+  html[data-univers] body .pf-bg { background: var(--uni-bg); }
 
   /* ─── 2. Le panneau ──────────────────────────────────────────────────
      880 px : une salle n'est pas un téléphone posé au milieu de l'écran.
@@ -121,9 +126,9 @@
     border-radius: 20px;
     /* Plus CLAIR que le fond, jamais plus sombre : un panneau plus sombre
        que ce qui l'entoure se lit comme un trou, pas comme une salle
-       éclairée. `--cine-panel` est déjà la couleur des panneaux du module. */
-    background: var(--cine-panel);
-    border: 1px solid var(--cine-line);
+       éclairée. `--uni-panel` est déjà la couleur des panneaux du module. */
+    background: var(--uni-panel);
+    border: 1px solid var(--uni-line);
     box-shadow: 0 30px 80px rgba(0, 0, 0, .45);
     z-index: 0;
     pointer-events: none;
@@ -188,8 +193,10 @@
      Une souris survole ; l'app est écrite en `:active`, qui ne lui dit rien.
      Ces règles n'ajoutent aucune mise en page, seulement la réponse qu'un
      bureau attend. */
-  .pcv-cine a[href^="/cinema/film/"] { transition: opacity .15s; }
-  .pcv-cine a[href^="/cinema/film/"]:hover { opacity: .82; }
+  .pcv-cine a[href^="/cinema/film/"],
+  .pcv-cine a[href^="/theatre/spectacle/"] { transition: opacity .15s; }
+  .pcv-cine a[href^="/cinema/film/"]:hover,
+  .pcv-cine a[href^="/theatre/spectacle/"]:hover { opacity: .82; }
 
   /* Les rouleaux horizontaux (affiches, jours, salles) gardent leur geste,
      mais un bureau a besoin de voir qu'il y a matière à faire défiler : la
@@ -219,64 +226,64 @@
      l'en-tête, le bandeau de contexte et le pied de page qui basculent à sa
      place. Rien n'est masqué — on garde la navigation du site, une salle ne
      doit pas être un cul-de-sac. */
-  html[data-univers='cinema'] .pcv-hd {
-    background: var(--cine-bg2);
-    border-bottom-color: var(--cine-line);
+  html[data-univers] .pcv-hd {
+    background: var(--uni-bg2);
+    border-bottom-color: var(--uni-line);
   }
-  html[data-univers='cinema'] .pcv-nav a,
-  html[data-univers='cinema'] .pcv-plusB { color: var(--cine-dim); }
-  html[data-univers='cinema'] .pcv-nav a:hover,
-  html[data-univers='cinema'] .pcv-plusB:hover,
-  html[data-univers='cinema'] .pcv-nav a.pcv-on {
-    color: var(--cine-accent2);
-    border-bottom-color: var(--cine-accent);
+  html[data-univers] .pcv-nav a,
+  html[data-univers] .pcv-plusB { color: var(--uni-dim); }
+  html[data-univers] .pcv-nav a:hover,
+  html[data-univers] .pcv-plusB:hover,
+  html[data-univers] .pcv-nav a.pcv-on {
+    color: var(--uni-accent2);
+    border-bottom-color: var(--uni-accent);
   }
-  html[data-univers='cinema'] .pcv-srch {
+  html[data-univers] .pcv-srch {
     background: rgba(250, 251, 250, .05);
-    border-color: var(--cine-line);
-    color: var(--cine-dim2);
+    border-color: var(--uni-line);
+    color: var(--uni-dim2);
   }
-  html[data-univers='cinema'] .pcv-btnP { background: var(--cine-accent); color: #0E1620; }
-  html[data-univers='cinema'] .pcv-btnP:hover { background: var(--cine-accent2); }
-  html[data-univers='cinema'] .pcv-av { background: var(--cine-accent); color: #0E1620; }
+  html[data-univers] .pcv-btnP { background: var(--uni-accent); color: var(--nav-fab-ink); }
+  html[data-univers] .pcv-btnP:hover { background: var(--uni-accent2); }
+  html[data-univers] .pcv-av { background: var(--uni-accent); color: var(--nav-fab-ink); }
   /* Le logo du site est une image à fond BLANC opaque (logo-topbar.webp) :
      posée telle quelle sur le bandeau sombre, c'est une tache. On l'assume
      en petite plaque — arrondie et cernée, elle se lit comme une étiquette.
      La seule autre issue serait un second fichier de logo détouré. */
-  html[data-univers='cinema'] .pcv-logo {
+  html[data-univers] .pcv-logo {
     border-radius: 7px;
     box-shadow: 0 0 0 1px rgba(157, 207, 238, .18);
   }
-  html[data-univers='cinema'] .pcv-ctx {
-    background: var(--cine-bg);
-    border-bottom-color: var(--cine-line);
+  html[data-univers] .pcv-ctx {
+    background: var(--uni-bg);
+    border-bottom-color: var(--uni-line);
   }
-  html[data-univers='cinema'] .pcv-ctxIn { color: var(--cine-dim2); }
-  html[data-univers='cinema'] .pcv-ctxIn b { color: var(--cine-ink); }
+  html[data-univers] .pcv-ctxIn { color: var(--uni-dim2); }
+  html[data-univers] .pcv-ctxIn b { color: var(--uni-ink); }
   /* Le menu « Plus » est une boîte posée sur l'en-tête : elle suit. */
-  html[data-univers='cinema'] .pcv-plusM {
-    background: var(--cine-panel);
-    border-color: var(--cine-line);
+  html[data-univers] .pcv-plusM {
+    background: var(--uni-panel);
+    border-color: var(--uni-line);
   }
-  html[data-univers='cinema'] .pcv-plusM a { color: var(--cine-dim); }
-  html[data-univers='cinema'] .pcv-plusM a:hover {
+  html[data-univers] .pcv-plusM a { color: var(--uni-dim); }
+  html[data-univers] .pcv-plusM a:hover {
     background: rgba(157, 207, 238, .10);
-    color: var(--cine-accent2);
+    color: var(--uni-accent2);
   }
-  html[data-univers='cinema'] .pcv-ft {
-    background: var(--cine-bg2);
-    border-top-color: var(--cine-line);
+  html[data-univers] .pcv-ft {
+    background: var(--uni-bg2);
+    border-top-color: var(--uni-line);
     margin-top: 0;
   }
-  html[data-univers='cinema'] .pcv-ftMark,
-  html[data-univers='cinema'] .pcv-ftCol h4 { color: var(--cine-ink); }
-  html[data-univers='cinema'] .pcv-ftMark p,
-  html[data-univers='cinema'] .pcv-ftCol a,
-  html[data-univers='cinema'] .pcv-ftLegal,
-  html[data-univers='cinema'] .pcv-ftLegal a { color: var(--cine-dim2); }
-  html[data-univers='cinema'] .pcv-ftCol a:hover,
-  html[data-univers='cinema'] .pcv-ftLegal a:hover { color: var(--cine-accent2); }
-  html[data-univers='cinema'] .pcv-ftLegal { border-top-color: var(--cine-line); }
+  html[data-univers] .pcv-ftMark,
+  html[data-univers] .pcv-ftCol h4 { color: var(--uni-ink); }
+  html[data-univers] .pcv-ftMark p,
+  html[data-univers] .pcv-ftCol a,
+  html[data-univers] .pcv-ftLegal,
+  html[data-univers] .pcv-ftLegal a { color: var(--uni-dim2); }
+  html[data-univers] .pcv-ftCol a:hover,
+  html[data-univers] .pcv-ftLegal a:hover { color: var(--uni-accent2); }
+  html[data-univers] .pcv-ftLegal { border-top-color: var(--uni-line); }
 
   /* ─── 5. « Mon cinéma » — l'écran de l'exploitant ─────────────────────
      Celui-là ne bascule PAS en bleu nuit : c'est un écran de gestion, il

@@ -103,7 +103,7 @@ export default function TheatreAffiche({ isAdmin = false }: { isAdmin?: boolean 
           </h2>
           <div className="pcv-sub pcv-only">La saison du spectacle vivant près de chez vous</div>
         </div>
-        <Link href={lien} className="pcv-more flex shrink-0 items-center gap-1 text-[12.5px] font-bold no-underline" style={{ color: '#C0455C' }}>
+        <Link href={lien} className="pcv-more flex shrink-0 items-center gap-1 text-[12.5px] font-bold no-underline" style={{ color: '#C6332B' }}>
           Voir tout
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" />
@@ -113,13 +113,16 @@ export default function TheatreAffiche({ isAdmin = false }: { isAdmin?: boolean 
 
       <div className="flex items-start gap-2.5 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
         {prochains.map(({ spectacle: s, date }) => (
-          <Link key={s.id} href={lien}
+          // Le visuel mène à la FICHE du spectacle, pas au module : c'est
+          // une affiche, et on clique une affiche pour savoir ce que c'est.
+          // « Voir tout » reste la porte du module. Même règle qu'au cinéma.
+          <Link key={s.id} href={`/theatre/spectacle/${s.id}`}
             className="block shrink-0 overflow-hidden rounded-[12px] no-underline"
             style={{ width: 118, boxShadow: '0 2px 8px rgba(44,28,16,.14)' }}>
             {/* `display:block` obligatoire : sur un span inline, `aspect-ratio`
                 ne s'applique pas et la vignette s'écrase. */}
             <span className="relative block w-full"
-              style={{ aspectRatio: '3 / 4', background: 'linear-gradient(160deg,#2A1B1F,#0F0A0C)' }}>
+              style={{ aspectRatio: '3 / 4', background: 'linear-gradient(160deg,#3A1C1E,#150B0C)' }}>
               {s.affiche_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={s.affiche_url} alt={s.titre} className="h-full w-full object-cover" loading="lazy" />
@@ -134,7 +137,7 @@ export default function TheatreAffiche({ isAdmin = false }: { isAdmin?: boolean 
                   d'y aller, et elle doit se lire sans ouvrir la fiche. */}
               <span className="absolute inset-x-0 bottom-0 px-2 py-1.5"
                 style={{ background: 'linear-gradient(to top, rgba(15,10,12,.92), transparent)' }}>
-                <span className="block text-[11px] font-extrabold" style={{ color: '#E88A9B' }}>
+                <span className="block text-[11px] font-extrabold" style={{ color: '#FF8A7E' }}>
                   {jourCourt(date.date)}{heureLisible(date.heure) ? ` · ${heureLisible(date.heure)}` : ''}
                 </span>
               </span>

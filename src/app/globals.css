@@ -172,35 +172,75 @@ textarea:-webkit-autofill {
 .font-title { font-weight: 500; }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   UNIVERS CINÉMA
-   Le temps d'une visite dans une salle, toute l'app bascule en bleu nuit,
-   bottom nav comprise. Le thème est posé sur <html> par la page cinéma et
-   retiré à sa sortie : il ne peut donc pas fuir sur le reste de l'app.
+   LES UNIVERS — cinéma, théâtre
+
+   Entrer dans un module fait basculer TOUTE l'app dans une autre couleur,
+   bottom nav comprise : on doit sentir qu'on est ailleurs le temps d'un
+   instant. Le thème est posé sur <html> par la page du module et retiré à
+   sa sortie — il ne peut donc pas fuir sur le reste de l'app.
+
+   UN SEUL JEU DE NOMS, deux jeux de valeurs. Les jetons s'appellent --uni-*
+   et non --cine-* : le châssis (le panneau bureau, le voile, le rouleau
+   d'affiches, les pastilles de jour) est celui des MODULES, pas celui du
+   cinéma. Un troisième univers demain n'a qu'à poser ses dix couleurs ici.
    ═══════════════════════════════════════════════════════════════════════ */
 html[data-univers='cinema'] {
-  --cine-bg:      #12171C;
-  --cine-bg2:     #0F1419;
-  --cine-panel:   #172230;
-  --cine-band:    #192D41;
-  --cine-accent:  #8FCBEE;
-  --cine-accent2: #B4DDF6;
-  --cine-line:    rgba(157, 207, 238, .15);
-  --cine-ink:     #FAFBFA;
-  --cine-dim:     rgba(250, 251, 250, .60);
-  --cine-dim2:    rgba(250, 251, 250, .42);
+  --uni-bg:      #12171C;
+  --uni-bg2:     #0F1419;
+  --uni-panel:   #172230;
+  --uni-band:    #192D41;
+  --uni-accent:  #8FCBEE;
+  --uni-accent2: #B4DDF6;
+  --uni-line:    rgba(157, 207, 238, .15);
+  --uni-ink:     #FAFBFA;
+  --uni-dim:     rgba(250, 251, 250, .60);
+  --uni-dim2:    rgba(250, 251, 250, .42);
 
   /* Bottom nav de l'app, rhabillée. Mêmes onglets, mêmes libellés. */
-  --nav-bg:      var(--cine-bg2);
-  --nav-bord:    var(--cine-line);
-  --nav-actif:   var(--cine-accent2);
-  --nav-inactif: var(--cine-dim2);
-  --nav-fab-bg:  var(--cine-accent);
+  --nav-bg:      var(--uni-bg2);
+  --nav-bord:    var(--uni-line);
+  --nav-actif:   var(--uni-accent2);
+  --nav-inactif: var(--uni-dim2);
+  --nav-fab-bg:  var(--uni-accent);
   --nav-fab-ink: #0E1620;
   --nav-pastille: rgba(180, 221, 246, .16);
 
-  background: var(--cine-bg);
+  background: var(--uni-bg);
 }
-html[data-univers='cinema'] body { background: var(--cine-bg); }
+html[data-univers='cinema'] body { background: var(--uni-bg); }
+
+/* ─── UNIVERS THÉÂTRE ─────────────────────────────────────────
+   Le rouge du rideau, PAS le rose. L'accent est franchement rouge (teinte
+   autour de 5°, saturée) : éclaircir un rouge le fait virer au rose, et le
+   théâtre n'est pas rose. Les fonds portent la même chaleur, assez sombres
+   pour qu'une affiche posée dessus garde ses couleurs.
+
+   Mêmes dix jetons que le cinéma, au même rang : tout le châssis suit — la
+   bottom nav, la barre du haut, le panneau bureau — sans une ligne de plus. */
+html[data-univers='theatre'] {
+  --uni-bg:      #150B0C;
+  --uni-bg2:     #110809;
+  --uni-panel:   #241214;
+  --uni-band:    #34171A;
+  --uni-accent:  #E2453C;
+  --uni-accent2: #F76E61;
+  --uni-line:    rgba(226, 69, 60, .20);
+  --uni-ink:     #FBF7F5;
+  --uni-dim:     rgba(251, 247, 245, .62);
+  --uni-dim2:    rgba(251, 247, 245, .44);
+
+  /* Bottom nav de l'app, rhabillée. Mêmes onglets, mêmes libellés. */
+  --nav-bg:      var(--uni-bg2);
+  --nav-bord:    var(--uni-line);
+  --nav-actif:   var(--uni-accent2);
+  --nav-inactif: var(--uni-dim2);
+  --nav-fab-bg:  var(--uni-accent);
+  --nav-fab-ink: #1B0708;
+  --nav-pastille: rgba(247, 110, 97, .16);
+
+  background: var(--uni-bg);
+}
+html[data-univers='theatre'] body { background: var(--uni-bg); }
 
 /* ═══════════ HÉROS DU VILLAGE — passage d'une fiche à l'autre ═══════════
    L'encart peut porter plusieurs fiches et les fait défiler. Sans ce fondu,

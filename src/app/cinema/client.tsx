@@ -212,7 +212,7 @@ export default function CinemaClient() {
 
   return (
     <div className="pcv-cine relative min-h-[100dvh] font-inter"
-      style={{ background: 'var(--cine-bg)', color: 'var(--cine-ink)', paddingBottom: 92 }}>
+      style={{ background: 'var(--uni-bg)', color: 'var(--uni-ink)', paddingBottom: 92 }}>
 
       {/* Barre de sortie — la porte de retour vers l'app */}
       <div className="flex items-center gap-2.5 px-3.5"
@@ -221,7 +221,7 @@ export default function CinemaClient() {
           onClick={() => router.push('/?tab=village')}
           aria-label="Revenir à La Place du Village"
           className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-full"
-          style={{ border: '1px solid var(--cine-line)', background: 'rgba(250,251,250,.05)', color: 'var(--cine-ink)' }}
+          style={{ border: '1px solid var(--uni-line)', background: 'rgba(250,251,250,.05)', color: 'var(--uni-ink)' }}
         >
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
             <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
@@ -229,7 +229,7 @@ export default function CinemaClient() {
         </button>
         <button onClick={() => router.push('/?tab=village')}
           className="min-w-0 truncate border-none bg-transparent p-0 text-left"
-          style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-.01em', color: 'var(--cine-ink)' }}>
+          style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-.01em', color: 'var(--uni-ink)' }}>
           La Place du Village
         </button>
         {/* Les villes desservies. En agrégé on les montre TOUTES : c'est ce
@@ -238,21 +238,21 @@ export default function CinemaClient() {
             va. */}
         {communes.length > 0 && (
           <span className="ml-auto flex-none truncate"
-            style={{ fontSize: 12, fontWeight: 600, color: 'var(--cine-dim)' }}>
+            style={{ fontSize: 12, fontWeight: 600, color: 'var(--uni-dim)' }}>
             {communes.join(' · ')}
           </span>
         )}
         {billetterie ? (
           <a href={billetterie} target="_blank" rel="noopener noreferrer"
             className="flex-none rounded-full no-underline"
-            style={{ marginLeft: communes.length ? 12 : 'auto', border: '1px solid var(--cine-accent)', padding: '7px 13px', fontSize: 12, fontWeight: 700, color: 'var(--cine-accent)' }}>
+            style={{ marginLeft: communes.length ? 12 : 'auto', border: '1px solid var(--uni-accent)', padding: '7px 13px', fontSize: 12, fontWeight: 700, color: 'var(--uni-accent)' }}>
             Billetterie
           </a>
         ) : salleUnique ? (
           // Une salle sans billetterie en ligne : on le dit plutôt que de
           // laisser un vide, et surtout plutôt que d'envoyer ailleurs.
           <span className="ml-auto flex-none rounded-full"
-            style={{ border: '1px solid var(--cine-line)', padding: '7px 13px', fontSize: 11.5, fontWeight: 600, color: 'var(--cine-dim)' }}>
+            style={{ border: '1px solid var(--uni-line)', padding: '7px 13px', fontSize: 11.5, fontWeight: 600, color: 'var(--uni-dim)' }}>
             Billetterie bientôt
           </span>
         ) : null}
@@ -275,7 +275,7 @@ export default function CinemaClient() {
                   touchent et on ne sait plus où l'un finit. */}
               {i > 0 && (
                 <span aria-hidden className="flex-none"
-                  style={{ width: 1, height: 42, margin: '0 26px', background: 'var(--cine-line)' }} />
+                  style={{ width: 1, height: 42, margin: '0 26px', background: 'var(--uni-line)' }} />
               )}
               <button type="button"
                 onClick={() => salleUnique ? undefined : choisirSalle(salle.slug ?? salle.id)}
@@ -301,11 +301,11 @@ export default function CinemaClient() {
                 ) : (
                   <span className="text-center">
                     <span className="block font-title"
-                      style={{ fontSize: salleUnique ? 26 : 19, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--cine-ink)' }}>
+                      style={{ fontSize: salleUnique ? 26 : 19, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--uni-ink)' }}>
                       {salle.nom}
                     </span>
                     {salle.commune && (
-                      <span className="block" style={{ marginTop: 3, fontSize: 11.5, color: 'var(--cine-dim2)' }}>
+                      <span className="block" style={{ marginTop: 3, fontSize: 11.5, color: 'var(--uni-dim2)' }}>
                         {salle.commune}
                       </span>
                     )}
@@ -318,7 +318,7 @@ export default function CinemaClient() {
               porte la page, a la place des enseignes empilees. */}
           {enseignes.length === 0 && (
             <h1 className="m-0 font-title"
-              style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--cine-ink)' }}>
+              style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--uni-ink)' }}>
               Au cinéma
             </h1>
           )}
@@ -328,7 +328,7 @@ export default function CinemaClient() {
             regarde : cette phrase le dit. Sur une seule salle, sa ville est
             déjà en haut à droite — la répéter n'apprendrait rien. */}
         {!salleUnique && salles.length > 1 && (
-          <p className="m-0 text-center" style={{ marginTop: 14, fontSize: 12, color: 'var(--cine-dim2)' }}>
+          <p className="m-0 text-center" style={{ marginTop: 14, fontSize: 12, color: 'var(--uni-dim2)' }}>
             {salles.length} salles autour de vous
           </p>
         )}
@@ -359,9 +359,9 @@ export default function CinemaClient() {
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   borderRadius: 999, padding: '7px 13px', fontSize: 12,
                   fontWeight: actif ? 700 : 600,
-                  border: `1px solid ${actif ? 'var(--cine-accent)' : 'rgba(250,251,250,.12)'}`,
+                  border: `1px solid ${actif ? 'var(--uni-accent)' : 'rgba(250,251,250,.12)'}`,
                   background: actif ? 'rgba(157,207,238,.14)' : 'transparent',
-                  color: actif ? 'var(--cine-accent2)' : 'var(--cine-dim)',
+                  color: actif ? 'var(--uni-accent2)' : 'var(--uni-dim)',
                 }}>
                 {o.nom}
               </button>
@@ -371,17 +371,17 @@ export default function CinemaClient() {
       )}
 
       {/* Onglets centrés */}
-      <div className="flex justify-center gap-7 px-4" style={{ borderBottom: '1px solid var(--cine-line)' }}>
+      <div className="flex justify-center gap-7 px-4" style={{ borderBottom: '1px solid var(--uni-line)' }}>
         {ONGLETS.map(o => {
           const actif = o.id === onglet
           return (
             <button key={o.id} onClick={() => setOnglet(o.id)}
               className="flex-none whitespace-nowrap bg-transparent"
               style={{
-                border: 'none', borderBottom: `2px solid ${actif ? 'var(--cine-accent)' : 'transparent'}`,
+                border: 'none', borderBottom: `2px solid ${actif ? 'var(--uni-accent)' : 'transparent'}`,
                 padding: '11px 0 10px', fontSize: 13.5,
                 fontWeight: actif ? 700 : 600,
-                color: actif ? 'var(--cine-accent2)' : 'var(--cine-dim)',
+                color: actif ? 'var(--uni-accent2)' : 'var(--uni-dim)',
               }}>
               {o.label}
             </button>
@@ -392,7 +392,7 @@ export default function CinemaClient() {
       {isLoading ? (
         <div className="flex justify-center py-16">
           <div className="h-7 w-7 animate-spin rounded-full"
-            style={{ border: '3px solid rgba(157,207,238,.2)', borderTopColor: 'var(--cine-accent)' }} />
+            style={{ border: '3px solid rgba(157,207,238,.2)', borderTopColor: 'var(--uni-accent)' }} />
         </div>
       ) : !salles.length ? (
         <Vide texte="Aucune salle n’a encore rejoint La Place du Village." />
@@ -422,10 +422,10 @@ export default function CinemaClient() {
                     aria-hidden={copie} tabIndex={copie ? -1 : undefined}>
                     <Affiche film={f} largeur={118} />
                     <div className="line-clamp-2"
-                      style={{ marginTop: 9, fontSize: 13, fontWeight: 600, lineHeight: 1.3, letterSpacing: '-.01em', color: 'var(--cine-ink)' }}>
+                      style={{ marginTop: 9, fontSize: 13, fontWeight: 600, lineHeight: 1.3, letterSpacing: '-.01em', color: 'var(--uni-ink)' }}>
                       {f.titre}
                     </div>
-                    {f.duree_min ? <div style={{ marginTop: 4, fontSize: 11.5, color: 'var(--cine-dim2)' }}>{f.duree_min} min</div> : null}
+                    {f.duree_min ? <div style={{ marginTop: 4, fontSize: 11.5, color: 'var(--uni-dim2)' }}>{f.duree_min} min</div> : null}
                   </Link>
                 )
               })}
@@ -441,7 +441,7 @@ export default function CinemaClient() {
                   voyait les séances du jour et on croyait que c'était tout. */}
               <button onClick={() => setOnglet('programme')}
                 className="mx-auto flex items-center gap-2 border-none bg-transparent"
-                style={{ marginTop: 14, padding: '10px 18px', borderRadius: 999, border: '1px solid var(--cine-line)', fontSize: 12.5, fontWeight: 700, color: 'var(--cine-accent2)' }}>
+                style={{ marginTop: 14, padding: '10px 18px', borderRadius: 999, border: '1px solid var(--uni-line)', fontSize: 12.5, fontWeight: 700, color: 'var(--uni-accent2)' }}>
                 Voir tout le programme
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" />
@@ -464,13 +464,13 @@ export default function CinemaClient() {
                   style={{
                     width: 46, borderRadius: 11, padding: '8px 0 9px',
                     background: actif ? 'rgba(157,207,238,.14)' : 'rgba(250,251,250,.04)',
-                    border: `1px solid ${actif ? 'var(--cine-accent)' : 'rgba(250,251,250,.06)'}`,
-                    color: actif ? 'var(--cine-accent2)' : 'var(--cine-ink)',
+                    border: `1px solid ${actif ? 'var(--uni-accent)' : 'rgba(250,251,250,.06)'}`,
+                    color: actif ? 'var(--uni-accent2)' : 'var(--uni-ink)',
                     // Un jour sans séance reste cliquable mais s'efface : on ne
                     // fait pas croire qu'il se passe quelque chose.
                     opacity: n === 0 ? 0.45 : 1,
                   }}>
-                  <span style={{ display: 'block', fontSize: 9.5, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: actif ? 'rgba(157,207,238,.6)' : 'var(--cine-dim2)' }}>{nom}</span>
+                  <span style={{ display: 'block', fontSize: 9.5, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: actif ? 'rgba(157,207,238,.6)' : 'var(--uni-dim2)' }}>{nom}</span>
                   <b className="font-title" style={{ display: 'block', fontSize: 17, lineHeight: 1.1, marginTop: 2, fontWeight: 700 }}>{num}</b>
                 </button>
               )
@@ -486,7 +486,7 @@ export default function CinemaClient() {
           {jour && (
             <button onClick={() => setJour(null)}
               className="block w-full border-none"
-              style={{ borderTop: '1px solid var(--cine-line)', background: 'rgba(157,207,238,.06)', padding: 13, fontSize: 12.5, fontWeight: 700, color: 'var(--cine-accent)' }}>
+              style={{ borderTop: '1px solid var(--uni-line)', background: 'rgba(157,207,238,.06)', padding: 13, fontSize: 12.5, fontWeight: 700, color: 'var(--uni-accent)' }}>
               Voir toute la programmation
             </button>
           )}
@@ -509,16 +509,16 @@ export default function CinemaClient() {
 function Titre({ texte, compteur }: { texte: string; compteur?: number }) {
   return (
     <div className="flex items-baseline gap-2" style={{ padding: '18px 18px 10px' }}>
-      <h2 className="m-0 font-title" style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--cine-ink)' }}>{texte}</h2>
+      <h2 className="m-0 font-title" style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--uni-ink)' }}>{texte}</h2>
       {typeof compteur === 'number' && (
-        <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--cine-dim2)' }}>{compteur}</span>
+        <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--uni-dim2)' }}>{compteur}</span>
       )}
     </div>
   )
 }
 
 function Vide({ texte }: { texte: string }) {
-  return <p className="px-[18px] py-10 text-center" style={{ fontSize: 12.5, color: 'var(--cine-dim)' }}>{texte}</p>
+  return <p className="px-[18px] py-10 text-center" style={{ fontSize: 12.5, color: 'var(--uni-dim)' }}>{texte}</p>
 }
 
 /**
@@ -540,9 +540,9 @@ function ListeSeances({ jour, liste, films, billetterie, salles, sansBandeau }: 
     <div>
       {!sansBandeau && (
         <div className="flex items-center justify-between gap-2"
-          style={{ padding: '9px 18px', fontSize: 11.5, fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--cine-accent)', background: 'var(--cine-band)', borderBottom: '1px solid var(--cine-line)' }}>
+          style={{ padding: '9px 18px', fontSize: 11.5, fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--uni-accent)', background: 'var(--uni-band)', borderBottom: '1px solid var(--uni-line)' }}>
           <span>{jourLong(jour)}</span>
-          <em style={{ fontStyle: 'normal', fontWeight: 700, letterSpacing: '.02em', textTransform: 'none', color: 'var(--cine-dim2)', fontSize: 11 }}>
+          <em style={{ fontStyle: 'normal', fontWeight: 700, letterSpacing: '.02em', textTransform: 'none', color: 'var(--uni-dim2)', fontSize: 11 }}>
             {liste.length} séance{liste.length > 1 ? 's' : ''}
           </em>
         </div>
@@ -554,7 +554,7 @@ function ListeSeances({ jour, liste, films, billetterie, salles, sansBandeau }: 
           <div key={s.id} className="flex items-center gap-[13px]"
             style={{ padding: '11px 18px', borderBottom: i === liste.length - 1 ? 'none' : '1px solid rgba(250,251,250,.07)' }}>
             <span className="flex-none font-title tabular-nums"
-              style={{ width: 50, paddingRight: 13, borderRight: '1px solid rgba(250,251,250,.12)', fontSize: 15, fontWeight: 800, color: 'var(--cine-accent2)' }}>
+              style={{ width: 50, paddingRight: 13, borderRight: '1px solid rgba(250,251,250,.12)', fontSize: 15, fontWeight: 800, color: 'var(--uni-accent2)' }}>
               {formatHeure(s.heure)}
             </span>
             {/* L'affiche en tout petit : on reconnaît un film à son image
@@ -569,10 +569,10 @@ function ListeSeances({ jour, liste, films, billetterie, salles, sansBandeau }: 
             </span>
             <div className="min-w-0 flex-1">
               <Link href={`/cinema/film/${s.film_id}`} className="block truncate no-underline"
-                style={{ fontSize: 13.5, fontWeight: 600, letterSpacing: '-.01em', color: 'var(--cine-ink)' }}>
+                style={{ fontSize: 13.5, fontWeight: 600, letterSpacing: '-.01em', color: 'var(--uni-ink)' }}>
                 {f?.titre ?? 'Film'}
               </Link>
-              <div style={{ marginTop: 2, fontSize: 11, color: 'var(--cine-dim2)' }}>
+              <div style={{ marginTop: 2, fontSize: 11, color: 'var(--uni-dim2)' }}>
                 {[
                   salles?.get(s.etablissement_id) ?? null,
                   s.version.toUpperCase(),
@@ -583,13 +583,13 @@ function ListeSeances({ jour, liste, films, billetterie, salles, sansBandeau }: 
             </div>
             {lien ? (
               <a href={lien} target="_blank" rel="noopener noreferrer" className="flex-none no-underline"
-                style={{ border: '1px solid rgba(157,207,238,.45)', borderRadius: 7, padding: '6px 11px', fontSize: 11.5, fontWeight: 700, color: 'var(--cine-accent2)' }}>
+                style={{ border: '1px solid rgba(157,207,238,.45)', borderRadius: 7, padding: '6px 11px', fontSize: 11.5, fontWeight: 700, color: 'var(--uni-accent2)' }}>
                 Réserver
               </a>
             ) : (
               // Pas de réservation en ligne pour cette salle : on l'annonce
               // sans faire croire à un bouton, et on n'envoie nulle part.
-              <span className="flex-none" style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--cine-dim2)' }}>
+              <span className="flex-none" style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--uni-dim2)' }}>
                 Sur place
               </span>
             )}
@@ -629,9 +629,9 @@ function Evenements({ liste }: { liste: Evenement[] }) {
                 style={{
                   borderRadius: 999, padding: '7px 13px', fontSize: 12,
                   fontWeight: actif ? 700 : 600,
-                  border: `1px solid ${actif ? 'var(--cine-accent)' : 'rgba(250,251,250,.12)'}`,
+                  border: `1px solid ${actif ? 'var(--uni-accent)' : 'rgba(250,251,250,.12)'}`,
                   background: actif ? 'rgba(157,207,238,.14)' : 'transparent',
-                  color: actif ? 'var(--cine-accent2)' : 'var(--cine-dim)',
+                  color: actif ? 'var(--uni-accent2)' : 'var(--uni-dim)',
                 }}>
                 {c === 'tout' ? 'Tout' : c}
               </button>
@@ -642,17 +642,17 @@ function Evenements({ liste }: { liste: Evenement[] }) {
 
       {phare && (
         <Link href={`/evenement/${phare.id}`} className="block no-underline"
-          style={{ margin: '14px 18px 0', borderRadius: 16, padding: 18, background: 'linear-gradient(140deg,rgba(157,207,238,.16),rgba(157,207,238,.03))', border: '1px solid var(--cine-line)' }}>
-          <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--cine-accent)' }}>
+          style={{ margin: '14px 18px 0', borderRadius: 16, padding: 18, background: 'linear-gradient(140deg,rgba(157,207,238,.16),rgba(157,207,238,.03))', border: '1px solid var(--uni-line)' }}>
+          <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--uni-accent)' }}>
             À ne pas manquer
           </span>
-          <h3 className="m-0 font-title" style={{ marginTop: 10, fontSize: 20, fontWeight: 700, lineHeight: 1.2, color: 'var(--cine-ink)' }}>{phare.titre}</h3>
-          <div style={{ marginTop: 8, fontSize: 12.5, color: 'var(--cine-dim)', lineHeight: 1.5 }}>
+          <h3 className="m-0 font-title" style={{ marginTop: 10, fontSize: 20, fontWeight: 700, lineHeight: 1.2, color: 'var(--uni-ink)' }}>{phare.titre}</h3>
+          <div style={{ marginTop: 8, fontSize: 12.5, color: 'var(--uni-dim)', lineHeight: 1.5 }}>
             {jourLong(phare.date_debut)}{phare.heure ? ` · ${formatHeure(phare.heure)}` : ''}
             {phare.lieu?.nom && <><br />{[phare.lieu.nom, phare.lieu.commune].filter(Boolean).join(' · ')}</>}
           </div>
           <span className="inline-flex items-center"
-            style={{ marginTop: 14, gap: 7, borderRadius: 9, background: 'var(--cine-accent)', color: '#0E1620', padding: '10px 14px', fontSize: 12.5, fontWeight: 800 }}>
+            style={{ marginTop: 14, gap: 7, borderRadius: 9, background: 'var(--uni-accent)', color: '#0E1620', padding: '10px 14px', fontSize: 12.5, fontWeight: 800 }}>
             Voir l’événement
           </span>
         </Link>
@@ -667,24 +667,24 @@ function Evenements({ liste }: { liste: Evenement[] }) {
             .filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(' · ') || null
           return (
             <Link key={e.id} href={`/evenement/${e.id}`} className="flex overflow-hidden no-underline"
-              style={{ borderRadius: 13, background: 'var(--cine-panel)', border: '1px solid rgba(250,251,250,.07)' }}>
+              style={{ borderRadius: 13, background: 'var(--uni-panel)', border: '1px solid rgba(250,251,250,.07)' }}>
               <div className="flex flex-none flex-col items-center justify-center gap-0.5"
-                style={{ width: 58, background: 'rgba(157,207,238,.07)', borderRight: '1px solid var(--cine-line)' }}>
-                <b className="font-title" style={{ fontSize: 20, lineHeight: 1, fontWeight: 700, color: 'var(--cine-accent2)' }}>{num}</b>
+                style={{ width: 58, background: 'rgba(157,207,238,.07)', borderRight: '1px solid var(--uni-line)' }}>
+                <b className="font-title" style={{ fontSize: 20, lineHeight: 1, fontWeight: 700, color: 'var(--uni-accent2)' }}>{num}</b>
                 <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'rgba(157,207,238,.6)' }}>{nom}</span>
               </div>
               <div className="min-w-0 flex-1" style={{ padding: 12 }}>
                 {(e.categorie_libre || e.categorie) && (
-                  <span style={{ display: 'inline-block', borderRadius: 4, padding: '2px 7px', fontSize: 9, fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase', background: 'rgba(157,207,238,.16)', color: 'var(--cine-accent2)' }}>
+                  <span style={{ display: 'inline-block', borderRadius: 4, padding: '2px 7px', fontSize: 9, fontWeight: 800, letterSpacing: '.07em', textTransform: 'uppercase', background: 'rgba(157,207,238,.16)', color: 'var(--uni-accent2)' }}>
                     {e.categorie_libre || e.categorie}
                   </span>
                 )}
-                <div className="truncate" style={{ marginTop: 6, fontSize: 13.5, fontWeight: 600, letterSpacing: '-.01em', color: 'var(--cine-ink)' }}>{e.titre}</div>
-                <div style={{ marginTop: 4, fontSize: 11.5, color: 'var(--cine-dim2)' }}>
+                <div className="truncate" style={{ marginTop: 6, fontSize: 13.5, fontWeight: 600, letterSpacing: '-.01em', color: 'var(--uni-ink)' }}>{e.titre}</div>
+                <div style={{ marginTop: 4, fontSize: 11.5, color: 'var(--uni-dim2)' }}>
                   {jourLong(e.date_debut)}{e.heure ? ` · ${formatHeure(e.heure)}` : ''}
                 </div>
                 {lieu && (
-                  <div className="flex items-center gap-1 truncate" style={{ marginTop: 3, fontSize: 11, color: 'var(--cine-dim2)' }}>
+                  <div className="flex items-center gap-1 truncate" style={{ marginTop: 3, fontSize: 11, color: 'var(--uni-dim2)' }}>
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none', opacity: .7 }}>
                       <path d="M12 22s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="10" r="2.5"/>
                     </svg>
