@@ -49,6 +49,7 @@ export const CLES_EDITORIALES = new Set([
   'radio_topbar_logo',
   'radio_village_public',
   'cinema_village_public',
+  'theatre_village_public',
   'carte_depart_lat',
   'carte_depart_lng',
   'carte_depart_zoom',

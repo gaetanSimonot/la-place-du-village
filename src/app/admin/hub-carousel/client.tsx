@@ -85,9 +85,11 @@ export default function AdminHubCarousel() {
   const [entreeSaving, setEntreeSaving] = useState(false)
 
   const [cinemaVis, setCinemaVis] = useState<VisibiliteCinema>('admin')
+  const [theatreVis, setTheatreVis] = useState<VisibiliteCinema>('admin')
   const [radioVis, setRadioVis] = useState<VisibiliteCinema>('admin')
   const [radioSaving, setRadioSaving] = useState(false)
   const [cinemaSaving, setCinemaSaving] = useState(false)
+  const [theatreSaving, setTheatreSaving] = useState(false)
   /** Visibilité de l'Assistant Village dans la barre de recherche. */
   const [assistantVis, setAssistantVis] = useState<VisibiliteCinema>('admin')
   const [assistantSaving, setAssistantSaving] = useState(false)
@@ -120,13 +122,14 @@ export default function AdminHubCarousel() {
      * d'un autre. La regle est partagee avec le serveur (CLES_EDITORIALES).
      */
     lireConfigsClient([
-      'hub_hero_intro_enabled', 'hub_hero_intro_image_url',       'splash_promo', 'cinema_village_public',
+      'hub_hero_intro_enabled', 'hub_hero_intro_image_url',       'splash_promo', 'cinema_village_public', 'theatre_village_public',
       'radio_village_public', 'assistant_visibilite', 'village_hero', 'entree_app',
     ], territoireAdmin?.id ?? null, !!territoireAdmin?.par_defaut).then(cfg => {
       const toggleRes = { data: { value: cfg.hub_hero_intro_enabled } }
       const imgRes    = { data: { value: cfg.hub_hero_intro_image_url } }
       const splashRes = { data: { value: cfg.splash_promo } }
       const cineRes   = { data: { value: cfg.cinema_village_public } }
+      const theaRes   = { data: { value: cfg.theatre_village_public } }
       const radioRes  = { data: { value: cfg.radio_village_public } }
       const assistRes = { data: { value: cfg.assistant_visibilite } }
       const herosRes  = { data: { value: cfg.village_hero } }
@@ -135,6 +138,7 @@ export default function AdminHubCarousel() {
       setIntroImageUrl(imgRes.data?.value || null)
       setSplash(parseSplashPromo(splashRes.data?.value))
       setCinemaVis(parseVisibilite(cineRes.data?.value))
+      setTheatreVis(parseVisibilite(theaRes.data?.value))
       setRadioVis(parseVisibilite(radioRes.data?.value))
       setAssistantVis(parseVisibilite(assistRes.data?.value))
       setHerosListe(normaliserHerosListe(herosRes.data?.value))
@@ -236,6 +240,20 @@ export default function AdminHubCarousel() {
     }).catch(() => null)
     if (!res?.ok) setCinemaVis(avant)
     setCinemaSaving(false)
+  }
+
+  async function changerTheatreVis(next: VisibiliteCinema) {
+    if (theatreSaving || next === theatreVis) return
+    const avant = theatreVis
+    setTheatreVis(next); setTheatreSaving(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch(urlEcritureConfig(territoireAdmin?.par_defaut ? null : territoireAdmin?.slug ?? null), {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body:    JSON.stringify({ key: 'theatre_village_public', value: next }),
+    }).catch(() => null)
+    if (!res?.ok) setTheatreVis(avant)
+    setTheatreSaving(false)
   }
 
   async function changerRadioVis(next: VisibiliteCinema) {
@@ -756,6 +774,51 @@ export default function AdminHubCarousel() {
                     border: `1.5px solid ${actif ? '#C84B2F' : '#E5DDD2'}`,
                     background: actif ? '#FFF8F3' : '#FDFAF5',
                     cursor: cinemaSaving ? 'default' : 'pointer',
+                    fontFamily: 'var(--font-body), sans-serif',
+                  }}
+                >
+                  <div style={{ fontSize: 12.5, fontWeight: 800, color: actif ? '#C0440A' : '#1A1209' }}>{o.titre}</div>
+                  <div style={{ fontSize: 10, color: '#8A7A6A', marginTop: 2 }}>{o.sous}</div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Bloc théâtre sur la page Village — mêmes trois états que le cinéma,
+          et le même défaut : `admin`. Un module qu'on oublie de régler reste
+          invisible, il ne s'ouvre jamais tout seul. */}
+      <div style={{ padding: '14px 16px 0' }}>
+        <div style={{
+          padding: 14, borderRadius: 12, background: '#FFFFFF',
+          border: `1px solid ${theatreVis === 'tous' ? '#F0B08A' : '#E5DDD2'}`,
+          boxShadow: '0 1px 4px rgba(44,28,16,0.04)',
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>
+            Bloc « Au théâtre »
+          </div>
+          <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2, marginBottom: 10, lineHeight: 1.45 }}>
+            Sur la page Village. Quel que soit le choix, il disparaît quand aucune
+            représentation n&apos;est annoncée — une saison finie ne laisse pas de cadre vide.
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {([
+              { v: 'masque' as const, titre: 'Masqué', sous: 'personne' },
+              { v: 'admin'  as const, titre: 'Admin',  sous: 'toi seul' },
+              { v: 'tous'   as const, titre: 'Tous',   sous: 'les habitants' },
+            ]).map(o => {
+              const actif = theatreVis === o.v
+              return (
+                <button
+                  key={o.v}
+                  onClick={() => changerTheatreVis(o.v)}
+                  disabled={theatreSaving}
+                  style={{
+                    flex: 1, padding: '10px 6px', borderRadius: 10, textAlign: 'center',
+                    border: `1.5px solid ${actif ? '#C84B2F' : '#E5DDD2'}`,
+                    background: actif ? '#FFF8F3' : '#FDFAF5',
+                    cursor: theatreSaving ? 'default' : 'pointer',
                     fontFamily: 'var(--font-body), sans-serif',
                   }}
                 >
