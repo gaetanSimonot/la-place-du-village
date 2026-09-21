@@ -6,6 +6,7 @@ import useSWR from 'swr'
 import { toast } from 'sonner'
 import BottomNavBar from '@/components/BottomNavBar'
 import BandeAnnonce from '@/components/cinema/BandeAnnonce'
+import VisuelPleinEcran from '@/components/VisuelPleinEcran'
 import {
   dureeLisible, heureLisible,
   type Theatre, type Spectacle, type Representation,
@@ -77,6 +78,7 @@ export default function SpectacleClient({ id }: { id: string }) {
   const router = useRouter()
   const [tout, setTout] = useState(false)
   const [videoOuverte, setVideoOuverte] = useState(false)
+  const [visuelOuvert, setVisuelOuvert] = useState(false)
 
   // On reste dans la salle : la fiche porte le même thème que /theatre, posé
   // au montage et retiré au démontage pour qu'il ne fuie pas ailleurs.
@@ -195,17 +197,32 @@ export default function SpectacleClient({ id }: { id: string }) {
         <>
           {/* Visuel + informations */}
           <div className="flex gap-4 px-4 pt-4">
-            <div className="relative w-[122px] shrink-0 overflow-hidden rounded-[12px]"
-              style={{ aspectRatio: '3 / 4', background: 'linear-gradient(160deg,#3E211C,#1A0E0D)', boxShadow: '0 6px 18px rgba(18,7,6,.34)' }}>
+            {/* Le visuel s'ouvre en grand. Une affiche de spectacle est un
+                objet graphique : à 122 px on devine le titre et rien d'autre.
+                Sans image, le cadre reste un cadre — rien à agrandir. */}
+            <button type="button" disabled={!spectacle.affiche_url}
+              onClick={() => spectacle.affiche_url && setVisuelOuvert(true)}
+              aria-label={spectacle.affiche_url ? `Voir l’affiche de ${spectacle.titre} en grand` : undefined}
+              className="relative w-[122px] shrink-0 overflow-hidden rounded-[12px] border-none p-0"
+              style={{ aspectRatio: '3 / 4', background: 'linear-gradient(160deg,#3E211C,#1A0E0D)', boxShadow: '0 6px 18px rgba(18,7,6,.34)', cursor: spectacle.affiche_url ? 'zoom-in' : 'default' }}>
               {spectacle.affiche_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={spectacle.affiche_url} alt="" className="h-full w-full object-cover" />
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={spectacle.affiche_url} alt="" className="h-full w-full object-cover" />
+                  <span className="absolute bottom-1.5 right-1.5 flex items-center justify-center"
+                    style={{ width: 24, height: 24, borderRadius: 999, background: 'rgba(8,4,4,.55)', color: '#fff', backdropFilter: 'blur(3px)' }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="11" cy="11" r="7" /><line x1="16.5" y1="16.5" x2="21" y2="21" />
+                      <line x1="11" y1="8" x2="11" y2="14" /><line x1="8" y1="11" x2="14" y2="11" />
+                    </svg>
+                  </span>
+                </>
               ) : (
-                <div className="flex h-full w-full items-end p-2">
+                <span className="flex h-full w-full items-end p-2 text-left">
                   <span style={{ fontSize: 10.5, fontWeight: 800, lineHeight: 1.15, color: '#F4E7CE', textShadow: '0 1px 3px rgba(0,0,0,.6)' }}>{spectacle.titre}</span>
-                </div>
+                </span>
               )}
-            </div>
+            </button>
 
             <div className="min-w-0 flex-1">
               {spectacle.genre && (
@@ -384,6 +401,11 @@ export default function SpectacleClient({ id }: { id: string }) {
             </div>
           )}
         </>
+      )}
+
+      {visuelOuvert && spectacle?.affiche_url && (
+        <VisuelPleinEcran url={spectacle.affiche_url} titre={spectacle.titre}
+          onClose={() => setVisuelOuvert(false)} />
       )}
 
       {videoOuverte && spectacle?.bande_annonce_url && (
