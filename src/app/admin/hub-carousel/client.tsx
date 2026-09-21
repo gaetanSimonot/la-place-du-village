@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useTerritoire } from '@/components/TerritoireProvider'
 import { lireConfigsClient, urlEcritureConfig } from '@/lib/configClient'
+import ChoixInvites from '@/components/admin/ChoixInvites'
 import { markHubDirty } from '@/lib/hubFresh'
 import { useAuth } from '@/hooks/useAuth'
 import { FEATURED_SLOTS, type FeaturedSlotRow } from '@/lib/featured'
@@ -86,6 +87,7 @@ export default function AdminHubCarousel() {
 
   const [cinemaVis, setCinemaVis] = useState<VisibiliteCinema>('admin')
   const [theatreVis, setTheatreVis] = useState<VisibiliteCinema>('admin')
+  const [theatreInvites, setTheatreInvites] = useState<string[]>([])
   const [radioVis, setRadioVis] = useState<VisibiliteCinema>('admin')
   const [radioSaving, setRadioSaving] = useState(false)
   const [cinemaSaving, setCinemaSaving] = useState(false)
@@ -828,6 +830,19 @@ export default function AdminHubCarousel() {
               )
             })}
           </div>
+
+          {/* Les invités n'apparaissent QUE sur « Admin ». En « Masqué »
+              personne ne voit rien, eux compris ; en « Tous » le village voit
+              déjà. Dans les deux cas la liste n'agit pas, et la montrer
+              laisserait croire le contraire. */}
+          {theatreVis === 'admin' && (
+            <ChoixInvites
+              cleVisibilite="theatre_village_public"
+              slugTerritoire={territoireAdmin?.par_defaut ? null : territoireAdmin?.slug ?? null}
+              invites={theatreInvites}
+              onChange={setTheatreInvites}
+            />
+          )}
         </div>
       </div>
 

@@ -3,6 +3,9 @@ import { useMemo } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
 import { useTerritoire } from '@/components/TerritoireProvider'
+import { useAuth } from '@/contexts/AuthContext'
+import { supabase } from '@/lib/supabase'
+import { sectionVisible } from '@/lib/visibilite'
 import {
   heureLisible, representationsPubliques,
   type Theatre, type Spectacle, type Representation, type VisibiliteTheatre,
@@ -31,10 +34,28 @@ interface Payload {
   representations: Representation[]
   aujourdhui: string
   villageVisibilite: VisibiliteTheatre
+  /** Ce lecteur-ci est-il invité ? Tranché par le serveur, qui seul a la liste. */
+  villageInvite?: boolean
 }
 
-const fetcher = async (u: string) => {
-  const r = await fetch(u)
+/**
+ * On se présente, quand on a de quoi.
+ *
+ * La route est publique, mais c'est ELLE qui sait si ce lecteur-ci fait
+ * partie des invités — la liste ne sort jamais du serveur. Sans jeton, la
+ * réponse est celle d'un visiteur quelconque, ce qui est exactement juste.
+ *
+ * La clé SWR porte l'identifiant du lecteur (voir plus bas) : sans ça, la
+ * réponse anonyme mise en cache serait resservie après la connexion, et
+ * l'invité ne verrait rien jusqu'au rechargement.
+ */
+const fetcher = async ([u, connecte]: [string, string]) => {
+  const entetes: Record<string, string> = {}
+  if (connecte !== 'anon') {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session?.access_token) entetes.Authorization = `Bearer ${session.access_token}`
+  }
+  const r = await fetch(u, { headers: entetes })
   if (!r.ok) throw new Error(`HTTP ${r.status}`)
   return r.json()
 }
@@ -50,9 +71,11 @@ function jourCourt(ymd: string): string {
 
 export default function TheatreAffiche({ isAdmin = false }: { isAdmin?: boolean }) {
   const { territoire } = useTerritoire()
+  const { user } = useAuth()
   const slugTerr = territoire?.slug ?? null
   const { data } = useSWR<Payload>(
-    slugTerr ? `/api/theatre?territoire=${encodeURIComponent(slugTerr)}` : '/api/theatre',
+    [slugTerr ? `/api/theatre?territoire=${encodeURIComponent(slugTerr)}` : '/api/theatre',
+     user?.id ?? 'anon'] as [string, string],
     fetcher, { revalidateOnFocus: false })
 
   /**
@@ -77,11 +100,9 @@ export default function TheatreAffiche({ isAdmin = false }: { isAdmin?: boolean 
     return out.slice(0, 12)
   }, [data])
 
-  // Réglage de visibilité — masqué l'emporte sur tout, y compris pour un admin.
-  if (data) {
-    if (data.villageVisibilite === 'masque') return null
-    if (data.villageVisibilite === 'admin' && !isAdmin) return null
-  }
+  // Réglage de visibilité. Une seule règle, partagée par les modules :
+  // masqué l'emporte sur tout — admin ET invités compris.
+  if (data && !sectionVisible(data.villageVisibilite, isAdmin, data.villageInvite)) return null
   // Et rien du tout s'il n'y a aucune date annoncée.
   if (!data || prochains.length === 0) return null
 

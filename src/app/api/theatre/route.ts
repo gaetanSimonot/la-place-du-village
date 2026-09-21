@@ -4,6 +4,8 @@ import { lireConfig } from '@/lib/configTerritoire'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { dateParis } from '@/lib/cinema'
 import { parseVisibiliteTheatre, type Spectacle, type Representation } from '@/lib/theatre'
+import { estInvite } from '@/lib/invites-server'
+import { getUserContextFromRequest } from '@/lib/server-auth'
 import { listerTheatres } from '@/lib/theatre-server'
 
 export const dynamic = 'force-dynamic'
@@ -44,10 +46,26 @@ export async function GET(req: NextRequest) {
 
   const villageVisibilite = parseVisibiliteTheatre(await lireConfig('theatre_village_public', terr))
 
+  /*
+   * L'INVITATION SE TRANCHE ICI, ET LA LISTE NE SORT PAS.
+   *
+   * La route est publique et sans compte. Renvoyer la liste des invités pour
+   * que l'écran s'y cherche exposerait à tout le monde qui a été choisi —
+   * des identifiants de comptes dans une réponse ouverte. On lit donc le
+   * jeton s'il y en a un, on répond OUI ou NON, et rien d'autre ne transpire.
+   * La liste vit dans `module_invites`, fermée à tous sauf au serveur.
+   *
+   * Sans jeton, `getUserContextFromRequest` rend `null` sans rien exiger :
+   * un visiteur non connecté n'est simplement pas invité.
+   */
+  const moi = await getUserContextFromRequest(req)
+  const villageInvite = await estInvite(
+    'theatre_village_public', terr?.par_defaut ? null : terr?.id ?? null, moi?.userId ?? null)
+
   const theatres = await listerTheatres(terr?.id ?? null)
   if (!theatres.length) {
     return NextResponse.json(
-      { theatres: [], theatre: null, spectacles: [], representations: [], villageVisibilite },
+      { theatres: [], theatre: null, spectacles: [], representations: [], villageVisibilite, villageInvite },
       { headers: { 'Cache-Control': 'no-store' } },
     )
   }
@@ -130,5 +148,6 @@ export async function GET(req: NextRequest) {
     evenements: (evenements ?? []).map(e => ({ ...e, lieu: e.lieu_id ? parLieu.get(e.lieu_id) ?? null : null })),
     aujourdhui,
     villageVisibilite,
+    villageInvite,
   }, { headers: { 'Cache-Control': 'no-store' } })
 }
