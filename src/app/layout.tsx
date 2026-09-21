@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Suspense } from 'react'
-import { Inter, DM_Serif_Display, Caveat, Plus_Jakarta_Sans, Archivo, Nunito } from 'next/font/google'
+import { Inter, DM_Serif_Display, Caveat, Plus_Jakarta_Sans, Archivo, Nunito, Montserrat } from 'next/font/google'
 import './globals.css'
 // Version ordinateur : additif, tout est enfermé au-dessus de 1024 px.
 import './desktop.css'
@@ -51,6 +51,18 @@ const archivo = Archivo({
 })
 const nunito = Nunito({
   weight: ['400', '600', '700', '800'], subsets: ['latin'], variable: '--font-nunito', display: 'swap', preload: false,
+})
+/*
+ * MONTSERRAT — la police du programme du théâtre.
+ *
+ * Elle n'est pas choisie : c'est celle que l'Albarède emploie, lue dans les
+ * polices embarquées de son PDF (Montserrat Bold, ExtraBold, SemiBold…).
+ * Elle ne sert qu'à l'enseigne du module théâtre, d'où `preload: false` et
+ * les deux seules graisses utiles : la précharger partout ferait payer un
+ * fichier de plus à toute l'app, pour un mot.
+ */
+const montserrat = Montserrat({
+  weight: ['700', '800'], subsets: ['latin'], variable: '--font-montserrat', display: 'swap', preload: false,
 })
 
 /*
@@ -197,7 +209,7 @@ export default function RootLayout({
   modal: React.ReactNode
 }) {
   return (
-    <html lang="fr" className={`${inter.variable} ${dmSerif.variable} ${caveat.variable} ${jakarta.variable} ${archivo.variable} ${nunito.variable}`}>
+    <html lang="fr" className={`${inter.variable} ${dmSerif.variable} ${caveat.variable} ${jakarta.variable} ${archivo.variable} ${nunito.variable} ${montserrat.variable}`}>
       <head>
         {/* Capture beforeinstallprompt before React mounts */}
         <script dangerouslySetInnerHTML={{ __html: `

@@ -73,6 +73,30 @@ const LOGOS: Record<string, string> = {}
 const logoDeLaSalle = (slug: string | null | undefined): string | null =>
   (slug && LOGOS[slug]) || null
 
+/**
+ * Le nom d'une salle, coupé en enseigne.
+ *
+ * Les affiches de l'Albarède écrivent « Albarède » en grand et « Théâtre »
+ * en petit au-dessus — le mot générique ne porte pas l'identité, le nom
+ * propre si. On applique la même coupe à toute salle dont le nom commence
+ * par son type : « Théâtre du Vigan » donnera « du Vigan » sous « Théâtre ».
+ *
+ * Une salle nommée autrement garde son nom entier : on ne coupe que ce qu'on
+ * reconnaît, et seulement si ce qui reste tient en deux mots. Sans cette
+ * réserve, « Salle des fêtes Tèrra-Còr » s'afficherait « des fêtes Tèrra-Còr »
+ * sous un « SALLE » solitaire : le nom propre n'est pas ce qui suit le type,
+ * c'est ce qui tient debout tout seul.
+ */
+const TYPES_DE_SALLE = /^(théâtre|theatre|salle|espace|centre culturel|scène nationale)\s+/i
+
+function enseigne(nom: string): { type: string | null; mot: string } {
+  const m = nom.match(TYPES_DE_SALLE)
+  if (!m) return { type: null, mot: nom }
+  const reste = nom.slice(m[0].length).trim()
+  if (!reste || reste.split(/\s+/).length > 2) return { type: null, mot: nom }
+  return { type: m[1], mot: reste }
+}
+
 function jourLong(date: string): string {
   const s = new Intl.DateTimeFormat('fr-FR', {
     timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long',
@@ -284,19 +308,36 @@ export default function TheatreClient() {
         <div className="flex flex-wrap items-center justify-center" style={{ gap: 0 }}>
           {enseignes.map(salle => (
             <span key={salle.id} className="flex flex-none items-center justify-center"
-              style={{ width: 270, height: 100 }}>
+              style={{ width: 290, minHeight: 100 }}>
               {logoDeLaSalle(salle.slug) ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={logoDeLaSalle(salle.slug)!} alt={salle.nom}
                   style={{ maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto', objectFit: 'contain', display: 'block' }} />
               ) : (
+                /* L'ENSEIGNE, composée comme la couverture du programme : le
+                   nom propre en gros, en rose et en Montserrat ExtraBold —
+                   la police que le théâtre emploie lui-même, lue dans les
+                   polices embarquées de son PDF. Le mot générique passe
+                   au-dessus, en petit : c'est l'ordre de leurs affiches.
+
+                   Le rose est celui de la couverture descendu d'un cran
+                   (#C85A96 au lieu de #D16DA3) : l'original ne tient que
+                   2,6 de contraste sur le béton clair, sous le seuil même
+                   pour un grand titre. La teinte ne bouge pas. */
                 <span className="text-center">
-                  <span className="block font-title"
-                    style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--uni-ink)' }}>
-                    {salle.nom}
+                  {enseigne(salle.nom).type && (
+                    <span className="block font-montserrat"
+                      style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.22em', textTransform: 'uppercase', color: 'var(--uni-dim2)' }}>
+                      {enseigne(salle.nom).type}
+                    </span>
+                  )}
+                  <span className="block font-montserrat"
+                    style={{ marginTop: 2, fontSize: 38, lineHeight: 1.02, fontWeight: 800, letterSpacing: '-.035em', color: '#C85A96' }}>
+                    {enseigne(salle.nom).mot}
                   </span>
                   {salle.commune && (
-                    <span className="block" style={{ marginTop: 3, fontSize: 11.5, color: 'var(--uni-dim2)' }}>
+                    <span className="block font-montserrat"
+                      style={{ marginTop: 5, fontSize: 11.5, fontWeight: 700, letterSpacing: '.04em', color: 'var(--uni-dim2)' }}>
                       {salle.commune}
                     </span>
                   )}
@@ -305,8 +346,8 @@ export default function TheatreClient() {
             </span>
           ))}
           {enseignes.length === 0 && (
-            <h1 className="m-0 font-title"
-              style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--uni-ink)' }}>
+            <h1 className="m-0 font-montserrat"
+              style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-.03em', color: '#C85A96' }}>
               Au théâtre
             </h1>
           )}

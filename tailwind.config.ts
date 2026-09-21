@@ -35,6 +35,8 @@ const config: Config = {
         // Splash promo Habitant uniquement (maquette de handoff)
         archivo: ["var(--font-archivo)", "system-ui", "sans-serif"],
         nunito:  ["var(--font-nunito)", "system-ui", "sans-serif"],
+        // L'enseigne du module théâtre : la police de son programme.
+        montserrat: ["var(--font-montserrat)", "system-ui", "sans-serif"],
       },
       borderRadius: {
         card:  "16px",
