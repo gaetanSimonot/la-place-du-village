@@ -13,6 +13,10 @@
       "schedule": "0 9 * * *"
     },
     {
+      "path": "/api/cron/newsletter-welcome",
+      "schedule": "0 18 * * *"
+    },
+    {
       "path": "/api/cron/newsletter-hebdo",
       "schedule": "0 10 * * 1"
     },

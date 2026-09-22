@@ -53,6 +53,25 @@ export interface ContentItem {
   href: string
 }
 
+/**
+ * L'EMPREINTE D'UNE LETTRE — calculée des DEUX côtés, donc ici.
+ *
+ * Elle sert à une seule question, mais c'est la plus importante de l'écran :
+ * « ce que je regarde est-il bien ce qui va partir ? ». L'éditeur calcule
+ * l'empreinte de ce qu'il affiche, le serveur celle de l'édition en cours ;
+ * si elles diffèrent, c'est qu'une modification n'a pas été posée.
+ *
+ * Volontairement simple — djb2 sur le JSON. On ne protège rien, on compare
+ * deux états : une collision n'aurait pour effet que de ne pas signaler une
+ * différence, et les deux côtés sérialisent le même objet.
+ */
+export function empreinteLettre(subject: string, blocks: NewsletterBlock[]): string {
+  const texte = JSON.stringify({ s: subject ?? '', b: blocks ?? [] })
+  let h = 5381
+  for (let i = 0; i < texte.length; i++) h = ((h * 33) ^ texte.charCodeAt(i)) >>> 0
+  return h.toString(36)
+}
+
 export function genId(): string {
   try { return crypto.randomUUID() } catch { return `b${Date.now()}${Math.floor(Math.random() * 1e6)}` }
 }

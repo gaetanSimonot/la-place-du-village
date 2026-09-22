@@ -10,20 +10,45 @@ const SITE = 'https://laplaceduvillage.app'
 interface Mail { to: string; subject: string; html: string; headers?: Record<string, string> }
 
 /** Envoie un email unique. Retourne { ok, error? }. */
-export async function sendEmail(mail: Mail): Promise<{ ok: boolean; error?: string }> {
+/**
+ * Le STATUT remonte avec l'échec, et ce n'est pas un détail.
+ *
+ * Une file d'envoi doit distinguer deux échecs qui n'ont rien à voir :
+ * le quota atteint (429) ou un service en panne (5xx), où il faut S'ARRÊTER
+ * et reprendre plus tard ; et une adresse que le service refuse (4xx), où il
+ * faut PASSER AU SUIVANT. Sans ce statut, on ne peut que tout arrêter — et
+ * une seule mauvaise adresse bloquait la lettre pour vingt-quatre heures.
+ *
+ * `0` = rien n'est parti (pas de clé, réseau coupé) : c'est un arrêt.
+ */
+export async function sendEmail(mail: Mail): Promise<{ ok: boolean; error?: string; statut?: number }> {
   const key = process.env.RESEND_API_KEY
-  if (!key) return { ok: false, error: 'RESEND_API_KEY manquante' }
+  if (!key) return { ok: false, error: 'RESEND_API_KEY manquante', statut: 0 }
   try {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ from: FROM, to: mail.to, subject: mail.subject, html: mail.html, ...(mail.headers ? { headers: mail.headers } : {}) }),
     })
-    if (!r.ok) return { ok: false, error: (await r.text().catch(() => '')).slice(0, 200) }
-    return { ok: true }
+    if (!r.ok) return { ok: false, error: (await r.text().catch(() => '')).slice(0, 200), statut: r.status }
+    return { ok: true, statut: r.status }
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'Erreur réseau' }
+    return { ok: false, error: e instanceof Error ? e.message : 'Erreur réseau', statut: 0 }
   }
+}
+
+/**
+ * Faut-il arrêter toute la file, ou seulement passer cette adresse ?
+ *
+ * On s'arrête sur ce qui est temporaire et global — quota, panne, réseau.
+ * On passe sur ce qui ne concerne qu'un destinataire : réessayer cent fois
+ * une adresse invalide ne la rendra pas valide, et pendant ce temps les
+ * autres attendent.
+ */
+export function arreterLaFile(statut?: number): boolean {
+  if (statut === undefined) return true
+  if (statut === 429 || statut >= 500 || statut === 0) return true
+  return false
 }
 
 /**

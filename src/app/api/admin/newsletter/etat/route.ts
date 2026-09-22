@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/server-auth'
 import { getCurrentEdition, DAILY_LIMIT } from '@/lib/newsletterWelcome'
 import { semaineDe } from '@/lib/semaine'
+import { empreinteLettre } from '@/lib/newsletterBlocks'
 
 /**
  * L'ÉTAT DE L'ENVOI — qui a reçu, qui attend, et quand.
@@ -51,7 +52,23 @@ export async function GET(req: NextRequest) {
     reste,
     parJour: DAILY_LIMIT,
     joursRestants: Math.ceil(reste / DAILY_LIMIT),
-    edition: edition ? { sujet: edition.subject, posee: edition.sentAt } : null,
+    edition: edition ? {
+      sujet: edition.subject,
+      posee: edition.sentAt,
+      maj: edition.majAt ?? null,
+      /*
+       * L'empreinte de ce qui PART. L'éditeur calcule la même sur ce qu'il
+       * affiche : deux empreintes différentes veulent dire qu'une
+       * modification n'a pas encore été posée.
+       *
+       * `null` pour une édition de l'ancien format (HTML figé) : on ne sait
+       * pas de quelles sections elle vient, et prétendre le contraire ferait
+       * clignoter l'écran sans raison.
+       */
+      empreinte: edition.blocks?.length
+        ? empreinteLettre(edition.subject, edition.blocks)
+        : null,
+    } : null,
     // Absent = actif : c'est le défaut du cron, l'écran doit dire la même chose.
     autoActif: (actif?.value as string | undefined) !== 'false',
     semaine: sem.libelle,

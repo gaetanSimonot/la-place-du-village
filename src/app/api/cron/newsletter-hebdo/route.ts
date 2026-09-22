@@ -89,10 +89,12 @@ export async function GET(req: NextRequest) {
   const { subject, blocks } = await monterLettreDeLaSemaine(base, terr, reglages)
   if (!blocks.length) return NextResponse.json({ error: 'aucune section à envoyer' }, { status: 500 })
 
-  const body = await renderNewsletterBody(blocks, terr)
-  await setCurrentEdition(subject, body)
+  // Un rendu à blanc d'abord : mieux vaut échouer ici que d'ouvrir une
+  // campagne sur une lettre qui ne se rend pas.
+  await renderNewsletterBody(blocks, terr)
+  await setCurrentEdition(subject, blocks, terr)
   await supabaseAdmin.from('config').upsert({ key: CLE_DERNIER, value: sem.debut }, { onConflict: 'key' })
 
-  const sent = await welcomeBacklog(DAILY_LIMIT)
-  return NextResponse.json({ ok: true, semaine: sem.libelle, subject, sent, perDay: DAILY_LIMIT })
+  const lot = await welcomeBacklog(DAILY_LIMIT)
+  return NextResponse.json({ ok: true, semaine: sem.libelle, subject, ...lot, perDay: DAILY_LIMIT })
 }

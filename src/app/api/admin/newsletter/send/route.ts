@@ -58,16 +58,19 @@ export async function POST(req: NextRequest) {
     if (!(Array.isArray(blocks) && blocks.length)) {
       return NextResponse.json({ error: 'Ajoute au moins une section' }, { status: 400 })
     }
-    const body = await renderNewsletterBody(blocks as NewsletterBlock[], terrEnvoi?.id ?? null)
-    await setCurrentEdition(subject, body)            // devient l'édition active
-    const sent = await welcomeBacklog(DAILY_LIMIT)    // 1er lot immédiat
+    // On dépose les SECTIONS, pas du HTML : chaque lot rendra la dernière
+    // version enregistrée. Un aperçu reste calculé plus bas pour vérifier
+    // que la lettre se rend sans erreur avant d'ouvrir la campagne.
+    await renderNewsletterBody(blocks as NewsletterBlock[], terrEnvoi?.id ?? null)
+    await setCurrentEdition(subject, blocks as NewsletterBlock[], terrEnvoi?.id ?? null)
+    const lot = await welcomeBacklog(DAILY_LIMIT)    // 1er lot immédiat
 
     const [profCount, extraCount] = await Promise.all([
       supabaseAdmin.from('profiles').select('user_id', { count: 'exact', head: true }).eq('newsletter_optin', true).not('email', 'is', null),
       supabaseAdmin.from('newsletter_extra_emails').select('id', { count: 'exact', head: true }),
     ])
     const total = (profCount.count ?? 0) + (extraCount.count ?? 0)
-    return NextResponse.json({ queued: true, sent, total, perDay: DAILY_LIMIT })
+    return NextResponse.json({ queued: true, sent: lot.envoyes, ignores: lot.ignores, arrete: lot.arrete, total, perDay: DAILY_LIMIT })
   }
 
   // ── Non-abonnés : invitation directe ───────────────────────────────────

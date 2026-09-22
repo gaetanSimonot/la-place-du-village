@@ -7,7 +7,7 @@ import { useTerritoire } from '@/components/TerritoireProvider'
 import { useAuth } from '@/hooks/useAuth'
 import { authedFetch } from '@/lib/swr-fetchers'
 import { uploadViaSignedUrl, compressImage } from '@/lib/clientUpload'
-import { makeBlock, starterBlocks, BLOCK_LABELS, type NewsletterBlock, type BlockType } from '@/lib/newsletterBlocks'
+import { makeBlock, starterBlocks, BLOCK_LABELS, type NewsletterBlock, type BlockType , empreinteLettre } from '@/lib/newsletterBlocks'
 
 type Audience = 'subscribers' | 'non_subscribers'
 const LS_KEY = 'newsletter_draft_v2'
@@ -61,6 +61,13 @@ export default function NewsletterAdminClient() {
    * « À lire dans le Journal » et elle repoussait toute seule.
    */
   const [retires, setRetires] = useState<string[]>([])
+  /**
+   * L'édition EN COURS D'ENVOI : son empreinte, et combien de personnes
+   * attendent encore. C'est ce qui permet de dire, sans mentir, si ce qu'on
+   * regarde est bien ce qui va partir.
+   */
+  const [enCours, setEnCours] = useState<{ empreinte: string | null; restants: number } | null>(null)
+  const [pose, setPose] = useState<'idle' | 'envoi' | 'ok' | 'echec'>('idle')
   const [listOpen, setListOpen] = useState<Audience | null>(null)
   const dragIdx = useRef<number | null>(null)
 
@@ -104,6 +111,16 @@ export default function NewsletterAdminClient() {
     return () => clearTimeout(t)
   }, [loaded, blocks, subject, invite, inviteSubject, fige, retires])
 
+  /** L'état de la campagne en cours — relu après chaque geste qui la change. */
+  const lireEnCours = useCallback(async () => {
+    const r = await authedFetch(`/api/admin/newsletter/etat${qT.premier}`).catch(() => null)
+    if (!r || !r.ok) return
+    const d = await r.json()
+    setEnCours(d.edition ? { empreinte: d.edition.empreinte ?? null, restants: d.reste ?? 0 } : null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  useEffect(() => { if (!authLoading && isAdmin) lireEnCours() }, [authLoading, isAdmin, lireEnCours])
+
   const load = useCallback(async () => {
     const r = await authedFetch('/api/admin/newsletter').catch(() => null)
     if (r && r.ok) { const d = await r.json(); setCounts({ subscribers: d.subscribers, nonSubscribers: d.nonSubscribers }); setExtra(d.extra ?? []) }
@@ -119,6 +136,36 @@ export default function NewsletterAdminClient() {
     }, 450)
     return () => clearTimeout(t)
   }, [audience, blocks, invite])
+
+  /**
+   * « C'est cette version qui part. »
+   *
+   * Enregistre le brouillon PUIS le pose dans la campagne en cours. Les deux
+   * dans cet ordre et dans le même geste : poser une version qu'on n'aurait
+   * pas enregistrée la ferait disparaître à la prochaine ouverture.
+   */
+  async function poserLaVersion() {
+    if (pose === 'envoi') return
+    setPose('envoi')
+    try {
+      const a = await authedFetch(`/api/admin/newsletter/draft${qT.premier}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject, inviteSubject, blocks, invite, fige, retires }),
+      })
+      if (!a.ok) throw new Error('brouillon')
+      const b = await authedFetch(`/api/admin/newsletter/edition${qT.premier}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject, blocks }),
+      })
+      if (!b.ok) throw new Error((await b.json().catch(() => ({}))).error || 'edition')
+      setSaveState('saved')
+      setPose('ok')
+      await lireEnCours()
+      setMajEtat(n => n + 1)
+    } catch {
+      setPose('echec')
+    }
+  }
 
   const patchBlock = (id: string, patch: Partial<NewsletterBlock>) => setBlocks(bs => bs.map(b => b.id === id ? { ...b, ...patch } as NewsletterBlock : b))
   const removeBlock = (id: string) => setBlocks(bs => {
@@ -264,6 +311,18 @@ export default function NewsletterAdminClient() {
           sur plusieurs jours au rythme du quota, et rien ne disait où elle en
           était. */}
       <EtatEnvoi maj={majEtat} />
+
+      {/* CE QUI PART, ET SI C'EST BIEN CE QU'ON REGARDE.
+          Le bloc ne s'affiche que pendant une campagne : hors campagne il n'y
+          a rien à mettre à jour, et une boîte qui ne sert à rien apprend à
+          ne plus lire les boîtes. */}
+      {enCours && enCours.restants > 0 && <CeQuiPart
+        aJour={enCours.empreinte !== null && enCours.empreinte === empreinteLettre(subject, blocks)}
+        inconnu={enCours.empreinte === null}
+        restants={enCours.restants}
+        pose={pose}
+        onPoser={poserLaVersion}
+      />}
 
       {/* FIGER LA LETTRE.
           Par défaut, ouvrir l'éditeur remonte la lettre sur la semaine en
@@ -520,6 +579,61 @@ function BlockEditor({ block: b, patch }: { block: NewsletterBlock; patch: (p: P
       {b.mode === 'auto'
         ? <label className="flex items-center gap-2 text-[12px] text-texte-doux">Nombre : <CountInput value={b.count} onCommit={n => patch({ count: n } as Partial<NewsletterBlock>)} /></label>
         : <ItemPicker kind={b.type} ids={b.ids} onChange={ids => patch({ ids } as Partial<NewsletterBlock>)} />}
+    </div>
+  )
+}
+
+/**
+ * « Est-ce que ce que je regarde est bien ce qui va partir ? »
+ *
+ * La question que l'écran ne savait pas répondre, et qui compte plus que
+ * toutes les autres : la lettre part en plusieurs jours, au rythme du quota
+ * Resend, et on retouche entre deux lots.
+ *
+ * Trois états, trois phrases. Pas de pastille muette : on dit le nombre de
+ * personnes concernées, parce que c'est ça qui fait décider.
+ */
+function CeQuiPart({ aJour, inconnu, restants, pose, onPoser }: {
+  aJour: boolean
+  /** Édition de l'ancien format : on ne peut pas comparer, on le dit. */
+  inconnu: boolean
+  restants: number
+  pose: 'idle' | 'envoi' | 'ok' | 'echec'
+  onPoser: () => void
+}) {
+  const gens = `${restants} personne${restants > 1 ? 's' : ''}`
+  const vert = aJour && !inconnu
+  return (
+    <div className="px-4 pt-5">
+      <div className="rounded-2xl border p-3.5" style={{
+        borderColor: vert ? '#7BA05B' : '#E0A33C',
+        background: vert ? '#F4F8F0' : '#FFF8EC',
+      }}>
+        <div className="text-[13px] font-extrabold" style={{ color: vert ? '#3F6B2B' : '#9A6413' }}>
+          {vert
+            ? '✓ C’est cette version qui part'
+            : inconnu
+              ? '⚠ La lettre en cours d’envoi date d’avant cette mise à jour'
+              : '⚠ Vous avez modifié la lettre'}
+        </div>
+        <p className="m-0 mt-1 text-[11.5px] leading-[1.5] text-texte-doux">
+          {vert
+            ? `${gens} n’${restants > 1 ? 'ont' : 'a'} pas encore reçu la lettre. ${restants > 1 ? 'Elles recevront' : 'Elle recevra'} exactement ce que vous voyez ici.`
+            : `${gens} attend${restants > 1 ? 'ent' : ''} encore la lettre, et ${restants > 1 ? 'recevront' : 'recevra'} la version précédente. Posez celle-ci pour qu’${restants > 1 ? 'elles la reçoivent' : 'elle la reçoive'} à la place — personne ne sera servi deux fois.`}
+        </p>
+        {!vert && (
+          <button onClick={onPoser} disabled={pose === 'envoi'}
+            className="mt-2.5 w-full rounded-xl border-none py-2.5 text-[13px] font-extrabold text-white disabled:opacity-60"
+            style={{ background: '#9A6413' }}>
+            {pose === 'envoi' ? 'Enregistrement…' : 'Enregistrer — c’est cette version qui partira'}
+          </button>
+        )}
+        {pose === 'echec' && (
+          <p className="m-0 mt-2 text-[11.5px] font-bold" style={{ color: '#C0392B' }}>
+            Échec : rien n’a été changé, la version précédente continue de partir.
+          </p>
+        )}
+      </div>
     </div>
   )
 }
