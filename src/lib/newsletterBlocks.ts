@@ -28,8 +28,20 @@ export type NewsletterBlock =
    * peut pas mal choisir — il dit la vérité, et il donne l'échelle.
    */
   | { id: string; type: 'semaine'; titre: string }
-  | { id: string; type: 'article'; titre: string; ids: string[] }       // articles_journal choisis
-  | { id: string; type: 'partenaires'; titre: string; ids: string[] }   // "etab:<id>" | "prod:<id>"
+  /**
+   * Article et coups de cœur portent un MODE, comme les blocs liste.
+   *
+   * Sans lui, le montage automatique écrasait le choix de l'admin à chaque
+   * ouverture de l'éditeur : on choisissait deux commerçants, on revenait le
+   * lendemain, c'étaient les deux calculés. Et comme l'éditeur réenregistre
+   * ce qu'il affiche, le choix était détruit en base dans la foulée.
+   *
+   * `auto` = la semaine décide, `manual` = l'admin a tranché, on n'y touche
+   * plus. Le défaut reste `auto` : ouvrir l'éditeur un lundi ne doit toujours
+   * rien demander.
+   */
+  | { id: string; type: 'article'; titre: string; mode: 'auto' | 'manual'; ids: string[] }
+  | { id: string; type: 'partenaires'; titre: string; mode: 'auto' | 'manual'; ids: string[] }
 
 export type BlockType = NewsletterBlock['type']
 
@@ -61,8 +73,8 @@ export function makeBlock(type: BlockType): NewsletterBlock {
     case 'annonces':    return { id, type, titre: 'Dans les annonces', mode: 'auto', count: 4, ids: [] }
     case 'journal':     return { id, type, titre: 'Le Journal du Village' }
     case 'semaine':     return { id, type, titre: 'Cette semaine près de chez vous' }
-    case 'article':     return { id, type, titre: 'À lire dans le Journal', ids: [] }
-    case 'partenaires': return { id, type, titre: 'Nos coups de cœur', ids: [] }
+    case 'article':     return { id, type, titre: 'À lire dans le Journal', mode: 'auto', ids: [] }
+    case 'partenaires': return { id, type, titre: 'Nos coups de cœur', mode: 'auto', ids: [] }
   }
 }
 

@@ -9,10 +9,21 @@ import { semaineDe } from '@/lib/semaine'
  * l'article, les bons plans et les deux commerces mis en avant sont déjà là,
  * à jour. On peut retoucher, mais on n'a rien à faire.
  *
- * Le principe qui guide chaque règle : **ne jamais laisser une section à
- * moitié remplie**. Une rubrique « À lire dans le Journal » sans article, ou
- * « Nos coups de cœur » avec un seul commerce, donne l'impression d'un envoi
- * bâclé — pire que l'absence de la rubrique.
+ * DEUX PRINCIPES, et le second a longtemps manqué.
+ *
+ * 1. **Ne jamais laisser une section à moitié remplie.** Une rubrique
+ *    « À lire dans le Journal » sans article, ou « Nos coups de cœur » avec
+ *    un seul commerce, donne l'impression d'un envoi bâclé — pire que
+ *    l'absence de la rubrique.
+ *
+ * 2. **Ce que l'admin a décidé ne se recalcule pas.** Un bloc en
+ *    `mode: 'manual'` est à lui, le montage n'y touche plus ; une section
+ *    qu'il a retirée ne revient pas ; une lettre figée ne bouge plus du tout.
+ *
+ *    Ce principe manquait, et le dégât dépassait l'écran : le montage
+ *    écrasait le choix à chaque ouverture de l'éditeur, qui réenregistrait
+ *    aussitôt ce qu'il affichait. Le choix était donc détruit EN BASE, et le
+ *    lundi la lettre partait avec la version calculée.
  */
 
 /** Ce qu'on ne veut pas voir apparaître : une section vide. */
@@ -36,9 +47,13 @@ function retirer(blocs: NewsletterBlock[], type: NewsletterBlock['type']): Newsl
 function garantir(
   blocs: NewsletterBlock[],
   type: NewsletterBlock['type'],
-  o: { remplace?: NewsletterBlock['type']; apres?: NewsletterBlock['type'][] } = {},
+  o: { remplace?: NewsletterBlock['type']; apres?: NewsletterBlock['type'][]; retires?: string[] } = {},
 ): NewsletterBlock[] {
   if (blocs.some(b => b.type === type)) return blocs
+  // Une section retirée à la main ne se réinvite pas. Sans ça, supprimer
+  // « À lire dans le Journal » ne tenait pas : elle repoussait à l'ouverture
+  // suivante, et la mise en page changeait sous les doigts.
+  if (o.retires?.includes(type)) return blocs
 
   const neuf = makeBlock(type)
 
@@ -130,11 +145,29 @@ export async function nombreDePromos(terr: string | null = null): Promise<number
  * on ne remplace alors que ce qui dépend de la semaine, et les retouches
  * faites à la main — un texte d'intro, un bouton ajouté — sont conservées.
  */
-export async function monterLettreDeLaSemaine(base?: NewsletterBlock[] | null, terr: string | null = null): Promise<{
-  subject: string
-  blocks: NewsletterBlock[]
-}> {
+export interface ReglagesLettre {
+  /** Les types de sections que l'admin a retirés : on ne les remet pas. */
+  retires?: string[]
+  /**
+   * Lettre FIGÉE : plus rien n'est recalculé. Ce qui est composé est ce qui
+   * partira. C'est la réponse à « je veux que mes retouches tiennent jusqu'à
+   * l'envoi » — un interrupteur, pas une espérance.
+   */
+  fige?: boolean
+}
+
+export async function monterLettreDeLaSemaine(
+  base?: NewsletterBlock[] | null,
+  terr: string | null = null,
+  reglages: ReglagesLettre = {},
+): Promise<{ subject: string; blocks: NewsletterBlock[] }> {
   const sem = semaineDe()
+
+  // Lettre figée : on rend le brouillon tel quel, sans y toucher.
+  if (reglages.fige && base?.length) {
+    return { subject: sem.libelle, blocks: JSON.parse(JSON.stringify(base)) as NewsletterBlock[] }
+  }
+  const retires = reglages.retires ?? []
   let blocs: NewsletterBlock[] = base?.length
     ? JSON.parse(JSON.stringify(base)) as NewsletterBlock[]
     : [makeBlock('header'), makeBlock('semaine'), makeBlock('promos'), makeBlock('article'), makeBlock('partenaires')]
@@ -144,37 +177,48 @@ export async function monterLettreDeLaSemaine(base?: NewsletterBlock[] | null, t
   if (entete && entete.type === 'header') entete.sousTitre = sem.libelle
 
   // Le décompte prend la place de l'ancienne sélection d'événements.
-  blocs = garantir(blocs, 'semaine', { remplace: 'events', apres: ['header'] })
+  blocs = garantir(blocs, 'semaine', { remplace: 'events', apres: ['header'], retires })
 
   // Les bons plans : tous ceux qui sont valides, et rien si la liste est vide.
   const promos = await nombreDePromos(terr)
   if (promos === 0) blocs = retirer(blocs, 'promos')
   else {
-    blocs = garantir(blocs, 'promos', { apres: ['semaine', 'header'] })
+    blocs = garantir(blocs, 'promos', { apres: ['semaine', 'header'], retires })
     const blocPromos = blocs.find(b => b.type === 'promos')
-    if (blocPromos && blocPromos.type === 'promos') {
-      blocPromos.mode = 'auto'
+    // « Choisir » l'emporte : le bouton de l'éditeur ne servait à rien tant
+    // qu'on forçait le mode automatique à chaque montage.
+    if (blocPromos && blocPromos.type === 'promos' && blocPromos.mode !== 'manual') {
       blocPromos.count = promos        // « on les met toutes »
       blocPromos.ids = []
     }
   }
 
   // L'article de la semaine, ou pas de section du tout.
+  const articleChoisi = blocs.some(b => b.type === 'article' && b.mode === 'manual' && b.ids.length > 0)
   const article = await articleDeLaSemaine(terr)
-  if (!article) blocs = retirer(blocs, 'article')
-  else {
-    blocs = garantir(blocs, 'article', { apres: ['journal', 'semaine', 'header'] })
-    const blocArticle = blocs.find(b => b.type === 'article')
-    if (blocArticle && blocArticle.type === 'article') blocArticle.ids = [article]
+  // Un article choisi à la main reste, même si la semaine n'en a pas produit :
+  // c'est précisément le cas où l'on va chercher un texte plus ancien.
+  if (!articleChoisi) {
+    if (!article) blocs = retirer(blocs, 'article')
+    else {
+      blocs = garantir(blocs, 'article', { apres: ['journal', 'semaine', 'header'], retires })
+      const blocArticle = blocs.find(b => b.type === 'article')
+      if (blocArticle && blocArticle.type === 'article') blocArticle.ids = [article]
+    }
   }
 
   // Deux commerces mis en avant — sous deux, on ne montre rien.
+  const partChoisis = blocs.some(b => b.type === 'partenaires' && b.mode === 'manual' && b.ids.length > 0)
   const partenaires = await partenairesDeLaSemaine(terr)
-  if (partenaires.length < 2) blocs = retirer(blocs, 'partenaires')
-  else {
-    blocs = garantir(blocs, 'partenaires')
-    const blocPart = blocs.find(b => b.type === 'partenaires')
-    if (blocPart && blocPart.type === 'partenaires') blocPart.ids = partenaires
+  // Sous deux commerces on ne montre rien — sauf si l'admin en a désigné :
+  // son choix passe avant la règle du calcul.
+  if (!partChoisis) {
+    if (partenaires.length < 2) blocs = retirer(blocs, 'partenaires')
+    else {
+      blocs = garantir(blocs, 'partenaires', { retires })
+      const blocPart = blocs.find(b => b.type === 'partenaires')
+      if (blocPart && blocPart.type === 'partenaires') blocPart.ids = partenaires
+    }
   }
 
   return { subject: sem.libelle, blocks: blocs }

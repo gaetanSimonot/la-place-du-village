@@ -49,7 +49,18 @@ export default function NewsletterAdminClient() {
   const [sending, setSending] = useState(false)
   const [previewHtml, setPreviewHtml] = useState('')
   const [loaded, setLoaded] = useState(false)         // brouillon serveur chargé
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'echec'>('idle')
+  /**
+   * Lettre figée : plus rien n'est recalculé à l'ouverture ni au départ du
+   * lundi. Ce qu'on voit est ce qui partira.
+   */
+  const [fige, setFige] = useState(false)
+  /**
+   * Les sections retirées à la main. Sans cette mémoire, le montage
+   * automatique les remettait à l'ouverture suivante : on supprimait
+   * « À lire dans le Journal » et elle repoussait toute seule.
+   */
+  const [retires, setRetires] = useState<string[]>([])
   const [listOpen, setListOpen] = useState<Audience | null>(null)
   const dragIdx = useRef<number | null>(null)
 
@@ -72,6 +83,8 @@ export default function NewsletterAdminClient() {
           if (typeof d.subject === 'string') setSubject(d.subject)
           if (typeof d.inviteSubject === 'string' && d.inviteSubject) setInviteSubject(d.inviteSubject)
           if (d.invite) setInvite(d.invite)
+          setFige(!!d.fige)
+          setRetires(Array.isArray(d.retires) ? d.retires : [])
         }
       }
     }).catch(() => {}).finally(() => setLoaded(true))
@@ -82,11 +95,14 @@ export default function NewsletterAdminClient() {
     if (!loaded) return
     setSaveState('saving')
     const t = setTimeout(async () => {
-      const r = await authedFetch(`/api/admin/newsletter/draft${qT.premier}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subject, inviteSubject, blocks, invite }) }).catch(() => null)
-      setSaveState(r && r.ok ? 'saved' : 'idle')
+      const r = await authedFetch(`/api/admin/newsletter/draft${qT.premier}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subject, inviteSubject, blocks, invite, fige, retires }) }).catch(() => null)
+      // Un échec se DIT. La ligne annonçait « enregistré sur le serveur ✓ »
+      // même quand l'écriture avait échoué : on repartait confiant, et on
+      // retrouvait la version d'avant.
+      setSaveState(r && r.ok ? 'saved' : 'echec')
     }, 800)
     return () => clearTimeout(t)
-  }, [loaded, blocks, subject, invite, inviteSubject])
+  }, [loaded, blocks, subject, invite, inviteSubject, fige, retires])
 
   const load = useCallback(async () => {
     const r = await authedFetch('/api/admin/newsletter').catch(() => null)
@@ -105,9 +121,18 @@ export default function NewsletterAdminClient() {
   }, [audience, blocks, invite])
 
   const patchBlock = (id: string, patch: Partial<NewsletterBlock>) => setBlocks(bs => bs.map(b => b.id === id ? { ...b, ...patch } as NewsletterBlock : b))
-  const removeBlock = (id: string) => setBlocks(bs => bs.filter(b => b.id !== id))
+  const removeBlock = (id: string) => setBlocks(bs => {
+    const parti = bs.find(b => b.id === id)
+    // On note le TYPE retiré : c'est lui que le montage automatique
+    // remettrait. Un second bloc du même type, s'il en reste un, annule la
+    // note — on n'a pas voulu se passer de la rubrique.
+    if (parti && !bs.some(b => b.id !== id && b.type === parti.type)) {
+      setRetires(r => (r.includes(parti.type) ? r : [...r, parti.type]))
+    }
+    return bs.filter(b => b.id !== id)
+  })
   const move = (i: number, dir: -1 | 1) => { const j = i + dir; if (j < 0 || j >= blocks.length) return; setBlocks(bs => reorder(bs, i, j)) }
-  const addBlock = (t: BlockType) => { setBlocks(bs => [...bs, makeBlock(t)]); setAddOpen(false) }
+  const addBlock = (t: BlockType) => { setBlocks(bs => [...bs, makeBlock(t)]); setRetires(r => r.filter(x => x !== t)); setAddOpen(false) }
 
   const addEmail = async () => {
     const e = newEmail.trim(); if (!e) return
@@ -240,10 +265,35 @@ export default function NewsletterAdminClient() {
           était. */}
       <EtatEnvoi maj={majEtat} />
 
+      {/* FIGER LA LETTRE.
+          Par défaut, ouvrir l'éditeur remonte la lettre sur la semaine en
+          cours : on n'a rien à faire le lundi. Le revers, c'est que le
+          montage reprend la main sur ce qui n'a pas été explicitement
+          choisi. Figée, la lettre ne bouge plus du tout — ni à l'ouverture,
+          ni au départ du lundi. */}
+      <div className="px-4 pt-5">
+        <label className="flex cursor-pointer items-start gap-3 rounded-2xl border bg-white p-3.5" style={{ borderColor: fige ? 'var(--primary)' : '#EDE6DA' }}>
+          <input type="checkbox" checked={fige} onChange={e => setFige(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            <span className="block text-[13px] font-extrabold text-texte">Figer cette lettre</span>
+            <span className="block text-[11.5px] leading-[1.45] text-texte-doux">
+              {fige
+                ? 'Plus rien n’est recalculé. Ce que vous voyez ici est exactement ce qui partira lundi.'
+                : 'Sans ça, la lettre est remontée sur la semaine en cours à chaque ouverture : les sections en « Auto » sont rafraîchies.'}
+            </span>
+          </span>
+        </label>
+      </div>
+
       {/* Envoi */}
       <div className="px-4 pt-5">
         <button onClick={send} disabled={sending} className="flex w-full items-center justify-center rounded-2xl border-none bg-primary py-3.5 text-[14px] font-extrabold text-white disabled:opacity-60">{sending ? 'Envoi…' : `Envoyer à ${recipientCount} destinataire${recipientCount > 1 ? 's' : ''}`}</button>
-        <p className="mt-2 text-center text-[11px] text-texte-doux">Depuis lettre@laplaceduvillage.app · {saveState === 'saving' ? 'enregistrement…' : 'enregistré sur le serveur ✓'}</p>
+        <p className="mt-2 text-center text-[11px]" style={{ color: saveState === 'echec' ? '#C0392B' : undefined }}>
+          <span className="text-texte-doux">Depuis lettre@laplaceduvillage.app · </span>
+          {saveState === 'saving' ? <span className="text-texte-doux">enregistrement…</span>
+            : saveState === 'echec' ? <b>NON ENREGISTRÉ — vérifie ta connexion</b>
+            : <span className="text-texte-doux">enregistré sur le serveur ✓</span>}
+        </p>
       </div>
 
       {listOpen && <ListModal audience={listOpen} onClose={() => setListOpen(null)} onChanged={load} />}
@@ -434,18 +484,31 @@ function BlockEditor({ block: b, patch }: { block: NewsletterBlock; patch: (p: P
     </div>
   )
   if (b.type === 'journal') return <input value={b.titre} onChange={e => patch({ titre: e.target.value } as Partial<NewsletterBlock>)} placeholder="Titre de la section" className={fieldCls} />
-  if (b.type === 'article') return (
-    <div className="flex flex-col gap-2">
-      <input value={b.titre} onChange={e => patch({ titre: e.target.value } as Partial<NewsletterBlock>)} placeholder="Titre de la section" className={fieldCls} />
-      <ItemPicker kind="article" ids={b.ids} onChange={ids => patch({ ids } as Partial<NewsletterBlock>)} />
-    </div>
-  )
-  if (b.type === 'partenaires') return (
-    <div className="flex flex-col gap-2">
-      <input value={b.titre} onChange={e => patch({ titre: e.target.value } as Partial<NewsletterBlock>)} placeholder="Titre de la section" className={fieldCls} />
-      <ItemPicker kind="partenaires" ids={b.ids} onChange={ids => patch({ ids } as Partial<NewsletterBlock>)} />
-    </div>
-  )
+  if (b.type === 'article' || b.type === 'partenaires') {
+    const auto = b.mode !== 'manual'
+    return (
+      <div className="flex flex-col gap-2">
+        <input value={b.titre} onChange={e => patch({ titre: e.target.value } as Partial<NewsletterBlock>)} placeholder="Titre de la section" className={fieldCls} />
+        {/* Le même interrupteur que sur les blocs liste. Il manquait ici, et
+            c'est ce qui faisait disparaître les commerçants choisis : sans
+            mode, le montage de la semaine reprenait toujours la main. */}
+        <div className="flex gap-1.5">
+          <button onClick={() => patch({ mode: 'auto' } as Partial<NewsletterBlock>)} className="rounded-full px-3 py-1 text-[12px] font-bold" style={{ background: auto ? 'var(--primary)' : '#F0EAE0', color: auto ? '#fff' : '#7A6A5A' }}>Auto (la semaine)</button>
+          <button onClick={() => patch({ mode: 'manual' } as Partial<NewsletterBlock>)} className="rounded-full px-3 py-1 text-[12px] font-bold" style={{ background: !auto ? 'var(--primary)' : '#F0EAE0', color: !auto ? '#fff' : '#7A6A5A' }}>Choisir</button>
+        </div>
+        {/* Choisir, c'est décider : le picker bascule lui-même en manuel,
+            sinon on désignerait deux commerçants pour rien. */}
+        <ItemPicker kind={b.type} ids={b.ids} onChange={ids => patch({ ids, mode: 'manual' } as Partial<NewsletterBlock>)} />
+        <p className="m-0 text-[11px] leading-[1.45] text-texte-doux">
+          {auto
+            ? (b.type === 'partenaires'
+              ? 'Deux commerçants choisis chaque semaine — les abonnés payants d’abord.'
+              : 'L’article de la semaine, repris automatiquement.')
+            : 'Votre choix. Il ne sera plus remplacé, ni à l’ouverture ni à l’envoi.'}
+        </p>
+      </div>
+    )
+  }
   // events / promos / annonces
   return (
     <div className="flex flex-col gap-2">

@@ -67,9 +67,14 @@ export async function GET(req: NextRequest) {
   // On repart du brouillon réglé dans l'éditeur : ses retouches à la main
   // survivent, seule la partie qui dépend de la semaine est recalculée.
   let base: NewsletterBlock[] | null = null
+  let reglages: { fige?: boolean; retires?: string[] } = {}
   try {
     const brut = await config('newsletter_draft')
-    base = brut ? (JSON.parse(brut).blocks as NewsletterBlock[]) : null
+    const d = brut ? JSON.parse(brut) : null
+    base = (d?.blocks as NewsletterBlock[]) ?? null
+    // Les mêmes réglages que dans l'éditeur, sans quoi l'aperçu et l'envoi
+    // diraient deux choses différentes — et c'est l'envoi qui aurait tort.
+    reglages = { fige: !!d?.fige, retires: Array.isArray(d?.retires) ? d.retires : [] }
   } catch { base = null }
 
   /*
@@ -81,7 +86,7 @@ export async function GET(req: NextRequest) {
    */
   const terr = (await territoireParDefaut())?.id ?? null
 
-  const { subject, blocks } = await monterLettreDeLaSemaine(base, terr)
+  const { subject, blocks } = await monterLettreDeLaSemaine(base, terr, reglages)
   if (!blocks.length) return NextResponse.json({ error: 'aucune section à envoyer' }, { status: 500 })
 
   const body = await renderNewsletterBody(blocks, terr)
