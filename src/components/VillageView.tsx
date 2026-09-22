@@ -75,12 +75,12 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
         <button
           type="button"
           onClick={onOpenSplash}
-          aria-label="Accueil La Place du Village"
+          aria-label="Accueil La Place"
           className="shrink-0 border-none bg-transparent p-0"
           style={{ lineHeight: 0, cursor: 'pointer' }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-topbar.webp" alt="La Place du Village" style={{ height: 38, width: 'auto', objectFit: 'contain', display: 'block' }} />
+          <img src="/logo-topbar.webp" alt="La Place" style={{ height: 38, width: 'auto', objectFit: 'contain', display: 'block' }} />
         </button>
         {/* La radio : meme bouton que partout, le son suit d'une page a
             l'autre. Le composant decide seul s'il se pose. */}

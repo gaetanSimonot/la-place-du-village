@@ -189,7 +189,7 @@ export default function EditorialSplash({ onExplore, onRubrique, onToday, isAdmi
       <div style={{ position: 'relative' }}>
         {hero ? (
           /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={hero} alt="La Place du Village — Explorez, découvrez, profitez" style={{ width: '100%', height: 'auto', display: 'block' }} />
+          <img src={hero} alt="La Place — Explorez, découvrez, profitez" style={{ width: '100%', height: 'auto', display: 'block' }} />
         ) : (
           /* Toute 1re ouverture (pas encore de cache) : placeholder neutre, pas d'image périmée */
           <div style={{ width: '100%', aspectRatio: '16 / 10', background: '#EFE7D6' }} />

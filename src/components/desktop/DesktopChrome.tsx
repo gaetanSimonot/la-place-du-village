@@ -151,9 +151,9 @@ export default function DesktopChrome() {
     <>
       <header className="pcv-only pcv-hd">
         <div className="pcv-hdIn">
-          <Link href="/" aria-label="La Place du Village">
+          <Link href="/" aria-label="La Place">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo-topbar.webp" alt="La Place du Village" className="pcv-logo" />
+            <img src="/logo-topbar.webp" alt="La Place" className="pcv-logo" />
           </Link>
 
           {/* La radio, a gauche de la navigation : sur ordinateur cette barre

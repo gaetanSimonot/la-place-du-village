@@ -1586,11 +1586,11 @@ export default function HomePage() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                   <button
                     onClick={() => setSplashOpen(true)}
-                    aria-label="Accueil La Place du Village"
+                    aria-label="Accueil La Place"
                     style={{ border: 'none', background: 'none', padding: 0, lineHeight: 0, cursor: 'pointer', flexShrink: 0 }}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src="/logo-topbar.webp" alt="La Place du Village" style={{ height: 38, width: 'auto', objectFit: 'contain', display: 'block' }} />
+                    <img src="/logo-topbar.webp" alt="La Place" style={{ height: 38, width: 'auto', objectFit: 'contain', display: 'block' }} />
                   </button>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                     {/* La radio. Le composant decide seul s'il se pose :

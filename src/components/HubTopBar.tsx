@@ -37,7 +37,7 @@ export default function HubTopBar({ onOpenSearch, onOpenSplash, onShareApp, onOp
         style={{ lineHeight: 0, cursor: 'pointer' }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/splash-logo-v4.png" alt="La Place du Village" style={{ height: 42, width: 'auto', objectFit: 'contain', display: 'block' }} />
+        <img src="/splash-logo-v4.png" alt="La Place" style={{ height: 42, width: 'auto', objectFit: 'contain', display: 'block' }} />
       </button>
 
       {/* Bloc central : salutation + compteur + EN DIRECT */}
@@ -63,7 +63,7 @@ export default function HubTopBar({ onOpenSearch, onOpenSplash, onShareApp, onOp
           <button
             type="button"
             onClick={onOpenMenu}
-            aria-label="À propos de La Place du Village"
+            aria-label="À propos de La Place"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-texte"
           >
             <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">

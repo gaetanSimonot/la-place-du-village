@@ -227,7 +227,7 @@ export default function RadioClient() {
         style={{ paddingTop: 'max(16px, env(safe-area-inset-top, 16px))', paddingBottom: 4 }}>
         <button
           onClick={() => router.push('/?tab=village')}
-          aria-label="Revenir à La Place du Village"
+          aria-label="Revenir à La Place"
           className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-full"
           style={{ border: '1px solid var(--bord)', background: 'var(--blanc)', color: 'var(--texte)' }}
         >

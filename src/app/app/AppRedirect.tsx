@@ -194,7 +194,7 @@ export default function AppRedirect() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={IOS_TUTO_IMG}
-            alt="Tutoriel agrandi : ajouter La Place du Village à l'écran d'accueil iPhone"
+            alt="Tutoriel agrandi : ajouter La Place à l'écran d'accueil iPhone"
             onClick={(e) => e.stopPropagation()}
             style={{ width: '100%', maxWidth: 900, height: 'auto', borderRadius: 10, margin: 'auto 0' }}
           />

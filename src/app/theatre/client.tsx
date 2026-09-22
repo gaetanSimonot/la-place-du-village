@@ -266,7 +266,7 @@ export default function TheatreClient() {
         style={{ paddingTop: 'max(16px, env(safe-area-inset-top, 16px))', paddingBottom: 6 }}>
         <button
           onClick={() => router.push('/?tab=village')}
-          aria-label="Revenir à La Place du Village"
+          aria-label="Revenir à La Place"
           className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-full"
           style={{ border: '1px solid var(--uni-line)', background: 'var(--uni-creux)', color: 'var(--uni-ink)' }}
         >
