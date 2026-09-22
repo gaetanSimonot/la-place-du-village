@@ -115,6 +115,16 @@ const AV = 26   // diamètre du soleil devant une réponse
  */
 const RETRAIT = 51  // 16 (marge) + 26 (soleil) + 9 (gouttière)
 
+/**
+ * L'exemple montré à l'ouverture.
+ *
+ * Il est long à dessein : il montre qu'on peut poser une demande entière —
+ * des gens, des jours, plusieurs envies à la fois — et pas seulement lancer
+ * un mot-clé. C'est ce que l'assistant sait faire de mieux, et c'est ce que
+ * personne ne devine.
+ */
+const EXEMPLE = 'J’ai des amis qui débarquent la semaine prochaine avec leurs enfants, mercredi et jeudi. On aime manger, faire des activités et voir de bons films — proposez-nous un programme.'
+
 export default function AssistantChat({ question, dicter, onClose }: {
   question: string
   /** Ouvrir en écoutant : le micro de la barre a été touché, pas le champ. */
@@ -162,6 +172,12 @@ export default function AssistantChat({ question, dicter, onClose }: {
   const suivreRef = useRef(true)
   const [detache, setDetache] = useState(false)
   const micRef = useRef<MicButtonHandle>(null)
+  /**
+   * « Envoie dès que tu as le texte. » Levé quand on appuie sur envoyer
+   * pendant la dictée, abaissé aussitôt servi — ou dès qu'on relance une
+   * dictée, sinon il traverserait l'enregistrement suivant.
+   */
+  const partirDesQuePret = useRef(false)
   const champRef = useRef<HTMLTextAreaElement>(null)
   /** Le volet des conversations : on le referme en glissant, pas d'un coup. */
   const [voletSort, setVoletSort] = useState(false)
@@ -400,15 +416,22 @@ export default function AssistantChat({ question, dicter, onClose }: {
 
   const lancerDictee = () => {
     if (ecoute || micEtat === 'transcribing') return
+    partirDesQuePret.current = false
     micRef.current?.start()
   }
   /**
-   * Le bouton vert coupe l'enregistrement. Il n'envoie PAS dans la foulée :
-   * la transcription n'arrive qu'après, et il faut pouvoir la relire. Un
-   * second appui l'envoie.
+   * APPUYER SUR ENVOYER PENDANT QU'ON PARLE, C'EST VOULOIR ENVOYER.
+   *
+   * La transcription n'arrive qu'après la coupure — on ne peut donc pas
+   * envoyer tout de suite. On coupe, on lève un drapeau, et le texte part
+   * dès qu'il arrive.
+   *
+   * Le bouton STOP, lui, coupe pour RELIRE : c'est un autre geste, et les
+   * deux doivent rester distincts. Un micro qui envoie tout seul quand on
+   * voulait se relire est pire qu'un clic de plus.
    */
   const envoyerMaintenant = () => {
-    if (ecoute) { micRef.current?.stop(); return }
+    if (ecoute) { partirDesQuePret.current = true; micRef.current?.stop(); return }
     envoyer(saisie)
   }
 
@@ -626,7 +649,22 @@ export default function AssistantChat({ question, dicter, onClose }: {
             <div style={{ flex: 1, fontSize: 14, lineHeight: 1.55 }}>
               {micEtat === 'recording'
                 ? 'Je vous écoute. Dites ce que vous cherchez, puis relisez avant d’envoyer.'
-                : 'Dites-moi ce que vous cherchez : une sortie, un artisan, un film, un bon plan, ou une question sur l’application.'}
+                : 'Dites-moi ce que vous cherchez : une sortie, un spectacle, un film, un artisan, un bon plan, un car — ou une question sur l’application.'}
+              {/* UN EXEMPLE VAUT MIEUX QU'UNE LISTE.
+                  Sans lui, on tape « restaurant » et on passe à côté : rien ne
+                  dit qu'on peut poser une demande entière, avec des gens, des
+                  jours et des envies. L'exemple est CLIQUABLE — le lire et
+                  devoir le retaper serait une invitation à ne pas essayer. */}
+              {micEtat !== 'recording' && (
+                <button type="button" onClick={() => setSaisie(EXEMPLE)}
+                  className="m-0 block w-full border-none bg-transparent p-0 text-left"
+                  style={{
+                    marginTop: 8, fontSize: 12.5, lineHeight: 1.5, fontStyle: 'italic',
+                    color: '#9B9084', cursor: 'pointer',
+                  }}>
+                  « {EXEMPLE} »
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -786,7 +824,21 @@ export default function AssistantChat({ question, dicter, onClose }: {
           {/* Repli Whisper là où le navigateur ne sait pas écouter en direct
               (Firefox, iOS) : on enregistre, et le texte arrive d'un coup. */}
           <MicButton ref={micRef} hidden onStateChange={setMicEtat}
-            onTranscript={t => { if (t?.trim()) setSaisie(p => (p ? `${p} ${t.trim()}` : t.trim())) }} />
+            onTranscript={t => {
+              const dit = t?.trim()
+              if (!dit) { partirDesQuePret.current = false; return }
+              setSaisie(p => {
+                const complet = p ? `${p} ${dit}` : dit
+                // On part avec le texte COMPLET — ce qui était tapé avant la
+                // dictée compte aussi. Hors du cycle de rendu : appeler
+                // `envoyer` depuis le calcul d'état ferait râler React.
+                if (partirDesQuePret.current) {
+                  partirDesQuePret.current = false
+                  setTimeout(() => envoiRef.current?.(complet), 0)
+                }
+                return complet
+              })
+            }} />
         </div>
 
         <button

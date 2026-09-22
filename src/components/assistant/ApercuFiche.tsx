@@ -32,6 +32,10 @@ const ROUTES: Record<string, { page: (id: string) => string; api?: string; quoi:
   // Pas de page par promotion : elle se lit sur la liste des bons plans.
   promo:   { page: () => '/promotions',          api: 'promotions',     quoi: 'Bon plan' },
   film:    { page: id => `/cinema/film/${id}`,   quoi: 'Film' },
+  spectacle: { page: id => `/theatre/spectacle/${id}`, quoi: 'Spectacle' },
+  // La radio n'a pas de page par émission : on ouvre le module, où elles
+  // sont toutes. Un lien vers une page qui n'existe pas serait pire que rien.
+  radio:   { page: () => '/radio',               quoi: 'Radio Escapades' },
 }
 
 const s = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v : null)
@@ -73,6 +77,22 @@ export default function ApercuFiche({ carte, onClose }: Props) {
     lignes.push([d.duree_min ? `${d.duree_min} min` : null, (d.genres as string[] | null)?.join(', ')].filter(Boolean).join(' · '))
     for (const x of se.slice(0, 4)) {
       lignes.push([jourLong(s(x.date)), s(x.heure), s(x.version)?.toUpperCase(), s(x.cinema)].filter(Boolean).join(' · '))
+    }
+  } else if (carte.type === 'spectacle') {
+    const dates = Array.isArray(d.dates) ? (d.dates as Record<string, unknown>[]) : []
+    lignes.push([s(d.compagnie), s(d.genre)].filter(Boolean).join(' · '))
+    lignes.push([d.duree_min ? `${d.duree_min} min` : null, s(d.public_conseille)].filter(Boolean).join(' · '))
+    // Le LIEU de chaque date, pas le théâtre : c'est là qu'on se rend.
+    for (const x of dates.slice(0, 5)) {
+      lignes.push([jourLong(s(x.date)), s(x.heure), s(x.lieu)].filter(Boolean).join(' · '))
+    }
+  } else if (carte.type === 'radio') {
+    const mentions = Array.isArray(d.mentions) ? (d.mentions as Record<string, unknown>[]) : []
+    if (d.duree_s) lignes.push(`${Math.round(Number(d.duree_s) / 60)} min d’écoute`)
+    // Ce que l'émission annonce, en clair. Une mention peut ne pas exister
+    // dans l'application : on l'écrit quand même, c'est l'émission qui parle.
+    for (const m of mentions.slice(0, 6)) {
+      lignes.push([s(m.titre), s(m.detail)].filter(Boolean).join(' — '))
     }
   } else if (carte.type === 'promo') {
     const e = d.etablissement as Record<string, unknown> | null

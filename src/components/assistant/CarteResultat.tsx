@@ -20,7 +20,7 @@ import type { Categorie } from '@/lib/types'
  */
 
 export interface CarteData {
-  type: 'ev' | 'etab' | 'prod' | 'film' | 'promo' | 'annonce'
+  type: 'ev' | 'etab' | 'prod' | 'film' | 'spectacle' | 'radio' | 'promo' | 'annonce'
   id: string
   data: Record<string, unknown>
 }
@@ -68,6 +68,19 @@ const IcoPin = (
 const IcoCine = (
   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round">
     <rect x="2" y="8" width="20" height="13" rx="2" /><path d="M2.5 8l19-3.4M6.5 7.6l1-3.6M12 6.8l1-3.6M17.5 6l1-3.6" />
+  </svg>
+)
+/* Les pieds d'une scène — le rideau serait illisible à onze pixels. */
+const IcoTheatre = (
+  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 5h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" /><path d="M12 12v7" /><path d="M8 19h8" />
+  </svg>
+)
+/* Des ondes qui partent d'un point : ça se lit même tout petit. */
+const IcoRadio = (
+  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">
+    <circle cx="12" cy="12" r="2" /><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7" />
+    <path d="M5.5 5.5a9 9 0 0 0 0 13M18.5 5.5a9 9 0 0 1 0 13" />
   </svg>
 )
 const IcoTag = (
@@ -204,6 +217,52 @@ export default function CarteResultat({ carte, onOuvrir }: { carte: CarteData; o
           <div className="line-clamp-2" style={TITRE}>{s(d.titre) ?? 'Film'}</div>
           <Meta icone={IcoCine} sombre>
             {[s(p?.cinema), d.duree_min ? `${d.duree_min} min` : null].filter(Boolean).join(' · ') || 'Cinéma'}
+          </Meta>
+        </span>
+      </Coquille>
+    )
+  }
+
+  /*
+   * SPECTACLE. Fond sombre comme le film — les deux sont des œuvres qu'on va
+   * voir en salle, et l'affiche porte la carte.
+   *
+   * La ligne du bas montre le LIEU DE JEU de la prochaine date, pas le
+   * théâtre qui programme : une saison de village se joue dans les villages.
+   */
+  if (carte.type === 'spectacle') {
+    const dates = Array.isArray(d.dates) ? (d.dates as Record<string, unknown>[]) : []
+    const p = dates[0]
+    return (
+      <Coquille onOuvrir={onOuvrir} carte={carte} sombre>
+        <Vignette url={s(d.affiche_url)} texte={s(d.titre)} sombre />
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <Tag sombre>
+            {p ? [JOUR(s(p.date)), s(p.heure)].filter(Boolean).join(' · ') : 'Cette saison'}
+            {dates.length > 1 ? ` · +${dates.length - 1}` : ''}
+          </Tag>
+          <div className="line-clamp-2" style={TITRE}>{s(d.titre) ?? 'Spectacle'}</div>
+          <Meta icone={IcoTheatre} sombre>
+            {[s(p?.lieu), s(d.compagnie)].filter(Boolean).join(' · ') || 'Théâtre'}
+          </Meta>
+        </span>
+      </Coquille>
+    )
+  }
+
+  /* RADIO. Une émission s'écoute : la carte annonce ce dont elle parle. */
+  if (carte.type === 'radio') {
+    const mentions = Array.isArray(d.mentions) ? (d.mentions as Record<string, unknown>[]) : []
+    return (
+      <Coquille onOuvrir={onOuvrir} carte={carte}>
+        <Vignette url={s(d.image_url)} texte={s(d.titre)} />
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <Tag>Radio Escapades</Tag>
+          <div className="line-clamp-2" style={TITRE}>{s(d.titre) ?? 'Émission'}</div>
+          <Meta icone={IcoRadio}>
+            {mentions.length
+              ? `${mentions.length} rendez-vous cité${mentions.length > 1 ? 's' : ''}`
+              : 'À écouter'}
           </Meta>
         </span>
       </Coquille>

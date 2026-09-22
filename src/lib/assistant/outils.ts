@@ -30,7 +30,7 @@ import { motsCles, classer, classerLieux, nu, libelleRecherche } from '@/lib/ass
 
 /** Une fiche réelle, renvoyée au client pour affichage. */
 export interface Carte {
-  type: 'ev' | 'etab' | 'prod' | 'film' | 'promo' | 'annonce'
+  type: 'ev' | 'etab' | 'prod' | 'film' | 'spectacle' | 'radio' | 'promo' | 'annonce'
   id: string
   data: Record<string, unknown>
 }
@@ -145,6 +145,35 @@ export const OUTILS = [
         },
       },
       required: ['du', 'au'],
+    },
+  },
+  {
+    name: 'chercher_spectacles',
+    description:
+      "La saison des théâtres du secteur : pièces, spectacles vivants, cirque, danse, concerts programmés par une salle. Une saison s'annonce des MOIS à l'avance — contrairement au cinéma, une fenêtre large est normale ici, et « qu'est-ce qu'il y a au théâtre cette saison » se cherche de ce jour à dans six mois. Une représentation se joue souvent HORS des murs du théâtre : le lieu de chaque date est rendu, c'est lui qui compte pour s'y rendre.",
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        du:   { type: 'string', description: 'Premier jour, AAAA-MM-JJ.' },
+        au:   { type: 'string', description: 'Dernier jour inclus, AAAA-MM-JJ. Large de plusieurs mois si la demande porte sur la saison.' },
+        mots: {
+          type: 'array', items: { type: 'string' },
+          description: "Titre, compagnie, genre ou public visé, en plusieurs formulations : [\"cirque\",\"famille\",\"enfants\"]. Omettez pour voir toute la saison — souvent le mieux, il y a peu de spectacles.",
+        },
+      },
+      required: ['du', 'au'],
+    },
+  },
+  {
+    name: 'chercher_radio',
+    description:
+      "Les émissions de Radio Escapades publiées sur La Place du Village : la sélection culturelle de la semaine, à écouter, et ce qu'elle annonce. À utiliser pour « qu'est-ce qu'il y a à la radio », « la sélection radio », « le podcast ». Une émission cite des rendez-vous qui ne sont PAS tous dans l'application : ceux-là n'ont qu'un titre, et c'est normal.",
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        mots: { type: 'array', items: { type: 'string' }, description: MOTS_DESC },
+      },
+      required: [],
     },
   },
   {
@@ -291,6 +320,8 @@ export async function executerOutil(nom: string, args: Args, terr: string | null
     case 'chercher_evenements':     return evenements(args, terr)
     case 'chercher_etablissements': return etablissements(args, terr)
     case 'chercher_seances':        return seances(args, terr)
+    case 'chercher_spectacles':     return spectacles(args, terr)
+    case 'chercher_radio':          return radio(args, terr)
     case 'chercher_promotions':     return promotions(args, terr)
     case 'chercher_annonces':       return annonces(args, terr)
     case 'chercher_bus':            return bus(args, terr)
@@ -918,6 +949,150 @@ async function meteo(a: Args): Promise<ResultatOutil> {
  * peut affirmer sur l'application se corrige depuis /admin/prompts, sans
  * redéploiement, et ne peut pas diverger de ce que le modèle raconte.
  */
+/**
+ * LA SAISON DES THÉÂTRES.
+ *
+ * Jumelle de `seances`, avec deux différences qui tiennent au métier.
+ *
+ * Une représentation n'a pas de territoire — la SALLE qui programme en a un,
+ * et c'est elle qui la situe. On tamise donc par la salle, comme au cinéma.
+ *
+ * Mais le LIEU DE JEU n'est pas la salle : l'Albarède programme à Ganges et
+ * joue à Blandas, à Montpellier, dans les écoles. Chaque date porte donc son
+ * lieu, et c'est lui qu'il faut annoncer — envoyer quelqu'un au théâtre pour
+ * un spectacle qui se donne à quarante kilomètres est pire que ne rien dire.
+ *
+ * Les séances SCOLAIRES sont écartées : on ne peut pas y venir.
+ */
+async function spectacles(a: Args, terr: string | null = null): Promise<ResultatOutil> {
+  const { du, au } = fenetre(a)
+  const mots = motsCles(a.mots)
+  const vide = { pourLeModele: { resultats: [] }, cartes: [], libelle: libelleRecherche(mots) }
+
+  const { data: rows } = await supabaseAdmin
+    .from('representations')
+    .select('id, etablissement_id, spectacle_id, date, heure, lieu, scolaire, billetterie_url, note')
+    .gte('date', du).lte('date', au)
+    .eq('scolaire', false)
+    .order('date').order('heure')
+    .limit(200)
+  const lignes = rows ?? []
+  if (!lignes.length) return vide
+
+  let retenues = lignes
+  if (terr) {
+    const gardes = await idsDuTerritoireEtablissements(
+      Array.from(new Set(lignes.map(r => String(r.etablissement_id)))), terr)
+    if (gardes) retenues = lignes.filter(r => gardes.has(String(r.etablissement_id)))
+    if (!retenues.length) return vide
+  }
+
+  const spIds = Array.from(new Set(retenues.map(r => r.spectacle_id)))
+  const sallesIds = Array.from(new Set(retenues.map(r => r.etablissement_id)))
+  const [spRes, sallesRes] = await Promise.all([
+    supabaseAdmin.from('spectacles')
+      .select('id, titre, compagnie, genre, duree_min, public_conseille, synopsis, affiche_url').in('id', spIds),
+    supabaseAdmin.from('etablissements').select('id, nom, commune, billetterie_url').in('id', sallesIds),
+  ])
+  const parSalle = new Map((sallesRes.data ?? []).map(t => [t.id, t]))
+
+  // On classe sur le spectacle, pas sur la date : « du cirque pour les
+  // enfants » se choisit sur l'œuvre, ses dates viennent ensuite.
+  const tous = (spRes.data ?? []).map(sp => ({
+    ...sp,
+    description: [sp.synopsis, sp.genre, sp.compagnie, sp.public_conseille].filter(Boolean).join(' '),
+  })) as unknown as Record<string, unknown>[]
+  const choisis = classer(tous, mots, MAX)
+
+  const resultats = choisis.map(sp => {
+    const dates = retenues
+      .filter(r => String(r.spectacle_id) === String(sp.id))
+      .map(r => {
+        const salle = parSalle.get(r.etablissement_id)
+        return {
+          date: r.date,
+          heure: typeof r.heure === 'string' ? r.heure.slice(0, 5) : null,
+          // Le lieu de jeu d'abord, la salle qui programme à défaut.
+          lieu: r.lieu ?? salle?.nom ?? null,
+          theatre: salle?.nom ?? null,
+          commune: salle?.commune ?? null,
+          note: r.note ?? null,
+        }
+      })
+    return { ...sp, dates } as Record<string, unknown>
+  }).filter(sp => (sp.dates as unknown[]).length > 0)
+
+  return {
+    pourLeModele: {
+      resultats: resultats.map(sp => ({
+        id: sp.id, titre: sp.titre, compagnie: sp.compagnie, genre: sp.genre,
+        duree_min: sp.duree_min, public_conseille: sp.public_conseille,
+        dates: sp.dates,
+      })),
+    },
+    cartes: resultats.map(sp => ({ type: 'spectacle' as const, id: String(sp.id), data: sp as Record<string, unknown> })),
+    libelle: libelleRecherche(mots),
+  }
+}
+
+/**
+ * LES ÉMISSIONS DE LA RADIO.
+ *
+ * Ce qui est cité dans une émission n'est pas forcément chez nous : une
+ * mention porte toujours son titre en clair et seulement parfois un
+ * événement rattaché. On rend les deux tels quels — prétendre qu'une mention
+ * non rattachée est une fiche enverrait vers une page qui n'existe pas.
+ *
+ * Seules les émissions PUBLIÉES sortent : un brouillon n'est pas un
+ * programme.
+ */
+async function radio(a: Args, terr: string | null = null): Promise<ResultatOutil> {
+  const mots = motsCles(a.mots)
+  const vide = { pourLeModele: { resultats: [] }, cartes: [], libelle: libelleRecherche(mots) }
+
+  let q = supabaseAdmin
+    .from('radio_emissions')
+    .select('id, titre, description, audio_url, duree_s, image_url, semaine_debut')
+    .eq('statut', 'publie')
+    .order('semaine_debut', { ascending: false })
+    .limit(20)
+  if (terr) q = q.eq('territoire_id', terr)
+  const { data: rows } = await q
+  const emissions = rows ?? []
+  if (!emissions.length) return vide
+
+  const choisies = classer(emissions as unknown as Record<string, unknown>[], mots, MAX)
+  if (!choisies.length) return vide
+
+  const { data: mentions } = await supabaseAdmin
+    .from('radio_mentions')
+    .select('emission_id, titre, detail, evenement_id, ordre')
+    .in('emission_id', choisies.map(e => String(e.id)))
+    .order('ordre')
+
+  const parEmission = new Map<string, Record<string, unknown>[]>()
+  for (const m of mentions ?? []) {
+    const l = parEmission.get(String(m.emission_id)) ?? []
+    l.push({ titre: m.titre, detail: m.detail, evenement_id: m.evenement_id })
+    parEmission.set(String(m.emission_id), l)
+  }
+
+  const resultats = choisies.map(e => ({ ...e, mentions: parEmission.get(String(e.id)) ?? [] }) as Record<string, unknown>)
+
+  return {
+    pourLeModele: {
+      resultats: resultats.map(e => ({
+        id: e.id, titre: e.titre, semaine_debut: e.semaine_debut,
+        description: typeof e.description === 'string' ? e.description.slice(0, 300) : null,
+        // Le modèle doit pouvoir dire « l'émission parle de X » sans inventer.
+        annonce: (e.mentions as Record<string, unknown>[]).map(m => m.titre as string),
+      })),
+    },
+    cartes: resultats.map(e => ({ type: 'radio' as const, id: String(e.id), data: e as Record<string, unknown> })),
+    libelle: libelleRecherche(mots),
+  }
+}
+
 async function aide(): Promise<ResultatOutil> {
   try {
     return { pourLeModele: { aide: await getPrompt('assistant_aide_lpv') }, cartes: [] }
