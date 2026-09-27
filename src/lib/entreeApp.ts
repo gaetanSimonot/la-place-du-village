@@ -95,7 +95,26 @@ export function lireEntreeEnCache(): EntreeApp {
 export async function entreeFraiche(delaiMax = 700): Promise<EntreeApp> {
   if (typeof window === 'undefined') return ENTREE_DEFAUT
 
-  const secours = new Promise<EntreeApp>(r => setTimeout(() => r(lireEntreeEnCache()), delaiMax))
+  /*
+   * LE FILET NE DOIT PAS OUVRIR L'ÉCRAN D'ACCUEIL.
+   *
+   * Sans valeur gardée — c'est le cas de TOUTE app qu'on vient d'installer —
+   * le filet retombait sur ENTREE_DEFAUT, donc splash ouvert. Au premier
+   * lancement, le serveur (fonction froide, 4G, app qui démarre) dépasse
+   * souvent `delaiMax` : le premier écran d'un nouvel habitant était le splash
+   * qu'on avait décoché. Vécu jusqu'au 27/09/2026, config à `splash:false`.
+   *
+   * Dans le doute, on ne l'ouvre pas : un écran d'accueil manqué ne se voit
+   * pas, un écran qu'on a décoché, si. Une valeur gardée reste respectée.
+   */
+  const filet = (): EntreeApp => {
+    try {
+      if (localStorage.getItem(CLE_CACHE_ENTREE)) return lireEntreeEnCache()
+    } catch { /* stockage indisponible */ }
+    return { ...ENTREE_DEFAUT, splash: false }
+  }
+
+  const secours = new Promise<EntreeApp>(r => setTimeout(() => r(filet()), delaiMax))
 
   const reseau = (async () => {
     /*
@@ -113,7 +132,7 @@ export async function entreeFraiche(delaiMax = 700): Promise<EntreeApp> {
     const valeur = parseEntree(JSON.stringify(await r.json()))
     try { localStorage.setItem(CLE_CACHE_ENTREE, JSON.stringify(valeur)) } catch { /* cache indisponible */ }
     return valeur
-  })().catch(() => lireEntreeEnCache())
+  })().catch(() => filet())
 
   return Promise.race([reseau, secours])
 }
