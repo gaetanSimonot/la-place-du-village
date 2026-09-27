@@ -160,7 +160,7 @@ export default function AdminHubCarousel() {
       setEntree(parseEntree(entreeRes.data?.value))
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, user, isAdmin, territoireAdmin?.id, territoireAdmin?.par_defaut])
+  }, [authLoading, user?.id, isAdmin, territoireAdmin?.id, territoireAdmin?.par_defaut])
 
   async function toggleIntro(next: boolean) {
     if (introSaving) return
@@ -303,7 +303,10 @@ export default function AdminHubCarousel() {
     let ok = true
     do {
       herosEnAttente.current = false
-      await supabase.auth.refreshSession().catch(() => {})
+      /* PAS de refreshSession ici : il émet TOKEN_REFRESHED, AuthContext pose
+         un nouvel objet `user`, et l'effet de chargement de cette page (qui
+         dépend de `user`) relisait toute la config — la page « se rechargeait »
+         à chaque clic. getSession rafraîchit seul un jeton expiré. */
       const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch(urlEcritureConfig(territoireAdmin?.par_defaut ? null : territoireAdmin?.slug ?? null), {
         method:  'PATCH',
@@ -456,7 +459,7 @@ export default function AdminHubCarousel() {
     }
     reload()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, user, isAdmin, showExpired])
+  }, [authLoading, user?.id, isAdmin, showExpired])
 
   async function reload() {
     setLoading(true)
