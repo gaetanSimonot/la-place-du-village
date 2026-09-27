@@ -25,17 +25,21 @@ function Encart({ heros }: { heros: HerosVillageType }) {
 
   const corps = (
     <div
-      className="flex items-stretch gap-3 overflow-hidden rounded-[18px] border bg-white"
+      className="flex flex-1 items-stretch gap-3 overflow-hidden rounded-[18px] border bg-white"
       style={{ borderColor: '#DCE8DF', boxShadow: '0 2px 10px rgba(44,28,16,0.05)' }}
     >
+      {/* L'image ne donne PAS la hauteur : elle est posée en absolu dans son
+          cadre et recadrée. Seul le texte fait grandir la carte — une affiche
+          verticale l'étirait en colonne. */}
       {heros.image && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={heros.image}
-          alt=""
-          className="h-auto w-[104px] shrink-0 object-cover"
-          style={{ minHeight: 96 }}
-        />
+        <div className="relative w-[104px] shrink-0" style={{ minHeight: 96 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={heros.image}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        </div>
       )}
       <div className="min-w-0 flex-1 py-3 pr-3" style={{ paddingLeft: heros.image ? 0 : 14 }}>
         <span
@@ -59,9 +63,9 @@ function Encart({ heros }: { heros: HerosVillageType }) {
   return externe ? (
     // Un lien du dehors s'ouvre à côté : on ne sort pas l'habitant de
     // l'application sans qu'il puisse y revenir d'un geste.
-    <a href={href} target="_blank" rel="noopener noreferrer" className="block no-underline">{corps}</a>
+    <a href={href} target="_blank" rel="noopener noreferrer" className="flex flex-1 flex-col no-underline">{corps}</a>
   ) : (
-    <Link href={href} className="block no-underline">{corps}</Link>
+    <Link href={href} className="flex flex-1 flex-col no-underline">{corps}</Link>
   )
 }
 
@@ -94,15 +98,31 @@ export default function HerosVillage() {
   // téléphone se règle en mettant la visibilité sur « Admin ».
   if (!nombre || eteint) return null
 
-  const courant = heros[index] ?? heros[0]
-
   return (
     <div className="px-4 pb-3 pt-1">
-      {/* La clé porte l'index : React remonte l'encart à chaque passage, ce
-          qui rejoue l'apparition en fondu. Sans elle, il se contenterait de
-          remplacer le texte et le changement passerait inaperçu. */}
-      <div key={index} className="pdv-heros-fondu">
-        <Encart heros={courant} />
+      {/* FONDU ENCHAÎNÉ. Toutes les fiches sont posées dans la MÊME case de
+          grille, l'une sur l'autre ; seule l'opacité change. Avant, l'encart
+          était remonté à chaque passage : l'ancienne fiche disparaissait d'un
+          coup, la nouvelle arrivait avec une autre hauteur et une image pas
+          encore chargée — ça claquait.
+          Ici la hauteur est celle de la plus haute fiche, fixe pendant tout le
+          défilement, et les images sont chargées dès le départ. */}
+      <div className="grid">
+        {heros.map((h, i) => (
+          <div
+            key={`${h.titre}-${i}`}
+            className="pdv-heros-fiche flex flex-col"
+            aria-hidden={i !== index}
+            style={{
+              gridArea: '1 / 1',
+              opacity: i === index ? 1 : 0,
+              pointerEvents: i === index ? 'auto' : 'none',
+              zIndex: i === index ? 1 : 0,
+            }}
+          >
+            <Encart heros={h} />
+          </div>
+        ))}
       </div>
 
       {/* Les points de position — seulement s'il y a de quoi défiler. Ils ne

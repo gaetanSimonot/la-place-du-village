@@ -280,17 +280,14 @@ html[data-univers='theatre'] {
 html[data-univers='theatre'] body { background: var(--uni-bg); }
 
 /* ═══════════ HÉROS DU VILLAGE — passage d'une fiche à l'autre ═══════════
-   L'encart peut porter plusieurs fiches et les fait défiler. Sans ce fondu,
-   le remplacement est si net qu'on croit à un défaut d'affichage. */
-@keyframes pdv-heros-entree {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: none; }
-}
-.pdv-heros-fondu { animation: pdv-heros-entree .45s ease-out; }
+   Les fiches sont superposées (HerosVillage.tsx) : l'une s'efface pendant
+   que l'autre apparaît. Pas de déplacement, seulement l'opacité — un
+   glissement sur une carte qui ne bouge pas de place se lit comme un saut. */
+.pdv-heros-fiche { transition: opacity .7s ease-in-out; }
 
 /* Quelqu'un qui a demandé moins d'animations n'a pas à subir celle-ci. */
 @media (prefers-reduced-motion: reduce) {
-  .pdv-heros-fondu { animation: none; }
+  .pdv-heros-fiche { transition: none; }
 }
 
 /* ═══════════ ÉGALISEUR — l'assistant écoute ═══════════
