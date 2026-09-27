@@ -18,7 +18,8 @@ import SplashPromoView from '@/components/SplashPromoView'
 import { parseVisibilite, type VisibiliteCinema } from '@/lib/cinema'
 import { parseEntree, PAGES_ARRIVEE, type EntreeApp, type PageArrivee } from '@/lib/entreeApp'
 import EmbedPicker, { type EmbedItem } from '@/components/EmbedPicker'
-import { normaliserHerosListe, HEROS_VIDE, type HerosVillage, type PublicHeros } from '@/lib/villageHero'
+import { normaliserHerosListe, completerUrl, HEROS_VIDE, type HerosVillage, type PublicHeros } from '@/lib/villageHero'
+import ImageLibraryPicker from '@/components/ImageLibraryPicker'
 
 interface EnrichedSlot extends FeaturedSlotRow {
   title?: string
@@ -102,6 +103,16 @@ export default function AdminHubCarousel() {
   /** Index de la fiche pour laquelle le sélecteur est ouvert. `null` = fermé. */
   const [herosPicker, setHerosPicker] = useState<number | null>(null)
   const [herosMsg, setHerosMsg] = useState<string | null>(null)
+  /** Index de la fiche dont on choisit l'image dans la bibliothèque. */
+  const [herosBiblio, setHerosBiblio] = useState<number | null>(null)
+  /** L'image que propose le lien collé, par fiche — pour pouvoir y revenir. */
+  const [herosImageLien, setHerosImageLien] = useState<Record<number, string>>({})
+  const [herosLecture, setHerosLecture] = useState<number | null>(null)
+  /* La liste À JOUR, hors du cycle de rendu : deux champs quittés coup sur
+     coup lisaient la même liste périmée, et le second effaçait le premier. */
+  const herosRef = useRef<HerosVillage[]>([])
+  const herosEnCours = useRef(false)
+  const herosEnAttente = useRef(false)
   /** Double clic requis avant de relancer le cycle de tout le monde. */
   const [resetAsked, setResetAsked] = useState(false)
   // Aperçu admin d'une variante : purement local, n'écrit rien et n'affecte
@@ -143,7 +154,9 @@ export default function AdminHubCarousel() {
       setTheatreVis(parseVisibilite(theaRes.data?.value))
       setRadioVis(parseVisibilite(radioRes.data?.value))
       setAssistantVis(parseVisibilite(assistRes.data?.value))
-      setHerosListe(normaliserHerosListe(herosRes.data?.value))
+      const herosLus = normaliserHerosListe(herosRes.data?.value, true)
+      herosRef.current = herosLus
+      setHerosListe(herosLus)
       setEntree(parseEntree(entreeRes.data?.value))
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -278,40 +291,88 @@ export default function AdminHubCarousel() {
    * évite les états mi-anciens mi-nouveaux, et la liste est minuscule.
    */
   async function enregistrerHerosListe(suivante: HerosVillage[]) {
-    if (herosSaving) return
-    setHerosListe(suivante); setHerosSaving(true); setHerosMsg(null)
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch(urlEcritureConfig(territoireAdmin?.par_defaut ? null : territoireAdmin?.slug ?? null), {
-      method:  'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
-      body:    JSON.stringify({ key: 'village_hero', value: JSON.stringify(suivante) }),
-    }).catch(() => null)
+    herosRef.current = suivante
+    setHerosListe(suivante)
+    /* Un enregistrement en cours ne JETTE plus le suivant (c'était le « ça ne
+       marche pas » : coller le lien puis cliquer dans le titre = deuxième
+       écriture ignorée). On note qu'il y en a un, il repart juste après avec
+       la liste la plus récente. */
+    if (herosEnCours.current) { herosEnAttente.current = true; return }
+    herosEnCours.current = true
+    setHerosSaving(true); setHerosMsg(null)
+    let ok = true
+    do {
+      herosEnAttente.current = false
+      await supabase.auth.refreshSession().catch(() => {})
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(urlEcritureConfig(territoireAdmin?.par_defaut ? null : territoireAdmin?.slug ?? null), {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+        body:    JSON.stringify({ key: 'village_hero', value: JSON.stringify(herosRef.current) }),
+      }).catch(() => null)
+      ok = !!res?.ok
+    } while (herosEnAttente.current)
+    herosEnCours.current = false
     setHerosSaving(false)
-    setHerosMsg(res?.ok ? 'Enregistré' : 'Échec de l’enregistrement')
+    setHerosMsg(ok ? 'Enregistré' : 'Échec de l’enregistrement')
     setTimeout(() => setHerosMsg(null), 2500)
   }
 
   /** Modifie UNE fiche de la liste, les autres intactes. */
   function modifierHeros(i: number, patch: Partial<HerosVillage>) {
-    void enregistrerHerosListe(herosListe.map((h, k) => (k === i ? { ...h, ...patch } : h)))
+    void enregistrerHerosListe(herosRef.current.map((h, k) => (k === i ? { ...h, ...patch } : h)))
   }
 
   /** Une fiche de plus, vide et masquée : on la remplit avant de l'ouvrir. */
   function ajouterHeros() {
-    void enregistrerHerosListe([...herosListe, { ...HEROS_VIDE }])
+    void enregistrerHerosListe([...herosRef.current, { ...HEROS_VIDE }])
   }
 
   function retirerHeros(i: number) {
-    void enregistrerHerosListe(herosListe.filter((_, k) => k !== i))
+    setHerosImageLien({})
+    void enregistrerHerosListe(herosRef.current.filter((_, k) => k !== i))
   }
 
   /** Monte ou descend une fiche : l'ordre est celui du défilement. */
   function deplacerHeros(i: number, sens: -1 | 1) {
     const j = i + sens
-    if (j < 0 || j >= herosListe.length) return
-    const copie = [...herosListe]
+    if (j < 0 || j >= herosRef.current.length) return
+    const copie = [...herosRef.current]
     ;[copie[i], copie[j]] = [copie[j], copie[i]]
+    setHerosImageLien({})
     void enregistrerHerosListe(copie)
+  }
+
+  /**
+   * Un lien collé : on l'enregistre TOUT DE SUITE, puis on demande au site son
+   * titre, sa description et son image. Ce qui revient ne remplit que les
+   * champs vides — un titre écrit à la main est une reformulation voulue.
+   * Beaucoup de sites (cagnottes surtout) refusent les robots : alors rien ne
+   * revient, et le nom du site sert de titre.
+   */
+  async function collerLienHeros(i: number, saisi: string) {
+    const url = completerUrl(saisi)
+    const avant = herosRef.current[i]
+    if (!avant || (avant.cible.sorte === 'lien' && avant.cible.url === url)) return
+    modifierHeros(i, { cible: { sorte: 'lien', url } })
+    if (!/^https?:\/\//i.test(url)) return
+    setHerosLecture(i)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const r = await fetch(`/api/link-preview?url=${encodeURIComponent(url)}`, {
+        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
+      })
+      const p = r.ok ? await r.json() as { title?: string | null; description?: string | null; image?: string | null } : null
+      const h = herosRef.current[i]
+      if (!p || !h || h.cible.sorte !== 'lien' || h.cible.url !== url) return
+      if (p.image) setHerosImageLien(m => ({ ...m, [i]: p.image as string }))
+      const patch: Partial<HerosVillage> = {}
+      if (!h.titre.trim() && p.title) patch.titre = p.title.slice(0, 120)
+      if (!h.sousTitre && p.description) patch.sousTitre = p.description.slice(0, 200)
+      if (!h.image && p.image) patch.image = p.image
+      if (Object.keys(patch).length) modifierHeros(i, patch)
+    } catch { /* pas d'aperçu : le nom du site servira de titre */ }
+    finally { setHerosLecture(null) }
   }
 
   /**
@@ -1002,38 +1063,97 @@ export default function AdminHubCarousel() {
                 </div>
               )}
               {heros.cible.sorte === 'lien' && (
-                <input
-                  type="url"
-                  defaultValue={heros.cible.url}
-                  onBlur={e => modifierHeros(i, { cible: { sorte: 'lien', url: e.target.value.trim() } })}
-                  placeholder="https://…"
-                  style={{ ...CHAMP, marginBottom: 8 }}
-                />
+                <>
+                  {/* type="text" et non "url" : le navigateur refusait
+                      « cagnotte.fr » sans https://, que completerUrl ajoute. */}
+                  <input
+                    type="text"
+                    inputMode="url"
+                    key={`lien-${i}-${heros.cible.url}`}
+                    defaultValue={heros.cible.url}
+                    onBlur={e => void collerLienHeros(i, e.target.value)}
+                    onPaste={e => { const t = e.currentTarget; setTimeout(() => void collerLienHeros(i, t.value), 0) }}
+                    onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                    placeholder="Colle le lien ici"
+                    style={{ ...CHAMP, marginBottom: 4 }}
+                  />
+                  <div style={{ fontSize: 10.5, color: '#8A7A6A', marginBottom: 8, minHeight: 14 }}>
+                    {herosLecture === i
+                      ? 'Lecture du lien…'
+                      : 'Titre et image se remplissent depuis le site quand il se laisse lire.'}
+                  </div>
+                </>
               )}
 
+              {/* Les champs se remontent quand leur valeur change (key) : sans
+                  ça, ce que le lien vient de remplir n'apparaissait pas. */}
               <input
+                key={`etq-${i}-${heros.etiquette}`}
                 defaultValue={heros.etiquette}
                 onBlur={e => modifierHeros(i, { etiquette: e.target.value.trim() || 'À la une' })}
                 placeholder="Étiquette — Entraide, Urgence…"
                 style={{ ...CHAMP, marginBottom: 6 }}
               />
               <input
+                key={`titre-${i}-${heros.titre}`}
                 defaultValue={heros.titre}
                 onBlur={e => modifierHeros(i, { titre: e.target.value.trim() })}
-                placeholder="Titre — sans lui, la fiche ne s’affiche pas"
+                placeholder={heros.cible.sorte === 'lien' ? 'Titre — sinon, le nom du site' : 'Titre'}
                 style={{ ...CHAMP, marginBottom: 6 }}
               />
               <input
+                key={`sous-${i}-${heros.sousTitre ?? ''}`}
                 defaultValue={heros.sousTitre ?? ''}
                 onBlur={e => modifierHeros(i, { sousTitre: e.target.value.trim() || null })}
                 placeholder="Sous-titre"
-                style={{ ...CHAMP, marginBottom: 6 }}
+                style={{ ...CHAMP, marginBottom: 8 }}
               />
+
+              {/* L'IMAGE : celle du lien, une de la bibliothèque (ou importée
+                  depuis le téléphone, même fenêtre), ou une adresse collée. */}
+              <div style={{ display: 'flex', gap: 10, alignItems: 'stretch', marginBottom: 6 }}>
+                <div style={{
+                  width: 96, height: 64, borderRadius: 8, flexShrink: 0, overflow: 'hidden',
+                  background: heros.image ? `#EDE6DA url("${heros.image}") center/cover no-repeat` : '#EDE6DA',
+                  border: '1px solid #E5DDD2', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 10, color: '#8A7A6A', textAlign: 'center',
+                }}>
+                  {!heros.image && 'Pas d’image'}
+                </div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <button
+                    onClick={() => setHerosBiblio(i)}
+                    style={{ padding: '7px 8px', borderRadius: 8, border: '1.5px solid #2D5A3D', background: '#F4FAF5', cursor: 'pointer', fontSize: 11.5, fontWeight: 700, color: '#2D5A3D' }}
+                  >
+                    Choisir une image…
+                  </button>
+                  <div style={{ display: 'flex', gap: 5 }}>
+                    {herosImageLien[i] && herosImageLien[i] !== heros.image && (
+                      <button
+                        onClick={() => modifierHeros(i, { image: herosImageLien[i] })}
+                        style={{ flex: 1, padding: '6px 6px', borderRadius: 8, border: '1px solid #E5DDD2', background: '#FFFFFF', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: '#1A1209' }}
+                      >
+                        Celle du lien
+                      </button>
+                    )}
+                    {heros.image && (
+                      <button
+                        onClick={() => modifierHeros(i, { image: null })}
+                        style={{ flex: 1, padding: '6px 6px', borderRadius: 8, border: '1px solid #E5DDD2', background: '#FFFFFF', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: '#B53A22' }}
+                      >
+                        Retirer
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
               <input
-                type="url"
+                type="text"
+                inputMode="url"
+                key={`img-${i}-${heros.image ?? ''}`}
                 defaultValue={heros.image ?? ''}
-                onBlur={e => modifierHeros(i, { image: e.target.value.trim() || null })}
-                placeholder="Image (URL)"
+                onBlur={e => modifierHeros(i, { image: completerUrl(e.target.value) || null })}
+                placeholder="…ou colle l’adresse d’une image"
                 style={{ ...CHAMP, marginBottom: 10 }}
               />
 
@@ -1081,6 +1201,13 @@ export default function AdminHubCarousel() {
 
       {herosPicker !== null && (
         <EmbedPicker onSelect={prendreCible} onClose={() => setHerosPicker(null)} />
+      )}
+      {herosBiblio !== null && (
+        <ImageLibraryPicker
+          currentUrl={herosListe[herosBiblio]?.image ?? null}
+          onSelect={url => modifierHeros(herosBiblio, { image: url })}
+          onClose={() => setHerosBiblio(null)}
+        />
       )}
 
       {/* Assistant Village — la recherche conversationnelle. Même mécanique à

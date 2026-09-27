@@ -39,7 +39,10 @@ export default function ImageLibraryPicker({ onSelect, onClose, currentUrl }: {
     try {
       await supabase.auth.refreshSession().catch(() => {})   // token frais AVANT l'upload (sinon « Non authentifié »)
       const compressed = await compressImage(file)
-      const { publicUrl } = await uploadViaSignedUrl({ file: compressed, kind: 'hub-hero-intro' })
+      // 'admin-edit' et non 'hub-hero-intro' : ce dernier écrit à un chemin
+      // FIXE, donc chaque import écrasait le précédent — toute la
+      // bibliothèque, et l'image du slide intro, pointaient sur le même fichier.
+      const { publicUrl } = await uploadViaSignedUrl({ file: compressed, kind: 'admin-edit' })
       const tk = (await supabase.auth.getSession()).data.session?.access_token
       const r = await fetch(`/api/image-library${qTerr}`, {
         method: 'POST',

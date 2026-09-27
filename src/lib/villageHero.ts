@@ -60,29 +60,57 @@ const texte = (v: unknown, max: number): string | null => {
 }
 
 /**
- * Relit ce qui est stocké. Rend `null` si le héros n'a pas de quoi s'afficher
- * — un titre et une cible — plutôt qu'un encart à moitié rempli.
+ * Une adresse telle qu'on la colle : « www.cagnotte.fr/x » ou « cagnotte.fr »
+ * sont des liens, il leur manque juste le https://. Sans ce complément, la
+ * fiche était écartée à la relecture et disparaissait de l'admin.
  */
-export function normaliserHeros(brut: unknown): HerosVillage | null {
+export function completerUrl(v: string): string {
+  const s = v.trim()
+  if (!s || /^https?:\/\//i.test(s)) return s
+  if (/^[\w-]+(\.[\w-]+)+(\/|$|\?|#)/i.test(s)) return `https://${s}`
+  return s
+}
+
+/** Le nom du site, faute de mieux : « cagnotte.fr ». */
+function domaine(url: string): string | null {
+  try { return new URL(url).hostname.replace(/^www\./, '') } catch { return null }
+}
+
+/**
+ * Relit ce qui est stocké. Rend `null` si le héros n'a pas de quoi s'afficher
+ * — une cible, et un titre — plutôt qu'un encart à moitié rempli.
+ *
+ * Un lien collé SEUL s'affiche : son titre par défaut est le nom du site.
+ *
+ * `brouillon` : l'admin relit AUSSI les fiches incomplètes. Sinon une fiche
+ * qu'on vient d'ajouter, ou dont on n'a encore collé que le lien, s'évanouit
+ * au rechargement de l'écran — alors même qu'elle est bien en base.
+ */
+export function normaliserHeros(brut: unknown, brouillon = false): HerosVillage | null {
   let o: unknown = brut
   if (typeof o === 'string') { try { o = JSON.parse(o) } catch { return null } }
   if (!o || typeof o !== 'object') return null
   const r = o as Record<string, unknown>
 
-  const titre = texte(r.titre, 120)
-  if (!titre) return null
-
   const c = r.cible as Record<string, unknown> | undefined
   let cible: CibleHeros | null = null
   if (c?.sorte === 'lien') {
-    const url = texte(c.url, 600)
-    if (url && /^https?:\/\//i.test(url)) cible = { sorte: 'lien', url }
+    const url = completerUrl(texte(c.url, 600) ?? '')
+    if (/^https?:\/\//i.test(url)) cible = { sorte: 'lien', url }
+    else if (brouillon) cible = { sorte: 'lien', url }
   } else if (c?.sorte === 'interne') {
     const id = texte(c.id, 128)
     const kind = texte(c.kind, 20)
     if (id && kind) cible = { sorte: 'interne', kind: kind as EmbedKind, id }
   }
-  if (!cible) return null
+  if (!cible) {
+    if (!brouillon) return null
+    cible = { sorte: 'lien', url: '' }
+  }
+
+  const titre = texte(r.titre, 120)
+    ?? (brouillon ? '' : cible.sorte === 'lien' ? domaine(cible.url) : null)
+  if (titre === null) return null
 
   const pub = r.public
   return {
@@ -105,13 +133,13 @@ export function normaliserHeros(brut: unknown): HerosVillage | null {
  * échouer la liste entière — une ligne à moitié remplie en admin ne doit pas
  * emporter les autres avec elle.
  */
-export function normaliserHerosListe(brut: unknown): HerosVillage[] {
+export function normaliserHerosListe(brut: unknown, brouillon = false): HerosVillage[] {
   let o: unknown = brut
   if (typeof o === 'string') { try { o = JSON.parse(o) } catch { return [] } }
   if (Array.isArray(o)) {
-    return o.map(x => normaliserHeros(x)).filter((h): h is HerosVillage => h !== null)
+    return o.map(x => normaliserHeros(x, brouillon)).filter((h): h is HerosVillage => h !== null)
   }
-  const seul = normaliserHeros(o)
+  const seul = normaliserHeros(o, brouillon)
   return seul ? [seul] : []
 }
 
