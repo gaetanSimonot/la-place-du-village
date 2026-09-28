@@ -115,6 +115,8 @@ export default function HomePage() {
   const [promoEventsData, setPromoEventsData] = useState<EvenementCard[]>([])
   const [splashFeaturedEvents, setSplashFeaturedEvents] = useState<EvenementCard[]>([])
   const [showWelcome, setShowWelcome]         = useState(false)
+  /** Le Village est-il défilé jusqu'en bas ? Éteint le voile de bas de page. */
+  const [villageAuBout, setVillageAuBout] = useState(false)
   const [splashOpen, setSplashOpen]           = useState(false)  // splash éditorial — affiché 1× par session (ouverture de l'app)
   // Welcome modal une seule fois pour toujours (par device).
   // localStorage persiste entre les sessions browser et survit aux relances
@@ -2261,7 +2263,11 @@ export default function HomePage() {
 
       {/* Village — mur du village (refonte app simple) */}
       {navTab === 'village' && (
-        <div className="pcv-panel" style={{
+        <div className="pcv-panel" onScroll={e => {
+          const el = e.currentTarget
+          const auBout = el.scrollTop + el.clientHeight >= el.scrollHeight - 24
+          if (auBout !== villageAuBout) setVillageAuBout(auBout)
+        }} style={{
           position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H,
           zIndex: 25, overflowY: 'auto', backgroundColor: 'var(--creme)',
         }}>
@@ -2274,6 +2280,20 @@ export default function HomePage() {
             onUpgradePrompt={(plan, label) => setUpgradePrompt({ plan, label })}
           />
         </div>
+      )}
+      {/* VOILE DE BAS DE PAGE — la couleur du fond qui monte en s'effaçant
+          juste au-dessus de la barre. Les tuiles du cinéma démarrent au ras
+          de la barre : légèrement voilées, elles disent « il y a une suite,
+          descends ». Crème et non blanc : c'est le fond du Village, un blanc
+          y ferait une bande. S'efface tout en bas, pour ne pas manger le
+          dernier élément. Téléphone seulement (pcv-hide). */}
+      {navTab === 'village' && (
+        <div aria-hidden className="pcv-hide" style={{
+          position: 'absolute', left: 0, right: 0, bottom: NAV_H, height: 56,
+          zIndex: 26, pointerEvents: 'none',
+          background: 'linear-gradient(to top, var(--creme) 0%, rgba(0,0,0,0) 100%)',
+          opacity: villageAuBout ? 0 : 1, transition: 'opacity .25s ease-out',
+        }} />
       )}
 
       {/* Fiches producteur/établissement : sous-étape 5.2 — rendues via
