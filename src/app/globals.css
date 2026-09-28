@@ -311,6 +311,29 @@ html[data-univers='theatre'] body { background: var(--uni-bg); }
   60%      { transform: scale(0.94); }
 }
 
+/* ═══════════ APPEL — l'onglet suivant fait signe (BottomNavBar) ═══════════
+   Une impulsion toutes les 4,5 s, pas une animation continue : ce qui bouge
+   sans arrêt cesse d'être vu. Le repos est long, le signe est court — deux
+   battements, l'icône et le texte passent en orange puis reviennent. */
+@keyframes lpv-appel {
+  0%, 70%, 100% { transform: scale(1);    color: var(--tab-ink, #8A8A8A); }
+  76%           { transform: scale(1.22); color: #C4622D; }
+  82%           { transform: scale(0.96); color: #C4622D; }
+  88%           { transform: scale(1.14); color: #C4622D; }
+  94%           { transform: scale(1);    color: #C4622D; }
+}
+@keyframes lpv-appel-texte {
+  0%, 70%, 100% { color: var(--tab-ink, #8A8A8A); }
+  76%, 94%      { color: #C4622D; }
+}
+.lpv-appel       { animation: lpv-appel 4.5s ease-in-out 1.2s infinite; }
+.lpv-appel-texte { animation: lpv-appel-texte 4.5s ease-in-out 1.2s infinite; }
+
+/* Moins d'animations demandé : la couleur seule, sans le battement. */
+@media (prefers-reduced-motion: reduce) {
+  .lpv-appel { animation-name: lpv-appel-texte; }
+}
+
 /* ═══════════ TAP — le doigt touche, quelque chose répond ═══════════
    La barre du bas neutralise le voile gris du navigateur
    (-webkit-tap-highlight-color: transparent) sans rien mettre à la place :

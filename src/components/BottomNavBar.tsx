@@ -63,6 +63,10 @@ const Icons = {
   ),
 }
 
+/** L'ordre dans lequel les onglets se passent le relais. */
+const CYCLE_ONGLETS = ['village', 'carte', 'bonsplans']
+const CLE_ONGLETS_VUS = 'pdv-onglets-vus'
+
 export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = {}) {
   const router = useRouter()
   const pathname = usePathname()
@@ -172,6 +176,40 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
     return () => window.removeEventListener('lpv:favori', onFavori)
   }, [])
 
+  /*
+   * L'ONGLET SUIVANT FAIT SIGNE.
+   *
+   * Beaucoup n'utilisent qu'un écran et ignorent que les autres existent. On
+   * pointe donc, par impulsions, le prochain onglet du cycle Village → Carte →
+   * Bons plans → Village, en sautant ceux déjà ouverts. Quand les trois l'ont
+   * été, c'est fini : le message est passé.
+   *
+   * Mémoire de SESSION : chaque ouverture de l'app repart de zéro (voulu).
+   * Rien sur Favoris ni sur les autres écrans — seulement quand on est sur
+   * l'un des trois.
+   */
+  const courant = isPromotions ? 'bonsplans' : activeTab
+  const [ongletsVus, setOngletsVus] = useState<string[] | null>(null)
+  useEffect(() => {
+    let vus: string[] = []
+    try { vus = JSON.parse(sessionStorage.getItem(CLE_ONGLETS_VUS) ?? '[]') } catch { /* rien de gardé */ }
+    if (courant && CYCLE_ONGLETS.includes(courant) && !vus.includes(courant)) {
+      vus = [...vus, courant]
+      try { sessionStorage.setItem(CLE_ONGLETS_VUS, JSON.stringify(vus)) } catch { /* stockage indisponible */ }
+    }
+    setOngletsVus(vus)
+  }, [courant])
+  const ongletAppel = (() => {
+    if (!ongletsVus || pendingTab || !courant) return null
+    const i = CYCLE_ONGLETS.indexOf(courant)
+    if (i < 0) return null
+    for (let k = 1; k < CYCLE_ONGLETS.length; k++) {
+      const suivant = CYCLE_ONGLETS[(i + k) % CYCLE_ONGLETS.length]
+      if (!ongletsVus.includes(suivant)) return suivant
+    }
+    return null
+  })()
+
   const tabs: TabDef[] = [
     { id: 'carte',     label: 'Carte',      href: '/?tab=carte',    active: false,        Icon: Icons.carte },
     { id: 'bonsplans', label: 'Bons plans', href: '/promotions',    active: isPromotions, Icon: Icons.gift },
@@ -269,11 +307,13 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
                     : 'opacity 90ms ease-out, transform 90ms ease-out',
                 }}
               />
-              <span style={
-                t.id === 'favoris' && batFavori
-                  ? { position: 'relative', color: '#C84B2F', display: 'inline-flex', transformOrigin: 'center', animation: 'lpv-battement .55s ease-in-out 2' }
-                  : { position: 'relative', display: 'inline-flex' }
-              }>
+              <span
+                className={ongletAppel === t.id ? 'lpv-appel' : undefined}
+                style={
+                  t.id === 'favoris' && batFavori
+                    ? { position: 'relative', color: '#C84B2F', display: 'inline-flex', transformOrigin: 'center', animation: 'lpv-battement .55s ease-in-out 2' }
+                    : { position: 'relative', display: 'inline-flex', transformOrigin: 'center' }
+                }>
                 <t.Icon />
               </span>
               {t.badge && t.badge > 0 ? (
@@ -286,7 +326,10 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
                 }}>{t.badge > 99 ? '99+' : t.badge}</span>
               ) : null}
             </div>
-            <span style={{ fontSize: 10.5, fontWeight: 700, color: t.id === 'favoris' && batFavori ? '#C84B2F' : undefined }}>{t.label}</span>
+            <span
+              className={ongletAppel === t.id ? 'lpv-appel-texte' : undefined}
+              style={{ fontSize: 10.5, fontWeight: 700, color: t.id === 'favoris' && batFavori ? '#C84B2F' : undefined }}
+            >{t.label}</span>
           </button>
         )
       })}
