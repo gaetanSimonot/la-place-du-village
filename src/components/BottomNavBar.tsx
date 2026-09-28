@@ -180,9 +180,13 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
    * L'ONGLET SUIVANT FAIT SIGNE.
    *
    * Beaucoup n'utilisent qu'un écran et ignorent que les autres existent. On
-   * pointe donc, par impulsions, le prochain onglet du cycle Village → Carte →
-   * Bons plans → Village, en sautant ceux déjà ouverts. Quand les trois l'ont
-   * été, c'est fini : le message est passé.
+   * pointe donc, par impulsions, l'onglet SUIVANT du cycle, strictement :
+   * Village → Carte, Carte → Bons plans, Bons plans → Village. Quand les
+   * trois ont été vus, c'est fini : le message est passé.
+   *
+   * « Vu » = resté 1,5 s dessus. Au lancement, l'accueil passe un instant par
+   * la carte avant de poser sur le Village : compter ce passage éclair
+   * marquait la carte vue, et c'était Bons plans qui s'allumait sur le Village.
    *
    * Mémoire de SESSION : chaque ouverture de l'app repart de zéro (voulu).
    * Rien sur Favoris ni sur les autres écrans — seulement quand on est sur
@@ -193,21 +197,20 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
   useEffect(() => {
     let vus: string[] = []
     try { vus = JSON.parse(sessionStorage.getItem(CLE_ONGLETS_VUS) ?? '[]') } catch { /* rien de gardé */ }
-    if (courant && CYCLE_ONGLETS.includes(courant) && !vus.includes(courant)) {
-      vus = [...vus, courant]
-      try { sessionStorage.setItem(CLE_ONGLETS_VUS, JSON.stringify(vus)) } catch { /* stockage indisponible */ }
-    }
     setOngletsVus(vus)
+    if (!courant || !CYCLE_ONGLETS.includes(courant) || vus.includes(courant)) return
+    const t = setTimeout(() => {
+      const suite = [...vus, courant]
+      try { sessionStorage.setItem(CLE_ONGLETS_VUS, JSON.stringify(suite)) } catch { /* stockage indisponible */ }
+      setOngletsVus(suite)
+    }, 1500)
+    return () => clearTimeout(t)
   }, [courant])
   const ongletAppel = (() => {
     if (!ongletsVus || pendingTab || !courant) return null
+    if (CYCLE_ONGLETS.every(o => ongletsVus.includes(o))) return null
     const i = CYCLE_ONGLETS.indexOf(courant)
-    if (i < 0) return null
-    for (let k = 1; k < CYCLE_ONGLETS.length; k++) {
-      const suivant = CYCLE_ONGLETS[(i + k) % CYCLE_ONGLETS.length]
-      if (!ongletsVus.includes(suivant)) return suivant
-    }
-    return null
+    return i < 0 ? null : CYCLE_ONGLETS[(i + 1) % CYCLE_ONGLETS.length]
   })()
 
   const tabs: TabDef[] = [
