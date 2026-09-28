@@ -312,30 +312,38 @@ html[data-univers='theatre'] body { background: var(--uni-bg); }
 }
 
 /* ═══════════ APPEL — l'onglet suivant fait signe (BottomNavBar) ═══════════
-   Le circuit de l'app : l'onglet suivant APPELLE en permanence — pastille
-   orange pâle, icône et texte orange — et, toutes les 2,5 s dès l'arrivée,
-   l'icône saute pendant qu'une onde part de la pastille. Le permanent dit
-   « c'est par là », l'impulsion ramène l'œil. */
-.lpv-appel-halo {
-  background: rgba(196, 98, 45, .16);
-  animation: lpv-appel-onde 2.5s ease-out infinite;
-}
-@keyframes lpv-appel-onde {
-  0%        { box-shadow: 0 0 0 0 rgba(196, 98, 45, .55); }
-  45%, 100% { box-shadow: 0 0 0 12px rgba(196, 98, 45, 0); }
+   Le circuit de l'app : l'onglet suivant appelle, par cycles de 3,2 s.
+   Chaque cycle a un DÉBUT et une FIN : la pastille orange et la couleur
+   arrivent en fondu, l'icône saute, une onde part — puis tout s'efface et
+   l'onglet redevient gris, non sélectionné, une seconde environ. Ce retour
+   au neutre est voulu : il dit « suggestion », pas « onglet actif ». */
+@keyframes lpv-appel-halo {
+  0%        { opacity: 0; transform: scale(.72); box-shadow: 0 0 0 0 rgba(196, 98, 45, 0); }
+  9%        { opacity: 1; transform: scale(1);   box-shadow: 0 0 0 0 rgba(196, 98, 45, .55); }
+  40%       { opacity: 1; transform: scale(1);   box-shadow: 0 0 0 12px rgba(196, 98, 45, 0); }
+  58%       { opacity: 1; transform: scale(1); }
+  68%, 100% { opacity: 0; transform: scale(.8); }
 }
 @keyframes lpv-appel {
-  0%, 36%, 100% { transform: translateY(0) scale(1); }
-  10%           { transform: translateY(-5px) scale(1.18); }
-  20%           { transform: translateY(0) scale(.96); }
-  28%           { transform: translateY(-2px) scale(1.06); }
+  0%, 68%, 100% { transform: translateY(0) scale(1);        color: var(--tab-ink, #8A8A8A); }
+  9%            { transform: translateY(0) scale(1);        color: #C4622D; }
+  18%           { transform: translateY(-5px) scale(1.18); }
+  27%           { transform: translateY(0) scale(.96); }
+  35%           { transform: translateY(-2px) scale(1.06); }
+  42%, 58%      { transform: translateY(0) scale(1);        color: #C4622D; }
 }
-.lpv-appel       { color: #C4622D; animation: lpv-appel 2.5s ease-in-out infinite; }
-.lpv-appel-texte { color: #C4622D; }
+@keyframes lpv-appel-texte {
+  0%, 68%, 100% { color: var(--tab-ink, #8A8A8A); }
+  9%, 58%       { color: #C4622D; }
+}
+.lpv-appel-halo  { background: rgba(196, 98, 45, .16); opacity: 0; animation: lpv-appel-halo 3.2s ease-in-out infinite; }
+.lpv-appel       { animation: lpv-appel 3.2s ease-in-out infinite; }
+.lpv-appel-texte { animation: lpv-appel-texte 3.2s ease-in-out infinite; }
 
-/* Moins d'animations demandé : l'appel reste, fixe — pastille et orange. */
+/* Moins d'animations demandé : le fondu de couleur seul, sans saut ni onde. */
 @media (prefers-reduced-motion: reduce) {
-  .lpv-appel, .lpv-appel-halo { animation: none; }
+  .lpv-appel      { animation-name: lpv-appel-texte; }
+  .lpv-appel-halo { animation: none; }
 }
 
 /* ═══════════ TAP — le doigt touche, quelque chose répond ═══════════
