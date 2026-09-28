@@ -65,7 +65,6 @@ const Icons = {
 
 /** L'ordre dans lequel les onglets se passent le relais. */
 const CYCLE_ONGLETS = ['village', 'carte', 'bonsplans']
-const CLE_ONGLETS_VUS = 'pdv-onglets-vus'
 
 export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = {}) {
   const router = useRouter()
@@ -177,38 +176,19 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
   }, [])
 
   /*
-   * L'ONGLET SUIVANT FAIT SIGNE.
+   * L'ONGLET SUIVANT FAIT SIGNE — le circuit de l'app, en boucle.
    *
-   * Beaucoup n'utilisent qu'un écran et ignorent que les autres existent. On
-   * pointe donc, par impulsions, l'onglet SUIVANT du cycle, strictement :
-   * Village → Carte, Carte → Bons plans, Bons plans → Village. Quand les
-   * trois ont été vus, c'est fini : le message est passé.
+   * Village → Carte, Carte → Bons plans, Bons plans → Village. Sur l'un des
+   * trois, le suivant appelle en permanence (pastille et couleur orange) et
+   * bat toutes les 2,5 s, dès l'arrivée. Pas de fin : c'est le chemin
+   * proposé, il reste indiqué. Rien sur Favoris ni sur les autres écrans.
    *
-   * « Vu » = resté 1,5 s dessus. Au lancement, l'accueil passe un instant par
-   * la carte avant de poser sur le Village : compter ce passage éclair
-   * marquait la carte vue, et c'était Bons plans qui s'allumait sur le Village.
-   *
-   * Mémoire de SESSION : chaque ouverture de l'app repart de zéro (voulu).
-   * Rien sur Favoris ni sur les autres écrans — seulement quand on est sur
-   * l'un des trois.
+   * Plus de mémoire des onglets « vus » : elle arrêtait l'appel une fois les
+   * trois ouverts — d'où Bons plans qui n'appelait jamais le Village.
    */
   const courant = isPromotions ? 'bonsplans' : activeTab
-  const [ongletsVus, setOngletsVus] = useState<string[] | null>(null)
-  useEffect(() => {
-    let vus: string[] = []
-    try { vus = JSON.parse(sessionStorage.getItem(CLE_ONGLETS_VUS) ?? '[]') } catch { /* rien de gardé */ }
-    setOngletsVus(vus)
-    if (!courant || !CYCLE_ONGLETS.includes(courant) || vus.includes(courant)) return
-    const t = setTimeout(() => {
-      const suite = [...vus, courant]
-      try { sessionStorage.setItem(CLE_ONGLETS_VUS, JSON.stringify(suite)) } catch { /* stockage indisponible */ }
-      setOngletsVus(suite)
-    }, 1500)
-    return () => clearTimeout(t)
-  }, [courant])
   const ongletAppel = (() => {
-    if (!ongletsVus || pendingTab || !courant) return null
-    if (CYCLE_ONGLETS.every(o => ongletsVus.includes(o))) return null
+    if (pendingTab || !courant) return null
     const i = CYCLE_ONGLETS.indexOf(courant)
     return i < 0 ? null : CYCLE_ONGLETS[(i + 1) % CYCLE_ONGLETS.length]
   })()
@@ -310,6 +290,19 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
                     : 'opacity 90ms ease-out, transform 90ms ease-out',
                 }}
               />
+              {/* L'appel : la même pastille, en orange, et l'onde qui en part
+                  (globals.css, .lpv-appel-halo). */}
+              {ongletAppel === t.id && (
+                <span
+                  aria-hidden
+                  className="lpv-appel-halo"
+                  style={{
+                    position: 'absolute', left: '50%', top: '50%',
+                    width: 54, height: 36, marginLeft: -27, marginTop: -18,
+                    borderRadius: 18, pointerEvents: 'none',
+                  }}
+                />
+              )}
               <span
                 className={ongletAppel === t.id ? 'lpv-appel' : undefined}
                 style={
