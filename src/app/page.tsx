@@ -117,6 +117,9 @@ export default function HomePage() {
   const [showWelcome, setShowWelcome]         = useState(false)
   /** Le Village est-il défilé jusqu'en bas ? Éteint le voile de bas de page. */
   const [villageAuBout, setVillageAuBout] = useState(false)
+  /** Le Village défile-t-il en ce moment ? Le voile s'efface pendant, revient après. */
+  const [villageDefile, setVillageDefile] = useState(false)
+  const finDefileVillage = useRef<ReturnType<typeof setTimeout>>()
   const [splashOpen, setSplashOpen]           = useState(false)  // splash éditorial — affiché 1× par session (ouverture de l'app)
   // Welcome modal une seule fois pour toujours (par device).
   // localStorage persiste entre les sessions browser et survit aux relances
@@ -2267,6 +2270,9 @@ export default function HomePage() {
           const el = e.currentTarget
           const auBout = el.scrollTop + el.clientHeight >= el.scrollHeight - 24
           if (auBout !== villageAuBout) setVillageAuBout(auBout)
+          if (!villageDefile) setVillageDefile(true)
+          clearTimeout(finDefileVillage.current)
+          finDefileVillage.current = setTimeout(() => setVillageDefile(false), 250)
         }} style={{
           position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H,
           zIndex: 25, overflowY: 'auto', backgroundColor: 'var(--creme)',
@@ -2285,14 +2291,17 @@ export default function HomePage() {
           juste au-dessus de la barre. Les tuiles du cinéma démarrent au ras
           de la barre : légèrement voilées, elles disent « il y a une suite,
           descends ». Crème et non blanc : c'est le fond du Village, un blanc
-          y ferait une bande. S'efface tout en bas, pour ne pas manger le
-          dernier élément. Téléphone seulement (pcv-hide). */}
+          y ferait une bande. S'efface pendant le défilement et tout en bas,
+          pour ne pas manger le dernier élément. Téléphone seulement (pcv-hide). */}
       {navTab === 'village' && (
         <div aria-hidden className="pcv-hide" style={{
           position: 'absolute', left: 0, right: 0, bottom: NAV_H, height: 56,
           zIndex: 26, pointerEvents: 'none',
           background: 'linear-gradient(to top, var(--creme) 0%, rgba(0,0,0,0) 100%)',
-          opacity: villageAuBout ? 0 : 1, transition: 'opacity .25s ease-out',
+          // Part VITE dès qu'on fait défiler (on veut voir ce qui monte),
+          // revient DOUCEMENT une fois le doigt au repos.
+          opacity: villageAuBout || villageDefile ? 0 : 1,
+          transition: villageAuBout || villageDefile ? 'opacity .15s ease-out' : 'opacity 1.2s ease-in-out',
         }} />
       )}
 
