@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
+import { useDefilementDoux } from '@/hooks/useDefilementDoux'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import useSWR from 'swr'
@@ -164,6 +165,10 @@ export default function CinemaClient() {
     }
     return out
   }, [seances, filmsParId])
+
+  // Le rouleau « À l'affiche » avance tout seul, très doucement. 0 quand il
+  // n'est pas à l'écran : le hook se réarme quand on revient sur l'onglet.
+  const piste = useDefilementDoux<HTMLDivElement>(onglet === 'films' && !isLoading ? filmsAffiche.length : 0)
 
   const seancesDuJour = useMemo(() => seances.filter(s => s.date === aujourdhui), [seances, aujourdhui])
 
@@ -405,15 +410,16 @@ export default function CinemaClient() {
             /* Sur téléphone, un rouleau qu'on pousse au pouce. Sur ordinateur,
                la même ligne défile toute seule en boucle : la liste est écrite
                DEUX fois, la copie prenant le relais quand l'originale sort du
-               cadre — c'est ce qui rend la boucle invisible. La copie est
-               masquée en dessous de 1024 px (`pcv-cineDup`), le téléphone ne
-               voit donc jamais les affiches en double.
+               cadre — c'est ce qui rend la boucle invisible. Sur téléphone,
+               le rouleau avance aussi tout seul, très doucement
+               (useDefilementDoux) : la copie (`pcv-cineDup`) n'y apparaît que
+               quand ce défilement tourne.
                L'enveloppe qui rogne est `display: contents` sous 1024 px :
                elle ne produit aucune boîte, le rouleau du téléphone est celui
                d'avant, au pixel près.
                Mêmes rouages que le carrousel des partenaires du Village. */
             <div className="pcv-cineCarrousel" style={{ ['--pcv-n' as string]: filmsAffiche.length }}>
-            <div className="pcv-cinePiste flex gap-3 overflow-x-auto px-[18px] pb-1.5" style={{ scrollbarWidth: 'none' }}>
+            <div ref={piste} className="pcv-cinePiste flex gap-3 overflow-x-auto px-[18px] pb-1.5" style={{ scrollbarWidth: 'none' }}>
               {[...filmsAffiche, ...filmsAffiche].map((f, i) => {
                 const copie = i >= filmsAffiche.length
                 return (

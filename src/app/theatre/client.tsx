@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
+import { useDefilementDoux } from '@/hooks/useDefilementDoux'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import useSWR from 'swr'
@@ -207,6 +208,9 @@ export default function TheatreClient() {
     }
     return out
   }, [aVenir, passees, parId])
+
+  // Même rouleau qu'au cinéma : il avance tout seul, très doucement.
+  const piste = useDefilementDoux<HTMLDivElement>(onglet === 'spectacles' && !isLoading ? spectaclesAffiche.length : 0)
 
   /** Les six prochaines dates : « prochainement », sous l'affiche. */
   const prochainement = useMemo(() => aVenir.slice(0, 6), [aVenir])
@@ -422,11 +426,12 @@ export default function TheatreClient() {
             /* Sur téléphone, un rouleau qu'on pousse au pouce. Sur ordinateur,
                la même ligne défile toute seule en boucle : la liste est écrite
                DEUX fois, la copie prenant le relais quand l'originale sort du
-               cadre. La copie est masquée sous 1024 px (`pcv-cineDup`) — le
-               téléphone ne voit jamais les visuels en double. Rouages communs
+               cadre. Sur téléphone, le rouleau avance aussi tout seul, très
+               doucement (useDefilementDoux) : la copie (`pcv-cineDup`) n'y
+               apparaît que quand ce défilement tourne. Rouages communs
                au cinéma et au carrousel des partenaires du Village. */
             <div className="pcv-cineCarrousel" style={{ ['--pcv-n' as string]: spectaclesAffiche.length }}>
-            <div className="pcv-cinePiste flex gap-3 overflow-x-auto px-[18px] pb-1.5" style={{ scrollbarWidth: 'none' }}>
+            <div ref={piste} className="pcv-cinePiste flex gap-3 overflow-x-auto px-[18px] pb-1.5" style={{ scrollbarWidth: 'none' }}>
               {[...spectaclesAffiche, ...spectaclesAffiche].map((s, i) => {
                 const copie = i >= spectaclesAffiche.length
                 return (

@@ -1,5 +1,6 @@
 'use client'
 import { useMemo } from 'react'
+import { useDefilementDoux } from '@/hooks/useDefilementDoux'
 import Link from 'next/link'
 import useSWR from 'swr'
 import { useTerritoire } from '@/components/TerritoireProvider'
@@ -100,6 +101,9 @@ export default function TheatreAffiche({ isAdmin = false }: { isAdmin?: boolean 
     return out.slice(0, 12)
   }, [data])
 
+  // Le rouleau avance tout seul, très doucement (téléphone ; cf. le hook).
+  const piste = useDefilementDoux<HTMLDivElement>(prochains.length)
+
   // Réglage de visibilité. Une seule règle, partagée par les modules :
   // masqué l'emporte sur tout — admin ET invités compris.
   if (data && !sectionVisible(data.villageVisibilite, isAdmin, data.villageInvite)) return null
@@ -132,13 +136,18 @@ export default function TheatreAffiche({ isAdmin = false }: { isAdmin?: boolean 
         </Link>
       </div>
 
-      <div className="flex items-start gap-2.5 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
-        {prochains.map(({ spectacle: s, date }) => (
+      {/* Écrite deux fois : la copie (lpv-defileDup) referme la boucle du
+          défilement doux, et reste cachée tant qu'il ne tourne pas. */}
+      <div ref={piste} className="flex items-start gap-2.5 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
+        {[...prochains, ...prochains].map(({ spectacle: s, date }, i) => {
+          const copie = i >= prochains.length
+          return (
           // Le visuel mène à la FICHE du spectacle, pas au module : c'est
           // une affiche, et on clique une affiche pour savoir ce que c'est.
           // « Voir tout » reste la porte du module. Même règle qu'au cinéma.
-          <Link key={s.id} href={`/theatre/spectacle/${s.id}`}
-            className="block shrink-0 overflow-hidden rounded-[12px] no-underline"
+          <Link key={`${s.id}-${i}`} href={`/theatre/spectacle/${s.id}`}
+            className={`block shrink-0 overflow-hidden rounded-[12px] no-underline${copie ? ' lpv-defileDup' : ''}`}
+            aria-hidden={copie} tabIndex={copie ? -1 : undefined}
             style={{ width: 118, boxShadow: '0 2px 8px rgba(44,28,16,.14)' }}>
             {/* `display:block` obligatoire : sur un span inline, `aspect-ratio`
                 ne s'applique pas et la vignette s'écrase. */}
@@ -164,7 +173,8 @@ export default function TheatreAffiche({ isAdmin = false }: { isAdmin?: boolean 
               </span>
             </span>
           </Link>
-        ))}
+          )
+        })}
       </div>
 
       {/* Le comptage passe SOUS les visuels, en petit : c'est une précision,

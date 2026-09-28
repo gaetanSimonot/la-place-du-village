@@ -1,5 +1,6 @@
 'use client'
 import { useMemo } from 'react'
+import { useDefilementDoux } from '@/hooks/useDefilementDoux'
 import Link from 'next/link'
 import useSWR from 'swr'
 import { useTerritoire } from '@/components/TerritoireProvider'
@@ -64,6 +65,9 @@ export default function CinemaAffiche({ isAdmin = false }: { isAdmin?: boolean }
     return out
   }, [data])
 
+  // Le rouleau avance tout seul, très doucement (téléphone ; cf. le hook).
+  const piste = useDefilementDoux<HTMLDivElement>(films.length)
+
   // Réglage de visibilité — masqué l'emporte sur tout, y compris pour un admin.
   if (data) {
     if (data.villageVisibilite === 'masque') return null
@@ -107,7 +111,7 @@ export default function CinemaAffiche({ isAdmin = false }: { isAdmin?: boolean }
           déjà imprimé sur l'affiche. Il ne réapparaît qu'en repli, quand il
           n'y a pas d'image. */}
       <div className="pcv-cineCarrousel" style={{ ['--pcv-n' as string]: films.length }}>
-      <div className="pcv-cinePiste flex items-start gap-2.5 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
+      <div ref={piste} className="pcv-cinePiste flex items-start gap-2.5 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
         {[...films, ...films].map(({ film }, i) => {
           const copie = i >= films.length
           return (

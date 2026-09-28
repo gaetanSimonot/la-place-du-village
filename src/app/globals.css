@@ -311,6 +311,16 @@ html[data-univers='theatre'] body { background: var(--uni-bg); }
   60%      { transform: scale(0.94); }
 }
 
+/* ═══════════ DÉFILEMENT DOUX — rouleaux d'affiches (useDefilementDoux) ═══
+   La seconde copie de la liste n'apparaît que quand le défilement tourne :
+   sinon, des affiches en double côte à côte. Les rouleaux du cinéma et du
+   théâtre ont déjà leur copie, `.pcv-cineDup` (desktop-cinema.css) : on la
+   révèle, sans y ajouter `lpv-defileDup`, dont le `display:none` pourrait
+   l'emporter sur le carrousel bureau selon l'ordre des feuilles. */
+.lpv-defileDup { display: none; }
+[data-defile='1'] > .lpv-defileDup,
+[data-defile='1'] > .pcv-cineDup { display: block; }
+
 /* ═══════════ APPEL — l'onglet suivant fait signe (BottomNavBar) ═══════════
    Le circuit de l'app : l'onglet suivant appelle, par cycles de 3,2 s.
    Chaque cycle a un DÉBUT et une FIN : la pastille orange et la couleur
