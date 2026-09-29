@@ -16,10 +16,16 @@ import type { VillageEffets } from '@/lib/villageEffets'
  * dégradé droit ; resserrée, le flou gagne les coins et le centre reste net —
  * le bord de la zone nette devient un ovale.
  *
- * LE HAUT arrive progressivement : la page écrit l'opacité de la bande du
- * haut (0 → 1 à mesure que la barre du haut sort de l'écran) directement
- * sur SON élément (`refHaut`), au défilement. Ni rendu React à chaque pixel,
- * ni variable sur <html> — qui relançait le calcul de style de toute la page.
+ * LE HAUT arrive progressivement : la page écrit `--lpv-intensite` (0 → 1 à
+ * mesure que la barre du haut sort de l'écran) directement sur la bande
+ * (`refHaut`), au défilement. Ni rendu React à chaque pixel, ni variable sur
+ * <html> — qui relançait le calcul de style de toute la page.
+ *
+ * JAMAIS D'OPACITÉ SUR UNE BANDE. Un élément d'opacité < 1 isole ses
+ * descendants : leur `backdrop-filter` ne voit plus la page derrière, et le
+ * flou DISPARAÎT en entier au lieu de s'atténuer. C'était le « des fois il y
+ * est, des fois non » : flou présent à opacité 1 pile, absent en dessous.
+ * L'intensité passe donc par l'ALPHA DU MASQUE de chaque couche.
  *
  * Bandes courtes : le flou se recalcule à chaque pixel de défilement ; sur
  * toute la hauteur ce serait trop lourd. Sans prise en charge du flou, les
@@ -42,7 +48,7 @@ function Bande({ cote, reglages, style, refBande }: { cote: 'haut' | 'bas'; regl
     }}>
       {COUCHES.map(c => {
         const flou = Math.max(0.5, reglages.flouForce * c.part)
-        const masque = `radial-gradient(ellipse ${rx}% 100% at ${centre}, transparent ${c.debut}%, #000 100%)`
+        const masque = `radial-gradient(ellipse ${rx}% 100% at ${centre}, transparent ${c.debut}%, rgba(0,0,0,var(--lpv-intensite, 1)) 100%)`
         return (
           <div key={c.part} style={{
             position: 'absolute', inset: 0,
@@ -71,8 +77,8 @@ export default function FlouBords({ bas, auBout, reglages, refHaut, refVignette,
     <>
       {reglages.flou && (
         <>
-          <Bande cote="haut" reglages={reglages} refBande={refHaut} style={{ top: 0, opacity: 0 }} />
-          <Bande cote="bas" reglages={reglages} style={{ bottom: bas, opacity: auBout ? 0 : 1, transition: 'opacity .3s ease-out' }} />
+          <Bande cote="haut" reglages={reglages} refBande={refHaut} style={{ top: 0, ['--lpv-intensite' as string]: 0 }} />
+          <Bande cote="bas" reglages={reglages} style={{ bottom: bas, ['--lpv-intensite' as string]: auBout ? 0 : 1 }} />
         </>
       )}
       {/* LA VIGNETTE — un ovale transparent au centre, la teinte aux bords.

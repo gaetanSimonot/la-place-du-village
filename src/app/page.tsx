@@ -148,7 +148,8 @@ export default function HomePage() {
   const majBordsHaut = useCallback((el: HTMLElement) => {
     const barre = (el.firstElementChild?.firstElementChild as HTMLElement | null)?.offsetHeight || 60
     const p = Math.min(1, el.scrollTop / barre).toFixed(3)
-    if (flouHautRef.current) flouHautRef.current.style.opacity = p
+    // Le flou : par sa variable d'intensité, JAMAIS par l'opacité (cf. FlouBords).
+    if (flouHautRef.current) flouHautRef.current.style.setProperty('--lpv-intensite', p)
     if (vignetteRef.current) vignetteRef.current.style.opacity = p
     setBarreVillage(b => (b === barre ? b : barre))
   }, [])
