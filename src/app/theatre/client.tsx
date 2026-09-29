@@ -431,7 +431,8 @@ export default function TheatreClient() {
                apparaît que quand ce défilement tourne. Rouages communs
                au cinéma et au carrousel des partenaires du Village. */
             <div className="pcv-cineCarrousel" style={{ ['--pcv-n' as string]: spectaclesAffiche.length }}>
-            <div ref={piste} className="pcv-cinePiste flex gap-3 overflow-x-auto px-[18px] pb-1.5" style={{ scrollbarWidth: 'none' }}>
+            <div>{/* cadre : sur téléphone la piste y glisse au lieu de défiler (useDefilementDoux) */}
+            <div ref={piste} className="pcv-cinePiste flex gap-3 lg:overflow-x-auto px-[18px] pb-1.5" style={{ scrollbarWidth: 'none' }}>
               {[...spectaclesAffiche, ...spectaclesAffiche].map((s, i) => {
                 const copie = i >= spectaclesAffiche.length
                 return (
@@ -453,6 +454,7 @@ export default function TheatreClient() {
                   </Link>
                 )
               })}
+            </div>
             </div>
             </div>
           )}

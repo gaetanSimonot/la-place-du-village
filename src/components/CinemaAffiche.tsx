@@ -111,7 +111,10 @@ export default function CinemaAffiche({ isAdmin = false }: { isAdmin?: boolean }
           déjà imprimé sur l'affiche. Il ne réapparaît qu'en repli, quand il
           n'y a pas d'image. */}
       <div className="pcv-cineCarrousel" style={{ ['--pcv-n' as string]: films.length }}>
-      <div ref={piste} className="pcv-cinePiste flex items-start gap-2.5 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
+      {/* Le cadre de la piste : sur téléphone, elle y glisse (useDefilementDoux)
+          au lieu de défiler — une zone défilante captait le glissé vertical. */}
+      <div>
+      <div ref={piste} className="pcv-cinePiste flex items-start gap-2.5 lg:overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
         {[...films, ...films].map(({ film }, i) => {
           const copie = i >= films.length
           return (
@@ -138,6 +141,7 @@ export default function CinemaAffiche({ isAdmin = false }: { isAdmin?: boolean }
           </Link>
           )
         })}
+      </div>
       </div>
       </div>
 

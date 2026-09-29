@@ -56,7 +56,7 @@ export const EFFETS_DEFAUT: VillageEffets = {
 
 /** Bornes des curseurs de l'admin — et de la relecture, qui les respecte. */
 export const BORNES_EFFETS = {
-  courbeForce:   { min: 10, max: 100 },
+  courbeForce:   { min: 0, max: 100 },   // 0 = à plat
   flouTaille:    { min: 40, max: 240 },
   flouForce:     { min: 2,  max: 24 },
   flouRond:      { min: 0,  max: 100 },

@@ -419,7 +419,8 @@ export default function CinemaClient() {
                d'avant, au pixel près.
                Mêmes rouages que le carrousel des partenaires du Village. */
             <div className="pcv-cineCarrousel" style={{ ['--pcv-n' as string]: filmsAffiche.length }}>
-            <div ref={piste} className="pcv-cinePiste flex gap-3 overflow-x-auto px-[18px] pb-1.5" style={{ scrollbarWidth: 'none' }}>
+            <div>{/* cadre : sur téléphone la piste y glisse au lieu de défiler (useDefilementDoux) */}
+            <div ref={piste} className="pcv-cinePiste flex gap-3 lg:overflow-x-auto px-[18px] pb-1.5" style={{ scrollbarWidth: 'none' }}>
               {[...filmsAffiche, ...filmsAffiche].map((f, i) => {
                 const copie = i >= filmsAffiche.length
                 return (
@@ -435,6 +436,7 @@ export default function CinemaClient() {
                   </Link>
                 )
               })}
+            </div>
             </div>
             </div>
           )}

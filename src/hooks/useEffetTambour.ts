@@ -81,7 +81,7 @@ export const TambourContexte = createContext(false)
 interface Bloc { el: HTMLElement; centre: number; dx: number; demi: number; pose: string; defileur: HTMLElement | null; gauche0: number }
 
 /**
- * `force` : 10 à 100, 50 par défaut — le rayon du cylindre lui est inversement
+ * `force` : 0 (à plat) à 100, 50 par défaut — le rayon du cylindre lui est inversement
  * proportionnel.
  *
  * `mode` :
@@ -156,7 +156,9 @@ export function useEffetTambour(
     const appliquer = () => {
       const h = cont.clientHeight
       const moitie = h / 2
-      const R = RAYON * h * (50 / Math.max(10, force))
+      // Force 0 = à plat : pas de rayon (il serait infini, et R·sin 0 = NaN).
+      const R = RAYON * h * (50 / Math.max(1, force))
+      const aPlat = force <= 0
       const Z = ZONE_PLATE * moitie
       const haut = cont.scrollTop
       const progresHaut = Math.min(1, haut / hauteurBarre)
@@ -172,7 +174,7 @@ export function useEffetTambour(
         // son carrousel) : aucun transform. Il n'est pas vu, et la tangente,
         // poursuivie loin, l'enverrait à la profondeur de la caméra —
         // projection démesurée et calque géant pour rien.
-        if (d - b.demi > moitie + HORS_ECRAN || Math.abs(dx) > demiLargeur + 150) {
+        if (aPlat || d - b.demi > moitie + HORS_ECRAN || Math.abs(dx) > demiLargeur + 150) {
           pose = ''
         } else if (mode === 'defilement') {
           // Le tambour pressé : cloche z = −D·cos²(π·u/2), pente

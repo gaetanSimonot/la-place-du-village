@@ -138,7 +138,10 @@ export default function TheatreAffiche({ isAdmin = false }: { isAdmin?: boolean 
 
       {/* Écrite deux fois : la copie (lpv-defileDup) referme la boucle du
           défilement doux, et reste cachée tant qu'il ne tourne pas. */}
-      <div ref={piste} className="flex items-start gap-2.5 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
+      {/* Le cadre de la piste : sur téléphone, elle y glisse (useDefilementDoux)
+          au lieu de défiler — une zone défilante captait le glissé vertical. */}
+      <div>
+      <div ref={piste} className="flex items-start gap-2.5 lg:overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
         {[...prochains, ...prochains].map(({ spectacle: s, date }, i) => {
           const copie = i >= prochains.length
           return (
@@ -175,6 +178,7 @@ export default function TheatreAffiche({ isAdmin = false }: { isAdmin?: boolean 
           </Link>
           )
         })}
+      </div>
       </div>
 
       {/* Le comptage passe SOUS les visuels, en petit : c'est une précision,
