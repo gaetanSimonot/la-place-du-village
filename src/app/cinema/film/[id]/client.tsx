@@ -89,7 +89,11 @@ export default function FilmClient({ id }: { id: string }) {
       {/* En-tête : retour et partage, comme sur les fiches événements */}
       <div className="flex items-center justify-between gap-2 px-3.5 py-2.5"
         style={{ paddingTop: 'max(14px, env(safe-area-inset-top, 14px))' }}>
-        <button onClick={() => router.back()} aria-label="Retour"
+        {/* Retour = la page du cinéma, toujours — pas la page précédente :
+            une affiche ouverte depuis le Village y renvoyait. `replace` et non
+            `push` : la fiche quitte l'historique, sans quoi le retour du
+            téléphone ramènerait sur elle. */}
+        <button onClick={() => router.replace('/cinema')} aria-label="Retour au cinéma"
           className="flex h-[34px] w-[34px] items-center justify-center rounded-full"
           style={{ border: '1px solid var(--uni-line)', background: 'rgba(250,251,250,.05)', color: 'var(--uni-ink)' }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
