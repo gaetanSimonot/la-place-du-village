@@ -575,6 +575,7 @@ export default function HomePage() {
     (effetsVillage.courbe || effetsVillage.enfoncement) && navTab === 'village',
     effetsVillage.courbeForce,
     effetsVillage.enfoncement ? 'defilement' : 'cylindre',
+    effetsVillage,
   )
   // Au montage du Village (et quand les effets changent), place la vignette
   // sous la barre du haut avant tout défilement ; re-mesure un peu plus tard,

@@ -1,5 +1,5 @@
 'use client'
-import { createContext, useEffect, type RefObject } from 'react'
+import { createContext, useEffect, useRef, type RefObject } from 'react'
 
 /**
  * L'EFFET TAMBOUR — la page posée à l'intérieur d'un cylindre.
@@ -60,10 +60,10 @@ const PROFONDEUR_CREUX = 110  // px au centre, à la force 50
 // Ressort (unités : secondes), amorti critique dans les deux sens : le creux se
 // forme et se referme sans jamais dépasser. Un retour sous-amorti (0,5) faisait
 // un petit rebond au lâcher — jugé gênant, retiré.
-// Le creux se forme plus vite qu'il ne se referme : il doit répondre au doigt
-// (~0,18 s à 95 % au lieu de ~0,36 s), le retour garde sa douceur.
-const RAIDEUR_MONTEE = 650
-const RAIDEUR_RETOUR = 170
+// Les temps (formation au doigt, retour au lâcher) se règlent dans l'admin
+// (villageEffets : pressionMs, relacheMs). Amorti critique : 95 % atteints
+// en 4,74 / ω, d'où la raideur k = ω².
+const raideur = (ms: number) => { const w = 4.744 / (Math.max(ms, 30) / 1000); return w * w }
 const AMORTI_MONTEE = 1
 const AMORTI_RETOUR = 1
 
@@ -110,7 +110,12 @@ interface Bloc { el: HTMLElement; centre: number; dx: number; demi: number; pose
 export function useEffetTambour(
   ref: RefObject<HTMLElement>, actif: boolean, force = 50,
   mode: 'cylindre' | 'defilement' = 'cylindre',
+  /** Tambour pressé : temps de formation et de retour du creux, en ms (à 95 %). */
+  timing: { pressionMs: number; relacheMs: number } = { pressionMs: 200, relacheMs: 380 },
 ) {
+  // Lus à chaque image : régler les temps depuis l'admin ne réarme pas tout.
+  const timingRef = useRef(timing)
+  timingRef.current = timing
   useEffect(() => {
     const cont = ref.current
     if (!actif || !cont) return
@@ -287,7 +292,7 @@ export function useEffetTambour(
       const dt = avantAmpl ? Math.min(t - avantAmpl, 40) / 1000 : 1 / 60
       avantAmpl = t
       const zeta = cibleAmpl > 0 ? AMORTI_MONTEE : AMORTI_RETOUR
-      const k = cibleAmpl > 0 ? RAIDEUR_MONTEE : RAIDEUR_RETOUR
+      const k = raideur(cibleAmpl > 0 ? timingRef.current.pressionMs : timingRef.current.relacheMs)
       // Sous-pas de 8 ms au plus : un ressort raide intégré sur une image
       // lente (40 ms) diverge et tremble.
       const n = Math.ceil(dt / 0.008), h = dt / n

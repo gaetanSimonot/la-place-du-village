@@ -27,6 +27,11 @@ export interface VillageEffets {
    *  de l'écran s'enfonce (haut et bas immobiles) ; retour à plat au lâcher.
    *  Remplace la courbe fixe. Le nom de la clé date d'un premier essai. */
   enfoncement: boolean
+  /** Tambour pressé : temps pour que le creux se forme sous le doigt, en ms
+   *  (à 95 %, ressort sans rebond). */
+  pressionMs: number
+  /** Tambour pressé : temps pour revenir à plat au lâcher, en ms. */
+  relacheMs: number
   flou: boolean
   /** Hauteur des bandes de flou, en px. */
   flouTaille: number
@@ -52,6 +57,8 @@ export const EFFETS_DEFAUT: VillageEffets = {
   courbe: true,
   courbeForce: -3,
   enfoncement: true,
+  pressionMs: 200,
+  relacheMs: 380,
   flou: true,
   flouTaille: 62,
   flouForce: 2,
@@ -87,6 +94,8 @@ export function garderEffetsEnCache(e: VillageEffets): void {
 /** Bornes des curseurs de l'admin — et de la relecture, qui les respecte. */
 export const BORNES_EFFETS = {
   courbeForce:   { min: -100, max: 100 }, // 0 = à plat ; > 0 concave ; < 0 convexe
+  pressionMs:    { min: 60, max: 1000 },
+  relacheMs:     { min: 60, max: 1500 },
   flouTaille:    { min: 40, max: 240 },
   flouForce:     { min: 2,  max: 24 },
   flouRond:      { min: 0,  max: 100 },
@@ -108,7 +117,9 @@ export function parseEffets(v: string | null | undefined): VillageEffets {
       courbe: typeof o.courbe === 'boolean' ? o.courbe : EFFETS_DEFAUT.courbe,
       courbeForce: nombre(o.courbeForce, 'courbeForce'),
       enfoncement: o.enfoncement === true,
-      flou:   typeof o.flou === 'boolean' ? o.flou : EFFETS_DEFAUT.flou,
+      pressionMs: nombre(o.pressionMs, 'pressionMs'),
+      relacheMs:  nombre(o.relacheMs, 'relacheMs'),
+      flou:  typeof o.flou === 'boolean' ? o.flou : EFFETS_DEFAUT.flou,
       flouTaille: nombre(o.flouTaille, 'flouTaille'),
       flouForce:  nombre(o.flouForce, 'flouForce'),
       flouRond:   nombre(o.flouRond, 'flouRond'),

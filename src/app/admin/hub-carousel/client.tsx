@@ -1163,6 +1163,26 @@ export default function AdminHubCarousel() {
             </div>
           )}
 
+          {/* Le timing du tambour pressé : au doigt, et au lâcher. */}
+          {effets.enfoncement && ([
+            { cle: 'pressionMs' as const, titre: 'Vitesse à l’appui (le creux se forme)' },
+            { cle: 'relacheMs'  as const, titre: 'Vitesse au lâcher (retour à plat)' },
+          ]).map(o => (
+            <div key={o.cle} style={{ padding: '6px 0 6px 28px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, fontWeight: 700, color: '#1A1209' }}>
+                <span>{o.titre}</span>
+                <span style={{ color: '#7A6A5A' }}>{(effets[o.cle] / 1000).toFixed(2).replace('.', ',')} s</span>
+              </div>
+              <input
+                type="range" step={10}
+                min={BORNES_EFFETS[o.cle].min} max={BORNES_EFFETS[o.cle].max}
+                value={effets[o.cle]}
+                onChange={e => majEffets({ [o.cle]: Number(e.target.value) })}
+                style={{ width: '100%', accentColor: '#2D5A3D' }}
+              />
+            </div>
+          ))}
+
           {/* Les curseurs du flou — seulement quand il est allumé. */}
           {effets.flou && ([
             { cle: 'flouTaille' as const, titre: 'Hauteur du flou', unite: ' px' },
