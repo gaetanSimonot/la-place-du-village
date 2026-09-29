@@ -245,11 +245,17 @@ export default function AssistantChat({ question, dicter, onClose }: {
     el.scrollTop = el.scrollHeight
   }, [saisie])
 
+  /** La réponse en cours, qu'on peut arrêter (bouton Stop). */
+  const arretRef = useRef<AbortController | null>(null)
+  const arreterReponse = () => { arretRef.current?.abort() }
+
   const envoyer = useCallback(async (texte: string) => {
     const q = texte.trim()
     if (!q || enCours) return
     setSaisie('')
     setEnCours(true)
+    const arret = new AbortController()
+    arretRef.current = arret
     // On vient de parler : on veut voir la réponse arriver.
     suivreRef.current = true
     setDetache(false)
@@ -267,6 +273,8 @@ export default function AssistantChat({ question, dicter, onClose }: {
           ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
         body: JSON.stringify({ message: q, conversationId: convRef.current, anonId: anonId() }),
+        // Stop : couper la connexion arrête aussi la génération côté serveur.
+        signal: arret.signal,
       })
 
       if (!res.ok || !res.body) {
@@ -316,8 +324,14 @@ export default function AssistantChat({ question, dicter, onClose }: {
       }
       majDernier(m => ({ ...m, encours: false }))
     } catch {
-      majDernier(m => ({ ...m, texte: 'La connexion s’est interrompue. Réessayez.', encours: false }))
+      if (arret.signal.aborted) {
+        // Arrêtée par la personne : on garde ce qui était écrit, on le dit.
+        majDernier(m => ({ ...m, texte: m.texte ? `${m.texte} …\n\n(Réponse arrêtée.)` : '(Réponse arrêtée.)', encours: false }))
+      } else {
+        majDernier(m => ({ ...m, texte: 'La connexion s’est interrompue. Réessayez.', encours: false }))
+      }
     } finally {
+      if (arretRef.current === arret) arretRef.current = null
       setEnCours(false)
       setCherche(null)
     }
@@ -841,19 +855,31 @@ export default function AssistantChat({ question, dicter, onClose }: {
             }} />
         </div>
 
+        {/* Pendant une réponse, le bouton d'envoi devient STOP : on peut
+            couper l'assistant quand il part dans la mauvaise direction. */}
+        {enCours ? (
+          <button
+            onClick={arreterReponse}
+            aria-label="Arrêter la réponse"
+            className="flex flex-none items-center justify-center border-none text-white"
+            style={{ width: 38, height: 38, borderRadius: '50%', background: '#1A1209', cursor: 'pointer' }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="3" /></svg>
+          </button>
+        ) : (
         <button
           onClick={envoyerMaintenant}
-          disabled={enCours || (!saisie.trim() && !ecoute) || !!quotaEpuise}
+          disabled={(!saisie.trim() && !ecoute) || !!quotaEpuise}
           aria-label={ecoute ? 'Terminer la dictée' : 'Envoyer'}
           className="flex flex-none items-center justify-center border-none text-white"
           style={{
             width: 38, height: 38, borderRadius: '50%',
-            background: enCours || (!saisie.trim() && !ecoute) || quotaEpuise ? '#C9BFB2' : 'var(--primary)',
+            background: (!saisie.trim() && !ecoute) || quotaEpuise ? '#C9BFB2' : 'var(--primary)',
           }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" />
           </svg>
         </button>
+        )}
       </div>
 
       {apercu && <ApercuFiche carte={apercu} onClose={() => setApercu(null)} />}

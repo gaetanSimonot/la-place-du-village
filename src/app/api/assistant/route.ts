@@ -190,9 +190,22 @@ export async function POST(req: NextRequest) {
   const terrAssistant = (await territoireDeLaRequete(req.url))?.id ?? null
 
   const encodeur = new TextEncoder()
+  /*
+   * « STOP » : quand la personne arrête la réponse, le client coupe la
+   * connexion et le flux est annulé (`cancel`). On sort alors de la boucle :
+   * quitter le `for await` referme le générateur `repondre`, qui referme à son
+   * tour l'appel au modèle — plus un mot n'est écrit, ni payé. Avant, la
+   * génération continuait jusqu'à ce qu'un envoi échoue.
+   * Le tour interrompu n'est pas enregistré : il n'a pas de fin.
+   */
+  let abandonne = false
   const flux = new ReadableStream({
+    cancel() { abandonne = true },
     async start(controle) {
-      const envoyer = (o: unknown) => controle.enqueue(encodeur.encode(`data: ${JSON.stringify(o)}\n\n`))
+      const envoyer = (o: unknown) => {
+        if (abandonne) return
+        try { controle.enqueue(encodeur.encode(`data: ${JSON.stringify(o)}\n\n`)) } catch { abandonne = true }
+      }
       const cartesVues: Carte[] = []
 
       try {
@@ -201,6 +214,7 @@ export async function POST(req: NextRequest) {
         // Le réglage de service, sauf essai ponctuel d'un admin.
         const modele = (ctx?.isAdmin && modeleDemande) || modeleEnService
         for await (const ev of repondre({ question: message, historique: passe, maxOutils: quotas.max_outils_tour, modele, territoire: terrAssistant })) {
+          if (abandonne) break
           if (ev.type === 'cartes') {
             // Le cœur voyage avec la fiche : la personne garde une sortie
             // d'un geste, sans ouvrir l'aperçu ni attendre un aller-retour.
@@ -254,7 +268,7 @@ export async function POST(req: NextRequest) {
         console.error('[assistant]', (e as Error).message)
         envoyer({ type: 'erreur', message: 'L’assistant n’a pas pu répondre. Réessayez dans un instant.' })
       } finally {
-        controle.close()
+        try { controle.close() } catch { /* déjà fermé : la personne a arrêté */ }
       }
     },
   })
