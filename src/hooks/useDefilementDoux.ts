@@ -32,7 +32,12 @@ const VITESSE = 10            // px par seconde — « très très très douceme
 /** Délai entre le doigt levé (ou la fin de l'élan) et la reprise du défilement. */
 const REPRISE_APRES_DOIGT = 150
 
-export function useDefilementDoux<T extends HTMLElement>(nbElements: number) {
+/**
+ * `sens` : 1 = les affiches filent vers la gauche (défaut), −1 = vers la
+ * droite. Deux rouleaux voisins qui vont en sens contraires se distinguent
+ * mieux (le théâtre sous le cinéma, sur le Village).
+ */
+export function useDefilementDoux<T extends HTMLElement>(nbElements: number, sens: 1 | -1 = 1) {
   const ref = useRef<T>(null)
 
   useEffect(() => {
@@ -70,7 +75,7 @@ export function useDefilementDoux<T extends HTMLElement>(nbElements: number) {
     const pas = (t: number) => {
       const dt = avant ? Math.min(t - avant, 100) : 0
       avant = t
-      pos = boucle(pos + (VITESSE * dt) / 1000)
+      pos = boucle(pos + (sens * VITESSE * dt) / 1000)
       poser()
       raf = requestAnimationFrame(pas)
     }
@@ -183,7 +188,7 @@ export function useDefilementDoux<T extends HTMLElement>(nbElements: number) {
       piste.style.transform = ''
       delete piste.dataset.defile
     }
-  }, [nbElements])
+  }, [nbElements, sens])
 
   return ref
 }
