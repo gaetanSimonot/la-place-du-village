@@ -509,7 +509,7 @@ function VillageFeed({ user, avatar, authorName }: { user: ReturnType<typeof use
           chargés par ce composant. Masqué tant que le chargement n'a rien
           rendu, pour ne pas afficher « 0 publication » puis se corriger. */}
       <div className="flex items-baseline justify-between gap-2.5 px-4 pb-2.5 pt-[22px]">
-        <span className="font-serif text-[20px] leading-[1.15] text-texte" style={{ letterSpacing: '-0.02em' }}><TitreVivant texte="Le fil du village" /></span>
+        <span className="font-serif text-[20px] leading-[1.15] text-texte" style={{ letterSpacing: '-0.02em' }}><TitreVivant texte="Le fil du territoire" /></span>
         {posts.length > 0 && (
           <span className="shrink-0 text-[11.5px]" style={{ color: '#7A6A5A' }}>
             {posts.length} publication{posts.length > 1 ? 's' : ''}

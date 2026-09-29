@@ -4,18 +4,18 @@ import { useEffect, type RefObject } from 'react'
 /**
  * LES TITRES DE SECTION S'ALLUMENT QUAND LEUR SECTION PASSE AU MILIEU.
  *
- * Au repos, un titre de rubrique (« Au cinéma », « Nos rubriques »…) est en
- * serif noir. La section qui occupe le milieu de l'écran prend, elle, le style
- * du grand titre « Aujourd'hui / près de chez vous » : sans-serif très gras,
- * début en vert, dernier mot en orange. La page met ainsi l'accent sur ce
- * qu'on regarde.
+ * Sur téléphone, un titre de rubrique (« Au cinéma », « Nos rubriques »…) est
+ * dans la police du grand titre « Aujourd'hui / près de chez vous » —
+ * sans-serif très gras —, en noir. La section qui occupe le milieu de
+ * l'écran se colore comme lui (début vert, dernier mot orange) et grossit de
+ * 15 %. La page met ainsi l'accent sur ce qu'on regarde.
  *
- * DEUX VERSIONS SUPERPOSÉES dans la même case de grille (globals.css,
- * `.lpv-titre`) : on ne change pas la police d'un texte sous les yeux — ça
- * sauterait —, on fond l'une dans l'autre. La case prend la taille de la plus
- * grande, fixe : rien ne bouge autour au changement.
- *
- * La version vive est `pcv-hide` : sur ordinateur, le titre reste tel quel.
+ * UNE SEULE POLICE, UN SEUL TEXTE : on n'anime que la couleur et un
+ * `transform: scale`. Un premier essai fondait un serif noir dans une
+ * version sans-serif colorée : deux polices ne se fondent jamais proprement,
+ * ça faisait une saute. Le grossissement est un transform : il ne pousse rien
+ * autour. Styles : globals.css, `.lpv-titre` (téléphone seulement — sur
+ * ordinateur, le titre garde son style d'origine).
  */
 export default function TitreVivant({ texte }: { texte: string }) {
   const i = texte.lastIndexOf(' ')
@@ -23,11 +23,8 @@ export default function TitreVivant({ texte }: { texte: string }) {
   const fin = i > 0 ? texte.slice(i + 1) : texte
   return (
     <span data-titre-vivant className="lpv-titre">
-      <span className="lpv-titre-calme">{texte}</span>
-      <span className="lpv-titre-vif pcv-hide" aria-hidden>
-        {debut && <span className="lpv-titre-v1">{debut} </span>}
-        <span className="lpv-titre-v2">{fin}</span>
-      </span>
+      {debut && <span className="lpv-titre-v1">{debut} </span>}
+      <span className="lpv-titre-v2">{fin}</span>
     </span>
   )
 }
