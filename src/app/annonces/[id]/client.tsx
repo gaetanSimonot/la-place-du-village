@@ -14,6 +14,7 @@ import ImageLightbox from '@/components/ImageLightbox'
 import { useSmartBack } from '@/hooks/useSmartBack'
 import {
   getPrixAffiche,
+  formatEuros,
   getNextDropDate,
   formatCountdown,
   getProchaineBaisse,
@@ -405,10 +406,16 @@ export default function AnnoncePageClient({ id }: Props) {
         </div>
 
         {/* Titre + prix éditoriaux */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14 }}>
-          <h1 style={{ margin: 0, fontFamily: SERIF, fontSize: 25, lineHeight: 1.1, color: '#1A1209', letterSpacing: '-0.02em', flex: 1 }}>{annonce.titre}</h1>
-          <div style={{ textAlign: 'right', flexShrink: 0 }}>
-            <div style={{ fontFamily: SERIF, fontSize: 30, lineHeight: 1, color: info.color, letterSpacing: '-0.01em' }}>{getPrixAffiche(annonce)}</div>
+        {/* flexWrap + minWidth 0 : un prix long passe SOUS le titre au lieu
+            de déborder. Pour une enchère, le montant seul : « 130 € (enchère
+            ↓) » en corps 30 sortait de l'écran et faisait défiler toute la
+            page de côté — la baisse est dite juste en dessous (−x €/jour). */}
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
+          <h1 style={{ margin: 0, fontFamily: SERIF, fontSize: 25, lineHeight: 1.1, color: '#1A1209', letterSpacing: '-0.02em', flex: 1, minWidth: 0, overflowWrap: 'break-word' }}>{annonce.titre}</h1>
+          <div style={{ textAlign: 'right', flexShrink: 0, maxWidth: '100%' }}>
+            <div style={{ fontFamily: SERIF, fontSize: 30, lineHeight: 1, color: info.color, letterSpacing: '-0.01em' }}>
+              {isEnchere && annonce.prix_actuel != null ? formatEuros(annonce.prix_actuel) : getPrixAffiche(annonce)}
+            </div>
             {isEnchere && annonce.statut === 'active' && (
               <div style={{ fontSize: 10.5, color: '#C0392B', fontWeight: 700, marginTop: 3, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                 <IcoTrend /> −{getProchaineBaisse(annonce)} €/jour
@@ -630,19 +637,32 @@ function PrixTimelineFull({ annonce }: { annonce: Annonce }) {
   const aujourdHui = points[0]
   const dernier = points[points.length - 1]
 
+  /*
+   * LA FRISE TIENT DANS LA LARGEUR DE L'ÉCRAN. Neuf colonnes portant chacune
+   * un prix au centime (« 123.45€ ») ne pouvaient pas rétrécir sous leur
+   * texte : la frise débordait et toute la page défilait de côté. D'où :
+   * colonnes compressibles (minWidth 0), frise rognée, prix arrondis à l'euro
+   * dès 10 €, et au-delà de six jours une étiquette sur deux (aujourd'hui et
+   * le dernier jour toujours) — les barres, elles, restent toutes.
+   */
+  const dernierIndex = points.length - 1
+  const prixCourt = (x: number) => (x >= 10 ? `${Math.round(x)}` : x.toFixed(x % 1 === 0 ? 0 : 1).replace('.', ','))
+  const montrerPrix = (i: number) => points.length <= 6 || i === 0 || i === dernierIndex || i % 2 === 0
+
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 4, padding: '8px 0 4px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 4, padding: '8px 0 4px', overflow: 'hidden' }}>
         {points.map((p, i) => {
           const isToday = i === 0
           return (
-            <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+            <div key={i} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
               <span style={{
                 fontSize: 11, fontWeight: isToday ? 900 : 700,
                 color: isToday ? '#2D5A3D' : '#8A7A6A',
-                fontVariantNumeric: 'tabular-nums',
+                fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
+                visibility: montrerPrix(i) ? 'visible' : 'hidden',
               }}>
-                {p.prix.toFixed(p.prix % 1 === 0 ? 0 : 2)}€
+                {prixCourt(p.prix)}€
               </span>
               <div style={{
                 width: '100%', height: isToday ? 14 : 8,

@@ -144,6 +144,11 @@ export async function PATCH(
       .from('profiles').select('plan').eq('user_id', existing.user_id).maybeSingle()
     const jours = getDureeAnnonceJours(((proprio?.plan as Plan | undefined) ?? 'basic'))
     patch.expires_at = new Date(Date.now() + jours * 86_400_000).toISOString()
+    // Une enchère relancée est une annonce du jour : « publiée aujourd'hui »
+    // et non « il y a 64 jours ». Elle remonte donc aussi en tête des plus
+    // récentes, et le délai d'accès anticipé (12 h, abonnés Habitant) joue à
+    // nouveau, comme pour une enchère neuve.
+    patch.created_at = new Date().toISOString()
   }
 
   const { data, error } = await supabaseAdmin
