@@ -19,6 +19,7 @@ import PlansCardFinal from '@/components/PlansCardFinal'
 import CinemaAffiche from '@/components/CinemaAffiche'
 import TheatreAffiche from '@/components/TheatreAffiche'
 import RadioAffiche from '@/components/RadioAffiche'
+import AnnoncesAffiche from '@/components/AnnoncesAffiche'
 import PostComposer from '@/components/profil/PostComposer'
 import PostCard, { type PostData } from '@/components/profil/PostCard'
 import PostCommentsDrawer from '@/components/profil/PostCommentsDrawer'
@@ -242,6 +243,10 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
           le cinema : deux facons d'apprendre ce qui se passe, l'une par
           l'affiche, l'autre par l'antenne. Meme regle d'auto-effacement. */}
       <RadioAffiche isAdmin={isAdmin} />
+
+      {/* Petites annonces — sous la radio, sur le modèle du cinéma : un
+          rouleau qui défile seul. Disparaît s'il n'y a aucune annonce. */}
+      <AnnoncesAffiche />
 
       {/* CTA abonnement (comptes gratuits, dismissable) — repris du hub.
           pcv-hide : sur bureau il vit dans la colonne de droite, entre les
