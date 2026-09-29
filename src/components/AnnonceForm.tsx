@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTerritoire } from '@/components/TerritoireProvider'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useHistoryTrap } from '@/contexts/HistoryTrapContext'
@@ -199,6 +200,9 @@ export default function AnnonceForm({ initial, onSuccess, bottomOffset = 0 }: Pr
     }
 
     const id = data.annonce?.id ?? initial?.id
+    if (initial && type === 'enchere_inversee') {
+      toast.success('Enchère relancée à partir d’aujourd’hui : prix de départ, nouvelle durée')
+    }
     submittedRef.current = true   // désamorce le guard dirty pour la nav suivante
     dirtyRef.current = false
     if (onSuccess && id) onSuccess(id)
@@ -550,7 +554,9 @@ export default function AnnonceForm({ initial, onSuccess, bottomOffset = 0 }: Pr
           ) : (
             <>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              {initial ? 'Mettre à jour' : 'Publier l\'annonce'}
+              {/* Mettre à jour une enchère la RELANCE (cf. PATCH /api/annonces/[id]) :
+                  le bouton le dit, pour que ce ne soit pas une surprise. */}
+              {initial ? (showEnchere ? 'Mettre à jour et relancer l’enchère' : 'Mettre à jour') : 'Publier l\'annonce'}
             </>
           )}
         </button>

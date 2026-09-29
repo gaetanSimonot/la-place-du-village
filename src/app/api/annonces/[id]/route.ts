@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser, getUserContextFromRequest } from '@/lib/server-auth'
 import { can } from '@/lib/capabilities'
-import { EARLY_BID_DELAY_HOURS } from '@/lib/annonces'
+import { EARLY_BID_DELAY_HOURS, getDureeAnnonceJours } from '@/lib/annonces'
+import type { Plan } from '@/lib/capabilities'
 
 const EDITABLE_FIELDS = [
   'titre',
@@ -80,7 +81,7 @@ export async function PATCH(
 
   const { data: existing } = await supabaseAdmin
     .from('annonces')
-    .select('user_id, statut')
+    .select('user_id, statut, type, prix_initial')
     .eq('id', id)
     .maybeSingle()
 
@@ -120,6 +121,29 @@ export async function PATCH(
 
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: 'Aucun champ à modifier' }, { status: 400 })
+  }
+
+  /*
+   * METTRE À JOUR UNE ENCHÈRE INVERSÉE LA RELANCE, à partir d'aujourd'hui.
+   *
+   * La baisse nocturne (annonces_cron_baisse_encheres, en base) n'a pas de
+   * date de départ : chaque nuit, elle applique le pourcentage au PRIX ACTUEL.
+   * Relancer, c'est donc remettre le prix actuel au prix de départ (celui
+   * qu'on vient de saisir, sinon l'ancien) — le pourcentage et le plancher
+   * sont ceux du formulaire —, remettre en ligne une annonce expirée, et lui
+   * redonner une durée de vie complète depuis aujourd'hui (même règle que la
+   * création : 21 ou 30 jours selon le plan du propriétaire). La baisse
+   * repart la nuit suivante.
+   */
+  const typeFinal = (patch.type as string | undefined) ?? existing.type
+  if (typeFinal === 'enchere_inversee') {
+    const depart = patch.prix_initial ?? existing.prix_initial
+    if (depart != null && depart !== '') patch.prix_actuel = Number(depart)
+    if (existing.statut === 'expiree' || existing.statut === 'active') patch.statut = 'active'
+    const { data: proprio } = await supabaseAdmin
+      .from('profiles').select('plan').eq('user_id', existing.user_id).maybeSingle()
+    const jours = getDureeAnnonceJours(((proprio?.plan as Plan | undefined) ?? 'basic'))
+    patch.expires_at = new Date(Date.now() + jours * 86_400_000).toISOString()
   }
 
   const { data, error } = await supabaseAdmin
