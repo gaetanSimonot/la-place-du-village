@@ -19,6 +19,15 @@ export type CouleurVoile = 'aucun' | 'creme' | 'blanc' | 'noir'
 
 export interface VillageEffets {
   courbe: boolean
+  /** Force de la courbe : 50 = rayon de 0,9 × l'écran ; plus fort = plus enroulé. */
+  courbeForce: number
+  /** ESSAI : la courbe naît sous le doigt posé (l'écran s'enfonce) et
+   *  disparaît au lâcher. Remplace la courbe fixe tant qu'il est allumé. */
+  enfoncement: boolean
+  /** Profondeur du creux sous le doigt, en px. */
+  creuxProfondeur: number
+  /** Largeur de la zone enfoncée, en % de la hauteur de l'écran. */
+  creuxLargeur: number
   flou: boolean
   /** Hauteur des bandes de flou, en px. */
   flouTaille: number
@@ -29,26 +38,37 @@ export interface VillageEffets {
   vignette: CouleurVignette
   /** 0 à 100. */
   vignetteForce: number
+  /** Part de l'écran gagnée par la vignette, depuis les bords : 10 à 90. */
+  vignetteTaille: number
   voile: CouleurVoile
 }
 
 export const EFFETS_DEFAUT: VillageEffets = {
   courbe: true,
+  courbeForce: 50,
+  enfoncement: false,
+  creuxProfondeur: 80,
+  creuxLargeur: 25,
   flou: true,
   flouTaille: 80,
   flouForce: 9,
   flouRond: 0,
   vignette: 'aucune',
   vignetteForce: 35,
+  vignetteTaille: 45,
   voile: 'creme',
 }
 
 /** Bornes des curseurs de l'admin — et de la relecture, qui les respecte. */
 export const BORNES_EFFETS = {
+  courbeForce:   { min: 10, max: 100 },
+  creuxProfondeur: { min: 20, max: 300 },
+  creuxLargeur:  { min: 10, max: 80 },
   flouTaille:    { min: 40, max: 240 },
   flouForce:     { min: 2,  max: 24 },
   flouRond:      { min: 0,  max: 100 },
   vignetteForce: { min: 0,  max: 100 },
+  vignetteTaille: { min: 10, max: 90 },
 } as const
 
 const nombre = (v: unknown, cle: keyof typeof BORNES_EFFETS): number => {
@@ -63,12 +83,17 @@ export function parseEffets(v: string | null | undefined): VillageEffets {
     const o = JSON.parse(v) as Record<string, unknown>
     return {
       courbe: typeof o.courbe === 'boolean' ? o.courbe : EFFETS_DEFAUT.courbe,
+      courbeForce: nombre(o.courbeForce, 'courbeForce'),
+      enfoncement: o.enfoncement === true,
+      creuxProfondeur: nombre(o.creuxProfondeur, 'creuxProfondeur'),
+      creuxLargeur: nombre(o.creuxLargeur, 'creuxLargeur'),
       flou:   typeof o.flou === 'boolean' ? o.flou : EFFETS_DEFAUT.flou,
       flouTaille: nombre(o.flouTaille, 'flouTaille'),
       flouForce:  nombre(o.flouForce, 'flouForce'),
       flouRond:   nombre(o.flouRond, 'flouRond'),
       vignette: o.vignette === 'blanc' || o.vignette === 'noir' ? o.vignette : 'aucune',
       vignetteForce: nombre(o.vignetteForce, 'vignetteForce'),
+      vignetteTaille: nombre(o.vignetteTaille, 'vignetteTaille'),
       voile: o.voile === 'aucun' || o.voile === 'blanc' || o.voile === 'noir' ? o.voile : 'creme',
     }
   } catch {

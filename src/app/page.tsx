@@ -135,6 +135,17 @@ export default function HomePage() {
   const villagePanelRef = useRef<HTMLDivElement>(null)
   /** La bande de flou du haut : son opacité suit le défilement, écrite en direct. */
   const flouHautRef = useRef<HTMLDivElement>(null)
+  /** La vignette : son bord haut suit la barre du haut, qu'elle ne couvre pas. */
+  const vignetteRef = useRef<HTMLDivElement>(null)
+  /* Ce qui dépend de la barre du haut du Village, écrit en direct sur les
+     éléments (ni état React, ni variable globale) : l'opacité du flou du haut
+     (0 tant que la barre est entière, 1 une fois sortie) et le bord haut de
+     la vignette (juste sous la barre, jusqu'à ce qu'elle sorte). */
+  const majBordsHaut = useCallback((el: HTMLElement) => {
+    const barre = (el.firstElementChild?.firstElementChild as HTMLElement | null)?.offsetHeight || 60
+    if (flouHautRef.current) flouHautRef.current.style.opacity = Math.min(1, el.scrollTop / barre).toFixed(3)
+    if (vignetteRef.current) vignetteRef.current.style.top = `${Math.max(0, barre - el.scrollTop)}px`
+  }, [])
   const [splashOpen, setSplashOpen]           = useState(false)  // splash éditorial — affiché 1× par session (ouverture de l'app)
   // Welcome modal une seule fois pour toujours (par device).
   // localStorage persiste entre les sessions browser et survit aux relances
@@ -490,7 +501,23 @@ export default function HomePage() {
     return window.matchMedia('(min-width: 1024px)').matches ? 'village' : 'carte'
   })
   // Le panneau n'existe que sur l'onglet Village : le hook se réarme à chaque retour.
-  useEffetTambour(villagePanelRef, effetsVillage.courbe && navTab === 'village')
+  useEffetTambour(
+    villagePanelRef,
+    (effetsVillage.courbe || effetsVillage.enfoncement) && navTab === 'village',
+    effetsVillage.courbeForce,
+    effetsVillage.enfoncement ? 'doigt' : 'cylindre',
+    { profondeur: effetsVillage.creuxProfondeur, largeur: effetsVillage.creuxLargeur },
+  )
+  // Au montage du Village (et quand les effets changent), place la vignette
+  // sous la barre du haut avant tout défilement ; re-mesure un peu plus tard,
+  // le temps que l'en-tête ait sa hauteur définitive.
+  useEffect(() => {
+    if (navTab !== 'village') return
+    const maj = () => { if (villagePanelRef.current) majBordsHaut(villagePanelRef.current) }
+    maj()
+    const t = setTimeout(maj, 800)
+    return () => clearTimeout(t)
+  }, [navTab, effetsVillage, majBordsHaut])
   // Persiste navTab pour survivre aux navigations (ex: retour depuis /ajouter,
   // /capturer, /covoiturage/[id], etc.). Sans ça, navTab repart à 'accueil'
   // au mount → la condition `navTab === 'carte'` redevient fausse → les boutons
@@ -2290,8 +2317,7 @@ export default function HomePage() {
           // Le haut des effets arrive à mesure que la barre du haut sort :
           // 0 tant qu'elle est entière, 1 une fois partie. Écrit sur la bande
           // de flou elle-même : ni état React, ni variable sur <html>.
-          const barre = (el.firstElementChild?.firstElementChild as HTMLElement | null)?.offsetHeight || 60
-          if (flouHautRef.current) flouHautRef.current.style.opacity = Math.min(1, el.scrollTop / barre).toFixed(3)
+          majBordsHaut(el)
           if (!villageDefile) setVillageDefile(true)
           clearTimeout(finDefileVillage.current)
           finDefileVillage.current = setTimeout(() => setVillageDefile(false), 250)
@@ -2301,7 +2327,7 @@ export default function HomePage() {
           // bord de l'écran, et la page semblait pouvoir défiler de côté.
           zIndex: 25, overflowY: 'auto', overflowX: 'hidden', backgroundColor: 'var(--creme)',
         }}>
-          <TambourContexte.Provider value={effetsVillage.courbe}>
+          <TambourContexte.Provider value={effetsVillage.courbe || effetsVillage.enfoncement}>
           <VillageView
             onOpenProfil={() => setNavTab('profil')}
             onOpenSplash={() => setSplashOpen(true)}
@@ -2320,7 +2346,7 @@ export default function HomePage() {
           y ferait une bande. S'efface pendant le défilement et tout en bas,
           pour ne pas manger le dernier élément. Téléphone seulement (pcv-hide). */}
       {navTab === 'village' && (effetsVillage.flou || effetsVillage.vignette !== 'aucune') && (
-        <FlouBords bas={NAV_H} auBout={villageAuBout} reglages={effetsVillage} refHaut={flouHautRef} />
+        <FlouBords bas={NAV_H} auBout={villageAuBout} reglages={effetsVillage} refHaut={flouHautRef} refVignette={vignetteRef} />
       )}
       {navTab === 'village' && effetsVillage.voile !== 'aucun' && (
         <div aria-hidden className="pcv-hide" style={{

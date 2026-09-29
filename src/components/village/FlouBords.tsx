@@ -55,7 +55,7 @@ function Bande({ cote, reglages, style, refBande }: { cote: 'haut' | 'bas'; regl
   )
 }
 
-export default function FlouBords({ bas, auBout, reglages, refHaut }: { bas: number; auBout: boolean; reglages: VillageEffets; refHaut?: Ref<HTMLDivElement> }) {
+export default function FlouBords({ bas, auBout, reglages, refHaut, refVignette }: { bas: number; auBout: boolean; reglages: VillageEffets; refHaut?: Ref<HTMLDivElement>; refVignette?: Ref<HTMLDivElement> }) {
   const teinte = reglages.vignette === 'blanc' ? '255,255,255' : '0,0,0'
   const alpha = (reglages.vignetteForce / 100) * 0.7
   return (
@@ -67,12 +67,15 @@ export default function FlouBords({ bas, auBout, reglages, refHaut }: { bas: num
         </>
       )}
       {/* LA VIGNETTE — un ovale transparent au centre, la teinte aux bords.
-          Un simple dégradé : ne coûte rien au défilement. */}
+          Un simple dégradé : ne coûte rien au défilement. Sa TAILLE règle
+          jusqu'où la teinte gagne vers le centre. Elle ne couvre pas la barre
+          du haut : la page écrit son `top` (refVignette) pour qu'elle commence
+          sous la barre et remonte à mesure que celle-ci sort de l'écran. */}
       {reglages.vignette !== 'aucune' && alpha > 0 && (
-        <div aria-hidden className="pcv-hide" style={{
+        <div ref={refVignette} aria-hidden className="pcv-hide" style={{
           position: 'absolute', top: 0, left: 0, right: 0, bottom: bas,
           zIndex: 26, pointerEvents: 'none',
-          background: `radial-gradient(ellipse 85% 75% at 50% 50%, rgba(${teinte},0) 55%, rgba(${teinte},${alpha.toFixed(3)}) 100%)`,
+          background: `radial-gradient(ellipse 85% 75% at 50% 50%, rgba(${teinte},0) ${100 - reglages.vignetteTaille}%, rgba(${teinte},${alpha.toFixed(3)}) 100%)`,
         }} />
       )}
     </>

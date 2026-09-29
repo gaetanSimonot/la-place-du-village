@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useTerritoire } from '@/components/TerritoireProvider'
 import { NAV_H } from '@/components/BottomNavBar'
 import AssistantChat from '@/components/assistant/AssistantChat'
+import ClientPortal from '@/components/ClientPortal'
 
 /**
  * ASSISTANT VILLAGE — la barre, en haut du Village.
@@ -72,14 +73,20 @@ export default function BarreAssistant() {
         `NAV_H` est importé et non retapé : la barre change de hauteur un jour,
         le bouton suit. `env(safe-area-inset-bottom)` remonte le bouton
         au-dessus de la barre gestuelle des téléphones à encoche.
+        Par un PORTAIL vers <body> : rendu dans le panneau du Village, il
+        restait pris dans son empilement, SOUS le flou et la vignette de bord.
+        C'est un bouton : il doit rester net et par-dessus tout effet.
       */}
+      <ClientPortal>
       <button
         type="button"
         onClick={() => { setParLaVoix(false); setQuestion('') }}
         aria-label="Assistant Village"
         className="pcv-assistFab"
         style={{
-          position: 'fixed', right: 14, zIndex: 60,
+          // 28 : au-dessus du flou et de la vignette (26) et du voile (27),
+          // mais sous toutes les fenêtres de la page (chat 110, modales 400+).
+          position: 'fixed', right: 14, zIndex: 28,
           bottom: `calc(${NAV_H}px + 14px + env(safe-area-inset-bottom, 0px))`,
           border: 0, padding: 0, background: 'none', lineHeight: 0, cursor: 'pointer',
           filter: 'drop-shadow(0 8px 22px rgba(26,18,9,.32))',
@@ -89,6 +96,7 @@ export default function BarreAssistant() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/assistant-fab.png" alt="" width={72} height={72} style={{ width: 72, height: 72, display: 'block' }} />
       </button>
+      </ClientPortal>
 
       {question !== null && (
         <AssistantChat question={question} dicter={parLaVoix} onClose={() => setQuestion(null)} />

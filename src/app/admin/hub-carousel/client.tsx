@@ -1015,6 +1015,7 @@ export default function AdminHubCarousel() {
           </div>
           {([
             { cle: 'courbe' as const, titre: 'Courbe', sous: 'Les blocs se penchent en haut et en bas de l’écran, comme dans un tambour ; les photos des publications se tordent.' },
+            { cle: 'enfoncement' as const, titre: 'Enfoncement sous le doigt (essai)', sous: 'Quand on fait défiler, l’écran s’enfonce sous le doigt, et revient à plat avec un petit rebond au lâcher. Remplace la courbe fixe.' },
             { cle: 'flou'   as const, titre: 'Flou de bord', sous: 'Un flou progressif en haut et en bas, façon mise au point macro.' },
           ]).map(o => (
             <label key={o.cle} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', cursor: 'pointer' }}>
@@ -1030,6 +1031,42 @@ export default function AdminHubCarousel() {
               </div>
             </label>
           ))}
+
+          {/* La force de la courbe — seulement quand elle est allumée. */}
+          {/* Les curseurs de l'enfoncement — seulement quand il est allumé. */}
+          {effets.enfoncement && ([
+            { cle: 'creuxProfondeur' as const, titre: 'Profondeur du creux', unite: ' px' },
+            { cle: 'creuxLargeur'    as const, titre: 'Largeur de la zone enfoncée', unite: ' %' },
+          ]).map(o => (
+            <div key={o.cle} style={{ padding: '0 0 6px 28px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, fontWeight: 700, color: '#1A1209' }}>
+                <span>{o.titre}</span><span style={{ color: '#7A6A5A' }}>{effets[o.cle]}{o.unite}</span>
+              </div>
+              <input
+                type="range"
+                min={BORNES_EFFETS[o.cle].min} max={BORNES_EFFETS[o.cle].max}
+                value={effets[o.cle]}
+                onChange={e => majEffets({ [o.cle]: Number(e.target.value) })}
+                style={{ width: '100%', accentColor: '#2D5A3D' }}
+              />
+            </div>
+          ))}
+
+          {/* La force de la courbe fixe — seulement quand c'est elle qui joue. */}
+          {effets.courbe && !effets.enfoncement && (
+            <div style={{ padding: '0 0 6px 28px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, fontWeight: 700, color: '#1A1209' }}>
+                <span>Force de la courbe</span><span style={{ color: '#7A6A5A' }}>{effets.courbeForce}</span>
+              </div>
+              <input
+                type="range"
+                min={BORNES_EFFETS.courbeForce.min} max={BORNES_EFFETS.courbeForce.max}
+                value={effets.courbeForce}
+                onChange={e => majEffets({ courbeForce: Number(e.target.value) })}
+                style={{ width: '100%', accentColor: '#2D5A3D' }}
+              />
+            </div>
+          )}
 
           {/* Les curseurs du flou — seulement quand il est allumé. */}
           {effets.flou && ([
@@ -1088,6 +1125,16 @@ export default function AdminHubCarousel() {
                 min={BORNES_EFFETS.vignetteForce.min} max={BORNES_EFFETS.vignetteForce.max}
                 value={effets.vignetteForce}
                 onChange={e => majEffets({ vignetteForce: Number(e.target.value) })}
+                style={{ width: '100%', accentColor: '#2D5A3D' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, fontWeight: 700, color: '#1A1209', marginTop: 6 }}>
+                <span>Taille de la vignette</span><span style={{ color: '#7A6A5A' }}>{effets.vignetteTaille} %</span>
+              </div>
+              <input
+                type="range"
+                min={BORNES_EFFETS.vignetteTaille.min} max={BORNES_EFFETS.vignetteTaille.max}
+                value={effets.vignetteTaille}
+                onChange={e => majEffets({ vignetteTaille: Number(e.target.value) })}
                 style={{ width: '100%', accentColor: '#2D5A3D' }}
               />
             </div>

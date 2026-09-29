@@ -8,11 +8,18 @@ import { useEffect, useRef } from 'react'
  * (desktop-cinema.css, `pcv-cineDefile`) défile déjà en CSS — les deux
  * mécanismes ensemble se battraient.
  *
- * On avance `scrollLeft` et non un `transform` : le rouleau reste un rouleau
- * natif, qu'on pousse au pouce avec son élan. Le doigt prend la main tant
- * qu'il est posé ; levé, le défilement reprend AUSSITÔT, depuis là où il l'a
- * laissé — le temps seulement que l'élan éventuel s'éteigne (reprendre
- * pendant l'élan le couperait net).
+ * On avance `scrollLeft` et non un `transform`.
+ *
+ * LE DÉFILEMENT VERTICAL EST PRIORITAIRE. Un doigt posé sur une affiche puis
+ * tiré vers le haut doit faire défiler la PAGE ; laissé au navigateur, le
+ * geste restait accroché au rouleau, qui ne bougeait qu'en largeur. D'où
+ * `touch-action: pan-y` : le navigateur ne fait plus que le vertical, et
+ * c'est ce hook qui mène l'horizontal — seulement quand le doigt part
+ * franchement de côté (premier mouvement plus large que haut), avec un élan
+ * à la fin. Un glissé horizontal n'ouvre pas l'affiche sous le doigt.
+ *
+ * Le doigt posé met en pause ; levé, le défilement reprend aussitôt (après
+ * l'élan s'il y en a un), depuis là où il a été laissé.
  *
  * LA BOUCLE. La liste est écrite deux fois ; les éléments de la copie portent
  * `lpv-defileDup`, invisibles tant que la piste n'a pas `data-defile="1"`.
@@ -25,7 +32,7 @@ import { useEffect, useRef } from 'react'
  * « moins d'animations » demandé.
  */
 const VITESSE = 10            // px par seconde — « très très très doucement »
-/** Sans mouvement natif depuis ce délai, l'élan est fini : on reprend. */
+/** Délai entre le doigt levé (ou la fin de l’élan) et la reprise du défilement. */
 const REPRISE_APRES_DOIGT = 150
 
 export function useDefilementDoux<T extends HTMLElement>(nbElements: number) {
@@ -55,7 +62,6 @@ export function useDefilementDoux<T extends HTMLElement>(nbElements: number) {
     let avant = 0
     let raf = 0
     let enPause = false
-    let doigtSurPiste = false
     let visible = true
     let reprise: ReturnType<typeof setTimeout> | undefined
 
@@ -77,24 +83,84 @@ export function useDefilementDoux<T extends HTMLElement>(nbElements: number) {
     }
     const arreter = () => { cancelAnimationFrame(raf); raf = 0 }
 
-    const doigtPose = () => { enPause = true; doigtSurPiste = true; clearTimeout(reprise); arreter() }
+    /** Ramène une position dans [0, période[ : la boucle vaut aussi au pouce. */
+    const boucle = (x: number) => ((x % periode) + periode) % periode
+
     const programmerReprise = () => {
       clearTimeout(reprise)
       reprise = setTimeout(() => {
         enPause = false
-        pos = el.scrollLeft
-        // Revenu trop loin à gauche ou parti trop loin à droite au pouce :
-        // on se remet dans la première liste, à la même image.
-        if (pos >= periode) pos -= periode
+        pos = boucle(el.scrollLeft)
         el.scrollLeft = pos
         dernierPose = el.scrollLeft
         lancer()
       }, REPRISE_APRES_DOIGT)
     }
-    const doigtLeve = () => { doigtSurPiste = false; programmerReprise() }
-    // Pendant l'élan qui suit le doigt levé, chaque mouvement repousse la
-    // reprise : elle tombe à l'arrêt du rouleau, pas au milieu.
-    const surDefileNatif = () => { if (enPause && !doigtSurPiste) programmerReprise() }
+
+    // Le geste en cours : d'où il part, et dans quel axe il s'est décidé.
+    let geste: { x0: number; y0: number; gauche0: number; axe: 'h' | 'v' | null; derX: number; derT: number; vitesse: number } | null = null
+    let rafElan = 0
+    let bloquerClic = false
+
+    const doigtPose = (e: TouchEvent) => {
+      const t = e.touches[0]
+      if (!t) return
+      enPause = true
+      clearTimeout(reprise)
+      arreter()
+      cancelAnimationFrame(rafElan); rafElan = 0
+      geste = { x0: t.clientX, y0: t.clientY, gauche0: el.scrollLeft, axe: null, derX: t.clientX, derT: e.timeStamp, vitesse: 0 }
+    }
+
+    const doigtBouge = (e: TouchEvent) => {
+      const t = e.touches[0]
+      if (!geste || !t) return
+      const dx = t.clientX - geste.x0, dy = t.clientY - geste.y0
+      if (!geste.axe) {
+        if (Math.hypot(dx, dy) < 8) return
+        // Plus large que haut : c'est pour le rouleau. Sinon la page défile
+        // (le navigateur s'en charge, touch-action: pan-y) et on n'y touche pas.
+        geste.axe = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'
+      }
+      if (geste.axe !== 'h') return
+      pos = boucle(geste.gauche0 - dx)
+      el.scrollLeft = pos
+      dernierPose = el.scrollLeft
+      const dt = e.timeStamp - geste.derT
+      if (dt > 0) geste.vitesse = 0.8 * ((t.clientX - geste.derX) / dt) + 0.2 * geste.vitesse
+      geste.derX = t.clientX; geste.derT = e.timeStamp
+    }
+
+    const doigtLeve = () => {
+      const g = geste
+      geste = null
+      if (!g || g.axe !== 'h') { programmerReprise(); return }
+      // Un glissé de côté n'est pas un tap : on n'ouvre pas l'affiche.
+      bloquerClic = true
+      setTimeout(() => { bloquerClic = false }, 350)
+      // L'élan : la vitesse du doigt, qui s'amortit.
+      let v = -g.vitesse // px/ms, dans le sens du défilement
+      let avantElan = 0
+      const elan = (t: number) => {
+        const dt = avantElan ? Math.min(t - avantElan, 50) : 16
+        avantElan = t
+        pos = boucle(pos + v * dt)
+        el.scrollLeft = pos
+        dernierPose = el.scrollLeft
+        v *= Math.pow(0.94, dt / 16)
+        if (Math.abs(v) > 0.02) rafElan = requestAnimationFrame(elan)
+        else { rafElan = 0; programmerReprise() }
+      }
+      if (Math.abs(v) > 0.05) rafElan = requestAnimationFrame(elan)
+      else programmerReprise()
+    }
+    const doigtAnnule = () => { geste = null; programmerReprise() }
+
+    const clicApresGlisse = (e: MouseEvent) => {
+      if (!bloquerClic) return
+      e.preventDefault()
+      e.stopPropagation()
+    }
     const surVisibilite = () => (document.hidden ? arreter() : lancer())
 
     const io = new IntersectionObserver(([e]) => {
@@ -102,12 +168,14 @@ export function useDefilementDoux<T extends HTMLElement>(nbElements: number) {
       if (visible) lancer(); else arreter()
     })
     io.observe(el)
+    // Le vertical appartient au navigateur ; l'horizontal, c'est nous.
+    const touchActionAvant = el.style.touchAction
+    el.style.touchAction = 'pan-y'
     el.addEventListener('touchstart', doigtPose, { passive: true })
+    el.addEventListener('touchmove', doigtBouge, { passive: true })
     el.addEventListener('touchend', doigtLeve, { passive: true })
-    el.addEventListener('touchcancel', doigtLeve, { passive: true })
-    el.addEventListener('pointerdown', doigtPose)
-    el.addEventListener('pointerup', doigtLeve)
-    el.addEventListener('scroll', surDefileNatif, { passive: true })
+    el.addEventListener('touchcancel', doigtAnnule, { passive: true })
+    el.addEventListener('click', clicApresGlisse, true)
     document.addEventListener('visibilitychange', surVisibilite)
     lancer()
 
@@ -115,12 +183,13 @@ export function useDefilementDoux<T extends HTMLElement>(nbElements: number) {
       arreter()
       clearTimeout(reprise)
       io.disconnect()
+      cancelAnimationFrame(rafElan)
+      el.style.touchAction = touchActionAvant
       el.removeEventListener('touchstart', doigtPose)
+      el.removeEventListener('touchmove', doigtBouge)
       el.removeEventListener('touchend', doigtLeve)
-      el.removeEventListener('touchcancel', doigtLeve)
-      el.removeEventListener('pointerdown', doigtPose)
-      el.removeEventListener('pointerup', doigtLeve)
-      el.removeEventListener('scroll', surDefileNatif)
+      el.removeEventListener('touchcancel', doigtAnnule)
+      el.removeEventListener('click', clicApresGlisse, true)
       document.removeEventListener('visibilitychange', surVisibilite)
       delete el.dataset.defile
     }

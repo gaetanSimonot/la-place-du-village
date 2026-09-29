@@ -36,8 +36,38 @@ export const fetchCache = 'force-no-store'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-/** La limite de l'API de transcription. Au-delà, elle refuse le fichier. */
-const MAX_AUDIO = 24 * 1024 * 1024
+/**
+ * La limite de l'API de transcription : 25 Mo par envoi, au-delà elle refuse.
+ * Un fichier plus lourd est donc DÉCOUPÉ en morceaux de TAILLE_MORCEAU,
+ * transcrits l'un après l'autre et recollés (cf. decouperMp3).
+ */
+const TAILLE_MORCEAU = 20 * 1024 * 1024
+/** Garde-fou : au-delà, même découpée, l'émission dépasserait le temps alloué. */
+const MAX_AUDIO = 120 * 1024 * 1024
+
+/** Les noms propres du territoire, soufflés au modèle : sans eux « Ganges »
+ *  devient « Gange » et « Sauve » devient « sauve ». */
+const AMORCE = 'Émission de radio locale dans les Cévennes. Communes citées : Ganges, Sauve, Le Vigan, Saint-Hippolyte-du-Fort, Saint-Bauzille-de-Putois, Laroque, Sumène, Quissac, Lasalle, Monoblet, Cazilhac.'
+
+/**
+ * Coupe un MP3 en morceaux d'au plus `taille` octets, chacun commençant sur
+ * une trame MPEG (octet 0xFF suivi d'un en-tête de trame) : chaque morceau
+ * reste un MP3 que le décodeur lit du début. On cherche la trame la plus
+ * proche APRÈS le point de coupe visé — au pire quelques octets plus loin.
+ */
+function decouperMp3(buf: Uint8Array<ArrayBuffer>, taille: number): Uint8Array<ArrayBuffer>[] {
+  const morceaux: Uint8Array<ArrayBuffer>[] = []
+  let debut = 0
+  while (buf.length - debut > taille) {
+    let coupe = debut + taille - 4096
+    while (coupe < buf.length - 1 && !(buf[coupe] === 0xFF && (buf[coupe + 1] & 0xE0) === 0xE0 && (buf[coupe + 1] & 0x06) !== 0)) coupe++
+    if (coupe >= buf.length - 1) break
+    morceaux.push(buf.slice(debut, coupe))
+    debut = coupe
+  }
+  morceaux.push(buf.slice(debut))
+  return morceaux
+}
 
 /** Deux semaines de candidats : une émission annonce souvent la suivante. */
 const JOURS_CANDIDATS = 13
@@ -86,29 +116,47 @@ export async function POST(req: NextRequest) {
       // Le dire en clair, avec le chiffre : « trop gros » sans repère
       // n'indique pas quoi faire.
       return NextResponse.json({
-        error: `Fichier trop lourd pour la transcription : ${(audio.size / 1048576).toFixed(0)} Mo pour 24 Mo maximum. Un MP3 mono à 64 kbit/s tient une heure dans cette limite.`,
+        error: `Fichier trop lourd : ${(audio.size / 1048576).toFixed(0)} Mo pour ${MAX_AUDIO / 1048576} Mo maximum.`,
       }, { status: 413 })
     }
 
-    const form = new FormData()
-    form.append('file', audio, 'emission.mp3')
-    form.append('model', 'whisper-1')
-    form.append('language', 'fr')
-    // Les noms propres du territoire, soufflés au modèle : sans eux « Ganges »
-    // devient « Gange » et « Sauve » devient « sauve ».
-    form.append('prompt', 'Émission de radio locale dans les Cévennes. Communes citées : Ganges, Sauve, Le Vigan, Saint-Hippolyte-du-Fort, Saint-Bauzille-de-Putois, Laroque, Sumène, Quissac, Lasalle, Monoblet, Cazilhac.')
-
-    const rt = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-      body: form,
-    })
-    if (!rt.ok) {
-      const detail = await rt.text().catch(() => '')
-      return NextResponse.json({ error: `Transcription refusée (${rt.status}) ${detail.slice(0, 200)}` }, { status: 502 })
+    // Au-delà de la limite de l'API, on découpe — seulement un MP3 : ses
+    // trames se coupent proprement. Un autre format garde la limite d'un envoi.
+    const buf = new Uint8Array(await audio.arrayBuffer())
+    const estMp3 = /mpeg|mp3/i.test(audio.type) || /\.mp3(\?|$)/i.test(String(emission.audio_url))
+      || (buf[0] === 0x49 && buf[1] === 0x44 && buf[2] === 0x33) // en-tête ID3
+    if (audio.size > TAILLE_MORCEAU && !estMp3) {
+      return NextResponse.json({
+        error: `Fichier trop lourd pour la transcription : ${(audio.size / 1048576).toFixed(0)} Mo, et seul un MP3 peut être découpé. Exporte l'émission en MP3.`,
+      }, { status: 413 })
     }
-    const jt = await rt.json()
-    texte = String(jt?.text ?? '').trim()
+    const morceaux = audio.size > TAILLE_MORCEAU ? decouperMp3(buf, TAILLE_MORCEAU) : [buf]
+
+    const textes: string[] = []
+    for (let i = 0; i < morceaux.length; i++) {
+      const form = new FormData()
+      form.append('file', new Blob([morceaux[i]], { type: 'audio/mpeg' }), `emission-${i + 1}.mp3`)
+      form.append('model', 'whisper-1')
+      form.append('language', 'fr')
+      // La fin du morceau précédent sert d'amorce au suivant : le modèle
+      // garde le fil (noms, orthographe) d'un morceau à l'autre.
+      const suite = textes.length ? ` ${textes[textes.length - 1].slice(-300)}` : ''
+      form.append('prompt', `${AMORCE}${suite}`)
+
+      const rt = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+        body: form,
+      })
+      if (!rt.ok) {
+        const detail = await rt.text().catch(() => '')
+        const ou = morceaux.length > 1 ? ` (morceau ${i + 1}/${morceaux.length})` : ''
+        return NextResponse.json({ error: `Transcription refusée${ou} (${rt.status}) ${detail.slice(0, 200)}` }, { status: 502 })
+      }
+      const jt = await rt.json()
+      textes.push(String(jt?.text ?? '').trim())
+    }
+    texte = textes.filter(Boolean).join(' ')
     if (!texte) return NextResponse.json({ error: 'Transcription vide' }, { status: 502 })
 
     await supabaseAdmin.from('radio_emissions')
