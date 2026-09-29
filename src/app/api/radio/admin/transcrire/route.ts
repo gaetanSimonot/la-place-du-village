@@ -71,9 +71,11 @@ function decouperMp3(buf: Uint8Array<ArrayBuffer>, taille: number): Uint8Array<A
 
 /** Deux semaines de candidats : une émission annonce souvent la suivante. */
 const JOURS_CANDIDATS = 13
+/** Et la semaine d'avant : elle annonce aussi le week-end qui la précède. */
+const JOURS_AVANT = 7
 
 /** Plafond de candidats envoyés au modèle — au-delà, le rappel se dégrade. */
-const MAX_CANDIDATS = 180
+const MAX_CANDIDATS = 240
 
 interface RendezVous { id?: string | null; titre?: string; detail?: string }
 
@@ -165,8 +167,13 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 2. Reconnaître ────────────────────────────────────────────────────
-  const debut = String(emission.semaine_debut)
-  const fin = new Date(Date.parse(`${debut}T12:00:00Z`) + JOURS_CANDIDATS * 86_400_000)
+  // UNE SEMAINE EN ARRIÈRE aussi : une émission rangée sur la semaine du 28
+  // annonçait le week-end du 25 au 27. Ne proposer au modèle que l'agenda à
+  // partir du 28 le rendait incapable de reconnaître quoi que ce soit de ce
+  // week-end — 1 mention rattachée sur 28 (vécu le 29/09/2026).
+  const debut = new Date(Date.parse(`${String(emission.semaine_debut)}T12:00:00Z`) - JOURS_AVANT * 86_400_000)
+    .toISOString().slice(0, 10)
+  const fin = new Date(Date.parse(`${String(emission.semaine_debut)}T12:00:00Z`) + JOURS_CANDIDATS * 86_400_000)
     .toISOString().slice(0, 10)
 
   const { data: candidats } = await supabaseAdmin

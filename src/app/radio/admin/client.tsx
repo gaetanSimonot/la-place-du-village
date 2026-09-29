@@ -204,12 +204,55 @@ export default function RadioAdminClient() {
    * Écrire un second formulaire ici aurait produit des fiches au rabais, sans
    * géocodage ni contrôle de doublon.
    *
-   * Ce qu'on préremplit est ce qu'on SAIT : le titre entendu, et ce que
-   * l'animateur a dit du jour et du lieu, versé en description. La date et
-   * l'adresse restent à confirmer — les deviner d'une phrase parlée
-   * produirait des fiches fausses que personne ne relirait.
+   * LE PRÉREMPLISSAGE VIENT DE LA TRANSCRIPTION ENTIÈRE, pas de la ligne de
+   * résumé de la mention : /api/radio/admin/mention-fiche la relit avec
+   * l'extracteur des collecteurs et rend lieu, adresse, commune, dates,
+   * horaires, catégorie, prix, organisateurs, et une description faite de
+   * tout ce qui s'est dit à l'antenne. Avant, on n'en tirait qu'une date et
+   * une heure : ni adresse, ni horaires fiables, une description vide.
+   * Rien n'est enregistré sans relecture : la fiche s'ouvre, l'admin valide.
+   * Si l'extraction échoue, on retombe sur l'ancien préremplissage.
    */
   const [creerPour, setCreerPour] = useState<MentionAdmin | null>(null)
+  const [ficheInitiale, setFicheInitiale] = useState<Record<string, unknown> | null>(null)
+  const [preparation, setPreparation] = useState<string | null>(null)
+
+  async function preparerFiche(m: MentionAdmin) {
+    if (preparation) return
+    setPreparation(m.id)
+    try {
+      const res = await authedFetch('/api/radio/admin/mention-fiche', {
+        method: 'POST', body: JSON.stringify({ mention_id: m.id }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok || !j.event) throw new Error(j.error || `HTTP ${res.status}`)
+      const e = j.event as Record<string, unknown>
+      const texte = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined)
+      setFicheInitiale({
+        titre: texte(e.titre) ?? m.titre,
+        description: texte(e.description) ?? (m.detail ? `Annoncé à l’antenne : ${m.detail}` : ''),
+        date_debut: texte(e.date_debut),
+        date_fin: texte(e.date_fin),
+        heure: texte(e.heure),
+        categorie: texte(e.categorie) ?? 'autre',
+        categories: [texte(e.categorie) ?? 'autre'],
+        lieu_nom: texte(e.lieu_nom),
+        commune: texte(e.commune),
+        adresse: texte(e.lieu_adresse),
+        prix: texte(e.prix),
+        contact: texte(e.contact),
+        organisateurs: texte(e.organisateurs),
+        jours_semaine: Array.isArray(e.jours_semaine) ? e.jours_semaine : null,
+        dates: Array.isArray(e.dates) ? e.dates : null,
+      })
+    } catch (err) {
+      toast.error(`Préremplissage impossible (${(err as Error).message}) — fiche à compléter à la main`)
+      setFicheInitiale(null)
+    } finally {
+      setPreparation(null)
+      setCreerPour(m)
+    }
+  }
 
   async function rattacher(mentionId: string, evenementId: string) {
     const res = await authedFetch('/api/radio/admin', {
@@ -426,12 +469,14 @@ export default function RadioAdminClient() {
                             </div>
                           </div>
                           {!m.evenement_id && (
-                            <button type="button" onClick={() => setCreerPour(m)}
+                            <button type="button" onClick={() => void preparerFiche(m)}
+                              disabled={!!preparation}
                               className="flex-none rounded-full"
                               style={{ border: '1px solid var(--bord)', background: 'var(--blanc)',
                                        padding: '5px 10px', fontSize: 11.5, fontWeight: 700,
-                                       color: 'var(--primary)', cursor: 'pointer' }}>
-                              Créer la fiche
+                                       color: 'var(--primary)', cursor: preparation ? 'default' : 'pointer',
+                                       opacity: preparation && preparation !== m.id ? 0.5 : 1 }}>
+                              {preparation === m.id ? 'Lecture de l’émission…' : 'Créer la fiche'}
                             </button>
                           )}
                           <button type="button" onClick={() => retirerMention(m.id)}
@@ -459,7 +504,8 @@ export default function RadioAdminClient() {
 
       {creerPour && (
         <EventEditDrawer
-          initialData={{
+          initialData={(ficheInitiale as Parameters<typeof EventEditDrawer>[0]['initialData']) ?? {
+            // Repli : l'extraction a échoué, on ne part que de la mention.
             titre: creerPour.titre,
             description: creerPour.detail ? `Annoncé à l’antenne : ${creerPour.detail}` : '',
             ...(() => {
@@ -471,10 +517,11 @@ export default function RadioAdminClient() {
               }
             })(),
           }}
-          onClose={() => setCreerPour(null)}
+          onClose={() => { setCreerPour(null); setFicheInitiale(null) }}
           onSaved={async (r) => {
             const mention = creerPour
             setCreerPour(null)
+            setFicheInitiale(null)
             if (mention && r?.id) await rattacher(mention.id, r.id)
             else await relireDetail()
           }}
