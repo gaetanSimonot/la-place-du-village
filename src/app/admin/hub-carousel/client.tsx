@@ -20,6 +20,7 @@ import { parseEntree, PAGES_ARRIVEE, type EntreeApp, type PageArrivee } from '@/
 import EmbedPicker, { type EmbedItem } from '@/components/EmbedPicker'
 import { normaliserHerosListe, completerUrl, HEROS_VIDE, type HerosVillage, type PublicHeros } from '@/lib/villageHero'
 import ImageLibraryPicker from '@/components/ImageLibraryPicker'
+import { parseEffets, EFFETS_DEFAUT, type VillageEffets } from '@/lib/villageEffets'
 
 interface EnrichedSlot extends FeaturedSlotRow {
   title?: string
@@ -112,6 +113,9 @@ export default function AdminHubCarousel() {
      coup lisaient la même liste périmée, et le second effaçait le premier. */
   const herosRef = useRef<HerosVillage[]>([])
   const herosEnCours = useRef(false)
+  /** Effets de profondeur du Village — courbe et flou, cf. src/lib/villageEffets.ts. */
+  const [effets, setEffets] = useState<VillageEffets>(EFFETS_DEFAUT)
+  const [effetsSaving, setEffetsSaving] = useState(false)
   const herosEnAttente = useRef(false)
   /** Double clic requis avant de relancer le cycle de tout le monde. */
   const [resetAsked, setResetAsked] = useState(false)
@@ -136,7 +140,7 @@ export default function AdminHubCarousel() {
      */
     lireConfigsClient([
       'hub_hero_intro_enabled', 'hub_hero_intro_image_url',       'splash_promo', 'cinema_village_public', 'theatre_village_public',
-      'radio_village_public', 'assistant_visibilite', 'village_hero', 'entree_app',
+      'radio_village_public', 'assistant_visibilite', 'village_hero', 'entree_app', 'village_effets',
     ], territoireAdmin?.id ?? null, !!territoireAdmin?.par_defaut).then(cfg => {
       const toggleRes = { data: { value: cfg.hub_hero_intro_enabled } }
       const imgRes    = { data: { value: cfg.hub_hero_intro_image_url } }
@@ -158,9 +162,27 @@ export default function AdminHubCarousel() {
       herosRef.current = herosLus
       setHerosListe(herosLus)
       setEntree(parseEntree(entreeRes.data?.value))
+      setEffets(parseEffets(cfg.village_effets))
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user?.id, isAdmin, territoireAdmin?.id, territoireAdmin?.par_defaut])
+
+  /** Un interrupteur d'effet : enregistré aussitôt, remis en place si l'écriture échoue. */
+  async function changerEffet(cle: keyof VillageEffets, valeur: boolean) {
+    if (effetsSaving) return
+    const avant = effets
+    const suivant = { ...effets, [cle]: valeur }
+    setEffets(suivant); setEffetsSaving(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    // Réglage d'interface : global, jamais par territoire (cf. configCles.ts).
+    const res = await fetch(urlEcritureConfig(null), {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body:    JSON.stringify({ key: 'village_effets', value: JSON.stringify(suivant) }),
+    }).catch(() => null)
+    if (!res?.ok) setEffets(avant)
+    setEffetsSaving(false)
+  }
 
   async function toggleIntro(next: boolean) {
     if (introSaving) return
@@ -962,6 +984,38 @@ export default function AdminHubCarousel() {
           }}>
             Monter l&apos;émission de la semaine →
           </a>
+        </div>
+      </div>
+
+      {/* ── Effets de profondeur du Village — deux essais, allumés par
+          défaut. S'appliquent au prochain affichage du Village. */}
+      <div style={{ padding: '14px 16px 0' }}>
+        <div style={{
+          padding: 14, borderRadius: 12, background: '#FFFFFF',
+          border: '1px solid #E5DDD2', boxShadow: '0 1px 4px rgba(44,28,16,0.04)',
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>Effets du Village</div>
+          <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2, marginBottom: 10, lineHeight: 1.45 }}>
+            Téléphone seulement. Coupés d&apos;office pour qui a demandé moins d&apos;animations.
+          </div>
+          {([
+            { cle: 'courbe' as const, titre: 'Courbe', sous: 'Les blocs se penchent en haut et en bas de l’écran, comme dans un tambour.' },
+            { cle: 'flou'   as const, titre: 'Flou de bord', sous: 'Un flou progressif en haut et en bas, façon mise au point macro.' },
+          ]).map(o => (
+            <label key={o.cle} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', cursor: effetsSaving ? 'default' : 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={effets[o.cle]}
+                disabled={effetsSaving}
+                onChange={e => void changerEffet(o.cle, e.target.checked)}
+                style={{ accentColor: '#2D5A3D', cursor: 'pointer' }}
+              />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 800, color: '#1A1209' }}>{o.titre}</div>
+                <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 1 }}>{o.sous}</div>
+              </div>
+            </label>
+          ))}
         </div>
       </div>
 

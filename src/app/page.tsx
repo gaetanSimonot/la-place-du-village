@@ -37,6 +37,10 @@ import { lireEntreeEnCache, entreeFraiche } from '@/lib/entreeApp'
 import { useHerosVillage } from '@/hooks/useHerosVillage'
 import { lienHeros, herosExterne } from '@/lib/villageHero'
 import RadioPastille from '@/components/RadioPastille'
+import FlouBords from '@/components/village/FlouBords'
+import { useEffetTambour } from '@/hooks/useEffetTambour'
+import { parseEffets, EFFETS_DEFAUT, type VillageEffets } from '@/lib/villageEffets'
+import { lireConfigsClient } from '@/lib/configClient'
 import { correspond, scoreCorrespondance } from '@/lib/recherche'
 
 
@@ -120,6 +124,17 @@ export default function HomePage() {
   /** Le Village défile-t-il en ce moment ? Le voile s'efface pendant, revient après. */
   const [villageDefile, setVillageDefile] = useState(false)
   const finDefileVillage = useRef<ReturnType<typeof setTimeout>>()
+  /** Tout en haut du Village ? Éteint le flou du haut, qui voilerait l'en-tête. */
+  const [villageEnHaut, setVillageEnHaut] = useState(true)
+  /* Les effets de profondeur du Village (courbe, flou), réglés dans
+     /admin/hub-carousel. Allumés d'office tant que le réglage n'est pas lu. */
+  const [effetsVillage, setEffetsVillage] = useState<VillageEffets>(EFFETS_DEFAUT)
+  useEffect(() => {
+    lireConfigsClient(['village_effets'], null, true)
+      .then(c => setEffetsVillage(parseEffets(c.village_effets)))
+      .catch(() => { /* on garde le défaut */ })
+  }, [])
+  const villagePanelRef = useRef<HTMLDivElement>(null)
   const [splashOpen, setSplashOpen]           = useState(false)  // splash éditorial — affiché 1× par session (ouverture de l'app)
   // Welcome modal une seule fois pour toujours (par device).
   // localStorage persiste entre les sessions browser et survit aux relances
@@ -474,6 +489,8 @@ export default function HomePage() {
     // Même point de rupture que desktop.css.
     return window.matchMedia('(min-width: 1024px)').matches ? 'village' : 'carte'
   })
+  // Le panneau n'existe que sur l'onglet Village : le hook se réarme à chaque retour.
+  useEffetTambour(villagePanelRef, effetsVillage.courbe && navTab === 'village')
   // Persiste navTab pour survivre aux navigations (ex: retour depuis /ajouter,
   // /capturer, /covoiturage/[id], etc.). Sans ça, navTab repart à 'accueil'
   // au mount → la condition `navTab === 'carte'` redevient fausse → les boutons
@@ -2266,10 +2283,12 @@ export default function HomePage() {
 
       {/* Village — mur du village (refonte app simple) */}
       {navTab === 'village' && (
-        <div className="pcv-panel" onScroll={e => {
+        <div ref={villagePanelRef} className="pcv-panel" onScroll={e => {
           const el = e.currentTarget
           const auBout = el.scrollTop + el.clientHeight >= el.scrollHeight - 24
           if (auBout !== villageAuBout) setVillageAuBout(auBout)
+          const enHaut = el.scrollTop < 16
+          if (enHaut !== villageEnHaut) setVillageEnHaut(enHaut)
           if (!villageDefile) setVillageDefile(true)
           clearTimeout(finDefileVillage.current)
           finDefileVillage.current = setTimeout(() => setVillageDefile(false), 250)
@@ -2293,10 +2312,13 @@ export default function HomePage() {
           descends ». Crème et non blanc : c'est le fond du Village, un blanc
           y ferait une bande. S'efface pendant le défilement et tout en bas,
           pour ne pas manger le dernier élément. Téléphone seulement (pcv-hide). */}
+      {navTab === 'village' && effetsVillage.flou && (
+        <FlouBords bas={NAV_H} enHaut={villageEnHaut} auBout={villageAuBout} />
+      )}
       {navTab === 'village' && (
         <div aria-hidden className="pcv-hide" style={{
           position: 'absolute', left: 0, right: 0, bottom: NAV_H, height: 56,
-          zIndex: 26, pointerEvents: 'none',
+          zIndex: 27, pointerEvents: 'none',
           background: 'linear-gradient(to top, var(--creme) 0%, rgba(0,0,0,0) 100%)',
           // Part VITE dès qu'on fait défiler (on veut voir ce qui monte),
           // revient DOUCEMENT une fois le doigt au repos.
