@@ -58,7 +58,7 @@ export default function AnnoncesAffiche() {
           au lieu de défiler — une zone défilante captait le glissé vertical.
           Liste écrite deux fois : la copie (lpv-defileDup) referme la boucle. */}
       <div>
-      <div ref={piste} className="flex items-start gap-2.5 lg:overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
+      <div ref={piste} className="flex items-stretch gap-2.5 lg:overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
         {[...annonces, ...annonces].map((a, i) => {
           const copie = i >= annonces.length
           const photo = a.photos?.[0]
@@ -84,8 +84,11 @@ export default function AnnoncesAffiche() {
               </span>
               <span className="block px-2 pb-2 pt-1.5">
                 <span className="block truncate text-[13px] font-extrabold" style={{ color: '#C84B2F' }}>{getPrixAffiche(a)}</span>
-                <span className="mt-0.5 line-clamp-2 block text-[12.5px] font-semibold leading-[1.3]" style={{ color: '#1A1209' }}>{a.titre}</span>
-                {a.ville && <span className="mt-0.5 block truncate text-[11px]" style={{ color: '#7A6A5A' }}>{a.ville}</span>}
+                {/* Hauteurs FIXES : titre sur deux lignes réservées, ville
+                    toujours présente — toutes les cartes font la même taille,
+                    qu'un titre tienne sur une ligne ou non. */}
+                <span className="mt-0.5 line-clamp-2 block text-[12.5px] font-semibold leading-[1.3]" style={{ color: '#1A1209', height: '2.6em' }}>{a.titre}</span>
+                <span className="mt-0.5 block truncate text-[11px]" style={{ color: '#7A6A5A' }}>{a.ville || ' '}</span>
               </span>
             </Link>
           )
