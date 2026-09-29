@@ -1560,12 +1560,15 @@ export default function HomePage() {
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18,
         }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="" width={112} height={112} style={{ display: 'block', mixBlendMode: 'multiply' }} />
+          <img src="/icon.svg" alt="" width={96} height={96} style={{ display: 'block', borderRadius: 22, boxShadow: '0 6px 18px rgba(178,61,18,0.22)' }} />
+          {/* Même gabarit que les titres de rubrique actifs (.lpv-titre) :
+              sans-serif très gras, début vert, dernier mot orange. */}
           <p style={{
-            margin: 0, fontFamily: 'var(--font-display), Georgia, serif', fontSize: 26,
-            color: '#2D5A3D', textAlign: 'center', padding: '0 24px',
+            margin: 0, fontFamily: 'var(--font-body), sans-serif', fontWeight: 800, fontSize: 28,
+            lineHeight: 1.15, letterSpacing: '-0.02em', textAlign: 'center', padding: '0 24px',
           }}>
-            Bienvenue sur La Place
+            <span style={{ color: '#2D5A3D' }}>Bienvenue sur </span>
+            <span style={{ color: '#C84B2F' }}>La Place</span>
           </p>
         </div>
       )}
