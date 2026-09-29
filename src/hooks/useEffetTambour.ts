@@ -55,12 +55,15 @@ const SEUIL_BLOC = 0.25       // au-delà de ce quart d'écran, on découpe
 const HORS_ECRAN = 50         // px au-delà du bord : plus de transform
 // Mode « défilement » (essai) : le centre de l'écran s'enfonce pendant que le
 // doigt fait défiler, le haut et le bas restent en place.
-const SEUIL_ENFONCE = 10      // px de mouvement VERTICAL du doigt avant d'enfoncer
+const SEUIL_ENFONCE = 6       // px de mouvement VERTICAL du doigt avant d'enfoncer
 const PROFONDEUR_CREUX = 110  // px au centre, à la force 50
 // Ressort (unités : secondes), amorti critique dans les deux sens : le creux se
 // forme et se referme sans jamais dépasser. Un retour sous-amorti (0,5) faisait
 // un petit rebond au lâcher — jugé gênant, retiré.
-const RAIDEUR = 170
+// Le creux se forme plus vite qu'il ne se referme : il doit répondre au doigt
+// (~0,18 s à 95 % au lieu de ~0,36 s), le retour garde sa douceur.
+const RAIDEUR_MONTEE = 650
+const RAIDEUR_RETOUR = 170
 const AMORTI_MONTEE = 1
 const AMORTI_RETOUR = 1
 
@@ -284,9 +287,15 @@ export function useEffetTambour(
       const dt = avantAmpl ? Math.min(t - avantAmpl, 40) / 1000 : 1 / 60
       avantAmpl = t
       const zeta = cibleAmpl > 0 ? AMORTI_MONTEE : AMORTI_RETOUR
-      const acc = -RAIDEUR * (ampl - cibleAmpl) - 2 * zeta * Math.sqrt(RAIDEUR) * vitesseAmpl
-      vitesseAmpl += acc * dt
-      ampl += vitesseAmpl * dt
+      const k = cibleAmpl > 0 ? RAIDEUR_MONTEE : RAIDEUR_RETOUR
+      // Sous-pas de 8 ms au plus : un ressort raide intégré sur une image
+      // lente (40 ms) diverge et tremble.
+      const n = Math.ceil(dt / 0.008), h = dt / n
+      for (let i = 0; i < n; i++) {
+        const acc = -k * (ampl - cibleAmpl) - 2 * zeta * Math.sqrt(k) * vitesseAmpl
+        vitesseAmpl += acc * h
+        ampl += vitesseAmpl * h
+      }
       const fini = Math.abs(ampl - cibleAmpl) < 0.002 && Math.abs(vitesseAmpl) < 0.01
       if (fini) { ampl = cibleAmpl; vitesseAmpl = 0 }
       appliquer()
