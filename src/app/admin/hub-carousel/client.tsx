@@ -21,6 +21,7 @@ import EmbedPicker, { type EmbedItem } from '@/components/EmbedPicker'
 import { normaliserHerosListe, completerUrl, HEROS_VIDE, type HerosVillage, type PublicHeros } from '@/lib/villageHero'
 import ImageLibraryPicker from '@/components/ImageLibraryPicker'
 import { parseEffets, EFFETS_DEFAUT, BORNES_EFFETS, garderEffetsEnCache, type VillageEffets } from '@/lib/villageEffets'
+import { SECTIONS_VILLAGE, ORDRE_DEFAUT, parseOrdre, garderOrdreEnCache, type SectionVillage } from '@/lib/villageOrdre'
 
 interface EnrichedSlot extends FeaturedSlotRow {
   title?: string
@@ -72,7 +73,7 @@ const CHAMP = { width: '100%', padding: '9px 10px', borderRadius: 9, border: '1.
 const CLE_GROUPES = 'pdv-admin-hub-groupes'
 const GROUPES = [
   { id: 'entree',    ordre: 10, titre: 'Entrée de l’app',      sous: 'Écran d’accueil, page d’arrivée, splashs de l’offre Habitant' },
-  { id: 'village',   ordre: 20, titre: 'Page Village',         sous: 'Héros, effets visuels (courbe, flou, vignette, voile)' },
+  { id: 'village',   ordre: 20, titre: 'Page Village',         sous: 'Ordre des sections, héros, effets visuels' },
   { id: 'modules',   ordre: 30, titre: 'Modules du Village',   sous: 'Cinéma, théâtre, radio, Assistant — qui les voit' },
   { id: 'carrousel', ordre: 40, titre: 'Carrousel à la une',   sous: 'Slide « Bouche à oreille » et mises en avant' },
 ] as const
@@ -165,6 +166,30 @@ export default function AdminHubCarousel() {
   const herosEnAttente = useRef(false)
   /** Double clic requis avant de relancer le cycle de tout le monde. */
   const [resetAsked, setResetAsked] = useState(false)
+  /* L'ordre des sections de la page Village (village_ordre). Chaque flèche
+     enregistre tout de suite, et ce téléphone s'en souvient pour ouvrir le
+     Village dans le nouvel ordre. */
+  const [ordreVillage, setOrdreVillage] = useState<SectionVillage[]>(ORDRE_DEFAUT)
+  const [ordreMsg, setOrdreMsg] = useState<string | null>(null)
+  async function deplacerSection(i: number, sens: -1 | 1) {
+    const j = i + sens
+    if (j < 0 || j >= ordreVillage.length) return
+    const suite = [...ordreVillage]
+    ;[suite[i], suite[j]] = [suite[j], suite[i]]
+    const avant = ordreVillage
+    setOrdreVillage(suite)
+    const { data: { session } } = await supabase.auth.getSession()
+    // Réglage d'interface : global, jamais par territoire (cf. configCles.ts).
+    const res = await fetch(urlEcritureConfig(null), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body: JSON.stringify({ key: 'village_ordre', value: JSON.stringify(suite) }),
+    }).catch(() => null)
+    if (res?.ok) { garderOrdreEnCache(suite); setOrdreMsg('Enregistré') }
+    else { setOrdreVillage(avant); setOrdreMsg('Échec de l’enregistrement') }
+    setTimeout(() => setOrdreMsg(null), 2000)
+  }
+
   /* Les sections repliables de l'écran (cf. GROUPES) : lesquelles sont
      ouvertes. Retenu sur ce navigateur — on retrouve l'écran comme on l'a
      laissé. Tout replié par défaut : on voit d'abord le sommaire. */
@@ -198,7 +223,7 @@ export default function AdminHubCarousel() {
      */
     lireConfigsClient([
       'hub_hero_intro_enabled', 'hub_hero_intro_image_url',       'splash_promo', 'cinema_village_public', 'theatre_village_public',
-      'radio_village_public', 'assistant_visibilite', 'village_hero', 'entree_app', 'village_effets',
+      'radio_village_public', 'assistant_visibilite', 'village_hero', 'entree_app', 'village_effets', 'village_ordre',
     ], territoireAdmin?.id ?? null, !!territoireAdmin?.par_defaut).then(cfg => {
       const toggleRes = { data: { value: cfg.hub_hero_intro_enabled } }
       const imgRes    = { data: { value: cfg.hub_hero_intro_image_url } }
@@ -220,6 +245,7 @@ export default function AdminHubCarousel() {
       herosRef.current = herosLus
       setHerosListe(herosLus)
       setEntree(parseEntree(entreeRes.data?.value))
+      setOrdreVillage(parseOrdre(cfg.village_ordre))
       const effetsLus = parseEffets(cfg.village_effets)
       effetsRef.current = effetsLus
       setEffets(effetsLus)
@@ -1214,6 +1240,34 @@ export default function AdminHubCarousel() {
         </div>
       </div>
 
+      </Bloc>
+
+      <Bloc ordre={20.5} visible={!!ouverts.village}>
+      {/* ── L'ordre des sections de la page Village ────────────────────
+          Le haut de page (héros, grand titre) reste en tête ; tout le reste
+          se range ici. Une section vide (rien à l'affiche) ne s'affiche pas,
+          quelle que soit sa place. */}
+      <div style={{ padding: '14px 16px 0' }}>
+        <div style={{ padding: 14, borderRadius: 12, background: '#FFFFFF', border: '1px solid #E5DDD2', boxShadow: '0 1px 4px rgba(44,28,16,0.04)' }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>Ordre des sections</div>
+          <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2, marginBottom: 10, lineHeight: 1.45 }}>
+            Sous le héros et le grand titre, dans cet ordre. Pour tout le monde, enregistré à chaque flèche.
+          </div>
+          {ordreVillage.map((id, i) => (
+            <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderTop: i ? '1px solid #F0EAE0' : 'none' }}>
+              <span style={{ width: 20, fontSize: 11, fontWeight: 800, color: '#8A7A6A', textAlign: 'right' }}>{i + 1}</span>
+              <span style={{ flex: 1, fontSize: 12.5, fontWeight: 700, color: '#1A1209' }}>
+                {SECTIONS_VILLAGE.find(s => s.id === id)?.label ?? id}
+              </span>
+              <button type="button" onClick={() => void deplacerSection(i, -1)} disabled={i === 0}
+                aria-label="Monter" style={{ ...MINI_HEROS, opacity: i === 0 ? 0.35 : 1 }}>↑</button>
+              <button type="button" onClick={() => void deplacerSection(i, 1)} disabled={i === ordreVillage.length - 1}
+                aria-label="Descendre" style={{ ...MINI_HEROS, opacity: i === ordreVillage.length - 1 ? 0.35 : 1 }}>↓</button>
+            </div>
+          ))}
+          <div style={{ fontSize: 11, marginTop: 6, minHeight: 14, color: ordreMsg === 'Enregistré' ? '#2D5A3D' : '#B53A22' }}>{ordreMsg}</div>
+        </div>
+      </div>
       </Bloc>
 
       <Bloc ordre={21} visible={!!ouverts.village}>

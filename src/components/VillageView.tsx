@@ -1,5 +1,7 @@
 'use client'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
+import { parseOrdre, lireOrdreEnCache, garderOrdreEnCache, type SectionVillage } from '@/lib/villageOrdre'
+import { lireConfigsClient } from '@/lib/configClient'
 
 import DesktopVillageSidebar from '@/components/desktop/DesktopVillageSidebar'
 import DesktopVillageHero from '@/components/desktop/DesktopVillageHero'
@@ -68,6 +70,48 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
   // Le titre de la section qui occupe le milieu de l'écran prend l'accent.
   const racineRef = useRef<HTMLDivElement>(null)
   useTitresVivants(racineRef)
+
+  /* L'ordre des sections, réglé en admin. On démarre avec le dernier connu
+     de ce téléphone (sinon les sections se réarrangeaient à l'ouverture) ;
+     la base, relue derrière, ne réordonne que si elle diffère. */
+  const [ordreSections, setOrdreSections] = useState<SectionVillage[]>(() => lireOrdreEnCache())
+  useEffect(() => {
+    lireConfigsClient(['village_ordre'], null, true)
+      .then(c => {
+        const lu = parseOrdre(c.village_ordre)
+        garderOrdreEnCache(lu)
+        setOrdreSections(avant => (avant.join() === lu.join() ? avant : lu))
+      })
+      .catch(() => { /* on garde l'ordre connu */ })
+  }, [])
+
+  /* Chaque section, prête à être posée à son rang. Les commentaires qui
+     expliquaient leur place d'origine valent pour leur CONTENU ; leur place,
+     c'est désormais l'admin qui la décide. */
+  const sections: Record<SectionVillage, React.ReactNode> = {
+    // Aujourd'hui — bento du hub (featured + minis), Voir tout → carte.
+    // Masqué sur bureau : « À la une aujourd'hui » y montre les mêmes événements.
+    aujourdhui: <div className="pcv-hide"><TodaySection onVoirTout={onOpenAgendaToday} /></div>,
+    // Au cinéma, au théâtre, la radio : chacun s'efface s'il n'a rien à montrer.
+    cinema: <CinemaAffiche isAdmin={isAdmin} />,
+    theatre: <TheatreAffiche isAdmin={isAdmin} />,
+    radio: <RadioAffiche isAdmin={isAdmin} />,
+    // Petites annonces : un rouleau qui défile seul, absent sans annonce.
+    annonces: <AnnoncesAffiche />,
+    // CTA abonnement (comptes gratuits, refermable). Sur bureau il vit dans la
+    // colonne de droite (encartPromo), d'où pcv-hide ici.
+    abonnement: showPlansCard ? (
+      <div className="pcv-hide">
+        <PlansCardFinal
+          onClick={() => onUpgradePrompt?.('habitants', 'Promotions illimitées')}
+          onDismiss={() => { try { localStorage.setItem('pdv-plans-card-dismissed', '1') } catch { /* noop */ }; setPlansCardDismissed(true) }}
+        />
+      </div>
+    ) : null,
+    // Nos rubriques — les 4 raccourcis ; sur bureau, les portes du héros.
+    rubriques: <div className="pcv-hide"><Tiles /></div>,
+    fil: <VillageFeed user={user} avatar={avatar} authorName={profile?.display_name ?? 'Moi'} />,
+  }
 
   return (
     <div ref={racineRef} className="min-h-full bg-creme pb-6">
@@ -221,52 +265,15 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
         </div>
       </div>
 
-      {/* Aujourd'hui — bento du hub (featured + minis), Voir tout → carte.
-          Masqué sur bureau : la section « À la une aujourd'hui » ci-dessous
-          montre les mêmes événements au gabarit trois tuiles. */}
-      <div className="pcv-hide"><TodaySection onVoirTout={onOpenAgendaToday} /></div>
 
       {/* Sections bureau : à la une, territoire, agenda de la semaine. */}
       <DesktopVillageSections />
 
-      {/* Au cinéma — remonté juste après l'agenda du jour, dont il est le
-          prolongement. Le composant décide seul s'il s'affiche : réglage de
-          visibilité, compte admin, et rien à l'affiche = pas de bloc. */}
-      <CinemaAffiche isAdmin={isAdmin} />
-
-      {/* Au théâtre — juste après le cinéma, dont il est le pendant : deux
-          salles, deux façons de sortir le soir. Même règle d'auto-effacement,
-          et une accroche différente — le cinéma montre ce qu'on joue cette
-          semaine, le théâtre les prochaines dates, parce qu'une saison de
-          village compte dix soirées et non quarante séances. */}
-      <TheatreAffiche isAdmin={isAdmin} />
-
-      {/* Radio Escapades — la selection culturelle de la semaine. Juste apres
-          le cinema : deux facons d'apprendre ce qui se passe, l'une par
-          l'affiche, l'autre par l'antenne. Meme regle d'auto-effacement. */}
-      <RadioAffiche isAdmin={isAdmin} />
-
-      {/* Petites annonces — sous la radio, sur le modèle du cinéma : un
-          rouleau qui défile seul. Disparaît s'il n'y a aucune annonce. */}
-      <AnnoncesAffiche />
-
-      {/* CTA abonnement (comptes gratuits, dismissable) — repris du hub.
-          pcv-hide : sur bureau il vit dans la colonne de droite, entre les
-          bons plans et les annonces. Même composant, posé ailleurs. */}
-      {showPlansCard && (
-        <div className="pcv-hide">
-          <PlansCardFinal
-            onClick={() => onUpgradePrompt?.('habitants', 'Promotions illimitées')}
-            onDismiss={() => { try { localStorage.setItem('pdv-plans-card-dismissed', '1') } catch { /* noop */ }; setPlansCardDismissed(true) }}
-          />
-        </div>
-      )}
-
-      {/* Nos rubriques — les 4 raccourcis, descendus sous l'agenda.
-          Remplacées sur bureau par les quatre portes du héros. */}
-      <div className="pcv-hide"><Tiles /></div>
-
-      <VillageFeed user={user} avatar={avatar} authorName={profile?.display_name ?? 'Moi'} />
+      {/* LES SECTIONS, DANS L'ORDRE RÉGLÉ EN ADMIN (village_ordre, cf.
+          lib/villageOrdre). Chacune décide seule de s'afficher (réglage de
+          visibilité, rien à montrer = pas de bloc) : les déplacer ne change
+          rien à leur contenu. */}
+      {ordreSections.map(id => <Fragment key={id}>{sections[id]}</Fragment>)}
 
       </div>
       <DesktopVillageSidebar
