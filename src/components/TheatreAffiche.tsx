@@ -103,8 +103,8 @@ export default function TheatreAffiche({ isAdmin = false }: { isAdmin?: boolean 
   }, [data])
 
   // Le rouleau avance tout seul, très doucement (téléphone ; cf. le hook).
-  // Sens inverse du cinéma juste au-dessus : les deux rouleaux se distinguent.
-  const piste = useDefilementDoux<HTMLDivElement>(prochains.length, -1)
+  // Le rouleau avance tout seul, très doucement (téléphone ; cf. le hook).
+  const piste = useDefilementDoux<HTMLDivElement>(prochains.length)
 
   // Réglage de visibilité. Une seule règle, partagée par les modules :
   // masqué l'emporte sur tout — admin ET invités compris.

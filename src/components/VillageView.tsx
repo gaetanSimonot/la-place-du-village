@@ -211,7 +211,9 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
           {/* Titre — deux lignes, deux couleurs de la charte.
               pcv-hide : sur bureau, c'est le héros qui porte le titre. */}
           <div className="pcv-hide">
-            <h1 className="m-0 px-4 pb-5 pt-1 text-[27px] font-extrabold leading-[1.12]" style={{ letterSpacing: '-0.02em' }}>
+            {/* pb-2 et non pb-5 : sous ce titre, l'espace jusqu'à « N événements »
+                valait ~31 px contre ~20 entre deux rubriques — mesuré le 29/09. */}
+            <h1 className="m-0 px-4 pb-2 pt-1 text-[27px] font-extrabold leading-[1.12]" style={{ letterSpacing: '-0.02em' }}>
               <span style={{ color: '#2D5A3D' }}>Aujourd&apos;hui</span><br />
               <span style={{ color: '#C84B2F' }}>près de chez vous</span>
             </h1>
