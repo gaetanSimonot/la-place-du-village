@@ -50,13 +50,23 @@ const ZONE_PLATE = 0.35       // demi-hauteur plate, en fraction de la demi-haut
 const MARGE_CALQUE = 0.1      // en deçà du bord de la zone plate : calque préparé
 const SEUIL_BLOC = 0.25       // au-delà de ce quart d'écran, on découpe
 const HORS_ECRAN = 50         // px au-delà du bord : plus de transform
-// Mode « doigt » (essai) : l'écran s'enfonce sous le doigt qui fait défiler.
-const SEUIL_ENFONCE = 10      // px de mouvement VERTICAL avant d'enfoncer
-// Ressort (unités : secondes). À l'appui, amorti critique : le creux se forme
-// sans dépasser. Au lâcher, sous-amorti : il remonte avec un petit rebond.
+// Mode « défilement » (essai) : la courbe n'existe que pendant que la page bouge.
+const ARRET_DEFILEMENT = 140  // ms sans événement de défilement = la page s'est arrêtée
+// Ressort (unités : secondes). À la montée, amorti critique : la courbe
+// s'installe sans dépasser. Au retour, sous-amorti : petit rebond à plat.
 const RAIDEUR = 170
-const AMORTI_APPUI = 1
-const AMORTI_RELACHE = 0.5
+const AMORTI_MONTEE = 1
+const AMORTI_RETOUR = 0.5
+
+const CARTE_MAX = 0.6         // une carte plus haute que ça est quand même démontée
+
+/** Un élément qui dessine son propre cadre : fond, bordure ou ombre. */
+function estCarte(cs: CSSStyleDeclaration): boolean {
+  return (cs.backgroundColor !== 'rgba(0, 0, 0, 0)' && cs.backgroundColor !== 'transparent')
+    || cs.backgroundImage !== 'none'
+    || parseFloat(cs.borderTopWidth) > 0
+    || cs.boxShadow !== 'none'
+}
 
 /** Vrai quand les images du Village doivent se présenter en tranches. */
 export const TambourContexte = createContext(false)
@@ -64,32 +74,22 @@ export const TambourContexte = createContext(false)
 /** `centre` : ordonnée dans le contenu défilant ; `dx` : écart horizontal au centre de l'écran. */
 interface Bloc { el: HTMLElement; centre: number; dx: number; demi: number; pose: string }
 
-/** Réglages du mode doigt : profondeur du creux (px) et largeur (% de l'écran). */
-export interface ReglagesCreux { profondeur: number; largeur: number }
-
 /**
  * `force` : 10 à 100, 50 par défaut — le rayon du cylindre lui est inversement
  * proportionnel.
  *
  * `mode` :
- *  - 'cylindre' : la courbe fixe décrite plus haut.
- *  - 'doigt' (essai) : rien au repos. Dès que le doigt fait défiler (10 px de
- *    mouvement vertical — rien sur un tap, rien sur un glissé de côté dans un
- *    carrousel), l'écran s'ENFONCE sous lui comme une membrane : ce qui est
- *    sous le doigt recule (profil en cloche), ce qui l'entoure se penche vers
- *    le creux. Point de fuite : le doigt, en x et en y — ce qui est dessous
- *    recule sans glisser de côté. Le creux reste sous le doigt pendant qu'on
- *    fait défiler, le contenu glisse dessous. Au lâcher, retour à plat par un
- *    ressort, avec un petit rebond, en rAF — fluide pendant l'inertie aussi.
- *
- * Tactile en `passive: true`, jamais de preventDefault ; pas d'événements
- * pointer, que le navigateur annule (pointercancel) dès que le défilement part.
+ *  - 'cylindre' : la courbe, en permanence.
+ *  - 'defilement' (essai) : la MÊME courbe, centrée sur l'écran, mais qui
+ *    n'existe que pendant que la page bouge. Elle monte dès le premier pixel
+ *    de défilement, tient pendant l'élan, et revient à plat par un ressort à
+ *    petit rebond quand tout s'arrête. Rien ne suit le doigt : un premier
+ *    essai creusait l'écran SOUS le doigt, jugé trop agité.
  */
 export function useEffetTambour(
   ref: RefObject<HTMLElement>, actif: boolean, force = 50,
-  mode: 'cylindre' | 'doigt' = 'cylindre', creuxReglages: ReglagesCreux = { profondeur: 80, largeur: 25 },
+  mode: 'cylindre' | 'defilement' = 'cylindre',
 ) {
-  const { profondeur, largeur } = creuxReglages
   useEffect(() => {
     const cont = ref.current
     if (!actif || !cont) return
@@ -113,49 +113,27 @@ export function useEffetTambour(
         if (cs.position === 'fixed' || cs.position === 'sticky') continue
         if (cs.display === 'contents') { parcourir(enfant, seuil, out); continue }
         if (enfant.dataset.tranche !== undefined) { out.push(enfant); continue }
+        // Une CARTE (fond, bordure ou ombre à elle) ne se démonte pas : son
+        // cadre resterait à plat pendant que son contenu se penche — carré
+        // blanc immobile autour d'une publication, affiche rognée par sa
+        // tuile. Elle se penche d'un bloc, cadre compris, tant qu'elle ne
+        // dépasse pas CARTE_MAX de l'écran.
+        if (estCarte(cs) && enfant.offsetHeight <= cont.clientHeight * CARTE_MAX) { out.push(enfant); continue }
         if (enfant.offsetHeight > seuil && enfant.children.length) { parcourir(enfant, seuil, out); continue }
         if (enfant.offsetHeight < 8) continue
         out.push(enfant)
       }
     }
 
-    // Mode doigt : où appuie le doigt (px, dans le panneau ; x depuis son
-    // centre), et le creux : sa valeur (0 plat, 1 enfoncé, un peu négatif au
-    // rebond) et sa vitesse, menées par un ressort.
-    let doigtX = 0, doigtY = 0
-    let creux = 0, vitesseCreux = 0, cibleCreux = 0
-    let rafCreux = 0, avantCreux = 0
-    let depart: { x: number; y: number } | null = null
-
-    const appliquerDoigt = () => {
-      const h = cont.clientHeight
-      const moitie = h / 2
-      const haut = cont.scrollTop
-      const sigma = (largeur / 100) * h
-      const D = profondeur * creux
-      for (const b of blocs) {
-        let pose = ''
-        const horsEcran = Math.abs(b.centre - haut - moitie) - b.demi > moitie + HORS_ECRAN
-        if (Math.abs(D) > 0.2 && !horsEcran) {
-          const dy = b.centre - haut - doigtY       // du doigt au bloc
-          const e = Math.exp(-((dy / sigma) ** 2))
-          if (e > 0.01) {
-            // Cloche : z = −D·e. Pente dz/dy = D·2·dy/σ²·e ; le bloc se couche
-            // selon cette pente (le bord le plus loin du doigt vient vers soi).
-            const z = -D * e
-            const th = Math.max(-0.7, Math.min(0.7, Math.atan((D * 2 * dy) / (sigma * sigma) * e)))
-            const dx = b.dx - doigtX
-            pose = `translate(${(-dx).toFixed(1)}px, ${(-dy).toFixed(1)}px) perspective(${PERSPECTIVE}px) `
-              + `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) `
-              + `translate3d(0, 0, ${z.toFixed(1)}px) rotateX(${th.toFixed(4)}rad)`
-          }
-        }
-        if (pose !== b.pose) { b.el.style.transform = pose; b.pose = pose }
-      }
-    }
+    // L'intensité de la courbe : 1 en permanence en mode cylindre ; en mode
+    // défilement, menée par un ressort entre 0 (plat) et 1 (un peu négative
+    // au rebond du retour).
+    let ampl = mode === 'defilement' ? 0 : 1
+    let vitesseAmpl = 0, cibleAmpl = ampl
+    let rafAmpl = 0, avantAmpl = 0
+    let arret: ReturnType<typeof setTimeout> | undefined
 
     const appliquer = () => {
-      if (mode === 'doigt') { appliquerDoigt(); return }
       const h = cont.clientHeight
       const moitie = h / 2
       const R = RAYON * h * (50 / Math.max(10, force))
@@ -187,7 +165,7 @@ export function useEffetTambour(
             y = Z + R * Math.sin(th) + reste * Math.cos(th)
             z = R * (1 - Math.cos(th)) + reste * Math.sin(th)
           }
-          const k = signe < 0 ? progresHaut : 1
+          const k = (signe < 0 ? progresHaut : 1) * ampl
           const ty = (signe * y - dy) * k
           const tz = z * k
           const rx = signe * th * k
@@ -228,58 +206,34 @@ export function useEffetTambour(
     }
     const plusTard = () => { clearTimeout(minuteur); minuteur = setTimeout(collecter, 200) }
 
-    // Le ressort du creux, intégré image par image.
-    const animerCreux = (t: number) => {
-      const dt = avantCreux ? Math.min(t - avantCreux, 40) / 1000 : 1 / 60
-      avantCreux = t
-      const zeta = cibleCreux > 0 ? AMORTI_APPUI : AMORTI_RELACHE
-      const acc = -RAIDEUR * (creux - cibleCreux) - 2 * zeta * Math.sqrt(RAIDEUR) * vitesseCreux
-      vitesseCreux += acc * dt
-      creux += vitesseCreux * dt
-      const fini = Math.abs(creux - cibleCreux) < 0.002 && Math.abs(vitesseCreux) < 0.01
-      if (fini) { creux = cibleCreux; vitesseCreux = 0 }
+    // Le ressort de l'intensité, intégré image par image. Il applique la
+    // courbe lui-même tant qu'il bouge.
+    const animerAmpl = (t: number) => {
+      const dt = avantAmpl ? Math.min(t - avantAmpl, 40) / 1000 : 1 / 60
+      avantAmpl = t
+      const zeta = cibleAmpl > 0 ? AMORTI_MONTEE : AMORTI_RETOUR
+      const acc = -RAIDEUR * (ampl - cibleAmpl) - 2 * zeta * Math.sqrt(RAIDEUR) * vitesseAmpl
+      vitesseAmpl += acc * dt
+      ampl += vitesseAmpl * dt
+      const fini = Math.abs(ampl - cibleAmpl) < 0.002 && Math.abs(vitesseAmpl) < 0.01
+      if (fini) { ampl = cibleAmpl; vitesseAmpl = 0 }
       appliquer()
-      if (!fini) rafCreux = requestAnimationFrame(animerCreux)
-      else { rafCreux = 0; avantCreux = 0 }
+      if (!fini) rafAmpl = requestAnimationFrame(animerAmpl)
+      else { rafAmpl = 0; avantAmpl = 0 }
     }
-    const lancerCreux = () => { if (!rafCreux) rafCreux = requestAnimationFrame(animerCreux) }
-    const placerDoigt = (t: Touch) => {
-      const rc = cont.getBoundingClientRect()
-      doigtX = t.clientX - (rc.left + rc.width / 2)
-      doigtY = t.clientY - rc.top
-    }
-    const appui = (e: TouchEvent) => {
-      const t = e.touches[0]
-      if (!t || e.touches.length > 1) return
-      depart = { x: t.clientX, y: t.clientY }
-      placerDoigt(t)
-    }
-    const glisse = (e: TouchEvent) => {
-      const t = e.touches[0]
-      if (!t) return
-      placerDoigt(t)
-      if (depart && cibleCreux === 0) {
-        const dx = t.clientX - depart.x, dy = t.clientY - depart.y
-        // Un glissé franchement vertical, et seulement lui, enfonce l'écran.
-        if (Math.abs(dy) >= SEUIL_ENFONCE && Math.abs(dy) > Math.abs(dx)) { cibleCreux = 1; lancerCreux() }
-        else if (Math.abs(dx) >= SEUIL_ENFONCE) depart = null // horizontal : ce geste n'enfoncera pas
-      }
-      if (!rafCreux) surDefile()
-    }
-    const lache = (e: TouchEvent) => {
-      if (e.touches.length) return
-      depart = null
-      if (cibleCreux !== 0) { cibleCreux = 0; lancerCreux() }
-    }
-    if (mode === 'doigt') {
-      cont.addEventListener('touchstart', appui, { passive: true })
-      cont.addEventListener('touchmove', glisse, { passive: true })
-      cont.addEventListener('touchend', lache, { passive: true })
-      cont.addEventListener('touchcancel', lache, { passive: true })
+    const lancerAmpl = () => { if (!rafAmpl) rafAmpl = requestAnimationFrame(animerAmpl) }
+
+    // Mode défilement : chaque événement de défilement (doigt ou élan) tient
+    // la courbe levée ; ARRET_DEFILEMENT ms de silence la renvoie à plat.
+    const surDefileCourbe = () => {
+      if (cibleAmpl !== 1) { cibleAmpl = 1; lancerAmpl() }
+      clearTimeout(arret)
+      arret = setTimeout(() => { cibleAmpl = 0; lancerAmpl() }, ARRET_DEFILEMENT)
+      if (!rafAmpl) surDefile()
     }
 
     collecter()
-    cont.addEventListener('scroll', surDefile, { passive: true })
+    cont.addEventListener('scroll', mode === 'defilement' ? surDefileCourbe : surDefile, { passive: true })
     window.addEventListener('resize', plusTard)
     const ro = new ResizeObserver(plusTard)
     ro.observe(racine)
@@ -293,17 +247,15 @@ export function useEffetTambour(
 
     return () => {
       cancelAnimationFrame(raf)
-      cancelAnimationFrame(rafCreux)
+      cancelAnimationFrame(rafAmpl)
       clearTimeout(minuteur)
-      cont.removeEventListener('touchstart', appui)
-      cont.removeEventListener('touchmove', glisse)
-      cont.removeEventListener('touchend', lache)
-      cont.removeEventListener('touchcancel', lache)
+      clearTimeout(arret)
+      cont.removeEventListener('scroll', surDefileCourbe)
       cont.removeEventListener('scroll', surDefile)
       window.removeEventListener('resize', plusTard)
       ro.disconnect()
       mo.disconnect()
       for (const b of blocs) b.el.style.transform = ''
     }
-  }, [ref, actif, force, mode, profondeur, largeur])
+  }, [ref, actif, force, mode])
 }

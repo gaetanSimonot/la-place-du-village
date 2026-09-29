@@ -21,13 +21,10 @@ export interface VillageEffets {
   courbe: boolean
   /** Force de la courbe : 50 = rayon de 0,9 × l'écran ; plus fort = plus enroulé. */
   courbeForce: number
-  /** ESSAI : la courbe naît sous le doigt posé (l'écran s'enfonce) et
-   *  disparaît au lâcher. Remplace la courbe fixe tant qu'il est allumé. */
+  /** ESSAI « courbe au défilement » : la courbe n'apparaît que pendant que la
+   *  page défile et revient à plat à l'arrêt. Remplace la courbe fixe. (Le nom
+   *  vient d'un premier essai qui creusait l'écran sous le doigt.) */
   enfoncement: boolean
-  /** Profondeur du creux sous le doigt, en px. */
-  creuxProfondeur: number
-  /** Largeur de la zone enfoncée, en % de la hauteur de l'écran. */
-  creuxLargeur: number
   flou: boolean
   /** Hauteur des bandes de flou, en px. */
   flouTaille: number
@@ -47,8 +44,6 @@ export const EFFETS_DEFAUT: VillageEffets = {
   courbe: true,
   courbeForce: 50,
   enfoncement: false,
-  creuxProfondeur: 80,
-  creuxLargeur: 25,
   flou: true,
   flouTaille: 80,
   flouForce: 9,
@@ -62,8 +57,6 @@ export const EFFETS_DEFAUT: VillageEffets = {
 /** Bornes des curseurs de l'admin — et de la relecture, qui les respecte. */
 export const BORNES_EFFETS = {
   courbeForce:   { min: 10, max: 100 },
-  creuxProfondeur: { min: 20, max: 300 },
-  creuxLargeur:  { min: 10, max: 80 },
   flouTaille:    { min: 40, max: 240 },
   flouForce:     { min: 2,  max: 24 },
   flouRond:      { min: 0,  max: 100 },
@@ -85,8 +78,6 @@ export function parseEffets(v: string | null | undefined): VillageEffets {
       courbe: typeof o.courbe === 'boolean' ? o.courbe : EFFETS_DEFAUT.courbe,
       courbeForce: nombre(o.courbeForce, 'courbeForce'),
       enfoncement: o.enfoncement === true,
-      creuxProfondeur: nombre(o.creuxProfondeur, 'creuxProfondeur'),
-      creuxLargeur: nombre(o.creuxLargeur, 'creuxLargeur'),
       flou:   typeof o.flou === 'boolean' ? o.flou : EFFETS_DEFAUT.flou,
       flouTaille: nombre(o.flouTaille, 'flouTaille'),
       flouForce:  nombre(o.flouForce, 'flouForce'),

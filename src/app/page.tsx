@@ -135,16 +135,22 @@ export default function HomePage() {
   const villagePanelRef = useRef<HTMLDivElement>(null)
   /** La bande de flou du haut : son opacité suit le défilement, écrite en direct. */
   const flouHautRef = useRef<HTMLDivElement>(null)
-  /** La vignette : son bord haut suit la barre du haut, qu'elle ne couvre pas. */
+  /** Le calque HAUT de la vignette, celui qui recouvre la zone de la barre. */
   const vignetteRef = useRef<HTMLDivElement>(null)
+  /** Hauteur de la barre du haut du Village : borne la zone que la vignette épargne. */
+  const [barreVillage, setBarreVillage] = useState(60)
   /* Ce qui dépend de la barre du haut du Village, écrit en direct sur les
      éléments (ni état React, ni variable globale) : l'opacité du flou du haut
-     (0 tant que la barre est entière, 1 une fois sortie) et le bord haut de
-     la vignette (juste sous la barre, jusqu'à ce qu'elle sorte). */
+     et celle du calque haut de la vignette — 0 tant que la barre est entière,
+     1 une fois sortie. Des OPACITÉS et non une position : écrites au
+     défilement, elles ont une image de retard sur la page (qui défile sur un
+     autre fil) ; un fondu en retard ne se voit pas, un bord qui glisse si. */
   const majBordsHaut = useCallback((el: HTMLElement) => {
     const barre = (el.firstElementChild?.firstElementChild as HTMLElement | null)?.offsetHeight || 60
-    if (flouHautRef.current) flouHautRef.current.style.opacity = Math.min(1, el.scrollTop / barre).toFixed(3)
-    if (vignetteRef.current) vignetteRef.current.style.top = `${Math.max(0, barre - el.scrollTop)}px`
+    const p = Math.min(1, el.scrollTop / barre).toFixed(3)
+    if (flouHautRef.current) flouHautRef.current.style.opacity = p
+    if (vignetteRef.current) vignetteRef.current.style.opacity = p
+    setBarreVillage(b => (b === barre ? b : barre))
   }, [])
   const [splashOpen, setSplashOpen]           = useState(false)  // splash éditorial — affiché 1× par session (ouverture de l'app)
   // Welcome modal une seule fois pour toujours (par device).
@@ -505,8 +511,7 @@ export default function HomePage() {
     villagePanelRef,
     (effetsVillage.courbe || effetsVillage.enfoncement) && navTab === 'village',
     effetsVillage.courbeForce,
-    effetsVillage.enfoncement ? 'doigt' : 'cylindre',
-    { profondeur: effetsVillage.creuxProfondeur, largeur: effetsVillage.creuxLargeur },
+    effetsVillage.enfoncement ? 'defilement' : 'cylindre',
   )
   // Au montage du Village (et quand les effets changent), place la vignette
   // sous la barre du haut avant tout défilement ; re-mesure un peu plus tard,
@@ -2346,7 +2351,7 @@ export default function HomePage() {
           y ferait une bande. S'efface pendant le défilement et tout en bas,
           pour ne pas manger le dernier élément. Téléphone seulement (pcv-hide). */}
       {navTab === 'village' && (effetsVillage.flou || effetsVillage.vignette !== 'aucune') && (
-        <FlouBords bas={NAV_H} auBout={villageAuBout} reglages={effetsVillage} refHaut={flouHautRef} refVignette={vignetteRef} />
+        <FlouBords bas={NAV_H} auBout={villageAuBout} reglages={effetsVillage} refHaut={flouHautRef} refVignette={vignetteRef} barre={barreVillage} />
       )}
       {navTab === 'village' && effetsVillage.voile !== 'aucun' && (
         <div aria-hidden className="pcv-hide" style={{

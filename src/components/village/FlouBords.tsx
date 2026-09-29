@@ -55,9 +55,18 @@ function Bande({ cote, reglages, style, refBande }: { cote: 'haut' | 'bas'; regl
   )
 }
 
-export default function FlouBords({ bas, auBout, reglages, refHaut, refVignette }: { bas: number; auBout: boolean; reglages: VillageEffets; refHaut?: Ref<HTMLDivElement>; refVignette?: Ref<HTMLDivElement> }) {
+export default function FlouBords({ bas, auBout, reglages, refHaut, refVignette, barre = 60 }: { bas: number; auBout: boolean; reglages: VillageEffets; refHaut?: Ref<HTMLDivElement>; refVignette?: Ref<HTMLDivElement>; barre?: number }) {
   const teinte = reglages.vignette === 'blanc' ? '255,255,255' : '0,0,0'
   const alpha = (reglages.vignetteForce / 100) * 0.7
+  const fondVignette = `radial-gradient(ellipse 85% 75% at 50% 50%, rgba(${teinte},0) ${100 - reglages.vignetteTaille}%, rgba(${teinte},${alpha.toFixed(3)}) 100%)`
+  // Les deux calques de la vignette se partagent l'écran par des masques
+  // complémentaires, avec un fondu de 32 px à la limite de la barre.
+  const masqueCorps = `linear-gradient(to bottom, transparent ${barre}px, #000 ${barre + 32}px)`
+  const masqueHaut = `linear-gradient(to bottom, #000 ${barre}px, transparent ${barre + 32}px)`
+  const calque: CSSProperties = {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: bas,
+    zIndex: 26, pointerEvents: 'none', background: fondVignette,
+  }
   return (
     <>
       {reglages.flou && (
@@ -68,15 +77,18 @@ export default function FlouBords({ bas, auBout, reglages, refHaut, refVignette 
       )}
       {/* LA VIGNETTE — un ovale transparent au centre, la teinte aux bords.
           Un simple dégradé : ne coûte rien au défilement. Sa TAILLE règle
-          jusqu'où la teinte gagne vers le centre. Elle ne couvre pas la barre
-          du haut : la page écrit son `top` (refVignette) pour qu'elle commence
-          sous la barre et remonte à mesure que celle-ci sort de l'écran. */}
+          jusqu'où la teinte gagne vers le centre.
+
+          Elle ne couvre pas la barre du haut, et RIEN n'y bouge au défilement :
+          deux calques fixes. Le corps épargne la zone de la barre ; le haut
+          la couvre, et c'est son OPACITÉ que la page fait monter à mesure que
+          la barre sort (refVignette). Déplacer le bord de la vignette, comme
+          avant, le faisait traîner derrière la page. */}
       {reglages.vignette !== 'aucune' && alpha > 0 && (
-        <div ref={refVignette} aria-hidden className="pcv-hide" style={{
-          position: 'absolute', top: 0, left: 0, right: 0, bottom: bas,
-          zIndex: 26, pointerEvents: 'none',
-          background: `radial-gradient(ellipse 85% 75% at 50% 50%, rgba(${teinte},0) ${100 - reglages.vignetteTaille}%, rgba(${teinte},${alpha.toFixed(3)}) 100%)`,
-        }} />
+        <>
+          <div aria-hidden className="pcv-hide" style={{ ...calque, maskImage: masqueCorps, WebkitMaskImage: masqueCorps }} />
+          <div ref={refVignette} aria-hidden className="pcv-hide" style={{ ...calque, opacity: 0, maskImage: masqueHaut, WebkitMaskImage: masqueHaut }} />
+        </>
       )}
     </>
   )
