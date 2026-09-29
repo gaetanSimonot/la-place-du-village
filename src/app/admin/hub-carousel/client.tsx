@@ -62,6 +62,52 @@ const MINI_HEROS: React.CSSProperties = {
 
 const CHAMP = { width: '100%', padding: '9px 10px', borderRadius: 9, border: '1.5px solid #E5DDD2', fontSize: 12.5, boxSizing: 'border-box' as const }
 
+/*
+ * L'ÉCRAN EST RANGÉ EN SECTIONS REPLIABLES. Les blocs restent écrits dans le
+ * fichier dans leur ordre historique : chacun est enveloppé d'un <Bloc>
+ * qui porte son rang d'affichage (`order`, le conteneur est une colonne
+ * flex) et se masque quand sa section est repliée. Le contenu des blocs
+ * n'a pas bougé d'une ligne. Rangs : section N0, ses blocs N1, N2…
+ */
+const CLE_GROUPES = 'pdv-admin-hub-groupes'
+const GROUPES = [
+  { id: 'entree',    ordre: 10, titre: 'Entrée de l’app',      sous: 'Écran d’accueil, page d’arrivée, splashs de l’offre Habitant' },
+  { id: 'village',   ordre: 20, titre: 'Page Village',         sous: 'Héros, effets visuels (courbe, flou, vignette, voile)' },
+  { id: 'modules',   ordre: 30, titre: 'Modules du Village',   sous: 'Cinéma, théâtre, radio, Assistant — qui les voit' },
+  { id: 'carrousel', ordre: 40, titre: 'Carrousel à la une',   sous: 'Slide « Bouche à oreille » et mises en avant' },
+] as const
+
+function EnTeteGroupe({ titre, sous, ordre, ouvert, onBascule }: {
+  titre: string; sous: string; ordre: number; ouvert: boolean; onBascule: () => void
+}) {
+  return (
+    <div style={{ order: ordre, padding: '18px 16px 0' }}>
+      <button type="button" onClick={onBascule} aria-expanded={ouvert}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left',
+          padding: '12px 14px', borderRadius: 12, cursor: 'pointer',
+          border: `1px solid ${ouvert ? '#C8DEC0' : '#E5DDD2'}`,
+          background: ouvert ? '#F4FAF5' : '#FFFFFF',
+          fontFamily: 'var(--font-body), sans-serif',
+        }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 900, color: '#1A1209', letterSpacing: '-0.01em' }}>{titre}</div>
+          <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2 }}>{sous}</div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2D5A3D" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
+          style={{ flexShrink: 0, transform: ouvert ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+    </div>
+  )
+}
+
+/** Un bloc de l'écran, rangé sous sa section, masqué quand elle est repliée. */
+function Bloc({ ordre, visible, children }: { ordre: number; visible: boolean; children: React.ReactNode }) {
+  return <div style={{ order: ordre, display: visible ? undefined : 'none' }}>{children}</div>
+}
+
 export default function AdminHubCarousel() {
   const router = useRouter()
   const { user, isAdmin, loading: authLoading } = useAuth()
@@ -119,6 +165,18 @@ export default function AdminHubCarousel() {
   const herosEnAttente = useRef(false)
   /** Double clic requis avant de relancer le cycle de tout le monde. */
   const [resetAsked, setResetAsked] = useState(false)
+  /* Les sections repliables de l'écran (cf. GROUPES) : lesquelles sont
+     ouvertes. Retenu sur ce navigateur — on retrouve l'écran comme on l'a
+     laissé. Tout replié par défaut : on voit d'abord le sommaire. */
+  const [ouverts, setOuverts] = useState<Record<string, boolean>>({})
+  useEffect(() => {
+    try { setOuverts(JSON.parse(localStorage.getItem(CLE_GROUPES) ?? '{}')) } catch { /* rien de gardé */ }
+  }, [])
+  const basculer = (id: string) => setOuverts(o => {
+    const suite = { ...o, [id]: !o[id] }
+    try { localStorage.setItem(CLE_GROUPES, JSON.stringify(suite)) } catch { /* stockage indisponible */ }
+    return suite
+  })
   // Aperçu admin d'une variante : purement local, n'écrit rien et n'affecte
   // pas ce que voient les habitants.
   const [previewVariant, setPreviewVariant] = useState<SplashPromoVariantId | null>(null)
@@ -662,6 +720,15 @@ export default function AdminHubCarousel() {
 
       {error && <p style={{ padding: 16, color: '#C0392B', fontSize: 13, textAlign: 'center' }}>{error}</p>}
 
+      {/* Les sections repliables : une colonne flex où chaque bloc prend son
+          rang (cf. GROUPES, Bloc). */}
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+      {GROUPES.map(g => (
+        <EnTeteGroupe key={g.id} titre={g.titre} sous={g.sous} ordre={g.ordre}
+          ouvert={!!ouverts[g.id]} onBascule={() => basculer(g.id)} />
+      ))}
+
+      <Bloc ordre={41} visible={!!ouverts.carrousel}>
       {/* Toggle slide intro "Bouche à oreille" + image custom */}
       <div style={{ padding: '14px 16px 0' }}>
         <div style={{
@@ -772,6 +839,9 @@ export default function AdminHubCarousel() {
         </div>
       </div>
 
+      </Bloc>
+
+      <Bloc ordre={11} visible={!!ouverts.entree}>
       {/* ── L'entrée de l'app ───────────────────────────────────────────
           Deux réglages qui répondent à la même question — que voit-on en
           arrivant ? — donc un seul bloc. À ne pas confondre avec les splashs
@@ -845,6 +915,9 @@ export default function AdminHubCarousel() {
         </div>
       </div>
 
+      </Bloc>
+
+      <Bloc ordre={31} visible={!!ouverts.modules}>
       {/* Bloc cinéma sur la page Village — trois états nommés. « Masqué »
           l'emporte sur tout, y compris sur ton propre compte : c'est ce qui
           permet de le couper net sans rien décocher ailleurs. */}
@@ -890,6 +963,9 @@ export default function AdminHubCarousel() {
         </div>
       </div>
 
+      </Bloc>
+
+      <Bloc ordre={32} visible={!!ouverts.modules}>
       {/* Bloc théâtre sur la page Village — mêmes trois états que le cinéma,
           et le même défaut : `admin`. Un module qu'on oublie de régler reste
           invisible, il ne s'ouvre jamais tout seul. */}
@@ -948,6 +1024,9 @@ export default function AdminHubCarousel() {
         </div>
       </div>
 
+      </Bloc>
+
+      <Bloc ordre={33} visible={!!ouverts.modules}>
       {/* Bloc Radio Escapades sur la page Village — mêmes trois états que le
           cinéma. « Masqué » retire AUSSI la mention « Sélection Radio
           Escapades » des fiches d'événements : un badge qui renvoie à un
@@ -1003,6 +1082,9 @@ export default function AdminHubCarousel() {
         </div>
       </div>
 
+      </Bloc>
+
+      <Bloc ordre={22} visible={!!ouverts.village}>
       {/* ── Effets de profondeur du Village — deux essais, allumés par
           défaut. S'appliquent au prochain affichage du Village. */}
       <div style={{ padding: '14px 16px 0' }}>
@@ -1132,6 +1214,9 @@ export default function AdminHubCarousel() {
         </div>
       </div>
 
+      </Bloc>
+
+      <Bloc ordre={21} visible={!!ouverts.village}>
       {/* ── Le héros du Village ─────────────────────────────────────────
           Un emplacement, une ou PLUSIEURS fiches : au-delà de la première,
           l'encart les fait défiler tout seul, comme le bandeau « à la une ».
@@ -1369,6 +1454,8 @@ export default function AdminHubCarousel() {
         </div>
       </div>
 
+      </Bloc>
+
       {herosPicker !== null && (
         <EmbedPicker onSelect={prendreCible} onClose={() => setHerosPicker(null)} />
       )}
@@ -1380,6 +1467,7 @@ export default function AdminHubCarousel() {
         />
       )}
 
+      <Bloc ordre={34} visible={!!ouverts.modules}>
       {/* Assistant Village — la recherche conversationnelle. Même mécanique à
           trois états que le bloc cinéma : « Admin » est l'état de rodage, et
           la route API refait le calcul, elle ne se fie pas à l'écran. */}
@@ -1426,6 +1514,9 @@ export default function AdminHubCarousel() {
         </div>
       </div>
 
+      </Bloc>
+
+      <Bloc ordre={12} visible={!!ouverts.entree}>
       {/* Splashs promotionnels de l'offre Habitant */}
       <div style={{ padding: '14px 16px 0' }}>
         <div style={{
@@ -1651,6 +1742,8 @@ export default function AdminHubCarousel() {
         </div>
       </div>
 
+      </Bloc>
+
       {previewVariant && (
         <SplashPromoView
           variant={previewVariant}
@@ -1662,6 +1755,7 @@ export default function AdminHubCarousel() {
         />
       )}
 
+      <Bloc ordre={42} visible={!!ouverts.carrousel}>
       <div style={{ padding: '14px 12px' }}>
         {FEATURED_SLOTS.map(slot => {
           const items = allSlots.filter(s => s.slot === slot.id)
@@ -1781,6 +1875,8 @@ export default function AdminHubCarousel() {
             </section>
           )
         })}
+      </div>
+      </Bloc>
       </div>
 
       {cropping && cropping.imageUrl && (
