@@ -157,8 +157,11 @@ export function useEffetTambour(
       const h = cont.clientHeight
       const moitie = h / 2
       // Force 0 = à plat : pas de rayon (il serait infini, et R·sin 0 = NaN).
-      const R = RAYON * h * (50 / Math.max(1, force))
-      const aPlat = force <= 0
+      // Le SIGNE dit le sens : > 0 concave (dans le tambour, les bords viennent
+      // vers soi), < 0 convexe (sur le rouleau, les bords s'éloignent).
+      const R = RAYON * h * (50 / Math.max(1, Math.abs(force)))
+      const aPlat = force === 0
+      const sens = force < 0 ? -1 : 1
       const Z = ZONE_PLATE * moitie
       const haut = cont.scrollTop
       const progresHaut = Math.min(1, haut / hauteurBarre)
@@ -205,8 +208,10 @@ export function useEffetTambour(
           }
           const k = (signe < 0 ? progresHaut : 1) * ampl
           const ty = (signe * y - dy) * k
-          const tz = z * k
-          const rx = signe * th * k
+          // Convexe : même compression vers le centre, mais la profondeur et
+          // l'inclinaison changent de sens — le bord recule au lieu d'avancer.
+          const tz = sens * z * k
+          const rx = sens * signe * th * k
           if (Math.abs(rx) > 0.001) {
             // Point de fuite commun : on amène le centre de l'écran à
             // l'origine du bloc, on projette, on revient.

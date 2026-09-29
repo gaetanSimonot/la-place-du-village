@@ -19,7 +19,9 @@ export type CouleurVoile = 'aucun' | 'creme' | 'blanc' | 'noir'
 
 export interface VillageEffets {
   courbe: boolean
-  /** Force de la courbe : 50 = rayon de 0,9 × l'écran ; plus fort = plus enroulé. */
+  /** Force de la courbe, de −100 à 100 : 0 à plat ; positif concave (dans le
+   *  tambour), négatif convexe (sur le rouleau). ±50 = rayon de 0,9 × l'écran.
+   *  Au tambour pressé : positif creuse le centre, négatif le bombe. */
   courbeForce: number
   /** ESSAI « tambour pressé » : pendant que le doigt fait défiler, le centre
    *  de l'écran s'enfonce (haut et bas immobiles) ; retour à plat au lâcher.
@@ -56,7 +58,7 @@ export const EFFETS_DEFAUT: VillageEffets = {
 
 /** Bornes des curseurs de l'admin — et de la relecture, qui les respecte. */
 export const BORNES_EFFETS = {
-  courbeForce:   { min: 0, max: 100 },   // 0 = à plat
+  courbeForce:   { min: -100, max: 100 }, // 0 = à plat ; > 0 concave ; < 0 convexe
   flouTaille:    { min: 40, max: 240 },
   flouForce:     { min: 2,  max: 24 },
   flouRond:      { min: 0,  max: 100 },

@@ -1036,7 +1036,12 @@ export default function AdminHubCarousel() {
           {(effets.courbe || effets.enfoncement) && (
             <div style={{ padding: '0 0 6px 28px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, fontWeight: 700, color: '#1A1209' }}>
-                <span>Force de la courbe</span><span style={{ color: '#7A6A5A' }}>{effets.courbeForce}</span>
+                <span>Force de la courbe</span>
+                <span style={{ color: '#7A6A5A' }}>
+                  {effets.courbeForce} · {effets.courbeForce > 0
+                    ? (effets.enfoncement ? 'creusé' : 'concave')
+                    : effets.courbeForce < 0 ? (effets.enfoncement ? 'bombé' : 'convexe') : 'à plat'}
+                </span>
               </div>
               <input
                 type="range"
