@@ -39,7 +39,7 @@ import { lienHeros, herosExterne } from '@/lib/villageHero'
 import RadioPastille from '@/components/RadioPastille'
 import FlouBords from '@/components/village/FlouBords'
 import { useEffetTambour, TambourContexte } from '@/hooks/useEffetTambour'
-import { parseEffets, EFFETS_DEFAUT, type VillageEffets } from '@/lib/villageEffets'
+import { parseEffets, lireEffetsEnCache, garderEffetsEnCache, type VillageEffets } from '@/lib/villageEffets'
 import { lireConfigsClient } from '@/lib/configClient'
 import { correspond, scoreCorrespondance } from '@/lib/recherche'
 
@@ -124,13 +124,20 @@ export default function HomePage() {
   /** Le Village défile-t-il en ce moment ? Le voile s'efface pendant, revient après. */
   const [villageDefile, setVillageDefile] = useState(false)
   const finDefileVillage = useRef<ReturnType<typeof setTimeout>>()
-  /* Les effets de profondeur du Village (courbe, flou), réglés dans
-     /admin/hub-carousel. Allumés d'office tant que le réglage n'est pas lu. */
-  const [effetsVillage, setEffetsVillage] = useState<VillageEffets>(EFFETS_DEFAUT)
+  /* Les effets de profondeur du Village (courbe, flou, vignette), réglés dans
+     /admin/hub-carousel. On DÉMARRE avec les derniers connus de ce téléphone
+     (ou les valeurs retenues, au premier lancement) : attendre la base les
+     faisait changer sous les yeux à l'ouverture. La base, relue derrière, ne
+     redessine que si elle diffère — et devient la mémoire du prochain lancement. */
+  const [effetsVillage, setEffetsVillage] = useState<VillageEffets>(() => lireEffetsEnCache())
   useEffect(() => {
     lireConfigsClient(['village_effets'], null, true)
-      .then(c => setEffetsVillage(parseEffets(c.village_effets)))
-      .catch(() => { /* on garde le défaut */ })
+      .then(c => {
+        const lus = parseEffets(c.village_effets)
+        garderEffetsEnCache(lus)
+        setEffetsVillage(avant => (JSON.stringify(avant) === JSON.stringify(lus) ? avant : lus))
+      })
+      .catch(() => { /* on garde ce qu'on a */ })
   }, [])
   const villagePanelRef = useRef<HTMLDivElement>(null)
   /** La bande de flou du haut : son opacité suit le défilement, écrite en direct. */

@@ -20,7 +20,7 @@ import { parseEntree, PAGES_ARRIVEE, type EntreeApp, type PageArrivee } from '@/
 import EmbedPicker, { type EmbedItem } from '@/components/EmbedPicker'
 import { normaliserHerosListe, completerUrl, HEROS_VIDE, type HerosVillage, type PublicHeros } from '@/lib/villageHero'
 import ImageLibraryPicker from '@/components/ImageLibraryPicker'
-import { parseEffets, EFFETS_DEFAUT, BORNES_EFFETS, type VillageEffets } from '@/lib/villageEffets'
+import { parseEffets, EFFETS_DEFAUT, BORNES_EFFETS, garderEffetsEnCache, type VillageEffets } from '@/lib/villageEffets'
 
 interface EnrichedSlot extends FeaturedSlotRow {
   title?: string
@@ -194,6 +194,8 @@ export default function AdminHubCarousel() {
       }).catch(() => null)
       setEffetsSaving(false)
       setEffetsMsg(res?.ok ? 'Enregistré' : 'Échec de l’enregistrement')
+      // Ce téléphone ouvrira le Village directement avec le nouveau réglage.
+      if (res?.ok) garderEffetsEnCache(effetsRef.current)
       setTimeout(() => setEffetsMsg(null), 2000)
     }, 400)
   }

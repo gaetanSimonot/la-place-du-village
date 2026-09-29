@@ -42,18 +42,46 @@ export interface VillageEffets {
   voile: CouleurVoile
 }
 
+/**
+ * Les réglages retenus par Gaëtan le 29/09/2026 : c'est le point de départ.
+ * L'app démarre avec eux AVANT d'avoir lu la base — sinon, au lancement, la
+ * vignette, la courbe et le flou changeaient sous les yeux en arrivant.
+ * Un réglage changé depuis passe par le cache (lireEffetsEnCache).
+ */
 export const EFFETS_DEFAUT: VillageEffets = {
   courbe: true,
-  courbeForce: 50,
-  enfoncement: false,
+  courbeForce: -3,
+  enfoncement: true,
   flou: true,
-  flouTaille: 80,
-  flouForce: 9,
-  flouRond: 0,
-  vignette: 'aucune',
-  vignetteForce: 35,
-  vignetteTaille: 45,
-  voile: 'creme',
+  flouTaille: 62,
+  flouForce: 2,
+  flouRond: 50,
+  vignette: 'blanc',
+  vignetteForce: 47,
+  vignetteTaille: 24,
+  voile: 'blanc',
+}
+
+/** Là où le téléphone garde les derniers réglages lus. */
+export const CLE_CACHE_EFFETS = 'pdv-village-effets'
+
+/**
+ * Les derniers réglages connus de CE téléphone, tout de suite, sans réseau.
+ * Le Village s'ouvre avec eux ; la base, relue derrière, ne corrige que ce
+ * qui a changé depuis. Sans cache (premier lancement) : EFFETS_DEFAUT.
+ */
+export function lireEffetsEnCache(): VillageEffets {
+  if (typeof window === 'undefined') return EFFETS_DEFAUT
+  try {
+    const v = localStorage.getItem(CLE_CACHE_EFFETS)
+    return v ? parseEffets(v) : EFFETS_DEFAUT
+  } catch {
+    return EFFETS_DEFAUT
+  }
+}
+
+export function garderEffetsEnCache(e: VillageEffets): void {
+  try { localStorage.setItem(CLE_CACHE_EFFETS, JSON.stringify(e)) } catch { /* stockage indisponible */ }
 }
 
 /** Bornes des curseurs de l'admin — et de la relecture, qui les respecte. */
