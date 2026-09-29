@@ -37,9 +37,9 @@ import { createContext, useEffect, type RefObject } from 'react'
  *
  * COÛT. Positions mesurées une fois (et à chaque changement de contenu) ; à
  * chaque image on ne lit que `scrollTop` et on n'écrit que des `transform`.
- * Dans la bande plate, les blocs n'ont AUCUN transform (pas de calque, pas de
- * contexte d'empilement) — sauf ceux qui en approchent le bord, qui gardent
- * `translateZ(0)` pour que leur calque ne naisse pas pile au moment de pencher.
+ * Tout bloc VISIBLE garde un calque, même à plat (`translateZ(0)`) : un
+ * calque qui naît sous les yeux se redessine, et la tuile clignait en blanc.
+ * Les blocs hors de vue n'en ont aucun.
  *
  * Téléphone seulement, et rien si « moins d'animations » est demandé.
  */
@@ -47,7 +47,10 @@ const RAYON = 0.9             // × hauteur visible, à la force 50 (réglage ad
 const ANGLE_MAX = 0.6         // rad
 const PERSPECTIVE = 800       // px
 const ZONE_PLATE = 0.35       // demi-hauteur plate, en fraction de la demi-hauteur
-const MARGE_CALQUE = 0.1      // en deçà du bord de la zone plate : calque préparé
+/** Le transform d'un bloc visible mais à plat : il garde son calque. */
+const CALQUE = 'translateZ(0)'
+/** Au-delà de cette distance (px, hors du bord), un bloc n'est même pas calculé. */
+const LOIN = 900
 const SEUIL_BLOC = 0.25       // au-delà de ce quart d'écran, on découpe
 const HORS_ECRAN = 50         // px au-delà du bord : plus de transform
 // Mode « défilement » (essai) : le centre de l'écran s'enfonce pendant que le
@@ -172,56 +175,74 @@ export function useEffetTambour(
         const dx = b.defileur ? b.dx - (b.defileur.scrollLeft - b.gauche0) : b.dx
         const d = Math.abs(dy)
         const signe = dy < 0 ? -1 : 1
+        /*
+         * LES CALQUES NE NAISSENT ET NE MEURENT QU'HORS DE L'ÉCRAN.
+         * Un bloc qui passe de « aucun transform » à « un transform » reçoit
+         * un calque, que le téléphone doit redessiner — images comprises :
+         * un instant de blanc, la tuile « clignait » en franchissant le bord
+         * de la zone plate. Tout bloc VISIBLE garde donc un calque, même à
+         * plat (`translateZ(0)`) ; `''` n'est posé qu'à un bloc hors de vue.
+         *
+         * ET « HORS DE VUE » SE JUGE APRÈS LA COURBE : elle tire les blocs
+         * vers le centre (et le convexe les rapetisse). Juger sur la position
+         * d'origine laissait un bloc déjà visible sans transform, qui sautait
+         * de plusieurs dizaines de pixels en le recevant.
+         */
         let pose = ''
-        // Entièrement hors de l'écran (en haut, en bas, ou sorti de côté dans
-        // son carrousel) : aucun transform. Il n'est pas vu, et la tangente,
-        // poursuivie loin, l'enverrait à la profondeur de la caméra —
-        // projection démesurée et calque géant pour rien.
-        if (aPlat || d - b.demi > moitie + HORS_ECRAN || Math.abs(dx) > demiLargeur + 150) {
+        if (aPlat || d - b.demi > moitie + LOIN || Math.abs(dx) > demiLargeur + 150) {
+          // Très loin (ou sorti de côté dans son carrousel) : rien à calculer.
           pose = ''
         } else if (mode === 'defilement') {
           // Le tambour pressé : cloche z = −D·cos²(π·u/2), pente
           // dz/dy = D·π/(2·moitié)·sin(π·u) — nulle au centre et aux bords.
+          // Les bords ne bougent pas : la position d'origine dit la visibilité.
           const u = Math.max(-1, Math.min(1, dy / moitie))
           const D = PROFONDEUR_CREUX * (force / 50) * ampl
           const c = Math.cos((Math.PI * u) / 2)
           const z = -D * c * c
           const th = Math.atan(D * (Math.PI / (2 * moitie)) * Math.sin(Math.PI * u))
-          if (Math.abs(z) > 0.2 || Math.abs(th) > 0.001) {
+          if (d - b.demi > moitie + HORS_ECRAN) pose = ''
+          else if (Math.abs(z) > 0.2 || Math.abs(th) > 0.001) {
             pose = `translate(${(-dx).toFixed(1)}px, ${(-dy).toFixed(1)}px) perspective(${PERSPECTIVE}px) `
               + `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) `
               + `translate3d(0, 0, ${z.toFixed(1)}px) rotateX(${th.toFixed(4)}rad)`
+          } else pose = CALQUE
+        } else {
+          let ty = 0, tz = 0, rx = 0
+          if (d > Z) {
+            const s = d - Z
+            let y: number, z: number, th: number
+            if (s / R <= ANGLE_MAX) {
+              th = s / R
+              y = Z + R * Math.sin(th)
+              z = R * (1 - Math.cos(th))
+            } else {
+              // Au-delà de l'angle maximal : on file tout droit, tangent.
+              th = ANGLE_MAX
+              const reste = s - R * ANGLE_MAX
+              y = Z + R * Math.sin(th) + reste * Math.cos(th)
+              z = R * (1 - Math.cos(th)) + reste * Math.sin(th)
+            }
+            const k = (signe < 0 ? progresHaut : 1) * ampl
+            ty = (signe * y - dy) * k
+            // Convexe : même compression vers le centre, mais la profondeur et
+            // l'inclinaison changent de sens — le bord recule au lieu d'avancer.
+            tz = sens * z * k
+            rx = sens * signe * th * k
           }
-        } else if (d > Z) {
-          const s = d - Z
-          let y: number, z: number, th: number
-          if (s / R <= ANGLE_MAX) {
-            th = s / R
-            y = Z + R * Math.sin(th)
-            z = R * (1 - Math.cos(th))
-          } else {
-            // Au-delà de l'angle maximal : on file tout droit, tangent.
-            th = ANGLE_MAX
-            const reste = s - R * ANGLE_MAX
-            y = Z + R * Math.sin(th) + reste * Math.cos(th)
-            z = R * (1 - Math.cos(th)) + reste * Math.sin(th)
-          }
-          const k = (signe < 0 ? progresHaut : 1) * ampl
-          const ty = (signe * y - dy) * k
-          // Convexe : même compression vers le centre, mais la profondeur et
-          // l'inclinaison changent de sens — le bord recule au lieu d'avancer.
-          const tz = sens * z * k
-          const rx = sens * signe * th * k
-          if (Math.abs(rx) > 0.001) {
+          // Où le bloc apparaît vraiment : décalé par la courbe, agrandi ou
+          // rapetissé par la perspective.
+          const echelle = PERSPECTIVE / Math.max(1, PERSPECTIVE - tz)
+          const vu = (Math.abs(dy + ty) - b.demi) * echelle <= moitie + HORS_ECRAN
+          if (!vu) pose = ''
+          else if (Math.abs(rx) > 0.001) {
             // Point de fuite commun : on amène le centre de l'écran à
             // l'origine du bloc, on projette, on revient.
             //   translate(−dx, −dy) perspective(P) translate(dx, dy) · G
             pose = `translate(${(-dx).toFixed(1)}px, ${(-dy).toFixed(1)}px) perspective(${PERSPECTIVE}px) `
               + `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) `
               + `translate3d(0, ${ty.toFixed(1)}px, ${tz.toFixed(1)}px) rotateX(${rx.toFixed(4)}rad)`
-          }
-        } else if (d > Z - MARGE_CALQUE * moitie) {
-          pose = 'translateZ(0)'
+          } else pose = CALQUE
         }
         if (pose !== b.pose) { b.el.style.transform = pose; b.pose = pose }
       }
