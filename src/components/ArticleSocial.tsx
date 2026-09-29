@@ -201,7 +201,7 @@ export default function ArticleSocial({ articleId }: Props) {
                   )}
                   <span className="shrink-0 text-[10px] text-texte-doux">{timeAgo(c.created_at)}</span>
                 </div>
-                <p className="mt-1 whitespace-pre-wrap text-[13px] leading-[1.5] text-texte">{c.content}</p>
+                <p className="lpv-selectionnable mt-1 whitespace-pre-wrap text-[13px] leading-[1.5] text-texte">{c.content}</p>
                 {isMine && (
                   <button
                     type="button"

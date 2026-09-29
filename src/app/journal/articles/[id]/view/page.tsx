@@ -140,7 +140,7 @@ export default async function ArticleViewPage({ params }: Props) {
           </div>
         )}
         <div
-          className="mt-5 whitespace-pre-wrap text-[16px] leading-[1.7] text-texte"
+          className="lpv-selectionnable mt-5 whitespace-pre-wrap text-[16px] leading-[1.7] text-texte"
           style={{ fontFamily: 'Georgia, "Crimson Pro", serif' }}
         >
           {row.corps}

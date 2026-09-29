@@ -430,7 +430,7 @@ export default function AnnoncePageClient({ id }: Props) {
         {annonce.description && (
           <div style={{ marginTop: 20 }}>
             <div style={LABEL}>La description</div>
-            <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.65, color: '#3C2C20', fontFamily: BODY_SERIF, whiteSpace: 'pre-wrap' }}>{annonce.description}</p>
+            <p className="lpv-selectionnable" style={{ margin: 0, fontSize: 14.5, lineHeight: 1.65, color: '#3C2C20', fontFamily: BODY_SERIF, whiteSpace: 'pre-wrap' }}>{annonce.description}</p>
             {annonce.remise_main_propre && (
               <div style={{ marginTop: 12, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 <SoftBadge icon={<IcoHand />}>Remise en main propre</SoftBadge>

@@ -159,7 +159,7 @@ export default function JournalPageClient({
             </div>
           )}
           <div
-            className="mt-3 whitespace-pre-wrap text-[15px] leading-[1.65] text-texte"
+            className="lpv-selectionnable mt-3 whitespace-pre-wrap text-[15px] leading-[1.65] text-texte"
             style={{ fontFamily: 'Georgia, "Crimson Pro", serif' }}
           >
             {article.corps}

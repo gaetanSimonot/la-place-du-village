@@ -128,7 +128,9 @@ function Lightbox({ urls, index, onClose, onIndex }: {
           style={{ position: 'absolute', top: 14, right: 14, width: 40, height: 40, borderRadius: 999, background: 'rgba(255,255,255,0.12)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
-        <img src={urls[index]} alt=""
+        {/* Visionneuse : ici, enregistrer la photo à l'appui long a du sens —
+            menu natif rétabli (cf. MenuAppuiLong, globals.css). */}
+        <img src={urls[index]} alt="" className="lpv-selectionnable" data-menu-natif
           onClick={e => e.stopPropagation()}
           onTouchStart={e => { touchX.current = e.touches[0].clientX }}
           onTouchEnd={e => {

@@ -368,7 +368,7 @@ export default function TopicClient({ id }: { id: string }) {
                         </div>
                       </div>
                     ) : (
-                      <p className="m-0 mt-1 whitespace-pre-wrap text-[14px] leading-[1.5] text-texte" style={{ wordBreak: 'break-word' }}>{c.texte}</p>
+                      <p className="lpv-selectionnable m-0 mt-1 whitespace-pre-wrap text-[14px] leading-[1.5] text-texte" style={{ wordBreak: 'break-word' }}>{c.texte}</p>
                     )}
                   </div>
                 )

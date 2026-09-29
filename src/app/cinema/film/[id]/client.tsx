@@ -169,7 +169,7 @@ export default function FilmClient({ id }: { id: string }) {
           {film.synopsis && (
             <div className="px-4 pt-5">
               <h2 className="m-0 mb-1.5 font-title text-[17px] leading-tight" style={{ color: 'var(--uni-ink)' }}>Synopsis</h2>
-              <p className="m-0 whitespace-pre-line" style={{ fontSize: 13.5, lineHeight: 1.62, color: 'var(--uni-dim)' }}>{film.synopsis}</p>
+              <p className="lpv-selectionnable m-0 whitespace-pre-line" style={{ fontSize: 13.5, lineHeight: 1.62, color: 'var(--uni-dim)' }}>{film.synopsis}</p>
             </div>
           )}
 

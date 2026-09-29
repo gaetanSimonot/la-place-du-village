@@ -74,7 +74,9 @@ export default function TexteRiche({
   if (!blocs.length) return null
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, ...style }}>
+    // lpv-selectionnable : du texte écrit par quelqu'un, qu'on peut vouloir
+    // copier — il reste sélectionnable à l'appui long (cf. globals.css).
+    <div className="lpv-selectionnable" style={{ display: 'flex', flexDirection: 'column', gap: 10, ...style }}>
       {blocs.map((bloc, b) => {
         const cle = `b${b}`
 

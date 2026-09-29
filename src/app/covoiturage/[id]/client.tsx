@@ -404,7 +404,7 @@ export default function CovoitDetailClient({ id }: { id: string }) {
           </div>
 
           {covoit.description && (
-            <div className="mt-3 whitespace-pre-wrap rounded-xl bg-cremeDeep p-3 text-[13px] leading-[1.5] text-texte">
+            <div className="lpv-selectionnable mt-3 whitespace-pre-wrap rounded-xl bg-cremeDeep p-3 text-[13px] leading-[1.5] text-texte">
               {covoit.description}
             </div>
           )}

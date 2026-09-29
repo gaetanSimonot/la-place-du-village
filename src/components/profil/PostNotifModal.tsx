@@ -195,7 +195,7 @@ export default function PostNotifModal({ postId, onClose }: Props) {
                 </div>
 
                 {post.texte && (
-                  <p style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 14.5, lineHeight: 1.6, color: T.texte }}>
+                  <p className="lpv-selectionnable" style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 14.5, lineHeight: 1.6, color: T.texte }}>
                     {post.texte}
                   </p>
                 )}

@@ -496,7 +496,7 @@ export default function ConversationClient({ convId }: Props) {
                           minWidth:  64,
                         }}
                       >
-                        {hasContent && <div className="pr-12">{m.content}</div>}
+                        {hasContent && <div className="lpv-selectionnable pr-12">{m.content}</div>}
                         {hasEmbed && (
                           <div className={hasContent ? 'mt-1.5' : ''}>
                             <MessageEmbedRender kind={m.embed_kind!} refId={m.embed_ref_id!} mine={mine} />

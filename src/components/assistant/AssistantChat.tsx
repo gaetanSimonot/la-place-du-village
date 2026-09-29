@@ -909,7 +909,7 @@ function Reponse({ message, onApercu, onRebond }: {
     paragraphe = []
     if (!t) return
     blocs.push(
-      <p key={cle} className="m-0 whitespace-pre-wrap"
+      <p key={cle} className="lpv-selectionnable m-0 whitespace-pre-wrap"
         style={{ fontSize: 14, lineHeight: 1.55, marginBottom: 10 }}>{avecGras(t)}</p>,
     )
   }

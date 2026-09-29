@@ -253,7 +253,7 @@ export default function CovoitConversationClient({ convId }: { convId: string })
                     borderTopLeftRadius:  mine ? 16 : 4,
                   }}
                 >
-                  <p className="m-0 whitespace-pre-wrap break-words">{m.content}</p>
+                  <p className="lpv-selectionnable m-0 whitespace-pre-wrap break-words">{m.content}</p>
                 </div>
                 <span className="mt-0.5 text-[9.5px] text-texte-tres-doux">{timeAgo(m.created_at)}</span>
               </div>

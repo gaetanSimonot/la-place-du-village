@@ -301,7 +301,7 @@ function CommentItem({
           >
             {comment.author_name ?? 'Sans nom'}
           </Link>
-          <p className="m-0 mt-0.5 whitespace-pre-wrap text-[13px] leading-[1.4] text-texte">
+          <p className="lpv-selectionnable m-0 mt-0.5 whitespace-pre-wrap text-[13px] leading-[1.4] text-texte">
             {comment.texte}
           </p>
         </div>

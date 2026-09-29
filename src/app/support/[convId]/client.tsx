@@ -239,7 +239,7 @@ export default function SupportConversationClient({ convId, mode }: Props) {
                         🌿 Équipe
                       </p>
                     )}
-                    <p style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{m.content}</p>
+                    <p className="lpv-selectionnable" style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{m.content}</p>
                     <p style={{ margin: '4px 0 0', fontSize: 10, color: mine ? 'rgba(255,255,255,0.7)' : '#A89B8C', textAlign: 'right' }}>
                       {timeAgo(m.created_at)}
                     </p>

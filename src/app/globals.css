@@ -59,6 +59,35 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ═══════════ APPUI LONG — une app, pas une page web ═══════════
+   Sur écran tactile, un appui long sur un bouton, une tuile ou une affiche
+   sélectionnait du texte ou ouvrait « Télécharger l'image / Ouvrir le lien ».
+   L'INTERFACE ne se sélectionne plus et n'ouvre plus ce menu ; le CONTENU
+   qu'on voudrait copier, si : publications, commentaires, messages, forum,
+   descriptions, coordonnées — marqués `.lpv-selectionnable` (et TexteRiche,
+   qui porte la classe lui-même).
+   Tactile seulement (pointer: coarse) : sur ordinateur, sélectionner reste
+   normal et utile, en admin surtout.
+   LES CHAMPS DE SAISIE DOIVENT RESTER SÉLECTIONNABLES : sur Safari iOS, un
+   `user-select: none` hérité empêche d'y placer le curseur. D'où la règle
+   explicite, qui ne dépend d'aucune classe.
+   Le menu des images sur Android : BloqueurMenuImages (layout). */
+@media (pointer: coarse) {
+  body {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  input, textarea, select, [contenteditable]:not([contenteditable='false']),
+  .lpv-selectionnable, .lpv-selectionnable * {
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
+  }
+  /* Une image ne se glisse pas hors de l'app. */
+  img { -webkit-user-drag: none; }
+}
+
 /* Headings — héritent simplement de body (Inter via next/font).
    Les composants V3 utilisent className="font-serif" pour DM Serif Display
    ou className="font-caveat" pour Caveat (tailwind config). Pas de surcharge

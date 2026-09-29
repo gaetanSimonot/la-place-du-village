@@ -251,6 +251,8 @@ export default function EvenementPageClient({ id }: { id: string }) {
             />
           )}
           {lieu && (
+            // Sélectionnable : une adresse, on veut pouvoir la copier.
+            <div className="lpv-selectionnable">
             <InfoCard
               icon={<IconPinLg />}
               title={lieu.nom ?? 'Lieu'}
@@ -259,6 +261,7 @@ export default function EvenementPageClient({ id }: { id: string }) {
               actionHref={mapsUrl ?? undefined}
               warning={isApproxLocation(lieu) ? 'Localisation approximative' : undefined}
             />
+            </div>
           )}
           {evt.prix && (
             <InfoCard
@@ -278,7 +281,7 @@ export default function EvenementPageClient({ id }: { id: string }) {
             <Divider />
             <div className="px-4 pt-[18px]">
               <div className="mb-2 text-[11px] font-extrabold tracking-[0.1em] text-texte-doux">À PROPOS</div>
-              <p className="pcv-fiche-corps m-0 whitespace-pre-wrap text-[14px] leading-[1.6] text-texte">
+              <p className="lpv-selectionnable pcv-fiche-corps m-0 whitespace-pre-wrap text-[14px] leading-[1.6] text-texte">
                 {linkify(evt.description)}
               </p>
             </div>

@@ -704,7 +704,8 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
 
         {/* Contacts */}
         {(etab.contact_tel || etab.contact_whatsapp || etab.site_web || mapsUrl) && (
-          <div style={{ ...CARD, padding: '16px 18px' }}>
+          // Sélectionnable : un numéro, une adresse, on veut pouvoir les copier.
+          <div className="lpv-selectionnable" style={{ ...CARD, padding: '16px 18px' }}>
             <p style={{ fontSize: 11, fontWeight: 800, color: '#8A7A6A', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Contact</p>
             {etab.contact_tel && <a href={`tel:${etab.contact_tel}`} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', textDecoration: 'none', borderBottom: '1px solid #F0E8DC' }}>
               <PastilleIcone><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.4-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg></PastilleIcone>
@@ -928,7 +929,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
                     <img src={p.image_url} alt="" style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 10, marginBottom: 10 }} />
                   )}
                   {p.titre && <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 800, color: '#1A1209', overflowWrap: 'break-word' }}>{p.titre}</p>}
-                  <p style={{ margin: 0, fontSize: 13, color: '#4A3728', lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'break-word', wordBreak: 'break-word' }}>{linkify(p.contenu)}</p>
+                  <p className="lpv-selectionnable" style={{ margin: 0, fontSize: 13, color: '#4A3728', lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'break-word', wordBreak: 'break-word' }}>{linkify(p.contenu)}</p>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
                     <span style={{ fontSize: 10.5, color: '#AAA' }}>{timeAgo(p.created_at)}</span>
                     {ownerUI && (

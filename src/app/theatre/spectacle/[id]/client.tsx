@@ -265,7 +265,7 @@ export default function SpectacleClient({ id }: { id: string }) {
           {spectacle.synopsis && (
             <div className="px-4 pt-5">
               <h2 className="m-0 mb-1.5 font-title text-[17px] leading-tight" style={{ color: 'var(--uni-ink)' }}>Le spectacle</h2>
-              <p className="m-0 whitespace-pre-line" style={{ fontSize: 13.5, lineHeight: 1.62, color: 'var(--uni-dim)' }}>{spectacle.synopsis}</p>
+              <p className="lpv-selectionnable m-0 whitespace-pre-line" style={{ fontSize: 13.5, lineHeight: 1.62, color: 'var(--uni-dim)' }}>{spectacle.synopsis}</p>
             </div>
           )}
 
@@ -310,7 +310,7 @@ export default function SpectacleClient({ id }: { id: string }) {
           {spectacle.distribution && (
             <div className="px-4 pt-5">
               <h2 className="m-0 mb-1.5 font-title text-[17px] leading-tight" style={{ color: 'var(--uni-ink)' }}>Distribution</h2>
-              <p className="m-0 whitespace-pre-line" style={{ fontSize: 12.5, lineHeight: 1.6, color: 'var(--uni-dim2)' }}>
+              <p className="lpv-selectionnable m-0 whitespace-pre-line" style={{ fontSize: 12.5, lineHeight: 1.6, color: 'var(--uni-dim2)' }}>
                 {spectacle.distribution}
               </p>
             </div>
