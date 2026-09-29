@@ -21,9 +21,9 @@ export interface VillageEffets {
   courbe: boolean
   /** Force de la courbe : 50 = rayon de 0,9 × l'écran ; plus fort = plus enroulé. */
   courbeForce: number
-  /** ESSAI « courbe au défilement » : la courbe n'apparaît que pendant que la
-   *  page défile et revient à plat à l'arrêt. Remplace la courbe fixe. (Le nom
-   *  vient d'un premier essai qui creusait l'écran sous le doigt.) */
+  /** ESSAI « tambour pressé » : pendant que le doigt fait défiler, le centre
+   *  de l'écran s'enfonce (haut et bas immobiles) ; retour à plat au lâcher.
+   *  Remplace la courbe fixe. Le nom de la clé date d'un premier essai. */
   enfoncement: boolean
   flou: boolean
   /** Hauteur des bandes de flou, en px. */
