@@ -54,11 +54,12 @@ const HORS_ECRAN = 50         // px au-delà du bord : plus de transform
 // doigt fait défiler, le haut et le bas restent en place.
 const SEUIL_ENFONCE = 10      // px de mouvement VERTICAL du doigt avant d'enfoncer
 const PROFONDEUR_CREUX = 110  // px au centre, à la force 50
-// Ressort (unités : secondes). À l'appui, amorti critique : le creux se forme
-// sans dépasser. Au lâcher, sous-amorti : petit rebond à plat.
+// Ressort (unités : secondes), amorti critique dans les deux sens : le creux se
+// forme et se referme sans jamais dépasser. Un retour sous-amorti (0,5) faisait
+// un petit rebond au lâcher — jugé gênant, retiré.
 const RAIDEUR = 170
 const AMORTI_MONTEE = 1
-const AMORTI_RETOUR = 0.5
+const AMORTI_RETOUR = 1
 
 const CARTE_MAX = 0.6         // une carte plus haute que ça est quand même démontée
 
@@ -93,7 +94,7 @@ interface Bloc { el: HTMLElement; centre: number; dx: number; demi: number; pose
  *    cloche : z = −D·cos²(π·u/2), u = distance au centre / demi-hauteur —
  *    pente nulle au centre ET aux bords, donc bords immobiles. Chaque bloc
  *    se couche selon la pente à sa hauteur. Point de fuite : le centre de
- *    l'écran. Au lâcher, retour à plat par un ressort à petit rebond.
+ *    l'écran. Au lâcher, retour à plat en douceur, sans rebond.
  *    (Deux essais écartés : un creux qui suivait le doigt, trop agité ; la
  *    courbe du cylindre qui n'apparaissait qu'en défilant.)
  *
@@ -146,8 +147,7 @@ export function useEffetTambour(
     }
 
     // L'intensité de l'effet : 1 en permanence en mode cylindre ; en mode
-    // défilement, menée par un ressort entre 0 (plat) et 1 (enfoncé), un peu
-    // négative au rebond du retour.
+    // défilement, menée par un ressort amorti entre 0 (plat) et 1 (enfoncé).
     let ampl = mode === 'defilement' ? 0 : 1
     let vitesseAmpl = 0, cibleAmpl = ampl
     let rafAmpl = 0, avantAmpl = 0

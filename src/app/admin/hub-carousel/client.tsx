@@ -1015,7 +1015,7 @@ export default function AdminHubCarousel() {
           </div>
           {([
             { cle: 'courbe' as const, titre: 'Courbe', sous: 'Les blocs se penchent en haut et en bas de l’écran, comme dans un tambour ; les photos des publications se tordent.' },
-            { cle: 'enfoncement' as const, titre: 'Tambour pressé (essai)', sous: 'Quand le doigt fait défiler, le centre de l’écran s’enfonce ; le haut et le bas ne bougent pas. Au lâcher, retour à plat avec un petit rebond. Remplace la courbe fixe.' },
+            { cle: 'enfoncement' as const, titre: 'Tambour pressé (essai)', sous: 'Quand le doigt fait défiler, le centre de l’écran s’enfonce ; le haut et le bas ne bougent pas. Au lâcher, retour à plat en douceur. Remplace la courbe fixe.' },
             { cle: 'flou'   as const, titre: 'Flou de bord', sous: 'Un flou progressif en haut et en bas, façon mise au point macro.' },
           ]).map(o => (
             <label key={o.cle} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', cursor: 'pointer' }}>

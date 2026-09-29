@@ -30,8 +30,16 @@ export default function TitreVivant({ texte }: { texte: string }) {
 }
 
 /**
+ * La ligne qui allume un titre, en fraction de la hauteur de l'écran depuis
+ * le haut. Un peu SOUS le milieu : en descendant dans la page, le titre qui
+ * monte s'allume avant d'atteindre le centre — à 50 % pile, il s'allumait
+ * trop tard.
+ */
+const LIGNE_ACCENT = 0.65
+
+/**
  * Désigne LE titre actif : celui de la section qui occupe le milieu de
- * l'écran — le dernier titre déjà passé au-dessus de la ligne des 50 %.
+ * l'écran — le dernier titre déjà passé au-dessus de la ligne LIGNE_ACCENT.
  * Tant qu'aucun ne l'a franchie (haut de page), aucun n'est actif : c'est le
  * grand titre du haut qui a l'accent.
  *
@@ -51,7 +59,7 @@ export function useTitresVivants(ref: RefObject<HTMLElement>) {
     const maj = () => {
       raf = 0
       const cadre = defileur ? defileur.getBoundingClientRect() : { top: 0, height: window.innerHeight }
-      const milieu = cadre.top + cadre.height / 2
+      const milieu = cadre.top + cadre.height * LIGNE_ACCENT
       let choisi: Element | null = null
       for (const t of Array.from(racine.querySelectorAll('[data-titre-vivant]'))) {
         if (t.getBoundingClientRect().top < milieu) choisi = t
