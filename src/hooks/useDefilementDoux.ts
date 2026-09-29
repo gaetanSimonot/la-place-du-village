@@ -33,6 +33,23 @@ const VITESSE = 10            // px par seconde — « très très très douceme
 const REPRISE_APRES_DOIGT = 150
 
 /**
+ * Le titre vivant de la section d'un rouleau : le premier `[data-titre-vivant]`
+ * qui le PRÉCÈDE — dans un frère aîné du cadre ou d'un de ses parents proches
+ * (l'en-tête « Au cinéma… » est juste au-dessus de la rangée). Null s'il n'y
+ * en a pas (pages Cinéma, Théâtre).
+ */
+function titreDeLaSection(cadre: HTMLElement): Element | null {
+  let el: Element | null = cadre
+  for (let niveau = 0; el && niveau < 4; niveau++, el = el.parentElement) {
+    for (let frere = el.previousElementSibling; frere; frere = frere.previousElementSibling) {
+      const t = frere.matches('[data-titre-vivant]') ? frere : frere.querySelector('[data-titre-vivant]')
+      if (t) return t
+    }
+  }
+  return null
+}
+
+/**
  * `sens` : 1 = les affiches filent vers la gauche (défaut), −1 = vers la
  * droite. Deux rouleaux voisins qui vont en sens contraires se distinguent
  * mieux (le théâtre sous le cinéma, sur le Village).
@@ -68,6 +85,18 @@ export function useDefilementDoux<T extends HTMLElement>(nbElements: number, sen
     let visible = true
     let reprise: ReturnType<typeof setTimeout> | undefined
 
+    /*
+     * SUR LE VILLAGE, LE ROULEAU NE DÉFILE QUE QUAND SA SECTION A L'ACCENT —
+     * quand son titre vivant est allumé (TitreVivant, `data-actif`), donc
+     * selon la même règle et au même endroit de l'écran. Les autres restent
+     * immobiles : l'œil va à ce qui bouge, et ce qui bouge est la section
+     * qu'on regarde. Le doigt les fait toujours glisser.
+     * Pas de titre vivant au-dessus (pages Cinéma, Théâtre) : comme avant,
+     * le rouleau défile dès qu'il est visible.
+     */
+    const titre = titreDeLaSection(cadre)
+    let titreActif = !titre || titre.hasAttribute('data-actif')
+
     /** Ramène une position dans [0, période[ : la boucle vaut aussi au doigt. */
     const boucle = (x: number) => ((x % periode) + periode) % periode
     const poser = () => { piste.style.transform = `translate3d(${(-pos).toFixed(2)}px, 0, 0)` }
@@ -80,7 +109,7 @@ export function useDefilementDoux<T extends HTMLElement>(nbElements: number, sen
       raf = requestAnimationFrame(pas)
     }
     const lancer = () => {
-      if (!auto || raf || enPause || !visible || document.hidden) return
+      if (!auto || raf || enPause || !visible || !titreActif || document.hidden) return
       avant = 0
       raf = requestAnimationFrame(pas)
     }
@@ -159,6 +188,13 @@ export function useDefilementDoux<T extends HTMLElement>(nbElements: number, sen
     })
     io.observe(cadre)
 
+    // Le titre s'allume ou s'éteint : le rouleau démarre ou s'arrête avec lui.
+    const suiviTitre = titre ? new MutationObserver(() => {
+      titreActif = titre.hasAttribute('data-actif')
+      if (titreActif) lancer(); else arreter()
+    }) : null
+    suiviTitre?.observe(titre!, { attributes: true, attributeFilter: ['data-actif'] })
+
     // Le cadre rogne la piste ; le vertical appartient au navigateur.
     const cadreAvant = { overflow: cadre.style.overflow, touchAction: cadre.style.touchAction }
     cadre.style.overflow = 'hidden'
@@ -177,6 +213,7 @@ export function useDefilementDoux<T extends HTMLElement>(nbElements: number, sen
       cancelAnimationFrame(rafElan)
       clearTimeout(reprise)
       io.disconnect()
+      suiviTitre?.disconnect()
       cadre.style.overflow = cadreAvant.overflow
       cadre.style.touchAction = cadreAvant.touchAction
       cadre.removeEventListener('touchstart', doigtPose)
