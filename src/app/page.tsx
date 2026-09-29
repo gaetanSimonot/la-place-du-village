@@ -560,6 +560,10 @@ export default function HomePage() {
     // Une seule fois, à l'ouverture : l'onglet de départ suffit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  // La barre du bas attend ce signal pour lancer son appel (BottomNavBar).
+  useEffect(() => {
+    if (voile === 'parti') window.dispatchEvent(new Event('lpv:voile-parti'))
+  }, [voile])
   useEffect(() => {
     if (voile !== 'fondu') return
     const t = setTimeout(() => setVoile('parti'), 350)

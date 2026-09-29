@@ -180,15 +180,33 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
    *
    * Village → Carte, Carte → Bons plans, Bons plans → Village. Sur l'un des
    * trois, le suivant appelle en permanence (pastille et couleur orange) et
-   * bat toutes les 2,5 s, dès l'arrivée. Pas de fin : c'est le chemin
+   * bat toutes les 2,5 s, 3 s après l'arrivée. Pas de fin : c'est le chemin
    * proposé, il reste indiqué. Rien sur Favoris ni sur les autres écrans.
    *
    * Plus de mémoire des onglets « vus » : elle arrêtait l'appel une fois les
    * trois ouverts — d'où Bons plans qui n'appelait jamais le Village.
    */
   const courant = isPromotions ? 'bonsplans' : activeTab
+  /*
+   * L'appel attend APPEL_DELAI_MS que la page soit posée : dès l'arrivée, il
+   * s'ajoutait au remue-ménage du chargement. À l'ouverture de l'app, le
+   * compte ne part qu'une fois l'écran de bienvenue parti (page.tsx émet
+   * 'lpv:voile-parti') — sa présence se lit dans le DOM, posé dès le HTML.
+   */
+  const APPEL_DELAI_MS = 3000
+  const [appelArme, setAppelArme] = useState<string | null>(null)
+  useEffect(() => {
+    setAppelArme(null)
+    if (pendingTab || !courant) return
+    let t: ReturnType<typeof setTimeout> | undefined
+    const armer = () => { t = setTimeout(() => setAppelArme(courant), APPEL_DELAI_MS) }
+    if (document.querySelector('.lpv-voileBarre')) {
+      window.addEventListener('lpv:voile-parti', armer, { once: true })
+    } else armer()
+    return () => { clearTimeout(t); window.removeEventListener('lpv:voile-parti', armer) }
+  }, [courant, pendingTab])
   const ongletAppel = (() => {
-    if (pendingTab || !courant) return null
+    if (pendingTab || !courant || appelArme !== courant) return null
     const i = CYCLE_ONGLETS.indexOf(courant)
     return i < 0 ? null : CYCLE_ONGLETS[(i + 1) % CYCLE_ONGLETS.length]
   })()
