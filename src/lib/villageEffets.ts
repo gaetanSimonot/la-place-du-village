@@ -1,30 +1,75 @@
 /**
- * LES EFFETS DE PROFONDEUR DU VILLAGE — deux essais, réglés dans
+ * LES EFFETS DE PROFONDEUR DU VILLAGE — des essais, réglés dans
  * /admin/hub-carousel, clé `village_effets`.
  *
- *  - `courbe` : les blocs se penchent en 3D selon leur hauteur à l'écran,
- *    comme vus de l'intérieur d'un tambour (useEffetTambour).
- *  - `flou`   : un flou progressif en haut et en bas de l'écran, façon
- *    « mise au point macro » (FlouBords).
+ *  - `courbe`   : les blocs se penchent en 3D selon leur hauteur à l'écran,
+ *    comme vus de l'intérieur d'un tambour (useEffetTambour). Les images des
+ *    publications sont découpées en tranches pour se TORDRE au lieu de pivoter.
+ *  - `flou`     : un flou progressif en haut et en bas (FlouBords), avec sa
+ *    hauteur, sa force et son arrondi.
+ *  - `vignette` : un assombrissement (ou éclaircissement) des bords de l'écran.
+ *  - `voile`    : le dégradé du bas de page, au-dessus de la barre d'onglets.
  *
  * Réglage d'INTERFACE, donc technique (cf. configCles.ts) : on le règle une
- * fois, il vaut pour tous les territoires. Activés tant qu'on n'a rien réglé —
- * c'est la demande : on les teste allumés.
+ * fois, il vaut pour tous les territoires. Tant qu'on n'a rien réglé, les
+ * effets sont allumés — on les teste allumés.
  */
+export type CouleurVignette = 'aucune' | 'blanc' | 'noir'
+export type CouleurVoile = 'aucun' | 'creme' | 'blanc' | 'noir'
+
 export interface VillageEffets {
   courbe: boolean
   flou: boolean
+  /** Hauteur des bandes de flou, en px. */
+  flouTaille: number
+  /** Flou maximal, au ras du bord, en px. */
+  flouForce: number
+  /** 0 = bande droite, 100 = bord en ovale (plus de flou dans les coins). */
+  flouRond: number
+  vignette: CouleurVignette
+  /** 0 à 100. */
+  vignetteForce: number
+  voile: CouleurVoile
 }
 
-export const EFFETS_DEFAUT: VillageEffets = { courbe: true, flou: true }
+export const EFFETS_DEFAUT: VillageEffets = {
+  courbe: true,
+  flou: true,
+  flouTaille: 80,
+  flouForce: 9,
+  flouRond: 0,
+  vignette: 'aucune',
+  vignetteForce: 35,
+  voile: 'creme',
+}
+
+/** Bornes des curseurs de l'admin — et de la relecture, qui les respecte. */
+export const BORNES_EFFETS = {
+  flouTaille:    { min: 40, max: 240 },
+  flouForce:     { min: 2,  max: 24 },
+  flouRond:      { min: 0,  max: 100 },
+  vignetteForce: { min: 0,  max: 100 },
+} as const
+
+const nombre = (v: unknown, cle: keyof typeof BORNES_EFFETS): number => {
+  const { min, max } = BORNES_EFFETS[cle]
+  const n = typeof v === 'number' && Number.isFinite(v) ? v : EFFETS_DEFAUT[cle]
+  return Math.min(max, Math.max(min, Math.round(n)))
+}
 
 export function parseEffets(v: string | null | undefined): VillageEffets {
   if (!v) return EFFETS_DEFAUT
   try {
-    const o = JSON.parse(v) as Partial<VillageEffets>
+    const o = JSON.parse(v) as Record<string, unknown>
     return {
       courbe: typeof o.courbe === 'boolean' ? o.courbe : EFFETS_DEFAUT.courbe,
       flou:   typeof o.flou === 'boolean' ? o.flou : EFFETS_DEFAUT.flou,
+      flouTaille: nombre(o.flouTaille, 'flouTaille'),
+      flouForce:  nombre(o.flouForce, 'flouForce'),
+      flouRond:   nombre(o.flouRond, 'flouRond'),
+      vignette: o.vignette === 'blanc' || o.vignette === 'noir' ? o.vignette : 'aucune',
+      vignetteForce: nombre(o.vignetteForce, 'vignetteForce'),
+      voile: o.voile === 'aucun' || o.voile === 'blanc' || o.voile === 'noir' ? o.voile : 'creme',
     }
   } catch {
     return EFFETS_DEFAUT

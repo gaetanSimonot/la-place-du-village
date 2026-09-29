@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import ClientPortal from '@/components/ClientPortal'
 import { type MediaItem, youtubeThumb, youtubeEmbed } from '@/lib/postMedia'
+import ImageTranches, { useTranchesActives } from '@/components/village/ImageTranches'
 
 /**
  * Rendu des médias d'un post / message : grille photos (+ lightbox),
@@ -32,41 +33,53 @@ function PhotoGrid({ urls }: { urls: string[] }) {
   const [lightbox, setLightbox] = useState<number | null>(null)
   const n = urls.length
   const radius = 12
+  /* Effet tambour du Village : chaque photo est redessinée en tranches qui se
+     tordent (ImageTranches). L'<img> reste là, invisible mais cliquable, et
+     sort du calcul du tambour ; les cadres cessent de rogner, sinon le bas
+     élargi des tranches serait coupé net. Ailleurs : rien ne change. */
+  const tranches = useTranchesActives()
+  const rogne: React.CSSProperties['overflow'] = tranches ? 'visible' : 'hidden'
+  const cache: React.CSSProperties = tranches ? { opacity: 0 } : {}
+  const ignorer = tranches ? 'ignorer' : undefined
 
   const Img = ({ url, idx, style }: { url: string; idx: number; style?: React.CSSProperties }) => (
-    <img
-      src={url} alt="" loading="lazy"
-      onClick={() => setLightbox(idx)}
-      style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer', display: 'block', ...style }}
-    />
+    <>
+      <img
+        src={url} alt="" loading="lazy" data-tambour={ignorer}
+        onClick={() => setLightbox(idx)}
+        style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer', display: 'block', ...style, ...cache }}
+      />
+      <ImageTranches url={url} />
+    </>
   )
 
   let grid: React.ReactNode
   if (n === 1) {
     grid = (
-      <div style={{ width: '100%', maxHeight: 420, overflow: 'hidden', borderRadius: radius }}>
-        <img src={urls[0]} alt="" loading="lazy" onClick={() => setLightbox(0)}
-          style={{ width: '100%', maxHeight: 420, objectFit: 'cover', cursor: 'pointer', display: 'block' }} />
+      <div style={{ position: 'relative', width: '100%', maxHeight: 420, overflow: rogne, borderRadius: radius }}>
+        <img src={urls[0]} alt="" loading="lazy" onClick={() => setLightbox(0)} data-tambour={ignorer}
+          style={{ width: '100%', maxHeight: 420, objectFit: 'cover', cursor: 'pointer', display: 'block', ...cache }} />
+        <ImageTranches url={urls[0]} rayon={radius} />
       </div>
     )
   } else if (n === 2) {
     grid = (
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, borderRadius: radius, overflow: 'hidden' }}>
-        {urls.map((u, i) => <div key={i} style={{ aspectRatio: '1 / 1' }}><Img url={u} idx={i} /></div>)}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, borderRadius: radius, overflow: rogne }}>
+        {urls.map((u, i) => <div key={i} style={{ position: 'relative', aspectRatio: '1 / 1' }}><Img url={u} idx={i} /></div>)}
       </div>
     )
   } else if (n === 3) {
     grid = (
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gridTemplateRows: '1fr 1fr', gap: 3, height: 300, borderRadius: radius, overflow: 'hidden' }}>
-        <div style={{ gridRow: '1 / 3' }}><Img url={urls[0]} idx={0} /></div>
-        <div><Img url={urls[1]} idx={1} /></div>
-        <div><Img url={urls[2]} idx={2} /></div>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gridTemplateRows: '1fr 1fr', gap: 3, height: 300, borderRadius: radius, overflow: rogne }}>
+        <div style={{ position: 'relative', gridRow: '1 / 3' }}><Img url={urls[0]} idx={0} /></div>
+        <div style={{ position: 'relative' }}><Img url={urls[1]} idx={1} /></div>
+        <div style={{ position: 'relative' }}><Img url={urls[2]} idx={2} /></div>
       </div>
     )
   } else {
     const extra = n - 4
     grid = (
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 3, height: 320, borderRadius: radius, overflow: 'hidden' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 3, height: 320, borderRadius: radius, overflow: rogne }}>
         {urls.slice(0, 4).map((u, i) => (
           <div key={i} style={{ position: 'relative' }}>
             <Img url={u} idx={i} />

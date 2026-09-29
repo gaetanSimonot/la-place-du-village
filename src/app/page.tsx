@@ -38,7 +38,7 @@ import { useHerosVillage } from '@/hooks/useHerosVillage'
 import { lienHeros, herosExterne } from '@/lib/villageHero'
 import RadioPastille from '@/components/RadioPastille'
 import FlouBords from '@/components/village/FlouBords'
-import { useEffetTambour } from '@/hooks/useEffetTambour'
+import { useEffetTambour, TambourContexte } from '@/hooks/useEffetTambour'
 import { parseEffets, EFFETS_DEFAUT, type VillageEffets } from '@/lib/villageEffets'
 import { lireConfigsClient } from '@/lib/configClient'
 import { correspond, scoreCorrespondance } from '@/lib/recherche'
@@ -124,8 +124,6 @@ export default function HomePage() {
   /** Le Village défile-t-il en ce moment ? Le voile s'efface pendant, revient après. */
   const [villageDefile, setVillageDefile] = useState(false)
   const finDefileVillage = useRef<ReturnType<typeof setTimeout>>()
-  /** Tout en haut du Village ? Éteint le flou du haut, qui voilerait l'en-tête. */
-  const [villageEnHaut, setVillageEnHaut] = useState(true)
   /* Les effets de profondeur du Village (courbe, flou), réglés dans
      /admin/hub-carousel. Allumés d'office tant que le réglage n'est pas lu. */
   const [effetsVillage, setEffetsVillage] = useState<VillageEffets>(EFFETS_DEFAUT)
@@ -135,6 +133,8 @@ export default function HomePage() {
       .catch(() => { /* on garde le défaut */ })
   }, [])
   const villagePanelRef = useRef<HTMLDivElement>(null)
+  /** La bande de flou du haut : son opacité suit le défilement, écrite en direct. */
+  const flouHautRef = useRef<HTMLDivElement>(null)
   const [splashOpen, setSplashOpen]           = useState(false)  // splash éditorial — affiché 1× par session (ouverture de l'app)
   // Welcome modal une seule fois pour toujours (par device).
   // localStorage persiste entre les sessions browser et survit aux relances
@@ -2287,15 +2287,21 @@ export default function HomePage() {
           const el = e.currentTarget
           const auBout = el.scrollTop + el.clientHeight >= el.scrollHeight - 24
           if (auBout !== villageAuBout) setVillageAuBout(auBout)
-          const enHaut = el.scrollTop < 16
-          if (enHaut !== villageEnHaut) setVillageEnHaut(enHaut)
+          // Le haut des effets arrive à mesure que la barre du haut sort :
+          // 0 tant qu'elle est entière, 1 une fois partie. Écrit sur la bande
+          // de flou elle-même : ni état React, ni variable sur <html>.
+          const barre = (el.firstElementChild?.firstElementChild as HTMLElement | null)?.offsetHeight || 60
+          if (flouHautRef.current) flouHautRef.current.style.opacity = Math.min(1, el.scrollTop / barre).toFixed(3)
           if (!villageDefile) setVillageDefile(true)
           clearTimeout(finDefileVillage.current)
           finDefileVillage.current = setTimeout(() => setVillageDefile(false), 250)
         }} style={{
           position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H,
-          zIndex: 25, overflowY: 'auto', backgroundColor: 'var(--creme)',
+          // overflowX hidden : les blocs penchés du tambour s'élargissent au
+          // bord de l'écran, et la page semblait pouvoir défiler de côté.
+          zIndex: 25, overflowY: 'auto', overflowX: 'hidden', backgroundColor: 'var(--creme)',
         }}>
+          <TambourContexte.Provider value={effetsVillage.courbe}>
           <VillageView
             onOpenProfil={() => setNavTab('profil')}
             onOpenSplash={() => setSplashOpen(true)}
@@ -2304,6 +2310,7 @@ export default function HomePage() {
             onOpenAgendaToday={() => { enterAgendaToday(); setSheetMode('half') }}
             onUpgradePrompt={(plan, label) => setUpgradePrompt({ plan, label })}
           />
+          </TambourContexte.Provider>
         </div>
       )}
       {/* VOILE DE BAS DE PAGE — la couleur du fond qui monte en s'effaçant
@@ -2312,14 +2319,17 @@ export default function HomePage() {
           descends ». Crème et non blanc : c'est le fond du Village, un blanc
           y ferait une bande. S'efface pendant le défilement et tout en bas,
           pour ne pas manger le dernier élément. Téléphone seulement (pcv-hide). */}
-      {navTab === 'village' && effetsVillage.flou && (
-        <FlouBords bas={NAV_H} enHaut={villageEnHaut} auBout={villageAuBout} />
+      {navTab === 'village' && (effetsVillage.flou || effetsVillage.vignette !== 'aucune') && (
+        <FlouBords bas={NAV_H} auBout={villageAuBout} reglages={effetsVillage} refHaut={flouHautRef} />
       )}
-      {navTab === 'village' && (
+      {navTab === 'village' && effetsVillage.voile !== 'aucun' && (
         <div aria-hidden className="pcv-hide" style={{
           position: 'absolute', left: 0, right: 0, bottom: NAV_H, height: 56,
           zIndex: 27, pointerEvents: 'none',
-          background: 'linear-gradient(to top, var(--creme) 0%, rgba(0,0,0,0) 100%)',
+          // Sa couleur se règle en admin (crème = le fond, blanc, noir).
+          background: effetsVillage.voile === 'blanc' ? 'linear-gradient(to top, rgba(255,255,255,1), rgba(255,255,255,0))'
+            : effetsVillage.voile === 'noir' ? 'linear-gradient(to top, rgba(0,0,0,.55), rgba(0,0,0,0))'
+            : 'linear-gradient(to top, var(--creme) 0%, rgba(0,0,0,0) 100%)',
           // Part VITE dès qu'on fait défiler (on veut voir ce qui monte),
           // revient DOUCEMENT une fois le doigt au repos.
           opacity: villageAuBout || villageDefile ? 0 : 1,

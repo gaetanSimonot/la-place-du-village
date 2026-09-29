@@ -20,7 +20,7 @@ import { parseEntree, PAGES_ARRIVEE, type EntreeApp, type PageArrivee } from '@/
 import EmbedPicker, { type EmbedItem } from '@/components/EmbedPicker'
 import { normaliserHerosListe, completerUrl, HEROS_VIDE, type HerosVillage, type PublicHeros } from '@/lib/villageHero'
 import ImageLibraryPicker from '@/components/ImageLibraryPicker'
-import { parseEffets, EFFETS_DEFAUT, type VillageEffets } from '@/lib/villageEffets'
+import { parseEffets, EFFETS_DEFAUT, BORNES_EFFETS, type VillageEffets } from '@/lib/villageEffets'
 
 interface EnrichedSlot extends FeaturedSlotRow {
   title?: string
@@ -162,26 +162,40 @@ export default function AdminHubCarousel() {
       herosRef.current = herosLus
       setHerosListe(herosLus)
       setEntree(parseEntree(entreeRes.data?.value))
-      setEffets(parseEffets(cfg.village_effets))
+      const effetsLus = parseEffets(cfg.village_effets)
+      effetsRef.current = effetsLus
+      setEffets(effetsLus)
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user?.id, isAdmin, territoireAdmin?.id, territoireAdmin?.par_defaut])
 
-  /** Un interrupteur d'effet : enregistré aussitôt, remis en place si l'écriture échoue. */
-  async function changerEffet(cle: keyof VillageEffets, valeur: boolean) {
-    if (effetsSaving) return
-    const avant = effets
-    const suivant = { ...effets, [cle]: valeur }
-    setEffets(suivant); setEffetsSaving(true)
-    const { data: { session } } = await supabase.auth.getSession()
-    // Réglage d'interface : global, jamais par territoire (cf. configCles.ts).
-    const res = await fetch(urlEcritureConfig(null), {
-      method:  'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
-      body:    JSON.stringify({ key: 'village_effets', value: JSON.stringify(suivant) }),
-    }).catch(() => null)
-    if (!res?.ok) setEffets(avant)
-    setEffetsSaving(false)
+  /**
+   * Les effets du Village. Chaque changement s'affiche tout de suite et part
+   * 400 ms après le dernier geste : un curseur qu'on fait glisser n'envoie
+   * qu'une écriture, avec la valeur finale. La valeur qui part est toujours
+   * la plus récente (réf), jamais celle d'un rendu périmé.
+   */
+  const effetsRef = useRef<VillageEffets>(EFFETS_DEFAUT)
+  const effetsMinuteur = useRef<ReturnType<typeof setTimeout>>()
+  const [effetsMsg, setEffetsMsg] = useState<string | null>(null)
+  function majEffets(patch: Partial<VillageEffets>) {
+    const suivant = { ...effetsRef.current, ...patch }
+    effetsRef.current = suivant
+    setEffets(suivant)
+    clearTimeout(effetsMinuteur.current)
+    effetsMinuteur.current = setTimeout(async () => {
+      setEffetsSaving(true)
+      const { data: { session } } = await supabase.auth.getSession()
+      // Réglage d'interface : global, jamais par territoire (cf. configCles.ts).
+      const res = await fetch(urlEcritureConfig(null), {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+        body:    JSON.stringify({ key: 'village_effets', value: JSON.stringify(effetsRef.current) }),
+      }).catch(() => null)
+      setEffetsSaving(false)
+      setEffetsMsg(res?.ok ? 'Enregistré' : 'Échec de l’enregistrement')
+      setTimeout(() => setEffetsMsg(null), 2000)
+    }, 400)
   }
 
   async function toggleIntro(next: boolean) {
@@ -996,18 +1010,18 @@ export default function AdminHubCarousel() {
         }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>Effets du Village</div>
           <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2, marginBottom: 10, lineHeight: 1.45 }}>
-            Téléphone seulement. Coupés d&apos;office pour qui a demandé moins d&apos;animations.
+            Téléphone seulement. Coupés d&apos;office pour qui a demandé moins
+            d&apos;animations. S&apos;appliquent au prochain affichage du Village.
           </div>
           {([
-            { cle: 'courbe' as const, titre: 'Courbe', sous: 'Les blocs se penchent en haut et en bas de l’écran, comme dans un tambour.' },
+            { cle: 'courbe' as const, titre: 'Courbe', sous: 'Les blocs se penchent en haut et en bas de l’écran, comme dans un tambour ; les photos des publications se tordent.' },
             { cle: 'flou'   as const, titre: 'Flou de bord', sous: 'Un flou progressif en haut et en bas, façon mise au point macro.' },
           ]).map(o => (
-            <label key={o.cle} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', cursor: effetsSaving ? 'default' : 'pointer' }}>
+            <label key={o.cle} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', cursor: 'pointer' }}>
               <input
                 type="checkbox"
                 checked={effets[o.cle]}
-                disabled={effetsSaving}
-                onChange={e => void changerEffet(o.cle, e.target.checked)}
+                onChange={e => majEffets({ [o.cle]: e.target.checked })}
                 style={{ accentColor: '#2D5A3D', cursor: 'pointer' }}
               />
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -1016,6 +1030,71 @@ export default function AdminHubCarousel() {
               </div>
             </label>
           ))}
+
+          {/* Les curseurs du flou — seulement quand il est allumé. */}
+          {effets.flou && ([
+            { cle: 'flouTaille' as const, titre: 'Hauteur du flou', unite: ' px' },
+            { cle: 'flouForce'  as const, titre: 'Force du flou',   unite: ' px' },
+            { cle: 'flouRond'   as const, titre: 'Arrondi',         unite: ' %' },
+          ]).map(o => (
+            <div key={o.cle} style={{ padding: '6px 0 6px 28px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, fontWeight: 700, color: '#1A1209' }}>
+                <span>{o.titre}</span><span style={{ color: '#7A6A5A' }}>{effets[o.cle]}{o.unite}</span>
+              </div>
+              <input
+                type="range"
+                min={BORNES_EFFETS[o.cle].min} max={BORNES_EFFETS[o.cle].max}
+                value={effets[o.cle]}
+                onChange={e => majEffets({ [o.cle]: Number(e.target.value) })}
+                style={{ width: '100%', accentColor: '#2D5A3D' }}
+              />
+            </div>
+          ))}
+
+          {/* Vignette et voile : trois ou quatre choix exclusifs chacun. */}
+          {([
+            { titre: 'Vignette', sous: 'Les bords de l’écran assombris ou éclaircis.', cle: 'vignette' as const,
+              choix: [{ v: 'aucune', l: 'Aucune' }, { v: 'blanc', l: 'Blanche' }, { v: 'noir', l: 'Noire' }] },
+            { titre: 'Voile du bas', sous: 'Le dégradé au-dessus de la barre d’onglets.', cle: 'voile' as const,
+              choix: [{ v: 'aucun', l: 'Aucun' }, { v: 'creme', l: 'Crème' }, { v: 'blanc', l: 'Blanc' }, { v: 'noir', l: 'Noir' }] },
+          ]).map(g => (
+            <div key={g.cle} style={{ paddingTop: 10 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 800, color: '#1A1209' }}>{g.titre}</div>
+              <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 1, marginBottom: 6 }}>{g.sous}</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {g.choix.map(c => {
+                  const actif = effets[g.cle] === c.v
+                  return (
+                    <button key={c.v} type="button"
+                      onClick={() => majEffets({ [g.cle]: c.v } as Partial<VillageEffets>)}
+                      style={{
+                        flex: 1, padding: '7px 4px', borderRadius: 9, fontSize: 11.5, fontWeight: 800, cursor: 'pointer',
+                        border: `1.5px solid ${actif ? '#2D5A3D' : '#E5DDD2'}`,
+                        background: actif ? '#F4FAF5' : '#FFFFFF', color: actif ? '#2D5A3D' : '#1A1209',
+                      }}
+                    >{c.l}</button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+          {effets.vignette !== 'aucune' && (
+            <div style={{ padding: '8px 0 0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, fontWeight: 700, color: '#1A1209' }}>
+                <span>Force de la vignette</span><span style={{ color: '#7A6A5A' }}>{effets.vignetteForce} %</span>
+              </div>
+              <input
+                type="range"
+                min={BORNES_EFFETS.vignetteForce.min} max={BORNES_EFFETS.vignetteForce.max}
+                value={effets.vignetteForce}
+                onChange={e => majEffets({ vignetteForce: Number(e.target.value) })}
+                style={{ width: '100%', accentColor: '#2D5A3D' }}
+              />
+            </div>
+          )}
+          <div style={{ fontSize: 11, marginTop: 8, minHeight: 14, color: effetsMsg === 'Échec de l’enregistrement' ? '#B53A22' : '#2D5A3D' }}>
+            {effetsSaving ? 'Enregistrement…' : effetsMsg}
+          </div>
         </div>
       </div>
 
