@@ -510,9 +510,21 @@ export default function HomePage() {
     const valid: NavTab[] = ['carte', 'village', 'profil', 'favoris', 'notifs']
     if ((valid as string[]).includes(saved ?? '')) return saved as NavTab
     // Premier arrivage : sur ordinateur on atterrit sur Le village, qui est
-    // l'accueil de la version bureau ; sur mobile, la carte, inchangée.
-    // Même point de rupture que desktop.css.
-    return window.matchMedia('(min-width: 1024px)').matches ? 'village' : 'carte'
+    // l'accueil de la version bureau. Même point de rupture que desktop.css.
+    if (window.matchMedia('(min-width: 1024px)').matches) return 'village'
+    /*
+     * Sur téléphone : LA PAGE D'ARRIVÉE RÉGLÉE EN ADMIN, DÈS LA PREMIÈRE IMAGE.
+     * Avant, on partait sur la carte et le réglage (lu jusqu'à 0,7 s plus
+     * tard) basculait ensuite vers le Village : la carte, l'écran le plus
+     * lourd, commençait à charger, et la barre du bas s'allumait sur « Carte »
+     * puis changeait. On lit donc la dernière valeur connue de ce téléphone
+     * (lireEntreeEnCache) — ENTREE_DEFAUT au tout premier lancement.
+     * Une adresse qui vise un écran (?mode=, ?tab=, ?splash=) l'emporte :
+     * on la laisse à ses propres effets, depuis la carte comme avant.
+     */
+    const sp0 = new URLSearchParams(window.location.search)
+    if (sp0.has('mode') || sp0.has('tab') || sp0.has('splash')) return 'carte'
+    return lireEntreeEnCache().page === 'village' ? 'village' : 'carte'
   })
   // Le panneau n'existe que sur l'onglet Village : le hook se réarme à chaque retour.
   useEffetTambour(
