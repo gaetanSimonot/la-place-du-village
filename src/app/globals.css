@@ -116,6 +116,26 @@ html, body {
   .lpv-titre, .lpv-titre > span { transition: none; }
 }
 
+/* Écran de bienvenue (page.tsx) : un trait orange qui glisse sous le titre
+   pendant que le Village se met en place. */
+.lpv-voileBarre {
+  position: relative; overflow: hidden;
+  width: 120px; height: 3px; margin-top: 4px; border-radius: 3px;
+  background: rgba(200, 75, 47, 0.15);
+}
+.lpv-voileBarre::after {
+  content: ''; position: absolute; top: 0; bottom: 0; left: 0;
+  width: 40%; border-radius: 3px; background: #C84B2F;
+  animation: lpv-voileBarre 1.1s ease-in-out infinite;
+}
+@keyframes lpv-voileBarre {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(250%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lpv-voileBarre::after { animation-duration: 2.4s; }
+}
+
 /* Headings — héritent simplement de body (Inter via next/font).
    Les composants V3 utilisent className="font-serif" pour DM Serif Display
    ou className="font-caveat" pour Caveat (tailwind config). Pas de surcharge

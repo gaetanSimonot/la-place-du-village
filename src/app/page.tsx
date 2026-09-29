@@ -531,10 +531,40 @@ export default function HomePage() {
    * serveur est la même pour tous et ne connaît pas la page d'arrivée du
    * téléphone : elle rendait la carte, affichée 1 à 3 s avant que l'app ne
    * démarre et bascule. Elle rend donc ce voile (logo + bienvenue) par-dessus
-   * tout, retiré au premier effet côté client — l'onglet est alors le bon.
+   * tout.
+   *
+   * Arrivée sur la carte : il part au premier effet côté client. Arrivée sur
+   * le Village : il reste le temps que les sections se posent — chacune
+   * charge ses données de son côté et apparaissait l'une après l'autre sous
+   * les yeux. On attend que le panneau cesse d'ajouter des éléments pendant
+   * CALME_MS, puis fondu. Seuls les ajouts/retraits comptent, pas les
+   * attributs : les carrousels et le tambour en écrivent en continu.
+   * Plafond VOILE_MAX_MS : l'app ne reste jamais bloquée derrière.
    */
-  const [appDemarree, setAppDemarree] = useState(false)
-  useEffect(() => { setAppDemarree(true) }, [])
+  const [voile, setVoile] = useState<'attente' | 'fondu' | 'parti'>('attente')
+  useEffect(() => {
+    if (navTab !== 'village') { setVoile('parti'); return }
+    const CALME_MS = 500, VOILE_MAX_MS = 3000
+    let calme: ReturnType<typeof setTimeout> | undefined
+    const lever = () => {
+      obs?.disconnect(); clearTimeout(calme); clearTimeout(plafond)
+      setVoile(v => v === 'attente' ? 'fondu' : v)
+    }
+    const relancer = () => { clearTimeout(calme); calme = setTimeout(lever, CALME_MS) }
+    const plafond = setTimeout(lever, VOILE_MAX_MS)
+    const panneau = villagePanelRef.current
+    const obs = panneau ? new MutationObserver(relancer) : null
+    if (panneau) obs!.observe(panneau, { childList: true, subtree: true, characterData: true })
+    relancer()
+    return () => { obs?.disconnect(); clearTimeout(calme); clearTimeout(plafond) }
+    // Une seule fois, à l'ouverture : l'onglet de départ suffit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  useEffect(() => {
+    if (voile !== 'fondu') return
+    const t = setTimeout(() => setVoile('parti'), 350)
+    return () => clearTimeout(t)
+  }, [voile])
   // Le panneau n'existe que sur l'onglet Village : le hook se réarme à chaque retour.
   useEffetTambour(
     villagePanelRef,
@@ -1554,10 +1584,12 @@ export default function HomePage() {
 
   return (
     <div className="pcv-home" style={{ height: '100dvh', position: 'relative', overflow: 'hidden', backgroundColor: '#e8dece' }}>
-      {!appDemarree && (
+      {voile !== 'parti' && (
         <div aria-hidden style={{
           position: 'fixed', inset: 0, zIndex: 2147483000, backgroundColor: 'var(--creme)',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18,
+          opacity: voile === 'fondu' ? 0 : 1, transition: 'opacity .35s ease',
+          pointerEvents: voile === 'fondu' ? 'none' : 'auto',
         }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/icon.svg" alt="" width={96} height={96} style={{ display: 'block', borderRadius: 22, boxShadow: '0 6px 18px rgba(178,61,18,0.22)' }} />
@@ -1570,6 +1602,7 @@ export default function HomePage() {
             <span style={{ color: '#2D5A3D' }}>Bienvenue sur </span>
             <span style={{ color: '#C84B2F' }}>La Place</span>
           </p>
+          <div className="lpv-voileBarre" />
         </div>
       )}
 
