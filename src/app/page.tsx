@@ -526,6 +526,15 @@ export default function HomePage() {
     if (sp0.has('mode') || sp0.has('tab') || sp0.has('splash')) return 'carte'
     return lireEntreeEnCache().page === 'village' ? 'village' : 'carte'
   })
+  /*
+   * L'ÉCRAN D'ATTENTE D'AVANT LE DÉMARRAGE. La page préconstruite par le
+   * serveur est la même pour tous et ne connaît pas la page d'arrivée du
+   * téléphone : elle rendait la carte, affichée 1 à 3 s avant que l'app ne
+   * démarre et bascule. Elle rend donc ce voile (logo + bienvenue) par-dessus
+   * tout, retiré au premier effet côté client — l'onglet est alors le bon.
+   */
+  const [appDemarree, setAppDemarree] = useState(false)
+  useEffect(() => { setAppDemarree(true) }, [])
   // Le panneau n'existe que sur l'onglet Village : le hook se réarme à chaque retour.
   useEffetTambour(
     villagePanelRef,
@@ -1545,6 +1554,21 @@ export default function HomePage() {
 
   return (
     <div className="pcv-home" style={{ height: '100dvh', position: 'relative', overflow: 'hidden', backgroundColor: '#e8dece' }}>
+      {!appDemarree && (
+        <div aria-hidden style={{
+          position: 'fixed', inset: 0, zIndex: 2147483000, backgroundColor: 'var(--creme)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18,
+        }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="" width={112} height={112} style={{ display: 'block', mixBlendMode: 'multiply' }} />
+          <p style={{
+            margin: 0, fontFamily: 'var(--font-display), Georgia, serif', fontSize: 26,
+            color: '#2D5A3D', textAlign: 'center', padding: '0 24px',
+          }}>
+            Bienvenue sur La Place
+          </p>
+        </div>
+      )}
 
 
       {/* Modale "Bientôt disponible" */}
