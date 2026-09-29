@@ -1,5 +1,5 @@
 'use client'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import DesktopVillageSidebar from '@/components/desktop/DesktopVillageSidebar'
 import DesktopVillageHero from '@/components/desktop/DesktopVillageHero'
@@ -24,6 +24,7 @@ import PostCard, { type PostData } from '@/components/profil/PostCard'
 import PostCommentsDrawer from '@/components/profil/PostCommentsDrawer'
 import BarreAssistant from '@/components/assistant/BarreAssistant'
 import HerosVillage from '@/components/village/HerosVillage'
+import TitreVivant, { useTitresVivants } from '@/components/village/TitreVivant'
 import { chargerIdentitesEtab } from '@/lib/identite'
 import RadioPastille from '@/components/RadioPastille'
 
@@ -63,8 +64,12 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
   }, [])
   const showPlansCard = (profile?.plan ?? 'basic') === 'basic' && !plansCardDismissed && !!onUpgradePrompt
 
+  // Le titre de la section qui occupe le milieu de l'écran prend l'accent.
+  const racineRef = useRef<HTMLDivElement>(null)
+  useTitresVivants(racineRef)
+
   return (
-    <div className="min-h-full bg-creme pb-6">
+    <div ref={racineRef} className="min-h-full bg-creme pb-6">
       {/* Top bar bande blanche (identique carte) : logo + bouton Profil.
           pcv-hide : sur ordinateur, l'en-tête du site porte déjà le logo,
           le profil et les notifications — cette barre ferait doublon. */}
@@ -303,7 +308,7 @@ function Tiles() {
   return (
     <>
       <div className="flex items-baseline justify-between gap-2.5 px-4 pb-2.5 pt-[18px]">
-        <span className="font-serif text-[20px] leading-[1.15] text-texte" style={{ letterSpacing: '-0.02em' }}>Nos rubriques</span>
+        <span className="font-serif text-[20px] leading-[1.15] text-texte" style={{ letterSpacing: '-0.02em' }}><TitreVivant texte="Nos rubriques" /></span>
       </div>
       <div className="grid grid-cols-4 gap-2 px-4">
         {TILES.map(t => {
@@ -504,7 +509,7 @@ function VillageFeed({ user, avatar, authorName }: { user: ReturnType<typeof use
           chargés par ce composant. Masqué tant que le chargement n'a rien
           rendu, pour ne pas afficher « 0 publication » puis se corriger. */}
       <div className="flex items-baseline justify-between gap-2.5 px-4 pb-2.5 pt-[22px]">
-        <span className="font-serif text-[20px] leading-[1.15] text-texte" style={{ letterSpacing: '-0.02em' }}>Le fil du village</span>
+        <span className="font-serif text-[20px] leading-[1.15] text-texte" style={{ letterSpacing: '-0.02em' }}><TitreVivant texte="Le fil du village" /></span>
         {posts.length > 0 && (
           <span className="shrink-0 text-[11.5px]" style={{ color: '#7A6A5A' }}>
             {posts.length} publication{posts.length > 1 ? 's' : ''}

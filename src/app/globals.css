@@ -88,6 +88,37 @@ html, body {
   img { -webkit-user-drag: none; }
 }
 
+/* ═══════════ TITRES VIVANTS — la section du milieu prend l'accent ═══════════
+   TitreVivant.tsx : deux versions d'un titre de section dans la même case de
+   grille. Au repos, la calme (serif noir, le style d'origine). Section au
+   milieu de l'écran (`data-actif`) : la vive, dans le style du grand titre
+   « Aujourd'hui / près de chez vous » — sans-serif très gras, début vert,
+   dernier mot orange. Fondu croisé et léger grossissement ; la case garde
+   la taille de la plus grande des deux, rien ne bouge autour. */
+.lpv-titre { display: inline-grid; }
+.lpv-titre > span {
+  grid-area: 1 / 1;
+  transform-origin: left center;
+  transition: opacity .45s ease, transform .5s cubic-bezier(.22, 1, .36, 1);
+}
+.lpv-titre-vif {
+  opacity: 0;
+  transform: scale(.94);
+  white-space: nowrap;
+  font-family: var(--font-body), sans-serif;
+  font-weight: 800;
+  font-size: 23px;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+}
+.lpv-titre-v1 { color: #2D5A3D; }
+.lpv-titre-v2 { color: #C84B2F; }
+.lpv-titre[data-actif] .lpv-titre-calme { opacity: 0; transform: scale(1.04); }
+.lpv-titre[data-actif] .lpv-titre-vif { opacity: 1; transform: scale(1); }
+@media (prefers-reduced-motion: reduce) {
+  .lpv-titre > span { transition: none; }
+}
+
 /* Headings — héritent simplement de body (Inter via next/font).
    Les composants V3 utilisent className="font-serif" pour DM Serif Display
    ou className="font-caveat" pour Caveat (tailwind config). Pas de surcharge

@@ -1,6 +1,7 @@
 'use client'
 import { useMemo } from 'react'
 import { useDefilementDoux } from '@/hooks/useDefilementDoux'
+import TitreVivant from '@/components/village/TitreVivant'
 import Link from 'next/link'
 import useSWR from 'swr'
 import { useTerritoire } from '@/components/TerritoireProvider'
@@ -124,7 +125,7 @@ export default function TheatreAffiche({ isAdmin = false }: { isAdmin?: boolean 
       <div className="pcv-bh flex items-baseline justify-between gap-2.5 px-4 pb-2.5 pt-[18px]">
         <div>
           <h2 className="m-0 font-serif text-[20px] leading-[1.15] text-texte" style={{ letterSpacing: '-0.02em' }}>
-            Au théâtre
+            <TitreVivant texte="Au théâtre" />
           </h2>
           <div className="pcv-sub pcv-only">La saison du spectacle vivant près de chez vous</div>
         </div>

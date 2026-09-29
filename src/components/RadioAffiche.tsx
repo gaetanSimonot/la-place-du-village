@@ -3,6 +3,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import useSWR from 'swr'
 import { useTerritoire } from '@/components/TerritoireProvider'
+import TitreVivant from '@/components/village/TitreVivant'
 import { sectionVisible } from '@/lib/visibilite'
 import { imageEvenement } from '@/lib/imageEvenement'
 import { RADIO, LOGO_ROND, BLEU_RADIO, formatDuree, type PayloadRadio } from '@/lib/radio'
@@ -75,7 +76,7 @@ export default function RadioAffiche({ isAdmin }: { isAdmin: boolean }) {
       <div className="pcv-bh flex items-baseline justify-between gap-2.5 px-4 pb-2.5 pt-[18px]">
         <div>
           <h2 className="m-0 font-serif text-[20px] leading-[1.15] text-texte" style={{ letterSpacing: '-0.02em' }}>
-            À la radio
+            <TitreVivant texte="À la radio" />
           </h2>
           <div className="pcv-sub pcv-only">La sélection culturelle de la semaine</div>
         </div>

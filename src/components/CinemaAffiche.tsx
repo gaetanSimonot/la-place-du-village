@@ -1,6 +1,7 @@
 'use client'
 import { useMemo } from 'react'
 import { useDefilementDoux } from '@/hooks/useDefilementDoux'
+import TitreVivant from '@/components/village/TitreVivant'
 import Link from 'next/link'
 import useSWR from 'swr'
 import { useTerritoire } from '@/components/TerritoireProvider'
@@ -94,7 +95,7 @@ export default function CinemaAffiche({ isAdmin = false }: { isAdmin?: boolean }
           seule rubrique titrée autrement que les autres. */}
       <div className="pcv-bh flex items-baseline justify-between gap-2.5 px-4 pb-2.5 pt-[18px]">
         <div>
-          <h2 className="m-0 font-serif text-[20px] leading-[1.15] text-texte" style={{ letterSpacing: '-0.02em' }}>Au cinéma</h2>
+          <h2 className="m-0 font-serif text-[20px] leading-[1.15] text-texte" style={{ letterSpacing: '-0.02em' }}><TitreVivant texte="Au cinéma" /></h2>
           {/* Le sous-titre n'apparaît que sur ordinateur : sur un téléphone,
               la ligne de comptage sous les affiches dit déjà tout. */}
           <div className="pcv-sub pcv-only">Ce qu&apos;on joue en ce moment près de chez vous</div>
