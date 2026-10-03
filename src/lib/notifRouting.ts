@@ -35,6 +35,7 @@ const PHRASES: Record<string, (n: NotifLike) => string> = {
   promo_used:             n => `${n.actor_name ?? 'Un client'} a utilisé votre promo`,
   // Abonnements
   bienvenue_habitant:     () => 'Bienvenue parmi les Habitants 🌿 Votre abonnement est actif : touchez pour découvrir tout ce qu’il vous ouvre.',
+  bienvenue_partenaire:   () => 'Bienvenue parmi les Partenaires Locaux ★ Votre abonnement est actif : touchez pour bien démarrer.',
   // Annonces
   annonce_interet_recu:   n => `${n.actor_name ?? 'Quelqu’un'} s’intéresse à votre annonce`,
   annonce_enchere_prise:  n => `${n.actor_name ?? 'Quelqu’un'} a pris votre enchère`,
@@ -111,6 +112,7 @@ export function notifUrl(n: NotifLike, opts: { isAdmin?: boolean } = {}): string
   // BienvenueHabitantModal) ; la clé est en dur ici car ce module doit rester
   // importable côté serveur, sans composant.
   if (t === 'bienvenue_habitant')                    return `${NOTIFS_URL}&post=bienvenue-habitant`
+  if (t === 'bienvenue_partenaire')                  return `${NOTIFS_URL}&post=bienvenue-partenaire`
   // Panne du collector : rien à ouvrir en particulier, la réparation se fait
   // sur le téléphone. L'admin est le seul écran qui ait du sens.
   if (t === 'collector_muet')                        return '/admin'

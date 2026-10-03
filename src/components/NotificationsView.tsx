@@ -6,6 +6,7 @@ import { useAdminSession } from '@/hooks/useAdminSession'
 import { useFriendships } from '@/hooks/useFriendships'
 import { notifPhrase, notifUrl, NOTIFS_URL } from '@/lib/notifRouting'
 import BienvenueHabitantModal, { CLE_BIENVENUE_HABITANT } from '@/components/BienvenueHabitantModal'
+import BienvenuePartenaireModal, { CLE_BIENVENUE_PARTENAIRE } from '@/components/BienvenuePartenaireModal'
 import { PLANS_INFO, PLAN_ORDER, type Plan } from '@/lib/capabilities'
 import type { AppNotification, NotifType } from '@/lib/types'
 import { toast } from 'sonner'
@@ -87,6 +88,7 @@ const NOTIF_VISUAL: Record<NotifType, NotifVisual> = {
   claim_rejected:         { bg: '#F0EBE3', color: '#A0654E', icon: ICONS.cross,    label: n => `Revendication refusée${n.actor_name ? ` : ${n.actor_name}` : ''}` },
   promo_used:             { bg: '#FFF0E5', color: '#E8622A', icon: ICONS.gift,     label: n => `${n.actor_name ?? 'Un client'} a utilisé votre promo` },
   bienvenue_habitant:     { bg: '#FFF1E7', color: '#E14818', icon: ICONS.leaf,     label: n => notifPhrase(n) },
+  bienvenue_partenaire:   { bg: '#EEF3FF', color: '#3A5BC7', icon: ICONS.star,     label: n => notifPhrase(n) },
   annonce_interet_recu:   { bg: '#FFF0E5', color: '#C84B2F', icon: ICONS.star,     label: n => `${n.actor_name ?? 'Quelqu\'un'} s'intéresse à votre annonce` },
   annonce_enchere_prise:  { bg: '#E8EEF7', color: '#3A5BC7', icon: ICONS.hammer,   label: n => `${n.actor_name ?? 'Quelqu\'un'} a pris votre enchère` },
   annonce_expire_bientot: { bg: '#F0EBE3', color: '#7A6A5A', icon: ICONS.clock,    label: () => 'Votre annonce expire dans 2 jours' },
@@ -232,14 +234,15 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
 
   // Arrivée depuis une notification du téléphone (?post=) : on ouvre le post
   // tout de suite, comme si on avait tapé la ligne dans la liste.
-  // Le message de bienvenue Habitant (notification bienvenue_habitant).
-  const [bienvenueOuverte, setBienvenueOuverte] = useState(false)
+  // Les messages de bienvenue (notifications bienvenue_habitant / _partenaire).
+  const [bienvenueOuverte, setBienvenueOuverte] = useState<'habitant' | 'partenaire' | null>(null)
 
   useEffect(() => {
     if (!initialPostId) return
-    // Le même canal que les publications admin (?post=) porte le message de
-    // bienvenue, sous une clé réservée.
-    if (initialPostId === CLE_BIENVENUE_HABITANT) setBienvenueOuverte(true)
+    // Le même canal que les publications admin (?post=) porte les messages de
+    // bienvenue, sous des clés réservées.
+    if (initialPostId === CLE_BIENVENUE_HABITANT) setBienvenueOuverte('habitant')
+    else if (initialPostId === CLE_BIENVENUE_PARTENAIRE) setBienvenueOuverte('partenaire')
     else setPostModalId(initialPostId)
     onInitialPostConsumed?.()
   }, [initialPostId, onInitialPostConsumed])
@@ -305,8 +308,8 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
     if (!n.lu) onMarkRead(n.id)
 
     // Bienvenue Habitant → le message, sur place.
-    if (n.type === 'bienvenue_habitant') {
-      setBienvenueOuverte(true)
+    if (n.type === 'bienvenue_habitant' || n.type === 'bienvenue_partenaire') {
+      setBienvenueOuverte(n.type === 'bienvenue_habitant' ? 'habitant' : 'partenaire')
       return
     }
     // Broadcast admin → pop-up qui affiche le post, pas de navigation.
@@ -639,7 +642,8 @@ export default function NotificationsView({ notifications, loading, loaded, onOp
       {postModalId && (
         <PostNotifModal postId={postModalId} onClose={() => setPostModalId(null)} />
       )}
-      {bienvenueOuverte && <BienvenueHabitantModal onClose={() => setBienvenueOuverte(false)} />}
+      {bienvenueOuverte === 'habitant' && <BienvenueHabitantModal onClose={() => setBienvenueOuverte(null)} />}
+      {bienvenueOuverte === 'partenaire' && <BienvenuePartenaireModal onClose={() => setBienvenueOuverte(null)} />}
 
       {/* Incitation à activer les notifications push (à l'ouverture des notifs) */}
       <PushPromptModal />

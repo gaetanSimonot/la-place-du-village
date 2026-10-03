@@ -24,6 +24,7 @@
  */
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { sendEmail } from '@/lib/email'
+import { notifyUser } from '@/lib/server-auth'
 import { GABARIT_BIENVENUE_PARTENAIRE } from '@/lib/gabaritBienvenuePartenaire'
 
 const SITE = 'https://laplaceduvillage.app'
@@ -87,6 +88,11 @@ export async function envoyerBienvenuePartenaire(userId: string, test?: { email:
     // Échec (quota Resend, adresse invalide…) : silencieux côté appelant.
     // Le prochain basculement réessaiera.
     void r
+
+    // La version app du message (BienvenuePartenaireModal), ouverte par sa
+    // notification. Pas en essai : l'essai ne vise que le mail. Pas de
+    // target_type (contrainte CHECK) : la destination se règle par `type`.
+    if (!test) await notifyUser(userId, { type: 'bienvenue_partenaire', actor_name: 'La Place du Village' })
   } catch {
     // Jamais bloquant pour l'appelant : ni le paiement ni l'action admin ne
     // doivent échouer parce qu'un e-mail n'est pas parti.
