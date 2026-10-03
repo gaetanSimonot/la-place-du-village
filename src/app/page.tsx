@@ -34,6 +34,7 @@ import { useProducerFavorites } from '@/hooks/useProducerFavorites'
 import { useNotifications } from '@/hooks/useNotifications'
 import { ecranBureau } from '@/lib/bureau'
 import { lireEntreeEnCache, entreeFraiche } from '@/lib/entreeApp'
+import SelecteurModes from '@/components/SelecteurModes'
 import { useHerosVillage } from '@/hooks/useHerosVillage'
 import { lienHeros, herosExterne } from '@/lib/villageHero'
 import RadioPastille from '@/components/RadioPastille'
@@ -1767,41 +1768,17 @@ export default function HomePage() {
                     </button>
                   </div>
                 </div>
-                <div style={{ display: 'flex', background: '#F7F1E6', borderRadius: 14, padding: 4, gap: 2 }}>
-                  {MODES.map(m => {
-                    const active = !modeTransport && mapMode === m.id
-                    return (
-                      <button
-                        key={m.id}
-                        onClick={() => setMapMode(m.id)}
-                        style={{
-                          flex: 1, padding: '8px 4px', borderRadius: 10, border: 'none', cursor: 'pointer',
-                          background: active ? '#2D5A3D' : 'transparent',
-                          color: active ? '#fff' : '#7A6A5A',
-                          fontFamily: 'var(--font-body), sans-serif', fontWeight: active ? 800 : 700, fontSize: 12,
-                          whiteSpace: 'nowrap', transition: 'all 0.15s',
-                        }}
-                      >
-                        {m.label}
-                      </button>
-                    )
-                  })}
-                  <button
-                    onClick={() => setModeTransport(true)}
-                    aria-label="Transport"
-                    style={{
-                      flex: 1, padding: '8px 4px', borderRadius: 10, border: 'none', cursor: 'pointer',
-                      background: modeTransport ? '#2D5A3D' : 'transparent',
-                      color: modeTransport ? '#fff' : '#7A6A5A',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-                      fontFamily: 'var(--font-body), sans-serif',
-                      fontWeight: modeTransport ? 800 : 700, fontSize: 12,
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    <IconeBus />Transport
-                  </button>
-                </div>
+                {/* La molette des modes : Événements au milieu, deux de chaque côté. */}
+                <SelecteurModes
+                  modes={[
+                    { id: 'prod' as const, label: 'Producteurs' },
+                    { id: 'etab' as const, label: 'Commerces' },
+                    { id: 'evt' as const, label: 'Événements' },
+                    { id: 'transport' as const, label: 'Transport', icone: <IconeBus /> },
+                  ]}
+                  actif={modeTransport ? 'transport' : mapMode}
+                  onChoisir={id => { if (id === 'transport') setModeTransport(true); else setMapMode(id) }}
+                />
               </div>
             )}
 
