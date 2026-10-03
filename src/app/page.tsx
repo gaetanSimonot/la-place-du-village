@@ -35,6 +35,8 @@ import { useNotifications } from '@/hooks/useNotifications'
 import { ecranBureau } from '@/lib/bureau'
 import { lireEntreeEnCache, entreeFraiche } from '@/lib/entreeApp'
 import SelecteurModes from '@/components/SelecteurModes'
+import { CLE_CONFIG_LISTE_SUIT, CLE_LOCAL_LISTE_SUIT, type ModeListeSuit, type ZoneCarte } from '@/lib/zoneCarte'
+import { urlEcritureConfig } from '@/lib/configClient'
 import { ListeBonsPlans, EnteteBonsPlans, etabsDesBonsPlans, typesDesBonsPlans, vignettesDesBonsPlans, useFavorisBonsPlans, lienBonPlan, type PromoCarte } from '@/components/BonsPlansCarte'
 import DiscoverPromoModal from '@/components/DiscoverPromoModal'
 import { useHerosVillage } from '@/hooks/useHerosVillage'
@@ -314,6 +316,36 @@ export default function HomePage() {
   )
   const etabsBonsPlans = useMemo(() => etabsDesBonsPlans(bonsPlans), [bonsPlans])
   const vignettesBonsPlans = useMemo(() => vignettesDesBonsPlans(bonsPlans), [bonsPlans])
+  /* « LA LISTE SUIT LA CARTE » (option admin, cf. zoneCarte.ts). Le réglage
+     global vit dans config (« pour tous ») ; « pour moi » dans le navigateur
+     de l'admin. La zone visible arrive de la carte quand elle s'arrête. */
+  const [listeSuitTous, setListeSuitTous] = useState(false)
+  const [listeSuitMoi, setListeSuitMoi] = useState(() => {
+    try { return typeof window !== 'undefined' && localStorage.getItem(CLE_LOCAL_LISTE_SUIT) === '1' } catch { return false }
+  })
+  useEffect(() => {
+    supabase.from('config').select('value').eq('key', CLE_CONFIG_LISTE_SUIT).maybeSingle()
+      .then(({ data }) => setListeSuitTous(data?.value === 'tous'))
+  }, [])
+  const modeListeSuit: ModeListeSuit = listeSuitTous ? 'tous' : listeSuitMoi ? 'moi' : 'off'
+  const listeSuitActive = listeSuitTous || (isAdmin && listeSuitMoi)
+  const [zoneCarte, setZoneCarte] = useState<ZoneCarte | null>(null)
+  const changerListeSuit = async (m: ModeListeSuit) => {
+    try { if (m === 'moi') localStorage.setItem(CLE_LOCAL_LISTE_SUIT, '1'); else localStorage.removeItem(CLE_LOCAL_LISTE_SUIT) } catch { /* stockage indisponible */ }
+    setListeSuitMoi(m === 'moi')
+    const avant = listeSuitTous
+    setListeSuitTous(m === 'tous')
+    if ((m === 'tous') === avant) return
+    // Réglage d'interface : global, jamais par territoire (cf. configCles.ts).
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch(urlEcritureConfig(null), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body: JSON.stringify({ key: CLE_CONFIG_LISTE_SUIT, value: m === 'tous' ? 'tous' : 'off' }),
+    }).catch(() => null)
+    if (!res?.ok) { setListeSuitTous(avant); toast.error('Échec de l’enregistrement') }
+  }
+
   // La fenêtre « Découvrir » ouverte par-dessus la carte : on ne quitte pas la liste.
   const [bonPlanOuvert, setBonPlanOuvert] = useState<PromoCarte | null>(null)
   const favorisBonsPlans = useFavorisBonsPlans(user?.id ?? null, () => openAuthModal(), modeBonsPlans)
@@ -1691,6 +1723,7 @@ export default function HomePage() {
           panEnCoursRef={chuteDuPanEnCours}
           onBlocTropGrand={laisserLaPlaceALaVignette}
           onCameraIdle={(lat, lng, zoom) => { mapCameraRef.current = { lat, lng, zoom } }}
+          onZoneVisible={listeSuitActive ? setZoneCarte : null}
           transport={modeTransport && ligneTransport ? {
             arrets: arretsAffiches,
             traces: ligneTransport.traces,
@@ -2124,6 +2157,26 @@ export default function HomePage() {
                 </button>
               </div>
 
+              {/* Admin : la liste suit la carte (Événements, Commerces). */}
+              {isAdmin && (
+                <div style={{ background: '#FDFAF5', border: '1px solid #F0EAE0', borderRadius: 14, padding: '12px 14px', marginBottom: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>La liste suit la carte <span style={{ fontSize: 10, fontWeight: 800, color: '#B07E1F', background: '#FFF8E8', border: '1px solid #E8A627', borderRadius: 999, padding: '1px 6px', marginLeft: 4 }}>admin</span></div>
+                  <div style={{ fontSize: 11, color: '#7A6A5A', margin: '2px 0 10px', lineHeight: 1.45 }}>
+                    Événements et Commerces : la liste ne garde que ce qui est visible sur la carte quand on zoome ou qu’on se déplace.
+                  </div>
+                  <div style={{ display: 'flex', background: '#F2ECE2', borderRadius: 10, padding: 3, gap: 2 }}>
+                    {([['off', 'Désactivé'], ['moi', 'Pour moi'], ['tous', 'Pour tous']] as [ModeListeSuit, string][]).map(([m, libelle]) => (
+                      <button key={m} onClick={() => changerListeSuit(m)} style={{
+                        flex: 1, padding: '7px 4px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                        fontSize: 12, fontWeight: 800,
+                        background: modeListeSuit === m ? '#2D5A3D' : 'transparent',
+                        color: modeListeSuit === m ? '#fff' : '#7A6A5A',
+                      }}>{libelle}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {isAdmin && (
                 <>
                   <div style={{ borderTop: '1px solid #F0EBE3', margin: '8px 0 12px' }} />
@@ -2315,6 +2368,8 @@ export default function HomePage() {
             }}
           />
         ) : undefined}
+        // La liste suit la carte : Événements et Commerces seulement.
+        zoneListe={listeSuitActive && !modeTransport && !modeBonsPlans && (appMode === 'agenda' || annuaireTab === 1) ? zoneCarte : null}
         enteteMode={modeBonsPlans ? (
           <EnteteBonsPlans total={bonsPlans.length} types={typesBonsPlans} typeActif={typeBonsPlans} onType={setTypeBonsPlans} />
         ) : undefined}

@@ -11,7 +11,8 @@ import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { pinBonPlanSvg, PIN_BON_PLAN, CarteVignetteBonPlan, type VignetteBonPlan } from '@/components/BonsPlansCarte'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
-import { viserMaplibre, hauteurBlocMaplibre, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, sansAberrants, bornesDe, empreinteBornes, MARGE_HAUT_COMMERCES, margeHaute } from '@/lib/carteCadrage'
+import { viserMaplibre, hauteurBlocMaplibre, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, sansAberrants, bornesDe, empreinteBornes, MARGE_HAUT_COMMERCES, margeHaute, margeBasse } from '@/lib/carteCadrage'
+import { zoneVisible, type ZoneCarte } from '@/lib/zoneCarte'
 
 /** Cf. MapView.tsx : de combien la vignette se pose au-dessus du point. */
 const DECALAGE_VIGNETTE       = 36
@@ -86,6 +87,8 @@ interface Props {
   onMapDragStart?: () => void
   onMapDragEnd?: () => void
   onCameraIdle?: (lat: number, lng: number, zoom: number) => void
+  /** « La liste suit la carte » : la partie visible de la carte, à l'arrêt. */
+  onZoneVisible?: ((z: ZoneCarte) => void) | null
   /**
    * Position du haut de la feuille (mobile) — la carte s'y accroche pour
    * garder son centre au milieu de la fenêtre qui lui reste. Cf.
@@ -136,7 +139,7 @@ interface Props {
 
 export default function MapViewMaplibre({
   evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, restaurerVue, vueRestauree = false, viserLieu, onBlocTropGrand,
-  onMapDragStart, onMapDragEnd, onCameraIdle, sheetY, sheetYRepos, panEnCoursRef,
+  onMapDragStart, onMapDragEnd, onCameraIdle, onZoneVisible = null, sheetY, sheetYRepos, panEnCoursRef,
   producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer,
   etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement,
   vignettesBonsPlans = null,
@@ -397,7 +400,12 @@ export default function MapViewMaplibre({
         }}
         onIdle={() => {
           const m = mapRef.current
-          if (!m || !onCameraIdle) return
+          if (!m) return
+          if (onZoneVisible) {
+            const b = m.getBounds(), div = m.getContainer(), h = div?.clientHeight ?? 0
+            onZoneVisible(zoneVisible({ n: b.getNorth(), s: b.getSouth(), e: b.getEast(), o: b.getWest() }, h, margeHaute(div), margeBasse(h, sheetY)))
+          }
+          if (!onCameraIdle) return
           const c = m.getCenter()
           onCameraIdle(c.lat, c.lng, m.getZoom())
         }}

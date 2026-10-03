@@ -17,7 +17,8 @@ import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
 import { pinBonPlanSvg, PIN_BON_PLAN, CarteVignetteBonPlan, type VignetteBonPlan } from '@/components/BonsPlansCarte'
-import { viserGoogle, hauteurBlocGoogle, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, sansAberrants, bornesDe, empreinteBornes, MARGE_HAUT_COMMERCES, margeHaute } from '@/lib/carteCadrage'
+import { viserGoogle, hauteurBlocGoogle, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, sansAberrants, bornesDe, empreinteBornes, MARGE_HAUT_COMMERCES, margeHaute, margeBasse } from '@/lib/carteCadrage'
+import { zoneVisible, type ZoneCarte } from '@/lib/zoneCarte'
 
 /**
  * De combien la vignette se pose au-dessus du point. Une seule définition :
@@ -53,10 +54,13 @@ const WARM_STYLE: google.maps.MapTypeStyle[] = [
   { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#8c6e5a' }] },
 ]
 
-function MapDragListener({ onDragStart, onDragEnd, onCameraIdle }: {
+function MapDragListener({ onDragStart, onDragEnd, onCameraIdle, onZoneVisible, sheetY }: {
   onDragStart?: () => void
   onDragEnd?: () => void
   onCameraIdle?: (lat: number, lng: number, zoom: number) => void
+  /** La partie visible de la carte (hors barre du haut et feuille), à l'arrêt. */
+  onZoneVisible?: (z: ZoneCarte) => void
+  sheetY?: MotionValue<number>
 }) {
   const map = useMap()
   useEffect(() => {
@@ -68,8 +72,19 @@ function MapDragListener({ onDragStart, onDragEnd, onCameraIdle }: {
       const c = map.getCenter(); const z = map.getZoom()
       if (c && z !== undefined) onCameraIdle(c.lat(), c.lng(), z)
     }))
+    if (onZoneVisible) {
+      const publier = () => {
+        const b = map.getBounds(); const div = map.getDiv()
+        if (!b || !div) return
+        const ne = b.getNorthEast(), sw = b.getSouthWest(), h = div.clientHeight
+        onZoneVisible(zoneVisible({ n: ne.lat(), s: sw.lat(), e: ne.lng(), o: sw.lng() }, h, margeHaute(div), margeBasse(h, sheetY)))
+      }
+      listeners.push(map.addListener('idle', publier))
+      // Option activée carte immobile : la zone tout de suite, sans attendre un geste.
+      publier()
+    }
     return () => listeners.forEach(l => l?.remove())
-  }, [map, onDragStart, onDragEnd, onCameraIdle])
+  }, [map, onDragStart, onDragEnd, onCameraIdle, onZoneVisible, sheetY])
   return null
 }
 
@@ -699,6 +714,8 @@ interface Props {
   onMapDragStart?: () => void
   onMapDragEnd?: () => void
   onCameraIdle?: (lat: number, lng: number, zoom: number) => void
+  /** « La liste suit la carte » : la partie visible de la carte, à l'arrêt. */
+  onZoneVisible?: ((z: ZoneCarte) => void) | null
   producers?: ProducerCard[]
   selectedProducerId?: string | null
   onSelectProducer?: (id: string | null) => void
@@ -732,7 +749,7 @@ interface Props {
   } | null
 }
 
-export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, restaurerVue, vueRestauree = false, viserLieu, onBlocTropGrand, sheetYRepos, onMapDragStart, onMapDragEnd, onCameraIdle, sheetY, panEnCoursRef, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement, vignettesBonsPlans = null, transport = null }: Props) {
+export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, restaurerVue, vueRestauree = false, viserLieu, onBlocTropGrand, sheetYRepos, onMapDragStart, onMapDragEnd, onCameraIdle, onZoneVisible = null, sheetY, panEnCoursRef, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement, vignettesBonsPlans = null, transport = null }: Props) {
   const [internalEtabId, setInternalEtabId] = useState<string | null>(null)
   const selectedEtabId    = selectedEtabIdProp !== undefined ? selectedEtabIdProp : internalEtabId
   const setSelectedEtabId = onSelectEtab ?? setInternalEtabId
@@ -781,7 +798,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
         }}
         styles={mapStyle.styles.length > 0 ? mapStyle.styles : WARM_STYLE}
       >
-        <MapDragListener onDragStart={onMapDragStart} onDragEnd={onMapDragEnd} onCameraIdle={onCameraIdle} />
+        <MapDragListener onDragStart={onMapDragStart} onDragEnd={onMapDragEnd} onCameraIdle={onCameraIdle} onZoneVisible={onZoneVisible ?? undefined} sheetY={sheetY} />
         <SuiviFeuille sheetY={sheetY} sheetYRepos={sheetYRepos} panEnCoursRef={panEnCoursRef} />
         <Cadrage restaurerVue={restaurerVue} viserLieu={viserLieu} sheetY={sheetY} />
         <Markers

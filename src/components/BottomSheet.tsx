@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, useMotionValue, animate, useDragControls, type MotionValue } from 'framer-motion'
 import { EvenementCard, Filtres, AppMode, ProducerCard, ProduitCategorie, EtablissementCard, EtablissementType } from '@/lib/types'
+import { dansZone, type ZoneCarte } from '@/lib/zoneCarte'
 import { CATEGORIES, eventCategories } from '@/lib/categories'
 import { PRODUIT_CATS } from '@/lib/produit-cats'
 import { ETAB_TYPE_LIST } from '@/lib/etablissement-types'
@@ -63,6 +64,9 @@ interface Props {
    * garde tout son comportement : poignee, paliers, defilement.
    */
   contenuTransport?: React.ReactNode
+  /** « La liste suit la carte » : la liste (événements, commerces) ne garde
+   *  que ce qui est dans cette zone. Null = toute la liste. */
+  zoneListe?: ZoneCarte | null
   /** En-tête du mode qui a pris la feuille (bons plans) : posé dans la zone
    *  de poignée mesurée, comme le compteur et les filtres des événements. */
   enteteMode?: React.ReactNode
@@ -136,7 +140,7 @@ export default function BottomSheet({
   onPeekHeightChange, proEvents = [], herosDiapo = null, onDiscoverPro, onOpenEvent,
   listStateRef, restoreListState = null, onListStateRestored,
   favIds = [], onToggleFav,
-  appMode, onAppModeChange, contenuTransport, enteteMode, producers = [], producerLoading = false,
+  appMode, onAppModeChange, contenuTransport, enteteMode, zoneListe = null, producers = [], producerLoading = false,
   selectedProducerId = null, onSelectProducer, onViewProducerOnMap,
   selectedCats = [], onSelectedCatsChange,
   availableProducts = [],
@@ -464,6 +468,15 @@ export default function BottomSheet({
   // EXACTEMENT ce que la liste montre (recherche live et filtres locaux inclus).
   // Le callback est stabilisé dans un ref : passé en fonction fléchée inline par
   // le parent, il change à chaque rendu et rebouclerait l'effet à l'infini.
+  // Ce que la LISTE montre : la même, réduite à la zone visible de la carte
+  // si l'option est active. Ce n'est PAS ce qui remonte à la carte
+  // (displayedEtabs, ci-dessous) : la carte suivrait la liste qui suit la
+  // carte, et chaque zoom en relancerait un autre.
+  const etabsListe = useMemo(
+    () => zoneListe ? displayedEtabs.filter(e => dansZone(e.lat, e.lng, zoneListe)) : displayedEtabs,
+    [displayedEtabs, zoneListe],
+  )
+
   const etabsChangeRef = useRef(onEtabsDisplayedChange)
   useEffect(() => { etabsChangeRef.current = onEtabsDisplayedChange })
   useEffect(() => {
@@ -493,7 +506,11 @@ export default function BottomSheet({
   // L'événement sélectionné garde SA place dans la liste. On le remontait
   // autrefois en tête, ce qui réorganisait tout sous les doigts : maintenant
   // c'est la liste qui défile jusqu'à lui.
-  const visibleSource = hiddenIds.size > 0 ? evenements.filter(e => !hiddenIds.has(e.id)) : evenements
+  // « La liste suit la carte » (option admin) : seulement ce qui est dans la
+  // partie visible de la carte. La carte, elle, garde toute la liste.
+  const visibleSource = useMemo(() => evenements.filter(e =>
+    !hiddenIds.has(e.id) && (!zoneListe || dansZone(e.lieux?.lat, e.lieux?.lng, zoneListe))),
+  [evenements, hiddenIds, zoneListe])
 
   /** Amène la carte d'un événement en haut de la liste. */
   const scrollToCard = useCallback((id: string) => {
@@ -639,12 +656,12 @@ export default function BottomSheet({
               fontSize: 13, color: '#7A6A5A',
             }}>
               <span style={{ fontWeight: 800, fontSize: 15, color: '#1A1209' }}>
-                {evenements.length}
+                {visibleSource.length}
               </span>
               {' '}
-              événement{evenements.length > 1 ? 's' : ''}
+              événement{visibleSource.length > 1 ? 's' : ''}
               <span style={{ opacity: 0.5 }}> · </span>
-              <span style={{ fontSize: 11, color: '#9E9089' }}>marchés · ateliers · concerts</span>
+              <span style={{ fontSize: 11, color: '#9E9089' }}>{zoneListe ? 'dans la zone de la carte' : 'marchés · ateliers · concerts'}</span>
             </div>
             {/* Wheels centrés ~300px, marges latérales restent grabable.
                 pcv-hide : sur bureau, ces deux filtres sont dans la barre
@@ -687,13 +704,13 @@ export default function BottomSheet({
               <p style={{ fontFamily: 'var(--font-body), sans-serif', fontWeight: 800, fontSize: 18, color: '#1C1917', margin: 0, lineHeight: 1.1 }}>
                 {annuaireTabIdx === 0
                   ? `${displayedProducers.length} producteur${displayedProducers.length !== 1 ? 's' : ''}`
-                  : `${displayedEtabs.length} commerce${displayedEtabs.length !== 1 ? 's' : ''}`
+                  : `${etabsListe.length} commerce${etabsListe.length !== 1 ? 's' : ''}`
                 }
               </p>
               <p style={{ fontSize: 12, color: '#9E9089', margin: '2px 0 0' }}>
                 {annuaireTabIdx === 0
                   ? 'Producteurs · artisans · locaux…'
-                  : 'Restos · bars · hébergements…'
+                  : zoneListe ? 'Dans la zone de la carte' : 'Restos · bars · hébergements…'
                 }
               </p>
             </div>
@@ -1005,7 +1022,7 @@ export default function BottomSheet({
                 if (mode !== 'peek') return <EtabBandeau etablissements={featured} onDiscover={id => onOpenEtablissement?.(id)} />
                 return null
               })()}
-              {displayedEtabs.slice(0, visibleEtabCount).map(e => (
+              {etabsListe.slice(0, visibleEtabCount).map(e => (
                 <EtablissementListCard
                   key={e.id}
                   etab={e}
@@ -1015,7 +1032,7 @@ export default function BottomSheet({
                   onOpen={() => onOpenEtablissement?.(e.id)}
                 />
               ))}
-              {visibleEtabCount < displayedEtabs.length && (
+              {visibleEtabCount < etabsListe.length && (
                 <div ref={etabLoaderRef} style={{ height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid #E0D8CE', borderTopColor: 'var(--primary)', animation: 'spin 0.7s linear infinite' }} />
                 </div>
