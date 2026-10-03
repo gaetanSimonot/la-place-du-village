@@ -327,6 +327,31 @@ export default function HomePage() {
     supabase.from('config').select('value').eq('key', CLE_CONFIG_LISTE_SUIT).maybeSingle()
       .then(({ data }) => setListeSuitTous(data?.value === 'tous'))
   }, [])
+  /* La feuille qui descend quand on touche la carte, et remonte au lâcher
+     (onMapDragStart/End). Réglage admin GLOBAL (config carte_feuille_descend) ;
+     absent = activé, le comportement historique. */
+  const [feuilleDescend, setFeuilleDescend] = useState(true)
+  useEffect(() => {
+    supabase.from('config').select('value').eq('key', 'carte_feuille_descend').maybeSingle()
+      .then(({ data }) => setFeuilleDescend(data?.value !== 'false'))
+  }, [])
+  const ecrireConfigGlobale = async (key: string, value: string): Promise<boolean> => {
+    // Réglage d'interface : global, jamais par territoire (cf. configCles.ts).
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch(urlEcritureConfig(null), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body: JSON.stringify({ key, value }),
+    }).catch(() => null)
+    return !!res?.ok
+  }
+  const basculerFeuilleDescend = async () => {
+    const suivant = !feuilleDescend
+    setFeuilleDescend(suivant)
+    if (!(await ecrireConfigGlobale('carte_feuille_descend', suivant ? 'true' : 'false'))) {
+      setFeuilleDescend(!suivant); toast.error('Échec de l’enregistrement')
+    }
+  }
   const modeListeSuit: ModeListeSuit = listeSuitTous ? 'tous' : listeSuitMoi ? 'moi' : 'off'
   const listeSuitActive = listeSuitTous || (isAdmin && listeSuitMoi)
   const [zoneCarte, setZoneCarte] = useState<ZoneCarte | null>(null)
@@ -336,14 +361,9 @@ export default function HomePage() {
     const avant = listeSuitTous
     setListeSuitTous(m === 'tous')
     if ((m === 'tous') === avant) return
-    // Réglage d'interface : global, jamais par territoire (cf. configCles.ts).
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch(urlEcritureConfig(null), {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
-      body: JSON.stringify({ key: CLE_CONFIG_LISTE_SUIT, value: m === 'tous' ? 'tous' : 'off' }),
-    }).catch(() => null)
-    if (!res?.ok) { setListeSuitTous(avant); toast.error('Échec de l’enregistrement') }
+    if (!(await ecrireConfigGlobale(CLE_CONFIG_LISTE_SUIT, m === 'tous' ? 'tous' : 'off'))) {
+      setListeSuitTous(avant); toast.error('Échec de l’enregistrement')
+    }
   }
 
   // La fenêtre « Découvrir » ouverte par-dessus la carte : on ne quitte pas la liste.
@@ -732,7 +752,9 @@ export default function HomePage() {
    * ou l'utilisateur l'a mise — a mi-hauteur ou en haut, c'est lui qui decide.
    */
   const onMapDragStart = useCallback(() => {
-    if (modeTransport) return
+    // Désactivé dans les réglages de la carte (admin, pour tous) : la feuille
+    // reste où elle est quand on touche la carte.
+    if (modeTransport || !feuilleDescend) return
     if (mapDragTimerRef.current) clearTimeout(mapDragTimerRef.current)
     setSheetMode(prev => {
       if (prev === 'half') {
@@ -742,10 +764,10 @@ export default function HomePage() {
       }
       return prev
     })
-  }, [modeTransport])
+  }, [modeTransport, feuilleDescend])
 
   const onMapDragEnd = useCallback(() => {
-    if (modeTransport) return
+    if (modeTransport || !feuilleDescend) return
     mapDragTimerRef.current = setTimeout(() => {
       if (sheetBeforeMapRef.current === 'half') {
         sheetBeforeMapRef.current = null
@@ -755,7 +777,7 @@ export default function HomePage() {
         setSheetMode('half')
       }
     }, 350)
-  }, [modeTransport])
+  }, [modeTransport, feuilleDescend])
   const router = useRouter()
 
   /*
@@ -2156,6 +2178,22 @@ export default function HomePage() {
                   </div>
                 </button>
               </div>
+
+              {/* Admin : la liste descend quand on touche la carte (pour tous). */}
+              {isAdmin && (
+                <button
+                  onClick={basculerFeuilleDescend}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '12px 14px', marginBottom: 10, background: '#FDFAF5', border: '1px solid #F0EAE0', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
+                >
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>La liste s’abaisse quand on touche la carte <span style={{ fontSize: 10, fontWeight: 800, color: '#B07E1F', background: '#FFF8E8', border: '1px solid #E8A627', borderRadius: 999, padding: '1px 6px', marginLeft: 4 }}>admin · pour tous</span></div>
+                    <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2, lineHeight: 1.45 }}>Elle descend au toucher de la carte et remonte au lâcher. Décoché : elle reste où elle est.</div>
+                  </div>
+                  <div style={{ width: 36, height: 22, borderRadius: 999, background: feuilleDescend ? '#2D5A3D' : '#E5DDD2', position: 'relative', transition: 'background 0.18s', flexShrink: 0 }}>
+                    <div style={{ position: 'absolute', top: 2, left: feuilleDescend ? 16 : 2, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.18s', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
+                  </div>
+                </button>
+              )}
 
               {/* Admin : la liste suit la carte (Événements, Commerces). */}
               {isAdmin && (
