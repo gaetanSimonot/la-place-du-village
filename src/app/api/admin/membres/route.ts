@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/server-auth'
 import { envoyerBienvenuePartenaire } from '@/lib/bienvenuePartenaire'
+import { envoyerBienvenueHabitant } from '@/lib/bienvenueHabitant'
 
 export async function GET(req: NextRequest) {
   const ctx = await requireAdmin(req)
@@ -100,6 +101,8 @@ export async function PATCH(req: NextRequest) {
     // partenaire (changer son nom affiché) ne renvoie rien ; le repasser en
     // basic puis en Partenaire renvoie le message, autant de fois que voulu.
     if (plan === 'pro' && ancienPlan !== 'pro') await envoyerBienvenuePartenaire(user_id)
+    // Bienvenue Habitant — même règle (pas pour un Partenaire qui redescend).
+    if (plan === 'habitants' && ancienPlan !== 'habitants' && ancienPlan !== 'pro') await envoyerBienvenueHabitant(user_id)
 
     // Sync is_max on producer for backward compat with the public annuaire API
     const { data: prod } = await supabaseAdmin

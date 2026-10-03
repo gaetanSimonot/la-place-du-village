@@ -3,6 +3,7 @@ import { stripe } from '@/lib/stripe'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { notifyUser } from '@/lib/server-auth'
 import { envoyerBienvenuePartenaire } from '@/lib/bienvenuePartenaire'
+import { envoyerBienvenueHabitant } from '@/lib/bienvenueHabitant'
 import Stripe from 'stripe'
 
 /**
@@ -62,6 +63,9 @@ export async function POST(req: NextRequest) {
     // (paiement ici, attribution manuelle dans /api/admin/membres).
     // Fail-soft : n'interrompt jamais le traitement du paiement.
     if (plan === 'pro' && ancienPlan !== 'pro') await envoyerBienvenuePartenaire(user_id)
+    // Bienvenue Habitant — même règle. Pas pour un Partenaire qui redescend en
+    // Habitant : il n'arrive pas, il change de formule.
+    if (plan === 'habitants' && ancienPlan !== 'habitants' && ancienPlan !== 'pro') await envoyerBienvenueHabitant(user_id)
 
     // 2. Auto-claim de la fiche payée si etab_id fourni
     if (etab_id) {
