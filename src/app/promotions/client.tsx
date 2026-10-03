@@ -16,7 +16,10 @@ import FeatureButton from '@/components/FeatureButton'
 import type { Plan } from '@/lib/capabilities'
 import { ETAB_TYPES } from '@/lib/etablissement-types'
 import DesktopFiltres, { type GroupeFiltre } from '@/components/desktop/DesktopFiltres'
-import type { EtablissementType } from '@/lib/types'
+import type { EtablissementType, EtablissementCard } from '@/lib/types'
+import dynamic from 'next/dynamic'
+
+const MapView = dynamic(() => import('@/components/MapViewSwitch'), { ssr: false })
 import EntityQuickView from '@/components/EntityQuickView'
 import BottomNavBar from '@/components/BottomNavBar'
 import { shareLink } from '@/lib/share'
@@ -468,6 +471,8 @@ export default function PromotionsClient() {
         )}
       </div>
 
+      {!loading && <CarteBonsPlans promos={filteredPromos} onOuvrir={setDiscoverModal} />}
+
       </div>
       </div>
 
@@ -856,6 +861,78 @@ function ConfirmPositionModal({ promo, onClose, onConfirm, loading }: {
         >
           Annuler
         </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── La carte des bons plans — même principe que « Où ça se passe » (radio) ───
+/*
+ * La MÊME carte que l'accueil, en mode commerces, nourrie des seuls commerces
+ * qui ont un bon plan dans la liste affichée (le filtre de catégorie compris).
+ * Un point par commerce ; « Voir » ouvre son bon plan (le premier s'il en a
+ * plusieurs). Un commerce sans coordonnées n'y figure pas.
+ */
+function CarteBonsPlans({ promos, onOuvrir }: { promos: Promotion[]; onOuvrir: (p: Promotion) => void }) {
+  const [provider, setProvider] = useState<'google' | 'maplibre'>('google')
+  const [selectedEtabId, setSelectedEtabId] = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase.from('config').select('value').eq('key', 'map_provider').maybeSingle()
+      .then(({ data: d }) => setProvider(d?.value === 'maplibre' ? 'maplibre' : 'google'))
+  }, [])
+
+  const etabs = useMemo<EtablissementCard[]>(() => {
+    const vus = new Map<string, EtablissementCard>()
+    for (const p of promos) {
+      const e = p.etablissement
+      if (!e || e.lat == null || e.lng == null || !e.type || vus.has(e.id)) continue
+      vus.set(e.id, {
+        id: e.id, type: e.type, nom: e.nom, commune: e.commune, lat: e.lat, lng: e.lng,
+        photos: e.photos ?? [], note_google: null, is_featured: false, statut: 'publie',
+        description_courte: null, plan: 'pro',
+      })
+    }
+    return Array.from(vus.values())
+  }, [promos])
+
+  // Le centre : le milieu des commerces, pas celui de la zone.
+  const vue = useMemo(() => {
+    if (!etabs.length) return null
+    const lats = etabs.map(e => e.lat as number), lngs = etabs.map(e => e.lng as number)
+    return {
+      lat: (Math.min(...lats) + Math.max(...lats)) / 2,
+      lng: (Math.min(...lngs) + Math.max(...lngs)) / 2,
+      zoom: etabs.length === 1 ? 13 : 10.5,
+    }
+  }, [etabs])
+
+  if (!etabs.length) return null
+  return (
+    <div className="pcv-hide pt-7">
+      <div className="px-4 pb-2.5">
+        <h3 className="m-0 text-[15px] font-extrabold tracking-tight2 text-texte">Où en profiter</h3>
+      </div>
+      <div className="px-4">
+        <div className="overflow-hidden rounded-[18px]"
+          style={{ border: '1px solid var(--bord)', height: 320, position: 'relative', boxShadow: '0 2px 12px rgba(44,28,16,.07)' }}>
+          <MapView
+            provider={provider}
+            evenements={[]}
+            selectedId={null}
+            onSelectEvent={() => {}}
+            onDeselect={() => {}}
+            onOpenEvent={() => {}}
+            etablissements={etabs}
+            selectedEtabId={selectedEtabId}
+            onSelectEtab={setSelectedEtabId}
+            onOpenEtablissement={(id: string) => {
+              const p = promos.find(x => x.etablissement?.id === id)
+              if (p) onOuvrir(p)
+            }}
+            restaurerVue={vue}
+          />
+        </div>
       </div>
     </div>
   )

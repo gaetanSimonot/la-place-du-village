@@ -44,10 +44,11 @@ export async function GET(req: NextRequest) {
   const etabIds = Array.from(new Set(data.map(p => p.etablissement_id)))
   const { data: etabs } = await supabaseAdmin
     .from('etablissements')
-    .select('id, nom, commune, photos, type, plan, user_id')
+    .select('id, nom, commune, photos, type, plan, user_id, lat, lng')
     .in('id', etabIds)
 
-  const etabsById: Record<string, { id: string; nom: string; commune: string | null; photos: string[] | null; type: string | null; plan: string | null; user_id: string | null }> =
+  // lat/lng : la carte des bons plans (page /promotions).
+  const etabsById: Record<string, { id: string; nom: string; commune: string | null; photos: string[] | null; type: string | null; plan: string | null; user_id: string | null; lat: number | null; lng: number | null }> =
     Object.fromEntries((etabs ?? []).map(e => [e.id, e]))
 
   // Mode public : on filtre les promos dont la fiche n'est plus gérée
