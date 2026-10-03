@@ -35,6 +35,7 @@ import { useNotifications } from '@/hooks/useNotifications'
 import { ecranBureau } from '@/lib/bureau'
 import { lireEntreeEnCache, entreeFraiche } from '@/lib/entreeApp'
 import SelecteurModes from '@/components/SelecteurModes'
+import { ListeBonsPlans, etabsDesBonsPlans, lienBonPlan, type PromoCarte } from '@/components/BonsPlansCarte'
 import { useHerosVillage } from '@/hooks/useHerosVillage'
 import { lienHeros, herosExterne } from '@/lib/villageHero'
 import RadioPastille from '@/components/RadioPastille'
@@ -294,6 +295,16 @@ export default function HomePage() {
       .catch(() => toast('Horaires de bus indisponibles'))
     return () => { vivant = false }
   }, [modeTransport, ligneTransport, slugTerritoire])
+
+  /* LE MODE « BONS PLANS » — même principe que le transport : hors `appMode`,
+     il prend la carte (un point par commerce) et la feuille (la liste). Les
+     bons plans ne se chargent qu'à la première entrée dans le mode. */
+  const [modeBonsPlans, setModeBonsPlans] = useState(false)
+  const { data: bonsPlansData, isLoading: bonsPlansLoading } = useSWR<{ promotions: PromoCarte[] }>(
+    modeBonsPlans ? `/api/promotions${slugTerritoire ? `?territoire=${encodeURIComponent(slugTerritoire)}` : ''}` : null,
+  )
+  const bonsPlans = useMemo(() => bonsPlansData?.promotions ?? [], [bonsPlansData])
+  const etabsBonsPlans = useMemo(() => etabsDesBonsPlans(bonsPlans), [bonsPlans])
   /**
    * La zone d'affichage — centres et rayon — avec sa derniere valeur connue.
    *
@@ -1635,15 +1646,20 @@ export default function HomePage() {
           provider={mapProvider}
           /* En mode transport, la carte ne montre QUE la ligne : 274 marqueurs
              d'evenements par-dessus un trace de bus, on ne voit plus rien. */
-          evenements={modeTransport || appMode === 'annuaire' ? [] : evenements}
-          producers={!modeTransport && appMode === 'annuaire' && annuaireTab === 0 ? filteredProducers : []}
+          evenements={modeTransport || modeBonsPlans || appMode === 'annuaire' ? [] : evenements}
+          producers={!modeTransport && !modeBonsPlans && appMode === 'annuaire' && annuaireTab === 0 ? filteredProducers : []}
           selectedProducerId={selectedProducerId}
           onSelectProducer={setSelectedProducerId}
           onOpenProducer={openProducer}
-          etablissements={!modeTransport && appMode === 'annuaire' && annuaireTab === 1 ? (displayedEtabs ?? etablissementsAffiches) : []}
+          etablissements={
+            modeBonsPlans ? etabsBonsPlans
+            : !modeTransport && appMode === 'annuaire' && annuaireTab === 1 ? (displayedEtabs ?? etablissementsAffiches) : []}
           selectedEtabId={selectedEtabId}
           onSelectEtab={setSelectedEtabId}
-          onOpenEtablissement={openEtablissement}
+          onOpenEtablissement={modeBonsPlans
+            // En bons plans, la vignette ouvre le bon plan du commerce, pas sa fiche.
+            ? (id: string) => { const p = bonsPlans.find(x => x.etablissement?.id === id); if (p) router.push(lienBonPlan(p.id)) }
+            : openEtablissement}
           selectedId={selectedId}
           onSelectEvent={setSelectedId}
           onDeselect={() => setSelectedId(null)}
@@ -1684,6 +1700,7 @@ export default function HomePage() {
           appMode === 'agenda' ? 'evt' : annuaireTab === 1 ? 'etab' : 'prod'
         const setMapMode = (m: 'evt' | 'etab' | 'prod') => {
           setModeTransport(false)
+          setModeBonsPlans(false)
           if (m === 'evt') { setAppMode('agenda') }
           else { setAppMode('annuaire'); setAnnuaireTab(m === 'etab' ? 1 : 0) }
         }
@@ -1774,10 +1791,16 @@ export default function HomePage() {
                     { id: 'prod' as const, label: 'Producteurs' },
                     { id: 'etab' as const, label: 'Commerces' },
                     { id: 'evt' as const, label: 'Événements' },
+                    { id: 'bonsplans' as const, label: 'Bons plans' },
                     { id: 'transport' as const, label: 'Transport', icone: <IconeBus /> },
                   ]}
-                  actif={modeTransport ? 'transport' : mapMode}
-                  onChoisir={id => { if (id === 'transport') setModeTransport(true); else setMapMode(id) }}
+                  actif={modeTransport ? 'transport' : modeBonsPlans ? 'bonsplans' : mapMode}
+                  onChoisir={id => {
+                    if (id === 'transport') { setModeBonsPlans(false); setModeTransport(true) }
+                    else if (id === 'bonsplans') { setModeTransport(false); setSelectedEtabId(null); setModeBonsPlans(true) }
+                    // La sélection d'un commerce ne passe pas d'un mode à l'autre.
+                    else { if (modeBonsPlans) setSelectedEtabId(null); setMapMode(id) }
+                  }}
                 />
               </div>
             )}
@@ -1830,7 +1853,7 @@ export default function HomePage() {
                       {m.label}
                     </button>
                   ))}
-                  <button onClick={() => setModeTransport(true)} aria-label="Transport"
+                  <button onClick={() => { setModeBonsPlans(false); setModeTransport(true) }} aria-label="Transport"
                           className={modeTransport ? 'pcv-mapCtlOn' : undefined}>
                     <IconeBus />Transport
                   </button>
@@ -1865,7 +1888,7 @@ export default function HomePage() {
             {/* (Le « + » Publier est revenu dans la bottom nav — plus de bouton flottant ici) */}
 
             {/* Chip filtre texte actif — vient de la recherche du hub, retirable */}
-            {showBtns && activeSearch.trim() && (
+            {showBtns && !modeBonsPlans && activeSearch.trim() && (
               <div style={{
                 position: 'absolute', top: 'calc(env(safe-area-inset-top, 0px) + 116px)', left: 64, right: 68, zIndex: 200,
                 display: 'flex', justifyContent: 'flex-start',
@@ -2225,7 +2248,10 @@ export default function HomePage() {
         /* Le transport prend la liste, il ne se superpose pas : c'est un mode
            de la carte au meme titre qu'Evenements ou Commerces. La feuille
            garde sa poignee, ses paliers et son defilement. */
-        contenuTransport={modeTransport && ligneTransport && !ligneTransport.lignes.length ? (
+        contenuTransport={modeBonsPlans ? (
+          // Le mode Bons plans prend la feuille comme le transport (cf. BonsPlansCarte).
+          <ListeBonsPlans promos={bonsPlans} chargement={bonsPlansLoading} onOuvrir={id => router.push(lienBonPlan(id))} />
+        ) : modeTransport && ligneTransport && !ligneTransport.lignes.length ? (
           /*
            * Le territoire regarde n'a pas de reseau importe. Le dire comme un
            * fait, pas comme une panne : la personne comprend qu'il n'y a rien

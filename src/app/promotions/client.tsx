@@ -169,6 +169,17 @@ export default function PromotionsClient() {
     }
   }, [loading, promos.length])
 
+  // Arrivée depuis la carte de l'accueil (mode Bons plans) avec ?promo=... :
+  // on ouvre directement sa fenêtre « Découvrir ». Une fois seulement.
+  const promoOuverte = useRef(false)
+  useEffect(() => {
+    if (loading || promoOuverte.current) return
+    const id = new URLSearchParams(window.location.search).get('promo')
+    if (!id) return
+    const p = promos.find(x => x.id === id)
+    if (p) { promoOuverte.current = true; setDiscoverModal(p) }
+  }, [loading, promos])
+
   // Checkout direct plan Habitant (CTA de la modal quota promo).
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   async function goCheckoutHabitants() {
