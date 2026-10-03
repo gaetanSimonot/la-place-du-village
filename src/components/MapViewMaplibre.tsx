@@ -208,14 +208,19 @@ export default function MapViewMaplibre({
   const premierCadrageFait = useRef(false)
   /** Sélection courante, lue par le cadrage d'arrivée sans en dépendre. */
   const selectionRef = useRef<string | null>(selectedId)
-  useEffect(() => { selectionRef.current = selectedId })
+  // La vignette ouverte peut être celle d'un événement ou d'un commerce.
+  useEffect(() => { selectionRef.current = selectedId ?? selectedEtabId ?? null })
   useEffect(() => {
     const m = mapRef.current
     if (!m || fixedMap) return
-    const withLoc = evenements.filter(e => e.lieux?.lat && e.lieux?.lng)
-    if (withLoc.length === 0) return
+    // Les événements, ou à défaut les commerces affichés (modes Commerces et
+    // Bons plans) : la carte cadre sur ce qu'elle montre.
+    const brut = evenements.length
+      ? evenements.filter(e => e.lieux?.lat && e.lieux?.lng).map(e => ({ lat: e.lieux!.lat!, lng: e.lieux!.lng! }))
+      : etablissements.filter(e => e.lat && e.lng).map(e => ({ lat: e.lat!, lng: e.lng! }))
+    if (brut.length === 0) return
     // Cf. MapView.tsx : une coordonnée fausse ne commande pas le cadrage.
-    const points = sansAberrants(withLoc.map(e => ({ lat: e.lieux!.lat!, lng: e.lieux!.lng! })))
+    const points = sansAberrants(brut)
     if (points.length === 0) return
     const bornes = bornesDe(points)!
     const empreinte = empreinteBornes(bornes)
@@ -253,7 +258,7 @@ export default function MapViewMaplibre({
     const pret = () => cadrable(carte.getContainer()?.clientHeight ?? 0, feuilleCadrage)
     if (pret()) { lancer(); return }
     return desQueCadrable(pret, lancer)
-  }, [evenements, fixedMap, sheetY, sheetYRepos, vueRestauree])
+  }, [evenements, etablissements, fixedMap, sheetY, sheetYRepos, vueRestauree])
 
   /**
    * La carte suit la feuille — même règle que sur le fond Google.

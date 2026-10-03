@@ -271,7 +271,9 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, shee
     const surBureau = typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches
     if (surBureau && cadrageFait.current) return
     const withLoc = evenements.filter(e => e.lieux?.lat && e.lieux?.lng)
-    if (withLoc.length === 0) return
+    // Plus d'événements (autre mode de carte, qui a pu recadrer ailleurs) :
+    // on oublie le dernier cadrage, pour recadrer en revenant.
+    if (withLoc.length === 0) { derniereEmpreinte.current = null; return }
 
     // Cet effet se rejoue à chaque changement d'identité de la liste — un
     // filtre, mais aussi une revalidation qui renvoie exactement les mêmes
@@ -493,6 +495,8 @@ interface EtabMarkersProps {
   onSelectEtab: (id: string | null) => void
   fixedMap: boolean
   sheetY?: MotionValue<number>
+  sheetYRepos?: MotionValue<number>
+  vueRestauree?: boolean
   /** Fiche déjà visée par le chemin « viser un lieu » — ne pas viser deux fois. */
   dejaVise?: string | null
 }
@@ -508,7 +512,7 @@ function habillerEtablissement(marker: google.maps.Marker, etab: EtablissementCa
   marker.setZIndex(choisi ? 999 : promu ? 10 : 1)
 }
 
-function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fixedMap, sheetY, dejaVise = null }: EtabMarkersProps) {
+function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fixedMap, sheetY, sheetYRepos, vueRestauree = false, dejaVise = null }: EtabMarkersProps) {
   const map = useMap()
   const clustererRef = useRef<MarkerClusterer | null>(null)
   const markersRef   = useRef<google.maps.Marker[]>([])
@@ -535,6 +539,51 @@ function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fi
       bloc => viserGoogle(map, point, { feuille: sheetY, bloc }),
     )
   }, [map, selectedEtabId, etablissements, fixedMap, sheetY, dejaVise])
+
+  /*
+   * Cadrage automatique sur les commerces affichés (modes Commerces et Bons
+   * plans) — la même règle que les événements (cf. Markers) : rejoué à chaque
+   * changement de liste sur téléphone, une fois sur bureau ; pas deux fois les
+   * mêmes bornes ; pas au premier passage si une vue a été rendue ou qu'une
+   * vignette est ouverte (retour de fiche).
+   */
+  const cadrageFait = useRef(false)
+  const derniereEmpreinte = useRef<string | null>(null)
+  const premierCadrageFait = useRef(false)
+  useEffect(() => {
+    // Plus de commerces (autre mode) : on oublie le dernier cadrage, pour
+    // recadrer en revenant.
+    if (etablissements.length === 0) { derniereEmpreinte.current = null; return }
+    if (!map || fixedMap) return
+    const surBureau = window.matchMedia('(min-width: 1024px)').matches
+    if (surBureau && cadrageFait.current) return
+    const points = sansAberrants(etablissements.filter(e => e.lat && e.lng).map(e => ({ lat: e.lat!, lng: e.lng! })))
+    if (points.length === 0) return
+    const empreinte = empreinteBornes(bornesDe(points)!)
+    if (derniereEmpreinte.current === empreinte) return
+    const feuilleCadrage = sheetYRepos ?? sheetY
+
+    const cadrer = () => {
+      derniereEmpreinte.current = empreinte
+      if (surBureau) cadrageFait.current = true
+      if (points.length === 1) { viserGoogle(map, points[0], { feuille: sheetY, zoom: 14 }); return }
+      const bounds = new google.maps.LatLngBounds()
+      points.forEach(p => bounds.extend(p))
+      map.fitBounds(bounds, margesCadrage(map.getDiv()?.clientHeight ?? 0, feuilleCadrage, {
+        haut: 60, cotes: 20, partFeuille: 0.5,
+      }))
+    }
+    const lancer = () => {
+      if (!premierCadrageFait.current) {
+        premierCadrageFait.current = true
+        if (vueRestauree || selectionRef.current) return
+      }
+      cadrer()
+    }
+    const pret = () => cadrable(map.getDiv()?.clientHeight ?? 0, feuilleCadrage)
+    if (pret()) { lancer(); return }
+    return desQueCadrable(pret, lancer)
+  }, [map, etablissements, fixedMap, sheetY, sheetYRepos, vueRestauree])
 
   useEffect(() => {
     if (!map) return
@@ -734,6 +783,8 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
           onSelectEtab={setSelectedEtabId}
           fixedMap={fixedMap}
           sheetY={sheetY}
+          sheetYRepos={sheetYRepos}
+          vueRestauree={vueRestauree}
           dejaVise={viserLieu?.cle ?? null}
         />
 
