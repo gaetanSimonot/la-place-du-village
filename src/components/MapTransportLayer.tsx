@@ -142,7 +142,10 @@ export default function MapTransportLayer({
       if (Date.now() - clicSurElement.current < 120) return
       setInfo(null)
     })
-    return () => l.remove()
+    // `?.` : une carte Google qui n'a pas pu se charger (clé refusée, réseau)
+    // ne rend pas d'écouteur ; sans garde, quitter le mode Transport faisait
+    // tomber toute l'application.
+    return () => l?.remove()
   }, [map])
 
   // Les lignes.
