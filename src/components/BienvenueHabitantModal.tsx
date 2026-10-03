@@ -37,23 +37,30 @@ export default function BienvenueHabitantModal({ onClose }: { onClose: () => voi
 
   return (
     <ClientPortal>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 3000, backgroundColor: 'rgba(26,18,9,0.55)', backdropFilter: 'blur(3px)' }} />
-      <div className="pcv-sheet" role="dialog" aria-modal="true" aria-label="Bienvenue parmi les Habitants" style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 3001, margin: '0 auto', maxWidth: 520,
-        backgroundColor: '#FFFFFF', borderRadius: '24px 24px 0 0', maxHeight: '92dvh', overflowY: 'auto',
-        fontFamily: 'var(--font-body), sans-serif', color: ENCRE,
-        paddingBottom: 'max(24px, env(safe-area-inset-bottom, 24px))',
+      {/* Une carte centrée, cadrée, au-dessus de l'app — pas une feuille qui
+          la recouvre. La croix et le bouton du bas sont posés sur le CADRE,
+          hors de la zone qui défile : ils restent sous le doigt jusqu'au bout. */}
+      <div onClick={onClose} style={{
+        position: 'fixed', inset: 0, zIndex: 3000, backgroundColor: 'rgba(26,18,9,0.6)', backdropFilter: 'blur(3px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 'max(18px, env(safe-area-inset-top, 18px)) 16px max(18px, env(safe-area-inset-bottom, 18px))',
       }}>
-        {/* Bannière + fermer */}
-        <div style={{ position: 'relative', background: VERT }}>
-          <img src="/email/banniere-la-place.jpg" alt="La Place : le bouche à oreille, enfin organisé !" style={{ display: 'block', width: '100%', height: 'auto' }} />
-          <button type="button" onClick={onClose} aria-label="Fermer" style={{
-            position: 'absolute', top: 10, right: 10, width: 34, height: 34, borderRadius: '50%', border: 'none',
-            background: 'rgba(255,255,255,.92)', color: '#1A1209', fontSize: 15, cursor: 'pointer', boxShadow: '0 1px 6px rgba(0,0,0,.2)',
-          }}>✕</button>
-        </div>
+      <div role="dialog" aria-modal="true" aria-label="Bienvenue parmi les Habitants" onClick={e => e.stopPropagation()} style={{
+        position: 'relative', width: '100%', maxWidth: 440, maxHeight: 'min(82dvh, 760px)',
+        backgroundColor: '#FFFFFF', borderRadius: 22, overflow: 'hidden',
+        display: 'flex', flexDirection: 'column',
+        boxShadow: '0 18px 50px rgba(26,18,9,.35)',
+        fontFamily: 'var(--font-body), sans-serif', color: ENCRE,
+      }}>
+        <button type="button" onClick={onClose} aria-label="Fermer" style={{
+          position: 'absolute', top: 10, right: 10, zIndex: 2, width: 34, height: 34, borderRadius: '50%', border: 'none',
+          background: 'rgba(255,255,255,.95)', color: '#1A1209', fontSize: 15, cursor: 'pointer', boxShadow: '0 1px 6px rgba(0,0,0,.25)',
+        }}>✕</button>
 
-        <div style={{ padding: '24px 22px 4px' }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain' }}>
+        <img src="/email/banniere-la-place.jpg" alt="La Place : le bouche à oreille, enfin organisé !" style={{ display: 'block', width: '100%', height: 'auto', background: VERT }} />
+
+        <div style={{ padding: '22px 20px 22px' }}>
           <p style={{ ...manuscrit, fontSize: 24, marginBottom: 2 }}>C’est parti&nbsp;!</p>
           <h2 style={{ margin: '0 0 12px', fontSize: 30, lineHeight: 1.12, fontWeight: 900, letterSpacing: '-.02em', color: VERT }}>
             Bienvenue sur <span style={{ color: ORANGE }}>La Place</span>{prenom ? `, ${prenom}` : ''}&nbsp;!
@@ -121,6 +128,20 @@ export default function BienvenueHabitantModal({ onClose }: { onClose: () => voi
           <p style={{ margin: 0, fontSize: 15 }}>À très bientôt sur La Place,</p>
           <p style={{ ...manuscrit, fontSize: 24, color: VERT, margin: '2px 0 0' }}>L’équipe de La Place</p>
         </div>
+        </div>
+
+        {/* Toujours visible, au pied du cadre : l'essentiel, et une sortie. */}
+        <div style={{ flexShrink: 0, display: 'flex', gap: 8, padding: '12px 16px 14px', borderTop: '1px solid #F0EAE0', background: '#fff' }}>
+          <button type="button" onClick={onClose} style={{
+            flex: '0 0 auto', border: '1.5px solid #E0D8CE', borderRadius: 999, background: '#fff', color: '#6B5E4E',
+            padding: '12px 16px', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
+          }}>Fermer</button>
+          <button type="button" onClick={() => aller('/promotions')} style={{
+            flex: 1, border: 'none', borderRadius: 999, background: ORANGE, color: '#fff',
+            padding: '12px 16px', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
+          }}>Voir les bons plans&nbsp;→</button>
+        </div>
+      </div>
       </div>
     </ClientPortal>
   )
