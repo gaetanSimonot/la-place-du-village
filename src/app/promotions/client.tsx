@@ -21,6 +21,7 @@ import dynamic from 'next/dynamic'
 
 const MapView = dynamic(() => import('@/components/MapViewSwitch'), { ssr: false })
 import DiscoverPromoModal, { FREQ_LABEL } from '@/components/DiscoverPromoModal'
+import CircuitBonPlan, { type FicheBonPlan } from '@/components/CircuitBonPlan'
 import BottomNavBar from '@/components/BottomNavBar'
 import { shareLink } from '@/lib/share'
 import RadioPastille from '@/components/RadioPastille'
@@ -62,7 +63,6 @@ export default function PromotionsClient() {
   const [editPromo, setEditPromo] = useState<Promotion | null>(null)   // admin : édition depuis Découvrir
   const [usedThisMonth, setUsedThisMonth] = useState<number>(0)
   const [showQuotaUpgrade, setShowQuotaUpgrade] = useState(false)
-  const [showProPitch, setShowProPitch] = useState(false)
   const [favIds, setFavIds] = useState<Set<string>>(new Set())
 
   // Favoris promos de l'user (cœur)
@@ -111,22 +111,29 @@ export default function PromotionsClient() {
 
   useEffect(() => { refreshUsedThisMonth() }, [refreshUsedThisMonth])
 
-  // « + » de la bottom nav sur cette page : pro/admin → sa fiche (créer une
-  // promo) ; compte gratuit → pitch compte pro ; non connecté → login.
+  // « + » de la bottom nav sur cette page : le circuit « créer un bon plan »
+  // (CircuitBonPlan) — choisir son commerce, le revendiquer ou le créer, payer
+  // si besoin, jusqu'au formulaire. Non connecté → connexion d'abord.
+  // `circuit` : null = fermé, '' = ouvert, sinon reprise après Stripe.
+  const [circuit, setCircuit] = useState<string | null>(null)
+  const [ficheBonPlan, setFicheBonPlan] = useState<FicheBonPlan | null>(null)
   useEffect(() => {
-    const onPlus = async () => {
+    const onPlus = () => {
       if (!user) { openAuthModal('/promotions'); return }
-      if (isAdmin || currentPlan === 'pro') {
-        const { data } = await supabase.from('etablissements').select('id').eq('user_id', user.id).limit(1).maybeSingle()
-        if (data?.id) router.push(`/etablissement/${data.id}`)
-        else toast.error('Aucune fiche établissement liée à ton compte')
-        return
-      }
-      setShowProPitch(true)
+      setCircuit('')
     }
     window.addEventListener('pdv-plus-promos', onPlus)
     return () => window.removeEventListener('pdv-plus-promos', onPlus)
-  }, [user, isAdmin, currentPlan, openAuthModal, router])
+  }, [user, openAuthModal])
+  // Retour de Stripe : /promotions?circuit=<etabId|creer>&subscribed=1.
+  useEffect(() => {
+    if (authLoading || !user) return
+    const sp = new URLSearchParams(window.location.search)
+    const c = sp.get('circuit')
+    if (!c) return
+    setCircuit(c)
+    window.history.replaceState({}, '', window.location.pathname)
+  }, [authLoading, user])
 
   // SWR sur /api/promotions (mode public, sans mine ni etab) → cache CDN 60s
   // + mémoire client. Retour sur la page = instantané. Le refetch après
@@ -566,12 +573,21 @@ export default function PromotionsClient() {
         />
       )}
 
-      {/* Pitch compte pro (le « + » de la bottom nav pour un compte gratuit) */}
-      {showProPitch && (
-        <SubscriptionModal
-          context={{ kind: 'feature', featureLabel: 'Publier des bons plans', minPlan: 'pro' }}
-          onClose={() => setShowProPitch(false)}
-          currentPlan={currentPlan}
+      {/* Le « + » : circuit « créer un bon plan », puis son formulaire. */}
+      {circuit !== null && (
+        <CircuitBonPlan
+          reprise={circuit || null}
+          onClose={() => setCircuit(null)}
+          onPret={f => { setCircuit(null); setFicheBonPlan(f) }}
+        />
+      )}
+      {ficheBonPlan && (
+        <PromotionForm
+          etablissementId={ficheBonPlan.id}
+          etablissementPhotos={ficheBonPlan.photos ?? []}
+          promo={null}
+          onClose={() => setFicheBonPlan(null)}
+          onSaved={() => { setFicheBonPlan(null); toast.success('Bon plan publié'); fetchPromos() }}
         />
       )}
       <BottomNavBar />

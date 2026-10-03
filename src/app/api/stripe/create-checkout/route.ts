@@ -6,7 +6,7 @@ import { requireUser } from '@/lib/server-auth'
 /**
  * Crée une session Stripe Checkout pour un upgrade de plan USER.
  *
- * Body : { plan: 'pro' | 'max', etabId?: string }
+ * Body : { plan: 'pro' | 'max', etabId?: string, retour?: 'bonplan' }
  *
  *  - Sans etabId : upgrade simple du compte. success_url → /profil
  *  - Avec etabId : upgrade + auto-claim de la fiche après paiement.
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   const ctx = await requireUser(req)
   if (ctx instanceof Response) return ctx
 
-  const { plan, etabId } = await req.json()
+  const { plan, etabId, retour } = await req.json()
   if (!plan || !['habitants', 'pro'].includes(plan)) {
     return NextResponse.json({ error: 'Plan invalide' }, { status: 400 })
   }
@@ -44,12 +44,20 @@ export async function POST(req: NextRequest) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 
-  const successUrl = etabId
-    ? `${appUrl}/etablissement/${etabId}?subscribed=1`
-    : `${appUrl}/profil?subscribed=1`
-  const cancelUrl = etabId
-    ? `${appUrl}/etablissement/${etabId}`
-    : `${appUrl}/profil`
+  // `retour: 'bonplan'` : le circuit « créer un bon plan » de la page Bons
+  // plans (CircuitBonPlan). On y revient pour enchaîner — revendication déjà
+  // faite par le webhook, ou création de la fiche — jusqu'au formulaire.
+  const versBonPlan = retour === 'bonplan'
+  const successUrl = versBonPlan
+    ? `${appUrl}/promotions?circuit=${etabId ? encodeURIComponent(etabId) : 'creer'}&subscribed=1`
+    : etabId
+      ? `${appUrl}/etablissement/${etabId}?subscribed=1`
+      : `${appUrl}/profil?subscribed=1`
+  const cancelUrl = versBonPlan
+    ? `${appUrl}/promotions`
+    : etabId
+      ? `${appUrl}/etablissement/${etabId}`
+      : `${appUrl}/profil`
 
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',

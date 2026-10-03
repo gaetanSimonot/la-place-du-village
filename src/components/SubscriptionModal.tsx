@@ -28,6 +28,8 @@ interface Props {
   onClose: () => void
   /** Plan actuel du user pour marquer "Tu es ici". Si omis, basic par défaut. */
   currentPlan?: PlanId
+  /** Où revenir après le paiement — 'bonplan' : le circuit de la page Bons plans. */
+  retour?: 'bonplan'
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -146,7 +148,7 @@ function shade(hex: string, amt: number): string {
 // Composant principal
 // ────────────────────────────────────────────────────────────────────────────
 
-export default function SubscriptionModal({ context, onClose, currentPlan = 'basic' }: Props) {
+export default function SubscriptionModal({ context, onClose, currentPlan = 'basic', retour }: Props) {
   const [loading, setLoading] = useState<PayablePlan | null>(null)
   const [error, setError]     = useState<string | null>(null)
   const { hero, sub, recommended } = headerCopy(context)
@@ -182,8 +184,9 @@ export default function SubscriptionModal({ context, onClose, currentPlan = 'bas
         setLoading(null)
         return
       }
-      const body: { plan: string; etabId?: string } = { plan }
+      const body: { plan: string; etabId?: string; retour?: string } = { plan }
       if (context.kind === 'claim') body.etabId = context.etabId
+      if (retour) body.retour = retour
       const res = await fetch('/api/stripe/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },

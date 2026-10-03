@@ -38,7 +38,7 @@ interface Prediction {
   secondary: string
 }
 
-interface DbMatch {
+export interface DbMatch {
   kind: 'etablissement' | 'producteur'
   id: string
   nom: string
@@ -57,7 +57,7 @@ interface SubmitResult {
 }
 
 /** Quota atteint (429) — la soumission est refusée, on bascule vers le support. */
-interface QuotaResult {
+export interface QuotaResult {
   count: number
   limit: number
 }
@@ -226,14 +226,20 @@ function KindPicker({ onPick }: { onPick: (k: Kind) => void }) {
   )
 }
 
-function ReferenceForm({
-  kind, onBack, onClose, onDone, onQuota,
+export function ReferenceForm({
+  kind, onBack, onClose, onDone, onQuota, googleAutorise = false, onChoisirExistant,
 }: {
   kind: Kind
   onBack: () => void
   onClose: () => void
   onDone: (data: { auto_published?: boolean; already_exists?: boolean; etablissement_id?: string; producer_id?: string }) => void
   onQuota: (q: QuotaResult) => void
+  /** Ouvre la recherche Google (sinon réservée aux admins) — le compte
+   *  Partenaire qui crée sa fiche dans le circuit « bon plan ». */
+  googleAutorise?: boolean
+  /** Une fiche déjà sur l'app est choisie : on la rend au parent au lieu
+   *  d'ouvrir sa page (circuit « bon plan », qui la revendique). */
+  onChoisirExistant?: (m: DbMatch) => void
 }) {
   /* PUBLIER DEPUIS LA VILLE QU'ON REGARDE. Sans ce parametre, la route
      retombe sur le territoire par defaut : une publication faite en vue Pau
@@ -241,7 +247,10 @@ function ReferenceForm({
   const { territoire: tPub } = useTerritoire()
   const qTerrPub = tPub?.slug ? `?territoire=${encodeURIComponent(tPub.slug)}` : ''
 
-  const { isAdmin } = useAuth()
+  const { isAdmin: estAdmin } = useAuth()
+  // « isAdmin » ne commande ici que la recherche Google : le circuit bon plan
+  // l'ouvre aussi au compte Partenaire (le serveur limite déjà par personne).
+  const isAdmin = estAdmin || googleAutorise
   const [nom, setNom]                 = useState('')
   const [type, setType]               = useState<string>('')
   const [producerCats, setProducerCats] = useState<string[]>([])
@@ -358,6 +367,7 @@ function ReferenceForm({
 
   // Clic sur un match DB → navigate vers la fiche, ferme la modal
   function openDbMatch(m: DbMatch) {
+    if (onChoisirExistant) { onChoisirExistant(m); return }
     onClose()
     const path = m.kind === 'etablissement' ? `/etablissement/${m.id}` : `/producteur/${m.id}`
     window.location.href = path
