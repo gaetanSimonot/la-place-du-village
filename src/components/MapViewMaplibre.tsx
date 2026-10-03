@@ -11,7 +11,7 @@ import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { pinBonPlanSvg, PIN_BON_PLAN, CarteVignetteBonPlan, type VignetteBonPlan } from '@/components/BonsPlansCarte'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
-import { viserMaplibre, hauteurBlocMaplibre, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, sansAberrants, bornesDe, empreinteBornes, MARGE_HAUT_COMMERCES } from '@/lib/carteCadrage'
+import { viserMaplibre, hauteurBlocMaplibre, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, sansAberrants, bornesDe, empreinteBornes, MARGE_HAUT_COMMERCES, margeHaute } from '@/lib/carteCadrage'
 
 /** Cf. MapView.tsx : de combien la vignette se pose au-dessus du point. */
 const DECALAGE_VIGNETTE       = 36
@@ -317,7 +317,7 @@ export default function MapViewMaplibre({
       bloc => {
         // Cf. MapView.tsx : trop haut pour la place qui reste, on demande à la
         // feuille de descendre et on vise quand même — le suivi fait le reste.
-        if (bloc > fenetreVisible(carte.getContainer()?.clientHeight ?? 0, sheetY)) onBlocTropGrand?.()
+        if (bloc > fenetreVisible(carte.getContainer()?.clientHeight ?? 0, sheetY, margeHaute(carte.getContainer()))) onBlocTropGrand?.()
         viserMaplibre(carte, point, { feuille: sheetY, bloc })
       },
     )

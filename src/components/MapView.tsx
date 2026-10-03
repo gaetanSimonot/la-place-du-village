@@ -17,7 +17,7 @@ import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
 import { pinBonPlanSvg, PIN_BON_PLAN, CarteVignetteBonPlan, type VignetteBonPlan } from '@/components/BonsPlansCarte'
-import { viserGoogle, hauteurBlocGoogle, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, sansAberrants, bornesDe, empreinteBornes, MARGE_HAUT_COMMERCES } from '@/lib/carteCadrage'
+import { viserGoogle, hauteurBlocGoogle, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, sansAberrants, bornesDe, empreinteBornes, MARGE_HAUT_COMMERCES, margeHaute } from '@/lib/carteCadrage'
 
 /**
  * De combien la vignette se pose au-dessus du point. Une seule définition :
@@ -243,7 +243,7 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, shee
         // la feuille descendre. On vise quand même tout de suite — le suivi
         // garde le bloc au milieu pendant qu'elle tombe, et il s'y trouve
         // encore quand la fenêtre a fini de grandir.
-        if (bloc > fenetreVisible(map.getDiv()?.clientHeight ?? 0, sheetY)) onBlocTropGrand?.()
+        if (bloc > fenetreVisible(map.getDiv()?.clientHeight ?? 0, sheetY, margeHaute(map.getDiv()))) onBlocTropGrand?.()
         viserGoogle(map, point, { feuille: sheetY, bloc })
       },
     )

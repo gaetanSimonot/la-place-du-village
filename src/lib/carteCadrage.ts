@@ -261,8 +261,25 @@ export function margesCadrage(
  * disparaît, et un grand téléphone passe alors sous le seuil le temps d'un
  * défilement. C'est la place du moment qui décide, pas le modèle d'appareil.
  */
-export function fenetreVisible(hauteurCarte: number, feuille: PositionFeuille): number {
-  return Math.max(0, hauteurCarte - margeBasse(hauteurCarte, feuille))
+export function fenetreVisible(hauteurCarte: number, feuille: PositionFeuille, haut = 0): number {
+  return Math.max(0, hauteurCarte - margeBasse(hauteurCarte, feuille) - haut)
+}
+
+/**
+ * Ce que la barre du haut de l'accueil (logo + molette des modes, téléphone)
+ * recouvre de la carte, en px, mesuré à l'instant.
+ *
+ * La carte passe SOUS cette barre. Les visées centraient donc le bloc
+ * punaise + vignette entre le haut de l'écran et la feuille : une grande
+ * vignette (un bon plan et son image) finissait sous la barre. Barre absente
+ * (bureau, feuille plein écran, autres pages) : 0, rien ne change.
+ */
+export function margeHaute(conteneur: HTMLElement | null | undefined): number {
+  if (typeof document === 'undefined' || !conteneur) return 0
+  const barre = document.querySelector('.pcv-homeTop') as HTMLElement | null
+  const r = barre?.getBoundingClientRect()
+  if (!r?.height) return 0
+  return Math.max(0, Math.round(r.bottom - conteneur.getBoundingClientRect().top))
 }
 
 export interface Visee {
@@ -351,7 +368,8 @@ export function viserGoogle(
   const marge = margeBasse(map.getDiv()?.clientHeight ?? 0, feuille)
   const z     = zoom ?? map.getZoom()
   const proj  = map.getProjection()
-  const bas   = (marge - bloc) / 2
+  // Centrer entre le bas de la barre du haut et le haut de la feuille.
+  const bas   = (marge - bloc - margeHaute(map.getDiv())) / 2
 
   let cible: google.maps.LatLng | google.maps.LatLngLiteral = point
   // Sans projection (carte pas encore prête) ou sans marge (bureau), le point
@@ -378,8 +396,9 @@ export function viserMaplibre(
     center: [point.lng, point.lat],
     ...(zoom != null ? { zoom } : {}),
     // Le point d'arrivée, mesuré depuis le centre du conteneur : au-dessus de
-    // lui de la moitié de ce que la feuille cache, moins la moitié du bloc.
-    offset: [0, -(marge - bloc) / 2],
+    // lui de la moitié de ce que la feuille cache, moins la moitié du bloc et
+    // la moitié de la barre du haut (cf. viserGoogle).
+    offset: [0, -(marge - bloc - margeHaute(map.getContainer())) / 2],
     ...(anime ? {} : { duration: 0 }),
   })
 }
