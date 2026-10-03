@@ -6,6 +6,7 @@ import useSWR from 'swr'
 import { useTerritoire } from '@/components/TerritoireProvider'
 import { supabase } from '@/lib/supabase'
 import { signalerFavori } from '@/hooks/useFavori'
+import { useDefilementDoux } from '@/hooks/useDefilementDoux'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import SubscriptionModal from '@/components/SubscriptionModal'
@@ -860,7 +861,15 @@ function ConfirmPositionModal({ promo, onClose, onConfirm, loading }: {
   )
 }
 
-// ─── Featured carousel V3 (À ne pas manquer) — défilement infini ───
+// ─── Featured carousel V3 (À ne pas manquer) — même rouleau que les affiches ───
+/*
+ * Le mécanisme des affiches de films du Village (useDefilementDoux) : une
+ * piste DÉPLACÉE dans un cadre qui la rogne, qui suit le doigt avec un élan,
+ * boucle sans fin et avance doucement seule. L'ancienne version était une
+ * zone défilante aimantée qui se téléportait sur une copie du milieu PENDANT
+ * le geste : navigateur et code se disputaient la position, les tuiles
+ * sautaient et vibraient.
+ */
 function FeaturedPromoCarousel({ promos, onUse, coupDeCoeur = null, isAdmin = false, onEditOrder }: {
   promos: Promotion[]
   onUse: (p: Promotion) => void
@@ -868,18 +877,7 @@ function FeaturedPromoCarousel({ promos, onUse, coupDeCoeur = null, isAdmin = fa
   isAdmin?: boolean
   onEditOrder?: () => void
 }) {
-  const N = promos.length
-  const loop = N > 1
-  // 3 copies pour une boucle fluide (on reste centré sur la copie du milieu).
-  const display = loop ? [...promos, ...promos, ...promos] : promos
-  const [activeIdx, setActiveIdx] = useState(0)
-  const scrollerRef = useRef<HTMLDivElement | null>(null)
-
-  // Démarre au début de la copie du milieu → on peut scroller des deux côtés.
-  useEffect(() => {
-    const el = scrollerRef.current
-    if (el && loop) el.scrollLeft = el.scrollWidth / 3
-  }, [loop, N])
+  const piste = useDefilementDoux<HTMLDivElement>(promos.length)
 
   return (
     <div className="pt-[18px]">
@@ -898,35 +896,21 @@ function FeaturedPromoCarousel({ promos, onUse, coupDeCoeur = null, isAdmin = fa
             </button>
           )}
         </div>
-        <span className="text-[11px] font-bold text-texte-doux">{activeIdx + 1}/{N}</span>
       </div>
-      <div
-        ref={scrollerRef}
-        className="pdv-hscroll flex gap-3 overflow-x-auto px-4 pb-1"
-        style={{ scrollSnapType: 'x mandatory', scrollPaddingLeft: 16, scrollPaddingRight: 16 }}
-        onScroll={e => {
-          const el = e.currentTarget
-          if (loop) {
-            const setW = el.scrollWidth / 3
-            // Recentrage seamless sur la copie du milieu (contenu identique).
-            if (el.scrollLeft < setW * 0.5) el.scrollLeft += setW
-            else if (el.scrollLeft > setW * 1.5) el.scrollLeft -= setW
-            const step = setW / N
-            setActiveIdx(((Math.round(el.scrollLeft / step)) % N + N) % N)
-          } else {
-            const step = el.scrollWidth / Math.max(1, N)
-            setActiveIdx(Math.min(N - 1, Math.max(0, Math.round(el.scrollLeft / step))))
-          }
-        }}
-      >
-        {display.map((p, i) => {
+      {/* Le cadre : la piste y glisse (useDefilementDoux). La seconde moitié
+          est la copie de la boucle, cachée tant que la piste ne défile pas. */}
+      <div>
+      <div ref={piste} className="pdv-hscroll flex gap-3 lg:overflow-x-auto px-4 pb-1">
+        {[...promos, ...promos].map((p, i) => {
           const img = p.display_image_url ?? p.image_url ?? p.etablissement?.photos?.[0]
+          const copie = i >= promos.length
           return (
             <button
               key={`${p.id}-${i}`}
               onClick={() => onUse(p)}
-              className="relative shrink-0 overflow-hidden rounded-[18px] border border-bordSoft bg-white shadow-card text-left"
-              style={{ width: 'calc(100vw - 64px)', maxWidth: 380, height: 200, scrollSnapAlign: 'start' }}
+              aria-hidden={copie} tabIndex={copie ? -1 : undefined}
+              className={`relative shrink-0 overflow-hidden rounded-[18px] border border-bordSoft bg-white shadow-card text-left${copie ? ' lpv-defileDup' : ''}`}
+              style={{ width: 'calc(100vw - 64px)', maxWidth: 380, height: 200 }}
             >
               {img ? (
                 <img src={img} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
@@ -963,14 +947,6 @@ function FeaturedPromoCarousel({ promos, onUse, coupDeCoeur = null, isAdmin = fa
           )
         })}
       </div>
-      {/* Dots indicator */}
-      <div className="mt-2.5 flex justify-center gap-1">
-        {promos.map((_, i) => (
-          <span
-            key={i}
-            style={{ width: i === activeIdx ? 18 : 5, height: 5, borderRadius: 999, background: i === activeIdx ? '#2D5A3D' : '#D8D0C8', transition: 'width 0.18s' }}
-          />
-        ))}
       </div>
     </div>
   )
