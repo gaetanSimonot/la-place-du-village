@@ -126,14 +126,18 @@ export default function PromotionsClient() {
     return () => window.removeEventListener('pdv-plus-promos', onPlus)
   }, [user, openAuthModal])
   // Retour de Stripe : /promotions?circuit=<etabId|creer>&subscribed=1.
+  // ?nouveau=1 : le bouton « Créer ma première promotion » du mail de
+  // bienvenue Partenaire — on ouvre le circuit (connexion d'abord s'il le faut).
   useEffect(() => {
-    if (authLoading || !user) return
+    if (authLoading) return
     const sp = new URLSearchParams(window.location.search)
     const c = sp.get('circuit')
-    if (!c) return
-    setCircuit(c)
+    const nouveau = sp.get('nouveau') === '1'
+    if (!c && !nouveau) return
+    if (!user) { if (nouveau) openAuthModal('/promotions?nouveau=1'); return }
+    setCircuit(c ?? '')
     window.history.replaceState({}, '', window.location.pathname)
-  }, [authLoading, user])
+  }, [authLoading, user, openAuthModal])
 
   // SWR sur /api/promotions (mode public, sans mine ni etab) → cache CDN 60s
   // + mémoire client. Retour sur la page = instantané. Le refetch après
