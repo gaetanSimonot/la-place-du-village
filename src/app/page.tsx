@@ -35,7 +35,8 @@ import { useNotifications } from '@/hooks/useNotifications'
 import { ecranBureau } from '@/lib/bureau'
 import { lireEntreeEnCache, entreeFraiche } from '@/lib/entreeApp'
 import SelecteurModes from '@/components/SelecteurModes'
-import { ListeBonsPlans, etabsDesBonsPlans, lienBonPlan, type PromoCarte } from '@/components/BonsPlansCarte'
+import { ListeBonsPlans, EnteteBonsPlans, etabsDesBonsPlans, typesDesBonsPlans, useFavorisBonsPlans, lienBonPlan, type PromoCarte } from '@/components/BonsPlansCarte'
+import DiscoverPromoModal from '@/components/DiscoverPromoModal'
 import { useHerosVillage } from '@/hooks/useHerosVillage'
 import { lienHeros, herosExterne } from '@/lib/villageHero'
 import RadioPastille from '@/components/RadioPastille'
@@ -303,8 +304,18 @@ export default function HomePage() {
   const { data: bonsPlansData, isLoading: bonsPlansLoading } = useSWR<{ promotions: PromoCarte[] }>(
     modeBonsPlans ? `/api/promotions${slugTerritoire ? `?territoire=${encodeURIComponent(slugTerritoire)}` : ''}` : null,
   )
-  const bonsPlans = useMemo(() => bonsPlansData?.promotions ?? [], [bonsPlansData])
+  const tousBonsPlans = useMemo(() => bonsPlansData?.promotions ?? [], [bonsPlansData])
+  const typesBonsPlans = useMemo(() => typesDesBonsPlans(tousBonsPlans), [tousBonsPlans])
+  // La catégorie choisie dans l'en-tête filtre la liste ET les points.
+  const [typeBonsPlans, setTypeBonsPlans] = useState<EtablissementType | null>(null)
+  const bonsPlans = useMemo(
+    () => typeBonsPlans ? tousBonsPlans.filter(p => p.etablissement?.type === typeBonsPlans) : tousBonsPlans,
+    [tousBonsPlans, typeBonsPlans],
+  )
   const etabsBonsPlans = useMemo(() => etabsDesBonsPlans(bonsPlans), [bonsPlans])
+  // La fenêtre « Découvrir » ouverte par-dessus la carte : on ne quitte pas la liste.
+  const [bonPlanOuvert, setBonPlanOuvert] = useState<PromoCarte | null>(null)
+  const favorisBonsPlans = useFavorisBonsPlans(user?.id ?? null, () => openAuthModal(), modeBonsPlans)
   /**
    * La zone d'affichage — centres et rayon — avec sa derniere valeur connue.
    *
@@ -1658,7 +1669,7 @@ export default function HomePage() {
           onSelectEtab={setSelectedEtabId}
           onOpenEtablissement={modeBonsPlans
             // En bons plans, la vignette ouvre le bon plan du commerce, pas sa fiche.
-            ? (id: string) => { const p = bonsPlans.find(x => x.etablissement?.id === id); if (p) router.push(lienBonPlan(p.id)) }
+            ? (id: string) => { const p = bonsPlans.find(x => x.etablissement?.id === id); if (p) setBonPlanOuvert(p) }
             : openEtablissement}
           selectedId={selectedId}
           onSelectEvent={setSelectedId}
@@ -2250,7 +2261,20 @@ export default function HomePage() {
            garde sa poignee, ses paliers et son defilement. */
         contenuTransport={modeBonsPlans ? (
           // Le mode Bons plans prend la feuille comme le transport (cf. BonsPlansCarte).
-          <ListeBonsPlans promos={bonsPlans} chargement={bonsPlansLoading} onOuvrir={id => router.push(lienBonPlan(id))} />
+          <ListeBonsPlans
+            promos={bonsPlans}
+            chargement={bonsPlansLoading}
+            favIds={favorisBonsPlans.favIds}
+            onFavori={favorisBonsPlans.basculer}
+            onDecouvrir={setBonPlanOuvert}
+            onLocaliser={p => {
+              const e = p.etablissement
+              if (!e || e.lat == null || e.lng == null) return
+              setSelectedEtabId(e.id)
+              setSheetMode('half')
+              setLieuAViser({ lat: e.lat, lng: e.lng, zoom: ZOOM_FICHE, cle: e.id, avecVignette: true })
+            }}
+          />
         ) : modeTransport && ligneTransport && !ligneTransport.lignes.length ? (
           /*
            * Le territoire regarde n'a pas de reseau importe. Le dire comme un
@@ -2284,6 +2308,9 @@ export default function HomePage() {
               setTrajetChoisi(null); setTroncon(null)
             }}
           />
+        ) : undefined}
+        enteteMode={modeBonsPlans ? (
+          <EnteteBonsPlans total={bonsPlans.length} types={typesBonsPlans} typeActif={typeBonsPlans} onType={setTypeBonsPlans} />
         ) : undefined}
         listStateRef={listStateRef}
         restoreListState={restoreListState}
@@ -2344,6 +2371,18 @@ export default function HomePage() {
         isAdmin={isAdmin}
         onAdminMutated={() => mutateAgenda()}
       />}
+
+      {/* Bon plan ouvert par-dessus la carte (mode Bons plans). « J'en profite »
+          seul mène à la page Bons plans, qui porte la confirmation sur place. */}
+      {bonPlanOuvert && (
+        <DiscoverPromoModal
+          promo={bonPlanOuvert}
+          favorited={favorisBonsPlans.favIds.has(bonPlanOuvert.id)}
+          onToggleFav={() => favorisBonsPlans.basculer(bonPlanOuvert.id)}
+          onClose={() => setBonPlanOuvert(null)}
+          onUse={() => { const id = bonPlanOuvert.id; setBonPlanOuvert(null); router.push(lienBonPlan(id, true)) }}
+        />
+      )}
 
       {/* Fiche événement en fenêtre — bureau seulement (openEvent ne la pose
           qu'au-dessus de 1024 px). */}

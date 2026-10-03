@@ -63,6 +63,9 @@ interface Props {
    * garde tout son comportement : poignee, paliers, defilement.
    */
   contenuTransport?: React.ReactNode
+  /** En-tête du mode qui a pris la feuille (bons plans) : posé dans la zone
+   *  de poignée mesurée, comme le compteur et les filtres des événements. */
+  enteteMode?: React.ReactNode
   producers?: ProducerCard[]
   producerLoading?: boolean
   selectedProducerId?: string | null
@@ -133,7 +136,7 @@ export default function BottomSheet({
   onPeekHeightChange, proEvents = [], herosDiapo = null, onDiscoverPro, onOpenEvent,
   listStateRef, restoreListState = null, onListStateRestored,
   favIds = [], onToggleFav,
-  appMode, onAppModeChange, contenuTransport, producers = [], producerLoading = false,
+  appMode, onAppModeChange, contenuTransport, enteteMode, producers = [], producerLoading = false,
   selectedProducerId = null, onSelectProducer, onViewProducerOnMap,
   selectedCats = [], onSelectedCatsChange,
   availableProducts = [],
@@ -621,6 +624,8 @@ export default function BottomSheet({
         <div style={{ padding: '10px 0 6px' }}>
           <div style={{ width: 40, height: 5, borderRadius: 3, backgroundColor: '#C8BDB0', margin: '0 auto' }} />
         </div>
+
+        {contenuTransport && enteteMode}
 
         {/* ── Header agenda : compteur + filtres ── */}
         {appMode === 'agenda' && !contenuTransport && (
