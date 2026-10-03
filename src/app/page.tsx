@@ -1083,6 +1083,21 @@ export default function HomePage() {
     }
   }, [appMode, filtres, annuaireTab, selectedCats, producerSearch, etabSearch, navTab])
 
+  /* Ménage des événements passés (/api/admin/cleanup) — aucun cron ne le fait,
+     il passe quand un admin ouvre l'app. Il partait pour TOUT le monde et la
+     route, gardée, répondait 403 dans la console de chaque visiteur. Une fois
+     par session, et seulement pour un admin. */
+  useEffect(() => {
+    if (!isAdmin) return
+    try { if (sessionStorage.getItem('pdv-cleanup-fait')) return; sessionStorage.setItem('pdv-cleanup-fait', '1') } catch { /* stockage indisponible */ }
+    ;(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      const tk = session?.access_token
+      if (!tk) return
+      fetch('/api/admin/cleanup', { method: 'POST', headers: { Authorization: `Bearer ${tk}` } }).catch(() => {})
+    })()
+  }, [isAdmin])
+
   // Config chargée une seule fois au mount + écoute changements admin
   useEffect(() => {
     supabase.from('config').select('value').eq('key', 'masquer_passes').single()
@@ -1090,17 +1105,6 @@ export default function HomePage() {
     supabase.from('config').select('value').eq('key', 'map_provider').maybeSingle()
       .then(({ data }) => setMapProvider(data?.value === 'maplibre' ? 'maplibre' : 'google'))
     fetchZoneConfig()
-    // Cleanup silencieux : nécessite admin (la route est maintenant gardée).
-    // Si l'user n'est pas admin → 403 silencieux, pas de souci.
-    ;(async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      const tk = session?.access_token
-      if (!tk) return
-      fetch('/api/admin/cleanup', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${tk}` },
-      }).catch(() => {})
-    })()
 
     // Charger zone user depuis localStorage
     try {
