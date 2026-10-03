@@ -35,7 +35,7 @@ import { useNotifications } from '@/hooks/useNotifications'
 import { ecranBureau } from '@/lib/bureau'
 import { lireEntreeEnCache, entreeFraiche } from '@/lib/entreeApp'
 import SelecteurModes from '@/components/SelecteurModes'
-import { ListeBonsPlans, EnteteBonsPlans, etabsDesBonsPlans, typesDesBonsPlans, useFavorisBonsPlans, lienBonPlan, type PromoCarte } from '@/components/BonsPlansCarte'
+import { ListeBonsPlans, EnteteBonsPlans, etabsDesBonsPlans, typesDesBonsPlans, vignettesDesBonsPlans, useFavorisBonsPlans, lienBonPlan, type PromoCarte } from '@/components/BonsPlansCarte'
 import DiscoverPromoModal from '@/components/DiscoverPromoModal'
 import { useHerosVillage } from '@/hooks/useHerosVillage'
 import { lienHeros, herosExterne } from '@/lib/villageHero'
@@ -313,6 +313,7 @@ export default function HomePage() {
     [tousBonsPlans, typeBonsPlans],
   )
   const etabsBonsPlans = useMemo(() => etabsDesBonsPlans(bonsPlans), [bonsPlans])
+  const vignettesBonsPlans = useMemo(() => vignettesDesBonsPlans(bonsPlans), [bonsPlans])
   // La fenêtre « Découvrir » ouverte par-dessus la carte : on ne quitte pas la liste.
   const [bonPlanOuvert, setBonPlanOuvert] = useState<PromoCarte | null>(null)
   const favorisBonsPlans = useFavorisBonsPlans(user?.id ?? null, () => openAuthModal(), modeBonsPlans)
@@ -1671,6 +1672,7 @@ export default function HomePage() {
             // En bons plans, la vignette ouvre le bon plan du commerce, pas sa fiche.
             ? (id: string) => { const p = bonsPlans.find(x => x.etablissement?.id === id); if (p) setBonPlanOuvert(p) }
             : openEtablissement}
+          vignettesBonsPlans={modeBonsPlans ? vignettesBonsPlans : null}
           selectedId={selectedId}
           onSelectEvent={setSelectedId}
           onDeselect={() => setSelectedId(null)}

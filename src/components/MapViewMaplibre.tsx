@@ -8,6 +8,7 @@ import { CATEGORIES } from '@/lib/categories'
 import { formatEventDate } from '@/lib/filters'
 import { useTheme } from '@/components/ThemeProvider'
 import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
+import { pinBonPlanSvg, PIN_BON_PLAN, CarteVignetteBonPlan, type VignetteBonPlan } from '@/components/BonsPlansCarte'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
 import { viserMaplibre, hauteurBlocMaplibre, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, sansAberrants, bornesDe, empreinteBornes, MARGE_HAUT_COMMERCES } from '@/lib/carteCadrage'
@@ -108,6 +109,8 @@ interface Props {
   selectedEtabId?: string | null
   onSelectEtab?: (id: string | null) => void
   onOpenEtablissement?: (id: string) => void
+  /** Mode Bons plans — cf. MapView.tsx : punaises cadeau, vignette du bon plan. */
+  vignettesBonsPlans?: Record<string, VignetteBonPlan> | null
   /**
    * Mode transport. ACCEPTÉ ET IGNORÉ ICI : le calque de la ligne de bus n'est
    * écrit que pour Google Maps, le fond actif. Ces propriétés existent parce
@@ -136,7 +139,12 @@ export default function MapViewMaplibre({
   onMapDragStart, onMapDragEnd, onCameraIdle, sheetY, sheetYRepos, panEnCoursRef,
   producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer,
   etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement,
+  vignettesBonsPlans = null,
 }: Props) {
+  // La punaise d'un commerce, ou le cadeau en mode Bons plans.
+  const pinEtab = (e: EtablissementCard, isSel: boolean, h: number) => vignettesBonsPlans
+    ? <img src={pinBonPlanSvg(isSel)} width={PIN_BON_PLAN.largeur} height={PIN_BON_PLAN.hauteur} alt="" style={{ cursor: 'pointer', display: 'block' }} />
+    : <img src={etabMarkerSvg(isSel, e.type, e.plan, e.is_featured)} width={28} height={h} alt="" style={{ cursor: 'pointer', display: 'block' }} />
   const mapRef = useRef<MapRef | null>(null)
   const [viewport, setViewport] = useState<Viewport>(null)
   const [internalEtabId, setInternalEtabId] = useState<string | null>(null)
@@ -467,8 +475,7 @@ export default function MapViewMaplibre({
           return (
             <Marker key={`t-${e.id}-${i}`} longitude={lng} latitude={lat} anchor="bottom"
               onClick={() => setSelectedEtabId(isSel ? null : e.id)}>
-              <img src={etabMarkerSvg(isSel, e.type, e.plan, e.is_featured)}
-                width={28} height={h} alt="" style={{ cursor: 'pointer', display: 'block' }} />
+              {pinEtab(e, isSel, h)}
             </Marker>
           )
         })}
@@ -480,14 +487,27 @@ export default function MapViewMaplibre({
           return (
             <Marker key={`tp-${e.id}`} longitude={e.lng!} latitude={e.lat!} anchor="bottom"
               onClick={() => setSelectedEtabId(isSel ? null : e.id)}>
-              <img src={etabMarkerSvg(isSel, e.type, e.plan, e.is_featured)}
-                width={28} height={h} alt="" style={{ cursor: 'pointer', display: 'block' }} />
+              {pinEtab(e, isSel, h)}
             </Marker>
           )
         })}
 
+        {/* ── Popup bon plan (mode Bons plans) : le bon plan, pas la fiche ── */}
+        {selectedEtab && selectedEtab.lat && selectedEtab.lng && vignettesBonsPlans?.[selectedEtab.id] && (
+          <Popup longitude={selectedEtab.lng} latitude={selectedEtab.lat} anchor="bottom"
+            offset={[0, -(PIN_BON_PLAN.hauteur + 2)]} closeButton={false} closeOnClick={false}
+            onClose={() => setSelectedEtabId(null)} maxWidth="230px">
+            <CarteVignetteBonPlan
+              v={vignettesBonsPlans[selectedEtab.id]}
+              bord={sheetBg.bg}
+              onDecouvrir={() => onOpenEtablissement?.(selectedEtab.id)}
+              onFermer={() => setSelectedEtabId(null)}
+            />
+          </Popup>
+        )}
+
         {/* ── Popup établissement ── */}
-        {selectedEtab && selectedEtab.lat && selectedEtab.lng && (() => {
+        {selectedEtab && selectedEtab.lat && selectedEtab.lng && !vignettesBonsPlans && (() => {
           const typeInfo = ETAB_TYPES[selectedEtab.type]
           const photo    = selectedEtab.photos?.[0]
           const promoted = selectedEtab.plan === 'pro' || selectedEtab.is_featured

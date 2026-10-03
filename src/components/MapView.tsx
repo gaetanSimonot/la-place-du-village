@@ -16,6 +16,7 @@ import { useTheme } from '@/components/ThemeProvider'
 import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
+import { pinBonPlanSvg, PIN_BON_PLAN, CarteVignetteBonPlan, type VignetteBonPlan } from '@/components/BonsPlansCarte'
 import { viserGoogle, hauteurBlocGoogle, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, sansAberrants, bornesDe, empreinteBornes, MARGE_HAUT_COMMERCES } from '@/lib/carteCadrage'
 
 /**
@@ -497,11 +498,23 @@ interface EtabMarkersProps {
   sheetY?: MotionValue<number>
   sheetYRepos?: MotionValue<number>
   vueRestauree?: boolean
+  /** Mode Bons plans : punaises cadeau. */
+  pinBonPlan?: boolean
   /** Fiche déjà visée par le chemin « viser un lieu » — ne pas viser deux fois. */
   dejaVise?: string | null
 }
 
-function habillerEtablissement(marker: google.maps.Marker, etab: EtablissementCard, choisi: boolean) {
+function habillerEtablissement(marker: google.maps.Marker, etab: EtablissementCard, choisi: boolean, bonPlan = false) {
+  // Mode Bons plans : la punaise cadeau, partagée avec MapLibre (BonsPlansCarte).
+  if (bonPlan) {
+    marker.setIcon({
+      url: pinBonPlanSvg(choisi),
+      scaledSize: new google.maps.Size(PIN_BON_PLAN.largeur, PIN_BON_PLAN.hauteur),
+      anchor: new google.maps.Point(PIN_BON_PLAN.largeur / 2, PIN_BON_PLAN.hauteur),
+    })
+    marker.setZIndex(choisi ? 999 : 10)
+    return
+  }
   const promu = etab.plan === 'pro' || etab.is_featured
   const h     = promu ? 47 : 36
   marker.setIcon({
@@ -512,7 +525,7 @@ function habillerEtablissement(marker: google.maps.Marker, etab: EtablissementCa
   marker.setZIndex(choisi ? 999 : promu ? 10 : 1)
 }
 
-function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fixedMap, sheetY, sheetYRepos, vueRestauree = false, dejaVise = null }: EtabMarkersProps) {
+function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fixedMap, sheetY, sheetYRepos, vueRestauree = false, pinBonPlan = false, dejaVise = null }: EtabMarkersProps) {
   const map = useMap()
   const clustererRef = useRef<MarkerClusterer | null>(null)
   const markersRef   = useRef<google.maps.Marker[]>([])
@@ -606,7 +619,7 @@ function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fi
         title: e.nom,
         optimized: true,   // cf. la couche des evenements
       })
-      habillerEtablissement(marker, e, e.id === selectionRef.current)
+      habillerEtablissement(marker, e, e.id === selectionRef.current, pinBonPlan)
       // Cf. producteurs : la sélection se lit dans la boîte, pas dans la fermeture.
       marker.addListener('click', () => onSelectEtab(selectionRef.current === e.id ? null : e.id))
       if (promoted) {
@@ -629,7 +642,7 @@ function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fi
       clustererRef.current?.clearMarkers()
       markersRef.current.forEach(m => m.setMap(null))
     }
-  }, [map, etablissements, onSelectEtab])
+  }, [map, etablissements, onSelectEtab, pinBonPlan])
 
   useEffect(() => {
     const avant = selectionRef.current
@@ -638,9 +651,9 @@ function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fi
     for (const id of [avant, selectedEtabId]) {
       if (!id) continue
       const e = parId.current[id]
-      if (e) habillerEtablissement(e.marker, e.etab, id === selectedEtabId)
+      if (e) habillerEtablissement(e.marker, e.etab, id === selectedEtabId, pinBonPlan)
     }
-  }, [selectedEtabId])
+  }, [selectedEtabId, pinBonPlan])
 
   return null
 }
@@ -700,6 +713,12 @@ interface Props {
   selectedEtabId?: string | null
   onSelectEtab?: (id: string | null) => void
   onOpenEtablissement?: (id: string) => void
+  /**
+   * Mode Bons plans : par commerce, le bon plan à montrer. Présent, il change
+   * les punaises (cadeau) et la vignette (le bon plan en miniature, bouton
+   * « Découvrir » → `onOpenEtablissement`).
+   */
+  vignettesBonsPlans?: Record<string, VignetteBonPlan> | null
   /** Mode transport : la ligne à dessiner, ou null si on n'y est pas. */
   transport?: {
     arrets: ArretTransport[]
@@ -713,7 +732,7 @@ interface Props {
   } | null
 }
 
-export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, restaurerVue, vueRestauree = false, viserLieu, onBlocTropGrand, sheetYRepos, onMapDragStart, onMapDragEnd, onCameraIdle, sheetY, panEnCoursRef, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement, transport = null }: Props) {
+export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, restaurerVue, vueRestauree = false, viserLieu, onBlocTropGrand, sheetYRepos, onMapDragStart, onMapDragEnd, onCameraIdle, sheetY, panEnCoursRef, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement, vignettesBonsPlans = null, transport = null }: Props) {
   const [internalEtabId, setInternalEtabId] = useState<string | null>(null)
   const selectedEtabId    = selectedEtabIdProp !== undefined ? selectedEtabIdProp : internalEtabId
   const setSelectedEtabId = onSelectEtab ?? setInternalEtabId
@@ -788,12 +807,29 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
           sheetY={sheetY}
           sheetYRepos={sheetYRepos}
           vueRestauree={vueRestauree}
+          pinBonPlan={!!vignettesBonsPlans}
           dejaVise={viserLieu?.cle ?? null}
         />
 
         {transport && <MapTransportLayer {...transport} sheetY={sheetYRepos ?? sheetY} />}
         {/* Vignette établissement sélectionné */}
-        {selectedEtab && selectedEtab.lat && selectedEtab.lng && (() => {
+        {/* Vignette d'un bon plan (mode Bons plans) : le bon plan, pas la fiche. */}
+        {selectedEtab && selectedEtab.lat && selectedEtab.lng && vignettesBonsPlans?.[selectedEtab.id] && (
+          <InfoWindow
+            position={{ lat: selectedEtab.lat, lng: selectedEtab.lng }}
+            onCloseClick={() => setSelectedEtabId(null)}
+            pixelOffset={[0, -(PIN_BON_PLAN.hauteur + 2)]}
+            disableAutoPan
+          >
+            <CarteVignetteBonPlan
+              v={vignettesBonsPlans[selectedEtab.id]}
+              bord={sheetBg.bg}
+              onDecouvrir={() => onOpenEtablissement?.(selectedEtab.id)}
+              onFermer={() => setSelectedEtabId(null)}
+            />
+          </InfoWindow>
+        )}
+        {selectedEtab && selectedEtab.lat && selectedEtab.lng && !vignettesBonsPlans && (() => {
           const typeInfo = ETAB_TYPES[selectedEtab.type]
           const photo    = selectedEtab.photos?.[0]
           const promoted = selectedEtab.plan === 'pro' || selectedEtab.is_featured

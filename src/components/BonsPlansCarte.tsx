@@ -41,6 +41,81 @@ export function etabsDesBonsPlans(promos: PromoCarte[]): EtablissementCard[] {
   return Array.from(vus.values())
 }
 
+/**
+ * Ce que la vignette de la carte montre d'un point : le bon plan (le premier
+ * du commerce), pas la fiche du commerce. Clé : id du commerce.
+ */
+export interface VignetteBonPlan {
+  titre: string
+  image: string | null
+  commerce: string
+  commune: string | null
+}
+
+export function vignettesDesBonsPlans(promos: PromoCarte[]): Record<string, VignetteBonPlan> {
+  const v: Record<string, VignetteBonPlan> = {}
+  for (const p of promos) {
+    const e = p.etablissement
+    if (!e || v[e.id]) continue
+    v[e.id] = { titre: p.title, image: p.display_image_url ?? e.photos?.[0] ?? null, commerce: e.nom, commune: e.commune }
+  }
+  return v
+}
+
+/**
+ * La punaise des bons plans : orange, bordée de blanc, un cadeau dedans.
+ * Les deux cartes (Google, MapLibre) la posent à la place de celle du commerce.
+ */
+export const PIN_BON_PLAN = { largeur: 32, hauteur: 40 }
+export function pinBonPlanSvg(choisi: boolean): string {
+  const svg = `<svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
+    <path d="M16 2C8.8 2 3 7.8 3 15c0 9.6 13 23 13 23s13-13.4 13-23C29 7.8 23.2 2 16 2z" fill="${choisi ? '#C2410C' : '#E8622A'}" stroke="white" stroke-width="${choisi ? 3 : 2.5}"/>
+    <g fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="9.5" y="11.5" width="13" height="4" rx="0.8"/>
+      <path d="M10.8 15.5v6.5h10.4v-6.5"/>
+      <line x1="16" y1="11.5" x2="16" y2="22"/>
+      <path d="M16 11.5c-1.2-2.6-4.6-2.9-4.6-0.9 0 1.1 2.1 0.9 4.6 0.9z"/>
+      <path d="M16 11.5c1.2-2.6 4.6-2.9 4.6-0.9 0 1.1-2.1 0.9-4.6 0.9z"/>
+    </g>
+  </svg>`
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`
+}
+
+/** La vignette d'un bon plan sur la carte : le bon plan en miniature + « Découvrir ». */
+export function CarteVignetteBonPlan({ v, bord, onDecouvrir, onFermer }: {
+  v: VignetteBonPlan
+  bord: string
+  onDecouvrir: () => void
+  onFermer: () => void
+}) {
+  return (
+    <div style={{ position: 'relative', width: 210, overflow: 'visible', fontFamily: 'var(--font-body), sans-serif' }}>
+      <button onClick={onFermer}
+        style={{ position: 'absolute', top: -10, right: -10, zIndex: 10, width: 22, height: 22, borderRadius: '50%', backgroundColor: '#fff', border: '1.5px solid #ddd', boxShadow: '0 1px 5px rgba(0,0,0,0.22)', cursor: 'pointer', color: '#666', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, padding: 0 }}>✕</button>
+      <div onClick={onDecouvrir}
+        style={{ borderRadius: 12, overflow: 'hidden', backgroundColor: '#fff', border: `2.5px solid ${bord}`, cursor: 'pointer', boxShadow: '0 4px 20px rgba(0,0,0,0.18)' }}>
+        <div style={{ width: '100%', height: 95, position: 'relative', backgroundColor: '#FFF0E5', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+          {v.image
+            ? <img src={v.image} alt="" loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+            : <span style={{ fontSize: 36 }}>🎁</span>}
+          <span style={{ position: 'absolute', left: 6, top: 6, fontSize: 9, fontWeight: 800, letterSpacing: '.06em', color: '#fff', backgroundColor: '#E8622A', borderRadius: 999, padding: '2px 7px' }}>
+            BON PLAN
+          </span>
+        </div>
+        <div style={{ padding: '8px 10px 10px' }}>
+          <p style={{ fontWeight: 800, fontSize: 13, color: '#1A1209', margin: '0 0 2px', lineHeight: 1.3 }}>{v.titre}</p>
+          <p style={{ fontSize: 11, color: '#6B5E4E', margin: '0 0 7px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {v.commerce}{v.commune ? ` · ${v.commune}` : ''}
+          </p>
+          <button style={{ display: 'block', width: '100%', textAlign: 'center', padding: '7px', borderRadius: 8, backgroundColor: '#E8622A', color: '#fff', fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
+            Découvrir
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /** Les catégories présentes parmi les bons plans — celles de la page Bons plans. */
 export function typesDesBonsPlans(promos: PromoCarte[]): EtablissementType[] {
   const set = new Set<EtablissementType>()
@@ -142,7 +217,9 @@ export function ListeBonsPlans({ promos, chargement, favIds, onFavori, onLocalis
     )
   }
   return (
-    <div style={{ padding: '0 16px 24px', display: 'flex', flexDirection: 'column', gap: 10, fontFamily: 'var(--font-body), sans-serif' }}>
+    // Pas de marge sur les côtés : la feuille pose déjà la sienne, celle des
+    // cartes d'événements — les tuiles ont ainsi la même largeur qu'elles.
+    <div style={{ padding: '0 0 24px', display: 'flex', flexDirection: 'column', gap: 10, fontFamily: 'var(--font-body), sans-serif' }}>
       {promos.map(p => {
         const img = p.display_image_url ?? p.etablissement?.photos?.[0] ?? null
         const fav = favIds.has(p.id)
