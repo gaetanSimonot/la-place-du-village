@@ -585,6 +585,7 @@ export default function PromotionsClient() {
         <PromotionForm
           etablissementId={ficheBonPlan.id}
           etablissementPhotos={ficheBonPlan.photos ?? []}
+          etablissement={{ nom: ficheBonPlan.nom, commune: ficheBonPlan.commune }}
           promo={null}
           onClose={() => setFicheBonPlan(null)}
           onSaved={() => { setFicheBonPlan(null); toast.success('Bon plan publié'); fetchPromos() }}

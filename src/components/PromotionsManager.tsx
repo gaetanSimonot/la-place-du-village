@@ -157,10 +157,12 @@ export default function PromotionsManager({ etablissementId, etablissementPhotos
   )
 }
 
-export function PromotionForm({ etablissementId, etablissementPhotos, promo, onClose, onSaved }: {
+export function PromotionForm({ etablissementId, etablissementPhotos, promo, onClose, onSaved, etablissement = null }: {
   etablissementId: string
   etablissementPhotos: string[]
   promo: Promotion | null
+  /** Montré en tête du formulaire (« Publié au nom de »). Optionnel. */
+  etablissement?: { nom: string; commune: string | null } | null
   onClose: () => void
   onSaved: () => void
 }) {
@@ -243,6 +245,23 @@ export function PromotionForm({ etablissementId, etablissementPhotos, promo, onC
           </h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#9CA3AF', fontSize: 20, cursor: 'pointer' }}>✕</button>
         </div>
+
+        {/* Le commerce au nom duquel le bon plan sera publié — le circuit de
+            la page Bons plans le passe, pour qu'on sache où l'on publie. */}
+        {etablissement && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', margin: '-4px 0 16px', borderRadius: 14, background: '#F3F8F4', border: '1px solid #D6E7DA' }}>
+            <div style={{ width: 44, height: 44, borderRadius: 11, overflow: 'hidden', flexShrink: 0, background: '#E3EFE6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {etablissementPhotos[0] ? <img src={etablissementPhotos[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🏪'}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ margin: 0, fontSize: 10.5, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#2D5A3D' }}>Publié au nom de</p>
+              <p style={{ margin: '1px 0 0', fontSize: 15, fontWeight: 800, color: '#1A1209', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {etablissement.nom}{etablissement.commune ? <span style={{ fontWeight: 600, color: '#7A6A5A' }}> · {etablissement.commune}</span> : null}
+              </p>
+            </div>
+          </div>
+        )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <Field label="Titre">

@@ -125,34 +125,56 @@ export default function CircuitBonPlan({ reprise = null, onPret, onClose }: {
   }
 
   // ── Reprise après Stripe : attendre le plan (et la fiche) posés par le webhook.
+  //
+  // PIÈGE VÉCU (04/10/2026, compte de test) : l'effet dépendait du profil et
+  // de `onPret`. Voir le plan passé 'pro' mettait le profil à jour
+  // (patchProfileLocal) → nouveau rendu → l'effet repartait de zéro et
+  // annulait sa propre suite → il revoyait 'pro'… Écran « Activation » sans
+  // fin, alors que le webhook avait tout fait. Les fonctions passent donc par
+  // des refs, et le profil n'est mis à jour qu'à la toute fin, une fois.
   const debut = useRef(Date.now())
+  const onPretRef = useRef(onPret)
+  onPretRef.current = onPret
+  const patchRef = useRef(patchProfileLocal)
+  patchRef.current = patchProfileLocal
+  const cible = etape.e === 'activation' ? etape.cible : null
+  const enAttente = etape.e === 'activation' && !etape.message
+  const userId = user?.id ?? null
   useEffect(() => {
-    if (etape.e !== 'activation' || !user) return
+    if (!cible || !enAttente || !userId) return
     let vivant = true
     let minuteur: ReturnType<typeof setTimeout>
     const tour = async () => {
-      const { data: p } = await supabase.from('profiles').select('plan').eq('user_id', user.id).maybeSingle()
+      const { data: p } = await supabase.from('profiles').select('plan').eq('user_id', userId).maybeSingle()
       if (!vivant) return
       const plan = (p?.plan as string | undefined) ?? 'basic'
       if (plan === 'pro' || isAdmin) {
-        if (plan === 'pro') patchProfileLocal({ plan: 'pro' })
-        if (etape.cible === 'creer') { setEtape({ e: 'creer' }); return }
-        const f = await lireFiche(etape.cible)
+        if (cible === 'creer') {
+          setEtape({ e: 'creer' })
+          if (plan === 'pro') patchRef.current({ plan: 'pro' })
+          return
+        }
+        const f = await lireFiche(cible)
         if (!vivant) return
-        if (f?.user_id === user.id) { toast.success('Compte Partenaire activé'); onPret(f); return }
+        if (f?.user_id === userId) {
+          toast.success('Compte Partenaire activé')
+          onPretRef.current(f)
+          if (plan === 'pro') patchRef.current({ plan: 'pro' })
+          return
+        }
       } else if (plan === 'habitants') {
         setEtape({ e: 'info', titre: 'Abonnement Habitant activé', texte: 'Merci ! Publier un bon plan demande le compte Partenaire Local : tu peux y passer depuis Réglages › Abonnement.' })
         return
       }
       if (Date.now() - debut.current > ATTENTE_MAX_MS) {
-        setEtape({ e: 'activation', cible: etape.cible, message: 'Le paiement est bien parti, mais l’activation prend plus de temps que prévu.' })
+        setEtape({ e: 'activation', cible, message: 'Le paiement est bien parti, mais l’activation prend plus de temps que prévu.' })
         return
       }
       minuteur = setTimeout(tour, 2000)
     }
-    if (!etape.message) tour()
+    tour()
     return () => { vivant = false; clearTimeout(minuteur) }
-  }, [etape, user, isAdmin, lireFiche, onPret, patchProfileLocal])
+  }, [cible, enAttente, userId, isAdmin, lireFiche])
 
   if (!user) return null
 
