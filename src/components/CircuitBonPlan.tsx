@@ -52,7 +52,8 @@ export default function CircuitBonPlan({ reprise = null, onPret, onClose }: {
   const partenaire = isAdmin || profile?.plan === 'pro'
   const [etape, setEtape] = useState<Etape>(reprise ? { e: 'activation', cible: reprise } : { e: 'chargement' })
   const [paiement, setPaiement] = useState<{ etabId: string; etabNom: string } | 'creer' | null>(null)
-  const [occupe, setOccupe] = useState(false)
+  /** La fiche en cours de revendication (bouton en attente). */
+  const [occupe, setOccupe] = useState<string | null>(null)
 
   const lireFiche = useCallback(async (id: string) => {
     const { data } = await supabase.from('etablissements').select('id, nom, commune, photos, type, user_id').eq('id', id).maybeSingle()
@@ -81,7 +82,7 @@ export default function CircuitBonPlan({ reprise = null, onPret, onClose }: {
   /** Une fiche de l'app, à revendiquer. */
   const revendiquer = async (id: string, nom: string) => {
     if (!partenaire) { setPaiement({ etabId: id, etabNom: nom }); return }
-    setOccupe(true)
+    setOccupe(id)
     const { data: { session } } = await supabase.auth.getSession()
     const r = await fetch(`/api/etablissements/${id}/claim`, {
       method: 'POST',
@@ -89,7 +90,7 @@ export default function CircuitBonPlan({ reprise = null, onPret, onClose }: {
       body: JSON.stringify({}),
     }).catch(() => null)
     const d = r ? await r.json().catch(() => ({})) : {}
-    setOccupe(false)
+    setOccupe(null)
     if (r?.status === 409) {
       setEtape({ e: 'info', titre: 'Cette fiche est déjà gérée', texte: `« ${nom} » est déjà gérée par un autre compte. Si c'est ton commerce, écris-nous depuis Réglages › Aide : on regarde ça ensemble.` })
       return
@@ -106,6 +107,16 @@ export default function CircuitBonPlan({ reprise = null, onPret, onClose }: {
       return
     }
     revendiquer(m.id, m.nom)
+  }
+
+  /** Un résultat de la recherche tolérante. */
+  const choisirTrouvee = (f: FicheTrouvee) => {
+    if (f.mienne) { choisirSaFiche({ id: f.id, nom: f.nom, commune: f.commune, photos: f.photo ? [f.photo] : [], type: f.type }); return }
+    if (f.claimed) {
+      setEtape({ e: 'info', titre: 'Cette fiche est déjà gérée', texte: `« ${f.nom} » est déjà gérée par un autre compte. Si c'est ton commerce, écris-nous depuis Réglages › Aide : on regarde ça ensemble.` })
+      return
+    }
+    revendiquer(f.id, f.nom)
   }
 
   const allerCreer = () => {
@@ -161,8 +172,12 @@ export default function CircuitBonPlan({ reprise = null, onPret, onClose }: {
         .pdv-ref-modal .pdv-pred-card, .pdv-ref-modal .pdv-pred-card * { color: #1A1209 !important; -webkit-text-fill-color: #1A1209 !important; }
         .pdv-ref-modal .pdv-pred-card .pdv-pred-sub { color: #7A6A5A !important; -webkit-text-fill-color: #7A6A5A !important; }
       `}</style>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 3000, backgroundColor: 'rgba(26,18,9,0.55)', backdropFilter: 'blur(3px)' }} />
+      {/* Le paiement (SubscriptionModal, plus bas dans l'empilement) s'ouvrait
+          DERRIÈRE la feuille : on la retire le temps qu'il est ouvert, et on
+          la retrouve telle quelle s'il est fermé. */}
+      {!paiement && <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 3000, backgroundColor: 'rgba(26,18,9,0.55)', backdropFilter: 'blur(3px)' }} />}
       <div className="pcv-sheet pdv-ref-modal" style={{
+        display: paiement ? 'none' : undefined,
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 3001, margin: '0 auto', maxWidth: 520,
         backgroundColor: '#fff', borderRadius: '24px 24px 0 0',
         padding: '14px 20px', paddingBottom: 'max(28px, env(safe-area-inset-bottom, 28px))',
@@ -194,7 +209,7 @@ export default function CircuitBonPlan({ reprise = null, onPret, onClose }: {
                 {partenaire ? ' — tu l’as déjà.' : ' : on s’en occupe ensemble, en quelques étapes.'}
               </p>
             </div>
-            <RechercheFiche onChoisir={choisirResultat} occupe={occupe} />
+            <RechercheFiche onChoisir={choisirTrouvee} occupe={occupe} />
             <button type="button" onClick={allerCreer} style={{ ...btnPlein, marginTop: 16 }}>
               Mon commerce n’est pas sur l’app — créer sa fiche
             </button>
@@ -257,24 +272,34 @@ export default function CircuitBonPlan({ reprise = null, onPret, onClose }: {
   )
 }
 
-/** Recherche dans les fiches de l'app (sans Google : rien n'est facturé ici). */
-function RechercheFiche({ onChoisir, occupe }: { onChoisir: (m: DbMatch) => void; occupe: boolean }) {
+export interface FicheTrouvee { id: string; nom: string; commune: string | null; type: EtablissementType | null; photo: string | null; claimed: boolean; mienne: boolean }
+
+/**
+ * Recherche de SA fiche dans toute l'app — tolérante aux accents et aux
+ * fautes (/api/etablissements/recherche). Sans Google : rien n'est facturé.
+ */
+function RechercheFiche({ onChoisir, occupe }: { onChoisir: (f: FicheTrouvee) => void; occupe: string | null }) {
   const [q, setQ] = useState('')
-  const [res, setRes] = useState<DbMatch[]>([])
+  const [res, setRes] = useState<FicheTrouvee[]>([])
   const [cherche, setCherche] = useState(false)
+  const [cherchee, setCherchee] = useState('')
   useEffect(() => {
-    if (q.trim().length < 2) { setRes([]); return }
+    const v = q.trim()
+    if (v.length < 2) { setRes([]); setCherchee(''); return }
+    let vivant = true
     const t = setTimeout(async () => {
       setCherche(true)
       const { data: { session } } = await supabase.auth.getSession()
-      const r = await fetch(`/api/admin/autocomplete?q=${encodeURIComponent(q.trim())}&dbonly=1`, {
+      const r = await fetch(`/api/etablissements/recherche?q=${encodeURIComponent(v)}`, {
         headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
       }).catch(() => null)
       const d = r?.ok ? await r.json().catch(() => ({})) : {}
-      setRes(((d.db ?? []) as DbMatch[]).filter(m => m.kind === 'etablissement').slice(0, 6))
+      if (!vivant) return
+      setRes((d.fiches ?? []) as FicheTrouvee[])
+      setCherchee(v)
       setCherche(false)
-    }, 280)
-    return () => clearTimeout(t)
+    }, 250)
+    return () => { vivant = false; clearTimeout(t) }
   }, [q])
 
   return (
@@ -282,28 +307,54 @@ function RechercheFiche({ onChoisir, occupe }: { onChoisir: (m: DbMatch) => void
       <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#6B5E4E', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>
         Ton commerce est peut-être déjà sur l’app
       </label>
-      <input
-        value={q} onChange={e => setQ(e.target.value)} placeholder="Nom de ton commerce…" maxLength={60}
-        style={{ width: '100%', padding: '11px 14px', borderRadius: 12, border: '1.5px solid #E0D8CE', fontSize: 14, outline: 'none', boxSizing: 'border-box', backgroundColor: '#FDFAF6', colorScheme: 'light' }}
-      />
-      {cherche && <p style={{ margin: '6px 0 0', fontSize: 11, color: '#7A6A5A' }}>Recherche…</p>}
-      {!cherche && q.trim().length >= 2 && res.length === 0 && (
-        <p style={{ margin: '8px 0 0', fontSize: 12, color: '#7A6A5A' }}>Aucune fiche à ce nom : crée la tienne juste en dessous.</p>
+      <div style={{ position: 'relative' }}>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#A99B89" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+          style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+          <circle cx="11" cy="11" r="7.5" /><line x1="21" y1="21" x2="16.6" y2="16.6" />
+        </svg>
+        <input
+          value={q} onChange={e => setQ(e.target.value)} placeholder="Nom de ton commerce, même approximatif"
+          maxLength={60} autoComplete="off" autoCorrect="off" spellCheck={false} enterKeyHint="search"
+          style={{ width: '100%', padding: '14px 42px 14px 42px', borderRadius: 14, border: '1.5px solid #E0D8CE', fontSize: 16, outline: 'none', boxSizing: 'border-box', backgroundColor: '#FDFAF6', colorScheme: 'light' }}
+        />
+        {q && (
+          <button type="button" aria-label="Effacer" onClick={() => setQ('')}
+            style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 30, height: 30, borderRadius: '50%', border: 'none', background: '#EDE6DA', color: '#6B5E4E', cursor: 'pointer', fontSize: 13 }}>✕</button>
+        )}
+      </div>
+      <p style={{ margin: '6px 2px 0', fontSize: 11, color: '#9A8A7A', minHeight: 15 }}>
+        {cherche ? 'Recherche…' : q.trim().length < 2 ? 'Accents et petites fautes de frappe ne gênent pas.' : ''}
+      </p>
+      {!cherche && cherchee && res.length === 0 && (
+        <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#7A6A5A' }}>Rien à ce nom sur l’app : crée ta fiche juste en dessous.</p>
       )}
       {res.length > 0 && (
-        <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8, opacity: occupe ? 0.5 : 1, pointerEvents: occupe ? 'none' : 'auto' }}>
-          {res.map(m => (
-            <button key={m.id} type="button" onClick={() => onChoisir(m)} style={carte}>
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: '#FDE8DF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>🏪</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#1A1209', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.nom}</p>
-                <p style={{ margin: '2px 0 0', fontSize: 11, color: '#7A6A5A' }}>{m.commune ?? 'Commerce'}</p>
+        <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {res.map(f => {
+            const info = f.type ? ETAB_TYPES[f.type] : null
+            const libre = !f.claimed || f.mienne
+            return (
+              <div key={f.id} style={{ ...carte, cursor: 'default', opacity: occupe && occupe !== f.id ? 0.5 : 1 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 11, overflow: 'hidden', flexShrink: 0, background: info?.bg ?? '#FDE8DF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19 }}>
+                  {f.photo ? <img src={f.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (info?.emoji ?? '🏪')}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#1A1209', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.nom}</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 11, color: '#7A6A5A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {[info?.label, f.commune].filter(Boolean).join(' · ')}
+                  </p>
+                </div>
+                <button type="button" disabled={!!occupe} onClick={() => onChoisir(f)}
+                  style={{
+                    flexShrink: 0, border: 'none', cursor: occupe ? 'wait' : 'pointer', fontFamily: 'inherit',
+                    fontSize: 12, fontWeight: 800, borderRadius: 999, padding: '8px 12px',
+                    ...(libre ? { color: '#fff', background: '#2D5A3D' } : { color: '#6B5E4E', background: '#F0EAE0' }),
+                  }}>
+                  {occupe === f.id ? '…' : f.mienne ? 'Choisir' : f.claimed ? 'Déjà gérée' : 'C’est le mien'}
+                </button>
               </div>
-              <span style={{ flexShrink: 0, fontSize: 11.5, fontWeight: 800, borderRadius: 999, padding: '5px 10px', ...(m.claimed ? { color: '#7A6A5A', background: '#F0EAE0' } : { color: '#fff', background: '#2D5A3D' }) }}>
-                {m.claimed ? 'Déjà gérée' : 'C’est le mien'}
-              </span>
-            </button>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
