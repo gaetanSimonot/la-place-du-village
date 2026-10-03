@@ -114,11 +114,24 @@ export async function POST(req: NextRequest) {
     const etabId = sub.metadata?.etab_id
 
     if (userId) {
-      // Source de vérité : profile passe à basic
-      await supabaseAdmin
-        .from('profiles')
-        .update({ plan: 'basic' })
-        .eq('user_id', userId)
+      /*
+       * Le compte ne repasse en gratuit que si l'abonnement qui s'éteint est
+       * celui de son plan ACTUEL. Un seul plan par compte, mais deux
+       * abonnements peuvent se chevaucher : Partenaire résilié (actif jusqu'à
+       * la fin du mois payé) puis Habitant pris aussitôt — le compte est déjà
+       * Habitant. Sans ce garde, la fin du Partenaire remettait en gratuit un
+       * Habitant qui paie (vécu le 04/10/2026, compte de test Alkemia).
+       * Pas de plan dans les métadonnées (anciens abonnements) : comme avant.
+       */
+      const planAbonnement = sub.metadata?.plan
+      const { data: profil } = await supabaseAdmin
+        .from('profiles').select('plan').eq('user_id', userId).maybeSingle()
+      if (!planAbonnement || profil?.plan === planAbonnement) {
+        await supabaseAdmin
+          .from('profiles')
+          .update({ plan: 'basic' })
+          .eq('user_id', userId)
+      }
     }
 
     // (legacy) reset le plan de l'établissement spécifique (back-compat)
