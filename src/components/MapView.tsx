@@ -16,7 +16,7 @@ import { useTheme } from '@/components/ThemeProvider'
 import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
-import { viserGoogle, hauteurBlocGoogle, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, sansAberrants, bornesDe, empreinteBornes } from '@/lib/carteCadrage'
+import { viserGoogle, hauteurBlocGoogle, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, sansAberrants, bornesDe, empreinteBornes, MARGE_HAUT_COMMERCES } from '@/lib/carteCadrage'
 
 /**
  * De combien la vignette se pose au-dessus du point. Une seule définition :
@@ -569,8 +569,11 @@ function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fi
       if (points.length === 1) { viserGoogle(map, points[0], { feuille: sheetY, zoom: 14 }); return }
       const bounds = new google.maps.LatLngBounds()
       points.forEach(p => bounds.extend(p))
+      // Contrairement aux événements (partFeuille 0.5), toute la feuille compte
+      // et la barre du haut aussi : les commerces doivent tomber dans la partie
+      // visible — une poignée de bons plans finissait à moitié sous la feuille.
       map.fitBounds(bounds, margesCadrage(map.getDiv()?.clientHeight ?? 0, feuilleCadrage, {
-        haut: 60, cotes: 20, partFeuille: 0.5,
+        haut: MARGE_HAUT_COMMERCES, cotes: 30, partFeuille: 1,
       }))
     }
     const lancer = () => {

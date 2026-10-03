@@ -223,6 +223,12 @@ export interface OptionsCadrage {
  * un `bottom: 180` en dur valait à peu près la position basse et se trompait
  * de 160 px à mi-hauteur.
  */
+/**
+ * Marge du haut du cadrage des commerces (modes Commerces et Bons plans) : la
+ * barre du haut — logo + molette des modes, ~110 px — recouvre la carte.
+ */
+export const MARGE_HAUT_COMMERCES = 120
+
 export function margesCadrage(
   hauteurCarte: number,
   feuille: PositionFeuille,

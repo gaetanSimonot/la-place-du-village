@@ -10,7 +10,7 @@ import { useTheme } from '@/components/ThemeProvider'
 import { etabMarkerSvg, ETAB_TYPES } from '@/lib/etablissement-types'
 import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } from '@/lib/mapMarkers'
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
-import { viserMaplibre, hauteurBlocMaplibre, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, sansAberrants, bornesDe, empreinteBornes } from '@/lib/carteCadrage'
+import { viserMaplibre, hauteurBlocMaplibre, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, sansAberrants, bornesDe, empreinteBornes, MARGE_HAUT_COMMERCES } from '@/lib/carteCadrage'
 
 /** Cf. MapView.tsx : de combien la vignette se pose au-dessus du point. */
 const DECALAGE_VIGNETTE       = 36
@@ -237,11 +237,12 @@ export default function MapViewMaplibre({
       }
       // Cf. MapView.tsx : le bas suit la feuille, le haut protège de la barre.
       carte.fitBounds([[bornes.minLng, bornes.minLat], [bornes.maxLng, bornes.maxLat]], {
-        padding: margesCadrage(carte.getContainer()?.clientHeight ?? 0, feuilleCadrage, {
+        padding: margesCadrage(carte.getContainer()?.clientHeight ?? 0, feuilleCadrage, evenements.length
           // Meme arbitrage que le transport : voir TOUS les evenements prime
           // sur les garder au-dessus de la feuille.
-          haut: 60, cotes: 20, partFeuille: 0.5,
-        }),
+          ? { haut: 60, cotes: 20, partFeuille: 0.5 }
+          // Les commerces, eux, tombent dans la partie visible (cf. MapView.tsx).
+          : { haut: MARGE_HAUT_COMMERCES, cotes: 30, partFeuille: 1 }),
         duration: 600,
       })
     }
