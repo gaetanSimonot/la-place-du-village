@@ -1,5 +1,6 @@
 'use client'
-import { useEffect, useRef, useCallback, useState } from 'react'
+import { useEffect, useRef, useCallback, useState, createContext, useContext, useMemo } from 'react'
+import { CRANS_REGROUPEMENT, type CranRegroupement } from '@/lib/regroupementCarte'
 import MapTransportLayer, { type ArretTransport, type TraceTransport, type LigneTransport } from './MapTransportLayer'
 import { APIProvider, Map, InfoWindow, useMap } from '@vis.gl/react-google-maps'
 import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer'
@@ -8,7 +9,8 @@ import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markercluste
 // regroupent que s'ils sont vraiment proches à l'écran) + maxZoom plus bas
 // (les marqueurs se séparent à un zoom moins poussé). Avant : défaut 60/16,
 // d'où des clusters qui ne se cassaient qu'en zoomant très près.
-const CLUSTER_OPTS = { radius: 40, maxZoom: 14 }
+/** Le cran de regroupement réglé en admin (cf. regroupementCarte.ts). */
+const RegroupementCtx = createContext<{ radius: number; maxZoom: number }>({ radius: 40, maxZoom: 14 })
 import { EvenementCard, ProducerCard, isApproxLocation, EtablissementCard } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
 import { formatEventDate } from '@/lib/filters'
@@ -251,6 +253,7 @@ interface MarkersProps {
 
 function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, sheetYRepos, vueRestauree = false, onBlocTropGrand }: MarkersProps) {
   const map = useMap()
+  const regroupement = useContext(RegroupementCtx)
   const clustererRef = useRef<MarkerClusterer | null>(null)
   const markersRef   = useRef<google.maps.Marker[]>([])
   /** id → punaise et sa donnée : rhabiller une punaise sans chercher les autres.
@@ -462,11 +465,19 @@ function Markers({ evenements, selectedId, onSelectEvent, fixedMap, sheetY, shee
     markersRef.current = allNewMarkers
 
     if (!clustererRef.current) {
-      clustererRef.current = new MarkerClusterer({ map, markers: regularMarkers, algorithm: new SuperClusterAlgorithm(CLUSTER_OPTS) })
+      clustererRef.current = new MarkerClusterer({ map, markers: regularMarkers, algorithm: new SuperClusterAlgorithm(regroupement) })
     } else {
       clustererRef.current.addMarkers(regularMarkers)
     }
-  }, [map, evenements, onSelectEvent, clearAll])
+  }, [map, evenements, onSelectEvent, clearAll, regroupement])
+
+  // Nouveau cran de regroupement : le regroupeur est recréé avec les nouveaux
+  // réglages (l'effet ci-dessus le reconstruit, il dépend de `regroupement`).
+  useEffect(() => () => {
+    clustererRef.current?.clearMarkers()
+    clustererRef.current?.setMap(null)
+    clustererRef.current = null
+  }, [regroupement])
 
   // Changer de sélection : deux icônes, pas une couche.
   useEffect(() => {
@@ -580,6 +591,7 @@ function habillerEtablissement(marker: google.maps.Marker, etab: EtablissementCa
 
 function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fixedMap, sheetY, sheetYRepos, vueRestauree = false, pinBonPlan = false, dejaVise = null }: EtabMarkersProps) {
   const map = useMap()
+  const regroupement = useContext(RegroupementCtx)
   const clustererRef = useRef<MarkerClusterer | null>(null)
   const markersRef   = useRef<google.maps.Marker[]>([])
   const parId = useRef<Record<string, { marker: google.maps.Marker; etab: EtablissementCard }>>({})
@@ -686,7 +698,7 @@ function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fi
     markersRef.current = newMarkers
 
     if (!clustererRef.current) {
-      clustererRef.current = new MarkerClusterer({ map, markers: regularMarkers, algorithm: new SuperClusterAlgorithm(CLUSTER_OPTS) })
+      clustererRef.current = new MarkerClusterer({ map, markers: regularMarkers, algorithm: new SuperClusterAlgorithm(regroupement) })
     } else {
       clustererRef.current.addMarkers(regularMarkers)
     }
@@ -695,7 +707,14 @@ function EtablissementMarkers({ etablissements, selectedEtabId, onSelectEtab, fi
       clustererRef.current?.clearMarkers()
       markersRef.current.forEach(m => m.setMap(null))
     }
-  }, [map, etablissements, onSelectEtab, pinBonPlan])
+  }, [map, etablissements, onSelectEtab, pinBonPlan, regroupement])
+
+  // Nouveau cran : regroupeur recréé (cf. la couche des événements).
+  useEffect(() => () => {
+    clustererRef.current?.clearMarkers()
+    clustererRef.current?.setMap(null)
+    clustererRef.current = null
+  }, [regroupement])
 
   useEffect(() => {
     const avant = selectionRef.current
@@ -754,6 +773,8 @@ interface Props {
   onCameraIdle?: (lat: number, lng: number, zoom: number) => void
   /** « La liste suit la carte » : la partie visible de la carte, à l'arrêt. */
   onZoneVisible?: ((z: ZoneCarte) => void) | null
+  /** Cran de regroupement des punaises (réglage admin global). */
+  regroupement?: CranRegroupement
   producers?: ProducerCard[]
   selectedProducerId?: string | null
   onSelectProducer?: (id: string | null) => void
@@ -787,13 +808,15 @@ interface Props {
   } | null
 }
 
-export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, restaurerVue, vueRestauree = false, viserLieu, onBlocTropGrand, sheetYRepos, onMapDragStart, onMapDragEnd, onCameraIdle, onZoneVisible = null, sheetY, panEnCoursRef, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement, vignettesBonsPlans = null, transport = null }: Props) {
+export default function MapView({ evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, restaurerVue, vueRestauree = false, viserLieu, onBlocTropGrand, sheetYRepos, onMapDragStart, onMapDragEnd, onCameraIdle, onZoneVisible = null, regroupement = 'normal', sheetY, panEnCoursRef, producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer, etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement, vignettesBonsPlans = null, transport = null }: Props) {
   const [internalEtabId, setInternalEtabId] = useState<string | null>(null)
   const selectedEtabId    = selectedEtabIdProp !== undefined ? selectedEtabIdProp : internalEtabId
   const setSelectedEtabId = onSelectEtab ?? setInternalEtabId
   const selectedEvent    = selectedId ? evenements.find(e => e.id === selectedId) : null
   const selectedProducer = selectedProducerId ? producers.find(p => p.id === selectedProducerId) : null
   const selectedEtab     = selectedEtabId ? etablissements.find(e => e.id === selectedEtabId) : null
+  const cran = CRANS_REGROUPEMENT[regroupement] ?? CRANS_REGROUPEMENT.normal
+  const regroupementOpts = useMemo(() => ({ radius: cran.rayon, maxZoom: cran.zoomFin }), [cran])
   const selectedCat   = selectedEvent
     ? (CATEGORIES[selectedEvent.categorie] ?? CATEGORIES.autre)
     : null
@@ -814,6 +837,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
   }, [])
 
   return (
+    <RegroupementCtx.Provider value={regroupementOpts}>
     <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY!}>
       <Map
         defaultCenter={GANGES}
@@ -1043,5 +1067,6 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
         )}
       </Map>
     </APIProvider>
+    </RegroupementCtx.Provider>
   )
 }

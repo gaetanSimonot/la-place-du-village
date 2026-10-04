@@ -35,6 +35,7 @@ import { useNotifications } from '@/hooks/useNotifications'
 import { ecranBureau } from '@/lib/bureau'
 import { lireEntreeEnCache, entreeFraiche } from '@/lib/entreeApp'
 import SelecteurModes from '@/components/SelecteurModes'
+import { CRANS_REGROUPEMENT, CLE_CONFIG_REGROUPEMENT, lireCran, type CranRegroupement } from '@/lib/regroupementCarte'
 import { CLE_CONFIG_LISTE_SUIT, CLE_LOCAL_LISTE_SUIT, type ModeListeSuit, type ZoneCarte } from '@/lib/zoneCarte'
 import { urlEcritureConfig } from '@/lib/configClient'
 import { ListeBonsPlans, EnteteBonsPlans, etabsDesBonsPlans, typesDesBonsPlans, vignettesDesBonsPlans, useFavorisBonsPlans, lienBonPlan, type PromoCarte } from '@/components/BonsPlansCarte'
@@ -344,6 +345,18 @@ export default function HomePage() {
       body: JSON.stringify({ key, value }),
     }).catch(() => null)
     return !!res?.ok
+  }
+  /* Le cran de regroupement des punaises (admin, pour tous ; regroupementCarte). */
+  const [regroupement, setRegroupement] = useState<CranRegroupement>('normal')
+  useEffect(() => {
+    supabase.from('config').select('value').eq('key', CLE_CONFIG_REGROUPEMENT).maybeSingle()
+      .then(({ data }) => setRegroupement(lireCran(data?.value as string | undefined)))
+  }, [])
+  const changerRegroupement = async (c: CranRegroupement) => {
+    const avant = regroupement
+    if (c === avant) return
+    setRegroupement(c)
+    if (!(await ecrireConfigGlobale(CLE_CONFIG_REGROUPEMENT, c))) { setRegroupement(avant); toast.error('Échec de l’enregistrement') }
   }
   const basculerFeuilleDescend = async () => {
     const suivant = !feuilleDescend
@@ -1746,6 +1759,7 @@ export default function HomePage() {
           onBlocTropGrand={laisserLaPlaceALaVignette}
           onCameraIdle={(lat, lng, zoom) => { mapCameraRef.current = { lat, lng, zoom } }}
           onZoneVisible={listeSuitActive ? setZoneCarte : null}
+          regroupement={regroupement}
           transport={modeTransport && ligneTransport ? {
             arrets: arretsAffiches,
             traces: ligneTransport.traces,
@@ -2193,6 +2207,26 @@ export default function HomePage() {
                     <div style={{ position: 'absolute', top: 2, left: feuilleDescend ? 16 : 2, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.18s', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
                   </div>
                 </button>
+              )}
+
+              {/* Admin : regroupement des punaises en bulles (pour tous). */}
+              {isAdmin && (
+                <div style={{ background: '#FDFAF5', border: '1px solid #F0EAE0', borderRadius: 14, padding: '12px 14px', marginBottom: 10 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>Regroupement des punaises <span style={{ fontSize: 10, fontWeight: 800, color: '#B07E1F', background: '#FFF8E8', border: '1px solid #E8A627', borderRadius: 999, padding: '1px 6px', marginLeft: 4 }}>admin · pour tous</span></div>
+                  <div style={{ fontSize: 11, color: '#7A6A5A', margin: '2px 0 10px', lineHeight: 1.45 }}>
+                    Les punaises proches fusionnent en bulles chiffrées. « Aucun » peut faire ramer un vieux téléphone dézoomé.
+                  </div>
+                  <div style={{ display: 'flex', background: '#F2ECE2', borderRadius: 10, padding: 3, gap: 2 }}>
+                    {(Object.keys(CRANS_REGROUPEMENT) as CranRegroupement[]).map(c => (
+                      <button key={c} onClick={() => changerRegroupement(c)} style={{
+                        flex: 1, padding: '7px 4px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                        fontSize: 12, fontWeight: 800,
+                        background: regroupement === c ? '#2D5A3D' : 'transparent',
+                        color: regroupement === c ? '#fff' : '#7A6A5A',
+                      }}>{CRANS_REGROUPEMENT[c].libelle}</button>
+                    ))}
+                  </div>
+                </div>
               )}
 
               {/* Admin : la liste suit la carte (Événements, Commerces). */}

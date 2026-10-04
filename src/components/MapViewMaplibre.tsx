@@ -13,6 +13,7 @@ import { getTearParams, getProducerTearParams, markerSvg, producerMarkerSvg } fr
 import { useSuiviFeuille } from '@/hooks/useSuiviFeuille'
 import { viserMaplibre, hauteurBlocMaplibre, desQueVignettePrete, margesCadrage, fenetreVisible, cadrable, desQueCadrable, sansAberrants, bornesDe, empreinteBornes, MARGE_HAUT_COMMERCES, margeHaute, margeBasse } from '@/lib/carteCadrage'
 import { zoneVisible, type ZoneCarte } from '@/lib/zoneCarte'
+import { CRANS_REGROUPEMENT, type CranRegroupement } from '@/lib/regroupementCarte'
 
 /** Cf. MapView.tsx : de combien la vignette se pose au-dessus du point. */
 const DECALAGE_VIGNETTE       = 36
@@ -35,18 +36,18 @@ type ClusterFeature = {
     | { cluster?: false; id: string }
 }
 
-// radius 40 / maxZoom 14 : clustering moins agressif (aligné sur MapView Google)
-// → les marqueurs se séparent à un zoom moins poussé. Avant : 60/16.
-function useClusters(points: ClusterPoint[], viewport: Viewport, radius = 40) {
+// Rayon et zoom de fin : le cran réglé en admin (regroupementCarte.ts), le
+// même que sur le fond Google. Défaut « Normal » : 40 / 14.
+function useClusters(points: ClusterPoint[], viewport: Viewport, radius = 40, maxZoom = 14) {
   const index = useMemo(() => {
-    const sc = new Supercluster<{ id: string }>({ radius, maxZoom: 14 })
+    const sc = new Supercluster<{ id: string }>({ radius, maxZoom })
     sc.load(points.map(p => ({
       type: 'Feature' as const,
       properties: { id: p.id },
       geometry: { type: 'Point' as const, coordinates: [p.lng, p.lat] },
     })))
     return sc
-  }, [points, radius])
+  }, [points, radius, maxZoom])
 
   const clusters = useMemo<ClusterFeature[]>(() => {
     if (!viewport) return []
@@ -89,6 +90,8 @@ interface Props {
   onCameraIdle?: (lat: number, lng: number, zoom: number) => void
   /** « La liste suit la carte » : la partie visible de la carte, à l'arrêt. */
   onZoneVisible?: ((z: ZoneCarte) => void) | null
+  /** Cran de regroupement des punaises (réglage admin global). */
+  regroupement?: CranRegroupement
   /**
    * Position du haut de la feuille (mobile) — la carte s'y accroche pour
    * garder son centre au milieu de la fenêtre qui lui reste. Cf.
@@ -139,7 +142,7 @@ interface Props {
 
 export default function MapViewMaplibre({
   evenements, selectedId, onSelectEvent, onDeselect, onOpenEvent, restaurerVue, vueRestauree = false, viserLieu, onBlocTropGrand,
-  onMapDragStart, onMapDragEnd, onCameraIdle, onZoneVisible = null, sheetY, sheetYRepos, panEnCoursRef,
+  onMapDragStart, onMapDragEnd, onCameraIdle, onZoneVisible = null, regroupement = 'normal', sheetY, sheetYRepos, panEnCoursRef,
   producers = [], selectedProducerId = null, onSelectProducer, onOpenProducer,
   etablissements = [], selectedEtabId: selectedEtabIdProp, onSelectEtab, onOpenEtablissement,
   vignettesBonsPlans = null,
@@ -376,8 +379,9 @@ export default function MapViewMaplibre({
   [etabPts])
   const etabById = useMemo(() => new Map(etabPts.map(e => [e.id, e])), [etabPts])
 
-  const { index: eventIndex, clusters: eventClusters } = useClusters(regularEvents, viewport)
-  const { index: etabIndex, clusters: etabClusters } = useClusters(regularEtabs, viewport)
+  const cran = CRANS_REGROUPEMENT[regroupement] ?? CRANS_REGROUPEMENT.normal
+  const { index: eventIndex, clusters: eventClusters } = useClusters(regularEvents, viewport, cran.rayon, cran.zoomFin)
+  const { index: etabIndex, clusters: etabClusters } = useClusters(regularEtabs, viewport, cran.rayon, cran.zoomFin)
 
   const zoomToCluster = useCallback((index: Supercluster<{ id: string }>, clusterId: number, lng: number, lat: number) => {
     const m = mapRef.current
