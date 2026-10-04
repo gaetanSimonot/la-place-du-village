@@ -72,6 +72,16 @@ function MapDragListener({ onDragStart, onDragEnd, onCameraIdle, onZoneVisible, 
       const c = map.getCenter(); const z = map.getZoom()
       if (c && z !== undefined) onCameraIdle(c.lat(), c.lng(), z)
     }))
+    return () => listeners.forEach(l => l?.remove())
+  }, [map, onDragStart, onDragEnd, onCameraIdle])
+
+  // « La liste suit la carte » — à part : ce bloc ne doit se relancer (et
+  // publier une zone tout de suite) qu'à l'activation de l'option, pas quand
+  // les gestionnaires de glissé ci-dessus changent d'identité.
+  useEffect(() => {
+    if (!map) return
+    const listeners: google.maps.MapsEventListener[] = []
+    const nettoyages: (() => void)[] = []
     if (onZoneVisible) {
       const publier = () => {
         const b = map.getBounds(); const div = map.getDiv()
@@ -79,12 +89,40 @@ function MapDragListener({ onDragStart, onDragEnd, onCameraIdle, onZoneVisible, 
         const ne = b.getNorthEast(), sw = b.getSouthWest(), h = div.clientHeight
         onZoneVisible(zoneVisible({ n: ne.lat(), s: sw.lat(), e: ne.lng(), o: sw.lng() }, h, margeHaute(div), margeBasse(h, sheetY)))
       }
-      listeners.push(map.addListener('idle', publier))
+      /*
+       * LA ZONE NE CHANGE PAS QUAND C'EST LA FEUILLE QUI BOUGE. La carte se
+       * recale sous la feuille qui monte (useSuiviFeuille) et s'arrête :
+       * recalculer là réduisait la zone à la mince bande restante, et la liste
+       * se vidait au moment précis où on la déployait pour la lire. Un arrêt
+       * qui suit un mouvement de feuille SANS doigt sur la carte est donc
+       * ignoré. Un recadrage automatique (filtre, « voir sur la carte ») ne
+       * touche pas à la feuille : il compte, lui.
+       */
+      let feuilleABouge = false
+      // L'heure du dernier doigt sur la carte : un simple toucher (sur une
+      // punaise, sans glisser) ne doit pas valoir pour un arrêt bien plus tard.
+      let toucheA = 0
+      const div = map.getDiv()
+      const surTouche = () => { toucheA = Date.now() }
+      div?.addEventListener('pointerdown', surTouche, { passive: true })
+      div?.addEventListener('wheel', surTouche, { passive: true })
+      const finFeuille = sheetY?.on('change', () => { feuilleABouge = true })
+      nettoyages.push(() => {
+        div?.removeEventListener('pointerdown', surTouche)
+        div?.removeEventListener('wheel', surTouche)
+        finFeuille?.()
+      })
+      listeners.push(map.addListener('idle', () => {
+        const toucheCarte = Date.now() - toucheA < 4000
+        const ignorer = feuilleABouge && !toucheCarte
+        feuilleABouge = false; toucheA = 0
+        if (!ignorer) publier()
+      }))
       // Option activée carte immobile : la zone tout de suite, sans attendre un geste.
       publier()
     }
-    return () => listeners.forEach(l => l?.remove())
-  }, [map, onDragStart, onDragEnd, onCameraIdle, onZoneVisible, sheetY])
+    return () => { listeners.forEach(l => l?.remove()); nettoyages.forEach(f => f()) }
+  }, [map, onZoneVisible, sheetY])
   return null
 }
 

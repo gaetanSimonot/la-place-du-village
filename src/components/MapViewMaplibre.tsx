@@ -149,6 +149,19 @@ export default function MapViewMaplibre({
     ? <img src={pinBonPlanSvg(isSel)} width={PIN_BON_PLAN.largeur} height={PIN_BON_PLAN.hauteur} alt="" style={{ cursor: 'pointer', display: 'block' }} />
     : <img src={etabMarkerSvg(isSel, e.type, e.plan, e.is_featured)} width={28} height={h} alt="" style={{ cursor: 'pointer', display: 'block' }} />
   const mapRef = useRef<MapRef | null>(null)
+  // « La liste suit la carte » : la feuille a-t-elle bougé, un doigt a-t-il
+  // touché la carte depuis le dernier arrêt ? (cf. MapView.tsx)
+  const feuilleABouge = useRef(false)
+  const toucheCarteA = useRef(0)
+  useEffect(() => {
+    if (!onZoneVisible) return
+    const fin = sheetY?.on('change', () => { feuilleABouge.current = true })
+    const div = mapRef.current?.getMap().getContainer()
+    const surTouche = () => { toucheCarteA.current = Date.now() }
+    div?.addEventListener('pointerdown', surTouche, { passive: true })
+    div?.addEventListener('wheel', surTouche, { passive: true })
+    return () => { fin?.(); div?.removeEventListener('pointerdown', surTouche); div?.removeEventListener('wheel', surTouche) }
+  }, [onZoneVisible, sheetY])
   const [viewport, setViewport] = useState<Viewport>(null)
   const [internalEtabId, setInternalEtabId] = useState<string | null>(null)
   const selectedEtabId    = selectedEtabIdProp !== undefined ? selectedEtabIdProp : internalEtabId
@@ -402,8 +415,15 @@ export default function MapViewMaplibre({
           const m = mapRef.current
           if (!m) return
           if (onZoneVisible) {
-            const b = m.getBounds(), div = m.getContainer(), h = div?.clientHeight ?? 0
-            onZoneVisible(zoneVisible({ n: b.getNorth(), s: b.getSouth(), e: b.getEast(), o: b.getWest() }, h, margeHaute(div), margeBasse(h, sheetY)))
+            // Cf. MapView.tsx : un arrêt dû à la feuille (sans doigt sur la
+            // carte) ne redéfinit pas la zone.
+            const toucheCarte = Date.now() - toucheCarteA.current < 4000
+            const ignorer = feuilleABouge.current && !toucheCarte
+            feuilleABouge.current = false; toucheCarteA.current = 0
+            if (!ignorer) {
+              const b = m.getBounds(), div = m.getContainer(), h = div?.clientHeight ?? 0
+              onZoneVisible(zoneVisible({ n: b.getNorth(), s: b.getSouth(), e: b.getEast(), o: b.getWest() }, h, margeHaute(div), margeBasse(h, sheetY)))
+            }
           }
           if (!onCameraIdle) return
           const c = m.getCenter()

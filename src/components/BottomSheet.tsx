@@ -67,6 +67,8 @@ interface Props {
   /** « La liste suit la carte » : la liste (événements, commerces) ne garde
    *  que ce qui est dans cette zone. Null = toute la liste. */
   zoneListe?: ZoneCarte | null
+  /** « Tout voir » : retrouver la liste complète sans dézoomer. */
+  onToutVoir?: () => void
   /** En-tête du mode qui a pris la feuille (bons plans) : posé dans la zone
    *  de poignée mesurée, comme le compteur et les filtres des événements. */
   enteteMode?: React.ReactNode
@@ -140,7 +142,7 @@ export default function BottomSheet({
   onPeekHeightChange, proEvents = [], herosDiapo = null, onDiscoverPro, onOpenEvent,
   listStateRef, restoreListState = null, onListStateRestored,
   favIds = [], onToggleFav,
-  appMode, onAppModeChange, contenuTransport, enteteMode, zoneListe = null, producers = [], producerLoading = false,
+  appMode, onAppModeChange, contenuTransport, enteteMode, zoneListe = null, onToutVoir, producers = [], producerLoading = false,
   selectedProducerId = null, onSelectProducer, onViewProducerOnMap,
   selectedCats = [], onSelectedCatsChange,
   availableProducts = [],
@@ -662,6 +664,7 @@ export default function BottomSheet({
               événement{visibleSource.length > 1 ? 's' : ''}
               <span style={{ opacity: 0.5 }}> · </span>
               <span style={{ fontSize: 11, color: '#9E9089' }}>{zoneListe ? 'dans la zone de la carte' : 'marchés · ateliers · concerts'}</span>
+              {zoneListe && onToutVoir && <LienToutVoir onClick={onToutVoir} />}
             </div>
             {/* Wheels centrés ~300px, marges latérales restent grabable.
                 pcv-hide : sur bureau, ces deux filtres sont dans la barre
@@ -712,6 +715,7 @@ export default function BottomSheet({
                   ? 'Producteurs · artisans · locaux…'
                   : zoneListe ? 'Dans la zone de la carte' : 'Restos · bars · hébergements…'
                 }
+                {annuaireTabIdx === 1 && zoneListe && onToutVoir && <LienToutVoir onClick={onToutVoir} />}
               </p>
             </div>
             {/* Segmented control Agenda / Annuaire — caché en V3 (3-mode top remplace) */}
@@ -1514,5 +1518,19 @@ function SkeletonCard() {
         <div style={{ height: 10, borderRadius: 6, backgroundColor: '#EDE8E0', width: '52%' }} />
       </div>
     </div>
+  )
+}
+
+/** « Tout voir » — sort de « la liste suit la carte » jusqu'au prochain geste sur la carte. */
+function LienToutVoir({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onPointerDown={e => e.stopPropagation()}
+      onClick={e => { e.stopPropagation(); onClick() }}
+      style={{ marginLeft: 6, background: 'none', border: 'none', padding: 0, color: '#2D5A3D', fontSize: 11, fontWeight: 800, textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit' }}
+    >
+      Tout voir
+    </button>
   )
 }

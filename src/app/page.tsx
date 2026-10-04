@@ -2408,6 +2408,8 @@ export default function HomePage() {
         ) : undefined}
         // La liste suit la carte : Événements et Commerces seulement.
         zoneListe={listeSuitActive && !modeTransport && !modeBonsPlans && (appMode === 'agenda' || annuaireTab === 1) ? zoneCarte : null}
+        // « Tout voir » : la liste complète, jusqu'au prochain geste sur la carte.
+        onToutVoir={() => setZoneCarte(null)}
         enteteMode={modeBonsPlans ? (
           <EnteteBonsPlans total={bonsPlans.length} types={typesBonsPlans} typeActif={typeBonsPlans} onType={setTypeBonsPlans} />
         ) : undefined}
