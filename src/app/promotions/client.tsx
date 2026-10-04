@@ -136,7 +136,7 @@ export default function PromotionsClient() {
     if (!c && !nouveau) return
     if (!user) { if (nouveau) openAuthModal('/promotions?nouveau=1'); return }
     setCircuit(c ?? '')
-    window.history.replaceState({}, '', window.location.pathname)
+    window.history.replaceState(window.history.state, '', window.location.pathname)
   }, [authLoading, user, openAuthModal])
 
   // SWR sur /api/promotions (mode public, sans mine ni etab) → cache CDN 60s

@@ -105,6 +105,9 @@ const RAYON_DEFAUT = 45
  */
 const ZOOM_FICHE = 17
 
+/** L'écran de bienvenue a-t-il déjà été joué depuis le chargement de l'app ? */
+let voileDejaJoue = false
+
 export default function HomePage() {
   const { fixedMap, setFixedMap } = useTheme()
   /*
@@ -500,6 +503,10 @@ export default function HomePage() {
   >(null)
   const mapCameraRef = useRef<{ lat: number; lng: number; zoom: number } | null>(null)
   const prevUserRef  = useRef<typeof user>(null)
+  /** L'accueil a-t-il vu la personne DÉCONNECTÉE (auth résolue, pas d'user) ?
+   *  Seule une connexion qui suit cet état est une « vraie » connexion. */
+  const vuDeconnecteRef = useRef(false)
+  useEffect(() => { if (!authLoading && !user) vuDeconnecteRef.current = true }, [authLoading, user])
   const [, setGeocoding]                = useState(false)
   const [adminMapSaved, setAdminMapSaved] = useState(false)
   const [sheetMode, setSheetMode]   = useState<'peek'|'half'|'full'>('half')
@@ -630,8 +637,16 @@ export default function HomePage() {
    * attributs : les carrousels et le tambour en écrivent en continu.
    * Plafond VOILE_MAX_MS : l'app ne reste jamais bloquée derrière.
    */
-  const [voile, setVoile] = useState<'attente' | 'fondu' | 'parti'>('attente')
+  // À l'ouverture de l'app seulement. Revenir de Bons plans remonte toute
+  // cette page : le voile se rejouait à CHAQUE retour (flash crème, puis jusqu'à
+  // 3 s à avaler les taps de la barre) — taper vite d'un onglet à l'autre
+  // faisait clignoter l'interface. Le drapeau vit au niveau du module : une
+  // navigation douce le garde, un vrai rechargement le remet à zéro (et le
+  // premier rendu reste identique au serveur : pas d'écart d'hydratation).
+  const [voile, setVoile] = useState<'attente' | 'fondu' | 'parti'>(() => voileDejaJoue ? 'parti' : 'attente')
   useEffect(() => {
+    if (voileDejaJoue) return
+    voileDejaJoue = true
     if (navTab !== 'village') { setVoile('parti'); return }
     const CALME_MS = 500, VOILE_MAX_MS = 3000
     let calme: ReturnType<typeof setTimeout> | undefined
@@ -868,13 +883,16 @@ export default function HomePage() {
       // On ne nettoie pas pour le village : la synchronisation d'URL le
       // réinscrit aussitôt, et l'effacer ici le faisait disparaître entre les
       // deux montages de StrictMode en développement.
-      if (tabParam !== 'village') window.history.replaceState({}, '', '/')
+      // `window.history.state` et non `{}` : Next 14 prend un état vide pour une
+      // restauration et ABANDONNE la navigation en cours — un tap dans la barre
+      // du bas pendant le montage était perdu sans bruit.
+      if (tabParam !== 'village') window.history.replaceState(window.history.state, '', '/')
     }
     // ?splash=1 : le logo des autres pages ramène sur le splash d'accueil.
     if (sp0.get('splash') === '1') {
       // Sur ordinateur le logo ramène au village, pas au salon d'entrée.
       if (!ecranBureau()) setSplashOpen(true)
-      window.history.replaceState({}, '', '/')
+      window.history.replaceState(window.history.state, '', '/')
     }
   }, [])
 
@@ -974,7 +992,15 @@ export default function HomePage() {
   // Pour OAuth, le callback redirige deja directement vers `next` via l URL,
   // donc cet effect ne fait rien (returnTo est null en sessionStorage).
   useEffect(() => {
-    if (user && !prevUserRef.current) {
+    // Une session déjà là au montage (rétablie, ou revenue par OAuth avec
+    // ?next=) n'est pas une connexion faite ICI : on ne redirige pas, et on
+    // jette un « retour » resté en attente. Sans ça, revenir sur l'accueil
+    // après s'être connecté depuis Bons plans rechargeait toute la page vers
+    // Bons plans.
+    if (user && !prevUserRef.current && !vuDeconnecteRef.current) {
+      try { sessionStorage.removeItem('pdv-return-to'); sessionStorage.removeItem('pdv-login-pending') } catch { /* stockage indisponible */ }
+    }
+    if (user && !prevUserRef.current && vuDeconnecteRef.current) {
       try {
         const returnTo = sessionStorage.getItem('pdv-return-to')
         const wasPending = sessionStorage.getItem('pdv-login-pending')

@@ -113,6 +113,12 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
   const go = (href: string, id: string) => {
     setPendingTab(id)
     if (onNavigate) { onNavigate(id); return }
+    // Retour vers l'accueil depuis une autre page (Bons plans…) : l'accueil se
+    // remonte et prend son onglet dans 'pdv-nav-tab' AVANT d'avoir vu l'URL
+    // (Next la met à jour après le rendu). Sans ceci, il s'ouvrait sur le
+    // dernier onglet mémorisé (le Village), puis basculait sur celui tapé :
+    // deux écrans lourds à la suite.
+    if (href.startsWith('/?tab=')) { try { sessionStorage.setItem('pdv-nav-tab', id) } catch { /* stockage indisponible */ } }
     if (intercept) { router.replace(href); return }
     router.push(href)
   }
