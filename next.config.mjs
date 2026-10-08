@@ -20,6 +20,13 @@ const nextConfig = {
   // n'active pas une CSP complète, donc aucun impact sur scripts/styles/Maps.
   // Phase 2 (vente d'embed agenda/carte) : les routes /embed seront servies
   // avec une `frame-ancestors` élargie via middleware, en override de celui-ci.
+  // La plaquette commerciale de Gaëtan, à une adresse courte qu'on peut faire
+  // suivre. Rangée dans public/noprecache/ : le service worker (next-pwa) met
+  // en cache TOUT public/ sauf ce dossier — sans ça, ses 2 Mo seraient
+  // téléchargés par chaque personne qui installe l'app.
+  async rewrites() {
+    return [{ source: '/presentation', destination: '/noprecache/presentation.html' }]
+  },
   async headers() {
     return [
       {
