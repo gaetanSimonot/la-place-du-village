@@ -12,6 +12,7 @@ import { useTerritoire } from '@/components/TerritoireProvider'
 import { cleLocale } from '@/lib/cleLocale'
 import TerritoirePicker from '@/components/TerritoirePicker'
 import { haversineKm, GANGES } from '@/lib/distance'
+import { retenirApercu } from '@/lib/apercuEvenement'
 import { normSearch } from '@/lib/filters'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
@@ -127,6 +128,9 @@ export default function HomePage() {
   const [allEvenements, setAllEvenements] = useState<EvenementCard[]>([])
   const [promoEventsData, setPromoEventsData] = useState<EvenementCard[]>([])
   const [splashFeaturedEvents, setSplashFeaturedEvents] = useState<EvenementCard[]>([])
+  /** Les événements affichés, pour l'aperçu de fiche (cf. apercuEvenement). */
+  const evenementsConnusRef = useRef<EvenementCard[]>([])
+  evenementsConnusRef.current = promoEventsData.length ? allEvenements.concat(promoEventsData) : allEvenements
   const [showWelcome, setShowWelcome]         = useState(false)
   /** Le Village est-il défilé jusqu'en bas ? Éteint le voile de bas de page. */
   const [villageAuBout, setVillageAuBout] = useState(false)
@@ -807,6 +811,13 @@ export default function HomePage() {
     }, 350)
   }, [modeTransport, feuilleDescend])
   const router = useRouter()
+
+  // Un événement sélectionné est souvent le prochain ouvert : on prépare sa
+  // fiche (code de la page + réponse du serveur) pendant qu'on le regarde,
+  // pour que le second appui ne paie plus le trajet réseau.
+  useEffect(() => {
+    if (selectedId) router.prefetch(`/evenement/${selectedId}`)
+  }, [selectedId, router])
 
   /*
    * L'ENTRÉE DE L'APP — l'écran d'accueil, et la page sur laquelle on arrive.
@@ -1702,6 +1713,8 @@ export default function HomePage() {
       return
     }
     saveNavForEvent(id)
+    const connu = evenementsConnusRef.current.find(e => e.id === id)
+    if (connu) retenirApercu(connu)
     router.push(`/evenement/${id}`)
   }, [saveNavForEvent, router])
 

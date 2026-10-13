@@ -30,6 +30,7 @@ import HerosVillage from '@/components/village/HerosVillage'
 import TitreVivant, { useTitresVivants } from '@/components/village/TitreVivant'
 import { chargerIdentitesEtab } from '@/lib/identite'
 import RadioPastille from '@/components/RadioPastille'
+import { retenirApercu } from '@/lib/apercuEvenement'
 
 interface VillagePost extends PostData {
   likeCount: number
@@ -404,10 +405,10 @@ function TodaySection({ onVoirTout }: { onVoirTout?: () => void }) {
         }}
       >
         {featuredEv && (
-          <FeaturedEventCard ev={featuredEv} onClick={() => router.push(`/evenement/${featuredEv.id}`)} />
+          <FeaturedEventCard ev={featuredEv} onClick={() => { retenirApercu(featuredEv); router.push(`/evenement/${featuredEv.id}`) }} />
         )}
         {miniEvents.map(ev => (
-          <MiniEventCard key={ev.id} ev={ev} onClick={() => router.push(`/evenement/${ev.id}`)} />
+          <MiniEventCard key={ev.id} ev={ev} onClick={() => { retenirApercu(ev); router.push(`/evenement/${ev.id}`) }} />
         ))}
         {showMoreCard && (
           <MoreEventsCard count={remaining} onClick={onVoirTout ?? (() => router.push('/?tab=carte'))} />

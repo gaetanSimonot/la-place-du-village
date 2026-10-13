@@ -1,11 +1,13 @@
 'use client'
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Evenement, isApproxLocation } from '@/lib/types'
 import { CATEGORIES, eventCategories } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
 import { imageEvenement } from '@/lib/imageEvenement'
+import { lireApercu } from '@/lib/apercuEvenement'
+import { vignetteDe } from '@/lib/vignettes'
 import ImageLightbox from '@/components/ImageLightbox'
 import CommentSheet from '@/components/CommentSheet'
 import EventEditDrawer from '@/components/EventEditDrawer'
@@ -90,11 +92,21 @@ export default function EvenementPageClient({ id }: { id: string }) {
     return () => { cancelled = true }
   }, [isAdmin, id])
 
+  // Ce que la liste savait déjà : affiché avant la peinture, au lieu du rond
+  // de chargement. Lu ici et pas dans l'état initial : le rendu serveur ne
+  // voit pas sessionStorage, et les deux rendus doivent être identiques.
+  const [complet, setComplet] = useState(false)
+  useLayoutEffect(() => {
+    const apercu = lireApercu(id)
+    if (apercu) { setEvt(e => e ?? apercu); setLoading(false) }
+  }, [id])
+
   useEffect(() => {
     supabase.from('evenements').select('*, lieux(*)').eq('id', id).single()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
         if (data) {
           setEvt(data as Evenement)
+          setComplet(true)
           // Établissement lié → encart "L'endroit" (requête séparée : pas de
           // jointure implicite PostgREST, cf. règle projet).
           const etabId = (data as Evenement & { etablissement_id?: string | null }).etablissement_id
@@ -104,6 +116,11 @@ export default function EvenementPageClient({ id }: { id: string }) {
               .eq('id', etabId).maybeSingle()
               .then(({ data: e }) => { if (e) setLinkedEtab(e) })
           }
+        } else if (error?.code === 'PGRST116') {
+          // Introuvable (supprimé depuis, lien mort) : l'aperçu ne doit pas
+          // faire croire le contraire. Une simple coupure réseau, elle, laisse
+          // l'aperçu en place — mieux que « introuvable » sur un trou de 4G.
+          setEvt(null)
         }
         setLoading(false)
       })
@@ -131,6 +148,7 @@ export default function EvenementPageClient({ id }: { id: string }) {
   const cats  = eventCategories(evt)
   const cat   = CATEGORIES[cats[0]] ?? CATEGORIES.autre
   const imageDeRepli = imageEvenement(evt)   // null si l'événement a sa propre image
+  const vignetteHero = vignetteDe(evt.image_url)
   const lieu  = evt.lieux
   const mapsUrl = lieu?.lat && lieu?.lng
     ? `https://www.google.com/maps/dir/?api=1&destination=${lieu.lat},${lieu.lng}`
@@ -154,7 +172,12 @@ export default function EvenementPageClient({ id }: { id: string }) {
           h-[300px] avant, l'image laissait 80px de vide en bas (fond
           bg-[#F0EBE3] visible) où atterrissait le badge catégorie → effet
           "bande grise" entre image et card blanche. */}
-      <div className="pcv-fiche-hero relative h-[220px] w-full overflow-hidden bg-[#F0EBE3]">
+      <div
+        className="pcv-fiche-hero relative h-[220px] w-full overflow-hidden bg-[#F0EBE3]"
+        // La miniature, déjà en cache depuis la liste, tient la place pendant
+        // que l'affiche en pleine taille arrive par-dessus.
+        style={vignetteHero ? { backgroundImage: `url("${vignetteHero}")`, backgroundSize: 'cover', backgroundPosition: evt.image_position ?? '50% 50%' } : undefined}
+      >
         {evt.image_url ? (
           <ImageLightbox src={evt.image_url} alt={evt.titre} objectPosition={evt.image_position ?? '50% 50%'} />
         ) : imageDeRepli ? (
@@ -176,7 +199,7 @@ export default function EvenementPageClient({ id }: { id: string }) {
         {/* Floating top actions */}
         <FloatingTopActions
           onBack={goBack}
-          adminExtra={isAdmin ? (
+          adminExtra={isAdmin && complet ? (
             <div className="flex items-center gap-2">
               <FeatureButton contentType="evenement" contentId={id} ownerUserId={(evt as { user_id?: string | null }).user_id ?? null} />
               <button
