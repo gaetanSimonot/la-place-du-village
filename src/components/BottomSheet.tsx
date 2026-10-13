@@ -8,6 +8,7 @@ import { PRODUIT_CATS } from '@/lib/produit-cats'
 import { ETAB_TYPE_LIST } from '@/lib/etablissement-types'
 import { formatEventDate, normSearch } from '@/lib/filters'
 import { imageEvenement } from '@/lib/imageEvenement'
+import ImageVignette from '@/components/ImageVignette'
 import { haversineKm } from '@/lib/distance'
 import Link from 'next/link'
 import ProducerBandeau from '@/components/ProducerBandeau'
@@ -1318,7 +1319,7 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
           catégorie, sinon l'emoji sur aplat (comportement historique). */}
       <div style={{ width: 86, flexShrink: 0, position: 'relative', overflow: 'hidden', backgroundColor: cat.color + '22' }}>
         {imageEvenement(evt)
-          ? <img src={imageEvenement(evt)!} alt="" loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: evt.image_url ? (evt.image_position ?? '50% 50%') : '50% 50%' }} />
+          ? <ImageVignette src={imageEvenement(evt)!} alt="" loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: evt.image_url ? (evt.image_position ?? '50% 50%') : '50% 50%' }} />
           : <div style={{ position: 'absolute', inset: 0, backgroundColor: cat.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>{cat.emoji}</div>
         }
       </div>

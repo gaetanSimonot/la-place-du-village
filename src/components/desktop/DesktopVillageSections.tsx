@@ -6,6 +6,7 @@ import { ETAB_TYPE_LIST } from '@/lib/etablissement-types'
 import { CATEGORIES } from '@/lib/categories'
 import type { Categorie } from '@/lib/types'
 import { imageEvenement } from '@/lib/imageEvenement'
+import ImageVignette from '@/components/ImageVignette'
 import { choisirTuilesDuJour } from '@/lib/hubTodayPicker'
 import { useTerritoire } from '@/components/TerritoireProvider'
 import { useZonePerso } from '@/hooks/useZonePerso'
@@ -98,8 +99,7 @@ function TuileEvenement({ ev }: { ev: Evenement }) {
             ateliers surtout — et « une liste de cadres vides donne
             l'impression qu'il ne se passe rien ». */}
         {imageDeLaTuile
-          // eslint-disable-next-line @next/next/no-img-element
-          ? <img
+          ? <ImageVignette
               src={imageDeLaTuile}
               alt=""
               loading="lazy"

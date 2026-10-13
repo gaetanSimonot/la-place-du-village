@@ -4,6 +4,7 @@ import { CRANS_REGROUPEMENT, type CranRegroupement } from '@/lib/regroupementCar
 import MapTransportLayer, { type ArretTransport, type TraceTransport, type LigneTransport } from './MapTransportLayer'
 import { APIProvider, Map, InfoWindow, useMap } from '@vis.gl/react-google-maps'
 import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer'
+import ImageVignette from '@/components/ImageVignette'
 
 // Clustering moins agressif : radius en px plus petit (les marqueurs ne se
 // regroupent que s'ils sont vraiment proches à l'écran) + maxZoom plus bas
@@ -1028,7 +1029,7 @@ export default function MapView({ evenements, selectedId, onSelectEvent, onDesel
                 }}
               >
                 {selectedEvent.image_url && (
-                  <img
+                  <ImageVignette
                     src={selectedEvent.image_url}
                     alt={selectedEvent.titre}
                     loading="lazy"

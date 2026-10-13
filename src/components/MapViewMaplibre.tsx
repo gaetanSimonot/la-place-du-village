@@ -19,6 +19,7 @@ import { CRANS_REGROUPEMENT, type CranRegroupement } from '@/lib/regroupementCar
 const DECALAGE_VIGNETTE       = 36
 const DECALAGE_VIGNETTE_PROMU = 47
 import type { MotionValue } from 'framer-motion'
+import ImageVignette from '@/components/ImageVignette'
 
 const GANGES = { lat: 43.9333, lng: 3.7 }
 
@@ -619,7 +620,7 @@ export default function MapViewMaplibre({
               <div onClick={() => onOpenEvent(selectedEvent.id)}
                 style={{ fontFamily: 'var(--font-body), sans-serif', borderRadius: 12, overflow: 'hidden', fontSize: 13, cursor: 'pointer', backgroundColor: '#fff', border: `2.5px solid ${sheetBg.bg}` }}>
                 {selectedEvent.image_url && (
-                  <img src={selectedEvent.image_url} alt={selectedEvent.titre} loading="lazy"
+                  <ImageVignette src={selectedEvent.image_url} alt={selectedEvent.titre} loading="lazy"
                     style={{ width: '100%', height: 100, objectFit: 'cover', objectPosition: selectedEvent.image_position ?? '50% 50%', display: 'block' }} />
                 )}
                 <div style={{ padding: '8px 10px 10px', backgroundColor: '#fff' }}>

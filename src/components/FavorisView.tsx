@@ -15,6 +15,7 @@ import { useAnnonceFavorites } from '@/hooks/useAnnonceFavorites'
 import { authedFetcher } from '@/lib/swr-fetchers'
 import { ETAB_TYPES } from '@/lib/etablissement-types'
 import { getPrixAffiche, type Annonce } from '@/lib/annonces'
+import ImageVignette from '@/components/ImageVignette'
 
 interface ProducerMin {
   id: string; nom: string; commune: string | null; photos: string[]; produit_categories: string[]
@@ -740,7 +741,7 @@ function Row({ row }: { row: RowItem }) {
     >
       {/* Avatar / miniature 48px */}
       {row.imageUrl ? (
-        <img
+        <ImageVignette
           src={row.imageUrl}
           alt=""
           loading="lazy"

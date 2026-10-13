@@ -31,6 +31,10 @@
     {
       "path": "/api/cron/collector-veille",
       "schedule": "30 * * * *"
+    },
+    {
+      "path": "/api/cron/vignettes",
+      "schedule": "*/10 * * * *"
     }
   ]
 }
