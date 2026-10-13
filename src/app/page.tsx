@@ -22,14 +22,11 @@ import ProBandeau from '@/components/ProBandeau'
 import AgendaFilterWheel, { AgendaDateButton } from '@/components/AgendaFilterWheel'
 import DesktopMapFilters from '@/components/desktop/DesktopMapFilters'
 import DesktopAnnuaireFilters from '@/components/desktop/DesktopAnnuaireFilters'
-import DesktopEventModal from '@/components/desktop/DesktopEventModal'
 import VillageView from '@/components/VillageView'
-import HubSearchModal, { type SearchKind } from '@/components/HubSearchModal'
-import PublishMenuModal from '@/components/PublishMenuModal'
+import type { SearchKind } from '@/components/HubSearchModal'
 import BottomNavBar, { NAV_H } from '@/components/BottomNavBar'
 import { toast } from 'sonner'
 import { trackEvent } from '@/lib/analytics'
-import { ComingSoonModal } from '@/components/HubModals'
 import { useFavorites } from '@/hooks/useFavorites'
 import { useProducerFavorites } from '@/hooks/useProducerFavorites'
 import { useNotifications } from '@/hooks/useNotifications'
@@ -40,7 +37,6 @@ import { CRANS_REGROUPEMENT, CLE_CONFIG_REGROUPEMENT, lireCran, type CranRegroup
 import { CLE_CONFIG_LISTE_SUIT, CLE_LOCAL_LISTE_SUIT, type ModeListeSuit, type ZoneCarte } from '@/lib/zoneCarte'
 import { urlEcritureConfig } from '@/lib/configClient'
 import { ListeBonsPlans, EnteteBonsPlans, etabsDesBonsPlans, typesDesBonsPlans, vignettesDesBonsPlans, useFavorisBonsPlans, lienBonPlan, type PromoCarte } from '@/components/BonsPlansCarte'
-import DiscoverPromoModal from '@/components/DiscoverPromoModal'
 import { useHerosVillage } from '@/hooks/useHerosVillage'
 import { lienHeros, herosExterne } from '@/lib/villageHero'
 import RadioPastille from '@/components/RadioPastille'
@@ -73,6 +69,15 @@ const WelcomeModal         = dynamic(() => import('@/components/WelcomeModal'), 
 const EditorialSplash      = dynamic(() => import('@/components/EditorialSplash'),         { ssr: false })
 const MaxSplash            = dynamic(() => import('@/components/MaxSplash'),               { ssr: false })
 const MapView                   = dynamic(() => import('@/components/MapViewSwitch'),              { ssr: false })
+/* Fenêtres ouvertes sur un geste : chargées à la demande, pas avec l'écran.
+   La recherche et « Publier » sont en plus préparées en arrière-plan une fois
+   l'app posée (cf. « Code des fenêtres »), pour que le premier appui ne
+   paie pas le téléchargement. */
+const HubSearchModal       = dynamic(() => import('@/components/HubSearchModal'),          { ssr: false })
+const PublishMenuModal     = dynamic(() => import('@/components/PublishMenuModal'),        { ssr: false })
+const DiscoverPromoModal   = dynamic(() => import('@/components/DiscoverPromoModal'),      { ssr: false })
+const DesktopEventModal    = dynamic(() => import('@/components/desktop/DesktopEventModal'), { ssr: false })
+const ComingSoonModal      = dynamic(() => import('@/components/HubModals').then(m => m.ComingSoonModal), { ssr: false })
 
 /* Listes vides PARTAGÉES : un `[]` écrit dans le rendu est un nouveau tableau
    à chaque fois, et la carte (mémoïsée, cf. MapViewSwitch) se croirait
@@ -822,6 +827,17 @@ export default function HomePage() {
   useEffect(() => {
     if (selectedId) router.prefetch(`/evenement/${selectedId}`)
   }, [selectedId, router])
+
+  // Code des fenêtres : la recherche et « Publier » ne font plus partie du
+  // premier chargement (cf. HubSearchModal plus haut) ; on les prépare une
+  // fois l'app posée, pour que leur premier appui reste instantané.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      void import('@/components/HubSearchModal')
+      void import('@/components/PublishMenuModal')
+    }, 5000)
+    return () => clearTimeout(t)
+  }, [])
 
   /*
    * L'ENTRÉE DE L'APP — l'écran d'accueil, et la page sur laquelle on arrive.
@@ -2751,18 +2767,24 @@ export default function HomePage() {
       {infoOpen && <AppInfoModal onClose={() => setInfoOpen(false)} />}
 
       {/* Modale recherche globale — accessible depuis hub (loupe header) et carte (loupe gauche) */}
-      <HubSearchModal
-        open={searchOpen}
-        onClose={() => setSearchOpen(false)}
-        onViewAll={handleSearchViewAll}
-      />
+      {/* Montée seulement ouverte : fermée elle ne rendait rien, et elle se
+          remet à zéro à chaque ouverture de toute façon. */}
+      {searchOpen && (
+        <HubSearchModal
+          open={searchOpen}
+          onClose={() => setSearchOpen(false)}
+          onViewAll={handleSearchViewAll}
+        />
+      )}
 
       {/* Modale "Publier" — 5 options (event, annonce, capture, commerce, producteur) */}
-      <PublishMenuModal
-        open={fabOpen}
-        onClose={() => setFabOpen(false)}
-        onPick={handlePublishPick}
-      />
+      {fabOpen && (
+        <PublishMenuModal
+          open={fabOpen}
+          onClose={() => setFabOpen(false)}
+          onPick={handlePublishPick}
+        />
+      )}
 
       {/* Bottom Nav — composant unifié, navigation par state interne via onNavigate */}
       <BottomNavBar
