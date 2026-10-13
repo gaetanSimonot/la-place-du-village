@@ -34,11 +34,21 @@ import { SpeedInsights } from '@vercel/speed-insights/next'
 import { Toaster } from 'sonner'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' })
+/*
+ * PRÉCHARGÉES : SEULEMENT CELLES DU PREMIER ÉCRAN.
+ *
+ * Inter (le texte) et Plus Jakarta Sans (titres, --font-title/--font-display)
+ * sont partout dès l'ouverture. DM Serif ne sert qu'à l'écran d'entrée
+ * éditorial et à /app ; Caveat (--font-hand) qu'à des fenêtres ponctuelles
+ * (bienvenue, infos, promo). Préchargées, elles passaient avant le code de
+ * l'app sur le premier chargement en 4G (13/10/2026) ; sans préchargement
+ * elles arrivent à leur première utilisation (display: swap).
+ */
 const dmSerif = DM_Serif_Display({
-  weight: '400', subsets: ['latin'], variable: '--font-dm-serif', display: 'swap',
+  weight: '400', subsets: ['latin'], variable: '--font-dm-serif', display: 'swap', preload: false,
 })
 const caveat = Caveat({
-  weight: ['500', '700'], subsets: ['latin'], variable: '--font-caveat', display: 'swap',
+  weight: ['500', '700'], subsets: ['latin'], variable: '--font-caveat', display: 'swap', preload: false,
 })
 const jakarta = Plus_Jakarta_Sans({
   weight: ['400', '500', '600', '700', '800'], subsets: ['latin'], variable: '--font-jakarta', display: 'swap',
