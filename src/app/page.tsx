@@ -73,6 +73,13 @@ const WelcomeModal         = dynamic(() => import('@/components/WelcomeModal'), 
 const EditorialSplash      = dynamic(() => import('@/components/EditorialSplash'),         { ssr: false })
 const MaxSplash            = dynamic(() => import('@/components/MaxSplash'),               { ssr: false })
 const MapView                   = dynamic(() => import('@/components/MapViewSwitch'),              { ssr: false })
+
+/* Listes vides PARTAGÉES : un `[]` écrit dans le rendu est un nouveau tableau
+   à chaque fois, et la carte (mémoïsée, cf. MapViewSwitch) se croirait
+   changée — elle se recalculerait à chaque rendu de la page pour rien. */
+const AUCUN_EVENEMENT: EvenementCard[] = []
+const AUCUN_PRODUCTEUR: import('@/lib/types').ProducerCard[] = []
+const AUCUN_ETABLISSEMENT: EtablissementCard[] = []
 const BottomSheet               = dynamic(() => import('@/components/BottomSheet'),                { ssr: false })
 // ProducteurPageClient / EtablissementPageClient : retirés (sous-étape 5.2)
 // Les fiches sont maintenant rendues via les intercepting routes
@@ -134,8 +141,8 @@ export default function HomePage() {
   const [showWelcome, setShowWelcome]         = useState(false)
   /** Le Village est-il défilé jusqu'en bas ? Éteint le voile de bas de page. */
   const [villageAuBout, setVillageAuBout] = useState(false)
-  /** Le Village défile-t-il en ce moment ? Le voile s'efface pendant, revient après. */
-  const [villageDefile, setVillageDefile] = useState(false)
+  /** Le voile de bas de page du Village : s'efface pendant le défilement (data-defile). */
+  const voileVillageRef = useRef<HTMLDivElement>(null)
   const finDefileVillage = useRef<ReturnType<typeof setTimeout>>()
   /* Les effets de profondeur du Village (courbe, flou, vignette), réglés dans
      /admin/hub-carousel. On DÉMARRE avec les derniers connus de ce téléphone
@@ -377,6 +384,11 @@ export default function HomePage() {
 
   // La fenêtre « Découvrir » ouverte par-dessus la carte : on ne quitte pas la liste.
   const [bonPlanOuvert, setBonPlanOuvert] = useState<PromoCarte | null>(null)
+  // En bons plans, la vignette d'un commerce ouvre son bon plan, pas sa fiche.
+  const ouvrirBonPlanDuCommerce = useCallback((id: string) => {
+    const p = bonsPlans.find(x => x.etablissement?.id === id)
+    if (p) setBonPlanOuvert(p)
+  }, [bonsPlans])
   const favorisBonsPlans = useFavorisBonsPlans(user?.id ?? null, () => openAuthModal(), modeBonsPlans)
   /**
    * La zone d'affichage — centres et rayon — avec sa derniere valeur connue.
@@ -495,6 +507,9 @@ export default function HomePage() {
     { lat: number; lng: number; zoom?: number; cle?: string; avecVignette?: boolean } | null
   >(null)
   const mapCameraRef = useRef<{ lat: number; lng: number; zoom: number } | null>(null)
+  // Stables, pour la carte mémoïsée (cf. AUCUN_EVENEMENT).
+  const noterCamera = useCallback((lat: number, lng: number, zoom: number) => { mapCameraRef.current = { lat, lng, zoom } }, [])
+  const deselectionner = useCallback(() => setSelectedId(null), [])
   const prevUserRef  = useRef<typeof user>(null)
   /** L'accueil a-t-il vu la personne DÉCONNECTÉE (auth résolue, pas d'user) ?
    *  Seule une connexion qui suit cet état est une « vraie » connexion. */
@@ -1790,24 +1805,21 @@ export default function HomePage() {
           provider={mapProvider}
           /* En mode transport, la carte ne montre QUE la ligne : 274 marqueurs
              d'evenements par-dessus un trace de bus, on ne voit plus rien. */
-          evenements={modeTransport || modeBonsPlans || appMode === 'annuaire' ? [] : evenements}
-          producers={!modeTransport && !modeBonsPlans && appMode === 'annuaire' && annuaireTab === 0 ? filteredProducers : []}
+          evenements={modeTransport || modeBonsPlans || appMode === 'annuaire' ? AUCUN_EVENEMENT : evenements}
+          producers={!modeTransport && !modeBonsPlans && appMode === 'annuaire' && annuaireTab === 0 ? filteredProducers : AUCUN_PRODUCTEUR}
           selectedProducerId={selectedProducerId}
           onSelectProducer={setSelectedProducerId}
           onOpenProducer={openProducer}
           etablissements={
             modeBonsPlans ? etabsBonsPlans
-            : !modeTransport && appMode === 'annuaire' && annuaireTab === 1 ? (displayedEtabs ?? etablissementsAffiches) : []}
+            : !modeTransport && appMode === 'annuaire' && annuaireTab === 1 ? (displayedEtabs ?? etablissementsAffiches) : AUCUN_ETABLISSEMENT}
           selectedEtabId={selectedEtabId}
           onSelectEtab={setSelectedEtabId}
-          onOpenEtablissement={modeBonsPlans
-            // En bons plans, la vignette ouvre le bon plan du commerce, pas sa fiche.
-            ? (id: string) => { const p = bonsPlans.find(x => x.etablissement?.id === id); if (p) setBonPlanOuvert(p) }
-            : openEtablissement}
+          onOpenEtablissement={modeBonsPlans ? ouvrirBonPlanDuCommerce : openEtablissement}
           vignettesBonsPlans={modeBonsPlans ? vignettesBonsPlans : null}
           selectedId={selectedId}
           onSelectEvent={setSelectedId}
-          onDeselect={() => setSelectedId(null)}
+          onDeselect={deselectionner}
           onOpenEvent={openEvent}
           restaurerVue={vueARestaurer}
           vueRestauree={vueRestauree}
@@ -1818,7 +1830,7 @@ export default function HomePage() {
           sheetYRepos={sheetYRepos}
           panEnCoursRef={chuteDuPanEnCours}
           onBlocTropGrand={laisserLaPlaceALaVignette}
-          onCameraIdle={(lat, lng, zoom) => { mapCameraRef.current = { lat, lng, zoom } }}
+          onCameraIdle={noterCamera}
           onZoneVisible={listeSuitActive ? setZoneCarte : null}
           regroupement={regroupement}
           transport={modeTransport && ligneTransport ? {
@@ -2645,9 +2657,14 @@ export default function HomePage() {
           // 0 tant qu'elle est entière, 1 une fois partie. Écrit sur la bande
           // de flou elle-même : ni état React, ni variable sur <html>.
           majBordsHaut(el)
-          if (!villageDefile) setVillageDefile(true)
+          // Le voile du bas s'efface pendant le défilement. Marqué sur le
+          // voile lui-même (globals.css, .lpv-voile-bas) et non par un état
+          // React : chaque début et fin de défilement recalculait toute la
+          // page, carte comprise — ~60 ms d'à-coup sur un téléphone moyen.
+          const voile = voileVillageRef.current
+          if (voile && voile.dataset.defile !== '1') voile.dataset.defile = '1'
           clearTimeout(finDefileVillage.current)
-          finDefileVillage.current = setTimeout(() => setVillageDefile(false), 250)
+          finDefileVillage.current = setTimeout(() => { if (voileVillageRef.current) voileVillageRef.current.dataset.defile = '0' }, 250)
         }} style={{
           position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H,
           // overflowX hidden : les blocs penchés du tambour s'élargissent au
@@ -2676,7 +2693,7 @@ export default function HomePage() {
         <FlouBords bas={NAV_H} auBout={villageAuBout} reglages={effetsVillage} refHaut={flouHautRef} refVignette={vignetteRef} barre={barreVillage} />
       )}
       {navTab === 'village' && effetsVillage.voile !== 'aucun' && (
-        <div aria-hidden className="pcv-hide" style={{
+        <div ref={voileVillageRef} aria-hidden className="pcv-hide lpv-voile-bas" style={{
           position: 'absolute', left: 0, right: 0, bottom: NAV_H, height: 56,
           zIndex: 27, pointerEvents: 'none',
           // Sa couleur se règle en admin (crème = le fond, blanc, noir).
@@ -2684,9 +2701,10 @@ export default function HomePage() {
             : effetsVillage.voile === 'noir' ? 'linear-gradient(to top, rgba(0,0,0,.55), rgba(0,0,0,0))'
             : 'linear-gradient(to top, var(--creme) 0%, rgba(0,0,0,0) 100%)',
           // Part VITE dès qu'on fait défiler (on veut voir ce qui monte),
-          // revient DOUCEMENT une fois le doigt au repos.
-          opacity: villageAuBout || villageDefile ? 0 : 1,
-          transition: villageAuBout || villageDefile ? 'opacity .15s ease-out' : 'opacity 1.2s ease-in-out',
+          // revient DOUCEMENT une fois le doigt au repos. Le « pendant le
+          // défilement » passe par data-defile (cf. onScroll du panneau).
+          opacity: villageAuBout ? 0 : 1,
+          transition: villageAuBout ? 'opacity .15s ease-out' : 'opacity 1.2s ease-in-out',
         }} />
       )}
 

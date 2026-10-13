@@ -430,6 +430,12 @@ html[data-univers='theatre'] body { background: var(--uni-bg); }
 .lpv-appel       { animation: lpv-appel 3.2s ease-in-out 3; }
 .lpv-appel-texte { animation: lpv-appel-texte 3.2s ease-in-out 3; }
 
+/* Le voile de bas de page du Village pendant le défilement : posé par le
+   panneau directement sur l'élément (page.tsx), sans état React — un état
+   recalculait toute la page à chaque début et fin de défilement. Le style
+   en ligne garde le cas « tout en bas » et le retour lent. */
+.lpv-voile-bas[data-defile="1"] { opacity: 0 !important; transition: opacity .15s ease-out !important; }
+
 /* Moins d'animations demandé : le fondu de couleur seul, sans saut ni onde. */
 @media (prefers-reduced-motion: reduce) {
   .lpv-appel      { animation-name: lpv-appel-texte; }
