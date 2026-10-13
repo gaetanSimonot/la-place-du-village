@@ -32,11 +32,12 @@ const fetcher = (u: string) => fetch(u).then(r => r.json())
 export default function RadioPastille() {
   /* La ville regardee voyage avec la requete : la route filtre bien,
      encore faut-il lui dire laquelle. */
-  const { territoire: tRadio } = useTerritoire()
+  const { territoire: tRadio, pret } = useTerritoire()
   const qTerrRadio = tRadio?.slug ? `?territoire=${encodeURIComponent(tRadio.slug)}` : ''
 
   const isAdmin = useAdminSession()
-  const { data } = useSWR<PayloadRadio>(`/api/radio${qTerrRadio}`, fetcher, { revalidateOnFocus: false })
+  // Pas avant que le territoire soit connu : sinon deux lectures, sans puis avec.
+  const { data } = useSWR<PayloadRadio>(pret ? `/api/radio${qTerrRadio}` : null, fetcher, { revalidateOnFocus: false })
   const { etat, basculer } = useRadioDirect()
 
   if (!data) return null

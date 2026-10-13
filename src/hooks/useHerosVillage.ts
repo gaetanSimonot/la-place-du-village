@@ -39,9 +39,11 @@ async function chargerHeros(url: string): Promise<Reponse> {
 }
 
 export function useHerosVillage() {
-  const { territoire } = useTerritoire()
+  const { territoire, pret: territoirePret } = useTerritoire()
   const slugTerr = territoire?.slug ?? null
-  const { data, isLoading, mutate } = useSWR<Reponse>(slugTerr ? `/api/village-hero?territoire=${encodeURIComponent(slugTerr)}` : '/api/village-hero', chargerHeros, {
+  // Pas avant que le territoire soit connu : sinon deux lectures, sans puis avec.
+  const cle = !territoirePret ? null : slugTerr ? `/api/village-hero?territoire=${encodeURIComponent(slugTerr)}` : '/api/village-hero'
+  const { data, isLoading, mutate } = useSWR<Reponse>(cle, chargerHeros, {
     revalidateOnFocus: false,
   })
 
@@ -58,7 +60,8 @@ export function useHerosVillage() {
     /** La première fiche visible — ce que montrent les appelants à un seul emplacement. */
     premier: heros[0] ?? null,
     eteint: !!data?.eteint,
-    pret:   !isLoading,
+    // Requête pas encore partie (territoire inconnu) = pas encore prêt.
+    pret:   territoirePret && !isLoading,
     recharger,
   }
 }

@@ -116,7 +116,7 @@ export default function HomePage() {
    * carte et le cadrage racontent la meme ville. Pour tout le monde sauf
    * l'admin, c'est le territoire par defaut — donc rien ne change.
    */
-  const { territoire: territoireVu } = useTerritoire()
+  const { territoire: territoireVu, pret: territoirePret } = useTerritoire()
   const slugTerritoire = territoireVu?.slug ?? null
   const { user, profile, loading: authLoading, isAdmin } = useAuth()
   const { favIds, toggle: toggleFav } = useFavorites()
@@ -331,18 +331,11 @@ export default function HomePage() {
   const [listeSuitMoi, setListeSuitMoi] = useState(() => {
     try { return typeof window !== 'undefined' && localStorage.getItem(CLE_LOCAL_LISTE_SUIT) === '1' } catch { return false }
   })
-  useEffect(() => {
-    supabase.from('config').select('value').eq('key', CLE_CONFIG_LISTE_SUIT).maybeSingle()
-      .then(({ data }) => setListeSuitTous(data?.value === 'tous'))
-  }, [])
   /* La feuille qui descend quand on touche la carte, et remonte au lâcher
      (onMapDragStart/End). Réglage admin GLOBAL (config carte_feuille_descend) ;
-     absent = activé, le comportement historique. */
+     absent = activé, le comportement historique. Lu avec les autres réglages
+     de la page, plus bas (« Les réglages de la page »). */
   const [feuilleDescend, setFeuilleDescend] = useState(true)
-  useEffect(() => {
-    supabase.from('config').select('value').eq('key', 'carte_feuille_descend').maybeSingle()
-      .then(({ data }) => setFeuilleDescend(data?.value !== 'false'))
-  }, [])
   const ecrireConfigGlobale = async (key: string, value: string): Promise<boolean> => {
     // Réglage d'interface : global, jamais par territoire (cf. configCles.ts).
     const { data: { session } } = await supabase.auth.getSession()
@@ -355,10 +348,6 @@ export default function HomePage() {
   }
   /* Le cran de regroupement des punaises (admin, pour tous ; regroupementCarte). */
   const [regroupement, setRegroupement] = useState<CranRegroupement>('normal')
-  useEffect(() => {
-    supabase.from('config').select('value').eq('key', CLE_CONFIG_REGROUPEMENT).maybeSingle()
-      .then(({ data }) => setRegroupement(lireCran(data?.value as string | undefined)))
-  }, [])
   const changerRegroupement = async (c: CranRegroupement) => {
     const avant = regroupement
     if (c === avant) return
@@ -1199,14 +1188,36 @@ export default function HomePage() {
     })()
   }, [isAdmin])
 
-  // Config chargée une seule fois au mount + écoute changements admin
+  /*
+   * LES RÉGLAGES DE LA PAGE, EN UNE SEULE LECTURE.
+   *
+   * Cinq clés lues une par une faisaient dix allers-retours en 4G (chaque
+   * lecture Supabase est précédée d'une vérification CORS), et se relisaient
+   * à chaque changement de territoire. Elles sont globales et ne bougent
+   * qu'au geste d'un admin : une lecture au montage suffit.
+   *
+   * Une clé absente garde son défaut historique : masquer les passés, Google,
+   * feuille qui descend, liste qui ne suit pas, regroupement normal.
+   */
   useEffect(() => {
-    supabase.from('config').select('value').eq('key', 'masquer_passes').single()
-      .then(({ data, error }) => setMasquerPasses(error ? true : data?.value !== 'false'))
-    supabase.from('config').select('value').eq('key', 'map_provider').maybeSingle()
-      .then(({ data }) => setMapProvider(data?.value === 'maplibre' ? 'maplibre' : 'google'))
-    fetchZoneConfig()
+    supabase.from('config').select('key, value')
+      .in('key', ['masquer_passes', 'map_provider', CLE_CONFIG_LISTE_SUIT, 'carte_feuille_descend', CLE_CONFIG_REGROUPEMENT])
+      .then(({ data }) => {
+        const v = new Map(((data ?? []) as { key: string; value: string | null }[]).map(r => [r.key, r.value]))
+        setMasquerPasses(v.get('masquer_passes') !== 'false')
+        setMapProvider(v.get('map_provider') === 'maplibre' ? 'maplibre' : 'google')
+        setListeSuitTous(v.get(CLE_CONFIG_LISTE_SUIT) === 'tous')
+        setFeuilleDescend(v.get('carte_feuille_descend') !== 'false')
+        setRegroupement(lireCran(v.get(CLE_CONFIG_REGROUPEMENT) ?? undefined))
+      })
+  }, [])
 
+  // Zone perso + écoute des changements admin. Au montage seulement : le
+  // rechargement de la zone au changement de territoire est l'affaire de
+  // l'effet suivant (ici, il la relisait une seconde fois).
+  const fetchZoneConfigRef = useRef(fetchZoneConfig)
+  fetchZoneConfigRef.current = fetchZoneConfig
+  useEffect(() => {
     // Charger zone user depuis localStorage
     try {
       const saved = localStorage.getItem('pdv-zone-user')
@@ -1222,18 +1233,21 @@ export default function HomePage() {
 
     // Recharger la zone si l'admin la modifie (même onglet/session)
     const onStorage = (e: StorageEvent) => {
-      if (e.key === 'pdv-zone-updated') fetchZoneConfig()
+      if (e.key === 'pdv-zone-updated') fetchZoneConfigRef.current()
     }
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
-  }, [fetchZoneConfig]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   /*
    * Changer de territoire relit sa zone. `fetchZoneConfig` depend deja du
    * slug, donc sa nouvelle identite suffit a declencher — mais l'ecrire ici
    * rend l'intention lisible plutot que de la laisser dans une dependance.
+   *
+   * Pas avant que le territoire soit connu : la lecture sans territoire
+   * partait pour rien, aussitôt refaite avec.
    */
-  useEffect(() => { fetchZoneConfig() }, [fetchZoneConfig])
+  useEffect(() => { if (territoirePret) fetchZoneConfig() }, [fetchZoneConfig, territoirePret])
 
   /* Changer de ville vide la liste : on ne garde pas sous les yeux les
      evenements de l'autre territoire le temps que les siens arrivent. */
@@ -1252,6 +1266,10 @@ export default function HomePage() {
       const z = JSON.parse(localStorage.getItem(cleLocale('pdv-zone-connue', slugTerritoire, pd)) || '{}')
       setZoneCentres(z.centres ?? [])
       setRayonAffichage(z.rayon ?? null)
+      // La zone connue de CE territoire suffit pour afficher : la lecture
+      // réseau, partie en même temps, la remplacera si un admin l'a changée.
+      // (Seulement territoire nommé : avant, la clé lue n'est pas la sienne.)
+      if (slugTerritoire && Array.isArray(z.centres) && typeof z.rayon === 'number') setZoneLoaded(true)
     } catch { setZoneCentres([]); setRayonAffichage(null) }
     try {
       const v = localStorage.getItem(cleLocale('pdv-carte-depart', slugTerritoire, pd))
@@ -1271,7 +1289,11 @@ export default function HomePage() {
   // page (quitter / revenir) sert depuis cache mémoire SWR instantanément,
   // puis revalide en fond (revalidateOnFocus hérité du SWRProvider global).
   const agendaKey = useMemo(() => {
-    if (!zoneLoaded) return null  // pas de fetch tant que zone pas prête
+    // L'agenda part dès que le territoire est connu, EN MÊME TEMPS que la
+    // zone : il l'attendait avant, un aller-retour de plus en 4G. Ce qui ne
+    // doit pas précéder la zone, c'est l'AFFICHAGE (sans rayon, la liste
+    // montrerait tout jusqu'à 700 km) — voir la synchro plus bas.
+    if (!territoirePret) return null
     const params = new URLSearchParams()
     if (filtres.categories.length > 0) params.set('cat', filtres.categories.join(','))
     params.set('quand', filtres.quand)
@@ -1281,7 +1303,7 @@ export default function HomePage() {
     if (masquerPasses) params.set('masquerPasses', '1')
     if (slugTerritoire) params.set('territoire', slugTerritoire)
     return `/api/agenda?${params.toString()}`
-  }, [filtres, masquerPasses, zoneLoaded, slugTerritoire])
+  }, [filtres, masquerPasses, territoirePret, slugTerritoire])
 
   const { data: agendaData, isLoading: agendaLoadingRaw, mutate: mutateAgenda } = useSWR(agendaKey)
 
@@ -1300,14 +1322,14 @@ export default function HomePage() {
    * alors déjà en cache, puisque « Tout » est l'état d'arrivée sur la carte.
    */
   const agendaKeyToutesCats = useMemo(() => {
-    if (!zoneLoaded) return null
+    if (!territoirePret) return null
     const params = new URLSearchParams()
     params.set('quand', filtres.quand)
     if (filtres.date) params.set('date', filtres.date)
     if (masquerPasses) params.set('masquerPasses', '1')
     if (slugTerritoire) params.set('territoire', slugTerritoire)
     return `/api/agenda?${params.toString()}`
-  }, [filtres.quand, filtres.date, masquerPasses, zoneLoaded, slugTerritoire])
+  }, [filtres.quand, filtres.date, masquerPasses, territoirePret, slugTerritoire])
 
   const { data: agendaToutesCatsData } = useSWR(agendaKeyToutesCats)
 
@@ -1315,6 +1337,8 @@ export default function HomePage() {
   // legacy → minimisation du diff dans la grosse page.tsx).
   useEffect(() => {
     if (!agendaData) return
+    // La zone d'abord : sans elle, rien ne borne la liste (cf. agendaKey).
+    if (!zoneLoaded) return
     /*
      * ON REFUSE LA REPONSE D'UNE AUTRE VILLE.
      *
@@ -1333,14 +1357,15 @@ export default function HomePage() {
     setAllEvenements((agendaData.evenements as EvenementCard[]) ?? [])
     setPromoEventsData((agendaData.promoEvents as EvenementCard[]) ?? [])
     setSplashFeaturedEvents((agendaData.splashFeatured as EvenementCard[]) ?? [])
-  }, [agendaData, slugTerritoire])
+  }, [agendaData, slugTerritoire, zoneLoaded])
 
   // Loading initial : tant que SWR n'a pas remonté de data ET qu'on est en train
   // de fetcher, on affiche le loader. Au retour (cache hit), data est déjà là
-  // → pas de loader, affichage instantané.
+  // → pas de loader, affichage instantané. Un agenda arrivé avant la zone
+  // garde aussi le loader : il n'est pas encore affichable.
   useEffect(() => {
-    setLoading(agendaKey !== null && agendaLoadingRaw && !agendaData)
-  }, [agendaKey, agendaLoadingRaw, agendaData])
+    setLoading(agendaKey !== null && ((agendaLoadingRaw && !agendaData) || (!!agendaData && !zoneLoaded)))
+  }, [agendaKey, agendaLoadingRaw, agendaData, zoneLoaded])
 
   // Sheet full → active le mode liste ; sheet réduite → revient en carte
   // Exception : sur le hub ou les onglets statiques, on ne touche pas au navTab

@@ -53,18 +53,20 @@ export default function PromoSplashGate() {
   /* La campagne appartient au territoire — sa frontiere veterans/nouveaux
      surtout : heritee, un territoire neuf prendrait ses premiers habitants
      pour des anciens. */
-  const { territoire } = useTerritoire()
+  const { territoire, pret: territoirePret } = useTerritoire()
   const slugTerr = territoire?.slug ?? null
 
-  // La config est publique et non cachée : une seule lecture par chargement.
+  // La config est publique et non cachée : une seule lecture par chargement —
+  // une fois le territoire connu, sinon elle partait deux fois.
   useEffect(() => {
+    if (!territoirePret) return
     let alive = true
     fetch(`/api/splash-promo${slugTerr ? `?territoire=${encodeURIComponent(slugTerr)}` : ''}`)
       .then(r => (r.ok ? r.json() : null))
       .then(j => { if (alive) setCfg(parseSplashPromo(j ? JSON.stringify(j) : null)) })
       .catch(() => { if (alive) setCfg(parseSplashPromo(null)) })
     return () => { alive = false }
-  }, [slugTerr])
+  }, [slugTerr, territoirePret])
 
   const plan = profile?.plan ?? 'basic'
   // Source de vérité de l'abonnement : le plan du profil, comme partout

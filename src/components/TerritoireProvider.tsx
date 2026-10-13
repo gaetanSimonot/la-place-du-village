@@ -1,5 +1,5 @@
 'use client'
-import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAdminSession } from '@/hooks/useAdminSession'
 
@@ -42,6 +42,8 @@ interface Ctx {
 }
 
 const CLE = 'pdv-territoire'
+/** La liste des territoires lue la dernière fois. */
+const CLE_LISTE = 'pdv-territoires-connus'
 
 const TerritoireContext = createContext<Ctx>({
   territoire: null, territoires: [], choisirTerritoire: () => {}, pret: false, peutBasculer: false,
@@ -55,6 +57,28 @@ export function TerritoireProvider({ children }: { children: React.ReactNode }) 
   const [slug, setSlug] = useState<string | null>(null)
   const [pret, setPret] = useState(false)
 
+  /*
+   * LA DERNIÈRE LISTE CONNUE, AVANT LE RÉSEAU.
+   *
+   * Tout ce qui dépend du territoire attend `pret`. Sans mémoire, chaque
+   * ouverture payait un aller-retour (0,7 s en 4G, mesuré le 13/10/2026)
+   * avant que l'agenda, la zone ou la radio puissent partir. La liste change
+   * une fois par an : on reprend celle de la dernière fois, avant la
+   * première peinture, et la lecture réseau ci-dessous la remplace.
+   *
+   * Pas dans l'état initial : le rendu serveur ne voit pas localStorage, et
+   * les deux rendus doivent être identiques.
+   */
+  useLayoutEffect(() => {
+    try {
+      const garde = JSON.parse(localStorage.getItem(CLE_LISTE) || 'null')
+      if (Array.isArray(garde) && garde.length) {
+        setTerritoires(t => (t.length ? t : garde as TerritoireVue[]))
+        setPret(true)
+      }
+    } catch { /* pas de liste gardée : on attend le réseau */ }
+  }, [])
+
   // Lecture directe Supabase, pas fetch('/api/…') : le service worker peut
   // intercepter les routes API. Les territoires sont publics en lecture.
   useEffect(() => {
@@ -62,12 +86,19 @@ export function TerritoireProvider({ children }: { children: React.ReactNode }) 
     supabase.from('territoires')
       .select('id, slug, nom, par_defaut')
       .eq('actif', true)
-      .then(({ data }) => {
+      .then(({ data, error }) => {
         if (!vivant) return
-        setTerritoires((data ?? []) as TerritoireVue[])
+        // Un échec de lecture ne remplace pas une liste gardée par du vide.
+        if (error && !data) { setPret(true); return }
+        const liste = (data ?? []) as TerritoireVue[]
+        setTerritoires(liste)
         setPret(true)
+        try { localStorage.setItem(CLE_LISTE, JSON.stringify(liste)) } catch { /* pas de mémoire */ }
       })
-    return () => { vivant = false }
+    // Une lecture qui ne répond jamais (4G qui décroche) ne doit pas tout
+    // bloquer : sans territoire, les API servent le territoire par défaut.
+    const filet = setTimeout(() => { if (vivant) setPret(true) }, 4000)
+    return () => { vivant = false; clearTimeout(filet) }
   }, [])
 
   /*
