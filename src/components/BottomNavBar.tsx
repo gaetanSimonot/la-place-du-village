@@ -186,8 +186,8 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
    *
    * Village → Carte, Carte → Bons plans, Bons plans → Village. Sur l'un des
    * trois, le suivant appelle en permanence (pastille et couleur orange) et
-   * bat toutes les 2,5 s, 3 s après l'arrivée. Pas de fin : c'est le chemin
-   * proposé, il reste indiqué. Rien sur Favoris ni sur les autres écrans.
+   * bat trois fois, 3 s après l'arrivée, puis se tait (globals.css) — et
+   * recommence à la prochaine arrivée. Rien sur Favoris ni sur les autres écrans.
    *
    * Plus de mémoire des onglets « vus » : elle arrêtait l'appel une fois les
    * trois ouverts — d'où Bons plans qui n'appelait jamais le Village.

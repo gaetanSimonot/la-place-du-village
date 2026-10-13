@@ -423,9 +423,12 @@ html[data-univers='theatre'] body { background: var(--uni-bg); }
   0%, 68%, 100% { color: var(--tab-ink, #8A8A8A); }
   9%, 58%       { color: #C4622D; }
 }
-.lpv-appel-halo  { background: rgba(196, 98, 45, .16); opacity: 0; animation: lpv-appel-halo 3.2s ease-in-out infinite; }
-.lpv-appel       { animation: lpv-appel 3.2s ease-in-out infinite; }
-.lpv-appel-texte { animation: lpv-appel-texte 3.2s ease-in-out infinite; }
+/* Trois battements puis le calme, à chaque arrivée sur un onglet. En boucle
+   infinie, la couleur et l'ombre animées faisaient redessiner l'écran 60 fois
+   par seconde pour toujours — batterie, et appuis ralentis sur petit téléphone. */
+.lpv-appel-halo  { background: rgba(196, 98, 45, .16); opacity: 0; animation: lpv-appel-halo 3.2s ease-in-out 3; }
+.lpv-appel       { animation: lpv-appel 3.2s ease-in-out 3; }
+.lpv-appel-texte { animation: lpv-appel-texte 3.2s ease-in-out 3; }
 
 /* Moins d'animations demandé : le fondu de couleur seul, sans saut ni onde. */
 @media (prefers-reduced-motion: reduce) {
