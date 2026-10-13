@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { choisirTuilesDuJour, type EvenementTuile } from '@/lib/hubTodayPicker'
 import { haversineKm } from '@/lib/distance'
+import { aLieuEntre } from '@/lib/occurrences'
 import { territoireParDefaut, territoireParSlug } from '@/lib/territoires'
 import { lireConfigs } from '@/lib/configTerritoire'
 
@@ -235,6 +236,7 @@ export async function GET(req: NextRequest) {
     venteSlotsRes,
     eventSlotsRes,
     todayEventsRes,
+    enCoursRes,
     journalRes,
     covoitsRes,
     allPromosRes,
@@ -258,6 +260,15 @@ export async function GET(req: NextRequest) {
       .eq('date_debut', todayISO)
       .order('heure', { ascending: true, nullsFirst: false })
       .limit(40),
+    // Le compteur « N événements » : tout ce qui SE TIENT aujourd'hui (même
+    // règle que l'agenda et la carte), pas seulement ce qui commence ce jour.
+    supabaseAdmin
+      .from('evenements')
+      .select('territoire_id, dates, jours_semaine, lieux(lat, lng)')
+      .eq('statut', 'publie')
+      .lte('date_debut', todayISO)
+      .or(`date_fin.gte.${todayISO},and(date_fin.is.null,date_debut.eq.${todayISO})`)
+      .limit(1000),
     qJournalHub,
     qCovoitHub,
     // Toutes les promos actives non expirées (filtrées ensuite par plan owner)
@@ -497,6 +508,21 @@ export async function GET(req: NextRequest) {
     .filter(e => !territoireVu || e.territoire_id === territoireVu.id)
     .filter(dansLaZone)
 
+  // Le compteur suit la règle de l'agenda (même chiffre que la carte en
+  // « Aujourd'hui ») : les dates précises priment, puis les jours de la
+  // semaine, sinon l'événement vaut sur toute sa période.
+  const jourDuJour = (() => { const d = new Date(`${todayISO}T12:00:00Z`).getUTCDay(); return d === 0 ? 7 : d })()
+  const totalDuJour = ((enCoursRes.data ?? []) as unknown as EventRow[])
+    .filter(e => !territoireVu || e.territoire_id === territoireVu.id)
+    .filter(dansLaZone)
+    .filter(e => {
+      const ev = e as { dates?: string[] | null; jours_semaine?: number[] | null }
+      if (ev.dates?.length) return aLieuEntre(ev.dates, todayISO, todayISO)
+      if (ev.jours_semaine?.length) return ev.jours_semaine.includes(jourDuJour)
+      return true
+    })
+    .length
+
   // Positions forcées par l'admin (bouton « mettre en avant »). Elles gagnent
   // toujours : aucune règle de tri ne s'applique à elles.
   const imposes = new Map<number, EventRow>()
@@ -556,12 +582,10 @@ export async function GET(req: NextRequest) {
     // du featured admin — ça sert le badge "X events aujourd'hui" qui doit
     // refléter l'activité réelle, pas le choix éditorial.
     //
-    // Il compte désormais les candidats DANS LA ZONE, et non toutes les lignes
-    // du jour : afficher « 23 événements » puis en ouvrir 21 dans l'agenda
-    // faisait douter du reste. Conséquence assumée : au-delà de 40 événements
-    // dans une même journée, le total serait plafonné par le `limit(40)`
-    // ci-dessus — on en compte une vingtaine, la marge tient.
-    todayTotal:  candidatsDuJour.length,
+    // Il compte DANS LA ZONE tout ce qui se tient aujourd'hui (expositions en
+    // cours, rendez-vous récurrents compris), comme la carte en « Aujourd'hui ».
+    // Les tuiles, elles, restent les événements qui commencent ce jour.
+    todayTotal:  totalDuJour,
     promos:      orderedPromos.slice(0, 8),
     ventes:      ordered.slice(0, 4),
     ventesTotal: annoncesTotal ?? ordered.length,
