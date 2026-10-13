@@ -66,6 +66,12 @@ const Icons = {
 /** L'ordre dans lequel les onglets se passent le relais. */
 const CYCLE_ONGLETS = ['village', 'carte', 'bonsplans']
 
+/** Écart minimal entre deux changements d'écran par la barre (cf. `go`). */
+const ECART_ONGLETS_MS = 350
+/** Partagé entre les instances : chaque page monte sa propre barre, et une
+ *  rafale passe d'une page à l'autre (Bons plans ↔ Carte). */
+let dernierChangementOnglet = 0
+
 export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = {}) {
   const router = useRouter()
   const pathname = usePathname()
@@ -110,8 +116,38 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
   const isAnnonces = pathname?.startsWith('/annonces') ?? false
   const onVillageish = activeTab === 'village' || activeTab === 'profil' || activeTab === 'notifs'
 
+  /*
+   * LES CHANGEMENTS D'ONGLET SONT RÉGULÉS.
+   *
+   * Taper très vite partout sur la barre faisait monter et démonter le
+   * Village (57 000 px de haut, 61 calques graphiques) et la carte plusieurs
+   * fois par seconde. Sur un téléphone de 4 Go, la mémoire graphique de
+   * Chrome saturait : écrans mélangés, barre effacée, appuis ignorés —
+   * constaté le 13/10/2026 sur le Samsung de Gaëtan.
+   *
+   * L'onglet s'allume toujours au doigt ; l'écran, lui, ne change qu'une
+   * fois par ECART_ONGLETS_MS, et c'est le DERNIER onglet tapé qui gagne. Un
+   * appui isolé part tout de suite, sans aucun délai.
+   */
   const go = (href: string, id: string) => {
     setPendingTab(id)
+    const ecart = Date.now() - dernierChangementOnglet
+    if (ecart >= ECART_ONGLETS_MS && !ongletEnAttente.current) { allerVers(href, id); return }
+    ongletEnAttente.current = { href, id }
+    if (minuterieOnglet.current) return
+    minuterieOnglet.current = setTimeout(() => {
+      minuterieOnglet.current = null
+      const cible = ongletEnAttente.current
+      ongletEnAttente.current = null
+      if (cible) allerVers(cible.href, cible.id)
+    }, Math.max(0, ECART_ONGLETS_MS - ecart))
+  }
+  const ongletEnAttente = useRef<{ href: string; id: string } | null>(null)
+  const minuterieOnglet = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (minuterieOnglet.current) clearTimeout(minuterieOnglet.current) }, [])
+
+  const allerVers = (href: string, id: string) => {
+    dernierChangementOnglet = Date.now()
     if (onNavigate) { onNavigate(id); return }
     // Retour vers l'accueil depuis une autre page (Bons plans…) : l'accueil se
     // remonte et prend son onglet dans 'pdv-nav-tab' AVANT d'avoir vu l'URL
