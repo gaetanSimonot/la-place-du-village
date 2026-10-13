@@ -40,12 +40,8 @@ interface Props {
   navHeight: number
   screenH: number
   onPeekHeightChange?: (h: number) => void
-  /** Miroir vivant de l'état de la liste — écrit sans provoquer de rendu.
-   *  `count` compte autant que `top` : au retour, la liste repart à 20 cartes,
-   *  et une position de 1500px n'existe pas dans une liste de 20 cartes. */
-  listStateRef?: React.MutableRefObject<{ top: number; count: number }>
-  /** État à rendre au retour d'une fiche (null = rien à faire). */
-  restoreListState?: { top: number; count: number } | null
+  /** Événement à remettre sous les yeux au retour d'une fiche (null = rien à faire). */
+  restoreToId?: string | null
   /** Appelé quand la restauration est finie — ou abandonnée. */
   onListStateRestored?: () => void
   proEvents?: EvenementCard[]
@@ -140,7 +136,7 @@ export default function BottomSheet({
   evenements, loading, selectedId, onSelectEvent, onViewOnMap,
   filtres, onFiltresChange, mode, onModeChange, navHeight, screenH,
   onPeekHeightChange, proEvents = [], herosDiapo = null, onDiscoverPro, onOpenEvent,
-  listStateRef, restoreListState = null, onListStateRestored,
+  restoreToId = null, onListStateRestored,
   favIds = [], onToggleFav,
   appMode, onAppModeChange, contenuTransport, enteteMode, zoneListe = null, onToutVoir, producers = [], producerLoading = false,
   selectedProducerId = null, onSelectProducer, onViewProducerOnMap,
@@ -199,47 +195,26 @@ export default function BottomSheet({
 
   const headerRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
-  /** Restauration déjà appliquée (ou abandonnée) — ne se rejoue jamais. */
-  const restoreDoneRef = useRef(false)
+  /** Retour de fiche en cours : la liste se recale sur l'événement à chaque
+   *  arrivée de données, jusqu'à ce que l'utilisateur la touche. */
+  const restoreArmeRef = useRef(false)
   /** Événement à amener en haut dès qu'assez de cartes seront rendues. */
   const pendingScrollRef = useRef<string | null>(null)
   /** Sélection précédente : l'auto-défilement ne réagit qu'à un CHANGEMENT. */
   const prevSelectedRef = useRef<string | null>(null)
+  const finTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** Dernière cible reçue : on n'arme qu'une fois par retour. */
+  const restoreVuRef = useRef<string | null>(null)
+  if (restoreToId !== restoreVuRef.current) {
+    restoreVuRef.current = restoreToId
+    if (restoreToId) restoreArmeRef.current = true
+  }
 
-  /**
-   * Retour d'une fiche événement : on rend à la liste le nombre de cartes
-   * qu'elle avait, PUIS sa position. Dans cet ordre — sinon on demande un
-   * défilement de 1500px à une liste qui n'en fait que 600.
-   *
-   * `restoreDoneRef` garantit que ça ne se joue qu'une fois. Et on abandonne
-   * au bout d'une seconde et demie plutôt que de rester en attente : une
-   * restauration qui ne finit jamais bloquerait tout le reste.
-   */
-  useEffect(() => {
-    if (!restoreListState || restoreDoneRef.current) return
-    if (!evenements.length) return
-    if (visibleCount < restoreListState.count) { setVisibleCount(restoreListState.count); return }
-    const list = listRef.current
-    if (!list) return
-    const raf = requestAnimationFrame(() => {
-      if (restoreDoneRef.current) return
-      restoreDoneRef.current = true
-      list.scrollTop = restoreListState.top
-      onListStateRestored?.()
-    })
-    return () => cancelAnimationFrame(raf)
-  }, [restoreListState, evenements.length, visibleCount, onListStateRestored])
-
-  // Filet de sécurité : quoi qu'il arrive, on ne reste pas bloqué en attente.
-  useEffect(() => {
-    if (!restoreListState || restoreDoneRef.current) return
-    const t = setTimeout(() => {
-      if (restoreDoneRef.current) return
-      restoreDoneRef.current = true
-      onListStateRestored?.()
-    }, 1500)
-    return () => clearTimeout(t)
-  }, [restoreListState, onListStateRestored])
+  const finirRestauration = useCallback(() => {
+    if (!restoreArmeRef.current) return
+    restoreArmeRef.current = false
+    onListStateRestored?.()
+  }, [onListStateRestored])
   const obsRef = useRef<IntersectionObserver | null>(null)
   const loaderRef = useCallback((el: HTMLDivElement | null) => {
     if (obsRef.current) { obsRef.current.disconnect(); obsRef.current = null }
@@ -500,8 +475,9 @@ export default function BottomSheet({
     }
   }, [appMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reset visibleCount quand la liste change (nouveau filtre)
-  useEffect(() => { setVisibleCount(BATCH) }, [evenements])
+  // Reset visibleCount quand la liste change (nouveau filtre) — sauf pendant
+  // un retour de fiche : la restauration règle elle-même le nombre de cartes.
+  useEffect(() => { if (!restoreArmeRef.current) setVisibleCount(BATCH) }, [evenements])
   useEffect(() => { setVisibleEtabCount(BATCH) }, [etablissements])
   useEffect(() => { setVisibleProdCount(BATCH) }, [producers])
 
@@ -539,7 +515,10 @@ export default function BottomSheet({
     if (selectedId === prevSelectedRef.current) return
     prevSelectedRef.current = selectedId
     if (!selectedId) return
-    if (restoreListState && !restoreDoneRef.current) return
+    if (restoreArmeRef.current) {
+      if (selectedId === restoreToId) return
+      finirRestauration()  // une autre sélection : la restauration n'a plus d'objet
+    }
     const idx = visibleSource.findIndex(e => e.id === selectedId)
     if (idx < 0) return
     if (idx >= visibleCount) {
@@ -563,11 +542,58 @@ export default function BottomSheet({
     scrollToCard(id)
   }, [visibleCount, scrollToCard])
 
+  /**
+   * Retour d'une fiche événement : on remet SA carte au milieu de la liste.
+   *
+   * Pas une position en pixels : au retour, les filtres relancent le
+   * chargement, la liste arrive parfois en deux temps, et une hauteur notée
+   * avant de partir ne désigne plus le même événement. On attend donc que la
+   * liste soit chargée, on rend assez de cartes pour atteindre la bonne, puis
+   * on la centre.
+   *
+   * Et on recommence à chaque nouvelle arrivée de données tant que
+   * l'utilisateur n'a pas touché la liste (voir finirRestauration) : une
+   * deuxième liste qui tombe après la première ne renvoie plus en haut.
+   */
+  useEffect(() => {
+    if (!restoreToId || !restoreArmeRef.current) return
+    if (loading) return
+    const idx = visibleSource.findIndex(e => e.id === restoreToId)
+    if (idx < 0) return  // pas (encore) dans la liste : on attend la suivante
+    const besoin = Math.ceil((idx + 1) / BATCH) * BATCH
+    if (visibleCount < besoin) { setVisibleCount(besoin); return }
+    const raf = requestAnimationFrame(() => {
+      const list = listRef.current
+      const card = list?.querySelector<HTMLElement>(`[data-evt-id="${CSS.escape(restoreToId)}"]`)
+      if (!list || !card) return
+      const top = card.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop
+      // Le milieu de la partie VISIBLE : hors 'full', le bas de la feuille est
+      // sous l'écran (même décalage que le paddingBottom de la liste).
+      const visible = list.clientHeight - (mode === 'full' ? 0 : snaps[mode])
+      list.scrollTop = Math.max(0, top - Math.max(0, visible - card.offsetHeight) / 2)
+      // Une liste qui arrive en deux temps tombe en moins de 3 s ; au-delà, un
+      // changement vient de l'utilisateur (carte déplacée…) et ne doit plus
+      // ramener la liste ici.
+      if (finTimerRef.current) clearTimeout(finTimerRef.current)
+      finTimerRef.current = setTimeout(finirRestauration, 3000)
+    })
+    return () => cancelAnimationFrame(raf)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restoreToId, loading, visibleSource, visibleCount, mode])
+
+  // L'événement n'est jamais arrivé (filtré, supprimé…) : on ne garde pas la
+  // liste en attente indéfiniment.
+  useEffect(() => {
+    if (!restoreToId) return
+    const t = setTimeout(finirRestauration, 10_000)
+    return () => clearTimeout(t)
+  }, [restoreToId, finirRestauration])
+
   // Scroll en haut quand on descend en peek — sauf si une restauration est en
   // cours : on revient d'une fiche et remettre la liste en haut annulerait
   // précisément ce qu'on cherche à rendre.
   useEffect(() => {
-    if (restoreListState && !restoreDoneRef.current) return
+    if (restoreArmeRef.current) return
     if (mode === 'peek') listRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode])
@@ -969,7 +995,6 @@ export default function BottomSheet({
         ref={listRef}
         onScroll={e => {
           const el = e.currentTarget as HTMLDivElement
-          if (listStateRef) listStateRef.current = { top: el.scrollTop, count: visibleCount }
           // Chargement par lots à l'approche du bas.
           //
           // Le détecteur d'intersection ne se déclenche pas dans cette colonne
@@ -996,7 +1021,10 @@ export default function BottomSheet({
           // invisible et rien ne permet d'aller les chercher.
           paddingBottom: 24 + (mode === 'full' ? 0 : snaps[mode]),
         }}
-        onPointerDown={e => e.stopPropagation()}
+        // Un doigt sur la liste : c'est l'utilisateur qui mène, la
+        // restauration du retour de fiche s'arrête là.
+        onPointerDown={e => { e.stopPropagation(); finirRestauration() }}
+        onWheel={finirRestauration}
       >
         {contenuTransport ? contenuTransport :
          appMode === 'annuaire' && annuaireTabIdx === 1 ? (

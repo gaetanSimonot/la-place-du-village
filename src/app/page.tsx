@@ -862,11 +862,8 @@ export default function HomePage() {
   }, [router])
   /** Post à rouvrir dans l'écran des notifications (deep-link ?post=). */
   const [notifPostId, setNotifPostId] = useState<string | null>(null)
-  /** État courant de la liste d'événements (position + cartes rendues),
-   *  tenu à jour par la feuille sans provoquer de rendu. */
-  const listStateRef = useRef({ top: 0, count: 20 })
-  /** État à rendre à la liste au retour d'une fiche événement. */
-  const [restoreListState, setRestoreListState] = useState<{ top: number; count: number } | null>(null)
+  /** Événement à remettre au milieu de la liste au retour de sa fiche. */
+  const [restoreToId, setRestoreToId] = useState<string | null>(null)
 
   // Si on arrive sur / avec ?tab=X (depuis BottomNavBar des pages externes),
   // restaure le bon onglet et quitte le hub. Lecture client-side directe
@@ -1034,11 +1031,11 @@ export default function HomePage() {
       const s = JSON.parse(saved)
       if (s.filtres)    setFiltres(s.filtres)
       if (s.sheetMode)  setSheetMode(s.sheetMode)
-      if (s.listState && typeof s.listState.top === 'number' && s.listState.top > 0) setRestoreListState(s.listState)
       if (s.appMode) setAppMode(s.appMode as 'agenda' | 'annuaire')
       if (s.selectedProducerId) setSelectedProducerId(s.selectedProducerId)
       if (s.selectedId) {
         setSelectedId(s.selectedId)
+        setRestoreToId(s.selectedId)
         // Au retour d'une fiche event : force vue carte (sinon navTab reste à
         // 'accueil' et les FAB / boutons map disparaissent). Si l'user voulait
         // le Hub, il a son onglet pour y retourner.
@@ -1682,7 +1679,7 @@ export default function HomePage() {
       sessionStorage.setItem('pdv-nav-state', JSON.stringify({
         // La hauteur RÉELLE de la feuille, pas 'peek' : on rend la vue telle
         // qu'elle a été quittée, sinon il faut tout redérouler au retour.
-        filtres, sheetMode, listState: listStateRef.current, selectedId: id,
+        filtres, sheetMode, selectedId: id,
         mapLat: mapCameraRef.current?.lat,
         mapLng: mapCameraRef.current?.lng,
         mapZoom: mapCameraRef.current?.zoom,
@@ -1691,7 +1688,7 @@ export default function HomePage() {
   }, [filtres, sheetMode])
 
 
-  const handleListStateRestored = useCallback(() => setRestoreListState(null), [])
+  const handleListStateRestored = useCallback(() => setRestoreToId(null), [])
 
   /** Fiche ouverte en fenêtre par-dessus la carte (bureau seulement). */
   const [eventModalId, setEventModalId] = useState<string | null>(null)
@@ -2473,8 +2470,7 @@ export default function HomePage() {
         enteteMode={modeBonsPlans ? (
           <EnteteBonsPlans total={bonsPlans.length} types={typesBonsPlans} typeActif={typeBonsPlans} onType={setTypeBonsPlans} />
         ) : undefined}
-        listStateRef={listStateRef}
-        restoreListState={restoreListState}
+        restoreToId={restoreToId}
         onListStateRestored={handleListStateRestored}
         evenements={evenements}
         loading={loading}
