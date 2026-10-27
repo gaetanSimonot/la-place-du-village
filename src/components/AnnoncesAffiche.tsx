@@ -4,7 +4,7 @@ import useSWR from 'swr'
 import { useTerritoire } from '@/components/TerritoireProvider'
 import { useDefilementDoux } from '@/hooks/useDefilementDoux'
 import TitreVivant from '@/components/village/TitreVivant'
-import { getPrixAffiche, estUneRecherche, CATEGORIES_LABELS, type Annonce } from '@/lib/annonces'
+import { getPrixAffiche, estUneRecherche, photoPrincipale, CATEGORIES_LABELS, type Annonce } from '@/lib/annonces'
 
 /**
  * Bloc « Petites annonces » — une rubrique du flux du Village, sur le modèle
@@ -61,7 +61,7 @@ export default function AnnoncesAffiche() {
       <div ref={piste} className="flex items-stretch gap-2.5 lg:overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
         {[...annonces, ...annonces].map((a, i) => {
           const copie = i >= annonces.length
-          const photo = a.photos?.[0]
+          const photo = photoPrincipale(a)
           const cherche = estUneRecherche(a)
           return (
             <Link key={`${a.id}-${i}`} href={`/annonces/${a.id}`}

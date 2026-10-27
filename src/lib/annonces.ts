@@ -37,6 +37,14 @@ export function estUneRecherche(a: Pick<Annonce, 'type' | 'sens'>): boolean {
   return aUnSens(a.type) && a.sens === 'cherche'
 }
 
+/** Visuel par défaut d'un covoit publié sans photo. */
+export const IMAGE_COVOITURAGE = '/visuels/covoiturage.webp'
+
+/** Photo principale, ou visuel par défaut du type (covoit) ; null sinon. */
+export function photoPrincipale(a: { type: AnnonceType; photos?: string[] | null }): string | null {
+  return a.photos?.[0] ?? (a.type === 'covoiturage' ? IMAGE_COVOITURAGE : null)
+}
+
 export type AnnonceStatut = 'active' | 'vendu' | 'expiree' | 'don_final'
 
 export interface Annonce {

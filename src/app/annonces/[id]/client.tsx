@@ -21,6 +21,7 @@ import {
   getPrixTimeline,
   getQuotaSponsoring,
   estUneRecherche,
+  photoPrincipale,
   CATEGORIES_LABELS,
   CATEGORIES_ICONS,
   type Annonce,
@@ -239,7 +240,9 @@ export default function AnnoncePageClient({ id }: Props) {
   const isEnchere = annonce.type === 'enchere_inversee'
   const info = TYPE_INFO[annonce.type]
   const cherche = estUneRecherche(annonce)
-  const photos = annonce.photos
+  // Sans photo, un covoit prend son visuel par défaut (photoPrincipale).
+  const parDefaut = photoPrincipale(annonce)
+  const photos = annonce.photos.length > 0 ? annonce.photos : parDefaut ? [parDefaut] : []
   const quota = getQuotaSponsoring(plan)
   const peutSponsoriser = isOwner && isActive && !annonce.sponsored && quota > 0
 

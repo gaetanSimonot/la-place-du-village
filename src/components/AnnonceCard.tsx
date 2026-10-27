@@ -8,6 +8,7 @@ import {
   getNextDropDate,
   formatCountdown,
   estUneRecherche,
+  photoPrincipale,
   type Annonce,
 } from '@/lib/annonces'
 
@@ -52,7 +53,7 @@ export default function AnnonceCard({ annonce }: Props) {
   const isTroc    = annonce.type === 'troc'
   const isService = annonce.type === 'service' || annonce.type === 'covoiturage'
   const cherche   = estUneRecherche(annonce)
-  const photo = annonce.photos[0]
+  const photo = photoPrincipale(annonce)
   const { isFav, toggle } = useAnnonceFavorites()
   const favored = isFav(annonce.id)
 

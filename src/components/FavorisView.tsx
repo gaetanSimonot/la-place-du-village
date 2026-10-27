@@ -14,7 +14,7 @@ import ClientPortal from '@/components/ClientPortal'
 import { useAnnonceFavorites } from '@/hooks/useAnnonceFavorites'
 import { authedFetcher } from '@/lib/swr-fetchers'
 import { ETAB_TYPES } from '@/lib/etablissement-types'
-import { getPrixAffiche, type Annonce } from '@/lib/annonces'
+import { getPrixAffiche, photoPrincipale, type Annonce } from '@/lib/annonces'
 import ImageVignette from '@/components/ImageVignette'
 
 interface ProducerMin {
@@ -543,7 +543,7 @@ function annonceToRow(a: Annonce, onRemove: () => void): RowItem {
     href:      `/annonces/${a.id}`,
     onRemove,
     removeKind: 'heart',
-    imageUrl:  a.photos?.[0] ?? null,
+    imageUrl:  photoPrincipale(a),
     imageBg:   '#FFF0E5',
     fallbackIcon:  <IcTag size={22} />,
     fallbackColor: '#C84B2F',

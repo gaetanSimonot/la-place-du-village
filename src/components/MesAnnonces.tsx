@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import type { Annonce, AnnonceStatut } from '@/lib/annonces'
-import { getPrixAffiche, CATEGORIES_ICONS } from '@/lib/annonces'
+import { getPrixAffiche, photoPrincipale, CATEGORIES_ICONS } from '@/lib/annonces'
 
 const STATUT_LABELS: Record<AnnonceStatut, string> = {
   active:    'En ligne',
@@ -129,8 +129,8 @@ export default function MesAnnonces() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 22,
               }}>
-                {a.photos[0]
-                  ? <img src={a.photos[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                {photoPrincipale(a)
+                  ? <img src={photoPrincipale(a)!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   : CATEGORIES_ICONS[a.categorie]
                 }
               </div>

@@ -8,6 +8,7 @@ import FriendButton from '@/components/FriendButton'
 import BottomNavBar from '@/components/BottomNavBar'
 import { useFriendships } from '@/hooks/useFriendships'
 import { useSmartBack } from '@/hooks/useSmartBack'
+import { photoPrincipale } from '@/lib/annonces'
 
 interface DisplaySettingsLite {
   banner?: boolean
@@ -777,7 +778,7 @@ function EmptyState({ label }: { label: string }) {
 function AnnonceMini({ a }: { a: AnnonceSnippet }) {
   const tagPalette = TYPE_PALETTE[a.type] ?? TYPE_PALETTE.vente
   const prix = getPrixLabel(a)
-  const photo = a.photos?.[0]
+  const photo = photoPrincipale(a)
   return (
     <Link
       href={`/annonces/${a.id}`}
