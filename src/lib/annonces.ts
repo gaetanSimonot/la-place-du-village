@@ -17,7 +17,25 @@ import type { Plan } from './capabilities'
 // Types
 // ──────────────────────────────────────────────────────────────────────────
 
-export type AnnonceType = 'vente' | 'troc' | 'don' | 'service' | 'enchere_inversee'
+export type AnnonceType = 'vente' | 'troc' | 'don' | 'service' | 'covoiturage' | 'enchere_inversee'
+
+/**
+ * Sens d'une annonce : on propose (cas général) ou on cherche. Seuls les
+ * services et les covoiturages ont un sens ; les autres types sont toujours
+ * 'propose' (forcé côté API).
+ */
+export type AnnonceSens = 'propose' | 'cherche'
+
+export const TYPES_AVEC_SENS: AnnonceType[] = ['service', 'covoiturage']
+
+export function aUnSens(type: AnnonceType): boolean {
+  return TYPES_AVEC_SENS.includes(type)
+}
+
+/** Vrai pour une demande (« je cherche ») — à signaler par une pastille « Cherche ». */
+export function estUneRecherche(a: Pick<Annonce, 'type' | 'sens'>): boolean {
+  return aUnSens(a.type) && a.sens === 'cherche'
+}
 
 export type AnnonceStatut = 'active' | 'vendu' | 'expiree' | 'don_final'
 
@@ -27,6 +45,8 @@ export interface Annonce {
   /** Blase : fiche sous laquelle l'annonce est publiée (null = profil perso). */
   etablissement_id?: string | null
   type: AnnonceType
+  /** Absent sur les lignes d'avant la migration 2026-10-27 → 'propose'. */
+  sens?: AnnonceSens
   titre: string
   description: string | null
   categorie: AnnonceCategorie
@@ -165,7 +185,7 @@ export const CATEGORIES_ICONS: Record<AnnonceCategorie, string> = {
 // et sur l'accès anticipé aux enchères (capability `early_bid_access`).
 // ──────────────────────────────────────────────────────────────────────────
 
-const ALL_TYPES: AnnonceType[] = ['vente', 'troc', 'don', 'service', 'enchere_inversee']
+const ALL_TYPES: AnnonceType[] = ['vente', 'troc', 'don', 'service', 'covoiturage', 'enchere_inversee']
 
 const TYPES_BY_PLAN: Record<Plan, AnnonceType[]> = {
   basic:     ALL_TYPES,
@@ -230,11 +250,14 @@ export function canSponsor(plan: Plan): boolean {
  * - enchere_inversee active : prix_actuel (qui décroît)
  * - don / don_final : "Gratuit"
  * - troc : "À échanger"
+ * - service / covoiturage : leur nom, « Recherche » si c'est une demande
  */
 export function getPrixAffiche(a: Annonce): string {
+  if (estUneRecherche(a)) return 'Recherche'
   if (a.type === 'don' || a.statut === 'don_final') return 'Gratuit'
   if (a.type === 'troc') return 'À échanger'
   if (a.type === 'service') return 'Service'
+  if (a.type === 'covoiturage') return 'Covoiturage'
   if (a.type === 'enchere_inversee') {
     const p = a.prix_actuel ?? a.prix_initial
     return p != null ? `${formatEuros(p)} (enchère ↓)` : 'Enchère'
@@ -332,11 +355,20 @@ export function getJoursAvantSeuil(a: Annonce): number | null {
 // Validation côté API (les CHECK constraints PG sont silencieuses → on valide ici)
 // ──────────────────────────────────────────────────────────────────────────
 
-export const ANNONCE_TYPES: AnnonceType[] = ['vente', 'troc', 'don', 'service', 'enchere_inversee']
+export const ANNONCE_TYPES: AnnonceType[] = ['vente', 'troc', 'don', 'service', 'covoiturage', 'enchere_inversee']
 export const ANNONCE_STATUTS: AnnonceStatut[] = ['active', 'vendu', 'expiree', 'don_final']
 
 export function isAnnonceType(v: unknown): v is AnnonceType {
   return typeof v === 'string' && ANNONCE_TYPES.includes(v as AnnonceType)
+}
+
+export function isAnnonceSens(v: unknown): v is AnnonceSens {
+  return v === 'propose' || v === 'cherche'
+}
+
+/** Sens à enregistrer : 'cherche' seulement pour un type qui en a un. */
+export function sensNormalise(type: AnnonceType, sens: unknown): AnnonceSens {
+  return aUnSens(type) && sens === 'cherche' ? 'cherche' : 'propose'
 }
 
 export function isAnnonceCategorie(v: unknown): v is AnnonceCategorie {
@@ -345,6 +377,7 @@ export function isAnnonceCategorie(v: unknown): v is AnnonceCategorie {
 
 export interface AnnonceCreateInput {
   type: AnnonceType
+  sens?: AnnonceSens
   titre: string
   description?: string | null
   categorie: AnnonceCategorie
@@ -373,6 +406,7 @@ export function validateAnnonceInput(
   if (!input.titre?.trim()) return 'Le titre est requis'
   if (!isAnnonceType(input.type)) return 'Type invalide'
   if (!isAnnonceCategorie(input.categorie)) return 'Catégorie invalide'
+  if (input.sens != null && !isAnnonceSens(input.sens)) return 'Sens invalide'
   if (!canCreateType(plan, input.type)) {
     return `Le plan ${plan} ne permet pas ce type d'annonce`
   }

@@ -194,7 +194,7 @@ export const OUTILS = [
       type: 'object' as const,
       properties: {
         mots: { type: 'array', items: { type: 'string' }, description: MOTS_DESC },
-        type: { type: 'string', enum: ['vente', 'troc', 'don', 'service', 'enchere_inversee'] },
+        type: { type: 'string', enum: ['vente', 'troc', 'don', 'service', 'covoiturage', 'enchere_inversee'] },
         categorie: {
           type: 'string',
           enum: ['immobilier', 'vehicules', 'multimedia', 'maison', 'jardin', 'bricolage', 'mode', 'loisirs', 'services', 'animaux', 'autres'],

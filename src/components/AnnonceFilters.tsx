@@ -16,6 +16,7 @@ const TYPE_PALETTE: Record<AnnonceType, { bg: string; border: string; text: stri
   don:              { bg: '#2D5A3D', border: '#2D5A3D', text: '#FFFFFF' },
   troc:             { bg: '#3A5D8C', border: '#3A5D8C', text: '#FFFFFF' },
   service:          { bg: '#2E7D74', border: '#2E7D74', text: '#FFFFFF' },
+  covoiturage:      { bg: '#5B4FA8', border: '#5B4FA8', text: '#FFFFFF' },
   enchere_inversee: { bg: '#C84B2F', border: '#C84B2F', text: '#FFFFFF' },
 }
 
@@ -48,6 +49,12 @@ const TYPE_ICONS: Record<AnnonceType, ReactNode> = {
       <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
     </svg>
   ),
+  covoiturage: (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 11l1.5-4.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11"/><rect x="3" y="11" width="18" height="6" rx="2"/>
+      <circle cx="7.5" cy="14" r="1"/><circle cx="16.5" cy="14" r="1"/><line x1="6" y1="17" x2="6" y2="19"/><line x1="18" y1="17" x2="18" y2="19"/>
+    </svg>
+  ),
   enchere_inversee: (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>
@@ -61,6 +68,7 @@ const TYPES: { id: AnnonceType | null; label: string; icon: ReactNode }[] = [
   { id: 'don',              label: 'Don',     icon: TYPE_ICONS.don },
   { id: 'troc',             label: 'Troc',    icon: TYPE_ICONS.troc },
   { id: 'service',          label: 'Service', icon: TYPE_ICONS.service },
+  { id: 'covoiturage',      label: 'Covoit',  icon: TYPE_ICONS.covoiturage },
   { id: 'enchere_inversee', label: 'Enchère ↘', icon: TYPE_ICONS.enchere_inversee },
 ]
 

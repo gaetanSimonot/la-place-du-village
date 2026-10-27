@@ -20,6 +20,7 @@ import {
   getProchaineBaisse,
   getPrixTimeline,
   getQuotaSponsoring,
+  estUneRecherche,
   CATEGORIES_LABELS,
   CATEGORIES_ICONS,
   type Annonce,
@@ -34,6 +35,7 @@ const TYPE_INFO: Record<Annonce['type'], { label: string; emoji: string; color: 
   troc:             { label: 'Troc',              emoji: '🔄', color: '#E8622A', bg: '#FFF0EB' },
   don:              { label: 'Don',               emoji: '🎁', color: '#2D5A3D', bg: '#E8F2EB' },
   service:          { label: 'Service',           emoji: '🛠️', color: '#2E7D74', bg: '#E6F2F0' },
+  covoiturage:      { label: 'Covoiturage',       emoji: '🚗', color: '#5B4FA8', bg: '#EFEDF8' },
   enchere_inversee: { label: 'Enchère inversée',  emoji: '📉', color: '#C0392B', bg: '#FBE9E7' },
 }
 
@@ -236,6 +238,7 @@ export default function AnnoncePageClient({ id }: Props) {
   const isActive  = annonce.statut === 'active'
   const isEnchere = annonce.type === 'enchere_inversee'
   const info = TYPE_INFO[annonce.type]
+  const cherche = estUneRecherche(annonce)
   const photos = annonce.photos
   const quota = getQuotaSponsoring(plan)
   const peutSponsoriser = isOwner && isActive && !annonce.sponsored && quota > 0
@@ -369,6 +372,7 @@ export default function AnnoncePageClient({ id }: Props) {
 
         <div style={{ position: 'absolute', top: 12, left: 12, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <span style={{ backgroundColor: info.color, color: '#fff', borderRadius: 999, padding: '5px 12px', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', boxShadow: `0 2px 10px ${info.color}66` }}>{info.label}</span>
+          {cherche && <span style={{ backgroundColor: '#D98A1C', color: '#fff', borderRadius: 999, padding: '5px 12px', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', boxShadow: '0 2px 10px #D98A1C66' }}>Cherche</span>}
           {annonce.sponsored && <span style={{ backgroundColor: '#E8622A', color: '#fff', borderRadius: 999, padding: '5px 11px', fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase' }}>✦ En vedette</span>}
           {annonce.statut === 'vendu'     && <span style={{ backgroundColor: '#3A5BC7', color: '#fff', borderRadius: 999, padding: '5px 11px', fontSize: 10, fontWeight: 800 }}>VENDU</span>}
           {annonce.statut === 'expiree'   && <span style={{ backgroundColor: '#8A7A6A', color: '#fff', borderRadius: 999, padding: '5px 11px', fontSize: 10, fontWeight: 800 }}>EXPIRÉE</span>}
@@ -413,7 +417,7 @@ export default function AnnoncePageClient({ id }: Props) {
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
           <h1 style={{ margin: 0, fontFamily: SERIF, fontSize: 25, lineHeight: 1.1, color: '#1A1209', letterSpacing: '-0.02em', flex: 1, minWidth: 0, overflowWrap: 'break-word' }}>{annonce.titre}</h1>
           <div style={{ textAlign: 'right', flexShrink: 0, maxWidth: '100%' }}>
-            <div style={{ fontFamily: SERIF, fontSize: 30, lineHeight: 1, color: info.color, letterSpacing: '-0.01em' }}>
+            <div style={{ fontFamily: SERIF, fontSize: 30, lineHeight: 1, color: cherche ? '#9A5B00' : info.color, letterSpacing: '-0.01em' }}>
               {isEnchere && annonce.prix_actuel != null ? formatEuros(annonce.prix_actuel) : getPrixAffiche(annonce)}
             </div>
             {isEnchere && annonce.statut === 'active' && (
@@ -453,7 +457,7 @@ export default function AnnoncePageClient({ id }: Props) {
         {/* Vendeur — strip inline */}
         {vendeur && (
           <div style={{ marginTop: 22, paddingTop: 18, borderTop: '1px solid #EDE6DA' }}>
-            <div style={LABEL}>Proposé par</div>
+            <div style={LABEL}>{cherche ? 'Demandé par' : 'Proposé par'}</div>
             <Link href={vendeur.href} style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit' }}>
               {vendeur.avatar_url
                 ? <img src={vendeur.avatar_url} alt="" style={{ width: 50, height: 50, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
@@ -561,7 +565,7 @@ export default function AnnoncePageClient({ id }: Props) {
             }}
           >
             <span>
-              {isEnchere ? `Acheter à ${getPrixAffiche(annonce)}` : annonce.type === 'don' ? 'Prendre ce don' : annonce.type === 'troc' ? 'Proposer un troc' : annonce.type === 'service' ? 'Contacter' : `Acheter à ${getPrixAffiche(annonce)}`}
+              {isEnchere ? `Acheter à ${getPrixAffiche(annonce)}` : annonce.type === 'don' ? 'Prendre ce don' : annonce.type === 'troc' ? 'Proposer un troc' : cherche ? (annonce.type === 'covoiturage' ? 'Proposer mon trajet' : 'Proposer mon aide') : (annonce.type === 'service' || annonce.type === 'covoiturage') ? 'Contacter' : `Acheter à ${getPrixAffiche(annonce)}`}
             </span>
             {isEnchere && <span style={{ fontSize: 10, opacity: 0.85, fontWeight: 600 }}>avant la prochaine baisse</span>}
           </button>

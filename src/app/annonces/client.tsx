@@ -18,6 +18,7 @@ const TYPES_FILTRE: { id: AnnonceType | null; label: string; couleur?: string }[
   { id: 'don',              label: 'Don',       couleur: '#2D5A3D' },
   { id: 'troc',             label: 'Troc',      couleur: '#3A5D8C' },
   { id: 'service',          label: 'Service',   couleur: '#2E7D74' },
+  { id: 'covoiturage',      label: 'Covoit',    couleur: '#5B4FA8' },
   { id: 'enchere_inversee', label: 'Enchère ↘', couleur: '#C84B2F' },
 ]
 

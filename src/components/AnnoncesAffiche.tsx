@@ -4,7 +4,7 @@ import useSWR from 'swr'
 import { useTerritoire } from '@/components/TerritoireProvider'
 import { useDefilementDoux } from '@/hooks/useDefilementDoux'
 import TitreVivant from '@/components/village/TitreVivant'
-import { getPrixAffiche, CATEGORIES_LABELS, type Annonce } from '@/lib/annonces'
+import { getPrixAffiche, estUneRecherche, CATEGORIES_LABELS, type Annonce } from '@/lib/annonces'
 
 /**
  * Bloc « Petites annonces » — une rubrique du flux du Village, sur le modèle
@@ -62,6 +62,7 @@ export default function AnnoncesAffiche() {
         {[...annonces, ...annonces].map((a, i) => {
           const copie = i >= annonces.length
           const photo = a.photos?.[0]
+          const cherche = estUneRecherche(a)
           return (
             <Link key={`${a.id}-${i}`} href={`/annonces/${a.id}`}
               className={`block shrink-0 overflow-hidden rounded-[12px] bg-white no-underline${copie ? ' lpv-defileDup' : ''}`}
@@ -77,13 +78,23 @@ export default function AnnoncesAffiche() {
                 ) : (
                   <span className="flex h-full w-full items-end p-2">
                     <span className="text-[11px] font-extrabold uppercase tracking-[0.06em]" style={{ color: '#7A6A5A' }}>
-                      {CATEGORIES_LABELS[a.categorie] ?? 'Annonce'}
+                      {a.type === 'covoiturage' ? 'Covoiturage' : (CATEGORIES_LABELS[a.categorie] ?? 'Annonce')}
                     </span>
+                  </span>
+                )}
+                {/* Une demande (« je cherche ») se signale sur la vignette :
+                    sans elle, on la prendrait pour une offre. */}
+                {cherche && (
+                  <span className="absolute left-1.5 top-1.5 rounded-full px-2 py-[3px] text-[9.5px] font-extrabold uppercase tracking-[0.06em] text-white"
+                    style={{ background: '#D98A1C', boxShadow: '0 1px 4px rgba(0,0,0,.18)' }}>
+                    Cherche
                   </span>
                 )}
               </span>
               <span className="block px-2 pb-2 pt-1.5">
-                <span className="block truncate text-[13px] font-extrabold" style={{ color: '#C84B2F' }}>{getPrixAffiche(a)}</span>
+                <span className="block truncate text-[13px] font-extrabold" style={{ color: cherche ? '#9A5B00' : '#C84B2F' }}>
+                  {cherche ? (a.type === 'covoiturage' ? 'Covoiturage' : 'Service') : getPrixAffiche(a)}
+                </span>
                 {/* Hauteurs FIXES : titre sur deux lignes réservées, ville
                     toujours présente — toutes les cartes font la même taille,
                     qu'un titre tienne sur une ligne ou non. */}

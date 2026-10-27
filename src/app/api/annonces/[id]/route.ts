@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser, getUserContextFromRequest } from '@/lib/server-auth'
 import { can } from '@/lib/capabilities'
-import { EARLY_BID_DELAY_HOURS, getDureeAnnonceJours } from '@/lib/annonces'
+import {
+  EARLY_BID_DELAY_HOURS,
+  getDureeAnnonceJours,
+  aUnSens,
+  isAnnonceSens,
+  sensNormalise,
+  type AnnonceType,
+} from '@/lib/annonces'
 import type { Plan } from '@/lib/capabilities'
 
 const EDITABLE_FIELDS = [
@@ -103,6 +110,19 @@ export async function PATCH(
   const fields = ctx.isAdmin ? [...EDITABLE_FIELDS, 'type'] : EDITABLE_FIELDS
   for (const k of fields) {
     if (k in body) patch[k] = body[k] === '' ? null : body[k]
+  }
+
+  // Sens (je propose / je cherche) : éditable par le propriétaire, mais
+  // ramené à 'propose' pour un type qui n'en a pas (y compris quand l'admin
+  // reclasse un service en vente).
+  const typeApresPatch = ((patch.type as string | undefined) ?? existing.type) as AnnonceType
+  if ('sens' in body) {
+    if (body.sens != null && !isAnnonceSens(body.sens)) {
+      return NextResponse.json({ error: 'Sens invalide' }, { status: 400 })
+    }
+    patch.sens = sensNormalise(typeApresPatch, body.sens)
+  } else if (patch.type !== undefined && !aUnSens(typeApresPatch)) {
+    patch.sens = 'propose'
   }
 
   // Réactivation admin : si on repasse un don_final vers un type vendable

@@ -44,7 +44,8 @@ interface CovoitStats {
 interface AnnonceSnippet {
   id: string
   titre: string
-  type: 'vente' | 'don' | 'troc' | 'enchere_inversee'
+  type: 'vente' | 'don' | 'troc' | 'service' | 'covoiturage' | 'enchere_inversee'
+  sens?: 'propose' | 'cherche'
   photos: string[] | null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   prix: any
@@ -112,10 +113,15 @@ const TYPE_PALETTE: Record<AnnonceSnippet['type'], { label: string; bg: string }
   vente:            { label: 'VENTE',   bg: '#1A1209' },
   don:              { label: 'DON',     bg: '#2D5A3D' },
   troc:             { label: 'TROC',    bg: '#3A5D8C' },
+  service:          { label: 'SERVICE', bg: '#2E7D74' },
+  covoiturage:      { label: 'COVOIT',  bg: '#5B4FA8' },
   enchere_inversee: { label: 'ENCHÈRE', bg: '#C84B2F' },
 }
 
 function getPrixLabel(a: AnnonceSnippet): { value: string; color?: string } {
+  if ((a.type === 'service' || a.type === 'covoiturage') && a.sens === 'cherche') return { value: 'Recherche', color: '#9A5B00' }
+  if (a.type === 'service') return { value: 'Service', color: '#2E7D74' }
+  if (a.type === 'covoiturage') return { value: 'Covoiturage', color: '#5B4FA8' }
   if (a.type === 'don') return { value: 'Gratuit', color: '#2D5A3D' }
   if (a.type === 'troc') return { value: 'Échange', color: '#3A5D8C' }
   if (a.type === 'enchere_inversee') {
@@ -200,7 +206,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
         // Annonces du profil
         const { data: annRows } = await supabase
           .from('annonces')
-          .select('id, titre, type, photos, prix, prix_initial, statut')
+          .select('id, titre, type, sens, photos, prix, prix_initial, statut')
           .eq('user_id', id)
           .in('statut', ['active', 'don_final', 'vendu'])
           .order('created_at', { ascending: false })
@@ -786,6 +792,11 @@ function AnnonceMini({ a }: { a: AnnonceSnippet }) {
         >
           {tagPalette.label}
         </span>
+        {(a.type === 'service' || a.type === 'covoiturage') && a.sens === 'cherche' && (
+          <span className="absolute right-2 top-2 rounded-[5px] px-[7px] py-[3px] text-[9px] font-extrabold tracking-[0.08em] text-white" style={{ backgroundColor: '#D98A1C' }}>
+            CHERCHE
+          </span>
+        )}
         {a.statut === 'vendu' && (
           <span className="absolute bottom-2 left-2 rounded-[5px] bg-[#1A1209]/85 px-[7px] py-[3px] text-[9px] font-extrabold uppercase tracking-[0.04em] text-white">
             Vendu

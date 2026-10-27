@@ -14,7 +14,9 @@ import {
   getTypesAutorises,
   getDureeAnnonceJours,
   validateAnnonceInput,
+  aUnSens,
   type Annonce,
+  type AnnonceSens,
   type AnnonceType,
   type AnnonceCategorie,
   type AnnonceCreateInput,
@@ -51,6 +53,11 @@ const TYPE_INFO: Record<AnnonceType, { label: string; sub: string; color: string
     help: 'Un service proposé ou recherché (bricolage, jardin, garde…). Accessible à tous les plans.',
     icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2E7D74" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>,
   },
+  covoiturage:      {
+    label: 'Covoit',  sub: 'Trajet partagé',       color: '#5B4FA8', bg: '#EFEDF8',
+    help: 'Un trajet proposé ou recherché.',
+    icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5B4FA8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 11l1.5-4.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11"/><rect x="3" y="11" width="18" height="6" rx="2"/><circle cx="7.5" cy="14" r="1"/><circle cx="16.5" cy="14" r="1"/><line x1="6" y1="17" x2="6" y2="19"/><line x1="18" y1="17" x2="18" y2="19"/></svg>,
+  },
   enchere_inversee: {
     label: 'Enchère', sub: 'Le prix baisse / j',   color: '#C0392B', bg: '#FBE9E7',
     help: 'Le prix baisse chaque jour. Avec un prix plancher, il s\'arrête à ce montant. Sans plancher, il descend jusqu\'à devenir un don gratuit.',
@@ -73,6 +80,7 @@ export default function AnnonceForm({ initial, onSuccess, bottomOffset = 0 }: Pr
   const typesAutorises = getTypesAutorises(plan)
 
   const [type, setType]                   = useState<AnnonceType>(initial?.type ?? typesAutorises[0])
+  const [sens, setSens]                   = useState<AnnonceSens>(initial?.sens ?? 'propose')
   const [titre, setTitre]                 = useState(initial?.titre ?? '')
   const [description, setDescription]     = useState(initial?.description ?? '')
   const [categorie, setCategorie]         = useState<AnnonceCategorie>(initial?.categorie ?? 'autres')
@@ -160,6 +168,7 @@ export default function AnnonceForm({ initial, onSuccess, bottomOffset = 0 }: Pr
 
     const input: AnnonceCreateInput = {
       type,
+      sens: avecSens ? sens : 'propose',
       titre: titre.trim(),
       description: description.trim() || null,
       categorie,
@@ -170,7 +179,8 @@ export default function AnnonceForm({ initial, onSuccess, bottomOffset = 0 }: Pr
       contact_tel:     contactTel.trim() || null,
       contact_email:   contactEmail.trim() || null,
       ville:           ville.trim() || null,
-      remise_main_propre: remiseMP,
+      // Pas de remise d'objet pour un service ou un trajet.
+      remise_main_propre: avecSens ? false : remiseMP,
       ...(initial ? {} : { etablissement_id: blase }),
     }
 
@@ -214,8 +224,14 @@ export default function AnnonceForm({ initial, onSuccess, bottomOffset = 0 }: Pr
   }
 
   const showPrix    = type === 'vente' || type === 'enchere_inversee'
+  const avecSens    = aUnSens(type)
   const showEnchere = type === 'enchere_inversee'
   const dureeJours  = getDureeAnnonceJours(plan)
+  const cherche     = avecSens && sens === 'cherche'
+  const titrePlaceholder =
+    type === 'covoiturage' ? (cherche ? 'Cherche un trajet Ganges → Montpellier, lundi' : 'Ganges → Montpellier, lundi 8 h')
+    : type === 'service'   ? (cherche ? 'Cherche quelqu’un pour tondre la pelouse' : 'Tonte, taille de haies')
+    : 'Vélo électrique, état neuf'
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
@@ -226,7 +242,7 @@ export default function AnnonceForm({ initial, onSuccess, bottomOffset = 0 }: Pr
       {/* ─────────── TYPE D'ANNONCE 2x2 V3 ─────────── */}
       <Section title="Type d'annonce">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-          {(['vente', 'don', 'troc', 'service', 'enchere_inversee'] as AnnonceType[]).map(t => {
+          {(['vente', 'don', 'troc', 'service', 'covoiturage', 'enchere_inversee'] as AnnonceType[]).map(t => {
             const allowed = typesAutorises.includes(t)
             const ti = TYPE_INFO[t]
             const active = type === t
@@ -263,6 +279,33 @@ export default function AnnonceForm({ initial, onSuccess, bottomOffset = 0 }: Pr
             )
           })}
         </div>
+        {/* Service et covoiturage : on propose, ou on cherche. Une recherche
+            porte la pastille « Cherche » partout où l'annonce s'affiche. */}
+        {avecSens && (
+          <div role="radiogroup" aria-label="Je propose ou je cherche" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, padding: 4, borderRadius: 12, background: '#F3EDE4' }}>
+            {([['propose', 'Je propose'], ['cherche', 'Je cherche']] as [AnnonceSens, string][]).map(([s, label]) => {
+              const actif = sens === s
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  role="radio"
+                  aria-checked={actif}
+                  onClick={() => setSens(s)}
+                  style={{
+                    height: 38, borderRadius: 9, border: 'none', fontFamily: 'inherit',
+                    fontSize: 13, fontWeight: 800, cursor: 'pointer',
+                    background: actif ? '#fff' : 'transparent',
+                    color: actif ? (s === 'cherche' ? '#9A5B00' : '#1A1209') : '#7A6A5A',
+                    boxShadow: actif ? '0 1px 4px rgba(44,28,16,0.10)' : 'none',
+                  }}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+        )}
         {plan === 'basic' && type !== 'don' && (
           <p style={{ fontSize: 11, color: '#7A5614', margin: '6px 0 0', lineHeight: 1.5 }}>
             Plan Villageois : 3 annonces vente/troc/service/enchère par mois (dons illimités).{' '}
@@ -371,7 +414,7 @@ export default function AnnonceForm({ initial, onSuccess, bottomOffset = 0 }: Pr
             value={titre}
             onChange={e => setTitre(e.target.value)}
             maxLength={120}
-            placeholder="Vélo électrique, état neuf"
+            placeholder={titrePlaceholder}
             style={inputStyle}
             required
           />
@@ -390,7 +433,9 @@ export default function AnnonceForm({ initial, onSuccess, bottomOffset = 0 }: Pr
             value={description}
             onChange={e => setDescription(e.target.value.slice(0, 1000))}
             rows={4}
-            placeholder="État, usage, détails… Donne de la précision pour vendre vite"
+            placeholder={type === 'covoiturage'
+              ? 'Horaires, nombre de places, participation aux frais…'
+              : 'État, usage, détails… Donne de la précision pour vendre vite'}
             style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 11, color: '#7A6A5A' }}>
@@ -444,8 +489,8 @@ export default function AnnonceForm({ initial, onSuccess, bottomOffset = 0 }: Pr
         </Section>
       )}
 
-      {/* ─────────── Conditions de remise ─────────── */}
-      <Section title="Conditions">
+      {/* ─────────── Conditions de remise (objets seulement) ─────────── */}
+      {!avecSens && <Section title="Conditions">
         <label style={{
           display: 'flex', alignItems: 'center', gap: 12,
           padding: '12px 14px', borderRadius: 12,
@@ -464,10 +509,10 @@ export default function AnnonceForm({ initial, onSuccess, bottomOffset = 0 }: Pr
             <p style={{ margin: '2px 0 0', fontSize: 11, color: '#8A7A6A' }}>Vous remettez l&apos;article directement à l&apos;acheteur.</p>
           </div>
         </label>
-      </Section>
+      </Section>}
 
       {/* ─────────── LIEU DE RETRAIT V3 ─────────── */}
-      <Section title="Lieu de retrait">
+      <Section title={type === 'covoiturage' ? 'Lieu de départ' : type === 'service' ? 'Lieu' : 'Lieu de retrait'}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, background: '#fff', border: '1px solid #F0EAE0' }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#7A6A5A', flexShrink: 0 }}>
             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>

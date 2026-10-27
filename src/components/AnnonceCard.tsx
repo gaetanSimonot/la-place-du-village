@@ -7,6 +7,7 @@ import {
   getPrixAffiche,
   getNextDropDate,
   formatCountdown,
+  estUneRecherche,
   type Annonce,
 } from '@/lib/annonces'
 
@@ -21,8 +22,12 @@ const TYPE_PALETTE: Record<Annonce['type'], { label: string; bg: string; border:
   don:              { label: 'Don',      bg: '#E8F2EB', border: '#C5DCC9', text: '#2D5A3D' },
   troc:             { label: 'Troc',     bg: '#EEDFC8', border: '#E0CBA8', text: '#9A6B2F' },
   service:          { label: 'Service',  bg: '#E6F2F0', border: '#C2DED9', text: '#2E7D74' },
+  covoiturage:      { label: 'Covoit',   bg: '#EFEDF8', border: '#D3CEEB', text: '#5B4FA8' },
   enchere_inversee: { label: 'Enchère',  bg: '#FFF0E5', border: '#F5C8A8', text: '#C84B2F' },
 }
+
+/* Pastille « Cherche » : une demande, pas une offre (service ou covoit). */
+const CHERCHE = { bg: '#FFF1D6', border: '#F2D39A', text: '#9A5B00' }
 
 /* « il y a » compact : à l'instant / 5 min / 3 h / 2 j / 1 sem.
    Calcul client-side (heure locale) — cf. feedback_dates_timezone. */
@@ -45,7 +50,8 @@ export default function AnnonceCard({ annonce }: Props) {
   const isEnchere = annonce.type === 'enchere_inversee'
   const isDon     = annonce.type === 'don'
   const isTroc    = annonce.type === 'troc'
-  const isService = annonce.type === 'service'
+  const isService = annonce.type === 'service' || annonce.type === 'covoiturage'
+  const cherche   = estUneRecherche(annonce)
   const photo = annonce.photos[0]
   const { isFav, toggle } = useAnnonceFavorites()
   const favored = isFav(annonce.id)
@@ -87,11 +93,21 @@ export default function AnnonceCard({ annonce }: Props) {
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Ligne 1 : badge type + actions (cœur / partage) */}
         <div className="flex items-start justify-between gap-2">
-          <span
-            className="inline-flex items-center rounded-[6px] border px-2 py-[3px] text-[10px] font-extrabold uppercase tracking-[0.07em]"
-            style={{ backgroundColor: p.bg, borderColor: p.border, color: p.text }}
-          >
-            {p.label}{isEnchere && ' ↘'}
+          <span className="flex min-w-0 flex-wrap items-center gap-1">
+            <span
+              className="inline-flex items-center rounded-[6px] border px-2 py-[3px] text-[10px] font-extrabold uppercase tracking-[0.07em]"
+              style={{ backgroundColor: p.bg, borderColor: p.border, color: p.text }}
+            >
+              {p.label}{isEnchere && ' ↘'}
+            </span>
+            {cherche && (
+              <span
+                className="inline-flex items-center rounded-[6px] border px-2 py-[3px] text-[10px] font-extrabold uppercase tracking-[0.07em]"
+                style={{ backgroundColor: CHERCHE.bg, borderColor: CHERCHE.border, color: CHERCHE.text }}
+              >
+                Cherche
+              </span>
+            )}
           </span>
           <div className="-mr-0.5 -mt-0.5 flex shrink-0 items-center gap-1">
             <button
@@ -160,7 +176,7 @@ export default function AnnonceCard({ annonce }: Props) {
             ) : isTroc ? (
               <span className="text-[13px] font-bold text-[#9A6B2F]">Échange</span>
             ) : isService ? (
-              <span className="text-[13px] font-bold text-[#2E7D74]">Service</span>
+              <span className="text-[13px] font-bold" style={{ color: cherche ? CHERCHE.text : p.text }}>{getPrixAffiche(annonce)}</span>
             ) : isEnchere ? (
               <span className="inline-flex items-center gap-1">
                 <span className="text-[15px] font-extrabold text-accent">{getPrixAffiche(annonce)}</span>
