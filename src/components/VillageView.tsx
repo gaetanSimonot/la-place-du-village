@@ -245,10 +245,14 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
           `pcv-hide` sur le fond seulement — le héros du village, lui, existe
           sur les deux tailles d'écran. */}
       <div className="pcv-topPhoto">
+        {/* Sous un thème saisonnier, ni photo ni voile crème : le haut de page
+            laisse voir le décor du thème (sinon, un pavé clair par-dessus). */}
+        {!fondTheme && (
         <div className="pcv-topPhoto-bg" aria-hidden>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/splash-bg-aujourdhui.jpg" alt="" />
         </div>
+        )}
         <div className="pcv-topPhoto-ct">
           {/* Le héros mis en avant — indépendant de l'assistant : chacun
               demande au serveur s'il est ouvert à cette personne.

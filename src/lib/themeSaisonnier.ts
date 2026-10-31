@@ -21,7 +21,7 @@ export const THEME_DEFAUT: ThemeSaisonnier = 'halloween'
 
 /** Le bandeau posé au-dessus de la barre du bas, par thème. */
 export const BANDEAU_THEME: Partial<Record<ThemeSaisonnier, string>> = {
-  halloween: '/visuels/halloween-bandeau.webp',
+  halloween: '/visuels/halloween-bandeau-v2.webp',
 }
 
 /** Le décor fixe derrière la page Village (à la place du fond crème), par thème. */
