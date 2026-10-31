@@ -126,8 +126,12 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
           pcv-hide : sur ordinateur, l'en-tête du site porte déjà le logo,
           le profil et les notifications — cette barre ferait doublon. */}
       <div
-        className="pcv-hide flex items-center justify-between gap-2.5 bg-white"
-        style={{ padding: '8px 12px', paddingTop: 'max(8px, env(safe-area-inset-top, 8px))', borderBottom: '1px solid #EDE8E0', boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}
+        className={`pcv-hide flex items-center justify-between gap-2.5${fondTheme ? '' : ' bg-white'}`}
+        style={{
+          padding: '8px 12px', paddingTop: 'max(8px, env(safe-area-inset-top, 8px))', borderBottom: '1px solid #EDE8E0', boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
+          // Sous un thème saisonnier : blanc un peu transparent et flouté.
+          ...(fondTheme ? { backgroundColor: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' } : {}),
+        }}
       >
         <button
           type="button"
@@ -268,7 +272,14 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
           <div className="pcv-hide">
             {/* pb-2 et non pb-5 : sous ce titre, l'espace jusqu'à « N événements »
                 valait ~31 px contre ~20 entre deux rubriques — mesuré le 29/09. */}
-            <h1 className="m-0 px-4 pb-2 pt-1 text-[27px] font-extrabold leading-[1.12]" style={{ letterSpacing: '-0.02em' }}>
+            {/* Sous un thème saisonnier, le titre passe sur un décor sombre :
+                un contour blanc (ombres dans 8 directions) le garde lisible. */}
+            <h1 className="m-0 px-4 pb-2 pt-1 text-[27px] font-extrabold leading-[1.12]" style={{
+              letterSpacing: '-0.02em',
+              textShadow: fondTheme
+                ? '2px 0 #fff, -2px 0 #fff, 0 2px #fff, 0 -2px #fff, 1.5px 1.5px #fff, -1.5px 1.5px #fff, 1.5px -1.5px #fff, -1.5px -1.5px #fff'
+                : undefined,
+            }}>
               <span style={{ color: '#2D5A3D' }}>Aujourd&apos;hui</span><br />
               <span style={{ color: '#C84B2F' }}>près de chez vous</span>
             </h1>

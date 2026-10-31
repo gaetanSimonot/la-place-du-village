@@ -54,3 +54,29 @@ export function lireThemeEnCache(): ThemeSaisonnier {
 export function garderThemeEnCache(t: ThemeSaisonnier): void {
   try { localStorage.setItem(CLE_CACHE_THEME, t) } catch { /* stockage indisponible */ }
 }
+
+/**
+ * Le bandeau du thème (au-dessus de la barre du bas) peut être masqué seul,
+ * le reste du thème gardé. Clé globale `theme_bandeau` : 'off' le masque,
+ * absente ou autre chose l'affiche.
+ */
+export const CLE_BANDEAU = 'theme_bandeau'
+
+export function parseBandeau(v: string | null | undefined): boolean {
+  return v !== 'off'
+}
+
+const CLE_CACHE_BANDEAU = 'pdv-theme-bandeau'
+
+export function lireBandeauEnCache(): boolean {
+  if (typeof window === 'undefined') return true
+  try {
+    return parseBandeau(localStorage.getItem(CLE_CACHE_BANDEAU))
+  } catch {
+    return true
+  }
+}
+
+export function garderBandeauEnCache(b: boolean): void {
+  try { localStorage.setItem(CLE_CACHE_BANDEAU, b ? 'on' : 'off') } catch { /* stockage indisponible */ }
+}

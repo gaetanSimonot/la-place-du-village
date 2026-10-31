@@ -276,7 +276,13 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
       // Couleurs par variables : l'univers cinéma les redéfinit le temps de
       // la visite (voir globals.css, html[data-univers="cinema"]). Le repli
       // après la virgule est la valeur normale de l'app.
-      backgroundColor: 'var(--nav-bg, #fff)', borderTop: '1px solid var(--nav-bord, #EDE8E0)',
+      // Sous un thème saisonnier : même couleur, un peu transparente et
+      // floutée, pour laisser deviner le décor derrière.
+      backgroundColor: theme && theme !== 'aucun'
+        ? 'color-mix(in srgb, var(--nav-bg, #fff) 80%, transparent)'
+        : 'var(--nav-bg, #fff)',
+      ...(theme && theme !== 'aucun' ? { backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' } : {}),
+      borderTop: '1px solid var(--nav-bord, #EDE8E0)',
       display: 'flex', zIndex: 50, paddingBottom: 'env(safe-area-inset-bottom)',
     }}>
       {tabs.map(t => {

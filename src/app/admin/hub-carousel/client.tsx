@@ -22,8 +22,8 @@ import { normaliserHerosListe, completerUrl, HEROS_VIDE, type HerosVillage, type
 import ImageLibraryPicker from '@/components/ImageLibraryPicker'
 import { parseEffets, EFFETS_DEFAUT, BORNES_EFFETS, garderEffetsEnCache, type VillageEffets } from '@/lib/villageEffets'
 import { SECTIONS_VILLAGE, ORDRE_DEFAUT, parseOrdre, garderOrdreEnCache, type SectionVillage } from '@/lib/villageOrdre'
-import { THEMES_SAISONNIERS, CLE_THEME, parseTheme, type ThemeSaisonnier } from '@/lib/themeSaisonnier'
-import { appliquerTheme } from '@/components/BandeauSaisonnier'
+import { THEMES_SAISONNIERS, CLE_THEME, CLE_BANDEAU, parseTheme, parseBandeau, type ThemeSaisonnier } from '@/lib/themeSaisonnier'
+import { appliquerTheme, appliquerBandeau } from '@/components/BandeauSaisonnier'
 
 interface EnrichedSlot extends FeaturedSlotRow {
   title?: string
@@ -123,6 +123,7 @@ export default function AdminHubCarousel() {
   // Thème saisonnier (null tant que la config n'est pas lue)
   const [themeSaison, setThemeSaison]       = useState<ThemeSaisonnier | null>(null)
   const [themeSaving, setThemeSaving]       = useState(false)
+  const [bandeauVisible, setBandeauVisible] = useState<boolean | null>(null)
   // Slide intro "Bouche à oreille" en première position du carrousel hub_hero
   const [introEnabled, setIntroEnabled] = useState(false)
   const [introSaving, setIntroSaving]   = useState(false)
@@ -230,9 +231,10 @@ export default function AdminHubCarousel() {
     lireConfigsClient([
       'hub_hero_intro_enabled', 'hub_hero_intro_image_url',       'splash_promo', 'cinema_village_public', 'theatre_village_public',
       'radio_village_public', 'assistant_visibilite', 'village_hero', 'entree_app', 'village_effets', 'village_ordre',
-      CLE_THEME,
+      CLE_THEME, CLE_BANDEAU,
     ], territoireAdmin?.id ?? null, !!territoireAdmin?.par_defaut).then(cfg => {
       setThemeSaison(parseTheme(cfg[CLE_THEME]))
+      setBandeauVisible(parseBandeau(cfg[CLE_BANDEAU]))
       const toggleRes = { data: { value: cfg.hub_hero_intro_enabled } }
       const imgRes    = { data: { value: cfg.hub_hero_intro_image_url } }
       const splashRes = { data: { value: cfg.splash_promo } }
@@ -307,6 +309,22 @@ export default function AdminHubCarousel() {
     setThemeSaving(false)
     if (res?.ok) appliquerTheme(next)
     else setThemeSaison(prev)
+  }
+
+  async function choisirBandeau(next: boolean) {
+    if (themeSaving || next === bandeauVisible) return
+    const prev = bandeauVisible
+    setBandeauVisible(next)
+    setThemeSaving(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch(urlEcritureConfig(null), {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body:    JSON.stringify({ key: CLE_BANDEAU, value: next ? 'on' : 'off' }),
+    }).catch(() => null)
+    setThemeSaving(false)
+    if (res?.ok) appliquerBandeau(next)
+    else setBandeauVisible(prev)
   }
 
   async function toggleIntro(next: boolean) {
@@ -801,6 +819,28 @@ export default function AdminHubCarousel() {
                     color: actif ? '#FFFFFF' : '#3C2C20',
                   }}>
                   {t.label}
+                </button>
+              )
+            })}
+          </div>
+          {/* Le bandeau (citrouilles…) se masque seul ; le reste du thème reste. */}
+          <div style={{ fontSize: 11, color: '#7A6A5A', margin: '14px 0 8px' }}>
+            Bandeau au-dessus de la barre du bas
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {([[true, 'Affiché'], [false, 'Masqué']] as const).map(([val, label]) => {
+              const actif = bandeauVisible === val
+              return (
+                <button key={label} type="button" disabled={themeSaving || bandeauVisible === null}
+                  onClick={() => choisirBandeau(val)}
+                  style={{
+                    padding: '9px 16px', borderRadius: 999, fontSize: 13, fontWeight: 800,
+                    fontFamily: 'inherit', cursor: themeSaving ? 'wait' : 'pointer',
+                    border: `1.5px solid ${actif ? '#2D5A3D' : '#E5DDD2'}`,
+                    background: actif ? '#2D5A3D' : '#FFFFFF',
+                    color: actif ? '#FFFFFF' : '#3C2C20',
+                  }}>
+                  {label}
                 </button>
               )
             })}
