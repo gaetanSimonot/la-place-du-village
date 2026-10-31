@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useInterceptModal } from '@/contexts/InterceptModalContext'
+import BandeauSaisonnier from '@/components/BandeauSaisonnier'
 
 /**
  * Hauteur de la barre, hors encoche basse (le padding safe-area s'ajoute).
@@ -262,8 +263,11 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
   ]
 
   return (
-    // pcv-hide : la barre du bas cède la place au menu du haut au-dessus de
-    // 1024 px (desktop.css). Aucun effet en dessous.
+    <>
+    {/* Décor de saison (Halloween…), posé sur la barre et devant la page. */}
+    <BandeauSaisonnier bas={NAV_H} />
+    {/* pcv-hide : la barre du bas cède la place au menu du haut au-dessus de
+        1024 px (desktop.css). Aucun effet en dessous. */}
     <nav className="pcv-hide" style={{
       position: 'fixed', bottom: 0, left: 0, right: 0, height: NAV_H,
       // Couleurs par variables : l'univers cinéma les redéfinit le temps de
@@ -390,5 +394,6 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
         )
       })}
     </nav>
+    </>
   )
 }

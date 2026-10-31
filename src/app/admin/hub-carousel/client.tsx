@@ -22,6 +22,8 @@ import { normaliserHerosListe, completerUrl, HEROS_VIDE, type HerosVillage, type
 import ImageLibraryPicker from '@/components/ImageLibraryPicker'
 import { parseEffets, EFFETS_DEFAUT, BORNES_EFFETS, garderEffetsEnCache, type VillageEffets } from '@/lib/villageEffets'
 import { SECTIONS_VILLAGE, ORDRE_DEFAUT, parseOrdre, garderOrdreEnCache, type SectionVillage } from '@/lib/villageOrdre'
+import { THEMES_SAISONNIERS, CLE_THEME, parseTheme, type ThemeSaisonnier } from '@/lib/themeSaisonnier'
+import { appliquerTheme } from '@/components/BandeauSaisonnier'
 
 interface EnrichedSlot extends FeaturedSlotRow {
   title?: string
@@ -72,7 +74,8 @@ const CHAMP = { width: '100%', padding: '9px 10px', borderRadius: 9, border: '1.
  */
 const CLE_GROUPES = 'pdv-admin-hub-groupes'
 const GROUPES = [
-  { id: 'entree',    ordre: 10, titre: 'Entrée de l’app',      sous: 'Écran d’accueil, page d’arrivée, splashs de l’offre Habitant' },
+  { id: 'theme',     ordre: 5,  titre: 'Thème saisonnier',      sous: 'Décor de saison sur toute l’app (Halloween…)' },
+  { id: 'entree',   ordre: 10, titre: 'Entrée de l’app',      sous: 'Écran d’accueil, page d’arrivée, splashs de l’offre Habitant' },
   { id: 'village',   ordre: 20, titre: 'Page Village',         sous: 'Ordre des sections, héros, effets visuels' },
   { id: 'modules',   ordre: 30, titre: 'Modules du Village',   sous: 'Cinéma, théâtre, radio, Assistant — qui les voit' },
   { id: 'carrousel', ordre: 40, titre: 'Carrousel à la une',   sous: 'Slide « Bouche à oreille » et mises en avant' },
@@ -117,6 +120,9 @@ export default function AdminHubCarousel() {
   const [error, setError]       = useState<string | null>(null)
   const [showExpired, setShowExpired] = useState(false)
   const [cropping, setCropping] = useState<EnrichedSlot | null>(null)
+  // Thème saisonnier (null tant que la config n'est pas lue)
+  const [themeSaison, setThemeSaison]       = useState<ThemeSaisonnier | null>(null)
+  const [themeSaving, setThemeSaving]       = useState(false)
   // Slide intro "Bouche à oreille" en première position du carrousel hub_hero
   const [introEnabled, setIntroEnabled] = useState(false)
   const [introSaving, setIntroSaving]   = useState(false)
@@ -224,7 +230,9 @@ export default function AdminHubCarousel() {
     lireConfigsClient([
       'hub_hero_intro_enabled', 'hub_hero_intro_image_url',       'splash_promo', 'cinema_village_public', 'theatre_village_public',
       'radio_village_public', 'assistant_visibilite', 'village_hero', 'entree_app', 'village_effets', 'village_ordre',
+      CLE_THEME,
     ], territoireAdmin?.id ?? null, !!territoireAdmin?.par_defaut).then(cfg => {
+      setThemeSaison(parseTheme(cfg[CLE_THEME]))
       const toggleRes = { data: { value: cfg.hub_hero_intro_enabled } }
       const imgRes    = { data: { value: cfg.hub_hero_intro_image_url } }
       const splashRes = { data: { value: cfg.splash_promo } }
@@ -282,6 +290,23 @@ export default function AdminHubCarousel() {
       if (res?.ok) garderEffetsEnCache(effetsRef.current)
       setTimeout(() => setEffetsMsg(null), 2000)
     }, 400)
+  }
+
+  async function choisirTheme(next: ThemeSaisonnier) {
+    if (themeSaving || next === themeSaison) return
+    const prev = themeSaison
+    setThemeSaison(next)
+    setThemeSaving(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    // Réglage d'interface : global, jamais par territoire (cf. themeSaisonnier.ts).
+    const res = await fetch(urlEcritureConfig(null), {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body:    JSON.stringify({ key: CLE_THEME, value: next }),
+    }).catch(() => null)
+    setThemeSaving(false)
+    if (res?.ok) appliquerTheme(next)
+    else setThemeSaison(prev)
   }
 
   async function toggleIntro(next: boolean) {
@@ -753,6 +778,36 @@ export default function AdminHubCarousel() {
         <EnTeteGroupe key={g.id} titre={g.titre} sous={g.sous} ordre={g.ordre}
           ouvert={!!ouverts[g.id]} onBascule={() => basculer(g.id)} />
       ))}
+
+      <Bloc ordre={6} visible={!!ouverts.theme}>
+      {/* Thème saisonnier : un bandeau de saison au-dessus de la barre du bas,
+          sur toute l'app. Un seul thème à la fois, pour tous les territoires. */}
+      <div style={{ padding: '14px 16px 0' }}>
+        <div style={{ padding: 14, borderRadius: 12, background: '#FFFFFF', border: '1px solid #E5DDD2', boxShadow: '0 1px 4px rgba(44,28,16,0.04)' }}>
+          <div style={{ fontSize: 11, color: '#7A6A5A', marginBottom: 10 }}>
+            Le bandeau s’affiche au-dessus de la barre du bas, devant la page, sur tous les écrans (téléphone).
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {THEMES_SAISONNIERS.map(t => {
+              const actif = themeSaison === t.id
+              return (
+                <button key={t.id} type="button" disabled={themeSaving || themeSaison === null}
+                  onClick={() => choisirTheme(t.id)}
+                  style={{
+                    padding: '9px 16px', borderRadius: 999, fontSize: 13, fontWeight: 800,
+                    fontFamily: 'inherit', cursor: themeSaving ? 'wait' : 'pointer',
+                    border: `1.5px solid ${actif ? '#2D5A3D' : '#E5DDD2'}`,
+                    background: actif ? '#2D5A3D' : '#FFFFFF',
+                    color: actif ? '#FFFFFF' : '#3C2C20',
+                  }}>
+                  {t.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+      </Bloc>
 
       <Bloc ordre={41} visible={!!ouverts.carrousel}>
       {/* Toggle slide intro "Bouche à oreille" + image custom */}
