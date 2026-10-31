@@ -2676,7 +2676,7 @@ export default function HomePage() {
         <div aria-hidden className="pcv-hide" style={{
           position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 24,
           pointerEvents: 'none', backgroundColor: 'var(--creme)',
-          backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.25) 35%, rgba(0,0,0,0.25) 65%, rgba(0,0,0,0.5) 100%), url(${fondVillageTheme})`,
+          backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 33%, rgba(0,0,0,0) 67%, rgba(0,0,0,0.5) 100%), url(${fondVillageTheme})`,
           backgroundSize: 'cover', backgroundPosition: 'center top',
         }} />
       )}
