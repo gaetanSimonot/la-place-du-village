@@ -24,6 +24,16 @@ export const BANDEAU_THEME: Partial<Record<ThemeSaisonnier, string>> = {
   halloween: '/visuels/halloween-bandeau.webp',
 }
 
+/** Le décor fixe derrière la page Village (à la place du fond crème), par thème. */
+export const FOND_VILLAGE_THEME: Partial<Record<ThemeSaisonnier, string>> = {
+  halloween: '/visuels/halloween-fond-village.webp',
+}
+
+/** L'icône qui remplace le rond vert du « + » de la barre du bas, par thème. */
+export const ICONE_PLUS_THEME: Partial<Record<ThemeSaisonnier, string>> = {
+  halloween: '/visuels/halloween-plus.webp',
+}
+
 export function parseTheme(v: string | null | undefined): ThemeSaisonnier {
   return v === 'aucun' || v === 'halloween' ? v : THEME_DEFAUT
 }

@@ -31,6 +31,8 @@ import TitreVivant, { useTitresVivants } from '@/components/village/TitreVivant'
 import { chargerIdentitesEtab } from '@/lib/identite'
 import RadioPastille from '@/components/RadioPastille'
 import { retenirApercu } from '@/lib/apercuEvenement'
+import { useThemeSaisonnier } from '@/components/BandeauSaisonnier'
+import { FOND_VILLAGE_THEME } from '@/lib/themeSaisonnier'
 
 interface VillagePost extends PostData {
   likeCount: number
@@ -70,6 +72,8 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
 
   // Le titre de la section qui occupe le milieu de l'écran prend l'accent.
   const racineRef = useRef<HTMLDivElement>(null)
+  const theme = useThemeSaisonnier()
+  const fondTheme = theme ? FOND_VILLAGE_THEME[theme] : undefined
   useTitresVivants(racineRef)
 
   /* L'ordre des sections, réglé en admin. On démarre avec le dernier connu
@@ -115,7 +119,9 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
   }
 
   return (
-    <div ref={racineRef} className="min-h-full bg-creme pb-6">
+    // Sous un thème saisonnier, pas de crème : le décor fixe posé derrière le
+    // panneau (page.tsx) doit se voir.
+    <div ref={racineRef} className={`min-h-full pb-6${fondTheme ? '' : ' bg-creme'}`}>
       {/* Top bar bande blanche (identique carte) : logo + bouton Profil.
           pcv-hide : sur ordinateur, l'en-tête du site porte déjà le logo,
           le profil et les notifications — cette barre ferait doublon. */}

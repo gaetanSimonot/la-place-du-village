@@ -43,6 +43,8 @@ import RadioPastille from '@/components/RadioPastille'
 import FlouBords from '@/components/village/FlouBords'
 import { useEffetTambour, TambourContexte } from '@/hooks/useEffetTambour'
 import { parseEffets, lireEffetsEnCache, garderEffetsEnCache, type VillageEffets } from '@/lib/villageEffets'
+import { useThemeSaisonnier } from '@/components/BandeauSaisonnier'
+import { FOND_VILLAGE_THEME } from '@/lib/themeSaisonnier'
 import { lireConfigsClient } from '@/lib/configClient'
 import { correspond, scoreCorrespondance } from '@/lib/recherche'
 
@@ -155,6 +157,9 @@ export default function HomePage() {
      faisait changer sous les yeux à l'ouverture. La base, relue derrière, ne
      redessine que si elle diffère — et devient la mémoire du prochain lancement. */
   const [effetsVillage, setEffetsVillage] = useState<VillageEffets>(() => lireEffetsEnCache())
+  // Thème saisonnier : un décor fixe derrière le Village, à la place du crème.
+  const themeSaison = useThemeSaisonnier()
+  const fondVillageTheme = themeSaison ? FOND_VILLAGE_THEME[themeSaison] : undefined
   useEffect(() => {
     lireConfigsClient(['village_effets'], null, true)
       .then(c => {
@@ -2663,6 +2668,15 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* Décor du thème saisonnier : FIXE, sous le panneau du Village (rendu
+          transparent) — le fil défile par-dessus. Téléphone seulement. */}
+      {navTab === 'village' && fondVillageTheme && (
+        <div aria-hidden className="pcv-hide" style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 24,
+          pointerEvents: 'none', backgroundColor: 'var(--creme)',
+          backgroundImage: `url(${fondVillageTheme})`, backgroundSize: 'cover', backgroundPosition: 'center top',
+        }} />
+      )}
       {/* Village — mur du village (refonte app simple) */}
       {navTab === 'village' && (
         <div ref={villagePanelRef} className="pcv-panel" onScroll={e => {
@@ -2685,7 +2699,8 @@ export default function HomePage() {
           position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H,
           // overflowX hidden : les blocs penchés du tambour s'élargissent au
           // bord de l'écran, et la page semblait pouvoir défiler de côté.
-          zIndex: 25, overflowY: 'auto', overflowX: 'hidden', backgroundColor: 'var(--creme)',
+          zIndex: 25, overflowY: 'auto', overflowX: 'hidden',
+          backgroundColor: fondVillageTheme ? 'transparent' : 'var(--creme)',
         }}>
           <TambourContexte.Provider value={effetsVillage.courbe || effetsVillage.enfoncement}>
           <VillageView

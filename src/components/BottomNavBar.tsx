@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useInterceptModal } from '@/contexts/InterceptModalContext'
-import BandeauSaisonnier from '@/components/BandeauSaisonnier'
+import BandeauSaisonnier, { useThemeSaisonnier } from '@/components/BandeauSaisonnier'
+import { ICONE_PLUS_THEME } from '@/lib/themeSaisonnier'
 
 /**
  * Hauteur de la barre, hors encoche basse (le padding safe-area s'ajoute).
@@ -79,6 +80,8 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
   const { user } = useAuth()
   const intercept = useInterceptModal()
   const [notifCount, setNotifCount] = useState(0)
+  const theme = useThemeSaisonnier()
+  const iconePlus = theme ? ICONE_PLUS_THEME[theme] : undefined
   const navRef = useRef<HTMLElement>(null)
   const instanceIdRef = useRef<string>(
     typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2),
@@ -293,6 +296,12 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
                 WebkitTapHighlightColor: 'transparent',
               }}
             >
+              {iconePlus ? (
+                // Thème saisonnier : l'icône du thème prend la place du rond vert.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={iconePlus} alt="" width={46} height={46}
+                  style={{ display: 'block', width: 46, height: 46, margin: '-2px 0', filter: 'drop-shadow(0 2px 4px rgba(120,40,0,0.35))' }} />
+              ) : (
               <span style={{
                 width: 42, height: 42, borderRadius: '50%',
                 background: 'var(--nav-fab-bg, linear-gradient(135deg, #3C7A50, #2D5A3D))', color: 'var(--nav-fab-ink, #fff)',
@@ -303,6 +312,7 @@ export default function BottomNavBar({ onNavigate, activeTab, onPlus }: Props = 
                   <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                 </svg>
               </span>
+              )}
               <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--nav-actif, #2D5A3D)' }}>Ajouter</span>
             </button>
           )
