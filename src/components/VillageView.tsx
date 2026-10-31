@@ -126,17 +126,8 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
           pcv-hide : sur ordinateur, l'en-tête du site porte déjà le logo,
           le profil et les notifications — cette barre ferait doublon. */}
       <div
-        className={`pcv-hide flex items-center justify-between gap-2.5${fondTheme ? '' : ' bg-white'}`}
-        style={{
-          padding: '8px 12px', paddingTop: 'max(8px, env(safe-area-inset-top, 8px))', borderBottom: '1px solid #EDE8E0', boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
-          // Sous un thème saisonnier : effet verre dépoli (même réglage que
-          // la barre du bas), liseré clair en bas.
-          ...(fondTheme ? {
-            backgroundColor: 'rgba(255,255,255,0.3)',
-            backdropFilter: 'blur(14px) saturate(170%)', WebkitBackdropFilter: 'blur(14px) saturate(170%)',
-            borderBottom: '1px solid rgba(255,255,255,0.55)', boxShadow: '0 2px 12px rgba(0,0,0,0.12)',
-          } : {}),
-        }}
+        className="pcv-hide flex items-center justify-between gap-2.5 bg-white"
+        style={{ padding: '8px 12px', paddingTop: 'max(8px, env(safe-area-inset-top, 8px))', borderBottom: '1px solid #EDE8E0', boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}
       >
         <button
           type="button"

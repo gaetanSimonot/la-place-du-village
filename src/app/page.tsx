@@ -2670,13 +2670,14 @@ export default function HomePage() {
 
       {/* Décor du thème saisonnier : FIXE, sous le panneau du Village (rendu
           transparent) — le fil défile par-dessus. Téléphone seulement.
-          Jusqu'en bas de l'écran : la barre du bas, translucide sous thème,
-          doit laisser voir le décor. */}
+          Un voile sombre par-dessus, plus marqué en haut et en bas : le titre
+          blanc du haut doit se lire sur les zones claires du décor. */}
       {navTab === 'village' && fondVillageTheme && (
         <div aria-hidden className="pcv-hide" style={{
-          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 24,
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 24,
           pointerEvents: 'none', backgroundColor: 'var(--creme)',
-          backgroundImage: `url(${fondVillageTheme})`, backgroundSize: 'cover', backgroundPosition: 'center top',
+          backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.25) 35%, rgba(0,0,0,0.25) 65%, rgba(0,0,0,0.5) 100%), url(${fondVillageTheme})`,
+          backgroundSize: 'cover', backgroundPosition: 'center top',
         }} />
       )}
       {/* Village — mur du village (refonte app simple) */}
