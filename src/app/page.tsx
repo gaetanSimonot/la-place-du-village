@@ -2669,10 +2669,12 @@ export default function HomePage() {
       )}
 
       {/* Décor du thème saisonnier : FIXE, sous le panneau du Village (rendu
-          transparent) — le fil défile par-dessus. Téléphone seulement. */}
+          transparent) — le fil défile par-dessus. Téléphone seulement.
+          Jusqu'en bas de l'écran : la barre du bas, translucide sous thème,
+          doit laisser voir le décor. */}
       {navTab === 'village' && fondVillageTheme && (
         <div aria-hidden className="pcv-hide" style={{
-          position: 'absolute', top: 0, left: 0, right: 0, bottom: NAV_H, zIndex: 24,
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 24,
           pointerEvents: 'none', backgroundColor: 'var(--creme)',
           backgroundImage: `url(${fondVillageTheme})`, backgroundSize: 'cover', backgroundPosition: 'center top',
         }} />
