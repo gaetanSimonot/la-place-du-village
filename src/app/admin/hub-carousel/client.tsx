@@ -144,6 +144,9 @@ export default function AdminHubCarousel() {
   const [cinemaVis, setCinemaVis] = useState<VisibiliteCinema>('admin')
   const [theatreVis, setTheatreVis] = useState<VisibiliteCinema>('admin')
   const [theatreInvites, setTheatreInvites] = useState<string[]>([])
+  const [boisVis, setBoisVis] = useState<VisibiliteCinema>('admin')
+  const [boisInvites, setBoisInvites] = useState<string[]>([])
+  const [boisSaving, setBoisSaving] = useState(false)
   const [radioVis, setRadioVis] = useState<VisibiliteCinema>('admin')
   const [radioSaving, setRadioSaving] = useState(false)
   const [cinemaSaving, setCinemaSaving] = useState(false)
@@ -230,7 +233,7 @@ export default function AdminHubCarousel() {
      */
     lireConfigsClient([
       'hub_hero_intro_enabled', 'hub_hero_intro_image_url',       'splash_promo', 'cinema_village_public', 'theatre_village_public',
-      'radio_village_public', 'assistant_visibilite', 'village_hero', 'entree_app', 'village_effets', 'village_ordre',
+      'bois_village_public', 'radio_village_public', 'assistant_visibilite', 'village_hero', 'entree_app', 'village_effets', 'village_ordre',
       CLE_THEME, CLE_BANDEAU,
     ], territoireAdmin?.id ?? null, !!territoireAdmin?.par_defaut).then(cfg => {
       setThemeSaison(parseTheme(cfg[CLE_THEME]))
@@ -249,6 +252,7 @@ export default function AdminHubCarousel() {
       setSplash(parseSplashPromo(splashRes.data?.value))
       setCinemaVis(parseVisibilite(cineRes.data?.value))
       setTheatreVis(parseVisibilite(theaRes.data?.value))
+      setBoisVis(parseVisibilite(cfg.bois_village_public))
       setRadioVis(parseVisibilite(radioRes.data?.value))
       setAssistantVis(parseVisibilite(assistRes.data?.value))
       const herosLus = normaliserHerosListe(herosRes.data?.value, true)
@@ -434,6 +438,20 @@ export default function AdminHubCarousel() {
     }).catch(() => null)
     if (!res?.ok) setTheatreVis(avant)
     setTheatreSaving(false)
+  }
+
+  async function changerBoisVis(next: VisibiliteCinema) {
+    if (boisSaving || next === boisVis) return
+    const avant = boisVis
+    setBoisVis(next); setBoisSaving(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch(urlEcritureConfig(territoireAdmin?.par_defaut ? null : territoireAdmin?.slug ?? null), {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body:    JSON.stringify({ key: 'bois_village_public', value: next }),
+    }).catch(() => null)
+    if (!res?.ok) setBoisVis(avant)
+    setBoisSaving(false)
   }
 
   async function changerRadioVis(next: VisibiliteCinema) {
@@ -1140,6 +1158,58 @@ export default function AdminHubCarousel() {
               slugTerritoire={territoireAdmin?.par_defaut ? null : territoireAdmin?.slug ?? null}
               invites={theatreInvites}
               onChange={setTheatreInvites}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Bloc « Dans nos bois » (champignons) — mêmes trois états, même
+          défaut `admin`. */}
+      <div style={{ padding: '14px 16px 0' }}>
+        <div style={{
+          padding: 14, borderRadius: 12, background: '#FFFFFF',
+          border: `1px solid ${boisVis === 'tous' ? '#F0B08A' : '#E5DDD2'}`,
+          boxShadow: '0 1px 4px rgba(44,28,16,0.04)',
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>
+            Bloc « Dans nos bois »
+          </div>
+          <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2, marginBottom: 10, lineHeight: 1.45 }}>
+            Sur la page Village, le rouleau des champignons comestibles et la porte du guide.
+            Il disparaît si le territoire n&apos;a pas de guide.
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {([
+              { v: 'masque' as const, titre: 'Masqué', sous: 'personne' },
+              { v: 'admin'  as const, titre: 'Admin',  sous: 'toi seul' },
+              { v: 'tous'   as const, titre: 'Tous',   sous: 'les habitants' },
+            ]).map(o => {
+              const actif = boisVis === o.v
+              return (
+                <button
+                  key={o.v}
+                  onClick={() => changerBoisVis(o.v)}
+                  disabled={boisSaving}
+                  style={{
+                    flex: 1, padding: '10px 6px', borderRadius: 10, textAlign: 'center',
+                    border: `1.5px solid ${actif ? '#C84B2F' : '#E5DDD2'}`,
+                    background: actif ? '#FFF8F3' : '#FDFAF5',
+                    cursor: boisSaving ? 'default' : 'pointer',
+                    fontFamily: 'var(--font-body), sans-serif',
+                  }}
+                >
+                  <div style={{ fontSize: 12.5, fontWeight: 800, color: actif ? '#C0440A' : '#1A1209' }}>{o.titre}</div>
+                  <div style={{ fontSize: 10, color: '#8A7A6A', marginTop: 2 }}>{o.sous}</div>
+                </button>
+              )
+            })}
+          </div>
+          {boisVis === 'admin' && (
+            <ChoixInvites
+              cleVisibilite="bois_village_public"
+              slugTerritoire={territoireAdmin?.par_defaut ? null : territoireAdmin?.slug ?? null}
+              invites={boisInvites}
+              onChange={setBoisInvites}
             />
           )}
         </div>

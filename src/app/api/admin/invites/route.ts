@@ -29,6 +29,7 @@ const CLES = new Set([
   'theatre_village_public',
   'cinema_village_public',
   'radio_village_public',
+  'bois_village_public',
   'assistant_visibilite',
 ])
 

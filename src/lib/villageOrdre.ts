@@ -13,7 +13,8 @@
 export const SECTIONS_VILLAGE = [
   { id: 'aujourdhui', label: 'Aujourd’hui près de chez vous' },
   { id: 'cinema',     label: 'Au cinéma' },
-  { id: 'theatre',    label: 'Au théâtre' },
+  { id: 'bois',       label: 'Dans nos bois' },
+  { id: 'theatre',   label: 'Au théâtre' },
   { id: 'radio',      label: 'À la radio' },
   { id: 'annonces',   label: 'Petites annonces' },
   { id: 'abonnement', label: 'Encart abonnement (comptes gratuits)' },

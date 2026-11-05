@@ -20,6 +20,7 @@ import { SectionHeaderV3, FeaturedEventCard, MiniEventCard, MoreEventsCard } fro
 import PlansCardFinal from '@/components/PlansCardFinal'
 import CinemaAffiche from '@/components/CinemaAffiche'
 import TheatreAffiche from '@/components/TheatreAffiche'
+import BoisAffiche from '@/components/BoisAffiche'
 import RadioAffiche from '@/components/RadioAffiche'
 import AnnoncesAffiche from '@/components/AnnoncesAffiche'
 import PostComposer from '@/components/profil/PostComposer'
@@ -99,6 +100,8 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
     aujourdhui: <div className="pcv-hide"><TodaySection onVoirTout={onOpenAgendaToday} /></div>,
     // Au cinéma, au théâtre, la radio : chacun s'efface s'il n'a rien à montrer.
     cinema: <CinemaAffiche isAdmin={isAdmin} />,
+    // Dans nos bois : le guide des champignons, juste sous le cinéma.
+    bois: <BoisAffiche isAdmin={isAdmin} />,
     theatre: <TheatreAffiche isAdmin={isAdmin} />,
     radio: <RadioAffiche isAdmin={isAdmin} />,
     // Petites annonces : un rouleau qui défile seul, absent sans annonce.

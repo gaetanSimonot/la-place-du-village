@@ -37,6 +37,9 @@ const config: Config = {
         nunito:  ["var(--font-nunito)", "system-ui", "sans-serif"],
         // L'enseigne du module théâtre : la police de son programme.
         montserrat: ["var(--font-montserrat)", "system-ui", "sans-serif"],
+        // « Dans nos bois » : les polices du guide des champignons.
+        alegreya:     ["var(--font-alegreya)", "Georgia", "serif"],
+        alegreyaSans: ["var(--font-alegreya-sans)", "system-ui", "sans-serif"],
       },
       borderRadius: {
         card:  "16px",

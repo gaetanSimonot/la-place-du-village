@@ -356,6 +356,59 @@ html[data-univers='theatre'] {
 }
 html[data-univers='theatre'] body { background: var(--uni-bg); }
 
+/* ─── UNIVERS BOIS (« Dans nos bois », les champignons) ──────────────
+   LES COULEURS DU GUIDE DE TERRAIN qui a servi de source : un fond vert
+   sauge (#ECEFE8), du papier (#F9FAF6), l'encre presque noire et le brun
+   roux des titres (#7E4426, 6,5 de contraste sur le sauge). Module CLAIR,
+   comme le théâtre : un guide se feuillette.
+
+   En plus des jetons communs, les pastilles de comestibilité du guide
+   (--bois-*) : vert pour ce qui se mange, ambre pour la prudence, gris,
+   rouille pour le toxique, rouge plein pour le mortel. Elles ne valent que
+   dans cet univers. */
+html[data-univers='bois'] {
+  --uni-bg:      #ECEFE8;
+  --uni-bg2:     #F9FAF6;
+  --uni-panel:   #F9FAF6;
+  --uni-band:    #E3E8DE;
+  --uni-accent:  #7E4426;
+  --uni-accent2: #6A3820;
+  --uni-line:    rgba(30, 36, 31, .14);
+  --uni-ink:     #1E241F;
+  --uni-dim:     #59645B;
+  --uni-dim2:    rgba(30, 36, 31, .64);
+
+  --uni-tint:     rgba(126, 68, 38, .07);
+  --uni-tint2:    rgba(126, 68, 38, .13);
+  --uni-bordA:    rgba(126, 68, 38, .42);
+  --uni-doux:     rgba(126, 68, 38, .72);
+  --uni-trait:    rgba(30, 36, 31, .10);
+  --uni-trait2:   rgba(30, 36, 31, .17);
+  --uni-creux:    rgba(30, 36, 31, .04);
+  --uni-vide:     linear-gradient(160deg, #D9DFD3, #B9C2B4);
+  --uni-videInk:  #1E241F;
+  --uni-ombre:    0 6px 18px rgba(30, 36, 31, .14);
+  --uni-voile:    rgba(236, 239, 232, .94);
+
+  --bois-ok:      #2C6636;  --bois-okBg:   #DCEBD9;
+  --bois-warn:    #8A5A00;  --bois-warnBg: #F3E5C4;
+  --bois-grey:    #5E645D;  --bois-greyBg: #E1E4DE;
+  --bois-tox:     #A8401A;  --bois-toxBg:  #F6DDD1;
+  --bois-dead:    #8A1621;  --bois-deadBg: #F4D3D5;
+
+  --nav-bg:      #F9FAF6;
+  --nav-bord:    var(--uni-line);
+  --nav-actif:   var(--uni-accent);
+  --nav-inactif: var(--uni-dim2);
+  --nav-fab-bg:  var(--uni-accent);
+  --nav-fab-ink: #FFFFFF;
+  --nav-pastille: var(--uni-tint2);
+
+  color-scheme: light;
+  background: var(--uni-bg);
+}
+html[data-univers='bois'] body { background: var(--uni-bg); }
+
 /* ═══════════ HÉROS DU VILLAGE — passage d'une fiche à l'autre ═══════════
    Les fiches sont superposées (HerosVillage.tsx) : l'une s'efface pendant
    que l'autre apparaît. Pas de déplacement, seulement l'opacité — un
