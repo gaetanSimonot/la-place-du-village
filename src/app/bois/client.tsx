@@ -8,6 +8,7 @@ import IconeChampignon from '@/components/bois/IconeChampignon'
 import PastilleStatut from '@/components/bois/PastilleStatut'
 import FicheChampignon from '@/components/bois/FicheChampignon'
 import BoutonPartager from '@/components/bois/BoutonPartager'
+import FiltresBois, { type Bascule, type Panneau } from '@/components/bois/FiltresBois'
 import {
   COULEURS, MANGEABLES, MILIEUX, libelleMilieu, normaliser,
   type Champignon, type Couleur, type Milieu,
@@ -16,35 +17,28 @@ import {
 /**
  * UNIVERS BOIS — « Dans nos bois », le guide des champignons. Public.
  *
- * La MISE EN PAGE et la TYPO sont celles des rubriques du site (Petites
- * annonces) : barre retour · titre centré · action, champ de recherche blanc
- * avec son bouton « Filtres », pastilles qui défilent. Seules les COULEURS
- * viennent du guide d'origine (univers `bois`, bottom nav comprise).
+ * Composé d'après le visuel de communication de Gaëtan : un EN-TÊTE PHOTO
+ * (titre, sous-titre, recherche en pastille blanche), puis les QUATRE PORTES
+ * en ronds de couleur (Par couleur, Par milieu, Recettes & cuisine, Sosies
+ * maléfiques), puis la GRILLE. Typo du site (Jakarta / Inter), couleurs du
+ * guide (univers `bois`, bottom nav comprise).
  *
- * Filtres : la comestibilité reste toujours visible (c'est la question qu'on
- * se pose) ; le milieu et la couleur du chapeau se déplient sous « Filtres ».
+ * La photo de l'en-tête vient du guide lui-même (la première espèce
+ * « excellente » qui a une photo) : rien d'écrit en dur.
  *
  * `?espece=<id>` ouvre directement une fiche : c'est le lien des vignettes
  * du bloc « Dans nos bois » sur la page Village.
  */
-
-type FiltreStatut = 'tous' | 'mangeables' | 'aeviter'
-
-const STATUTS_FILTRE: { id: FiltreStatut; label: string; actif: string }[] = [
-  { id: 'tous',       label: 'Tout',        actif: 'var(--uni-ink)' },
-  { id: 'mangeables', label: 'Comestibles', actif: 'var(--bois-ok)' },
-  { id: 'aeviter',    label: 'À éviter',    actif: 'var(--bois-tox)' },
-]
 
 const fetcher = (u: string) => fetch(u).then(r => r.json())
 
 export default function BoisClient() {
   const router = useRouter()
   const [recherche, setRecherche] = useState('')
-  const [fStatut, setFStatut] = useState<FiltreStatut>('tous')
+  const [panneau, setPanneau] = useState<Panneau>(null)
+  const [bascule, setBascule] = useState<Bascule>(null)
   const [fMilieu, setFMilieu] = useState<Milieu | null>(null)
   const [fCouleur, setFCouleur] = useState<Couleur | null>(null)
-  const [filtresOuverts, setFiltresOuverts] = useState(false)
   const [ouverteId, setOuverteId] = useState<string | null>(null)
 
   // Le thème vit tant qu'on est sur cette page, et pas une seconde de plus.
@@ -68,19 +62,30 @@ export default function BoisClient() {
   const especes = useMemo(() => data?.especes ?? [], [data])
   const parLatin = useMemo(() => new Map(especes.map(e => [e.nom_latin, e])), [especes])
   const ouverte = ouverteId ? especes.find(e => e.id === ouverteId) ?? null : null
-  const nbFiltres = (fMilieu ? 1 : 0) + (fCouleur ? 1 : 0)
+  const fond = useMemo(
+    () => especes.find(e => e.statut === 'excellent' && e.photo_url)?.photo_url ?? especes.find(e => e.photo_url)?.photo_url ?? null,
+    [especes])
 
   const liste = useMemo(() => {
     const q = normaliser(recherche.trim())
     return especes.filter(e => {
-      if (fStatut === 'mangeables' && !MANGEABLES.has(e.statut)) return false
-      if (fStatut === 'aeviter' && MANGEABLES.has(e.statut)) return false
+      if (bascule === 'recettes' && !e.cuisine) return false
+      if (bascule === 'sosies' && MANGEABLES.has(e.statut)) return false
       if (fMilieu && !e.milieux.includes(fMilieu)) return false
       if (fCouleur && !e.couleurs.includes(fCouleur)) return false
       if (q && !normaliser(`${e.nom} ${e.nom_latin} ${e.milieux.map(libelleMilieu).join(' ')}`).includes(q)) return false
       return true
     })
-  }, [especes, recherche, fStatut, fMilieu, fCouleur])
+  }, [especes, recherche, bascule, fMilieu, fCouleur])
+
+  /** Ce qui filtre en ce moment, en mots — et de quoi tout effacer. */
+  const actifs = [
+    bascule === 'recettes' ? 'Recettes & cuisine' : null,
+    bascule === 'sosies' ? 'Sosies maléfiques' : null,
+    fCouleur ? COULEURS.find(c => c.id === fCouleur)?.label.split(',')[0] : null,
+    fMilieu ? MILIEUX.find(m => m.id === fMilieu)?.court : null,
+  ].filter(Boolean) as string[]
+  const toutEffacer = () => { setBascule(null); setFCouleur(null); setFMilieu(null); setPanneau(null); setRecherche('') }
 
   /**
    * Ouvrir ou fermer une fiche. L'URL suit, le lien reste partageable, et le
@@ -118,30 +123,68 @@ export default function BoisClient() {
     <div className="pcv-cine relative min-h-[100dvh] font-inter"
       style={{ background: 'var(--uni-bg)', color: 'var(--uni-ink)', paddingBottom: 92 }}>
 
-      {/* ─── Barre du haut : retour · titre · partage (comme les annonces) ─── */}
-      <div className="flex items-center justify-between gap-2.5 px-4"
-        style={{ paddingTop: 'max(14px, env(safe-area-inset-top, 14px))' }}>
-        <button onClick={() => router.push('/?tab=village')} aria-label="Revenir à La Place"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-          style={{ border: '1px solid var(--uni-line)', background: 'var(--uni-panel)', color: 'var(--uni-ink)' }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
-          </svg>
-        </button>
+      {/* ─── En-tête photo ─── */}
+      <header className="relative overflow-hidden"
+        style={{ background: '#22301F', paddingTop: 'max(14px, env(safe-area-inset-top, 14px))' }}>
+        {fond && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={fond} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover" />
+        )}
+        {/* Voile : sombre en haut pour les boutons et le titre, fondu dans le
+            sauge en bas pour que la pastille de recherche y repose. */}
+        <span aria-hidden className="absolute inset-0"
+          style={{ background: 'linear-gradient(to bottom, rgba(14,20,15,.55) 0%, rgba(14,20,15,.42) 45%, rgba(14,20,15,.62) 80%, rgba(14,20,15,.7) 100%)' }} />
 
-        <div className="flex min-w-0 flex-1 flex-col items-center gap-px">
-          <h1 className="m-0 flex items-center gap-1.5 font-serif text-[20px] leading-none" style={{ letterSpacing: '-0.01em', color: 'var(--uni-ink)' }}>
-            Dans nos bois
-            <IconeChampignon taille={17} epaisseur={1.8} />
-          </h1>
-          <div className="text-[12px] font-semibold" style={{ color: 'var(--uni-dim)' }}>
-            Le guide des champignons
-          </div>
+        <div className="relative flex items-center justify-between px-4">
+          <button onClick={() => router.push('/?tab=village')} aria-label="Revenir à La Place"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+            style={{ border: '1px solid rgba(255,255,255,.28)', background: 'rgba(16,20,17,.35)', color: '#FFFFFF', backdropFilter: 'blur(6px)' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
+            </svg>
+          </button>
+          <BoutonPartager surPhoto titre="Dans nos bois — les champignons de chez nous"
+            url={() => `${window.location.origin}/bois`} />
         </div>
 
-        <BoutonPartager titre="Dans nos bois — les champignons de chez nous"
-          url={() => `${window.location.origin}/bois`} />
-      </div>
+        <div className="relative flex flex-col items-center px-5 pb-6 pt-1 text-center text-white">
+          <IconeChampignon taille={42} couleur="#FFFFFF" epaisseur={1.7} />
+          <h1 className="m-0 mt-1.5 font-serif text-[34px] leading-[1.05]"
+            style={{ letterSpacing: '-0.02em', textShadow: '0 2px 12px rgba(0,0,0,.35)' }}>
+            Dans nos bois
+          </h1>
+          <p className="m-0 mt-1.5 text-[14px] font-semibold" style={{ color: 'rgba(255,255,255,.88)', textShadow: '0 1px 6px rgba(0,0,0,.35)' }}>
+            Le guide des champignons{territoire?.nom ? ` · ${territoire.nom}` : ''}
+          </p>
+
+          {/* La recherche, en pastille blanche : « 40 espèces à découvrir ». */}
+          <label className="mt-4 flex w-full items-center gap-2.5 rounded-full bg-white px-4"
+            style={{ maxWidth: 420, boxShadow: '0 6px 18px rgba(0,0,0,.22)' }}>
+            <IconeChampignon taille={20} epaisseur={1.8} />
+            <input value={recherche} onChange={e => setRecherche(e.target.value)}
+              placeholder={especes.length ? `${especes.length} espèces à découvrir` : 'Rechercher une espèce'}
+              aria-label="Rechercher une espèce"
+              className="min-w-0 flex-1 border-0 bg-transparent py-3 text-[14px] font-semibold outline-none"
+              style={{ color: '#1E241F' }} />
+            {recherche ? (
+              <button type="button" onClick={() => setRecherche('')} aria-label="Effacer la recherche"
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-none bg-transparent" style={{ color: '#59645B' }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+              </button>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#59645B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+            )}
+          </label>
+        </div>
+      </header>
+
+      {/* ─── Les quatre portes ─── */}
+      <FiltresBois
+        panneau={panneau} bascule={bascule} couleur={fCouleur} milieu={fMilieu}
+        onPanneau={setPanneau} onBascule={setBascule}
+        onCouleur={setFCouleur} onMilieu={setFMilieu} />
 
       {/* ─── L'avertissement, non négociable : un guide ne suffit jamais ─── */}
       <div className="mx-4 mt-4 flex gap-2.5 rounded-2xl"
@@ -155,129 +198,21 @@ export default function BoisClient() {
         </p>
       </div>
 
-      {/* ─── Recherche + bouton Filtres ─── */}
-      <div className="px-4 pt-4">
-        <div className="flex items-center gap-1 rounded-2xl px-3.5 py-1"
-          style={{ border: '1px solid var(--uni-line)', background: 'var(--uni-panel)', boxShadow: '0 1px 4px rgba(30,36,31,0.05)' }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" style={{ color: 'var(--uni-dim2)' }}>
-            <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input value={recherche} onChange={e => setRecherche(e.target.value)}
-            placeholder="Girolle, cèpe, pins…" aria-label="Rechercher une espèce"
-            className="min-w-0 flex-1 border-0 bg-transparent py-2.5 text-[14px] outline-none"
-            style={{ color: 'var(--uni-ink)' }} />
-          {recherche && (
-            <button type="button" onClick={() => setRecherche('')} aria-label="Effacer la recherche"
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full" style={{ color: 'var(--uni-dim)' }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-            </button>
-          )}
-          <div className="mx-1 h-6 w-px shrink-0" style={{ background: 'var(--uni-line)' }} aria-hidden />
-          <button type="button" onClick={() => setFiltresOuverts(o => !o)} aria-expanded={filtresOuverts}
-            className="inline-flex shrink-0 items-center gap-1.5 py-2 text-[13px] font-bold" style={{ color: 'var(--uni-ink)' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="4" y1="6" x2="11" y2="6" /><line x1="14" y1="6" x2="20" y2="6" />
-              <line x1="4" y1="12" x2="7" y2="12" /><line x1="10" y1="12" x2="20" y2="12" />
-              <line x1="4" y1="18" x2="14" y2="18" /><line x1="17" y1="18" x2="20" y2="18" />
-              <circle cx="12.5" cy="6" r="2" /><circle cx="8.5" cy="12" r="2" /><circle cx="15.5" cy="18" r="2" />
-            </svg>
-            Filtres
-            {nbFiltres > 0 && (
-              <span className="inline-flex h-[14px] min-w-[16px] items-center justify-center rounded-full px-1.5 text-[10px] font-extrabold leading-none text-white"
-                style={{ background: 'var(--uni-accent)' }}>{nbFiltres}</span>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* ─── Comestibilité, toujours visible ─── */}
-      <div className="flex gap-1.5 overflow-x-auto px-4 pt-3.5" style={{ scrollbarWidth: 'none' }}>
-        {STATUTS_FILTRE.map(s => {
-          const actif = fStatut === s.id
-          return (
-            <button key={s.id} type="button" onClick={() => setFStatut(s.id)}
-              className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[12px] font-bold"
-              style={{
-                border: `1.5px solid ${actif ? s.actif : 'var(--uni-line)'}`,
-                background: actif ? s.actif : 'var(--uni-panel)',
-                color: actif ? '#FFFFFF' : 'var(--uni-dim)',
-              }}>
-              {s.id !== 'tous' && (
-                <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: actif ? '#FFFFFF' : s.actif }} />
-              )}
-              {s.label}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* ─── Milieu et couleur, dépliés par « Filtres » ─── */}
-      {filtresOuverts && (
-        <div className="mx-4 mt-3 rounded-2xl"
-          style={{ padding: '12px 14px 14px', background: 'var(--uni-panel)', border: '1px solid var(--uni-line)' }}>
-          <Etiquette>Où pousse-t-il ?</Etiquette>
-          <div className="flex flex-wrap gap-1.5">
-            {MILIEUX.map(m => {
-              const actif = fMilieu === m.id
-              return (
-                <button key={m.id} type="button" onClick={() => setFMilieu(actif ? null : m.id)}
-                  className="whitespace-nowrap rounded-full px-3 py-1.5 text-[12px] font-bold"
-                  style={{
-                    border: `1.5px solid ${actif ? 'var(--uni-accent)' : 'var(--uni-line)'}`,
-                    background: actif ? 'var(--uni-tint2)' : 'transparent',
-                    color: actif ? 'var(--uni-accent2)' : 'var(--uni-dim)',
-                  }}>
-                  {m.court}
-                </button>
-              )
-            })}
-          </div>
-
-          <Etiquette style={{ marginTop: 14 }}>Couleur du chapeau</Etiquette>
-          <div className="flex flex-wrap gap-2.5">
-            {COULEURS.map(c => {
-              const actif = fCouleur === c.id
-              return (
-                <button key={c.id} type="button" onClick={() => setFCouleur(actif ? null : c.id)}
-                  aria-label={c.label} aria-pressed={actif} title={c.label}
-                  className="flex flex-col items-center gap-1 border-none bg-transparent p-0" style={{ width: 52 }}>
-                  <span className="flex items-center justify-center rounded-full"
-                    style={{
-                      width: 34, height: 34, background: c.teinte,
-                      boxShadow: actif ? '0 0 0 2px var(--uni-panel), 0 0 0 4px var(--uni-accent)' : 'inset 0 0 0 1px rgba(30,36,31,.18)',
-                    }}>
-                    {actif && (
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={c.id === 'blanc' || c.id === 'jaune' ? '#1E241F' : '#FFFFFF'} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    )}
-                  </span>
-                  <span className="text-[10.5px] font-semibold leading-tight" style={{ color: actif ? 'var(--uni-accent2)' : 'var(--uni-dim)' }}>
-                    {c.label.split(',')[0]}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-
-          {nbFiltres > 0 && (
-            <button type="button" onClick={() => { setFMilieu(null); setFCouleur(null) }}
-              className="mt-3 border-none bg-transparent p-0 text-[12px] font-bold underline" style={{ color: 'var(--uni-accent)' }}>
-              Effacer les filtres
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* ─── Titre de section + compteur ─── */}
-      <div className="flex items-baseline justify-between px-4 pb-1 pt-5">
+      {/* ─── Titre de section, filtres retenus, compteur ─── */}
+      <div className="flex items-baseline justify-between gap-3 px-4 pb-1 pt-5">
         <h2 className="m-0 font-serif text-[18px] font-bold leading-none" style={{ letterSpacing: '-0.01em', color: 'var(--uni-ink)' }}>
-          Les espèces
+          {actifs.length ? actifs.join(' · ') : 'Toutes les espèces'}
         </h2>
-        <span className="text-[12px] font-semibold tabular-nums" style={{ color: 'var(--uni-dim)' }}>
+        <span className="shrink-0 text-[12px] font-semibold tabular-nums" style={{ color: 'var(--uni-dim)' }}>
           {liste.length} / {especes.length}
         </span>
       </div>
+      {(actifs.length > 0 || recherche) && (
+        <button type="button" onClick={toutEffacer}
+          className="mx-4 border-none bg-transparent p-0 text-[12px] font-bold underline" style={{ color: 'var(--uni-accent)' }}>
+          Tout effacer
+        </button>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center py-16">
@@ -293,7 +228,7 @@ export default function BoisClient() {
           Aucune espèce ne correspond. Essayez un autre milieu ou un autre nom.
         </p>
       ) : (
-        <main className="grid px-4 pt-2.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 155px), 1fr))', gap: 12 }}>
+        <main className="grid px-4 pt-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 155px), 1fr))', gap: 12 }}>
           {liste.map(e => (
             <button key={e.id} onClick={() => ouvrir(e)} aria-label={e.nom}
               className="flex min-w-0 flex-col overflow-hidden rounded-2xl p-0 text-left"
@@ -306,7 +241,7 @@ export default function BoisClient() {
                 <PastilleStatut statut={e.statut} compacte style={{ position: 'absolute', left: 7, top: 7 }} />
               </span>
               <span className="flex min-w-0 flex-col gap-0.5 px-3 pb-3 pt-2.5">
-                <span className="font-title text-[14px] font-bold leading-tight">{e.nom}</span>
+                <span className="font-title text-[14px] leading-tight" style={{ fontWeight: 700 }}>{e.nom}</span>
                 <span className="truncate text-[11.5px] italic" style={{ color: 'var(--uni-dim)' }}>{e.nom_latin}</span>
                 {e.saison && <span className="mt-1 text-[11px] font-semibold" style={{ color: 'var(--uni-dim2)' }}>{e.saison}</span>}
               </span>
@@ -327,14 +262,6 @@ export default function BoisClient() {
       {ouverte && <FicheChampignon espece={ouverte} parLatin={parLatin} onOuvrir={ouvrir} onFermer={fermer} />}
 
       <BottomNavBar />
-    </div>
-  )
-}
-
-function Etiquette({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
-  return (
-    <div className="mb-2 text-[10.5px] font-extrabold uppercase" style={{ letterSpacing: '.08em', color: 'var(--uni-accent)', ...style }}>
-      {children}
     </div>
   )
 }
