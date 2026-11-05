@@ -85,6 +85,22 @@ export default function BoisClient() {
     fCouleur ? COULEURS.find(c => c.id === fCouleur)?.label.split(',')[0] : null,
     fMilieu ? MILIEUX.find(m => m.id === fMilieu)?.court : null,
   ].filter(Boolean) as string[]
+  /**
+   * UNE PORTE À LA FOIS (demande de Gaëtan) : passer d'un filtre à l'autre
+   * referme et efface le précédent. Refermer le volet qu'on vient d'ouvrir,
+   * en revanche, garde le choix qu'on y a fait.
+   */
+  const changerPanneau = (p: Panneau) => {
+    if (p === null) { setPanneau(null); return }
+    setBascule(null)
+    if (p === 'couleur') setFMilieu(null)
+    if (p === 'milieu') setFCouleur(null)
+    setPanneau(p)
+  }
+  const changerBascule = (b: Bascule) => {
+    setPanneau(null); setFCouleur(null); setFMilieu(null)
+    setBascule(b)
+  }
   const toutEffacer = () => { setBascule(null); setFCouleur(null); setFMilieu(null); setPanneau(null); setRecherche('') }
 
   /**
@@ -183,7 +199,7 @@ export default function BoisClient() {
       {/* ─── Les quatre portes ─── */}
       <FiltresBois
         panneau={panneau} bascule={bascule} couleur={fCouleur} milieu={fMilieu}
-        onPanneau={setPanneau} onBascule={setBascule}
+        onPanneau={changerPanneau} onBascule={changerBascule}
         onCouleur={setFCouleur} onMilieu={setFMilieu} />
 
       {/* ─── L'avertissement, non négociable : un guide ne suffit jamais ─── */}
