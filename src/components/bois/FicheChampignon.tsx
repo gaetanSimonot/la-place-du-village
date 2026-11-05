@@ -5,12 +5,19 @@ import PastilleStatut from '@/components/bois/PastilleStatut'
 import { libelleMilieu, type Champignon } from '@/lib/champignons'
 
 /**
- * La fiche détaillée d'une espèce — la feuille du guide : photo et crédit,
- * saison et milieu, « Le reconnaître », « Ne pas confondre avec », puis soit
- * « En cuisine » (comestibles), soit le danger.
+ * La fiche détaillée d'une espèce — photo et crédit, saison et milieu,
+ * « Le reconnaître », « Ne pas confondre avec », puis soit « En cuisine »
+ * (comestibles), soit le danger.
+ *
+ * PLEIN ÉCRAN, avec une barre retour + partage, comme les fiches film et
+ * spectacle. Le premier jet était une feuille presque pleine hauteur : la
+ * page du dessous dépassait en haut, coupée au milieu d'une phrase, et la
+ * fiche cachait la bottom nav. Elle reste posée PAR-DESSUS le guide (et non
+ * une autre page) pour que le retour retrouve la liste à l'endroit quitté ;
+ * la bottom nav (z 50) reste devant elle.
  *
  * Un sosie présent dans le guide est un lien : on passe d'une fiche à
- * l'autre sans refermer, comme dans le guide d'origine.
+ * l'autre sans repasser par la liste.
  *
  * Rendue dans un portail (piège du contexte d'empilement) ; les couleurs
  * viennent de l'univers « bois », posé sur <html> par la page.
@@ -40,48 +47,56 @@ export default function FicheChampignon({ espece, parLatin, onOuvrir, onFermer }
 
   return (
     <ClientPortal>
-      <div role="dialog" aria-modal="true" aria-labelledby="fiche-champignon-titre"
-        className="fixed inset-0 flex items-end justify-center lg:items-center"
-        style={{ zIndex: 3400, background: 'rgba(10,14,11,.55)' }}
-        onClick={onFermer}>
-        <div ref={corps} onClick={e => e.stopPropagation()}
-          className="font-alegreyaSans w-full overflow-y-auto lg:rounded-[16px]"
+      <div ref={corps} role="dialog" aria-modal="true" aria-labelledby="fiche-champignon-titre"
+        className="font-inter fixed inset-0 overflow-y-auto"
+        style={{ zIndex: 40, background: 'var(--uni-panel)', color: 'var(--uni-ink)', paddingBottom: 92 }}>
+        {/* Barre du haut, collante : retour au guide, titre centré — la barre
+            des rubriques du site. Une case vide à droite garde le titre au
+            centre. */}
+        <div className="sticky top-0 flex items-center justify-between gap-2.5 px-4"
           style={{
-            maxWidth: 680, maxHeight: 'calc(100dvh - 24px)', background: 'var(--uni-panel)', color: 'var(--uni-ink)',
-            borderRadius: '16px 16px 0 0', paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+            zIndex: 2, paddingTop: 'max(12px, env(safe-area-inset-top, 12px))', paddingBottom: 10,
+            background: 'var(--uni-bg)', borderBottom: '1px solid var(--uni-line)',
           }}>
-          <div className="relative" style={{ aspectRatio: '4 / 3', background: 'var(--uni-vide)' }}>
+          <button onClick={onFermer} aria-label="Retour au guide"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+            style={{ border: '1px solid var(--uni-line)', background: 'var(--uni-panel)', color: 'var(--uni-ink)' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
+            </svg>
+          </button>
+          <div className="min-w-0 flex-1 truncate text-center font-serif text-[18px] leading-none" style={{ letterSpacing: '-0.01em' }}>
+            Dans nos bois
+          </div>
+          <span className="w-10 shrink-0" aria-hidden />
+        </div>
+
+        <div className="mx-auto" style={{ maxWidth: 680 }}>
+          <div style={{ aspectRatio: '4 / 3', background: 'var(--uni-vide)' }}>
             {espece.photo_url && (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={espece.photo_url} alt={espece.nom} className="block h-full w-full object-cover" />
             )}
-            <button onClick={onFermer} aria-label="Fermer"
-              className="absolute flex items-center justify-center rounded-full border-none"
-              style={{ right: 10, top: 10, width: 40, height: 40, background: 'var(--uni-panel)', color: 'var(--uni-ink)' }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                <line x1="6" y1="6" x2="18" y2="18" /><line x1="18" y1="6" x2="6" y2="18" />
-              </svg>
-            </button>
           </div>
           {espece.photo_credit && (
-            <p className="m-0" style={{ padding: '6px 18px 0', fontSize: 12, color: 'var(--uni-dim)' }}>
+            <p className="m-0" style={{ padding: '6px 16px 0', fontSize: 11, color: 'var(--uni-dim2)' }}>
               Photo : {espece.photo_credit}
             </p>
           )}
 
-          <div className="flex flex-col" style={{ padding: '14px 18px 26px', gap: 16, fontSize: 16, lineHeight: 1.5 }}>
+          <div className="flex flex-col" style={{ padding: '14px 16px 26px', gap: 18, fontSize: 14.5, lineHeight: 1.55 }}>
             <div>
               <PastilleStatut statut={espece.statut} />
-              <h2 id="fiche-champignon-titre" className="m-0 font-alegreya"
-                style={{ marginTop: 8, fontSize: 30, fontWeight: 700, lineHeight: 1.05, textWrap: 'balance' }}>
+              <h2 id="fiche-champignon-titre" className="m-0 font-serif"
+                style={{ marginTop: 10, fontSize: 25, lineHeight: 1.12, letterSpacing: '-0.02em', textWrap: 'balance' }}>
                 {espece.nom}
               </h2>
-              <div className="font-alegreya" style={{ fontStyle: 'italic', fontSize: 15, color: 'var(--uni-dim)' }}>
+              <div style={{ marginTop: 3, fontStyle: 'italic', fontSize: 13.5, color: 'var(--uni-dim)' }}>
                 {espece.nom_latin}
               </div>
             </div>
 
-            <div className="flex flex-wrap" style={{ gap: '6px 14px', fontSize: 14, color: 'var(--uni-dim)' }}>
+            <div className="flex flex-wrap" style={{ gap: '6px 14px', fontSize: 12.5, fontWeight: 600, color: 'var(--uni-dim)' }}>
               {espece.saison && <span>Saison : {espece.saison}</span>}
               {espece.milieux.length > 0 && <span>Milieu : {espece.milieux.map(libelleMilieu).join(', ')}</span>}
             </div>
@@ -105,7 +120,7 @@ export default function FicheChampignon({ espece, parLatin, onOuvrir, onFermer }
                       <li key={i}>
                         {cible ? (
                           <button onClick={() => onOuvrir(cible)}
-                            className="border-none bg-transparent p-0 font-alegreyaSans"
+                            className="border-none bg-transparent p-0"
                             style={{ fontSize: 'inherit', fontWeight: 700, color: 'var(--uni-accent)', textDecoration: 'underline', textUnderlineOffset: 2, cursor: 'pointer' }}>
                             {s.nom}
                           </button>
@@ -136,7 +151,7 @@ export default function FicheChampignon({ espece, parLatin, onOuvrir, onFermer }
 
 function Intertitre({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="m-0" style={{ marginBottom: 6, fontSize: 13, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--uni-accent)' }}>
+    <h3 className="m-0" style={{ marginBottom: 6, fontSize: 11, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--uni-accent)' }}>
       {children}
     </h3>
   )
@@ -145,7 +160,7 @@ function Intertitre({ children }: { children: React.ReactNode }) {
 function Encadre({ fond, couleur, titre, texte }: { fond: string; couleur: string; titre: string; texte: string }) {
   return (
     <section style={{ borderRadius: 10, padding: '12px 14px', background: fond }}>
-      <h3 className="m-0" style={{ marginBottom: 6, fontSize: 13, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: couleur }}>
+      <h3 className="m-0" style={{ marginBottom: 6, fontSize: 11, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: couleur }}>
         {titre}
       </h3>
       <p className="m-0">{texte}</p>

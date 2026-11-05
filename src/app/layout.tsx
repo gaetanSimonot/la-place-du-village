@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Suspense } from 'react'
-import { Inter, DM_Serif_Display, Caveat, Plus_Jakarta_Sans, Archivo, Nunito, Montserrat, Alegreya, Alegreya_Sans } from 'next/font/google'
+import { Inter, DM_Serif_Display, Caveat, Plus_Jakarta_Sans, Archivo, Nunito, Montserrat } from 'next/font/google'
 import './globals.css'
 // Version ordinateur : additif, tout est enfermé au-dessus de 1024 px.
 import './desktop.css'
@@ -74,19 +74,6 @@ const nunito = Nunito({
  */
 const montserrat = Montserrat({
   weight: ['700', '800'], subsets: ['latin'], variable: '--font-montserrat', display: 'swap', preload: false,
-})
-
-/*
- * ALEGREYA — les polices du guide des champignons (« Dans nos bois »).
- * Noms d'espèces et latin en Alegreya, texte en Alegreya Sans, comme le guide
- * d'origine. Seul ce module s'en sert : `preload: false`, même raison que
- * Montserrat.
- */
-const alegreya = Alegreya({
-  weight: ['500', '700'], style: ['normal', 'italic'], subsets: ['latin'], variable: '--font-alegreya', display: 'swap', preload: false,
-})
-const alegreyaSans = Alegreya_Sans({
-  weight: ['400', '500', '700'], subsets: ['latin'], variable: '--font-alegreya-sans', display: 'swap', preload: false,
 })
 
 /*
@@ -233,7 +220,7 @@ export default function RootLayout({
   modal: React.ReactNode
 }) {
   return (
-    <html lang="fr" className={`${inter.variable} ${dmSerif.variable} ${caveat.variable} ${jakarta.variable} ${archivo.variable} ${nunito.variable} ${montserrat.variable} ${alegreya.variable} ${alegreyaSans.variable}`}>
+    <html lang="fr" className={`${inter.variable} ${dmSerif.variable} ${caveat.variable} ${jakarta.variable} ${archivo.variable} ${nunito.variable} ${montserrat.variable}`}>
       <head>
         {/* Capture beforeinstallprompt before React mounts */}
         <script dangerouslySetInnerHTML={{ __html: `

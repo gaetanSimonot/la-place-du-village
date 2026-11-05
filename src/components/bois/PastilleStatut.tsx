@@ -15,12 +15,17 @@ const TEINTES: Record<Statut, { fond: string; encre: string }> = {
   mortel:     { fond: 'var(--bois-dead)',   encre: '#F9FAF6' },
 }
 
-export default function PastilleStatut({ statut, style }: { statut: Statut; style?: React.CSSProperties }) {
+export default function PastilleStatut({ statut, compacte, style }: {
+  statut: Statut
+  /** Sur les vignettes de la grille : plus petite, posée sur la photo. */
+  compacte?: boolean
+  style?: React.CSSProperties
+}) {
   const t = TEINTES[statut]
   return (
     <span className="inline-flex items-center"
       style={{
-        gap: 5, borderRadius: 999, padding: '3px 9px', fontSize: 12, fontWeight: 700,
+        gap: 5, borderRadius: 999, padding: compacte ? '2px 8px' : '3px 9px', fontSize: compacte ? 10.5 : 12, fontWeight: 700,
         letterSpacing: '.02em', lineHeight: 1.3, background: t.fond, color: t.encre, ...style,
       }}>
       <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: '50%', background: 'currentColor' }} />
