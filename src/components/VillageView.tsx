@@ -21,6 +21,7 @@ import PlansCardFinal from '@/components/PlansCardFinal'
 import CinemaAffiche from '@/components/CinemaAffiche'
 import TheatreAffiche from '@/components/TheatreAffiche'
 import BoisAffiche from '@/components/BoisAffiche'
+import ChargementGroupe from '@/components/village/ChargementGroupe'
 import RadioAffiche from '@/components/RadioAffiche'
 import AnnoncesAffiche from '@/components/AnnoncesAffiche'
 import PostComposer from '@/components/profil/PostComposer'
@@ -289,7 +290,9 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
           lib/villageOrdre). Chacune décide seule de s'afficher (réglage de
           visibilité, rien à montrer = pas de bloc) : les déplacer ne change
           rien à leur contenu. */}
-      {ordreSections.map(id => <Fragment key={id}>{sections[id]}</Fragment>)}
+      <ChargementGroupe>
+        {ordreSections.map(id => <Fragment key={id}>{sections[id]}</Fragment>)}
+      </ChargementGroupe>
 
       </div>
       <DesktopVillageSidebar

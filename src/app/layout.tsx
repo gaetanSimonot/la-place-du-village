@@ -29,6 +29,7 @@ import DesktopFooter from '@/components/desktop/DesktopFooter'
 import MaintenanceGate from '@/components/MaintenanceGate'
 import PromoSplashGate from '@/components/PromoSplashGate'
 import MenuAppuiLong from '@/components/MenuAppuiLong'
+import VersionAJour from '@/components/VersionAJour'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import { Toaster } from 'sonner'
@@ -246,6 +247,8 @@ export default function RootLayout({
       <body className="antialiased">
         {/* Pas de menu « Télécharger l'image » à l'appui long, hors contenu. */}
         <MenuAppuiLong />
+        {/* Ouverte sur une vieille copie (réseau lent) : se recharge seule. */}
+        <VersionAJour />
         <SWRProvider>
         {/* La radio en direct survit a la navigation : montee ICI, elle n'est
             jamais demontee par un changement de page. */}

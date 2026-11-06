@@ -2,6 +2,11 @@ import withPWA from '@ducanh2912/next-pwa'
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // La version gravée dans le code envoyé au téléphone, comparée par
+  // VersionAJour à celle que sert /api/version (cf. ce composant).
+  env: {
+    NEXT_PUBLIC_VERSION: process.env.VERCEL_GIT_COMMIT_SHA || 'dev',
+  },
   // Générateur d'affiches (route /api/poster/generate) :
   // - modules natifs gardés hors du bundle webpack
   // - polices + fonds embarqués dans la fonction serverless (lus via process.cwd())
