@@ -432,6 +432,14 @@ html[data-univers='bois'] body { background: var(--uni-bg); }
   transform-origin: center;
 }
 
+/* ═══════════ APPARITION — les sections du Village, la première fois ═══════
+   Montées d'un coup, déjà remplies (ChargementGroupe) : un fondu court. */
+@keyframes lpv-apparition {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.lpv-apparition { animation: lpv-apparition .3s ease both; }
+
 /* ═══════════ BATTEMENT — quelque chose vient d'entrer dans les favoris ═══
    Le cœur de la barre du bas rougit une seconde : on comprend où la fiche
    qu'on vient de garder depuis l'assistant est partie. */

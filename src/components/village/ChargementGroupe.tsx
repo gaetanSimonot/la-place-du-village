@@ -1,68 +1,107 @@
 'use client'
-import { createContext, useContext, useEffect, useRef, useState } from 'react'
-import { SWRConfig, type Middleware } from 'swr'
+import { useEffect, useState } from 'react'
+import { SWRConfig, unstable_serialize, useSWRConfig, type Middleware } from 'swr'
 import { memoireVillageVide } from '@/components/SWRProvider'
+import { useTerritoire } from '@/components/TerritoireProvider'
+import { useAuth } from '@/contexts/AuthContext'
+import { signalerMiseAJour } from '@/lib/miseAJour'
 
 /**
  * LES SECTIONS DU VILLAGE ARRIVENT ENSEMBLE.
  *
  * D'ordinaire la page s'ouvre déjà faite, sur la mémoire de la dernière
  * visite (SWRProvider). Quand il n'y en a pas — premier lancement, données
- * effacées —, chaque bloc apparaissait à son tour et poussait les autres.
- * On les tient donc invisibles jusqu'à ce que toutes leurs requêtes aient
- * répondu, puis on les montre d'un coup. Jamais plus de MAX_MS : un bloc
- * lent n'a pas le droit de retenir la page entière.
+ * effacées —, on demande la page entière en UN paquet
+ * (/api/village/instantane), on le verse dans le cache de chaque bloc, et
+ * c'est SEULEMENT ENSUITE qu'on monte les sections : elles s'affichent
+ * d'un coup, déjà remplies, puis se rafraîchissent derrière.
  *
- * Le suivi passe par un middleware SWR posé sur les seules sections : chaque
- * useSWR du dessous signale « j'ai ma réponse », sans qu'aucun bloc ait à le
- * savoir.
+ * Pourquoi ne pas les monter en même temps : au premier lancement, l'appli
+ * lance ~25 demandes à la fois (trace du 06/11, réseau bridé) ; montés tout
+ * de suite, les blocs mettaient le paquet en file derrière les leurs, et la
+ * page attendait plus longtemps qu'avant.
+ *
+ * Jamais plus de MAX_MS : sans paquet, les blocs se débrouillent seuls.
+ * Pendant ce temps, « Mise à jour » tourne à côté de « Aujourd'hui » — c'est
+ * aussi lui qui tourne quand les blocs se rafraîchissent (middleware).
  */
-const MIN_MS = 300   // laisse aux clés tardives (zone, territoire) le temps de s'annoncer
-const MAX_MS = 1500
-
-type Registre = { maj: (cle: string, pret: boolean) => void; retirer: (cle: string) => void }
-const RegistreCtx = createContext<Registre | null>(null)
+const MAX_MS = 10_000
 
 const suivi: Middleware = useSWRNext => (key, fetcher, config) => {
   const swr = useSWRNext(key, fetcher, config)
-  const registre = useContext(RegistreCtx)
   const cle = typeof key === 'string' ? key : Array.isArray(key) ? JSON.stringify(key) : null
-  const pret = swr.data !== undefined || swr.error !== undefined
-  useEffect(() => { if (registre && cle) registre.maj(cle, pret) }, [registre, cle, pret])
-  useEffect(() => () => { if (registre && cle) registre.retirer(cle) }, [registre, cle])
+  const enCours = swr.isValidating
+  useEffect(() => {
+    if (!cle) return
+    signalerMiseAJour(cle, enCours)
+    return () => signalerMiseAJour(cle, false)
+  }, [cle, enCours])
   return swr
 }
 
-/** On n'attend qu'une fois par session : ensuite le cache SWR est plein. */
-let dejaAttendu = false
+/** Date LOCALE, même calcul que TodaySection (sa clé /api/hub en dépend). */
+function jourLocal(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** Une seule fois par session : ensuite le cache SWR est plein. */
+let dejaFait = false
 
 export default function ChargementGroupe({ children }: { children: React.ReactNode }) {
-  const [visible, setVisible] = useState(() => dejaAttendu || !memoireVillageVide)
-  const etats = useRef(new Map<string, boolean>())
-  const [registre] = useState<Registre>(() => ({
-    maj: (cle, pret) => { etats.current.set(cle, pret) },
-    retirer: cle => { etats.current.delete(cle) },
-  }))
+  const [premiereFois] = useState(() => !dejaFait && memoireVillageVide)
+  const [monte, setMonte] = useState(!premiereFois)
+  const { cache, mutate } = useSWRConfig()
+  const { territoire, pret: territoirePret } = useTerritoire()
+  const { user } = useAuth()
+  const slug = territoire?.slug ?? null
+  const userId = user?.id ?? null
 
   useEffect(() => {
-    if (visible) return
-    dejaAttendu = true
-    const debut = Date.now()
-    const t = setInterval(() => {
-      const ecoule = Date.now() - debut
-      const tousPrets = etats.current.size > 0 && Array.from(etats.current.values()).every(Boolean)
-      if (ecoule >= MAX_MS || (ecoule >= MIN_MS && tousPrets)) { clearInterval(t); setVisible(true) }
-    }, 100)
-    return () => clearInterval(t)
-  }, [visible])
+    if (monte) return
+    dejaFait = true
+    signalerMiseAJour('instantane', true)
+    const t = setTimeout(() => setMonte(true), MAX_MS)
+    return () => { clearTimeout(t); signalerMiseAJour('instantane', false) }
+  }, [monte])
+
+  /* Les clés recopient À L'IDENTIQUE celles des blocs (TodaySection,
+     CinemaAffiche, BoisAffiche, TheatreAffiche, RadioAffiche,
+     AnnoncesAffiche) : une clé qui diverge ne remplit rien. */
+  useEffect(() => {
+    if (monte || !territoirePret) return
+    if (!slug) { setMonte(true); return }
+    let annule = false
+    fetch(`/api/village/instantane?territoire=${encodeURIComponent(slug)}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(p => {
+        if (annule || !p?.blocs) return
+        const t = `territoire=${encodeURIComponent(slug)}`
+        const lecteurs = userId ? ['anon', userId] : ['anon']
+        const entrees: [string | [string, string], unknown][] = [
+          [`/api/cinema/affiche?${t}`, p.blocs.cinema],
+          [`/api/radio?${t}`, p.blocs.radio],
+          [`/api/annonces?limit=20&${t}`, p.blocs.annonces],
+          ...lecteurs.flatMap((u): [[string, string], unknown][] => [
+            [[`/api/champignons?${t}`, u], p.blocs.champignons],
+            [[`/api/theatre?${t}`, u], p.blocs.theatre],
+          ]),
+        ]
+        if (p.jour === jourLocal()) entrees.push([`/api/hub?d=${p.jour}&${t}`, p.blocs.hub])
+        for (const [cle, donnees] of entrees) {
+          if (donnees == null || cache.get(unstable_serialize(cle))?.data !== undefined) continue
+          mutate(cle, donnees, { revalidate: false })
+        }
+      })
+      .catch(() => { /* les blocs se débrouillent seuls, comme avant */ })
+      .finally(() => { if (!annule) setMonte(true) })
+    return () => { annule = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monte, territoirePret, slug])
 
   return (
-    <RegistreCtx.Provider value={registre}>
-      <SWRConfig value={{ use: [suivi] }}>
-        <div style={{ opacity: visible ? 1 : 0, transition: 'opacity .25s ease' }}>
-          {children}
-        </div>
-      </SWRConfig>
-    </RegistreCtx.Provider>
+    <SWRConfig value={{ use: [suivi] }}>
+      {monte && <div className={premiereFois ? 'lpv-apparition' : undefined}>{children}</div>}
+    </SWRConfig>
   )
 }

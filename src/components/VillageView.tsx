@@ -22,6 +22,7 @@ import CinemaAffiche from '@/components/CinemaAffiche'
 import TheatreAffiche from '@/components/TheatreAffiche'
 import BoisAffiche from '@/components/BoisAffiche'
 import ChargementGroupe from '@/components/village/ChargementGroupe'
+import IndicateurMiseAJour from '@/components/village/IndicateurMiseAJour'
 import RadioAffiche from '@/components/RadioAffiche'
 import AnnoncesAffiche from '@/components/AnnoncesAffiche'
 import PostComposer from '@/components/profil/PostComposer'
@@ -275,7 +276,8 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
             {/* Sous un thème saisonnier, le titre passe sur un décor sombre :
                 tout en blanc pour rester lisible. */}
             <h1 className="m-0 px-4 pb-2 pt-1 text-[27px] font-extrabold leading-[1.12]" style={{ letterSpacing: '-0.02em' }}>
-              <span style={{ color: fondTheme ? '#FFFFFF' : '#2D5A3D' }}>Aujourd&apos;hui</span><br />
+              <span style={{ color: fondTheme ? '#FFFFFF' : '#2D5A3D' }}>Aujourd&apos;hui</span>
+              <IndicateurMiseAJour couleur={fondTheme ? '#FFFFFF' : '#7A6A5A'} /><br />
               <span style={{ color: fondTheme ? '#FFFFFF' : '#C84B2F' }}>près de chez vous</span>
             </h1>
           </div>

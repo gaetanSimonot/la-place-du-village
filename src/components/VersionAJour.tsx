@@ -1,5 +1,6 @@
 'use client'
 import { useEffect } from 'react'
+import { signalerMiseAJour } from '@/lib/miseAJour'
 
 /**
  * L'APPLI NE RESTE PAS SUR UNE VIEILLE COPIE.
@@ -39,10 +40,12 @@ export default function VersionAJour() {
 
     async function verifier(auRetour: boolean) {
       let enLigne: string | undefined
+      // « Mise à jour » tourne aussi le temps de cette vérification.
+      signalerMiseAJour('version', true)
       try {
         const r = await fetch('/api/version', { cache: 'no-store' })
         enLigne = (await r.json())?.version
-      } catch { return }
+      } catch { return } finally { signalerMiseAJour('version', false) }
       if (!enLigne || enLigne === 'dev' || enLigne === ICI) return
       if (!auRetour && Date.now() - ouverteA > JUSTE_OUVERTE_MS) return
       if (enSaisie()) return
