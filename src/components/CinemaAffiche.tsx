@@ -1,11 +1,10 @@
 'use client'
-import { useMemo } from 'react'
 import { useDefilementDoux } from '@/hooks/useDefilementDoux'
 import TitreVivant from '@/components/village/TitreVivant'
 import Link from 'next/link'
 import useSWR from 'swr'
 import { useTerritoire } from '@/components/TerritoireProvider'
-import type { Cinema, Film, Seance, VisibiliteCinema } from '@/lib/cinema'
+import type { Cinema, FilmAffiche, VisibiliteCinema } from '@/lib/cinema'
 
 /**
  * Bloc « Au cinéma » — une carte insérée dans le flux du Village.
@@ -23,9 +22,12 @@ import type { Cinema, Film, Seance, VisibiliteCinema } from '@/lib/cinema'
 
 interface Payload {
   /** Salles qui ont quelque chose à l’affiche — pas « la » salle. */
-  cinemas: Cinema[]
-  films: Film[]
-  seances: Seance[]
+  cinemas: Pick<Cinema, 'id' | 'slug'>[]
+  /** Déjà dans l'ordre de leur prochaine séance. Pas les séances elles-mêmes :
+   *  le bloc n'en montre que le compte du jour (cf. la route). */
+  films: FilmAffiche[]
+  /** Absent d'une réponse gardée en mémoire avant le 06/11/2026. */
+  seancesAujourdhui?: number
   aujourdhui: string
   villageVisibilite: VisibiliteCinema
 }
@@ -41,30 +43,8 @@ export default function CinemaAffiche({ isAdmin = false }: { isAdmin?: boolean }
   const slugTerr = territoire?.slug ?? null
   const { data } = useSWR<Payload>(slugTerr ? `/api/cinema/affiche?territoire=${encodeURIComponent(slugTerr)}` : '/api/cinema/affiche', fetcher, { revalidateOnFocus: false })
 
-  const aujourdhui = data?.aujourdhui ?? ''
-  const seancesDuJour = useMemo(
-    () => (data?.seances ?? []).filter(s => s.date === aujourdhui),
-    [data, aujourdhui],
-  )
-
-  /**
-   * Les films à l'affiche, dans l'ordre de leur prochaine séance. L'API
-   * renvoie déjà les séances triées par date puis par heure : le premier
-   * passage d'un film est donc le premier qu'on croise.
-   */
-  const films = useMemo(() => {
-    const parId = new Map((data?.films ?? []).map(f => [f.id, f]))
-    const vus = new Set<string>()
-    const out: { film: Film; heures: Seance[] }[] = []
-    for (const s of data?.seances ?? []) {
-      if (vus.has(s.film_id)) { out.find(x => x.film.id === s.film_id)?.heures.push(s); continue }
-      const f = parId.get(s.film_id)
-      if (!f) continue
-      vus.add(s.film_id)
-      out.push({ film: f, heures: [s] })
-    }
-    return out
-  }, [data])
+  const films = data?.films ?? []
+  const seancesDuJour = data?.seancesAujourdhui ?? 0
 
   // Le rouleau avance tout seul, très doucement (téléphone ; cf. le hook).
   const piste = useDefilementDoux<HTMLDivElement>(films.length)
@@ -116,7 +96,7 @@ export default function CinemaAffiche({ isAdmin = false }: { isAdmin?: boolean }
           au lieu de défiler — une zone défilante captait le glissé vertical. */}
       <div>
       <div ref={piste} className="pcv-cinePiste flex items-start gap-2.5 lg:overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
-        {[...films, ...films].map(({ film }, i) => {
+        {[...films, ...films].map((film, i) => {
           const copie = i >= films.length
           return (
           <Link key={`${film.id}-${i}`} href={`/cinema/film/${film.id}`}
@@ -150,7 +130,7 @@ export default function CinemaAffiche({ isAdmin = false }: { isAdmin?: boolean }
           pas une accroche. */}
       <p className="m-0 px-4 pt-1.5 text-[11.5px]" style={{ color: '#7A6A5A' }}>
         {films.length} film{films.length > 1 ? 's' : ''} à l’affiche
-        {seancesDuJour.length > 0 && ` · ${seancesDuJour.length} séance${seancesDuJour.length > 1 ? 's' : ''} aujourd’hui`}
+        {seancesDuJour > 0 && ` · ${seancesDuJour} séance${seancesDuJour > 1 ? 's' : ''} aujourd’hui`}
         {data.cinemas.length > 1 ? ` · ${data.cinemas.length} salles` : ''}
       </p>
     </>

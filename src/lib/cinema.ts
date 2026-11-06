@@ -46,6 +46,9 @@ export interface Film {
   avertissement: string | null
 }
 
+/** Ce que le bloc « Au cinéma » du Village affiche d'un film (/api/cinema/affiche). */
+export type FilmAffiche = Pick<Film, 'id' | 'titre' | 'affiche_url'>
+
 export type VersionFilm = 'vf' | 'vost' | 'vo'
 
 export interface Seance {
