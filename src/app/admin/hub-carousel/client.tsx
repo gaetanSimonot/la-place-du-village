@@ -20,7 +20,8 @@ import { parseEntree, PAGES_ARRIVEE, type EntreeApp, type PageArrivee } from '@/
 import EmbedPicker, { type EmbedItem } from '@/components/EmbedPicker'
 import { normaliserHerosListe, completerUrl, HEROS_VIDE, type HerosVillage, type PublicHeros } from '@/lib/villageHero'
 import ImageLibraryPicker from '@/components/ImageLibraryPicker'
-import { parseEffets, EFFETS_DEFAUT, BORNES_EFFETS, garderEffetsEnCache, type VillageEffets } from '@/lib/villageEffets'
+import { parseEffets, parsePresets, EFFETS_DEFAUT, BORNES_EFFETS, garderEffetsEnCache, type VillageEffets, type PresetEffets } from '@/lib/villageEffets'
+import Curseur from '@/components/admin/Curseur'
 import { SECTIONS_VILLAGE, ORDRE_DEFAUT, parseOrdre, garderOrdreEnCache, type SectionVillage } from '@/lib/villageOrdre'
 import { THEMES_SAISONNIERS, CLE_THEME, CLE_BANDEAU, parseTheme, parseBandeau, type ThemeSaisonnier } from '@/lib/themeSaisonnier'
 import { appliquerTheme, appliquerBandeau } from '@/components/BandeauSaisonnier'
@@ -233,7 +234,7 @@ export default function AdminHubCarousel() {
      */
     lireConfigsClient([
       'hub_hero_intro_enabled', 'hub_hero_intro_image_url',       'splash_promo', 'cinema_village_public', 'theatre_village_public',
-      'bois_village_public', 'radio_village_public', 'assistant_visibilite', 'village_hero', 'entree_app', 'village_effets', 'village_ordre',
+      'bois_village_public', 'radio_village_public', 'assistant_visibilite', 'village_hero', 'entree_app', 'village_effets', 'village_effets_presets', 'village_ordre',
       CLE_THEME, CLE_BANDEAU,
     ], territoireAdmin?.id ?? null, !!territoireAdmin?.par_defaut).then(cfg => {
       setThemeSaison(parseTheme(cfg[CLE_THEME]))
@@ -263,6 +264,7 @@ export default function AdminHubCarousel() {
       const effetsLus = parseEffets(cfg.village_effets)
       effetsRef.current = effetsLus
       setEffets(effetsLus)
+      setPresets(parsePresets(cfg.village_effets_presets))
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user?.id, isAdmin, territoireAdmin?.id, territoireAdmin?.par_defaut])
@@ -276,6 +278,33 @@ export default function AdminHubCarousel() {
   const effetsRef = useRef<VillageEffets>(EFFETS_DEFAUT)
   const effetsMinuteur = useRef<ReturnType<typeof setTimeout>>()
   const [effetsMsg, setEffetsMsg] = useState<string | null>(null)
+
+  /* Les presets d'effets : des réglages complets, nommés, rappelés d'une
+     touche (ce qui les applique et les enregistre comme un geste ordinaire).
+     Clé globale `village_effets_presets`, comme `village_effets`. */
+  const [presets, setPresets] = useState<PresetEffets[]>([])
+  const [nomPreset, setNomPreset] = useState('')
+  const [presetASupprimer, setPresetASupprimer] = useState<string | null>(null)
+  async function ecrirePresets(suite: PresetEffets[]) {
+    const avant = presets
+    setPresets(suite)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch(urlEcritureConfig(null), {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body:    JSON.stringify({ key: 'village_effets_presets', value: JSON.stringify(suite) }),
+    }).catch(() => null)
+    if (!res?.ok) { setPresets(avant); setEffetsMsg('Échec de l’enregistrement') }
+    else setEffetsMsg('Preset enregistré')
+    setTimeout(() => setEffetsMsg(null), 2000)
+  }
+  function sauverPreset() {
+    const nom = nomPreset.trim().slice(0, 40)
+    if (!nom) return
+    // Même nom : le preset est remplacé par les réglages du moment.
+    ecrirePresets([...presets.filter(p => p.nom !== nom), { nom, effets: effetsRef.current }])
+    setNomPreset('')
+  }
   function majEffets(patch: Partial<VillageEffets>) {
     const suivant = { ...effetsRef.current, ...patch }
     effetsRef.current = suivant
@@ -1288,6 +1317,51 @@ export default function AdminHubCarousel() {
             Téléphone seulement. Coupés d&apos;office pour qui a demandé moins
             d&apos;animations. S&apos;appliquent au prochain affichage du Village.
           </div>
+
+          {/* Presets : un réglage complet sous un nom, rappelé d'une touche. */}
+          <div style={{ paddingBottom: 10, marginBottom: 4, borderBottom: '1px solid #F0EAE0' }}>
+            <div style={{ fontSize: 12.5, fontWeight: 800, color: '#1A1209', marginBottom: 6 }}>Presets</div>
+            {presets.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                {presets.map(p => {
+                  const actif = JSON.stringify(p.effets) === JSON.stringify(effets)
+                  const confirmer = presetASupprimer === p.nom
+                  return (
+                    <span key={p.nom} style={{
+                      display: 'inline-flex', alignItems: 'center', borderRadius: 999, overflow: 'hidden',
+                      border: `1.5px solid ${actif ? '#2D5A3D' : '#E5DDD2'}`, background: actif ? '#F4FAF5' : '#FFFFFF',
+                    }}>
+                      <button type="button" onClick={() => { setPresetASupprimer(null); majEffets(p.effets) }}
+                        style={{ padding: '6px 4px 6px 12px', fontSize: 11.5, fontWeight: 800, color: actif ? '#2D5A3D' : '#1A1209', background: 'none', border: 'none', cursor: 'pointer' }}>
+                        {p.nom}
+                      </button>
+                      {/* Supprimer en deux temps : × puis « Supprimer ? ». */}
+                      <button type="button" aria-label={`Supprimer le preset ${p.nom}`}
+                        onClick={() => {
+                          if (!confirmer) { setPresetASupprimer(p.nom); return }
+                          setPresetASupprimer(null)
+                          ecrirePresets(presets.filter(x => x.nom !== p.nom))
+                        }}
+                        style={{ padding: '6px 10px 6px 4px', fontSize: confirmer ? 11 : 13, fontWeight: 800, color: confirmer ? '#B53A22' : '#8A7A6A', background: 'none', border: 'none', cursor: 'pointer' }}>
+                        {confirmer ? 'Supprimer ?' : '×'}
+                      </button>
+                    </span>
+                  )
+                })}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input value={nomPreset} onChange={e => setNomPreset(e.target.value)} maxLength={40}
+                onKeyDown={e => { if (e.key === 'Enter') sauverPreset() }}
+                placeholder="Nom pour les réglages actuels"
+                style={{ flex: 1, minWidth: 0, padding: '7px 10px', borderRadius: 9, border: '1.5px solid #E5DDD2', fontSize: 12, background: '#FFFFFF', color: '#1A1209' }} />
+              <button type="button" onClick={sauverPreset} disabled={!nomPreset.trim()}
+                style={{ padding: '7px 12px', borderRadius: 9, border: 'none', fontSize: 11.5, fontWeight: 800,
+                  background: nomPreset.trim() ? '#2D5A3D' : '#C9D6CC', color: '#FFFFFF', cursor: nomPreset.trim() ? 'pointer' : 'default' }}>
+                Enregistrer
+              </button>
+            </div>
+          </div>
           {([
             { cle: 'courbe' as const, titre: 'Courbe', sous: 'Les blocs se penchent en haut et en bas de l’écran, comme dans un tambour ; les photos des publications se tordent.' },
             { cle: 'enfoncement' as const, titre: 'Tambour pressé (essai)', sous: 'Quand le doigt fait défiler, le centre de l’écran s’enfonce ; le haut et le bas ne bougent pas. Au lâcher, retour à plat en douceur. Remplace la courbe fixe.' },
@@ -1318,12 +1392,10 @@ export default function AdminHubCarousel() {
                     : effets.courbeForce < 0 ? (effets.enfoncement ? 'bombé' : 'convexe') : 'à plat'}
                 </span>
               </div>
-              <input
-                type="range"
+              <Curseur label="Force de la courbe"
                 min={BORNES_EFFETS.courbeForce.min} max={BORNES_EFFETS.courbeForce.max}
                 value={effets.courbeForce}
-                onChange={e => majEffets({ courbeForce: Number(e.target.value) })}
-                style={{ width: '100%', accentColor: '#2D5A3D' }}
+                onChange={v => majEffets({ courbeForce: v })}
               />
             </div>
           )}
@@ -1338,12 +1410,10 @@ export default function AdminHubCarousel() {
                 <span>{o.titre}</span>
                 <span style={{ color: '#7A6A5A' }}>{(effets[o.cle] / 1000).toFixed(2).replace('.', ',')} s</span>
               </div>
-              <input
-                type="range" step={10}
+              <Curseur label={o.titre} step={10}
                 min={BORNES_EFFETS[o.cle].min} max={BORNES_EFFETS[o.cle].max}
                 value={effets[o.cle]}
-                onChange={e => majEffets({ [o.cle]: Number(e.target.value) })}
-                style={{ width: '100%', accentColor: '#2D5A3D' }}
+                onChange={v => majEffets({ [o.cle]: v })}
               />
             </div>
           ))}
@@ -1358,12 +1428,10 @@ export default function AdminHubCarousel() {
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, fontWeight: 700, color: '#1A1209' }}>
                 <span>{o.titre}</span><span style={{ color: '#7A6A5A' }}>{effets[o.cle]}{o.unite}</span>
               </div>
-              <input
-                type="range"
+              <Curseur label={o.titre}
                 min={BORNES_EFFETS[o.cle].min} max={BORNES_EFFETS[o.cle].max}
                 value={effets[o.cle]}
-                onChange={e => majEffets({ [o.cle]: Number(e.target.value) })}
-                style={{ width: '100%', accentColor: '#2D5A3D' }}
+                onChange={v => majEffets({ [o.cle]: v })}
               />
             </div>
           ))}
@@ -1400,22 +1468,18 @@ export default function AdminHubCarousel() {
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, fontWeight: 700, color: '#1A1209' }}>
                 <span>Force de la vignette</span><span style={{ color: '#7A6A5A' }}>{effets.vignetteForce} %</span>
               </div>
-              <input
-                type="range"
+              <Curseur label="Force de la vignette"
                 min={BORNES_EFFETS.vignetteForce.min} max={BORNES_EFFETS.vignetteForce.max}
                 value={effets.vignetteForce}
-                onChange={e => majEffets({ vignetteForce: Number(e.target.value) })}
-                style={{ width: '100%', accentColor: '#2D5A3D' }}
+                onChange={v => majEffets({ vignetteForce: v })}
               />
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, fontWeight: 700, color: '#1A1209', marginTop: 6 }}>
                 <span>Taille de la vignette</span><span style={{ color: '#7A6A5A' }}>{effets.vignetteTaille} %</span>
               </div>
-              <input
-                type="range"
+              <Curseur label="Taille de la vignette"
                 min={BORNES_EFFETS.vignetteTaille.min} max={BORNES_EFFETS.vignetteTaille.max}
                 value={effets.vignetteTaille}
-                onChange={e => majEffets({ vignetteTaille: Number(e.target.value) })}
-                style={{ width: '100%', accentColor: '#2D5A3D' }}
+                onChange={v => majEffets({ vignetteTaille: v })}
               />
             </div>
           )}

@@ -132,3 +132,18 @@ export function parseEffets(v: string | null | undefined): VillageEffets {
     return EFFETS_DEFAUT
   }
 }
+
+/** Un réglage complet, nommé — clé `village_effets_presets` (admin seulement). */
+export interface PresetEffets { nom: string; effets: VillageEffets }
+
+export function parsePresets(v: string | null | undefined): PresetEffets[] {
+  try {
+    const l = v ? JSON.parse(v) : []
+    if (!Array.isArray(l)) return []
+    return l
+      .filter((p): p is { nom: string; effets: unknown } => !!p && typeof p.nom === 'string' && !!p.nom.trim())
+      .map(p => ({ nom: p.nom.trim().slice(0, 40), effets: parseEffets(JSON.stringify(p.effets ?? {})) }))
+  } catch {
+    return []
+  }
+}
