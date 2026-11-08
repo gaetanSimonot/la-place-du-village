@@ -6,6 +6,7 @@ import useSWR from 'swr'
 import { toast } from 'sonner'
 import BottomNavBar from '@/components/BottomNavBar'
 import BandeAnnonce from '@/components/cinema/BandeAnnonce'
+import { useTerritoire } from '@/components/TerritoireProvider'
 import { formatHeure, type Cinema, type Film, type Seance } from '@/lib/cinema'
 
 /**
@@ -45,7 +46,13 @@ export default function FilmClient({ id }: { id: string }) {
     document.documentElement.dataset.univers = 'cinema'
     return () => { delete document.documentElement.dataset.univers }
   }, [])
-  const { data, isLoading } = useSWR<Payload>(`/api/cinema/film/${id}`, fetcher)
+  // Le territoire fait partie de la clé, comme sur /cinema : la route ne
+  // garde que les salles de la ville qu'on regarde. On attend de la
+  // connaître : sans elle, la route sert le territoire par défaut.
+  const { territoire, pret } = useTerritoire()
+  const qTerr = territoire?.slug ? `?territoire=${encodeURIComponent(territoire.slug)}` : ''
+  const { data, isLoading: chargeFilm } = useSWR<Payload>(pret ? `/api/cinema/film/${id}${qTerr}` : null, fetcher)
+  const isLoading = chargeFilm || !pret
 
   const film = data?.film
   const cinemas = useMemo(() => new Map((data?.cinemas ?? []).map(c => [c.id, c])), [data])

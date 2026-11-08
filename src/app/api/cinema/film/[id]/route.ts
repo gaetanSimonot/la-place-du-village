@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { dateParis } from '@/lib/cinema'
 import { listerCinemas } from '@/lib/cinema-server'
+import { territoireDeLaRequete } from '@/lib/territoires'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -13,14 +14,17 @@ export const revalidate = 0
  * ayant le module accordé : un film reste en base quand un cinéma perd le
  * module, ses séances ne doivent plus s'afficher pour autant.
  */
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
   const { data: film } = await supabaseAdmin
     .from('films').select('*').eq('id', id).maybeSingle()
   if (!film) return NextResponse.json({ error: 'Film introuvable' }, { status: 404 })
 
-  const cinemas = await listerCinemas()
+  // Les films sont GLOBAUX, les salles non : sans ce filtre, un film joué
+  // à Ganges et à Pau affichait en vue Cévennes les séances paloises.
+  const terr = await territoireDeLaRequete(req.url)
+  const cinemas = await listerCinemas(terr?.id ?? null)
   if (!cinemas.length) return NextResponse.json({ film, seances: [], cinemas: [] })
 
   const { data: seances } = await supabaseAdmin
