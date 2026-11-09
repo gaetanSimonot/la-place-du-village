@@ -35,6 +35,14 @@
     {
       "path": "/api/cron/vignettes",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/meteo?source=arome",
+      "schedule": "50 1-23/3 * * *"
+    },
+    {
+      "path": "/api/cron/meteo?source=jours",
+      "schedule": "40 8,20 * * *"
     }
   ]
 }

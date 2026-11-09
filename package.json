@@ -24,6 +24,7 @@
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "@vis.gl/react-google-maps": "^1.8.2",
+    "d3-contour": "^4.0.3",
     "fflate": "^0.7.4",
     "framer-motion": "^12.38.0",
     "jsonrepair": "^3.14.0",
@@ -40,6 +41,7 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@types/d3-contour": "^3.0.6",
     "@types/google.maps": "^3.58.1",
     "@types/node": "^20",
     "@types/react": "^18",
