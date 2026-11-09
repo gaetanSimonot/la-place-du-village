@@ -4,7 +4,7 @@ import MapGL, { Source, Layer, Marker, type MapRef } from 'react-map-gl/maplibre
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import type { Couche } from '@/lib/meteo/contours'
-import type { ZoneMeteo } from '@/lib/meteo/zone'
+import { COULEURS_PLUIE, COULEUR_ORAGE, type ZoneMeteo } from '@/lib/meteo/zone'
 import type { Point } from '@/lib/meteo/lecture'
 import type { ImageCarte } from '@/lib/meteo/vueEnsemble'
 
@@ -15,10 +15,6 @@ import type { ImageCarte } from '@/lib/meteo/vueEnsemble'
  */
 
 const STYLE = 'https://tiles.openfreemap.org/styles/positron'
-
-/** Bleus du clair au foncé, terracotta pour l'orage. */
-export const COULEURS_PLUIE = ['#9CC7EA', '#4C8FCF', '#1F5296']
-export const COULEUR_ORAGE = '#C84B2F'
 
 const VIDE: Couche = { type: 'FeatureCollection', features: [] }
 

@@ -628,12 +628,9 @@ html[data-univers='bois'] body { background: var(--uni-bg); }
   .pcv-eq i { animation: none !important; height: 9px !important }
 }
 
-/* ── Météo : le curseur des heures (zone tactile de 44 px) ── */
-.pdv-curseur-meteo { -webkit-appearance: none; appearance: none; height: 44px; background: transparent; margin: 0; }
-.pdv-curseur-meteo::-webkit-slider-runnable-track { height: 6px; border-radius: 999px; background: #E5DDD2; }
-.pdv-curseur-meteo::-moz-range-track { height: 6px; border-radius: 999px; background: #E5DDD2; }
-.pdv-curseur-meteo::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 28px; margin-top: -11px; border-radius: 999px; background: #2D5A3D; border: 4px solid #FFFFFF; box-shadow: 0 1px 6px rgba(44,28,16,.3); }
-.pdv-curseur-meteo::-moz-range-thumb { width: 20px; height: 20px; border-radius: 999px; background: #2D5A3D; border: 4px solid #FFFFFF; box-shadow: 0 1px 6px rgba(44,28,16,.3); }
+/* ── Météo : la frise des heures, sans barre de défilement ── */
+.pdv-frise { scrollbar-width: none; }
+.pdv-frise::-webkit-scrollbar { display: none; }
 /* Sur ordinateur, la page météo démarre sous l'en-tête du site (65 + 39 px). */
 /* La barre du bas n'existe pas sur ordinateur : rien à réserver en bas. */
 @media (min-width: 1024px) {

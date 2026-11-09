@@ -4,8 +4,8 @@ import { useRouter } from 'next/navigation'
 import { motion, animate, useMotionValue, useDragControls, type PanInfo } from 'framer-motion'
 import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
-import PanneauMeteo from './PanneauMeteo'
-import TuileHeure, { type DonneesTuile } from './TuileHeure'
+import PanneauMeteo, { quand, type DonneesHeure } from './PanneauMeteo'
+import type { Colonne } from './FriseHeures'
 import { useDonneesMeteo } from './useDonneesMeteo'
 import BottomNavBar, { NAV_H } from '@/components/BottomNavBar'
 import { useInterceptModal } from '@/contexts/InterceptModalContext'
@@ -21,8 +21,8 @@ import { dessinerVueEnsemble, type ImageCarte } from '@/lib/meteo/vueEnsemble'
 
 const CarteMeteo = dynamic(() => import('./CarteMeteo'), { ssr: false })
 
-/** Hauteur visible du panneau replié : la phrase, le curseur et les boutons des jours. */
-const PANNEAU_REPLIE = 236
+/** Hauteur visible du panneau replié : l'heure choisie et la frise des heures. */
+const PANNEAU_REPLIE = 248
 /** Une image toutes les … ms quand on lance la lecture. */
 const CADENCE = 450
 const CLE_POINT = 'pdv-meteo-point'
@@ -103,14 +103,17 @@ export default function MeteoVue() {
     return out
   }, [zone, cadres, images, point])
 
-  const ici = serie[0]
-  const jourIci = ici ? hauteurSoleil(ici.t - 1_800_000, point) > 0 : true
-  const etat = ici ? etatEnMots(ici.v, jourIci) : null
-  const suite = ici && serie.length >= Math.min(8, cadres.length) ? suiteEnMots(serie, 0) : ''
+  const suite = serie[0] && serie.length >= Math.min(8, cadres.length) ? suiteEnMots(serie, 0) : ''
 
-  // La tuile : l'heure du curseur, au point choisi.
+  // La frise : une colonne par heure, vide tant que son image n'est pas là.
+  const colonnes: Colonne[] = useMemo(() => cadres.map((c, i) => {
+    const img = images.get(i)
+    return { t: c.t, pas: i > 0 ? (c.t - cadres[i - 1].t) / 3_600_000 : 1, v: img && zone ? valeurAu(img, point, zone) : null }
+  }), [cadres, images, point, zone])
+
+  // L'en-tête du panneau : l'heure sous l'aiguille, au point choisi.
   const affichee = images.get(iSel)
-  const tuile: DonneesTuile | null = useMemo(() => {
+  const hSel: DonneesHeure | null = useMemo(() => {
     if (!affichee || !zone) return null
     const v = valeurAu(affichee, point, zone)
     const jour = hauteurSoleil(affichee.t - 1_800_000, point) > 0
@@ -251,17 +254,17 @@ export default function MeteoVue() {
         >
           <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
         </button>
-        <span className="pointer-events-auto rounded-full bg-white px-3.5 py-2 font-title text-[17px] font-extrabold text-[#2D5A3D]" style={{ boxShadow: '0 2px 10px rgba(44,28,16,.12)' }}>
-          Météo
+        {/* L'heure que montre la carte, comme l'horodatage d'un radar. */}
+        <span className="pointer-events-auto flex h-11 items-center gap-2 rounded-full bg-white pl-3.5 pr-4 text-[#2D5A3D]" style={{ boxShadow: '0 2px 10px rgba(44,28,16,.12)' }}>
+          <span className="font-title text-[17px] font-extrabold">Météo</span>
+          {cadres[iSel] && (
+            <>
+              <span className="h-4 w-px bg-[#E5DDD2]" aria-hidden />
+              <span className="text-[14px] font-bold text-[#1A1209]">{quand(cadres[iSel].t, iSel === 0)}</span>
+            </>
+          )}
         </span>
       </div>
-
-      {/* La tuile de l'heure, en bas à gauche de la carte, au-dessus du panneau. */}
-      {tuile && (
-        <div className="pointer-events-none absolute left-3 z-20" style={{ bottom: `calc(${BAS} + ${PANNEAU_REPLIE + 12}px)` }}>
-          <TuileHeure d={tuile} lieu={nomPoint} />
-        </div>
-      )}
 
       {/* Le panneau, qu'on remonte. */}
       <motion.div
@@ -300,16 +303,15 @@ export default function MeteoVue() {
             <p className="m-0 px-5 py-6 text-[16px] font-bold text-[#7A6A5A]">La météo n’est pas encore disponible pour ce territoire.</p>
           ) : (
             <PanneauMeteo
-              etat={etat}
+              h={hSel}
               suite={suite}
-              temp={ici?.v.temp ?? null}
-              ciel={ici ? cielDe(ici.v, jourIci) : null}
               lieu={lieu}
-              curseur={{ min: 0, max: Math.max(0, cadres.length - 1), valeur: iSel, maintenant: 0, t: cadres[iSel]?.t ?? Date.now() }}
+              colonnes={colonnes}
+              iSel={iSel}
+              onChoisir={choisir}
               enLecture={lecture}
               onLecture={lireOuPause}
-              charge={new Set(images.keys())}
-              onChoisir={choisir}
+              ouvert={ouvert}
               vueJours={vueJours}
               onVueJours={setVueJours}
               jours={jours}

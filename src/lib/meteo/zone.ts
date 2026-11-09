@@ -115,6 +115,10 @@ export const SEUIL_PLUIE = 0.2
 export const SEUIL_MODEREE = 2.5
 export const SEUIL_FORTE = 7.6
 
+/** Bleus du clair au foncé (faible, modérée, forte), terracotta pour l'orage. */
+export const COULEURS_PLUIE = ['#9CC7EA', '#4C8FCF', '#1F5296']
+export const COULEUR_ORAGE = '#C84B2F'
+
 /* ── Ce que la tâche publie ──────────────────────────────────────────── */
 
 export interface MetaMeteo {
