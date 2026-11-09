@@ -148,6 +148,8 @@ export default function AdminHubCarousel() {
   const [boisVis, setBoisVis] = useState<VisibiliteCinema>('admin')
   const [boisInvites, setBoisInvites] = useState<string[]>([])
   const [boisSaving, setBoisSaving] = useState(false)
+  const [meteoVis, setMeteoVis] = useState<VisibiliteCinema>('admin')
+  const [meteoSaving, setMeteoSaving] = useState(false)
   const [radioVis, setRadioVis] = useState<VisibiliteCinema>('admin')
   const [radioSaving, setRadioSaving] = useState(false)
   const [cinemaSaving, setCinemaSaving] = useState(false)
@@ -234,7 +236,7 @@ export default function AdminHubCarousel() {
      */
     lireConfigsClient([
       'hub_hero_intro_enabled', 'hub_hero_intro_image_url',       'splash_promo', 'cinema_village_public', 'theatre_village_public',
-      'bois_village_public', 'radio_village_public', 'assistant_visibilite', 'village_hero', 'entree_app', 'village_effets', 'village_effets_presets', 'village_ordre',
+      'bois_village_public', 'meteo_village_public', 'radio_village_public', 'assistant_visibilite', 'village_hero', 'entree_app', 'village_effets', 'village_effets_presets', 'village_ordre',
       CLE_THEME, CLE_BANDEAU,
     ], territoireAdmin?.id ?? null, !!territoireAdmin?.par_defaut).then(cfg => {
       setThemeSaison(parseTheme(cfg[CLE_THEME]))
@@ -254,6 +256,7 @@ export default function AdminHubCarousel() {
       setCinemaVis(parseVisibilite(cineRes.data?.value))
       setTheatreVis(parseVisibilite(theaRes.data?.value))
       setBoisVis(parseVisibilite(cfg.bois_village_public))
+      setMeteoVis(parseVisibilite(cfg.meteo_village_public))
       setRadioVis(parseVisibilite(radioRes.data?.value))
       setAssistantVis(parseVisibilite(assistRes.data?.value))
       const herosLus = normaliserHerosListe(herosRes.data?.value, true)
@@ -481,6 +484,20 @@ export default function AdminHubCarousel() {
     }).catch(() => null)
     if (!res?.ok) setBoisVis(avant)
     setBoisSaving(false)
+  }
+
+  async function changerMeteoVis(next: VisibiliteCinema) {
+    if (meteoSaving || next === meteoVis) return
+    const avant = meteoVis
+    setMeteoVis(next); setMeteoSaving(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch(urlEcritureConfig(territoireAdmin?.par_defaut ? null : territoireAdmin?.slug ?? null), {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body:    JSON.stringify({ key: 'meteo_village_public', value: next }),
+    }).catch(() => null)
+    if (!res?.ok) setMeteoVis(avant)
+    setMeteoSaving(false)
   }
 
   async function changerRadioVis(next: VisibiliteCinema) {
@@ -1241,6 +1258,50 @@ export default function AdminHubCarousel() {
               onChange={setBoisInvites}
             />
           )}
+        </div>
+      </div>
+
+      {/* Icône Météo, à droite du titre « Aujourd'hui près de chez vous » —
+          mêmes trois états, même défaut `admin`. */}
+      <div style={{ padding: '14px 16px 0' }}>
+        <div style={{
+          padding: 14, borderRadius: 12, background: '#FFFFFF',
+          border: `1px solid ${meteoVis === 'tous' ? '#F0B08A' : '#E5DDD2'}`,
+          boxShadow: '0 1px 4px rgba(44,28,16,0.04)',
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>
+            Icône « Météo »
+          </div>
+          <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2, marginBottom: 10, lineHeight: 1.45 }}>
+            Sur la page Village, à droite du titre « Aujourd&apos;hui près de chez vous ».
+            Elle ouvre la page météo.
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {([
+              { v: 'masque' as const, titre: 'Masqué', sous: 'personne' },
+              { v: 'admin'  as const, titre: 'Admin',  sous: 'toi seul' },
+              { v: 'tous'   as const, titre: 'Tous',   sous: 'les habitants' },
+            ]).map(o => {
+              const actif = meteoVis === o.v
+              return (
+                <button
+                  key={o.v}
+                  onClick={() => changerMeteoVis(o.v)}
+                  disabled={meteoSaving}
+                  style={{
+                    flex: 1, padding: '10px 6px', borderRadius: 10, textAlign: 'center',
+                    border: `1.5px solid ${actif ? '#C84B2F' : '#E5DDD2'}`,
+                    background: actif ? '#FFF8F3' : '#FDFAF5',
+                    cursor: meteoSaving ? 'default' : 'pointer',
+                    fontFamily: 'var(--font-body), sans-serif',
+                  }}
+                >
+                  <div style={{ fontSize: 12.5, fontWeight: 800, color: actif ? '#C0440A' : '#1A1209' }}>{o.titre}</div>
+                  <div style={{ fontSize: 10, color: '#8A7A6A', marginTop: 2 }}>{o.sous}</div>
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
 

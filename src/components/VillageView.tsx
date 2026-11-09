@@ -33,6 +33,7 @@ import HerosVillage from '@/components/village/HerosVillage'
 import TitreVivant, { useTitresVivants } from '@/components/village/TitreVivant'
 import { chargerIdentitesEtab } from '@/lib/identite'
 import RadioPastille from '@/components/RadioPastille'
+import MeteoRaccourci from '@/components/village/MeteoRaccourci'
 import { retenirApercu } from '@/lib/apercuEvenement'
 import { useThemeSaisonnier } from '@/components/BandeauSaisonnier'
 import { FOND_VILLAGE_THEME } from '@/lib/themeSaisonnier'
@@ -270,16 +271,18 @@ export default function VillageView({ onOpenProfil, onOpenSplash, onOpenAgendaTo
 
           {/* Titre — deux lignes, deux couleurs de la charte.
               pcv-hide : sur bureau, c'est le héros qui porte le titre. */}
-          <div className="pcv-hide">
+          <div className="pcv-hide flex items-center justify-between gap-3 pr-4">
             {/* pb-2 et non pb-5 : sous ce titre, l'espace jusqu'à « N événements »
                 valait ~31 px contre ~20 entre deux rubriques — mesuré le 29/09. */}
             {/* Sous un thème saisonnier, le titre passe sur un décor sombre :
                 tout en blanc pour rester lisible. */}
-            <h1 className="m-0 px-4 pb-2 pt-1 text-[27px] font-extrabold leading-[1.12]" style={{ letterSpacing: '-0.02em' }}>
+            <h1 className="m-0 min-w-0 px-4 pb-2 pt-1 text-[27px] font-extrabold leading-[1.12]" style={{ letterSpacing: '-0.02em' }}>
               <span style={{ color: fondTheme ? '#FFFFFF' : '#2D5A3D' }}>Aujourd&apos;hui</span>
               <IndicateurMiseAJour couleur={fondTheme ? '#FFFFFF' : '#7A6A5A'} /><br />
               <span style={{ color: fondTheme ? '#FFFFFF' : '#C84B2F' }}>près de chez vous</span>
             </h1>
+            {/* La porte de la météo — visibilité réglée en admin (meteo_village_public). */}
+            <MeteoRaccourci isAdmin={isAdmin} surTheme={!!fondTheme} />
           </div>
         </div>
       </div>
