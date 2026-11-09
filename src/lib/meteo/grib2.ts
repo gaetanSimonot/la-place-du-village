@@ -85,11 +85,51 @@ export function lireEntete(b: Uint8Array): Omit<EnteteGrib, 'bitmap'> {
 /** Une fenêtre de la grille : `l` lignes du nord au sud, `c` colonnes d'ouest en est. */
 export interface Fenetre { lat0: number; lon0: number; pas: number; lignes: number; colonnes: number }
 
+/** Un champ décodé : sa grille, et la valeur en (i, j) — NaN hors données. */
+export interface Champ { e: Omit<EnteteGrib, 'bitmap'>; lire: (i: number, j: number) => number }
+
 /**
- * Décode un message complet et rend les valeurs aux points de la fenêtre
- * (plus proche voisin si la grille ne tombe pas pile). NaN hors données.
+ * Les valeurs aux points de la fenêtre. Si la fenêtre est plus lâche que la
+ * grille (5 km sur une grille de 1 km), chaque point est la MOYENNE du bloc
+ * qu'il couvre : prendre un point sur cinq raterait les averses entre deux.
+ * Sinon, plus proche voisin.
  */
+export function extraire(ch: Champ, f: Fenetre): Float32Array {
+  const { e } = ch
+  const out = new Float32Array(f.lignes * f.colonnes)
+  const lonRef = ((e.lo1 % 360) + 360) % 360
+  const demi = Math.max(0, Math.floor(Math.round(f.pas / e.di) / 2))
+  for (let l = 0; l < f.lignes; l++) {
+    const lat = f.lat0 - l * f.pas
+    const j0 = Math.round((e.la1 - lat) / e.dj)
+    for (let c = 0; c < f.colonnes; c++) {
+      const lon = (((f.lon0 + c * f.pas) % 360) + 360) % 360
+      let i0 = Math.round((((lon - lonRef) % 360) + 360) % 360 / e.di)
+      if (i0 >= e.ni && i0 - e.ni < 1) i0 = e.ni - 1
+      let somme = 0, n = 0
+      for (let dj = -demi; dj <= demi; dj++) {
+        const j = j0 + dj
+        if (j < 0 || j >= e.nj) continue
+        for (let di = -demi; di <= demi; di++) {
+          const i = i0 + di
+          if (i < 0 || i >= e.ni) continue
+          const v = ch.lire(i, j)
+          if (!Number.isNaN(v)) { somme += v; n++ }
+        }
+      }
+      out[l * f.colonnes + c] = n ? somme / n : NaN
+    }
+  }
+  return out
+}
+
+/** Décode un message et n'en garde qu'une fenêtre. */
 export function decoderFenetre(b: Uint8Array, f: Fenetre): Float32Array {
+  return extraire(decoderMessage(b), f)
+}
+
+/** Décode un message complet (le CCSDS ne se lit que d'un bout à l'autre). */
+export function decoderMessage(b: Uint8Array): Champ {
   const s = sections(b)
   if (s.s3 < 0 || s.s5 < 0 || s.s7 < 0) throw new Error('GRIB2 : sections manquantes')
   const e = lireEntete(b)
@@ -134,23 +174,12 @@ export function decoderFenetre(b: Uint8Array, f: Fenetre): Float32Array {
     }
   }
 
-  const out = new Float32Array(f.lignes * f.colonnes)
-  const lonRef = ((e.lo1 % 360) + 360) % 360
-  for (let l = 0; l < f.lignes; l++) {
-    const lat = f.lat0 - l * f.pas
-    const j = Math.round((e.la1 - lat) / e.dj)
-    for (let c = 0; c < f.colonnes; c++) {
-      const lon = (((f.lon0 + c * f.pas) % 360) + 360) % 360
-      let i = Math.round((((lon - lonRef) % 360) + 360) % 360 / e.di)
-      if (i >= e.ni && i - e.ni < 1) i = e.ni - 1
-      let v = NaN
-      if (j >= 0 && j < e.nj && i >= 0 && i < e.ni) {
-        const g = j * e.ni + i
-        const k = compact ? compact[g] : g
-        if (k >= 0) v = valeur(brut[k])
-      }
-      out[l * f.colonnes + c] = v
-    }
+  return {
+    e,
+    lire: (i, j) => {
+      const g = j * e.ni + i
+      const k = compact ? compact[g] : g
+      return k >= 0 ? valeur(brut[k]) : NaN
+    },
   }
-  return out
 }

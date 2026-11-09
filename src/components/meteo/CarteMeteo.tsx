@@ -6,6 +6,7 @@ import type { Map as MapLibreMap } from 'maplibre-gl'
 import type { Couche } from '@/lib/meteo/contours'
 import type { ZoneMeteo } from '@/lib/meteo/zone'
 import type { Point } from '@/lib/meteo/lecture'
+import type { ImageCarte } from '@/lib/meteo/vueEnsemble'
 
 /**
  * La carte : un fond clair et sobre (OpenFreeMap « positron », recoloré en
@@ -29,11 +30,34 @@ function recolorer(m: MapLibreMap) {
       else if (l.type === 'fill' && id.includes('water')) m.setPaintProperty(l.id, 'fill-color', '#DCE7E4')
       else if (l.type === 'fill' && /park|wood|forest|grass|landcover|landuse/.test(id)) m.setPaintProperty(l.id, 'fill-color', '#E6EEDD')
       else if (l.type === 'line' && id.includes('water')) m.setPaintProperty(l.id, 'line-color', '#C9DAD6')
+      // Les noms de villages et de bourgs : plus foncés, plus grands, et
+      // dès le zoom 8 — ils doivent se lire par-dessus la pluie.
+      else if (l.type === 'symbol' && /^label_(village|town|other|city)/.test(id)) {
+        m.setPaintProperty(l.id, 'text-color', '#2E261E')
+        m.setPaintProperty(l.id, 'text-halo-color', 'rgba(253,250,245,0.92)')
+        m.setPaintProperty(l.id, 'text-halo-width', 1.6)
+        if (id === 'label_village') {
+          m.setLayerZoomRange(l.id, 8, 24)
+          m.setLayoutProperty(l.id, 'text-size', ['interpolate', ['linear'], ['zoom'], 8, 11, 11, 14, 14, 16])
+        }
+        if (id === 'label_town') m.setLayoutProperty(l.id, 'text-size', ['interpolate', ['linear'], ['zoom'], 7, 13, 11, 16, 14, 18])
+      }
     } catch { /* couche sans cette propriété */ }
   }
 }
 
-export default function CarteMeteo({ zone, pluie, orage, nuages, montrerPluie, montrerNuages, point, basCarte }: {
+/** En dessous, la vue d'ensemble dessine seule ; au-dessus, les contours au km. */
+const ZOOM_RAPPROCHE = 8.5
+
+export default function CarteMeteo({ zone, pluie, orage, nuages, montrerPluie, montrerNuages, point, nomPoint, basCarte, large, onSortieZone, onEchelle }: {
+  /** La vue d'ensemble de l'heure affichée (déjà filtrée par les boutons Nuages / Pluie). */
+  large?: ImageCarte | null
+  /** Appelé quand la vue déborde de la zone fine : il faut la vue d'ensemble. */
+  onSortieZone?: () => void
+  /** Vrai en vue rapprochée (contours au kilomètre), faux de loin. */
+  onEchelle?: (rapproche: boolean) => void
+  /** Le nom écrit à côté du point (« Ganges », « Chez vous »). */
+  nomPoint?: string
   zone: ZoneMeteo
   pluie: Couche | null
   orage: Couche | null
@@ -68,12 +92,18 @@ export default function CarteMeteo({ zone, pluie, orage, nuages, montrerPluie, m
       <MapGL
         ref={ref}
         mapStyle={STYLE}
-        initialViewState={{ longitude: point.lng, latitude: point.lat, zoom: 8.6, padding: { top: 0, bottom: basCarte, left: 0, right: 0 } }}
-        // La carte ne sort pas de la zone couverte par les données : au-delà,
-        // le ciel est inconnu et le voile des nuages s'arrêterait net.
-        maxBounds={[[zone.lon0 + 0.06, sud + 0.06], [est - 0.06, zone.lat0 - 0.06]]}
-        minZoom={7}
-        maxZoom={12.5}
+        initialViewState={{ longitude: point.lng, latitude: point.lat, zoom: 10, padding: { top: 0, bottom: basCarte, left: 0, right: 0 } }}
+        // Dézoom libre jusqu'à la France entière. Au-delà de la zone fine,
+        // c'est la vue d'ensemble qui montre le ciel (cf. vueEnsemble.ts).
+        maxBounds={[[-12, 36], [18, 56]]}
+        minZoom={4.5}
+        onMoveEnd={e => {
+          onEchelle?.(e.target.getZoom() >= ZOOM_RAPPROCHE)
+          if (!onSortieZone) return
+          const b = e.target.getBounds()
+          if (b.getWest() < zone.lon0 || b.getEast() > est || b.getNorth() > zone.lat0 || b.getSouth() < sud) onSortieZone()
+        }}
+        maxZoom={14}
         dragRotate={false}
         touchPitch={false}
         attributionControl={{ compact: true }}
@@ -82,6 +112,12 @@ export default function CarteMeteo({ zone, pluie, orage, nuages, montrerPluie, m
       >
         {pret && (
           <>
+            {/* La vue d'ensemble, sous les contours de la zone fine. */}
+            {large && (
+              <Source id="ensemble" type="image" url={large.url} coordinates={large.coins}>
+                <Layer id="ensemble-image" type="raster" beforeId={avant} paint={{ 'raster-resampling': 'linear', 'raster-fade-duration': 0 }} />
+              </Source>
+            )}
             {/* Nuages : un voile blanc translucide, son ombre légèrement décalée dessous. */}
             <Source id="nuages" type="geojson" data={montrerNuages && nuages ? nuages : VIDE}>
               <Layer id="nuages-ombre" type="fill" beforeId={avant}
@@ -101,8 +137,15 @@ export default function CarteMeteo({ zone, pluie, orage, nuages, montrerPluie, m
             </Source>
           </>
         )}
-        <Marker longitude={point.lng} latitude={point.lat} anchor="center">
-          <span aria-hidden style={{ display: 'block', width: 14, height: 14, borderRadius: 999, background: '#2D5A3D', border: '3px solid #FFFFFF', boxShadow: '0 1px 4px rgba(0,0,0,.3)' }} />
+        <Marker longitude={point.lng} latitude={point.lat} anchor="left" offset={[-7, 0]}>
+          <span className="flex items-center gap-1.5" aria-hidden>
+            <span style={{ display: 'block', width: 14, height: 14, borderRadius: 999, background: '#2D5A3D', border: '3px solid #FFFFFF', boxShadow: '0 1px 4px rgba(0,0,0,.3)' }} />
+            {nomPoint && (
+              <span className="rounded-full bg-white px-2 py-0.5 text-[13px] font-extrabold text-[#2D5A3D]" style={{ boxShadow: '0 1px 4px rgba(44,28,16,.18)' }}>
+                {nomPoint}
+              </span>
+            )}
+          </span>
         </Marker>
       </MapGL>
 

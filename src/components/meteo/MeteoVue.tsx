@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion, useAnimationControls, type PanInfo } from 'framer-motion'
+import { motion, animate, useMotionValue, useDragControls, type PanInfo } from 'framer-motion'
 import dynamic from 'next/dynamic'
 import PanneauMeteo, { type HeureAffichee } from './PanneauMeteo'
 import { useTerritoire } from '@/components/TerritoireProvider'
@@ -12,6 +12,7 @@ import {
   type Image, type Point, type Jour,
 } from '@/lib/meteo/lecture'
 import { pluieEnFormes, orageEnFormes, nuagesEnFormes, type Couche } from '@/lib/meteo/contours'
+import { dessinerVueEnsemble, type ImageCarte } from '@/lib/meteo/vueEnsemble'
 
 const CarteMeteo = dynamic(() => import('./CarteMeteo'), { ssr: false })
 
@@ -126,6 +127,50 @@ export default function MeteoVue() {
     return f
   }, [affichee, zone, iSel])
 
+  /* La vue d'ensemble (400 km, 5 km de maille) : rien n'est chargé tant
+     qu'on reste dans la zone fine. Dès qu'on en sort, l'heure affichée
+     d'abord, puis les suivantes. */
+  const [besoinLarge, setBesoinLarge] = useState(false)
+  const [imagesLarges, setImagesLarges] = useState<Map<number, Image>>(new Map())
+  const iSelRef = useRef(iSel)
+  iSelRef.current = iSel
+  useEffect(() => {
+    if (!besoinLarge || !meta || !zone || iMaintenant < 0) return
+    let vivant = true
+    const faits = new Set<number>()
+    const suivant = async (): Promise<void> => {
+      while (vivant) {
+        // Toujours l'heure affichée en premier si elle manque encore.
+        const depart = iSelRef.current ?? iMaintenant
+        const ordre = meta.heures.map((_, i) => i).filter(i => i >= iMaintenant)
+          .sort((a, b) => (a >= depart ? a - depart : 1000 + depart - a) - (b >= depart ? b - depart : 1000 + depart - b))
+        const i = ordre.find(k => !faits.has(k) && meta.heures[k].large)
+        if (i === undefined) return
+        faits.add(i)
+        try {
+          const img = await chargerImage(meta.heures[i].large!, Date.parse(meta.heures[i].t), zone.large)
+          if (vivant) setImagesLarges(prev => new Map(prev).set(i, img))
+        } catch { /* une image manquante n'arrête pas les autres */ }
+      }
+    }
+    Promise.all([suivant(), suivant()])
+    return () => { vivant = false }
+  }, [besoinLarge, meta, zone, iMaintenant])
+  const dessins = useRef(new Map<string, ImageCarte>())
+  const affLarge = iSel !== null ? imagesLarges.get(iSel) : undefined
+  /* Vue rapprochée (zoom ≥ 8,5) : contours au kilomètre dans la zone fine,
+     vue d'ensemble autour. Vue de loin : la vue d'ensemble seule. */
+  const [rapproche, setRapproche] = useState(true)
+  const large = useMemo(() => {
+    if (!affLarge || !zone || iSel === null || (!montrerPluie && !montrerNuages)) return null
+    const cle = `${iSel}-${montrerPluie ? 1 : 0}${montrerNuages ? 1 : 0}${rapproche ? 1 : 0}`
+    let d = dessins.current.get(cle)
+    if (!d) { d = dessinerVueEnsemble(affLarge, zone, { pluie: montrerPluie, nuages: montrerNuages, trou: rapproche }); dessins.current.set(cle, d) }
+    return d
+  }, [affLarge, zone, iSel, montrerPluie, montrerNuages, rapproche])
+  // Tant que la vue d'ensemble n'est pas là, les contours restent affichés.
+  const contoursVisibles = rapproche || !large
+
   // Les jours : chargés au premier appui sur « 3 jours » ou « 10 jours ».
   useEffect(() => {
     if (!vueJours || joursBruts || !zone) return
@@ -146,13 +191,47 @@ export default function MeteoVue() {
   }, [])
   const hauteurPanneau = Math.round(hauteurEcran * 0.86)
   const decalageReplie = Math.max(0, hauteurPanneau - Math.round(hauteurEcran * (1 - PART_CARTE)))
+  /* Même mécanique que la feuille des événements (BottomSheet) : le panneau
+     suit le pouce en continu, puis se pose en haut ou en bas selon l'élan.
+     Replié, on l'attrape n'importe où ; déplié, par le haut (poignée et
+     phrase), le reste défile. Un geste plutôt horizontal (rangée des heures,
+     curseur) n'attrape rien. */
   const [ouvert, setOuvert] = useState(false)
-  const anim = useAnimationControls()
-  useEffect(() => { anim.start({ y: ouvert ? 0 : decalageReplie, transition: { type: 'spring', damping: 32, stiffness: 320 } }) }, [ouvert, decalageReplie, anim])
+  const y = useMotionValue(decalageReplie)
+  const prise = useDragControls()
+  const geste = useRef<{ x: number; y: number; libre: boolean } | null>(null)
+  const panneauRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const c = animate(y, ouvert ? 0 : decalageReplie, { type: 'spring', stiffness: 340, damping: 36 })
+    return () => c.stop()
+  }, [ouvert, decalageReplie, y])
   useEffect(() => { if (vueJours) setOuvert(true) }, [vueJours])
+  const gesteDebut = (e: React.PointerEvent) => {
+    const cible = e.target as HTMLElement
+    const haut = panneauRef.current?.getBoundingClientRect().top ?? 0
+    const dansEntete = e.clientY - haut < 120
+    const surCurseur = cible.closest('input[type="range"]')
+    geste.current = { x: e.clientX, y: e.clientY, libre: !surCurseur && (!ouvert || dansEntete) }
+  }
+  const gesteMouvement = (e: React.PointerEvent) => {
+    const g = geste.current
+    if (!g || !g.libre) return
+    const dx = e.clientX - g.x, dy = e.clientY - g.y
+    if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) { g.libre = false; return }
+    if (Math.abs(dy) < 6) return
+    g.libre = false
+    prise.start(e)
+  }
   const finGlisse = (_: unknown, info: PanInfo) => {
-    if (info.velocity.y < -200 || info.offset.y < -40) setOuvert(true)
-    else if (info.velocity.y > 200 || info.offset.y > 40) setOuvert(false)
+    const vy = info.velocity.y
+    if (vy > 400) setOuvert(false)
+    else if (vy < -400) setOuvert(true)
+    else {
+      const versOuvert = y.get() < decalageReplie / 2
+      // Même cible qu'avant : l'effet ne se relance pas, on repose à la main.
+      if (versOuvert === ouvert) animate(y, ouvert ? 0 : decalageReplie, { type: 'spring', stiffness: 340, damping: 36 })
+      setOuvert(versOuvert)
+    }
   }
 
   const majLe = meta ? heure(Date.parse(meta.genere)) : null
@@ -164,12 +243,16 @@ export default function MeteoVue() {
         {zone && (
           <CarteMeteo
             zone={zone}
-            pluie={formesSel?.pluie ?? null}
-            orage={formesSel?.orage ?? null}
-            nuages={formesSel?.nuages ?? null}
+            pluie={contoursVisibles ? formesSel?.pluie ?? null : null}
+            orage={contoursVisibles ? formesSel?.orage ?? null : null}
+            nuages={contoursVisibles ? formesSel?.nuages ?? null : null}
+            onEchelle={setRapproche}
             montrerPluie={montrerPluie}
             montrerNuages={montrerNuages}
             point={point}
+            nomPoint={lieu === 'chez vous' ? 'Chez vous' : lieu}
+            large={large}
+            onSortieZone={() => setBesoinLarge(true)}
             basCarte={Math.round(hauteurEcran * (1 - PART_CARTE))}
           />
         )}
@@ -207,12 +290,33 @@ export default function MeteoVue() {
 
       {/* Le panneau, qu'on remonte. */}
       <motion.div
+        ref={panneauRef}
         className="absolute inset-x-0 bottom-0 z-30 rounded-t-[26px]"
-        style={{ height: hauteurPanneau, background: '#FDFAF5', boxShadow: '0 -6px 24px rgba(44,28,16,.14)', y: decalageReplie }}
-        animate={anim}
+        style={{ height: hauteurPanneau, background: '#FDFAF5', boxShadow: '0 -6px 24px rgba(44,28,16,.14)', y }}
+        drag="y"
+        dragControls={prise}
+        dragListener={false}
+        dragConstraints={{ top: 0, bottom: decalageReplie }}
+        dragElastic={0.05}
+        dragMomentum={false}
+        onDragEnd={finGlisse}
+        onPointerDown={gesteDebut}
+        onPointerMove={gesteMouvement}
+        onPointerUp={() => { geste.current = null }}
       >
-        <PoigneePanneau ouvert={ouvert} onBasculer={() => setOuvert(o => !o)} onGlisse={finGlisse} />
-        <div className="h-[calc(100%-36px)] overflow-y-auto" style={{ overscrollBehavior: 'contain' }}>
+        <button
+          type="button"
+          aria-label={ouvert ? 'Replier le panneau' : 'Remonter le panneau'}
+          onClick={() => setOuvert(o => !o)}
+          className="flex h-9 w-full items-center justify-center border-none bg-transparent"
+          style={{ touchAction: 'none' }}
+        >
+          <span className="block h-[5px] w-11 rounded-full bg-[#D9CFC2]" />
+        </button>
+        <div
+          className="h-[calc(100%-36px)]"
+          style={{ overflowY: ouvert ? 'auto' : 'hidden', overscrollBehavior: 'contain', touchAction: ouvert ? 'pan-y' : 'none' }}
+        >
           {erreur || (meta && iMaintenant < 0) ? (
             <p className="m-0 px-5 py-6 text-[16px] font-bold text-[#7A6A5A]">
               La carte se met à jour, revenez dans quelques minutes.
@@ -239,21 +343,5 @@ export default function MeteoVue() {
         </div>
       </motion.div>
     </div>
-  )
-}
-
-/** La poignée : un appui bascule, un glissé remonte ou descend le panneau. */
-function PoigneePanneau({ ouvert, onBasculer, onGlisse }: { ouvert: boolean; onBasculer: () => void; onGlisse: (e: unknown, i: PanInfo) => void }) {
-  return (
-    <motion.button
-      type="button"
-      aria-label={ouvert ? 'Replier le panneau' : 'Remonter le panneau'}
-      onTap={onBasculer}
-      onPanEnd={onGlisse}
-      className="flex h-9 w-full items-center justify-center border-none bg-transparent"
-      style={{ touchAction: 'none' }}
-    >
-      <span className="block h-[5px] w-11 rounded-full bg-[#D9CFC2]" />
-    </motion.button>
   )
 }

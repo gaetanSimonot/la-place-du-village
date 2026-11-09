@@ -25,6 +25,13 @@ export interface ZoneMeteo {
   colonnes: number
   /** Le village par défaut, quand on ne connaît pas la zone de la personne. */
   centre: { lat: number; lng: number; nom: string }
+  /**
+   * La vue d'ensemble, quand on dézoome : une grille plus lâche (5 km)
+   * autour du centre. Pleine jusqu'à `pleinKm`, elle s'efface ensuite et
+   * disparaît à `maxKm` — on voit arriver les perturbations, sans prétendre
+   * faire la météo de la France entière.
+   */
+  large: { lat0: number; lon0: number; pas: number; lignes: number; colonnes: number; pleinKm: number; maxKm: number }
 }
 
 /**
@@ -37,7 +44,22 @@ export const ZONES_METEO: Record<string, ZoneMeteo> = {
     slug: 'cevennes', nom: 'Cévennes',
     lat0: 44.6, lon0: 2.85, pas: 0.01, lignes: 126, colonnes: 201,
     centre: { lat: 43.9333, lng: 3.7, nom: 'Ganges' },
+    // 400 km autour de Ganges : ±3,6° en latitude, ±5° en longitude.
+    large: { lat0: 47.55, lon0: -1.3, pas: 0.05, lignes: 145, colonnes: 201, pleinKm: 250, maxKm: 400 },
   },
+}
+
+/** Distance approchée en km (assez juste à 400 km près). */
+export function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const kx = 111.32 * Math.cos(((lat1 + lat2) / 2) * Math.PI / 180)
+  return Math.hypot((lng2 - lng1) * kx, (lat2 - lat1) * 110.57)
+}
+
+/** 1 jusqu'à `pleinKm`, puis s'efface en douceur jusqu'à 0 à `maxKm`. */
+export function fondu(km: number, plein: number, max: number): number {
+  if (km <= plein) return 1
+  if (km >= max) return 0
+  return 0.5 + 0.5 * Math.cos(((km - plein) / (max - plein)) * Math.PI)
 }
 
 /** La zone d'un territoire. `null` = ce territoire n'a pas (encore) de météo. */
@@ -88,8 +110,12 @@ export interface MetaMeteo {
   run: string
   genere: string
   source: string
-  /** Une entrée par image : heure de validité (ISO, UTC) et chemin dans le bucket. */
-  heures: { t: string; png: string }[]
+  /**
+   * Une entrée par image : heure de validité (ISO, UTC), chemin dans le
+   * bucket, et l'image de la vue d'ensemble (pluie, nuages, orage — pas de
+   * température).
+   */
+  heures: { t: string; png: string; large?: string }[]
 }
 
 /** Les jours (ECMWF) : une petite grille de points à 0,25° autour de la zone. */

@@ -89,7 +89,7 @@ export default function PanneauMeteo({
       </div>
 
       {/* Les prochaines heures. */}
-      <div ref={rangee} className="-mx-5 mt-3 flex gap-1.5 overflow-x-auto px-5 pb-1" style={{ scrollbarWidth: 'none' }}>
+      <div ref={rangee} className="-mx-5 mt-3 flex gap-1.5 overflow-x-auto px-5 pb-1" style={{ scrollbarWidth: 'none', touchAction: 'pan-x' }}>
         {heures.map(h => {
           const actif = h.i === curseur.valeur
           return (

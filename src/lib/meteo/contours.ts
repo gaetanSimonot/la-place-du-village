@@ -42,23 +42,10 @@ function agrandir(v: Float32Array, w: number, h: number): { v: Float32Array; w: 
 
 export interface Couche { type: 'FeatureCollection'; features: GeoJSON.Feature<GeoJSON.MultiPolygon, { niveau: number }>[] }
 
-/**
- * Les bords de la zone s'estompent sur quelques kilomètres : sans ça, un
- * ciel couvert partout dessinerait un rectangle net autour des Cévennes.
- */
-const FONDU = 10
-function estomperBords(v: Float32Array, w: number, h: number): Float32Array {
-  const out = new Float32Array(v.length)
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const d = Math.min(x, y, w - 1 - x, h - 1 - y)
-    const k = d >= FONDU ? 1 : Math.sin((d / FONDU) * Math.PI / 2)
-    out[y * w + x] = v[y * w + x] * k
-  }
-  return out
-}
-
+/* Les bords de la zone fine ne s'estompent pas : au-delà, la vue
+   d'ensemble (vueEnsemble.ts) prend le relais, aux mêmes couleurs. */
 function couches(champ: Float32Array, z: ZoneMeteo, seuils: number[]): Couche {
-  const { v, w, h } = agrandir(estomperBords(lisser(champ, z.colonnes, z.lignes), z.colonnes, z.lignes), z.colonnes, z.lignes)
+  const { v, w, h } = agrandir(lisser(champ, z.colonnes, z.lignes), z.colonnes, z.lignes)
   const pas = z.pas / FACTEUR
   const gen = contours().size([w, h]).thresholds(seuils)
   const features = gen(Array.from(v)).map((mp, k) => ({

@@ -21,8 +21,12 @@ export interface Image {
   orage: Uint8Array
 }
 
-/** Télécharge une image-données et en relit les pixels. */
-export async function chargerImage(chemin: string, t: number, z: ZoneMeteo): Promise<Image> {
+/**
+ * Télécharge une image-données et en relit les pixels. `z` donne la taille
+ * de la grille : la zone fine, ou sa vue d'ensemble (`zone.large`, dont la
+ * température n'est pas renseignée).
+ */
+export async function chargerImage(chemin: string, t: number, z: { lignes: number; colonnes: number }): Promise<Image> {
   const r = await fetch(urlMeteo(chemin))
   if (!r.ok) throw new Error(`image ${r.status}`)
   const bmp = await createImageBitmap(await r.blob(), { colorSpaceConversion: 'none', premultiplyAlpha: 'none' })
