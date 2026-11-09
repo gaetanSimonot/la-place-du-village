@@ -19,8 +19,6 @@ const STYLE = 'https://tiles.openfreemap.org/styles/positron'
 /** Bleus du clair au foncé, terracotta pour l'orage. */
 export const COULEURS_PLUIE = ['#9CC7EA', '#4C8FCF', '#1F5296']
 export const COULEUR_ORAGE = '#C84B2F'
-/** Opacité du voile : nuageux, couvert. Assez léger pour lire la carte dessous. */
-export const VOILE_NUAGES = [0.16, 0.3] as const
 
 const VIDE: Couche = { type: 'FeatureCollection', features: [] }
 
@@ -51,8 +49,15 @@ function recolorer(m: MapLibreMap) {
 /** En dessous, la vue d'ensemble dessine seule ; au-dessus, les contours au km. */
 const ZOOM_RAPPROCHE = 8.5
 
-export default function CarteMeteo({ zone, pluie, orage, nuages, montrerPluie, montrerNuages, point, nomPoint, basCarte, large, onSortieZone, onEchelle, onToucher }: {
-  /** La vue d'ensemble de l'heure affichée (déjà filtrée par les boutons Nuages / Pluie). */
+/**
+ * À l'ouverture : de loin, assez pour reconnaître la France, le centre
+ * remonté vers le nord pour que les Cévennes tombent dans la partie visible
+ * au-dessus du panneau.
+ */
+const VUE_DEPART = { longitude: 2.4, latitude: 46.1, zoom: 5.2 }
+
+export default function CarteMeteo({ zone, pluie, orage, point, nomPoint, basCarte, large, onSortieZone, onEchelle, onToucher }: {
+  /** La vue d'ensemble de l'heure affichée. */
   large?: ImageCarte | null
   /** Appelé quand la vue déborde de la zone fine : il faut la vue d'ensemble. */
   onSortieZone?: () => void
@@ -65,9 +70,6 @@ export default function CarteMeteo({ zone, pluie, orage, nuages, montrerPluie, m
   zone: ZoneMeteo
   pluie: Couche | null
   orage: Couche | null
-  nuages: Couche | null
-  montrerPluie: boolean
-  montrerNuages: boolean
   point: Point
   /** Hauteur masquée par le panneau en bas : le cadrage en tient compte. */
   basCarte: number
@@ -87,7 +89,10 @@ export default function CarteMeteo({ zone, pluie, orage, nuages, montrerPluie, m
     const texte = (m.getStyle().layers ?? []).find(l => l.type === 'symbol')
     setAvant(texte?.id)
     setPret(true)
-  }, [])
+    // Ouverture de loin : la page doit le savoir tout de suite.
+    onEchelle?.(m.getZoom() >= ZOOM_RAPPROCHE)
+    if (m.getZoom() < ZOOM_RAPPROCHE) onSortieZone?.()
+  }, [onEchelle, onSortieZone])
 
   const zoom = (d: number) => ref.current?.getMap().easeTo({ zoom: (ref.current?.getMap().getZoom() ?? 9) + d, duration: 250 })
 
@@ -96,7 +101,7 @@ export default function CarteMeteo({ zone, pluie, orage, nuages, montrerPluie, m
       <MapGL
         ref={ref}
         mapStyle={STYLE}
-        initialViewState={{ longitude: point.lng, latitude: point.lat, zoom: 10, padding: { top: 0, bottom: basCarte, left: 0, right: 0 } }}
+        initialViewState={{ ...VUE_DEPART, padding: { top: 0, bottom: basCarte, left: 0, right: 0 } }}
         // Dézoom libre jusqu'à la France entière. Au-delà de la zone fine,
         // c'est la vue d'ensemble qui montre le ciel (cf. vueEnsemble.ts).
         maxBounds={[[-12, 36], [18, 56]]}
@@ -139,21 +144,15 @@ export default function CarteMeteo({ zone, pluie, orage, nuages, montrerPluie, m
                 <Layer id="ensemble-image" type="raster" beforeId={avant} paint={{ 'raster-resampling': 'linear', 'raster-fade-duration': 0 }} />
               </Source>
             )}
-            {/* Nuages : un voile blanc LÉGER (la carte se lit au travers, la
-                mer reste bleue), une ombre à peine marquée sur ses bords. */}
-            <Source id="nuages" type="geojson" data={montrerNuages && nuages ? nuages : VIDE}>
-              <Layer id="nuages-ombre" type="line" beforeId={avant}
-                paint={{ 'line-color': '#3B2F22', 'line-opacity': 0.1, 'line-width': 2, 'line-blur': 2, 'line-translate': [2, 3] }} />
-              <Layer id="nuages-voile" type="fill" beforeId={avant}
-                paint={{ 'fill-color': '#FFFFFF', 'fill-opacity': ['match', ['get', 'niveau'], 0, VOILE_NUAGES[0], VOILE_NUAGES[1]] }} />
-            </Source>
-            <Source id="pluie" type="geojson" data={montrerPluie && pluie ? pluie : VIDE}>
+            {/* La pluie seule : la carte ne montre pas les nuages (demande du
+                09/11) — ils restent dans la tuile de l'heure. */}
+            <Source id="pluie" type="geojson" data={pluie ?? VIDE}>
               <Layer id="pluie-fond" type="fill" beforeId={avant}
                 paint={{ 'fill-color': ['match', ['get', 'niveau'], 0, COULEURS_PLUIE[0], 1, COULEURS_PLUIE[1], COULEURS_PLUIE[2]], 'fill-opacity': 0.78 }} />
               <Layer id="pluie-bord" type="line" beforeId={avant}
                 paint={{ 'line-color': '#1F5296', 'line-opacity': 0.35, 'line-width': 0.8 }} />
             </Source>
-            <Source id="orage" type="geojson" data={montrerPluie && orage ? orage : VIDE}>
+            <Source id="orage" type="geojson" data={orage ?? VIDE}>
               <Layer id="orage-fond" type="fill" beforeId={avant} paint={{ 'fill-color': COULEUR_ORAGE, 'fill-opacity': 0.82 }} />
               <Layer id="orage-bord" type="line" beforeId={avant} paint={{ 'line-color': '#8E2F1B', 'line-width': 1 }} />
             </Source>

@@ -20,7 +20,7 @@ const FACTEUR = 4
 /** Mêmes teintes que les contours (CarteMeteo), opacités incluses. */
 const PLUIE: [number, number, number][] = [[156, 199, 234], [76, 143, 207], [31, 82, 150]]
 const ORAGE: [number, number, number] = [200, 75, 47]
-const A_PLUIE = 0.78, A_ORAGE = 0.82, A_NUAGES = 0.16, A_COUVERT = 0.3
+const A_PLUIE = 0.78, A_ORAGE = 0.82
 
 const melange = (a: [number, number, number], b: [number, number, number], t: number): [number, number, number] =>
   t <= 0 ? a : t >= 1 ? b : [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
@@ -35,7 +35,7 @@ export interface ImageCarte { url: string; coins: [[number, number], [number, nu
  * kilomètre s'affichent). Vue de loin, l'image dessine tout, zone fine
  * comprise — deux finesses côte à côte laisseraient voir un rectangle.
  */
-export function dessinerVueEnsemble(img: Image, z: ZoneMeteo, voir: { pluie: boolean; nuages: boolean; trou: boolean }): ImageCarte {
+export function dessinerVueEnsemble(img: Image, z: ZoneMeteo, voir: { trou: boolean }): ImageCarte {
   const L = z.large
   const W = (L.colonnes - 1) * FACTEUR + 1, H = (L.lignes - 1) * FACTEUR + 1
   const latN = L.lat0, latS = L.lat0 - (L.lignes - 1) * L.pas
@@ -76,33 +76,17 @@ export function dessinerVueEnsemble(img: Image, z: ZoneMeteo, voir: { pluie: boo
         const g = Math.abs(lire(t, r, k + dk) - v) + Math.abs(lire(t, r - dr, k) - v)
         return (s: number) => Math.max(0, Math.min(1, (v - s) / Math.max(g, 1e-6) + 0.5))
       }
-      let R = 0, G = 0, B = 0, A = 0
-      // Le voile des nuages…
-      if (voir.nuages) {
-        const n = champ(img.nuages)
-        const a = A_NUAGES * n(50) + (A_COUVERT - A_NUAGES) * n(85)
-        if (a > 0) { R = 255; G = 255; B = 255; A = a }
-      }
-      // … et la pluie par-dessus, du clair au foncé, l'orage au-dessus de tout.
-      if (voir.pluie) {
-        const p = champ(img.pluie), o = champ(img.orage)
-        const c0 = p(SEUIL_PLUIE), c1 = p(SEUIL_MODEREE), c2 = p(SEUIL_FORTE), co = o(0.35)
-        let couleur: [number, number, number] = PLUIE[0]
-        couleur = melange(couleur, PLUIE[1], c1)
-        couleur = melange(couleur, PLUIE[2], c2)
-        couleur = melange(couleur, ORAGE, co)
-        const a = Math.max(A_PLUIE * c0, A_ORAGE * co)
-        if (a > 0) {
-          const aOut = a + A * (1 - a)
-          R = (couleur[0] * a + R * A * (1 - a)) / aOut
-          G = (couleur[1] * a + G * A * (1 - a)) / aOut
-          B = (couleur[2] * a + B * A * (1 - a)) / aOut
-          A = aOut
-        }
-      }
+      // La pluie seule, du clair au foncé, l'orage au-dessus de tout.
+      const p = champ(img.pluie), o = champ(img.orage)
+      const c0 = p(SEUIL_PLUIE), c1 = p(SEUIL_MODEREE), c2 = p(SEUIL_FORTE), co = o(0.35)
+      const A = Math.max(A_PLUIE * c0, A_ORAGE * co)
       if (A <= 0) continue
+      let couleur: [number, number, number] = PLUIE[0]
+      couleur = melange(couleur, PLUIE[1], c1)
+      couleur = melange(couleur, PLUIE[2], c2)
+      couleur = melange(couleur, ORAGE, co)
       const i = (y * W + x) * 4
-      px[i] = R; px[i + 1] = G; px[i + 2] = B; px[i + 3] = Math.round(A * f * 255)
+      px[i] = couleur[0]; px[i + 1] = couleur[1]; px[i + 2] = couleur[2]; px[i + 3] = Math.round(A * f * 255)
     }
   }
   ctx.putImageData(out, 0, 0)

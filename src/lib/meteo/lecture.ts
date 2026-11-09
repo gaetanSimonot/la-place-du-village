@@ -15,6 +15,8 @@ export const urlMeteo = (chemin: string) =>
 
 export interface Image {
   t: number
+  /** Le vent de la même heure, s'il est publié. */
+  vent?: Vent
   pluie: Float32Array
   nuages: Float32Array
   temp: Float32Array
@@ -45,6 +47,36 @@ export async function chargerImage(chemin: string, t: number, z: { lignes: numbe
   }
   return img
 }
+
+/** Le vent d'une heure, sur sa grille de 5 km (cf. fenetreVent). */
+export interface Vent { kmh: Uint8Array; dir: Uint8Array; rafales: Uint8Array; lignes: number; colonnes: number; lat0: number; lon0: number; pas: number }
+
+export async function chargerVent(chemin: string, g: { lat0: number; lon0: number; pas: number; lignes: number; colonnes: number }): Promise<Vent> {
+  const r = await fetch(urlMeteo(chemin))
+  if (!r.ok) throw new Error(`vent ${r.status}`)
+  const bmp = await createImageBitmap(await r.blob(), { colorSpaceConversion: 'none', premultiplyAlpha: 'none' })
+  const c = document.createElement('canvas')
+  c.width = g.colonnes; c.height = g.lignes
+  const ctx = c.getContext('2d', { willReadFrequently: true })!
+  ctx.drawImage(bmp, 0, 0)
+  const px = ctx.getImageData(0, 0, g.colonnes, g.lignes).data
+  const n = g.colonnes * g.lignes
+  const v: Vent = { kmh: new Uint8Array(n), dir: new Uint8Array(n), rafales: new Uint8Array(n), ...g }
+  for (let i = 0; i < n; i++) { v.kmh[i] = px[i * 4]; v.dir[i] = px[i * 4 + 1]; v.rafales[i] = px[i * 4 + 2] }
+  return v
+}
+
+/** Le vent au point : vitesse et rafales (km/h), direction d'où il vient (degrés). */
+export function ventAu(v: Vent, p: Point): { kmh: number; rafales: number; dir: number } {
+  const l = Math.max(0, Math.min(v.lignes - 1, Math.round((v.lat0 - p.lat) / v.pas)))
+  const c = Math.max(0, Math.min(v.colonnes - 1, Math.round((p.lng - v.lon0) / v.pas)))
+  const i = l * v.colonnes + c
+  return { kmh: v.kmh[i], rafales: v.rafales[i], dir: (v.dir[i] / 255) * 360 }
+}
+
+const POINTS_CARDINAUX = ['nord', 'nord-est', 'est', 'sud-est', 'sud', 'sud-ouest', 'ouest', 'nord-ouest']
+/** « du sud-est » */
+export const directionEnMots = (deg: number) => POINTS_CARDINAUX[Math.round(deg / 45) % 8]
 
 export interface Point { lat: number; lng: number }
 

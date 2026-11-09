@@ -49,6 +49,20 @@ export const ZONES_METEO: Record<string, ZoneMeteo> = {
   },
 }
 
+/**
+ * La grille du vent : la zone fine, à 5 km de maille. Image `vNN.png` :
+ * R = vitesse (km/h), G = direction d'où il vient (0-255 pour 0-360°),
+ * B = rafales (km/h).
+ */
+export function fenetreVent(z: ZoneMeteo) {
+  const pas = 0.05
+  return {
+    lat0: z.lat0, lon0: z.lon0, pas,
+    lignes: Math.floor(((z.lignes - 1) * z.pas) / pas + 1e-6) + 1,
+    colonnes: Math.floor(((z.colonnes - 1) * z.pas) / pas + 1e-6) + 1,
+  }
+}
+
 /** Distance approchée en km (assez juste à 400 km près). */
 export function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const kx = 111.32 * Math.cos(((lat1 + lat2) / 2) * Math.PI / 180)
@@ -115,9 +129,7 @@ export interface MetaMeteo {
    * bucket, et l'image de la vue d'ensemble (pluie, nuages, orage — pas de
    * température).
    */
-  heures: { t: string; png: string; large?: string }[]
-  /** Les heures écoulées avant cette sortie (jusqu'à 12 h), pour l'animation d'ouverture. */
-  passe?: { t: string; png: string; large?: string }[]
+  heures: { t: string; png: string; large?: string; vent?: string }[]
 }
 
 /** Les jours (ECMWF) : une petite grille de points à 0,25° autour de la zone. */

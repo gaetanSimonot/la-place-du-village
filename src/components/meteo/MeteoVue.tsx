@@ -4,52 +4,51 @@ import { useRouter } from 'next/navigation'
 import { motion, animate, useMotionValue, useDragControls, type PanInfo } from 'framer-motion'
 import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
-import PanneauMeteo, { type HeureAffichee } from './PanneauMeteo'
+import PanneauMeteo from './PanneauMeteo'
+import TuileHeure, { type DonneesTuile } from './TuileHeure'
 import { useDonneesMeteo } from './useDonneesMeteo'
+import BottomNavBar, { NAV_H } from '@/components/BottomNavBar'
+import { useInterceptModal } from '@/contexts/InterceptModalContext'
 import { useTerritoire } from '@/components/TerritoireProvider'
 import { useZonePerso } from '@/hooks/useZonePerso'
 import { zoneMeteo, type JoursMeteo } from '@/lib/meteo/zone'
 import {
-  urlMeteo, valeurAu, dansZone, cielDe, etatEnMots, suiteEnMots, hauteurSoleil, joursAu, heure,
+  urlMeteo, valeurAu, ventAu, dansZone, cielDe, etatEnMots, suiteEnMots, hauteurSoleil, joursAu, heure,
   type Point, type Jour,
 } from '@/lib/meteo/lecture'
-import { pluieEnFormes, orageEnFormes, nuagesEnFormes, type Couche } from '@/lib/meteo/contours'
+import { pluieEnFormes, orageEnFormes, type Couche } from '@/lib/meteo/contours'
 import { dessinerVueEnsemble, type ImageCarte } from '@/lib/meteo/vueEnsemble'
 
 const CarteMeteo = dynamic(() => import('./CarteMeteo'), { ssr: false })
 
-/** Hauteur visible du panneau replié : la phrase, le curseur et les heures, en entier. */
-const PANNEAU_REPLIE = 330
-/** Une image toutes les … ms pendant l'animation. */
-const CADENCE = 420
+/** Hauteur visible du panneau replié : la phrase, le curseur et les boutons des jours. */
+const PANNEAU_REPLIE = 236
+/** Une image toutes les … ms quand on lance la lecture. */
+const CADENCE = 450
 const CLE_POINT = 'pdv-meteo-point'
+/** Sous la barre du bas (masquée sur ordinateur, cf. globals.css). */
+const BAS = `var(--meteo-bas, calc(${NAV_H}px + env(safe-area-inset-bottom, 0px)))`
 
 /**
- * /meteo — la carte de la pluie et des nuages, et sous elle, le temps qu'il
- * fait au point choisi. Toutes les valeurs viennent des fichiers publiés par
- * la tâche planifiée (cf. lib/meteo/production.ts).
+ * /meteo — la pluie sur la carte, la tuile de l'heure posée dessus, et sous
+ * elle le temps qu'il fait au point choisi. Toutes les valeurs viennent des
+ * fichiers publiés par la tâche planifiée (cf. lib/meteo/production.ts).
  *
- * À l'ouverture, la carte rejoue les dernières heures jusqu'à maintenant,
- * puis s'arrête : on voit d'où vient la pluie. Le bouton lecture fait
- * défiler la suite.
+ * Ouverte depuis l'app, la page vit dans le slot @modal par-dessus
+ * l'accueil, qui reste monté : le retour la referme sans rien recharger.
  */
 export default function MeteoVue() {
   const router = useRouter()
+  const intercept = useInterceptModal()
   const { territoire } = useTerritoire()
   const zone = zoneMeteo(territoire?.slug)
   const { zone: zonePerso } = useZonePerso()
 
-  const [iSel, setISel] = useState<number | null>(null)
-  const iSelRef = useRef<number | null>(null)
+  const [iSel, setISel] = useState(0)
+  const iSelRef = useRef<number | null>(0)
   iSelRef.current = iSel
   const [besoinLarge, setBesoinLarge] = useState(false)
-  const { meta, erreur, cadres, iMaintenant, images, imagesLarges, rafraichir } = useDonneesMeteo(zone, besoinLarge, iSelRef)
-
-  const [montrerPluie, setMontrerPluie] = useState(true)
-  const [montrerNuages, setMontrerNuages] = useState(true)
-  const [vueJours, setVueJours] = useState<3 | 10 | null>(null)
-  const [joursBruts, setJoursBruts] = useState<JoursMeteo | null>(null)
-  const [joursCharges, setJoursCharges] = useState(false)
+  const { meta, erreur, cadres, images, imagesLarges, rafraichir } = useDonneesMeteo(zone, besoinLarge, iSelRef)
 
   /* Le point regardé : celui touché sur la carte (retenu sur ce téléphone),
      sinon la zone réglée par la personne, sinon le bourg de la zone. */
@@ -71,123 +70,108 @@ export default function MeteoVue() {
     rafraichir()
   }, [zone, rafraichir])
 
-  /* ── L'animation ──────────────────────────────────────────────────────
-     `lecture` = jusqu'à quel index on avance (null = arrêt). À l'ouverture :
-     des heures passées jusqu'à maintenant, une seule fois. */
-  const [lecture, setLecture] = useState<number | null>(null)
-  const ouvertureFaite = useRef(false)
-  const passeCharge = iMaintenant > 0 && Array.from({ length: iMaintenant + 1 }, (_, i) => images.has(i)).every(Boolean)
+  // La lecture : défile d'heure en heure jusqu'à la fin, puis s'arrête.
+  const [lecture, setLecture] = useState(false)
   useEffect(() => {
-    if (iMaintenant < 0 || ouvertureFaite.current) return
-    const calme = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    if (iMaintenant === 0 || calme) { ouvertureFaite.current = true; setISel(iMaintenant); return }
-    if (!passeCharge) { if (iSel === null && images.has(iMaintenant)) setISel(iMaintenant); return }
-    ouvertureFaite.current = true
-    setISel(0)
-    setLecture(iMaintenant)
-  }, [iMaintenant, passeCharge, images, iSel])
-  useEffect(() => {
-    if (lecture === null) return
+    if (!lecture) return
     const id = window.setInterval(() => {
       setISel(i => {
-        const n = (i ?? 0) + 1
-        if (n > lecture) { setLecture(null); return i }
-        // L'image suivante pas encore là : on attend un tour.
-        return images.has(n) ? n : i
+        const n = i + 1
+        if (n >= cadres.length) { setLecture(false); return i }
+        return images.has(n) ? n : i // l'image suivante pas encore là : on attend
       })
     }, CADENCE)
     return () => window.clearInterval(id)
-  }, [lecture, images])
-  const choisir = (i: number) => { setLecture(null); setISel(i) }
+  }, [lecture, images, cadres.length])
+  const choisir = (i: number) => { setLecture(false); setISel(i) }
   const lireOuPause = () => {
-    if (lecture !== null) { setLecture(null); return }
-    const fin = cadres.length - 1
-    if ((iSel ?? 0) >= fin) setISel(Math.max(0, iMaintenant))
-    setLecture(fin)
+    if (lecture) { setLecture(false); return }
+    if (iSel >= cadres.length - 1) setISel(0)
+    setLecture(true)
   }
 
   // La série au point, de maintenant à la fin.
   const serie = useMemo(() => {
-    if (!zone || iMaintenant < 0) return []
+    if (!zone) return []
     const out: { i: number; t: number; v: ReturnType<typeof valeurAu>; pas: number }[] = []
-    for (let i = iMaintenant; i < cadres.length; i++) {
+    for (let i = 0; i < cadres.length; i++) {
       const img = images.get(i)
       if (!img) break // la phrase attend les heures dans l'ordre
       const pas = i > 0 ? (cadres[i].t - cadres[i - 1].t) / 3_600_000 : 1
       out.push({ i, t: img.t, v: valeurAu(img, point, zone), pas })
     }
     return out
-  }, [zone, cadres, images, point, iMaintenant])
+  }, [zone, cadres, images, point])
 
   const ici = serie[0]
   const jourIci = ici ? hauteurSoleil(ici.t - 1_800_000, point) > 0 : true
   const etat = ici ? etatEnMots(ici.v, jourIci) : null
-  const suite = ici && serie.length >= Math.min(8, cadres.length - iMaintenant) ? suiteEnMots(serie, 0) : ''
+  const suite = ici && serie.length >= Math.min(8, cadres.length) ? suiteEnMots(serie, 0) : ''
 
-  const heures: HeureAffichee[] = useMemo(() => {
-    if (iMaintenant < 0) return []
-    return cadres.slice(iMaintenant).map((c, k) => {
-      const i = iMaintenant + k
-      const s = serie.find(x => x.i === i)
-      return { i, t: c.t, ciel: s ? cielDe(s.v, hauteurSoleil(c.t - 1_800_000, point) > 0) : null, temp: s?.v.temp ?? null, pluie: s?.v.pluie ?? null }
-    })
-  }, [cadres, iMaintenant, serie, point])
-
-  // Les formes de l'heure affichée — calculées une fois par heure.
-  const formes = useRef(new Map<number, { pluie: Couche; orage: Couche; nuages: Couche }>())
-  useEffect(() => { formes.current.clear() }, [meta])
-  const affichee = iSel !== null ? images.get(iSel) : undefined
-  const formesSel = useMemo(() => {
-    if (!affichee || !zone || iSel === null) return null
-    let f = formes.current.get(iSel)
-    if (!f) {
-      f = { pluie: pluieEnFormes(affichee, zone), orage: orageEnFormes(affichee, zone), nuages: nuagesEnFormes(affichee, zone) }
-      formes.current.set(iSel, f)
+  // La tuile : l'heure du curseur, au point choisi.
+  const affichee = images.get(iSel)
+  const tuile: DonneesTuile | null = useMemo(() => {
+    if (!affichee || !zone) return null
+    const v = valeurAu(affichee, point, zone)
+    const jour = hauteurSoleil(affichee.t - 1_800_000, point) > 0
+    return {
+      t: affichee.t, maintenant: iSel === 0, ciel: cielDe(v, jour), etat: etatEnMots(v, jour),
+      temp: v.temp, pluie: v.pluie, nuages: v.nuages, vent: affichee.vent ? ventAu(affichee.vent, point) : null,
     }
+  }, [affichee, zone, point, iSel])
+
+  // Les formes de pluie de l'heure affichée — calculées une fois par heure.
+  const formes = useRef(new Map<number, { pluie: Couche; orage: Couche }>())
+  useEffect(() => { formes.current.clear() }, [meta])
+  const formesSel = useMemo(() => {
+    if (!affichee || !zone) return null
+    let f = formes.current.get(iSel)
+    if (!f) { f = { pluie: pluieEnFormes(affichee, zone), orage: orageEnFormes(affichee, zone) }; formes.current.set(iSel, f) }
     return f
   }, [affichee, zone, iSel])
 
   /* Vue rapprochée (zoom ≥ 8,5) : contours au kilomètre dans la zone fine,
      vue d'ensemble autour. Vue de loin : la vue d'ensemble seule. */
-  const [rapproche, setRapproche] = useState(true)
+  const [rapproche, setRapproche] = useState(false)
   const dessins = useRef(new Map<string, ImageCarte>())
   useEffect(() => { dessins.current.clear() }, [meta])
-  const affLarge = iSel !== null ? imagesLarges.get(iSel) : undefined
+  const affLarge = imagesLarges.get(iSel)
   const large = useMemo(() => {
-    if (!affLarge || !zone || iSel === null || (!montrerPluie && !montrerNuages)) return null
-    const cle = `${iSel}-${montrerPluie ? 1 : 0}${montrerNuages ? 1 : 0}${rapproche ? 1 : 0}`
+    if (!affLarge || !zone) return null
+    const cle = `${iSel}-${rapproche ? 1 : 0}`
     let d = dessins.current.get(cle)
-    if (!d) { d = dessinerVueEnsemble(affLarge, zone, { pluie: montrerPluie, nuages: montrerNuages, trou: rapproche }); dessins.current.set(cle, d) }
+    if (!d) { d = dessinerVueEnsemble(affLarge, zone, { trou: rapproche }); dessins.current.set(cle, d) }
     return d
-  }, [affLarge, zone, iSel, montrerPluie, montrerNuages, rapproche])
+  }, [affLarge, zone, iSel, rapproche])
   // Tant que la vue d'ensemble n'est pas là, les contours restent affichés.
   const contoursVisibles = rapproche || !large
 
-  // Les jours : chargés au premier appui sur « 3 jours » ou « 10 jours ».
+  // Les jours : « 3 jours » est déplié d'office, chargé à l'ouverture.
+  const [vueJours, setVueJours] = useState<3 | 10>(3)
+  const [joursBruts, setJoursBruts] = useState<JoursMeteo | null>(null)
+  const [joursCharges, setJoursCharges] = useState(false)
   useEffect(() => {
-    if (!vueJours || joursBruts || !zone) return
+    if (!zone) return
     fetch(urlMeteo(`${zone.slug}/jours.json`), { cache: 'no-cache' })
       .then(r => (r.ok ? r.json() : null))
       .then((j: JoursMeteo | null) => setJoursBruts(j))
       .catch(() => {})
       .finally(() => setJoursCharges(true))
-  }, [vueJours, joursBruts, zone])
-  const jours: Jour[] | null = joursBruts && vueJours ? joursAu(joursBruts, point, vueJours) : null
+  }, [zone])
+  const jours: Jour[] | null = joursBruts ? joursAu(joursBruts, point, vueJours) : null
 
   /* ── Le panneau ───────────────────────────────────────────────────────
      Même mécanique que la feuille des événements (BottomSheet) : il suit le
      pouce, puis se pose en haut ou en bas selon l'élan. Replié, on
-     l'attrape n'importe où ; déplié, par le haut, le reste défile. Un geste
-     plutôt horizontal (heures, curseur) n'attrape rien. */
+     l'attrape n'importe où ; déplié, par le haut, le reste défile. */
   const [hauteurEcran, setHauteurEcran] = useState(800)
   useEffect(() => {
     const maj = () => setHauteurEcran(window.innerHeight)
     maj(); window.addEventListener('resize', maj)
     return () => window.removeEventListener('resize', maj)
   }, [])
-  const hauteurPanneau = Math.round(hauteurEcran * 0.86)
-  const visibleReplie = Math.min(PANNEAU_REPLIE, Math.round(hauteurEcran * 0.45))
-  const decalageReplie = Math.max(0, hauteurPanneau - visibleReplie)
+  const hauteurPanneau = Math.round((hauteurEcran - NAV_H) * 0.84)
+  const decalageReplie = Math.max(0, hauteurPanneau - PANNEAU_REPLIE)
   const [ouvert, setOuvert] = useState(false)
   const y = useMotionValue(decalageReplie)
   const prise = useDragControls()
@@ -197,7 +181,6 @@ export default function MeteoVue() {
     const c = animate(y, ouvert ? 0 : decalageReplie, { type: 'spring', stiffness: 340, damping: 36 })
     return () => c.stop()
   }, [ouvert, decalageReplie, y])
-  useEffect(() => { if (vueJours) setOuvert(true) }, [vueJours])
   const gesteDebut = (e: React.PointerEvent) => {
     const cible = e.target as HTMLElement
     const haut = panneauRef.current?.getBoundingClientRect().top ?? 0
@@ -226,37 +209,42 @@ export default function MeteoVue() {
     }
   }
 
+  // Le retour : referme la météo posée sur l'accueil, sans le recharger.
+  const retour = () => {
+    if (intercept) { intercept.close(); return }
+    if (window.history.length > 1) router.back()
+    else router.push('/?tab=village')
+  }
+
   const majLe = meta ? heure(Date.parse(meta.genere)) : null
-  const valeurCurseur = iSel ?? Math.max(0, iMaintenant)
   const nomPoint = lieu === 'chez vous' ? 'Chez vous' : lieu
 
   return (
-    <div className="pdv-meteo fixed inset-0 overflow-hidden" style={{ background: '#FDFAF5' }}>
-      <div className="absolute inset-x-0 top-0 z-0" style={{ height: '100%' }}>
+    // En modale, elle couvre aussi l'en-tête du site sur ordinateur : on
+    // n'y laisse pas la place de cet en-tête (pdv-meteo-modale).
+    <div className={`pdv-meteo fixed inset-0 overflow-hidden${intercept ? ' pdv-meteo-modale' : ''}`} style={{ background: '#FDFAF5' }}>
+      <div className="absolute inset-x-0 top-0 z-0" style={{ bottom: BAS }}>
         {zone && (
           <CarteMeteo
             zone={zone}
             pluie={contoursVisibles ? formesSel?.pluie ?? null : null}
             orage={contoursVisibles ? formesSel?.orage ?? null : null}
-            nuages={contoursVisibles ? formesSel?.nuages ?? null : null}
             onEchelle={setRapproche}
-            montrerPluie={montrerPluie}
-            montrerNuages={montrerNuages}
             point={point}
             nomPoint={nomPoint}
             onToucher={toucherCarte}
             large={large}
             onSortieZone={() => setBesoinLarge(true)}
-            basCarte={visibleReplie}
+            basCarte={PANNEAU_REPLIE}
           />
         )}
       </div>
 
-      {/* Barre du haut, posée sur la carte : retour, titre, couches. */}
+      {/* Barre du haut, posée sur la carte : retour et titre. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center gap-2 px-3" style={{ paddingTop: 'max(10px, env(safe-area-inset-top, 10px))' }}>
         <button
           type="button"
-          onClick={() => (window.history.length > 1 ? router.back() : router.push('/'))}
+          onClick={retour}
           aria-label="Retour"
           className="pointer-events-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-none bg-white text-[#2D5A3D]"
           style={{ boxShadow: '0 2px 10px rgba(44,28,16,.12)' }}
@@ -266,27 +254,20 @@ export default function MeteoVue() {
         <span className="pointer-events-auto rounded-full bg-white px-3.5 py-2 font-title text-[17px] font-extrabold text-[#2D5A3D]" style={{ boxShadow: '0 2px 10px rgba(44,28,16,.12)' }}>
           Météo
         </span>
-        <div className="pointer-events-auto ml-auto flex overflow-hidden rounded-full bg-white" style={{ boxShadow: '0 2px 10px rgba(44,28,16,.12)' }}>
-          {([['Nuages', montrerNuages, setMontrerNuages], ['Pluie', montrerPluie, setMontrerPluie]] as const).map(([l, actif, set]) => (
-            <button
-              key={l}
-              type="button"
-              aria-pressed={actif}
-              onClick={() => set(!actif)}
-              className="h-11 border-none px-4 text-[14px] font-extrabold"
-              style={{ background: actif ? '#2D5A3D' : 'transparent', color: actif ? '#FFFFFF' : '#2D5A3D' }}
-            >
-              {l}
-            </button>
-          ))}
-        </div>
       </div>
+
+      {/* La tuile de l'heure, en bas à gauche de la carte, au-dessus du panneau. */}
+      {tuile && (
+        <div className="pointer-events-none absolute left-3 z-20" style={{ bottom: `calc(${BAS} + ${PANNEAU_REPLIE + 12}px)` }}>
+          <TuileHeure d={tuile} lieu={nomPoint} />
+        </div>
+      )}
 
       {/* Le panneau, qu'on remonte. */}
       <motion.div
         ref={panneauRef}
-        className="absolute inset-x-0 bottom-0 z-30 rounded-t-[26px]"
-        style={{ height: hauteurPanneau, background: '#FDFAF5', boxShadow: '0 -6px 24px rgba(44,28,16,.14)', y }}
+        className="absolute inset-x-0 z-30 rounded-t-[26px]"
+        style={{ bottom: BAS, height: hauteurPanneau, background: '#FDFAF5', boxShadow: '0 -6px 24px rgba(44,28,16,.14)', y }}
         drag="y"
         dragControls={prise}
         dragListener={false}
@@ -311,7 +292,7 @@ export default function MeteoVue() {
           className="h-[calc(100%-32px)]"
           style={{ overflowY: ouvert ? 'auto' : 'hidden', overscrollBehavior: 'contain', touchAction: ouvert ? 'pan-y' : 'none' }}
         >
-          {erreur || (meta && iMaintenant < 0) ? (
+          {erreur || (meta && !cadres.length) ? (
             <p className="m-0 px-5 py-6 text-[16px] font-bold text-[#7A6A5A]">
               La carte se met à jour, revenez dans quelques minutes.
             </p>
@@ -324,10 +305,9 @@ export default function MeteoVue() {
               temp={ici?.v.temp ?? null}
               ciel={ici ? cielDe(ici.v, jourIci) : null}
               lieu={lieu}
-              curseur={{ min: 0, max: Math.max(0, cadres.length - 1), valeur: valeurCurseur, maintenant: Math.max(0, iMaintenant), t: cadres[valeurCurseur]?.t ?? Date.now() }}
-              enLecture={lecture !== null}
+              curseur={{ min: 0, max: Math.max(0, cadres.length - 1), valeur: iSel, maintenant: 0, t: cadres[iSel]?.t ?? Date.now() }}
+              enLecture={lecture}
               onLecture={lireOuPause}
-              heures={heures}
               charge={new Set(images.keys())}
               onChoisir={choisir}
               vueJours={vueJours}
@@ -339,6 +319,9 @@ export default function MeteoVue() {
           )}
         </div>
       </motion.div>
+
+      {/* La navigation de l'app, comme partout. */}
+      <BottomNavBar />
     </div>
   )
 }

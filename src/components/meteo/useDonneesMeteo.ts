@@ -1,17 +1,17 @@
 'use client'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { urlMeteo, chargerImage, type Image } from '@/lib/meteo/lecture'
-import type { MetaMeteo, ZoneMeteo } from '@/lib/meteo/zone'
+import { urlMeteo, chargerImage, chargerVent, type Image } from '@/lib/meteo/lecture'
+import { fenetreVent, type MetaMeteo, type ZoneMeteo } from '@/lib/meteo/zone'
 
-export interface Cadre { t: number; png: string; large?: string; passe: boolean }
+export interface Cadre { t: number; png: string; large?: string; vent?: string }
 
 /**
  * LES DONNÉES DE LA PAGE MÉTÉO — rien n'est chargé avant d'y entrer.
  *
- * Le fil des images : les heures passées (gardées par la tâche planifiée,
- * jusqu'à 12 h), puis la prévision. Ordre de chargement : l'heure présente
- * d'abord (la phrase en dépend), puis le passé (l'animation d'ouverture le
- * rejoue), puis l'avenir. La vue d'ensemble ne se charge que si on dézoome.
+ * Le fil des images va de l'heure en cours à la fin de la prévision.
+ * Ordre de chargement : l'heure en cours d'abord (la phrase en dépend), puis
+ * les suivantes. Chaque heure vient avec son vent. La vue d'ensemble (la
+ * pluie à 400 km) se charge dès qu'on regarde de loin.
  */
 export function useDonneesMeteo(zone: ZoneMeteo | null, besoinLarge: boolean, iSelRef: React.MutableRefObject<number | null>) {
   const [meta, setMeta] = useState<MetaMeteo | null>(null)
@@ -40,50 +40,48 @@ export function useDonneesMeteo(zone: ZoneMeteo | null, besoinLarge: boolean, iS
   /** Relit la sortie publiée si la dernière lecture date de plus de 5 min. */
   const rafraichir = useCallback(() => { if (Date.now() - chargeA.current > 5 * 60_000) recharger() }, [recharger])
 
+  // De l'heure en cours (une image d'heure t porte ce qui se passe entre
+  // t − 1 h et t) à la fin de la prévision.
   const cadres: Cadre[] = useMemo(() => {
     if (!meta) return []
-    const run = Date.parse(meta.run)
-    const avenir = meta.heures.filter(h => Date.parse(h.t) > run).map(h => ({ t: Date.parse(h.t), png: h.png, large: h.large, passe: false }))
-    const debut = avenir[0]?.t ?? Infinity
-    const passe = (meta.passe ?? []).map(h => ({ t: Date.parse(h.t), png: h.png, large: h.large, passe: true })).filter(h => h.t < debut)
-    return [...passe, ...avenir]
+    const run = Date.parse(meta.run), now = Date.now()
+    return meta.heures
+      .map(h => ({ t: Date.parse(h.t), png: h.png, large: h.large, vent: h.vent }))
+      .filter(h => h.t > run && h.t > now)
   }, [meta])
 
-  // L'image « maintenant » : celle de l'heure en cours (une image d'heure t
-  // porte ce qui se passe entre t − 1 h et t).
-  const iMaintenant = useMemo(() => cadres.findIndex(c => c.t > Date.now()), [cadres])
-
-  const ordre = useCallback((depart: number) => {
-    const idx = cadres.map((_, i) => i)
-    return [depart, ...idx.filter(i => i < depart).reverse(), ...idx.filter(i => i > depart)]
-  }, [cadres])
-
   useEffect(() => {
-    if (!zone || iMaintenant < 0) return
+    if (!zone || !cadres.length) return
     let vivant = true
-    const file = ordre(iMaintenant)
     let k = 0
+    const gv = fenetreVent(zone)
     const suivant = async (): Promise<void> => {
-      while (vivant && k < file.length) {
-        const i = file[k++]
+      while (vivant && k < cadres.length) {
+        const i = k++
         try {
-          const img = await chargerImage(cadres[i].png, cadres[i].t, zone)
+          const [img, vent] = await Promise.all([
+            chargerImage(cadres[i].png, cadres[i].t, zone),
+            cadres[i].vent ? chargerVent(cadres[i].vent!, gv).catch(() => undefined) : Promise.resolve(undefined),
+          ])
+          img.vent = vent
           if (vivant) setImages(prev => new Map(prev).set(i, img))
         } catch { /* une image manquante n'arrête pas les autres */ }
       }
     }
     Promise.all([suivant(), suivant(), suivant()])
     return () => { vivant = false }
-  }, [zone, cadres, iMaintenant, ordre])
+  }, [zone, cadres])
 
   useEffect(() => {
-    if (!besoinLarge || !zone || iMaintenant < 0) return
+    if (!besoinLarge || !zone || !cadres.length) return
     let vivant = true
     const faits = new Set<number>()
     const suivant = async (): Promise<void> => {
       while (vivant) {
         // Toujours l'heure affichée en premier si elle manque encore.
-        const i = ordre(iSelRef.current ?? iMaintenant).find(x => !faits.has(x) && cadres[x].large)
+        const depart = iSelRef.current ?? 0
+        const ordre = cadres.map((_, k) => k).sort((a, b) => (a >= depart ? a - depart : 1000 - a) - (b >= depart ? b - depart : 1000 - b))
+        const i = ordre.find(x => !faits.has(x) && cadres[x].large)
         if (i === undefined) return
         faits.add(i)
         try {
@@ -94,7 +92,7 @@ export function useDonneesMeteo(zone: ZoneMeteo | null, besoinLarge: boolean, iS
     }
     Promise.all([suivant(), suivant()])
     return () => { vivant = false }
-  }, [besoinLarge, zone, cadres, iMaintenant, ordre, iSelRef])
+  }, [besoinLarge, zone, cadres, iSelRef])
 
-  return { meta, erreur, cadres, iMaintenant, images, imagesLarges, rafraichir }
+  return { meta, erreur, cadres, images, imagesLarges, rafraichir }
 }

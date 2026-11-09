@@ -3,8 +3,6 @@ import IconeCiel from './IconeCiel'
 import { COULEURS_PLUIE, COULEUR_ORAGE } from './CarteMeteo'
 import { heure, nomDuJour, type Ciel, type Jour } from '@/lib/meteo/lecture'
 
-export interface HeureAffichee { i: number; t: number; ciel: Ciel | null; temp: number | null; pluie: number | null }
-
 const fmtJourCourt = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', timeZone: 'Europe/Paris' })
 const fmtJourCle = new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' })
 
@@ -23,12 +21,11 @@ function libelleInstant(t: number, maintenant: boolean): string {
  * hauteur FIXE : une phrase plus longue ne pousse rien, le panneau replié
  * montre toujours les heures en entier.
  *
- * Le curseur pilote la carte, et la carte seule : la rangée des heures ne
- * défile pas avec lui (ça faisait bouger tout le bas de l'écran). Toucher
- * une heure, en revanche, amène la carte à cette heure.
+ * Le curseur pilote la carte et la tuile de l'heure posée dessus
+ * (TuileHeure) ; dans le panneau, rien ne bouge avec lui.
  */
 export default function PanneauMeteo({
-  etat, suite, temp, ciel, lieu, curseur, enLecture, onLecture, heures, charge, onChoisir, vueJours, onVueJours, jours, joursCharges, majLe,
+  etat, suite, temp, ciel, lieu, curseur, enLecture, onLecture, charge, onChoisir, vueJours, onVueJours, jours, joursCharges, majLe,
 }: {
   etat: string | null
   suite: string
@@ -38,12 +35,11 @@ export default function PanneauMeteo({
   curseur: { min: number; max: number; valeur: number; maintenant: number; t: number }
   enLecture: boolean
   onLecture: () => void
-  heures: HeureAffichee[]
   /** Images déjà chargées, par index — le curseur montre le préchargement. */
   charge: Set<number>
   onChoisir: (i: number) => void
-  vueJours: 3 | 10 | null
-  onVueJours: (v: 3 | 10 | null) => void
+  vueJours: 3 | 10
+  onVueJours: (v: 3 | 10) => void
   jours: Jour[] | null
   joursCharges: boolean
   majLe: string | null
@@ -114,38 +110,13 @@ export default function PanneauMeteo({
         </div>
       </div>
 
-      {/* Les prochaines heures : fixes, on les fait défiler au doigt. */}
-      <div className="-mx-5 mt-3 flex gap-1.5 overflow-x-auto px-5 pb-1" style={{ scrollbarWidth: 'none', touchAction: 'pan-x' }}>
-        {heures.map(h => {
-          const choisie = h.i === curseur.valeur
-          return (
-            <button
-              key={h.i}
-              type="button"
-              onClick={() => onChoisir(h.i)}
-              className="flex min-h-[96px] w-[58px] shrink-0 flex-col items-center justify-between rounded-[16px] py-2"
-              style={{ background: '#FFFFFF', color: '#1A1209', border: `2px solid ${choisie ? '#2D5A3D' : 'transparent'}`, boxShadow: '0 1px 6px rgba(44,28,16,.07)' }}
-            >
-              <span className="text-[12.5px] font-bold" style={{ color: h.i === curseur.maintenant ? '#2D5A3D' : '#1A1209' }}>
-                {h.i === curseur.maintenant ? 'Mtn' : heure(h.t)}
-              </span>
-              {h.ciel ? <IconeCiel ciel={h.ciel} taille={24} couleur="#2D5A3D" /> : <span className="h-6" />}
-              <span className="text-[15px] font-extrabold">{h.temp !== null ? `${Math.round(h.temp)}°` : '·'}</span>
-              <span className="h-[14px] text-[11px] font-bold text-[#1F5296]">
-                {h.pluie !== null && h.pluie >= 0.2 ? `${h.pluie < 10 ? h.pluie.toFixed(1).replace('.', ',') : Math.round(h.pluie)} mm` : ''}
-              </span>
-            </button>
-          )
-        })}
-      </div>
-
-      {/* 3 jours / 10 jours. */}
-      <div className="mt-5 flex gap-2">
+      {/* 3 jours (affiché d'office) / 10 jours. */}
+      <div className="mt-4 flex gap-2">
         {([3, 10] as const).map(n => (
           <button
             key={n}
             type="button"
-            onClick={() => onVueJours(vueJours === n ? null : n)}
+            onClick={() => onVueJours(n)}
             className="h-11 flex-1 rounded-full text-[14px] font-extrabold"
             style={{ border: `1.5px solid ${vueJours === n ? '#2D5A3D' : '#E5DDD2'}`, background: vueJours === n ? '#2D5A3D' : '#FFFFFF', color: vueJours === n ? '#FFFFFF' : '#1A1209' }}
           >
@@ -154,8 +125,7 @@ export default function PanneauMeteo({
         ))}
       </div>
 
-      {vueJours && (
-        <div className="mt-3 overflow-hidden rounded-[18px] bg-white" style={{ boxShadow: '0 1px 6px rgba(44,28,16,.07)' }}>
+      <div className="mt-3 overflow-hidden rounded-[18px] bg-white" style={{ boxShadow: '0 1px 6px rgba(44,28,16,.07)' }}>
           {!joursCharges && <p className="m-0 p-4 text-[14px] text-[#7A6A5A]">Chargement…</p>}
           {joursCharges && (!jours || jours.length === 0) && <p className="m-0 p-4 text-[14px] text-[#7A6A5A]">Prévisions des jours indisponibles pour l’instant.</p>}
           {jours?.map((j, k) => (
@@ -169,11 +139,10 @@ export default function PanneauMeteo({
               <span className="w-9 text-right text-[16px] font-extrabold text-[#1A1209]">{Math.round(j.max)}°</span>
             </div>
           ))}
-        </div>
-      )}
+      </div>
 
       <p className="m-0 mt-5 text-[11.5px] leading-[1.5] text-[#8A7A6A]">
-        Source : Météo-France (AROME){vueJours ? ' · ECMWF pour les jours' : ''}
+        Source : Météo-France (AROME) · ECMWF pour les jours
         {majLe ? ` · mis à jour à ${majLe}` : ''}
         {' · '}touchez la carte pour choisir un autre lieu
       </p>

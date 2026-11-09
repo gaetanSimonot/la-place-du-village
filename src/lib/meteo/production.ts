@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { decoderFenetre, decoderMessage, extraire, type Champ, type Fenetre } from './grib2'
 import { messagesVoulus, champsEcmwf, existe, parLots } from './telechargement'
 import {
-  BUCKET_METEO, encoderPluie, encoderNuages, encoderTempOrage, distanceKm,
+  BUCKET_METEO, encoderPluie, encoderNuages, encoderTempOrage, distanceKm, fenetreVent,
   type ZoneMeteo, type MetaMeteo, type JoursMeteo,
 } from './zone'
 
@@ -28,6 +28,7 @@ export const ECHEANCES = [...Array.from({ length: 25 }, (_, i) => i), 27, 30, 33
 const PLUIE = '0/1/65', NEIGE = '0/1/66', GRESIL = '0/1/75'
 const NUAGES_BAS = '0/6/3', NUAGES_MOY = '0/6/4', NUAGES_HAUTS = '0/6/5'
 const T2M = '0/0/0'
+const VENT_U = '0/2/2', VENT_V = '0/2/3', RAFALE_U = '0/2/23', RAFALE_V = '0/2/24'
 
 const isoRun = (d: Date) => d.toISOString().slice(0, 13) + ':00:00Z'
 const urlArome = (run: string, paquet: string, h: number) =>
@@ -63,11 +64,11 @@ async function dernierRunArome(): Promise<string | null> {
 
 interface Brut { cumul: Float32Array; gresil: Float32Array; nuages: Float32Array; temp: Float32Array }
 
-async function lireEcheance(run: string, h: number, z: ZoneMeteo): Promise<{ fin: Brut; large: Brut }> {
+async function lireEcheance(run: string, h: number, z: ZoneMeteo): Promise<{ fin: Brut; large: Brut; vent: Buffer }> {
   const f = { lat0: z.lat0, lon0: z.lon0, pas: z.pas, lignes: z.lignes, colonnes: z.colonnes }
   const [sp2, sp1] = await Promise.all([
     messagesVoulus(urlArome(run, 'SP2', h), new Set([PLUIE, NEIGE, GRESIL, NUAGES_BAS, NUAGES_MOY, NUAGES_HAUTS])),
-    messagesVoulus(urlArome(run, 'SP1', h), new Set([T2M])),
+    messagesVoulus(urlArome(run, 'SP1', h), new Set([T2M, VENT_U, VENT_V, RAFALE_U, RAFALE_V])),
   ])
   if (!sp1.has(T2M)) throw new Error(`température absente à +${h} h`)
   // Chaque champ est décodé UNE fois, puis découpé en deux fenêtres.
@@ -90,7 +91,22 @@ async function lireEcheance(run: string, h: number, z: ZoneMeteo): Promise<{ fin
     }
     return { cumul, gresil, nuages, temp }
   }
-  return { fin: fenetre(f), large: fenetre(z.large) }
+  /* Le vent, sur une grille lâche (5 km) de la zone fine : il varie
+     doucement, une image d'1 Ko suffit. Vitesse et rafales en km/h,
+     direction d'où il vient (convention météo). */
+  const gv = fenetreVent(z)
+  const nv = gv.lignes * gv.colonnes
+  const lireV = (cle: string) => { const c = champs.get(cle); return c ? extraire(c, gv) : new Float32Array(nv) }
+  const u = lireV(VENT_U), v = lireV(VENT_V), ru = lireV(RAFALE_U), rv = lireV(RAFALE_V)
+  const vent = Buffer.alloc(nv * 3)
+  for (let i = 0; i < nv; i++) {
+    const kmh = Math.hypot(u[i] || 0, v[i] || 0) * 3.6
+    const dir = ((Math.atan2(-(u[i] || 0), -(v[i] || 0)) * 180) / Math.PI + 360) % 360
+    vent[i * 3] = Math.min(255, Math.round(kmh))
+    vent[i * 3 + 1] = Math.round((dir / 360) * 255) % 256
+    vent[i * 3 + 2] = Math.min(255, Math.round(Math.hypot(ru[i] || 0, rv[i] || 0) * 3.6))
+  }
+  return { fin: fenetre(f), large: fenetre(z.large), vent }
 }
 
 /**
@@ -108,13 +124,11 @@ function pixels(b: Brut, precedent: Brut | null, dt: number, n: number, garder: 
     // Orage : du grésil en saison douce (la convection en fait), ou une
     // averse très forte.
     const orage = (gresil > 0.1 && c > 2) || mmh >= 25
-    // Vue d'ensemble : pas de température (elle pèserait la moitié de l'image
-    // pour rien), seulement le drapeau d'orage ; pluie et nuages arrondis
-    // plus grossièrement (nuages par 10 %) — à 5 km, l'œil n'y voit rien, et
-    // l'image passe de 14 à 7 Ko.
-    const r = encoderPluie(mmh), g = encoderNuages(b.nuages[i] || 0)
+    // Vue d'ensemble : la pluie seule (la carte ne montre pas les nuages), un
+    // peu plus grossière, et le drapeau d'orage — l'image en devient minuscule.
+    const r = encoderPluie(mmh)
     px[i * 3] = avecTemp ? r : Math.min(255, Math.round(r / 4) * 4)
-    px[i * 3 + 1] = avecTemp ? g : Math.round(g / 25.5) * 25
+    px[i * 3 + 1] = avecTemp ? encoderNuages(b.nuages[i] || 0) : 0
     px[i * 3 + 2] = avecTemp ? encoderTempOrage(c, orage) : (orage ? 128 : 0)
   }
   return px
@@ -134,7 +148,7 @@ export async function produireArome(z: ZoneMeteo, forcer = false): Promise<Bilan
   const ancien = await lireJson<MetaMeteo>(metaChemin)
   if (!forcer && ancien?.run === run) return { run, images: 0, ko: 0, ms: Date.now() - debut, deja: true }
 
-  const bruts = new Map<number, { fin: Brut; large: Brut }>()
+  const bruts = new Map<number, { fin: Brut; large: Brut; vent: Buffer }>()
   await parLots(ECHEANCES, 4, async h => { bruts.set(h, await lireEcheance(run, h, z)) })
 
   const dossierRun = run.slice(0, 13).replace(/[-:]/g, '')
@@ -157,43 +171,22 @@ export async function produireArome(z: ZoneMeteo, forcer = false): Promise<Bilan
     const nom = String(h).padStart(2, '0')
     const png = await enPng(pixels(b.fin, precedent.fin, dt, n, () => true), z.colonnes, z.lignes)
     const pngLarge = await enPng(pixels(b.large, precedent.large, dt, nL, i => dansRayon[i] === 1, false), L.colonnes, L.lignes)
-    octets += png.length; octetsLarge += pngLarge.length
+    octets += png.length
+    const gv = fenetreVent(z)
+    const pngVent = await enPng(b.vent, gv.colonnes, gv.lignes)
+    octetsLarge += pngLarge.length
     const chemin = `${z.slug}/arome/${dossierRun}/h${nom}.png`
     const cheminLarge = `${z.slug}/arome/${dossierRun}/l${nom}.png`
+    const cheminVent = `${z.slug}/arome/${dossierRun}/v${nom}.png`
     await deposer(chemin, png, 'image/png', 31_536_000)
     await deposer(cheminLarge, pngLarge, 'image/png', 31_536_000)
-    const t = new Date(Date.parse(run) + h * 3_600_000).toISOString()
-    heures.push({ t, png: chemin, large: cheminLarge })
-    /* LE PASSÉ : les trois premières heures de chaque sortie sont gardées
-       à part. Mises bout à bout, sortie après sortie, elles refont les
-       dernières heures — ce que l'animation rejoue à l'ouverture. */
-    if (h <= 3) {
-      const cle = t.slice(0, 13).replace(/[-:]/g, '')
-      await deposer(`${z.slug}/passe/${cle}.png`, png, 'image/png', 31_536_000)
-      await deposer(`${z.slug}/passe/l${cle}.png`, pngLarge, 'image/png', 31_536_000)
-    }
+    await deposer(cheminVent, pngVent, 'image/png', 31_536_000)
+    heures.push({ t: new Date(Date.parse(run) + h * 3_600_000).toISOString(), png: chemin, large: cheminLarge, vent: cheminVent })
   }
-
-  // Le passé gardé : 12 h d'animation, ménage au-delà de 30 h.
-  const passe: MetaMeteo['heures'] = []
-  const { data: archives } = await supabaseAdmin.storage.from(BUCKET_METEO).list(`${z.slug}/passe`, { limit: 200 })
-  const premier = Date.parse(heures[0].t)
-  const aJeter: string[] = []
-  for (const f of archives ?? []) {
-    const m = f.name.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})\.png$/)
-    if (!m) continue
-    const t = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4])
-    if (t < Date.now() - 30 * 3_600_000) { aJeter.push(`${z.slug}/passe/${f.name}`, `${z.slug}/passe/l${f.name}`); continue }
-    if (t < premier && t >= premier - 12 * 3_600_000) {
-      passe.push({ t: new Date(t).toISOString(), png: `${z.slug}/passe/${f.name}`, large: `${z.slug}/passe/l${f.name}` })
-    }
-  }
-  if (aJeter.length) await supabaseAdmin.storage.from(BUCKET_METEO).remove(aJeter)
-  passe.sort((a, b) => a.t.localeCompare(b.t))
 
   const meta: MetaMeteo = {
     version: 1, zone: z, run, genere: new Date().toISOString(),
-    source: 'Météo-France — AROME 0,01°', heures, passe,
+    source: 'Météo-France — AROME 0,01°', heures,
   }
   await deposer(metaChemin, JSON.stringify(meta), 'application/json', 60)
 
@@ -202,7 +195,7 @@ export async function produireArome(z: ZoneMeteo, forcer = false): Promise<Bilan
   const { data: dossiers } = await supabaseAdmin.storage.from(BUCKET_METEO).list(`${z.slug}/arome`, { limit: 100 })
   for (const d of dossiers ?? []) {
     if (garder.has(d.name)) continue
-    const { data: fichiers } = await supabaseAdmin.storage.from(BUCKET_METEO).list(`${z.slug}/arome/${d.name}`, { limit: 100 })
+    const { data: fichiers } = await supabaseAdmin.storage.from(BUCKET_METEO).list(`${z.slug}/arome/${d.name}`, { limit: 200 })
     const chemins = (fichiers ?? []).map(f => `${z.slug}/arome/${d.name}/${f.name}`)
     if (chemins.length) await supabaseAdmin.storage.from(BUCKET_METEO).remove(chemins)
   }

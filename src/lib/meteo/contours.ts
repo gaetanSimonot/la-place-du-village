@@ -72,5 +72,3 @@ export function orageEnFormes(img: Image, z: ZoneMeteo): Couche {
   return couches(f, z, [0.35])
 }
 
-/** Niveaux : 0 nuageux (≥ 50 %), 1 couvert (≥ 85 %). */
-export const nuagesEnFormes = (img: Image, z: ZoneMeteo) => couches(img.nuages, z, [50, 85])
