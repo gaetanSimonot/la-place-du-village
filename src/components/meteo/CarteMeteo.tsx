@@ -19,6 +19,8 @@ const STYLE = 'https://tiles.openfreemap.org/styles/positron'
 /** Bleus du clair au foncé, terracotta pour l'orage. */
 export const COULEURS_PLUIE = ['#9CC7EA', '#4C8FCF', '#1F5296']
 export const COULEUR_ORAGE = '#C84B2F'
+/** Opacité du voile : nuageux, couvert. Assez léger pour lire la carte dessous. */
+export const VOILE_NUAGES = [0.16, 0.3] as const
 
 const VIDE: Couche = { type: 'FeatureCollection', features: [] }
 
@@ -27,7 +29,7 @@ function recolorer(m: MapLibreMap) {
     const id = l.id.toLowerCase()
     try {
       if (l.type === 'background') m.setPaintProperty(l.id, 'background-color', '#FDFAF5')
-      else if (l.type === 'fill' && id.includes('water')) m.setPaintProperty(l.id, 'fill-color', '#DCE7E4')
+      else if (l.type === 'fill' && id.includes('water')) m.setPaintProperty(l.id, 'fill-color', '#C6DCE6')
       else if (l.type === 'fill' && /park|wood|forest|grass|landcover|landuse/.test(id)) m.setPaintProperty(l.id, 'fill-color', '#E6EEDD')
       else if (l.type === 'line' && id.includes('water')) m.setPaintProperty(l.id, 'line-color', '#C9DAD6')
       // Les noms de villages et de bourgs : plus foncés, plus grands, et
@@ -49,13 +51,15 @@ function recolorer(m: MapLibreMap) {
 /** En dessous, la vue d'ensemble dessine seule ; au-dessus, les contours au km. */
 const ZOOM_RAPPROCHE = 8.5
 
-export default function CarteMeteo({ zone, pluie, orage, nuages, montrerPluie, montrerNuages, point, nomPoint, basCarte, large, onSortieZone, onEchelle }: {
+export default function CarteMeteo({ zone, pluie, orage, nuages, montrerPluie, montrerNuages, point, nomPoint, basCarte, large, onSortieZone, onEchelle, onToucher }: {
   /** La vue d'ensemble de l'heure affichée (déjà filtrée par les boutons Nuages / Pluie). */
   large?: ImageCarte | null
   /** Appelé quand la vue déborde de la zone fine : il faut la vue d'ensemble. */
   onSortieZone?: () => void
   /** Vrai en vue rapprochée (contours au kilomètre), faux de loin. */
   onEchelle?: (rapproche: boolean) => void
+  /** Un appui sur la carte : le point, et le nom du village affiché le plus proche. */
+  onToucher?: (p: Point, nom: string | null) => void
   /** Le nom écrit à côté du point (« Ganges », « Chez vous »). */
   nomPoint?: string
   zone: ZoneMeteo
@@ -97,6 +101,23 @@ export default function CarteMeteo({ zone, pluie, orage, nuages, montrerPluie, m
         // c'est la vue d'ensemble qui montre le ciel (cf. vueEnsemble.ts).
         maxBounds={[[-12, 36], [18, 56]]}
         minZoom={4.5}
+        // Toucher la carte : la météo de ce point, nommée d'après le village
+        // affiché le plus proche (rien à demander à un service extérieur).
+        onClick={e => {
+          if (!onToucher) return
+          const m = e.target
+          const { x, y } = e.point
+          const proches = m.queryRenderedFeatures([[x - 50, y - 50], [x + 50, y + 50]])
+            .filter(f => f.layer.type === 'symbol' && /^label_(village|town|city|other)/.test(f.layer.id) && f.properties?.name)
+          let nom: string | null = null, mieux = Infinity
+          for (const f of proches) {
+            if (f.geometry.type !== 'Point') continue
+            const p = m.project(f.geometry.coordinates as [number, number])
+            const d = Math.hypot(p.x - x, p.y - y)
+            if (d < mieux) { mieux = d; nom = String(f.properties.name) }
+          }
+          onToucher({ lat: e.lngLat.lat, lng: e.lngLat.lng }, nom)
+        }}
         onMoveEnd={e => {
           onEchelle?.(e.target.getZoom() >= ZOOM_RAPPROCHE)
           if (!onSortieZone) return
@@ -118,12 +139,13 @@ export default function CarteMeteo({ zone, pluie, orage, nuages, montrerPluie, m
                 <Layer id="ensemble-image" type="raster" beforeId={avant} paint={{ 'raster-resampling': 'linear', 'raster-fade-duration': 0 }} />
               </Source>
             )}
-            {/* Nuages : un voile blanc translucide, son ombre légèrement décalée dessous. */}
+            {/* Nuages : un voile blanc LÉGER (la carte se lit au travers, la
+                mer reste bleue), une ombre à peine marquée sur ses bords. */}
             <Source id="nuages" type="geojson" data={montrerNuages && nuages ? nuages : VIDE}>
-              <Layer id="nuages-ombre" type="fill" beforeId={avant}
-                paint={{ 'fill-color': '#3B2F22', 'fill-opacity': ['match', ['get', 'niveau'], 0, 0.05, 0.08], 'fill-translate': [3, 4] }} />
+              <Layer id="nuages-ombre" type="line" beforeId={avant}
+                paint={{ 'line-color': '#3B2F22', 'line-opacity': 0.1, 'line-width': 2, 'line-blur': 2, 'line-translate': [2, 3] }} />
               <Layer id="nuages-voile" type="fill" beforeId={avant}
-                paint={{ 'fill-color': '#FFFFFF', 'fill-opacity': ['match', ['get', 'niveau'], 0, 0.42, 0.62] }} />
+                paint={{ 'fill-color': '#FFFFFF', 'fill-opacity': ['match', ['get', 'niveau'], 0, VOILE_NUAGES[0], VOILE_NUAGES[1]] }} />
             </Source>
             <Source id="pluie" type="geojson" data={montrerPluie && pluie ? pluie : VIDE}>
               <Layer id="pluie-fond" type="fill" beforeId={avant}

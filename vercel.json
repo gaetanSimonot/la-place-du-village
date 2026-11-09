@@ -38,7 +38,7 @@
     },
     {
       "path": "/api/cron/meteo?source=arome",
-      "schedule": "50 1-23/3 * * *"
+      "schedule": "50 * * * *"
     },
     {
       "path": "/api/cron/meteo?source=jours",

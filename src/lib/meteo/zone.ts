@@ -116,6 +116,8 @@ export interface MetaMeteo {
    * température).
    */
   heures: { t: string; png: string; large?: string }[]
+  /** Les heures écoulées avant cette sortie (jusqu'à 12 h), pour l'animation d'ouverture. */
+  passe?: { t: string; png: string; large?: string }[]
 }
 
 /** Les jours (ECMWF) : une petite grille de points à 0,25° autour de la zone. */

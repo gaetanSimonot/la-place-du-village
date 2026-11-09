@@ -29,6 +29,8 @@ export default function MeteoRaccourci({ isAdmin, surTheme = false }: { isAdmin:
   return (
     <Link
       href="/meteo"
+      // Rien de la météo ne se charge tant qu'on n'y entre pas.
+      prefetch={false}
       aria-label="La météo"
       className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full no-underline"
       style={{

@@ -1,28 +1,37 @@
 'use client'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, animate, useMotionValue, useDragControls, type PanInfo } from 'framer-motion'
 import dynamic from 'next/dynamic'
+import { toast } from 'sonner'
 import PanneauMeteo, { type HeureAffichee } from './PanneauMeteo'
+import { useDonneesMeteo } from './useDonneesMeteo'
 import { useTerritoire } from '@/components/TerritoireProvider'
 import { useZonePerso } from '@/hooks/useZonePerso'
-import { zoneMeteo, type MetaMeteo, type JoursMeteo } from '@/lib/meteo/zone'
+import { zoneMeteo, type JoursMeteo } from '@/lib/meteo/zone'
 import {
-  urlMeteo, chargerImage, valeurAu, dansZone, cielDe, etatEnMots, suiteEnMots, hauteurSoleil, joursAu, heure,
-  type Image, type Point, type Jour,
+  urlMeteo, valeurAu, dansZone, cielDe, etatEnMots, suiteEnMots, hauteurSoleil, joursAu, heure,
+  type Point, type Jour,
 } from '@/lib/meteo/lecture'
 import { pluieEnFormes, orageEnFormes, nuagesEnFormes, type Couche } from '@/lib/meteo/contours'
 import { dessinerVueEnsemble, type ImageCarte } from '@/lib/meteo/vueEnsemble'
 
 const CarteMeteo = dynamic(() => import('./CarteMeteo'), { ssr: false })
 
-/** Part de l'écran laissée à la carte quand le panneau est replié. */
-const PART_CARTE = 0.66
+/** Hauteur visible du panneau replié : la phrase, le curseur et les heures, en entier. */
+const PANNEAU_REPLIE = 330
+/** Une image toutes les … ms pendant l'animation. */
+const CADENCE = 420
+const CLE_POINT = 'pdv-meteo-point'
 
 /**
  * /meteo — la carte de la pluie et des nuages, et sous elle, le temps qu'il
- * fait au village. Toutes les valeurs viennent des fichiers publiés par la
- * tâche planifiée (cf. lib/meteo/production.ts).
+ * fait au point choisi. Toutes les valeurs viennent des fichiers publiés par
+ * la tâche planifiée (cf. lib/meteo/production.ts).
+ *
+ * À l'ouverture, la carte rejoue les dernières heures jusqu'à maintenant,
+ * puis s'arrête : on voit d'où vient la pluie. Le bouton lecture fait
+ * défiler la suite.
  */
 export default function MeteoVue() {
   const router = useRouter()
@@ -30,92 +39,103 @@ export default function MeteoVue() {
   const zone = zoneMeteo(territoire?.slug)
   const { zone: zonePerso } = useZonePerso()
 
-  const [meta, setMeta] = useState<MetaMeteo | null>(null)
-  const [erreur, setErreur] = useState(false)
-  const [images, setImages] = useState<Map<number, Image>>(new Map())
   const [iSel, setISel] = useState<number | null>(null)
+  const iSelRef = useRef<number | null>(null)
+  iSelRef.current = iSel
+  const [besoinLarge, setBesoinLarge] = useState(false)
+  const { meta, erreur, cadres, iMaintenant, images, imagesLarges, rafraichir } = useDonneesMeteo(zone, besoinLarge, iSelRef)
+
   const [montrerPluie, setMontrerPluie] = useState(true)
   const [montrerNuages, setMontrerNuages] = useState(true)
   const [vueJours, setVueJours] = useState<3 | 10 | null>(null)
   const [joursBruts, setJoursBruts] = useState<JoursMeteo | null>(null)
   const [joursCharges, setJoursCharges] = useState(false)
 
-  // Le village : la zone réglée par la personne si elle tombe dans la carte,
-  // sinon le bourg par défaut de la zone.
-  const point: Point = useMemo(() => {
-    if (zone && zonePerso && dansZone({ lat: zonePerso.lat, lng: zonePerso.lng }, zone)) return { lat: zonePerso.lat, lng: zonePerso.lng }
-    return zone ? { lat: zone.centre.lat, lng: zone.centre.lng } : { lat: 43.9333, lng: 3.7 }
-  }, [zone, zonePerso])
-  const lieu = zone && zonePerso && dansZone({ lat: zonePerso.lat, lng: zonePerso.lng }, zone) ? 'chez vous' : zone?.centre.nom ?? ''
-
+  /* Le point regardé : celui touché sur la carte (retenu sur ce téléphone),
+     sinon la zone réglée par la personne, sinon le bourg de la zone. */
+  const [choix, setChoix] = useState<(Point & { nom: string }) | null>(null)
   useEffect(() => {
+    try { const c = JSON.parse(localStorage.getItem(CLE_POINT) ?? 'null'); if (c && typeof c.lat === 'number') setChoix(c) } catch { /* rien */ }
+  }, [])
+  const { point, lieu } = useMemo(() => {
+    if (zone && choix && dansZone(choix, zone)) return { point: { lat: choix.lat, lng: choix.lng }, lieu: choix.nom }
+    if (zone && zonePerso && dansZone({ lat: zonePerso.lat, lng: zonePerso.lng }, zone)) return { point: { lat: zonePerso.lat, lng: zonePerso.lng }, lieu: 'chez vous' }
+    return { point: zone ? { lat: zone.centre.lat, lng: zone.centre.lng } : { lat: 43.9333, lng: 3.7 }, lieu: zone?.centre.nom ?? '' }
+  }, [zone, choix, zonePerso])
+  const toucherCarte = useCallback((p: Point, nom: string | null) => {
     if (!zone) return
-    fetch(urlMeteo(`${zone.slug}/meta.json`), { cache: 'no-cache' })
-      .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((m: MetaMeteo) => setMeta(m))
-      .catch(() => setErreur(true))
-  }, [zone])
+    if (!dansZone(p, zone)) { toast.info('Touchez un point des Cévennes : c’est là que la prévision est précise.'); return }
+    const c = { lat: p.lat, lng: p.lng, nom: nom ?? 'ce point' }
+    setChoix(c)
+    try { localStorage.setItem(CLE_POINT, JSON.stringify(c)) } catch { /* rien */ }
+    rafraichir()
+  }, [zone, rafraichir])
 
-  // L'image « maintenant » : celle de l'heure en cours (une image d'heure t
-  // porte ce qui se passe entre t − 1 h et t).
-  const iMaintenant = useMemo(() => {
-    if (!meta) return -1
-    const now = Date.now()
-    return meta.heures.findIndex(h => Date.parse(h.t) > now)
-  }, [meta])
-
-  useEffect(() => { if (iMaintenant >= 0 && iSel === null) setISel(iMaintenant) }, [iMaintenant, iSel])
-
-  // Préchargement : d'abord les heures qui viennent, dans l'ordre.
+  /* ── L'animation ──────────────────────────────────────────────────────
+     `lecture` = jusqu'à quel index on avance (null = arrêt). À l'ouverture :
+     des heures passées jusqu'à maintenant, une seule fois. */
+  const [lecture, setLecture] = useState<number | null>(null)
+  const ouvertureFaite = useRef(false)
+  const passeCharge = iMaintenant > 0 && Array.from({ length: iMaintenant + 1 }, (_, i) => images.has(i)).every(Boolean)
   useEffect(() => {
-    if (!meta || !zone || iMaintenant < 0) return
-    let vivant = true
-    const ordre = meta.heures.map((_, i) => i).filter(i => i >= iMaintenant)
-    let k = 0
-    const suivant = async (): Promise<void> => {
-      while (vivant && k < ordre.length) {
-        const i = ordre[k++]
-        try {
-          const img = await chargerImage(meta.heures[i].png, Date.parse(meta.heures[i].t), zone)
-          if (vivant) setImages(prev => new Map(prev).set(i, img))
-        } catch { /* une image manquante n'arrête pas les autres */ }
-      }
-    }
-    Promise.all([suivant(), suivant(), suivant()])
-    return () => { vivant = false }
-  }, [meta, zone, iMaintenant])
+    if (iMaintenant < 0 || ouvertureFaite.current) return
+    const calme = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (iMaintenant === 0 || calme) { ouvertureFaite.current = true; setISel(iMaintenant); return }
+    if (!passeCharge) { if (iSel === null && images.has(iMaintenant)) setISel(iMaintenant); return }
+    ouvertureFaite.current = true
+    setISel(0)
+    setLecture(iMaintenant)
+  }, [iMaintenant, passeCharge, images, iSel])
+  useEffect(() => {
+    if (lecture === null) return
+    const id = window.setInterval(() => {
+      setISel(i => {
+        const n = (i ?? 0) + 1
+        if (n > lecture) { setLecture(null); return i }
+        // L'image suivante pas encore là : on attend un tour.
+        return images.has(n) ? n : i
+      })
+    }, CADENCE)
+    return () => window.clearInterval(id)
+  }, [lecture, images])
+  const choisir = (i: number) => { setLecture(null); setISel(i) }
+  const lireOuPause = () => {
+    if (lecture !== null) { setLecture(null); return }
+    const fin = cadres.length - 1
+    if ((iSel ?? 0) >= fin) setISel(Math.max(0, iMaintenant))
+    setLecture(fin)
+  }
 
-  // La série au village, image par image.
+  // La série au point, de maintenant à la fin.
   const serie = useMemo(() => {
-    if (!meta || !zone || iMaintenant < 0) return []
+    if (!zone || iMaintenant < 0) return []
     const out: { i: number; t: number; v: ReturnType<typeof valeurAu>; pas: number }[] = []
-    for (let i = iMaintenant; i < meta.heures.length; i++) {
+    for (let i = iMaintenant; i < cadres.length; i++) {
       const img = images.get(i)
       if (!img) break // la phrase attend les heures dans l'ordre
-      const pas = i > 0 ? (Date.parse(meta.heures[i].t) - Date.parse(meta.heures[i - 1].t)) / 3_600_000 : 1
+      const pas = i > 0 ? (cadres[i].t - cadres[i - 1].t) / 3_600_000 : 1
       out.push({ i, t: img.t, v: valeurAu(img, point, zone), pas })
     }
     return out
-  }, [meta, zone, images, point, iMaintenant])
+  }, [zone, cadres, images, point, iMaintenant])
 
   const ici = serie[0]
   const jourIci = ici ? hauteurSoleil(ici.t - 1_800_000, point) > 0 : true
-  const phrase = ici && serie.length >= Math.min(8, (meta?.heures.length ?? 0) - iMaintenant)
-    ? `${etatEnMots(ici.v, jourIci)}, ${suiteEnMots(serie, 0)}`
-    : ici ? etatEnMots(ici.v, jourIci) : null
+  const etat = ici ? etatEnMots(ici.v, jourIci) : null
+  const suite = ici && serie.length >= Math.min(8, cadres.length - iMaintenant) ? suiteEnMots(serie, 0) : ''
 
   const heures: HeureAffichee[] = useMemo(() => {
-    if (!meta || iMaintenant < 0) return []
-    return meta.heures.slice(iMaintenant).map((h, k) => {
+    if (iMaintenant < 0) return []
+    return cadres.slice(iMaintenant).map((c, k) => {
       const i = iMaintenant + k
       const s = serie.find(x => x.i === i)
-      const t = Date.parse(h.t)
-      return { i, t, ciel: s ? cielDe(s.v, hauteurSoleil(t - 1_800_000, point) > 0) : null, temp: s?.v.temp ?? null, pluie: s?.v.pluie ?? null }
+      return { i, t: c.t, ciel: s ? cielDe(s.v, hauteurSoleil(c.t - 1_800_000, point) > 0) : null, temp: s?.v.temp ?? null, pluie: s?.v.pluie ?? null }
     })
-  }, [meta, iMaintenant, serie, point])
+  }, [cadres, iMaintenant, serie, point])
 
   // Les formes de l'heure affichée — calculées une fois par heure.
   const formes = useRef(new Map<number, { pluie: Couche; orage: Couche; nuages: Couche }>())
+  useEffect(() => { formes.current.clear() }, [meta])
   const affichee = iSel !== null ? images.get(iSel) : undefined
   const formesSel = useMemo(() => {
     if (!affichee || !zone || iSel === null) return null
@@ -127,40 +147,12 @@ export default function MeteoVue() {
     return f
   }, [affichee, zone, iSel])
 
-  /* La vue d'ensemble (400 km, 5 km de maille) : rien n'est chargé tant
-     qu'on reste dans la zone fine. Dès qu'on en sort, l'heure affichée
-     d'abord, puis les suivantes. */
-  const [besoinLarge, setBesoinLarge] = useState(false)
-  const [imagesLarges, setImagesLarges] = useState<Map<number, Image>>(new Map())
-  const iSelRef = useRef(iSel)
-  iSelRef.current = iSel
-  useEffect(() => {
-    if (!besoinLarge || !meta || !zone || iMaintenant < 0) return
-    let vivant = true
-    const faits = new Set<number>()
-    const suivant = async (): Promise<void> => {
-      while (vivant) {
-        // Toujours l'heure affichée en premier si elle manque encore.
-        const depart = iSelRef.current ?? iMaintenant
-        const ordre = meta.heures.map((_, i) => i).filter(i => i >= iMaintenant)
-          .sort((a, b) => (a >= depart ? a - depart : 1000 + depart - a) - (b >= depart ? b - depart : 1000 + depart - b))
-        const i = ordre.find(k => !faits.has(k) && meta.heures[k].large)
-        if (i === undefined) return
-        faits.add(i)
-        try {
-          const img = await chargerImage(meta.heures[i].large!, Date.parse(meta.heures[i].t), zone.large)
-          if (vivant) setImagesLarges(prev => new Map(prev).set(i, img))
-        } catch { /* une image manquante n'arrête pas les autres */ }
-      }
-    }
-    Promise.all([suivant(), suivant()])
-    return () => { vivant = false }
-  }, [besoinLarge, meta, zone, iMaintenant])
-  const dessins = useRef(new Map<string, ImageCarte>())
-  const affLarge = iSel !== null ? imagesLarges.get(iSel) : undefined
   /* Vue rapprochée (zoom ≥ 8,5) : contours au kilomètre dans la zone fine,
      vue d'ensemble autour. Vue de loin : la vue d'ensemble seule. */
   const [rapproche, setRapproche] = useState(true)
+  const dessins = useRef(new Map<string, ImageCarte>())
+  useEffect(() => { dessins.current.clear() }, [meta])
+  const affLarge = iSel !== null ? imagesLarges.get(iSel) : undefined
   const large = useMemo(() => {
     if (!affLarge || !zone || iSel === null || (!montrerPluie && !montrerNuages)) return null
     const cle = `${iSel}-${montrerPluie ? 1 : 0}${montrerNuages ? 1 : 0}${rapproche ? 1 : 0}`
@@ -182,7 +174,11 @@ export default function MeteoVue() {
   }, [vueJours, joursBruts, zone])
   const jours: Jour[] | null = joursBruts && vueJours ? joursAu(joursBruts, point, vueJours) : null
 
-  // Le panneau : replié, il laisse ~70 % à la carte ; on le remonte au doigt.
+  /* ── Le panneau ───────────────────────────────────────────────────────
+     Même mécanique que la feuille des événements (BottomSheet) : il suit le
+     pouce, puis se pose en haut ou en bas selon l'élan. Replié, on
+     l'attrape n'importe où ; déplié, par le haut, le reste défile. Un geste
+     plutôt horizontal (heures, curseur) n'attrape rien. */
   const [hauteurEcran, setHauteurEcran] = useState(800)
   useEffect(() => {
     const maj = () => setHauteurEcran(window.innerHeight)
@@ -190,12 +186,8 @@ export default function MeteoVue() {
     return () => window.removeEventListener('resize', maj)
   }, [])
   const hauteurPanneau = Math.round(hauteurEcran * 0.86)
-  const decalageReplie = Math.max(0, hauteurPanneau - Math.round(hauteurEcran * (1 - PART_CARTE)))
-  /* Même mécanique que la feuille des événements (BottomSheet) : le panneau
-     suit le pouce en continu, puis se pose en haut ou en bas selon l'élan.
-     Replié, on l'attrape n'importe où ; déplié, par le haut (poignée et
-     phrase), le reste défile. Un geste plutôt horizontal (rangée des heures,
-     curseur) n'attrape rien. */
+  const visibleReplie = Math.min(PANNEAU_REPLIE, Math.round(hauteurEcran * 0.45))
+  const decalageReplie = Math.max(0, hauteurPanneau - visibleReplie)
   const [ouvert, setOuvert] = useState(false)
   const y = useMotionValue(decalageReplie)
   const prise = useDragControls()
@@ -209,7 +201,7 @@ export default function MeteoVue() {
   const gesteDebut = (e: React.PointerEvent) => {
     const cible = e.target as HTMLElement
     const haut = panneauRef.current?.getBoundingClientRect().top ?? 0
-    const dansEntete = e.clientY - haut < 120
+    const dansEntete = e.clientY - haut < 110
     const surCurseur = cible.closest('input[type="range"]')
     geste.current = { x: e.clientX, y: e.clientY, libre: !surCurseur && (!ouvert || dansEntete) }
   }
@@ -236,6 +228,7 @@ export default function MeteoVue() {
 
   const majLe = meta ? heure(Date.parse(meta.genere)) : null
   const valeurCurseur = iSel ?? Math.max(0, iMaintenant)
+  const nomPoint = lieu === 'chez vous' ? 'Chez vous' : lieu
 
   return (
     <div className="pdv-meteo fixed inset-0 overflow-hidden" style={{ background: '#FDFAF5' }}>
@@ -250,10 +243,11 @@ export default function MeteoVue() {
             montrerPluie={montrerPluie}
             montrerNuages={montrerNuages}
             point={point}
-            nomPoint={lieu === 'chez vous' ? 'Chez vous' : lieu}
+            nomPoint={nomPoint}
+            onToucher={toucherCarte}
             large={large}
             onSortieZone={() => setBesoinLarge(true)}
-            basCarte={Math.round(hauteurEcran * (1 - PART_CARTE))}
+            basCarte={visibleReplie}
           />
         )}
       </div>
@@ -308,13 +302,13 @@ export default function MeteoVue() {
           type="button"
           aria-label={ouvert ? 'Replier le panneau' : 'Remonter le panneau'}
           onClick={() => setOuvert(o => !o)}
-          className="flex h-9 w-full items-center justify-center border-none bg-transparent"
+          className="flex h-8 w-full items-center justify-center border-none bg-transparent"
           style={{ touchAction: 'none' }}
         >
           <span className="block h-[5px] w-11 rounded-full bg-[#D9CFC2]" />
         </button>
         <div
-          className="h-[calc(100%-36px)]"
+          className="h-[calc(100%-32px)]"
           style={{ overflowY: ouvert ? 'auto' : 'hidden', overscrollBehavior: 'contain', touchAction: ouvert ? 'pan-y' : 'none' }}
         >
           {erreur || (meta && iMaintenant < 0) ? (
@@ -325,14 +319,17 @@ export default function MeteoVue() {
             <p className="m-0 px-5 py-6 text-[16px] font-bold text-[#7A6A5A]">La météo n’est pas encore disponible pour ce territoire.</p>
           ) : (
             <PanneauMeteo
-              phrase={phrase}
+              etat={etat}
+              suite={suite}
               temp={ici?.v.temp ?? null}
               ciel={ici ? cielDe(ici.v, jourIci) : null}
               lieu={lieu}
-              curseur={{ min: Math.max(0, iMaintenant), max: Math.max(0, (meta?.heures.length ?? 1) - 1), valeur: valeurCurseur, t: meta ? Date.parse(meta.heures[valeurCurseur]?.t ?? meta.heures[0].t) : Date.now() }}
+              curseur={{ min: 0, max: Math.max(0, cadres.length - 1), valeur: valeurCurseur, maintenant: Math.max(0, iMaintenant), t: cadres[valeurCurseur]?.t ?? Date.now() }}
+              enLecture={lecture !== null}
+              onLecture={lireOuPause}
               heures={heures}
               charge={new Set(images.keys())}
-              onChoisir={setISel}
+              onChoisir={choisir}
               vueJours={vueJours}
               onVueJours={setVueJours}
               jours={jours}

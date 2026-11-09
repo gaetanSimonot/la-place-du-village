@@ -147,24 +147,53 @@ export async function produireArome(z: ZoneMeteo, forcer = false): Promise<Bilan
   }
   const heures: MetaMeteo['heures'] = []
   let octets = 0, octetsLarge = 0
+  /* +0 h ne sert que de point de départ aux cumuls : son image n'aurait pas
+     de pluie (rien n'est encore tombé), on ne la publie pas. */
   for (const h of ECHEANCES) {
+    if (h === 0) continue
     const b = bruts.get(h)!
-    const precedent = h === 0 ? null : bruts.get(h <= 24 ? h - 1 : h - 3)!
+    const precedent = bruts.get(h <= 24 ? h - 1 : h - 3)!
     const dt = h <= 24 ? 1 : 3
     const nom = String(h).padStart(2, '0')
-    const png = await enPng(pixels(b.fin, precedent?.fin ?? null, dt, n, () => true), z.colonnes, z.lignes)
-    const pngLarge = await enPng(pixels(b.large, precedent?.large ?? null, dt, nL, i => dansRayon[i] === 1, false), L.colonnes, L.lignes)
+    const png = await enPng(pixels(b.fin, precedent.fin, dt, n, () => true), z.colonnes, z.lignes)
+    const pngLarge = await enPng(pixels(b.large, precedent.large, dt, nL, i => dansRayon[i] === 1, false), L.colonnes, L.lignes)
     octets += png.length; octetsLarge += pngLarge.length
     const chemin = `${z.slug}/arome/${dossierRun}/h${nom}.png`
     const cheminLarge = `${z.slug}/arome/${dossierRun}/l${nom}.png`
     await deposer(chemin, png, 'image/png', 31_536_000)
     await deposer(cheminLarge, pngLarge, 'image/png', 31_536_000)
-    heures.push({ t: new Date(Date.parse(run) + h * 3_600_000).toISOString(), png: chemin, large: cheminLarge })
+    const t = new Date(Date.parse(run) + h * 3_600_000).toISOString()
+    heures.push({ t, png: chemin, large: cheminLarge })
+    /* LE PASSÉ : les trois premières heures de chaque sortie sont gardées
+       à part. Mises bout à bout, sortie après sortie, elles refont les
+       dernières heures — ce que l'animation rejoue à l'ouverture. */
+    if (h <= 3) {
+      const cle = t.slice(0, 13).replace(/[-:]/g, '')
+      await deposer(`${z.slug}/passe/${cle}.png`, png, 'image/png', 31_536_000)
+      await deposer(`${z.slug}/passe/l${cle}.png`, pngLarge, 'image/png', 31_536_000)
+    }
   }
+
+  // Le passé gardé : 12 h d'animation, ménage au-delà de 30 h.
+  const passe: MetaMeteo['heures'] = []
+  const { data: archives } = await supabaseAdmin.storage.from(BUCKET_METEO).list(`${z.slug}/passe`, { limit: 200 })
+  const premier = Date.parse(heures[0].t)
+  const aJeter: string[] = []
+  for (const f of archives ?? []) {
+    const m = f.name.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})\.png$/)
+    if (!m) continue
+    const t = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4])
+    if (t < Date.now() - 30 * 3_600_000) { aJeter.push(`${z.slug}/passe/${f.name}`, `${z.slug}/passe/l${f.name}`); continue }
+    if (t < premier && t >= premier - 12 * 3_600_000) {
+      passe.push({ t: new Date(t).toISOString(), png: `${z.slug}/passe/${f.name}`, large: `${z.slug}/passe/l${f.name}` })
+    }
+  }
+  if (aJeter.length) await supabaseAdmin.storage.from(BUCKET_METEO).remove(aJeter)
+  passe.sort((a, b) => a.t.localeCompare(b.t))
 
   const meta: MetaMeteo = {
     version: 1, zone: z, run, genere: new Date().toISOString(),
-    source: 'Météo-France — AROME 0,01°', heures,
+    source: 'Météo-France — AROME 0,01°', heures, passe,
   }
   await deposer(metaChemin, JSON.stringify(meta), 'application/json', 60)
 

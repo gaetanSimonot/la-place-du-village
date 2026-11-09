@@ -11,7 +11,9 @@ export const maxDuration = 300
 /**
  * Cron météo.
  *
- *   ?source=arome  toutes les 3 h : la dernière sortie AROME → images horaires
+ *   ?source=arome  toutes les heures : la dernière sortie AROME → images
+ *                  horaires (Météo-France publie avec 1 h 30 à plus de 3 h de
+ *                  retard ; vérifier chaque heure évite d'en rater une)
  *   ?source=jours  deux fois par jour : la dernière sortie ECMWF → jours.json
  *
  * Si la sortie est déjà publiée, la tâche s'arrête tout de suite.

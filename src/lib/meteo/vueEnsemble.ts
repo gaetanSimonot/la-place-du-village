@@ -20,7 +20,7 @@ const FACTEUR = 4
 /** Mêmes teintes que les contours (CarteMeteo), opacités incluses. */
 const PLUIE: [number, number, number][] = [[156, 199, 234], [76, 143, 207], [31, 82, 150]]
 const ORAGE: [number, number, number] = [200, 75, 47]
-const A_PLUIE = 0.78, A_ORAGE = 0.82, A_NUAGES = 0.42, A_COUVERT = 0.62
+const A_PLUIE = 0.78, A_ORAGE = 0.82, A_NUAGES = 0.16, A_COUVERT = 0.3
 
 const melange = (a: [number, number, number], b: [number, number, number], t: number): [number, number, number] =>
   t <= 0 ? a : t >= 1 ? b : [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
