@@ -225,13 +225,27 @@ export default function RootLayout({
   return (
     <html lang="fr" className={`${inter.variable} ${dmSerif.variable} ${caveat.variable} ${jakarta.variable} ${archivo.variable} ${nunito.variable} ${montserrat.variable}`}>
       <head>
-        {/* Capture beforeinstallprompt before React mounts */}
+        {/* Capture beforeinstallprompt before React mounts.
+            __lpvRetour : page rechargée en entier puis atteinte par le bouton
+            retour (ex. mise à jour attrapée sur une fiche, VersionAJour) —
+            l'écran de bienvenue de page.tsx ne se joue pas dans ce cas. Un
+            drapeau et une feuille de style ajoutée à la main : une classe sur
+            <html> était effacée par React au démarrage. */}
         <script dangerouslySetInnerHTML={{ __html: `
           window.__pwaPrompt = null;
           window.addEventListener('beforeinstallprompt', function(e) {
             e.preventDefault();
             window.__pwaPrompt = e;
           });
+          try {
+            var nav = performance.getEntriesByType('navigation')[0];
+            if (nav && nav.type === 'back_forward') {
+              window.__lpvRetour = true;
+              var st = document.createElement('style');
+              st.textContent = '.lpv-voile{display:none!important}';
+              document.head.appendChild(st);
+            }
+          } catch (e) {}
         `}} />
         {/*
           La carte d'identité du site pour les moteurs.

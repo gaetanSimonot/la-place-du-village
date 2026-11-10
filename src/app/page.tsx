@@ -666,7 +666,9 @@ export default function HomePage() {
   useEffect(() => {
     if (voileDejaJoue) return
     voileDejaJoue = true
-    if (navTab !== 'village') { setVoile('parti'); return }
+    // Arrivée par le bouton retour sur une page rechargée (layout.tsx,
+    // __lpvRetour) : pas une ouverture de l'app, pas d'écran de bienvenue.
+    if (navTab !== 'village' || (window as { __lpvRetour?: boolean }).__lpvRetour) { setVoile('parti'); return }
     const CALME_MS = 500, VOILE_MAX_MS = 3000
     let calme: ReturnType<typeof setTimeout> | undefined
     const lever = () => {
@@ -1787,7 +1789,7 @@ export default function HomePage() {
   return (
     <div className="pcv-home" style={{ height: '100dvh', position: 'relative', overflow: 'hidden', backgroundColor: '#e8dece' }}>
       {voile !== 'parti' && (
-        <div aria-hidden style={{
+        <div aria-hidden className="lpv-voile" style={{
           position: 'fixed', inset: 0, zIndex: 2147483000, backgroundColor: 'var(--creme)',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18,
           opacity: voile === 'fondu' ? 0 : 1, transition: 'opacity .35s ease',
