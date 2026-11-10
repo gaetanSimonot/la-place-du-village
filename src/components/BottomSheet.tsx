@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { lienEvenement } from '@/lib/lienEvenement'
 import { motion, useMotionValue, animate, useDragControls, type MotionValue } from 'framer-motion'
 import { EvenementCard, Filtres, AppMode, ProducerCard, ProduitCategorie, EtablissementCard, EtablissementType } from '@/lib/types'
 import { dansZone, type ZoneCarte } from '@/lib/zoneCarte'
@@ -1259,7 +1260,7 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
   }
 
   return (
-    <Link href={`/evenement/${evt.id}`}
+    <Link href={lienEvenement(evt)}
       data-evt-id={evt.id}
       onClick={e => {
         // Si un clic long vient de se déclencher → on avale le clic (pas de nav).
@@ -1388,7 +1389,7 @@ function EventListCard({ evt, isSelected, onSelect, onViewOnMap, onOpenEvent, is
             </button>
             <button onClick={e => {
               e.preventDefault(); e.stopPropagation()
-              const url = `${window.location.origin}/evenement/${evt.id}`
+              const url = `${window.location.origin}${lienEvenement(evt)}`
               if (navigator.share) { navigator.share({ title: evt.titre, url }).catch(() => {}) }
               else { navigator.clipboard.writeText(url).catch(() => {}) }
             }}

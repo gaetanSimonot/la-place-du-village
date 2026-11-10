@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
+import { lienEvenement } from '@/lib/lienEvenement'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -134,7 +135,7 @@ function LigneMention({ m, adminPeutCreer, onCreer }: {
     boxShadow: e ? '0 1px 6px rgba(44,28,16,.05)' : 'none',
   }
 
-  if (e) return <Link href={`/evenement/${e.id}`} className="flex gap-3 no-underline" style={style}>{corps}</Link>
+  if (e) return <Link href={lienEvenement(e)} className="flex gap-3 no-underline" style={style}>{corps}</Link>
 
   /*
    * Pas de fiche. Pour un habitant, un bloc INERTE — un lien qui ne fait rien

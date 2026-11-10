@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { THEATRE_FIELDS, type Theatre, type Spectacle } from '@/lib/theatre'
+import { THEATRE_FIELDS, type Theatre, type Spectacle, type Representation } from '@/lib/theatre'
+import { dateParis } from '@/lib/cinema'
 
 /**
  * MODULE THÉÂTRE — accès base, SERVEUR UNIQUEMENT.
@@ -97,4 +98,53 @@ export async function sallesAdministrables(
     if (await peutAdministrerTheatre(s.id, userId, isAdmin)) retenues.push(s)
   }
   return retenues
+}
+
+/**
+ * Une fiche spectacle et toutes ses dates — ce que sert
+ * /api/theatre/spectacle/[id], et ce que la fiche serveur met dans son HTML.
+ *
+ * Les dates PASSÉES sont renvoyées aussi, et c'est la différence avec le
+ * cinéma : une séance d'hier n'intéresse personne, un spectacle déjà joué
+ * si. On veut pouvoir ouvrir sa fiche et lire ce qui a été programmé.
+ *
+ * LES LIEUX DE JEU HORS LES MURS. Une saison de village ne se joue pas que
+ * dans la salle : « Garder » se donne aux Belvédères de Blandas, « Pixel » à
+ * l'Opéra Berlioz. `representations.lieu` porte le nom exact écrit au
+ * programme ; on le rapproche par NOM de la table `lieux`, où ces salles ont
+ * été géocodées une fois pour toutes. Si quelqu'un réécrit le libellé d'une
+ * date, l'adresse disparaît — c'est la bonne panne. Un lieu sans
+ * correspondance (« Écoles du territoire ») n'en a pas : on n'en invente pas.
+ */
+export async function lireSpectacle(id: string) {
+  const { data: spRow } = await supabaseAdmin
+    .from('spectacles').select('*').eq('id', id).maybeSingle()
+  if (!spRow) return null
+
+  const { data: repRows } = await supabaseAdmin
+    .from('representations')
+    .select('id, etablissement_id, spectacle_id, date, heure, lieu, scolaire, billetterie_url, note')
+    .eq('spectacle_id', id)
+    .order('date')
+    .order('heure')
+
+  // Toutes les salles, pour nommer celle de chaque date : un spectacle peut
+  // tourner, et la fiche doit dire OÙ.
+  const theatres = await listerTheatres()
+
+  const nomsLieux = Array.from(new Set(
+    (repRows ?? []).map(r => r.lieu).filter(Boolean) as string[]))
+  const { data: lieuxRows } = nomsLieux.length
+    ? await supabaseAdmin.from('lieux')
+        .select('id, nom, adresse, commune, lat, lng')
+        .in('nom', nomsLieux)
+    : { data: [] }
+
+  return {
+    spectacle: spRow as Spectacle,
+    representations: (repRows ?? []) as Representation[],
+    theatres,
+    lieux: (lieuxRows ?? []) as { id: string; nom: string; adresse: string | null; commune: string | null; lat: number | null; lng: number | null }[],
+    aujourdhui: dateParis(),
+  }
 }

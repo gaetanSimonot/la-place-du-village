@@ -1,52 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser } from '@/lib/server-auth'
-import { mergeDraft, pickDraftableFields, shouldApplyDraft, DRAFT_EDITABLE_FIELDS } from '@/lib/etab-drafts'
+import { pickDraftableFields, DRAFT_EDITABLE_FIELDS } from '@/lib/etab-drafts'
+import { lireEtablissementPublic } from '@/lib/etablissementPublic'
 
 /**
  * GET — retourne la fiche fusionnée avec le draft du propriétaire si applicable.
  */
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-
-  const { data: etab, error } = await supabaseAdmin
-    .from('etablissements')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle()
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (!etab) return NextResponse.json({ error: 'Non trouvé' }, { status: 404 })
-
-  // Pas de proprio → version officielle pure
-  if (!etab.user_id) return NextResponse.json({ etablissement: etab })
-
-  // Charge le draft + le plan du proprio en parallèle
-  const [draftRes, profileRes] = await Promise.all([
-    supabaseAdmin
-      .from('etablissement_drafts')
-      .select('user_id, fields')
-      .eq('etablissement_id', id)
-      .eq('user_id', etab.user_id)
-      .maybeSingle(),
-    supabaseAdmin
-      .from('profiles')
-      .select('plan')
-      .eq('user_id', etab.user_id)
-      .maybeSingle(),
-  ])
-
-  const draft = draftRes.data
-  const ownerPlan = profileRes.data?.plan
-
-  const apply = draft && shouldApplyDraft({
-    etabUserId: etab.user_id,
-    draftUserId: draft.user_id,
-    ownerPlan,
-  })
-
-  const finalEtab = apply ? mergeDraft(etab, draft.fields as Record<string, unknown>) : etab
-  return NextResponse.json({ etablissement: finalEtab })
+  // Lecture partagée avec la fiche serveur (lib/etablissementPublic).
+  const r = await lireEtablissementPublic(id)
+  if (!r.ok) return NextResponse.json({ error: r.erreur }, { status: 500 })
+  if (!r.etab) return NextResponse.json({ error: 'Non trouvé' }, { status: 404 })
+  return NextResponse.json({ etablissement: r.etab })
 }
 
 /**

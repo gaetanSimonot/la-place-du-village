@@ -1,5 +1,6 @@
 'use client'
 import { useMemo, useState, useEffect } from 'react'
+import { lienEvenement } from '@/lib/lienEvenement'
 import Link from 'next/link'
 import useSWR from 'swr'
 import { signalerFavori } from '@/hooks/useFavori'
@@ -610,7 +611,7 @@ function eventToRow(e: EvenementCard, onRemove: () => void, rappelJours = 1, onE
   const commune = e.lieux?.commune ?? ''
   return {
     key:       `event-${e.id}`,
-    href:      `/evenement/${e.id}`,
+    href:      lienEvenement(e),
     onRemove,
     removeKind: 'heart',
     imageUrl:  e.image_url ?? null,

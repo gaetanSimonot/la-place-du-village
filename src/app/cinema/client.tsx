@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
+import { lienEvenement } from '@/lib/lienEvenement'
 import { useDefilementDoux } from '@/hooks/useDefilementDoux'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -649,7 +650,7 @@ function Evenements({ liste }: { liste: Evenement[] }) {
       )}
 
       {phare && (
-        <Link href={`/evenement/${phare.id}`} className="block no-underline"
+        <Link href={lienEvenement(phare)} className="block no-underline"
           style={{ margin: '14px 18px 0', borderRadius: 16, padding: 18, background: 'linear-gradient(140deg,rgba(157,207,238,.16),rgba(157,207,238,.03))', border: '1px solid var(--uni-line)' }}>
           <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--uni-accent)' }}>
             À ne pas manquer
@@ -674,7 +675,7 @@ function Evenements({ liste }: { liste: Evenement[] }) {
           const lieu = [e.lieu?.nom, e.lieu?.commune ?? e.lieu?.adresse]
             .filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(' · ') || null
           return (
-            <Link key={e.id} href={`/evenement/${e.id}`} className="flex overflow-hidden no-underline"
+            <Link key={e.id} href={lienEvenement(e)} className="flex overflow-hidden no-underline"
               style={{ borderRadius: 13, background: 'var(--uni-panel)', border: '1px solid rgba(250,251,250,.07)' }}>
               <div className="flex flex-none flex-col items-center justify-center gap-0.5"
                 style={{ width: 58, background: 'rgba(157,207,238,.07)', borderRight: '1px solid var(--uni-line)' }}>

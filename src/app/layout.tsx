@@ -103,11 +103,13 @@ export const metadata: Metadata = {
   applicationName: NOM,
   manifest: '/manifest.json',
   metadataBase: new URL('https://laplaceduvillage.app'),
-  // Canonique explicite (sans www) — sinon Google considère
-  // https://www.laplaceduvillage.app/ comme doublon canonique et n'indexe pas
-  // notre version officielle.
+  // Canonique explicite (sans www), PROPRE À CHAQUE PAGE : './' se résout
+  // sur le chemin de la page qui s'affiche, sans ses paramètres. Avant, une
+  // adresse fixe vers l'accueil était héritée par toutes les pages : chaque
+  // fiche se déclarait copie de l'accueil, et Google ne l'indexait pas.
+  // Les fiches posent la leur (avec le nom de l'événement, par exemple).
   alternates: {
-    canonical: 'https://laplaceduvillage.app/',
+    canonical: './',
   },
   openGraph: {
     title: NOM,

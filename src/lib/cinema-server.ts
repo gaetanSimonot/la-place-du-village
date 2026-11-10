@@ -224,3 +224,30 @@ async function trouverOuCreerFilm(
   if (error) throw new Error(error.message)
   return { film: data as FilmRow, reutilise: false }
 }
+
+/**
+ * Un film et ses séances à venir dans les salles d'un territoire — ce que
+ * sert /api/cinema/film/[id], et ce que la fiche serveur met dans son HTML.
+ * Une seule lecture pour les deux : la fiche ne peut pas montrer autre chose
+ * que ce que l'app chargera ensuite.
+ */
+export async function lireFilm(id: string, territoireId: string | null) {
+  const { data: film } = await supabaseAdmin
+    .from('films').select('*').eq('id', id).maybeSingle()
+  if (!film) return null
+
+  // Les films sont GLOBAUX, les salles non : sans ce filtre, un film joué
+  // à Ganges et à Pau affichait en vue Cévennes les séances paloises.
+  const cinemas = await listerCinemas(territoireId)
+  if (!cinemas.length) return { film: film as FilmRow, seances: [], cinemas: [], aujourdhui: dateParis() }
+
+  const { data: seances } = await supabaseAdmin
+    .from('seances')
+    .select('id, etablissement_id, film_id, date, heure, version, salle, billetterie_url, note')
+    .eq('film_id', id)
+    .in('etablissement_id', cinemas.map(c => c.id))
+    .gte('date', dateParis())
+    .order('date').order('heure')
+
+  return { film: film as FilmRow, seances: seances ?? [], cinemas, aujourdhui: dateParis() }
+}

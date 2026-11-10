@@ -58,6 +58,11 @@ async function tous(): Promise<Territoire[]> {
   return liste
 }
 
+/** Les territoires ouverts (pages « Ce week-end », sitemap). */
+export async function territoiresActifs(): Promise<Territoire[]> {
+  return (await tous()).filter(t => t.actif)
+}
+
 /** Vide le cache — après une écriture admin sur les territoires. */
 export function oublierTerritoires() { cache = null }
 

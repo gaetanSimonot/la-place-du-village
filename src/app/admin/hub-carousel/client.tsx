@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { lienEvenement } from '@/lib/lienEvenement'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -726,7 +727,7 @@ export default function AdminHubCarousel() {
         .from('evenements')
         .select('id, titre, image_url')
         .in('id', byType.evenement)
-      ;(data ?? []).forEach(d => { titleMap[`evenement:${d.id}`] = { title: d.titre, imageUrl: d.image_url, detailUrl: `/evenement/${d.id}` } })
+      ;(data ?? []).forEach(d => { titleMap[`evenement:${d.id}`] = { title: d.titre, imageUrl: d.image_url, detailUrl: lienEvenement(d) } })
     }
     if (byType.etablissement) {
       const { data } = await supabase

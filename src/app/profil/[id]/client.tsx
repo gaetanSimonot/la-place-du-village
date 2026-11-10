@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { lienEvenement } from '@/lib/lienEvenement'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
@@ -640,7 +641,7 @@ export default function ProfilPageClient({ id }: { id: string }) {
                 {events.map(e => (
                   <Link
                     key={e.id}
-                    href={`/evenement/${e.id}`}
+                    href={lienEvenement(e)}
                     className="block overflow-hidden rounded-[14px] border bg-white text-inherit no-underline shadow-[0_1px_4px_rgba(44,28,16,0.04)]"
                     style={{ borderColor: '#F0EAE0' }}
                   >

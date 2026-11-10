@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { lienEvenement } from '@/lib/lienEvenement'
 import Link from 'next/link'
 import { ETAB_TYPE_LIST } from '@/lib/etablissement-types'
 import { CATEGORIES } from '@/lib/categories'
@@ -89,7 +90,7 @@ function TuileEvenement({ ev }: { ev: Evenement }) {
   const lieu = ev.lieux?.commune ?? ev.lieux?.nom ?? null
   const imageDeLaTuile = imageEvenement(ev)
   return (
-    <Link href={`/evenement/${ev.id}`} className="pcv-card pcv-ev">
+    <Link href={lienEvenement(ev)} className="pcv-card pcv-ev">
       <span className="pcv-imw">
         {/* imageEvenement() et pas ev.image_url : sans affiche, l'événement
             reçoit le motif de sa catégorie. Ce helper sert déjà partout sur

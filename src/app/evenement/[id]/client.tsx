@@ -7,6 +7,7 @@ import { CATEGORIES, eventCategories } from '@/lib/categories'
 import { formatDate } from '@/lib/filters'
 import { imageEvenement } from '@/lib/imageEvenement'
 import { lireApercu } from '@/lib/apercuEvenement'
+import { lienEvenement } from '@/lib/lienEvenement'
 import { vignetteDe } from '@/lib/vignettes'
 import ImageLightbox from '@/components/ImageLightbox'
 import CommentSheet from '@/components/CommentSheet'
@@ -57,10 +58,15 @@ function renderContact(contact: string): React.ReactNode {
 
 /* ─── Page principale ─────────────────────────────────────────────────── */
 
-export default function EvenementPageClient({ id }: { id: string }) {
-  const [evt, setEvt]           = useState<Evenement | null>(null)
+/**
+ * `initial` : la fiche lue par le serveur (page.tsx). Avec elle, le premier
+ * rendu est la fiche complète — c'est ce HTML que lisent les moteurs — et le
+ * téléphone n'attend plus la base pour l'afficher.
+ */
+export default function EvenementPageClient({ id, initial }: { id: string; initial?: Evenement }) {
+  const [evt, setEvt]           = useState<Evenement | null>(initial ?? null)
   const [linkedEtab, setLinkedEtab] = useState<{ id: string; nom: string; description_courte: string | null; photos: string[] | null; commune: string | null; user_id?: string | null } | null>(null)
-  const [loading, setLoading]   = useState(true)
+  const [loading, setLoading]   = useState(!initial)
   const [editing, setEditing]       = useState(false)
   const [commentsOpen, setCommentsOpen] = useState(false)
   const [commentCount, setCommentCount] = useState(0)
@@ -95,7 +101,7 @@ export default function EvenementPageClient({ id }: { id: string }) {
   // Ce que la liste savait déjà : affiché avant la peinture, au lieu du rond
   // de chargement. Lu ici et pas dans l'état initial : le rendu serveur ne
   // voit pas sessionStorage, et les deux rendus doivent être identiques.
-  const [complet, setComplet] = useState(false)
+  const [complet, setComplet] = useState(!!initial)
   useLayoutEffect(() => {
     const apercu = lireApercu(id)
     if (apercu) { setEvt(e => e ?? apercu); setLoading(false) }
@@ -157,7 +163,7 @@ export default function EvenementPageClient({ id }: { id: string }) {
     : null
 
   const handleShare = async () => {
-    const url = `${window.location.origin}/evenement/${evt.id}`
+    const url = `${window.location.origin}${lienEvenement(evt)}`
     if (navigator.share) {
       try { await navigator.share({ title: evt.titre, text: evt.titre, url }) } catch {}
     } else {

@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { lienEvenement } from '@/lib/lienEvenement'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useTerritoire } from '@/components/TerritoireProvider'
@@ -314,7 +315,7 @@ export default function HubSearchModal({ open, onClose, onViewAll }: Props) {
                 {results.evenements.map(e => (
                   <ResultRow
                     key={e.id}
-                    onClick={() => goto(`/evenement/${e.id}`)}
+                    onClick={() => goto(lienEvenement(e))}
                     photo={e.image_url}
                     fallbackIcon={<IconCalendar size={22} />}
                     title={e.titre}

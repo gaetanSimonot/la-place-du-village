@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { lienEvenement } from '@/lib/lienEvenement'
 import { Evenement, isApproxLocation } from '@/lib/types'
 import { CATEGORIES, eventCategories } from '@/lib/categories'
 import { formatEventDate } from '@/lib/filters'
@@ -27,7 +28,7 @@ export default function EventCard({ evenement, isSelected, onClick }: Props) {
     <>
       <div className="relative">
         <Link
-          href={`/evenement/${evenement.id}`}
+          href={lienEvenement(evenement)}
           onClick={onClick}
           className="block bg-white rounded-[16px] overflow-hidden transition-all active:scale-[0.98]"
           style={{

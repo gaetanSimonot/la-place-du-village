@@ -35,7 +35,7 @@ interface LieuDeJeu {
   lng: number | null
 }
 
-interface Payload {
+export interface Payload {
   spectacle: Spectacle
   representations: Representation[]
   theatres: Theatre[]
@@ -74,7 +74,8 @@ function jourLisible(date: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
-export default function SpectacleClient({ id }: { id: string }) {
+/** `initial` : la fiche lue par le serveur (page.tsx) — le premier rendu, et le HTML des moteurs. */
+export default function SpectacleClient({ id, initial }: { id: string; initial?: Payload }) {
   const router = useRouter()
   const [tout, setTout] = useState(false)
   const [videoOuverte, setVideoOuverte] = useState(false)
@@ -87,7 +88,8 @@ export default function SpectacleClient({ id }: { id: string }) {
     return () => { delete document.documentElement.dataset.univers }
   }, [])
 
-  const { data, isLoading } = useSWR<Payload>(`/api/theatre/spectacle/${id}`, fetcher)
+  const { data, isLoading: charge } = useSWR<Payload>(`/api/theatre/spectacle/${id}`, fetcher, { fallbackData: initial })
+  const isLoading = !data && charge
 
   const spectacle = data?.spectacle
   const salles = useMemo(() => new Map((data?.theatres ?? []).map(t => [t.id, t])), [data])

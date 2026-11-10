@@ -13,6 +13,7 @@ import { cleLocale } from '@/lib/cleLocale'
 import TerritoirePicker from '@/components/TerritoirePicker'
 import { haversineKm, GANGES } from '@/lib/distance'
 import { retenirApercu } from '@/lib/apercuEvenement'
+import { lienEvenement } from '@/lib/lienEvenement'
 import { normSearch } from '@/lib/filters'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
@@ -830,7 +831,9 @@ export default function HomePage() {
   // fiche (code de la page + réponse du serveur) pendant qu'on le regarde,
   // pour que le second appui ne paie plus le trajet réseau.
   useEffect(() => {
-    if (selectedId) router.prefetch(`/evenement/${selectedId}`)
+    if (!selectedId) return
+    const connu = evenementsConnusRef.current.find(e => e.id === selectedId)
+    router.prefetch(connu ? lienEvenement(connu) : `/evenement/${selectedId}`)
   }, [selectedId, router])
 
   // Code des fenêtres : la recherche et « Publier » ne font plus partie du
@@ -1776,7 +1779,9 @@ export default function HomePage() {
     saveNavForEvent(id)
     const connu = evenementsConnusRef.current.find(e => e.id === id)
     if (connu) retenirApercu(connu)
-    router.push(`/evenement/${id}`)
+    // L'adresse avec le nom, directement : l'adresse nue ferait un détour
+    // par la redirection.
+    router.push(connu ? lienEvenement(connu) : `/evenement/${id}`)
   }, [saveNavForEvent, router])
 
   return (

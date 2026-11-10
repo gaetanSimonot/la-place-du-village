@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { lienEvenement } from '@/lib/lienEvenement'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
@@ -36,7 +37,7 @@ function FeedCard({ evt }: { evt: StarredEvent }) {
     : `${names[0]} et ${names.length - 1} autres`
 
   return (
-    <Link href={`/evenement/${evt.id}`} style={{ display: 'block', textDecoration: 'none' }}>
+    <Link href={lienEvenement(evt)} style={{ display: 'block', textDecoration: 'none' }}>
       <div style={{ backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 10px rgba(44,44,44,0.08)' }}>
         <div style={{ position: 'relative', height: 120 }}>
           {imageEvenement(evt)

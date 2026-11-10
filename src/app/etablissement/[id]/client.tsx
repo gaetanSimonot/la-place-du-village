@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import { lienEvenement } from '@/lib/lienEvenement'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -102,13 +103,19 @@ function AddTile({ emoji, color, title, desc, onClick }: { emoji: string; color:
   )
 }
 
-export default function EtablissementPageClient({ id, onBack }: { id: string; onBack?: () => void }) {
+/**
+ * `initial` : la fiche lue par le serveur (page.tsx, accès direct). Le
+ * premier rendu est la fiche complète — le HTML que lisent les moteurs.
+ * Ouverte par-dessus l'app (route interceptée), elle n'en a pas et se charge
+ * comme avant.
+ */
+export default function EtablissementPageClient({ id, onBack, initial }: { id: string; onBack?: () => void; initial?: Etablissement }) {
   const { user, profile } = useAuth()
   const { openAuthModal } = useAuthModal()
   const isAdmin = useAdminSession()
   const goBack = useSmartBack('/')
   const router = useRouter()
-  const [etab, setEtab]             = useState<Etablissement | null>(null)
+  const [etab, setEtab]             = useState<Etablissement | null>(initial ?? null)
   const [etabPromos, setEtabPromos] = useState<Array<{ id: string; title: string; description: string | null; image_url: string | null; conditions: string | null; valid_until: string | null }>>([])
   const [etabEvents, setEtabEvents] = useState<EtabEvent[]>([])
   const [etabPosts, setEtabPosts]   = useState<EtabPost[]>([])
@@ -121,7 +128,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
   // Aperçu "mode public" : masque les affordances d'édition pour voir la fiche
   // telle que la voient les visiteurs.
   const [publicPreview, setPublicPreview] = useState(false)
-  const [loading, setLoading]       = useState(true)
+  const [loading, setLoading]       = useState(!initial)
   const [photoIdx, setPhotoIdx]     = useState(0)
   /** Loupe sur la photo regardée — le carrousel garde le balayage. */
   const [zoomOuvert, setZoomOuvert] = useState(false)
@@ -836,7 +843,7 @@ export default function EtablissementPageClient({ id, onBack }: { id: string; on
               {etabEvents.map(ev => {
                 const cat = (CATEGORIES as Record<string, { label: string; emoji: string; color: string }>)[ev.categorie] ?? (CATEGORIES as Record<string, { label: string; emoji: string; color: string }>)['autre']
                 return (
-                  <Link key={ev.id} href={`/evenement/${ev.id}`}
+                  <Link key={ev.id} href={lienEvenement(ev)}
                     style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 12, backgroundColor: '#F0F7F2', border: '1px solid #C5DCC9', textDecoration: 'none', color: 'inherit' }}>
                     {ev.image_url ? (
                       <img src={ev.image_url} alt="" style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />

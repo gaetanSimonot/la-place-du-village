@@ -1,5 +1,6 @@
 'use client'
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
+import { lienEvenement } from '@/lib/lienEvenement'
 import { parseOrdre, lireOrdreEnCache, garderOrdreEnCache, type SectionVillage } from '@/lib/villageOrdre'
 import { lireConfigsClient } from '@/lib/configClient'
 
@@ -428,10 +429,10 @@ function TodaySection({ onVoirTout }: { onVoirTout?: () => void }) {
         }}
       >
         {featuredEv && (
-          <FeaturedEventCard ev={featuredEv} onClick={() => { retenirApercu(featuredEv); router.push(`/evenement/${featuredEv.id}`) }} />
+          <FeaturedEventCard ev={featuredEv} onClick={() => { retenirApercu(featuredEv); router.push(lienEvenement(featuredEv)) }} />
         )}
         {miniEvents.map(ev => (
-          <MiniEventCard key={ev.id} ev={ev} onClick={() => { retenirApercu(ev); router.push(`/evenement/${ev.id}`) }} />
+          <MiniEventCard key={ev.id} ev={ev} onClick={() => { retenirApercu(ev); router.push(lienEvenement(ev)) }} />
         ))}
         {showMoreCard && (
           <MoreEventsCard count={remaining} onClick={onVoirTout ?? (() => router.push('/?tab=carte'))} />

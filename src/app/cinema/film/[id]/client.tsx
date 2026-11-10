@@ -17,7 +17,7 @@ import { formatHeure, type Cinema, type Film, type Seance } from '@/lib/cinema'
  * plupart des gens réservent pour les jours qui viennent.
  */
 
-interface Payload {
+export interface Payload {
   film: Film
   seances: Seance[]
   cinemas: Cinema[]
@@ -35,7 +35,13 @@ function jourLisible(date: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
-export default function FilmClient({ id }: { id: string }) {
+/**
+ * `initial` : le film et ses séances dans le territoire par défaut, lus par
+ * le serveur (page.tsx). C'est ce que montre le premier rendu — donc le HTML
+ * que lisent les moteurs — tant que l'app ne sait pas encore quelle ville on
+ * regarde, et ensuite si c'est celle-là.
+ */
+export default function FilmClient({ id, initial }: { id: string; initial?: Payload & { territoireId?: string | null } }) {
   const router = useRouter()
   const [tout, setTout] = useState(false)
   const [videoOuverte, setVideoOuverte] = useState(false)
@@ -51,8 +57,11 @@ export default function FilmClient({ id }: { id: string }) {
   // connaître : sans elle, la route sert le territoire par défaut.
   const { territoire, pret } = useTerritoire()
   const qTerr = territoire?.slug ? `?territoire=${encodeURIComponent(territoire.slug)}` : ''
-  const { data, isLoading: chargeFilm } = useSWR<Payload>(pret ? `/api/cinema/film/${id}${qTerr}` : null, fetcher)
-  const isLoading = chargeFilm || !pret
+  // Les séances lues par le serveur ne valent que pour SON territoire : une
+  // personne qui regarde Pau ne doit pas voir celles des Cévennes en attendant.
+  const repli = initial && (!pret || territoire?.id === initial.territoireId) ? initial : undefined
+  const { data, isLoading: chargeFilm } = useSWR<Payload>(pret ? `/api/cinema/film/${id}${qTerr}` : null, fetcher, { fallbackData: repli })
+  const isLoading = !data && (chargeFilm || !pret)
 
   const film = data?.film
   const cinemas = useMemo(() => new Map((data?.cinemas ?? []).map(c => [c.id, c])), [data])

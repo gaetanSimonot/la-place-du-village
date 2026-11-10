@@ -1,5 +1,6 @@
 'use client'
 import { useRouter } from 'next/navigation'
+import { lienEvenement } from '@/lib/lienEvenement'
 import Link from 'next/link'
 import BottomNavBar from '@/components/BottomNavBar'
 import ArticleSocial from '@/components/ArticleSocial'
@@ -384,7 +385,7 @@ export default function JournalPageClient({
           <ul className="mt-4 divide-y divide-bordSoft border-y border-bordSoft">
             {events.map(e => (
               <li key={e.id}>
-                <Link href={`/evenement/${e.id}`} className="flex items-center gap-3 py-3">
+                <Link href={lienEvenement(e)} className="flex items-center gap-3 py-3">
                   {e.image_url && (
                     <img src={e.image_url} alt="" className="h-14 w-14 shrink-0 rounded-[10px] object-cover" />
                   )}
