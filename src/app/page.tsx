@@ -530,6 +530,19 @@ export default function HomePage() {
   const [adminMapSaved, setAdminMapSaved] = useState(false)
   const [sheetMode, setSheetMode]   = useState<'peek'|'half'|'full'>('half')
   /**
+   * La zone de « la liste suit la carte » ne se calcule pas feuille en plein
+   * écran : la carte y est entièrement couverte, la bande visible est nulle et
+   * la liste se vidait. Cas vécu au retour d'une fiche ouverte depuis la liste
+   * déployée : la carte se recharge sous la feuille déjà en haut. La zone
+   * d'avant est rendue par pdv-nav-state ; à défaut, on garde la dernière.
+   */
+  const sheetModeRef = useRef(sheetMode)
+  sheetModeRef.current = sheetMode
+  const publierZoneCarte = useCallback((z: ZoneCarte) => {
+    if (sheetModeRef.current === 'full') return
+    setZoneCarte(z)
+  }, [])
+  /**
    * Le héros du Village, quand il demande à être repris à la une.
    *
    * Ce n'est PAS un second bandeau : il entre comme une diapo de plus dans le
@@ -1072,6 +1085,8 @@ export default function HomePage() {
       const s = JSON.parse(saved)
       if (s.filtres)    setFiltres(s.filtres)
       if (s.sheetMode)  setSheetMode(s.sheetMode)
+      const z = s.zoneCarte
+      if (z && [z.n, z.s, z.e, z.o].every(v => typeof v === 'number' && Number.isFinite(v))) setZoneCarte(z)
       if (s.appMode) setAppMode(s.appMode as 'agenda' | 'annuaire')
       if (s.selectedProducerId) setSelectedProducerId(s.selectedProducerId)
       if (s.selectedId) {
@@ -1760,9 +1775,10 @@ export default function HomePage() {
         mapLat: mapCameraRef.current?.lat,
         mapLng: mapCameraRef.current?.lng,
         mapZoom: mapCameraRef.current?.zoom,
+        zoneCarte,
       }))
     } catch {}
-  }, [filtres, sheetMode])
+  }, [filtres, sheetMode, zoneCarte])
 
 
   const handleListStateRestored = useCallback(() => setRestoreToId(null), [])
@@ -1859,7 +1875,7 @@ export default function HomePage() {
           panEnCoursRef={chuteDuPanEnCours}
           onBlocTropGrand={laisserLaPlaceALaVignette}
           onCameraIdle={noterCamera}
-          onZoneVisible={listeSuitActive ? setZoneCarte : null}
+          onZoneVisible={listeSuitActive ? publierZoneCarte : null}
           regroupement={regroupement}
           transport={modeTransport && ligneTransport ? {
             arrets: arretsAffiches,
