@@ -162,23 +162,149 @@ const supabaseAdmin = createClient(
  */
 const REPERE = { lat: 43.9339831, lng: 3.7088474, rayonM: 60_000 }   // Ganges
 
-async function textsearch(query: string): Promise<Omit<GeoResult, 'approx'> | null> {
+type ResultatGoogle = Omit<GeoResult, 'approx'>
+
+/**
+ * Google Places Text Search, en gardant le PREMIER RÉSULTAT QUI PASSE LE
+ * CONTRÔLE — et non le premier tout court.
+ *
+ * Text Search cherche des LIEUX, pas des adresses. Interrogé avec « 17 cours
+ * de la République, 34190 Ganges », il rend l'office de tourisme, les Halles
+ * et une brûlerie : des commerces du quartier, aucun au 17. Le premier était
+ * pris les yeux fermés : l'Afrobar s'est retrouvé posé sur les Halles (vu le
+ * 12/11/2026). Interrogé avec un nom, il rend parfois l'homonyme de la commune
+ * voisine (« Salle du Foyer, Fournès » → Fontanès).
+ *
+ * Sans `accepte`, comportement historique (premier résultat).
+ */
+async function textsearch(
+  query: string,
+  accepte?: (r: ResultatGoogle) => boolean,
+): Promise<ResultatGoogle | null> {
   const url = `https://maps.googleapis.com/maps/api/place/textsearch/json`
     + `?query=${encodeURIComponent(query)}`
     + `&location=${REPERE.lat},${REPERE.lng}&radius=${REPERE.rayonM}&region=fr&language=fr`
     + `&key=${process.env.GOOGLE_PLACES_KEY}`
   const res = await fetch(url)
   const data = await res.json()
-  if (data.results?.[0]) {
-    const p = data.results[0]
-    return {
+  for (const p of (data.results ?? []).slice(0, 5)) {
+    const r: ResultatGoogle = {
       place_id_google: p.place_id ?? null,
       lat: p.geometry?.location?.lat ?? null,
       lng: p.geometry?.location?.lng ?? null,
       adresse: p.formatted_address ?? null,
     }
+    if (r.lat == null || r.lng == null) continue
+    if (!accepte || accepte(r)) return r
   }
   return null
+}
+
+/** Minuscules, sans accents, mots séparés par une espace. */
+function plat(s: string | null | undefined): string {
+  return (s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ').trim()
+}
+
+/**
+ * Communes fusionnées : Google rend le nom de la commune NOUVELLE, les
+ * annonces gardent l'ancien. Sans cette table, le contrôle de commune
+ * refuserait tout Valleraugue.
+ */
+const COMMUNES_FUSIONNEES: Record<string, string> = {
+  'valleraugue': 'val d aigoual',
+  'notre dame de la rouviere': 'val d aigoual',
+}
+
+/** Commune ramenée à une forme comparable : « St-Hippolyte » = « Saint-Hippolyte ». */
+function communeCle(s: string | null | undefined): string {
+  const v = plat(s).replace(/^(st|ste)\b/, m => (m === 'st' ? 'saint' : 'sainte'))
+  return COMMUNES_FUSIONNEES[v] ?? v
+}
+
+/**
+ * Le résultat est-il dans la commune demandée ?
+ *
+ * La commune lue par le modèle peut en contenir plusieurs (« Ganges,
+ * Montpellier ») : une seule suffit. Le code postal SEUL ne suffit pas —
+ * 34190 couvre Ganges, Cazilhac, Laroque, Brissac… et c'est précisément entre
+ * communes voisines que les erreurs se font.
+ *
+ * Pas de commune demandée → rien à contrôler. Résultat sans commune lisible
+ * alors qu'on en demandait une → refusé : on préfère le centre du village à
+ * un point qu'on ne sait pas situer.
+ */
+function dansLaCommune(r: ResultatGoogle, commune: string | null | undefined): boolean {
+  if (!communesVoulues(commune).length) return true
+  return memeCommune(communeDepuisAdresse(r.adresse), commune)
+}
+
+function communesVoulues(commune: string | null | undefined): string[] {
+  return (commune ?? '').split(/[,/]| et /).map(communeCle).filter(c => c.length > 1)
+}
+
+/**
+ * Deux écritures de commune désignent-elles la même ?
+ *
+ * Par PRÉFIXE, pas par inclusion : « Saint-Hippolyte » = « Saint-Hippolyte-
+ * du-Fort », mais « Alès » ≠ « Saint-Christol-lez-Alès » — l'inclusion
+ * laissait passer la commune voisine qui porte le nom de la ville en suffixe.
+ */
+function memeCommune(trouvee: string | null | undefined, commune: string | null | undefined): boolean {
+  const t = communeCle(trouvee)
+  if (!t) return false
+  return communesVoulues(commune).some(v => t === v || t.startsWith(v + ' ') || v.startsWith(t + ' '))
+}
+
+/** Abréviations de voie que Google emploie dans ses adresses. */
+const ABREV_VOIE: Record<string, string> = {
+  cr: 'cours', av: 'avenue', bd: 'boulevard', pl: 'place', chem: 'chemin',
+  rte: 'route', imp: 'impasse', all: 'allee', prom: 'promenade', pass: 'passage',
+  fg: 'faubourg', sq: 'square', st: 'saint', ste: 'sainte',
+}
+const MOTS_VIDES_VOIE = new Set([
+  'de', 'du', 'des', 'la', 'le', 'les', 'l', 'd', 'a', 'au', 'aux', 'et', 'bis', 'ter',
+  'rue', 'route', 'avenue', 'boulevard', 'chemin', 'impasse', 'place', 'allee',
+  'quai', 'cours', 'faubourg', 'lotissement', 'hameau', 'promenade', 'passage', 'square',
+])
+function motsDeVoie(s: string): string[] {
+  return plat(s).split(' ').map(m => ABREV_VOIE[m] ?? m)
+}
+
+/**
+ * Le résultat porte-t-il bien la RUE demandée ?
+ *
+ * On ne garde que les mots qui nomment la voie (« République » dans « 17
+ * cours de la République ») et on exige qu'ils figurent tous dans l'adresse
+ * rendue par Google. Le numéro n'entre pas en compte : Text Search ne le
+ * connaît pas de toute façon. Une adresse sans mot distinctif (« 30460
+ * Lasalle ») ne se contrôle pas : on s'en remet à la commune.
+ */
+/** « 4, rue Neuve, Anduze » → « rue Neuve » : la voie, sans numéro ni suite. */
+function rueSeule(adresse: string): string {
+  return adresse.replace(/^\s*\d+\s*(bis|ter|[a-d])?\b\s*,?\s*/i, '').split(',')[0].trim()
+}
+
+function porteLaRue(r: ResultatGoogle, adresse: string): boolean {
+  const voulus = motsDeVoie(rueSeule(adresse)).filter(m => m.length > 1 && !/^\d/.test(m) && !MOTS_VIDES_VOIE.has(m))
+  if (!voulus.length) return true
+  const rendus = motsDeVoie(r.adresse ?? '')
+  // Une lettre d'écart tolérée sur les mots longs : les annonces sont tapées
+  // vite (« carrierrasse » pour « Carrierasse »).
+  return voulus.every(m => rendus.some(x => x === m || (m.length >= 6 && uneLettreDEcart(m, x))))
+}
+
+function uneLettreDEcart(a: string, b: string): boolean {
+  if (Math.abs(a.length - b.length) > 1) return false
+  let i = 0, j = 0, ecarts = 0
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) { i++; j++; continue }
+    if (++ecarts > 1) return false
+    if (a.length > b.length) i++
+    else if (b.length > a.length) j++
+    else { i++; j++ }
+  }
+  return ecarts + (a.length - i) + (b.length - j) <= 1
 }
 
 /**
@@ -314,6 +440,8 @@ async function lookupLieuxCache(
    * « La Bougeotte a Ganges » n'est pas Ganges.
    */
   chercheUneCommune = false,
+  /** L'adresse donnée par l'annonce, quand il y en a une. */
+  adresseAnnonce?: string | null,
 ): Promise<Omit<GeoResult, 'approx'> | null> {
   const cle = nomCle(lieuNom)
   if (cle.length < 5 || NOMS_TROP_COURANTS.has(cle)) return null
@@ -368,14 +496,27 @@ async function lookupLieuxCache(
   if (!retenus.length) return null
 
   // La commune ne sert pas à trouver, elle sert à écarter.
-  if (commune) {
-    const ck = nomCle(commune)
-    const memeCommune = retenus.filter(c => {
-      const k = nomCle(c.commune)
-      return !k || k === ck || k.includes(ck) || ck.includes(k)
+  if (communesVoulues(commune).length) {
+    const dedans = retenus.filter(c => {
+      // Une fiche sans commune se lit dans son adresse. Sans ça elle passait
+      // toujours : « L'Art de Vivre » de Ganges retrouvait son homonyme du
+      // Pont-de-Montvert, à 48 km.
+      const sienne = c.commune || communeDepuisAdresse(c.adresse)
+      return !sienne || memeCommune(sienne, commune)
     })
-    if (!memeCommune.length) return null
-    retenus = memeCommune
+    if (!dedans.length) return null
+    retenus = dedans
+  }
+
+  // Une adresse a été donnée : le lieu retenu doit être dans CETTE rue. Un
+  // nom reconnu ne l'emporte pas sur l'adresse de l'annonce (« ArteMiss, 18
+  // rue des Casernes » ne va pas avenue Sergent-Triaire). Un candidat sans
+  // adresse ne se contrôle pas : il reste.
+  const adresseVoulue = (adresseAnnonce ?? '').trim()
+  if (ressembleAUneAdresse(adresseVoulue)) {
+    const memeRue = retenus.filter(c => !c.adresse || porteLaRue({ adresse: c.adresse } as ResultatGoogle, adresseVoulue))
+    if (!memeRue.length) return null
+    retenus = memeRue
   }
 
   // Plusieurs endroits distincts portent ce nom : on ne tranche pas.
@@ -385,8 +526,17 @@ async function lookupLieuxCache(
     }
   }
 
-  // À nom égal, la fiche la plus précise gagne : celle qui porte une adresse.
-  const gagnant = retenus.find(c => c.adresse) ?? retenus[0]
+  // À nom égal, la fiche ÉTABLISSEMENT gagne, puis celle qui porte une
+  // adresse. Les lieux viennent du géocodage des annonces et peuvent être
+  // faux ; le commerce, lui, est posé sur sa fiche Google. Sans cette
+  // priorité, « Afrobar 224 » retrouvait son propre lieu mal placé (sur les
+  // Halles, à 390 m) avant la fiche du bar, et l'erreur se recopiait.
+  const nbLieux = (lieuxRes.data ?? []).length
+  const estEtab = (c: CandidatLieu) => candidats.indexOf(c) >= nbLieux
+  const gagnant = retenus.find(c => estEtab(c) && c.adresse)
+    ?? retenus.find(estEtab)
+    ?? retenus.find(c => c.adresse)
+    ?? retenus[0]
   if (gagnant.lat == null) return null
 
   return {
@@ -480,7 +630,7 @@ export async function geocodeWithGoogle(
   const indice = opts.indiceGeo?.trim() || 'France'
 
   /*
-   * 0. L'ADRESSE POSTALE D'ABORD — c'est le signal le plus precis qu'on ait.
+   * L'ADRESSE POSTALE EST TRANSMISE — c'est le signal le plus precis qu'on ait.
    *
    * Elle n'etait tout simplement pas transmise : on interrogeait Google avec
    * le nom du lieu et la commune, et rien d'autre. Quand une annonce ne donne
@@ -493,28 +643,52 @@ export async function geocodeWithGoogle(
    * Le code postal entre dans la requete quand on l'a : il tranche entre deux
    * communes homonymes mieux que n'importe quel repere regional.
    */
+  /*
+   * L'ORDRE : TOUT CE QUI EST CHEZ NOUS AVANT GOOGLE.
+   *
+   * L'adresse passait à Google AVANT que le nom ne soit cherché dans la base.
+   * « Afrobar 224, 17 cours de la République » avait pourtant sa fiche
+   * commerce, exacte, en base : on a payé un appel pour un point faux.
+   * Désormais : adresse connue, puis nom connu (fiches commerces comprises),
+   * et seulement ensuite Google — adresse puis nom, chaque réponse contrôlée.
+   */
   const adresse = (opts.adresse ?? '').trim()
-  if (ressembleAUneAdresse(adresse)) {
-    // a. Déjà chez nous ? Alors rien à demander à Google.
-    const connue = await lookupAdresseCache(adresse!, commune)
-    if (connue && connue.lat != null) return { ...connue, approx: false }
+  const avecAdresse = ressembleAUneAdresse(adresse)
 
-    // b. Sinon Google, qui reste le seul à savoir ce qu'est un lieu.
-    const q = [adresse, opts.codePostal, commune, indice].filter(Boolean).join(', ')
-    const precis = await textsearch(q)
-    // Un resultat sans coordonnees ne vaut pas mieux que pas de resultat.
-    if (precis && precis.lat != null) return { ...precis, approx: false }
+  // a. Cette adresse, déjà chez nous ?
+  if (avecAdresse) {
+    const connue = await lookupAdresseCache(adresse, commune)
+    if (connue && connue.lat != null) return { ...connue, approx: false }
   }
 
-  // 1. Lieu précis + commune → DB-first puis Google
+  // b. Ce nom, déjà chez nous ? → ZERO appel Google
   if (lieuNom) {
-    // Cache hit dans table lieux → ZERO appel Google
-    const cached = await lookupLieuxCache(lieuNom, commune)
+    const cached = await lookupLieuxCache(lieuNom, commune, false, adresse)
     if (cached && cached.lat != null) return { ...cached, approx: false }
+  }
 
-    // Sinon Google textsearch
+  // c. Google sur l'adresse : la rue rendue doit être la rue demandée, dans
+  //    la bonne commune. Sinon on n'en veut pas.
+  if (avecAdresse) {
+    const bonneRue = (r: ResultatGoogle) => porteLaRue(r, adresse) && dansLaCommune(r, commune)
+    const q = [adresse, opts.codePostal, commune, indice].filter(Boolean).join(', ')
+    const precis = await textsearch(q, bonneRue)
+    if (precis) return { ...precis, approx: false }
+    // Le numéro égare Text Search, qui cherche des lieux : la rue seule lui
+    // fait rendre la voie elle-même. Un point dans la bonne rue vaut mieux
+    // que le centre du village.
+    const rue = rueSeule(adresse)
+    if (rue && rue !== adresse) {
+      const voie = await textsearch([rue, opts.codePostal, commune, indice].filter(Boolean).join(', '), bonneRue)
+      if (voie) return { ...voie, approx: false }
+    }
+  }
+
+  // d. Google sur le nom : le lieu rendu doit être dans la commune demandée
+  //    — et dans la rue de l'annonce quand elle en donne une.
+  if (lieuNom) {
     const q = [lieuNom, commune, indice].filter(Boolean).join(', ')
-    const result = await textsearch(q)
+    const result = await textsearch(q, r => dansLaCommune(r, commune) && (!avecAdresse || porteLaRue(r, adresse)))
     if (result) return { ...result, approx: false }
   }
 
