@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { getPrompt } from './prompts-ia'
 import { safeJsonParse } from './safeJsonParse'
+import type { Territoire } from './territoires'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -39,9 +40,36 @@ export interface GeoResult {
   approx: boolean
 }
 
-export async function extractWithClaude(text: string | null, imageBase64?: string, imageMimeType?: string): Promise<ExtractedData> {
+/**
+ * LE SECTEUR QU'ON ANNONCE AU MODÈLE.
+ *
+ * Les prompts disaient « tous les événements ont lieu dans l'Hérault ou le
+ * Gard, région de Ganges ». Depuis l'ouverture de Pau, c'est faux : un post
+ * du groupe « Concerts sur Pau » qui ne nommait pas sa ville est ressorti
+ * « Ganges, 34190 », avec une adresse inventée, a été géocodé sur un bar de
+ * Ganges — puis rangé en Cévennes, puisque c'est le point qui tranche (vu le
+ * 14/11/2026, idem « Cavalcade de Gan » devenue « à Ganges »).
+ *
+ * Le secteur vient donc du territoire de la source. Sans territoire connu
+ * (saisie admin, radio), on prend le territoire par défaut — c'est-à-dire ce
+ * que disait l'ancien texte. Import dynamique : territoires.ts importe déjà
+ * ce fichier.
+ */
+async function contexteGeo(territoire?: Territoire | null): Promise<string> {
+  let t = territoire ?? null
+  if (!t) {
+    try { t = await (await import('./territoires')).territoireParDefaut() } catch { t = null }
+  }
+  const secteur = t
+    ? `le territoire « ${t.nom} » (${t.indice_geo?.trim() || INDICE_GEO_SECTEUR})`
+    : `les Cevennes (Herault, Gard)`
+  return `Contexte geographique : ce contenu provient de ${secteur}. Sauf mention contraire explicite, les evenements ont lieu dans ce secteur ; si une commune est ambigue, privilegie celle de ce secteur. `
+    + `N'invente JAMAIS une commune, une adresse ou un code postal qui ne figure pas dans le contenu : laisse le champ a null. Une commune voisine au nom proche n'est pas la meme commune (Gan n'est pas Ganges).`
+}
+
+export async function extractWithClaude(text: string | null, imageBase64?: string, imageMimeType?: string, territoire?: Territoire | null): Promise<ExtractedData> {
   const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-  const systemPrompt = await getPrompt('extract_single', { today })
+  const systemPrompt = await getPrompt('extract_single', { today, contexte_geo: await contexteGeo(territoire) })
 
   const userText = text
     ? `Extrais les informations de cet événement :\n\n${text}`
@@ -70,9 +98,9 @@ export async function extractWithClaude(text: string | null, imageBase64?: strin
   return parsed
 }
 
-export async function extractMultipleWithClaude(text: string | null, imageBase64?: string, imageMimeType?: string): Promise<ExtractedData[]> {
+export async function extractMultipleWithClaude(text: string | null, imageBase64?: string, imageMimeType?: string, territoire?: Territoire | null): Promise<ExtractedData[]> {
   const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-  const systemPrompt = await getPrompt('extract_multiple', { today })
+  const systemPrompt = await getPrompt('extract_multiple', { today, contexte_geo: await contexteGeo(territoire) })
 
   const userText = text
     ? `Extrais TOUS les événements de ce contenu :\n\n${text}`

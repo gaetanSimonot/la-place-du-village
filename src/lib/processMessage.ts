@@ -59,7 +59,9 @@ export async function processMessage(
   // Extraction Claude
   let events
   try {
-    events = await extractMultipleWithClaude(contenu, base64 ?? undefined, mime)
+    // Le territoire du groupe dit au modèle OÙ chercher : sans lui, un post
+    // palois sans ville ressortait « Ganges » (voir contexteGeo).
+    events = await extractMultipleWithClaude(contenu, base64 ?? undefined, mime, territoire)
   } catch (e) {
     return {
       statut: 'non_publiable',

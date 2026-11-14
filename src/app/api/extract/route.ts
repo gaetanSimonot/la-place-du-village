@@ -331,11 +331,28 @@ export async function POST(req: NextRequest) {
     const sourceAuteur    = typeof source_auteur    === 'string' ? source_auteur.slice(0, 200) : null
     const sourceTelephone = typeof source_telephone === 'string' ? source_telephone.slice(0, 40)  : null
 
+    /*
+     * Le territoire du message, resolu UNE fois pour toute l'affiche : le champ
+     * `territoire` du payload prime, sinon le groupe, sinon le defaut. Un slug
+     * inconnu est refuse plutot que range au mauvais endroit.
+     *
+     * Resolu AVANT l'extraction : il dit au modele dans quel secteur lire
+     * l'annonce (un post palois sans ville ressortait « Ganges »).
+     */
+    const resTerr = await territoirePourIngestion(body?.territoire, source, sourceGroupe)
+    if (!resTerr.ok) {
+      return NextResponse.json({
+        error: `Territoire inconnu : « ${resTerr.slugInconnu} ». Rien n'a ete enregistre.`,
+        territoire_inconnu: resTerr.slugInconnu,
+      }, { status: 400 })
+    }
+    const territoire = resTerr.territoire
+
     // Multi-extraction Claude. extractMultipleWithClaude filtre déjà les events
     // sans titre (cf. src/lib/extract.ts), donc tableau retourné = events
     // avec titre non-vide. Si tableau vide → message non-event, on retourne
     // 200 sans erreur pour que le sender VM classe en processed.
-    const extractedEvents = await extractMultipleWithClaude(text || null, image, imageMimeType)
+    const extractedEvents = await extractMultipleWithClaude(text || null, image, imageMimeType, territoire)
 
     if (extractedEvents.length === 0) {
       return NextResponse.json({
@@ -350,20 +367,6 @@ export async function POST(req: NextRequest) {
 
     // Les créneaux qui se répètent sont fondus AVANT tout traitement : une
     // seule fiche part au géocodage, à la dédup et en base, au lieu de trente.
-    /*
-     * Le territoire du message, resolu UNE fois pour toute l'affiche : le champ
-     * `territoire` du payload prime, sinon le groupe, sinon le defaut. Un slug
-     * inconnu est refuse plutot que range au mauvais endroit.
-     */
-    const resTerr = await territoirePourIngestion(body?.territoire, source, sourceGroupe)
-    if (!resTerr.ok) {
-      return NextResponse.json({
-        error: `Territoire inconnu : « ${resTerr.slugInconnu} ». Rien n'a ete enregistre.`,
-        territoire_inconnu: resTerr.slugInconnu,
-      }, { status: 400 })
-    }
-    const territoire = resTerr.territoire
-
     const aTraiter = regrouperRecurrences(extractedEvents)
 
     // Process chaque event séquentiellement (cf. note sur la dédup intra-batch
