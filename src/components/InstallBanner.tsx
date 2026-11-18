@@ -1,15 +1,16 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
+import { PLAY_STORE_AVAILABLE, PLAY_URL } from '@/lib/playStore'
 
 type DeferredPrompt = { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> }
 type RelatedApp = { platform?: string; id?: string; url?: string }
 
 const INSTALL_DISMISSED_KEY = 'pdv-install-dismissed'
-const PLAY_URL = 'https://play.google.com/store/apps/details?id=app.laplaceduvillage'
 
-/** ios = instructions Safari · ios-inapp = ouvrir dans Safari d'abord · android = Play Store · chrome = prompt PWA natif */
-type Mode = 'ios' | 'ios-inapp' | 'android' | 'chrome' | null
+/** ios = instructions Safari · ios-inapp = ouvrir dans Safari d'abord · android = Play Store ·
+ *  android-pwa = instructions menu Chrome (Play indisponible, pas de prompt natif) · chrome = prompt PWA natif */
+type Mode = 'ios' | 'ios-inapp' | 'android' | 'android-pwa' | 'chrome' | null
 
 export default function InstallBanner() {
   const pathname = usePathname()
@@ -39,7 +40,7 @@ export default function InstallBanner() {
 
     // Android : on oriente vers le Play Store (la TWA). Chrome n'émet plus
     // beforeinstallprompt (prefer_related_applications), donc on gère le CTA nous-mêmes.
-    if (android) {
+    if (android && PLAY_STORE_AVAILABLE) {
       let cancelled = false
       let timer: ReturnType<typeof setTimeout> | null = null
       const arm = () => { if (!cancelled) { setMode('android'); timer = setTimeout(() => setShow(true), 3000) } }
@@ -54,7 +55,8 @@ export default function InstallBanner() {
       return () => { cancelled = true; if (timer) clearTimeout(timer) }
     }
 
-    // Desktop / autres : install PWA classique via beforeinstallprompt.
+    // Desktop / autres (et Android quand le Play Store est indisponible) :
+    // install PWA classique via beforeinstallprompt.
     const early = (window as unknown as { __pwaPrompt?: DeferredPrompt }).__pwaPrompt
     if (early) setDeferredPrompt(early)
     const handler = (e: Event) => {
@@ -62,7 +64,13 @@ export default function InstallBanner() {
       setDeferredPrompt(e as unknown as DeferredPrompt)
     }
     window.addEventListener('beforeinstallprompt', handler)
-    return () => window.removeEventListener('beforeinstallprompt', handler)
+    // Android sans prompt natif (Samsung Internet, prompt déjà refusé…) :
+    // instructions manuelles. Remplacées par 'chrome' si le prompt arrive.
+    let timer: ReturnType<typeof setTimeout> | null = null
+    if (android && !early) {
+      timer = setTimeout(() => { setMode(m => m ?? 'android-pwa'); setShow(true) }, 3000)
+    }
+    return () => { window.removeEventListener('beforeinstallprompt', handler); if (timer) clearTimeout(timer) }
   }, [])
 
   useEffect(() => {
@@ -146,6 +154,12 @@ export default function InstallBanner() {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.6 2.3 13 11.7l-2.7 2.7L3.1 3.4a1 1 0 0 1 .5-1.1Zm10.8 10.8 2.6 2.6-9.8 5.6a1 1 0 0 1-1.1-.1l8.3-8.1Zm3.9-2.2 2.6 1.5c.7.4.7 1.4 0 1.8l-2.6 1.5-2.9-2.4 2.9-2.4ZM4.5 1.9l9.9 5.7-2.6 2.6-7.8-7.8a1 1 0 0 1 .5-.5Z"/></svg>
           Télécharger sur Google Play
         </a>
+      )}
+
+      {mode === 'android-pwa' && (
+        <p style={{ fontSize: 12, color: '#5A5A5A', margin: 0, lineHeight: 1.5, backgroundColor: '#FAF7F2', borderRadius: 10, padding: '10px 12px' }}>
+          Appuie sur le menu <strong>⋮</strong> en haut de ton navigateur, puis <strong>&ldquo;Installer l&apos;application&rdquo;</strong> (ou <strong>&ldquo;Ajouter à l&apos;écran d&apos;accueil&rdquo;</strong>)
+        </p>
       )}
 
       {mode === 'chrome' && (

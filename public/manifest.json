@@ -12,7 +12,7 @@
   "theme_color": "#FDFAF5",
   "orientation": "portrait",
   "categories": ["lifestyle", "social"],
-  "prefer_related_applications": true,
+  "prefer_related_applications": false,
   "related_applications": [
     {
       "platform": "play",

@@ -1,8 +1,10 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { PLAY_STORE_AVAILABLE, PLAY_URL } from '@/lib/playStore'
+
+type DeferredPrompt = { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> }
 
 // ── URLs & assets (faciles à modifier) ───────────────────────────────────
-const PLAY_URL = 'https://play.google.com/store/apps/details?id=app.laplaceduvillage'
 const SITE_URL = '/'                          // site normal (même origine)
 const IOS_TUTO_IMG = '/app-ios-tutorial.webp'  // image tuto 3 étapes (public/), WebP optimisé
 
@@ -12,7 +14,14 @@ const TERRA = '#C14A2B'
 const GREEN = '#3E7A52'
 const INK = '#2E211A'
 
-type Phase = 'detecting' | 'ios' | 'ios-inapp' | 'redirect'
+type Phase = 'detecting' | 'ios' | 'ios-inapp' | 'android' | 'redirect'
+
+// Android quand le Play Store est indisponible : installation de la PWA
+const ANDROID_STEPS: { title: React.ReactNode; text: React.ReactNode }[] = [
+  { title: <>Ouvrez <strong style={{ color: GREEN }}>Chrome</strong></>, text: <>puis rendez-vous sur <strong style={{ color: TERRA }}>laplaceduvillage.app</strong></> },
+  { title: <>Appuyez sur le menu <strong style={{ color: TERRA }}>⋮</strong></>, text: <>les trois points en haut à droite</> },
+  { title: <>« <strong>Installer l&apos;application</strong> »</>, text: <>ou « Ajouter à l&apos;écran d&apos;accueil »</> },
+]
 
 // Les 3 étapes en texte (fallback si l'image ne charge pas + accessibilité)
 const STEPS: { title: React.ReactNode; text: React.ReactNode }[] = [
@@ -24,6 +33,25 @@ const STEPS: { title: React.ReactNode; text: React.ReactNode }[] = [
 export default function AppRedirect() {
   const [phase, setPhase] = useState<Phase>('detecting')
   const [zoomed, setZoomed] = useState(false)
+  const [deferredPrompt, setDeferredPrompt] = useState<DeferredPrompt | null>(null)
+
+  // Prompt d'installation PWA natif (Chrome Android), capturé tôt dans layout.tsx
+  useEffect(() => {
+    if (PLAY_STORE_AVAILABLE) return
+    const early = (window as unknown as { __pwaPrompt?: DeferredPrompt }).__pwaPrompt
+    if (early) setDeferredPrompt(early)
+    const handler = (e: Event) => { e.preventDefault(); setDeferredPrompt(e as unknown as DeferredPrompt) }
+    window.addEventListener('beforeinstallprompt', handler)
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
+
+  const installPwa = async () => {
+    if (!deferredPrompt) return
+    await deferredPrompt.prompt()
+    const { outcome } = await deferredPrompt.userChoice
+    setDeferredPrompt(null)
+    if (outcome === 'accepted') window.location.replace(SITE_URL)
+  }
 
   useEffect(() => {
     const nav = navigator
@@ -49,8 +77,12 @@ export default function AppRedirect() {
       return
     }
 
-    // 3. Android CERTAIN (et surtout PAS un appareil Apple) → Play Store (la TWA).
-    if (/android/i.test(ua) && !appleVendor) { setPhase('redirect'); window.location.href = PLAY_URL; return }
+    // 3. Android CERTAIN (et surtout PAS un appareil Apple) → Play Store (la TWA),
+    //    ou installation PWA si l'app est indisponible sur le Play Store.
+    if (/android/i.test(ua) && !appleVendor) {
+      if (!PLAY_STORE_AVAILABLE) { setPhase('android'); return }
+      setPhase('redirect'); window.location.href = PLAY_URL; return
+    }
 
     // 4. Tout le reste (desktop Mac/PC, appareil inconnu) → site normal.
     //    Par sécurité on ne redirige JAMAIS vers le Play Store par défaut.
@@ -79,7 +111,7 @@ export default function AppRedirect() {
 
   const fallbackButtons = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 18 }}>
-      <a href={PLAY_URL} target="_blank" rel="noopener noreferrer" style={btnPrimary}>{playSvg} Voir sur Google Play</a>
+      {PLAY_STORE_AVAILABLE && <a href={PLAY_URL} target="_blank" rel="noopener noreferrer" style={btnPrimary}>{playSvg} Voir sur Google Play</a>}
       <a href={SITE_URL} style={btnGhost}>Ouvrir le site</a>
     </div>
   )
@@ -109,6 +141,39 @@ export default function AppRedirect() {
             <>
               <p style={{ textAlign: 'center', color: '#8A7D70', fontSize: 14, margin: '8px 0 0' }}>Redirection en cours…</p>
               {fallbackButtons}
+            </>
+          )}
+
+          {phase === 'android' && (
+            <>
+              <h1 style={{ margin: '0 0 4px', textAlign: 'center', fontFamily: 'var(--font-dm-serif), Georgia, serif', fontSize: 22, color: INK }}>
+                Installez l&apos;app sur votre téléphone
+              </h1>
+              <p style={{ margin: '0 0 16px', textAlign: 'center', fontSize: 13.5, color: '#8A7D70' }}>
+                Gratuit, en quelques secondes, sans passer par le Play Store.
+              </p>
+
+              {deferredPrompt && (
+                <button type="button" onClick={installPwa} style={{ ...btnPrimary, marginBottom: 18 }}>
+                  Installer l&apos;application
+                </button>
+              )}
+
+              <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {ANDROID_STEPS.map((s, i) => (
+                  <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                    <span style={{ flexShrink: 0, width: 26, height: 26, borderRadius: 13, background: GREEN, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800 }}>{i + 1}</span>
+                    <span style={{ fontSize: 14.5, lineHeight: 1.4 }}>
+                      <span style={{ display: 'block', fontWeight: 700 }}>{s.title}</span>
+                      <span style={{ display: 'block', color: '#6E6256', fontSize: 13.5 }}>{s.text}</span>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+
+              <div style={{ marginTop: 18 }}>
+                <a href={SITE_URL} style={btnGhost}>Ouvrir le site</a>
+              </div>
             </>
           )}
 
