@@ -7,15 +7,28 @@ import { Categorie, Evenement } from '@/lib/types'
 import { formatDate } from '@/lib/filters'
 import { imageEvenement } from '@/lib/imageEvenement'
 import { idEvenementDe, lienEvenement } from '@/lib/lienEvenement'
-import { SITE, communeDe, enJsonLd, jsonLdEvenement } from '@/lib/seo'
+import { SITE, communeDe, enJsonLd, jsonLdEvenement, slugCommune } from '@/lib/seo'
+import { estTermine, filtrePasTermine } from '@/lib/cinema'
+import { communesAVenir, aLaCommune, dansLeTerritoire, SEUIL_COMMUNE } from '@/lib/agendaPublic'
+import { territoireParDefaut, territoireParId } from '@/lib/territoires'
+import type { SuitePasse } from '@/components/EvenementPasse'
 import EvenementPageClient from './client'
+
+/*
+ * Toujours lue fraîche. Sans ces trois lignes, Next gardait en cache la
+ * réponse de la base : un événement supprimé depuis restait servi à Google,
+ * pendant que le téléphone, qui relit la base, affichait « introuvable ».
+ */
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const fetchCache = 'force-no-store'
 
 type Props = {
   params: Promise<{ id: string }>
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
-type Ligne = Evenement & { statut: string; publish_at: string | null }
+type Ligne = Evenement & { statut: string; publish_at: string | null; territoire_id: string | null }
 
 /**
  * La fiche lue UNE fois par requête : generateMetadata et la page partagent
@@ -88,7 +101,13 @@ export default async function EvenementPage({ params, searchParams }: Props) {
   const { id: param } = await params
   const id = idEvenementDe(param)
   const evt = await lire(id)
-  if (!evt) notFound()
+  // Effacé (plus d'un an, ou supprimé à la main) : le lien vient souvent de
+  // Google. On l'envoie vers l'agenda du week-end plutôt qu'une page morte.
+  if (!evt) {
+    const t = await territoireParDefaut()
+    if (t) permanentRedirect(`/ce-week-end/${t.slug}`)
+    notFound()
+  }
 
   // Pas publique : la fiche se charge comme avant, côté téléphone, sous les
   // droits de la personne (un admin la voit, les autres non).
@@ -115,10 +134,46 @@ export default async function EvenementPage({ params, searchParams }: Props) {
   void _t; void _a; void _g; void _r; void _m; void _s
 
   const ld = jsonLdEvenement(evt, `${SITE}${voulu}`, imageEvenement(evt))
+  const passe = estTermine(evt) ? await suiteDUnPasse(evt) : undefined
   return (
     <>
       {ld && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: enJsonLd(ld) }} />}
-      <EvenementPageClient id={id} initial={affichable as unknown as Evenement} />
+      <EvenementPageClient id={id} initial={affichable as unknown as Evenement} passe={passe} />
     </>
   )
+}
+
+/**
+ * UN ÉVÉNEMENT PASSÉ NE MÈNE PAS À UNE IMPASSE.
+ *
+ * Son lien vient souvent de Google : on garde la fiche (« a eu lieu le… ») et
+ * on montre la suite — les prochains rendez-vous de SA commune, ou à défaut
+ * du territoire — avec un lien vers la page d'agenda qui les rassemble.
+ */
+async function suiteDUnPasse(evt: Ligne): Promise<SuitePasse> {
+  const commune = communeDe(evt.lieux)
+  const c = commune ? (await communesAVenir()).find(x => x.slug === slugCommune(commune)) : undefined
+  if (c && c.evenements.length > 0) {
+    return {
+      titre: `Prochainement ${aLaCommune(c.nom)}`,
+      aVenir: c.evenements.slice(0, 5),
+      lienTout: c.evenements.length >= SEUIL_COMMUNE
+        ? { href: `/que-faire/${c.slug}`, label: `Tout l'agenda ${aLaCommune(c.nom)}` }
+        : null,
+    }
+  }
+  const t = (await territoireParId(evt.territoire_id)) ?? (await territoireParDefaut())
+  let q = supabaseAdmin.from('evenements')
+    .select('id, titre, categorie, categories, date_debut, date_fin, heure, image_url, image_position, lieux(id, nom, commune)')
+    .eq('statut', 'publie')
+    .or(filtrePasTermine())
+    .order('date_debut', { ascending: true })
+    .limit(5)
+  if (t) q = q.eq('territoire_id', t.id)
+  const { data } = await q
+  return {
+    titre: t ? `Prochainement ${dansLeTerritoire(t)}` : 'Prochainement',
+    aVenir: (data ?? []) as unknown as Evenement[],
+    lienTout: t ? { href: `/ce-week-end/${t.slug}`, label: 'Que faire ce week-end ?' } : null,
+  }
 }

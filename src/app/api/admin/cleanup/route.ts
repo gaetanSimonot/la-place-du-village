@@ -1,17 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/server-auth'
+import { dateParis } from '@/lib/cinema'
 
-// Supprime les événements dont la date de fin (ou début) est passée depuis 2 jours
+/**
+ * Ménage des événements passés.
+ *
+ *  - PUBLIÉS : gardés UN AN après leur fin. Leur fiche reste en ligne — le
+ *    lien trouvé sur Google affiche « a eu lieu » et renvoie vers l'à-venir
+ *    de la commune au lieu d'une page morte. Toutes les listes publiques les
+ *    écartent par `filtrePasTermine` (lib/cinema).
+ *  - JAMAIS PUBLIÉS (en attente, refusés…) : supprimés 2 jours après, comme
+ *    avant — ils n'ont pas de fiche publique et gonfleraient la file admin.
+ */
 export async function POST(req: NextRequest) {
   const ctx = await requireAdmin(req)
   if (ctx instanceof Response) return ctx
 
-  const now = new Date()
-  const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2)
-  const cutoffStr = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`
-  const cutoff7 = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7)
-  const cutoff7Str = `${cutoff7.getFullYear()}-${String(cutoff7.getMonth() + 1).padStart(2, '0')}-${String(cutoff7.getDate()).padStart(2, '0')}`
+  const cutoffStr = dateParis(-2)
+  const cutoffPublieStr = dateParis(-365)
+  const cutoff7Str = dateParis(-7)
 
   try {
     // Supprime les doublons archivés des soumissions user après 7 jours
@@ -22,13 +30,18 @@ export async function POST(req: NextRequest) {
       .not('submitted_by', 'is', null)
       .lt('created_at', cutoff7Str + 'T00:00:00')
 
-    // Récupère les événements trop vieux
-    const { data: oldEvents } = await supabaseAdmin
-      .from('evenements')
-      .select('id, lieu_id, date_fin, date_debut')
-      .or(`date_fin.lt.${cutoffStr},and(date_fin.is.null,date_debut.lt.${cutoffStr})`)
+    // Récupère les événements trop vieux : non publiés passés de 2 jours,
+    // publiés passés d'un an.
+    const termineAvant = (d: string) => `date_fin.lt.${d},and(date_fin.is.null,date_debut.lt.${d})`
+    const [{ data: nonPublies }, { data: publies }] = await Promise.all([
+      supabaseAdmin.from('evenements').select('id, lieu_id')
+        .neq('statut', 'publie').or(termineAvant(cutoffStr)),
+      supabaseAdmin.from('evenements').select('id, lieu_id')
+        .eq('statut', 'publie').or(termineAvant(cutoffPublieStr)),
+    ])
+    const oldEvents = [...(nonPublies ?? []), ...(publies ?? [])]
 
-    if (!oldEvents || oldEvents.length === 0) {
+    if (oldEvents.length === 0) {
       return NextResponse.json({ deleted: 0 })
     }
 

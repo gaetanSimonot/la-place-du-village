@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { dateParis } from '@/lib/cinema'
+import { dateParis, estTermine, filtrePasTermine } from '@/lib/cinema'
 import { lienEvenement } from '@/lib/lienEvenement'
 import { ficheRemplie } from '@/lib/etablissementPublic'
 import { communesAVenir, SEUIL_COMMUNE } from '@/lib/agendaPublic'
@@ -13,8 +13,8 @@ export const revalidate = 3600
 /**
  * /sitemap.xml — la liste des pages que Google doit connaître.
  *
- *  - les événements publiés à venir, et ceux finis depuis moins de 30 jours
- *    (au-delà, la fiche reste en ligne mais n'est plus proposée) ;
+ *  - les événements publiés à venir, et ceux finis depuis moins de 90 jours
+ *    (au-delà, la fiche reste en ligne un an mais n'est plus proposée) ;
  *  - les films qui ont une séance à venir, tous les spectacles ;
  *  - les commerces REMPLIS (description ou photo) — les autres restent dans
  *    l'app mais ne sont pas proposés ;
@@ -25,7 +25,7 @@ export const revalidate = 3600
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const auj = dateParis()
-  const il30j = dateParis(-30)
+  const il90j = dateParis(-90)
   const out: MetadataRoute.Sitemap = [
     { url: `${SITE}/`, changeFrequency: 'daily', priority: 1 },
     { url: `${SITE}/cinema`, changeFrequency: 'daily', priority: 0.6 },
@@ -41,14 +41,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const { data: evts } = await supabaseAdmin
     .from('evenements')
-    .select('id, titre, created_at, publish_at')
+    .select('id, titre, created_at, publish_at, date_debut, date_fin')
     .eq('statut', 'publie')
-    .or(`date_fin.gte.${il30j},and(date_fin.is.null,date_debut.gte.${il30j})`)
+    .or(filtrePasTermine(il90j))
     .limit(5000)
   const maintenant = Date.now()
   for (const e of evts ?? []) {
     if (e.publish_at && Date.parse(e.publish_at) > maintenant) continue
-    out.push({ url: `${SITE}${lienEvenement(e)}`, lastModified: e.created_at ?? undefined, changeFrequency: 'weekly', priority: 0.8 })
+    // Un événement passé reste proposé trois mois, en retrait : sa fiche
+    // renvoie vers l'à-venir de sa commune.
+    const fini = estTermine(e, auj)
+    out.push({ url: `${SITE}${lienEvenement(e)}`, lastModified: e.created_at ?? undefined, changeFrequency: fini ? 'monthly' : 'weekly', priority: fini ? 0.4 : 0.8 })
   }
 
   const { data: seances } = await supabaseAdmin.from('seances').select('film_id').gte('date', auj).limit(10000)

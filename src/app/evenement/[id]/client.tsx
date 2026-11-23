@@ -25,6 +25,7 @@ import { authedFetch } from '@/lib/swr-fetchers'
 import type { CorrectionField } from '@/lib/types'
 import { texteBrut } from '@/components/TexteRiche'
 import MentionRadio from '@/components/MentionRadio'
+import { BandeauPasse, SuiteDuPasse, type SuitePasse } from '@/components/EvenementPasse'
 
 const LINK_STYLE = { color: '#C84B2F', textDecoration: 'underline', wordBreak: 'break-all' } as const
 
@@ -63,7 +64,7 @@ function renderContact(contact: string): React.ReactNode {
  * rendu est la fiche complète — c'est ce HTML que lisent les moteurs — et le
  * téléphone n'attend plus la base pour l'afficher.
  */
-export default function EvenementPageClient({ id, initial }: { id: string; initial?: Evenement }) {
+export default function EvenementPageClient({ id, initial, passe }: { id: string; initial?: Evenement; passe?: SuitePasse }) {
   const [evt, setEvt]           = useState<Evenement | null>(initial ?? null)
   const [linkedEtab, setLinkedEtab] = useState<{ id: string; nom: string; description_courte: string | null; photos: string[] | null; commune: string | null; user_id?: string | null } | null>(null)
   const [loading, setLoading]   = useState(!initial)
@@ -239,6 +240,9 @@ export default function EvenementPageClient({ id, initial }: { id: string; initi
       <div className="relative z-[4] -mt-5 rounded-t-[24px] bg-white pb-6">
         {/* Title block */}
         <div className="px-4 pt-[18px]">
+          {/* Événement terminé (le lien vient souvent de Google) : on le dit
+              d'emblée, la suite est proposée sous les infos pratiques. */}
+          {passe && <BandeauPasse evt={evt} />}
           {/* Citee a l'antenne. Posee DANS la fiche et non sur la photo : une
               etiquette par-dessus une affiche cache l'affiche, et se pose mal
               des que l'image est claire. Ici elle se lit, juste avant le
@@ -299,6 +303,8 @@ export default function EvenementPageClient({ id, initial }: { id: string; initi
             />
           )}
         </div>
+
+        {passe && <SuiteDuPasse suite={passe} />}
 
         {/* Social action bar */}
         <ActionBar evt={evt} commentCount={commentCount} onCommentOpen={() => setCommentsOpen(true)} onShare={handleShare} />
