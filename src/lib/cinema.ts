@@ -94,6 +94,22 @@ export function dateParis(offsetJours = 0): string {
   }).format(d)
 }
 
+/**
+ * Événement PAS ENCORE TERMINÉ au jour donné (défaut : aujourd'hui à Paris).
+ * Les événements passés restent en base un an (leur fiche sert à Google) :
+ * toute liste publique doit passer par ce filtre, la suppression ne fait plus
+ * le tri. À donner tel quel à `.or(...)` de supabase-js.
+ */
+export function filtrePasTermine(jour = dateParis()): string {
+  return `date_fin.gte.${jour},and(date_fin.is.null,date_debut.gte.${jour})`
+}
+
+/** Même règle côté JS, pour les listes déjà chargées. */
+export function estTermine(e: { date_debut?: string | null; date_fin?: string | null }, jour = dateParis()): boolean {
+  const fin = e.date_fin ?? e.date_debut
+  return !!fin && fin.slice(0, 10) < jour
+}
+
 /** « 20:30:00 » → « 20h30 ». */
 export function formatHeure(heure: string): string {
   const [h, m] = heure.split(':')

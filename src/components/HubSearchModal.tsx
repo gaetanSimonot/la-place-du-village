@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { lienEvenement } from '@/lib/lienEvenement'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { filtrePasTermine } from '@/lib/cinema'
 import { useTerritoire } from '@/components/TerritoireProvider'
 import AssistantChat from '@/components/assistant/AssistantChat'
 
@@ -158,6 +159,7 @@ export default function HubSearchModal({ open, onClose, onViewAll }: Props) {
           .select('id, titre, image_url, date_debut, date_fin, heure, lieux(nom, commune)', { count: 'exact' })
           .eq('statut', 'publie')
           .ilike('titre', term)
+          .or(filtrePasTermine())
           .order('date_debut', { ascending: true })
           .limit(6),
         supabase.from('etablissements')

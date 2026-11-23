@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { lienEvenement } from '@/lib/lienEvenement'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { estTermine } from '@/lib/cinema'
 import { useAuth } from '@/hooks/useAuth'
 import EditProfileModal from '@/components/EditProfileModal'
 import FriendButton from '@/components/FriendButton'
@@ -218,12 +219,14 @@ export default function ProfilPageClient({ id }: { id: string }) {
         // Événements suivis (interests)
         const { data: interests } = await supabase
           .from('interests')
-          .select('evenements(id, titre, date_debut, image_url, categorie)')
+          .select('evenements(id, titre, date_debut, date_fin, image_url, categorie)')
           .eq('user_id', id)
           .order('created_at', { ascending: false })
-          .limit(12)
-        setEvents(((interests ?? []) as unknown as { evenements: EventSnippet | null }[])
-          .map(i => i.evenements).filter((e): e is EventSnippet => e !== null))
+          .limit(60)
+        // Les passés restent en base un an : on n'affiche que l'à-venir.
+        setEvents(((interests ?? []) as unknown as { evenements: (EventSnippet & { date_fin?: string | null }) | null }[])
+          .map(i => i.evenements).filter((e): e is EventSnippet => e !== null && !estTermine(e))
+          .slice(0, 12))
 
         // Personnes suivies
         const { data: rawFollowing } = await supabase

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { territoireDeLaRequete } from '@/lib/territoires'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireUser } from '@/lib/server-auth'
+import { filtrePasTermine } from '@/lib/cinema'
 
 export type EmbedKind = 'event' | 'etab' | 'producer' | 'annonce' | 'promo' | 'covoit' | 'article' | 'debat'
 
@@ -64,6 +65,7 @@ export async function GET(req: NextRequest) {
         .from('evenements')
         .select('id, titre, image_url, date_debut, heure, lieux(commune)')
         .eq('statut', 'publie')
+        .or(filtrePasTermine())
       if (terr) qb = qb.eq('territoire_id', terr.id)
       if (ilike) qb = qb.ilike('titre', ilike)
       const { data } = await qb

@@ -4,6 +4,7 @@ import { getDateRange } from '@/lib/filters'
 import type { FiltreQuand } from '@/lib/types'
 import { aLieuEntre } from '@/lib/occurrences'
 import { territoireParDefaut, territoireParSlug } from '@/lib/territoires'
+import { filtrePasTermine } from '@/lib/cinema'
 
 /**
  * GET /api/agenda — payload unique pour la liste des événements.
@@ -15,7 +16,6 @@ import { territoireParDefaut, territoireParSlug } from '@/lib/territoires'
  * Query params :
  *   ?cat=concert,marche,atelier   (CSV catégories — vide = toutes)
  *   ?quand=cette_semaine          (FiltreQuand — défaut: toujours)
- *   ?masquerPasses=1              (0/1 — défaut: 0)
  *   ?territoire=pau               (slug — défaut: le territoire par défaut)
  *
  * Cache : variant par URL (chaque combinaison filtres = sa propre entrée
@@ -38,7 +38,6 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const catCsv = (searchParams.get('cat') ?? '').trim()
   const quandRaw = (searchParams.get('quand') ?? 'toujours').trim()
-  const masquerPasses = searchParams.get('masquerPasses') === '1'
 
   /*
    * Le territoire de la lecture. Sans parametre — donc pour tout le monde
@@ -91,8 +90,8 @@ export async function GET(req: NextRequest) {
   // jour-là" — donc un événement multi-jours (expo du 1er au 20) doit sortir
   // le 5. D'où le recouvrement : date_debut <= d ET (date_fin >= d OU
   // événement d'un seul jour tombant pile ce jour).
-  // masquerPasses est volontairement ignoré dans ce cas : l'utilisateur a
-  // explicitement demandé une date, même passée.
+  // Les passés y restent visibles : l'utilisateur a explicitement demandé une
+  // date, même passée.
   if (dateExacte) {
     q = q.lte('date_debut', dateExacte)
          .or(`date_fin.gte.${dateExacte},and(date_fin.is.null,date_debut.eq.${dateExacte})`)
@@ -108,31 +107,23 @@ export async function GET(req: NextRequest) {
       q = q.lte('date_debut', range.to)
            .or(`date_fin.gte.${range.from},and(date_fin.is.null,date_debut.gte.${range.from})`)
     }
-    if (masquerPasses) {
-      // Force Europe/Paris (Vercel = UTC par défaut, peu importe la région).
-      const today = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Europe/Paris',
-        year: 'numeric', month: '2-digit', day: '2-digit',
-      }).format(new Date())
-      q = q.or(`date_fin.gte.${today},and(date_fin.is.null,date_debut.gte.${today})`)
-    }
+    /*
+     * LES PASSÉS SONT TOUJOURS MASQUÉS. Ils restent en base un an (leur fiche
+     * sert à Google) : sans ce filtre, un an d'historique passerait devant
+     * l'à-venir et ferait sauter le plafond. Le paramètre `masquerPasses`
+     * n'est plus lu ; seul le calendrier, au-dessus, montre une date passée.
+     */
+    q = q.or(filtrePasTermine())
   }
 
-  // Promo events (pro/max), avec même filtre masquerPasses mais SANS cat / quand
-  // (la promotion est globale, peu importe ce que l'user filtre)
+  // Promo events (pro/max), SANS cat / quand (la promotion est globale, peu
+  // importe ce que l'user filtre) — jamais passés.
   let pq = supabaseAdmin.from('evenements').select(SELECT)
     .eq('statut', 'publie')
     .in('promotion', ['pro', 'max'])
+    .or(filtrePasTermine())
     .order('date_debut', { ascending: true })
   if (territoire) pq = pq.eq('territoire_id', territoire.id)
-  if (masquerPasses) {
-    // Force Europe/Paris (Vercel = UTC par défaut, peu importe la région).
-    const today = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Europe/Paris',
-      year: 'numeric', month: '2-digit', day: '2-digit',
-    }).format(new Date())
-    pq = pq.or(`date_fin.gte.${today},and(date_fin.is.null,date_debut.gte.${today})`)
-  }
 
   const [evRes, promoRes, splashSlotsRes] = await Promise.all([
     q,
@@ -156,6 +147,7 @@ export async function GET(req: NextRequest) {
       .select('id, titre, categorie, categories, date_debut, date_fin, heure, image_url, image_position, promotion, promo_ordre, radio_selection, vote_count, submitted_by_name, lieux(id, nom, commune, lat, lng, place_id_google)')
       .in('id', splashIds)
       .eq('statut', 'publie')
+      .or(filtrePasTermine())
     const eventMap = Object.fromEntries(((events ?? []) as Array<Record<string, unknown>>).map(e => [e.id as string, e]))
     splashFeatured = splashIds.map(id => eventMap[id]).filter(Boolean) as Array<Record<string, unknown>>
   }

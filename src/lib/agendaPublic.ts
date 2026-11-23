@@ -33,7 +33,7 @@ export function aLaCommune(nom: string): string {
  */
 export async function evenementsDuWeekEnd(territoireSlug: string): Promise<Evenement[]> {
   const res = await lireAgenda(new NextRequest(
-    `${SITE}/api/agenda?quand=ce_week_end&masquerPasses=1&territoire=${encodeURIComponent(territoireSlug)}`))
+    `${SITE}/api/agenda?quand=ce_week_end&territoire=${encodeURIComponent(territoireSlug)}`))
   const j = await res.json() as { evenements?: Evenement[] }
   return j.evenements ?? []
 }

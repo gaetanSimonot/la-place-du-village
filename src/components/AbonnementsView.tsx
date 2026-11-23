@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { lienEvenement } from '@/lib/lienEvenement'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { estTermine } from '@/lib/cinema'
 import { useAuth } from '@/hooks/useAuth'
 import { EvenementCard } from '@/lib/types'
 import { CATEGORIES } from '@/lib/categories'
@@ -121,7 +122,8 @@ export default function AbonnementsView({ mode = 'feed' }: { mode?: 'feed' | 'mi
       const eventMap = new Map<string, StarredEvent>()
       for (const i of interestData ?? []) {
         const evtData = (i as unknown as { evenements: EvenementCard | null }).evenements
-        if (!evtData?.id) continue
+        // Les passés restent en base un an : on ne garde que l'à-venir.
+        if (!evtData?.id || estTermine(evtData)) continue
         if (!eventMap.has(i.evenement_id)) {
           eventMap.set(i.evenement_id, { ...evtData, starred_by: [] })
         }

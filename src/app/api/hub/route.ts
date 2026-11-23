@@ -5,6 +5,7 @@ import { haversineKm } from '@/lib/distance'
 import { aLieuEntre } from '@/lib/occurrences'
 import { territoireParDefaut, territoireParSlug } from '@/lib/territoires'
 import { lireConfigs } from '@/lib/configTerritoire'
+import { filtrePasTermine } from '@/lib/cinema'
 
 /**
  * Valide une date YYYY-MM-DD venant du client. Retourne la date validée OU
@@ -130,6 +131,7 @@ export async function GET(req: NextRequest) {
    * Pau rend `null` et non la valeur cevenole — voir CLES_EDITORIALES.
    */
   let qCountEv = supabaseAdmin.from('evenements').select('*', { count: 'exact', head: true }).eq('statut', 'publie')
+    .or(filtrePasTermine(todayISO))
   if (T) qCountEv = qCountEv.eq('territoire_id', T)
   let qCountEtab = supabaseAdmin.from('etablissements').select('*', { count: 'exact', head: true })
   if (T) qCountEtab = qCountEtab.eq('territoire_id', T)
@@ -291,7 +293,8 @@ export async function GET(req: NextRequest) {
     const topicIds = heroSlots.filter(s => s.content_type === 'forum_topic').map(s => s.content_id)
 
     const [evRes, etabRes, prodRes, topicRes] = await Promise.all([
-      evIds.length   ? supabaseAdmin.from('evenements').select('*, lieux(*)').in('id', evIds).eq('statut', 'publie') : Promise.resolve({ data: [] }),
+      // Jamais un événement passé en vedette, même si l'emplacement court encore.
+      evIds.length   ? supabaseAdmin.from('evenements').select('*, lieux(*)').in('id', evIds).eq('statut', 'publie').or(filtrePasTermine(todayISO)) : Promise.resolve({ data: [] }),
       etabIds.length ? supabaseAdmin.from('etablissements').select('id, nom, commune, photos, type').in('id', etabIds) : Promise.resolve({ data: [] }),
       prodIds.length ? supabaseAdmin.from('producers').select('id, nom, commune, photos').in('id', prodIds) : Promise.resolve({ data: [] }),
       topicIds.length ? supabaseAdmin.from('forum_topics').select('id, titre, media').in('id', topicIds) : Promise.resolve({ data: [] }),
@@ -533,6 +536,7 @@ export async function GET(req: NextRequest) {
       .select('*, lieux(*)')
       .in('id', featuredIds)
       .eq('statut', 'publie')
+      .or(filtrePasTermine(todayISO))
     const featuredMap = Object.fromEntries(
       ((featuredEvts ?? []) as EventRow[]).map(e => [e.id as string, e]),
     )

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/server-auth'
+import { filtrePasTermine } from '@/lib/cinema'
 import { RADIO, audioUrlValide, semaineDe } from '@/lib/radio'
 
 /**
@@ -50,6 +51,7 @@ export async function GET(req: NextRequest) {
       .select('id, titre, date_debut, heure, categorie, lieux(nom, commune)')
       .eq('statut', 'publie')
       .ilike('titre', `%${recherche.replace(/[%_]/g, m => '\\' + m)}%`)
+      .or(filtrePasTermine())
       .order('date_debut', { ascending: true })
       .limit(15)
     return NextResponse.json({ resultats: data ?? [] })

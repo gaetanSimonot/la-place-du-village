@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { filtrePasTermine } from '@/lib/cinema'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthModal } from '@/contexts/AuthModalContext'
 import BottomNavBar from '@/components/BottomNavBar'
@@ -304,6 +305,7 @@ async function loadOwned(userId: string): Promise<ContentItem[]> {
     .select('id, titre, image_url, date_debut')
     .eq('submitted_by', userId)
     .eq('statut', 'publie')
+    .or(filtrePasTermine())   // on ne met pas en avant un événement passé
     .order('date_debut', { ascending: true })
     .limit(20)
   ;(events ?? []).forEach(e => items.push({
@@ -330,6 +332,7 @@ async function loadLikedAndInterests(userId: string): Promise<ContentItem[]> {
       .select('id, titre, image_url, date_debut, user_id')
       .in('id', eventIds)
       .eq('statut', 'publie')
+      .or(filtrePasTermine())
     ;(events ?? []).forEach(e => items.push({
       id: e.id, type: 'evenement', title: e.titre, subtitle: e.date_debut, imageUrl: e.image_url,
       ownerUserId: (e as { user_id?: string | null }).user_id ?? null, origin: 'interest',
@@ -349,6 +352,7 @@ async function loadLikedAndInterests(userId: string): Promise<ContentItem[]> {
       .select('id, titre, image_url, date_debut')
       .in('id', favEvIds)
       .eq('statut', 'publie')
+      .or(filtrePasTermine())
     ;(events ?? []).forEach(e => {
       // Évite doublons avec interests
       if (!items.some(it => it.type === 'evenement' && it.id === e.id)) {

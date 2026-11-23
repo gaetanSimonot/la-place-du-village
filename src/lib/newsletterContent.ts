@@ -9,6 +9,7 @@
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import type { ContentItem, SemaineChiffres } from '@/lib/newsletterBlocks'
 import { semaineDe } from '@/lib/semaine'
+import { filtrePasTermine } from '@/lib/cinema'
 import { CATEGORIES } from '@/lib/categories'
 
 const SITE = 'https://laplaceduvillage.app'
@@ -69,6 +70,9 @@ export async function getSemaineChiffres(terr: string | null = null): Promise<Se
     .select('date_debut, date_fin, categorie')
     .eq('statut', 'publie')
     .lte('date_debut', sem.fin)
+    // En SQL et pas seulement en JS : un an de passés gardés en base
+    // remplirait le plafond de 3000 et ferait sauter la semaine.
+    .or(filtrePasTermine(sem.debut))
   if (terr) qSem = qSem.eq('territoire_id', terr)
   const { data } = await qSem.limit(3000)
 
@@ -270,7 +274,7 @@ export async function browseList(kind: string, terr: string | null = null): Prom
 export async function search(kind: string, q: string, terr: string | null = null): Promise<SearchResult[]> {
   const like = `%${q}%`
   if (kind === 'events') {
-    let q1 = supabaseAdmin.from('evenements').select('id, titre, image_url, date_debut').eq('statut', 'publie').ilike('titre', like)
+    let q1 = supabaseAdmin.from('evenements').select('id, titre, image_url, date_debut').eq('statut', 'publie').ilike('titre', like).or(filtrePasTermine(todayISO()))
     if (terr) q1 = q1.eq('territoire_id', terr)
     const { data } = await q1.order('date_debut', { ascending: false }).limit(10)
     return (data ?? []).map(e => ({ value: e.id as string, label: e.titre as string, sub: dateFr(e.date_debut as string | null), image: (e.image_url as string | null) ?? null }))

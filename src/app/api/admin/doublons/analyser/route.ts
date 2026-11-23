@@ -4,6 +4,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { getPrompt } from '@/lib/prompts-ia'
 import { safeJsonParse } from '@/lib/safeJsonParse'
 import { requireAdmin } from '@/lib/server-auth'
+import { filtrePasTermine } from '@/lib/cinema'
 
 export const maxDuration = 60
 
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
     .select('id, titre, date_debut, description, doublon_verifie, lieux(nom, commune)')
     .eq('statut', 'publie')
     .eq('doublon_verifie', false)
+    .or(filtrePasTermine())   // les passés gardés en base n'ont plus d'enjeu
     .order('date_debut', { ascending: true })
     .limit(200)
 

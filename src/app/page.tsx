@@ -237,7 +237,6 @@ export default function HomePage() {
   const [selectedCats, setSelectedCats] = useState<ProduitCategorie[]>([])
   const [producerSearch, setProducerSearch] = useState('')
   const [loading, setLoading]       = useState(true)
-  const [masquerPasses, setMasquerPasses] = useState(true)
   // Fond de carte global (piloté par l'admin via config.map_provider) — défaut Google
   const [mapProvider, setMapProvider] = useState<'google' | 'maplibre'>('google')
 
@@ -1252,15 +1251,14 @@ export default function HomePage() {
    * à chaque changement de territoire. Elles sont globales et ne bougent
    * qu'au geste d'un admin : une lecture au montage suffit.
    *
-   * Une clé absente garde son défaut historique : masquer les passés, Google,
+   * Une clé absente garde son défaut historique : Google,
    * feuille qui descend, liste qui ne suit pas, regroupement normal.
    */
   useEffect(() => {
     supabase.from('config').select('key, value')
-      .in('key', ['masquer_passes', 'map_provider', CLE_CONFIG_LISTE_SUIT, 'carte_feuille_descend', CLE_CONFIG_REGROUPEMENT])
+      .in('key', ['map_provider', CLE_CONFIG_LISTE_SUIT, 'carte_feuille_descend', CLE_CONFIG_REGROUPEMENT])
       .then(({ data }) => {
         const v = new Map(((data ?? []) as { key: string; value: string | null }[]).map(r => [r.key, r.value]))
-        setMasquerPasses(v.get('masquer_passes') !== 'false')
         setMapProvider(v.get('map_provider') === 'maplibre' ? 'maplibre' : 'google')
         setListeSuitTous(v.get(CLE_CONFIG_LISTE_SUIT) === 'tous')
         setFeuilleDescend(v.get('carte_feuille_descend') !== 'false')
@@ -1340,7 +1338,7 @@ export default function HomePage() {
     } catch { /* rien a corriger */ }
   }, [slugTerritoire, territoireVu?.par_defaut])
 
-  // SWR sur /api/agenda — clé inclut les filtres (cat + quand + masquerPasses)
+  // SWR sur /api/agenda — clé inclut les filtres (cat + quand + date)
   // pour que chaque combinaison ait sa propre entrée cache. Le retour sur la
   // page (quitter / revenir) sert depuis cache mémoire SWR instantanément,
   // puis revalide en fond (revalidateOnFocus hérité du SWRProvider global).
@@ -1356,10 +1354,9 @@ export default function HomePage() {
     // Date précise du calendrier : prime sur `quand` côté API, et donne sa
     // propre entrée de cache CDN.
     if (filtres.date) params.set('date', filtres.date)
-    if (masquerPasses) params.set('masquerPasses', '1')
     if (slugTerritoire) params.set('territoire', slugTerritoire)
     return `/api/agenda?${params.toString()}`
-  }, [filtres, masquerPasses, territoirePret, slugTerritoire])
+  }, [filtres, territoirePret, slugTerritoire])
 
   const { data: agendaData, isLoading: agendaLoadingRaw, mutate: mutateAgenda } = useSWR(agendaKey)
 
@@ -1382,10 +1379,9 @@ export default function HomePage() {
     const params = new URLSearchParams()
     params.set('quand', filtres.quand)
     if (filtres.date) params.set('date', filtres.date)
-    if (masquerPasses) params.set('masquerPasses', '1')
     if (slugTerritoire) params.set('territoire', slugTerritoire)
     return `/api/agenda?${params.toString()}`
-  }, [filtres.quand, filtres.date, masquerPasses, territoirePret, slugTerritoire])
+  }, [filtres.quand, filtres.date, territoirePret, slugTerritoire])
 
   const { data: agendaToutesCatsData } = useSWR(agendaKeyToutesCats)
 
@@ -2280,28 +2276,6 @@ export default function HomePage() {
                   }}>
                     <div style={{
                       position: 'absolute', top: 2, left: fixedMap ? 16 : 2,
-                      width: 18, height: 18, borderRadius: '50%',
-                      background: '#fff', transition: 'left 0.18s',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
-                    }} />
-                  </div>
-                </button>
-                <div style={{ height: 1, background: '#F0EAE0' }} />
-                <button
-                  onClick={() => setMasquerPasses(!masquerPasses)}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 14px', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
-                >
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>Masquer les événements passés</div>
-                    <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 2 }}>Cache les événements terminés.</div>
-                  </div>
-                  <div style={{
-                    width: 36, height: 22, borderRadius: 999,
-                    background: masquerPasses ? '#2D5A3D' : '#E5DDD2',
-                    position: 'relative', transition: 'background 0.18s', flexShrink: 0,
-                  }}>
-                    <div style={{
-                      position: 'absolute', top: 2, left: masquerPasses ? 16 : 2,
                       width: 18, height: 18, borderRadius: '50%',
                       background: '#fff', transition: 'left 0.18s',
                       boxShadow: '0 1px 2px rgba(0,0,0,0.2)',

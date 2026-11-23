@@ -154,8 +154,6 @@ export default function AdminDashboard() {
   const [demandesCount, setDemandesCount] = useState(0)
 
   // ── Config admin (sous-panel "config") ──
-  const [masquerPasses, setMasquerPasses]       = useState(false)
-  const [togglingConfig, setTogglingConfig]     = useState(false)
   const [maintenanceMode, setMaintenanceMode]   = useState(false)
   const [togglingMaint, setTogglingMaint]       = useState(false)
   const [mapProvider, setMapProvider]           = useState<'google' | 'maplibre'>('google')
@@ -232,13 +230,11 @@ export default function AdminDashboard() {
   }, [])
 
   const fetchConfig = useCallback(async () => {
-    const [{ data: cfg }, { data: subCfg }, { data: maintCfg }, { data: mapCfg }] = await Promise.all([
-      supabase.from('config').select('value').eq('key', 'masquer_passes').maybeSingle(),
+    const [{ data: subCfg }, { data: maintCfg }, { data: mapCfg }] = await Promise.all([
       supabase.from('config').select('value').eq('key', 'hub_subtitle').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'maintenance_mode').maybeSingle(),
       supabase.from('config').select('value').eq('key', 'map_provider').maybeSingle(),
     ])
-    setMasquerPasses(cfg?.value === 'true')
     setMaintenanceMode(maintCfg?.value === 'true')
     setMapProvider(mapCfg?.value === 'maplibre' ? 'maplibre' : 'google')
     const sub = subCfg?.value ?? 'Tout le village, à portée de main'
@@ -353,23 +349,6 @@ export default function AdminDashboard() {
   // ─────────────────────────────────────────────────────────
   // Actions
   // ─────────────────────────────────────────────────────────
-
-  const toggleMasquerPasses = async () => {
-    const next = !masquerPasses
-    setTogglingConfig(true)
-    const prev = masquerPasses
-    setMasquerPasses(next)  // optimistic
-    const res = await authedFetch('/api/admin/config', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: 'masquer_passes', value: next }),
-    })
-    if (!res.ok) {
-      setMasquerPasses(prev)  // rollback
-      toast.error('Échec sauvegarde')
-    }
-    setTogglingConfig(false)
-  }
 
   const toggleMaintenance = async () => {
     const next = !maintenanceMode
@@ -626,13 +605,6 @@ export default function AdminDashboard() {
                 </button>
               )
             })}
-            <label className="ml-auto flex items-center gap-2 text-xs text-gray-500 cursor-pointer select-none" onClick={toggleMasquerPasses}>
-              <div className={`relative w-8 h-4 rounded-full transition-colors ${masquerPasses ? 'bg-orange-500' : 'bg-gray-300'}`}>
-                <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all ${masquerPasses ? 'left-4' : 'left-0.5'}`} />
-              </div>
-              Masquer passés
-              {togglingConfig && <span className="text-xs text-gray-400">…</span>}
-            </label>
           </div>
 
           {/* Bandeau info contextuel */}
@@ -763,9 +735,6 @@ export default function AdminDashboard() {
           demandesCount={demandesCount}
           feedbacksCount={totalFeedbacks}
           // config
-          masquerPasses={masquerPasses}
-          togglingConfig={togglingConfig}
-          onToggleMasquer={toggleMasquerPasses}
           maintenanceMode={maintenanceMode}
           togglingMaint={togglingMaint}
           onToggleMaintenance={toggleMaintenance}
@@ -1036,9 +1005,6 @@ interface ParamProps {
   demandesCount: number
   feedbacksCount: number
   // config
-  masquerPasses: boolean
-  togglingConfig: boolean
-  onToggleMasquer: () => void
   maintenanceMode: boolean
   togglingMaint: boolean
   onToggleMaintenance: () => void
@@ -1120,17 +1086,6 @@ function ParametersSection(p: ParamProps) {
       {/* Panels */}
       {p.panel === 'config' && (
         <div className="p-4 max-w-md mx-auto space-y-4">
-          <div className="bg-white rounded-2xl p-4 shadow-sm">
-            <p className="font-bold text-[#2C1810] text-sm mb-3">Affichage agenda</p>
-            <label className="flex items-center gap-3 cursor-pointer select-none" onClick={p.onToggleMasquer}>
-              <div className={`relative w-10 h-6 rounded-full transition-colors ${p.masquerPasses ? 'bg-orange-500' : 'bg-gray-300'}`}>
-                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${p.masquerPasses ? 'left-5' : 'left-1'}`} />
-              </div>
-              <span className="text-sm text-[#2C1810]">Masquer les événements passés</span>
-              {p.togglingConfig && <span className="text-xs text-gray-400">…</span>}
-            </label>
-          </div>
-
           <div className="bg-white rounded-2xl p-4 shadow-sm border-2 border-orange-200">
             <p className="font-bold text-[#2C1810] text-sm mb-1">⚠️ Mode maintenance</p>
             <p className="text-xs text-gray-500 mb-3">
