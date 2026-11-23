@@ -27,16 +27,17 @@ export default function PageAgendaPublic({ titre, sousTitre, lienCarte, evenemen
   } : null
 
   return (
-    <main className="min-h-[100dvh] bg-creme px-4 pb-16 pt-5 font-inter text-texte">
+    <main className="min-h-[100dvh] bg-creme px-4 pb-28 pt-5 font-inter text-texte">
       {ld && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: enJsonLd(ld) }} />}
       <Link href="/" className="font-title text-[20px] font-extrabold text-primary no-underline">La Place</Link>
 
       <h1 className="m-0 mt-4 font-title text-[28px] leading-[1.1] text-texte" style={{ letterSpacing: '-0.02em' }}>{titre}</h1>
       <p className="m-0 mt-2 text-[15px] text-texte-doux">{sousTitre}</p>
 
+      {/* Flottant, toujours à portée : cette page sert à être trouvée, l'app est la vraie destination. */}
       <Link
         href={lienCarte}
-        className="mt-4 flex h-12 items-center justify-center gap-2 rounded-full bg-primary text-[15px] font-extrabold text-white no-underline"
+        className="fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-1/2 z-50 flex h-12 w-[calc(100%-32px)] max-w-[480px] -translate-x-1/2 items-center justify-center gap-2 rounded-full bg-primary text-[15px] font-extrabold text-white no-underline shadow-[0_6px_20px_rgba(0,0,0,0.22)]"
       >
         <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z" /><path d="M9 4v14M15 6v14" />
