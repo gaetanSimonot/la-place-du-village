@@ -65,7 +65,11 @@ function renderContact(contact: string): React.ReactNode {
  * rendu est la fiche complète — c'est ce HTML que lisent les moteurs — et le
  * téléphone n'attend plus la base pour l'afficher.
  */
-export default function EvenementPageClient({ id, initial, passe }: { id: string; initial?: Evenement; passe?: SuitePasse }) {
+export default function EvenementPageClient({ id, initial, passe, liensLocaux }: {
+  id: string; initial?: Evenement; passe?: SuitePasse
+  /** Pages d'entrée de la commune et du territoire (« Concerts à Ganges »…). */
+  liensLocaux?: { href: string; label: string }[]
+}) {
   const [evt, setEvt]           = useState<Evenement | null>(initial ?? null)
   const [linkedEtab, setLinkedEtab] = useState<{ id: string; nom: string; description_courte: string | null; photos: string[] | null; commune: string | null; user_id?: string | null } | null>(null)
   const [loading, setLoading]   = useState(!initial)
@@ -294,6 +298,19 @@ export default function EvenementPageClient({ id, initial, passe }: { id: string
               </Link>
             </p>
           ) : null}
+          {/* Les pages d'entrée de la commune et du territoire : discret, mais
+              c'est par ces liens que Google relie les fiches aux pages
+              « Concerts à Ganges », « Que faire dans les Cévennes ». */}
+          {liensLocaux && liensLocaux.length > 0 && (
+            <p className="m-0 mt-2 text-[12px] leading-[1.5] text-texte-doux">
+              {liensLocaux.map((l, i) => (
+                <span key={l.href}>
+                  {i > 0 && ' · '}
+                  <Link href={l.href} className="font-semibold text-texte-doux underline decoration-black/20 underline-offset-2">{l.label}</Link>
+                </span>
+              ))}
+            </p>
+          )}
         </div>
 
         {/* Info cards stack */}

@@ -9,7 +9,7 @@ import { imageEvenement } from '@/lib/imageEvenement'
 import { idEvenementDe, lienEvenement } from '@/lib/lienEvenement'
 import { SITE, communeDe, enJsonLd, jsonLdEvenement, slugCommune } from '@/lib/seo'
 import { estTermine, filtrePasTermine } from '@/lib/cinema'
-import { communesAVenir, aLaCommune, dansLeTerritoire, SEUIL_COMMUNE } from '@/lib/agendaPublic'
+import { communesAVenir, aLaCommune, dansLeTerritoire, liensDeLaFiche, SEUIL_COMMUNE } from '@/lib/agendaPublic'
 import { territoireParDefaut, territoireParId } from '@/lib/territoires'
 import type { SuitePasse } from '@/components/EvenementPasse'
 import EvenementPageClient from './client'
@@ -158,10 +158,13 @@ export default async function EvenementPage({ params, searchParams }: Props) {
 
   const ld = jsonLdEvenement(evt, `${SITE}${voulu}`, imageEvenement(evt))
   const passe = estTermine(evt) ? await suiteDUnPasse(evt) : undefined
+  // « Concerts à Ganges · Que faire à Ganges · Que faire dans les Cévennes » :
+  // vers les pages d'entrée annoncées. Une panne ici ne doit pas casser la fiche.
+  const liensLocaux = await liensDeLaFiche(communeDe(evt.lieux), evt.categorie, evt.territoire_id).catch(() => [])
   return (
     <>
       {ld && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: enJsonLd(ld) }} />}
-      <EvenementPageClient id={id} initial={affichable as unknown as Evenement} passe={passe} />
+      <EvenementPageClient id={id} initial={affichable as unknown as Evenement} passe={passe} liensLocaux={liensLocaux} />
     </>
   )
 }
