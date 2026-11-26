@@ -70,5 +70,30 @@ export async function communesAVenir(): Promise<Commune[]> {
   return Array.from(parSlug.values()).sort((a, b) => b.evenements.length - a.evenements.length)
 }
 
-/** Une commune n'a sa page qu'à partir de deux événements à venir : une page d'un seul lien n'apprend rien. */
+/**
+ * Une commune n'entre au sitemap qu'à partir de deux événements à venir : une
+ * page d'un seul lien n'apprend rien. En dessous, sa page existe toujours
+ * (« rien de prévu pour l'instant ») : une commune qui oscille autour du seuil
+ * ne doit pas laisser à Google une adresse du sitemap tombée en 404.
+ */
 export const SEUIL_COMMUNE = 2
+
+/**
+ * Le nom d'une commune connue de La Place (au moins un lieu chez elle), d'après
+ * son adresse de page. null pour une adresse qui ne correspond à rien : 404.
+ */
+export async function communeConnue(slug: string): Promise<string | null> {
+  // Par pages de 1000 : Supabase ne rend pas plus d'un coup.
+  for (let debut = 0; ; debut += 1000) {
+    const { data } = await supabaseAdmin
+      .from('lieux')
+      .select('commune, adresse')
+      .order('id')
+      .range(debut, debut + 999)
+    for (const l of data ?? []) {
+      const nom = communeDe(l)
+      if (nom && slugCommune(nom) === slug) return nom
+    }
+    if (!data || data.length < 1000) return null
+  }
+}
