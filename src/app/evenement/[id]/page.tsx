@@ -51,6 +51,29 @@ const lire = cache(async (id: string): Promise<Ligne | null> => {
 const publique = (e: Ligne) =>
   e.statut === 'publie' && (!e.publish_at || Date.parse(e.publish_at) <= Date.now())
 
+/** Commune comparée sans casse ni accents : « Valleraugue » = « Valléraugue ». */
+const plat = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+
+/**
+ * Le titre lu par GOOGLE : le type en toutes lettres et la commune, que
+ * l'emoji ne dit pas, en tête (Google coupe les titres longs par la fin) :
+ * « Concert à Ganges : Punky Putois Party ». Le type est omis s'il est déjà
+ * dans le nom (« Marché de Noël » ; accents comptés : « marche » n'est pas
+ * « marché »), ou si c'est « Autre » ; la commune aussi. Les aperçus de
+ * partage (WhatsApp…) gardent l'emoji.
+ */
+function titreGoogle(titre: string, categorie: Categorie, commune: string | null): string {
+  const type = categorie === 'sante_bien_etre' ? 'Bien-être'
+    : categorie === 'autre' ? null
+    : (CATEGORIES[categorie] ?? CATEGORIES.autre).label
+  const mot = type && !titre.toLowerCase().includes(type.toLowerCase()) ? type : null
+  const lieu = commune && !plat(titre).includes(plat(commune)) ? commune : null
+  if (mot && lieu) return `${mot} ${aLaCommune(lieu)} : ${titre}`
+  if (mot) return `${mot} : ${titre}`
+  if (lieu) return `${titre} — ${lieu}`
+  return titre
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id: param } = await params
   const evt = await lire(idEvenementDe(param))
@@ -66,7 +89,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const imageUrl = evt.image_url ?? `${SITE}/logo.png`
 
   return {
-    title: `${cat.emoji} ${evt.titre} — La Place`,
+    title: `${titreGoogle(evt.titre, (CATEGORIES[evt.categorie as Categorie] ? evt.categorie : 'autre') as Categorie, commune)} — La Place`,
     description,
     alternates: { canonical: url },
     openGraph: {
