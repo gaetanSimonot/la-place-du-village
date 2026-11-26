@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -11,6 +11,7 @@ import AnnonceContactModal from '@/components/AnnonceContactModal'
 import BottomNavBar, { NAV_H } from '@/components/BottomNavBar'
 import FeatureButton, { FeatureModal } from '@/components/FeatureButton'
 import ImageLightbox from '@/components/ImageLightbox'
+import { useTirerPourAgrandir } from '@/hooks/useTirerPourAgrandir'
 import { useSmartBack } from '@/hooks/useSmartBack'
 import {
   getPrixAffiche,
@@ -99,6 +100,9 @@ export default function AnnoncePageClient({ id }: Props) {
   const [boostModalOpen, setBoostModalOpen]   = useState(false)
   const [contactModalOpen, setContactModalOpen] = useState(false)
   const [lightboxOpen, setLightboxOpen]         = useState(false)
+  // Même loupe en tirant la fiche vers le bas quand elle est tout en haut.
+  const heroRef = useRef<HTMLDivElement>(null)
+  useTirerPourAgrandir(heroRef, () => setLightboxOpen(true), !loading && !!annonce && !!photoPrincipale(annonce) && !lightboxOpen)
 
   // Détection ?just_created=1 (post-création → propose boost)
   useEffect(() => {
@@ -354,7 +358,7 @@ export default function AnnoncePageClient({ id }: Props) {
       </div>
 
       {/* Photo hero — plus grand, dégradé double */}
-      <div style={{ position: 'relative', height: 340, backgroundColor: '#F0EBE3', overflow: 'hidden' }}>
+      <div ref={heroRef} style={{ position: 'relative', height: 340, backgroundColor: '#F0EBE3', overflow: 'hidden' }}>
         {photos.length > 0
           ? <img
               src={photos[photoIdx]}

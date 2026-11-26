@@ -14,6 +14,7 @@ import { CATEGORIES } from '@/lib/categories'
 import EtabEditDrawer from '@/components/EtabEditDrawer'
 import EtabProductsSection from '@/components/EtabProductsSection'
 import ImageLightbox from '@/components/ImageLightbox'
+import { useTirerPourAgrandir } from '@/hooks/useTirerPourAgrandir'
 import AlAfficheEtab from '@/components/cinema/AlAfficheEtab'
 import type { Etablissement } from '@/lib/types'
 import { can, toUserContext } from '@/lib/capabilities'
@@ -132,6 +133,9 @@ export default function EtablissementPageClient({ id, onBack, initial }: { id: s
   const [photoIdx, setPhotoIdx]     = useState(0)
   /** Loupe sur la photo regardée — le carrousel garde le balayage. */
   const [zoomOuvert, setZoomOuvert] = useState(false)
+  // Même loupe en tirant la fiche vers le bas quand elle est tout en haut.
+  const heroRef = useRef<HTMLDivElement | null>(null)
+  useTirerPourAgrandir(heroRef, () => setZoomOuvert(true), !loading && (etab?.photos?.length ?? 0) > 0 && !zoomOuvert)
   /**
    * Comment chaque photo occupe le cadre. Rempli au chargement de l'image,
    * parce qu'on ne connaît ses proportions qu'à ce moment-là.
@@ -433,7 +437,7 @@ export default function EtablissementPageClient({ id, onBack, initial }: { id: s
       )}
 
       {/* Photo / Carousel swipable */}
-      <div style={{ position: 'relative', height: 290, backgroundColor: typeInfo.bg, overflow: 'hidden' }}>
+      <div ref={heroRef} style={{ position: 'relative', height: 290, backgroundColor: typeInfo.bg, overflow: 'hidden' }}>
         {/* Floating top actions */}
         <div style={{ position: 'absolute', top: 48, left: 0, right: 0, padding: '0 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 6 }}>
           <button onClick={() => onBack ? onBack() : goBack()} aria-label="Retour" style={{

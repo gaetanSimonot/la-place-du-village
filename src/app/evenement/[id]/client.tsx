@@ -10,6 +10,7 @@ import { lireApercu } from '@/lib/apercuEvenement'
 import { lienEvenement } from '@/lib/lienEvenement'
 import { vignetteDe } from '@/lib/vignettes'
 import ImageLightbox from '@/components/ImageLightbox'
+import { useTirerPourAgrandir } from '@/hooks/useTirerPourAgrandir'
 import CommentSheet from '@/components/CommentSheet'
 import EventEditDrawer from '@/components/EventEditDrawer'
 import { useAdminSession } from '@/hooks/useAdminSession'
@@ -81,6 +82,10 @@ export default function EvenementPageClient({ id, initial, passe }: { id: string
   const { user } = useAuth()
   const { openAuthModal } = useAuthModal()
   const goBack = useSmartBack('/')
+  // Affiche en grand : au toucher, ou en tirant la fiche vers le bas tout en haut.
+  const [afficheOuverte, setAfficheOuverte] = useState(false)
+  const heroRef = useRef<HTMLDivElement>(null)
+  useTirerPourAgrandir(heroRef, () => setAfficheOuverte(true), !loading && !!evt?.image_url && !afficheOuverte)
 
   // Admin arrivant depuis une notif "correction proposée" (?correction=…) :
   // on charge la première correction en attente et on ouvre le modal en revue.
@@ -180,13 +185,30 @@ export default function EvenementPageClient({ id, initial, passe }: { id: string
           bg-[#F0EBE3] visible) où atterrissait le badge catégorie → effet
           "bande grise" entre image et card blanche. */}
       <div
+        ref={heroRef}
         className="pcv-fiche-hero relative h-[220px] w-full overflow-hidden bg-[#F0EBE3]"
         // La miniature, déjà en cache depuis la liste, tient la place pendant
         // que l'affiche en pleine taille arrive par-dessus.
         style={vignetteHero ? { backgroundImage: `url("${vignetteHero}")`, backgroundSize: 'cover', backgroundPosition: evt.image_position ?? '50% 50%' } : undefined}
       >
         {evt.image_url ? (
-          <ImageLightbox src={evt.image_url} alt={evt.titre} objectPosition={evt.image_position ?? '50% 50%'} />
+          <>
+            {/* h-full (et non 220px fixes) : l'image suit le bandeau quand on
+                le tire vers le bas (useTirerPourAgrandir). */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={evt.image_url}
+              alt={evt.titre}
+              onClick={() => setAfficheOuverte(true)}
+              className="block h-full w-full cursor-zoom-in object-cover"
+              style={{ objectPosition: evt.image_position ?? '50% 50%' }}
+            />
+            <ImageLightbox
+              src={evt.image_url}
+              alt={evt.titre}
+              controlled={{ open: afficheOuverte, onClose: () => setAfficheOuverte(false) }}
+            />
+          </>
         ) : imageDeRepli ? (
           /* Illustration générique de la catégorie : pas de lightbox, ce n'est
              pas une photo de CET événement — l'agrandir n'apprendrait rien. */
