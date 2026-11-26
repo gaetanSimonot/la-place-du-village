@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { dateParis, estTermine, filtrePasTermine } from '@/lib/cinema'
 import { lienEvenement } from '@/lib/lienEvenement'
 import { ficheRemplie } from '@/lib/etablissementPublic'
-import { communesAVenir, SEUIL_COMMUNE } from '@/lib/agendaPublic'
+import { communesAVenir, pagesLocalesAnnoncees, SEUIL_COMMUNE } from '@/lib/agendaPublic'
 import { territoiresActifs } from '@/lib/territoires'
 import { SITE } from '@/lib/seo'
 
@@ -18,7 +18,8 @@ export const revalidate = 3600
  *  - les films qui ont une séance à venir, tous les spectacles ;
  *  - les commerces REMPLIS (description ou photo) — les autres restent dans
  *    l'app mais ne sont pas proposés ;
- *  - les pages « Ce week-end » et « Que faire à … ».
+ *  - les pages d'entrée : « Ce week-end », « Que faire à … », et la
+ *    hiérarchie territoire / type (voir agendaPublic.ts) au-dessus du seuil.
  *
  * `lastModified` n'est donné que quand la base le connaît vraiment : Google
  * ignore un sitemap qui ment sur ses dates.
@@ -37,6 +38,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
   for (const c of await communesAVenir()) {
     if (c.evenements.length >= SEUIL_COMMUNE) out.push({ url: `${SITE}/que-faire/${c.slug}`, changeFrequency: 'daily', priority: 0.7 })
+  }
+  // « Que faire dans les Cévennes », « Concerts dans les Cévennes »,
+  // « Concerts à Ganges » : seulement celles qui passent leur seuil.
+  for (const p of await pagesLocalesAnnoncees()) {
+    out.push({ url: `${SITE}${p}`, changeFrequency: 'daily', priority: p.startsWith('/agenda/') ? 0.8 : 0.6 })
   }
 
   const { data: evts } = await supabaseAdmin

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import PageAgendaPublic from '@/components/PageAgendaPublic'
-import { evenementsDuWeekEnd, dansLeTerritoire } from '@/lib/agendaPublic'
+import { evenementsDuWeekEnd, dansLeTerritoire, titreTerritoire } from '@/lib/agendaPublic'
 import { getDateRange } from '@/lib/filters'
 import { territoireParSlug } from '@/lib/territoires'
 import { SITE } from '@/lib/seo'
@@ -60,6 +60,7 @@ export default async function CeWeekEnd({ params }: Props) {
       lienCarte="/?mode=agenda&quand=ce_week_end"
       evenements={evts}
       vide="Rien d’annoncé pour ce week-end pour l’instant. La carte montre tout ce qui vient."
+      liens={[{ titre: 'Plus loin', liens: [{ href: `/agenda/${t.slug}`, label: titreTerritoire(t) }] }]}
     />
   )
 }

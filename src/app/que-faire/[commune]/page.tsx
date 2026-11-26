@@ -2,7 +2,7 @@ import { cache } from 'react'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import PageAgendaPublic from '@/components/PageAgendaPublic'
-import { communesAVenir, communeConnue, aLaCommune, SEUIL_COMMUNE } from '@/lib/agendaPublic'
+import { communesAVenir, communeConnue, aLaCommune, liensCommune, SEUIL_COMMUNE } from '@/lib/agendaPublic'
 import { SITE } from '@/lib/seo'
 
 /** Relue toutes les 15 min. */
@@ -52,6 +52,7 @@ export default async function QueFaire({ params }: Props) {
   const { commune } = await params
   const c = await lire(commune)
   if (!c) notFound()
+  const liens = await liensCommune(c.slug)
   return (
     <PageAgendaPublic
       titre={`Que faire ${aLaCommune(c.nom)} ?`}
@@ -59,6 +60,7 @@ export default async function QueFaire({ params }: Props) {
       lienCarte="/?mode=agenda"
       evenements={c.evenements}
       vide="Les rendez-vous des communes voisines sont dans l'agenda : bouton « Voir sur la carte » ci-dessous."
+      liens={liens}
     />
   )
 }

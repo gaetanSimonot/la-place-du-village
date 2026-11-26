@@ -3,18 +3,23 @@ import EventCard from '@/components/EventCard'
 import { lienEvenement } from '@/lib/lienEvenement'
 import { enJsonLd, SITE } from '@/lib/seo'
 import type { Evenement } from '@/lib/types'
+import type { GroupeLiens } from '@/lib/agendaPublic'
 
 /**
  * Le gabarit des pages d'entrée depuis Google (« Ce week-end », « Que faire
  * à … ») : un titre, le bouton vers la carte, puis les cartes d'événements de
  * l'app, chacune menant à sa fiche. Rendu serveur : tout est dans le HTML.
  */
-export default function PageAgendaPublic({ titre, sousTitre, lienCarte, evenements, vide }: {
+export default function PageAgendaPublic({ titre, sousTitre, lienCarte, evenements, vide, titreListe, liens }: {
   titre: string
   sousTitre: string
   lienCarte: string
   evenements: Evenement[]
   vide: string
+  /** Intertitre au-dessus des cartes (page territoire : « Ce week-end »). */
+  titreListe?: string
+  /** Les pages voisines dans la hiérarchie (types, communes, territoire). */
+  liens?: GroupeLiens[]
 }) {
   // La liste, dite aux moteurs : chaque entrée pointe vers sa fiche.
   const ld = evenements.length ? {
@@ -45,6 +50,9 @@ export default function PageAgendaPublic({ titre, sousTitre, lienCarte, evenemen
         Voir sur la carte
       </Link>
 
+      {titreListe && evenements.length > 0 && (
+        <h2 className="m-0 mt-6 font-title text-[19px] text-texte">{titreListe}</h2>
+      )}
       {evenements.length === 0 ? (
         <p className="m-0 mt-8 text-[15px] text-texte-doux">{vide}</p>
       ) : (
@@ -52,6 +60,24 @@ export default function PageAgendaPublic({ titre, sousTitre, lienCarte, evenemen
           {evenements.map(e => <EventCard key={e.id} evenement={e} />)}
         </div>
       )}
+
+      {liens?.map(g => (
+        <nav key={g.titre} className="mt-8" aria-label={g.titre}>
+          <h2 className="m-0 font-title text-[17px] text-texte">{g.titre}</h2>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {g.liens.map(l => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className="inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-white px-3.5 py-2 text-[14px] font-semibold text-texte no-underline"
+              >
+                {l.label}
+                {l.n != null && <span className="text-[12px] font-normal text-texte-doux">{l.n}</span>}
+              </Link>
+            ))}
+          </div>
+        </nav>
+      ))}
     </main>
   )
 }
