@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import PageAgendaPublic from '@/components/PageAgendaPublic'
-import { evenementsDuWeekEnd, evenementsDuTerritoire, navTerritoire, suiteDuResume, titreTerritoire, dansLeTerritoire } from '@/lib/agendaPublic'
+import { evenementsDuWeekEnd, evenementsDuTerritoire, navTerritoire, suiteDuResume, titreTerritoire, dansLeTerritoire, territoirePublic } from '@/lib/agendaPublic'
 import { territoireParSlug } from '@/lib/territoires'
 import { SITE } from '@/lib/seo'
 
@@ -26,7 +26,7 @@ async function selection(slug: string) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { territoire: slug } = await params
   const t = await territoireParSlug(slug)
-  if (!t || !t.actif) return { title: 'La Place', robots: { index: false } }
+  if (!t || !t.actif || !territoirePublic(t)) return { title: 'La Place', robots: { index: false } }
   const n = (await evenementsDuTerritoire(t.slug)).length
   return {
     title: `${titreTerritoire(t)} Agenda, concerts, marchés, sorties — La Place`,
@@ -42,7 +42,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function AgendaTerritoire({ params }: Props) {
   const { territoire: slug } = await params
   const t = await territoireParSlug(slug)
-  if (!t || !t.actif) notFound()
+  if (!t || !t.actif || !territoirePublic(t)) notFound()
   const [sel, tous, nav] = await Promise.all([selection(t.slug), evenementsDuTerritoire(t.slug), navTerritoire(t, null)])
   return (
     <PageAgendaPublic

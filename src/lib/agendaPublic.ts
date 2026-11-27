@@ -62,8 +62,35 @@ const evenementsAVenir = cache(async (): Promise<EvenementLocal[]> => {
     .order('date_debut')
     .order('heure', { nullsFirst: false })
     .limit(2000)
-  return (data ?? []) as unknown as EvenementLocal[]
+  return ordreDeLAgenda((data ?? []) as unknown as EvenementLocal[])
 })
+
+/**
+ * LE MÊME ORDRE QUE L'AGENDA DE L'APP en « tout » (api/agenda/route.ts) :
+ * ce qui a lieu à une date — ce soir, samedi — d'abord, par date puis heure
+ * (sans heure en dernier) ; ce qui est INSTALLÉ (plus d'une semaine : une
+ * expo, une permanence, « jusqu'au 31 décembre ») ferme la marche, le plus
+ * court d'abord. Recopié de la route : si elle change, changer ici aussi.
+ */
+const JOURS_INSTALLE = 7
+function dureeEnJours(e: { date_debut?: string | null; date_fin?: string | null }): number {
+  if (!e.date_debut || !e.date_fin || e.date_fin === e.date_debut) return 0
+  const d1 = Date.parse(`${e.date_debut}T12:00:00Z`), d2 = Date.parse(`${e.date_fin}T12:00:00Z`)
+  return Number.isNaN(d1) || Number.isNaN(d2) ? 0 : Math.round((d2 - d1) / 86_400_000)
+}
+function ordreDeLAgenda<T extends Evenement>(evts: T[]): T[] {
+  return [...evts].sort((a, b) => {
+    const ja = dureeEnJours(a), jb = dureeEnJours(b)
+    const ia = ja >= JOURS_INSTALLE, ib = jb >= JOURS_INSTALLE
+    if (ia !== ib) return ia ? 1 : -1
+    if (ia && ja !== jb) return ja - jb
+    const da = String(a.date_debut ?? ''), db = String(b.date_debut ?? '')
+    if (da !== db) return da.localeCompare(db)
+    const ha = String(a.heure ?? ''), hb = String(b.heure ?? '')
+    if (!ha !== !hb) return ha ? -1 : 1
+    return ha.localeCompare(hb)
+  })
+}
 
 /**
  * Les communes qui ont des événements à venir (trois mois), avec ces
@@ -92,23 +119,48 @@ export async function communesAVenir(): Promise<Commune[]> {
 export const SEUIL_COMMUNE = 2
 
 /**
- * Le nom d'une commune connue de La Place (au moins un lieu chez elle), d'après
- * son adresse de page. null pour une adresse qui ne correspond à rien : 404.
+ * Une commune connue de La Place (au moins un lieu chez elle) qui n'a rien
+ * à venir : son nom, et son territoire d'après ses événements passés (null
+ * s'il n'en a jamais eu). null pour une adresse qui ne correspond à rien : 404.
  */
-export async function communeConnue(slug: string): Promise<string | null> {
+export async function communeConnue(slug: string): Promise<{ nom: string; territoire: string | null } | null> {
+  let nom: string | null = null
+  const ids: string[] = []
   // Par pages de 1000 : Supabase ne rend pas plus d'un coup.
   for (let debut = 0; ; debut += 1000) {
     const { data } = await supabaseAdmin
       .from('lieux')
-      .select('commune, adresse')
+      .select('id, commune, adresse')
       .order('id')
       .range(debut, debut + 999)
     for (const l of data ?? []) {
-      const nom = communeDe(l)
-      if (nom && slugCommune(nom) === slug) return nom
+      const n = communeDe(l)
+      if (n && slugCommune(n) === slug) { nom ??= n; ids.push(l.id as string) }
     }
-    if (!data || data.length < 1000) return null
+    if (!data || data.length < 1000) break
   }
+  if (!nom) return null
+  const { data: evts } = await supabaseAdmin
+    .from('evenements').select('territoire_id').in('lieu_id', ids.slice(0, 200)).limit(500)
+  const terr = await slugTerritoireDe()
+  const votes = new Map<string, number>()
+  for (const e of evts ?? []) { const t = terr(e.territoire_id as string | null); if (t) votes.set(t, (votes.get(t) ?? 0) + 1) }
+  return { nom, territoire: Array.from(votes.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null }
+}
+
+/**
+ * OUVERT AU PUBLIC : pour l'instant le seul territoire par défaut (les
+ * Cévennes). Les autres (Pau) ne se voient dans l'app qu'en admin : ils n'ont
+ * ni pages d'entrée, ni place au sitemap, ni lien depuis les fiches. Le jour
+ * où Pau ouvre, c'est cette règle qui change.
+ */
+export const territoirePublic = (t: { par_defaut: boolean } | null | undefined) => !!t?.par_defaut
+export async function territoiresPublics(): Promise<Territoire[]> {
+  return (await territoiresActifs()).filter(territoirePublic)
+}
+/** Une commune a des pages si son territoire est public (inconnu = public, comme l'app). */
+export async function communePublique(territoire: string | null): Promise<boolean> {
+  return territoire == null || (await territoiresPublics()).some(t => t.slug === territoire)
 }
 
 /* ── La hiérarchie des pages d'entrée ──────────────────────────────────────
@@ -246,8 +298,9 @@ export interface Lien { href: string; label: string; n?: number }
 export interface GroupeLiens { titre: string; liens: Lien[] }
 
 const groupes = (gs: GroupeLiens[]) => gs.filter(g => g.liens.length > 0)
+/** Le territoire d'une page ou d'un lien — PUBLIC seulement : on ne pointe jamais vers Pau. */
 const territoireDeSlug = async (slug: string | null): Promise<Territoire | null> =>
-  slug ? (await territoiresActifs()).find(t => t.slug === slug) ?? null : null
+  slug ? (await territoiresPublics()).find(t => t.slug === slug) ?? null : null
 
 /** « de Ganges », « du Vigan », « des Plantiers ». */
 export function deLaCommune(nom: string): string {
@@ -331,7 +384,8 @@ export async function navTerritoire(t: Territoire, type: TypeSortie | null): Pro
 export async function liensDeLaFiche(commune: string | null, categorie: string | null, territoireId: string | null): Promise<Lien[]> {
   const carte = await carteLocale()
   const t = await territoireDeSlug((await slugTerritoireDe())(territoireId))
-  const c = commune ? carte.communes.find(x => x.slug === slugCommune(commune)) : undefined
+  const trouvee = commune ? carte.communes.find(x => x.slug === slugCommune(commune)) : undefined
+  const c = trouvee && await communePublique(trouvee.territoire) ? trouvee : undefined
   const type = typeDeCategorie(categorie)
   const out: Lien[] = []
   if (c && type && typeCommuneAnnonce(c, type.cat)) out.push({ href: `/que-faire/${c.slug}/${type.slug}`, label: `${type.nom} ${aLaCommune(c.nom)}` })
@@ -344,12 +398,32 @@ export async function liensDeLaFiche(commune: string | null, categorie: string |
 export async function pagesLocalesAnnoncees(): Promise<string[]> {
   const carte = await carteLocale()
   const out: string[] = []
-  for (const t of await territoiresActifs()) {
+  const publics = await territoiresPublics()
+  for (const t of publics) {
     out.push(`/agenda/${t.slug}`)
     for (const ty of TYPES_SORTIE) if (typeTerritoireAnnonce(carte, t.slug, ty.cat)) out.push(`/agenda/${t.slug}/${ty.slug}`)
   }
   for (const c of carte.communes) {
+    if (c.territoire != null && !publics.some(t => t.slug === c.territoire)) continue
     for (const ty of TYPES_SORTIE) if (typeCommuneAnnonce(c, ty.cat)) out.push(`/que-faire/${c.slug}/${ty.slug}`)
   }
   return out
+}
+
+/**
+ * La commune d'une page « Que faire à X » (et « Concerts à X ») : ses
+ * événements à venir, ou aucun (« rien de prévu ») si elle est connue mais
+ * calme. null — donc 404 — si l'adresse ne correspond à rien, ou si la
+ * commune est dans un territoire pas encore ouvert au public (Pau).
+ */
+export async function communeDePage(slug: string): Promise<Commune | null> {
+  const c = (await communesAVenir()).find(x => x.slug === slug)
+  if (c) return (await communePublique(await territoireDeLaCommune(slug))) ? c : null
+  const k = await communeConnue(slug)
+  return k && (await communePublique(k.territoire)) ? { nom: k.nom, slug, evenements: [] } : null
+}
+
+/** Le territoire (slug) d'une commune qui a des événements à venir, sinon null. */
+export async function territoireDeLaCommune(slug: string): Promise<string | null> {
+  return (await carteLocale()).communes.find(c => c.slug === slug)?.territoire ?? null
 }

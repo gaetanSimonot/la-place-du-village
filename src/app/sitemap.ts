@@ -3,8 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { dateParis, estTermine, filtrePasTermine } from '@/lib/cinema'
 import { lienEvenement } from '@/lib/lienEvenement'
 import { ficheRemplie } from '@/lib/etablissementPublic'
-import { communesAVenir, pagesLocalesAnnoncees, SEUIL_COMMUNE } from '@/lib/agendaPublic'
-import { territoiresActifs } from '@/lib/territoires'
+import { communesAVenir, communePublique, pagesLocalesAnnoncees, territoireDeLaCommune, territoiresPublics, SEUIL_COMMUNE } from '@/lib/agendaPublic'
 import { SITE } from '@/lib/seo'
 
 /** Relu toutes les heures. */
@@ -33,11 +32,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE}/theatre`, changeFrequency: 'weekly', priority: 0.6 },
   ]
 
-  for (const t of await territoiresActifs()) {
+  // Territoires OUVERTS AU PUBLIC seulement : Pau n'a pas de pages d'entrée.
+  for (const t of await territoiresPublics()) {
     out.push({ url: `${SITE}/ce-week-end/${t.slug}`, changeFrequency: 'daily', priority: 0.8 })
   }
   for (const c of await communesAVenir()) {
-    if (c.evenements.length >= SEUIL_COMMUNE) out.push({ url: `${SITE}/que-faire/${c.slug}`, changeFrequency: 'daily', priority: 0.7 })
+    if (c.evenements.length < SEUIL_COMMUNE) continue
+    if (!(await communePublique(await territoireDeLaCommune(c.slug)))) continue
+    out.push({ url: `${SITE}/que-faire/${c.slug}`, changeFrequency: 'daily', priority: 0.7 })
   }
   // « Que faire dans les Cévennes », « Concerts dans les Cévennes »,
   // « Concerts à Ganges » : seulement celles qui passent leur seuil.

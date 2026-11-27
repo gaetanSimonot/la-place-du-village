@@ -2,7 +2,7 @@ import { cache } from 'react'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import PageAgendaPublic from '@/components/PageAgendaPublic'
-import { communesAVenir, communeConnue, aLaCommune, navCommune, suiteDuResume, SEUIL_COMMUNE } from '@/lib/agendaPublic'
+import { communeDePage, aLaCommune, navCommune, suiteDuResume } from '@/lib/agendaPublic'
 import { SITE } from '@/lib/seo'
 
 /** Relue toutes les 15 min. */
@@ -12,15 +12,10 @@ type Props = { params: Promise<{ commune: string }> }
 
 /**
  * La commune et ses rendez-vous à venir. Sous le seuil, elle garde sa page
- * (avec ce qui reste, ou « rien de prévu ») ; seule une adresse qui ne
- * correspond à aucune commune connue donne un 404.
+ * (avec ce qui reste, ou « rien de prévu ») ; une adresse qui ne correspond
+ * à aucune commune connue, ou une commune de Pau (pas encore ouvert), → 404.
  */
-const lire = cache(async (slug: string) => {
-  const c = (await communesAVenir()).find(x => x.slug === slug)
-  if (c && c.evenements.length >= SEUIL_COMMUNE) return c
-  const nom = c?.nom ?? await communeConnue(slug)
-  return nom ? { nom, slug, evenements: c?.evenements ?? [] } : null
-})
+const lire = cache(communeDePage)
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { commune } = await params

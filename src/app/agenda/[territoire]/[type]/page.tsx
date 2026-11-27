@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import PageAgendaPublic from '@/components/PageAgendaPublic'
-import { evenementsDuTerritoire, navTerritoire, suiteDuResume, typeParSlug, dansLeTerritoire } from '@/lib/agendaPublic'
+import { evenementsDuTerritoire, navTerritoire, suiteDuResume, typeParSlug, dansLeTerritoire, territoirePublic } from '@/lib/agendaPublic'
 import { territoireParSlug } from '@/lib/territoires'
 import { SITE } from '@/lib/seo'
 
@@ -14,7 +14,7 @@ type Props = { params: Promise<{ territoire: string; type: string }> }
 async function lire(slug: string, typeSlug: string) {
   const type = typeParSlug(typeSlug)
   const t = await territoireParSlug(slug)
-  if (!type || !t || !t.actif) return null
+  if (!type || !t || !t.actif || !territoirePublic(t)) return null
   return { t, type, evenements: await evenementsDuTerritoire(t.slug, type.cat) }
 }
 

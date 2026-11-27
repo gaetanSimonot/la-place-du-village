@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import PageAgendaPublic from '@/components/PageAgendaPublic'
-import { evenementsDuWeekEnd, dansLeTerritoire, titreTerritoire } from '@/lib/agendaPublic'
+import { evenementsDuWeekEnd, dansLeTerritoire, titreTerritoire, territoirePublic } from '@/lib/agendaPublic'
 import { getDateRange } from '@/lib/filters'
 import { territoireParSlug } from '@/lib/territoires'
 import { SITE } from '@/lib/seo'
@@ -31,7 +31,7 @@ function joursDuWeekEnd(): string {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { territoire: slug } = await params
   const t = await territoireParSlug(slug)
-  if (!t || !t.actif) return { title: 'La Place', robots: { index: false } }
+  if (!t || !t.actif || !territoirePublic(t)) return { title: 'La Place', robots: { index: false } }
   const evts = await evenementsDuWeekEnd(t.slug)
   const titre = `Que faire ce week-end ${dansLeTerritoire(t)} ?`
   const exemples = evts.slice(0, 3).map(e => e.titre).join(', ')
@@ -51,7 +51,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function CeWeekEnd({ params }: Props) {
   const { territoire: slug } = await params
   const t = await territoireParSlug(slug)
-  if (!t || !t.actif) notFound()
+  if (!t || !t.actif || !territoirePublic(t)) notFound()
   const evts = await evenementsDuWeekEnd(t.slug)
   return (
     <PageAgendaPublic

@@ -9,7 +9,7 @@ import { imageEvenement } from '@/lib/imageEvenement'
 import { idEvenementDe, lienEvenement } from '@/lib/lienEvenement'
 import { SITE, communeDe, enJsonLd, jsonLdEvenement, slugCommune } from '@/lib/seo'
 import { estTermine, filtrePasTermine } from '@/lib/cinema'
-import { communesAVenir, aLaCommune, dansLeTerritoire, liensDeLaFiche, SEUIL_COMMUNE } from '@/lib/agendaPublic'
+import { communesAVenir, aLaCommune, communePublique, dansLeTerritoire, liensDeLaFiche, territoireDeLaCommune, territoirePublic, SEUIL_COMMUNE } from '@/lib/agendaPublic'
 import { territoireParDefaut, territoireParId } from '@/lib/territoires'
 import type { SuitePasse } from '@/components/EvenementPasse'
 import EvenementPageClient from './client'
@@ -180,10 +180,12 @@ async function suiteDUnPasse(evt: Ligne): Promise<SuitePasse> {
   const commune = communeDe(evt.lieux)
   const c = commune ? (await communesAVenir()).find(x => x.slug === slugCommune(commune)) : undefined
   if (c && c.evenements.length > 0) {
+    // Pas de lien vers une page de Pau : elles n'existent pas tant qu'il n'est pas ouvert.
+    const ouverte = await communePublique(await territoireDeLaCommune(c.slug))
     return {
       titre: `Prochainement ${aLaCommune(c.nom)}`,
       aVenir: c.evenements.slice(0, 5),
-      lienTout: c.evenements.length >= SEUIL_COMMUNE
+      lienTout: ouverte && c.evenements.length >= SEUIL_COMMUNE
         ? { href: `/que-faire/${c.slug}`, label: `Tout l'agenda ${aLaCommune(c.nom)}` }
         : null,
     }
@@ -200,6 +202,6 @@ async function suiteDUnPasse(evt: Ligne): Promise<SuitePasse> {
   return {
     titre: t ? `Prochainement ${dansLeTerritoire(t)}` : 'Prochainement',
     aVenir: (data ?? []) as unknown as Evenement[],
-    lienTout: t ? { href: `/ce-week-end/${t.slug}`, label: 'Que faire ce week-end ?' } : null,
+    lienTout: t && territoirePublic(t) ? { href: `/ce-week-end/${t.slug}`, label: 'Que faire ce week-end ?' } : null,
   }
 }

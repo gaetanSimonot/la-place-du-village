@@ -2,7 +2,7 @@ import { cache } from 'react'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import PageAgendaPublic from '@/components/PageAgendaPublic'
-import { communesAVenir, communeConnue, aLaCommune, categoriesDe, navCommune, suiteDuResume, typeParSlug } from '@/lib/agendaPublic'
+import { communeDePage, aLaCommune, categoriesDe, navCommune, suiteDuResume, typeParSlug } from '@/lib/agendaPublic'
 import { SITE } from '@/lib/seo'
 
 /** Relue toutes les 15 min. */
@@ -11,18 +11,16 @@ export const revalidate = 900
 type Props = { params: Promise<{ commune: string; type: string }> }
 
 /**
- * Un type dans une commune : « Concerts à Ganges ». Commune inconnue ou type
- * inconnu → 404 ; commune connue sans rien de ce type → la page reste,
- * « rien de prévu » (elle n'est simplement plus annoncée).
+ * Un type dans une commune : « Concerts à Ganges ». Commune inconnue, de Pau
+ * (pas encore ouvert) ou type inconnu → 404 ; commune connue sans rien de ce
+ * type → la page reste, « rien de prévu » (elle n'est simplement plus annoncée).
  */
 const lire = cache(async (slug: string, typeSlug: string) => {
   const type = typeParSlug(typeSlug)
   if (!type) return null
-  const c = (await communesAVenir()).find(x => x.slug === slug)
-  const nom = c?.nom ?? await communeConnue(slug)
-  if (!nom) return null
-  const tous = c?.evenements ?? []
-  return { nom, slug, type, tous: tous.length, evenements: tous.filter(e => categoriesDe(e).includes(type.cat)) }
+  const c = await communeDePage(slug)
+  if (!c) return null
+  return { nom: c.nom, slug, type, tous: c.evenements.length, evenements: c.evenements.filter(e => categoriesDe(e).includes(type.cat)) }
 })
 
 const titreDe = (p: { nom: string; type: { nom: string } }) => `${p.type.nom} ${aLaCommune(p.nom)}`
