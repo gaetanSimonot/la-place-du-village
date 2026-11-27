@@ -19,7 +19,7 @@ import type { EvenementCard } from '@/lib/types'
  * la liste comme avant. Écouteurs posés sur la fenêtre, touchmove non passif
  * pour couper le défilement natif pendant l'aperçu seulement.
  */
-const MAINTIEN_MS = 200   // doigt immobile avant que l'aperçu s'ouvre
+const MAINTIEN_MS = 110   // doigt immobile avant que l'aperçu s'ouvre (200 jugé lent, 27/11)
 const TOLERANCE_PX = 8    // au-delà, c'est un défilement : pas d'aperçu
 const DUREE_MS = 260      // ouverture / fermeture
 
@@ -82,7 +82,6 @@ export default function ApercuSousLeDoigt({ actif, evenements, children, style }
       poserDecalage(0)
       setOuvert({ evt, depart: { top: r.top, left: r.left, width: r.width, height: r.height }, phase: 'entre' })
       requestAnimationFrame(() => requestAnimationFrame(() => setOuvert(o => o ? { ...o, phase: 'ouvert' } : o)))
-      try { navigator.vibrate?.(8) } catch { /* pas de vibreur */ }
       const deja = cacheDetails.get(evt.id)
       if (deja) setDetails(deja)
       else {
