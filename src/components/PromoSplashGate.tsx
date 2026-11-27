@@ -38,7 +38,9 @@ import {
 /** Pages où un interstitiel commercial serait déplacé ou nuisible. */
 // '/evenement' : la fiche porte déjà la demande d'activation des
 // notifications. Deux interstitiels coup sur coup, c'est un de trop.
-const BLOCKED_PREFIXES = ['/admin', '/auth', '/reglages', '/cgu', '/mentions-legales', '/politique-confidentialite', '/newsletter', '/evenement']
+// '/que-faire', '/agenda', '/ce-week-end' : pages d'arrivée depuis Google. Un
+// plein écran à l'arrivée y est pénalisé (interstitiel intrusif sur mobile).
+const BLOCKED_PREFIXES = ['/admin', '/auth', '/reglages', '/cgu', '/mentions-legales', '/politique-confidentialite', '/newsletter', '/evenement', '/que-faire', '/agenda', '/ce-week-end']
 
 export default function PromoSplashGate() {
   const { user, profile, isAdmin, loading: authLoading } = useAuth()
