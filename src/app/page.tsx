@@ -1153,6 +1153,11 @@ export default function HomePage() {
       // cette garde, revenir sur Le village puis rafraîchir renvoyait sur la
       // carte, puisque la synchronisation écrit toujours ?mode=agenda.
       if (sp.get('tab') !== 'village') setNavTab('carte')
+      // « Voir sur la carte » depuis une page d'entrée (« Que faire à
+      // Ganges ») : même effet que le bouton de la liste. Lu une fois, puis
+      // effacé de l'adresse par la synchronisation ci-dessous.
+      const evt = sp.get('evt')
+      if (evt) { setSelectedId(evt); setSheetMode('half') }
     } else if (mode === 'annuaire') {
       setAppMode('annuaire')
       if (sp.get('tab') !== 'village') setNavTab('carte')
@@ -1216,7 +1221,7 @@ export default function HomePage() {
     // Préserve les autres query params éventuels (?tab=, etc. utilisés par d'autres flows)
     const current = new URLSearchParams(window.location.search)
     current.forEach((v, k) => {
-      if (k !== 'mode' && k !== 'cat' && k !== 'quand' && k !== 'ann' && k !== 'prodcat' && k !== 'q' && k !== 'tab') {
+      if (k !== 'mode' && k !== 'cat' && k !== 'quand' && k !== 'ann' && k !== 'prodcat' && k !== 'q' && k !== 'tab' && k !== 'evt') {
         sp.set(k, v)
       }
     })

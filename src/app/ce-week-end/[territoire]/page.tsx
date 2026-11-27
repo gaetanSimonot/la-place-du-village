@@ -56,10 +56,10 @@ export default async function CeWeekEnd({ params }: Props) {
   return (
     <PageAgendaPublic
       titre={`Que faire ce week-end ${dansLeTerritoire(t)} ?`}
-      sousTitre={`${joursDuWeekEnd().replace(/^./, c => c.toUpperCase())}${evts.length ? ` · ${evts.length} sortie${evts.length > 1 ? 's' : ''}` : ''}`}
-      lienCarte="/?mode=agenda&quand=ce_week_end"
+      resume={{ n: evts.length, suite: joursDuWeekEnd() }}
       evenements={evts}
       vide="Rien d’annoncé pour ce week-end pour l’instant. La carte montre tout ce qui vient."
+      ariane={[{ href: `/agenda/${t.slug}`, label: t.nom }]}
       liens={[{ titre: 'Plus loin', liens: [{ href: `/agenda/${t.slug}`, label: titreTerritoire(t) }] }]}
     />
   )

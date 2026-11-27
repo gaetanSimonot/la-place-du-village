@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import PageAgendaPublic from '@/components/PageAgendaPublic'
-import { evenementsDuWeekEnd, evenementsDuTerritoire, liensTerritoire, titreTerritoire, dansLeTerritoire } from '@/lib/agendaPublic'
+import { evenementsDuWeekEnd, evenementsDuTerritoire, navTerritoire, suiteDuResume, titreTerritoire, dansLeTerritoire } from '@/lib/agendaPublic'
 import { territoireParSlug } from '@/lib/territoires'
 import { SITE } from '@/lib/seo'
 
@@ -43,16 +43,19 @@ export default async function AgendaTerritoire({ params }: Props) {
   const { territoire: slug } = await params
   const t = await territoireParSlug(slug)
   if (!t || !t.actif) notFound()
-  const [sel, n, liens] = await Promise.all([selection(t.slug), evenementsDuTerritoire(t.slug), liensTerritoire(t)])
+  const [sel, tous, nav] = await Promise.all([selection(t.slug), evenementsDuTerritoire(t.slug), navTerritoire(t, null)])
   return (
     <PageAgendaPublic
       titre={titreTerritoire(t)}
-      sousTitre={n.length ? `${n.length} rendez-vous dans les trois prochains mois, commune par commune et par type.` : 'Rien d’annoncé pour l’instant.'}
-      lienCarte="/?mode=agenda"
+      resume={{ n: tous.length, suite: suiteDuResume(tous.length, nav.onglets) }}
       titreListe={sel.titre}
       evenements={sel.evenements}
       vide="Rien d’annoncé pour l’instant. La carte montre tout ce qui vient."
-      liens={liens}
+      {...nav}
+      liens={[
+        ...nav.liens,
+        { titre: 'Et aussi', liens: [{ href: `/ce-week-end/${t.slug}`, label: `Tout le week-end ${dansLeTerritoire(t)}` }] },
+      ]}
     />
   )
 }

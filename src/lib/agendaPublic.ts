@@ -249,66 +249,79 @@ const groupes = (gs: GroupeLiens[]) => gs.filter(g => g.liens.length > 0)
 const territoireDeSlug = async (slug: string | null): Promise<Territoire | null> =>
   slug ? (await territoiresActifs()).find(t => t.slug === slug) ?? null : null
 
-/** Sous « Que faire à X ? » : ses types, les communes autour, le territoire. */
-export async function liensCommune(slug: string): Promise<GroupeLiens[]> {
+/** « de Ganges », « du Vigan », « des Plantiers ». */
+export function deLaCommune(nom: string): string {
+  if (/^Le\s/i.test(nom)) return `du ${nom.slice(3)}`
+  if (/^Les\s/i.test(nom)) return `des ${nom.slice(4)}`
+  return `de ${nom}`
+}
+
+/**
+ * La navigation d'une page d'entrée, dans l'allure de l'agenda de l'app :
+ *  - `ariane` : le chemin au-dessus (Cévennes › Ganges) ;
+ *  - `onglets` : les pastilles de type EN HAUT — « Tout », puis chaque type
+ *    annoncé, chacune étant sa propre page (« Ateliers à Ganges ») ;
+ *  - `liens` : un seul petit bloc en bas (les communes autour, ou toutes les
+ *    communes sur une page territoire).
+ */
+export interface Onglet { href: string; label: string; n?: number; cat?: Categorie; actif?: boolean }
+export interface NavPage { ariane: Lien[]; onglets: Onglet[]; liens: GroupeLiens[] }
+
+/**
+ * La suite de la ligne « 33 événements · … », comme l'agenda de l'app :
+ * les trois types les plus fournis, ou ce qu'on dit d'une page vide.
+ */
+export function suiteDuResume(n: number, onglets: Onglet[], sinon = 'à venir'): string {
+  if (n === 0) return 'rien de prévu pour l’instant'
+  const types = onglets.filter(o => o.cat && !o.actif).sort((a, b) => (b.n ?? 0) - (a.n ?? 0)).slice(0, 3)
+  return types.length ? types.map(o => o.label.toLowerCase()).join(' · ') : sinon
+}
+
+/** « Que faire à X ? » (type null) ou « Concerts à X ». */
+export async function navCommune(slug: string, type: TypeSortie | null): Promise<NavPage> {
   const carte = await carteLocale()
   const c = carte.communes.find(x => x.slug === slug)
-  if (!c) return []
+  if (!c) return { ariane: [], onglets: [], liens: [] }
   const t = await territoireDeSlug(c.territoire)
-  return groupes([
-    { titre: `Par type ${aLaCommune(c.nom)}`, liens: TYPES_SORTIE.filter(ty => typeCommuneAnnonce(c, ty.cat))
-      .map(ty => ({ href: `/que-faire/${c.slug}/${ty.slug}`, label: ty.nom, n: c.types[ty.cat] })) },
-    { titre: 'Autour', liens: voisines(carte, c, communeAnnoncee)
-      .map(v => ({ href: `/que-faire/${v.slug}`, label: v.nom, n: v.n })) },
-    { titre: 'Plus loin', liens: t ? [{ href: `/agenda/${t.slug}`, label: titreTerritoire(t) }] : [] },
-  ])
+  return {
+    ariane: [
+      ...(t ? [{ href: `/agenda/${t.slug}`, label: t.nom }] : []),
+      ...(type ? [{ href: `/que-faire/${c.slug}`, label: c.nom }] : []),
+    ],
+    onglets: [
+      { href: `/que-faire/${c.slug}`, label: 'Tout', n: c.n, actif: !type },
+      ...TYPES_SORTIE.filter(ty => ty.slug === type?.slug || typeCommuneAnnonce(c, ty.cat))
+        .map(ty => ({ href: `/que-faire/${c.slug}/${ty.slug}`, label: ty.nom, n: c.types[ty.cat], cat: ty.cat, actif: ty.slug === type?.slug })),
+    ],
+    liens: groupes([type
+      ? { titre: `${type.nom} autour ${deLaCommune(c.nom)}`, liens: voisines(carte, c, v => typeCommuneAnnonce(v, type.cat))
+          .map(v => ({ href: `/que-faire/${v.slug}/${type.slug}`, label: v.nom, n: v.types[type.cat] })) }
+      : { titre: `Autour ${deLaCommune(c.nom)}`, liens: voisines(carte, c, communeAnnoncee)
+          .map(v => ({ href: `/que-faire/${v.slug}`, label: v.nom, n: v.n })) },
+    ]),
+  }
 }
 
-/** Sous « Concerts à X » : X et ses autres types, les concerts autour, le territoire. */
-export async function liensTypeCommune(slug: string, type: TypeSortie): Promise<GroupeLiens[]> {
+/** « Que faire dans les Cévennes ? » (type null) ou « Concerts dans les Cévennes ». */
+export async function navTerritoire(t: Territoire, type: TypeSortie | null): Promise<NavPage> {
   const carte = await carteLocale()
-  const c = carte.communes.find(x => x.slug === slug)
-  if (!c) return []
-  const t = await territoireDeSlug(c.territoire)
-  return groupes([
-    { titre: `Aussi ${aLaCommune(c.nom)}`, liens: [
-      ...(communeAnnoncee(c) ? [{ href: `/que-faire/${c.slug}`, label: `Que faire ${aLaCommune(c.nom)} ?`, n: c.n }] : []),
-      ...TYPES_SORTIE.filter(ty => ty.slug !== type.slug && typeCommuneAnnonce(c, ty.cat))
-        .map(ty => ({ href: `/que-faire/${c.slug}/${ty.slug}`, label: ty.nom, n: c.types[ty.cat] })),
-    ] },
-    { titre: `${type.nom} autour`, liens: voisines(carte, c, v => typeCommuneAnnonce(v, type.cat))
-      .map(v => ({ href: `/que-faire/${v.slug}/${type.slug}`, label: v.nom, n: v.types[type.cat] })) },
-    { titre: 'Plus loin', liens: t ? [
-      ...(typeTerritoireAnnonce(carte, t.slug, type.cat) ? [{ href: `/agenda/${t.slug}/${type.slug}`, label: `${type.nom} ${dansLeTerritoire(t)}` }] : []),
-      { href: `/agenda/${t.slug}`, label: titreTerritoire(t) },
-    ] : [] },
-  ])
-}
-
-/** Sous « Que faire dans les Cévennes ? » : toutes ses communes, tous ses types. */
-export async function liensTerritoire(t: Territoire): Promise<GroupeLiens[]> {
-  const carte = await carteLocale()
-  return groupes([
-    { titre: 'Par commune', liens: carte.communes.filter(c => c.territoire === t.slug && communeAnnoncee(c))
-      .sort((a, b) => b.n - a.n)
-      .map(c => ({ href: `/que-faire/${c.slug}`, label: c.nom, n: c.n })) },
-    { titre: 'Par type', liens: TYPES_SORTIE.filter(ty => typeTerritoireAnnonce(carte, t.slug, ty.cat))
-      .map(ty => ({ href: `/agenda/${t.slug}/${ty.slug}`, label: ty.nom, n: carte.territoires[t.slug]?.types[ty.cat] })) },
-    { titre: 'Et aussi', liens: [{ href: `/ce-week-end/${t.slug}`, label: `Que faire ce week-end ${dansLeTerritoire(t)} ?` }] },
-  ])
-}
-
-/** Sous « Concerts dans les Cévennes » : les communes qui en ont, les autres types. */
-export async function liensTypeTerritoire(t: Territoire, type: TypeSortie): Promise<GroupeLiens[]> {
-  const carte = await carteLocale()
-  return groupes([
-    { titre: `${type.nom} par commune`, liens: carte.communes.filter(c => c.territoire === t.slug && typeCommuneAnnonce(c, type.cat))
-      .sort((a, b) => (b.types[type.cat] ?? 0) - (a.types[type.cat] ?? 0))
-      .map(c => ({ href: `/que-faire/${c.slug}/${type.slug}`, label: c.nom, n: c.types[type.cat] })) },
-    { titre: `Autres sorties ${dansLeTerritoire(t)}`, liens: TYPES_SORTIE.filter(ty => ty.slug !== type.slug && typeTerritoireAnnonce(carte, t.slug, ty.cat))
-      .map(ty => ({ href: `/agenda/${t.slug}/${ty.slug}`, label: ty.nom, n: carte.territoires[t.slug]?.types[ty.cat] })) },
-    { titre: 'Plus loin', liens: [{ href: `/agenda/${t.slug}`, label: titreTerritoire(t) }] },
-  ])
+  const ct = carte.territoires[t.slug]
+  const communes = carte.communes.filter(c => c.territoire === t.slug && (type ? typeCommuneAnnonce(c, type.cat) : communeAnnoncee(c)))
+    .sort((a, b) => (type ? (b.types[type.cat] ?? 0) - (a.types[type.cat] ?? 0) : b.n - a.n))
+  return {
+    ariane: type ? [{ href: `/agenda/${t.slug}`, label: t.nom }] : [],
+    onglets: [
+      { href: `/agenda/${t.slug}`, label: 'Tout', n: ct?.n, actif: !type },
+      ...TYPES_SORTIE.filter(ty => ty.slug === type?.slug || typeTerritoireAnnonce(carte, t.slug, ty.cat))
+        .map(ty => ({ href: `/agenda/${t.slug}/${ty.slug}`, label: ty.nom, n: ct?.types[ty.cat], cat: ty.cat, actif: ty.slug === type?.slug })),
+    ],
+    liens: groupes([
+      { titre: type ? `${type.nom} par commune` : 'Par commune', liens: communes
+        .map(c => type
+          ? { href: `/que-faire/${c.slug}/${type.slug}`, label: c.nom, n: c.types[type.cat] }
+          : { href: `/que-faire/${c.slug}`, label: c.nom, n: c.n }) },
+    ]),
+  }
 }
 
 /**

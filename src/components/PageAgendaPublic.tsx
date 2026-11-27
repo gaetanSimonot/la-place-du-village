@@ -1,24 +1,34 @@
 import Link from 'next/link'
-import EventCard from '@/components/EventCard'
+import { ListeCartouches } from '@/components/EventListCard'
+import BottomNavBar, { NAV_H } from '@/components/BottomNavBar'
+import PartagerPage from '@/components/PartagerPage'
 import { lienEvenement } from '@/lib/lienEvenement'
 import { enJsonLd, SITE } from '@/lib/seo'
-import type { Evenement } from '@/lib/types'
-import type { GroupeLiens } from '@/lib/agendaPublic'
+import { CATEGORIES } from '@/lib/categories'
+import type { Evenement, EvenementCard } from '@/lib/types'
+import type { GroupeLiens, Lien, Onglet } from '@/lib/agendaPublic'
 
 /**
- * Le gabarit des pages d'entrée depuis Google (« Ce week-end », « Que faire
- * à … ») : un titre, le bouton vers la carte, puis les cartes d'événements de
- * l'app, chacune menant à sa fiche. Rendu serveur : tout est dans le HTML.
+ * Le gabarit des pages d'entrée depuis Google (« Que faire à Ganges ? »,
+ * « Concerts dans les Cévennes », « Ce week-end »), dans l'allure de l'agenda
+ * de l'app : en-tête au logo, pastilles de type en haut, les cartouches de
+ * l'agenda (EventListCard, la même que sur la carte, avec ses boutons carte,
+ * favori, partage), barre du bas. Rendu
+ * serveur : tout est dans le HTML que lit Google.
  */
-export default function PageAgendaPublic({ titre, sousTitre, lienCarte, evenements, vide, titreListe, liens }: {
+export default function PageAgendaPublic({ titre, resume, evenements, vide, ariane = [], onglets = [], titreListe, liens = [] }: {
   titre: string
-  sousTitre: string
-  lienCarte: string
+  /** La ligne sous le titre : « 33 événements » en gras, puis la suite. */
+  resume: { n: number; suite?: string }
   evenements: Evenement[]
   vide: string
-  /** Intertitre au-dessus des cartes (page territoire : « Ce week-end »). */
+  /** Le chemin au-dessus : Cévennes › Ganges. */
+  ariane?: Lien[]
+  /** Les pastilles de type : « Tout », « Ateliers 11 »… chacune est une page. */
+  onglets?: Onglet[]
+  /** Intertitre au-dessus des cartouches (page territoire : « Ce week-end »). */
   titreListe?: string
-  /** Les pages voisines dans la hiérarchie (types, communes, territoire). */
+  /** Un petit bloc en bas : les communes autour, ou toutes les communes. */
   liens?: GroupeLiens[]
 }) {
   // La liste, dite aux moteurs : chaque entrée pointe vers sa fiche.
@@ -32,52 +42,92 @@ export default function PageAgendaPublic({ titre, sousTitre, lienCarte, evenemen
   } : null
 
   return (
-    <main className="min-h-[100dvh] bg-creme px-4 pb-28 pt-5 font-inter text-texte">
+    <main className="min-h-[100dvh] bg-creme font-inter text-texte" style={{ paddingBottom: `calc(${NAV_H + 24}px + env(safe-area-inset-bottom))` }}>
       {ld && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: enJsonLd(ld) }} />}
-      <Link href="/" className="font-title text-[20px] font-extrabold text-primary no-underline">La Place</Link>
 
-      <h1 className="m-0 mt-4 font-title text-[28px] leading-[1.1] text-texte" style={{ letterSpacing: '-0.02em' }}>{titre}</h1>
-      <p className="m-0 mt-2 text-[15px] text-texte-doux">{sousTitre}</p>
+      {/* L'en-tête de la carte : logo, Partager. */}
+      <header style={{ position: 'sticky', top: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, background: '#fff', padding: '8px 12px', paddingTop: 'max(8px, env(safe-area-inset-top, 8px))', borderBottom: '1px solid #EDE8E0', boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}>
+        <Link href="/" aria-label="La Place, accueil" style={{ lineHeight: 0 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-topbar.webp" alt="La Place" style={{ height: 38, width: 'auto', objectFit: 'contain', display: 'block' }} />
+        </Link>
+        <PartagerPage titre={titre} />
+      </header>
 
-      {/* Flottant, toujours à portée : cette page sert à être trouvée, l'app est la vraie destination. */}
-      <Link
-        href={lienCarte}
-        className="fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-1/2 z-50 flex h-12 w-[calc(100%-32px)] max-w-[480px] -translate-x-1/2 items-center justify-center gap-2 rounded-full bg-primary text-[15px] font-extrabold text-white no-underline shadow-[0_6px_20px_rgba(0,0,0,0.22)]"
-      >
-        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z" /><path d="M9 4v14M15 6v14" />
-        </svg>
-        Voir sur la carte
-      </Link>
+      <div className="px-4 pt-4">
+        {ariane.length > 0 && (
+          <nav aria-label="Vous êtes ici" className="mb-1.5 text-[12px] font-semibold" style={{ color: '#6B5E4E' }}>
+            {ariane.map((a, i) => (
+              <span key={a.href}>
+                {i > 0 && <span aria-hidden> › </span>}
+                <Link href={a.href} style={{ color: '#2D5A3D', textDecoration: 'none' }}>{a.label}</Link>
+              </span>
+            ))}
+          </nav>
+        )}
+        <h1 className="m-0 font-title text-[24px] leading-[1.15]" style={{ color: '#1A1209', letterSpacing: '-0.01em' }}>{titre}</h1>
+        <p className="m-0 mt-1 text-[13px]" style={{ color: '#6B5E4E' }}>
+          <b style={{ color: '#1A1209' }}>{resume.n} événement{resume.n > 1 ? 's' : ''}</b>
+          {resume.suite ? ` · ${resume.suite}` : ''}
+        </p>
+      </div>
 
-      {titreListe && evenements.length > 0 && (
-        <h2 className="m-0 mt-6 font-title text-[19px] text-texte">{titreListe}</h2>
+      {/* Les types, en haut, comme les filtres de l'agenda — mais chacun est
+          une page (« Ateliers à Ganges »), donc un vrai lien pour Google. */}
+      {onglets.length > 1 && (
+        <nav aria-label="Par type" className="mt-3 flex gap-2 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
+          {onglets.map(o => (
+            <Link
+              key={o.href}
+              href={o.href}
+              aria-current={o.actif ? 'page' : undefined}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0,
+                height: 34, padding: '0 13px', borderRadius: 999, textDecoration: 'none',
+                fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap',
+                background: o.actif ? '#2D5A3D' : '#fff',
+                color: o.actif ? '#fff' : '#1A1209',
+                border: o.actif ? '1px solid #2D5A3D' : '1px solid #E6DCC8',
+              }}
+            >
+              {o.cat && <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: (CATEGORIES[o.cat] ?? CATEGORIES.autre).color, boxShadow: o.actif ? '0 0 0 1.5px #fff' : 'none' }} />}
+              {o.label}
+              {o.n != null && <span style={{ fontWeight: 500, opacity: 0.7 }}>{o.n}</span>}
+            </Link>
+          ))}
+        </nav>
       )}
-      {evenements.length === 0 ? (
-        <p className="m-0 mt-8 text-[15px] text-texte-doux">{vide}</p>
-      ) : (
-        <div className="mt-5 flex flex-col gap-3">
-          {evenements.map(e => <EventCard key={e.id} evenement={e} />)}
-        </div>
-      )}
 
-      {liens?.map(g => (
-        <nav key={g.titre} className="mt-8" aria-label={g.titre}>
-          <h2 className="m-0 font-title text-[17px] text-texte">{g.titre}</h2>
-          <div className="mt-3 flex flex-wrap gap-2">
+      <div className="px-3 pt-4">
+        {titreListe && evenements.length > 0 && (
+          <h2 className="m-0 mb-2.5 px-1 font-title text-[16px]" style={{ color: '#1A1209' }}>{titreListe}</h2>
+        )}
+        {evenements.length === 0 ? (
+          <p className="m-0 px-1 pt-2 text-[14px]" style={{ color: '#6B5E4E' }}>{vide}</p>
+        ) : (
+          <ListeCartouches evenements={evenements as unknown as EvenementCard[]} />
+        )}
+      </div>
+
+      {liens.map(g => (
+        <nav key={g.titre} aria-label={g.titre} className="mt-7 px-4">
+          <h2 className="m-0 font-title text-[16px]" style={{ color: '#1A1209' }}>{g.titre}</h2>
+          <div className="mt-2.5 flex flex-wrap gap-2">
             {g.liens.map(l => (
               <Link
                 key={l.href}
                 href={l.href}
-                className="inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-white px-3.5 py-2 text-[14px] font-semibold text-texte no-underline"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: 32, padding: '0 12px', borderRadius: 999, background: '#fff', border: '1px solid #E6DCC8', color: '#1A1209', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}
               >
                 {l.label}
-                {l.n != null && <span className="text-[12px] font-normal text-texte-doux">{l.n}</span>}
+                {l.n != null && <span style={{ fontWeight: 500, color: '#6B5E4E' }}>{l.n}</span>}
               </Link>
             ))}
           </div>
         </nav>
       ))}
+
+      <BottomNavBar activeTab="carte" />
     </main>
   )
 }

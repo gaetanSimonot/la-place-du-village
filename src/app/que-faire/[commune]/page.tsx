@@ -2,7 +2,7 @@ import { cache } from 'react'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import PageAgendaPublic from '@/components/PageAgendaPublic'
-import { communesAVenir, communeConnue, aLaCommune, liensCommune, SEUIL_COMMUNE } from '@/lib/agendaPublic'
+import { communesAVenir, communeConnue, aLaCommune, navCommune, suiteDuResume, SEUIL_COMMUNE } from '@/lib/agendaPublic'
 import { SITE } from '@/lib/seo'
 
 /** Relue toutes les 15 min. */
@@ -22,12 +22,6 @@ const lire = cache(async (slug: string) => {
   return nom ? { nom, slug, evenements: c?.evenements ?? [] } : null
 })
 
-function sousTitre(nom: string, n: number): string {
-  if (n === 0) return `Rien de prévu pour l'instant ${aLaCommune(nom)}.`
-  if (n === 1) return `Le prochain rendez-vous ${aLaCommune(nom)}.`
-  return `Les ${n} prochains rendez-vous ${aLaCommune(nom)}.`
-}
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { commune } = await params
   const c = await lire(commune)
@@ -44,7 +38,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 /**
  * /que-faire/<commune> — page d'entrée depuis Google : les rendez-vous à
- * venir (trois mois) d'une commune. Aucun écran de l'app n'y mène. Sous le
+ * venir (trois mois) d'une commune. Les fiches événement y mènent. Sous le
  * seuil, la page reste (hors sitemap) : une commune qui y repasse ne laisse
  * pas un 404 à Google.
  */
@@ -52,15 +46,14 @@ export default async function QueFaire({ params }: Props) {
   const { commune } = await params
   const c = await lire(commune)
   if (!c) notFound()
-  const liens = await liensCommune(c.slug)
+  const nav = await navCommune(c.slug, null)
   return (
     <PageAgendaPublic
       titre={`Que faire ${aLaCommune(c.nom)} ?`}
-      sousTitre={sousTitre(c.nom, c.evenements.length)}
-      lienCarte="/?mode=agenda"
+      resume={{ n: c.evenements.length, suite: suiteDuResume(c.evenements.length, nav.onglets) }}
       evenements={c.evenements}
-      vide="Les rendez-vous des communes voisines sont dans l'agenda : bouton « Voir sur la carte » ci-dessous."
-      liens={liens}
+      vide="Les rendez-vous des communes voisines sont juste en dessous, et tous sur la carte."
+      {...nav}
     />
   )
 }

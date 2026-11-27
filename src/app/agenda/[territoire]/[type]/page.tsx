@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import PageAgendaPublic from '@/components/PageAgendaPublic'
-import { evenementsDuTerritoire, liensTypeTerritoire, typeParSlug, dansLeTerritoire } from '@/lib/agendaPublic'
+import { evenementsDuTerritoire, navTerritoire, suiteDuResume, typeParSlug, dansLeTerritoire } from '@/lib/agendaPublic'
 import { territoireParSlug } from '@/lib/territoires'
 import { SITE } from '@/lib/seo'
 
@@ -38,14 +38,14 @@ export default async function TypeTerritoire({ params }: Props) {
   const p = await lire(territoire, type)
   if (!p) notFound()
   const n = p.evenements.length
+  const nav = await navTerritoire(p.t, p.type)
   return (
     <PageAgendaPublic
       titre={`${p.type.nom} ${dansLeTerritoire(p.t)}`}
-      sousTitre={n === 0 ? 'Rien de prévu pour l’instant.' : n === 1 ? 'Le prochain rendez-vous.' : `Les ${n} prochains rendez-vous.`}
-      lienCarte="/?mode=agenda"
+      resume={{ n, suite: suiteDuResume(n, []) }}
       evenements={p.evenements}
-      vide="Les autres sorties sont dans les liens ci-dessous, et toutes sur la carte."
-      liens={await liensTypeTerritoire(p.t, p.type)}
+      vide="Les autres sorties sont dans les pastilles ci-dessus, et toutes sur la carte."
+      {...nav}
     />
   )
 }

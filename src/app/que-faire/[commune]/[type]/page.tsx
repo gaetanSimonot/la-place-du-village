@@ -2,7 +2,7 @@ import { cache } from 'react'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import PageAgendaPublic from '@/components/PageAgendaPublic'
-import { communesAVenir, communeConnue, aLaCommune, categoriesDe, liensTypeCommune, typeParSlug } from '@/lib/agendaPublic'
+import { communesAVenir, communeConnue, aLaCommune, categoriesDe, navCommune, suiteDuResume, typeParSlug } from '@/lib/agendaPublic'
 import { SITE } from '@/lib/seo'
 
 /** Relue toutes les 15 min. */
@@ -49,14 +49,14 @@ export default async function TypeCommune({ params }: Props) {
   const p = await lire(commune, type)
   if (!p) notFound()
   const n = p.evenements.length
+  const nav = await navCommune(p.slug, p.type)
   return (
     <PageAgendaPublic
       titre={titreDe(p)}
-      sousTitre={n === 0 ? 'Rien de prévu pour l’instant.' : n === 1 ? 'Le prochain rendez-vous.' : `Les ${n} prochains rendez-vous.`}
-      lienCarte="/?mode=agenda"
+      resume={{ n, suite: suiteDuResume(n, []) }}
       evenements={p.evenements}
-      vide="Les autres sorties sont dans les liens ci-dessous, et toutes sur la carte."
-      liens={await liensTypeCommune(p.slug, p.type)}
+      vide="Les autres sorties de la commune sont dans les pastilles ci-dessus, et toutes sur la carte."
+      {...nav}
     />
   )
 }
