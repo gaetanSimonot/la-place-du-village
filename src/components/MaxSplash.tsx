@@ -13,6 +13,8 @@ type Phase = 'logo' | 'event' | 'dismissed'
 interface Props {
   events: EvenementCard[]
   loading?: boolean
+  /** Ne pas s'ouvrir cette fois (arrivée sur un événement précis). */
+  passer?: boolean
 }
 
 const STYLES = `
@@ -48,7 +50,7 @@ function Slide({ evt }: { evt: EvenementCard }) {
   )
 }
 
-export default function MaxSplash({ events, loading = false }: Props) {
+export default function MaxSplash({ events, loading = false, passer = false }: Props) {
   // Lazy init : si déjà vu (localStorage), on part directement en 'dismissed'
   // pour éviter le flash du logo à chaque remount de page.tsx (= chaque
   // navigation vers /).
@@ -58,6 +60,9 @@ export default function MaxSplash({ events, loading = false }: Props) {
     // page. Ce splash est un geste de téléphone (plein écran, glissement) et
     // n'a pas de sens dans une fenêtre de navigateur.
     if (ecranBureau()) return 'dismissed'
+    // Venu d'une page d'entrée vers un événement précis : pas d'écran
+    // d'entrée cette fois, sans le marquer vu (il viendra au prochain passage).
+    if (passer) return 'dismissed'
     return localStorage.getItem(SEEN_KEY) ? 'dismissed' : 'logo'
   })
   const [logoReady, setLogoReady]   = useState(false)
@@ -83,9 +88,11 @@ export default function MaxSplash({ events, loading = false }: Props) {
   // mais ne réapparaitra plus aux ouvertures suivantes. Évite que les users
   // qui ferment l'app sans interagir le revoient à chaque relance.
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    // Sauté cette fois (`passer`) : il n'a pas été vu, il reste dû.
+    if (typeof window !== 'undefined' && !passer) {
       localStorage.setItem(SEEN_KEY, '1')
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {

@@ -204,7 +204,11 @@ export function ListeCartouches({ evenements }: { evenements: EvenementCard[] })
           evt={e}
           isFav={isFav(e.id)}
           onToggleFav={() => toggle(e.id)}
-          onViewOnMap={() => router.push(`/?mode=agenda&evt=${encodeURIComponent(e.id)}`)}
+          onViewOnMap={() => {
+            // Lu par l'écran carte au premier rendu : pas d'écrans de premier passage.
+            try { sessionStorage.setItem('pdv-vers-evenement', '1') } catch {}
+            router.push(`/?mode=agenda&evt=${encodeURIComponent(e.id)}`)
+          }}
         />
       ))}
     </div>

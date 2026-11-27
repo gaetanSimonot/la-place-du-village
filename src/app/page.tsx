@@ -192,6 +192,22 @@ export default function HomePage() {
     setBarreVillage(b => (b === barre ? b : barre))
   }, [])
   const [splashOpen, setSplashOpen]           = useState(false)  // splash éditorial — affiché 1× par session (ouverture de l'app)
+  // Arrivé avec ?evt= (« voir sur la carte » depuis une page d'entrée) : lu
+  // au premier rendu, avant que la synchronisation d'URL ne l'efface.
+  // Le drapeau de session couvre le clic dans l'app, où l'adresse n'est pas
+  // encore à jour au premier rendu ; ?evt= couvre le lien ouvert tel quel.
+  const arriveeSurEvenement = useRef<boolean | null>(null)
+  // Venu par le clic 📍 (navigation dans l'app, jamais un rechargement) : le
+  // voile « logo + bienvenue » d'ouverture est sauté aussi — sur une
+  // navigation douce, pas de rendu serveur à respecter.
+  const arriveeParClic = useRef(false)
+  if (arriveeSurEvenement.current === null && typeof window !== 'undefined') {
+    let drapeau = false
+    try { drapeau = sessionStorage.getItem('pdv-vers-evenement') === '1'; sessionStorage.removeItem('pdv-vers-evenement') } catch {}
+    arriveeParClic.current = drapeau
+    arriveeSurEvenement.current = drapeau || new URLSearchParams(window.location.search).has('evt')
+  }
+
   // Welcome modal une seule fois pour toujours (par device).
   // localStorage persiste entre les sessions browser et survit aux relances
   // de la PWA, contrairement à sessionStorage qui se vide à chaque nouvelle
@@ -199,6 +215,10 @@ export default function HomePage() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     if (ecranBureau()) return
+    // Venu par « voir sur la carte » d'une page d'entrée : il a demandé un
+    // événement précis, on l'y mène. La bienvenue n'est PAS marquée vue :
+    // elle l'attend à sa prochaine ouverture de l'app.
+    if (arriveeSurEvenement.current) return
     if (!localStorage.getItem('pdv-welcome-shown')) setShowWelcome(true)
   }, [])
 
@@ -674,7 +694,7 @@ export default function HomePage() {
   // faisait clignoter l'interface. Le drapeau vit au niveau du module : une
   // navigation douce le garde, un vrai rechargement le remet à zéro (et le
   // premier rendu reste identique au serveur : pas d'écart d'hydratation).
-  const [voile, setVoile] = useState<'attente' | 'fondu' | 'parti'>(() => voileDejaJoue ? 'parti' : 'attente')
+  const [voile, setVoile] = useState<'attente' | 'fondu' | 'parti'>(() => voileDejaJoue || arriveeParClic.current ? 'parti' : 'attente')
   useEffect(() => {
     if (voileDejaJoue) return
     voileDejaJoue = true
@@ -2749,7 +2769,7 @@ export default function HomePage() {
           Plus de rendu local : router.push('/producteur/[id]') depuis la
           carte ouvre la fiche par-dessus children sans démonter la home. */}
 
-      <MaxSplash events={splashEvents} loading={loading} />
+      <MaxSplash events={splashEvents} loading={loading} passer={!!arriveeSurEvenement.current} />
 
       {/* Splash éditorial — « salon » d'entrée (obligatoire pour l'instant) */}
       {splashOpen && (
