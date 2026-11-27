@@ -53,7 +53,7 @@ export default function ApercuSousLeDoigt({ actif, evenements, children, style }
 
   const etat = useRef<{
     id: string; carte: HTMLElement; x: number; y: number; minuteur: ReturnType<typeof setTimeout> | null
-    actif: boolean; y0: number; avaleClic: boolean
+    actif: boolean; y0: number; avaleClic: boolean; href: string | null
   } | null>(null)
 
   const poserDecalage = (v: number) => {
@@ -78,6 +78,14 @@ export default function ApercuSousLeDoigt({ actif, evenements, children, style }
       const evt = parId.current.get(e.id)
       if (!evt) return
       e.actif = true; e.y0 = e.y; e.avaleClic = true
+      /*
+       * PAS DE VIBRATION D'ANDROID. Doigt resté sur un LIEN, Chrome croit à un
+       * appui long (le menu « ouvrir dans un onglet, copier le lien ») et
+       * vibre. Le temps de l'aperçu, la cartouche cesse d'être un lien ; elle
+       * le redevient au lâcher (restaurerLien).
+       */
+      e.href = e.carte.getAttribute('href')
+      if (e.href) e.carte.removeAttribute('href')
       const r = e.carte.getBoundingClientRect()
       poserDecalage(0)
       setOuvert({ evt, depart: { top: r.top, left: r.left, width: r.width, height: r.height }, phase: 'entre' })
@@ -103,7 +111,7 @@ export default function ApercuSousLeDoigt({ actif, evenements, children, style }
       // Les petits boutons de la cartouche (carte, favori, partage) gardent leur rôle.
       if ((ev.target as Element).closest('button')) return
       const t = ev.touches[0]
-      etat.current = { id: carte.dataset.evtId!, carte, x: t.clientX, y: t.clientY, minuteur: null, actif: false, y0: t.clientY, avaleClic: false }
+      etat.current = { id: carte.dataset.evtId!, carte, x: t.clientX, y: t.clientY, minuteur: null, actif: false, y0: t.clientY, avaleClic: false, href: null }
       etat.current.minuteur = setTimeout(ouvrir, MAINTIEN_MS)
     }
 
@@ -129,34 +137,38 @@ export default function ApercuSousLeDoigt({ actif, evenements, children, style }
       poserDecalage(Math.min(max, Math.max(0, (e.y0 - t.clientY) * k)))
     }
 
+    const restaurerLien = (e: NonNullable<typeof etat.current>) => {
+      if (e.href && !e.carte.getAttribute('href')) e.carte.setAttribute('href', e.href)
+    }
     const onEnd = () => {
       const e = etat.current
       if (!e) return
       if (e.minuteur) clearTimeout(e.minuteur)
       if (e.actif) fermer()
       // On garde l'état le temps d'avaler le clic qui suit le lâcher.
-      setTimeout(() => { if (etat.current === e) etat.current = null }, 400)
+      setTimeout(() => { restaurerLien(e); if (etat.current === e) etat.current = null }, 400)
     }
 
     // Le clic qui suit un aperçu ne doit pas ouvrir la fiche.
     const onClick = (ev: MouseEvent) => {
       if (etat.current?.avaleClic) { ev.preventDefault(); ev.stopPropagation(); etat.current.avaleClic = false }
     }
-    const onMenu = (ev: Event) => { if (etat.current) ev.preventDefault() }
+    // Le menu d'appui long (et sa vibration) : jamais pendant un aperçu.
+    const onMenu = (ev: Event) => { if (etat.current) { ev.preventDefault(); ev.stopPropagation() } }
 
     el.addEventListener('touchstart', onStart, { passive: true })
     window.addEventListener('touchmove', onMove, { passive: false })
     window.addEventListener('touchend', onEnd)
     window.addEventListener('touchcancel', onEnd)
     el.addEventListener('click', onClick, true)
-    el.addEventListener('contextmenu', onMenu)
+    document.addEventListener('contextmenu', onMenu, true)
     return () => {
       el.removeEventListener('touchstart', onStart)
       window.removeEventListener('touchmove', onMove)
       window.removeEventListener('touchend', onEnd)
       window.removeEventListener('touchcancel', onEnd)
       el.removeEventListener('click', onClick, true)
-      el.removeEventListener('contextmenu', onMenu)
+      document.removeEventListener('contextmenu', onMenu, true)
     }
   }, [actif, fermer])
 
@@ -169,7 +181,7 @@ export default function ApercuSousLeDoigt({ actif, evenements, children, style }
 
   return (
     <>
-      <div ref={zone} style={style}>{children}</div>
+      <div ref={zone} style={{ ...style, WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}>{children}</div>
       {ouvert && evt && geo && typeof document !== 'undefined' && createPortal(
         <div aria-hidden style={{ position: 'fixed', inset: 0, zIndex: 2147482000, pointerEvents: 'none' }}>
           <div style={{
