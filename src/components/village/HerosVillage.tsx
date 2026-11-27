@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { lienHeros, herosExterne, type HerosVillage as HerosVillageType } from '@/lib/villageHero'
 import { useHerosVillage } from '@/hooks/useHerosVillage'
@@ -72,6 +72,9 @@ function Encart({ heros }: { heros: HerosVillageType }) {
 /** Le temps qu'une fiche reste à l'écran avant de céder la place. */
 const DUREE_FICHE = 6000
 
+/** Au-delà, un glissé change de fiche ; en deçà, la fiche revient en place. */
+const SEUIL_GLISSE = 50
+
 export default function HerosVillage() {
   const { heros, eteint } = useHerosVillage()
   const [index, setIndex] = useState(0)
@@ -79,9 +82,58 @@ export default function HerosVillage() {
   const nombre = heros.length
 
   /*
-   * Le défilement. Il ne s'arme qu'à partir de DEUX fiches : avec une seule,
-   * un minuteur qui tourne pour rien réveillerait l'onglet toutes les six
-   * secondes sans jamais rien changer.
+   * LE DOIGT. Une fiche se touche (elle s'enfonce un peu : on sent l'appui)
+   * et se glisse à gauche ou à droite (elle suit le doigt, puis cède la place
+   * à la suivante ou à la précédente). `touch-action: pan-y` laisse le
+   * défilement vertical de la page au navigateur, et nous donne l'horizontal.
+   * Un glissé n'ouvre jamais la fiche : le clic qui le suit est avalé.
+   */
+  const [appui, setAppui] = useState(false)
+  const [decal, setDecal] = useState(0)
+  const geste = useRef<{ x: number; y: number; glisse: boolean; vertical: boolean } | null>(null)
+  const enMain = useRef(false)
+  const avaleClic = useRef(false)
+
+  const relacher = () => { geste.current = null; enMain.current = false; setAppui(false); setDecal(0) }
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (nombre === 0) return
+    // Nouveau contact : un glissé précédent n'a pas toujours produit de clic
+    // à avaler (le navigateur n'en envoie pas après un mouvement) — on ne
+    // laisse pas ce drapeau avaler le tap d'après.
+    avaleClic.current = false
+    geste.current = { x: e.clientX, y: e.clientY, glisse: false, vertical: false }
+    enMain.current = true
+    setAppui(true)
+  }
+  const onPointerMove = (e: React.PointerEvent) => {
+    const g = geste.current
+    if (!g || g.vertical) return
+    const dx = e.clientX - g.x, dy = e.clientY - g.y
+    if (!g.glisse) {
+      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { g.vertical = true; setAppui(false); return }
+      if (Math.abs(dx) > 10 && nombre > 1) { g.glisse = true; setAppui(false) }
+      else return
+    }
+    setDecal(dx)
+  }
+  const onPointerUp = (e: React.PointerEvent) => {
+    const g = geste.current
+    if (g?.glisse) {
+      avaleClic.current = true
+      const dx = e.clientX - g.x
+      if (dx <= -SEUIL_GLISSE) setIndex(i => (i + 1) % nombre)
+      else if (dx >= SEUIL_GLISSE) setIndex(i => (i - 1 + nombre) % nombre)
+    }
+    relacher()
+  }
+
+  /*
+   * Le défilement automatique. Il ne s'arme qu'à partir de DEUX fiches : avec
+   * une seule, un minuteur qui tourne pour rien réveillerait l'onglet toutes
+   * les six secondes sans jamais rien changer. Il repart de zéro à chaque
+   * changement de fiche (un glissé compris), et attend tant qu'un doigt est
+   * posé.
    *
    * L'index est ramené dans les bornes à chaque changement de liste : une
    * fiche retirée en admin pendant qu'on regarde la troisième laissait sinon
@@ -89,10 +141,16 @@ export default function HerosVillage() {
    */
   useEffect(() => {
     setIndex(i => (nombre ? i % nombre : 0))
-    if (nombre < 2) return
-    const t = setInterval(() => setIndex(i => (i + 1) % nombre), DUREE_FICHE)
-    return () => clearInterval(t)
   }, [nombre])
+  useEffect(() => {
+    if (nombre < 2) return
+    let t: ReturnType<typeof setTimeout>
+    const armer = () => {
+      t = setTimeout(() => { if (enMain.current) armer(); else setIndex(i => (i + 1) % nombre) }, DUREE_FICHE)
+    }
+    armer()
+    return () => clearTimeout(t)
+  }, [nombre, index])
 
   // Éteint, on n'affiche rien — même pour un admin. Le voir allumé sur son
   // téléphone se règle en mettant la visibilité sur « Admin ».
@@ -107,24 +165,41 @@ export default function HerosVillage() {
           encore chargée — ça claquait.
           Ici la hauteur est celle de la plus haute fiche, fixe pendant tout le
           défilement, et les images sont chargées dès le départ. */}
-      <div className="grid">
-        {heros.map((h, i) => (
-          <div
-            key={`${h.titre}-${i}`}
-            className="pdv-heros-fiche flex flex-col"
-            aria-hidden={i !== index}
-            style={{
-              gridArea: '1 / 1',
-              opacity: i === index ? 1 : 0,
-              pointerEvents: i === index ? 'auto' : 'none',
-              zIndex: i === index ? 1 : 0,
-            }}
-          >
-            <Encart heros={h} />
-          </div>
-        ))}
+      <div
+        className="grid"
+        style={{ touchAction: 'pan-y', WebkitTapHighlightColor: 'transparent' }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={relacher}
+        onPointerLeave={() => { if (!geste.current?.glisse) relacher() }}
+        onClickCapture={e => { if (avaleClic.current) { e.preventDefault(); e.stopPropagation(); avaleClic.current = false } }}
+        onDragStart={e => e.preventDefault()}
+      >
+        {heros.map((h, i) => {
+          const actif = i === index
+          return (
+            <div
+              key={`${h.titre}-${i}`}
+              className="pdv-heros-fiche flex flex-col"
+              aria-hidden={!actif}
+              style={{
+                gridArea: '1 / 1',
+                opacity: actif ? (decal ? Math.max(0.55, 1 - Math.abs(decal) / 400) : 1) : 0,
+                pointerEvents: actif ? 'auto' : 'none',
+                zIndex: actif ? 1 : 0,
+                // La fiche suit le doigt sans retard pendant le glissé ; elle
+                // s'enfonce un peu à l'appui ; elle revient en place en douceur.
+                transform: actif ? `translateX(${decal}px) scale(${appui ? 0.97 : 1})` : undefined,
+                filter: actif && appui ? 'brightness(0.96)' : undefined,
+                transition: decal ? 'opacity .7s ease-in-out' : 'opacity .7s ease-in-out, transform .18s ease-out, filter .18s ease-out',
+              }}
+            >
+              <Encart heros={h} />
+            </div>
+          )
+        })}
       </div>
-
       {/* Les points de position — seulement s'il y a de quoi défiler. Ils ne
           sont pas décoratifs : sans eux, on ne sait pas qu'une autre fiche
           existe, ni combien. */}
