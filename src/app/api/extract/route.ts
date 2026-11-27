@@ -302,7 +302,10 @@ export async function POST(req: NextRequest) {
     // `facebook` rejoint les sources webhook : le collecteur PC s'authentifie
     // par la meme cle que le telephone. Sans cette ligne il tombait sur
     // requireUser et recevait un 401 qu'il aurait pris pour une panne.
-    if (source === 'whatsapp' || source === 'signal' || source === 'facebook') {
+    // `admin` aussi : les événements entrés depuis une session Claude Code
+    // (recherche web → texte + affiche) passent par la même porte que les
+    // collecteurs, avec la même clé — pas par un faux « whatsapp ».
+    if (source === 'whatsapp' || source === 'signal' || source === 'facebook' || source === 'admin') {
       const waKey = req.headers.get('x-wa-key')
       if (!waKey || waKey !== process.env.WHATSAPP_API_KEY) {
         return NextResponse.json({ error: 'Clé API invalide' }, { status: 401 })
