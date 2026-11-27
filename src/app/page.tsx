@@ -443,6 +443,30 @@ export default function HomePage() {
    * fait que restreindre à l'intérieur (dansLesZones). Brouillon tant qu'on
    * n'a pas touché « Enregistrer pour tous ».
    */
+  /*
+   * ESSAI « aperçu sous le doigt » (ApercuSousLeDoigt) : doigt posé sur une
+   * cartouche de la liste, elle grossit en aperçu de fiche qu'on parcourt en
+   * glissant ; remplace le clic long de sélection admin. Trois positions,
+   * comme « La liste suit la carte » : désactivé · pour moi (ce téléphone,
+   * localStorage) · pour tous (config `carte_apercu_doigt` = 'tous').
+   */
+  const [apercuMoi, setApercuMoi] = useState(false)
+  const [apercuTous, setApercuTous] = useState(false)
+  useEffect(() => {
+    try { setApercuMoi(localStorage.getItem('pdv-admin-apercu-doigt') === '1') } catch { /* stockage indisponible */ }
+  }, [])
+  const modeApercu: ModeListeSuit = apercuTous ? 'tous' : apercuMoi ? 'moi' : 'off'
+  const apercuDoigt = apercuTous || (isAdmin && apercuMoi)
+  const changerApercu = async (m: ModeListeSuit) => {
+    try { if (m === 'moi') localStorage.setItem('pdv-admin-apercu-doigt', '1'); else localStorage.removeItem('pdv-admin-apercu-doigt') } catch { /* stockage indisponible */ }
+    setApercuMoi(m === 'moi')
+    const avant = apercuTous
+    setApercuTous(m === 'tous')
+    if ((m === 'tous') === avant) return
+    if (!(await ecrireConfigGlobale('carte_apercu_doigt', m === 'tous' ? 'tous' : 'off'))) {
+      setApercuTous(avant); toast.error('Échec de l’enregistrement')
+    }
+  }
   const [rayonAdminEdite, setRayonAdminEdite] = useState<number | null>(null)
   const [rayonAdminEnCours, setRayonAdminEnCours] = useState(false)
   const enregistrerRayonAdmin = async () => {
@@ -1309,13 +1333,14 @@ export default function HomePage() {
    */
   useEffect(() => {
     supabase.from('config').select('key, value')
-      .in('key', ['map_provider', CLE_CONFIG_LISTE_SUIT, 'carte_feuille_descend', CLE_CONFIG_REGROUPEMENT])
+      .in('key', ['map_provider', CLE_CONFIG_LISTE_SUIT, 'carte_feuille_descend', CLE_CONFIG_REGROUPEMENT, 'carte_apercu_doigt'])
       .then(({ data }) => {
         const v = new Map(((data ?? []) as { key: string; value: string | null }[]).map(r => [r.key, r.value]))
         setMapProvider(v.get('map_provider') === 'maplibre' ? 'maplibre' : 'google')
         setListeSuitTous(v.get(CLE_CONFIG_LISTE_SUIT) === 'tous')
         setFeuilleDescend(v.get('carte_feuille_descend') !== 'false')
         setRegroupement(lireCran(v.get(CLE_CONFIG_REGROUPEMENT) ?? undefined))
+        setApercuTous(v.get('carte_apercu_doigt') === 'tous')
       })
   }, [])
 
@@ -2411,6 +2436,26 @@ export default function HomePage() {
                 </button>
               )}
 
+              {/* Admin : essai « aperçu sous le doigt » — pour moi ou pour tous. */}
+              {isAdmin && (
+                <div style={{ background: '#FDFAF5', border: '1px solid #F0EAE0', borderRadius: 14, padding: '12px 14px', marginBottom: 10 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>Aperçu sous le doigt <span style={{ fontSize: 10, fontWeight: 800, color: '#5B4BB3', background: '#F1EEFF', border: '1px solid #B9AEF0', borderRadius: 999, padding: '1px 6px', marginLeft: 4 }}>essai</span></div>
+                  <div style={{ fontSize: 11, color: '#7A6A5A', margin: '2px 0 10px', lineHeight: 1.45 }}>
+                    Doigt posé sur un événement de la liste : il s’ouvre sous le doigt, on le parcourt en glissant, il rentre au lâcher. Remplace le clic long de sélection admin.
+                  </div>
+                  <div style={{ display: 'flex', background: '#F2ECE2', borderRadius: 10, padding: 3, gap: 2 }}>
+                    {([['off', 'Désactivé'], ['moi', 'Pour moi'], ['tous', 'Pour tous']] as [ModeListeSuit, string][]).map(([m, libelle]) => (
+                      <button key={m} onClick={() => changerApercu(m)} style={{
+                        flex: 1, padding: '7px 4px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                        fontSize: 12, fontWeight: 800,
+                        background: modeApercu === m ? '#2D5A3D' : 'transparent',
+                        color: modeApercu === m ? '#fff' : '#7A6A5A',
+                      }}>{libelle}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Admin : regroupement des punaises en bulles (pour tous). */}
               {isAdmin && (
                 <div style={{ background: '#FDFAF5', border: '1px solid #F0EAE0', borderRadius: 14, padding: '12px 14px', marginBottom: 10 }}>
@@ -2705,6 +2750,7 @@ export default function HomePage() {
         onAnnuaireTabChange={setAnnuaireTab}
         topBarV3
         isAdmin={isAdmin}
+        apercuDoigt={apercuDoigt}
         onAdminMutated={() => mutateAgenda()}
       />}
 

@@ -20,6 +20,7 @@ import { authedFetch } from '@/lib/swr-fetchers'
 import MergeEventsModal from '@/components/MergeEventsModal'
 import { texteBrut } from '@/components/TexteRiche'
 import EventListCard from '@/components/EventListCard'
+import ApercuSousLeDoigt from '@/components/ApercuSousLeDoigt'
 
 const BATCH = 20
 
@@ -110,6 +111,8 @@ interface Props {
   topBarV3?: boolean
   /** Admin connecté → active le clic long de sélection multiple sur l'agenda. */
   isAdmin?: boolean
+  /** Essai admin : « aperçu sous le doigt » à la place du clic long (réglages de la carte). */
+  apercuDoigt?: boolean
   /** Appelé après une mutation admin (suppression/fusion) pour rafraîchir la liste. */
   onAdminMutated?: () => void
   /**
@@ -149,7 +152,7 @@ export default function BottomSheet({
   selectedEtabId = null, onSelectEtab, onViewEtabOnMap, onEtabsDisplayedChange,
   annuaireTab: annuaireTabProp, onAnnuaireTabChange,
   topBarV3 = false,
-  isAdmin = false, onAdminMutated,
+  isAdmin = false, onAdminMutated, apercuDoigt = false,
   sheetY, sheetYRepos,
 }: Props) {
   const { sheetBg } = useTheme()
@@ -1143,6 +1146,11 @@ export default function BottomSheet({
               </div>
             )}
 
+            {/* Essai admin « aperçu sous le doigt » (réglages de la carte) : il
+                remplace le clic long de sélection. Coupé, le conteneur ne fait
+                que reprendre la colonne de la liste. */}
+            <ApercuSousLeDoigt actif={!!apercuDoigt} evenements={visibleEvents}
+              style={{ display: 'flex', flexDirection: 'column', gap: 10, flexShrink: 0 }}>
             {visibleEvents.map(evt => (
               <EventListCard key={evt.id} evt={evt}
                 isSelected={evt.id === selectedId}
@@ -1153,10 +1161,11 @@ export default function BottomSheet({
                 onToggleFav={onToggleFav ? () => onToggleFav(evt.id) : undefined}
                 selectMode={selectMode}
                 isPicked={picked.has(evt.id)}
-                onLongPress={isAdmin ? () => enterSelect(evt.id) : undefined}
+                onLongPress={isAdmin && !apercuDoigt ? () => enterSelect(evt.id) : undefined}
                 onTogglePick={() => togglePick(evt.id)}
               />
             ))}
+            </ApercuSousLeDoigt>
             {visibleCount < visibleSource.length && (
               <>
                 {/* La suite se charge toute seule en approchant du bas, sur
