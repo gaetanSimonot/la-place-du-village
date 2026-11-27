@@ -1,6 +1,15 @@
 import Link from 'next/link'
 import { ListeCartouches } from '@/components/EventListCard'
-import BottomNavBar, { NAV_H } from '@/components/BottomNavBar'
+import BottomNavBar from '@/components/BottomNavBar'
+
+/*
+ * Hauteur de la barre du bas : la valeur de BottomNavBar (NAV_H). Recopiée
+ * ici parce que ce gabarit est rendu côté SERVEUR : une constante importée
+ * d'un module 'use client' y arrive comme une référence, pas comme un nombre
+ * (« [object Object]24px » : la marge basse sautait, la fin de la liste
+ * passait sous la barre). Si NAV_H change, changer ici aussi.
+ */
+const NAV_H = 68
 import PartagerPage from '@/components/PartagerPage'
 import OngletsPages, { AttentePages } from '@/components/OngletsPages'
 import { lienEvenement } from '@/lib/lienEvenement'
@@ -87,7 +96,7 @@ export default function PageAgendaPublic({ titre, resume, evenements, total, sou
         {evenements.length === 0 ? (
           <p className="m-0 px-1 pt-2 text-[14px]" style={{ color: '#6B5E4E' }}>{vide}</p>
         ) : (
-          <ListeCartouches evenements={evenements as unknown as EvenementCard[]} total={total} source={source} />
+          <ListeCartouches key={titre} evenements={evenements as unknown as EvenementCard[]} total={total} source={source} />
         )}
       </div>
 
@@ -110,7 +119,7 @@ export default function PageAgendaPublic({ titre, resume, evenements, total, sou
       ))}
 
       <BottomNavBar activeTab="carte" />
-      <AttentePages squelette={<SqueletteAgendaPublic />} />
+      <AttentePages squelette={<SqueletteAgendaPublic />} page={titre} />
     </main>
   )
 }
