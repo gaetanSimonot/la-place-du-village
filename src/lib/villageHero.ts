@@ -96,7 +96,8 @@ export function normaliserHeros(brut: unknown, brouillon = false): HerosVillage 
   let cible: CibleHeros | null = null
   if (c?.sorte === 'lien') {
     const url = completerUrl(texte(c.url, 600) ?? '')
-    if (/^https?:\/\//i.test(url)) cible = { sorte: 'lien', url }
+    // Un chemin de La Place (« /agenda/cevennes/noel ») vaut un lien complet.
+    if (/^https?:\/\//i.test(url) || (url.startsWith('/') && !url.startsWith('//'))) cible = { sorte: 'lien', url }
     else if (brouillon) cible = { sorte: 'lien', url }
   } else if (c?.sorte === 'interne') {
     const id = texte(c.id, 128)
@@ -159,7 +160,7 @@ export function herosVisible(h: HerosVillage | null, estAdmin: boolean): boolean
  * règle dans embedSnapshot.
  */
 export function lienHeros(h: HerosVillage): string {
-  if (h.cible.sorte === 'lien') return h.cible.url
+  if (h.cible.sorte === 'lien') return cheminInterne(h.cible.url) ?? h.cible.url
   const { kind, id } = h.cible
   switch (kind) {
     case 'event':    return `/evenement/${id}`
@@ -176,5 +177,24 @@ export function lienHeros(h: HerosVillage): string {
 
 /** Un lien du dehors s'ouvre dans un onglet neuf ; une fiche, dans l'app. */
 export function herosExterne(h: HerosVillage): boolean {
-  return h.cible.sorte === 'lien'
+  return h.cible.sorte === 'lien' && cheminInterne(h.cible.url) === null
+}
+
+/**
+ * Un lien saisi à la main qui pointe vers La Place elle-même
+ * (« https://laplaceduvillage.app/agenda/cevennes/noel », ou « /agenda/… »)
+ * est une page de l'app : on garde le chemin, il s'ouvre DANS l'app. Traité
+ * en lien externe, il ouvrait un onglet neuf — sur l'app installée, il
+ * relançait l'application. null : vraiment un autre site.
+ */
+const DOMAINES_PROPRES = new Set(['laplaceduvillage.app', 'www.laplaceduvillage.app'])
+export function cheminInterne(url: string): string | null {
+  const u = url.trim()
+  if (u.startsWith('/') && !u.startsWith('//')) return u
+  try {
+    const p = new URL(u)
+    return DOMAINES_PROPRES.has(p.hostname) ? (p.pathname + p.search + p.hash) || '/' : null
+  } catch {
+    return null
+  }
 }
