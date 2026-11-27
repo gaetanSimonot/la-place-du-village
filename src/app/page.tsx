@@ -436,6 +436,34 @@ export default function HomePage() {
    */
   const [zoneCentres, setZoneCentres]   = useState<{ lat: number; lng: number; nom: string }[]>([])
   const [rayonAffichage, setRayonAffichage] = useState<number | null>(null)
+  /*
+   * Le RAYON ADMIN réglable depuis les paramètres de la carte (admin seul) :
+   * le même que « Outils zone géo », écrit au même endroit (/api/admin/zone,
+   * territoire regardé). C'est la limite de tout le monde ; la zone perso ne
+   * fait que restreindre à l'intérieur (dansLesZones). Brouillon tant qu'on
+   * n'a pas touché « Enregistrer pour tous ».
+   */
+  const [rayonAdminEdite, setRayonAdminEdite] = useState<number | null>(null)
+  const [rayonAdminEnCours, setRayonAdminEnCours] = useState(false)
+  const enregistrerRayonAdmin = async () => {
+    const km = rayonAdminEdite
+    if (km == null) return
+    setRayonAdminEnCours(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const q = slugTerritoire ? `?territoire=${encodeURIComponent(slugTerritoire)}` : ''
+    const res = await fetch(`/api/admin/zone${q}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body: JSON.stringify({ rayon_affichage: km }),
+    }).catch(() => null)
+    setRayonAdminEnCours(false)
+    if (!res?.ok) { toast.error('Échec de l’enregistrement'); return }
+    setRayonAffichage(km)
+    setRayonAdminEdite(null)
+    // Les autres onglets ouverts (l'écran admin) relisent la zone.
+    try { localStorage.setItem('pdv-zone-updated', String(Date.now())) } catch { /* stockage indisponible */ }
+    toast.success(`Rayon pour tous : ${km} km`)
+  }
   const [zoneLoaded, setZoneLoaded]     = useState(false)
 
   // SWR sur /api/annuaire — une seule clé, SANS le type. Disable quand on
@@ -1480,30 +1508,42 @@ export default function HomePage() {
     userZoneTerritoire ? userZoneTerritoire === territoireVu?.slug : !!territoireVu?.par_defaut
   )
 
+  /*
+   * DEUX PÉRIMÈTRES QUI S'ADDITIONNENT (27/11/2026, demande de Gaëtan).
+   *
+   * Le périmètre ADMIN (rayon d'affichage du territoire autour de ses
+   * centres, « Outils zone géo ») est la limite de TOUT LE MONDE. La zone
+   * perso de chacun (réglage de la carte, sur son téléphone) ne fait que
+   * restreindre à l'intérieur : un curseur à 200 km ne montre rien au-delà
+   * de la limite admin. Avant, la zone perso REMPLAÇAIT la limite admin.
+   *
+   * SANS CENTRE CONNU, UN PÉRIMÈTRE NE FILTRE PAS — on ne retombe PAS sur
+   * Ganges. L'ancien repli mesurait depuis Ganges dès qu'aucun centre n'était
+   * chargé. En vue Pau, pendant la seconde où la zone arrive, cela effaçait
+   * tout. Et si la requête échouait, l'écran restait vide pour toujours en
+   * annonçant « zéro événement ». Montrer trop large un instant vaut mieux
+   * que montrer faux.
+   */
+  const dansLesZones = useCallback((lat: number, lng: number) => {
+    const admin = rayonAffichage ?? 0
+    if (admin > 0 && zoneCentres.length > 0
+        && !zoneCentres.some(c => haversineKm(lat, lng, c.lat, c.lng) <= admin)) return false
+    if (zonePersoActive) {
+      const centres = userCentre ? [userCentre] : zoneCentres
+      if (userRayon > 0 && centres.length > 0
+          && !centres.some(c => haversineKm(lat, lng, c.lat, c.lng) <= userRayon)) return false
+    }
+    return true
+  }, [rayonAffichage, zoneCentres, zonePersoActive, userRayon, userCentre])
+
   // Filtre zone — la même règle sert à la liste affichée et à celle qui
   // nourrit les compteurs, pour qu'elles ne puissent pas diverger.
-  const garderDansLaZone = useCallback((liste: EvenementCard[]) => {
-    const rayon   = zonePersoActive ? userRayon : (rayonAffichage ?? 0)
-    /*
-     * SANS CENTRE CONNU, ON NE FILTRE PAS — on ne retombe PAS sur Ganges.
-     *
-     * L'ancien repli mesurait depuis Ganges des qu'aucun centre n'etait
-     * charge. En vue Pau, pendant la seconde ou la zone arrive, cela effacait
-     * tout : un evenement a Pau est a huit cents kilometres de Ganges. Et si
-     * la requete echouait, l'ecran restait vide pour toujours en annoncant
-     * « zero evenement » — une panne qui se lit comme une absence de contenu.
-     *
-     * Montrer trop large un instant vaut mieux que montrer faux.
-     */
-    const centres = zonePersoActive && userCentre ? [userCentre] : zoneCentres
-    if (rayon <= 0 || centres.length === 0) return liste
-    return liste.filter(e => {
-      const lat = e.lieux?.lat
-      const lng = e.lieux?.lng
-      if (lat == null || lng == null) return true
-      return centres.some(c => haversineKm(lat, lng, c.lat, c.lng) <= rayon)
-    })
-  }, [rayonAffichage, zoneCentres, zonePersoActive, userRayon, userCentre])
+  const garderDansLaZone = useCallback((liste: EvenementCard[]) => liste.filter(e => {
+    const lat = e.lieux?.lat
+    const lng = e.lieux?.lng
+    if (lat == null || lng == null) return true
+    return dansLesZones(lat, lng)
+  }), [dansLesZones])
 
   // Filtre zone appliqué sur la liste complète — recalculé à chaque changement de zone
   const evenementsZone = useMemo(
@@ -1671,10 +1711,8 @@ export default function HomePage() {
   const featuredProducers = useMemo(() => filteredProducers.filter(p => p.is_featured), [filteredProducers])
 
   const filteredEtablissements = useMemo(() => {
-    const rayon   = zonePersoActive ? userRayon : (rayonAffichage ?? 0)
-    // Meme regle que pour les evenements : sans centre connu on ne filtre
-    // pas, plutot que de mesurer depuis Ganges dans une autre ville.
-    const centres = zonePersoActive && userCentre ? [userCentre] : zoneCentres
+    // Même règle que pour les événements (dansLesZones) : limite admin pour
+    // tous, zone perso à l'intérieur.
     // Quand l'user fait une recherche active → ignore le filtre zone/rayon
     // (il cherche un nom précis, doit pouvoir trouver même hors zone)
     const hasActiveSearch = etabSearch.trim().length > 0
@@ -1682,8 +1720,8 @@ export default function HomePage() {
     return etablissements
       .filter(e => {
         if (hasActiveSearch) return true
-        if (rayon <= 0 || centres.length === 0 || e.lat == null || e.lng == null) return true
-        return centres.some(c => haversineKm(e.lat!, e.lng!, c.lat, c.lng) <= rayon)
+        if (e.lat == null || e.lng == null) return true
+        return dansLesZones(e.lat, e.lng)
       })
       .filter(e => {
         if (!hasActiveSearch) return true
@@ -1700,7 +1738,7 @@ export default function HomePage() {
         const sb = scoreCorrespondance(b.nom, [b.nom, b.commune, b.type, b.description_courte], etabSearch)
         return sb - sa || a.nom.length - b.nom.length
       })
-  }, [etablissements, etabSearch, zonePersoActive, userRayon, userCentre, zoneCentres, rayonAffichage])
+  }, [etablissements, etabSearch, dansLesZones])
 
   /**
    * Les commerces de la zone, TOUS TYPES confondus : c'est la seule liste qui
@@ -2281,7 +2319,55 @@ export default function HomePage() {
                   onChange={e => setUserRayon(Number(e.target.value))}
                   style={{ width: '100%', accentColor: '#2D5A3D' }}
                 />
+                {/* La limite de tous s'impose aussi à soi : on le dit plutôt
+                    que de laisser croire que 200 km montrent 200 km. */}
+                {rayonAffichage != null && rayonAffichage > 0 && userRayon > rayonAffichage && (
+                  <div style={{ fontSize: 11, color: '#7A6A5A', marginTop: 8, textAlign: 'center', lineHeight: 1.45 }}>
+                    Au-delà de {rayonAffichage} km, rien ne s’affiche : c’est la limite fixée par La Place pour tous.
+                  </div>
+                )}
               </div>
+
+              {/* Admin : le rayon de TOUS (même réglage que « Outils zone géo »). */}
+              {isAdmin && (() => {
+                const km = rayonAdminEdite ?? rayonAffichage ?? 0
+                const modifie = rayonAdminEdite != null && rayonAdminEdite !== rayonAffichage
+                return (
+                  <div style={{ background: '#FDFAF5', border: '1px solid #F0EAE0', borderRadius: 14, padding: '12px 14px 14px', marginBottom: 16 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: '#1A1209' }}>Rayon d’affichage <span style={{ fontSize: 10, fontWeight: 800, color: '#B07E1F', background: '#FFF8E8', border: '1px solid #E8A627', borderRadius: 999, padding: '1px 6px', marginLeft: 4 }}>admin · pour tous</span></div>
+                    <div style={{ fontSize: 11, color: '#7A6A5A', margin: '2px 0 10px', lineHeight: 1.45 }}>
+                      Aucun événement au-delà, pour personne. Chacun règle sa zone à l’intérieur. Le même réglage que « Outils zone géo ».
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 6, marginBottom: 8 }}>
+                      <span style={{ fontFamily: 'var(--font-display), Georgia, serif', fontSize: 28, color: '#B07E1F', lineHeight: 1 }}>{km}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#B07E1F' }}>km</span>
+                    </div>
+                    <input
+                      type="range" min={5} max={200} step={5}
+                      value={km}
+                      onChange={e => setRayonAdminEdite(Number(e.target.value))}
+                      style={{ width: '100%', accentColor: '#B07E1F' }}
+                    />
+                    {modifie && (
+                      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                        <button
+                          onClick={() => setRayonAdminEdite(null)}
+                          style={{ flex: 1, height: 36, borderRadius: 10, border: '1px solid #E5DDD2', background: '#fff', color: '#7A6A5A', fontWeight: 800, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}
+                        >
+                          Annuler
+                        </button>
+                        <button
+                          onClick={enregistrerRayonAdmin}
+                          disabled={rayonAdminEnCours}
+                          style={{ flex: 2, height: 36, borderRadius: 10, border: 'none', background: '#B07E1F', color: '#fff', fontWeight: 800, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', opacity: rayonAdminEnCours ? 0.6 : 1 }}
+                        >
+                          {rayonAdminEnCours ? 'Enregistrement…' : `Enregistrer ${km} km pour tous`}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
 
               {/* COMPORTEMENT */}
               <p style={{ fontSize: 11, fontWeight: 800, color: '#7A6A5A', textTransform: 'uppercase', letterSpacing: 1, margin: '14px 4px 8px' }}>Comportement</p>

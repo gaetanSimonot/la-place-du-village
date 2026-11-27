@@ -489,19 +489,21 @@ export async function GET(req: NextRequest) {
    */
   const zoneClient = validateClientZone(searchParams)
   const tousCentres = (zoneCentresRes.data ?? []) as Array<{ lat: number; lng: number; territoire_id: string | null }>
-  const centresZone = zoneClient
-    ? [{ lat: zoneClient.lat, lng: zoneClient.lng }]
-    : (territoireVu ? tousCentres.filter(c => c.territoire_id === territoireVu.id) : tousCentres)
-  const rayonZone = zoneClient
-    ? zoneClient.rayon
-    : territoireVu?.rayon_affichage_km ?? parseInt(rayonAffichageRes.data?.value ?? '0', 10)
+  // Le périmètre ADMIN : limite de tout le monde. La zone perso du client ne
+  // fait que restreindre à l'intérieur (même règle que la carte, 27/11/2026) :
+  // elle ne l'élargit jamais.
+  const centresAdmin = territoireVu ? tousCentres.filter(c => c.territoire_id === territoireVu.id) : tousCentres
+  const rayonAdmin = territoireVu?.rayon_affichage_km ?? parseInt(rayonAffichageRes.data?.value ?? '0', 10)
 
   const dansLaZone = (e: EventRow) => {
-    if (!(rayonZone > 0) || centresZone.length === 0) return true
     const lieu = e.lieux as { lat?: number | null; lng?: number | null } | null
     const lat = lieu?.lat, lng = lieu?.lng
     if (lat == null || lng == null) return true
-    return centresZone.some(c => haversineKm(lat, lng, c.lat, c.lng) <= rayonZone)
+    if (rayonAdmin > 0 && centresAdmin.length > 0
+        && !centresAdmin.some(c => haversineKm(lat, lng, c.lat, c.lng) <= rayonAdmin)) return false
+    if (zoneClient && zoneClient.rayon > 0
+        && haversineKm(lat, lng, zoneClient.lat, zoneClient.lng) > zoneClient.rayon) return false
+    return true
   }
 
   // Les tuiles ne piochent que dans le territoire regarde. Comme ailleurs, le
