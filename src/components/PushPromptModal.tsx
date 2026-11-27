@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import ClientPortal from '@/components/ClientPortal'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
+import { nouveauVenuParRecherche } from '@/lib/origineVisite'
 
 /**
  * Pop-up d'incitation à activer les notifications push — refonte visuelle.
@@ -54,6 +55,9 @@ export default function PushPromptModal({ reason = 'general', delayMs = 0 }: {
       const snooze = Number(localStorage.getItem(SNOOZE_KEY) || 0)
       if (Date.now() < snooze) return
     } catch { return }
+    // Arrivé d'une recherche Google : pas avant sa 3e visite. Tous les
+    // autres (app, lien partagé, habitués) : inchangé.
+    if (nouveauVenuParRecherche()) return
     if (!delayMs) { setOpen(true); return }
     const t = setTimeout(() => setOpen(true), delayMs)
     return () => clearTimeout(t)

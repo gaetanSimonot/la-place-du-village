@@ -15,6 +15,7 @@ import { ThemeProvider } from '@/components/ThemeProvider'
 import { TerritoireProvider } from '@/components/TerritoireProvider'
 import { TerritoireBandeau } from '@/components/TerritoirePicker'
 import InstallBanner from '@/components/InstallBanner'
+import CompteurVisites from '@/components/CompteurVisites'
 import { AuthModalProvider } from '@/contexts/AuthModalContext'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ConfirmDialogProvider } from '@/contexts/ConfirmDialogContext'
@@ -286,6 +287,7 @@ export default function RootLayout({
                     {modal}
                     <PromoSplashGate />
                     <InstallBanner />
+                    <CompteurVisites />
                     <AuthModal />
                     <Toaster
                       position="top-center"
