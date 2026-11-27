@@ -5,7 +5,7 @@ import { GET as lireAgenda } from '@/app/api/agenda/route'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { dateParis } from '@/lib/cinema'
 import { SITE, communeDe, slugCommune } from '@/lib/seo'
-import { territoiresActifs, territoireParDefaut, type Territoire } from '@/lib/territoires'
+import { territoiresActifs, territoireParDefaut, territoireParSlug, type Territoire } from '@/lib/territoires'
 import { haversineKm } from '@/lib/distance'
 import type { Categorie, Evenement } from '@/lib/types'
 
@@ -48,7 +48,9 @@ type EvenementLocal = Evenement & { territoire_id?: string | null }
 
 /**
  * Les événements publiés à venir (trois mois), lus une fois par requête :
- * toutes les pages d'entrée partent de cette même lecture.
+ * toutes les pages d'entrée, et la suite de leurs listes (api/pages-entree),
+ * partent de cette même lecture. PAS de cache au-delà de la requête : la page
+ * doit être à jour à chaque ouverture (choix de Gaëtan, 27/11).
  */
 const evenementsAVenir = cache(async (): Promise<EvenementLocal[]> => {
   const auj = dateParis()
@@ -222,7 +224,7 @@ async function slugTerritoireDe(): Promise<(id: string | null | undefined) => st
 }
 
 /**
- * Qui a combien de quoi, où. Petite (quelques Ko), gardée 15 min hors des
+ * Qui a combien de quoi, où. Petite (quelques Ko), gardée 1 min hors des
  * requêtes : la fiche événement, rendue à chaque visite, la lit pour savoir
  * vers quelles pages pointer sans relire tous les événements à chaque fois.
  */
@@ -259,7 +261,7 @@ export const carteLocale = unstable_cache(async (): Promise<CarteLocale> => {
       lng: nPos ? sLng / nPos : null,
     })),
   }
-}, ['carte-locale-v1'], { revalidate: 900 })
+}, ['carte-locale-v1'], { revalidate: 60 })
 
 export const communeAnnoncee = (c: CommuneCarte) => c.n >= SEUIL_COMMUNE
 /**
@@ -426,4 +428,36 @@ export async function communeDePage(slug: string): Promise<Commune | null> {
 /** Le territoire (slug) d'une commune qui a des événements à venir, sinon null. */
 export async function territoireDeLaCommune(slug: string): Promise<string | null> {
   return (await carteLocale()).communes.find(c => c.slug === slug)?.territoire ?? null
+}
+
+/* ── Une page à la fois, comme l'agenda de l'app ───────────────────────── */
+
+/** Cartouches envoyées d'un coup ; la suite vient en descendant. */
+export const PAR_PAGE = 30
+
+/** Ce qui désigne la liste d'une page d'entrée — pour en demander la suite. */
+export type SourcePage =
+  | { niveau: 'commune'; slug: string; type?: string }
+  | { niveau: 'territoire'; slug: string; type?: string }
+  | { niveau: 'week-end'; slug: string }
+
+/**
+ * La liste COMPLÈTE d'une page d'entrée, dans l'ordre de l'agenda. null : la
+ * page n'existe pas (adresse inconnue, Pau). La page en montre les PAR_PAGE
+ * premières, api/pages-entree rend la suite : une seule définition des deux.
+ */
+export async function listeDeLaPage(src: SourcePage): Promise<Evenement[] | null> {
+  if (src.niveau === 'commune') {
+    const c = await communeDePage(src.slug)
+    if (!c) return null
+    if (!src.type) return c.evenements
+    const ty = typeParSlug(src.type)
+    return ty ? c.evenements.filter(e => categoriesDe(e).includes(ty.cat)) : null
+  }
+  const t = await territoireParSlug(src.slug)
+  if (!t || !t.actif || !territoirePublic(t)) return null
+  if (src.niveau === 'week-end') return evenementsDuWeekEnd(t.slug)
+  if (!src.type) return evenementsDuTerritoire(t.slug)
+  const ty = typeParSlug(src.type)
+  return ty ? evenementsDuTerritoire(t.slug, ty.cat) : null
 }

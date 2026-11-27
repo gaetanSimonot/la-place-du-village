@@ -1,10 +1,11 @@
 'use client'
-import { useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useFavorites } from '@/hooks/useFavorites'
 import { lienEvenement } from '@/lib/lienEvenement'
 import { EvenementCard } from '@/lib/types'
+import type { SourcePage } from '@/lib/agendaPublic'
 import { CATEGORIES, eventCategories } from '@/lib/categories'
 import { formatEventDate } from '@/lib/filters'
 import { imageEvenement } from '@/lib/imageEvenement'
@@ -192,13 +193,53 @@ export default function EventListCard({ evt, isSelected = false, onSelect, onVie
  * mêmes boutons que sur la carte. Le favori passe par le même crochet que la
  * fiche événement (connecté ou non) ; « voir sur la carte » ouvre la carte
  * de l'app sur l'événement (?evt=, lu par l'écran carte).
+ *
+ * Comme l'agenda : la page envoie les premières, la suite arrive par paquets
+ * quand on approche du bas (api/pages-entree). Sans `source`, tout est déjà là.
  */
-export function ListeCartouches({ evenements }: { evenements: EvenementCard[] }) {
+export function ListeCartouches({ evenements, total, source }: {
+  evenements: EvenementCard[]
+  total?: number
+  source?: SourcePage
+}) {
   const router = useRouter()
   const { isFav, toggle } = useFavorites()
+  const [liste, setListe] = useState(evenements)
+  const [etat, setEtat] = useState<'pret' | 'charge' | 'erreur'>('pret')
+  const fin = useRef<HTMLDivElement>(null)
+  const reste = source && total != null && liste.length < total
+
+  const suite = useCallback(async () => {
+    if (!source || etat === 'charge') return
+    setEtat('charge')
+    try {
+      const q = new URLSearchParams({ niveau: source.niveau, slug: source.slug, depuis: String(liste.length) })
+      if ('type' in source && source.type) q.set('type', source.type)
+      const r = await fetch(`/api/pages-entree?${q}`)
+      if (!r.ok) throw new Error(String(r.status))
+      const j = await r.json() as { evenements: EvenementCard[] }
+      setListe(l => {
+        const vus = new Set(l.map(e => e.id))
+        return [...l, ...j.evenements.filter(e => !vus.has(e.id))]
+      })
+      setEtat(j.evenements.length ? 'pret' : 'erreur')
+    } catch {
+      setEtat('erreur')
+    }
+  }, [source, etat, liste.length])
+
+  // On demande la suite un peu AVANT d'arriver au bas : elle est là quand on y est.
+  useEffect(() => {
+    const el = fin.current
+    if (!el || !reste || etat !== 'pret') return
+    const obs = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) void suite() }, { rootMargin: '600px 0px' })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [reste, etat, suite])
+
   return (
     <div className="flex flex-col gap-2.5">
-      {evenements.map(e => (
+      {liste.map(e => (
         <EventListCard
           key={e.id}
           evt={e}
@@ -211,6 +252,18 @@ export function ListeCartouches({ evenements }: { evenements: EvenementCard[] })
           }}
         />
       ))}
+      {reste && (
+        <div ref={fin} className="flex justify-center py-3">
+          {etat === 'erreur' ? (
+            <button onClick={() => { setEtat('pret'); void suite() }}
+              style={{ height: 36, padding: '0 16px', borderRadius: 999, border: '1px solid #E6DCC8', background: '#fff', color: '#2D5A3D', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+              Voir la suite
+            </button>
+          ) : (
+            <span style={{ fontSize: 12, color: '#6B5E4E' }}>Chargement de la suite…</span>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -5,8 +5,8 @@ import { evenementsDuWeekEnd, evenementsDuTerritoire, navTerritoire, suiteDuResu
 import { territoireParSlug } from '@/lib/territoires'
 import { SITE } from '@/lib/seo'
 
-/** Relue toutes les 15 min. */
-export const revalidate = 900
+/** Toujours lue fraîche : à jour à chaque ouverture (choix du 27/11). */
+export const revalidate = 0
 
 type Props = { params: Promise<{ territoire: string }> }
 

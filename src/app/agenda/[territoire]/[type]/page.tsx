@@ -1,12 +1,12 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import PageAgendaPublic from '@/components/PageAgendaPublic'
-import { evenementsDuTerritoire, navTerritoire, suiteDuResume, typeParSlug, dansLeTerritoire, territoirePublic } from '@/lib/agendaPublic'
+import { evenementsDuTerritoire, navTerritoire, suiteDuResume, typeParSlug, dansLeTerritoire, territoirePublic, PAR_PAGE } from '@/lib/agendaPublic'
 import { territoireParSlug } from '@/lib/territoires'
 import { SITE } from '@/lib/seo'
 
-/** Relue toutes les 15 min. */
-export const revalidate = 900
+/** Toujours lue fraîche : à jour à chaque ouverture (choix du 27/11). */
+export const revalidate = 0
 
 type Props = { params: Promise<{ territoire: string; type: string }> }
 
@@ -43,7 +43,9 @@ export default async function TypeTerritoire({ params }: Props) {
     <PageAgendaPublic
       titre={`${p.type.nom} ${dansLeTerritoire(p.t)}`}
       resume={{ n, suite: suiteDuResume(n, []) }}
-      evenements={p.evenements}
+      evenements={p.evenements.slice(0, PAR_PAGE)}
+      total={n}
+      source={{ niveau: 'territoire', slug: p.t.slug, type: p.type.slug }}
       vide="Les autres sorties sont dans les pastilles ci-dessus, et toutes sur la carte."
       {...nav}
     />

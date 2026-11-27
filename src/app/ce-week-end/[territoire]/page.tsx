@@ -1,13 +1,13 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import PageAgendaPublic from '@/components/PageAgendaPublic'
-import { evenementsDuWeekEnd, dansLeTerritoire, titreTerritoire, territoirePublic } from '@/lib/agendaPublic'
+import { evenementsDuWeekEnd, dansLeTerritoire, titreTerritoire, territoirePublic, PAR_PAGE } from '@/lib/agendaPublic'
 import { getDateRange } from '@/lib/filters'
 import { territoireParSlug } from '@/lib/territoires'
 import { SITE } from '@/lib/seo'
 
-/** Relue toutes les 15 min : le lundi, elle passe d'elle-même au week-end suivant. */
-export const revalidate = 900
+/** Toujours lue fraîche : à jour à chaque ouverture (choix du 27/11). */
+export const revalidate = 0
 
 type Props = { params: Promise<{ territoire: string }> }
 
@@ -57,7 +57,9 @@ export default async function CeWeekEnd({ params }: Props) {
     <PageAgendaPublic
       titre={`Que faire ce week-end ${dansLeTerritoire(t)} ?`}
       resume={{ n: evts.length, suite: joursDuWeekEnd() }}
-      evenements={evts}
+      evenements={evts.slice(0, PAR_PAGE)}
+      total={evts.length}
+      source={{ niveau: 'week-end', slug: t.slug }}
       vide="Rien d’annoncé pour ce week-end pour l’instant. La carte montre tout ce qui vient."
       ariane={[{ href: `/agenda/${t.slug}`, label: t.nom }]}
       liens={[{ titre: 'Plus loin', liens: [{ href: `/agenda/${t.slug}`, label: titreTerritoire(t) }] }]}

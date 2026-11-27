@@ -2,11 +2,11 @@ import { cache } from 'react'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import PageAgendaPublic from '@/components/PageAgendaPublic'
-import { communeDePage, aLaCommune, navCommune, suiteDuResume } from '@/lib/agendaPublic'
+import { communeDePage, aLaCommune, navCommune, suiteDuResume, PAR_PAGE } from '@/lib/agendaPublic'
 import { SITE } from '@/lib/seo'
 
-/** Relue toutes les 15 min. */
-export const revalidate = 900
+/** Toujours lue fraîche : à jour à chaque ouverture (choix du 27/11). */
+export const revalidate = 0
 
 type Props = { params: Promise<{ commune: string }> }
 
@@ -46,7 +46,9 @@ export default async function QueFaire({ params }: Props) {
     <PageAgendaPublic
       titre={`Que faire ${aLaCommune(c.nom)} ?`}
       resume={{ n: c.evenements.length, suite: suiteDuResume(c.evenements.length, nav.onglets) }}
-      evenements={c.evenements}
+      evenements={c.evenements.slice(0, PAR_PAGE)}
+      total={c.evenements.length}
+      source={{ niveau: 'commune', slug: c.slug }}
       vide="Les rendez-vous des communes voisines sont juste en dessous, et tous sur la carte."
       {...nav}
     />

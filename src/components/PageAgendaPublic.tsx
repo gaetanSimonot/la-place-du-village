@@ -2,11 +2,11 @@ import Link from 'next/link'
 import { ListeCartouches } from '@/components/EventListCard'
 import BottomNavBar, { NAV_H } from '@/components/BottomNavBar'
 import PartagerPage from '@/components/PartagerPage'
+import OngletsPages from '@/components/OngletsPages'
 import { lienEvenement } from '@/lib/lienEvenement'
 import { enJsonLd, SITE } from '@/lib/seo'
-import { CATEGORIES } from '@/lib/categories'
 import type { Evenement, EvenementCard } from '@/lib/types'
-import type { GroupeLiens, Lien, Onglet } from '@/lib/agendaPublic'
+import type { GroupeLiens, Lien, Onglet, SourcePage } from '@/lib/agendaPublic'
 
 /**
  * Le gabarit des pages d'entrée depuis Google (« Que faire à Ganges ? »,
@@ -16,11 +16,15 @@ import type { GroupeLiens, Lien, Onglet } from '@/lib/agendaPublic'
  * favori, partage), barre du bas. Rendu
  * serveur : tout est dans le HTML que lit Google.
  */
-export default function PageAgendaPublic({ titre, resume, evenements, vide, ariane = [], onglets = [], titreListe, liens = [] }: {
+export default function PageAgendaPublic({ titre, resume, evenements, total, source, vide, ariane = [], onglets = [], titreListe, liens = [] }: {
   titre: string
   /** La ligne sous le titre : « 33 événements » en gras, puis la suite. */
   resume: { n: number; suite?: string }
+  /** Les premières cartouches (PAR_PAGE) ; la suite vient en descendant. */
   evenements: Evenement[]
+  /** Combien la liste en compte en tout, et où demander la suite. */
+  total?: number
+  source?: SourcePage
   vide: string
   /** Le chemin au-dessus : Cévennes › Ganges. */
   ariane?: Lien[]
@@ -74,29 +78,7 @@ export default function PageAgendaPublic({ titre, resume, evenements, vide, aria
 
       {/* Les types, en haut, comme les filtres de l'agenda — mais chacun est
           une page (« Ateliers à Ganges »), donc un vrai lien pour Google. */}
-      {onglets.length > 1 && (
-        <nav aria-label="Par type" className="mt-3 flex gap-2 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
-          {onglets.map(o => (
-            <Link
-              key={o.href}
-              href={o.href}
-              aria-current={o.actif ? 'page' : undefined}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0,
-                height: 34, padding: '0 13px', borderRadius: 999, textDecoration: 'none',
-                fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap',
-                background: o.actif ? '#2D5A3D' : '#fff',
-                color: o.actif ? '#fff' : '#1A1209',
-                border: o.actif ? '1px solid #2D5A3D' : '1px solid #E6DCC8',
-              }}
-            >
-              {o.cat && <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: (CATEGORIES[o.cat] ?? CATEGORIES.autre).color, boxShadow: o.actif ? '0 0 0 1.5px #fff' : 'none' }} />}
-              {o.label}
-              {o.n != null && <span style={{ fontWeight: 500, opacity: 0.7 }}>{o.n}</span>}
-            </Link>
-          ))}
-        </nav>
-      )}
+      {onglets.length > 1 && <OngletsPages onglets={onglets} />}
 
       <div className="px-3 pt-4">
         {titreListe && evenements.length > 0 && (
@@ -105,7 +87,7 @@ export default function PageAgendaPublic({ titre, resume, evenements, vide, aria
         {evenements.length === 0 ? (
           <p className="m-0 px-1 pt-2 text-[14px]" style={{ color: '#6B5E4E' }}>{vide}</p>
         ) : (
-          <ListeCartouches evenements={evenements as unknown as EvenementCard[]} />
+          <ListeCartouches evenements={evenements as unknown as EvenementCard[]} total={total} source={source} />
         )}
       </div>
 
@@ -127,6 +109,45 @@ export default function PageAgendaPublic({ titre, resume, evenements, vide, aria
         </nav>
       ))}
 
+      <BottomNavBar activeTab="carte" />
+    </main>
+  )
+}
+
+/**
+ * L'écran d'attente des pages d'entrée (loading.tsx) : même en-tête, même
+ * barre du bas, des cartouches grises. Affiché AUSSITÔT qu'on touche une
+ * pastille ou un lien, pendant que la page suivante arrive.
+ */
+export function SqueletteAgendaPublic() {
+  const gris = '#ECE6DC'
+  return (
+    <main className="min-h-[100dvh] bg-creme font-inter" style={{ paddingBottom: `calc(${NAV_H + 24}px + env(safe-area-inset-bottom))` }} aria-busy="true">
+      <header style={{ position: 'sticky', top: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, background: '#fff', padding: '8px 12px', paddingTop: 'max(8px, env(safe-area-inset-top, 8px))', borderBottom: '1px solid #EDE8E0', boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo-topbar.webp" alt="La Place" style={{ height: 38, width: 'auto', objectFit: 'contain', display: 'block' }} />
+        <div style={{ width: 92, height: 34, borderRadius: 999, background: '#F7F1E6' }} />
+      </header>
+      <div className="animate-pulse px-4 pt-4">
+        <div style={{ width: '45%', height: 12, borderRadius: 6, background: gris }} />
+        <div style={{ width: '75%', height: 26, borderRadius: 8, background: gris, marginTop: 10 }} />
+        <div style={{ width: '55%', height: 13, borderRadius: 6, background: gris, marginTop: 8 }} />
+        <div className="mt-4 flex gap-2">
+          {[70, 96, 110, 88].map((w, i) => <div key={i} style={{ width: w, height: 34, borderRadius: 999, background: gris, flexShrink: 0 }} />)}
+        </div>
+      </div>
+      <div className="flex animate-pulse flex-col gap-2.5 px-3 pt-4">
+        {Array.from({ length: 6 }, (_, i) => (
+          <div key={i} style={{ display: 'flex', height: 86, borderRadius: 14, overflow: 'hidden', background: '#fff', boxShadow: '0 1px 6px rgba(44,44,44,0.09)' }}>
+            <div style={{ width: 86, background: gris }} />
+            <div style={{ flex: 1, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ width: 70, height: 12, borderRadius: 999, background: gris }} />
+              <div style={{ width: '85%', height: 13, borderRadius: 6, background: gris }} />
+              <div style={{ width: '40%', height: 11, borderRadius: 6, background: gris }} />
+            </div>
+          </div>
+        ))}
+      </div>
       <BottomNavBar activeTab="carte" />
     </main>
   )

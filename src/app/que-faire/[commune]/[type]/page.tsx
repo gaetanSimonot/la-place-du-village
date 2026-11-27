@@ -2,11 +2,11 @@ import { cache } from 'react'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import PageAgendaPublic from '@/components/PageAgendaPublic'
-import { communeDePage, aLaCommune, categoriesDe, navCommune, suiteDuResume, typeParSlug } from '@/lib/agendaPublic'
+import { communeDePage, aLaCommune, categoriesDe, navCommune, suiteDuResume, typeParSlug, PAR_PAGE } from '@/lib/agendaPublic'
 import { SITE } from '@/lib/seo'
 
-/** Relue toutes les 15 min. */
-export const revalidate = 900
+/** Toujours lue fraîche : à jour à chaque ouverture (choix du 27/11). */
+export const revalidate = 0
 
 type Props = { params: Promise<{ commune: string; type: string }> }
 
@@ -52,7 +52,9 @@ export default async function TypeCommune({ params }: Props) {
     <PageAgendaPublic
       titre={titreDe(p)}
       resume={{ n, suite: suiteDuResume(n, []) }}
-      evenements={p.evenements}
+      evenements={p.evenements.slice(0, PAR_PAGE)}
+      total={n}
+      source={{ niveau: 'commune', slug: p.slug, type: p.type.slug }}
       vide="Les autres sorties de la commune sont dans les pastilles ci-dessus, et toutes sur la carte."
       {...nav}
     />
