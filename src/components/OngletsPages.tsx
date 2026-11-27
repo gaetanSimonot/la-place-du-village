@@ -11,6 +11,41 @@ import type { Onglet } from '@/lib/agendaPublic'
  * qu'on la touche, sans attendre la page suivante : sous le doigt, il doit
  * se passer quelque chose tout de suite.
  */
+/**
+ * L'écran d'attente entre deux pages d'entrée, affiché PAR LE TÉLÉPHONE dès
+ * qu'on touche un lien vers une autre (pastille, « Autour », chemin).
+ *
+ * Pas de loading.tsx : avec lui, le serveur envoie l'attente avant d'avoir
+ * décidé si la page existe — le code 200 part, et une page introuvable (Pau,
+ * adresse inconnue) n'est plus un vrai 404 pour Google.
+ */
+const VERS_PAGE_ENTREE = /^\/(que-faire|agenda|ce-week-end)\//
+export function AttentePages({ squelette }: { squelette: React.ReactNode }) {
+  const pathname = usePathname()
+  const [attente, setAttente] = useState(false)
+  useEffect(() => { setAttente(false) }, [pathname])
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+      const a = e.target instanceof Element ? e.target.closest('a') : null
+      const href = a?.getAttribute('href') ?? ''
+      if (VERS_PAGE_ENTREE.test(href) && href !== window.location.pathname) setAttente(true)
+    }
+    // En capture : le lien de Next annule le clic (navigation douce) avant
+    // qu'il ne remonte au document, on le voit donc à la descente.
+    document.addEventListener('click', onClick, true)
+    return () => document.removeEventListener('click', onClick, true)
+  }, [])
+  // Filet : jamais bloqué derrière l'attente si la page n'arrive pas.
+  useEffect(() => {
+    if (!attente) return
+    const t = setTimeout(() => setAttente(false), 10_000)
+    return () => clearTimeout(t)
+  }, [attente])
+  if (!attente) return null
+  return <div style={{ position: 'fixed', inset: 0, zIndex: 60, overflow: 'hidden' }}>{squelette}</div>
+}
+
 export default function OngletsPages({ onglets }: { onglets: Onglet[] }) {
   const pathname = usePathname()
   const [vise, setVise] = useState<string | null>(null)

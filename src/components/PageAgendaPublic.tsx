@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { ListeCartouches } from '@/components/EventListCard'
 import BottomNavBar, { NAV_H } from '@/components/BottomNavBar'
 import PartagerPage from '@/components/PartagerPage'
-import OngletsPages from '@/components/OngletsPages'
+import OngletsPages, { AttentePages } from '@/components/OngletsPages'
 import { lienEvenement } from '@/lib/lienEvenement'
 import { enJsonLd, SITE } from '@/lib/seo'
 import type { Evenement, EvenementCard } from '@/lib/types'
@@ -110,12 +110,13 @@ export default function PageAgendaPublic({ titre, resume, evenements, total, sou
       ))}
 
       <BottomNavBar activeTab="carte" />
+      <AttentePages squelette={<SqueletteAgendaPublic />} />
     </main>
   )
 }
 
 /**
- * L'écran d'attente des pages d'entrée (loading.tsx) : même en-tête, même
+ * L'écran d'attente des pages d'entrée (AttentePages) : même en-tête, même
  * barre du bas, des cartouches grises. Affiché AUSSITÔT qu'on touche une
  * pastille ou un lien, pendant que la page suivante arrive.
  */
