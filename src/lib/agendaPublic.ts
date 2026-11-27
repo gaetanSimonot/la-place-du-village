@@ -468,7 +468,7 @@ export type SourcePage =
   | { niveau: 'commune'; slug: string; type?: string }
   | { niveau: 'territoire'; slug: string; type?: string }
   | { niveau: 'week-end'; slug: string }
-  | { niveau: 'noel'; slug: string; type?: string }
+  | { niveau: 'noel'; slug: string; type?: string; commune?: string }
 
 /**
  * La liste COMPLÈTE d'une page d'entrée, dans l'ordre de l'agenda. null : la
@@ -489,7 +489,7 @@ export async function listeDeLaPage(src: SourcePage): Promise<Evenement[] | null
   if (src.niveau === 'noel') {
     const ty = src.type ? typeParSlug(src.type) : null
     if (src.type && !ty) return null
-    return evenementsDeNoel(t.slug, ty?.cat)
+    return evenementsDeNoel(t.slug, ty?.cat, src.commune)
   }
   if (!src.type) return evenementsDuTerritoire(t.slug)
   const ty = typeParSlug(src.type)
@@ -518,36 +518,73 @@ const idsDeNoel = cache(async (): Promise<Set<string>> => {
 })
 
 /** Les rendez-vous de Noël d'un territoire (dans son périmètre), d'un type ou de tous. */
-export async function evenementsDeNoel(territoireSlug: string, cat?: Categorie): Promise<Evenement[]> {
+export async function evenementsDeNoel(territoireSlug: string, cat?: Categorie, communeSlug?: string | null): Promise<Evenement[]> {
   const [ids, tous] = await Promise.all([idsDeNoel(), evenementsDuTerritoire(territoireSlug, cat)])
-  return tous.filter(e => ids.has(e.id))
+  return tous.filter(e => ids.has(e.id) && (!communeSlug || slugDeLaCommune(e) === communeSlug))
 }
-
-/** Pastilles et liens de la page de Noël : les types présents, les communes qui en ont. */
-export async function navNoel(t: Territoire, type: TypeSortie | null): Promise<NavPage> {
-  const tous = await evenementsDeNoel(t.slug)
-  const parType = new Map<Categorie, number>()
-  for (const e of tous) for (const c of categoriesDe(e)) parType.set(c, (parType.get(c) ?? 0) + 1)
-  const parCommune = new Map<string, { nom: string; n: number }>()
-  for (const e of tous) {
+const slugDeLaCommune = (e: Evenement): string | null => {
+  const nom = communeDe(e.lieux as { commune?: string | null; adresse?: string | null } | null)
+  return nom ? slugCommune(nom) : null
+}
+/** Les communes d'une liste, les plus fournies d'abord. */
+function communesDe(evts: Evenement[]): { slug: string; nom: string; n: number }[] {
+  const m = new Map<string, { slug: string; nom: string; n: number }>()
+  for (const e of evts) {
     const nom = communeDe(e.lieux as { commune?: string | null; adresse?: string | null } | null)
     if (!nom) continue
     const k = slugCommune(nom)
-    parCommune.set(k, { nom, n: (parCommune.get(k)?.n ?? 0) + 1 })
+    const c = m.get(k) ?? { slug: k, nom, n: 0 }
+    c.n++; m.set(k, c)
   }
+  return Array.from(m.values()).sort((a, b) => b.n - a.n || a.nom.localeCompare(b.nom, 'fr'))
+}
+
+/**
+ * La navigation de la page de Noël : pastilles de type (comptées dans la
+ * commune choisie), choix de la commune (comptées dans le type choisi, les
+ * plus fournies d'abord) et, en bas, les communes en liens. Chaque lien garde
+ * l'autre filtre : « Marchés » puis « Ganges » = les marchés de Noël de Ganges.
+ */
+export async function navNoel(t: Territoire, type: TypeSortie | null, communeSlug: string | null): Promise<NavPage & {
+  communes: { slug: string; nom: string; n: number; href: string }[]
+  communeNom: string | null
+  toutesCommunes: { href: string; n: number }
+}> {
   const base = `/agenda/${t.slug}/noel`
+  const lien = (ty: string | null, co: string | null) => {
+    const q = new URLSearchParams()
+    if (ty) q.set('type', ty)
+    if (co) q.set('commune', co)
+    const qs = q.toString()
+    return qs ? `${base}?${qs}` : base
+  }
+  const [dansLaCommune, dansLeType] = await Promise.all([
+    evenementsDeNoel(t.slug, undefined, communeSlug),
+    evenementsDeNoel(t.slug, type?.cat),
+  ])
+  const parType = new Map<Categorie, number>()
+  for (const e of dansLaCommune) for (const c of categoriesDe(e)) parType.set(c, (parType.get(c) ?? 0) + 1)
+  const communes = communesDe(dansLeType).map(c => ({ ...c, href: lien(type?.slug ?? null, c.slug) }))
+  // La commune choisie n'a rien de ce type : elle reste dans la liste (à 0),
+  // sinon le bouton afficherait « Toutes les communes » alors qu'on filtre.
+  if (communeSlug && !communes.some(c => c.slug === communeSlug)) {
+    const nom = communesDe(dansLaCommune)[0]?.nom
+    if (nom) communes.push({ slug: communeSlug, nom, n: 0, href: lien(type?.slug ?? null, communeSlug) })
+  }
+  const communeNom = communeSlug ? communes.find(c => c.slug === communeSlug)?.nom ?? null : null
   return {
     ariane: [{ href: `/agenda/${t.slug}`, label: t.nom }],
     onglets: [
-      { href: base, label: 'Tout', n: tous.length, actif: !type },
+      { href: lien(null, communeSlug), label: 'Tout', n: dansLaCommune.length, actif: !type },
       ...TYPES_SORTIE.filter(ty => ty.slug === type?.slug || (parType.get(ty.cat) ?? 0) > 0)
-        .map(ty => ({ href: `${base}?type=${ty.slug}`, label: ty.nom, n: parType.get(ty.cat) ?? 0, cat: ty.cat, actif: ty.slug === type?.slug })),
+        .map(ty => ({ href: lien(ty.slug, communeSlug), label: ty.nom, n: parType.get(ty.cat) ?? 0, cat: ty.cat, actif: ty.slug === type?.slug })),
     ],
+    communes,
+    communeNom,
+    toutesCommunes: { href: lien(type?.slug ?? null, null), n: dansLeType.length },
     liens: groupes([
-      { titre: 'Noël par commune', liens: Array.from(parCommune.entries())
-        .filter(([, v]) => v.n >= SEUIL_COMMUNE)
-        .sort((a, b) => b[1].n - a[1].n)
-        .map(([slug, v]) => ({ href: `/que-faire/${slug}`, label: v.nom, n: v.n })) },
+      { titre: 'Noël par commune', liens: communes.filter(c => c.slug !== communeSlug && c.n >= SEUIL_COMMUNE)
+        .map(c => ({ href: c.href, label: c.nom, n: c.n })) },
       { titre: 'Et aussi', liens: [{ href: `/agenda/${t.slug}`, label: titreTerritoire(t) }] },
     ]),
   }

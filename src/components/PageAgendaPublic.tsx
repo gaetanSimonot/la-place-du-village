@@ -11,7 +11,7 @@ import BottomNavBar from '@/components/BottomNavBar'
  */
 const NAV_H = 68
 import PartagerPage from '@/components/PartagerPage'
-import OngletsPages, { AttentePages } from '@/components/OngletsPages'
+import OngletsPages, { AttentePages, FiltreCommune } from '@/components/OngletsPages'
 import { lienEvenement } from '@/lib/lienEvenement'
 import { enJsonLd, SITE } from '@/lib/seo'
 import type { Evenement, EvenementCard } from '@/lib/types'
@@ -25,7 +25,7 @@ import type { GroupeLiens, Lien, Onglet, SourcePage } from '@/lib/agendaPublic'
  * favori, partage), barre du bas. Rendu
  * serveur : tout est dans le HTML que lit Google.
  */
-export default function PageAgendaPublic({ titre, resume, evenements, total, source, vide, ariane = [], onglets = [], titreListe, liens = [] }: {
+export default function PageAgendaPublic({ titre, resume, evenements, total, source, vide, ariane = [], onglets = [], titreListe, liens = [], filtreCommune }: {
   titre: string
   /** La ligne sous le titre : « 33 événements » en gras, puis la suite. */
   resume: { n: number; suite?: string }
@@ -43,6 +43,8 @@ export default function PageAgendaPublic({ titre, resume, evenements, total, sou
   titreListe?: string
   /** Un petit bloc en bas : les communes autour, ou toutes les communes. */
   liens?: GroupeLiens[]
+  /** Page qui couvre tout un territoire (Noël) : le choix de la commune, sous les types. */
+  filtreCommune?: React.ComponentProps<typeof FiltreCommune>
 }) {
   // La liste, dite aux moteurs : chaque entrée pointe vers sa fiche.
   const ld = evenements.length ? {
@@ -88,6 +90,7 @@ export default function PageAgendaPublic({ titre, resume, evenements, total, sou
       {/* Les types, en haut, comme les filtres de l'agenda — mais chacun est
           une page (« Ateliers à Ganges »), donc un vrai lien pour Google. */}
       {onglets.length > 1 && <OngletsPages onglets={onglets} />}
+      {filtreCommune && filtreCommune.communes.length > 1 && <FiltreCommune {...filtreCommune} />}
 
       <div className="px-3 pt-4">
         {titreListe && evenements.length > 0 && (

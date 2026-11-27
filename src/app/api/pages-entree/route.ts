@@ -16,11 +16,12 @@ export async function GET(req: NextRequest) {
   const niveau = sp.get('niveau') ?? ''
   const slug = sp.get('slug') ?? ''
   const type = sp.get('type') || undefined
+  const commune = sp.get('commune') || undefined
   const depuis = Math.min(5000, Math.max(0, Math.floor(Number(sp.get('depuis')) || 0)))
-  if (!NIVEAUX.has(niveau) || !SLUG.test(slug) || (type && !SLUG.test(type))) {
+  if (!NIVEAUX.has(niveau) || !SLUG.test(slug) || (type && !SLUG.test(type)) || (commune && !SLUG.test(commune))) {
     return NextResponse.json({ error: 'requête invalide' }, { status: 400 })
   }
-  const src = (niveau === 'week-end' ? { niveau, slug } : { niveau, slug, type }) as SourcePage
+  const src = (niveau === 'week-end' ? { niveau, slug } : niveau === 'noel' ? { niveau, slug, type, commune } : { niveau, slug, type }) as SourcePage
   const liste = await listeDeLaPage(src)
   if (!liste) return NextResponse.json({ error: 'introuvable' }, { status: 404 })
   return NextResponse.json({ evenements: liste.slice(depuis, depuis + PAR_PAGE), total: liste.length })

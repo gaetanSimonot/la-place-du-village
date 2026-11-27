@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { CATEGORIES } from '@/lib/categories'
 import type { Onglet } from '@/lib/agendaPublic'
 
@@ -83,5 +83,53 @@ export default function OngletsPages({ onglets }: { onglets: Onglet[] }) {
         )
       })}
     </nav>
+  )
+}
+
+/**
+ * Le choix de la commune (page de Noël) : un bouton « 📍 Toutes les communes ▾ »
+ * qui ouvre la liste native du téléphone — la plus pratique pour une
+ * centaine de noms. Les plus fournies d'abord, avec leur nombre de rendez-vous.
+ */
+export function FiltreCommune({ communes, actuelle, toutes }: {
+  communes: { slug: string; nom: string; n: number; href: string }[]
+  actuelle: { slug: string; nom: string } | null
+  toutes: { href: string; n: number }
+}) {
+  const router = useRouter()
+  const [enCours, setEnCours] = useState(false)
+  useEffect(() => { setEnCours(false) }, [actuelle?.slug])
+  return (
+    <div className="mt-2.5 px-4">
+      <label style={{
+        position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 7, maxWidth: '100%',
+        height: 36, padding: '0 14px', borderRadius: 999, cursor: 'pointer',
+        background: actuelle ? '#2D5A3D' : '#fff', color: actuelle ? '#fff' : '#1A1209',
+        border: actuelle ? '1px solid #2D5A3D' : '1px solid #E6DCC8',
+        fontSize: 13, fontWeight: 700, opacity: enCours ? 0.6 : 1,
+      }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" /><circle cx="12" cy="9" r="2.5" />
+        </svg>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {enCours ? 'Chargement…' : actuelle ? actuelle.nom : 'Toutes les communes'}
+        </span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><polyline points="6 9 12 15 18 9" /></svg>
+        {/* La vraie liste, invisible, par-dessus le bouton : le toucher l'ouvre. */}
+        <select
+          aria-label="Choisir la commune"
+          value={actuelle?.slug ?? ''}
+          onChange={e => {
+            const v = e.target.value
+            const cible = v ? communes.find(c => c.slug === v)?.href : toutes.href
+            if (cible) { setEnCours(true); router.push(cible) }
+          }}
+          style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', fontSize: 16 }}
+        >
+          <option value="">Toutes les communes ({toutes.n})</option>
+          {communes.map(c => <option key={c.slug} value={c.slug}>{c.nom} ({c.n})</option>)}
+        </select>
+      </label>
+    </div>
   )
 }

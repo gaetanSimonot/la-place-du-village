@@ -215,6 +215,7 @@ export function ListeCartouches({ evenements, total, source }: {
     try {
       const q = new URLSearchParams({ niveau: source.niveau, slug: source.slug, depuis: String(liste.length) })
       if ('type' in source && source.type) q.set('type', source.type)
+      if ('commune' in source && source.commune) q.set('commune', source.commune)
       const r = await fetch(`/api/pages-entree?${q}`)
       if (!r.ok) throw new Error(String(r.status))
       const j = await r.json() as { evenements: EvenementCard[] }
