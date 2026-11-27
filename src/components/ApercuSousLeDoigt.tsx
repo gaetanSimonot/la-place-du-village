@@ -153,22 +153,26 @@ export default function ApercuSousLeDoigt({ actif, evenements, children, style }
     const onClick = (ev: MouseEvent) => {
       if (etat.current?.avaleClic) { ev.preventDefault(); ev.stopPropagation(); etat.current.avaleClic = false }
     }
-    // Le menu d'appui long (et sa vibration) : jamais pendant un aperçu.
-    const onMenu = (ev: Event) => { if (etat.current) { ev.preventDefault(); ev.stopPropagation() } }
+    /*
+     * PAS de preventDefault sur le menu d'appui long : Chrome Android vibre
+     * justement quand la page « prend » l'appui long (menu montré OU annulé
+     * par la page). On laisse donc l'appui long sans preneur : la cartouche
+     * n'est plus un lien (href retiré), ses images ne captent pas le doigt
+     * (.pdv-apercu-zone img), son texte n'est pas sélectionnable — Chrome n'a
+     * rien à montrer, il ne vibre pas.
+     */
 
     el.addEventListener('touchstart', onStart, { passive: true })
     window.addEventListener('touchmove', onMove, { passive: false })
     window.addEventListener('touchend', onEnd)
     window.addEventListener('touchcancel', onEnd)
     el.addEventListener('click', onClick, true)
-    document.addEventListener('contextmenu', onMenu, true)
     return () => {
       el.removeEventListener('touchstart', onStart)
       window.removeEventListener('touchmove', onMove)
       window.removeEventListener('touchend', onEnd)
       window.removeEventListener('touchcancel', onEnd)
       el.removeEventListener('click', onClick, true)
-      document.removeEventListener('contextmenu', onMenu, true)
     }
   }, [actif, fermer])
 
@@ -181,7 +185,8 @@ export default function ApercuSousLeDoigt({ actif, evenements, children, style }
 
   return (
     <>
-      <div ref={zone} style={{ ...style, WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}>{children}</div>
+      {actif && <style>{'.pdv-apercu-zone img{pointer-events:none;-webkit-touch-callout:none}'}</style>}
+      <div ref={zone} className={actif ? 'pdv-apercu-zone' : undefined} style={{ ...style, WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}>{children}</div>
       {ouvert && evt && geo && typeof document !== 'undefined' && createPortal(
         <div aria-hidden style={{ position: 'fixed', inset: 0, zIndex: 2147482000, pointerEvents: 'none' }}>
           <div style={{
