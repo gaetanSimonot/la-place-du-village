@@ -8,7 +8,7 @@ import { listeDeLaPage, PAR_PAGE, type SourcePage } from '@/lib/agendaPublic'
  * à la fois, quand on descend — comme l'agenda de l'app. Même liste, même
  * ordre que la page (listeDeLaPage). Lecture seule, données déjà publiques.
  */
-const NIVEAUX = new Set(['commune', 'territoire', 'week-end'])
+const NIVEAUX = new Set(['commune', 'territoire', 'week-end', 'noel'])
 const SLUG = /^[a-z0-9-]{1,80}$/
 
 export async function GET(req: NextRequest) {

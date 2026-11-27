@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { dateParis, estTermine, filtrePasTermine } from '@/lib/cinema'
 import { lienEvenement } from '@/lib/lienEvenement'
 import { ficheRemplie } from '@/lib/etablissementPublic'
-import { communesAVenir, communePublique, pagesLocalesAnnoncees, territoireDeLaCommune, territoiresPublics, SEUIL_COMMUNE } from '@/lib/agendaPublic'
+import { communesAVenir, communePublique, evenementsDeNoel, pagesLocalesAnnoncees, territoireDeLaCommune, territoiresPublics, SEUIL_COMMUNE } from '@/lib/agendaPublic'
 import { SITE } from '@/lib/seo'
 
 /** Relu toutes les heures. */
@@ -35,6 +35,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Territoires OUVERTS AU PUBLIC seulement : Pau n'a pas de pages d'entrée.
   for (const t of await territoiresPublics()) {
     out.push({ url: `${SITE}/ce-week-end/${t.slug}`, changeFrequency: 'daily', priority: 0.8 })
+    // « Que faire à Noël » : tant qu'il y a de quoi la remplir.
+    if ((await evenementsDeNoel(t.slug)).length >= 3) out.push({ url: `${SITE}/agenda/${t.slug}/noel`, changeFrequency: 'daily', priority: 0.8 })
   }
   for (const c of await communesAVenir()) {
     if (c.evenements.length < SEUIL_COMMUNE) continue

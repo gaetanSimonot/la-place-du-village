@@ -20,16 +20,17 @@ import type { Onglet } from '@/lib/agendaPublic'
  * adresse inconnue) n'est plus un vrai 404 pour Google.
  */
 const VERS_PAGE_ENTREE = /^\/(que-faire|agenda|ce-week-end)\//
-export function AttentePages({ squelette }: { squelette: React.ReactNode }) {
+export function AttentePages({ squelette, page }: { squelette: React.ReactNode; page: string }) {
   const pathname = usePathname()
   const [attente, setAttente] = useState(false)
-  useEffect(() => { setAttente(false) }, [pathname])
+  // `page` change aussi quand seul ?type= change (page de Noël) : le chemin, non.
+  useEffect(() => { setAttente(false) }, [pathname, page])
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
       const a = e.target instanceof Element ? e.target.closest('a') : null
       const href = a?.getAttribute('href') ?? ''
-      if (VERS_PAGE_ENTREE.test(href) && href !== window.location.pathname) setAttente(true)
+      if (VERS_PAGE_ENTREE.test(href) && href !== window.location.pathname + window.location.search) setAttente(true)
     }
     // En capture : le lien de Next annule le clic (navigation douce) avant
     // qu'il ne remonte au document, on le voit donc à la descente.
@@ -49,8 +50,10 @@ export function AttentePages({ squelette }: { squelette: React.ReactNode }) {
 export default function OngletsPages({ onglets }: { onglets: Onglet[] }) {
   const pathname = usePathname()
   const [vise, setVise] = useState<string | null>(null)
-  // La page visée est arrivée (ou on est revenu) : l'état vient d'elle.
-  useEffect(() => { setVise(null) }, [pathname])
+  // La page visée est arrivée (ou on est revenu) : l'état vient d'elle. La
+  // pastille active du serveur change aussi quand seul ?type= change.
+  const actifServeur = onglets.find(o => o.actif)?.href
+  useEffect(() => { setVise(null) }, [pathname, actifServeur])
 
   return (
     <nav aria-label="Par type" className="mt-3 flex gap-2 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>

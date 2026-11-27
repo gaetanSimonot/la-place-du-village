@@ -39,7 +39,33 @@ export async function evenementsDuWeekEnd(territoireSlug: string): Promise<Evene
   const res = await lireAgenda(new NextRequest(
     `${SITE}/api/agenda?quand=ce_week_end&territoire=${encodeURIComponent(territoireSlug)}`))
   const j = await res.json() as { evenements?: Evenement[] }
-  return j.evenements ?? []
+  const t = await territoireParSlug(territoireSlug)
+  const dedans = await perimetre()
+  return (j.evenements ?? []).filter(e => dedans(t?.id ?? null, e))
+}
+
+/**
+ * LE PÉRIMÈTRE D'AFFICHAGE, le même que la carte : le rayon d'affichage du
+ * territoire autour de ses centres (« Outils zone géo », ou le curseur admin
+ * des réglages de la carte). Les pages d'entrée ne montrent pas plus que la
+ * carte : ce qui est en base au-delà (insertion jusqu'à 95 km) n'y paraît pas.
+ * Sans rayon ou sans centre connu, ou sans coordonnées, on ne filtre pas —
+ * comme la carte. Relu à chaque requête (territoires : cache 60 s).
+ */
+async function perimetre(): Promise<(territoireId: string | null | undefined, e: Evenement) => boolean> {
+  const [actifs, defaut, { data: centres }] = await Promise.all([
+    territoiresActifs(), territoireParDefaut(),
+    supabaseAdmin.from('zone_centres').select('lat, lng, territoire_id'),
+  ])
+  return (territoireId, e) => {
+    const t = territoireId ? actifs.find(x => x.id === territoireId) : defaut
+    if (!t || !(t.rayon_affichage_km > 0)) return true
+    const cs = (centres ?? []).filter(c => c.territoire_id === t.id)
+    const l = e.lieux as { lat?: number | null; lng?: number | null } | null
+    if (!cs.length || l?.lat == null || l?.lng == null) return true
+    const lat = l.lat, lng = l.lng
+    return cs.some(c => haversineKm(lat, lng, c.lat as number, c.lng as number) <= t.rayon_affichage_km)
+  }
 }
 
 export interface Commune { nom: string; slug: string; evenements: Evenement[] }
@@ -47,7 +73,8 @@ export interface Commune { nom: string; slug: string; evenements: Evenement[] }
 type EvenementLocal = Evenement & { territoire_id?: string | null }
 
 /**
- * Les événements publiés à venir (trois mois), lus une fois par requête :
+ * Les événements publiés à venir (trois mois), DANS LE PÉRIMÈTRE
+ * D'AFFICHAGE (le même que la carte), lus une fois par requête :
  * toutes les pages d'entrée, et la suite de leurs listes (api/pages-entree),
  * partent de cette même lecture. PAS de cache au-delà de la requête : la page
  * doit être à jour à chaque ouverture (choix de Gaëtan, 27/11).
@@ -64,7 +91,8 @@ const evenementsAVenir = cache(async (): Promise<EvenementLocal[]> => {
     .order('date_debut')
     .order('heure', { nullsFirst: false })
     .limit(2000)
-  return ordreDeLAgenda((data ?? []) as unknown as EvenementLocal[])
+  const dedans = await perimetre()
+  return ordreDeLAgenda(((data ?? []) as unknown as EvenementLocal[]).filter(e => dedans(e.territoire_id, e)))
 })
 
 /**
@@ -440,6 +468,7 @@ export type SourcePage =
   | { niveau: 'commune'; slug: string; type?: string }
   | { niveau: 'territoire'; slug: string; type?: string }
   | { niveau: 'week-end'; slug: string }
+  | { niveau: 'noel'; slug: string; type?: string }
 
 /**
  * La liste COMPLÈTE d'une page d'entrée, dans l'ordre de l'agenda. null : la
@@ -457,7 +486,69 @@ export async function listeDeLaPage(src: SourcePage): Promise<Evenement[] | null
   const t = await territoireParSlug(src.slug)
   if (!t || !t.actif || !territoirePublic(t)) return null
   if (src.niveau === 'week-end') return evenementsDuWeekEnd(t.slug)
+  if (src.niveau === 'noel') {
+    const ty = src.type ? typeParSlug(src.type) : null
+    if (src.type && !ty) return null
+    return evenementsDeNoel(t.slug, ty?.cat)
+  }
   if (!src.type) return evenementsDuTerritoire(t.slug)
   const ty = typeParSlug(src.type)
   return ty ? evenementsDuTerritoire(t.slug, ty.cat) : null
+}
+
+/* ── Que faire à Noël ──────────────────────────────────────────────────── */
+
+/*
+ * CE QUI EST « DE NOËL » : repéré au titre (Noël, l'Avent, santons, crèche,
+ * réveillon, pastorale, calendale, Nadal, lutins, illuminations) ou à la
+ * description (les mêmes, sauf crèche et illuminations, trop larges hors du
+ * titre). Pas de catégorie « Noël » : c'est un thème, il traverse les types.
+ */
+const NOEL_TITRE = "(no[eë]l|l['’]avent|santon|r[ée]veillon|calendal|pastorale|nadal|lutin|cr[èe]che|illumination)"
+const NOEL_DESCRIPTION = "(no[eë]l|l['’]avent|santon|r[ée]veillon|calendal|pastorale|nadal)"
+const idsDeNoel = cache(async (): Promise<Set<string>> => {
+  const { data } = await supabaseAdmin
+    .from('evenements')
+    .select('id')
+    .eq('statut', 'publie')
+    .or(`titre.imatch."${NOEL_TITRE}",description.imatch."${NOEL_DESCRIPTION}"`)
+    .lte('date_debut', dateParis(92))
+    .limit(3000)
+  return new Set((data ?? []).map(e => e.id as string))
+})
+
+/** Les rendez-vous de Noël d'un territoire (dans son périmètre), d'un type ou de tous. */
+export async function evenementsDeNoel(territoireSlug: string, cat?: Categorie): Promise<Evenement[]> {
+  const [ids, tous] = await Promise.all([idsDeNoel(), evenementsDuTerritoire(territoireSlug, cat)])
+  return tous.filter(e => ids.has(e.id))
+}
+
+/** Pastilles et liens de la page de Noël : les types présents, les communes qui en ont. */
+export async function navNoel(t: Territoire, type: TypeSortie | null): Promise<NavPage> {
+  const tous = await evenementsDeNoel(t.slug)
+  const parType = new Map<Categorie, number>()
+  for (const e of tous) for (const c of categoriesDe(e)) parType.set(c, (parType.get(c) ?? 0) + 1)
+  const parCommune = new Map<string, { nom: string; n: number }>()
+  for (const e of tous) {
+    const nom = communeDe(e.lieux as { commune?: string | null; adresse?: string | null } | null)
+    if (!nom) continue
+    const k = slugCommune(nom)
+    parCommune.set(k, { nom, n: (parCommune.get(k)?.n ?? 0) + 1 })
+  }
+  const base = `/agenda/${t.slug}/noel`
+  return {
+    ariane: [{ href: `/agenda/${t.slug}`, label: t.nom }],
+    onglets: [
+      { href: base, label: 'Tout', n: tous.length, actif: !type },
+      ...TYPES_SORTIE.filter(ty => ty.slug === type?.slug || (parType.get(ty.cat) ?? 0) > 0)
+        .map(ty => ({ href: `${base}?type=${ty.slug}`, label: ty.nom, n: parType.get(ty.cat) ?? 0, cat: ty.cat, actif: ty.slug === type?.slug })),
+    ],
+    liens: groupes([
+      { titre: 'Noël par commune', liens: Array.from(parCommune.entries())
+        .filter(([, v]) => v.n >= SEUIL_COMMUNE)
+        .sort((a, b) => b[1].n - a[1].n)
+        .map(([slug, v]) => ({ href: `/que-faire/${slug}`, label: v.nom, n: v.n })) },
+      { titre: 'Et aussi', liens: [{ href: `/agenda/${t.slug}`, label: titreTerritoire(t) }] },
+    ]),
+  }
 }

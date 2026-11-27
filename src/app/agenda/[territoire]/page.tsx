@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import PageAgendaPublic from '@/components/PageAgendaPublic'
-import { evenementsDuWeekEnd, evenementsDuTerritoire, navTerritoire, suiteDuResume, titreTerritoire, dansLeTerritoire, territoirePublic } from '@/lib/agendaPublic'
+import { evenementsDuWeekEnd, evenementsDuTerritoire, evenementsDeNoel, navTerritoire, suiteDuResume, titreTerritoire, dansLeTerritoire, territoirePublic } from '@/lib/agendaPublic'
 import { territoireParSlug } from '@/lib/territoires'
 import { SITE } from '@/lib/seo'
 
@@ -43,7 +43,7 @@ export default async function AgendaTerritoire({ params }: Props) {
   const { territoire: slug } = await params
   const t = await territoireParSlug(slug)
   if (!t || !t.actif || !territoirePublic(t)) notFound()
-  const [sel, tous, nav] = await Promise.all([selection(t.slug), evenementsDuTerritoire(t.slug), navTerritoire(t, null)])
+  const [sel, tous, nav, noel] = await Promise.all([selection(t.slug), evenementsDuTerritoire(t.slug), navTerritoire(t, null), evenementsDeNoel(t.slug)])
   return (
     <PageAgendaPublic
       titre={titreTerritoire(t)}
@@ -54,7 +54,10 @@ export default async function AgendaTerritoire({ params }: Props) {
       {...nav}
       liens={[
         ...nav.liens,
-        { titre: 'Et aussi', liens: [{ href: `/ce-week-end/${t.slug}`, label: `Tout le week-end ${dansLeTerritoire(t)}` }] },
+        { titre: 'Et aussi', liens: [
+          ...(noel.length >= 3 ? [{ href: `/agenda/${t.slug}/noel`, label: `Que faire à Noël ${dansLeTerritoire(t)} ?`, n: noel.length }] : []),
+          { href: `/ce-week-end/${t.slug}`, label: `Tout le week-end ${dansLeTerritoire(t)}` },
+        ] },
       ]}
     />
   )
